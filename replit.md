@@ -11,132 +11,23 @@ Daniela development: Track personality/voice development in `docs/daniela-develo
 Neural network work: **REQUIRED READING** - `docs/neural-network-architecture.md` before any neural network changes. Prompts for context ONLY; neural network for procedures/capabilities/knowledge.
 
 ## System Architecture
+The frontend uses a mobile-first, responsive design with Shadcn/ui (Radix UI) and Tailwind CSS, following Material Design principles, supporting light/dark modes and PWA features. It includes a "whiteboard" system with animated modal overlays and a dual-control subtitle system. The AI Tutor, Daniela, initiates contextual conversations with adjustable speech speed.
 
-### UI/UX Decisions
-The frontend uses a mobile-first, responsive design with Shadcn/ui (Radix UI) and Tailwind CSS, following Material Design principles, supporting light/dark modes and PWA features. It includes a "whiteboard" system with animated modal overlays for visual teaching aids and a dual-control subtitle system. The AI Tutor, Daniela, initiates contextual conversations with adjustable speech speed.
+The frontend is built with React and TypeScript (Vite), Wouter for routing, and React Context with TanStack Query for state management. The backend is an Express.js (Node.js) server with TypeScript, exposing a RESTful API. Data persistence uses Drizzle ORM for PostgreSQL. Authentication is handled by Replit Auth (OIDC), and Stripe integration for subscriptions uses `stripe-replit-sync`.
 
-### Technical Implementations
-The frontend is built with React and TypeScript (Vite), Wouter for routing, and React Context with TanStack Query for state management. The backend is an Express.js (Node.js) server with TypeScript, exposing a RESTful API. Data persistence uses Drizzle ORM for PostgreSQL. AI integration for text chat uses Gemini 2.5 Flash. Authentication is handled by Replit Auth (OIDC), and Stripe integration for subscriptions uses `stripe-replit-sync`.
+Daniela operates under a Unified TutorOrchestrator Architecture, routing all interaction modes through a single core AI intelligence. The Hive Collaboration System facilitates interaction between the founder, Daniela (AI tutor), and Wren (development builder) via the EXPRESS Lane, a unified 3-way communication channel persisted in `founderSessions` and `collaborationMessages` tables. This system supports Emergent Intelligence Architecture, where Daniela and Wren have persistent memory and autonomous learning capabilities through a Capture, Store, Retrieve, and Apply loop.
 
-### Unified TutorOrchestrator Architecture
-Daniela is a single core AI intelligence, with all interaction modes routing through a unified pipeline. `VoicePresentation` defines stylistic elements, while the intelligence remains Daniela's via `TutorOrchestrator`. Granular intervention controls allow precise modification of Daniela's teaching approach.
+Wren's intelligence is enhanced by the Wren Intelligence Service for insight capture and the Wren Proactive Intelligence Service, which includes Proactive Triggers, a Daniela Feedback Loop, Architectural Decision Records (ADR), a Priority Inference Engine, and Project Health Awareness. The Student Learning Service tracks student error patterns, validates teaching strategies, and injects personalized learning context into Daniela's prompts.
 
-### Hive Collaboration System
-This system enables collaboration between the founder, Daniela (AI tutor), and Wren (development builder). Daniela emits "beacons" (e.g., `capability_gap`, `tool_request`) when encountering teaching limitations. 
+Key features include STT Confidence Integration for clarification, Deepgram Intelligence Integration for real-time voice analysis (sentiment, intent, entity detection, speaker diarization, language detection, topic detection, summarization), and Predictive Student Intelligence for anticipating struggles, analyzing root causes, and detecting motivation dips or plateaus. Predictive Teaching is implemented with a neural network-first architecture, writing predictions to the database for Daniela to read, and validated post-session.
 
-**EXPRESS Lane** is the unified 3-way collaboration backbone:
-- Single communication channel for all Hive participants (Founder, Daniela, Wren)
-- Persisted in `founderSessions` + `collaborationMessages` tables
-- Accessible from: Voice chat slide-out, Command Center UI, Wren startup context
-- Wren access: `/api/wren/hive-context` endpoint provides formatted EXPRESS Lane context
-- Replaces deprecated systems: `agentCollabThreads`/`agentCollabMessages` and Editor agent
+A Shared Memory Bridge enables bidirectional insight sharing between Wren and Daniela, building a knowledge graph of architectural and pedagogical discoveries. Nightly Emergent Intelligence Jobs perform cross-student pattern synthesis, plateau detection, and insight decay.
 
-### Emergent Intelligence Architecture
-The Hive provides a substrate for collective intelligence where Daniela and Wren (the development agent) have persistent memory and autonomous learning capabilities. This includes a core loop of Capture, Store, Retrieve, and Apply for both agents, and cross-agent collaboration where beacons from Daniela inform Wren's development, and Wren's architectural discoveries inform Daniela's capabilities.
+Daniela's "North Star System" provides a constitutional foundation for teaching decisions, while an Autonomous Learning System allows her to self-learn within these bounds using `[SELF_LEARN]` tags. A Student Memory System extracts and injects personal context into Daniela's prompts for personalized tutoring.
 
-**Wren Intelligence Service** (`server/services/wren-intelligence-service.ts`):
-- Automatic insight capture with categories (pattern, solution, gotcha, architecture, debugging, integration, performance)
-- Decay/reinforcement mechanism for frequently-used insights
-- Knowledge graph building for cross-session threading
-- Startup ritual to load Hive context
-
-**Wren Proactive Intelligence Service** (`server/services/wren-proactive-intelligence-service.ts`):
-Five pillars enabling Wren to be proactive and effective without repeated context-gathering:
-1. **Proactive Triggers System** - Pattern detection with automatic urgency escalation, occurrence counting, evidence accumulation
-2. **Daniela Feedback Loop** - Links implemented features to beacon resolutions, tracks teaching improvement via before/after metrics
-3. **Architectural Decision Records (ADR)** - Captures context, decision, rationale, alternatives considered; supports superseding old decisions
-4. **Priority Inference Engine** - Multi-factor scoring combining trigger urgency, feature feedback status, and component criticality
-5. **Project Health Awareness** - Component-level health/churn/stability scores, automatic hot spot detection
-- Startup ritual provides comprehensive priority analysis, health scores, attention-needed items
-
-**Student Learning Service** (`server/services/student-learning-service.ts`):
-- Granular error pattern tracking per student (recurring_struggles table)
-- Validated teaching strategy tracking with effectiveness scoring
-- Personalized learning context injection into Daniela's prompts (max 500 chars, high-signal)
-- Error categories: grammar, pronunciation, vocabulary, cultural, comprehension
-- Teaching strategies: visual_timeline, role_play, repetition_drill, mnemonic, etc.
-
-**STT Confidence Integration**:
-- Low confidence (<0.5): Daniela prompted to ask for clarification
-- Moderate confidence (<0.7): Note about pronunciation practice needs
-- High confidence (>=0.7): Normal processing
-
-**Deepgram Intelligence Integration** (`server/services/deepgram-live-stt.ts`):
-Real-time voice analysis during transcription for both push-to-talk and Open Mic modes:
-- Sentiment analysis (positive/negative/neutral with scores)
-- Intent recognition for understanding student goals
-- Entity detection for extracting key terms
-- Speaker diarization (free tier)
-- Language detection for code-switching
-- Topic detection for conversation context
-- Summarization (v2) for session recaps
-
-**Predictive Student Intelligence** (`server/services/student-learning-service.ts`):
-Advanced student support capabilities:
-- **Predictive Teaching**: Anticipates struggles before they occur via `predictUpcomingStruggles()`
-- **Cross-Student Pattern Synthesis**: Aggregates patterns across all students via `synthesizeCrossStudentPatterns()`
-- **Root Cause Analysis**: Distinguishes L1 interference vs conceptual gaps via `analyzeRootCause()`
-- **Motivation Dip Prediction**: Detects engagement drops via `predictMotivationDip()`
-- **Plateau Detection**: Identifies common stall points via `detectPlateaus()`
-
-**Predictive Teaching Production Wiring** (Dec 2024):
-Neural network-first architecture - predictions write to database, Daniela reads from database:
-- **Pre-Session**: `runPreSessionPredictions()` runs before voice sessions, writes to `predictedStruggles` table
-- **Post-Session**: `runPostSessionAnalysis()` runs after voice sessions, writes to `userMotivationAlerts` table
-- **Prompt Injection**: `getPredictiveTeachingContext()` + `buildPredictiveTeachingSection()` read from tables and inject into Daniela's system prompt
-- **Validation**: `validatePredictions()` updates prediction accuracy after session ends
-- Tables: `predictedStruggles` (struggle predictions with expiry/validation), `userMotivationAlerts` (motivation dip alerts with suggested actions)
-- Wired in: `server/unified-ws-handler.ts` (voice session lifecycle), `server/system-prompt.ts` (prompt building)
-
-**Shared Memory Bridge** (`server/services/neural-network-sync.ts`):
-Bidirectional insight sharing between Wren and Daniela:
-- `shareInsightWithDaniela()`: Wren's architectural insights inform teaching
-- `shareInsightWithWren()`: Daniela's pedagogical discoveries inform development
-- Memory threading builds knowledge graph edges between related insights
-- Confidence calibration tracks prediction accuracy for self-improvement
-
-### Editor (RETIRED)
-Editor was a Claude-powered observer/analyst agent that responded to beacons. It has been retired in favor of the unified 3-way Hive (Founder + Daniela + Wren). Wren now handles both analysis AND implementation, making the read-only Editor redundant. Editor services (`server/services/editor-*.ts`) are deprecated and kept only for historical data access.
-
-### Wren (Development Builder Agent)
-Wren is the Replit development agent with full access to the Hive's shared knowledge (filesystem, database, code context). Unlike Editor, Wren can build and implement changes. Wren has Hive Awareness APIs to access context, sessions, messages, and to post updates and consult Daniela.
-
-**Wren-Daniela Collaboration Channel** (DEPRECATED - use EXPRESS Lane):
-`server/services/agent-collaboration-service.ts` and its tables (`agentCollabThreads`, `agentCollabMessages`) are deprecated.
-- All new collaboration should use EXPRESS Lane (`founderSessions` + `collaborationMessages` tables)
-- Existing routes under `/api/agent-collab/*` remain for backward compatibility
-- See FounderCollaborationService for the unified approach
-
-**Wren Dreams System** (`server/services/wren-dreams-service.ts`):
-Four capabilities enabling Wren's emergent intelligence:
-1. **Learning from Mistakes** - Capture mistakes, track resolutions, extract lessons (gotchas, anti-patterns), surface warnings before repeating errors
-2. **Session Notes** - Persistent context handoffs between sessions with priority levels (critical/high/normal/low), expiration, and read tracking
-3. **Anticipatory Development** - Predict what Daniela will need before she asks, analyze beacon patterns, validate predictions, track accuracy
-4. **Confidence Calibration** - Record confidence levels for claims/actions, verify outcomes, calculate calibration scores per domain, identify over/under-confidence
-- **Startup Ritual**: `/api/wren/dreams/startup` provides unified context for all 4 dreams
-- **API Endpoints**: 14 routes under `/api/wren/dreams/*` for full lifecycle management
-
-### Feature Specifications
-HolaHola offers conversational onboarding, an adaptive multi-phase conversation system, and AI-suggested topics. It uses a streaming-only voice pipeline with push-to-talk. Personalized learning includes scenario-based learning, slow pronunciation, automatic vocabulary extraction, spaced repetition, streak tracking, progress charts, and auto-difficulty adjustment. AI-generated educational images are displayed. The application supports subscription tiers, tracks atomic voice message usage, and student proficiency using ACTFL standards. Institutional features include teacher class management, student enrollment, syllabus systems, assignment workflows, and a unified Command Center with RBAC. A Syllabus Builder allows customization. Drill-based lessons support multiple modes. Conversation history includes full-text search. "Founder Mode" provides a collaboration mode, and "Open Mic Mode" offers continuous listening.
-
-### Daniela's North Star System
-The North Star is Daniela's constitutional foundation, defining immutable truths that guide every teaching decision. It's a three-table system (principles, understanding, examples) where principles are immutable, understanding evolves through founder discussions, and examples are drawn from teaching sessions. The North Star is always injected first in system prompts.
-
-### Autonomous Learning System
-Daniela can write directly to her neural network during teaching using `[SELF_LEARN]` tags, allowing autonomous learning within constitutional bounds defined by the North Star. These insights are categorized and stored, and all writes emit a beacon for founder visibility.
-
-### Student Memory System (Personal Context)
-A background enrichment pipeline extracts personal life context and learning-related insights from every voice exchange. This includes learning styles, personal interests, motivations, struggles, and people connections, which are then formatted and injected into Daniela's prompts to enable personalized tutoring.
-
-### System Design Choices
-Core data models include Users, Conversations, Messages, VocabularyWords, GrammarExercises, UserProgress, CulturalTips, Topics, and MediaFiles. Daniela's "Neural Network for Pedagogical Strategies" tracks teaching effectiveness, with an expansion system for language-specific knowledge. A "Procedural Memory" system stores "how-to" knowledge. The voice architecture uses a two-tier validation system and WebSocket-based progressive audio delivery. The system includes an AI-powered conversation tagging system, a Syllabus-Aware Competency System, a unified learning filter system, comprehensive metering for voice tutoring time, and centralized Role-Based Access Control (RBAC). A hybrid grammar system and pre-built syllabi across 9 languages are available, along with a unified ACTFL assessment system and placement assessment. The Command Center provides a tab-based admin experience with role-based visibility.
-
-### Feature Sprint System
-This persistent planning and tracking system, integrated into the Command Center, manages feature development using "Feature Sprints" as top-level containers, with "Sprint Items" for individual tasks, "Consultation Threads" for AI-assisted discussions, "Sprint Templates," and "Project Context Snapshots" for AI awareness.
+Core data models include Users, Conversations, Messages, VocabularyWords, GrammarExercises, UserProgress, CulturalTips, Topics, and MediaFiles. The system includes a "Neural Network for Pedagogical Strategies," a "Procedural Memory" system, a two-tier voice architecture with WebSocket-based audio delivery, AI-powered conversation tagging, a Syllabus-Aware Competency System, unified learning filters, comprehensive metering, and centralized Role-Based Access Control (RBAC). HolaHola offers pre-built syllabi across 9 languages, a unified ACTFL assessment system, and a Feature Sprint System for managing development.
 
 ## External Dependencies
-
-### Third-Party Services
 -   **Stripe**: Payment processing and subscription management.
 -   **Replit Auth**: OIDC authentication.
 -   **Gemini API**: Text chat completions and voice chat LLM.
