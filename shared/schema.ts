@@ -5740,12 +5740,14 @@ export type ProjectHealthMetric = typeof projectHealthMetrics.$inferSelect;
 // Real communication and collaboration between the two AI agents
 
 export const agentCollabThreadStatusEnum = pgEnum("agent_collab_thread_status", [
-  "active",        // Ongoing discussion
-  "awaiting_wren", // Daniela asked something, waiting for Wren
+  "active",           // Ongoing discussion
+  "awaiting_wren",    // Daniela asked something, waiting for Wren
   "awaiting_daniela", // Wren proposed something, waiting for Daniela
-  "founder_review", // Escalated for founder input
-  "resolved",      // Successfully concluded
-  "archived",      // No longer active
+  "awaiting_founder", // Escalated for founder input (renamed from founder_review)
+  "founder_review",   // Legacy - kept for backward compatibility
+  "in_progress",      // Work is actively being done
+  "resolved",         // Successfully concluded
+  "archived",         // No longer active
 ]);
 
 export const agentCollabAuthorEnum = pgEnum("agent_collab_author", [

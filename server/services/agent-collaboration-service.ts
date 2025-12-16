@@ -14,7 +14,7 @@ import { eq, desc, and, or, isNull, sql } from "drizzle-orm";
 
 type Author = 'daniela' | 'wren' | 'founder';
 type MessageType = 'request' | 'proposal' | 'clarification' | 'feedback' | 'implementation_report' | 'acknowledgment' | 'escalation' | 'founder_directive';
-type ThreadStatus = 'active' | 'awaiting_wren' | 'awaiting_daniela' | 'founder_review' | 'resolved' | 'archived';
+type ThreadStatus = 'active' | 'awaiting_wren' | 'awaiting_daniela' | 'awaiting_founder' | 'in_progress' | 'resolved' | 'archived';
 
 class AgentCollaborationService {
   
@@ -229,7 +229,7 @@ class AgentCollaborationService {
 
     await db.update(agentCollabThreads)
       .set({
-        status: 'founder_review',
+        status: 'awaiting_founder',
         updatedAt: new Date(),
       })
       .where(eq(agentCollabThreads.id, threadId));
@@ -306,7 +306,7 @@ class AgentCollaborationService {
       .from(agentCollabThreads)
       .where(
         or(
-          eq(agentCollabThreads.status, 'founder_review'),
+          eq(agentCollabThreads.status, 'awaiting_founder'),
           eq(agentCollabThreads.status, 'active'),
           eq(agentCollabThreads.status, 'awaiting_wren'),
           eq(agentCollabThreads.status, 'awaiting_daniela')

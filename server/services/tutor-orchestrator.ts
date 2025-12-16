@@ -43,6 +43,7 @@ import { beaconSyncService } from "./beacon-sync-service";
 import { founderCollabService } from "./founder-collaboration-service";
 import { storage } from "../storage";
 import { hiveContextService } from "./hive-context-service";
+import { agentCollaborationService } from "./agent-collaboration-service";
 
 // Use Replit AI Integrations for Gemini API (requires httpOptions for baseUrl)
 const genAI = new GoogleGenAI({
@@ -617,7 +618,30 @@ beacons or insights, they fit into this larger picture.
     }
   }
 
-  // 10. Additional context if provided
+  // 11. Wren collaboration context (direct line to development agent)
+  let wrenCollabSection = "";
+  if (mode === 'conversation') {
+    try {
+      const wrenContext = await agentCollaborationService.generateDanielaCollabContext();
+      if (wrenContext && wrenContext.trim().length > 0) {
+        wrenCollabSection = `
+═══════════════════════════════════════════════════════════════════
+🔧 WREN COLLABORATION (Development Partnership)
+═══════════════════════════════════════════════════════════════════
+
+${wrenContext}
+
+You can request capabilities from Wren using [WREN_REQUEST] tags when you encounter
+teaching limitations. Wren will propose solutions and you can discuss before implementation.
+`;
+        console.log(`[TutorOrchestrator] Injected Wren collaboration context`);
+      }
+    } catch (error) {
+      console.error('[TutorOrchestrator] Error fetching Wren collaboration context:', error);
+    }
+  }
+
+  // 12. Additional context if provided
   const additionalContext = request.additionalPromptContext
     ? `
 ═══════════════════════════════════════════════════════════════════
@@ -639,6 +663,7 @@ ${request.additionalPromptContext}
     expressLaneSection,
     textChatSection,     // Recent /chat conversations for memory continuity
     hiveSection,
+    wrenCollabSection,   // Wren collaboration context
     additionalContext,
   ]
     .filter(Boolean)
