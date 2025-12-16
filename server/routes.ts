@@ -15147,6 +15147,7 @@ ${memoryContext}
 
   // WREN INSIGHTS: Create a new insight
   app.post("/api/wren/insights", async (req, res) => {
+    let dataModified = false;
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -15174,12 +15175,16 @@ ${memoryContext}
         environment: 'development',
         sessionId,
       });
+      dataModified = true;
 
       console.log(`[Wren Insights] Created insight: ${title} (${category})`);
       res.json({ success: true, insight });
     } catch (error: any) {
       console.error('[Wren Insights] Create error:', error);
       res.status(500).json({ error: error.message });
+    } finally {
+      // Always invalidate cache if data was modified (ensures cross-agent visibility)
+      if (dataModified) hiveContextService.invalidateCache();
     }
   });
 
@@ -15210,6 +15215,28 @@ ${memoryContext}
     }
   });
 
+  // WREN INSIGHTS: Search by related file (contextual retrieval)
+  // MUST be before /:id route to avoid "by-file" being treated as an ID
+  app.get("/api/wren/insights/by-file", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { path: filePath } = req.query;
+      if (!filePath || typeof filePath !== 'string') {
+        return res.status(400).json({ error: 'path query parameter is required' });
+      }
+
+      const insights = await hiveContextService.searchInsightsByFile(filePath);
+      res.json({ success: true, insights, count: insights.length });
+    } catch (error: any) {
+      console.error('[Wren Insights] Search by file error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // WREN INSIGHTS: Get a specific insight
   app.get("/api/wren/insights/:id", async (req, res) => {
     try {
@@ -15235,6 +15262,7 @@ ${memoryContext}
 
   // WREN INSIGHTS: Update an insight
   app.patch("/api/wren/insights/:id", async (req, res) => {
+    let dataModified = false;
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -15254,17 +15282,21 @@ ${memoryContext}
       if (!updated) {
         return res.status(404).json({ error: 'Insight not found' });
       }
+      dataModified = true;
 
       console.log(`[Wren Insights] Updated insight: ${updated.title}`);
       res.json({ success: true, insight: updated });
     } catch (error: any) {
       console.error('[Wren Insights] Update error:', error);
       res.status(500).json({ error: error.message });
+    } finally {
+      if (dataModified) hiveContextService.invalidateCache();
     }
   });
 
   // WREN INSIGHTS: Delete an insight
   app.delete("/api/wren/insights/:id", async (req, res) => {
+    let dataModified = false;
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -15272,11 +15304,15 @@ ${memoryContext}
       }
 
       await storage.deleteWrenInsight(req.params.id);
+      dataModified = true;
+
       console.log(`[Wren Insights] Deleted insight: ${req.params.id}`);
       res.json({ success: true });
     } catch (error: any) {
       console.error('[Wren Insights] Delete error:', error);
       res.status(500).json({ error: error.message });
+    } finally {
+      if (dataModified) hiveContextService.invalidateCache();
     }
   });
 

@@ -30,9 +30,11 @@ import {
   grammarCompetencies,
   teacherClasses,
   agendaQueue,
+  wrenInsights,
   type FeatureSprint,
   type FounderSession,
   type CollaborationMessage,
+  type WrenInsight,
 } from "@shared/schema";
 
 // ============================================================================
@@ -137,6 +139,20 @@ export interface HiveKnowledge {
   openConsultations: ConsultationSummary[];
 }
 
+// === WREN INSIGHTS SUMMARY ===
+
+export interface WrenInsightSummary {
+  id: string;
+  category: string;
+  title: string;
+  content: string;
+  context?: string;
+  tags: string[];
+  relatedFiles: string[];
+  useCount: number;
+  createdAt: Date;
+}
+
 export interface HiveContext {
   // Timestamp for cache invalidation
   buildTimestamp: Date;
@@ -166,6 +182,9 @@ export interface HiveContext {
   
   // Comprehensive HolaHola knowledge
   knowledge: HiveKnowledge;
+  
+  // Wren's accumulated development insights (cross-agent visibility)
+  wrenInsights: WrenInsightSummary[];
 }
 
 // ============================================================================
@@ -198,12 +217,14 @@ class HiveContextService {
       activeSprints,
       recentSessions,
       knowledge,
+      wrenInsightsList,
     ] = await Promise.all([
       this.getPendingBeacons(),
       this.getRecentPostFlights(),
       this.getActiveSprints(),
       this.getRecentSessions(),
       this.getHiveKnowledge(),
+      this.getWrenInsights(),
     ]);
     
     // Derive system health and focus areas
@@ -219,6 +240,7 @@ class HiveContextService {
       systemHealth,
       focusAreas,
       knowledge,
+      wrenInsights: wrenInsightsList,
     };
     
     // Cache the result
@@ -671,6 +693,66 @@ class HiveContextService {
       return messages;
     } catch (error) {
       console.error('[HiveContext] Error fetching recent messages:', error);
+      return [];
+    }
+  }
+  
+  // ============================================================================
+  // WREN INSIGHTS (Cross-Agent Visibility)
+  // ============================================================================
+  
+  /**
+   * Get Wren's accumulated development insights for cross-agent visibility
+   * Daniela and Editor can see what Wren has learned about the codebase
+   */
+  private async getWrenInsights(): Promise<WrenInsightSummary[]> {
+    try {
+      const insights = await db.select()
+        .from(wrenInsights)
+        .orderBy(desc(wrenInsights.useCount), desc(wrenInsights.createdAt))
+        .limit(30);
+      
+      return insights.map(i => ({
+        id: i.id,
+        category: i.category,
+        title: i.title,
+        content: i.content,
+        context: i.context ?? undefined,
+        tags: i.tags || [],
+        relatedFiles: i.relatedFiles || [],
+        useCount: i.useCount ?? 0,
+        createdAt: i.createdAt,
+      }));
+    } catch (error) {
+      console.error('[HiveContext] Error fetching Wren insights:', error);
+      return [];
+    }
+  }
+  
+  /**
+   * Search Wren insights by related files (for contextual retrieval)
+   */
+  async searchInsightsByFile(filePath: string): Promise<WrenInsightSummary[]> {
+    try {
+      const insights = await db.select()
+        .from(wrenInsights)
+        .where(sql`${filePath} = ANY(${wrenInsights.relatedFiles})`)
+        .orderBy(desc(wrenInsights.useCount))
+        .limit(10);
+      
+      return insights.map(i => ({
+        id: i.id,
+        category: i.category,
+        title: i.title,
+        content: i.content,
+        context: i.context ?? undefined,
+        tags: i.tags || [],
+        relatedFiles: i.relatedFiles || [],
+        useCount: i.useCount ?? 0,
+        createdAt: i.createdAt,
+      }));
+    } catch (error) {
+      console.error('[HiveContext] Error searching insights by file:', error);
       return [];
     }
   }
