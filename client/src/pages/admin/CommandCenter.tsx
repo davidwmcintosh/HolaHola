@@ -5336,7 +5336,10 @@ function EditorChatTab() {
     
     if (expressLaneMode) {
       // Use WebSocket for true consciousness - Hive Consciousness will trigger Daniela/Wren responses
-      if (founderCollab.isConnected) {
+      // Only use WebSocket if connected AND session is joined (session exists)
+      const wsReady = founderCollab.isConnected && founderCollab.state.session !== null;
+      
+      if (wsReady) {
         const content = inputMessage.trim() || '(attachment)';
         const metadata: Record<string, any> = {};
         
@@ -5352,7 +5355,7 @@ function EditorChatTab() {
         setPendingAttachments([]);
         setTagForWren(false);
       } else {
-        // Fallback to REST if WebSocket not connected
+        // Fallback to REST if WebSocket not fully connected or session not joined
         setIsSending(true);
         try {
           await sendExpressMessageMutation.mutateAsync({
