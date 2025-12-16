@@ -62,6 +62,7 @@ import { hiveCollaborationService } from "./services/hive-collaboration-service"
 import { hiveContextService } from "./services/hive-context-service";
 import { wrenIntelligenceService } from "./services/wren-intelligence-service";
 import { wrenProactiveService } from "./services/wren-proactive-intelligence-service";
+import { wrenDreamsService } from "./services/wren-dreams-service";
 import { agentCollaborationService } from "./services/agent-collaboration-service";
 import { studentLearningService, TEACHING_STRATEGIES, ERROR_CATEGORIES } from "./services/student-learning-service";
 import { editorPersonaService, validateEditorSecret } from "./services/editor-persona-service";
@@ -15747,6 +15748,316 @@ ${memoryContext}
       res.json({ success: true, ...report });
     } catch (error: any) {
       console.error('[Wren Health] Report error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================================================
+  // WREN DREAMS: Learning, Notes, Predictions, Calibration
+  // ============================================================================
+
+  // DREAMS: Get full dreams context for startup
+  app.get("/api/wren/dreams/startup", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const ritual = await wrenDreamsService.runStartupRitual();
+      const context = await wrenDreamsService.getFullDreamsContext();
+      res.json({ success: true, ritual, context });
+    } catch (error: any) {
+      console.error('[Wren Dreams] Startup error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // MISTAKES: Capture a mistake
+  app.post("/api/wren/dreams/mistakes", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { title, description, mistakeType, severity, errorMessage, stackTrace, relatedFiles, relatedComponent, whatWentWrong } = req.body;
+
+      if (!title || !description || !mistakeType) {
+        return res.status(400).json({ error: 'title, description, and mistakeType are required' });
+      }
+
+      const mistake = await wrenDreamsService.mistakes.captureMistake({
+        title, description, mistakeType, severity, errorMessage, stackTrace, relatedFiles, relatedComponent, whatWentWrong
+      });
+
+      res.json({ success: true, mistake });
+    } catch (error: any) {
+      console.error('[Wren Dreams] Capture mistake error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // MISTAKES: Resolve a mistake
+  app.post("/api/wren/dreams/mistakes/:id/resolve", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { whatFixed, howFixed, rootCause, preventionStrategy, lessonLearned, filesChanged, commitHash, timeToResolveMinutes } = req.body;
+
+      if (!whatFixed || !howFixed) {
+        return res.status(400).json({ error: 'whatFixed and howFixed are required' });
+      }
+
+      const resolution = await wrenDreamsService.mistakes.resolveMistake({
+        mistakeId: req.params.id, whatFixed, howFixed, rootCause, preventionStrategy, lessonLearned, filesChanged, commitHash, timeToResolveMinutes
+      });
+
+      res.json({ success: true, resolution });
+    } catch (error: any) {
+      console.error('[Wren Dreams] Resolve mistake error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // MISTAKES: Extract a lesson
+  app.post("/api/wren/dreams/lessons", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { title, lessonType, triggerCondition, warningMessage, fromMistakeIds, applicableComponents, applicablePatterns } = req.body;
+
+      if (!title || !lessonType || !triggerCondition || !warningMessage || !fromMistakeIds) {
+        return res.status(400).json({ error: 'title, lessonType, triggerCondition, warningMessage, and fromMistakeIds are required' });
+      }
+
+      const lesson = await wrenDreamsService.mistakes.extractLesson({
+        title, lessonType, triggerCondition, warningMessage, fromMistakeIds, applicableComponents, applicablePatterns
+      });
+
+      res.json({ success: true, lesson });
+    } catch (error: any) {
+      console.error('[Wren Dreams] Extract lesson error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // MISTAKES: Check for warnings before an action
+  app.post("/api/wren/dreams/warnings", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { component, patterns, action } = req.body;
+
+      const warnings = await wrenDreamsService.mistakes.checkForWarnings({ component, patterns, action });
+      res.json({ success: true, warnings, hasWarnings: warnings.length > 0 });
+    } catch (error: any) {
+      console.error('[Wren Dreams] Check warnings error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // NOTES: Leave a session note
+  app.post("/api/wren/dreams/notes", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { sessionId, noteType, priority, title, content, forNextSession, expiresAt, relatedFiles, relatedTasks } = req.body;
+
+      if (!sessionId || !noteType || !title || !content) {
+        return res.status(400).json({ error: 'sessionId, noteType, title, and content are required' });
+      }
+
+      const note = await wrenDreamsService.notes.leaveNote({
+        sessionId, noteType, priority, title, content, forNextSession, expiresAt: expiresAt ? new Date(expiresAt) : undefined, relatedFiles, relatedTasks
+      });
+
+      res.json({ success: true, note });
+    } catch (error: any) {
+      console.error('[Wren Dreams] Leave note error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // NOTES: Get pending notes
+  app.get("/api/wren/dreams/notes", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const notes = await wrenDreamsService.notes.getNotesForSession();
+      res.json({ success: true, notes });
+    } catch (error: any) {
+      console.error('[Wren Dreams] Get notes error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // NOTES: Mark notes as read
+  app.post("/api/wren/dreams/notes/read", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { noteIds } = req.body;
+
+      if (!noteIds || !Array.isArray(noteIds)) {
+        return res.status(400).json({ error: 'noteIds array is required' });
+      }
+
+      await wrenDreamsService.notes.markNotesRead(noteIds);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('[Wren Dreams] Mark notes read error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // PREDICTIONS: Make a prediction
+  app.post("/api/wren/dreams/predictions", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { predictionType, title, description, basis, confidence, predictedFor, timeframeEstimate, supportingEvidence, relatedBeaconId } = req.body;
+
+      if (!predictionType || !title || !description || !basis || confidence === undefined) {
+        return res.status(400).json({ error: 'predictionType, title, description, basis, and confidence are required' });
+      }
+
+      const prediction = await wrenDreamsService.anticipate.makePrediction({
+        predictionType, title, description, basis, confidence, predictedFor, timeframeEstimate, supportingEvidence, relatedBeaconId
+      });
+
+      res.json({ success: true, prediction });
+    } catch (error: any) {
+      console.error('[Wren Dreams] Make prediction error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // PREDICTIONS: Validate a prediction
+  app.post("/api/wren/dreams/predictions/:id/validate", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { wasCorrect, outcomeNotes, relatedFeatureId } = req.body;
+
+      if (wasCorrect === undefined || !outcomeNotes) {
+        return res.status(400).json({ error: 'wasCorrect and outcomeNotes are required' });
+      }
+
+      await wrenDreamsService.anticipate.validatePrediction({
+        predictionId: req.params.id, wasCorrect, outcomeNotes, relatedFeatureId
+      });
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('[Wren Dreams] Validate prediction error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // PREDICTIONS: Get active predictions
+  app.get("/api/wren/dreams/predictions", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const predictions = await wrenDreamsService.anticipate.getActivePredictions();
+      const accuracy = await wrenDreamsService.anticipate.getPredictionAccuracy();
+      res.json({ success: true, predictions, accuracy });
+    } catch (error: any) {
+      console.error('[Wren Dreams] Get predictions error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // CONFIDENCE: Record a confidence claim
+  app.post("/api/wren/dreams/confidence", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { domain, claimOrAction, statedConfidence, reasoning, uncertaintyFactors } = req.body;
+
+      if (!domain || !claimOrAction || statedConfidence === undefined) {
+        return res.status(400).json({ error: 'domain, claimOrAction, and statedConfidence are required' });
+      }
+
+      const record = await wrenDreamsService.calibration.recordConfidence({
+        domain, claimOrAction, statedConfidence, reasoning, uncertaintyFactors
+      });
+
+      res.json({ success: true, record });
+    } catch (error: any) {
+      console.error('[Wren Dreams] Record confidence error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // CONFIDENCE: Verify an outcome
+  app.post("/api/wren/dreams/confidence/:id/verify", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { wasCorrect, actualOutcome, verifiedBy } = req.body;
+
+      if (wasCorrect === undefined || !actualOutcome || !verifiedBy) {
+        return res.status(400).json({ error: 'wasCorrect, actualOutcome, and verifiedBy are required' });
+      }
+
+      await wrenDreamsService.calibration.verifyOutcome({
+        recordId: req.params.id, wasCorrect, actualOutcome, verifiedBy
+      });
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('[Wren Dreams] Verify outcome error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // CONFIDENCE: Get calibration stats
+  app.get("/api/wren/dreams/calibration", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const stats = await wrenDreamsService.calibration.getCalibrationStats();
+      res.json({ success: true, stats });
+    } catch (error: any) {
+      console.error('[Wren Dreams] Get calibration error:', error);
       res.status(500).json({ error: error.message });
     }
   });

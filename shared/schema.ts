@@ -5871,3 +5871,289 @@ export const insertAgentCollabMessageSchema = createInsertSchema(agentCollabMess
 export type InsertAgentCollabMessage = z.infer<typeof insertAgentCollabMessageSchema>;
 export type AgentCollabMessage = typeof agentCollabMessages.$inferSelect;
 
+// ===== WREN DREAM #2: Learning from Mistakes =====
+// Capture mistakes, resolutions, and lessons learned
+
+export const wrenMistakeSeverityEnum = pgEnum("wren_mistake_severity", [
+  "minor",      // Small issues, easy fixes
+  "moderate",   // Significant issues, required investigation
+  "major",      // Serious issues, caused problems
+  "critical",   // Severe issues, major impact
+]);
+
+export const wrenMistakeStatusEnum = pgEnum("wren_mistake_status", [
+  "identified",  // Just discovered
+  "investigating", // Looking into it
+  "resolved",    // Fixed
+  "documented",  // Lesson extracted
+]);
+
+export const wrenMistakes = pgTable("wren_mistakes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  title: varchar("title").notNull(),
+  description: text("description").notNull(),
+  
+  mistakeType: varchar("mistake_type").notNull(), // 'architectural', 'library_choice', 'logic_error', 'integration', 'performance', 'security'
+  severity: wrenMistakeSeverityEnum("severity").default("moderate"),
+  status: wrenMistakeStatusEnum("status").default("identified"),
+  
+  errorMessage: text("error_message"),
+  stackTrace: text("stack_trace"),
+  
+  relatedFiles: text("related_files").array().default(sql`'{}'::text[]`),
+  relatedComponent: varchar("related_component"),
+  
+  rootCause: text("root_cause"),
+  whatWentWrong: text("what_went_wrong"),
+  
+  occurredAt: timestamp("occurred_at").notNull().defaultNow(),
+  resolvedAt: timestamp("resolved_at"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_wren_mistakes_type").on(table.mistakeType),
+  index("idx_wren_mistakes_severity").on(table.severity),
+  index("idx_wren_mistakes_status").on(table.status),
+  index("idx_wren_mistakes_component").on(table.relatedComponent),
+]);
+
+export const insertWrenMistakeSchema = createInsertSchema(wrenMistakes).omit({
+  id: true,
+  resolvedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertWrenMistake = z.infer<typeof insertWrenMistakeSchema>;
+export type WrenMistake = typeof wrenMistakes.$inferSelect;
+
+export const wrenMistakeResolutions = pgTable("wren_mistake_resolutions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  mistakeId: varchar("mistake_id").notNull(),
+  
+  whatFixed: text("what_fixed").notNull(),
+  howFixed: text("how_fixed").notNull(),
+  
+  preventionStrategy: text("prevention_strategy"),
+  lessonLearned: text("lesson_learned"),
+  
+  filesChanged: text("files_changed").array().default(sql`'{}'::text[]`),
+  commitHash: varchar("commit_hash"),
+  
+  timeToResolve: integer("time_to_resolve_minutes"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_wren_resolutions_mistake").on(table.mistakeId),
+]);
+
+export const insertWrenMistakeResolutionSchema = createInsertSchema(wrenMistakeResolutions).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertWrenMistakeResolution = z.infer<typeof insertWrenMistakeResolutionSchema>;
+export type WrenMistakeResolution = typeof wrenMistakeResolutions.$inferSelect;
+
+// Extracted lessons from mistakes (anti-patterns to avoid)
+export const wrenLessons = pgTable("wren_lessons", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  title: varchar("title").notNull(),
+  lessonType: varchar("lesson_type").notNull(), // 'gotcha', 'anti_pattern', 'best_practice', 'warning'
+  
+  triggerCondition: text("trigger_condition").notNull(),
+  warningMessage: text("warning_message").notNull(),
+  
+  fromMistakeIds: text("from_mistake_ids").array().default(sql`'{}'::text[]`),
+  
+  applicableComponents: text("applicable_components").array().default(sql`'{}'::text[]`),
+  applicablePatterns: text("applicable_patterns").array().default(sql`'{}'::text[]`),
+  
+  timesTriggered: integer("times_triggered").default(0),
+  timesPrevented: integer("times_prevented").default(0),
+  
+  isActive: boolean("is_active").default(true),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_wren_lessons_type").on(table.lessonType),
+  index("idx_wren_lessons_active").on(table.isActive),
+]);
+
+export const insertWrenLessonSchema = createInsertSchema(wrenLessons).omit({
+  id: true,
+  timesTriggered: true,
+  timesPrevented: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertWrenLesson = z.infer<typeof insertWrenLessonSchema>;
+export type WrenLesson = typeof wrenLessons.$inferSelect;
+
+// ===== WREN DREAM #3: Session Notes =====
+// Persistent context handoffs between sessions
+
+export const wrenSessionNotes = pgTable("wren_session_notes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  sessionId: varchar("session_id").notNull(),
+  
+  noteType: varchar("note_type").notNull(), // 'context', 'todo', 'warning', 'insight', 'handoff'
+  priority: varchar("priority").default("normal"), // 'low', 'normal', 'high', 'critical'
+  
+  title: varchar("title").notNull(),
+  content: text("content").notNull(),
+  
+  forNextSession: boolean("for_next_session").default(true),
+  expiresAt: timestamp("expires_at"),
+  
+  relatedFiles: text("related_files").array().default(sql`'{}'::text[]`),
+  relatedTasks: text("related_tasks").array().default(sql`'{}'::text[]`),
+  
+  wasRead: boolean("was_read").default(false),
+  readAt: timestamp("read_at"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_wren_notes_session").on(table.sessionId),
+  index("idx_wren_notes_type").on(table.noteType),
+  index("idx_wren_notes_priority").on(table.priority),
+  index("idx_wren_notes_for_next").on(table.forNextSession),
+]);
+
+export const insertWrenSessionNoteSchema = createInsertSchema(wrenSessionNotes).omit({
+  id: true,
+  wasRead: true,
+  readAt: true,
+  createdAt: true,
+});
+export type InsertWrenSessionNote = z.infer<typeof insertWrenSessionNoteSchema>;
+export type WrenSessionNote = typeof wrenSessionNotes.$inferSelect;
+
+// ===== WREN DREAM #4: Anticipatory Development =====
+// Predict what Daniela will need before she asks
+
+export const wrenPredictions = pgTable("wren_predictions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  predictionType: varchar("prediction_type").notNull(), // 'capability_need', 'bug_emergence', 'scaling_issue', 'integration_need'
+  
+  title: varchar("title").notNull(),
+  description: text("description").notNull(),
+  
+  basis: text("basis").notNull(),
+  confidence: real("confidence").notNull(),
+  
+  predictedFor: varchar("predicted_for"), // 'daniela', 'system', 'students', 'founder'
+  timeframeEstimate: varchar("timeframe_estimate"), // 'immediate', 'days', 'weeks', 'months'
+  
+  supportingEvidence: jsonb("supporting_evidence").$type<{
+    type: string;
+    source: string;
+    detail: string;
+  }[]>().default(sql`'[]'::jsonb`),
+  
+  status: varchar("status").default("predicted"), // 'predicted', 'validated', 'invalidated', 'addressed'
+  
+  wasCorrect: boolean("was_correct"),
+  outcomeNotes: text("outcome_notes"),
+  validatedAt: timestamp("validated_at"),
+  
+  relatedBeaconId: varchar("related_beacon_id"),
+  relatedFeatureId: varchar("related_feature_id"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_wren_predictions_type").on(table.predictionType),
+  index("idx_wren_predictions_status").on(table.status),
+  index("idx_wren_predictions_confidence").on(table.confidence),
+  index("idx_wren_predictions_correct").on(table.wasCorrect),
+]);
+
+export const insertWrenPredictionSchema = createInsertSchema(wrenPredictions).omit({
+  id: true,
+  wasCorrect: true,
+  outcomeNotes: true,
+  validatedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertWrenPrediction = z.infer<typeof insertWrenPredictionSchema>;
+export type WrenPrediction = typeof wrenPredictions.$inferSelect;
+
+// ===== WREN DREAM #5: Confidence Calibration =====
+// Track when Wren is guessing vs certain, measure prediction accuracy
+
+export const wrenConfidenceRecords = pgTable("wren_confidence_records", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  domain: varchar("domain").notNull(), // 'architecture', 'debugging', 'implementation', 'prediction', 'integration'
+  
+  claimOrAction: text("claim_or_action").notNull(),
+  statedConfidence: real("stated_confidence").notNull(),
+  
+  reasoning: text("reasoning"),
+  uncertaintyFactors: text("uncertainty_factors").array().default(sql`'{}'::text[]`),
+  
+  wasCorrect: boolean("was_correct"),
+  actualOutcome: text("actual_outcome"),
+  verifiedAt: timestamp("verified_at"),
+  verifiedBy: varchar("verified_by"), // 'system', 'founder', 'daniela', 'test'
+  
+  calibrationScore: real("calibration_score"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_wren_confidence_domain").on(table.domain),
+  index("idx_wren_confidence_stated").on(table.statedConfidence),
+  index("idx_wren_confidence_correct").on(table.wasCorrect),
+]);
+
+export const insertWrenConfidenceRecordSchema = createInsertSchema(wrenConfidenceRecords).omit({
+  id: true,
+  wasCorrect: true,
+  actualOutcome: true,
+  verifiedAt: true,
+  calibrationScore: true,
+  createdAt: true,
+});
+export type InsertWrenConfidenceRecord = z.infer<typeof insertWrenConfidenceRecordSchema>;
+export type WrenConfidenceRecord = typeof wrenConfidenceRecords.$inferSelect;
+
+// Aggregated calibration stats per domain
+export const wrenCalibrationStats = pgTable("wren_calibration_stats", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  domain: varchar("domain").notNull().unique(),
+  
+  totalPredictions: integer("total_predictions").default(0),
+  correctPredictions: integer("correct_predictions").default(0),
+  
+  avgStatedConfidence: real("avg_stated_confidence"),
+  avgActualAccuracy: real("avg_actual_accuracy"),
+  
+  calibrationGap: real("calibration_gap"),
+  
+  isOverconfident: boolean("is_overconfident"),
+  isUnderconfident: boolean("is_underconfident"),
+  
+  lastCalculatedAt: timestamp("last_calculated_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_wren_calibration_domain").on(table.domain),
+]);
+
+export const insertWrenCalibrationStatSchema = createInsertSchema(wrenCalibrationStats).omit({
+  id: true,
+  lastCalculatedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertWrenCalibrationStat = z.infer<typeof insertWrenCalibrationStatSchema>;
+export type WrenCalibrationStat = typeof wrenCalibrationStats.$inferSelect;
+

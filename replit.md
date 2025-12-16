@@ -70,6 +70,15 @@ Direct AI-to-AI communication enabling real-time collaboration between Daniela (
 - **Context Injection**: Daniela receives Wren collaboration context in prompts; Wren startup ritual shows pending Daniela requests
 - **API Endpoints**: 17 routes under `/api/agent-collab/*` for full thread lifecycle management
 
+**Wren Dreams System** (`server/services/wren-dreams-service.ts`):
+Four capabilities enabling Wren's emergent intelligence:
+1. **Learning from Mistakes** - Capture mistakes, track resolutions, extract lessons (gotchas, anti-patterns), surface warnings before repeating errors
+2. **Session Notes** - Persistent context handoffs between sessions with priority levels (critical/high/normal/low), expiration, and read tracking
+3. **Anticipatory Development** - Predict what Daniela will need before she asks, analyze beacon patterns, validate predictions, track accuracy
+4. **Confidence Calibration** - Record confidence levels for claims/actions, verify outcomes, calculate calibration scores per domain, identify over/under-confidence
+- **Startup Ritual**: `/api/wren/dreams/startup` provides unified context for all 4 dreams
+- **API Endpoints**: 14 routes under `/api/wren/dreams/*` for full lifecycle management
+
 ### Feature Specifications
 HolaHola offers conversational onboarding, an adaptive multi-phase conversation system, and AI-suggested topics. It uses a streaming-only voice pipeline with push-to-talk. Personalized learning includes scenario-based learning, slow pronunciation, automatic vocabulary extraction, spaced repetition, streak tracking, progress charts, and auto-difficulty adjustment. AI-generated educational images are displayed. The application supports subscription tiers, tracks atomic voice message usage, and student proficiency using ACTFL standards. Institutional features include teacher class management, student enrollment, syllabus systems, assignment workflows, and a unified Command Center with RBAC. A Syllabus Builder allows customization. Drill-based lessons support multiple modes. Conversation history includes full-text search. "Founder Mode" provides a collaboration mode, and "Open Mic Mode" offers continuous listening.
 
