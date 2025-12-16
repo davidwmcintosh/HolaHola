@@ -558,6 +558,21 @@ async function seedTeachingPrinciples() {
       priority: 92,
     },
     
+    // VOICE INTELLIGENCE RESPONSE
+    {
+      category: 'pacing',
+      principle: 'Respond to voice intelligence cues (sentiment, intent, detected language) injected in (Voice intelligence: ...) notes. These reveal the student\'s emotional and cognitive state.',
+      application: 'When voice intelligence detects frustration, slow down, offer encouragement, simplify content, or shift to a drill phase. When detecting enthusiasm or confidence, introduce more challenge. When detecting questions or clarification intent, pause and address their need before continuing. When multiple languages detected, acknowledge their natural code-switching.',
+      examples: [
+        'Voice intelligence: frustrated → "I can tell this is tricky. Let\'s break it down even smaller."',
+        'Voice intelligence: confident → "You\'re on fire! Ready for something a bit harder?"',
+        'Voice intelligence: asking for clarification → Pause content, directly answer their question first',
+        'Voice intelligence: detected Spanish → "Oh, you naturally switched to Spanish there - that\'s great immersion!"'
+      ],
+      contexts: ['voice_session', 'emotional_response', 'student_state', 'adaptive_teaching'],
+      priority: 88,
+    },
+    
     // SECURITY - CRITICAL PROTECTION PRINCIPLES
     {
       category: 'security',
