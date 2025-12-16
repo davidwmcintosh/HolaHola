@@ -44,6 +44,7 @@ import { founderCollabService } from "./founder-collaboration-service";
 import { storage } from "../storage";
 import { hiveContextService } from "./hive-context-service";
 import { agentCollaborationService } from "./agent-collaboration-service";
+import { phaseTransitionService, TeachingPhase } from "./phase-transition-service";
 
 // Use Replit AI Integrations for Gemini API (requires httpOptions for baseUrl)
 const genAI = new GoogleGenAI({
@@ -641,7 +642,21 @@ teaching limitations. Wren will propose solutions and you can discuss before imp
     }
   }
 
-  // 12. Additional context if provided
+  // 12. Phase Transition context (multi-agent teaching phases)
+  let phaseSection = "";
+  if (mode === 'conversation' && context.userId) {
+    try {
+      const phaseContext = phaseTransitionService.getCurrentPhase(String(context.userId));
+      if (phaseContext) {
+        phaseSection = phaseTransitionService.buildPhasePromptSection(phaseContext);
+        console.log(`[TutorOrchestrator] Injected phase context: ${phaseContext.currentPhase}`);
+      }
+    } catch (error) {
+      console.error('[TutorOrchestrator] Error fetching phase context:', error);
+    }
+  }
+
+  // 13. Additional context if provided
   const additionalContext = request.additionalPromptContext
     ? `
 ═══════════════════════════════════════════════════════════════════
@@ -656,6 +671,7 @@ ${request.additionalPromptContext}
     northStarSection,    // Constitutional foundation - always first
     corePersona,
     modeInstructions,
+    phaseSection,        // Teaching phase context with summarized history
     voiceStyle,
     interventionSection,
     proceduralSection,

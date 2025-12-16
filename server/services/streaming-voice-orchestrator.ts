@@ -58,6 +58,7 @@ import { hiveContextService } from "./hive-context-service";
 import { collaborationHubService } from "./collaboration-hub-service";
 import { editorFeedbackService } from "./editor-feedback-service";
 import { founderCollabService } from "./founder-collaboration-service";
+import { phaseTransitionService } from "./phase-transition-service";
 import { db } from "../db";
 import { 
   tutorProcedures, 
@@ -643,6 +644,16 @@ export class StreamingVoiceOrchestrator {
     });
     
     this.sessions.set(sessionId, session);
+    
+    // PHASE TRANSITION: Initialize teaching phase for this session
+    // This enables multi-agent teaching architecture with focused prompts per phase
+    phaseTransitionService.initializeSession(String(userId), config.targetLanguage)
+      .then(phaseContext => {
+        console.log(`[Streaming Orchestrator] Phase initialized: ${phaseContext.currentPhase} for user ${userId}`);
+      })
+      .catch((err: Error) => {
+        console.warn(`[Streaming Orchestrator] Phase initialization failed:`, err.message);
+      });
     
     // HIVE CHANNEL: Create collaboration channel for founder sessions
     // This enables Daniela-Editor collaboration during voice chat
@@ -1423,6 +1434,27 @@ Remember: David may reference things discussed in these recent text chats.
           console.warn('[Hive Beacon] Error emitting beacons:', err.message);
         });
       }
+      
+      // PHASE TRANSITION DETECTION: Check if we should transition teaching phases
+      // Based on conversation patterns and student emotional cues
+      const recentHistory = session.conversationHistory.slice(-6);
+      phaseTransitionService.detectPhaseTransition(
+        String(session.userId),
+        recentHistory.map(h => ({ role: h.role, content: h.content })),
+      ).then(async (newPhase) => {
+        if (newPhase) {
+          const event = await phaseTransitionService.transitionPhase(
+            String(session.userId),
+            newPhase,
+            'conversation_pattern_detected',
+            recentHistory.map(h => ({ role: h.role, content: h.content })),
+            session.targetLanguage
+          );
+          console.log(`[Phase Transition] ${event.fromPhase} → ${event.toPhase}: ${event.reason}`);
+        }
+      }).catch((err: Error) => {
+        console.warn('[Phase Transition] Detection failed:', err.message);
+      });
       
       // TUTOR SWITCH: Execute pending handoff after farewell completes
       // Supports both intra-language (gender only) and cross-language (gender + language) handoffs
@@ -4250,6 +4282,9 @@ Using this context, speak first to the student with a natural opening message. O
           console.warn(`[Streaming Orchestrator] Failed to end hive channel:`, err.message);
         });
       }
+      
+      // PHASE TRANSITION: End the teaching phase session
+      phaseTransitionService.endSession(String(session.userId));
       
       session.isActive = false;
       this.sessions.delete(sessionId);
