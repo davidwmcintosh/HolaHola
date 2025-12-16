@@ -2751,6 +2751,9 @@ export const recurringStruggles = pgTable("recurring_struggles", {
   lastOccurredAt: timestamp("last_occurred_at").defaultNow(),
   status: varchar("status").default("active"), // active, improving, resolved
   
+  // Root cause analysis (triggered at 5+ occurrences)
+  rootCauseAnalysis: jsonb("root_cause_analysis"), // {rootCause, confidence, explanation, teachingImplication}
+  
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => [

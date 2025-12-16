@@ -14,6 +14,7 @@ import { db } from '../db';
 import { wrenInsights, type WrenInsight, type InsertWrenInsight } from '@shared/schema';
 import { eq, desc, sql, and, gte, lte, or, ilike } from 'drizzle-orm';
 import { storage } from '../storage';
+import { neuralNetworkSync } from './neural-network-sync';
 
 // Insight categories and their detection patterns
 const CATEGORY_PATTERNS: Record<string, RegExp[]> = {
@@ -141,6 +142,7 @@ export class WrenIntelligenceService {
   /**
    * Create an insight with automatic enrichment
    * Detects category, extracts tags and file references if not provided
+   * Auto-shares significant insights (architecture, gotcha, solution) with Daniela
    */
   async createEnrichedInsight(params: {
     title: string;
@@ -150,6 +152,7 @@ export class WrenIntelligenceService {
     tags?: string[];
     relatedFiles?: string[];
     sessionId?: string;
+    shareWithDaniela?: boolean;
   }): Promise<WrenInsight> {
     const category = params.category || this.detectCategory(params.content, params.context);
     const tags = params.tags?.length 
@@ -159,7 +162,7 @@ export class WrenIntelligenceService {
       ? params.relatedFiles 
       : this.extractFileReferences(params.content, params.context);
     
-    return storage.createWrenInsight({
+    const insight = await storage.createWrenInsight({
       category: category as any,
       title: params.title,
       content: params.content,
@@ -169,6 +172,28 @@ export class WrenIntelligenceService {
       environment: 'development',
       sessionId: params.sessionId || null,
     });
+
+    // Auto-share significant insights with Daniela
+    // Categories that benefit teaching: architecture, gotcha, solution, debugging
+    const shareableCategories = ['architecture', 'gotcha', 'solution', 'debugging', 'integration'];
+    const shouldShare = params.shareWithDaniela !== false && shareableCategories.includes(category);
+    
+    if (shouldShare) {
+      try {
+        await neuralNetworkSync.shareInsightWithDaniela({
+          insightId: insight.id,
+          category: category as any,
+          title: params.title,
+          content: params.content,
+          teachingRelevance: params.context,
+        });
+        console.log(`[WrenIntelligence] Auto-shared insight "${params.title}" with Daniela`);
+      } catch (error) {
+        console.error('[WrenIntelligence] Failed to auto-share insight with Daniela:', error);
+      }
+    }
+
+    return insight;
   }
   
   // ============================================================================
@@ -241,6 +266,58 @@ export class WrenIntelligenceService {
       .where(eq(wrenInsights.category, category as any))
       .orderBy(desc(wrenInsights.useCount), desc(wrenInsights.lastUsedAt))
       .limit(limit);
+  }
+  
+  /**
+   * Apply decay to stale insights
+   * Reduces use count for insights not accessed in 30+ days
+   * This ensures fresh insights bubble to the top over time
+   */
+  async applyDecay(daysSinceUse: number = 30): Promise<{ decayedCount: number }> {
+    const cutoff = new Date(Date.now() - daysSinceUse * 24 * 60 * 60 * 1000);
+    
+    // Find insights that haven't been used recently and have a use count > 0
+    const staleInsights = await db
+      .select()
+      .from(wrenInsights)
+      .where(
+        and(
+          or(
+            lte(wrenInsights.lastUsedAt, cutoff),
+            and(
+              sql`${wrenInsights.lastUsedAt} IS NULL`,
+              lte(wrenInsights.createdAt, cutoff)
+            )
+          ),
+          sql`${wrenInsights.useCount} > 0`
+        )
+      );
+    
+    if (staleInsights.length === 0) {
+      return { decayedCount: 0 };
+    }
+    
+    // Decay: reduce use count by 1 for each stale insight
+    await db
+      .update(wrenInsights)
+      .set({
+        useCount: sql`GREATEST(0, ${wrenInsights.useCount} - 1)`,
+      })
+      .where(
+        and(
+          or(
+            lte(wrenInsights.lastUsedAt, cutoff),
+            and(
+              sql`${wrenInsights.lastUsedAt} IS NULL`,
+              lte(wrenInsights.createdAt, cutoff)
+            )
+          ),
+          sql`${wrenInsights.useCount} > 0`
+        )
+      );
+    
+    console.log(`[WrenIntelligence] Applied decay to ${staleInsights.length} stale insights`);
+    return { decayedCount: staleInsights.length };
   }
   
   // ============================================================================

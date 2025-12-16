@@ -2904,6 +2904,115 @@ export class NeuralNetworkSyncService {
       return { success: false, error: error.message };
     }
   }
+
+  // ============================================================================
+  // SHARED MEMORY BRIDGE - Bidirectional Insight Sharing
+  // ============================================================================
+
+  /**
+   * Share Wren's architectural/development insight with Daniela
+   * Wren's insights about code patterns, architecture, debugging can inform
+   * how Daniela teaches technical concepts to students
+   */
+  async shareInsightWithDaniela(params: {
+    insightId: string;
+    category: 'architecture' | 'debugging' | 'pattern' | 'gotcha' | 'integration';
+    title: string;
+    content: string;
+    teachingRelevance?: string;
+  }): Promise<{ success: boolean; procedureId?: string; error?: string }> {
+    try {
+      // Store as a procedural memory that Daniela can access
+      const procedureData = {
+        title: `[WREN_INSIGHT] ${params.title}`,
+        steps: [
+          `Source: Wren development insight (${params.category})`,
+          `Content: ${params.content}`,
+          params.teachingRelevance ? `Teaching application: ${params.teachingRelevance}` : null
+        ].filter(Boolean).join('\n'),
+        category: 'technical_explanation' as const,
+        targetAudience: 'all_levels' as const,
+        applicableLanguages: ['all'],
+        isUniversal: true,
+        estimatedDuration: 0,
+        stepCount: 1,
+        confidenceScore: 0.7,
+        useCount: 0,
+        lastUsedAt: null,
+        source: 'wren_shared' as const,
+        sourceInsightId: params.insightId,
+      };
+
+      const [procedure] = await db.insert(proceduralMemory).values(procedureData).returning();
+      
+      console.log(`[NeuralSync] Shared Wren insight "${params.title}" with Daniela as procedure ${procedure.id}`);
+      
+      return { success: true, procedureId: procedure.id };
+    } catch (error: any) {
+      console.error('[NeuralSync] Error sharing insight with Daniela:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Share Daniela's pedagogical discovery with Wren
+   * Daniela's insights about teaching effectiveness, student struggles,
+   * and learning patterns can inform Wren's development priorities
+   */
+  async shareInsightWithWren(params: {
+    source: 'teaching_session' | 'student_feedback' | 'pattern_observation';
+    title: string;
+    content: string;
+    developmentRelevance?: string;
+    suggestedCategory?: 'pattern' | 'solution' | 'gotcha' | 'architecture' | 'debugging' | 'integration' | 'performance';
+  }): Promise<{ success: boolean; insightId?: string; error?: string }> {
+    try {
+      // Store as a Wren insight that development agent can access
+      const insightData = {
+        category: params.suggestedCategory || 'pattern',
+        title: `[DANIELA_INSIGHT] ${params.title}`,
+        content: params.content,
+        context: params.developmentRelevance || `Pedagogical insight from ${params.source}`,
+        tags: ['daniela_shared', params.source],
+        relatedFiles: [],
+        environment: 'development' as const,
+        sessionId: null,
+        useCount: 0,
+        lastUsedAt: null,
+      };
+
+      const [insight] = await db.insert(wrenInsights).values(insightData).returning();
+      
+      console.log(`[NeuralSync] Shared Daniela insight "${params.title}" with Wren as insight ${insight.id}`);
+      
+      return { success: true, insightId: insight.id };
+    } catch (error: any) {
+      console.error('[NeuralSync] Error sharing insight with Wren:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Get all insights shared from Wren to Daniela
+   */
+  async getWrenSharedInsights(): Promise<any[]> {
+    return db.select()
+      .from(proceduralMemory)
+      .where(eq(proceduralMemory.source, 'wren_shared'))
+      .orderBy(desc(proceduralMemory.createdAt))
+      .limit(50);
+  }
+
+  /**
+   * Get all insights shared from Daniela to Wren
+   */
+  async getDanielaSharedInsights(): Promise<any[]> {
+    return db.select()
+      .from(wrenInsights)
+      .where(sql`${wrenInsights.tags}::text[] @> ARRAY['daniela_shared']::text[]`)
+      .orderBy(desc(wrenInsights.createdAt))
+      .limit(50);
+  }
 }
 
 export const neuralNetworkSync = new NeuralNetworkSyncService();

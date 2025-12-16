@@ -1,6 +1,11 @@
 import { neuralNetworkSync } from './neural-network-sync';
 import { syncBridge, type SyncResult } from './sync-bridge';
 import { isSyncConfigured } from '../middleware/sync-auth';
+import { studentLearningService } from './student-learning-service';
+import { wrenIntelligenceService } from './wren-intelligence-service';
+import { db } from '../db';
+import { users, recurringStruggles } from '@shared/schema';
+import { sql, and, gte, isNotNull } from 'drizzle-orm';
 
 let scheduledTimer: NodeJS.Timeout | null = null;
 let lastSyncResult: { 
@@ -45,6 +50,98 @@ function getMillisecondsUntilSyncTime(): number {
 
 export function getLastSyncResult() {
   return lastSyncResult;
+}
+
+// ============================================================================
+// EMERGENT INTELLIGENCE JOBS
+// ============================================================================
+
+/**
+ * Run cross-student pattern synthesis for all active languages
+ * Aggregates patterns across students to inform teaching strategies
+ */
+async function runCrossStudentPatternSynthesis(): Promise<{ languagesProcessed: number; insightsGenerated: number }> {
+  console.log('[SYNC-SCHEDULER] Running cross-student pattern synthesis...');
+  
+  const languages = ['spanish', 'french', 'german', 'italian', 'portuguese', 'japanese', 'mandarin', 'korean', 'english'];
+  let totalInsights = 0;
+  
+  for (const language of languages) {
+    try {
+      const patterns = await studentLearningService.synthesizeCrossStudentPatterns(language);
+      const insightCount = patterns.universalInsights.length + patterns.difficultyCurve.length;
+      
+      if (insightCount > 0) {
+        console.log(`[SYNC-SCHEDULER]   ${language}: ${patterns.universalInsights.length} insights, ${patterns.difficultyCurve.length} difficulty curves`);
+        totalInsights += insightCount;
+      }
+    } catch (err: any) {
+      console.warn(`[SYNC-SCHEDULER]   ${language}: pattern synthesis failed - ${err.message}`);
+    }
+  }
+  
+  return { languagesProcessed: languages.length, insightsGenerated: totalInsights };
+}
+
+/**
+ * Run plateau detection for active students
+ * Identifies students who may be stuck and need breakthrough strategies
+ */
+async function runPlateauDetection(): Promise<{ studentsChecked: number; plateausDetected: number }> {
+  console.log('[SYNC-SCHEDULER] Running plateau detection for active students...');
+  
+  // Get students with recent activity (last 14 days)
+  const twoWeeksAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+  
+  const activeStudents = await db
+    .select({ studentId: recurringStruggles.studentId, language: recurringStruggles.language })
+    .from(recurringStruggles)
+    .where(gte(recurringStruggles.lastOccurredAt, twoWeeksAgo))
+    .groupBy(recurringStruggles.studentId, recurringStruggles.language);
+  
+  let plateausDetected = 0;
+  
+  for (const { studentId, language } of activeStudents) {
+    try {
+      // Get student's current ACTFL level
+      const [user] = await db.select().from(users).where(sql`${users.id} = ${studentId}`).limit(1);
+      const currentLevel = user?.actflLevel || undefined;
+      
+      const result = await studentLearningService.detectPlateau(studentId, language, currentLevel);
+      
+      if (result.isPlateau) {
+        console.log(`[SYNC-SCHEDULER]   Plateau detected: student ${studentId.slice(0, 8)}... in ${language}`);
+        plateausDetected++;
+        
+        // TODO: Could emit a beacon or create an alert here for Daniela/founder awareness
+      }
+    } catch (err: any) {
+      console.warn(`[SYNC-SCHEDULER]   Plateau check failed for ${studentId.slice(0, 8)}...: ${err.message}`);
+    }
+  }
+  
+  return { studentsChecked: activeStudents.length, plateausDetected };
+}
+
+/**
+ * Apply decay to Wren's insights - reduces weight of unused insights over time
+ * Ensures fresh, relevant insights bubble to the top
+ */
+async function runInsightDecay(): Promise<{ insightsDecayed: number }> {
+  console.log('[SYNC-SCHEDULER] Running insight decay for memory consolidation...');
+  
+  let decayed = 0;
+  
+  try {
+    // Get insights that haven't been used in 30+ days and decay their priority
+    const result = await wrenIntelligenceService.applyDecay();
+    decayed = result?.decayedCount || 0;
+    console.log(`[SYNC-SCHEDULER]   Decayed ${decayed} stale insights`);
+  } catch (err: any) {
+    console.warn(`[SYNC-SCHEDULER]   Insight decay failed: ${err.message}`);
+  }
+  
+  return { insightsDecayed: decayed };
 }
 
 async function runNightlySync(): Promise<void> {
@@ -106,6 +203,23 @@ async function runNightlySync(): Promise<void> {
     } else {
       console.log(`[SYNC-SCHEDULER] Cross-environment sync not configured (set SYNC_PEER_URL and SYNC_SHARED_SECRET)`);
     }
+    
+    // 7. Emergent Intelligence Jobs
+    console.log(`[SYNC-SCHEDULER] Running emergent intelligence jobs...`);
+    
+    // 7a. Cross-student pattern synthesis (nightly)
+    const patternResult = await runCrossStudentPatternSynthesis();
+    console.log(`[SYNC-SCHEDULER] Pattern synthesis: ${patternResult.insightsGenerated} insights from ${patternResult.languagesProcessed} languages`);
+    
+    // 7b. Plateau detection for active students (nightly)
+    const plateauResult = await runPlateauDetection();
+    console.log(`[SYNC-SCHEDULER] Plateau detection: ${plateauResult.plateausDetected} plateaus from ${plateauResult.studentsChecked} students`);
+    
+    // 7c. Wren insight decay for memory consolidation (daily)
+    const decayResult = await runInsightDecay();
+    console.log(`[SYNC-SCHEDULER] Insight decay: ${decayResult.insightsDecayed} insights decayed`);
+    
+    console.log(`[SYNC-SCHEDULER] Emergent intelligence jobs complete`);
     
     if (bestPracticesResult.success) {
       console.log(`[SYNC-SCHEDULER] Nightly sync complete: ${bestPracticesResult.syncedCount} best practices synced`);

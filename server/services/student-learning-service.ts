@@ -28,6 +28,7 @@ import {
 } from '@shared/schema';
 import { eq, and, desc, sql, gte, ilike, or, count, ne } from 'drizzle-orm';
 import { storage } from '../storage';
+import { neuralNetworkSync } from './neural-network-sync';
 
 // Error categories with granular subcategories
 const ERROR_TAXONOMY: Record<string, string[]> = {
@@ -138,6 +139,37 @@ export class StudentLearningService {
         .returning();
       
       console.log(`[StudentLearning] Updated struggle: ${event.specificError} (${updated.occurrenceCount}x)`);
+      
+      // Trigger root cause analysis when threshold exceeded (5+ occurrences)
+      const ROOT_CAUSE_THRESHOLD = 5;
+      if (updated.occurrenceCount && updated.occurrenceCount >= ROOT_CAUSE_THRESHOLD && !updated.rootCauseAnalysis) {
+        try {
+          // Get user's native language for L1 interference analysis
+          const user = await storage.getUser(event.studentId);
+          const nativeLanguage = user?.nativeLanguage || 'english';
+          
+          const rootCauseResult = this.analyzeRootCause(
+            nativeLanguage,
+            event.language,
+            event.errorCategory,
+            event.specificError
+          );
+          
+          // Store root cause analysis in the struggle record
+          await db
+            .update(recurringStruggles)
+            .set({
+              rootCauseAnalysis: JSON.stringify(rootCauseResult),
+              updatedAt: new Date(),
+            })
+            .where(eq(recurringStruggles.id, updated.id));
+          
+          console.log(`[StudentLearning] Root cause analysis triggered for ${event.specificError}: ${rootCauseResult.rootCause}`);
+        } catch (err: any) {
+          console.warn(`[StudentLearning] Root cause analysis failed:`, err.message);
+        }
+      }
+      
       return updated;
     }
     
@@ -816,6 +848,25 @@ export class StudentLearningService {
         successRate: 0.7, // Base rate, would be refined with actual data
       }))
       .slice(0, 10);
+    
+    // Auto-share significant patterns with Wren for development insights
+    // High-confidence universal insights inform feature development
+    const highConfidenceInsights = universalInsights.filter(i => i.confidence >= 0.8 && i.evidenceCount >= 5);
+    if (highConfidenceInsights.length > 0) {
+      try {
+        const topInsight = highConfidenceInsights[0];
+        await neuralNetworkSync.shareInsightWithWren({
+          source: 'pattern_observation',
+          title: `Cross-Student Pattern: ${topInsight.insight}`,
+          content: `Based on ${topInsight.evidenceCount} student interactions in ${language}. ${topInsight.recommendedApproach}`,
+          developmentRelevance: 'Validated teaching strategy that could inform UI/UX or feature development',
+          suggestedCategory: 'pattern',
+        });
+        console.log(`[StudentLearning] Shared cross-student pattern with Wren: ${topInsight.insight}`);
+      } catch (error) {
+        console.error('[StudentLearning] Failed to share pattern with Wren:', error);
+      }
+    }
     
     return {
       universalInsights,
