@@ -61,6 +61,31 @@ Five pillars enabling Wren to be proactive and effective without repeated contex
 - Moderate confidence (<0.7): Note about pronunciation practice needs
 - High confidence (>=0.7): Normal processing
 
+**Deepgram Intelligence Integration** (`server/services/deepgram-live-stt.ts`):
+Real-time voice analysis during transcription for both push-to-talk and Open Mic modes:
+- Sentiment analysis (positive/negative/neutral with scores)
+- Intent recognition for understanding student goals
+- Entity detection for extracting key terms
+- Speaker diarization (free tier)
+- Language detection for code-switching
+- Topic detection for conversation context
+- Summarization (v2) for session recaps
+
+**Predictive Student Intelligence** (`server/services/student-learning-service.ts`):
+Advanced student support capabilities:
+- **Predictive Teaching**: Anticipates struggles before they occur via `predictStruggles()`
+- **Cross-Student Pattern Synthesis**: Aggregates patterns across all students via `synthesizeCrossStudentPatterns()`
+- **Root Cause Analysis**: Distinguishes L1 interference vs conceptual gaps via `analyzeRootCause()`
+- **Motivation Dip Prediction**: Detects engagement drops via `predictMotivationDip()`
+- **Plateau Detection**: Identifies common stall points via `detectPlateaus()`
+
+**Shared Memory Bridge** (`server/services/neural-network-sync.ts`):
+Bidirectional insight sharing between Wren and Daniela:
+- `shareInsightWithDaniela()`: Wren's architectural insights inform teaching
+- `shareInsightWithWren()`: Daniela's pedagogical discoveries inform development
+- Memory threading builds knowledge graph edges between related insights
+- Confidence calibration tracks prediction accuracy for self-improvement
+
 ### Editor (RETIRED)
 Editor was a Claude-powered observer/analyst agent that responded to beacons. It has been retired in favor of the unified 3-way Hive (Founder + Daniela + Wren). Wren now handles both analysis AND implementation, making the read-only Editor redundant. Editor services (`server/services/editor-*.ts`) are deprecated and kept only for historical data access.
 
