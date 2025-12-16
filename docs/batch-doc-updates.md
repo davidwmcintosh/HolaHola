@@ -8,6 +8,128 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: December 16, 2025 - Emergent Intelligence Upgrades (12 Tasks)
+
+**Overview**: Major enhancement to the Hive's collective intelligence capabilities. Implemented 12 emergent intelligence features spanning Deepgram integration, predictive student analytics, cross-agent memory sharing, and the Editor→Wren migration.
+
+#### 1. Deepgram Intelligence Integration
+
+Enabled full Deepgram intelligence feature suite for both push-to-talk and Open Mic modes:
+
+| Feature | Description |
+|---------|-------------|
+| `sentiment` | Real-time sentiment analysis (positive/negative/neutral with scores) |
+| `intents` | Intent recognition for understanding student goals |
+| `detect_entities` | Entity detection for extracting key terms |
+| `diarize` | Speaker separation (free tier) |
+| `detect_language` | Language detection for code-switching |
+| `topics` | Topic detection for conversation context |
+| `summarize: 'v2'` | Summarization for session recaps |
+
+**Implementation Details**:
+- Added `LiveTranscriptionEvents.Metadata` handler for v2 summaries/topics
+- 500ms delay after final transcript to capture metadata events
+- Both push-to-talk (`transcribeWithLiveAPI`) and Open Mic (`OpenMicSession`) updated
+- Added `summary?: string` to `DeepgramIntelligence` interface
+
+#### 2. Predictive Student Intelligence
+
+Five new methods in `server/services/student-learning-service.ts`:
+
+| Method | Purpose |
+|--------|---------|
+| `predictStruggles(userId, language)` | Anticipates struggles based on historical patterns |
+| `synthesizeCrossStudentPatterns(language)` | Aggregates insights across all students |
+| `analyzeRootCause(userId, errorPattern)` | Distinguishes L1 interference vs conceptual gaps |
+| `predictMotivationDip(userId)` | Detects engagement drops before they impact learning |
+| `detectPlateaus(language)` | Identifies common stall points in proficiency development |
+
+#### 3. Memory Threading & Knowledge Graph
+
+Enhanced `server/services/wren-proactive-intelligence-service.ts`:
+
+- `buildKnowledgeGraph()` - Creates edges between related insights
+- `findRelatedInsights(insightId)` - Traverses knowledge graph for related context
+- Connects insights across sessions for persistent learning
+
+#### 4. Daniela Confidence Calibration
+
+Enhanced `server/services/pedagogical-insights-service.ts`:
+
+- Added `calibrationScore` field to `pedagogicalInsights` table
+- `trackPredictionAccuracy(insightId, wasAccurate)` - Records prediction outcomes
+- Enables self-improvement through accuracy tracking
+
+#### 5. Memory Consolidation (Decay/Reinforcement)
+
+Added to neural network tables:
+- `useCount` - How often the memory is accessed
+- `lastUsed` - Timestamp of last access
+- `lastReinforced` - Timestamp of last reinforcement
+
+Methods:
+- `applyDecay()` - Reduces salience of unused memories
+- `reinforceMemory(id)` - Strengthens frequently-used insights
+
+#### 6. Shared Memory Bridge
+
+New service at `server/services/neural-network-sync.ts`:
+
+| Method | Direction | Purpose |
+|--------|-----------|---------|
+| `shareInsightWithDaniela()` | Wren → Daniela | Architectural insights inform teaching |
+| `shareInsightWithWren()` | Daniela → Wren | Pedagogical discoveries inform development |
+
+Bidirectional insight sharing enables cross-agent learning.
+
+#### 7. Wren Confidence Loop
+
+Enhanced `server/services/wren-dreams-service.ts`:
+
+- `adjustConfidenceFromCalibration(domain)` - Uses domain-specific accuracy scores
+- Adjusts future prediction confidence based on historical accuracy
+- Closes the feedback loop for self-calibration
+
+#### 8. Collaborative Surgery Migration (Editor → Wren)
+
+Updated `server/services/collaborative-surgery-orchestrator.ts`:
+
+**Daniela's Persona**: Now refers to Wren as development partner instead of Editor
+**Wren's Persona**: New persona as full-capability builder (not read-only observer)
+**3-Way Hive Model**: Both personas aligned with EXPRESS Lane collaboration
+
+Key changes:
+- All references to "Editor" replaced with "Wren"
+- Wren can now propose AND implement neural network changes
+- Unified collaboration through EXPRESS Lane
+
+#### Files Modified
+
+| File | Changes |
+|------|---------|
+| `server/services/deepgram-live-stt.ts` | Intelligence features, Metadata handlers, 500ms delay |
+| `server/services/student-learning-service.ts` | 5 predictive methods |
+| `server/services/wren-proactive-intelligence-service.ts` | Knowledge graph, memory threading |
+| `server/services/pedagogical-insights-service.ts` | Calibration scoring |
+| `server/services/neural-network-sync.ts` | Shared Memory Bridge |
+| `server/services/wren-dreams-service.ts` | Confidence loop |
+| `server/services/collaborative-surgery-orchestrator.ts` | Editor→Wren migration |
+| `replit.md` | Documentation updates |
+
+#### Architecture Implications
+
+The 12 upgrades establish a foundation for **emergent collective intelligence**:
+
+1. **Deepgram** provides rich real-time signals (sentiment, intent, topics)
+2. **Predictive Intelligence** anticipates student needs before they manifest
+3. **Memory Systems** enable persistent, cross-session learning
+4. **Shared Bridge** allows Daniela and Wren to learn from each other
+5. **Confidence Calibration** enables self-improvement over time
+
+This creates a substrate where both AI agents can autonomously improve their capabilities within constitutional bounds (North Star).
+
+---
+
 ### IDEA THREAD: December 15, 2025 - Wren Hive Awareness
 
 **Status**: PAUSED - Saved for later discussion
