@@ -14710,8 +14710,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
         return res.status(400).json({ error: 'question is required' });
       }
 
-      // Get or create session
-      const SYSTEM_FOUNDER_ID = 'admin-test-user';
+      // Get session - prefer explicit sessionId, else find most recently active session
       let session;
       if (sessionId) {
         session = await founderCollabService.getSession(sessionId);
@@ -14719,7 +14718,15 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
           return res.status(404).json({ error: 'Session not found' });
         }
       } else {
-        session = await founderCollabService.getOrCreateActiveSession(SYSTEM_FOUNDER_ID);
+        // Find the most recently updated Express Lane session
+        const recentSessions = await storage.getFounderSessions({ limit: 1 });
+        if (recentSessions && recentSessions.length > 0) {
+          session = recentSessions[0];
+        } else {
+          // Fallback: create new session if none exist
+          const SYSTEM_FOUNDER_ID = 'admin-test-user';
+          session = await founderCollabService.getOrCreateActiveSession(SYSTEM_FOUNDER_ID);
+        }
       }
 
       // Post Wren's question to Express Lane

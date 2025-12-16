@@ -54,6 +54,25 @@ const genAI = new GoogleGenAI({
 });
 
 /**
+ * Format a timestamp into human-readable relative time
+ */
+function formatTimeAgo(date: Date | string | null): string {
+  if (!date) return 'recently';
+  const now = new Date();
+  const past = new Date(date);
+  const diffMs = now.getTime() - past.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  
+  if (diffMins < 5) return 'just now';
+  if (diffMins < 60) return `${diffMins} minutes ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+  return past.toLocaleDateString();
+}
+
+/**
  * Build the core Daniela persona section
  * This is the IMMUTABLE foundation that all voices share
  */
@@ -506,7 +525,55 @@ ${expressLaneContext.contextString}
     }
   }
 
-  // 9. Hive context (shared awareness of system state)
+  // 9. Text Chat Memory (recent /chat conversations)
+  // Inject recent regular chat history so Daniela remembers cross-mode conversations
+  let textChatSection = "";
+  if (mode === 'conversation' && context.userId) {
+    try {
+      const recentConversations = await storage.getUserConversations(String(context.userId));
+      const textConversations = recentConversations
+        .filter(c => c.id !== context.conversationId)
+        .slice(0, 2); // Last 2 conversations
+      
+      if (textConversations.length > 0) {
+        let textChatContext = '';
+        
+        for (const conv of textConversations) {
+          const messages = await storage.getMessagesByConversation(conv.id);
+          const recentMessages = messages.slice(-6); // Last 6 messages per conversation
+          
+          if (recentMessages.length > 0) {
+            const timeAgo = formatTimeAgo(conv.updatedAt);
+            textChatContext += `\n**${conv.title || 'Recent Chat'}** (${timeAgo}):\n`;
+            
+            for (const msg of recentMessages) {
+              const role = msg.role === 'user' ? 'David' : 'Daniela';
+              const content = msg.content.length > 200 
+                ? msg.content.substring(0, 200) + '...'
+                : msg.content;
+              textChatContext += `- ${role}: ${content}\n`;
+            }
+          }
+        }
+        
+        if (textChatContext) {
+          textChatSection = `
+═══════════════════════════════════════════════════════════════════
+💬 TEXT CHAT MEMORY (Recent /chat Conversations)
+═══════════════════════════════════════════════════════════════════
+${textChatContext}
+
+Remember: David may reference things discussed in these recent text chats.
+`;
+          console.log(`[TutorOrchestrator] Injected ${textConversations.length} Text Chat Memory conversations`);
+        }
+      }
+    } catch (error) {
+      console.error('[TutorOrchestrator] Error fetching Text Chat Memory:', error);
+    }
+  }
+
+  // 10. Hive context (shared awareness of system state)
   let hiveSection = "";
   if (mode === 'conversation') {
     try {
@@ -548,6 +615,7 @@ ${request.additionalPromptContext}
     proceduralSection,
     editorInsightsSection,
     expressLaneSection,
+    textChatSection,     // Recent /chat conversations for memory continuity
     hiveSection,
     additionalContext,
   ]
