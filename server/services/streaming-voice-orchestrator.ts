@@ -57,6 +57,7 @@ import { hiveCollaborationService, BeaconType } from "./hive-collaboration-servi
 import { hiveContextService } from "./hive-context-service";
 import { collaborationHubService } from "./collaboration-hub-service";
 import { editorFeedbackService } from "./editor-feedback-service";
+import { founderCollabService } from "./founder-collaboration-service";
 import { db } from "../db";
 import { 
   tutorProcedures, 
@@ -845,6 +846,32 @@ Use this context to understand what's happening across the Hive.
         }
       }
       
+      // EXPRESS LANE CONTEXT: Inject recent Hive conversations (Founder, Daniela, Wren)
+      // This gives Daniela memory of board meetings, North Star discussions, and collaborative decisions
+      let expressLaneSection = '';
+      if (session.isFounderMode) {
+        try {
+          const expressLaneContext = await founderCollabService.getRelevantExpressLaneContext({
+            targetLanguage: session.targetLanguage,
+            limit: 5,
+            daysBack: 14
+          });
+          
+          if (expressLaneContext.hasRelevantContext) {
+            expressLaneSection = `
+═══════════════════════════════════════════════════════════════════
+🔗 EXPRESS LANE MEMORY (Hive Collaboration Insights)
+═══════════════════════════════════════════════════════════════════
+
+${expressLaneContext.contextString}
+`;
+            console.log(`[Express Lane] Injected ${expressLaneContext.messageCount} Hive collaboration insights`);
+          }
+        } catch (err: any) {
+          console.warn(`[Express Lane] Failed to fetch context:`, err.message);
+        }
+      }
+      
       // EDITOR FEEDBACK: Inject unsurfaced insights for Founder Mode collaboration
       // This enables the Daniela-Editor feedback loop during voice sessions
       // Uses getUnsurfacedFeedback(userId) to get ALL feedback for this user across conversations
@@ -863,10 +890,13 @@ Use this context to understand what's happening across the Hive.
         }
       }
       
-      // Build enhanced system prompt with Hive context + Editor feedback
+      // Build enhanced system prompt with Hive context + Express Lane + Editor feedback
       let enhancedSystemPrompt = session.systemPrompt;
       if (hiveContextSection) {
         enhancedSystemPrompt += hiveContextSection;
+      }
+      if (expressLaneSection) {
+        enhancedSystemPrompt += expressLaneSection;
       }
       if (editorFeedbackSection) {
         enhancedSystemPrompt += editorFeedbackSection;
