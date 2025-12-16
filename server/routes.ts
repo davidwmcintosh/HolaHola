@@ -61,6 +61,7 @@ import { collaborationHubService } from "./services/collaboration-hub-service";
 import { hiveCollaborationService } from "./services/hive-collaboration-service";
 import { hiveContextService } from "./services/hive-context-service";
 import { wrenIntelligenceService } from "./services/wren-intelligence-service";
+import { wrenProactiveService } from "./services/wren-proactive-intelligence-service";
 import { studentLearningService, TEACHING_STRATEGIES, ERROR_CATEGORIES } from "./services/student-learning-service";
 import { editorPersonaService, validateEditorSecret } from "./services/editor-persona-service";
 import { supportPersonaService } from "./services/support-persona-service";
@@ -15501,6 +15502,250 @@ ${memoryContext}
       res.json({ success: true, summary });
     } catch (error: any) {
       console.error('[Wren Intelligence] Summary error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================================================
+  // WREN PROACTIVE INTELLIGENCE: Pattern detection, feedback loops, health
+  // ============================================================================
+
+  // PROACTIVE: Get startup context for session initialization
+  app.get("/api/wren/proactive/startup", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const context = await wrenProactiveService.generateStartupContext();
+      res.json({ success: true, context });
+    } catch (error: any) {
+      console.error('[Wren Proactive] Startup context error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // PROACTIVE: Get top priorities
+  app.get("/api/wren/proactive/priorities", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { limit } = req.query;
+      const priorities = await wrenProactiveService.getTopPriorities(
+        limit ? parseInt(limit as string) : 5
+      );
+      res.json({ success: true, ...priorities });
+    } catch (error: any) {
+      console.error('[Wren Proactive] Priorities error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // TRIGGERS: Create or update a proactive trigger
+  app.post("/api/wren/proactive/triggers", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { triggerType, title, description, evidence, relatedComponent, relatedFiles, relatedBeaconId, suggestedAction } = req.body;
+
+      if (!triggerType || !title || !description) {
+        return res.status(400).json({ error: 'triggerType, title, and description are required' });
+      }
+
+      const trigger = await wrenProactiveService.createOrUpdateTrigger({
+        triggerType, title, description, evidence, relatedComponent, relatedFiles, relatedBeaconId, suggestedAction
+      });
+
+      res.json({ success: true, trigger });
+    } catch (error: any) {
+      console.error('[Wren Proactive] Create trigger error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // TRIGGERS: Get pending triggers
+  app.get("/api/wren/proactive/triggers", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { limit } = req.query;
+      const triggers = await wrenProactiveService.getPendingTriggers(
+        limit ? parseInt(limit as string) : 10
+      );
+      res.json({ success: true, triggers });
+    } catch (error: any) {
+      console.error('[Wren Proactive] Get triggers error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // TRIGGERS: Resolve a trigger
+  app.post("/api/wren/proactive/triggers/:id/resolve", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { resolutionNotes } = req.body;
+      await wrenProactiveService.resolveTrigger(req.params.id, resolutionNotes);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('[Wren Proactive] Resolve trigger error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ADR: Record an architectural decision
+  app.post("/api/wren/adr", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { title, context, decision, rationale, alternativesConsidered, consequences, tradeoffs, relatedFiles, decisionMadeBy } = req.body;
+
+      if (!title || !context || !decision || !rationale) {
+        return res.status(400).json({ error: 'title, context, decision, and rationale are required' });
+      }
+
+      const adr = await wrenProactiveService.recordDecision({
+        title, context, decision, rationale, alternativesConsidered, consequences, tradeoffs, relatedFiles, decisionMadeBy
+      });
+
+      res.json({ success: true, adr });
+    } catch (error: any) {
+      console.error('[Wren ADR] Record error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ADR: Get relevant ADRs for a file or component
+  app.get("/api/wren/adr/relevant/:query", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const adrs = await wrenProactiveService.getRelevantADRs(req.params.query);
+      res.json({ success: true, adrs });
+    } catch (error: any) {
+      console.error('[Wren ADR] Get relevant error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // FEEDBACK: Record a feature implementation for tracking
+  app.post("/api/wren/feedback/feature", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { featureDescription, originBeaconId, originType, measurementType, baselineValue } = req.body;
+
+      if (!featureDescription) {
+        return res.status(400).json({ error: 'featureDescription is required' });
+      }
+
+      const feedback = await wrenProactiveService.recordFeatureImplementation({
+        featureDescription,
+        originBeaconId,
+        originType: originType || 'founder_request',
+        measurementType,
+        baselineValue,
+      });
+
+      res.json({ success: true, feedback });
+    } catch (error: any) {
+      console.error('[Wren Feedback] Record feature error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // FEEDBACK: Get unmeasured features
+  app.get("/api/wren/feedback/unmeasured", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const features = await wrenProactiveService.getUnmeasuredFeatures();
+      res.json({ success: true, features });
+    } catch (error: any) {
+      console.error('[Wren Feedback] Get unmeasured error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // FEEDBACK: Analyze beacon reduction for a feature
+  app.get("/api/wren/feedback/:id/beacon-analysis", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const analysis = await wrenProactiveService.analyzeBeaconReduction(req.params.id);
+      res.json({ success: true, ...analysis });
+    } catch (error: any) {
+      console.error('[Wren Feedback] Beacon analysis error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // HEALTH: Update component health
+  app.post("/api/wren/health/event", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { component, type, description } = req.body;
+
+      if (!component || !type) {
+        return res.status(400).json({ error: 'component and type are required' });
+      }
+
+      if (!['error', 'fix', 'beacon', 'change'].includes(type)) {
+        return res.status(400).json({ error: 'type must be one of: error, fix, beacon, change' });
+      }
+
+      const metric = await wrenProactiveService.updateComponentHealth(component, { type, description });
+      res.json({ success: true, metric });
+    } catch (error: any) {
+      console.error('[Wren Health] Event error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // HEALTH: Get project health report
+  app.get("/api/wren/health/report", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const report = await wrenProactiveService.getHealthReport();
+      res.json({ success: true, ...report });
+    } catch (error: any) {
+      console.error('[Wren Health] Report error:', error);
       res.status(500).json({ error: error.message });
     }
   });

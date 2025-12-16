@@ -5538,3 +5538,201 @@ export const insertWrenInsightSchema = createInsertSchema(wrenInsights).omit({
 export type InsertWrenInsight = z.infer<typeof insertWrenInsightSchema>;
 export type WrenInsight = typeof wrenInsights.$inferSelect;
 
+// ===== Wren Proactive Triggers =====
+// Detected patterns that warrant attention - enables proactive surfacing
+
+export const wrenTriggerStatusEnum = pgEnum('wren_trigger_status', [
+  'pending',      // Newly detected, not yet surfaced
+  'surfaced',     // Shown to founder
+  'acknowledged', // Founder saw it
+  'resolved',     // Issue addressed
+  'dismissed',    // Founder chose to ignore
+]);
+
+export const wrenTriggerUrgencyEnum = pgEnum('wren_trigger_urgency', [
+  'low',      // FYI, when convenient
+  'medium',   // Should address soon
+  'high',     // Needs attention
+  'critical', // Immediate action required
+]);
+
+export const wrenProactiveTriggers = pgTable("wren_proactive_triggers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  triggerType: varchar("trigger_type").notNull(), // 'recurring_error', 'pattern_detected', 'health_alert', 'daniela_feedback'
+  urgency: wrenTriggerUrgencyEnum("urgency").default("medium"),
+  status: wrenTriggerStatusEnum("status").default("pending"),
+  
+  title: varchar("title").notNull(),
+  description: text("description").notNull(),
+  evidence: jsonb("evidence").$type<string[]>().default(sql`'[]'::jsonb`), // Supporting data
+  
+  occurrenceCount: integer("occurrence_count").default(1),
+  firstOccurredAt: timestamp("first_occurred_at").notNull().defaultNow(),
+  lastOccurredAt: timestamp("last_occurred_at").notNull().defaultNow(),
+  
+  relatedComponent: varchar("related_component"), // Which part of system
+  relatedFiles: text("related_files").array().default(sql`'{}'::text[]`),
+  relatedBeaconId: varchar("related_beacon_id"), // If triggered by Daniela beacon
+  
+  suggestedAction: text("suggested_action"), // What Wren recommends
+  resolutionNotes: text("resolution_notes"), // How it was resolved
+  resolvedAt: timestamp("resolved_at"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_wren_triggers_status").on(table.status),
+  index("idx_wren_triggers_urgency").on(table.urgency),
+  index("idx_wren_triggers_type").on(table.triggerType),
+  index("idx_wren_triggers_component").on(table.relatedComponent),
+]);
+
+export const insertWrenProactiveTriggerSchema = createInsertSchema(wrenProactiveTriggers).omit({
+  id: true,
+  occurrenceCount: true,
+  firstOccurredAt: true,
+  lastOccurredAt: true,
+  resolvedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertWrenProactiveTrigger = z.infer<typeof insertWrenProactiveTriggerSchema>;
+export type WrenProactiveTrigger = typeof wrenProactiveTriggers.$inferSelect;
+
+// ===== Architectural Decision Records (ADR) =====
+// Capture the reasoning behind major decisions for future reference
+
+export const architecturalDecisionRecords = pgTable("architectural_decision_records", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  title: varchar("title").notNull(),
+  status: varchar("status").default("accepted"), // proposed, accepted, deprecated, superseded
+  
+  // The decision itself
+  context: text("context").notNull(), // Why was this decision needed?
+  decision: text("decision").notNull(), // What did we decide?
+  rationale: text("rationale").notNull(), // Why did we choose this?
+  
+  // What else was considered
+  alternativesConsidered: jsonb("alternatives_considered").$type<{
+    option: string;
+    pros: string[];
+    cons: string[];
+    whyRejected?: string;
+  }[]>().default(sql`'[]'::jsonb`),
+  
+  // Consequences
+  consequences: text("consequences"), // What are the implications?
+  tradeoffs: text("tradeoffs"), // What did we give up?
+  
+  // Links
+  relatedFiles: text("related_files").array().default(sql`'{}'::text[]`),
+  relatedAdrIds: text("related_adr_ids").array().default(sql`'{}'::text[]`), // Other ADRs this relates to
+  supersededBy: varchar("superseded_by"), // If this ADR was replaced
+  
+  // Metadata
+  decisionMadeBy: varchar("decision_made_by"), // Who made the decision
+  decisionMadeAt: timestamp("decision_made_at").notNull().defaultNow(),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_adr_status").on(table.status),
+  index("idx_adr_created").on(table.createdAt),
+]);
+
+export const insertADRSchema = createInsertSchema(architecturalDecisionRecords).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertADR = z.infer<typeof insertADRSchema>;
+export type ArchitecturalDecisionRecord = typeof architecturalDecisionRecords.$inferSelect;
+
+// ===== Daniela Feedback Loop =====
+// Track if Wren's features actually helped Daniela teach better
+
+export const danielaFeatureFeedback = pgTable("daniela_feature_feedback", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // What feature/change was implemented
+  featureDescription: text("feature_description").notNull(),
+  implementedAt: timestamp("implemented_at").notNull().defaultNow(),
+  
+  // Link to original request
+  originBeaconId: varchar("origin_beacon_id"), // The beacon that requested this
+  originType: varchar("origin_type"), // 'beacon', 'founder_request', 'proactive'
+  
+  // Effectiveness tracking
+  measurementType: varchar("measurement_type"), // 'beacon_reduction', 'teaching_success', 'student_progress'
+  baselineValue: real("baseline_value"), // Value before feature
+  currentValue: real("current_value"), // Value after feature
+  
+  // Qualitative feedback
+  danielaFeedback: text("daniela_feedback"), // What Daniela says about it
+  founderFeedback: text("founder_feedback"), // What founder says
+  
+  // Status
+  isEffective: boolean("is_effective"), // null = not yet measured
+  effectivenessScore: real("effectiveness_score"), // 0-1 scale
+  
+  // Dates
+  lastMeasuredAt: timestamp("last_measured_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_feature_feedback_beacon").on(table.originBeaconId),
+  index("idx_feature_feedback_effective").on(table.isEffective),
+]);
+
+export const insertDanielaFeatureFeedbackSchema = createInsertSchema(danielaFeatureFeedback).omit({
+  id: true,
+  lastMeasuredAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertDanielaFeatureFeedback = z.infer<typeof insertDanielaFeatureFeedbackSchema>;
+export type DanielaFeatureFeedback = typeof danielaFeatureFeedback.$inferSelect;
+
+// ===== Project Health Metrics =====
+// Track health of different components/areas over time
+
+export const projectHealthMetrics = pgTable("project_health_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  component: varchar("component").notNull(), // 'voice_pipeline', 'auth', 'billing', etc.
+  
+  // Health indicators
+  errorCount30d: integer("error_count_30d").default(0),
+  fixCount30d: integer("fix_count_30d").default(0), // How many times we've had to fix it
+  beaconCount30d: integer("beacon_count_30d").default(0), // Daniela struggles here
+  changeCount30d: integer("change_count_30d").default(0), // How often it's modified
+  
+  // Calculated scores
+  healthScore: real("health_score").default(1.0), // 0-1 where 1 is healthy
+  churnScore: real("churn_score").default(0), // How much it changes
+  stabilityScore: real("stability_score").default(1.0), // How stable it is
+  
+  // Hot spot detection
+  isHotSpot: boolean("is_hot_spot").default(false), // Needs attention
+  hotSpotReason: text("hot_spot_reason"),
+  
+  lastCalculatedAt: timestamp("last_calculated_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_health_component").on(table.component),
+  index("idx_health_hotspot").on(table.isHotSpot),
+  index("idx_health_score").on(table.healthScore),
+]);
+
+export const insertProjectHealthMetricSchema = createInsertSchema(projectHealthMetrics).omit({
+  id: true,
+  lastCalculatedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertProjectHealthMetric = z.infer<typeof insertProjectHealthMetricSchema>;
+export type ProjectHealthMetric = typeof projectHealthMetrics.$inferSelect;
+
