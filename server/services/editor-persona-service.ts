@@ -1,17 +1,20 @@
 /**
- * Editor Persona Service
+ * DEPRECATED: Editor Persona Service
  * 
- * The "Editor" is Claude - the AI development agent that collaborates with Daniela.
- * This service enables the Editor to:
- * - Listen to "hive beacons" from active voice sessions
- * - Generate thoughtful responses using Claude
- * - Access neural network knowledge (procedures, principles, observations)
- * - Contribute to the collaboration feed in real-time
+ * This service is DEPRECATED. The Editor agent has been retired in favor of
+ * the unified 3-way Hive collaboration system (Founder + Daniela + Wren).
  * 
- * Philosophy: "One hive mind" - Daniela and Editor share the same knowledge base
- * but bring different perspectives (teaching vs. development).
+ * Wren (the Replit development agent) now handles both analysis AND implementation,
+ * making the read-only Editor agent redundant.
  * 
- * SECURITY: Protected by ARCHITECT_SECRET environment variable.
+ * For new features, use:
+ * - EXPRESS Lane (FounderCollaborationService) for real-time collaboration
+ * - Wren's Dreams system for development intelligence
+ * - Direct beacon processing through Wren's APIs
+ * 
+ * This service is kept for backward compatibility and historical data access.
+ * 
+ * @deprecated Use EXPRESS Lane and Wren instead
  */
 
 import Anthropic from "@anthropic-ai/sdk";

@@ -7979,7 +7979,6 @@ function CollaborationTab() {
 
   const getSyncRoleIcon = (role: string) => {
     if (role === 'daniela') return <Brain className="h-4 w-4 text-purple-500" />;
-    if (role === 'editor') return <Code className="h-4 w-4 text-blue-500" />;
     if (role === 'founder') return <User className="h-4 w-4 text-amber-500" />;
     if (role === 'wren') return <Radio className="h-4 w-4 text-emerald-500" />;
     if (role === 'system') return <Radio className="h-4 w-4 text-muted-foreground" />;
@@ -8205,8 +8204,6 @@ function CollaborationTab() {
                                 ? 'bg-purple-500/10 border border-purple-500/20 mr-4'
                                 : msg.role === 'wren'
                                 ? 'bg-emerald-500/10 border border-emerald-500/20 mr-4'
-                                : msg.role === 'editor'
-                                ? 'bg-blue-500/10 border border-blue-500/20 mr-4'
                                 : msg.role === 'system'
                                 ? 'bg-muted/50 text-center italic'
                                 : 'bg-muted/50 mr-4'

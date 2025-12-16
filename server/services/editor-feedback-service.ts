@@ -1,15 +1,17 @@
 /**
- * Editor Feedback Service
+ * DEPRECATED: Editor Feedback Service
  * 
- * Surfaces Editor observations and feedback to Daniela's session context,
- * enabling the feedback loop where Daniela can read and adopt Editor suggestions.
+ * This service is DEPRECATED. The Editor agent has been retired in favor of
+ * the unified 3-way Hive (Founder + Daniela + Wren).
  * 
- * Flow:
- * 1. Editor responds to beacons during/after voice sessions
- * 2. This service retrieves unsurfaced feedback for a user
- * 3. TutorOrchestrator injects feedback into Daniela's system prompt
- * 4. Daniela can adopt insights using [ADOPT_INSIGHT:id] markers
- * 5. Adoption is tracked for effectiveness measurement
+ * Feedback and insights are now handled through:
+ * - EXPRESS Lane for real-time Founder-Daniela-Wren collaboration
+ * - Wren's Dreams system for development intelligence
+ * - Direct beacon processing through Wren's APIs
+ * 
+ * This service is kept for backward compatibility and historical data access.
+ * 
+ * @deprecated Editor retired - use EXPRESS Lane and Wren instead
  */
 
 import { db } from "../db";

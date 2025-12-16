@@ -657,9 +657,9 @@ export default function Chat() {
                 <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-0">
                   {syncState.messages.length === 0 ? (
                     <div className="text-center text-muted-foreground text-sm py-8">
-                      <Brain className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <Radio className="h-8 w-8 mx-auto mb-2 opacity-50" />
                       <p>EXPRESS Lane ready</p>
-                      <p className="text-xs mt-1">3-way collaboration: Founder, Daniela, Wren</p>
+                      <p className="text-xs mt-1">Hive collaboration: Founder + Daniela + Wren</p>
                     </div>
                   ) : (
                     syncState.messages.map((msg) => (
@@ -670,8 +670,6 @@ export default function Chat() {
                             ? 'bg-amber-500/10 border border-amber-500/20' 
                             : msg.role === 'daniela'
                             ? 'bg-primary/10 border border-primary/20'
-                            : msg.role === 'editor'
-                            ? 'bg-blue-500/10 border border-blue-500/20'
                             : msg.role === 'wren'
                             ? 'bg-emerald-500/10 border border-emerald-500/20'
                             : 'bg-muted border border-border'
@@ -681,7 +679,6 @@ export default function Chat() {
                         <div className="flex items-center gap-1 mb-1">
                           {msg.role === 'founder' && <Code className="h-3 w-3 text-amber-500" />}
                           {msg.role === 'daniela' && <Sparkles className="h-3 w-3 text-primary" />}
-                          {msg.role === 'editor' && <Brain className="h-3 w-3 text-blue-500" />}
                           {msg.role === 'wren' && <Radio className="h-3 w-3 text-emerald-500" />}
                           <span className="font-medium text-xs capitalize">{msg.role}</span>
                           {msg.messageType === 'voice' && (

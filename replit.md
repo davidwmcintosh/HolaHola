@@ -22,14 +22,14 @@ The frontend is built with React and TypeScript (Vite), Wouter for routing, and 
 Daniela is a single core AI intelligence, with all interaction modes routing through a unified pipeline. `VoicePresentation` defines stylistic elements, while the intelligence remains Daniela's via `TutorOrchestrator`. Granular intervention controls allow precise modification of Daniela's teaching approach.
 
 ### Hive Collaboration System
-This system enables collaboration between the founder, Daniela (AI tutor), Editor (observer/analyst), and Wren (development builder). Daniela emits "beacons" (e.g., `capability_gap`, `tool_request`) when encountering teaching limitations. 
+This system enables collaboration between the founder, Daniela (AI tutor), and Wren (development builder). Daniela emits "beacons" (e.g., `capability_gap`, `tool_request`) when encountering teaching limitations. 
 
 **EXPRESS Lane** is the unified 3-way collaboration backbone:
-- Single communication channel for all Hive participants (Founder, Daniela, Wren, Editor)
+- Single communication channel for all Hive participants (Founder, Daniela, Wren)
 - Persisted in `founderSessions` + `collaborationMessages` tables
 - Accessible from: Voice chat slide-out, Command Center UI, Wren startup context
 - Wren access: `/api/wren/hive-context` endpoint provides formatted EXPRESS Lane context
-- Replaces the deprecated `agentCollabThreads`/`agentCollabMessages` system
+- Replaces deprecated systems: `agentCollabThreads`/`agentCollabMessages` and Editor agent
 
 ### Emergent Intelligence Architecture
 The Hive provides a substrate for collective intelligence where Daniela and Wren (the development agent) have persistent memory and autonomous learning capabilities. This includes a core loop of Capture, Store, Retrieve, and Apply for both agents, and cross-agent collaboration where beacons from Daniela inform Wren's development, and Wren's architectural discoveries inform Daniela's capabilities.
@@ -61,8 +61,8 @@ Five pillars enabling Wren to be proactive and effective without repeated contex
 - Moderate confidence (<0.7): Note about pronunciation practice needs
 - High confidence (>=0.7): Normal processing
 
-### Editor (Observer/Analyst Agent)
-Editor is a Claude-powered agent that responds to Daniela's beacons, providing analysis, suggestions, and feedback on teaching patterns and pedagogical advice, but cannot implement changes.
+### Editor (RETIRED)
+Editor was a Claude-powered observer/analyst agent that responded to beacons. It has been retired in favor of the unified 3-way Hive (Founder + Daniela + Wren). Wren now handles both analysis AND implementation, making the read-only Editor redundant. Editor services (`server/services/editor-*.ts`) are deprecated and kept only for historical data access.
 
 ### Wren (Development Builder Agent)
 Wren is the Replit development agent with full access to the Hive's shared knowledge (filesystem, database, code context). Unlike Editor, Wren can build and implement changes. Wren has Hive Awareness APIs to access context, sessions, messages, and to post updates and consult Daniela.

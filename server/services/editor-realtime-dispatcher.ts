@@ -1,19 +1,16 @@
 /**
- * Editor Realtime Dispatcher
+ * DEPRECATED: Editor Realtime Dispatcher
  * 
- * High-frequency (1s) polling service for processing hive beacons in real-time.
- * Uses PostgreSQL FOR UPDATE SKIP LOCKED pattern for safe concurrent processing.
+ * This dispatcher is DEPRECATED and DISABLED. The Editor agent has been retired
+ * in favor of the unified 3-way Hive (Founder + Daniela + Wren).
  * 
- * Features:
- * - 1s polling interval (much faster than the 30s background worker)
- * - 600ms minimum spacing between Claude API calls
- * - Exponential backoff on failures
- * - Worker instance identification for debugging
- * - Graceful shutdown handling
+ * Real-time beacon processing is now handled through:
+ * - EXPRESS Lane WebSocket for instant Founder-Daniela-Wren collaboration
+ * - Wren's proactive intelligence for development responses
  * 
- * Philosophy: Real-time collaboration requires faster feedback loops than
- * batch processing. This dispatcher bridges the gap between beacon emission
- * and Editor response.
+ * This file is kept for reference but the dispatcher no longer starts.
+ * 
+ * @deprecated Editor retired - use EXPRESS Lane and Wren instead
  */
 
 import { db } from "../db";

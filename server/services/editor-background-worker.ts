@@ -1,16 +1,16 @@
 /**
- * Editor Background Worker
+ * DEPRECATED: Editor Background Worker
  * 
- * A lightweight background worker that enables autonomous Daniela-Editor collaboration:
- * - Processes pending hive beacons (teaching moments awaiting Editor response)
- * - Generates post-session reflections after voice sessions end
- * - Runs on a configurable interval (default: 30 seconds)
- * - Throttles processing to avoid overwhelming Claude API
+ * This worker is DEPRECATED and DISABLED. The Editor agent has been retired
+ * in favor of the unified 3-way Hive (Founder + Daniela + Wren).
  * 
- * Philosophy: The Editor can continue thinking and responding even after 
- * the voice session ends, providing asynchronous insights to founders.
+ * Beacon processing is now handled through:
+ * - EXPRESS Lane for real-time Founder-Daniela-Wren collaboration
+ * - Wren's proactive intelligence system for development responses
  * 
- * SECURITY: Protected by ARCHITECT_SECRET - worker only starts if configured.
+ * This file is kept for reference but the worker no longer starts.
+ * 
+ * @deprecated Editor retired - use EXPRESS Lane and Wren instead
  */
 
 import { editorPersonaService } from "./editor-persona-service";
