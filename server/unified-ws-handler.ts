@@ -2038,14 +2038,16 @@ This is a voice conversation. Speak naturally, as you would.`;
             // Run post-session analysis for motivation tracking (async, non-blocking)
             const capturedUserId = session.userId?.toString();
             const capturedLanguage = session.targetLanguage;
-            const capturedStartTime = sessionStartTime > 0 ? new Date(sessionStartTime) : new Date();
+            const hasValidStartTime = sessionStartTime > 0;
             
             if (capturedUserId && capturedLanguage) {
-              // Run both post-session analysis and prediction validation in parallel
-              Promise.all([
-                studentLearningService.runPostSessionAnalysis(capturedUserId, capturedLanguage),
-                studentLearningService.runPostSessionValidation(capturedUserId, capturedLanguage, capturedStartTime)
-              ])
+              // Run post-session analysis (always) and validation (only if session had valid start)
+              const analysisPromise = studentLearningService.runPostSessionAnalysis(capturedUserId, capturedLanguage);
+              const validationPromise = hasValidStartTime 
+                ? studentLearningService.runPostSessionValidation(capturedUserId, capturedLanguage, new Date(sessionStartTime))
+                : Promise.resolve({ strugglesObserved: [], predictionsValidated: 0 });
+              
+              Promise.all([analysisPromise, validationPromise])
                 .then(([alert, validation]) => {
                   if (alert) {
                     console.log(`[Streaming Voice] Post-session motivation alert: ${alert.severity}`);
