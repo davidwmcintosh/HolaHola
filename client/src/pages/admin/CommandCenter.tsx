@@ -5335,15 +5335,34 @@ function EditorChatTab() {
     if (!inputMessage.trim() && pendingAttachments.length === 0) return;
     
     if (expressLaneMode) {
-      setIsSending(true);
-      try {
-        await sendExpressMessageMutation.mutateAsync({
-          content: inputMessage.trim() || '(attachment)',
-          attachments: pendingAttachments.length > 0 ? pendingAttachments : undefined,
-          wrenTagged: tagForWren
-        });
-      } finally {
-        setIsSending(false);
+      // Use WebSocket for true consciousness - Hive Consciousness will trigger Daniela/Wren responses
+      if (founderCollab.isConnected) {
+        const content = inputMessage.trim() || '(attachment)';
+        const metadata: Record<string, any> = {};
+        
+        if (pendingAttachments.length > 0) {
+          metadata.attachments = pendingAttachments;
+        }
+        if (tagForWren) {
+          metadata.wrenTagged = true;
+        }
+        
+        founderCollab.sendMessage('founder', content, Object.keys(metadata).length > 0 ? metadata : undefined);
+        setInputMessage('');
+        setPendingAttachments([]);
+        setTagForWren(false);
+      } else {
+        // Fallback to REST if WebSocket not connected
+        setIsSending(true);
+        try {
+          await sendExpressMessageMutation.mutateAsync({
+            content: inputMessage.trim() || '(attachment)',
+            attachments: pendingAttachments.length > 0 ? pendingAttachments : undefined,
+            wrenTagged: tagForWren
+          });
+        } finally {
+          setIsSending(false);
+        }
       }
     } else {
       if (!selectedConversationId) return;

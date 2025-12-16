@@ -133,6 +133,12 @@ class HiveConsciousnessService {
   private shouldWrenRespond(message: CollaborationMessage): { shouldRespond: boolean } {
     const content = message.content.toLowerCase();
     
+    // Check metadata for wrenTagged flag (from UI toggle)
+    const metadata = message.metadata as Record<string, any> | null;
+    if (metadata?.wrenTagged) {
+      return { shouldRespond: true };
+    }
+    
     // Direct address
     if (content.includes('@wren') || content.includes('wren,') || content.includes('hey wren')) {
       return { shouldRespond: true };
