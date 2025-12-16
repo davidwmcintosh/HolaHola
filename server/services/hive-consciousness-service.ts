@@ -108,8 +108,9 @@ class HiveConsciousnessService {
   private shouldDanielaRespond(message: CollaborationMessage): { shouldRespond: boolean } {
     const content = message.content.toLowerCase();
     
-    // Direct address
-    if (content.includes('@daniela') || content.includes('daniela,') || content.includes('hey daniela')) {
+    // Direct address - name anywhere in message (with word boundary check)
+    // Matches: "daniela how are you", "@daniela", "hey daniela", "daniela,"
+    if (/\bdaniela\b/.test(content)) {
       return { shouldRespond: true };
     }
     
@@ -139,8 +140,9 @@ class HiveConsciousnessService {
       return { shouldRespond: true };
     }
     
-    // Direct address
-    if (content.includes('@wren') || content.includes('wren,') || content.includes('hey wren')) {
+    // Direct address - name anywhere in message (with word boundary check)
+    // Matches: "wren how we looking", "@wren", "hey wren", "wren,"
+    if (/\bwren\b/.test(content)) {
       return { shouldRespond: true };
     }
     
