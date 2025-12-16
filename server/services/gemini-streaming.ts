@@ -11,6 +11,88 @@ import { GoogleGenAI, Content, Part } from "@google/genai";
 import { SENTENCE_CHUNKING_CONFIG } from "@shared/streaming-voice-types";
 
 /**
+ * Strip internal notation tags from text BEFORE sentence chunking
+ * These are Daniela's internal commands that should never be spoken aloud:
+ * - [SELF_SURGERY ...] - neural network proposals
+ * - [SELF_LEARN ...] - autonomous learning writes
+ * - [OBSERVE ...] - teaching observations
+ * - [COLLAB:TYPE]...[/COLLAB] - collaboration signals
+ * - [KNOWLEDGE_PING ...] - knowledge queries
+ * 
+ * Uses balanced bracket matching for tags with complex nested content (JSON, quotes)
+ */
+function stripInternalNotationTags(text: string): string {
+  // Strip COLLAB tags first (have closing tags)
+  text = text.replace(/\[COLLAB:[A-Z_]+\][\s\S]*?\[\/COLLAB\]/gi, '');
+  
+  // Strip bracket-based tags with balanced matching for complex content
+  // Pattern: [TAG_NAME followed by content until balanced ]
+  const tagPatterns = ['SELF_SURGERY', 'SELF_LEARN', 'OBSERVE', 'KNOWLEDGE_PING'];
+  
+  for (const tagName of tagPatterns) {
+    let result = '';
+    let i = 0;
+    
+    while (i < text.length) {
+      // Look for tag opening
+      const tagStart = `[${tagName}`;
+      const startIdx = text.indexOf(tagStart, i);
+      
+      if (startIdx === -1) {
+        // No more tags, append rest
+        result += text.substring(i);
+        break;
+      }
+      
+      // Append text before tag
+      result += text.substring(i, startIdx);
+      
+      // Find balanced closing bracket
+      let depth = 0;
+      let inString = false;
+      let stringChar = '';
+      let j = startIdx;
+      
+      while (j < text.length) {
+        const char = text[j];
+        const prevChar = j > 0 ? text[j - 1] : '';
+        
+        if (inString) {
+          // Handle string escapes and closing
+          if (char === stringChar && prevChar !== '\\') {
+            inString = false;
+          }
+        } else {
+          if (char === '"' || char === "'") {
+            inString = true;
+            stringChar = char;
+          } else if (char === '[') {
+            depth++;
+          } else if (char === ']') {
+            depth--;
+            if (depth === 0) {
+              // Found balanced closing bracket - skip entire tag
+              i = j + 1;
+              break;
+            }
+          }
+        }
+        j++;
+      }
+      
+      // If we didn't find balanced bracket, skip just the opening
+      if (j >= text.length) {
+        i = text.length;
+      }
+    }
+    
+    text = result;
+  }
+  
+  return text;
+}
+
+/**
  * Sentence chunk emitted by the streaming service
  */
 export interface SentenceChunk {
@@ -146,6 +228,9 @@ export class GeminiStreamingService {
     
     // Helper to flush buffer if it has enough content
     const flushBufferIfNeeded = async () => {
+      // Strip internal notation tags before flushing
+      buffer = stripInternalNotationTags(buffer);
+      
       if (buffer.length >= SENTENCE_CHUNKING_CONFIG.MIN_SENTENCE_LENGTH) {
         // Find best break point for partial flush
         const breakPoint = this.findClauseBreak(buffer) || buffer.length;
@@ -230,6 +315,10 @@ export class GeminiStreamingService {
         // Notify progress
         onProgress?.(buffer, fullText.length);
         
+        // Strip internal notation tags BEFORE sentence extraction
+        // This prevents [SELF_SURGERY ...] etc. from being spoken aloud
+        buffer = stripInternalNotationTags(buffer);
+        
         // Check for complete sentences
         const sentences = this.extractCompleteSentences(buffer);
         
@@ -276,6 +365,9 @@ export class GeminiStreamingService {
       if (flushTimeoutId) {
         clearTimeout(flushTimeoutId);
       }
+      
+      // Strip internal notation tags from remaining buffer before final output
+      buffer = stripInternalNotationTags(buffer);
       
       // Emit any remaining text as final chunk
       if (buffer.trim()) {
