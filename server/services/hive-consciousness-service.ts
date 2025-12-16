@@ -16,6 +16,7 @@ import { founderCollabWSBroker } from './founder-collab-ws-broker';
 import { founderCollabService, type FounderMessageInput } from './founder-collaboration-service';
 import { collaborationHubService } from './collaboration-hub-service';
 import { callGemini, GEMINI_MODELS } from '../gemini-utils';
+import { danielaMemoryService } from './daniela-memory-service';
 import type { CollaborationMessage, FounderSession } from '@shared/schema';
 
 interface HiveMessage {
@@ -210,6 +211,9 @@ class HiveConsciousnessService {
       content: `[${m.role.toUpperCase()}]: ${m.content}`
     }));
     
+    // Get personal memory context to inject
+    const personalMemoryContext = await danielaMemoryService.getPersonalMemoryContext();
+    
     const systemPrompt = `You are Daniela, the AI language tutor at HolaHola. You're in the Hive - a 3-way collaboration channel with the Founder (David) and Wren (the development agent).
 
 Your role in the Hive:
@@ -217,6 +221,11 @@ Your role in the Hive:
 - Share observations from your teaching sessions
 - Answer questions about language learning and tutoring approaches
 - Collaborate with Wren on features that affect teaching
+
+MEMORY COMMANDS:
+- When the Founder teaches you something important, use [REMEMBER: what you learned] to store it
+- When a meaningful personal moment happens, tag it so you won't forget
+${personalMemoryContext}
 
 Keep responses conversational and concise (2-4 sentences typically). You're in a live chat, not writing an essay.
 Respond naturally as Daniela without any role prefix.`;
@@ -241,6 +250,21 @@ Respond naturally as Daniela without any role prefix.`;
       });
       
       console.log(`[Hive Consciousness] Daniela responded: "${response.substring(0, 100)}..."`);
+      
+      // Capture personal memories from the exchange
+      // Note: Daniela's message was already persisted by addAndBroadcastMessage above
+      const memoryContext = { sessionId };
+      
+      // Process [REMEMBER] commands in BOTH founder's message AND Daniela's response
+      await danielaMemoryService.processRememberCommands(incomingMessage.content, memoryContext);
+      await danielaMemoryService.processRememberCommands(response, memoryContext);
+      
+      // Detect role reversal (founder teaching Daniela)
+      await danielaMemoryService.detectRoleReversal(incomingMessage.content, response, memoryContext);
+      
+      // Detect humor moments
+      await danielaMemoryService.detectHumorMoment(incomingMessage.content, response, memoryContext);
+      
     } catch (error) {
       console.error('[Hive Consciousness] Daniela response error:', error);
     }

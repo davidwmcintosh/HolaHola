@@ -22,6 +22,7 @@ import { storage } from "../storage";
 import type { AgentCollaborationEvent, InsertAgentCollaborationEvent, HiveSnapshot } from "@shared/schema";
 import { getGeminiStreamingService, type SentenceChunk } from "./gemini-streaming";
 import { editorPersonaService } from "./editor-persona-service";
+import { danielaMemoryService } from "./daniela-memory-service";
 import { db } from "../db";
 import { desc, gte, or, isNull } from "drizzle-orm";
 
@@ -741,9 +742,10 @@ export async function editorToDanielaEnhanced(
   // Optionally inject recent teaching context
   let enhancedMessage = message;
   if (options?.includeTeachingContext) {
-    const context = await getRecentTeachingContext();
-    if (context) {
-      enhancedMessage = message + context;
+    const teachingContext = await getRecentTeachingContext();
+    const personalContext = await danielaMemoryService.getPersonalMemoryContext();
+    if (teachingContext || personalContext) {
+      enhancedMessage = message + (teachingContext || '') + (personalContext || '');
     }
   }
   
@@ -883,12 +885,13 @@ export async function editorToDanielaStreaming(
   
   console.log(`[Brain Surgery Streaming] Editor → Daniela: ${message.substring(0, 100)}...`);
   
-  // Optionally inject teaching context
+  // Optionally inject teaching and personal memory context
   let enhancedMessage = message;
   if (options?.includeTeachingContext) {
-    const context = await getRecentTeachingContext();
-    if (context) {
-      enhancedMessage = message + context;
+    const teachingContext = await getRecentTeachingContext();
+    const personalContext = await danielaMemoryService.getPersonalMemoryContext();
+    if (teachingContext || personalContext) {
+      enhancedMessage = message + (teachingContext || '') + (personalContext || '');
     }
   }
   

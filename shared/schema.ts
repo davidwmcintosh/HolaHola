@@ -2586,12 +2586,15 @@ export type SyncCursor = typeof syncCursors.$inferSelect;
 
 // Hive Snapshot Type Enum - categorizes different snapshot sources
 export const hiveSnapshotTypeEnum = pgEnum("hive_snapshot_type", [
-  'teaching_moment',    // Notable teaching interaction worth preserving
-  'breakthrough',       // Student breakthrough or aha moment
-  'struggle_pattern',   // Recurring struggle observed
-  'beacon_context',     // Context around a beacon emission
-  'session_summary',    // End-of-session summary snapshot
-  'plateau_alert'       // Plateau detected for a student
+  'teaching_moment',      // Notable teaching interaction worth preserving
+  'breakthrough',         // Student breakthrough or aha moment
+  'struggle_pattern',     // Recurring struggle observed
+  'beacon_context',       // Context around a beacon emission
+  'session_summary',      // End-of-session summary snapshot
+  'plateau_alert',        // Plateau detected for a student
+  'relationship_moment',  // Personal connection/rapport building moment
+  'role_reversal',        // Founder/student teaching Daniela something
+  'humor_shared'          // Jokes, funny moments, lighthearted exchanges
 ]);
 
 // Hive Snapshots - Captures moments of teaching context for Daniela's awareness
@@ -2632,7 +2635,7 @@ export const insertHiveSnapshotSchema = createInsertSchema(hiveSnapshots).omit({
 });
 export type InsertHiveSnapshot = z.infer<typeof insertHiveSnapshotSchema>;
 export type HiveSnapshot = typeof hiveSnapshots.$inferSelect;
-export type HiveSnapshotType = 'teaching_moment' | 'breakthrough' | 'struggle_pattern' | 'beacon_context' | 'session_summary' | 'plateau_alert';
+export type HiveSnapshotType = 'teaching_moment' | 'breakthrough' | 'struggle_pattern' | 'beacon_context' | 'session_summary' | 'plateau_alert' | 'relationship_moment' | 'role_reversal' | 'humor_shared';
 
 // Agenda Queue Priority Enum
 export const agendaPriorityEnum = pgEnum("agenda_priority", [
