@@ -41,7 +41,7 @@ import { eq, desc, and, gt, sql, isNull } from "drizzle-orm";
 const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production' : 'development';
 
 export interface FounderMessageInput {
-  role: 'founder' | 'daniela' | 'editor' | 'system';
+  role: 'founder' | 'daniela' | 'editor' | 'system' | 'wren';
   content: string;
   messageType?: 'text' | 'voice';
   audioUrl?: string;
