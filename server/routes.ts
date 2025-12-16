@@ -60,6 +60,7 @@ import { getStreamingVoiceOrchestrator } from "./services/streaming-voice-orches
 import { collaborationHubService } from "./services/collaboration-hub-service";
 import { hiveCollaborationService } from "./services/hive-collaboration-service";
 import { hiveContextService } from "./services/hive-context-service";
+import { wrenIntelligenceService } from "./services/wren-intelligence-service";
 import { editorPersonaService, validateEditorSecret } from "./services/editor-persona-service";
 import { supportPersonaService } from "./services/support-persona-service";
 import { founderCollabService } from "./services/founder-collaboration-service";
@@ -15237,6 +15238,74 @@ ${memoryContext}
     }
   });
 
+  // WREN INTELLIGENCE: Get ranked insights (by use + recency)
+  // MUST be before /:id route
+  app.get("/api/wren/insights/ranked", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { limit } = req.query;
+      const insights = await wrenIntelligenceService.getRankedInsights(
+        limit ? parseInt(limit as string) : 20
+      );
+
+      res.json({ success: true, insights, count: insights.length });
+    } catch (error: any) {
+      console.error('[Wren Intelligence] Ranked error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // WREN INTELLIGENCE: Get stale insights (not used recently)
+  // MUST be before /:id route
+  app.get("/api/wren/insights/stale", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { days } = req.query;
+      const insights = await wrenIntelligenceService.getStaleInsights(
+        days ? parseInt(days as string) : 30
+      );
+
+      res.json({ success: true, insights, count: insights.length });
+    } catch (error: any) {
+      console.error('[Wren Intelligence] Stale error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // WREN INTELLIGENCE: Search insights
+  // MUST be before /:id route
+  app.get("/api/wren/insights/search", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { q, category, limit } = req.query;
+      if (!q || typeof q !== 'string') {
+        return res.status(400).json({ error: 'q query parameter is required' });
+      }
+
+      const insights = await wrenIntelligenceService.searchInsights(q, {
+        category: category as string | undefined,
+        limit: limit ? parseInt(limit as string) : undefined,
+      });
+
+      res.json({ success: true, insights, count: insights.length });
+    } catch (error: any) {
+      console.error('[Wren Intelligence] Search error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // WREN INSIGHTS: Get a specific insight
   app.get("/api/wren/insights/:id", async (req, res) => {
     try {
@@ -15313,6 +15382,125 @@ ${memoryContext}
       res.status(500).json({ error: error.message });
     } finally {
       if (dataModified) hiveContextService.invalidateCache();
+    }
+  });
+
+  // ============================================================================
+  // WREN INTELLIGENCE: Advanced insight management
+  // ============================================================================
+
+  // WREN INTELLIGENCE: Create enriched insight with auto-detection
+  app.post("/api/wren/insights/enriched", async (req, res) => {
+    let dataModified = false;
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { title, content, context, category, tags, relatedFiles, sessionId } = req.body;
+
+      if (!title || !content) {
+        return res.status(400).json({ error: 'title and content are required' });
+      }
+
+      const insight = await wrenIntelligenceService.createEnrichedInsight({
+        title,
+        content,
+        context,
+        category,
+        tags,
+        relatedFiles,
+        sessionId,
+      });
+      dataModified = true;
+
+      console.log(`[Wren Intelligence] Created enriched insight: ${title} (auto: ${insight.category})`);
+      res.json({ success: true, insight });
+    } catch (error: any) {
+      console.error('[Wren Intelligence] Create enriched error:', error);
+      res.status(500).json({ error: error.message });
+    } finally {
+      if (dataModified) hiveContextService.invalidateCache();
+    }
+  });
+
+  // WREN INTELLIGENCE: Reinforce an insight (increment use count)
+  app.post("/api/wren/insights/:id/reinforce", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const insight = await wrenIntelligenceService.reinforceInsight(req.params.id);
+      if (!insight) {
+        return res.status(404).json({ error: 'Insight not found' });
+      }
+
+      console.log(`[Wren Intelligence] Reinforced: ${insight.title} (now ${insight.useCount}x)`);
+      res.json({ success: true, insight });
+    } catch (error: any) {
+      console.error('[Wren Intelligence] Reinforce error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // WREN INTELLIGENCE: Find related insights (cross-session threading)
+  app.get("/api/wren/insights/:id/related", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { limit } = req.query;
+      const related = await wrenIntelligenceService.findRelatedInsights(
+        req.params.id,
+        limit ? parseInt(limit as string) : 5
+      );
+
+      res.json({ success: true, related, count: related.length });
+    } catch (error: any) {
+      console.error('[Wren Intelligence] Related error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // WREN INTELLIGENCE: Build knowledge graph from a seed insight
+  app.get("/api/wren/insights/:id/graph", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { depth } = req.query;
+      const graph = await wrenIntelligenceService.buildKnowledgeGraph(
+        req.params.id,
+        depth ? parseInt(depth as string) : 2
+      );
+
+      res.json({ success: true, ...graph });
+    } catch (error: any) {
+      console.error('[Wren Intelligence] Graph error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // WREN INTELLIGENCE: Get session summary
+  app.get("/api/wren/summary", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const summary = await wrenIntelligenceService.generateSessionSummary();
+      res.json({ success: true, summary });
+    } catch (error: any) {
+      console.error('[Wren Intelligence] Summary error:', error);
+      res.status(500).json({ error: error.message });
     }
   });
 
