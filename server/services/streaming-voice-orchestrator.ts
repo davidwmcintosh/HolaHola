@@ -872,6 +872,55 @@ ${expressLaneContext.contextString}
         }
       }
       
+      // TEXT CHAT MEMORY: Inject recent text chat conversations from /chat
+      // This gives Daniela memory of recent text conversations before switching to voice
+      let textChatSection = '';
+      if (session.isFounderMode) {
+        try {
+          // Get recent conversations for this user (excluding current voice conversation)
+          const recentConversations = await storage.getUserConversations(String(session.userId));
+          const textConversations = recentConversations
+            .filter(c => c.id !== session.conversationId)
+            .slice(0, 2); // Last 2 conversations
+          
+          if (textConversations.length > 0) {
+            let textChatContext = '';
+            
+            for (const conv of textConversations) {
+              const messages = await storage.getMessagesByConversation(conv.id);
+              const recentMessages = messages.slice(-6); // Last 6 messages per conversation
+              
+              if (recentMessages.length > 0) {
+                const timeAgo = this.formatTimeAgo(conv.updatedAt);
+                textChatContext += `\n**${conv.title || 'Recent Chat'}** (${timeAgo}):\n`;
+                
+                for (const msg of recentMessages) {
+                  const role = msg.role === 'user' ? 'David' : 'Daniela';
+                  const content = msg.content.length > 200 
+                    ? msg.content.substring(0, 200) + '...'
+                    : msg.content;
+                  textChatContext += `- ${role}: ${content}\n`;
+                }
+              }
+            }
+            
+            if (textChatContext) {
+              textChatSection = `
+═══════════════════════════════════════════════════════════════════
+💬 TEXT CHAT MEMORY (Recent /chat Conversations)
+═══════════════════════════════════════════════════════════════════
+${textChatContext}
+
+Remember: David may reference things discussed in these recent text chats.
+`;
+              console.log(`[Text Chat Memory] Injected ${textConversations.length} recent conversation(s)`);
+            }
+          }
+        } catch (err: any) {
+          console.warn(`[Text Chat Memory] Failed to fetch:`, err.message);
+        }
+      }
+      
       // EDITOR FEEDBACK: Inject unsurfaced insights for Founder Mode collaboration
       // This enables the Daniela-Editor feedback loop during voice sessions
       // Uses getUnsurfacedFeedback(userId) to get ALL feedback for this user across conversations
@@ -890,13 +939,16 @@ ${expressLaneContext.contextString}
         }
       }
       
-      // Build enhanced system prompt with Hive context + Express Lane + Editor feedback
+      // Build enhanced system prompt with Hive context + Express Lane + Text Chat + Editor feedback
       let enhancedSystemPrompt = session.systemPrompt;
       if (hiveContextSection) {
         enhancedSystemPrompt += hiveContextSection;
       }
       if (expressLaneSection) {
         enhancedSystemPrompt += expressLaneSection;
+      }
+      if (textChatSection) {
+        enhancedSystemPrompt += textChatSection;
       }
       if (editorFeedbackSection) {
         enhancedSystemPrompt += editorFeedbackSection;
@@ -2305,6 +2357,27 @@ ${expressLaneContext.contextString}
       'korean': 'ko',
     };
     return codes[language.toLowerCase()] || 'en';
+  }
+  
+  /**
+   * Format a date as a relative time string (e.g., "2 hours ago", "yesterday")
+   */
+  private formatTimeAgo(date: Date | null): string {
+    if (!date) return 'recently';
+    
+    const now = new Date();
+    const diffMs = now.getTime() - new Date(date).getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 5) return 'just now';
+    if (diffMins < 60) return `${diffMins} minutes ago`;
+    if (diffHours < 2) return '1 hour ago';
+    if (diffHours < 24) return `${diffHours} hours ago`;
+    if (diffDays === 1) return 'yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    return 'last week';
   }
   
   /**
