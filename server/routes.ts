@@ -4606,6 +4606,67 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
       );
       const model = getModelForTier(user.subscriptionTier, user);
       
+      // ========================================================================
+      // TEXT CHAT MEMORY: Inject recent conversations for cross-session memory
+      // ========================================================================
+      let textChatMemorySection = "";
+      try {
+        const allConversations = await storage.getUserConversations(userId);
+        // Prioritize titled conversations (more meaningful), then recent
+        const otherConversations = allConversations
+          .filter(c => c.id !== conversationId)
+          .sort((a, b) => {
+            const aHasTitle = a.title && a.title.trim().length > 0 ? 1 : 0;
+            const bHasTitle = b.title && b.title.trim().length > 0 ? 1 : 0;
+            if (aHasTitle !== bHasTitle) return bHasTitle - aHasTitle;
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          })
+          .slice(0, 8);
+        
+        if (otherConversations.length > 0) {
+          let memoryContext = '';
+          for (const conv of otherConversations) {
+            const convMessages = await storage.getMessagesByConversation(conv.id);
+            const lastMessages = convMessages.slice(-4); // Last 4 messages per conversation
+            
+            if (lastMessages.length > 0) {
+              const daysSinceCreated = Math.floor((Date.now() - new Date(conv.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+              const timeAgo = daysSinceCreated === 0 ? 'today' : daysSinceCreated === 1 ? 'yesterday' : `${daysSinceCreated} days ago`;
+              
+              memoryContext += `\n**${conv.title || 'Conversation'}** (${timeAgo}):\n`;
+              for (const msg of lastMessages) {
+                const role = msg.role === 'user' ? 'David' : 'Daniela';
+                const content = msg.content.length > 150 
+                  ? msg.content.substring(0, 150) + '...'
+                  : msg.content;
+                memoryContext += `- ${role}: ${content}\n`;
+              }
+            }
+          }
+          
+          if (memoryContext) {
+            textChatMemorySection = `
+
+═══════════════════════════════════════════════════════════════════
+💬 TEXT CHAT MEMORY (Your Recent Conversations with this Student)
+═══════════════════════════════════════════════════════════════════
+
+These are conversations you've had with this student in other sessions.
+If the student previously asked you to "remember" something, it's likely here.
+Reference this context when relevant - especially for memory requests!
+${memoryContext}
+═══════════════════════════════════════════════════════════════════
+`;
+            console.log(`[TEXT CHAT MEMORY] Injected ${otherConversations.length} conversations into context`);
+          }
+        }
+      } catch (memoryError) {
+        console.error('[TEXT CHAT MEMORY] Error fetching memory context:', memoryError);
+      }
+      
+      // Combine system prompt with text chat memory
+      const enrichedSystemPrompt = systemPrompt + textChatMemorySection;
+      
       console.log(`[CHAT] Using model ${model} for tier: ${user.subscriptionTier || 'free'}, voiceMode: ${isVoiceMode}`);
 
       // VOICE MODE: Fast text-only response, then background enrichment
@@ -4616,7 +4677,7 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
         const responseContent = await callGemini(
           model,
           [
-            { role: "system", content: systemPrompt },
+            { role: "system", content: enrichedSystemPrompt },
             ...recentMessages.map((msg) => ({
               role: msg.role as "user" | "assistant",
               content: msg.content,
@@ -4839,7 +4900,7 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
         parsedResponse = await callGeminiWithSchema(
           model,
           [
-            { role: "system", content: systemPrompt },
+            { role: "system", content: enrichedSystemPrompt },
             ...recentMessages.map((msg) => ({
               role: msg.role as "user" | "assistant",
               content: msg.content,
