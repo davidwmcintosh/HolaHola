@@ -720,7 +720,7 @@ class FounderCollaborationService {
         allMessages.push(...metadataMessages);
       }
       
-      // PRIORITY 3: Recent Founder-Daniela conversations with language keyword matching
+      // PRIORITY 3: Recent Hive conversations (Founder, Daniela, Wren) with language keyword matching
       if (allMessages.length < limit && targetLanguage) {
         const langLower = targetLanguage.toLowerCase();
         const generalMessages = await db.select({
@@ -732,7 +732,7 @@ class FounderCollaborationService {
           .from(collaborationMessages)
           .where(
             and(
-              sql`${collaborationMessages.role} IN ('founder', 'daniela')`,
+              sql`${collaborationMessages.role} IN ('founder', 'daniela', 'wren')`,
               sql`${collaborationMessages.metadata}->>'source' IS DISTINCT FROM 'voice_chat_sync'`,
               sql`${collaborationMessages.createdAt} > ${dateThreshold}`,
               sql`LOWER(${collaborationMessages.content}) LIKE '%' || ${langLower} || '%'`
@@ -742,6 +742,31 @@ class FounderCollaborationService {
           .limit(limit - allMessages.length);
         
         allMessages.push(...generalMessages);
+      }
+      
+      // PRIORITY 4: Recent Hive discussions (no language filter) - catches board meetings, North Star reviews, etc.
+      if (allMessages.length < limit) {
+        const hiveMessages = await db.select({
+          role: collaborationMessages.role,
+          content: collaborationMessages.content,
+          createdAt: collaborationMessages.createdAt,
+          metadata: collaborationMessages.metadata,
+        })
+          .from(collaborationMessages)
+          .where(
+            and(
+              sql`${collaborationMessages.role} IN ('founder', 'daniela', 'wren')`,
+              sql`${collaborationMessages.metadata}->>'source' IS DISTINCT FROM 'voice_chat_sync'`,
+              sql`${collaborationMessages.createdAt} > ${dateThreshold}`
+            )
+          )
+          .orderBy(desc(collaborationMessages.createdAt))
+          .limit(limit - allMessages.length);
+        
+        // Dedupe - don't add messages we already have
+        const existingIds = new Set(allMessages.map(m => m.content));
+        const newMessages = hiveMessages.filter(m => !existingIds.has(m.content));
+        allMessages.push(...newMessages);
       }
       
       if (allMessages.length === 0) {
