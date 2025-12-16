@@ -60,6 +60,16 @@ Editor is a Claude-powered agent that responds to Daniela's beacons, providing a
 ### Wren (Development Builder Agent)
 Wren is the Replit development agent with full access to the Hive's shared knowledge (filesystem, database, code context). Unlike Editor, Wren can build and implement changes. Wren has Hive Awareness APIs to access context, sessions, messages, and to post updates and consult Daniela.
 
+**Wren-Daniela Collaboration Channel** (`server/services/agent-collaboration-service.ts`):
+Direct AI-to-AI communication enabling real-time collaboration between Daniela (tutor) and Wren (development agent):
+- **Thread System**: Structured conversations with status tracking (awaiting_wren, awaiting_daniela, awaiting_founder, in_progress, resolved)
+- **Message Types**: request, proposal, clarification, feedback, implementation_report, acknowledgment, escalation, founder_directive
+- **Origin Tracking**: Threads can spawn from beacons (capability gaps) or spontaneously
+- **Founder Visibility**: All threads visible to founder with escalation capability and intervention directives
+- **Read Tracking**: Messages track readByDaniela, readByWren, readByFounder for awareness
+- **Context Injection**: Daniela receives Wren collaboration context in prompts; Wren startup ritual shows pending Daniela requests
+- **API Endpoints**: 17 routes under `/api/agent-collab/*` for full thread lifecycle management
+
 ### Feature Specifications
 HolaHola offers conversational onboarding, an adaptive multi-phase conversation system, and AI-suggested topics. It uses a streaming-only voice pipeline with push-to-talk. Personalized learning includes scenario-based learning, slow pronunciation, automatic vocabulary extraction, spaced repetition, streak tracking, progress charts, and auto-difficulty adjustment. AI-generated educational images are displayed. The application supports subscription tiers, tracks atomic voice message usage, and student proficiency using ACTFL standards. Institutional features include teacher class management, student enrollment, syllabus systems, assignment workflows, and a unified Command Center with RBAC. A Syllabus Builder allows customization. Drill-based lessons support multiple modes. Conversation history includes full-text search. "Founder Mode" provides a collaboration mode, and "Open Mic Mode" offers continuous listening.
 
