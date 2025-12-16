@@ -18,10 +18,15 @@ import {
   sessionNotes,
   messages,
   conversations,
+  predictedStruggles,
+  userMotivationAlerts,
+  pedagogicalInsights,
   type RecurringStruggle,
   type StudentInsight,
+  type PredictedStruggle,
+  type UserMotivationAlert,
 } from '@shared/schema';
-import { eq, and, desc, sql, gte, ilike, or } from 'drizzle-orm';
+import { eq, and, desc, sql, gte, ilike, or, count, ne } from 'drizzle-orm';
 import { storage } from '../storage';
 
 // Error categories with granular subcategories
@@ -1367,6 +1372,353 @@ export class StudentLearningService {
     }
     
     return lines.join('\n');
+  }
+  
+  // ============================================================
+  // PERSISTENCE & WIRING LAYER
+  // Writes predictions to neural network tables for Daniela to read
+  // ============================================================
+  
+  /**
+   * Run pre-session predictions and persist to database
+   * Called before each voice session starts
+   */
+  async runPreSessionPredictions(
+    studentId: string,
+    language: string,
+    proficiencyLevel?: string
+  ): Promise<PredictedStruggle[]> {
+    // Get predictions
+    const predictions = await this.predictUpcomingStruggles(studentId, language, proficiencyLevel);
+    
+    if (predictions.length === 0) {
+      return [];
+    }
+    
+    // Expire old predictions for this student
+    const now = new Date();
+    await db
+      .update(predictedStruggles)
+      .set({ isActive: false })
+      .where(
+        and(
+          eq(predictedStruggles.studentId, studentId),
+          eq(predictedStruggles.language, language),
+          eq(predictedStruggles.isActive, true)
+        )
+      );
+    
+    // Persist new predictions
+    const persistedPredictions: PredictedStruggle[] = [];
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    
+    for (const pred of predictions) {
+      const [area, topic] = pred.predictedStruggle.split(':');
+      
+      const [inserted] = await db
+        .insert(predictedStruggles)
+        .values({
+          studentId,
+          language,
+          predictedArea: area || 'general',
+          predictedTopic: topic || null,
+          prediction: `May struggle with ${pred.predictedStruggle.replace(/_/g, ' ')}`,
+          reasoning: pred.reason,
+          confidenceScore: pred.confidence,
+          forSessionDate: now,
+          expiresAt,
+          isActive: true,
+        })
+        .returning();
+      
+      if (inserted) {
+        persistedPredictions.push(inserted);
+      }
+    }
+    
+    console.log(`[StudentLearning] Persisted ${persistedPredictions.length} predictions for student ${studentId}`);
+    return persistedPredictions;
+  }
+  
+  /**
+   * Run post-session analysis and persist motivation alerts
+   * Called after each voice session ends
+   */
+  async runPostSessionAnalysis(
+    studentId: string,
+    language: string
+  ): Promise<UserMotivationAlert | null> {
+    // Get motivation prediction
+    const motivation = await this.predictMotivationDip(studentId, language);
+    
+    // Only persist if risk level is not low
+    if (motivation.riskLevel === 'low') {
+      return null;
+    }
+    
+    // Check for existing active alert
+    const existingAlerts = await db
+      .select()
+      .from(userMotivationAlerts)
+      .where(
+        and(
+          eq(userMotivationAlerts.studentId, studentId),
+          eq(userMotivationAlerts.language, language),
+          eq(userMotivationAlerts.status, 'active')
+        )
+      )
+      .limit(1);
+    
+    if (existingAlerts.length > 0) {
+      // Update existing alert with new data
+      const [updated] = await db
+        .update(userMotivationAlerts)
+        .set({
+          severity: motivation.riskLevel,
+          indicators: motivation.indicators,
+          suggestedActions: motivation.suggestedInterventions,
+          metricsAfter: motivation.score,
+          updatedAt: new Date(),
+        })
+        .where(eq(userMotivationAlerts.id, existingAlerts[0].id))
+        .returning();
+      
+      return updated;
+    }
+    
+    // Create new alert
+    const [alert] = await db
+      .insert(userMotivationAlerts)
+      .values({
+        studentId,
+        language,
+        alertType: 'motivation_dip',
+        severity: motivation.riskLevel,
+        description: `Student showing ${motivation.riskLevel} risk of motivation decline`,
+        indicators: motivation.indicators,
+        metricsAfter: motivation.score,
+        suggestedActions: motivation.suggestedInterventions,
+        teachingAdjustments: motivation.suggestedInterventions[0] || null,
+        status: 'active',
+      })
+      .returning();
+    
+    console.log(`[StudentLearning] Created motivation alert for student ${studentId}: ${motivation.riskLevel}`);
+    return alert;
+  }
+  
+  /**
+   * Get active predictions for Daniela's prompt
+   * Reads from database instead of computing on-the-fly
+   */
+  async getActivePredictionsForPrompt(
+    studentId: string,
+    language: string
+  ): Promise<string> {
+    const now = new Date();
+    
+    const activePredictions = await db
+      .select()
+      .from(predictedStruggles)
+      .where(
+        and(
+          eq(predictedStruggles.studentId, studentId),
+          eq(predictedStruggles.language, language),
+          eq(predictedStruggles.isActive, true),
+          gte(predictedStruggles.expiresAt, now)
+        )
+      )
+      .orderBy(desc(predictedStruggles.confidenceScore))
+      .limit(3);
+    
+    if (activePredictions.length === 0) {
+      return '';
+    }
+    
+    const lines: string[] = ['', '[PREDICTIVE TEACHING - Neural Network]'];
+    lines.push('Anticipated struggles (address proactively):');
+    
+    for (const pred of activePredictions) {
+      const struggle = `${pred.predictedArea}: ${pred.predictedTopic || 'general'}`.replace(/_/g, ' ');
+      const confidence = Math.round((pred.confidenceScore || 0.5) * 100);
+      lines.push(`  • ${struggle} (${confidence}% confidence)`);
+      if (pred.reasoning) {
+        lines.push(`    → ${pred.reasoning}`);
+      }
+    }
+    
+    return lines.join('\n');
+  }
+  
+  /**
+   * Get active motivation alerts for Daniela's prompt
+   * Reads from database to inform teaching approach
+   */
+  async getActiveAlertsForPrompt(
+    studentId: string,
+    language: string
+  ): Promise<string> {
+    const activeAlerts = await db
+      .select()
+      .from(userMotivationAlerts)
+      .where(
+        and(
+          eq(userMotivationAlerts.studentId, studentId),
+          eq(userMotivationAlerts.language, language),
+          eq(userMotivationAlerts.status, 'active')
+        )
+      )
+      .orderBy(desc(userMotivationAlerts.createdAt))
+      .limit(2);
+    
+    if (activeAlerts.length === 0) {
+      return '';
+    }
+    
+    const lines: string[] = ['', '[ENGAGEMENT ALERT - Neural Network]'];
+    
+    for (const alert of activeAlerts) {
+      lines.push(`${alert.alertType}: ${alert.severity?.toUpperCase()} risk`);
+      if (alert.indicators && alert.indicators.length > 0) {
+        lines.push(`  Indicators: ${alert.indicators.slice(0, 2).join(', ')}`);
+      }
+      if (alert.suggestedActions && alert.suggestedActions.length > 0) {
+        lines.push(`  → ${alert.suggestedActions[0]}`);
+      }
+    }
+    
+    return lines.join('\n');
+  }
+  
+  /**
+   * Validate a prediction after session ends
+   * Updates wasAccurate field based on actual struggles observed
+   */
+  async validatePredictions(
+    studentId: string,
+    language: string,
+    observedStruggles: string[]
+  ): Promise<void> {
+    const activePredictions = await db
+      .select()
+      .from(predictedStruggles)
+      .where(
+        and(
+          eq(predictedStruggles.studentId, studentId),
+          eq(predictedStruggles.language, language),
+          eq(predictedStruggles.isActive, true),
+          sql`${predictedStruggles.wasAccurate} IS NULL`
+        )
+      );
+    
+    for (const pred of activePredictions) {
+      const predicted = `${pred.predictedArea}:${pred.predictedTopic || ''}`.toLowerCase();
+      const wasAccurate = observedStruggles.some(obs => 
+        obs.toLowerCase().includes(pred.predictedArea?.toLowerCase() || '') ||
+        (pred.predictedTopic && obs.toLowerCase().includes(pred.predictedTopic.toLowerCase()))
+      );
+      
+      await db
+        .update(predictedStruggles)
+        .set({
+          wasAccurate,
+          validatedAt: new Date(),
+          outcomeNotes: wasAccurate 
+            ? `Prediction confirmed: student struggled with ${predicted}` 
+            : `Prediction not confirmed in this session`,
+        })
+        .where(eq(predictedStruggles.id, pred.id));
+    }
+  }
+  
+  /**
+   * Get struggles that occurred since a given time (for validation)
+   * Returns array of struggle area:topic strings
+   */
+  async getStrugglesOccurredSince(
+    studentId: string,
+    language: string,
+    since: Date
+  ): Promise<string[]> {
+    const recentStruggles = await db
+      .select()
+      .from(recurringStruggles)
+      .where(
+        and(
+          eq(recurringStruggles.studentId, studentId),
+          eq(recurringStruggles.language, language),
+          sql`${recurringStruggles.lastOccurredAt} >= ${since.toISOString()}`
+        )
+      );
+    
+    return recentStruggles.map(s => `${s.struggleArea}:${s.description || ''}`);
+  }
+  
+  /**
+   * Run post-session validation - validates predictions and returns struggles
+   */
+  async runPostSessionValidation(
+    studentId: string,
+    language: string,
+    sessionStartTime: Date
+  ): Promise<{ strugglesObserved: string[], predictionsValidated: number }> {
+    const strugglesObserved = await this.getStrugglesOccurredSince(
+      studentId,
+      language,
+      sessionStartTime
+    );
+    
+    // Validate predictions against observed struggles
+    await this.validatePredictions(studentId, language, strugglesObserved);
+    
+    // Count how many were validated
+    const validated = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(predictedStruggles)
+      .where(
+        and(
+          eq(predictedStruggles.studentId, studentId),
+          eq(predictedStruggles.language, language),
+          sql`${predictedStruggles.validatedAt} IS NOT NULL`,
+          sql`${predictedStruggles.validatedAt} >= ${sessionStartTime.toISOString()}`
+        )
+      );
+    
+    return {
+      strugglesObserved,
+      predictionsValidated: validated[0]?.count || 0
+    };
+  }
+  
+  /**
+   * Mark a motivation alert as addressed
+   */
+  async markAlertAddressed(alertId: string, notes?: string): Promise<void> {
+    await db
+      .update(userMotivationAlerts)
+      .set({
+        status: 'addressed',
+        addressedAt: new Date(),
+        resolutionNotes: notes || null,
+        updatedAt: new Date(),
+      })
+      .where(eq(userMotivationAlerts.id, alertId));
+  }
+  
+  /**
+   * Get combined neural network context for Daniela
+   * Pulls from both prediction and alert tables
+   */
+  async getNeuralNetworkLearningContext(
+    studentId: string,
+    language: string
+  ): Promise<string> {
+    const [predictions, alerts] = await Promise.all([
+      this.getActivePredictionsForPrompt(studentId, language),
+      this.getActiveAlertsForPrompt(studentId, language),
+    ]);
+    
+    return [predictions, alerts].filter(Boolean).join('\n');
   }
 }
 

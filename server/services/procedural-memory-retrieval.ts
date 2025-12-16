@@ -16,6 +16,8 @@ import {
   tutorProcedures, 
   teachingPrinciples,
   situationalPatterns,
+  predictedStruggles,
+  userMotivationAlerts,
   type TutorProcedure,
   type ToolKnowledge,
   type TeachingPrinciple,
@@ -25,9 +27,11 @@ import {
   type LearningMotivation,
   type RecurringStruggle,
   type SessionNote,
-  type PeopleConnection
+  type PeopleConnection,
+  type PredictedStruggle,
+  type UserMotivationAlert,
 } from '@shared/schema';
-import { eq, inArray, sql } from 'drizzle-orm';
+import { eq, inArray, sql, and, gte, desc } from 'drizzle-orm';
 
 // ===== Student Memory Context Type =====
 export interface StudentMemoryContext {
@@ -237,6 +241,119 @@ export function buildStudentMemoryAwarenessSection(
       if (lastNote.nextSteps) lines.push(`  → Next: ${lastNote.nextSteps}`);
       lines.push('');
     }
+  }
+  
+  return lines.join('\n');
+}
+
+// ===== Predictive Teaching Context (Neural Network Approach) =====
+// Daniela's emergent intelligence tables provide predictive insights about students.
+// These predictions flow through her neural network as perceptions about what to expect.
+
+export interface PredictiveTeachingContext {
+  predictions: PredictedStruggle[];
+  alerts: UserMotivationAlert[];
+}
+
+/**
+ * Fetch predictive teaching context from neural network tables
+ * This pulls persisted predictions and motivation alerts for a student
+ */
+export async function getPredictiveTeachingContext(
+  studentId: string,
+  language: string
+): Promise<PredictiveTeachingContext> {
+  const now = new Date();
+  
+  const [predictions, alerts] = await Promise.all([
+    // Get active, non-expired predictions
+    db.select()
+      .from(predictedStruggles)
+      .where(
+        and(
+          eq(predictedStruggles.studentId, studentId),
+          eq(predictedStruggles.language, language),
+          eq(predictedStruggles.isActive, true),
+          gte(predictedStruggles.expiresAt, now)
+        )
+      )
+      .orderBy(desc(predictedStruggles.confidenceScore))
+      .limit(3),
+    
+    // Get active motivation/engagement alerts
+    db.select()
+      .from(userMotivationAlerts)
+      .where(
+        and(
+          eq(userMotivationAlerts.studentId, studentId),
+          eq(userMotivationAlerts.language, language),
+          eq(userMotivationAlerts.status, 'active')
+        )
+      )
+      .orderBy(desc(userMotivationAlerts.createdAt))
+      .limit(2)
+  ]);
+  
+  return { predictions, alerts };
+}
+
+/**
+ * Build predictive teaching section for Daniela's neural network
+ * 
+ * Philosophy: Daniela's emergent intelligence predicts student struggles
+ * and motivation patterns. These predictions inform her teaching approach
+ * without explicit instructions - she perceives them as intuitions.
+ */
+export function buildPredictiveTeachingSection(
+  context: PredictiveTeachingContext | null
+): string {
+  if (!context) return '';
+  
+  const { predictions, alerts } = context;
+  const hasContent = predictions.length > 0 || alerts.length > 0;
+  if (!hasContent) return '';
+  
+  const lines: string[] = [];
+  
+  lines.push('');
+  lines.push('===================================================================');
+  lines.push('PREDICTIVE TEACHING AWARENESS');
+  lines.push('===================================================================');
+  lines.push('');
+  lines.push('Your neural network has analyzed this student\'s patterns and');
+  lines.push('generated predictions. Address these proactively in your teaching.');
+  lines.push('');
+  
+  // Predicted struggles - address proactively
+  if (predictions.length > 0) {
+    lines.push('ANTICIPATED STRUGGLES (address before they happen):');
+    for (const pred of predictions) {
+      const struggle = `${pred.predictedArea}: ${pred.predictedTopic || 'general'}`.replace(/_/g, ' ');
+      const confidence = Math.round((pred.confidenceScore || 0.5) * 100);
+      lines.push(`  - ${struggle} (${confidence}% likely)`);
+      if (pred.reasoning) {
+        lines.push(`     Based on: ${pred.reasoning}`);
+      }
+    }
+    lines.push('');
+  }
+  
+  // Motivation/engagement alerts - inform approach
+  if (alerts.length > 0) {
+    lines.push('ENGAGEMENT ALERTS (adjust your approach):');
+    for (const alert of alerts) {
+      const type = (alert.alertType || 'unknown').replace(/_/g, ' ');
+      const severity = alert.severity?.toUpperCase() || 'MEDIUM';
+      lines.push(`  * ${type}: ${severity} risk`);
+      
+      if (alert.indicators && alert.indicators.length > 0) {
+        lines.push(`     Signals: ${alert.indicators.slice(0, 2).join(', ')}`);
+      }
+      if (alert.suggestedActions && alert.suggestedActions.length > 0) {
+        lines.push(`     Try: ${alert.suggestedActions[0]}`);
+      }
+    }
+    lines.push('');
   }
   
   return lines.join('\n');

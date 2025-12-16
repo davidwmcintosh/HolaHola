@@ -44,6 +44,8 @@ import { sessionCompassService, COMPASS_ENABLED } from './services/session-compa
 import { architectVoiceService } from './services/architect-voice-service';
 import { updateToolEventEngagement, mapWhiteboardTypeToToolType } from './services/pedagogical-insights-service';
 import { buildNeuralNetworkPromptSection } from './services/neural-network-retrieval';
+import { getPredictiveTeachingContext, type PredictiveTeachingContext } from './services/procedural-memory-retrieval';
+import { studentLearningService } from './services/student-learning-service';
 import type { VoiceSession as UsageVoiceSession, CompassContext, TutorSession } from '@shared/schema';
 
 // Use /api/ paths - Replit's proxy properly routes these
@@ -752,6 +754,29 @@ Reference past discussions when relevant, but don't force it.
             console.warn('[Streaming Voice] Could not load student memory:', memErr.message);
           }
           
+          // Run pre-session predictions and fetch predictive teaching context
+          // This triggers struggle predictions and motivation analysis, persisting to neural network tables
+          let predictiveTeachingContext: PredictiveTeachingContext | null = null;
+          try {
+            // Run predictions before session - writes to predictedStruggles table
+            await studentLearningService.runPreSessionPredictions(
+              userId!,
+              effectiveLanguage,
+              user.actflLevel || undefined
+            );
+            
+            // Fetch the predictive teaching context from neural network tables
+            predictiveTeachingContext = await getPredictiveTeachingContext(userId!, effectiveLanguage);
+            
+            const contextCount = (predictiveTeachingContext.predictions?.length || 0) + 
+                                (predictiveTeachingContext.alerts?.length || 0);
+            if (contextCount > 0) {
+              console.log(`[Streaming Voice] Loaded ${contextCount} predictive teaching items for neural network`);
+            }
+          } catch (predErr: any) {
+            console.warn('[Streaming Voice] Could not run predictions:', predErr.message);
+          }
+          
           let systemPrompt = createSystemPrompt(
             config.targetLanguage,
             derivedDifficulty, // Use organically-derived difficulty, not user self-selection
@@ -784,7 +809,8 @@ Reference past discussions when relevant, but don't force it.
             undefined, // editorConversationContext
             undefined, // surgeryContext
             studentMemoryContext, // Student memory for neural network
-            user.firstName || user.username || undefined // Student display name for memory section
+            user.firstName || user.username || undefined, // Student display name for memory section
+            predictiveTeachingContext // Predictive teaching from neural network tables
           );
 
           // Add founder memory context if in Founder Mode (but NOT in Raw Honesty Mode - keep it minimal)
@@ -2009,6 +2035,27 @@ This is a voice conversation. Speak naturally, as you would.`;
         
         case 'end_session': {
           if (session) {
+            // Run post-session analysis for motivation tracking (async, non-blocking)
+            const capturedUserId = session.userId?.toString();
+            const capturedLanguage = session.targetLanguage;
+            const capturedStartTime = sessionStartTime > 0 ? new Date(sessionStartTime) : new Date();
+            
+            if (capturedUserId && capturedLanguage) {
+              // Run both post-session analysis and prediction validation in parallel
+              Promise.all([
+                studentLearningService.runPostSessionAnalysis(capturedUserId, capturedLanguage),
+                studentLearningService.runPostSessionValidation(capturedUserId, capturedLanguage, capturedStartTime)
+              ])
+                .then(([alert, validation]) => {
+                  if (alert) {
+                    console.log(`[Streaming Voice] Post-session motivation alert: ${alert.severity}`);
+                  }
+                  if (validation.predictionsValidated > 0) {
+                    console.log(`[Streaming Voice] Validated ${validation.predictionsValidated} predictions, observed ${validation.strugglesObserved.length} struggles`);
+                  }
+                })
+                .catch(err => console.warn('[Streaming Voice] Post-session analysis failed:', err.message));
+            }
             orchestrator.endSession(session.id);
           }
           ws.close();

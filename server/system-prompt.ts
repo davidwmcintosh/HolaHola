@@ -23,7 +23,9 @@ import {
   buildStudentMemoryAwarenessSection,
   buildFullNeuralNetworkSectionSync,
   buildFounderModeBehaviorSection,
-  type StudentMemoryContext
+  buildPredictiveTeachingSection,
+  type StudentMemoryContext,
+  type PredictiveTeachingContext
 } from './services/procedural-memory-retrieval';
 
 interface PreviousConversation {
@@ -830,7 +832,8 @@ export function createSystemPrompt(
   editorConversationContext?: string | null,
   surgeryContext?: string | null,
   studentMemoryContext?: StudentMemoryContext | null,
-  studentDisplayName?: string
+  studentDisplayName?: string,
+  predictiveTeachingContext?: PredictiveTeachingContext | null
 ): string {
   const languageMap: Record<string, string> = {
     spanish: "Spanish",
@@ -891,7 +894,12 @@ This is a voice conversation. Speak naturally, as you would.` : '';
       ? buildStudentMemoryAwarenessSection(studentDisplayName, studentMemoryContext)
       : '';
     
-    return `${buildRawHonestyModeContext(name)}${voiceNote}${sensoryAwareness}${studentMemoryAwareness}`;
+    // Predictive teaching awareness - neural network predictions flow through
+    const predictiveTeachingAwareness = predictiveTeachingContext
+      ? buildPredictiveTeachingSection(predictiveTeachingContext)
+      : '';
+    
+    return `${buildRawHonestyModeContext(name)}${voiceNote}${sensoryAwareness}${studentMemoryAwareness}${predictiveTeachingAwareness}`;
   }
 
   // FOUNDER MODE - Neural network driven behavior for product owner/developers
@@ -948,6 +956,11 @@ NATURAL CONVERSATION FLOW:
       ? buildStudentMemoryAwarenessSection(studentDisplayName, studentMemoryContext)
       : '';
     
+    // Predictive teaching awareness - neural network predictions inform teaching approach
+    const predictiveTeachingAwareness = predictiveTeachingContext
+      ? buildPredictiveTeachingSection(predictiveTeachingContext)
+      : '';
+    
     // Build editor conversation context for voice chat continuity
     const editorContextSection = editorConversationContext
       ? buildEditorConversationContextSection(editorConversationContext)
@@ -967,6 +980,7 @@ ${streamingVoiceModeInstructions}
 ${founderTeachingTools}
 ${sensoryAwareness}
 ${studentMemoryAwareness}
+${predictiveTeachingAwareness}
 
 LANGUAGE CONTEXT:
 • Primary language for teaching: ${languageName}
@@ -2255,6 +2269,11 @@ ${difficulty === "beginner" ? `BEGINNER: Use moderate Spanish (40-50%) with subs
   const studentMemoryAwareness = studentMemoryContext && studentDisplayName
     ? buildStudentMemoryAwarenessSection(studentDisplayName, studentMemoryContext)
     : '';
+  
+  // Predictive teaching awareness - neural network predictions inform teaching approach
+  const predictiveTeachingAwareness = predictiveTeachingContext
+    ? buildPredictiveTeachingSection(predictiveTeachingContext)
+    : '';
 
   return `${buildImmutablePersona(tutorName, tutorGender)}
 You are a friendly and encouraging ${languageName} language tutor.
@@ -2277,6 +2296,7 @@ ${culturalGuidelines}
 ${multimediaGuidance}
 ${timezoneSection}
 ${studentMemoryAwareness}
+${predictiveTeachingAwareness}
 ${conversationSwitchingProtocol}
 You've assessed the student's level and are now engaging in primarily ${languageName} conversation.
 

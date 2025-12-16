@@ -73,11 +73,20 @@ Real-time voice analysis during transcription for both push-to-talk and Open Mic
 
 **Predictive Student Intelligence** (`server/services/student-learning-service.ts`):
 Advanced student support capabilities:
-- **Predictive Teaching**: Anticipates struggles before they occur via `predictStruggles()`
+- **Predictive Teaching**: Anticipates struggles before they occur via `predictUpcomingStruggles()`
 - **Cross-Student Pattern Synthesis**: Aggregates patterns across all students via `synthesizeCrossStudentPatterns()`
 - **Root Cause Analysis**: Distinguishes L1 interference vs conceptual gaps via `analyzeRootCause()`
 - **Motivation Dip Prediction**: Detects engagement drops via `predictMotivationDip()`
 - **Plateau Detection**: Identifies common stall points via `detectPlateaus()`
+
+**Predictive Teaching Production Wiring** (Dec 2024):
+Neural network-first architecture - predictions write to database, Daniela reads from database:
+- **Pre-Session**: `runPreSessionPredictions()` runs before voice sessions, writes to `predictedStruggles` table
+- **Post-Session**: `runPostSessionAnalysis()` runs after voice sessions, writes to `userMotivationAlerts` table
+- **Prompt Injection**: `getPredictiveTeachingContext()` + `buildPredictiveTeachingSection()` read from tables and inject into Daniela's system prompt
+- **Validation**: `validatePredictions()` updates prediction accuracy after session ends
+- Tables: `predictedStruggles` (struggle predictions with expiry/validation), `userMotivationAlerts` (motivation dip alerts with suggested actions)
+- Wired in: `server/unified-ws-handler.ts` (voice session lifecycle), `server/system-prompt.ts` (prompt building)
 
 **Shared Memory Bridge** (`server/services/neural-network-sync.ts`):
 Bidirectional insight sharing between Wren and Daniela:
