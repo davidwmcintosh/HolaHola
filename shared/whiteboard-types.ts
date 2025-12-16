@@ -58,6 +58,8 @@ export const WHITEBOARD_TAGS = {
   // ACTFL Neural Network Commands (internal - processed server-side)
   ACTFL_UPDATE: 'ACTFL_UPDATE',       // Update student's ACTFL proficiency level
   SYLLABUS_PROGRESS: 'SYLLABUS_PROGRESS', // Mark syllabus topics as demonstrated
+  // Phase Transition Commands (internal - processed server-side)
+  PHASE_SHIFT: 'PHASE_SHIFT',         // Explicitly trigger a teaching phase transition
   // Daniela's active contribution to the hive mind (internal - processed server-side)
   HIVE: 'HIVE',                       // Post suggestions/ideas to daniela_suggestions table
   // Daniela's self-surgery: Direct neural network modifications (Founder Mode only)
@@ -71,7 +73,7 @@ export type WhiteboardTagType = keyof typeof WHITEBOARD_TAGS;
 /**
  * Whiteboard item display types (lowercase for UI styling)
  */
-export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'call_support' | 'call_assistant' | 'actfl_update' | 'syllabus_progress' | 'hive' | 'self_surgery';
+export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'call_support' | 'call_assistant' | 'actfl_update' | 'syllabus_progress' | 'phase_shift' | 'hive' | 'self_surgery';
 
 /**
  * Drill types for inline micro-exercises
@@ -559,6 +561,28 @@ export interface SyllabusProgressItem extends WhiteboardItemBase {
 }
 
 /**
+ * PHASE_SHIFT item data (internal command - processed server-side)
+ * Daniela uses this to explicitly trigger a teaching phase transition
+ * 
+ * Format: [PHASE_SHIFT to="challenge" reason="student struggling with verb conjugation"]
+ * 
+ * This is NOT a visual whiteboard element - it triggers a phase transition
+ * Philosophy: Daniela can consciously shift teaching approach when she observes student state
+ * 
+ * Phases: warmup, active_teaching, challenge, reflection, drill, assessment
+ */
+export interface PhaseShiftItemData {
+  to: 'warmup' | 'active_teaching' | 'challenge' | 'reflection' | 'drill' | 'assessment';
+  reason: string;
+}
+
+export interface PhaseShiftItem extends WhiteboardItemBase {
+  type: 'phase_shift';
+  content: string;
+  data: PhaseShiftItemData;
+}
+
+/**
  * HIVE item data (internal command - processed server-side)
  * Daniela uses this to actively contribute ideas, suggestions, and observations
  * 
@@ -656,6 +680,7 @@ export type WhiteboardItem =
   | CallSupportItem
   | ActflUpdateItem
   | SyllabusProgressItem
+  | PhaseShiftItem
   | HiveItem
   | SelfSurgeryItem;
 
@@ -744,6 +769,8 @@ export const WHITEBOARD_PATTERNS = {
   ACTFL_UPDATE: /\[ACTFL_UPDATE\s+level="([^"]+)"\s+confidence=([0-9.]+)\s+reason="([^"]+)"(?:\s+direction="(up|down|confirm)")?\]/gi,
   // [SYLLABUS_PROGRESS topic="present_tense_verbs" status="demonstrated" evidence="Used correctly 5 times"]
   SYLLABUS_PROGRESS: /\[SYLLABUS_PROGRESS\s+topic="([^"]+)"\s+status="(demonstrated|needs_review|struggling)"\s+evidence="([^"]+)"\]/gi,
+  // [PHASE_SHIFT to="challenge" reason="student struggling with verb conjugation"]
+  PHASE_SHIFT: /\[PHASE_SHIFT\s+to="(warmup|active_teaching|challenge|reflection|drill|assessment)"\s+reason="([^"]+)"\]/gi,
   // HIVE: Daniela's active contribution to the hive mind (internal - processed server-side)
   // [HIVE category="product_feature" title="Mind Map Syllabus" description="Replace linear syllabus..." priority=8]
   HIVE: /\[HIVE\s+category="(self_improvement|content_gap|ux_observation|teaching_insight|product_feature|technical_issue|student_pattern|tool_enhancement)"\s+title="([^"]+)"\s+description="([^"]+)"(?:\s+reasoning="([^"]+)")?(?:\s+priority=(\d+))?\]/gi,
@@ -758,10 +785,10 @@ export const WHITEBOARD_PATTERNS = {
  * All whiteboard markup pattern (for stripping)
  * Updated to include all Phase 4 tags including Word Map and Culture
  * Also includes subtitle controls: SUBTITLE, SHOW, HIDE, SUBTITLE_TEXT (legacy)
- * Includes ACTFL Neural Network commands: ACTFL_UPDATE, SYLLABUS_PROGRESS
+ * Includes ACTFL Neural Network commands: ACTFL_UPDATE, SYLLABUS_PROGRESS, PHASE_SHIFT
  */
 export const ALL_WHITEBOARD_MARKUP_PATTERN = 
-  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|TONE|WORD_MAP|CULTURE|SCENARIO|SUMMARY|ERROR_PATTERNS|VOCABULARY_TIMELINE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[PLAY(?:\s+speed="[^"]*")?\]([\s\S]*?)\[\/PLAY\]|\[SUBTITLE\s*(?:off|on|target)\s*\]|\[SHOW:\s*[\s\S]*?\s*\]|\[HIDE\]|\[SUBTITLE_TEXT:\s*[\s\S]*?\s*\]|\[TEXT_INPUT:[\s\S]*?\]|\[SWITCH_TUTOR\s+target="(?:male|female)"(?:\s+language="[^"]+")?\]|\[CALL_SUPPORT\s+category="(?:technical|account|billing|content|feedback|other)"\s+reason="[^"]+"(?:\s+priority="(?:low|normal|high|critical)")?(?:\s+context="[^"]+")?\]|\[ACTFL_UPDATE\s+level="[^"]+"\s+confidence=[0-9.]+\s+reason="[^"]+"(?:\s+direction="(?:up|down|confirm)")?\]|\[SYLLABUS_PROGRESS\s+topic="[^"]+"\s+status="(?:demonstrated|needs_review|struggling)"\s+evidence="[^"]+"\]|\[HIVE\s+category="(?:self_improvement|content_gap|ux_observation|teaching_insight|product_feature|technical_issue|student_pattern|tool_enhancement)"\s+title="[^"]+"\s+description="[^"]+"(?:\s+reasoning="[^"]+")?(?:\s+priority=\d+)?\]|\[(CLEAR|HOLD)\]/gi;
+  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|TONE|WORD_MAP|CULTURE|SCENARIO|SUMMARY|ERROR_PATTERNS|VOCABULARY_TIMELINE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[PLAY(?:\s+speed="[^"]*")?\]([\s\S]*?)\[\/PLAY\]|\[SUBTITLE\s*(?:off|on|target)\s*\]|\[SHOW:\s*[\s\S]*?\s*\]|\[HIDE\]|\[SUBTITLE_TEXT:\s*[\s\S]*?\s*\]|\[TEXT_INPUT:[\s\S]*?\]|\[SWITCH_TUTOR\s+target="(?:male|female)"(?:\s+language="[^"]+")?\]|\[CALL_SUPPORT\s+category="(?:technical|account|billing|content|feedback|other)"\s+reason="[^"]+"(?:\s+priority="(?:low|normal|high|critical)")?(?:\s+context="[^"]+")?\]|\[ACTFL_UPDATE\s+level="[^"]+"\s+confidence=[0-9.]+\s+reason="[^"]+"(?:\s+direction="(?:up|down|confirm)")?\]|\[SYLLABUS_PROGRESS\s+topic="[^"]+"\s+status="(?:demonstrated|needs_review|struggling)"\s+evidence="[^"]+"\]|\[PHASE_SHIFT\s+to="(?:warmup|active_teaching|challenge|reflection|drill|assessment)"\s+reason="[^"]+"\]|\[HIVE\s+category="(?:self_improvement|content_gap|ux_observation|teaching_insight|product_feature|technical_issue|student_pattern|tool_enhancement)"\s+title="[^"]+"\s+description="[^"]+"(?:\s+reasoning="[^"]+")?(?:\s+priority=\d+)?\]|\[(CLEAR|HOLD)\]/gi;
 
 /**
  * Generate unique ID for whiteboard items
@@ -1593,6 +1620,24 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
         topic,
         status,
         evidence,
+      },
+    });
+  }
+
+  // Parse PHASE_SHIFT tags (explicit teaching phase transition)
+  // Format: [PHASE_SHIFT to="challenge" reason="student struggling with verb conjugation"]
+  WHITEBOARD_PATTERNS.PHASE_SHIFT.lastIndex = 0;
+  while ((match = WHITEBOARD_PATTERNS.PHASE_SHIFT.exec(text)) !== null) {
+    const to = match[1] as 'warmup' | 'active_teaching' | 'challenge' | 'reflection' | 'drill' | 'assessment';
+    const reason = match[2];
+    items.push({
+      type: 'phase_shift',
+      content: `${to}`,
+      timestamp: now,
+      id: generateItemId(),
+      data: {
+        to,
+        reason,
       },
     });
   }
