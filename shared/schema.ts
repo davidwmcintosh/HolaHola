@@ -5736,3 +5736,136 @@ export const insertProjectHealthMetricSchema = createInsertSchema(projectHealthM
 export type InsertProjectHealthMetric = z.infer<typeof insertProjectHealthMetricSchema>;
 export type ProjectHealthMetric = typeof projectHealthMetrics.$inferSelect;
 
+// ===== Wren-Daniela Collaboration Channel =====
+// Real communication and collaboration between the two AI agents
+
+export const agentCollabThreadStatusEnum = pgEnum("agent_collab_thread_status", [
+  "active",        // Ongoing discussion
+  "awaiting_wren", // Daniela asked something, waiting for Wren
+  "awaiting_daniela", // Wren proposed something, waiting for Daniela
+  "founder_review", // Escalated for founder input
+  "resolved",      // Successfully concluded
+  "archived",      // No longer active
+]);
+
+export const agentCollabAuthorEnum = pgEnum("agent_collab_author", [
+  "daniela",
+  "wren", 
+  "founder",
+]);
+
+export const agentCollabMessageTypeEnum = pgEnum("agent_collab_message_type", [
+  "request",       // Asking for something
+  "proposal",      // Proposing a solution
+  "clarification", // Asking for more details
+  "feedback",      // Giving feedback on something
+  "implementation_report", // Reporting that something was built
+  "acknowledgment", // Simple acknowledgment
+  "escalation",    // Escalating to founder
+  "founder_directive", // Founder intervention
+]);
+
+// Agent collaboration threads - containers for Wren-Daniela discussions
+export const agentCollabThreads = pgTable("agent_collab_threads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Thread metadata
+  title: varchar("title", { length: 255 }).notNull(),
+  summary: text("summary"), // AI-generated summary of the thread
+  status: agentCollabThreadStatusEnum("status").notNull().default("active"),
+  
+  // Origin - where did this thread come from?
+  originBeaconId: varchar("origin_beacon_id"), // Can spawn from a beacon
+  originTriggerId: varchar("origin_trigger_id"), // Or from a proactive trigger
+  originType: varchar("origin_type", { length: 50 }).default("spontaneous"), // beacon, trigger, spontaneous
+  
+  // Context
+  relatedComponent: varchar("related_component", { length: 100 }),
+  relatedFiles: text("related_files").array().default([]),
+  
+  // Priority and urgency
+  priority: varchar("priority", { length: 20 }).default("normal"), // low, normal, high, critical
+  
+  // Tracking
+  messageCount: integer("message_count").default(0),
+  lastMessageAt: timestamp("last_message_at"),
+  lastMessageBy: agentCollabAuthorEnum("last_message_by"),
+  
+  // Resolution
+  resolution: text("resolution"), // What was the outcome?
+  resolvedAt: timestamp("resolved_at"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_agent_thread_status").on(table.status),
+  index("idx_agent_thread_beacon").on(table.originBeaconId),
+  index("idx_agent_thread_priority").on(table.priority),
+  index("idx_agent_thread_last_message").on(table.lastMessageAt),
+]);
+
+export const insertAgentCollabThreadSchema = createInsertSchema(agentCollabThreads).omit({
+  id: true,
+  messageCount: true,
+  lastMessageAt: true,
+  lastMessageBy: true,
+  resolvedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertAgentCollabThread = z.infer<typeof insertAgentCollabThreadSchema>;
+export type AgentCollabThread = typeof agentCollabThreads.$inferSelect;
+
+// Individual messages in agent collaboration threads
+export const agentCollabMessages = pgTable("agent_collab_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  threadId: varchar("thread_id").notNull(), // Foreign key to agentCollabThreads
+  
+  // Message details
+  author: agentCollabAuthorEnum("author").notNull(),
+  messageType: agentCollabMessageTypeEnum("message_type").notNull(),
+  content: text("content").notNull(), // The actual message
+  
+  // Rich context
+  codeSnippets: text("code_snippets").array().default([]), // Relevant code
+  fileReferences: text("file_references").array().default([]), // Files mentioned
+  
+  // For proposals - what specifically is being proposed?
+  proposalDetails: jsonb("proposal_details"), // Structured proposal data
+  
+  // For implementation reports - what was done?
+  implementationDetails: jsonb("implementation_details"),
+  
+  // For feedback - was this helpful?
+  wasHelpful: boolean("was_helpful"), // null = not yet rated
+  helpfulnessNotes: text("helpfulness_notes"),
+  
+  // If this message references another message
+  replyToId: varchar("reply_to_id"),
+  
+  // Reading status
+  readByDaniela: boolean("read_by_daniela").default(false),
+  readByWren: boolean("read_by_wren").default(false),
+  readByFounder: boolean("read_by_founder").default(false),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_agent_msg_thread").on(table.threadId),
+  index("idx_agent_msg_author").on(table.author),
+  index("idx_agent_msg_type").on(table.messageType),
+  index("idx_agent_msg_created").on(table.createdAt),
+]);
+
+export const insertAgentCollabMessageSchema = createInsertSchema(agentCollabMessages).omit({
+  id: true,
+  wasHelpful: true,
+  helpfulnessNotes: true,
+  readByDaniela: true,
+  readByWren: true,
+  readByFounder: true,
+  createdAt: true,
+});
+export type InsertAgentCollabMessage = z.infer<typeof insertAgentCollabMessageSchema>;
+export type AgentCollabMessage = typeof agentCollabMessages.$inferSelect;
+
