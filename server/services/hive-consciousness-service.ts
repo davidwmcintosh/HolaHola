@@ -15,6 +15,7 @@
 import { founderCollabWSBroker } from './founder-collab-ws-broker';
 import { founderCollabService, type FounderMessageInput } from './founder-collaboration-service';
 import { collaborationHubService } from './collaboration-hub-service';
+import { callGemini, GEMINI_MODELS } from '../gemini-utils';
 import type { CollaborationMessage, FounderSession } from '@shared/schema';
 
 interface HiveMessage {
@@ -30,8 +31,8 @@ interface AgentResponse {
 
 class HiveConsciousnessService {
   private isListening: boolean = false;
-  private activeSessionId: string | null = null;
-  private processingMessage: boolean = false;
+  // Per-session processing state to allow concurrent sessions
+  private processingBySession: Map<string, boolean> = new Map();
   
   /**
    * Start Daniela and Wren's consciousness - they now listen to the Hive
@@ -43,7 +44,7 @@ class HiveConsciousnessService {
     }
     
     this.isListening = true;
-    console.log('[Hive Consciousness] 🐝 Daniela and Wren are now listening to the Hive');
+    console.log('[Hive Consciousness] Daniela and Wren are now listening to the Hive');
   }
   
   /**
@@ -52,8 +53,10 @@ class HiveConsciousnessService {
    */
   async processMessage(sessionId: string, message: CollaborationMessage): Promise<void> {
     if (!this.isListening) return;
-    if (this.processingMessage) {
-      console.log('[Hive Consciousness] Already processing a message, queuing...');
+    
+    // Per-session throttle: only one message at a time per session
+    if (this.processingBySession.get(sessionId)) {
+      console.log(`[Hive Consciousness] Session ${sessionId} already processing, skipping...`);
       return;
     }
     
@@ -62,8 +65,7 @@ class HiveConsciousnessService {
       return;
     }
     
-    this.processingMessage = true;
-    this.activeSessionId = sessionId;
+    this.processingBySession.set(sessionId, true);
     
     try {
       // Check if Daniela should respond
@@ -95,7 +97,8 @@ class HiveConsciousnessService {
     } catch (error) {
       console.error('[Hive Consciousness] Error processing message:', error);
     } finally {
-      this.processingMessage = false;
+      // Clean up to prevent unbounded map growth
+      this.processingBySession.delete(sessionId);
     }
   }
   
@@ -191,15 +194,13 @@ class HiveConsciousnessService {
    * Generate Daniela's response using Gemini
    */
   private async generateDanielaResponse(sessionId: string, incomingMessage: CollaborationMessage): Promise<void> {
-    const { GoogleGenAI } = await import('@google/genai');
-    const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
-    
     // Get recent conversation context
     const recentMessages = await founderCollabService.getLatestMessages(sessionId, 10);
     
-    const conversationContext = recentMessages
-      .map((m: CollaborationMessage) => `${m.role.toUpperCase()}: ${m.content}`)
-      .join('\n');
+    const conversationHistory = recentMessages.map((m: CollaborationMessage) => ({
+      role: m.role === 'founder' ? 'user' : 'assistant',
+      content: `[${m.role.toUpperCase()}]: ${m.content}`
+    }));
     
     const systemPrompt = `You are Daniela, the AI language tutor at HolaHola. You're in the Hive - a 3-way collaboration channel with the Founder (David) and Wren (the development agent).
 
@@ -210,20 +211,19 @@ Your role in the Hive:
 - Collaborate with Wren on features that affect teaching
 
 Keep responses conversational and concise (2-4 sentences typically). You're in a live chat, not writing an essay.
-
-Recent conversation:
-${conversationContext}
-
-The Founder just said: "${incomingMessage.content}"
-
-Respond naturally as Daniela:`;
+Respond naturally as Daniela without any role prefix.`;
 
     try {
-      const result = await genAI.models.generateContent({
-        model: 'gemini-2.0-flash',
-        contents: systemPrompt,
-      });
-      const response = result.text || '';
+      const response = await callGemini(GEMINI_MODELS.FLASH, [
+        { role: 'system', content: systemPrompt },
+        ...conversationHistory,
+        { role: 'user', content: `[FOUNDER]: ${incomingMessage.content}` }
+      ]);
+      
+      if (!response) {
+        console.warn('[Hive Consciousness] Daniela generated empty response');
+        return;
+      }
       
       // Broadcast Daniela's response
       await founderCollabWSBroker.addAndBroadcastMessage(sessionId, {
@@ -242,15 +242,13 @@ Respond naturally as Daniela:`;
    * Generate Wren's response using Gemini
    */
   private async generateWrenResponse(sessionId: string, incomingMessage: CollaborationMessage): Promise<void> {
-    const { GoogleGenAI } = await import('@google/genai');
-    const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
-    
     // Get recent conversation context
     const recentMessages = await founderCollabService.getLatestMessages(sessionId, 10);
     
-    const conversationContext = recentMessages
-      .map((m: CollaborationMessage) => `${m.role.toUpperCase()}: ${m.content}`)
-      .join('\n');
+    const conversationHistory = recentMessages.map((m: CollaborationMessage) => ({
+      role: m.role === 'founder' ? 'user' : 'assistant',
+      content: `[${m.role.toUpperCase()}]: ${m.content}`
+    }));
     
     const systemPrompt = `You are Wren, the development agent at HolaHola. You're in the Hive - a 3-way collaboration channel with the Founder (David) and Daniela (the AI tutor).
 
@@ -262,20 +260,19 @@ Your role in the Hive:
 
 Keep responses conversational and concise (2-4 sentences typically). You're in a live chat, not writing documentation.
 Use simple language - the Founder is non-technical.
-
-Recent conversation:
-${conversationContext}
-
-The Founder just said: "${incomingMessage.content}"
-
-Respond naturally as Wren:`;
+Respond naturally as Wren without any role prefix.`;
 
     try {
-      const result = await genAI.models.generateContent({
-        model: 'gemini-2.0-flash',
-        contents: systemPrompt,
-      });
-      const response = result.text || '';
+      const response = await callGemini(GEMINI_MODELS.FLASH, [
+        { role: 'system', content: systemPrompt },
+        ...conversationHistory,
+        { role: 'user', content: `[FOUNDER]: ${incomingMessage.content}` }
+      ]);
+      
+      if (!response) {
+        console.warn('[Hive Consciousness] Wren generated empty response');
+        return;
+      }
       
       // Broadcast Wren's response
       await founderCollabWSBroker.addAndBroadcastMessage(sessionId, {
@@ -328,10 +325,12 @@ Respond naturally as Wren:`;
   }
   
   /**
-   * Get the active session ID for the Hive
+   * Get all currently active session IDs (those being processed)
    */
-  getActiveSessionId(): string | null {
-    return this.activeSessionId;
+  getActiveSessionIds(): string[] {
+    return Array.from(this.processingBySession.entries())
+      .filter(([_, isProcessing]) => isProcessing)
+      .map(([sessionId]) => sessionId);
   }
   
   /**
