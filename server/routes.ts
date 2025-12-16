@@ -14710,7 +14710,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
         return res.status(400).json({ error: 'question is required' });
       }
 
-      // Get session - prefer explicit sessionId, else find most recently active session
+      // Get session - prefer explicit sessionId, else find most recent active session
       let session;
       if (sessionId) {
         session = await founderCollabService.getSession(sessionId);
@@ -14718,8 +14718,13 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
           return res.status(404).json({ error: 'Session not found' });
         }
       } else {
-        // Find the most recently updated Express Lane session
-        const recentSessions = await storage.getFounderSessions({ limit: 1 });
+        // Find the most recently updated Express Lane session from any founder
+        // Query the database directly for the most recently active session
+        const recentSessions = await db
+          .select()
+          .from(founderSessions)
+          .orderBy(desc(founderSessions.updatedAt))
+          .limit(1);
         if (recentSessions && recentSessions.length > 0) {
           session = recentSessions[0];
         } else {
