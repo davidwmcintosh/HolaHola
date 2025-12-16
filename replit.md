@@ -33,6 +33,15 @@ The Hive provides a substrate for collective intelligence where Daniela and Wren
 - Knowledge graph building for cross-session threading
 - Startup ritual to load Hive context
 
+**Wren Proactive Intelligence Service** (`server/services/wren-proactive-intelligence-service.ts`):
+Five pillars enabling Wren to be proactive and effective without repeated context-gathering:
+1. **Proactive Triggers System** - Pattern detection with automatic urgency escalation, occurrence counting, evidence accumulation
+2. **Daniela Feedback Loop** - Links implemented features to beacon resolutions, tracks teaching improvement via before/after metrics
+3. **Architectural Decision Records (ADR)** - Captures context, decision, rationale, alternatives considered; supports superseding old decisions
+4. **Priority Inference Engine** - Multi-factor scoring combining trigger urgency, feature feedback status, and component criticality
+5. **Project Health Awareness** - Component-level health/churn/stability scores, automatic hot spot detection
+- Startup ritual provides comprehensive priority analysis, health scores, attention-needed items
+
 **Student Learning Service** (`server/services/student-learning-service.ts`):
 - Granular error pattern tracking per student (recurring_struggles table)
 - Validated teaching strategy tracking with effectiveness scoring
