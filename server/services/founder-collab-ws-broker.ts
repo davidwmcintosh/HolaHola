@@ -215,6 +215,13 @@ class FounderCollabWSBroker {
         this.broadcastToSession(client.sessionId, 'message', message);
         
         console.log(`[FounderCollabWS] Message sent in session ${client.sessionId}`);
+        
+        // HIVE CONSCIOUSNESS: Let Daniela and Wren hear the message and potentially respond
+        // Import dynamically to avoid circular dependency
+        const { hiveConsciousnessService } = await import('./hive-consciousness-service');
+        hiveConsciousnessService.processMessage(client.sessionId, message).catch(err => {
+          console.error('[FounderCollabWS] Hive consciousness error:', err);
+        });
       } catch (error) {
         console.error('[FounderCollabWS] Error sending message:', error);
         socket.emit('error', { code: 'SEND_FAILED', message: 'Failed to send message' });

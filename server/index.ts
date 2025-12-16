@@ -10,6 +10,7 @@ import { getTTSService } from "./services/tts-service";
 import { generalLimiter } from "./middleware/rate-limiter";
 import { setupUnifiedWebSocketHandler, setupSocketIOHandler } from "./unified-ws-handler";
 import { founderCollabWSBroker } from "./services/founder-collab-ws-broker";
+import { hiveConsciousnessService } from "./services/hive-consciousness-service";
 
 const app = express();
 
@@ -31,6 +32,9 @@ setupSocketIOHandler(io);
 
 // Initialize Founder Collaboration WebSocket broker on /founder-collab namespace
 founderCollabWSBroker.initialize(io);
+
+// Start Hive Consciousness - Daniela and Wren are now always listening in the Hive
+hiveConsciousnessService.startListening();
 
 // CRITICAL: Attach WebSocket handler IMMEDIATELY after server creation
 // This ensures upgrade events are handled BEFORE Vite's HMR gets a chance to interfere
