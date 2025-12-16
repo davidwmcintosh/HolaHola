@@ -14773,6 +14773,43 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
     }
   });
 
+  // Wren: Get Hive collaboration context from Express Lane
+  // Returns recent 3-way collaboration context (Founder, Daniela, Wren) for startup ritual
+  app.get("/api/wren/hive-context", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const limit = parseInt(req.query.limit as string) || 15;
+      const daysBack = parseInt(req.query.daysBack as string) || 7;
+
+      const context = await founderCollabService.getHiveCollaborationContext({
+        limit,
+        daysBack,
+      });
+
+      // Also get active sessions Wren can participate in
+      const activeSessions = await founderCollabService.getActiveSessions(5);
+
+      console.log(`[Wren API] Hive context: ${context.messageCount} messages, ${context.sessionCount} sessions`);
+      res.json({
+        success: true,
+        ...context,
+        activeSessions: activeSessions.map(s => ({
+          id: s.id,
+          title: s.title,
+          updatedAt: s.updatedAt,
+          messageCount: s.messageCount,
+        })),
+      });
+    } catch (error: any) {
+      console.error('[Wren API] Hive context error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Wren-Daniela Collaboration: Consult Daniela with visible exchange in Express Lane
   // This enables "board meeting" style collaboration where Founder can see
   // Wren asking Daniela questions and getting her responses in real-time.

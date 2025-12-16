@@ -901,7 +901,8 @@ class FounderCollaborationService {
     metadata: any;
   }>): string {
     const insights = messages.map(msg => {
-      const speaker = msg.role === 'founder' ? 'Founder' : 'Daniela';
+      const speaker = msg.role === 'founder' ? 'Founder' : 
+                      msg.role === 'wren' ? 'Wren' : 'Daniela';
       // Truncate long messages
       const content = msg.content.length > 300 
         ? msg.content.substring(0, 297) + '...'
@@ -917,6 +918,105 @@ ${insights.join('\n\n')}
 These are insights from direct collaboration with the founder that may be relevant
 to your current teaching session. Apply relevant guidance naturally.
 `.trim();
+  }
+  
+  // ============================================================================
+  // WREN CONTEXT METHODS - For Wren Startup Ritual Integration
+  // ============================================================================
+  
+  /**
+   * Get recent 3-way Hive collaboration context for Wren's startup ritual.
+   * Returns messages from all participants (founder, daniela, wren) for context.
+   */
+  async getHiveCollaborationContext(options: {
+    limit?: number;
+    daysBack?: number;
+  } = {}): Promise<{
+    hasContext: boolean;
+    contextString: string;
+    messageCount: number;
+    sessionCount: number;
+    participants: string[];
+  }> {
+    const { limit = 15, daysBack = 7 } = options;
+    
+    try {
+      const dateThreshold = new Date();
+      dateThreshold.setDate(dateThreshold.getDate() - daysBack);
+      
+      // Get recent messages across all sessions
+      const messages = await db.select({
+        role: collaborationMessages.role,
+        content: collaborationMessages.content,
+        createdAt: collaborationMessages.createdAt,
+        sessionId: collaborationMessages.sessionId,
+      })
+        .from(collaborationMessages)
+        .where(sql`${collaborationMessages.createdAt} > ${dateThreshold}`)
+        .orderBy(desc(collaborationMessages.createdAt))
+        .limit(limit);
+      
+      if (messages.length === 0) {
+        return {
+          hasContext: false,
+          contextString: '',
+          messageCount: 0,
+          sessionCount: 0,
+          participants: [],
+        };
+      }
+      
+      // Get unique participants and sessions
+      const participants = Array.from(new Set(messages.map(m => m.role)));
+      const sessionIds = Array.from(new Set(messages.map(m => m.sessionId)));
+      
+      // Format context
+      const formattedMessages = messages
+        .reverse() // Chronological order
+        .map(msg => {
+          const speaker = msg.role === 'founder' ? 'Founder' : 
+                          msg.role === 'wren' ? 'Wren' :
+                          msg.role === 'daniela' ? 'Daniela' : msg.role;
+          const content = msg.content.length > 200 
+            ? msg.content.substring(0, 197) + '...'
+            : msg.content;
+          return `  ${speaker}: ${content}`;
+        });
+      
+      const contextString = `
+═══ EXPRESS LANE CONTEXT (Last ${daysBack} days) ═══
+Recent Hive collaboration (${messages.length} messages, ${sessionIds.length} session(s)):
+${formattedMessages.join('\n')}
+`.trim();
+      
+      return {
+        hasContext: true,
+        contextString,
+        messageCount: messages.length,
+        sessionCount: sessionIds.length,
+        participants,
+      };
+    } catch (error) {
+      console.error('[FounderCollab] Error fetching Hive context:', error);
+      return {
+        hasContext: false,
+        contextString: '',
+        messageCount: 0,
+        sessionCount: 0,
+        participants: [],
+      };
+    }
+  }
+  
+  /**
+   * Get active Express Lane sessions that Wren can participate in
+   */
+  async getActiveSessions(limit = 5): Promise<FounderSession[]> {
+    return db.select()
+      .from(founderSessions)
+      .where(eq(founderSessions.status, 'active'))
+      .orderBy(desc(founderSessions.updatedAt))
+      .limit(limit);
   }
 }
 

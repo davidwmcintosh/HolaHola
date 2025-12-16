@@ -4893,9 +4893,9 @@ function EditorChatTab() {
   useEffect(() => {
     if (founderCollab.state.messages.length > 0) {
       // Convert WebSocket messages to ExpressLaneMessage format
-      const wsMessages = founderCollab.state.messages.map(m => ({
+      const wsMessages: ExpressLaneMessage[] = founderCollab.state.messages.map(m => ({
         id: m.id.toString(),
-        role: m.role as string,
+        role: m.role as ExpressLaneMessage['role'],
         content: m.content,
         createdAt: m.createdAt?.toString() || new Date().toISOString(),
         cursor: m.cursor,
@@ -7981,6 +7981,7 @@ function CollaborationTab() {
     if (role === 'daniela') return <Brain className="h-4 w-4 text-purple-500" />;
     if (role === 'editor') return <Code className="h-4 w-4 text-blue-500" />;
     if (role === 'founder') return <User className="h-4 w-4 text-amber-500" />;
+    if (role === 'wren') return <Radio className="h-4 w-4 text-emerald-500" />;
     if (role === 'system') return <Radio className="h-4 w-4 text-muted-foreground" />;
     return <MessageSquare className="h-4 w-4 text-muted-foreground" />;
   };
@@ -8159,10 +8160,10 @@ function CollaborationTab() {
             <CardHeader className="pb-2">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Radio className="h-4 w-4 text-primary" />
-                Live Sync Channel
+                EXPRESS Lane
               </CardTitle>
               <CardDescription className="flex items-center justify-between gap-2">
-                <span>Persists across restarts</span>
+                <span>3-way: Founder, Daniela, Wren</span>
                 {getConnectionStatusBadge()}
               </CardDescription>
             </CardHeader>
@@ -8172,10 +8173,10 @@ function CollaborationTab() {
                   <Button
                     className="w-full"
                     onClick={() => syncConnect()}
-                    data-testid="button-sync-connect"
+                    data-testid="button-express-connect"
                   >
                     <Wifi className="h-4 w-4 mr-2" />
-                    Connect to Sync Channel
+                    Connect to EXPRESS Lane
                   </Button>
                 )}
                 
@@ -8199,12 +8200,18 @@ function CollaborationTab() {
                             key={msg.cursor}
                             className={`p-2 rounded-lg text-sm ${
                               msg.role === 'founder' 
-                                ? 'bg-primary/10 ml-4' 
+                                ? 'bg-amber-500/10 border border-amber-500/20 ml-4' 
+                                : msg.role === 'daniela'
+                                ? 'bg-purple-500/10 border border-purple-500/20 mr-4'
+                                : msg.role === 'wren'
+                                ? 'bg-emerald-500/10 border border-emerald-500/20 mr-4'
+                                : msg.role === 'editor'
+                                ? 'bg-blue-500/10 border border-blue-500/20 mr-4'
                                 : msg.role === 'system'
                                 ? 'bg-muted/50 text-center italic'
                                 : 'bg-muted/50 mr-4'
                             }`}
-                            data-testid={`sync-message-${msg.cursor}`}
+                            data-testid={`express-message-${msg.cursor}`}
                           >
                             <div className="flex items-center gap-2 mb-1">
                               {getSyncRoleIcon(msg.role)}

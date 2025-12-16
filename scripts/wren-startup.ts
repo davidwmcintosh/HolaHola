@@ -117,7 +117,43 @@ async function fetchWrenInsights(): Promise<WrenInsight[]> {
   }
 }
 
-function formatHiveContext(ctx: HiveContext, insights: WrenInsight[]): string {
+interface ExpressLaneContext {
+  hasContext: boolean;
+  contextString: string;
+  messageCount: number;
+  sessionCount: number;
+  participants: string[];
+  activeSessions: Array<{
+    id: string;
+    title: string;
+    updatedAt: string;
+    messageCount: number;
+  }>;
+}
+
+async function fetchExpressLaneContext(): Promise<ExpressLaneContext | null> {
+  const secret = process.env.ARCHITECT_SECRET;
+  if (!secret) return null;
+
+  try {
+    const response = await fetch(`${HIVE_API_BASE}/api/wren/hive-context?limit=15&daysBack=7`, {
+      headers: { 'x-editor-secret': secret }
+    });
+    
+    if (!response.ok) {
+      console.warn('⚠️  Could not fetch Express Lane context');
+      return null;
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.warn('⚠️  Failed to fetch Express Lane context:', error);
+    return null;
+  }
+}
+
+function formatHiveContext(ctx: HiveContext, insights: WrenInsight[], expressLane: ExpressLaneContext | null): string {
   const lines: string[] = [];
   const now = new Date().toLocaleDateString('en-US', { 
     month: 'long', 
@@ -132,6 +168,9 @@ function formatHiveContext(ctx: HiveContext, insights: WrenInsight[]): string {
   lines.push(`**System Health**: ${ctx.systemHealth.recentActivityLevel} activity`);
   lines.push(`**Last Sync**: ${new Date(ctx.buildTimestamp).toLocaleTimeString()}`);
   lines.push(`**Wren Memory**: ${insights.length} insights stored`);
+  if (expressLane?.hasContext) {
+    lines.push(`**EXPRESS Lane**: ${expressLane.messageCount} recent messages, ${expressLane.participants.length} participants`);
+  }
   lines.push('');
 
   // Pending Beacons
@@ -185,6 +224,24 @@ function formatHiveContext(ctx: HiveContext, insights: WrenInsight[]): string {
       lines.push(`- **${s.title}** (${s.messageCount} messages, last active ${lastActive})`);
     });
     lines.push('');
+  }
+
+  // EXPRESS Lane 3-Way Collaboration Context
+  if (expressLane?.hasContext && expressLane.contextString) {
+    lines.push('### EXPRESS Lane - Recent Hive Collaboration');
+    lines.push('');
+    lines.push('Recent 3-way discussions (Founder, Daniela, Wren):');
+    lines.push('');
+    lines.push(expressLane.contextString);
+    lines.push('');
+    
+    if (expressLane.activeSessions && expressLane.activeSessions.length > 0) {
+      lines.push('**Active Sessions I can join:**');
+      expressLane.activeSessions.slice(0, 3).forEach(s => {
+        lines.push(`- ${s.title || 'Untitled'} (ID: ${s.id.substring(0, 8)}...)`);
+      });
+      lines.push('');
+    }
   }
 
   // Focus Areas
@@ -316,11 +373,12 @@ async function main() {
   console.log('========================');
   console.log('');
 
-  // Fetch Hive context and insights in parallel
-  console.log('📡 Fetching Hive context and insights...');
-  const [ctx, insights] = await Promise.all([
+  // Fetch Hive context, insights, and EXPRESS Lane context in parallel
+  console.log('📡 Fetching Hive context, insights, and EXPRESS Lane...');
+  const [ctx, insights, expressLane] = await Promise.all([
     fetchHiveContext(),
     fetchWrenInsights(),
+    fetchExpressLaneContext(),
   ]);
   
   if (!ctx) {
@@ -334,10 +392,14 @@ async function main() {
   console.log(`   - ${ctx.recentSessions.length} recent sessions`);
   console.log(`   - System health: ${ctx.systemHealth.recentActivityLevel}`);
   console.log(`   - ${insights.length} stored insights`);
+  if (expressLane?.hasContext) {
+    console.log(`   - ${expressLane.messageCount} EXPRESS Lane messages (${expressLane.participants.join(', ')})`);
+    console.log(`   - ${expressLane.activeSessions?.length || 0} active sessions to join`);
+  }
   console.log('');
 
   // Format and write memory file
-  const content = formatHiveContext(ctx, insights);
+  const content = formatHiveContext(ctx, insights, expressLane);
   
   const fs = await import('fs/promises');
   const path = await import('path');

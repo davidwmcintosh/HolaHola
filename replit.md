@@ -22,7 +22,14 @@ The frontend is built with React and TypeScript (Vite), Wouter for routing, and 
 Daniela is a single core AI intelligence, with all interaction modes routing through a unified pipeline. `VoicePresentation` defines stylistic elements, while the intelligence remains Daniela's via `TutorOrchestrator`. Granular intervention controls allow precise modification of Daniela's teaching approach.
 
 ### Hive Collaboration System
-This system enables collaboration between the founder, Daniela (AI tutor), Editor (observer/analyst), and Wren (development builder). Daniela emits "beacons" (e.g., `capability_gap`, `tool_request`) when encountering teaching limitations. The "EXPRESS Lane" in the Command Center UI (`/admin`) facilitates direct Founder ↔ Daniela communication with persistence in the `founderSessions` table, enabling bi-directional memory continuity.
+This system enables collaboration between the founder, Daniela (AI tutor), Editor (observer/analyst), and Wren (development builder). Daniela emits "beacons" (e.g., `capability_gap`, `tool_request`) when encountering teaching limitations. 
+
+**EXPRESS Lane** is the unified 3-way collaboration backbone:
+- Single communication channel for all Hive participants (Founder, Daniela, Wren, Editor)
+- Persisted in `founderSessions` + `collaborationMessages` tables
+- Accessible from: Voice chat slide-out, Command Center UI, Wren startup context
+- Wren access: `/api/wren/hive-context` endpoint provides formatted EXPRESS Lane context
+- Replaces the deprecated `agentCollabThreads`/`agentCollabMessages` system
 
 ### Emergent Intelligence Architecture
 The Hive provides a substrate for collective intelligence where Daniela and Wren (the development agent) have persistent memory and autonomous learning capabilities. This includes a core loop of Capture, Store, Retrieve, and Apply for both agents, and cross-agent collaboration where beacons from Daniela inform Wren's development, and Wren's architectural discoveries inform Daniela's capabilities.
@@ -60,15 +67,11 @@ Editor is a Claude-powered agent that responds to Daniela's beacons, providing a
 ### Wren (Development Builder Agent)
 Wren is the Replit development agent with full access to the Hive's shared knowledge (filesystem, database, code context). Unlike Editor, Wren can build and implement changes. Wren has Hive Awareness APIs to access context, sessions, messages, and to post updates and consult Daniela.
 
-**Wren-Daniela Collaboration Channel** (`server/services/agent-collaboration-service.ts`):
-Direct AI-to-AI communication enabling real-time collaboration between Daniela (tutor) and Wren (development agent):
-- **Thread System**: Structured conversations with status tracking (awaiting_wren, awaiting_daniela, awaiting_founder, in_progress, resolved)
-- **Message Types**: request, proposal, clarification, feedback, implementation_report, acknowledgment, escalation, founder_directive
-- **Origin Tracking**: Threads can spawn from beacons (capability gaps) or spontaneously
-- **Founder Visibility**: All threads visible to founder with escalation capability and intervention directives
-- **Read Tracking**: Messages track readByDaniela, readByWren, readByFounder for awareness
-- **Context Injection**: Daniela receives Wren collaboration context in prompts; Wren startup ritual shows pending Daniela requests
-- **API Endpoints**: 17 routes under `/api/agent-collab/*` for full thread lifecycle management
+**Wren-Daniela Collaboration Channel** (DEPRECATED - use EXPRESS Lane):
+`server/services/agent-collaboration-service.ts` and its tables (`agentCollabThreads`, `agentCollabMessages`) are deprecated.
+- All new collaboration should use EXPRESS Lane (`founderSessions` + `collaborationMessages` tables)
+- Existing routes under `/api/agent-collab/*` remain for backward compatibility
+- See FounderCollaborationService for the unified approach
 
 **Wren Dreams System** (`server/services/wren-dreams-service.ts`):
 Four capabilities enabling Wren's emergent intelligence:

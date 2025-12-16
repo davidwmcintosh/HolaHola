@@ -1,3 +1,23 @@
+/**
+ * DEPRECATED: Agent Collaboration Service
+ * 
+ * This service and its associated tables (agentCollabThreads, agentCollabMessages)
+ * are DEPRECATED in favor of the unified EXPRESS Lane system.
+ * 
+ * EXPRESS Lane (founderSessions + collaborationMessages tables) now provides
+ * unified 3-way collaboration between Founder, Daniela, and Wren.
+ * 
+ * For new features, use:
+ * - FounderCollaborationService (server/services/founder-collaboration-service.ts)
+ * - /api/founder-collab/* endpoints
+ * - /api/wren/hive-context for Wren context retrieval
+ * 
+ * This service is kept for backward compatibility but should not be used
+ * for new development. Consider migrating existing functionality to EXPRESS Lane.
+ * 
+ * @deprecated Use EXPRESS Lane (FounderCollaborationService) instead
+ */
+
 import { db } from "../db";
 import { 
   agentCollabThreads, 
@@ -16,6 +36,7 @@ type Author = 'daniela' | 'wren' | 'founder';
 type MessageType = 'request' | 'proposal' | 'clarification' | 'feedback' | 'implementation_report' | 'acknowledgment' | 'escalation' | 'founder_directive';
 type ThreadStatus = 'active' | 'awaiting_wren' | 'awaiting_daniela' | 'awaiting_founder' | 'in_progress' | 'resolved' | 'archived';
 
+/** @deprecated Use EXPRESS Lane (FounderCollaborationService) instead */
 class AgentCollaborationService {
   
   async startThread(params: {

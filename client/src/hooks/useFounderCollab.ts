@@ -1,7 +1,7 @@
 /**
- * Founder Collaboration Hook
+ * Founder Collaboration Hook (EXPRESS Lane)
  * 
- * Real-time sync channel for founder-Daniela collaboration.
+ * Real-time EXPRESS Lane for 3-way founder-Daniela-Wren collaboration.
  * Persists across dev restarts with automatic reconnection and message replay.
  * 
  * Key Features:
@@ -9,6 +9,7 @@
  * - Auto-reconnect with exponential backoff
  * - Message replay on reconnection (cursor-based)
  * - Optimistic message state management
+ * - 3-way collaboration: Founder, Daniela, Wren
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
@@ -21,7 +22,7 @@ const MAX_RECONNECT_ATTEMPTS = 10;
 const RECONNECT_BASE_DELAY = 1000;
 const PING_INTERVAL = 30000;
 
-type MessageRole = 'founder' | 'daniela' | 'editor' | 'system';
+type MessageRole = 'founder' | 'daniela' | 'editor' | 'wren' | 'system';
 
 interface FounderMessageInput {
   role: MessageRole;

@@ -92,7 +92,7 @@ export default function Chat() {
   // Check if we're in Honesty Mode (minimal prompting for authentic exploration)
   const isHonestyMode = learningContext === "honesty-mode";
 
-  // Founder Collaboration sync channel state
+  // Founder Collaboration EXPRESS Lane state
   const [syncPanelOpen, setSyncPanelOpen] = useState(true);
   const [syncMessage, setSyncMessage] = useState("");
   const syncMessagesEndRef = useRef<HTMLDivElement>(null);
@@ -622,7 +622,7 @@ export default function Chat() {
                 <div className="p-3 border-b flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Radio className="h-4 w-4 text-amber-500" />
-                    <span className="font-medium text-sm">Sync Channel</span>
+                    <span className="font-medium text-sm">EXPRESS Lane</span>
                   </div>
                   <div className="flex items-center gap-1">
                     {syncIsConnected ? (
@@ -646,7 +646,7 @@ export default function Chat() {
                           </div>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>{syncState.error || 'Connecting to sync channel...'}</p>
+                          <p>{syncState.error || 'Connecting to EXPRESS Lane...'}</p>
                         </TooltipContent>
                       </Tooltip>
                     )}
@@ -658,8 +658,8 @@ export default function Chat() {
                   {syncState.messages.length === 0 ? (
                     <div className="text-center text-muted-foreground text-sm py-8">
                       <Brain className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p>Sync channel ready</p>
-                      <p className="text-xs mt-1">Messages persist across dev restarts</p>
+                      <p>EXPRESS Lane ready</p>
+                      <p className="text-xs mt-1">3-way collaboration: Founder, Daniela, Wren</p>
                     </div>
                   ) : (
                     syncState.messages.map((msg) => (
@@ -672,14 +672,17 @@ export default function Chat() {
                             ? 'bg-primary/10 border border-primary/20'
                             : msg.role === 'editor'
                             ? 'bg-blue-500/10 border border-blue-500/20'
+                            : msg.role === 'wren'
+                            ? 'bg-emerald-500/10 border border-emerald-500/20'
                             : 'bg-muted border border-border'
                         }`}
-                        data-testid={`sync-message-${msg.id}`}
+                        data-testid={`express-message-${msg.id}`}
                       >
                         <div className="flex items-center gap-1 mb-1">
                           {msg.role === 'founder' && <Code className="h-3 w-3 text-amber-500" />}
                           {msg.role === 'daniela' && <Sparkles className="h-3 w-3 text-primary" />}
                           {msg.role === 'editor' && <Brain className="h-3 w-3 text-blue-500" />}
+                          {msg.role === 'wren' && <Radio className="h-3 w-3 text-emerald-500" />}
                           <span className="font-medium text-xs capitalize">{msg.role}</span>
                           {msg.messageType === 'voice' && (
                             <Mic className="h-3 w-3 text-muted-foreground" />
