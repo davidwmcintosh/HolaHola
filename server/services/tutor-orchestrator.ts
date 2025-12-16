@@ -531,9 +531,18 @@ ${expressLaneContext.contextString}
   if (mode === 'conversation' && context.userId) {
     try {
       const recentConversations = await storage.getUserConversations(String(context.userId));
+      // Prioritize titled conversations (they're usually more meaningful)
+      // Then take up to 10 for better memory continuity
       const textConversations = recentConversations
         .filter(c => c.id !== context.conversationId)
-        .slice(0, 2); // Last 2 conversations
+        .sort((a, b) => {
+          // Prioritize titled conversations, then sort by recency
+          const aHasTitle = a.title && a.title.trim().length > 0 ? 1 : 0;
+          const bHasTitle = b.title && b.title.trim().length > 0 ? 1 : 0;
+          if (aHasTitle !== bHasTitle) return bHasTitle - aHasTitle;
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        })
+        .slice(0, 8); // Last 8 conversations (prioritizing titled ones)
       
       if (textConversations.length > 0) {
         let textChatContext = '';
