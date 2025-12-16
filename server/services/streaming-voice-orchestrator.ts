@@ -772,6 +772,19 @@ export class StreamingVoiceOrchestrator {
         contentRedirectNote = ' (Note: Gently redirect this conversation back to language learning without being preachy.)';
       }
       
+      // STT CONFIDENCE INTEGRATION: Help Daniela adapt when speech recognition is uncertain
+      // Low confidence might indicate pronunciation issues, background noise, or unclear speech
+      let sttConfidenceNote = '';
+      if (pronunciationConfidence < 0.5) {
+        // Very low confidence - likely misheard, encourage clarification
+        console.log(`[Streaming Orchestrator] Low STT confidence (${(pronunciationConfidence * 100).toFixed(0)}%) - Daniela should ask for clarification`);
+        sttConfidenceNote = ` (System note: Speech recognition confidence was very low (${(pronunciationConfidence * 100).toFixed(0)}%). The transcript may be inaccurate. Consider asking the student to repeat or clarify, or acknowledge you may have misheard.)`;
+      } else if (pronunciationConfidence < 0.7 && !session.isFounderMode) {
+        // Moderate confidence - proceed but note potential pronunciation needs
+        console.log(`[Streaming Orchestrator] Moderate STT confidence (${(pronunciationConfidence * 100).toFixed(0)}%)`);
+        sttConfidenceNote = ` (System note: Speech clarity was moderate. The student may benefit from pronunciation practice.)`;
+      }
+      
       // ONE-WORD RULE: Validate user input for beginners
       // Non-blocking - we still process the request but provide feedback
       // BYPASS: Skip in Founder Mode - these are collaborative conversations, not language lessons
@@ -962,7 +975,7 @@ Remember: David may reference things discussed in these recent text chats.
         enhancedSystemPrompt += editorFeedbackSection;
       }
       
-      const userMessageWithNote = transcript + contentRedirectNote + architectContext;
+      const userMessageWithNote = transcript + contentRedirectNote + sttConfidenceNote + architectContext;
       
       await this.geminiService.streamWithSentenceChunking({
         systemPrompt: enhancedSystemPrompt,

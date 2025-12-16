@@ -61,6 +61,7 @@ import { collaborationHubService } from "./services/collaboration-hub-service";
 import { hiveCollaborationService } from "./services/hive-collaboration-service";
 import { hiveContextService } from "./services/hive-context-service";
 import { wrenIntelligenceService } from "./services/wren-intelligence-service";
+import { studentLearningService, TEACHING_STRATEGIES, ERROR_CATEGORIES } from "./services/student-learning-service";
 import { editorPersonaService, validateEditorSecret } from "./services/editor-persona-service";
 import { supportPersonaService } from "./services/support-persona-service";
 import { founderCollabService } from "./services/founder-collaboration-service";
@@ -15500,6 +15501,143 @@ ${memoryContext}
       res.json({ success: true, summary });
     } catch (error: any) {
       console.error('[Wren Intelligence] Summary error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================================================
+  // STUDENT LEARNING: Deep personalized learning tracking for Daniela
+  // ============================================================================
+
+  // STUDENT LEARNING: Record an error event
+  app.post("/api/student-learning/error", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { studentId, language, errorCategory, specificError, description, studentUtterance, correctForm, conversationId } = req.body;
+
+      if (!studentId || !language || !errorCategory || !specificError || !description) {
+        return res.status(400).json({ error: 'studentId, language, errorCategory, specificError, and description are required' });
+      }
+
+      // Validate error category
+      if (!ERROR_CATEGORIES.includes(errorCategory)) {
+        return res.status(400).json({ 
+          error: `Invalid errorCategory. Must be one of: ${ERROR_CATEGORIES.join(', ')}` 
+        });
+      }
+
+      const struggle = await studentLearningService.recordError({
+        studentId, language, errorCategory, specificError, description, 
+        studentUtterance, correctForm, conversationId
+      });
+
+      res.json({ success: true, struggle });
+    } catch (error: any) {
+      console.error('[Student Learning] Record error failed:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // STUDENT LEARNING: Record strategy outcome
+  app.post("/api/student-learning/strategy-outcome", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { studentId, language, struggleArea, strategy, wasEffective, notes, conversationId } = req.body;
+
+      if (!studentId || !language || !struggleArea || !strategy || wasEffective === undefined) {
+        return res.status(400).json({ error: 'studentId, language, struggleArea, strategy, and wasEffective are required' });
+      }
+
+      // Validate strategy against allowed list
+      if (!TEACHING_STRATEGIES.includes(strategy)) {
+        return res.status(400).json({ 
+          error: `Invalid strategy. Must be one of: ${TEACHING_STRATEGIES.join(', ')}` 
+        });
+      }
+
+      await studentLearningService.recordStrategyOutcome({
+        studentId, language, struggleArea, strategy, wasEffective, notes, conversationId
+      });
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('[Student Learning] Record strategy outcome failed:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // STUDENT LEARNING: Get learning context for a student
+  app.get("/api/student-learning/context/:studentId/:language", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const context = await studentLearningService.getStudentLearningContext(
+        req.params.studentId,
+        req.params.language
+      );
+
+      const formattedContext = studentLearningService.formatContextForPrompt(context);
+
+      res.json({ success: true, context, formattedContext });
+    } catch (error: any) {
+      console.error('[Student Learning] Get context failed:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // STUDENT LEARNING: Get strategy recommendations
+  app.get("/api/student-learning/recommendations/:studentId/:language/:errorCategory", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const recommendations = await studentLearningService.getStrategyRecommendations(
+        req.params.studentId,
+        req.params.language,
+        req.params.errorCategory
+      );
+
+      res.json({ success: true, recommendations });
+    } catch (error: any) {
+      console.error('[Student Learning] Get recommendations failed:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // STUDENT LEARNING: Record a learning insight about a student
+  app.post("/api/student-learning/insight", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { studentId, insightType, insight, evidence, language } = req.body;
+
+      if (!studentId || !insightType || !insight || !evidence) {
+        return res.status(400).json({ error: 'studentId, insightType, insight, and evidence are required' });
+      }
+
+      const created = await studentLearningService.recordInsight(
+        studentId, insightType, insight, evidence, language
+      );
+
+      res.json({ success: true, insight: created });
+    } catch (error: any) {
+      console.error('[Student Learning] Record insight failed:', error);
       res.status(500).json({ error: error.message });
     }
   });

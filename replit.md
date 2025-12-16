@@ -25,7 +25,25 @@ Daniela is a single core AI intelligence, with all interaction modes routing thr
 This system enables collaboration between the founder, Daniela (AI tutor), Editor (observer/analyst), and Wren (development builder). Daniela emits "beacons" (e.g., `capability_gap`, `tool_request`) when encountering teaching limitations. The "EXPRESS Lane" in the Command Center UI (`/admin`) facilitates direct Founder ↔ Daniela communication with persistence in the `founderSessions` table, enabling bi-directional memory continuity.
 
 ### Emergent Intelligence Architecture
-The Hive provides a substrate for collective intelligence where Daniela and Wren (the development agent) have persistent memory and autonomous learning capabilities. This includes a core loop of Capture, Store, Retrieve, and Apply for both agents, and cross-agent collaboration where beacons from Daniela inform Wren's development, and Wren's architectural discoveries inform Daniela's capabilities. Wren's memory system includes a startup ritual to load Hive context and an API for capturing and retrieving insights.
+The Hive provides a substrate for collective intelligence where Daniela and Wren (the development agent) have persistent memory and autonomous learning capabilities. This includes a core loop of Capture, Store, Retrieve, and Apply for both agents, and cross-agent collaboration where beacons from Daniela inform Wren's development, and Wren's architectural discoveries inform Daniela's capabilities.
+
+**Wren Intelligence Service** (`server/services/wren-intelligence-service.ts`):
+- Automatic insight capture with categories (pattern, solution, gotcha, architecture, debugging, integration, performance)
+- Decay/reinforcement mechanism for frequently-used insights
+- Knowledge graph building for cross-session threading
+- Startup ritual to load Hive context
+
+**Student Learning Service** (`server/services/student-learning-service.ts`):
+- Granular error pattern tracking per student (recurring_struggles table)
+- Validated teaching strategy tracking with effectiveness scoring
+- Personalized learning context injection into Daniela's prompts (max 500 chars, high-signal)
+- Error categories: grammar, pronunciation, vocabulary, cultural, comprehension
+- Teaching strategies: visual_timeline, role_play, repetition_drill, mnemonic, etc.
+
+**STT Confidence Integration**:
+- Low confidence (<0.5): Daniela prompted to ask for clarification
+- Moderate confidence (<0.7): Note about pronunciation practice needs
+- High confidence (>=0.7): Normal processing
 
 ### Editor (Observer/Analyst Agent)
 Editor is a Claude-powered agent that responds to Daniela's beacons, providing analysis, suggestions, and feedback on teaching patterns and pedagogical advice, but cannot implement changes.
