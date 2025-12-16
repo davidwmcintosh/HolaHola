@@ -549,13 +549,26 @@ ${expressLaneContext.contextString}
         
         for (const conv of textConversations) {
           const messages = await storage.getMessagesByConversation(conv.id);
-          const recentMessages = messages.slice(-6); // Last 6 messages per conversation
           
-          if (recentMessages.length > 0) {
+          // Smart message selection: Find "remember" or special keyword messages
+          const memoryKeywords = ['remember', 'woozle', 'don\'t forget', 'keep in mind'];
+          const memoryMessages = messages.filter(m => 
+            memoryKeywords.some(kw => m.content.toLowerCase().includes(kw))
+          );
+          
+          // Combine memory-specific messages with recent messages
+          const recentMsgs = messages.slice(-4);
+          const selectedMessages = [...new Map(
+            [...memoryMessages, ...recentMsgs].map(m => [m.id, m])
+          ).values()].sort((a, b) => 
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          ).slice(0, 8); // Cap at 8 messages per conversation
+          
+          if (selectedMessages.length > 0) {
             const timeAgo = formatTimeAgo(conv.updatedAt);
             textChatContext += `\n**${conv.title || 'Recent Chat'}** (${timeAgo}):\n`;
             
-            for (const msg of recentMessages) {
+            for (const msg of selectedMessages) {
               const role = msg.role === 'user' ? 'David' : 'Daniela';
               const content = msg.content.length > 200 
                 ? msg.content.substring(0, 200) + '...'

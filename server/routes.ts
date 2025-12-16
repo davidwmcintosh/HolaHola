@@ -4627,14 +4627,27 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
           let memoryContext = '';
           for (const conv of otherConversations) {
             const convMessages = await storage.getMessagesByConversation(conv.id);
-            const lastMessages = convMessages.slice(-4); // Last 4 messages per conversation
             
-            if (lastMessages.length > 0) {
+            // Smart message selection: Find "remember" or special keyword messages
+            const memoryKeywords = ['remember', 'woozle', 'don\'t forget', 'keep in mind'];
+            const memoryMessages = convMessages.filter(m => 
+              memoryKeywords.some(kw => m.content.toLowerCase().includes(kw))
+            );
+            
+            // Combine memory-specific messages with recent messages
+            const recentMessages = convMessages.slice(-4);
+            const selectedMessages = [...new Map(
+              [...memoryMessages, ...recentMessages].map(m => [m.id, m])
+            ).values()].sort((a, b) => 
+              new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+            ).slice(0, 8); // Cap at 8 messages per conversation
+            
+            if (selectedMessages.length > 0) {
               const daysSinceCreated = Math.floor((Date.now() - new Date(conv.createdAt).getTime()) / (1000 * 60 * 60 * 24));
               const timeAgo = daysSinceCreated === 0 ? 'today' : daysSinceCreated === 1 ? 'yesterday' : `${daysSinceCreated} days ago`;
               
               memoryContext += `\n**${conv.title || 'Conversation'}** (${timeAgo}):\n`;
-              for (const msg of lastMessages) {
+              for (const msg of selectedMessages) {
                 const role = msg.role === 'user' ? 'David' : 'Daniela';
                 const content = msg.content.length > 150 
                   ? msg.content.substring(0, 150) + '...'
