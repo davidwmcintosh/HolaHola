@@ -252,6 +252,7 @@ declare module 'http' {
   }
 }
 app.use(express.json({
+  limit: '10mb', // Increased for neural network sync bundles
   verify: (req, _res, buf) => {
     req.rawBody = buf;
   }
