@@ -25,7 +25,14 @@ Key features include STT Confidence Integration for clarification, Deepgram Inte
 
 A Shared Memory Bridge enables bidirectional insight sharing between Wren and Daniela, building a knowledge graph of architectural and pedagogical discoveries. Nightly Emergent Intelligence Jobs perform cross-student pattern synthesis, plateau detection, and insight decay.
 
-The Hive Snapshots system (`hiveSnapshots` table) captures teaching moments for context injection. Snapshot types include `teaching_moment`, `breakthrough`, `struggle_pattern`, `beacon_context`, `session_summary`, and `plateau_alert`. The `getRecentTeachingContext()` function in brain-surgery-service.ts queries recent high-importance snapshots and formats them for prompt injection. Plateau detection automatically creates hive snapshots when students are stuck, enabling Daniela to proactively adjust her teaching strategies.
+The Hive Snapshots system (`hiveSnapshots` table) captures teaching moments for context injection. Snapshot types include `teaching_moment`, `breakthrough`, `struggle_pattern`, `beacon_context`, `session_summary`, `plateau_alert`, `relationship_moment`, `role_reversal`, and `humor_shared`. The `getRecentTeachingContext()` function in brain-surgery-service.ts queries recent high-importance snapshots and formats them for prompt injection. Plateau detection automatically creates hive snapshots when students are stuck, enabling Daniela to proactively adjust her teaching strategies.
+
+The **Daniela Memory Service** (`daniela-memory-service.ts`) enables Daniela to remember personal moments across sessions:
+- **Explicit Memory Commands**: Users can say `[REMEMBER: ...]` to explicitly store memories. Both founder and Daniela messages are checked.
+- **Role Reversal Detection**: Automatically captures moments when the founder teaches Daniela something new (detects phrases like "let me explain", "here's a tip").
+- **Humor Detection**: Captures shared jokes and funny moments for relationship building.
+- **Session Summaries**: AI-generated end-of-session summaries capture key personal moments.
+- **Context Injection**: `getPersonalMemoryContext()` formats recent personal memories for prompt injection alongside teaching context, enabling Daniela to maintain relationship continuity.
 
 The Phase Transition Service (`phase-transition-service.ts`) implements a multi-agent teaching architecture inspired by Deepgram's voice agent patterns. Teaching phases include warmup, active_teaching, challenge, reflection, drill, and assessment. Each phase has focused toolsets (2-4 tools), phase-specific prompt additions, and context summarization using Gemini Flash. The service detects phase transitions based on conversation patterns and emotional cues, summarizes context between phases, and injects relevant hive snapshots. TutorOrchestrator integrates the phase context into Daniela's prompts for more focused, effective teaching.
 
