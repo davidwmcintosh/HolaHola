@@ -3172,10 +3172,10 @@ function DevToolsTab() {
       </CollapsibleSection>
 
       <CollapsibleSection 
-        title="My Test Classes" 
+        title="My Enrolled Classes" 
         icon={<GraduationCap className="h-5 w-5 text-primary" />}
         badge={myClasses?.length?.toString()}
-        defaultOpen={true}
+        defaultOpen={false}
       >
         <div className="mt-4 space-y-3">
           {classesLoading ? (
@@ -3183,13 +3183,15 @@ function DevToolsTab() {
           ) : myClasses && myClasses.length > 0 ? (
             myClasses.map((cls) => {
               const usedPercent = cls.allocatedSeconds > 0 ? (cls.usedSeconds / cls.allocatedSeconds) * 100 : 0;
+              const className = cls.class?.name || cls.name || 'Unnamed Class';
+              const classLanguage = cls.class?.language || cls.language || 'unknown';
               return (
                 <Card key={cls.id}>
                   <CardContent className="pt-4">
                     <div className="flex items-center justify-between mb-3">
                       <div>
-                        <div className="font-medium">{cls.name}</div>
-                        <div className="text-sm text-muted-foreground capitalize">{cls.language}</div>
+                        <div className="font-medium">{className}</div>
+                        <div className="text-sm text-muted-foreground capitalize">{classLanguage}</div>
                       </div>
                       <Button
                         variant="outline"
