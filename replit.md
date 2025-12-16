@@ -92,6 +92,26 @@ Daniela can write directly to her neural network during teaching using `[SELF_LE
 
 **Reference:** See `docs/neural-network-architecture.md` → "Autonomous Learning (Prod)" section for full details.
 
+### Student Memory System (Personal Context)
+Daniela remembers the WHOLE person, not just learning stats. The background enrichment pipeline (`processBackgroundEnrichment` in `streaming-voice-orchestrator.ts`) extracts personal life context from every voice exchange.
+
+**Insight Types Captured:**
+- `learning_style`, `preference`, `strength`, `personality` (learning-focused)
+- `personal_interest`, `life_context`, `hobby`, `likes_dislikes` (personal life)
+
+**Tables Used:**
+- `student_insights` - Observations about the student (learning + personal)
+- `learning_motivations` - Why they're learning the language
+- `recurring_struggles` - Areas where they need help
+- `people_connections` - Family, friends, colleagues they mention (wife, children, etc.)
+
+**Prompt Injection:** `buildStudentMemoryAwarenessSection()` in `procedural-memory-retrieval.ts` formats memories into sections:
+- "THEIR LIFE OUTSIDE LANGUAGE LEARNING" (personal interests, hobbies)
+- "WHAT YOU'VE NOTICED ABOUT THEIR LEARNING" (learning style, preferences)
+- "PEOPLE IN THEIR LIFE" (family, friends with context)
+
+**Philosophy:** A good tutor remembers your wife's name, that you like Cuban coffee, that you enjoy dancing - because caring mentors remember the whole person.
+
 ### System Design Choices
 Core data models include Users, Conversations, Messages, VocabularyWords, GrammarExercises, UserProgress, CulturalTips, Topics, and MediaFiles. Daniela's "Neural Network for Pedagogical Strategies" tracks teaching effectiveness, with a "Neural Network Expansion" system injecting language-specific pedagogical knowledge. A "Procedural Memory" system stores "how-to" knowledge for retrieval via `procedural-memory-retrieval.ts`. The voice architecture uses a two-tier validation system and Cartesia Pronunciation Dictionaries. A WebSocket-based progressive audio delivery system integrates Deepgram, Gemini, and Cartesia. The system includes an AI-powered conversation tagging system, a Syllabus-Aware Competency System, a unified learning filter system, comprehensive metering for voice tutoring time, and centralized Role-Based Access Control (RBAC). A hybrid grammar system and pre-built syllabi across 9 languages are available. A unified ACTFL assessment system and placement assessment are in place. The Command Center (`/admin`) provides a tab-based admin experience with role-based visibility.
 
