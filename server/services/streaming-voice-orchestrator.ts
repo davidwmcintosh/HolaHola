@@ -742,8 +742,8 @@ export class StreamingVoiceOrchestrator {
         }),
       ]);
       
-      // Extract transcript and pronunciation confidence (per-session, no race conditions)
-      const { transcript, confidence: pronunciationConfidence } = transcriptionResult;
+      // Extract transcript, pronunciation confidence, and intelligence data (per-session, no race conditions)
+      const { transcript, confidence: pronunciationConfidence, intelligence } = transcriptionResult;
       
       metrics.sttLatencyMs = Date.now() - sttStart;
       
@@ -794,6 +794,51 @@ export class StreamingVoiceOrchestrator {
         // Moderate confidence - proceed but note potential pronunciation needs
         console.log(`[Streaming Orchestrator] Moderate STT confidence (${(pronunciationConfidence * 100).toFixed(0)}%)`);
         sttConfidenceNote = ` (System note: Speech clarity was moderate. The student may benefit from pronunciation practice.)`;
+      }
+      
+      // DEEPGRAM INTELLIGENCE INTEGRATION: Provide Daniela with voice analysis insights
+      // This enables emotionally intelligent responses based on student's detected state
+      let intelligenceContext = '';
+      if (intelligence) {
+        const parts: string[] = [];
+        
+        // Sentiment: Help Daniela respond to student emotions
+        if (intelligence.sentiment) {
+          const sent = intelligence.sentiment;
+          if (sent.sentiment === 'negative' && sent.sentiment_score < -0.3) {
+            parts.push(`Student sounds frustrated or discouraged (sentiment: ${sent.sentiment}, score: ${sent.sentiment_score.toFixed(2)}). Consider slowing down, offering encouragement, or simplifying.`);
+          } else if (sent.sentiment === 'positive' && sent.sentiment_score > 0.3) {
+            parts.push(`Student sounds enthusiastic or confident (sentiment: ${sent.sentiment}). Good opportunity to introduce slightly more challenge.`);
+          }
+        }
+        
+        // Intents: Help Daniela understand what the student is trying to do
+        if (intelligence.intents && intelligence.intents.length > 0) {
+          const topIntents = intelligence.intents.filter(i => i.confidence_score > 0.5);
+          if (topIntents.length > 0) {
+            const intentList = topIntents.map(i => `${i.intent} (${(i.confidence_score * 100).toFixed(0)}%)`).join(', ');
+            parts.push(`Detected student intent: ${intentList}.`);
+          }
+        }
+        
+        // Topics: Context for staying relevant
+        if (intelligence.topics && intelligence.topics.length > 0) {
+          const topTopics = intelligence.topics.filter(t => t.confidence > 0.5).slice(0, 3);
+          if (topTopics.length > 0) {
+            const topicList = topTopics.map(t => t.topic).join(', ');
+            parts.push(`Topics mentioned: ${topicList}.`);
+          }
+        }
+        
+        // Detected language: Helpful for bilingual monitoring
+        if (intelligence.detectedLanguage) {
+          parts.push(`Detected spoken language: ${intelligence.detectedLanguage}.`);
+        }
+        
+        if (parts.length > 0) {
+          intelligenceContext = ` (Voice intelligence: ${parts.join(' ')})`;
+          console.log(`[Streaming Orchestrator] Intelligence context: ${intelligenceContext}`);
+        }
       }
       
       // ONE-WORD RULE: Validate user input for beginners
@@ -986,7 +1031,7 @@ Remember: David may reference things discussed in these recent text chats.
         enhancedSystemPrompt += editorFeedbackSection;
       }
       
-      const userMessageWithNote = transcript + contentRedirectNote + sttConfidenceNote + architectContext;
+      const userMessageWithNote = transcript + contentRedirectNote + sttConfidenceNote + intelligenceContext + architectContext;
       
       await this.geminiService.streamWithSentenceChunking({
         systemPrompt: enhancedSystemPrompt,
