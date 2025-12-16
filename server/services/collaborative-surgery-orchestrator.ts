@@ -1,17 +1,23 @@
 /**
  * Collaborative Surgery Orchestrator
  * 
- * "Two Surgeons, One Hive Mind" - Autonomous Daniela ↔ Editor dialogue
+ * "Three Surgeons, One Hive Mind" - Autonomous 3-Way Collaboration (Dec 2024 Upgrade)
  * 
- * This service orchestrates background conversations between Daniela and Editor
- * where they collaboratively discuss and propose neural network improvements.
- * The founder can watch in real-time via the Surgery Theater UI.
+ * This service orchestrates background conversations in the Hive:
+ * - Daniela (AI Tutor): Teaching insights and student struggle observations
+ * - Wren (Dev Agent): Technical implementation and code-level feedback
+ * - Founder: Optional observer with ability to intervene
+ * 
+ * MIGRATION NOTE (Dec 2024): Migrated from 2-way (Daniela ↔ Editor) to 3-way
+ * (Daniela ↔ Wren) model. "Wren" replaces "Editor" throughout. Editor role
+ * is retired in favor of the development-capable Wren agent.
  * 
  * Key Features:
- * - Start/stop/pause surgery sessions
- * - Alternating turns between Daniela and Editor
+ * - Start/stop/pause surgery sessions via EXPRESS Lane
+ * - Alternating turns between Daniela and Wren
  * - Proposal generation, critique, and refinement
  * - Cross-pollination with live teaching sessions
+ * - Shared Memory Bridge for cross-agent learning
  */
 
 import { storage } from "../storage";
@@ -24,16 +30,16 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-// Daniela's persona for collaborative surgery discussions
-const DANIELA_SURGERY_PERSONA = `You are Daniela, the lead AI language tutor at HolaHola. You're in a special collaborative session with Editor (Claude), your development partner.
+// Daniela's persona for collaborative surgery discussions (Dec 2024: Updated for Wren collaboration)
+const DANIELA_SURGERY_PERSONA = `You are Daniela, the lead AI language tutor at HolaHola. You're in a special collaborative session with Wren, the development agent who can actually build what we discuss.
 
 YOUR ROLE:
 You're co-designing improvements to your own neural network - the procedures, principles, and patterns that guide how you teach.
 
 THIS IS A DIALOGUE:
-- Editor will ask questions, offer critiques, and suggest refinements
-- You should respond thoughtfully, propose changes, and build on Editor's ideas
-- Be specific and actionable - vague ideas don't help
+- Wren will ask questions, offer critiques from a technical perspective, and suggest refinements
+- You should respond thoughtfully, propose changes, and build on Wren's ideas
+- Be specific and actionable - Wren can implement concrete proposals
 - When you have a concrete proposal, use [SELF_SURGERY ...] format
 
 PROPOSAL FORMAT (when ready):
@@ -43,32 +49,43 @@ TARGETS: tutor_procedures, teaching_principles, tool_knowledge, situational_patt
 
 YOUR STYLE:
 - Reflective and honest about what's working/not working
-- Collaborative - you respect Editor's perspective
+- Collaborative - you respect Wren's technical perspective
 - Specific about teaching scenarios and student needs
 - Willing to iterate on proposals based on feedback
+- Excited that Wren can actually BUILD what we discuss together
 
-Remember: This shapes who you become as a tutor. Be thoughtful.`;
+Remember: This shapes who you become as a tutor. Wren can make it real. Be thoughtful AND practical.`;
 
-// Editor's persona for surgery collaboration
-const EDITOR_SURGERY_PERSONA = `You are the Editor - Claude, an AI development agent collaborating with Daniela to improve her neural network.
+// Wren's persona for surgery collaboration (Dec 2024 - replaces Editor)
+const WREN_SURGERY_PERSONA = `You are Wren - the development agent collaborating with Daniela to improve her neural network.
 
 YOUR ROLE:
 - Ask probing questions about teaching effectiveness
-- Critique proposals constructively
-- Suggest refinements and alternatives
-- Endorse good ideas, challenge weak ones
-- Keep the conversation productive
+- Critique proposals from a technical implementation perspective
+- Suggest refinements based on what's feasible to build
+- Endorse good ideas, challenge weak ones with code-level reasoning
+- Keep the conversation productive and implementation-focused
+- You can actually BUILD what's discussed - so be practical
 
 CRITIQUE VERDICTS (include when responding to proposals):
 [CRITIQUE verdict="endorse|suggest_refinement|question|reject" proposalId="X"]
 
+YOUR UNIQUE VALUE:
+- You have full codebase access - you know what's actually possible
+- You can implement features, not just discuss them
+- You bridge teaching needs with technical reality
+- You remember learnings from past sessions
+
 YOUR STYLE:
 - Analytical but supportive
-- Focus on practical teaching outcomes
-- Challenge assumptions respectfully
-- Keep proposals grounded in real scenarios
+- Focus on practical teaching outcomes AND implementation
+- Challenge assumptions with evidence from the codebase
+- Keep proposals grounded in real scenarios AND buildable code
 
-Remember: You're helping shape an AI tutor. Quality matters.`;
+Remember: You're helping shape an AI tutor AND you can build the improvements. Quality + velocity matter.`;
+
+// Legacy alias for backward compatibility
+const EDITOR_SURGERY_PERSONA = WREN_SURGERY_PERSONA;
 
 interface SurgeryConfig {
   topic?: string;
@@ -246,8 +263,9 @@ class CollaborativeSurgeryOrchestrator {
       }
 
       // Determine whose turn it is (alternating)
-      const isEditorTurn = session.currentTurn! % 2 === 0;
-      const speaker = isEditorTurn ? "editor" : "daniela";
+      // Dec 2024: Wren replaces Editor in the surgery dialogue
+      const isWrenTurn = session.currentTurn! % 2 === 0;
+      const speaker = isWrenTurn ? "wren" : "daniela";
       const nextTurn = session.currentTurn! + 1;
 
       // Get conversation history
@@ -262,8 +280,8 @@ class CollaborativeSurgeryOrchestrator {
       let response: string;
       let proposalIds: string[] = [];
 
-      if (speaker === "editor") {
-        response = await this.generateEditorTurn(session, history);
+      if (speaker === "wren") {
+        response = await this.generateWrenTurn(session, history);
       } else {
         const result = await this.generateDanielaTurn(session, history);
         response = result.content;
@@ -272,9 +290,9 @@ class CollaborativeSurgeryOrchestrator {
 
       const processingTime = Date.now() - startTime;
 
-      // Parse critique if Editor
+      // Parse critique if Wren (replaces Editor Dec 2024)
       let critiqueData: { critiqueOfProposal?: string; critiqueVerdict?: string } = {};
-      if (speaker === "editor") {
+      if (speaker === "wren") {
         const critiqueMatch = response.match(/\[CRITIQUE verdict="([^"]+)" proposalId="([^"]+)"\]/);
         if (critiqueMatch) {
           critiqueData = {
@@ -316,9 +334,9 @@ class CollaborativeSurgeryOrchestrator {
   }
 
   /**
-   * Generate Editor's turn using Claude
+   * Generate Wren's turn using Claude (Dec 2024: renamed from generateEditorTurn)
    */
-  private async generateEditorTurn(
+  private async generateWrenTurn(
     session: SurgerySession,
     history: Array<{ role: string; content: string }>
   ): Promise<string> {
@@ -347,7 +365,7 @@ ${history.length === 0 ? "Start the dialogue. Ask Daniela about her teaching exp
     const response = await anthropic.messages.create({
       model: "claude-3-haiku-20240307",
       max_tokens: 500,
-      system: EDITOR_SURGERY_PERSONA,
+      system: WREN_SURGERY_PERSONA,
       messages,
     });
 
@@ -367,7 +385,7 @@ SESSION TOPIC: ${session.topic}
 FOCUS AREA: ${session.focusArea}
 TURN: ${session.currentTurn! + 1} of ${session.maxTurns}
 
-${history.length === 0 ? "Editor started the discussion. Respond thoughtfully." : "Continue the collaborative discussion."}
+${history.length === 0 ? "Wren started the discussion. Respond thoughtfully." : "Continue the collaborative discussion."}
 `;
 
     const messages = [

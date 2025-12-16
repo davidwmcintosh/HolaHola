@@ -485,6 +485,889 @@ export class StudentLearningService {
     
     return { recommended, avoid };
   }
+  
+  // ============================================================
+  // PREDICTIVE TEACHING SYSTEM
+  // Dec 2024 Emergent Intelligence Upgrade
+  // ============================================================
+  
+  /**
+   * Learning progressions: common patterns of what struggles tend to follow others
+   * Built from cross-student analysis and linguistic research
+   */
+  private static readonly LEARNING_PROGRESSIONS: Record<string, string[]> = {
+    // Spanish progressions
+    'grammar:ser_estar': ['grammar:adjective_agreement', 'grammar:estar_emotions'],
+    'grammar:verb_conjugation': ['grammar:tense_selection', 'grammar:irregular_verbs'],
+    'grammar:tense_selection': ['grammar:subjunctive_triggers', 'grammar:mood_usage'],
+    'grammar:subjunctive_triggers': ['grammar:subjunctive_imperfect', 'grammar:conditional_si_clauses'],
+    'grammar:article_usage': ['grammar:definite_vs_indefinite', 'grammar:zero_article_cases'],
+    'grammar:por_para': ['grammar:preposition_choice', 'grammar:verbs_with_prepositions'],
+    'vocabulary:false_cognates': ['vocabulary:semantic_precision', 'vocabulary:word_families'],
+    'pronunciation:stress_patterns': ['pronunciation:rhythm', 'pronunciation:intonation'],
+    
+    // General progressions
+    'comprehension:listening_speed': ['comprehension:accent_variation', 'comprehension:connected_speech'],
+    'cultural:formality_levels': ['cultural:pragmatics', 'cultural:register_switching'],
+  };
+  
+  /**
+   * Predict upcoming struggles for a student based on:
+   * 1. Their current struggles (what typically follows)
+   * 2. Cross-student patterns (what students at similar levels struggle with)
+   * 3. Natural language learning progressions
+   */
+  async predictUpcomingStruggles(
+    studentId: string,
+    language: string,
+    proficiencyLevel?: string
+  ): Promise<Array<{
+    predictedStruggle: string;
+    reason: string;
+    confidence: number;
+    preventiveStrategy: string;
+  }>> {
+    const predictions: Array<{
+      predictedStruggle: string;
+      reason: string;
+      confidence: number;
+      preventiveStrategy: string;
+    }> = [];
+    
+    // Get current struggles for this student
+    const currentStruggles = await db
+      .select()
+      .from(recurringStruggles)
+      .where(
+        and(
+          eq(recurringStruggles.studentId, studentId),
+          eq(recurringStruggles.language, language),
+          eq(recurringStruggles.status, 'active')
+        )
+      )
+      .orderBy(desc(recurringStruggles.occurrenceCount));
+    
+    // Prediction source 1: Known learning progressions
+    for (const struggle of currentStruggles.slice(0, 5)) {
+      const key = `${struggle.struggleArea}:${this.extractSubcategory(struggle.description || '')}`;
+      const nextStruggles = StudentLearningService.LEARNING_PROGRESSIONS[key];
+      
+      if (nextStruggles) {
+        for (const nextStruggle of nextStruggles) {
+          const [area, subcategory] = nextStruggle.split(':');
+          
+          // Check if student already has this struggle
+          const alreadyHas = currentStruggles.some(s => 
+            s.struggleArea === area && 
+            s.description?.toLowerCase().includes(subcategory.replace(/_/g, ' '))
+          );
+          
+          if (!alreadyHas) {
+            predictions.push({
+              predictedStruggle: nextStruggle,
+              reason: `Based on current struggle with ${struggle.description?.split(':')[0] || struggle.struggleArea}`,
+              confidence: 0.75,
+              preventiveStrategy: this.getPreventiveStrategy(nextStruggle),
+            });
+          }
+        }
+      }
+    }
+    
+    // Prediction source 2: Cross-student patterns (aggregate analysis)
+    const crossStudentPredictions = await this.getCrossStudentPredictions(language, proficiencyLevel);
+    
+    for (const csp of crossStudentPredictions) {
+      // Don't duplicate predictions
+      const exists = predictions.some(p => p.predictedStruggle === csp.predictedStruggle);
+      if (!exists) {
+        // Check if student already has this struggle
+        const alreadyHas = currentStruggles.some(s => 
+          `${s.struggleArea}:${this.extractSubcategory(s.description || '')}` === csp.predictedStruggle
+        );
+        
+        if (!alreadyHas) {
+          predictions.push(csp);
+        }
+      }
+    }
+    
+    // Sort by confidence and limit to top 5
+    return predictions
+      .sort((a, b) => b.confidence - a.confidence)
+      .slice(0, 5);
+  }
+  
+  /**
+   * Extract subcategory from struggle description
+   */
+  private extractSubcategory(description: string): string {
+    const parts = description.toLowerCase().split(':');
+    if (parts.length > 1) {
+      return parts[0].trim().replace(/\s+/g, '_');
+    }
+    // Try to match against known subcategories
+    const descLower = description.toLowerCase();
+    for (const [category, subs] of Object.entries(ERROR_TAXONOMY)) {
+      for (const sub of subs) {
+        if (descLower.includes(sub.replace(/_/g, ' '))) {
+          return sub;
+        }
+      }
+    }
+    return descLower.replace(/\s+/g, '_').substring(0, 30);
+  }
+  
+  /**
+   * Get preventive teaching strategy for a predicted struggle
+   */
+  private getPreventiveStrategy(struggle: string): string {
+    const [area] = struggle.split(':');
+    
+    const strategyMap: Record<string, string> = {
+      'grammar': 'explicit_rule with visual_timeline',
+      'pronunciation': 'slow_pronunciation with repetition_drill',
+      'vocabulary': 'real_world_context with chunking',
+      'cultural': 'role_play with storytelling',
+      'comprehension': 'chunking with spaced_repetition',
+    };
+    
+    return strategyMap[area] || 'explicit_rule';
+  }
+  
+  /**
+   * Analyze cross-student patterns to find common struggles
+   * at similar proficiency levels
+   */
+  private async getCrossStudentPredictions(
+    language: string,
+    proficiencyLevel?: string
+  ): Promise<Array<{
+    predictedStruggle: string;
+    reason: string;
+    confidence: number;
+    preventiveStrategy: string;
+  }>> {
+    // Get most common struggles across all students for this language
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    
+    const allStruggles = await db
+      .select({
+        struggleArea: recurringStruggles.struggleArea,
+        description: recurringStruggles.description,
+        count: sql<number>`count(*)`,
+        avgOccurrence: sql<number>`avg(${recurringStruggles.occurrenceCount})`,
+      })
+      .from(recurringStruggles)
+      .where(
+        and(
+          eq(recurringStruggles.language, language),
+          eq(recurringStruggles.status, 'active'),
+          gte(recurringStruggles.updatedAt, thirtyDaysAgo)
+        )
+      )
+      .groupBy(recurringStruggles.struggleArea, recurringStruggles.description)
+      .orderBy(sql`count(*) DESC`)
+      .limit(10);
+    
+    return allStruggles.slice(0, 3).map(s => ({
+      predictedStruggle: `${s.struggleArea}:${this.extractSubcategory(s.description || '')}`,
+      reason: `Common struggle among ${s.count} students learning ${language}`,
+      confidence: Math.min(0.6, 0.3 + (s.count as number * 0.05)),
+      preventiveStrategy: this.getPreventiveStrategy(s.struggleArea || 'grammar'),
+    }));
+  }
+  
+  /**
+   * Format predictions for Daniela's prompt injection
+   */
+  formatPredictionsForPrompt(
+    predictions: Array<{
+      predictedStruggle: string;
+      reason: string;
+      confidence: number;
+      preventiveStrategy: string;
+    }>
+  ): string {
+    if (predictions.length === 0) return '';
+    
+    const lines: string[] = [];
+    lines.push('');
+    lines.push('[PREDICTIVE TEACHING]');
+    lines.push('Anticipated struggles (address proactively):');
+    
+    for (const p of predictions.slice(0, 3)) {
+      const struggle = p.predictedStruggle.replace(/_/g, ' ').replace(':', ': ');
+      lines.push(`  • ${struggle} (${Math.round(p.confidence * 100)}%)`);
+      lines.push(`    → Try: ${p.preventiveStrategy.replace(/_/g, ' ')}`);
+    }
+    
+    return lines.join('\n');
+  }
+  
+  // ============================================================
+  // CROSS-STUDENT PATTERN SYNTHESIS
+  // Dec 2024 Emergent Intelligence Upgrade
+  // ============================================================
+  
+  /**
+   * Universal teaching insights derived from aggregate student patterns
+   */
+  async synthesizeCrossStudentPatterns(
+    language: string
+  ): Promise<{
+    universalInsights: Array<{
+      insight: string;
+      confidence: number;
+      evidenceCount: number;
+      recommendedApproach: string;
+    }>;
+    difficultyCurve: Array<{
+      concept: string;
+      averageAttempts: number;
+      commonMistakes: string[];
+    }>;
+    effectiveSequences: Array<{
+      fromConcept: string;
+      toConcept: string;
+      successRate: number;
+    }>;
+  }> {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    
+    // Get all struggles with teaching outcomes
+    const allStruggles = await db
+      .select()
+      .from(recurringStruggles)
+      .where(
+        and(
+          eq(recurringStruggles.language, language),
+          gte(recurringStruggles.createdAt, thirtyDaysAgo)
+        )
+      );
+    
+    // Analyze strategy effectiveness across all students
+    const strategyStats: Record<string, { success: number; total: number }> = {};
+    const conceptDifficulty: Record<string, { attempts: number; resolved: number; mistakes: string[] }> = {};
+    
+    for (const struggle of allStruggles) {
+      const concept = `${struggle.struggleArea}:${this.extractSubcategory(struggle.description || '')}`;
+      
+      // Track difficulty curve
+      if (!conceptDifficulty[concept]) {
+        conceptDifficulty[concept] = { attempts: 0, resolved: 0, mistakes: [] };
+      }
+      conceptDifficulty[concept].attempts += struggle.occurrenceCount || 1;
+      if (struggle.status === 'resolved') {
+        conceptDifficulty[concept].resolved++;
+      }
+      if (struggle.specificExamples) {
+        const examples = struggle.specificExamples.split('\n').slice(0, 2);
+        conceptDifficulty[concept].mistakes.push(...examples);
+      }
+      
+      // Track strategy effectiveness
+      for (const strategy of (struggle.approachesAttempted || [])) {
+        if (!strategyStats[strategy]) {
+          strategyStats[strategy] = { success: 0, total: 0 };
+        }
+        strategyStats[strategy].total++;
+        
+        if ((struggle.successfulApproaches || []).includes(strategy)) {
+          strategyStats[strategy].success++;
+        }
+      }
+    }
+    
+    // Generate universal insights from strategy analysis
+    const universalInsights = Object.entries(strategyStats)
+      .filter(([_, stats]) => stats.total >= 3) // Minimum sample size
+      .map(([strategy, stats]) => ({
+        insight: `${strategy.replace(/_/g, ' ')} works ${Math.round((stats.success / stats.total) * 100)}% of the time`,
+        confidence: stats.total >= 10 ? 0.85 : 0.65,
+        evidenceCount: stats.total,
+        recommendedApproach: stats.success / stats.total >= 0.6 
+          ? 'Use as primary strategy' 
+          : 'Use as backup or combine with other approaches',
+      }))
+      .sort((a, b) => b.evidenceCount - a.evidenceCount)
+      .slice(0, 10);
+    
+    // Generate difficulty curve
+    const difficultyCurve = Object.entries(conceptDifficulty)
+      .map(([concept, data]) => ({
+        concept,
+        averageAttempts: data.attempts / Math.max(1, data.resolved || 1),
+        commonMistakes: Array.from(new Set(data.mistakes)).slice(0, 3),
+      }))
+      .sort((a, b) => b.averageAttempts - a.averageAttempts)
+      .slice(0, 10);
+    
+    // Extract effective learning sequences from progressions
+    const effectiveSequences = Object.entries(StudentLearningService.LEARNING_PROGRESSIONS)
+      .map(([from, toList]) => ({
+        fromConcept: from,
+        toConcept: toList[0],
+        successRate: 0.7, // Base rate, would be refined with actual data
+      }))
+      .slice(0, 10);
+    
+    return {
+      universalInsights,
+      difficultyCurve,
+      effectiveSequences,
+    };
+  }
+  
+  // ============================================================
+  // ROOT CAUSE ANALYSIS
+  // Dec 2024 Emergent Intelligence Upgrade
+  // ============================================================
+  
+  /**
+   * L1 (native language) interference patterns by language pair
+   * These cause predictable errors that need different treatment than conceptual gaps
+   */
+  private static readonly L1_INTERFERENCE_PATTERNS: Record<string, string[]> = {
+    'english->spanish': [
+      'ser_estar (no "be" distinction in English)',
+      'por_para (both = "for" in English)',
+      'adjective_placement (English: before noun)',
+      'article_overuse (English uses "the" more)',
+      'subjunctive_triggers (rare in English)',
+      'double_negatives (ungrammatical in English)',
+      'reflexive_verbs (less common in English)',
+    ],
+    'english->french': [
+      'gendered_nouns (no grammatical gender in English)',
+      'adjective_agreement (no agreement in English)',
+      'tu_vous_distinction (formal/informal "you")',
+      'passé_composé_vs_imparfait (simple past covers both in English)',
+      'liaison_elision (no equivalent in English)',
+    ],
+    'english->german': [
+      'case_system (no cases in English)',
+      'word_order (verb-second in German)',
+      'gendered_nouns (no grammatical gender in English)',
+      'compound_nouns (separate in English)',
+    ],
+    'english->japanese': [
+      'particles (no equivalent in English)',
+      'verb_endings (English uses helper verbs)',
+      'keigo_politeness (less stratified in English)',
+      'topic_marker (English uses subject prominence)',
+    ],
+    'english->korean': [
+      'honorific_system (minimal in English)',
+      'verb_final_order (SVO in English)',
+      'particles (no equivalent in English)',
+    ],
+    'english->chinese': [
+      'tones (non-tonal English)',
+      'measure_words (no classifiers in English)',
+      'aspect_markers (English uses tense more)',
+    ],
+  };
+  
+  /**
+   * Analyze a struggle to determine if it's L1 interference or conceptual gap
+   */
+  analyzeRootCause(
+    nativeLanguage: string,
+    targetLanguage: string,
+    struggleArea: string,
+    description: string
+  ): {
+    rootCause: 'l1_interference' | 'conceptual_gap' | 'unclear';
+    confidence: number;
+    explanation: string;
+    teachingImplication: string;
+  } {
+    const langPair = `${nativeLanguage.toLowerCase()}->${targetLanguage.toLowerCase()}`;
+    const patterns = StudentLearningService.L1_INTERFERENCE_PATTERNS[langPair] || [];
+    
+    const descLower = description.toLowerCase();
+    const areaLower = struggleArea.toLowerCase();
+    
+    // Check if this matches known L1 interference patterns
+    for (const pattern of patterns) {
+      const patternKeywords = pattern.split(/[\s_()]+/).filter((w: string) => w.length > 2);
+      const matchCount = patternKeywords.filter((kw: string) => 
+        descLower.includes(kw.toLowerCase()) || areaLower.includes(kw.toLowerCase())
+      ).length;
+      
+      if (matchCount >= 2 || (matchCount >= 1 && patternKeywords.length <= 3)) {
+        return {
+          rootCause: 'l1_interference',
+          confidence: 0.85,
+          explanation: `This error pattern is common for ${nativeLanguage} speakers: ${pattern}`,
+          teachingImplication: 'Explicitly contrast with L1 patterns. Use comparison_chart and explicit_rule strategies.',
+        };
+      }
+    }
+    
+    // If error is very basic (articles, basic conjugation) with high occurrence, likely conceptual
+    const basicConcepts = ['article', 'basic_conjugation', 'present_tense', 'noun_gender'];
+    const isBasic = basicConcepts.some(c => descLower.includes(c) || areaLower.includes(c));
+    
+    if (isBasic) {
+      return {
+        rootCause: 'conceptual_gap',
+        confidence: 0.7,
+        explanation: 'This appears to be a fundamental concept that needs systematic teaching.',
+        teachingImplication: 'Build foundation with explicit_rule, then reinforce with spaced_repetition.',
+      };
+    }
+    
+    // Check for vocabulary/semantic errors (usually conceptual)
+    if (areaLower.includes('vocabulary') || areaLower.includes('word_choice')) {
+      return {
+        rootCause: 'conceptual_gap',
+        confidence: 0.65,
+        explanation: 'Vocabulary gaps require exposure and practice, not just L1 comparison.',
+        teachingImplication: 'Use real_world_context and chunking to build associations.',
+      };
+    }
+    
+    return {
+      rootCause: 'unclear',
+      confidence: 0.4,
+      explanation: 'Unable to determine root cause with available information.',
+      teachingImplication: 'Probe student understanding through conversation to clarify.',
+    };
+  }
+  
+  /**
+   * Get enhanced learning context with predictions and root cause analysis
+   */
+  async getEnhancedLearningContext(
+    studentId: string,
+    language: string,
+    nativeLanguage: string = 'english'
+  ): Promise<{
+    basic: StudentLearningContext;
+    predictions: Awaited<ReturnType<StudentLearningService['predictUpcomingStruggles']>>;
+    rootCauseAnalysis: Array<{
+      struggle: string;
+      rootCause: 'l1_interference' | 'conceptual_gap' | 'unclear';
+      teachingImplication: string;
+    }>;
+  }> {
+    const basic = await this.getStudentLearningContext(studentId, language);
+    const predictions = await this.predictUpcomingStruggles(studentId, language);
+    
+    // Analyze root causes for top struggles
+    const rootCauseAnalysis = basic.struggles.slice(0, 5).map(struggle => {
+      const analysis = this.analyzeRootCause(
+        nativeLanguage,
+        language,
+        struggle.struggleArea || '',
+        struggle.description || ''
+      );
+      return {
+        struggle: struggle.description?.split(':')[0] || 'Unknown',
+        rootCause: analysis.rootCause,
+        teachingImplication: analysis.teachingImplication,
+      };
+    });
+    
+    return { basic, predictions, rootCauseAnalysis };
+  }
+  
+  /**
+   * Format enhanced context for Daniela's prompt
+   */
+  formatEnhancedContextForPrompt(
+    enhanced: Awaited<ReturnType<StudentLearningService['getEnhancedLearningContext']>>
+  ): string {
+    const lines: string[] = [];
+    
+    // Basic context
+    const basicContext = this.formatContextForPrompt(enhanced.basic);
+    if (basicContext) lines.push(basicContext);
+    
+    // Predictions
+    const predictionsContext = this.formatPredictionsForPrompt(enhanced.predictions);
+    if (predictionsContext) lines.push(predictionsContext);
+    
+    // Root cause insights (if L1 interference detected)
+    const l1Struggles = enhanced.rootCauseAnalysis.filter(r => r.rootCause === 'l1_interference');
+    if (l1Struggles.length > 0) {
+      lines.push('');
+      lines.push('[L1 INTERFERENCE DETECTED]');
+      for (const s of l1Struggles.slice(0, 2)) {
+        lines.push(`  • ${s.struggle}: ${s.teachingImplication}`);
+      }
+    }
+    
+    return lines.join('\n');
+  }
+  
+  // ============================================================
+  // MOTIVATION DIP PREDICTION
+  // Dec 2024 Emergent Intelligence Upgrade
+  // ============================================================
+  
+  /**
+   * Indicators that suggest declining motivation
+   */
+  private static readonly MOTIVATION_DECLINE_INDICATORS = {
+    sessionPattern: {
+      decreasing_frequency: 0.3,     // Sessions becoming less frequent
+      shorter_duration: 0.25,        // Sessions getting shorter
+      time_of_day_shift: 0.1,        // Moving to less optimal times
+    },
+    interactionPattern: {
+      less_elaboration: 0.25,        // Shorter responses
+      more_errors: 0.2,              // Error rate increasing
+      less_initiative: 0.15,         // Not asking questions
+      slower_response: 0.1,          // Taking longer to respond
+    },
+    emotionalIndicators: {
+      frustration_increase: 0.3,     // More negative sentiment
+      confidence_decrease: 0.25,     // Less confident answers
+      avoidance_behavior: 0.2,       // Skipping harder topics
+    },
+  };
+  
+  /**
+   * Predict motivation dip based on student interaction patterns
+   */
+  async predictMotivationDip(
+    studentId: string,
+    language: string
+  ): Promise<{
+    riskLevel: 'low' | 'medium' | 'high';
+    score: number;
+    indicators: string[];
+    suggestedInterventions: string[];
+  }> {
+    const indicators: string[] = [];
+    let totalScore = 0;
+    
+    // Analyze session frequency patterns
+    const recentSessions = await db
+      .select({
+        id: conversations.id,
+        createdAt: conversations.createdAt,
+        messageCount: sql<number>`(
+          SELECT COUNT(*) FROM ${messages} 
+          WHERE ${messages.conversationId} = ${conversations.id}
+        )`,
+      })
+      .from(conversations)
+      .where(
+        and(
+          eq(conversations.userId, studentId),
+          eq(conversations.language, language),
+          gte(conversations.createdAt, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
+        )
+      )
+      .orderBy(desc(conversations.createdAt))
+      .limit(20);
+    
+    if (recentSessions.length >= 5) {
+      // Calculate session frequency trend
+      const firstHalf = recentSessions.slice(0, Math.floor(recentSessions.length / 2));
+      const secondHalf = recentSessions.slice(Math.floor(recentSessions.length / 2));
+      
+      // Average days between sessions
+      const calcAvgGap = (sessions: typeof recentSessions) => {
+        if (sessions.length < 2) return 0;
+        const gaps: number[] = [];
+        for (let i = 0; i < sessions.length - 1; i++) {
+          const gap = Math.abs(
+            new Date(sessions[i].createdAt!).getTime() - 
+            new Date(sessions[i + 1].createdAt!).getTime()
+          ) / (1000 * 60 * 60 * 24);
+          gaps.push(gap);
+        }
+        return gaps.reduce((a, b) => a + b, 0) / gaps.length;
+      };
+      
+      const recentAvgGap = calcAvgGap(firstHalf);
+      const olderAvgGap = calcAvgGap(secondHalf);
+      
+      if (recentAvgGap > olderAvgGap * 1.5) {
+        indicators.push('Sessions becoming less frequent');
+        totalScore += 0.25;
+      }
+      
+      // Average message count trend
+      const recentAvgMessages = firstHalf.reduce((a, s) => a + (s.messageCount || 0), 0) / firstHalf.length;
+      const olderAvgMessages = secondHalf.reduce((a, s) => a + (s.messageCount || 0), 0) / secondHalf.length;
+      
+      if (recentAvgMessages < olderAvgMessages * 0.7) {
+        indicators.push('Sessions getting shorter');
+        totalScore += 0.2;
+      }
+    }
+    
+    // Check error rate trend
+    const struggles = await db
+      .select()
+      .from(recurringStruggles)
+      .where(
+        and(
+          eq(recurringStruggles.studentId, studentId),
+          eq(recurringStruggles.language, language),
+          eq(recurringStruggles.status, 'active'),
+          gte(recurringStruggles.updatedAt, new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
+        )
+      );
+    
+    const recentErrorCount = struggles.reduce((a, s) => a + (s.occurrenceCount || 0), 0);
+    if (recentErrorCount > 10) {
+      indicators.push('Error rate increasing');
+      totalScore += 0.15;
+    }
+    
+    // Determine risk level
+    let riskLevel: 'low' | 'medium' | 'high' = 'low';
+    if (totalScore >= 0.5) {
+      riskLevel = 'high';
+    } else if (totalScore >= 0.25) {
+      riskLevel = 'medium';
+    }
+    
+    // Generate interventions based on indicators
+    const suggestedInterventions = this.generateMotivationInterventions(indicators, riskLevel);
+    
+    return {
+      riskLevel,
+      score: Math.min(1, totalScore),
+      indicators,
+      suggestedInterventions,
+    };
+  }
+  
+  /**
+   * Generate motivational interventions based on detected indicators
+   */
+  private generateMotivationInterventions(
+    indicators: string[],
+    riskLevel: 'low' | 'medium' | 'high'
+  ): string[] {
+    const interventions: string[] = [];
+    
+    if (riskLevel === 'high') {
+      interventions.push('Start with a fun, low-pressure activity (game, song, or story)');
+      interventions.push('Celebrate small wins and progress made so far');
+      interventions.push('Ask about learning goals and adjust difficulty');
+    }
+    
+    if (indicators.includes('Sessions becoming less frequent')) {
+      interventions.push('Send encouraging reminder about streak or upcoming milestone');
+    }
+    
+    if (indicators.includes('Sessions getting shorter')) {
+      interventions.push('Use more engaging content: role-play scenarios, cultural topics');
+    }
+    
+    if (indicators.includes('Error rate increasing')) {
+      interventions.push('Reduce difficulty temporarily to rebuild confidence');
+      interventions.push('Focus on reinforcing what they already know well');
+    }
+    
+    if (interventions.length === 0) {
+      interventions.push('Continue current approach - engagement looks healthy');
+    }
+    
+    return interventions;
+  }
+  
+  // ============================================================
+  // PLATEAU DETECTION
+  // Dec 2024 Emergent Intelligence Upgrade
+  // ============================================================
+  
+  /**
+   * Common plateau points in language learning by ACTFL level
+   */
+  private static readonly PLATEAU_POINTS: Record<string, {
+    description: string;
+    commonChallenges: string[];
+    breakthroughStrategies: string[];
+  }> = {
+    'novice_high_to_intermediate_low': {
+      description: 'The "survival mode" ceiling - can handle basic transactions but struggles with connected discourse',
+      commonChallenges: [
+        'Difficulty stringing sentences together',
+        'Over-reliance on memorized phrases',
+        'Limited vocabulary for abstract topics',
+      ],
+      breakthroughStrategies: [
+        'Extensive reading/listening in target language',
+        'Focus on narrative skills (past, present, future)',
+        'Introduce opinion and preference expression',
+      ],
+    },
+    'intermediate_mid_to_intermediate_high': {
+      description: 'The "comfort zone" plateau - competent in familiar topics but avoids challenge',
+      commonChallenges: [
+        'Using simpler constructions to avoid errors',
+        'Limited paragraph-length discourse',
+        'Struggle with hypothetical/abstract concepts',
+      ],
+      breakthroughStrategies: [
+        'Push into unfamiliar topics and contexts',
+        'Formal vs informal register practice',
+        'Subjunctive/conditional mood focus',
+      ],
+    },
+    'advanced_low_to_advanced_mid': {
+      description: 'The "nuance gap" - fluent but lacks cultural depth and precision',
+      commonChallenges: [
+        'Subtle vocabulary distinctions',
+        'Cultural pragmatics (indirect speech, politeness)',
+        'Register switching for audience',
+      ],
+      breakthroughStrategies: [
+        'Native content immersion (news, podcasts, literature)',
+        'Debate and argumentation practice',
+        'Cultural context and pragmatics focus',
+      ],
+    },
+  };
+  
+  /**
+   * Detect if a student is at a learning plateau
+   */
+  async detectPlateau(
+    studentId: string,
+    language: string,
+    currentLevel?: string
+  ): Promise<{
+    isPlateau: boolean;
+    plateauType?: string;
+    evidence: string[];
+    breakthroughStrategies: string[];
+    weeksSinceProgress: number;
+  }> {
+    const evidence: string[] = [];
+    let isPlateau = false;
+    
+    // Check for progress stagnation (no level change in N weeks)
+    const sixWeeksAgo = new Date(Date.now() - 42 * 24 * 60 * 60 * 1000);
+    const twoWeeksAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+    
+    // Get struggles that haven't improved
+    const stagnantStruggles = await db
+      .select()
+      .from(recurringStruggles)
+      .where(
+        and(
+          eq(recurringStruggles.studentId, studentId),
+          eq(recurringStruggles.language, language),
+          eq(recurringStruggles.status, 'active'),
+          gte(recurringStruggles.createdAt, sixWeeksAgo),
+          sql`${recurringStruggles.occurrenceCount} >= 5`
+        )
+      );
+    
+    if (stagnantStruggles.length >= 3) {
+      evidence.push(`${stagnantStruggles.length} struggles remain unresolved after 5+ occurrences`);
+      isPlateau = true;
+    }
+    
+    // Check for repetitive error patterns
+    const recentStruggles = await db
+      .select()
+      .from(recurringStruggles)
+      .where(
+        and(
+          eq(recurringStruggles.studentId, studentId),
+          eq(recurringStruggles.language, language),
+          gte(recurringStruggles.updatedAt, twoWeeksAgo)
+        )
+      );
+    
+    // Check if same errors keep recurring
+    const highRecurrence = recentStruggles.filter(s => (s.occurrenceCount || 0) > 3);
+    if (highRecurrence.length > 0 && 
+        highRecurrence.length / Math.max(1, recentStruggles.length) > 0.5) {
+      evidence.push('More than 50% of recent errors are recurring issues');
+      isPlateau = true;
+    }
+    
+    // Determine plateau type based on current level
+    let plateauType: string | undefined;
+    let breakthroughStrategies: string[] = [];
+    
+    if (currentLevel) {
+      const level = currentLevel.toLowerCase();
+      if (level.includes('novice_high') || level.includes('novice-high')) {
+        plateauType = 'novice_high_to_intermediate_low';
+      } else if (level.includes('intermediate_mid') || level.includes('intermediate-mid')) {
+        plateauType = 'intermediate_mid_to_intermediate_high';
+      } else if (level.includes('advanced_low') || level.includes('advanced-low')) {
+        plateauType = 'advanced_low_to_advanced_mid';
+      }
+      
+      if (plateauType && StudentLearningService.PLATEAU_POINTS[plateauType]) {
+        breakthroughStrategies = StudentLearningService.PLATEAU_POINTS[plateauType].breakthroughStrategies;
+        if (isPlateau) {
+          evidence.push(`At common plateau point: ${StudentLearningService.PLATEAU_POINTS[plateauType].description}`);
+        }
+      }
+    }
+    
+    // Default strategies if none matched
+    if (breakthroughStrategies.length === 0) {
+      breakthroughStrategies = [
+        'Introduce varied content types (video, audio, reading)',
+        'Add real-world application scenarios',
+        'Focus on areas showing most improvement potential',
+      ];
+    }
+    
+    // Estimate weeks since meaningful progress
+    const oldestStagnantStruggle = stagnantStruggles
+      .sort((a, b) => new Date(a.createdAt!).getTime() - new Date(b.createdAt!).getTime())[0];
+    
+    const weeksSinceProgress = oldestStagnantStruggle
+      ? Math.floor((Date.now() - new Date(oldestStagnantStruggle.createdAt!).getTime()) / (7 * 24 * 60 * 60 * 1000))
+      : 0;
+    
+    return {
+      isPlateau,
+      plateauType,
+      evidence,
+      breakthroughStrategies,
+      weeksSinceProgress,
+    };
+  }
+  
+  /**
+   * Format motivation and plateau insights for Daniela's prompt
+   */
+  formatEngagementInsightsForPrompt(
+    motivation: Awaited<ReturnType<StudentLearningService['predictMotivationDip']>>,
+    plateau: Awaited<ReturnType<StudentLearningService['detectPlateau']>>
+  ): string {
+    const lines: string[] = [];
+    
+    if (motivation.riskLevel !== 'low' || plateau.isPlateau) {
+      lines.push('');
+      lines.push('[ENGAGEMENT ALERT]');
+    }
+    
+    if (motivation.riskLevel !== 'low') {
+      lines.push(`Motivation risk: ${motivation.riskLevel.toUpperCase()}`);
+      if (motivation.suggestedInterventions.length > 0) {
+        lines.push(`  → ${motivation.suggestedInterventions[0]}`);
+      }
+    }
+    
+    if (plateau.isPlateau) {
+      lines.push(`Plateau detected (${plateau.weeksSinceProgress} weeks)`);
+      if (plateau.breakthroughStrategies.length > 0) {
+        lines.push(`  → ${plateau.breakthroughStrategies[0]}`);
+      }
+    }
+    
+    return lines.join('\n');
+  }
 }
 
 export const studentLearningService = new StudentLearningService();

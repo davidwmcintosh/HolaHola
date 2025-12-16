@@ -10,9 +10,49 @@
  * - Reliability: Live API handles WebM/Opus better than prerecorded
  * 
  * Architecture: Send complete audio blob → Wait for final transcript → Return
+ * 
+ * Intelligence Features (enabled Dec 2024):
+ * - Sentiment Analysis: Track student frustration/confidence in real-time
+ * - Intent Recognition: Detect "I don't understand", "can you repeat" etc.
+ * - Entity Detection: Extract names, locations, dates for personalization
+ * - Diarization: Separate student vs tutor voices (FREE)
+ * - Language Detection: Auto-detect code-switching between languages
  */
 
 import { createClient, LiveTranscriptionEvents } from "@deepgram/sdk";
+
+export interface DeepgramSentiment {
+  sentiment: 'positive' | 'negative' | 'neutral';
+  sentiment_score: number;
+}
+
+export interface DeepgramIntent {
+  intent: string;
+  confidence_score: number;
+}
+
+export interface DeepgramEntity {
+  label: string;
+  value: string;
+  confidence: number;
+  start_word?: number;
+  end_word?: number;
+}
+
+export interface DeepgramTopic {
+  topic: string;
+  confidence: number;
+}
+
+export interface DeepgramIntelligence {
+  sentiment?: DeepgramSentiment;
+  intents?: DeepgramIntent[];
+  entities?: DeepgramEntity[];
+  topics?: DeepgramTopic[];
+  summary?: string;
+  detectedLanguage?: string;
+  speakerId?: number;
+}
 
 export interface TranscriptionResult {
   transcript: string;
@@ -22,13 +62,16 @@ export interface TranscriptionResult {
     start: number;
     end: number;
     confidence: number;
+    speaker?: number;
   }>;
   durationMs: number;
+  intelligence?: DeepgramIntelligence;
 }
 
 export interface DeepgramLiveConfig {
   language: string;
   model?: string;
+  enableIntelligence?: boolean;
 }
 
 const deepgramClient = createClient(process.env.DEEPGRAM_API_KEY || '');
@@ -58,17 +101,34 @@ export async function transcribeWithLiveAPI(
     try {
       // For WebM container format (from browser MediaRecorder), DON'T specify
       // encoding/sample_rate - Deepgram auto-detects from container headers
-      const connection = deepgramClient.listen.live({
+      const enableIntelligence = config.enableIntelligence !== false;
+      
+      const connectionOptions: any = {
         model: config.model || 'nova-2',
         language: config.language,
         punctuate: true,
         smart_format: true,
         // NO encoding/sample_rate for container formats like WebM
-      });
+      };
+      
+      // Add Deepgram Intelligence features (Dec 2024 upgrade)
+      if (enableIntelligence) {
+        connectionOptions.diarize = true;           // Speaker separation (FREE)
+        connectionOptions.sentiment = true;         // Sentiment analysis
+        connectionOptions.intents = true;           // Intent recognition
+        connectionOptions.detect_entities = true;   // Entity detection
+        connectionOptions.detect_language = true;   // Language detection
+        connectionOptions.topics = true;            // Topic detection
+        connectionOptions.summarize = 'v2';         // Summarization (v2 for best quality)
+        console.log('[Deepgram Live] Intelligence features enabled: diarize, sentiment, intents, entities, language, topics, summarize');
+      }
+      
+      const connection = deepgramClient.listen.live(connectionOptions);
       
       let finalTranscript = '';
       let finalConfidence = 0;
       let finalWords: TranscriptionResult['words'] = [];
+      let finalIntelligence: DeepgramIntelligence = {};
       let hasReceivedAnyTranscript = false;
       let closeTimeout: NodeJS.Timeout | null = null;
       
@@ -104,7 +164,65 @@ export async function transcribeWithLiveAPI(
             start: w.start || 0,
             end: w.end || 0,
             confidence: w.confidence || 0,
+            speaker: w.speaker,
           }));
+          
+          // Extract intelligence data from response
+          if (enableIntelligence) {
+            // Sentiment
+            if (alternative.sentiment) {
+              finalIntelligence.sentiment = {
+                sentiment: alternative.sentiment as 'positive' | 'negative' | 'neutral',
+                sentiment_score: alternative.sentiment_score || 0,
+              };
+            }
+            
+            // Intents
+            if (alternative.intents && alternative.intents.length > 0) {
+              finalIntelligence.intents = alternative.intents.map((i: any) => ({
+                intent: i.intent || '',
+                confidence_score: i.confidence_score || i.confidence || 0,
+              }));
+            }
+            
+            // Entities
+            if (alternative.entities && alternative.entities.length > 0) {
+              finalIntelligence.entities = alternative.entities.map((e: any) => ({
+                label: e.label || e.type || '',
+                value: e.value || '',
+                confidence: e.confidence || 0,
+                start_word: e.start_word,
+                end_word: e.end_word,
+              }));
+            }
+            
+            // Topics (if available in response)
+            if (alternative.topics && alternative.topics.length > 0) {
+              finalIntelligence.topics = alternative.topics.map((t: any) => ({
+                topic: t.topic || '',
+                confidence: t.confidence || 0,
+              }));
+            }
+            
+            // Summary (from summarize feature)
+            if (data.channel?.summary || alternative.summary) {
+              finalIntelligence.summary = data.channel?.summary || alternative.summary;
+            }
+            
+            // Detected language
+            if (data.channel?.detected_language) {
+              finalIntelligence.detectedLanguage = data.channel.detected_language;
+            }
+            
+            // Speaker ID (from diarization)
+            if (words[0]?.speaker !== undefined) {
+              finalIntelligence.speakerId = words[0].speaker;
+            }
+            
+            if (Object.keys(finalIntelligence).length > 0) {
+              console.log(`[Deepgram Live] Intelligence:`, JSON.stringify(finalIntelligence));
+            }
+          }
           
           console.log(`[Deepgram Live] Final: "${transcript}" (${(confidence * 100).toFixed(0)}%)`);
           
@@ -113,10 +231,39 @@ export async function transcribeWithLiveAPI(
             clearTimeout(closeTimeout);
             closeTimeout = null;
           }
-          // Small delay to ensure all data is flushed
-          setTimeout(() => connection.requestClose(), 50);
+          // Wait 500ms for metadata events (summaries, topics) before closing
+          // Metadata events often arrive after the final transcript
+          setTimeout(() => connection.requestClose(), 500);
         } else if (transcript.length > 0) {
           console.log(`[Deepgram Live] Interim: "${transcript}"`);
+        }
+      });
+      
+      // Listen for Metadata events (summaries arrive here in v2)
+      connection.on(LiveTranscriptionEvents.Metadata, (data: any) => {
+        if (enableIntelligence) {
+          // Deepgram v2 summaries come through metadata events
+          if (data?.summaries && Array.isArray(data.summaries) && data.summaries.length > 0) {
+            // Combine all summary segments
+            const summaryText = data.summaries
+              .map((s: any) => s.summary || s.text || '')
+              .filter((s: string) => s.length > 0)
+              .join(' ');
+            
+            if (summaryText) {
+              finalIntelligence.summary = summaryText;
+              console.log(`[Deepgram Live] Summary received: "${summaryText.substring(0, 100)}..."`);
+            }
+          }
+          
+          // Also check for topics in metadata
+          if (data?.topics && Array.isArray(data.topics) && data.topics.length > 0) {
+            finalIntelligence.topics = data.topics.map((t: any) => ({
+              topic: t.topic || t.text || '',
+              confidence: t.confidence || 0,
+            }));
+            console.log(`[Deepgram Live] Topics received:`, finalIntelligence.topics);
+          }
         }
       });
       
@@ -125,6 +272,18 @@ export async function transcribeWithLiveAPI(
         if (closeTimeout) clearTimeout(closeTimeout);
         const durationMs = Date.now() - startTime;
         
+        // Log final intelligence state before resolving
+        const intelKeys = Object.keys(finalIntelligence);
+        if (intelKeys.length > 0) {
+          console.log(`[Deepgram Live] Final intelligence collected: ${intelKeys.join(', ')}`);
+          if (finalIntelligence.summary) {
+            console.log(`[Deepgram Live] Summary: "${finalIntelligence.summary.substring(0, 100)}..."`);
+          }
+          if (finalIntelligence.topics && finalIntelligence.topics.length > 0) {
+            console.log(`[Deepgram Live] Topics: ${finalIntelligence.topics.map(t => t.topic).join(', ')}`);
+          }
+        }
+        
         console.log(`[Deepgram Live] Closed after ${durationMs}ms`);
         
         resolve({
@@ -132,6 +291,7 @@ export async function transcribeWithLiveAPI(
           confidence: finalConfidence,
           words: finalWords,
           durationMs,
+          intelligence: intelKeys.length > 0 ? finalIntelligence : undefined,
         });
       });
       
@@ -171,11 +331,19 @@ export function getDeepgramLanguageCode(language: string): string {
  * 
  * Continuous audio streaming with VAD events for natural conversation flow.
  * Emits events for speech detection and provides transcripts for each utterance.
+ * 
+ * Intelligence Features (Dec 2024):
+ * - Real-time sentiment analysis
+ * - Intent recognition
+ * - Entity detection
+ * - Speaker diarization
+ * - Language detection
  */
 export interface OpenMicEvents {
   onSpeechStarted?: () => void;
-  onUtteranceEnd?: (transcript: string, confidence: number) => void;
+  onUtteranceEnd?: (transcript: string, confidence: number, intelligence?: DeepgramIntelligence) => void;
   onInterimTranscript?: (transcript: string) => void;
+  onIntelligence?: (intelligence: DeepgramIntelligence) => void;
   onError?: (error: Error) => void;
   onClose?: () => void;
 }
@@ -187,6 +355,7 @@ export class OpenMicSession {
   private language: string;
   private currentTranscript = '';
   private currentConfidence = 0;
+  private currentIntelligence: DeepgramIntelligence = {};
   private lastInterimTranscript = '';
   private lastInterimConfidence = 0;
   private chunkCount = 0;
@@ -236,7 +405,16 @@ export class OpenMicSession {
           sample_rate: 16000,
           channels: 1,
           endpointing: 100, // 100ms endpointing for better code-switching (recommended for multi)
+          // Deepgram Intelligence Features (Dec 2024)
+          diarize: true,           // Speaker separation (FREE)
+          sentiment: true,         // Real-time sentiment analysis
+          intents: true,           // Intent recognition
+          detect_entities: true,   // Entity detection
+          detect_language: true,   // Language detection
+          topics: true,            // Topic detection
+          summarize: 'v2',         // Summarization (v2 for best quality)
         });
+        console.log('[OpenMic] Intelligence features enabled: diarize, sentiment, intents, entities, language, topics, summarize');
         
         // Attach Open handler first
         this.connection.on(LiveTranscriptionEvents.Open, () => {
@@ -268,10 +446,12 @@ export class OpenMicSession {
         this.connection.on(LiveTranscriptionEvents.UtteranceEnd, () => {
           console.log(`[OpenMic] Utterance end - transcript: "${this.currentTranscript}"`);
           if (this.currentTranscript.trim()) {
-            this.events.onUtteranceEnd?.(this.currentTranscript, this.currentConfidence);
+            const intel = Object.keys(this.currentIntelligence).length > 0 ? this.currentIntelligence : undefined;
+            this.events.onUtteranceEnd?.(this.currentTranscript, this.currentConfidence, intel);
           }
           this.currentTranscript = '';
           this.currentConfidence = 0;
+          this.currentIntelligence = {};
         });
         
         this.connection.on(LiveTranscriptionEvents.Transcript, (data: any) => {
@@ -292,10 +472,69 @@ export class OpenMicSession {
           
           const transcript = alternative.transcript || '';
           const confidence = alternative.confidence || 0;
+          const words = alternative.words || [];
           
           // Log all transcript events for debugging
           if (transcript.length > 0) {
             console.log(`[OpenMic] Transcript: "${transcript}" (final=${data.is_final}, conf=${(confidence * 100).toFixed(0)}%)`);
+          }
+          
+          // Extract intelligence data from final transcripts
+          if (data.is_final && transcript.length > 0) {
+            const intel: DeepgramIntelligence = {};
+            
+            // Sentiment
+            if (alternative.sentiment) {
+              intel.sentiment = {
+                sentiment: alternative.sentiment as 'positive' | 'negative' | 'neutral',
+                sentiment_score: alternative.sentiment_score || 0,
+              };
+            }
+            
+            // Intents
+            if (alternative.intents && alternative.intents.length > 0) {
+              intel.intents = alternative.intents.map((i: any) => ({
+                intent: i.intent || '',
+                confidence_score: i.confidence_score || i.confidence || 0,
+              }));
+            }
+            
+            // Entities
+            if (alternative.entities && alternative.entities.length > 0) {
+              intel.entities = alternative.entities.map((e: any) => ({
+                label: e.label || e.type || '',
+                value: e.value || '',
+                confidence: e.confidence || 0,
+                start_word: e.start_word,
+                end_word: e.end_word,
+              }));
+            }
+            
+            // Topics
+            if (alternative.topics && alternative.topics.length > 0) {
+              intel.topics = alternative.topics.map((t: any) => ({
+                topic: t.topic || '',
+                confidence: t.confidence || 0,
+              }));
+            }
+            
+            // Detected language
+            if (data.channel?.detected_language) {
+              intel.detectedLanguage = data.channel.detected_language;
+            }
+            
+            // Speaker ID (from diarization)
+            if (words[0]?.speaker !== undefined) {
+              intel.speakerId = words[0].speaker;
+            }
+            
+            // Merge into current intelligence
+            if (Object.keys(intel).length > 0) {
+              this.currentIntelligence = { ...this.currentIntelligence, ...intel };
+              console.log(`[OpenMic] Intelligence extracted:`, JSON.stringify(intel));
+              // Emit intelligence event for real-time processing
+              this.events.onIntelligence?.(intel);
+            }
           }
           
           // Track the latest transcript (both interim and final)
@@ -322,6 +561,38 @@ export class OpenMicSession {
           // This gives users more time to pause and think without being cut off
           if (data.speech_final) {
             console.log(`[OpenMic] Speech final detected (NOT auto-submitting - waiting for UtteranceEnd)`);
+          }
+        });
+        
+        // Listen for Metadata events (summaries and topics arrive here in v2)
+        this.connection.on(LiveTranscriptionEvents.Metadata, (data: any) => {
+          const intel: DeepgramIntelligence = {};
+          
+          // Deepgram v2 summaries come through metadata events
+          if (data?.summaries && Array.isArray(data.summaries) && data.summaries.length > 0) {
+            const summaryText = data.summaries
+              .map((s: any) => s.summary || s.text || '')
+              .filter((s: string) => s.length > 0)
+              .join(' ');
+            
+            if (summaryText) {
+              intel.summary = summaryText;
+              console.log(`[OpenMic] Summary received: "${summaryText.substring(0, 100)}..."`);
+            }
+          }
+          
+          // Topics may also arrive via metadata
+          if (data?.topics && Array.isArray(data.topics) && data.topics.length > 0) {
+            intel.topics = data.topics.map((t: any) => ({
+              topic: t.topic || t.text || '',
+              confidence: t.confidence || 0,
+            }));
+            console.log(`[OpenMic] Topics received:`, intel.topics);
+          }
+          
+          if (Object.keys(intel).length > 0) {
+            this.currentIntelligence = { ...this.currentIntelligence, ...intel };
+            this.events.onIntelligence?.(intel);
           }
         });
         

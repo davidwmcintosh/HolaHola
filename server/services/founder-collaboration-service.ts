@@ -1018,6 +1018,170 @@ ${formattedMessages.join('\n')}
       .orderBy(desc(founderSessions.updatedAt))
       .limit(limit);
   }
+  
+  // ============================================================================
+  // SHARED MEMORY BRIDGE (Dec 2024 Emergent Intelligence Upgrade)
+  // Bidirectional insight sharing between Wren and Daniela
+  // ============================================================================
+  
+  /**
+   * Share an insight from one agent to another via EXPRESS Lane
+   * This creates a special system message that the receiving agent can parse
+   */
+  async shareInsight(params: {
+    sessionId: string;
+    fromAgent: 'wren' | 'daniela';
+    toAgent: 'wren' | 'daniela';
+    insightType: 'teaching_pattern' | 'student_struggle' | 'code_pattern' | 'architecture' | 'debugging';
+    insight: string;
+    confidence: number;
+    context?: string;
+  }): Promise<CollaborationMessage> {
+    const metadata = {
+      sharedInsight: true,
+      fromAgent: params.fromAgent,
+      toAgent: params.toAgent,
+      insightType: params.insightType,
+      confidence: params.confidence,
+      context: params.context,
+      sharedAt: new Date().toISOString(),
+    };
+    
+    const content = `[SHARED INSIGHT: ${params.insightType}]\nFrom: ${params.fromAgent}\nTo: ${params.toAgent}\nConfidence: ${(params.confidence * 100).toFixed(0)}%\n\n${params.insight}`;
+    
+    return this.addMessage(params.sessionId, {
+      role: 'system',
+      content,
+      metadata,
+    });
+  }
+  
+  /**
+   * Retrieve insights shared by a specific agent
+   */
+  async getSharedInsights(params: {
+    sessionId?: string;
+    toAgent: 'wren' | 'daniela';
+    insightType?: string;
+    limit?: number;
+  }): Promise<Array<{
+    id: string;
+    fromAgent: string;
+    insightType: string;
+    insight: string;
+    confidence: number;
+    sharedAt: string;
+  }>> {
+    let query = db.select()
+      .from(collaborationMessages)
+      .where(sql`${collaborationMessages.metadata}->>'sharedInsight' = 'true' AND ${collaborationMessages.metadata}->>'toAgent' = ${params.toAgent}`)
+      .orderBy(desc(collaborationMessages.createdAt))
+      .limit(params.limit || 20);
+    
+    const messages = await query;
+    
+    return messages.map(msg => {
+      const meta = msg.metadata as any || {};
+      return {
+        id: msg.id,
+        fromAgent: meta.fromAgent || 'unknown',
+        insightType: meta.insightType || 'general',
+        insight: msg.content,
+        confidence: meta.confidence || 0.5,
+        sharedAt: meta.sharedAt || msg.createdAt.toISOString(),
+      };
+    });
+  }
+  
+  /**
+   * Daniela shares teaching insight for Wren to use in development
+   */
+  async danielaSharesWithWren(params: {
+    sessionId: string;
+    insightType: 'teaching_pattern' | 'student_struggle' | 'debugging';
+    insight: string;
+    confidence: number;
+    studentContext?: string;
+  }): Promise<void> {
+    await this.shareInsight({
+      sessionId: params.sessionId,
+      fromAgent: 'daniela',
+      toAgent: 'wren',
+      insightType: params.insightType,
+      insight: params.insight,
+      confidence: params.confidence,
+      context: params.studentContext,
+    });
+    
+    console.log(`[SharedMemory] Daniela shared ${params.insightType} with Wren (${(params.confidence * 100).toFixed(0)}% confidence)`);
+  }
+  
+  /**
+   * Wren shares code/architecture insight for Daniela's teaching
+   */
+  async wrenSharesWithDaniela(params: {
+    sessionId: string;
+    insightType: 'code_pattern' | 'architecture';
+    insight: string;
+    confidence: number;
+    relevantFiles?: string[];
+  }): Promise<void> {
+    await this.shareInsight({
+      sessionId: params.sessionId,
+      fromAgent: 'wren',
+      toAgent: 'daniela',
+      insightType: params.insightType,
+      insight: params.insight,
+      confidence: params.confidence,
+      context: params.relevantFiles?.join(', '),
+    });
+    
+    console.log(`[SharedMemory] Wren shared ${params.insightType} with Daniela (${(params.confidence * 100).toFixed(0)}% confidence)`);
+  }
+  
+  /**
+   * Get a synthesis of recent cross-agent learning
+   */
+  async getCrossAgentSynthesis(daysBack: number = 7): Promise<{
+    wrenToDaniela: Array<{ type: string; count: number }>;
+    danielaToWren: Array<{ type: string; count: number }>;
+    totalShared: number;
+    avgConfidence: number;
+  }> {
+    const dateThreshold = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000);
+    
+    const allShared = await db.select()
+      .from(collaborationMessages)
+      .where(
+        and(
+          sql`${collaborationMessages.metadata}->>'sharedInsight' = 'true'`,
+          sql`${collaborationMessages.createdAt} > ${dateThreshold}`
+        )
+      );
+    
+    const wrenToDaniela: Record<string, number> = {};
+    const danielaToWren: Record<string, number> = {};
+    let totalConfidence = 0;
+    
+    for (const msg of allShared) {
+      const meta = msg.metadata as any || {};
+      const type = meta.insightType || 'general';
+      totalConfidence += meta.confidence || 0.5;
+      
+      if (meta.fromAgent === 'wren' && meta.toAgent === 'daniela') {
+        wrenToDaniela[type] = (wrenToDaniela[type] || 0) + 1;
+      } else if (meta.fromAgent === 'daniela' && meta.toAgent === 'wren') {
+        danielaToWren[type] = (danielaToWren[type] || 0) + 1;
+      }
+    }
+    
+    return {
+      wrenToDaniela: Object.entries(wrenToDaniela).map(([type, count]) => ({ type, count })),
+      danielaToWren: Object.entries(danielaToWren).map(([type, count]) => ({ type, count })),
+      totalShared: allShared.length,
+      avgConfidence: allShared.length > 0 ? totalConfidence / allShared.length : 0,
+    };
+  }
 }
 
 export const founderCollabService = new FounderCollaborationService();

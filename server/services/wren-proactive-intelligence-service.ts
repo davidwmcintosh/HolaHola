@@ -663,6 +663,420 @@ export class WrenProactiveIntelligenceService {
     
     return lines.join('\n');
   }
+  
+  // =========================================================================
+  // MEMORY THREADING (Dec 2024 Emergent Intelligence Upgrade)
+  // Build knowledge graph edges between related insights using tags
+  // =========================================================================
+  
+  /**
+   * Create a memory thread linking related insights via shared tags
+   * Uses the existing tags array to establish relationships
+   */
+  async createMemoryThread(params: {
+    sourceInsightId: string;
+    targetInsightId: string;
+    relationshipType: 'builds_on' | 'contradicts' | 'refines' | 'applies_to' | 'example_of';
+    threadTag: string;
+  }): Promise<void> {
+    // Create a relationship tag that links the two insights
+    const relationshipTag = `thread:${threadTag}:${params.relationshipType}`;
+    
+    // Get both insights
+    const [source, target] = await Promise.all([
+      db.select().from(wrenInsights).where(eq(wrenInsights.id, params.sourceInsightId)).limit(1),
+      db.select().from(wrenInsights).where(eq(wrenInsights.id, params.targetInsightId)).limit(1),
+    ]);
+    
+    if (!source[0] || !target[0]) {
+      console.log('[MemoryThread] Source or target insight not found');
+      return;
+    }
+    
+    // Add the thread tag to both insights
+    const sourceTags = [...(source[0].tags || []), relationshipTag, `ref:${params.targetInsightId}`];
+    const targetTags = [...(target[0].tags || []), relationshipTag, `ref:${params.sourceInsightId}`];
+    
+    await Promise.all([
+      db.update(wrenInsights).set({ tags: sourceTags }).where(eq(wrenInsights.id, params.sourceInsightId)),
+      db.update(wrenInsights).set({ tags: targetTags }).where(eq(wrenInsights.id, params.targetInsightId)),
+    ]);
+    
+    console.log(`[MemoryThread] Linked insight ${params.sourceInsightId} <-> ${params.targetInsightId} (${params.relationshipType})`);
+  }
+  
+  /**
+   * Find related insights for a given topic or keyword
+   */
+  async findRelatedInsights(
+    keyword: string,
+    limit: number = 10
+  ): Promise<Array<{
+    id: string;
+    content: string;
+    category: string;
+    useCount: number;
+    tags: string[];
+  }>> {
+    const insights = await db
+      .select({
+        id: wrenInsights.id,
+        content: wrenInsights.content,
+        category: wrenInsights.category,
+        useCount: wrenInsights.useCount,
+        tags: wrenInsights.tags,
+      })
+      .from(wrenInsights)
+      .where(ilike(wrenInsights.content, `%${keyword}%`))
+      .orderBy(desc(wrenInsights.useCount))
+      .limit(limit);
+    
+    return insights.map(i => ({
+      id: i.id,
+      content: i.content || '',
+      category: i.category || 'general',
+      useCount: i.useCount || 0,
+      tags: i.tags || [],
+    }));
+  }
+  
+  /**
+   * Get the knowledge graph for a specific insight via tag relationships
+   */
+  async getKnowledgeGraph(
+    insightId: string,
+    depth: number = 2
+  ): Promise<{
+    center: { id: string; content: string };
+    edges: Array<{ from: string; to: string; relationship: string; toContent: string }>;
+  }> {
+    const visited = new Set<string>();
+    const edges: Array<{ from: string; to: string; relationship: string; toContent: string }> = [];
+    
+    const explore = async (id: string, currentDepth: number) => {
+      if (currentDepth > depth || visited.has(id)) return;
+      visited.add(id);
+      
+      const insight = await db.select()
+        .from(wrenInsights)
+        .where(eq(wrenInsights.id, id))
+        .limit(1);
+      
+      if (!insight[0]) return;
+      
+      // Find related insights via ref: tags
+      const tags = insight[0].tags || [];
+      const refTags = tags.filter(t => t.startsWith('ref:'));
+      
+      for (const refTag of refTags) {
+        const relatedId = refTag.replace('ref:', '');
+        if (!visited.has(relatedId)) {
+          const relatedInsight = await db.select()
+            .from(wrenInsights)
+            .where(eq(wrenInsights.id, relatedId))
+            .limit(1);
+          
+          if (relatedInsight[0]) {
+            // Find the relationship type from thread tags
+            const threadTag = tags.find(t => t.startsWith('thread:')) || '';
+            const relationship = threadTag.split(':')[2] || 'related';
+            
+            edges.push({
+              from: id,
+              to: relatedId,
+              relationship,
+              toContent: (relatedInsight[0].content || '').substring(0, 100),
+            });
+            await explore(relatedId, currentDepth + 1);
+          }
+        }
+      }
+    };
+    
+    const centerInsight = await db.select()
+      .from(wrenInsights)
+      .where(eq(wrenInsights.id, insightId))
+      .limit(1);
+    
+    await explore(insightId, 0);
+    
+    return {
+      center: {
+        id: insightId,
+        content: centerInsight[0]?.content || 'Not found',
+      },
+      edges,
+    };
+  }
+  
+  // =========================================================================
+  // CONFIDENCE CALIBRATION (Dec 2024 Emergent Intelligence Upgrade)
+  // Track prediction accuracy and adjust future confidence
+  // Uses the context field to store confidence metadata
+  // =========================================================================
+  
+  /**
+   * Record a prediction with its confidence level
+   */
+  async recordPrediction(params: {
+    domain: string;
+    prediction: string;
+    confidence: number;
+    additionalContext?: string;
+  }): Promise<string> {
+    const [result] = await db.insert(wrenInsights).values({
+      title: `Prediction: ${params.domain}`,
+      content: `[PREDICTION] ${params.prediction}`,
+      category: 'pattern', // Use existing enum
+      context: JSON.stringify({
+        type: 'prediction',
+        domain: params.domain,
+        confidence: params.confidence,
+        additionalContext: params.additionalContext,
+        recordedAt: new Date().toISOString(),
+        verified: false,
+      }),
+      tags: ['prediction', `domain:${params.domain}`],
+    }).returning({ id: wrenInsights.id });
+    
+    console.log(`[Confidence] Recorded prediction in domain "${params.domain}" with ${(params.confidence * 100).toFixed(0)}% confidence`);
+    return result.id;
+  }
+  
+  /**
+   * Verify a prediction outcome
+   */
+  async verifyPrediction(
+    predictionId: string,
+    wasCorrect: boolean,
+    actualOutcome?: string
+  ): Promise<void> {
+    const prediction = await db.select()
+      .from(wrenInsights)
+      .where(eq(wrenInsights.id, predictionId))
+      .limit(1);
+    
+    if (!prediction[0]) return;
+    
+    const ctx = JSON.parse(prediction[0].context || '{}');
+    ctx.verified = true;
+    ctx.wasCorrect = wasCorrect;
+    ctx.actualOutcome = actualOutcome;
+    ctx.verifiedAt = new Date().toISOString();
+    
+    await db.update(wrenInsights)
+      .set({ context: JSON.stringify(ctx) })
+      .where(eq(wrenInsights.id, predictionId));
+    
+    console.log(`[Confidence] Prediction ${predictionId} verified: ${wasCorrect ? 'CORRECT' : 'INCORRECT'}`);
+  }
+  
+  /**
+   * Get calibration score for a domain
+   */
+  async getCalibrationScore(
+    domain: string
+  ): Promise<{
+    domain: string;
+    totalPredictions: number;
+    verifiedPredictions: number;
+    accuracy: number;
+    avgConfidence: number;
+    calibrationError: number;
+    suggestion: 'increase_confidence' | 'decrease_confidence' | 'well_calibrated';
+  }> {
+    const predictions = await db.select()
+      .from(wrenInsights)
+      .where(ilike(wrenInsights.context, `%"domain":"${domain}"%`));
+    
+    let totalPredictions = 0;
+    let verifiedCount = 0;
+    let correctCount = 0;
+    let totalConfidence = 0;
+    
+    for (const pred of predictions) {
+      const ctx = JSON.parse(pred.context || '{}');
+      if (ctx.type !== 'prediction') continue;
+      
+      totalPredictions++;
+      totalConfidence += ctx.confidence || 0.5;
+      
+      if (ctx.verified) {
+        verifiedCount++;
+        if (ctx.wasCorrect) correctCount++;
+      }
+    }
+    
+    const avgConfidence = totalPredictions > 0 ? totalConfidence / totalPredictions : 0.5;
+    const accuracy = verifiedCount > 0 ? correctCount / verifiedCount : 0;
+    const calibrationError = Math.abs(accuracy - avgConfidence);
+    
+    let suggestion: 'increase_confidence' | 'decrease_confidence' | 'well_calibrated' = 'well_calibrated';
+    if (verifiedCount >= 5) {
+      if (accuracy > avgConfidence + 0.1) {
+        suggestion = 'increase_confidence';
+      } else if (accuracy < avgConfidence - 0.1) {
+        suggestion = 'decrease_confidence';
+      }
+    }
+    
+    return {
+      domain,
+      totalPredictions,
+      verifiedPredictions: verifiedCount,
+      accuracy,
+      avgConfidence,
+      calibrationError,
+      suggestion,
+    };
+  }
+  
+  /**
+   * Get adjusted confidence based on calibration history
+   */
+  async getAdjustedConfidence(
+    domain: string,
+    baseConfidence: number
+  ): Promise<number> {
+    const calibration = await this.getCalibrationScore(domain);
+    
+    if (calibration.verifiedPredictions < 5) {
+      return baseConfidence;
+    }
+    
+    if (calibration.suggestion === 'increase_confidence') {
+      return Math.min(1, baseConfidence + calibration.calibrationError * 0.5);
+    } else if (calibration.suggestion === 'decrease_confidence') {
+      return Math.max(0.1, baseConfidence - calibration.calibrationError * 0.5);
+    }
+    
+    return baseConfidence;
+  }
+  
+  // =========================================================================
+  // MEMORY CONSOLIDATION (Dec 2024 Emergent Intelligence Upgrade)
+  // Decay/reinforcement for insights based on usage
+  // =========================================================================
+  
+  /**
+   * Decay unused insights (run periodically)
+   * Marks stale insights via tags instead of isActive flag
+   */
+  async runDecayCycle(): Promise<{
+    decayed: number;
+    deactivated: number;
+  }> {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    
+    // Find insights that haven't been used in 30 days
+    const staleInsights = await db
+      .select()
+      .from(wrenInsights)
+      .where(
+        or(
+          lte(wrenInsights.lastUsedAt, thirtyDaysAgo),
+          isNull(wrenInsights.lastUsedAt)
+        )
+      );
+    
+    let decayed = 0;
+    let deactivated = 0;
+    
+    for (const insight of staleInsights) {
+      const tags = insight.tags || [];
+      
+      // Skip already deactivated insights
+      if (tags.includes('status:inactive')) continue;
+      
+      const useCount = insight.useCount || 0;
+      
+      // Insights with low use count get deactivated
+      if (useCount < 2) {
+        const newTags = [...tags.filter(t => !t.startsWith('status:')), 'status:inactive'];
+        await db.update(wrenInsights)
+          .set({ tags: newTags })
+          .where(eq(wrenInsights.id, insight.id));
+        deactivated++;
+      } else if (!tags.includes('status:stale')) {
+        // Mark as stale but not inactive
+        const newTags = [...tags.filter(t => !t.startsWith('status:')), 'status:stale'];
+        await db.update(wrenInsights)
+          .set({ tags: newTags })
+          .where(eq(wrenInsights.id, insight.id));
+        decayed++;
+      }
+    }
+    
+    console.log(`[MemoryConsolidation] Decay cycle: ${decayed} marked stale, ${deactivated} deactivated`);
+    return { decayed, deactivated };
+  }
+  
+  /**
+   * Reinforce an insight when used successfully
+   */
+  async reinforceInsight(
+    insightId: string,
+    successLevel: 'low' | 'medium' | 'high' = 'medium'
+  ): Promise<void> {
+    const insight = await db.select()
+      .from(wrenInsights)
+      .where(eq(wrenInsights.id, insightId))
+      .limit(1);
+    
+    if (!insight[0]) return;
+    
+    const currentUseCount = insight[0].useCount || 0;
+    const tags = insight[0].tags || [];
+    
+    // Remove stale/inactive status
+    const updatedTags = tags.filter(t => !t.startsWith('status:'));
+    updatedTags.push('status:active');
+    
+    await db.update(wrenInsights)
+      .set({
+        useCount: currentUseCount + 1,
+        lastUsedAt: new Date(),
+        tags: updatedTags,
+      })
+      .where(eq(wrenInsights.id, insightId));
+    
+    console.log(`[MemoryConsolidation] Reinforced insight ${insightId} (${successLevel})`);
+  }
+  
+  /**
+   * Get consolidated memory summary for session
+   */
+  async getMemorySummary(): Promise<{
+    totalInsights: number;
+    recentlyUsed: number;
+    topCategories: Array<{ category: string; count: number }>;
+  }> {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    
+    const [totalResult, recentResult] = await Promise.all([
+      db.select({ count: count() }).from(wrenInsights),
+      db.select({ count: count() }).from(wrenInsights).where(gte(wrenInsights.lastUsedAt, sevenDaysAgo)),
+    ]);
+    
+    const categoryStats = await db
+      .select({
+        category: wrenInsights.category,
+        count: count(),
+      })
+      .from(wrenInsights)
+      .groupBy(wrenInsights.category)
+      .orderBy(desc(count()))
+      .limit(5);
+    
+    return {
+      totalInsights: totalResult[0]?.count || 0,
+      recentlyUsed: recentResult[0]?.count || 0,
+      topCategories: categoryStats.map(s => ({
+        category: s.category || 'unknown',
+        count: s.count,
+      })),
+    };
+  }
 }
 
 export const wrenProactiveService = new WrenProactiveIntelligenceService();
