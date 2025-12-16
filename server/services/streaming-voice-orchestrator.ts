@@ -1103,6 +1103,20 @@ Remember: David may reference things discussed in these recent text chats.
               }
             }
             
+            // PHASE_SHIFT: Explicit teaching phase transition command
+            // When Daniela decides to shift teaching phases (e.g., warmup → challenge)
+            const phaseShiftItems = whiteboardParsed.whiteboardItems.filter(item => item.type === 'phase_shift');
+            for (const item of phaseShiftItems) {
+              if ('data' in item && item.data) {
+                const data = item.data as { to: 'warmup' | 'active_teaching' | 'challenge' | 'reflection' | 'drill' | 'assessment'; reason: string };
+                // Queue phase transition (don't block TTS)
+                this.processPhaseShift(session, data).catch(err => {
+                  console.error(`[Phase Shift] Error processing transition:`, err);
+                });
+                console.log(`[Phase Shift] Daniela triggered: ${data.to} - ${data.reason}`);
+              }
+            }
+            
             // CALL_SUPPORT: Tri-Lane Hive command - hand off student to Support Agent
             // When Daniela recognizes a support need (technical issue, billing question, etc.)
             const supportItem = whiteboardParsed.whiteboardItems.find(item => item.type === 'call_support');
@@ -1236,9 +1250,9 @@ Remember: David may reference things discussed in these recent text chats.
           }
           
           if (whiteboardParsed.whiteboardItems.length > 0 || whiteboardParsed.shouldClear || whiteboardParsed.shouldHold) {
-            // Filter out internal commands (switch_tutor, actfl_update, syllabus_progress, call_support, call_assistant, hive, self_surgery) - only send visual items to whiteboard
+            // Filter out internal commands (switch_tutor, actfl_update, syllabus_progress, phase_shift, call_support, call_assistant, hive, self_surgery) - only send visual items to whiteboard
             const visualWhiteboardItems = whiteboardParsed.whiteboardItems.filter(
-              item => !['switch_tutor', 'actfl_update', 'syllabus_progress', 'call_support', 'call_assistant', 'hive', 'self_surgery'].includes(item.type)
+              item => !['switch_tutor', 'actfl_update', 'syllabus_progress', 'phase_shift', 'call_support', 'call_assistant', 'hive', 'self_surgery'].includes(item.type)
             );
             
             // Send whiteboard update to client (only visual teaching tools)
@@ -3112,6 +3126,43 @@ Only include observations you can clearly justify from the exchange. Return empt
       
     } catch (error: any) {
       console.error(`[Syllabus Progress] Failed:`, error.message);
+    }
+  }
+  
+  /**
+   * PHASE_SHIFT: Process explicit teaching phase transition command
+   * When Daniela decides to shift teaching phases (warmup → challenge, etc.)
+   * Uses PhaseTransitionService for intelligent context summarization
+   */
+  private async processPhaseShift(
+    session: StreamingSession,
+    data: { to: 'warmup' | 'active_teaching' | 'challenge' | 'reflection' | 'drill' | 'assessment'; reason: string }
+  ): Promise<void> {
+    try {
+      // Validate required session data
+      if (!session.userId || !session.conversationId) {
+        console.log(`[Phase Shift] Skipping - missing userId or conversationId`);
+        return;
+      }
+      
+      // Use PhaseTransitionService for the transition
+      // The service handles context summarization and state management
+      const transitioned = await phaseTransitionService.transitionTo(
+        data.to,
+        session.conversationHistory || [],
+        session.targetLanguage || 'es',
+        data.reason
+      );
+      
+      if (transitioned) {
+        console.log(`[Phase Shift] Successfully transitioned to ${data.to}`);
+        console.log(`[Phase Shift] Reason: ${data.reason}`);
+      } else {
+        console.log(`[Phase Shift] Transition to ${data.to} skipped (already in phase or invalid)`);
+      }
+      
+    } catch (error: any) {
+      console.error(`[Phase Shift] Failed:`, error.message);
     }
   }
   
