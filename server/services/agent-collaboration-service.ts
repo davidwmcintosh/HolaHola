@@ -8,7 +8,7 @@ import {
   InsertAgentCollabMessage,
   AgentCollabThread,
   AgentCollabMessage,
-  hiveBeacons,
+  danielaBeacons,
 } from "@shared/schema";
 import { eq, desc, and, or, isNull, sql } from "drizzle-orm";
 
@@ -372,22 +372,22 @@ class AgentCollaborationService {
 
   async createThreadFromBeacon(beaconId: string, overrideTitle?: string): Promise<{ thread: AgentCollabThread; message: AgentCollabMessage } | null> {
     const [beacon] = await db.select()
-      .from(hiveBeacons)
-      .where(eq(hiveBeacons.id, beaconId))
+      .from(danielaBeacons)
+      .where(eq(danielaBeacons.id, beaconId))
       .limit(1);
 
     if (!beacon) return null;
 
-    const title = overrideTitle || `[${beacon.beaconType}] ${beacon.message?.substring(0, 50)}...`;
+    const messageContent = beacon.wish || beacon.studentPain || beacon.rawContent || 'Beacon signal - needs attention';
+    const title = overrideTitle || `[${beacon.beaconType}] ${messageContent.substring(0, 50)}...`;
     
     return this.startThread({
       title,
       initiator: 'daniela',
-      initialMessage: beacon.message || 'Beacon signal - needs attention',
+      initialMessage: messageContent,
       messageType: 'request',
       originBeaconId: beaconId,
-      relatedComponent: beacon.component || undefined,
-      priority: beacon.urgency === 'high' || beacon.urgency === 'critical' ? 'high' : 'normal',
+      priority: beacon.priority === 'high' || beacon.priority === 'critical' ? 'high' : 'normal',
     });
   }
 

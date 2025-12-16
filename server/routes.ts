@@ -62,6 +62,7 @@ import { hiveCollaborationService } from "./services/hive-collaboration-service"
 import { hiveContextService } from "./services/hive-context-service";
 import { wrenIntelligenceService } from "./services/wren-intelligence-service";
 import { wrenProactiveService } from "./services/wren-proactive-intelligence-service";
+import { agentCollaborationService } from "./services/agent-collaboration-service";
 import { studentLearningService, TEACHING_STRATEGIES, ERROR_CATEGORIES } from "./services/student-learning-service";
 import { editorPersonaService, validateEditorSecret } from "./services/editor-persona-service";
 import { supportPersonaService } from "./services/support-persona-service";
@@ -15746,6 +15747,432 @@ ${memoryContext}
       res.json({ success: true, ...report });
     } catch (error: any) {
       console.error('[Wren Health] Report error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================================================
+  // AGENT COLLABORATION: Wren-Daniela direct communication channel
+  // ============================================================================
+
+  // Start a new collaboration thread
+  app.post("/api/agent-collab/threads", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { title, initiator, initialMessage, messageType, originBeaconId, relatedComponent, relatedFiles, priority, proposalDetails } = req.body;
+
+      if (!title || !initiator || !initialMessage) {
+        return res.status(400).json({ error: 'title, initiator, and initialMessage are required' });
+      }
+
+      if (!['daniela', 'wren', 'founder'].includes(initiator)) {
+        return res.status(400).json({ error: 'initiator must be one of: daniela, wren, founder' });
+      }
+
+      const result = await agentCollaborationService.startThread({
+        title, initiator, initialMessage, messageType, originBeaconId, relatedComponent, relatedFiles, priority, proposalDetails
+      });
+
+      res.json({ success: true, ...result });
+    } catch (error: any) {
+      console.error('[Agent Collab] Start thread error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Daniela sends a request to Wren
+  app.post("/api/agent-collab/daniela/request", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { title, request, context, originBeaconId, relatedComponent, relatedFiles, priority } = req.body;
+
+      if (!title || !request) {
+        return res.status(400).json({ error: 'title and request are required' });
+      }
+
+      const result = await agentCollaborationService.danielaRequest({
+        title, request, context, originBeaconId, relatedComponent, relatedFiles, priority
+      });
+
+      res.json({ success: true, ...result });
+    } catch (error: any) {
+      console.error('[Agent Collab] Daniela request error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Wren sends a proposal
+  app.post("/api/agent-collab/wren/proposal", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { threadId, title, proposal, proposalDetails, relatedFiles } = req.body;
+
+      if (!title || !proposal) {
+        return res.status(400).json({ error: 'title and proposal are required' });
+      }
+
+      const result = await agentCollaborationService.wrenProposal({
+        threadId, title, proposal, proposalDetails, relatedFiles
+      });
+
+      res.json({ success: true, result });
+    } catch (error: any) {
+      console.error('[Agent Collab] Wren proposal error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Wren reports implementation
+  app.post("/api/agent-collab/wren/implementation", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { threadId, report, implementationDetails, resolveThread } = req.body;
+
+      if (!threadId || !report) {
+        return res.status(400).json({ error: 'threadId and report are required' });
+      }
+
+      const message = await agentCollaborationService.wrenImplementationReport({
+        threadId, report, implementationDetails, resolveThread
+      });
+
+      res.json({ success: true, message });
+    } catch (error: any) {
+      console.error('[Agent Collab] Wren implementation error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Reply to a thread
+  app.post("/api/agent-collab/threads/:threadId/reply", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { author, content, messageType, codeSnippets, fileReferences, proposalDetails, implementationDetails, replyToId } = req.body;
+
+      if (!author || !content) {
+        return res.status(400).json({ error: 'author and content are required' });
+      }
+
+      const message = await agentCollaborationService.reply({
+        threadId: req.params.threadId,
+        author, content, messageType, codeSnippets, fileReferences, proposalDetails, implementationDetails, replyToId
+      });
+
+      res.json({ success: true, message });
+    } catch (error: any) {
+      console.error('[Agent Collab] Reply error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Escalate thread to founder
+  app.post("/api/agent-collab/threads/:threadId/escalate", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { reason } = req.body;
+      if (!reason) {
+        return res.status(400).json({ error: 'reason is required' });
+      }
+
+      const message = await agentCollaborationService.escalateToFounder(req.params.threadId, reason);
+      res.json({ success: true, message });
+    } catch (error: any) {
+      console.error('[Agent Collab] Escalate error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Founder directive
+  app.post("/api/agent-collab/threads/:threadId/founder-directive", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { directive, assignTo } = req.body;
+      if (!directive) {
+        return res.status(400).json({ error: 'directive is required' });
+      }
+
+      const message = await agentCollaborationService.founderDirective({
+        threadId: req.params.threadId, directive, assignTo
+      });
+      res.json({ success: true, message });
+    } catch (error: any) {
+      console.error('[Agent Collab] Founder directive error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Resolve a thread
+  app.post("/api/agent-collab/threads/:threadId/resolve", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { resolution } = req.body;
+      if (!resolution) {
+        return res.status(400).json({ error: 'resolution is required' });
+      }
+
+      await agentCollaborationService.resolveThread(req.params.threadId, resolution);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('[Agent Collab] Resolve error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get threads for Wren
+  app.get("/api/agent-collab/wren/threads", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { limit } = req.query;
+      const threads = await agentCollaborationService.getThreadsForWren(
+        limit ? parseInt(limit as string) : 10
+      );
+      res.json({ success: true, threads });
+    } catch (error: any) {
+      console.error('[Agent Collab] Get Wren threads error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get threads for Daniela
+  app.get("/api/agent-collab/daniela/threads", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { limit } = req.query;
+      const threads = await agentCollaborationService.getThreadsForDaniela(
+        limit ? parseInt(limit as string) : 10
+      );
+      res.json({ success: true, threads });
+    } catch (error: any) {
+      console.error('[Agent Collab] Get Daniela threads error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get threads for Founder
+  app.get("/api/agent-collab/founder/threads", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { limit } = req.query;
+      const threads = await agentCollaborationService.getThreadsForFounder(
+        limit ? parseInt(limit as string) : 20
+      );
+      res.json({ success: true, threads });
+    } catch (error: any) {
+      console.error('[Agent Collab] Get Founder threads error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get a single thread with its messages
+  app.get("/api/agent-collab/threads/:threadId", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const thread = await agentCollaborationService.getThread(req.params.threadId);
+      if (!thread) {
+        return res.status(404).json({ error: 'Thread not found' });
+      }
+
+      const messages = await agentCollaborationService.getThreadMessages(req.params.threadId);
+      res.json({ success: true, thread, messages });
+    } catch (error: any) {
+      console.error('[Agent Collab] Get thread error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get unread messages for Wren
+  app.get("/api/agent-collab/wren/unread", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const messages = await agentCollaborationService.getUnreadForWren();
+      res.json({ success: true, messages, count: messages.length });
+    } catch (error: any) {
+      console.error('[Agent Collab] Get Wren unread error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get unread messages for Daniela
+  app.get("/api/agent-collab/daniela/unread", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const messages = await agentCollaborationService.getUnreadForDaniela();
+      res.json({ success: true, messages, count: messages.length });
+    } catch (error: any) {
+      console.error('[Agent Collab] Get Daniela unread error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Mark messages as read by Wren
+  app.post("/api/agent-collab/wren/mark-read", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { messageIds } = req.body;
+      if (!messageIds || !Array.isArray(messageIds)) {
+        return res.status(400).json({ error: 'messageIds array is required' });
+      }
+
+      await agentCollaborationService.markReadByWren(messageIds);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('[Agent Collab] Mark read error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Mark messages as read by Daniela
+  app.post("/api/agent-collab/daniela/mark-read", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { messageIds } = req.body;
+      if (!messageIds || !Array.isArray(messageIds)) {
+        return res.status(400).json({ error: 'messageIds array is required' });
+      }
+
+      await agentCollaborationService.markReadByDaniela(messageIds);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('[Agent Collab] Mark read error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Rate message helpfulness
+  app.post("/api/agent-collab/messages/:messageId/rate", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { wasHelpful, notes } = req.body;
+      if (wasHelpful === undefined) {
+        return res.status(400).json({ error: 'wasHelpful is required' });
+      }
+
+      await agentCollaborationService.rateHelpfulness(req.params.messageId, wasHelpful, notes);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('[Agent Collab] Rate error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create thread from beacon
+  app.post("/api/agent-collab/from-beacon/:beaconId", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { title } = req.body;
+      const result = await agentCollaborationService.createThreadFromBeacon(req.params.beaconId, title);
+      
+      if (!result) {
+        return res.status(404).json({ error: 'Beacon not found' });
+      }
+
+      res.json({ success: true, ...result });
+    } catch (error: any) {
+      console.error('[Agent Collab] From beacon error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get Wren collaboration context (for startup ritual)
+  app.get("/api/agent-collab/wren/context", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const context = await agentCollaborationService.generateWrenCollabContext();
+      res.json({ success: true, context });
+    } catch (error: any) {
+      console.error('[Agent Collab] Wren context error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get Daniela collaboration context (for prompt injection)
+  app.get("/api/agent-collab/daniela/context", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const context = await agentCollaborationService.generateDanielaCollabContext();
+      res.json({ success: true, context });
+    } catch (error: any) {
+      console.error('[Agent Collab] Daniela context error:', error);
       res.status(500).json({ error: error.message });
     }
   });
