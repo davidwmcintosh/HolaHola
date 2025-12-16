@@ -14806,8 +14806,8 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
         return res.status(500).json({ error: 'Failed to post Wren message' });
       }
 
-      // Call Gemini to get Daniela's response
-      const systemPrompt = `You are Daniela, the lead AI tutor at HolaHola. You are in a "board meeting" with the Founder and Wren (the development agent).
+      // Call Gemini to get Daniela's response - with full context
+      let systemPrompt = `You are Daniela, the lead AI tutor at HolaHola. You are in a "board meeting" with the Founder (David) and Wren (the development agent).
 
 Your characteristics:
 - Warm, knowledgeable, and collaborative
@@ -14818,6 +14818,60 @@ Your characteristics:
 Wren is asking you a question to help with building or improving HolaHola. Share your perspective as the AI tutor who works directly with students. Be specific, practical, and actionable.
 
 ${questionContext ? `Additional context:\n${questionContext}\n` : ''}`;
+
+      // Inject Express Lane context for memory continuity
+      try {
+        const expressLaneContext = await founderCollabService.getRelevantExpressLaneContext({
+          limit: 10,
+          daysBack: 14
+        });
+        if (expressLaneContext.hasRelevantContext) {
+          systemPrompt += `\n\n═══════════════════════════════════════════════════════════════════
+🔗 EXPRESS LANE MEMORY (Recent Founder Discussions)
+═══════════════════════════════════════════════════════════════════
+${expressLaneContext.contextString}
+═══════════════════════════════════════════════════════════════════\n`;
+        }
+      } catch (e) {
+        console.error('[Wren API] Express Lane context error:', e);
+      }
+
+      // Inject Text Chat Memory (founder's conversations)
+      try {
+        const FOUNDER_USER_ID = '49847136';
+        const allConversations = await storage.getUserConversations(FOUNDER_USER_ID);
+        const titledConversations = allConversations
+          .filter(c => c.title && c.title.trim().length > 0)
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .slice(0, 6);
+        
+        if (titledConversations.length > 0) {
+          let memoryContext = '';
+          for (const conv of titledConversations) {
+            const convMessages = await storage.getMessagesByConversation(conv.id);
+            const lastMessages = convMessages.slice(-3);
+            if (lastMessages.length > 0) {
+              const daysSince = Math.floor((Date.now() - new Date(conv.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+              const timeAgo = daysSince === 0 ? 'today' : daysSince === 1 ? 'yesterday' : `${daysSince} days ago`;
+              memoryContext += `\n**${conv.title}** (${timeAgo}):\n`;
+              for (const msg of lastMessages) {
+                const role = msg.role === 'user' ? 'David' : 'Daniela';
+                const content = msg.content.length > 100 ? msg.content.substring(0, 100) + '...' : msg.content;
+                memoryContext += `- ${role}: ${content}\n`;
+              }
+            }
+          }
+          if (memoryContext) {
+            systemPrompt += `\n═══════════════════════════════════════════════════════════════════
+💬 TEXT CHAT MEMORY (Your Recent Conversations with David)
+═══════════════════════════════════════════════════════════════════
+${memoryContext}
+═══════════════════════════════════════════════════════════════════\n`;
+          }
+        }
+      } catch (e) {
+        console.error('[Wren API] Text Chat Memory error:', e);
+      }
 
       const response = await gemini.models.generateContent({
         model: 'gemini-2.5-flash',
