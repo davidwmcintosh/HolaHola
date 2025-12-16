@@ -8,6 +8,86 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: December 16, 2025 - Phase Transition Service (Multi-Agent Teaching Architecture)
+
+**Overview**: Implemented a Phase Transition Service inspired by Deepgram's multi-agent voice patterns. This enables Daniela to adapt her teaching approach based on the student's state, with focused toolsets and context summarization between phases.
+
+#### Teaching Phases
+
+| Phase | Description | Tools | Snapshot Types |
+|-------|-------------|-------|----------------|
+| `warmup` | Session start, mood check, goal setting | greet, recall_previous_session, set_goal | session_summary, teaching_moment |
+| `active_teaching` | Core instruction, vocabulary, grammar | explain, drill, vocabulary, grammar_table | teaching_moment, struggle_pattern |
+| `challenge` | Student struggling, supportive mode | simplify, encourage, alternative_approach | struggle_pattern, plateau_alert |
+| `reflection` | Celebrate progress, summarize session | summarize, preview_next, celebrate | breakthrough, session_summary |
+| `drill` | Focused practice (future activation) | drill, quiz, repetition | teaching_moment |
+| `assessment` | ACTFL evaluation (future activation) | assess, evaluate, can_do_check | session_summary |
+
+#### Phase Detection Logic
+
+Automatic transition detection based on conversation patterns:
+
+| From Phase | Indicators | To Phase |
+|------------|------------|----------|
+| warmup | "I'm ready", "let's start", 2+ min elapsed | active_teaching |
+| active_teaching | "I don't understand", consecutive errors | challenge |
+| active_teaching | "bye", "I'm done", "let's wrap up" | reflection |
+| challenge | "I get it", "oh!", "makes sense" | active_teaching |
+
+#### Context Summarization
+
+Uses Gemini Flash to summarize conversation context during phase transitions:
+
+```typescript
+// Summarization captures:
+1. Student's emotional state (frustrated/neutral/excited/confused)
+2. Key errors or struggles to remember
+3. Today's learning goal (if mentioned)
+4. Any personal interests for relevant examples
+5. What was accomplished in the previous phase
+```
+
+#### Hive Snapshot Integration
+
+Each phase retrieves relevant snapshots from `hive_snapshots` table:
+- Filtered by phase-specific snapshot types
+- Last 7 days, importance >= 5
+- Formatted and injected into phase context
+
+#### Analytics Persistence
+
+Phase transitions are persisted to `hive_snapshots` with:
+- `snapshotType: 'session_summary'`
+- `context` JSON with `type: 'phase_transition'` for filtering
+- `importance: 8` for challenge phases, `5` for others
+- 24-hour expiry for transient session data
+
+#### Integration Points
+
+| Component | Integration |
+|-----------|-------------|
+| StreamingVoiceOrchestrator | `initializeSession()` on session start, `detectPhaseTransition()` on response_complete, `endSession()` on cleanup |
+| TutorOrchestrator | `getPhasePromptAddition()` injects phase context into system prompts |
+| Hive Snapshots | `getRelevantSnapshots()` retrieves phase-appropriate context |
+
+#### Key Files
+
+| File | Purpose |
+|------|---------|
+| `server/services/phase-transition-service.ts` | Core service with phases, detection, summarization |
+| `server/services/streaming-voice-orchestrator.ts` | Session lifecycle integration |
+| `server/services/tutor-orchestrator.ts` | Prompt injection |
+
+#### Architecture Philosophy
+
+**"Right context at the right time"** - Inspired by Deepgram's multi-agent patterns:
+- Each phase has focused prompts and tools (2-4 per phase)
+- Context is summarized when transitioning to reduce token usage
+- Phase-relevant hive snapshots provide teaching continuity
+- Reduces LLM cognitive load for more precise teaching
+
+---
+
 ### Session: December 16, 2025 - Emergent Intelligence Upgrades (12 Tasks)
 
 **Overview**: Major enhancement to the Hive's collective intelligence capabilities. Implemented 12 emergent intelligence features spanning Deepgram integration, predictive student analytics, cross-agent memory sharing, and the Editor→Wren migration.
