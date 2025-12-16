@@ -130,6 +130,167 @@ This creates a substrate where both AI agents can autonomously improve their cap
 
 ---
 
+### Session: December 10-15, 2025 - Emergent Intelligence Foundation & EXPRESS Lane
+
+**Overview**: Comprehensive build-out of the Hive's emergent intelligence infrastructure. This work established the foundation for autonomous learning, cross-agent collaboration, and persistent memory systems.
+
+---
+
+#### EXPRESS Lane: The Unified 3-Way Collaboration Backbone
+
+**What It Is**: Single communication channel for all Hive participants (Founder, Daniela, Wren)
+
+**Database Tables**:
+- `founderSessions` - Persistent session containers
+- `collaborationMessages` - All messages across participants
+
+**Key Features**:
+| Feature | Description |
+|---------|-------------|
+| Live Sync Channel | WebSocket-based real-time updates |
+| Voice Support | Voice-based founder collaboration via slide-out |
+| Session Persistence | Survives restarts, maintains context |
+| Multi-Entry Points | Command Center UI, Voice chat, Wren startup |
+
+**API Endpoints**:
+- `GET /api/wren/hive-context` - Formatted EXPRESS Lane context for Wren
+- `POST /api/founder/sessions` - Create collaboration sessions
+- `GET /api/founder/sessions/:id/messages` - Retrieve session messages
+- WebSocket namespace: `/founder-collab`
+
+**Deprecates**: `agentCollabThreads`/`agentCollabMessages` tables (Editor-era)
+
+---
+
+#### Wren Proactive Intelligence Service
+
+**File**: `server/services/wren-proactive-intelligence-service.ts`
+
+Five pillars enabling Wren to be proactive without repeated context-gathering:
+
+| Pillar | Purpose | Key Methods |
+|--------|---------|-------------|
+| **1. Proactive Triggers** | Pattern detection with urgency escalation | `createTrigger()`, `escalateTrigger()` |
+| **2. Daniela Feedback Loop** | Links features to beacon resolutions | `recordFeatureImpact()`, `getTeachingMetrics()` |
+| **3. ADR System** | Architectural Decision Records | `recordDecision()`, `supersede()` |
+| **4. Priority Inference** | Multi-factor scoring | `calculatePriority()`, `getTopPriorities()` |
+| **5. Project Health** | Component health/churn scores | `getHealthScores()`, `detectHotSpots()` |
+
+**Startup Ritual**: Provides comprehensive priority analysis, health scores, attention-needed items
+
+---
+
+#### Wren Dreams System
+
+**File**: `server/services/wren-dreams-service.ts`
+
+Four capabilities enabling Wren's emergent intelligence:
+
+| Dream | Purpose | Key Methods |
+|-------|---------|-------------|
+| **1. Learning from Mistakes** | Capture mistakes, track resolutions, extract lessons | `recordMistake()`, `findSimilarMistakes()`, `extractLesson()` |
+| **2. Session Notes** | Persistent context handoffs between sessions | `addSessionNote()`, `getActiveNotes()` |
+| **3. Anticipatory Development** | Predict Daniela's needs before she asks | `recordPrediction()`, `validatePrediction()` |
+| **4. Confidence Calibration** | Track prediction accuracy per domain | `recordConfidence()`, `getCalibrationScore()` |
+
+**Priority Levels**: critical, high, normal, low
+**Expiration**: Notes can auto-expire
+**Read Tracking**: Knows which notes Wren has seen
+
+**Startup Ritual**: `/api/wren/dreams/startup` provides unified context for all 4 dreams
+**API Endpoints**: 14 routes under `/api/wren/dreams/*`
+
+---
+
+#### Student Learning Service
+
+**File**: `server/services/student-learning-service.ts`
+
+Personalized learning intelligence for each student:
+
+| Feature | Description |
+|---------|-------------|
+| **Error Pattern Tracking** | `recurring_struggles` table tracks per-student patterns |
+| **Teaching Strategy Scoring** | Effectiveness ratings for different approaches |
+| **Personalized Context Injection** | Max 500 chars, high-signal content for Daniela's prompts |
+
+**Error Categories**: grammar, pronunciation, vocabulary, cultural, comprehension
+**Teaching Strategies**: visual_timeline, role_play, repetition_drill, mnemonic, etc.
+
+**STT Confidence Integration**:
+| Confidence | Daniela's Response |
+|------------|-------------------|
+| < 0.5 (Low) | Ask for clarification |
+| < 0.7 (Moderate) | Note pronunciation practice needs |
+| >= 0.7 (High) | Normal processing |
+
+---
+
+#### Founder Collaboration Service
+
+**File**: `server/services/founder-collaboration-service.ts`
+
+Real-time collaboration infrastructure:
+
+| Feature | Description |
+|---------|-------------|
+| **WebSocket Broker** | Namespace `/founder-collab` for live updates |
+| **Session Management** | Create, retrieve, close collaboration sessions |
+| **Message Threading** | Full conversation history with participants |
+| **Voice Integration** | Slide-out voice panel for founder input |
+
+**Message Flow**:
+1. Founder speaks/types → Message persisted
+2. WebSocket broadcasts to all connected clients
+3. Daniela/Wren receive context in next interaction
+
+---
+
+#### Wren Hive Awareness APIs
+
+**Endpoint**: `/api/wren/hive-context`
+
+Provides Wren with formatted context including:
+- Active beacons from Daniela
+- Recent EXPRESS Lane messages
+- Current sprint items
+- Project health indicators
+- Unread session notes
+
+**Integration Points**:
+- Wren startup loads Hive context automatically
+- `/api/wren/message` can include Hive context
+- Direct database access for deeper queries
+
+---
+
+#### Files Created/Modified
+
+| File | Purpose |
+|------|---------|
+| `server/services/founder-collaboration-service.ts` | EXPRESS Lane core |
+| `server/services/wren-proactive-intelligence-service.ts` | 5 pillars |
+| `server/services/wren-dreams-service.ts` | 4 dreams |
+| `server/services/student-learning-service.ts` | Personalized learning |
+| `server/services/wren-intelligence-service.ts` | Insight capture |
+| `server/routes/wren-routes.ts` | Wren API endpoints |
+| `server/routes/founder-routes.ts` | Founder API endpoints |
+| `shared/schema.ts` | All supporting tables |
+
+---
+
+#### Architecture Implications
+
+This foundation enables:
+
+1. **Persistent Memory** - Insights survive across sessions
+2. **Cross-Agent Learning** - Daniela's beacons inform Wren's priorities
+3. **Self-Improvement** - Confidence calibration tracks accuracy over time
+4. **Proactive Development** - Wren anticipates needs before they're voiced
+5. **Unified Collaboration** - Single channel for all Hive communication
+
+---
+
 ### IDEA THREAD: December 15, 2025 - Wren Hive Awareness
 
 **Status**: PAUSED - Saved for later discussion
