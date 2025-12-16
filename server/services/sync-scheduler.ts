@@ -4,7 +4,7 @@ import { isSyncConfigured } from '../middleware/sync-auth';
 import { studentLearningService } from './student-learning-service';
 import { wrenIntelligenceService } from './wren-intelligence-service';
 import { db } from '../db';
-import { users, recurringStruggles } from '@shared/schema';
+import { users, recurringStruggles, hiveSnapshots } from '@shared/schema';
 import { sql, and, gte, isNotNull } from 'drizzle-orm';
 
 let scheduledTimer: NodeJS.Timeout | null = null;
@@ -113,7 +113,27 @@ async function runPlateauDetection(): Promise<{ studentsChecked: number; plateau
         console.log(`[SYNC-SCHEDULER]   Plateau detected: student ${studentId.slice(0, 8)}... in ${language}`);
         plateausDetected++;
         
-        // TODO: Could emit a beacon or create an alert here for Daniela/founder awareness
+        // Create a hive snapshot for Daniela/founder awareness
+        try {
+          await db.insert(hiveSnapshots).values({
+            snapshotType: 'plateau_alert',
+            userId: studentId,
+            language: language,
+            title: `Plateau detected in ${language}`,
+            content: `Student has been at the same level for ${result.weeksSinceProgress} weeks. ${result.breakthroughStrategies[0] || 'Consider breakthrough strategies.'}`,
+            context: JSON.stringify({
+              plateauType: result.plateauType,
+              evidence: result.evidence,
+              breakthroughStrategies: result.breakthroughStrategies,
+              weeksSinceProgress: result.weeksSinceProgress,
+            }),
+            importance: 7, // High importance for plateau alerts
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Expires in 7 days
+          });
+          console.log(`[SYNC-SCHEDULER]     Hive snapshot created for plateau alert`);
+        } catch (snapshotErr: any) {
+          console.warn(`[SYNC-SCHEDULER]     Failed to create plateau snapshot: ${snapshotErr.message}`);
+        }
       }
     } catch (err: any) {
       console.warn(`[SYNC-SCHEDULER]   Plateau check failed for ${studentId.slice(0, 8)}...: ${err.message}`);

@@ -2584,6 +2584,56 @@ export const insertSyncCursorSchema = createInsertSchema(syncCursors).omit({
 export type InsertSyncCursor = z.infer<typeof insertSyncCursorSchema>;
 export type SyncCursor = typeof syncCursors.$inferSelect;
 
+// Hive Snapshot Type Enum - categorizes different snapshot sources
+export const hiveSnapshotTypeEnum = pgEnum("hive_snapshot_type", [
+  'teaching_moment',    // Notable teaching interaction worth preserving
+  'breakthrough',       // Student breakthrough or aha moment
+  'struggle_pattern',   // Recurring struggle observed
+  'beacon_context',     // Context around a beacon emission
+  'session_summary',    // End-of-session summary snapshot
+  'plateau_alert'       // Plateau detected for a student
+]);
+
+// Hive Snapshots - Captures moments of teaching context for Daniela's awareness
+// Used by getRecentTeachingContext() to inject relevant context into prompts
+export const hiveSnapshots = pgTable("hive_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  snapshotType: hiveSnapshotTypeEnum("snapshot_type").notNull(),
+  
+  // Context identifiers
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'set null' }),
+  conversationId: varchar("conversation_id"),
+  sessionId: varchar("session_id").references(() => founderSessions.id, { onDelete: 'set null' }),
+  language: varchar("language"), // Target language if relevant
+  
+  // Content
+  title: varchar("title", { length: 255 }).notNull(),
+  content: text("content").notNull(), // The snapshot content/observation
+  context: text("context"), // Additional context (what was happening)
+  
+  // Metadata for filtering
+  importance: integer("importance").default(5), // 1-10 scale
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  
+  // Lifecycle
+  expiresAt: timestamp("expires_at"), // Optional expiry for transient snapshots
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_hive_snapshots_type").on(table.snapshotType),
+  index("idx_hive_snapshots_user").on(table.userId),
+  index("idx_hive_snapshots_language").on(table.language),
+  index("idx_hive_snapshots_importance").on(table.importance),
+  index("idx_hive_snapshots_created").on(table.createdAt),
+]);
+
+export const insertHiveSnapshotSchema = createInsertSchema(hiveSnapshots).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertHiveSnapshot = z.infer<typeof insertHiveSnapshotSchema>;
+export type HiveSnapshot = typeof hiveSnapshots.$inferSelect;
+export type HiveSnapshotType = 'teaching_moment' | 'breakthrough' | 'struggle_pattern' | 'beacon_context' | 'session_summary' | 'plateau_alert';
+
 // Agenda Queue Priority Enum
 export const agendaPriorityEnum = pgEnum("agenda_priority", [
   'high',      // Urgent - discuss first

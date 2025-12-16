@@ -19,9 +19,11 @@
 
 import { callGemini, GEMINI_MODELS } from "../gemini-utils";
 import { storage } from "../storage";
-import type { AgentCollaborationEvent, InsertAgentCollaborationEvent } from "@shared/schema";
+import type { AgentCollaborationEvent, InsertAgentCollaborationEvent, HiveSnapshot } from "@shared/schema";
 import { getGeminiStreamingService, type SentenceChunk } from "./gemini-streaming";
 import { editorPersonaService } from "./editor-persona-service";
+import { db } from "../db";
+import { desc, gte, or, isNull } from "drizzle-orm";
 
 // Types for brain surgery
 export interface BrainSurgeryMessage {
@@ -678,13 +680,53 @@ export function getThreadMetadata(threadId: string): { title: string; category: 
 }
 
 /**
- * Get recent teaching context from Hive beacons for context injection
- * Note: Hive snapshots table not yet implemented - returns empty for now
+ * Get recent teaching context from Hive snapshots for context injection
+ * Queries hiveSnapshots table for recent high-importance snapshots
  */
 export async function getRecentTeachingContext(limit: number = 10): Promise<string> {
-  // TODO: Implement when hiveSnapshots table is added to schema
-  // For now, return empty string as the hive beacon system is not yet complete
-  return "";
+  try {
+    // Import here to avoid circular dependency
+    const { hiveSnapshots } = await import("@shared/schema");
+    
+    // Get recent snapshots ordered by importance and recency
+    const snapshots = await db
+      .select({
+        snapshotType: hiveSnapshots.snapshotType,
+        title: hiveSnapshots.title,
+        content: hiveSnapshots.content,
+        language: hiveSnapshots.language,
+        importance: hiveSnapshots.importance,
+        createdAt: hiveSnapshots.createdAt,
+      })
+      .from(hiveSnapshots)
+      .where(
+        or(
+          isNull(hiveSnapshots.expiresAt),
+          gte(hiveSnapshots.expiresAt, new Date())
+        )
+      )
+      .orderBy(desc(hiveSnapshots.importance), desc(hiveSnapshots.createdAt))
+      .limit(limit);
+    
+    if (snapshots.length === 0) {
+      return "";
+    }
+    
+    // Format snapshots for context injection
+    const contextLines = snapshots.map(s => {
+      const prefix = s.snapshotType === 'plateau_alert' ? '[PLATEAU]' :
+                     s.snapshotType === 'breakthrough' ? '[BREAKTHROUGH]' :
+                     s.snapshotType === 'struggle_pattern' ? '[STRUGGLE]' :
+                     s.snapshotType === 'teaching_moment' ? '[MOMENT]' :
+                     '[CONTEXT]';
+      return `${prefix} ${s.title}: ${s.content}`;
+    });
+    
+    return `\n\n[RECENT TEACHING CONTEXT]\n${contextLines.join('\n')}`;
+  } catch (err: any) {
+    console.warn(`[Brain Surgery] Failed to get teaching context: ${err.message}`);
+    return "";
+  }
 }
 
 /**
