@@ -1,0 +1,436 @@
+VM575:8 [Coframe] Replit Enterprise watcher loaded
+1842dae76498a689.js:2 
+      /////////////////////
+   ///////////////////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////        Curious and driven?
+  ///////////////@@@@@@@///////        Work with us!
+  ///////////////@@@@@@@///////
+  ///////////////@@@@@@@///////        https://join.replit.com/hack.with.us
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@#//////////////
+   ///////////////////////////
+      /////////////////////
+      
+1842dae76498a689.js:2 Download the Apollo DevTools for a better development experience: https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+1842dae76498a689.js:2 [LaunchDarkly] LaunchDarkly client initialized
+1842dae76498a689.js:2 Cache data may be lost when replacing the dealContext field of a Org object.
+
+This could cause additional (usually avoidable) network requests to fetch data that were otherwise cached.
+
+To address this problem (which is not a bug in Apollo Client), either ensure all objects of type OrgDealContext have an ID or a custom merge function, or define a custom merge function for the Org.dealContext field, so InMemoryCache can safely merge these objects:
+
+  existing: {"__typename":"OrgDealContext","dealType":"default","salesContactEmail":null}
+  incoming: {"__typename":"OrgDealContext","dealType":"default"}
+
+For more information about these options, please refer to the documentation:
+
+  * Ensuring entity objects have IDs: https://go.apollo.dev/c/generating-unique-identifiers
+  * Defining custom merge functions: https://go.apollo.dev/c/merging-non-normalized-objects
+
+(anonymous) @ 1842dae76498a689.js:2
+2 stallwart: failed ping 1
+ stallwart: failed ping 2
+ stallwart: failed ping 1
+ stallwart: failed ping 2
+ stallwart: failed ping 3
+ stallwart: failed ping 1
+ stallwart: failed ping 2
+ stallwart: failed ping 3
+ stallwart: failed ping 4
+ stallwart: failed ping 1
+ stallwart: failed ping 2
+ stallwart: failed ping 3
+ stallwart: failed ping 4
+ stallwart: failed ping 5
+5HolaHola:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+976Third-party cookie will be blocked. Learn more in the Issues tab.
+ Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+z @ ed1e693c96a75807.js:2
+ The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+e @ ed1e693c96a75807.js:2
+ The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+e @ ed1e693c96a75807.js:2
+ The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+e @ ed1e693c96a75807.js:2
+ Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+z @ ed1e693c96a75807.js:2
+ The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+e @ ed1e693c96a75807.js:2
+ The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+e @ ed1e693c96a75807.js:2
+ The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+e @ ed1e693c96a75807.js:2
+ Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'ambient-light-sensor'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'battery'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'execution-while-not-rendered'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'execution-while-out-of-viewport'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'layout-animations'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'legacy-image-formats'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'navigation-override'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'oversized-images'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'publickey-credentials'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'speaker-selection'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'unoptimized-images'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'unsized-media'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'pointer-lock'.
+z @ ed1e693c96a75807.js:2
+ Allow attribute will take precedence over 'allowfullscreen'.
+z @ ed1e693c96a75807.js:2
+ Allow attribute will take precedence over 'allowpaymentrequest'.
+z @ ed1e693c96a75807.js:2
+ The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+e @ ed1e693c96a75807.js:2
+ The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+e @ ed1e693c96a75807.js:2
+ The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+e @ ed1e693c96a75807.js:2
+workspace_iframe.html:32 Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+workspace_iframe.html:32 Unrecognized feature: 'ambient-light-sensor'.
+workspace_iframe.html:32 Unrecognized feature: 'battery'.
+workspace_iframe.html:32 Unrecognized feature: 'execution-while-not-rendered'.
+workspace_iframe.html:32 Unrecognized feature: 'execution-while-out-of-viewport'.
+workspace_iframe.html:32 Unrecognized feature: 'layout-animations'.
+workspace_iframe.html:32 Unrecognized feature: 'legacy-image-formats'.
+workspace_iframe.html:32 Unrecognized feature: 'navigation-override'.
+workspace_iframe.html:32 Unrecognized feature: 'oversized-images'.
+workspace_iframe.html:32 Unrecognized feature: 'publickey-credentials'.
+workspace_iframe.html:32 Unrecognized feature: 'speaker-selection'.
+workspace_iframe.html:32 Unrecognized feature: 'unoptimized-images'.
+workspace_iframe.html:32 Unrecognized feature: 'unsized-media'.
+workspace_iframe.html:32 Allow attribute will take precedence over 'allowfullscreen'.
+workspace_iframe.html:32 Allow attribute will take precedence over 'allowpaymentrequest'.
+injected.js:37 [APP] Screen orientation lock not available
+injected.js:37 [BUILD] App version: 1763747293
+injected.js:37 [LanguageContext] Initializing with language: spanish (from localStorage)
+injected.js:37 [LanguageContext] Initializing with difficulty: beginner (from localStorage)
+injected.js:37 [LanguageContext] Initializing with userName: David (from localStorage)
+injected.js:37 [LanguageContext] Initializing with subtitleMode: all (from localStorage)
+injected.js:37 [LanguageContext] Initializing with tutorGender: female (from localStorage)
+injected.js:37 [LanguageContext] Initializing with voiceSpeed: normal (from localStorage)
+injected.js:37 [LanguageContext] Hydrating from user preferences: Object
+injected.js:37 [PWA] Service Worker registered: https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/
+injected.js:37 Warning: Function components cannot be given refs. Attempts to access this ref will fail. Did you mean to use React.forwardRef()?
+
+Check the render method of `Primitive.button.SlotClone`.
+    at Badge (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/ui/badge.tsx:36:18)
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=eb5ed35a:79:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=eb5ed35a:56:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-Q6YJROYD.js?v=eb5ed35a:42:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=eb5ed35a:79:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=eb5ed35a:56:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-Q6YJROYD.js?v=eb5ed35a:42:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-T2HNFYQR.js?v=eb5ed35a:1931:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=eb5ed35a:200:13
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=eb5ed35a:38:15)
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=eb5ed35a:38:15)
+    at Popper (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-T2HNFYQR.js?v=eb5ed35a:1923:11)
+    at Tooltip (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=eb5ed35a:109:5)
+    at div
+    at div
+    at div
+    at Chat (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/pages/chat.tsx:40:18)
+    at Route (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=eb5ed35a:323:16)
+    at Switch (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=eb5ed35a:379:17)
+    at Suspense
+    at div
+    at PageWrapper (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/App.tsx?v=8K4CTCuQq8dPNWYLHGRig:124:24)
+    at Router (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/App.tsx?v=8K4CTCuQq8dPNWYLHGRig:161:48)
+    at main
+    at div
+    at div
+    at div
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=eb5ed35a:38:15)
+    at TooltipProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=eb5ed35a:65:5)
+    at SidebarProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/ui/sidebar.tsx:59:3)
+    at LearningFilterProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/contexts/LearningFilterContext.tsx:23:42)
+    at UsageProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/contexts/UsageContext.tsx:46:33)
+    at LanguageProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/contexts/LanguageContext.tsx:22:36)
+    at AuthenticatedApp (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/App.tsx?v=8K4CTCuQq8dPNWYLHGRig:430:29)
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=eb5ed35a:38:15)
+    at TooltipProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=eb5ed35a:65:5)
+    at QueryClientProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=eb5ed35a:2805:3)
+    at ErrorBoundary (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/ErrorBoundary.tsx:10:5)
+    at App
+(anonymous) @ injected.js:37
+injected.js:37 Warning: Function components cannot be given refs. Attempts to access this ref will fail. Did you mean to use React.forwardRef()?
+
+Check the render method of `Primitive.button.SlotClone`.
+    at Badge (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/ui/badge.tsx:36:18)
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=eb5ed35a:79:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=eb5ed35a:56:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-Q6YJROYD.js?v=eb5ed35a:42:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=eb5ed35a:79:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=eb5ed35a:56:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-Q6YJROYD.js?v=eb5ed35a:42:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-T2HNFYQR.js?v=eb5ed35a:1931:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=eb5ed35a:200:13
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=eb5ed35a:38:15)
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=eb5ed35a:38:15)
+    at Popper (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-T2HNFYQR.js?v=eb5ed35a:1923:11)
+    at Tooltip (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=eb5ed35a:109:5)
+    at CreditBalance (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/CreditBalance.tsx:24:3)
+    at div
+    at div
+    at div
+    at Chat (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/pages/chat.tsx:40:18)
+    at Route (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=eb5ed35a:323:16)
+    at Switch (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=eb5ed35a:379:17)
+    at Suspense
+    at div
+    at PageWrapper (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/App.tsx?v=8K4CTCuQq8dPNWYLHGRig:124:24)
+    at Router (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/App.tsx?v=8K4CTCuQq8dPNWYLHGRig:161:48)
+    at main
+    at div
+    at div
+    at div
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=eb5ed35a:38:15)
+    at TooltipProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=eb5ed35a:65:5)
+    at SidebarProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/ui/sidebar.tsx:59:3)
+    at LearningFilterProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/contexts/LearningFilterContext.tsx:23:42)
+    at UsageProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/contexts/UsageContext.tsx:46:33)
+    at LanguageProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/contexts/LanguageContext.tsx:22:36)
+    at AuthenticatedApp (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/App.tsx?v=8K4CTCuQq8dPNWYLHGRig:430:29)
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=eb5ed35a:38:15)
+    at TooltipProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=eb5ed35a:65:5)
+    at QueryClientProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=eb5ed35a:2805:3)
+    at ErrorBoundary (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/ErrorBoundary.tsx:10:5)
+    at App
+(anonymous) @ injected.js:37
+injected.js:37 [WHITEBOARD] Manually cleared
+injected.js:37 [SHARED CHAT] Founder Mode active - connecting to collaboration channel
+injected.js:37 [FounderCollab] Creating socket connection to namespace: /founder-collab
+injected.js:37 [FounderCollab] Socket created, socket.id: undefined connected: false
+injected.js:37 [SHARED CHAT] Auto-create check - waiting for active session check
+injected.js:37 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: false mode: voice
+injected.js:37 [SHARED CHAT] Creating shared conversation... (post-onboarding) forceNew: true mode: voice classId: undefined founderMode: true
+injected.js:37 [SHARED CHAT] Auto-create check - skipped (already in progress or session locked)
+injected.js:37 [VOICE] TTS pre-warmed in 0ms
+injected.js:37 [FounderCollab] Transport opened, socket.connected: false
+injected.js:37 [VOICE] Deepgram pre-warmed in 254ms
+injected.js:37 [SHARED CHAT] Shared conversation created: 39401f2b-26ff-4e71-9301-53e7a895c14d classId: null mode: voice
+injected.js:37 [CLEANUP] Cleaning up voice recording resources...
+injected.js:37 [CLEANUP] Cleaning up recording resources...
+injected.js:37 [STREAMING] Connecting to streaming voice...
+ [StreamingVoice] Creating Socket.io connection to /voice namespace...
+ [WHITEBOARD] Manually cleared
+ [SHARED CHAT] Auto-create check - skipped (already in progress or session locked)
+ [RINGING] Started telephone ring sound
+ [MIC WARMUP] Pre-warming microphone (500ms after mount)...
+ [FounderCollab] CONNECT EVENT FIRED! Socket.id: vz-dqB9CcXnsac2RAAAB
+ [FounderCollab] Server ready, emitting join_session
+ [FounderCollab] Emitting join_session with clientId: fc-1765663366153-bpeugfk
+ [StreamingVoice] Socket.io connect event fired!
+ [StreamingVoice] Connection complete via: connect
+ [STREAMING] Connected successfully
+ [FounderCollab] Joined session 25430221-4794-4a00-ac74-db0c2302941b
+ [SHARED CHAT] Auto-create check - skipped (already in progress or session locked)
+ [RINGING] Stopped telephone ring sound
+ [VOICE GREETING] Lock acquired for message: streaming-greeting-39401f2b-26ff-4e71-9301-53e7a895c14d
+ [STREAMING GREETING] Requesting NEW conversation AI-generated personalized greeting...
+ [STREAMING GREETING] Already requested for this lock key: streaming-greeting-39401f2b-26ff-4e71-9301-53e7a895c14d
+ [MIC WARMUP] SUCCESS! Microphone ready for instant recording (took 587 ms)
+ [LOOP] Frame 10: entries=[S0(end=4.01)] now=0.11
+(anonymous) @ injected.js:37
+ [LOOP] Frame 20: entries=[S0(end=4.01)] now=0.28
+(anonymous) @ injected.js:37
+ [LOOP] Frame 30: entries=[S0(end=4.01)] now=0.45
+(anonymous) @ injected.js:37
+ [LOOP] Frame 40: entries=[S0(end=4.01)] now=0.61
+(anonymous) @ injected.js:37
+ [STREAMING] Response complete - refreshing messages for 39401f2b-26ff-4e71-9301-53e7a895c14d
+ [STREAMING] Storing combined audio for replay: 633064 bytes
+ [STREAMING GREETING] Already requested for this lock key: streaming-greeting-39401f2b-26ff-4e71-9301-53e7a895c14d
+ [LOOP] Frame 50: entries=[S0(end=4.01), S1(end=6.79)] now=0.82
+(anonymous) @ injected.js:37
+ [STREAMING GREETING] Already requested for this lock key: streaming-greeting-39401f2b-26ff-4e71-9301-53e7a895c14d
+ [LOOP] Frame 60: entries=[S0(end=4.01), S1(end=6.79)] now=0.99
+(anonymous) @ injected.js:37
+ [STREAMING] Setting lastMessageId for replay: 058323cd-c1e9-4c12-9cb6-4a25eb20852d
+2 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-39401f2b-26ff-4e71-9301-53e7a895c14d
+ [LOOP] Frame 70: entries=[S0(end=4.01), S1(end=6.79)] now=1.13
+(anonymous) @ injected.js:37
+ [LOOP] Frame 80: entries=[S0(end=4.01), S1(end=6.79)] now=1.29
+(anonymous) @ injected.js:37
+ [LOOP] Frame 90: entries=[S0(end=4.01), S1(end=6.79)] now=1.46
+(anonymous) @ injected.js:37
+ [STREAMING GREETING] Already requested for this lock key: streaming-greeting-39401f2b-26ff-4e71-9301-53e7a895c14d
+ [LOOP] Frame 100: entries=[S0(end=4.01), S1(end=6.79)] now=1.64
+(anonymous) @ injected.js:37
+ [LOOP] Frame 110: entries=[S0(end=4.01), S1(end=6.79)] now=1.80
+(anonymous) @ injected.js:37
+ [STREAMING GREETING] Already requested for this lock key: streaming-greeting-39401f2b-26ff-4e71-9301-53e7a895c14d
+ [LOOP] Frame 120: entries=[S0(end=4.01), S1(end=6.79)] now=1.96
+(anonymous) @ injected.js:37
+ [STREAMING GREETING] Already requested for this lock key: streaming-greeting-39401f2b-26ff-4e71-9301-53e7a895c14d
+ [LOOP] Frame 130: entries=[S0(end=4.01), S1(end=6.79)] now=2.13
+(anonymous) @ injected.js:37
+ [STREAMING GREETING] Already requested for this lock key: streaming-greeting-39401f2b-26ff-4e71-9301-53e7a895c14d
+ [LOOP] Frame 140: entries=[S0(end=4.01), S1(end=6.79)] now=2.30
+(anonymous) @ injected.js:37
+ [LOOP] Frame 150: entries=[S0(end=4.01), S1(end=6.79)] now=2.46
+(anonymous) @ injected.js:37
+ [STREAMING GREETING] Already requested for this lock key: streaming-greeting-39401f2b-26ff-4e71-9301-53e7a895c14d
+ [LOOP] Frame 160: entries=[S0(end=4.01), S1(end=6.79)] now=2.63
+(anonymous) @ injected.js:37
+ [STREAMING GREETING] Already requested for this lock key: streaming-greeting-39401f2b-26ff-4e71-9301-53e7a895c14d
+ [LOOP] Frame 170: entries=[S0(end=4.01), S1(end=6.79)] now=2.81
+(anonymous) @ injected.js:37
+ [STREAMING GREETING] Already requested for this lock key: streaming-greeting-39401f2b-26ff-4e71-9301-53e7a895c14d
+ [LOOP] Frame 180: entries=[S0(end=4.01), S1(end=6.79)] now=2.97
+(anonymous) @ injected.js:37
+injected.js:37 [LOOP] Frame 190: entries=[S0(end=4.01), S1(end=6.79)] now=3.13
+(anonymous) @ injected.js:37
+injected.js:37 [LOOP] Frame 200: entries=[S0(end=4.01), S1(end=6.79)] now=3.31
+(anonymous) @ injected.js:37
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-39401f2b-26ff-4e71-9301-53e7a895c14d
+injected.js:37 [LOOP] Frame 210: entries=[S0(end=4.01), S1(end=6.79)] now=3.46
+(anonymous) @ injected.js:37
+injected.js:37 [LOOP] Frame 220: entries=[S0(end=4.01), S1(end=6.79)] now=3.64
+(anonymous) @ injected.js:37
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-39401f2b-26ff-4e71-9301-53e7a895c14d
+injected.js:37 [LOOP] Frame 230: entries=[S0(end=4.01), S1(end=6.79)] now=3.79
+(anonymous) @ injected.js:37
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-39401f2b-26ff-4e71-9301-53e7a895c14d
+injected.js:37 [LOOP] Frame 240: entries=[S0(end=4.01), S1(end=6.79)] now=3.96
+(anonymous) @ injected.js:37
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-39401f2b-26ff-4e71-9301-53e7a895c14d
+injected.js:37 [LOOP] Frame 250: entries=[S0(end=4.01), S1(end=6.79)] now=4.13
+(anonymous) @ injected.js:37
+injected.js:37 [LOOP] Frame 260: entries=[S0(end=4.01), S1(end=6.79)] now=4.30
+(anonymous) @ injected.js:37
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-39401f2b-26ff-4e71-9301-53e7a895c14d
+injected.js:37 [LOOP] Frame 270: entries=[S0(end=4.01), S1(end=6.79)] now=4.46
+(anonymous) @ injected.js:37
+injected.js:37 [LOOP] Frame 280: entries=[S0(end=4.01), S1(end=6.79)] now=4.63
+(anonymous) @ injected.js:37
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-39401f2b-26ff-4e71-9301-53e7a895c14d
+injected.js:37 [LOOP] Frame 290: entries=[S0(end=4.01), S1(end=6.79)] now=4.81
+(anonymous) @ injected.js:37
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-39401f2b-26ff-4e71-9301-53e7a895c14d
+injected.js:37 [LOOP] Frame 300: entries=[S0(end=4.01), S1(end=6.79)] now=4.97
+(anonymous) @ injected.js:37
+injected.js:37 [LOOP] Frame 310: entries=[S0(end=4.01), S1(end=6.79)] now=5.13
+(anonymous) @ injected.js:37
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-39401f2b-26ff-4e71-9301-53e7a895c14d
+injected.js:37 [LOOP] Frame 320: entries=[S0(end=4.01), S1(end=6.79)] now=5.30
+(anonymous) @ injected.js:37
+injected.js:37 [LOOP] Frame 330: entries=[S0(end=4.01), S1(end=6.79)] now=5.46
+(anonymous) @ injected.js:37
+injected.js:37 [LOOP] Frame 340: entries=[S0(end=4.01), S1(end=6.79)] now=5.64
+(anonymous) @ injected.js:37
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-39401f2b-26ff-4e71-9301-53e7a895c14d
+injected.js:37 [LOOP] Frame 350: entries=[S0(end=4.01), S1(end=6.79)] now=5.80
+(anonymous) @ injected.js:37
+injected.js:37 [LOOP] Frame 360: entries=[S0(end=4.01), S1(end=6.79)] now=5.96
+(anonymous) @ injected.js:37
+2injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-39401f2b-26ff-4e71-9301-53e7a895c14d
+injected.js:37 [LOOP] Frame 370: entries=[S0(end=4.01), S1(end=6.79)] now=6.13
+(anonymous) @ injected.js:37
+injected.js:37 [LOOP] Frame 380: entries=[S0(end=4.01), S1(end=6.79)] now=6.29
+(anonymous) @ injected.js:37
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-39401f2b-26ff-4e71-9301-53e7a895c14d
+injected.js:37 [LOOP] Frame 390: entries=[S0(end=4.01), S1(end=6.79)] now=6.46
+(anonymous) @ injected.js:37
+injected.js:37 [LOOP] Frame 400: entries=[S0(end=4.01), S1(end=6.79)] now=6.63
+(anonymous) @ injected.js:37
+3injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-39401f2b-26ff-4e71-9301-53e7a895c14d
+injected.js:37 [MIC BUTTON] Mouse down, isUsersTurn: true
+injected.js:37 [PUSH-TO-TALK] Button pressed at 27766 ms
+injected.js:37 [PUSH-TO-TALK] Cached stream status: Object
+injected.js:37 [PUSH-TO-TALK] Using cached stream - INSTANT start! (+3ms)
+injected.js:37 [RECORDING] Using audio codec: audio/webm;codecs=opus
+injected.js:37 [PUSH-TO-TALK] Recording started - release to stop
+injected.js:37 [MIC BUTTON] Mouse up
+injected.js:37 [PUSH-TO-TALK] Releasing button, stopping recording...
+injected.js:37 [PUSH-TO-TALK] Resetting subtitles immediately on button release
+injected.js:37 [PUSH-TO-TALK] Stopped, processing audio...
+injected.js:37 [PUSH-TO-TALK] Resetting subtitles immediately
+injected.js:37 [PUSH-TO-TALK] Processing audio for conversation: 39401f2b-26ff-4e71-9301-53e7a895c14d
+injected.js:37 [STREAMING CHECK] Object
+injected.js:37 [STREAMING] Using streaming mode for low-latency response
+injected.js:37 [STREAMING] Setting lastMessageId for replay: 058323cd-c1e9-4c12-9cb6-4a25eb20852d
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-39401f2b-26ff-4e71-9301-53e7a895c14d
+injected.js:37 [STREAMING] Audio sent, awaiting progressive response...
+injected.js:37 [MIC WARMUP] Re-warmed for next recording
+injected.js:37 [StreamingVoice] Error: Error: Could not understand audio. Please try speaking again.
+    at StreamingVoiceClient.handleError (streamingVoiceClient.ts:823:24)
+    at StreamingVoiceClient.handleSocketMessage (streamingVoiceClient.ts:668:16)
+    at Socket2.<anonymous> (streamingVoiceClient.ts:309:18)
+    at Emitter.emit (socket__io-client.js?v=eb5ed35a:354:20)
+    at Socket2.emitEvent (socket__io-client.js?v=eb5ed35a:2655:16)
+    at Socket2.onevent (socket__io-client.js?v=eb5ed35a:2643:12)
+    at Socket2.onpacket (socket__io-client.js?v=eb5ed35a:2614:14)
+    at Emitter.emit (socket__io-client.js?v=eb5ed35a:354:20)
+    at socket__io-client.js?v=eb5ed35a:3218:12
+(anonymous) @ injected.js:37
+injected.js:37 [STREAMING] Error: Could not understand audio. Please try speaking again.
+(anonymous) @ injected.js:37
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-39401f2b-26ff-4e71-9301-53e7a895c14d
+injected.js:37 [STREAMING] Error: Could not understand audio. Please try speaking again.
+(anonymous) @ injected.js:37
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-39401f2b-26ff-4e71-9301-53e7a895c14d
+injected.js:37 [STREAMING] Error: Could not understand audio. Please try speaking again.
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ StreamingVoiceChat.tsx:890
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=eb5ed35a:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=eb5ed35a:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=eb5ed35a:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=eb5ed35a:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=eb5ed35a:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=eb5ed35a:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=eb5ed35a:19447
+commitRootImpl @ chunk-RPCDYKBN.js?v=eb5ed35a:19416
+commitRoot @ chunk-RPCDYKBN.js?v=eb5ed35a:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=eb5ed35a:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=eb5ed35a:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=eb5ed35a:18627
+Show 12 more frames
+Show less
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-39401f2b-26ff-4e71-9301-53e7a895c14d
+777 log entries are not shown.

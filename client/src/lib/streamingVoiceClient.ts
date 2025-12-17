@@ -402,7 +402,7 @@ export class StreamingVoiceClient {
       this.socket!.emit('message', {
         type: 'stream_audio_chunk',
         audio: base64Audio,
-        format: 'webm',
+        format: 'pcm16',  // Linear16 PCM at 16kHz from AudioContext
         sequenceId,
       });
       return true;
