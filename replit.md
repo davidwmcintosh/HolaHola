@@ -47,6 +47,15 @@ Daniela's "North Star System" provides a constitutional foundation for teaching 
 
 Core data models include Users, Conversations, Messages, VocabularyWords, GrammarExercises, UserProgress, CulturalTips, Topics, and MediaFiles. The system includes a "Neural Network for Pedagogical Strategies," a "Procedural Memory" system, a two-tier voice architecture with WebSocket-based audio delivery, AI-powered conversation tagging, a Syllabus-Aware Competency System, unified learning filters, comprehensive metering, and centralized Role-Based Access Control (RBAC). HolaHola offers pre-built syllabi across 9 languages, a unified ACTFL assessment system, and a Feature Sprint System for managing development.
 
+## Voice Diagnostics System
+The **Voice Diagnostics Service** (`voice-diagnostics-service.ts`) provides production observability for the voice pipeline:
+- **Ring Buffer**: In-memory storage for the last 200 voice events (session_start, stt_complete, stt_error, llm_success, llm_error, tts_complete, tts_error)
+- **Founder-Only Endpoints**: Protected by `requireFounder` middleware in `server/middleware/rbac.ts` (founder ID: 49847136)
+  - `GET /api/admin/voice-health` - Tests Deepgram, Gemini, Cartesia connectivity and verifies secrets exist
+  - `GET /api/admin/logs/voice` - Returns ring buffer events with optional filters (?sessionId=, ?stage=, ?success=, ?limit=)
+- **Pipeline Instrumentation**: `streaming-voice-orchestrator.ts` emits events at session_start, STT completion, LLM first-token, LLM errors, and TTS completion/errors
+- **Security**: Responses expose only operational metadata (status, latency, boolean secret presence) - no API keys or PII
+
 ## External Dependencies
 -   **Stripe**: Payment processing and subscription management.
 -   **Replit Auth**: OIDC authentication.
