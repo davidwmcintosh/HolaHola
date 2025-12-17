@@ -1908,3 +1908,82 @@ Respond naturally as Wren. Keep it conversational and helpful. If they're asking
 }
 
 export const hiveConsciousnessService = new HiveConsciousnessService();
+
+/**
+ * Get recent EXPRESS Lane history formatted for voice session context injection
+ * 
+ * This allows Daniela to remember text-based EXPRESS Lane conversations
+ * when the founder switches to voice chat.
+ * 
+ * @param founderId - The founder's user ID (49847136 for David)
+ * @param limit - Maximum number of messages to retrieve (default 15)
+ * @returns Formatted conversation history for Gemini (role: user/model pairs)
+ */
+export async function getExpressLaneHistoryForVoice(
+  founderId: number,
+  limit: number = 15
+): Promise<{ role: 'user' | 'model'; content: string }[]> {
+  try {
+    // Import founderSessions here to avoid circular dependency
+    const { founderSessions } = await import('@shared/schema');
+    
+    // Get the founder's active or recent sessions
+    const founderSessionIds = await db.select({ id: founderSessions.id })
+      .from(founderSessions)
+      .where(eq(founderSessions.founderId, String(founderId)))
+      .orderBy(desc(founderSessions.updatedAt))
+      .limit(3);  // Include last 3 sessions for continuity
+    
+    if (founderSessionIds.length === 0) {
+      console.log(`[EXPRESS Lane Voice] No sessions found for founder ${founderId}`);
+      return [];
+    }
+    
+    const sessionIdList = founderSessionIds.map(s => s.id);
+    
+    // Get messages from the founder's sessions only
+    // Exclude 'system' role as those are typically operational broadcasts, not conversations
+    const recentMessages = await db.select()
+      .from(collaborationMessages)
+      .where(
+        and(
+          inArray(collaborationMessages.sessionId, sessionIdList),
+          or(
+            eq(collaborationMessages.role, 'founder'),
+            eq(collaborationMessages.role, 'daniela'),
+            eq(collaborationMessages.role, 'wren')
+          )
+        )
+      )
+      .orderBy(desc(collaborationMessages.createdAt))
+      .limit(limit);
+    
+    if (recentMessages.length === 0) {
+      return [];
+    }
+    
+    console.log(`[EXPRESS Lane Voice] Found ${recentMessages.length} messages from founder ${founderId}'s sessions`);
+    
+    // Reverse to chronological order and format for Gemini
+    const orderedMessages = [...recentMessages].reverse();
+    
+    return orderedMessages.map((msg: CollaborationMessage) => {
+      // Map roles to Gemini format
+      // Founder = user, Daniela/Wren = model (assistant perspective)
+      const role = msg.role === 'founder' ? 'user' : 'model';
+      
+      // Add role label for context (so Daniela knows who said what)
+      const roleLabel = msg.role === 'founder' ? 'David' 
+        : msg.role === 'daniela' ? 'Daniela' 
+        : 'Wren';
+      
+      return {
+        role,
+        content: `[EXPRESS Lane - ${roleLabel}]: ${msg.content}`
+      };
+    });
+  } catch (error) {
+    console.error('[EXPRESS Lane Voice] Failed to fetch history:', error);
+    return [];
+  }
+}

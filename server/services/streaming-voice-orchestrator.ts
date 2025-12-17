@@ -55,6 +55,7 @@ import { trackToolEvent, mapWhiteboardTypeToToolType } from "./pedagogical-insig
 import { createSystemPrompt } from "../system-prompt";
 import { hiveCollaborationService, BeaconType } from "./hive-collaboration-service";
 import { hiveContextService } from "./hive-context-service";
+import { getExpressLaneHistoryForVoice } from "./hive-consciousness-service";
 import { collaborationHubService } from "./collaboration-hub-service";
 import { editorFeedbackService } from "./editor-feedback-service";
 import { founderCollabService } from "./founder-collaboration-service";
@@ -1087,9 +1088,25 @@ Remember: David may reference things discussed in these recent text chats.
       
       const userMessageWithNote = transcript + contentRedirectNote + sttConfidenceNote + intelligenceContext + architectContext;
       
+      // EXPRESS LANE MEMORY: For Founder Mode, prepend recent EXPRESS Lane messages
+      // so Daniela remembers text-based conversations when switching to voice
+      let conversationHistoryWithExpressLane = session.conversationHistory;
+      if (session.isFounderMode) {
+        try {
+          const expressLaneHistory = await getExpressLaneHistoryForVoice(session.userId, 15);
+          if (expressLaneHistory.length > 0) {
+            // Prepend EXPRESS Lane history before voice conversation history
+            conversationHistoryWithExpressLane = [...expressLaneHistory, ...session.conversationHistory];
+            console.log(`[EXPRESS Lane Memory] Injected ${expressLaneHistory.length} messages from text chat into voice context`);
+          }
+        } catch (err: any) {
+          console.warn(`[EXPRESS Lane Memory] Failed to fetch:`, err.message);
+        }
+      }
+      
       await this.geminiService.streamWithSentenceChunking({
         systemPrompt: enhancedSystemPrompt,
-        conversationHistory: session.conversationHistory,
+        conversationHistory: conversationHistoryWithExpressLane,
         userMessage: userMessageWithNote,
         onSentence: async (chunk: SentenceChunk) => {
           // BARGE-IN CHECK: Stop processing if user interrupted
