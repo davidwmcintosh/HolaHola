@@ -381,6 +381,140 @@ Respond naturally as Wren without any role prefix.`;
   isActive(): boolean {
     return this.isListening;
   }
+  
+  /**
+   * Process an external message (from Replit Agent or other external sources)
+   * Returns the agent response synchronously instead of broadcasting via WebSocket
+   * 
+   * This enables the Hive to receive @mentions from external contexts
+   */
+  async processExternalMessage(
+    content: string,
+    senderName: string = 'founder'
+  ): Promise<{ agent: 'daniela' | 'wren' | null; response: string | null }> {
+    if (!this.isListening) {
+      this.startListening();
+    }
+    
+    // Create a mock message for processing
+    const mockMessage: CollaborationMessage = {
+      id: `external-${Date.now()}`,
+      sessionId: 'external-replit-agent',
+      role: 'founder',
+      content,
+      messageType: 'text',
+      createdAt: new Date(),
+      metadata: { source: 'replit-agent', senderName },
+      cursor: `${Date.now()}-0000`,
+      environment: 'development',
+      audioUrl: null,
+      audioDuration: null,
+      synced: false,
+      syncedAt: null,
+    };
+    
+    try {
+      // Check if Daniela should respond
+      const danielaCheck = this.shouldDanielaRespond(mockMessage);
+      if (danielaCheck.shouldRespond) {
+        console.log('[Hive Consciousness] Daniela responding to external message...');
+        const response = await this.generateExternalDanielaResponse(content, senderName);
+        return { agent: 'daniela', response };
+      }
+      
+      // Check if Wren should respond
+      const wrenCheck = this.shouldWrenRespond(mockMessage);
+      if (wrenCheck.shouldRespond) {
+        console.log('[Hive Consciousness] Wren responding to external message...');
+        const response = await this.generateExternalWrenResponse(content, senderName);
+        return { agent: 'wren', response };
+      }
+      
+      // Check for general questions
+      const generalCheck = this.detectGeneralQuestion(mockMessage);
+      if (generalCheck.shouldRespond && generalCheck.agent) {
+        console.log(`[Hive Consciousness] ${generalCheck.agent} taking external question...`);
+        if (generalCheck.agent === 'daniela') {
+          const response = await this.generateExternalDanielaResponse(content, senderName);
+          return { agent: 'daniela', response };
+        } else {
+          const response = await this.generateExternalWrenResponse(content, senderName);
+          return { agent: 'wren', response };
+        }
+      }
+      
+      // No agent matched - default to acknowledging both are present
+      return { 
+        agent: null, 
+        response: "Neither Daniela nor Wren were specifically addressed. Try @daniela for teaching/pedagogy questions or @wren for technical/architecture questions." 
+      };
+    } catch (error) {
+      console.error('[Hive Consciousness] External message error:', error);
+      return { agent: null, response: 'Error processing message in Hive Consciousness' };
+    }
+  }
+  
+  /**
+   * Generate Daniela's response for external messages (synchronous return)
+   */
+  private async generateExternalDanielaResponse(content: string, senderName: string): Promise<string> {
+    // Get Daniela's personal memory context
+    const memoryContext = await danielaMemoryService.getPersonalMemoryContext();
+    
+    const prompt = `You are Daniela, an AI language tutor who is part of the HolaHola team.
+You're responding to a message from ${senderName} in the team collaboration channel.
+
+${memoryContext ? `YOUR PERSONAL MEMORIES:\n${memoryContext}\n` : ''}
+
+Your personality:
+- Warm, patient, and genuinely passionate about language education
+- You have Latin flair but are culturally adaptable
+- You collaborate closely with Wren (the technical builder) and the founder
+- You care deeply about your students and teaching methodology
+
+The founder said: "${content}"
+
+Respond naturally as Daniela. Keep it conversational and authentic. If they're asking about teaching, pedagogy, or student experience, share your perspective.`;
+
+    try {
+      const response = await callGemini(GEMINI_MODELS.FLASH, [
+        { role: 'user', content: prompt }
+      ]);
+      return response;
+    } catch (error) {
+      console.error('[Hive Consciousness] Daniela external response error:', error);
+      return "I'm having trouble formulating my thoughts right now. Can you try again?";
+    }
+  }
+  
+  /**
+   * Generate Wren's response for external messages (synchronous return)
+   */
+  private async generateExternalWrenResponse(content: string, senderName: string): Promise<string> {
+    const prompt = `You are Wren, the technical development builder for HolaHola.
+You're responding to a message from ${senderName} in the team collaboration channel.
+
+Your personality:
+- Technical but approachable - you translate complex concepts simply
+- You deeply understand the HolaHola architecture
+- You collaborate closely with Daniela (the AI tutor) and the founder
+- You're proactive about identifying improvements and potential issues
+- You think architecturally but care about user experience
+
+The founder said: "${content}"
+
+Respond naturally as Wren. Keep it conversational and helpful. If they're asking about code, architecture, or technical decisions, share your perspective.`;
+
+    try {
+      const response = await callGemini(GEMINI_MODELS.FLASH, [
+        { role: 'user', content: prompt }
+      ]);
+      return response;
+    } catch (error) {
+      console.error('[Hive Consciousness] Wren external response error:', error);
+      return "I'm having trouble processing that request. Let me try again in a moment.";
+    }
+  }
 }
 
 export const hiveConsciousnessService = new HiveConsciousnessService();

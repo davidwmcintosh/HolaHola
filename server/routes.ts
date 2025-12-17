@@ -60,6 +60,7 @@ import { getStreamingVoiceOrchestrator } from "./services/streaming-voice-orches
 import { collaborationHubService } from "./services/collaboration-hub-service";
 import { hiveCollaborationService } from "./services/hive-collaboration-service";
 import { hiveContextService } from "./services/hive-context-service";
+import { hiveConsciousnessService } from "./services/hive-consciousness-service";
 import { wrenIntelligenceService } from "./services/wren-intelligence-service";
 import { wrenProactiveService } from "./services/wren-proactive-intelligence-service";
 import { wrenDreamsService } from "./services/wren-dreams-service";
@@ -15080,6 +15081,43 @@ ${memoryContext}
       });
     } catch (error: any) {
       console.error('[Hive API] Recent messages error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // HIVE: Process external message (from Replit Agent or other external sources)
+  // This enables Daniela and Wren to respond to @mentions from external contexts
+  app.post("/api/hive/external-message", async (req, res) => {
+    try {
+      // Validate editor secret for security
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { content, senderName } = req.body;
+
+      if (!content) {
+        return res.status(400).json({ error: 'content is required' });
+      }
+
+      console.log(`[Hive External] Processing message from ${senderName || 'founder'}: "${content.substring(0, 50)}..."`);
+
+      // Process through Hive Consciousness
+      const result = await hiveConsciousnessService.processExternalMessage(
+        content,
+        senderName || 'founder'
+      );
+
+      console.log(`[Hive External] Response from ${result.agent || 'none'}`);
+      res.json({
+        success: true,
+        agent: result.agent,
+        response: result.response,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      console.error('[Hive External] Error:', error);
       res.status(500).json({ error: error.message });
     }
   });
