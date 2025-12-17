@@ -190,3 +190,38 @@ export function getOriginalAdminId(user: User | undefined): string | null {
   if (!user || !isImpersonating(user)) return null;
   return user.impersonatedBy || null;
 }
+
+// Founder user ID for founder-only endpoints
+const FOUNDER_USER_ID = '49847136';
+
+/**
+ * Check if user is the founder
+ */
+export function isFounder(user: User | undefined): boolean {
+  return user?.id === FOUNDER_USER_ID;
+}
+
+/**
+ * Middleware to require founder access only
+ * Usage: app.get('/api/admin/voice-health', requireFounder, handler)
+ */
+export function requireFounder(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    if (!req.user?.claims?.sub) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+    
+    if (!req.authenticatedUser) {
+      return res.status(500).json({ error: "User data not loaded. Ensure loadAuthenticatedUser middleware runs first." });
+    }
+    
+    if (req.authenticatedUser.id !== FOUNDER_USER_ID) {
+      return res.status(403).json({ error: "Founder access required" });
+    }
+    
+    next();
+  } catch (error) {
+    console.error("[RBAC] Error in requireFounder middleware:", error);
+    return res.status(500).json({ error: "Authorization check failed" });
+  }
+}

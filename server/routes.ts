@@ -6,7 +6,8 @@ import { db } from "./db";
 import { eq, and, gte, desc, sql, isNotNull } from "drizzle-orm";
 import { stripeService } from "./stripeService";
 import { aiLimiter, voiceLimiter, authLimiter, mutationLimiter, hiveExternalLimiter } from "./middleware/rate-limiter";
-import { requireRole, allowRoles, loadAuthenticatedUser } from "./middleware/rbac";
+import { requireRole, allowRoles, loadAuthenticatedUser, requireFounder } from "./middleware/rbac";
+import { voiceDiagnostics } from "./services/voice-diagnostics-service";
 import {
   insertConversationSchema,
   insertMessageSchema,
@@ -9817,6 +9818,53 @@ Return ONLY the ${targetLanguage} phrase:`;
       });
     } catch (error: any) {
       console.error('Error fetching voice session reports:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // ===== Voice Pipeline Diagnostics (Founder Only) =====
+  // Production monitoring for voice pipeline health
+  
+  // Get voice pipeline health status - tests Deepgram, Gemini, Cartesia connectivity
+  app.get("/api/admin/voice-health", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const orchestrator = getStreamingVoiceOrchestrator();
+      const activeSessions = orchestrator.getActiveSessionCount();
+      
+      const healthCheck = await voiceDiagnostics.runHealthCheck(activeSessions);
+      
+      res.json(healthCheck);
+    } catch (error: any) {
+      console.error('[Voice Diagnostics] Health check error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get recent voice pipeline events - ring buffer of last 200 events
+  app.get("/api/admin/logs/voice", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { limit, stage, sessionId, failuresOnly } = req.query;
+      
+      let events;
+      if (failuresOnly === 'true') {
+        events = voiceDiagnostics.getFailures();
+      } else if (sessionId) {
+        events = voiceDiagnostics.getSessionEvents(sessionId as string);
+      } else if (stage) {
+        events = voiceDiagnostics.getEventsByStage(stage as any);
+      } else {
+        events = voiceDiagnostics.getEvents(limit ? parseInt(limit as string) : undefined);
+      }
+      
+      const stats = voiceDiagnostics.getStats();
+      
+      res.json({
+        events,
+        stats,
+        environment: process.env.NODE_ENV || 'development',
+      });
+    } catch (error: any) {
+      console.error('[Voice Diagnostics] Logs error:', error);
       res.status(500).json({ error: error.message });
     }
   });
