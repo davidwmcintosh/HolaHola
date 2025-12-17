@@ -111,14 +111,10 @@ export async function transcribeWithLiveAPI(
         // NO encoding/sample_rate for container formats like WebM
       };
       
-      // Add Deepgram Intelligence features (Dec 2024 upgrade)
-      // NOTE: intents, topics, summarize NOT available on live API for current plan
+      // Add Deepgram features - core only for live API stability
       if (enableIntelligence) {
-        connectionOptions.diarize = true;           // Speaker separation (FREE)
-        connectionOptions.sentiment = true;         // Sentiment analysis
-        connectionOptions.detect_entities = true;   // Entity detection
-        connectionOptions.detect_language = true;   // Language detection
-        console.log('[Deepgram Live] Intelligence features enabled: diarize, sentiment, entities, language');
+        connectionOptions.diarize = true;           // Speaker separation (generally available)
+        console.log('[Deepgram Live] Core features enabled: diarize');
       }
       
       const connection = deepgramClient.listen.live(connectionOptions);
@@ -403,14 +399,10 @@ export class OpenMicSession {
           sample_rate: 16000,
           channels: 1,
           endpointing: 100, // 100ms endpointing for better code-switching (recommended for multi)
-          // Deepgram Intelligence Features (Dec 2024)
-          // NOTE: intents, topics, summarize NOT available on live streaming API for current plan
-          diarize: true,           // Speaker separation (FREE)
-          sentiment: true,         // Real-time sentiment analysis
-          detect_entities: true,   // Entity detection
-          detect_language: true,   // Language detection
+          // Core features only for live streaming - intelligence features added post-connection
+          diarize: true,           // Speaker separation (generally available)
         });
-        console.log('[OpenMic] Intelligence features enabled: diarize, sentiment, entities, language');
+        console.log('[OpenMic] Core streaming features enabled: diarize');
         
         // Attach Open handler first
         this.connection.on(LiveTranscriptionEvents.Open, () => {
