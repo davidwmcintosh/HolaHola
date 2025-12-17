@@ -1476,8 +1476,20 @@ export function StreamingVoiceChat({
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       
+      // Determine best available audio codec for MediaRecorder
+      // Try opus first (best for speech), fallback to vorbis, then generic webm
+      let mimeType = 'audio/webm';
+      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+        mimeType = 'audio/webm;codecs=opus';
+      } else if (MediaRecorder.isTypeSupported('audio/webm;codecs=vorbis')) {
+        mimeType = 'audio/webm;codecs=vorbis';
+      } else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
+        mimeType = 'audio/ogg;codecs=opus';
+      }
+      console.log('[RECORDING] Using audio codec:', mimeType);
+      
       const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm',
+        mimeType,
       });
       
       // Isolated state for this recording session
@@ -1641,8 +1653,20 @@ export function StreamingVoiceChat({
       
       streamRef.current = stream;
       
+      // Determine best available audio codec for MediaRecorder
+      // Try opus first (best for speech), fallback to vorbis, then generic webm
+      let mimeType = 'audio/webm';
+      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+        mimeType = 'audio/webm;codecs=opus';
+      } else if (MediaRecorder.isTypeSupported('audio/webm;codecs=vorbis')) {
+        mimeType = 'audio/webm;codecs=vorbis';
+      } else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
+        mimeType = 'audio/ogg;codecs=opus';
+      }
+      console.log('[RECORDING] Using audio codec:', mimeType);
+      
       const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm',
+        mimeType,
       });
       
       // Isolated state for this recording session
