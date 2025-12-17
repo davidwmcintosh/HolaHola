@@ -975,6 +975,111 @@ class BeaconSyncService {
     };
     return emojis[type] || '📦';
   }
+  
+  /**
+   * Sync replit.md architectural documentation to neural network
+   * This gives Wren persistent architectural knowledge through the NN
+   * instead of reading the file directly
+   * 
+   * Call this on startup to ensure Wren has architectural context
+   */
+  async syncReplitMdToNeuralNetwork(): Promise<{
+    synced: number;
+    skipped: number;
+    errors: string[];
+  }> {
+    const result = { synced: 0, skipped: 0, errors: [] as string[] };
+    
+    try {
+      const replitMdPath = path.join(process.cwd(), 'replit.md');
+      
+      if (!fs.existsSync(replitMdPath)) {
+        console.log('[BeaconSync] No replit.md found, skipping architectural sync');
+        return result;
+      }
+      
+      const content = fs.readFileSync(replitMdPath, 'utf-8');
+      
+      // Parse sections from replit.md
+      const sections: { name: string; content: string }[] = [];
+      
+      // Extract Overview
+      const overviewMatch = content.match(/## Overview\n([\s\S]*?)(?=\n## )/);
+      if (overviewMatch) {
+        sections.push({ name: 'OVERVIEW', content: overviewMatch[1].trim() });
+      }
+      
+      // Extract System Architecture
+      const archMatch = content.match(/## System Architecture\n([\s\S]*?)(?=\n## )/);
+      if (archMatch) {
+        sections.push({ name: 'SYSTEM_ARCHITECTURE', content: archMatch[1].trim() });
+      }
+      
+      // Extract External Dependencies
+      const depsMatch = content.match(/## External Dependencies\n([\s\S]*?)$/);
+      if (depsMatch) {
+        sections.push({ name: 'EXTERNAL_DEPENDENCIES', content: depsMatch[1].trim() });
+      }
+      
+      // Sync each section to neural network
+      for (const section of sections) {
+        try {
+          const toolName = `ARCH_BASELINE_${section.name}`;
+          
+          // Check if already exists
+          const existing = await db.select()
+            .from(toolKnowledge)
+            .where(eq(toolKnowledge.toolName, toolName))
+            .limit(1);
+          
+          // Truncate content for storage (keep it reasonable)
+          const maxLength = section.name === 'SYSTEM_ARCHITECTURE' ? 3000 : 1500;
+          const truncatedContent = section.content.substring(0, maxLength);
+          
+          if (existing.length > 0) {
+            // Update if content changed
+            if (existing[0].purpose !== truncatedContent) {
+              await db.update(toolKnowledge)
+                .set({ 
+                  purpose: truncatedContent,
+                  syntax: `Architectural baseline from replit.md - ${section.name.replace(/_/g, ' ')}`
+                })
+                .where(eq(toolKnowledge.toolName, toolName));
+              result.synced++;
+              console.log(`[BeaconSync] Updated architectural baseline: ${section.name}`);
+            } else {
+              result.skipped++;
+            }
+          } else {
+            // Create new entry
+            await db.insert(toolKnowledge).values({
+              toolName,
+              toolType: 'architecture_baseline',
+              purpose: truncatedContent,
+              syntax: `Architectural baseline from replit.md - ${section.name.replace(/_/g, ' ')}`,
+              examples: null,
+              bestUsedFor: ['architectural_context', 'wren_memory'],
+              avoidWhen: null,
+              combinesWith: null,
+              sequencePatterns: null,
+              isActive: true
+            });
+            result.synced++;
+            console.log(`[BeaconSync] Created architectural baseline: ${section.name}`);
+          }
+        } catch (sectionError: any) {
+          result.errors.push(`${section.name}: ${sectionError.message}`);
+        }
+      }
+      
+      console.log(`[BeaconSync] Architectural baseline sync: ${result.synced} synced, ${result.skipped} unchanged`);
+    } catch (error: any) {
+      console.error('[BeaconSync] Failed to sync replit.md:', error);
+      result.errors.push(error.message);
+    }
+    
+    return result;
+  }
 }
 
 export const beaconSyncService = new BeaconSyncService();

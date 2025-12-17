@@ -20,9 +20,9 @@ import { danielaMemoryService } from './daniela-memory-service';
 import { memoryInsightExtractionService } from './memory-insight-extraction-service';
 import { wrenIntelligenceService } from './wren-intelligence-service';
 import { db } from '../db';
-import { collaborationMessages } from '@shared/schema';
-import { and, eq, gte, desc, sql } from 'drizzle-orm';
-import type { CollaborationMessage, FounderSession } from '@shared/schema';
+import { collaborationMessages, hiveSnapshots, toolKnowledge } from '@shared/schema';
+import { and, eq, gte, desc, sql, or, inArray, like } from 'drizzle-orm';
+import type { CollaborationMessage, FounderSession, HiveSnapshot } from '@shared/schema';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -861,20 +861,46 @@ Respond naturally as Daniela without any role prefix.`;
   }
   
   /**
-   * Get Wren's architectural context from replit.md and learned insights
+   * Get Wren's architectural context from Neural Network and learned insights
    * 
-   * Layer 1: replit.md baseline (who Wren is, how HolaHola works) - CACHED
-   * Layer 2: Wren Insights (learned knowledge from building) - OPTIMIZED QUERY
+   * Layer 1: Architecture Baseline from Neural Network (synced from replit.md)
+   * Layer 2: Wren Insights (learned knowledge from building)
+   * Layer 3: EXPRESS Lane context (hiveSnapshots + collaborationMessages)
    */
   private async getWrenArchitecturalContext(messageContent: string): Promise<string> {
     const sections: string[] = [];
     
-    // LAYER 1: replit.md baseline - Wren's long-term memory (CACHED)
-    const replitMd = getReplitMdCache();
-    if (replitMd.overview || replitMd.architecture) {
-      sections.push(`
+    // LAYER 1: Architecture Baseline from Neural Network (synced from replit.md)
+    try {
+      const archBaseline = await db.select()
+        .from(toolKnowledge)
+        .where(eq(toolKnowledge.toolType, 'architecture_baseline'))
+        .limit(3);
+      
+      if (archBaseline.length > 0) {
+        const baselineLines: string[] = [];
+        
+        for (const entry of archBaseline) {
+          const sectionName = entry.toolName.replace('ARCH_BASELINE_', '').replace(/_/g, ' ');
+          // Truncate for context window efficiency
+          const content = entry.purpose?.substring(0, 800) || '';
+          baselineLines.push(`**${sectionName}:**\n${content}`);
+        }
+        
+        sections.push(`
 ═══════════════════════════════════════════════════════════════════
-🏗️ ARCHITECTURAL KNOWLEDGE (Your Long-Term Memory)
+🏗️ ARCHITECTURAL KNOWLEDGE (From Neural Network)
+═══════════════════════════════════════════════════════════════════
+
+${baselineLines.join('\n\n')}
+`);
+      } else {
+        // Fallback to file cache if neural network isn't synced yet
+        const replitMd = getReplitMdCache();
+        if (replitMd.overview || replitMd.architecture) {
+          sections.push(`
+═══════════════════════════════════════════════════════════════════
+🏗️ ARCHITECTURAL KNOWLEDGE (Cache Fallback)
 ═══════════════════════════════════════════════════════════════════
 
 **HolaHola Overview:**
@@ -886,6 +912,28 @@ ${replitMd.architecture}
 **External Dependencies:**
 ${replitMd.dependencies}
 `);
+        }
+      }
+    } catch (error) {
+      console.error('[Wren Context] Failed to load architecture baseline:', error);
+      // Fallback to file cache on error
+      const replitMd = getReplitMdCache();
+      if (replitMd.overview || replitMd.architecture) {
+        sections.push(`
+═══════════════════════════════════════════════════════════════════
+🏗️ ARCHITECTURAL KNOWLEDGE (Cache Fallback)
+═══════════════════════════════════════════════════════════════════
+
+**HolaHola Overview:**
+${replitMd.overview}
+
+**System Architecture:**
+${replitMd.architecture}
+
+**External Dependencies:**
+${replitMd.dependencies}
+`);
+      }
     }
     
     // LAYER 2: Wren Insights - learned knowledge from building (OPTIMIZED)
@@ -930,7 +978,91 @@ ${insightLines}
       console.error('[Wren Context] Failed to load insights:', error);
     }
     
+    // LAYER 3: EXPRESS Lane - Live collaboration context (hiveSnapshots + recent messages)
+    try {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      
+      // Snapshot types relevant for Wren's architectural awareness
+      const wrenRelevantTypes = [
+        'session_summary',    // What we discussed
+        'beacon_context',     // What Daniela flagged for attention
+        'teaching_moment',    // Key teaching insights (may inform feature priorities)
+        'breakthrough',       // What worked well
+        'struggle_pattern'    // What needs fixing
+      ];
+      
+      // Fetch recent hive snapshots (architecture-relevant)
+      const recentSnapshots = await db.select()
+        .from(hiveSnapshots)
+        .where(
+          and(
+            gte(hiveSnapshots.createdAt, sevenDaysAgo),
+            gte(hiveSnapshots.importance, 5),
+            inArray(hiveSnapshots.snapshotType, wrenRelevantTypes as any)
+          )
+        )
+        .orderBy(desc(hiveSnapshots.importance), desc(hiveSnapshots.createdAt))
+        .limit(5);
+      
+      // Also fetch recent EXPRESS Lane messages (architectural discussions)
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const recentCollabMessages = await db.select()
+        .from(collaborationMessages)
+        .where(gte(collaborationMessages.createdAt, oneDayAgo))
+        .orderBy(desc(collaborationMessages.createdAt))
+        .limit(8);
+      
+      // Build EXPRESS Lane context section
+      const expressLaneLines: string[] = [];
+      
+      if (recentSnapshots.length > 0) {
+        expressLaneLines.push('**Recent Hive Snapshots:**');
+        recentSnapshots.forEach((s: HiveSnapshot) => {
+          const ago = this.formatTimeAgo(s.createdAt);
+          expressLaneLines.push(`• [${s.snapshotType}] ${s.title} (${ago}): ${s.content.substring(0, 120)}${s.content.length > 120 ? '...' : ''}`);
+        });
+      }
+      
+      if (recentCollabMessages.length > 0) {
+        if (expressLaneLines.length > 0) expressLaneLines.push('');
+        expressLaneLines.push('**Recent EXPRESS Lane Discussion (last 24h):**');
+        // Reverse to show oldest first (conversation order)
+        const orderedMessages = [...recentCollabMessages].reverse();
+        orderedMessages.forEach((m: CollaborationMessage) => {
+          const roleLabel = m.role === 'founder' ? 'David' : m.role === 'daniela' ? 'Daniela' : m.role === 'wren' ? 'Wren' : m.role;
+          const preview = m.content.substring(0, 100);
+          expressLaneLines.push(`• ${roleLabel}: ${preview}${m.content.length > 100 ? '...' : ''}`);
+        });
+      }
+      
+      if (expressLaneLines.length > 0) {
+        sections.push(`
+═══════════════════════════════════════════════════════════════════
+🐝 EXPRESS LANE AWARENESS (Live Collaboration Context)
+═══════════════════════════════════════════════════════════════════
+${expressLaneLines.join('\n')}
+`);
+      }
+    } catch (error) {
+      console.error('[Wren Context] Failed to load EXPRESS Lane context:', error);
+    }
+    
     return sections.join('\n');
+  }
+  
+  /**
+   * Format timestamp as relative time (e.g., "2 hours ago", "3 days ago")
+   */
+  private formatTimeAgo(date: Date): string {
+    const now = Date.now();
+    const diffMs = now - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
   }
   
   /**

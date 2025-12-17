@@ -8,6 +8,67 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: December 17, 2025 - Wren Architectural Memory: Neural Network + EXPRESS Lane Integration
+
+**Status**: APPROVED - Ready to implement
+
+**Overview**: Architectural review revealed that Wren's memory system was incorrectly using a cached file (replit.md) instead of the existing Neural Network, and was missing EXPRESS Lane integration for 3-way collaboration.
+
+#### Problem Statement
+
+Three issues identified by founder:
+1. **Security**: Is the replit.md cache secure for future contributors?
+2. **Neural Network**: We have a Neural Network - why is Wren reading a file instead?
+3. **EXPRESS Lane**: Wren should be connected to the collaboration tables
+
+#### Architectural Analysis
+
+| Issue | Current State | Target State |
+|-------|--------------|--------------|
+| Knowledge Source | `replit.md` file cache | Neural Network (single source of truth) |
+| EXPRESS Lane | Not connected | Reads `hiveSnapshots`, `collaborationMessages` |
+| Collaboration | Isolated knowledge bot | True 3-way participant |
+
+#### Approved Task List (Priority Order)
+
+**Phase 1 - EXPRESS Lane Awareness (Highest Priority)**
+1. Add `hiveSnapshots` lookup to Wren context - query recent architecture-tagged snapshots
+2. Add `collaborationMessages` lookup - read recent architectural discussions
+
+**Phase 2 - Neural Network Consolidation**
+3. Create neural network ingestion for replit.md - follow `beaconSyncService` pattern
+4. Update Wren context assembly to query NN instead of cached file
+5. Remove redundant replit.md cache - NN becomes single source of truth
+
+**Phase 3 - Hygiene**
+6. Add contributor security note to replit.md about keeping it secret-free
+
+#### Key Architecture Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| NN over file | `beaconSyncService` already syncs changelog/roadmap to NN - same pattern for architectural baseline |
+| EXPRESS Lane first | Fixes collaboration gap immediately - Wren can see live discussions |
+| Security acceptable | replit.md is already in codebase; no secrets exposed |
+
+#### Testing Criteria
+
+After implementation, test that:
+1. Wren can reference recent EXPRESS Lane discussions in responses
+2. Wren pulls architectural context from Neural Network, not file
+3. Startup logs show NN-based context loading
+
+#### Files to Modify
+
+| File | Changes |
+|------|---------|
+| `server/services/hive-consciousness-service.ts` | Add hiveSnapshots + collaborationMessages queries to context |
+| `server/services/beacon-sync-service.ts` | Add replit.md → NN ingestion |
+| `server/index.ts` | Update startup to use NN-based context |
+| `replit.md` | Add contributor security note |
+
+---
+
 ### Session: December 16, 2025 - Phase Transition Service (Multi-Agent Teaching Architecture)
 
 **Overview**: Implemented a Phase Transition Service inspired by Deepgram's multi-agent voice patterns. This enables Daniela to adapt her teaching approach based on the student's state, with focused toolsets and context summarization between phases.
