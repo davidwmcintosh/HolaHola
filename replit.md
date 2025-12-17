@@ -48,13 +48,20 @@ Daniela's "North Star System" provides a constitutional foundation for teaching 
 Core data models include Users, Conversations, Messages, VocabularyWords, GrammarExercises, UserProgress, CulturalTips, Topics, and MediaFiles. The system includes a "Neural Network for Pedagogical Strategies," a "Procedural Memory" system, a two-tier voice architecture with WebSocket-based audio delivery, AI-powered conversation tagging, a Syllabus-Aware Competency System, unified learning filters, comprehensive metering, and centralized Role-Based Access Control (RBAC). HolaHola offers pre-built syllabi across 9 languages, a unified ACTFL assessment system, and a Feature Sprint System for managing development.
 
 ## Voice Diagnostics System
-The **Voice Diagnostics Service** (`voice-diagnostics-service.ts`) provides production observability for the voice pipeline:
+The **Voice Diagnostics Service** (`voice-diagnostics-service.ts`) provides production observability and learning capabilities for the voice pipeline:
 - **Ring Buffer**: In-memory storage for the last 200 voice events (session_start, stt_complete, stt_error, llm_success, llm_error, tts_complete, tts_error)
+- **Persistence Layer**: Events flush to `hiveSnapshots` (type `voice_diagnostic`) every 60 seconds or 50 events, with 7-day expiry
 - **Founder-Only Endpoints**: Protected by `requireFounder` middleware in `server/middleware/rbac.ts` (founder ID: 49847136)
   - `GET /api/admin/voice-health` - Tests Deepgram, Gemini, Cartesia connectivity and verifies secrets exist
   - `GET /api/admin/logs/voice` - Returns ring buffer events with optional filters (?sessionId=, ?stage=, ?success=, ?limit=)
 - **Pipeline Instrumentation**: `streaming-voice-orchestrator.ts` emits events at session_start, STT completion, LLM first-token, LLM errors, and TTS completion/errors
 - **Security**: Responses expose only operational metadata (status, latency, boolean secret presence) - no API keys or PII
+
+**Learning & Auto-Remediation**:
+- **Nightly Pattern Analysis**: Runs as step 7d of nightly sync, detecting high failure rates (>30%), stage failure clusters (>50%), high latency (>1000ms), and TTS degradation
+- **Wren Integration**: Detected patterns create `wrenInsights` with category 'integration', enabling proactive awareness of voice pipeline health
+- **Daniela Awareness**: `getTechnicalHealthContext()` injects technical health into system prompts when failure rate >5%, enabling empathetic acknowledgment of audio issues
+- **Auto-Remediation**: `isTTSDegraded()` returns `shouldUseFallback: true` when Cartesia shows >30% failure rate or >2000ms latency
 
 ## External Dependencies
 -   **Stripe**: Payment processing and subscription management.

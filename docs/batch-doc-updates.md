@@ -8,6 +8,62 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: December 17, 2025 - Voice Diagnostics Learning Capabilities
+
+**Status**: IMPLEMENTED - Commercial-grade diagnostics with emergent intelligence
+
+**Overview**: Extended voice diagnostics system with persistence, pattern analysis, and learning capabilities. Events now persist to database, nightly jobs detect degradation patterns, insights flow to Wren, and Daniela gains awareness of technical issues.
+
+#### New Capabilities
+
+| Capability | Description |
+|------------|-------------|
+| Event Persistence | Events flush to `hiveSnapshots` (type `voice_diagnostic`) every 60s or 50 events |
+| Pattern Analysis | Nightly job detects high failure rates, latency spikes, TTS degradation |
+| Wren Integration | Patterns create `wrenInsights` with category 'integration' for proactive awareness |
+| Daniela Awareness | Technical health context injected into system prompt when issues detected |
+| Auto-Remediation | `isTTSDegraded()` returns `shouldUseFallback: true` when Cartesia is degraded |
+
+#### Persistence Layer
+
+- **Flush Strategy**: Background flush every 60 seconds, or threshold-based at 50 events
+- **Storage**: `hiveSnapshots` table with `snapshotType = 'voice_diagnostic'`
+- **Expiry**: 7-day automatic expiration
+- **Aggregation**: Events batched with stage breakdown, failure counts, latency averages
+
+#### Nightly Pattern Analysis (in sync-scheduler.ts)
+
+Runs as step 7d of nightly sync, detecting 4 pattern types:
+
+| Pattern Type | Criteria | Action |
+|--------------|----------|--------|
+| `high_failure_rate` | >30% failures across stages | Creates high-severity Wren insight |
+| `stage_failure_cluster` | Single stage with >50% failures | Creates targeted Wren insight |
+| `high_latency` | Any stage avg >1000ms | Creates medium-severity insight |
+| `tts_degradation` | TTS-specific >20% failure OR >800ms latency | Flags for fallback consideration |
+
+#### Daniela Technical Awareness
+
+- `getTechnicalHealthContext()`: Returns prompt injection when failure rate >5%
+- `getRecentTechnicalIssuesForUser()`: Summarizes past 24h issues for session context
+- Enables Daniela to acknowledge "audio hiccups" empathetically if user mentions issues
+
+#### Auto-Remediation Triggers
+
+- `isTTSDegraded()`: Checks last 10 TTS events for >30% failure or >2000ms latency
+- Returns `{ degraded: boolean, reason?: string, shouldUseFallback: boolean }`
+- `getCriticallyDegradedStages()`: Returns list of stages with >50% failure rate
+
+#### Architecture Pattern
+
+Follows existing emergent intelligence pattern:
+1. Events emitted → Ring buffer (real-time) + Pending flush (persistence)
+2. Periodic flush → hiveSnapshots
+3. Nightly analysis → Pattern detection → wrenInsights
+4. Session start → Daniela context injection
+
+---
+
 ### Session: December 17, 2025 - Voice Diagnostics System for Production Observability
 
 **Status**: IMPLEMENTED - Ready for production use
