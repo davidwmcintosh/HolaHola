@@ -2023,9 +2023,136 @@ This is a voice conversation. Speak naturally, as you would.`;
           break;
         }
         
+        case 'stream_audio_chunk': {
+          if (!isAuthenticated || !session) {
+            sendErrorAdapter(ws, 'UNKNOWN', 'Session not ready for streaming', true);
+            return;
+          }
+          
+          if (currentInputMode !== 'open-mic') {
+            console.warn('[Streaming Voice] Received stream_audio_chunk but not in open-mic mode');
+            return;
+          }
+          
+          const chunkMessage = message as ClientStreamAudioChunkMessage;
+          let audioBuffer: Buffer;
+          if (typeof chunkMessage.audio === 'string') {
+            audioBuffer = Buffer.from(chunkMessage.audio, 'base64');
+          } else {
+            audioBuffer = Buffer.from(chunkMessage.audio);
+          }
+          
+          // If session exists and is ready, send directly (raw PCM - no headers needed)
+          if (openMicSession) {
+            openMicSession.sendAudio(audioBuffer);
+            break;
+          }
+          
+          // Buffer this chunk while session is starting
+          openMicPendingChunks.push(audioBuffer);
+          
+          // If already starting, just buffer and wait
+          if (openMicSessionStarting) {
+            break;
+          }
+          
+          // Start new session
+          openMicSessionStarting = true;
+          const languageCode = getDeepgramLanguageCode(session.targetLanguage || 'spanish');
+          console.log(`[OpenMic] Starting PCM session for language: ${languageCode}`);
+          
+          const newSession = new OpenMicSession(languageCode, {
+            onSpeechStarted: () => {
+              console.log('[OpenMic] VAD: Speech started - sending to client');
+              if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+                const msg = JSON.stringify({
+                  type: 'vad_speech_started',
+                  timestamp: Date.now(),
+                });
+                console.log('[OpenMic] Sending vad_speech_started to client');
+                ws.send(msg);
+              } else {
+                console.warn('[OpenMic] WebSocket not open, cannot send vad_speech_started');
+              }
+            },
+            onUtteranceEnd: async (transcript, confidence) => {
+              console.log(`[OpenMic] VAD: Utterance end - "${transcript}" (${(confidence * 100).toFixed(0)}%)`);
+              
+              if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+                ws.send(JSON.stringify({
+                  type: 'vad_utterance_end',
+                  timestamp: Date.now(),
+                }));
+              }
+              
+              if (transcript.trim() && session) {
+                try {
+                  await orchestrator.processOpenMicTranscript(
+                    session.id,
+                    transcript,
+                    confidence
+                  );
+                } catch (err: any) {
+                  console.error('[OpenMic] Error processing utterance:', err);
+                  sendErrorAdapter(ws, 'AI_FAILED', 'Failed to process speech', true);
+                }
+              }
+            },
+            onInterimTranscript: (transcript) => {
+              if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+                ws.send(JSON.stringify({
+                  type: 'interim_transcript',
+                  timestamp: Date.now(),
+                  text: transcript,
+                }));
+              }
+            },
+            onError: (error) => {
+              console.error('[OpenMic] Session error:', error);
+              sendErrorAdapter(ws, 'STT_FAILED', error.message, true);
+            },
+            onClose: () => {
+              console.log('[OpenMic] Session closed');
+              openMicSession = null;
+              
+              // Notify client that open mic session closed (so it can restart if needed)
+              if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+                ws.send(JSON.stringify({
+                  type: 'open_mic_session_closed',
+                  timestamp: Date.now(),
+                }));
+              }
+            },
+          });
+          
+          try {
+            await newSession.start();
+            openMicSession = newSession;
+            openMicSessionStarting = false;
+            console.log('[OpenMic] Session started successfully');
+            
+            // Send all buffered PCM chunks (no header needed for raw PCM)
+            if (openMicPendingChunks.length > 0) {
+              console.log(`[OpenMic] Sending ${openMicPendingChunks.length} buffered PCM chunks`);
+              for (const chunk of openMicPendingChunks) {
+                openMicSession.sendAudio(chunk);
+              }
+              openMicPendingChunks = [];
+            }
+          } catch (err: any) {
+            console.error('[OpenMic] Failed to start session:', err);
+            sendErrorAdapter(ws, 'STT_FAILED', 'Failed to start open mic session', true);
+            openMicSession = null;
+            openMicSessionStarting = false;
+            openMicPendingChunks = [];
+          }
+          break;
+        }
+        
         case 'set_input_mode': {
           const modeMessage = message as { type: 'set_input_mode'; inputMode: VoiceInputMode };
           currentInputMode = modeMessage.inputMode;
+          console.log(`[OpenMic] Input mode changed to: ${currentInputMode}`);
           
           if (currentInputMode === 'push-to-talk' && openMicSession) {
             openMicSession.close();
