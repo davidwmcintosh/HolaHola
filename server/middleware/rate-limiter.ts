@@ -110,10 +110,26 @@ export const strictLimiter = rateLimit({
   skip: () => process.env.NODE_ENV === 'development',
 });
 
+/**
+ * Hive External Message limiter
+ * Rate limit for external @mentions to Daniela/Wren
+ * 10 requests per minute - generous for legitimate use, protective against abuse
+ */
+export const hiveExternalLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 10, // 10 requests per minute
+  message: 'Too many external Hive messages, please wait before trying again',
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: rateLimitHandler,
+  // Note: Keep enabled even in development for testing purposes
+});
+
 // Log rate limiter status
 console.log(`[Rate Limiting] Configured for ${process.env.NODE_ENV || 'production'} environment`);
 if (process.env.NODE_ENV === 'development') {
   console.log('[Rate Limiting] ⚠️  Rate limiting DISABLED in development mode');
+  console.log('[Rate Limiting] ✓ Hive External: 10 req/min (ENABLED in dev)');
 } else {
   console.log('[Rate Limiting] ✓ Rate limiting ENABLED for production');
   console.log('  • General API: 100 req/15min');
@@ -122,4 +138,5 @@ if (process.env.NODE_ENV === 'development') {
   console.log('  • Voice: 40 req/min');
   console.log('  • Mutations: 50 req/15min');
   console.log('  • Sensitive Ops: 5 req/hour');
+  console.log('  • Hive External: 10 req/min');
 }

@@ -5,7 +5,7 @@ import { storage } from "./storage";
 import { db } from "./db";
 import { eq, and, gte, desc, sql, isNotNull } from "drizzle-orm";
 import { stripeService } from "./stripeService";
-import { aiLimiter, voiceLimiter, authLimiter, mutationLimiter } from "./middleware/rate-limiter";
+import { aiLimiter, voiceLimiter, authLimiter, mutationLimiter, hiveExternalLimiter } from "./middleware/rate-limiter";
 import { requireRole, allowRoles, loadAuthenticatedUser } from "./middleware/rbac";
 import {
   insertConversationSchema,
@@ -15087,7 +15087,8 @@ ${memoryContext}
 
   // HIVE: Process external message (from Replit Agent or other external sources)
   // This enables Daniela and Wren to respond to @mentions from external contexts
-  app.post("/api/hive/external-message", async (req, res) => {
+  // Rate limited: 10 req/min (enabled even in development for security)
+  app.post("/api/hive/external-message", hiveExternalLimiter, async (req, res) => {
     try {
       // Validate editor secret for security
       const authHeader = req.headers['x-editor-secret'];
