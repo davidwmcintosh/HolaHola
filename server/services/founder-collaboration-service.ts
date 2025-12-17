@@ -117,7 +117,7 @@ class FounderCollaborationService {
     return db.select()
       .from(founderSessions)
       .where(eq(founderSessions.founderId, founderId))
-      .orderBy(desc(founderSessions.createdAt))
+      .orderBy(desc(founderSessions.updatedAt))
       .limit(limit);
   }
   
