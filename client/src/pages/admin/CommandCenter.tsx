@@ -3254,9 +3254,18 @@ function CrossEnvSyncSection() {
     },
     onSuccess: (data: any) => {
       refetchStatus();
+      const errors = data.errors || [];
+      if (errors.length > 0) {
+        console.group('[SYNC] Push Errors');
+        console.error('Errors:', errors);
+        console.groupEnd();
+      }
+      const counts = data.counts ? Object.entries(data.counts).map(([k, v]) => `${k}: ${v}`).join(', ') : '';
       toast({
         title: data.success ? "Push Successful" : "Push Completed with Errors",
-        description: `Synced in ${data.durationMs}ms${data.errors?.length ? ` (${data.errors.length} errors)` : ""}`,
+        description: errors.length > 0
+          ? `${errors.length} errors. Check console (F12) for details.`
+          : `Synced in ${data.durationMs}ms (${counts || "0 items"})`,
         variant: data.success ? "default" : "destructive",
       });
     },
@@ -3271,9 +3280,18 @@ function CrossEnvSyncSection() {
     },
     onSuccess: (data: any) => {
       refetchStatus();
+      const errors = data.errors || [];
+      if (errors.length > 0) {
+        console.group('[SYNC] Pull Errors');
+        console.error('Errors:', errors);
+        console.groupEnd();
+      }
+      const counts = data.counts ? Object.entries(data.counts).map(([k, v]) => `${k}: ${v}`).join(', ') : '';
       toast({
         title: data.success ? "Pull Successful" : "Pull Completed with Errors",
-        description: `Synced in ${data.durationMs}ms${data.errors?.length ? ` (${data.errors.length} errors)` : ""}`,
+        description: errors.length > 0
+          ? `${errors.length} errors. Check console (F12) for details.`
+          : `Synced in ${data.durationMs}ms (${counts || "0 items"})`,
         variant: data.success ? "default" : "destructive",
       });
     },
@@ -3290,9 +3308,27 @@ function CrossEnvSyncSection() {
       refetchStatus();
       const pushOk = data.push?.success;
       const pullOk = data.pull?.success;
+      const pushErrors = data.push?.errors || [];
+      const pullErrors = data.pull?.errors || [];
+      const allErrors = [...pushErrors, ...pullErrors];
+      
+      // Log detailed errors to console for debugging
+      if (allErrors.length > 0) {
+        console.group('[SYNC] Full Sync Errors');
+        if (pushErrors.length) console.error('Push errors:', pushErrors);
+        if (pullErrors.length) console.error('Pull errors:', pullErrors);
+        console.groupEnd();
+      }
+      
+      // Show counts in description
+      const pushCounts = data.push?.counts ? Object.entries(data.push.counts).map(([k, v]) => `${k}: ${v}`).join(', ') : '';
+      const pullCounts = data.pull?.counts ? Object.entries(data.pull.counts).map(([k, v]) => `${k}: ${v}`).join(', ') : '';
+      
       toast({
         title: pushOk && pullOk ? "Full Sync Successful" : "Sync Completed with Issues",
-        description: `Push: ${pushOk ? "OK" : "Failed"}, Pull: ${pullOk ? "OK" : "Failed"}`,
+        description: allErrors.length > 0 
+          ? `${allErrors.length} errors. Check console (F12) for details. Push: ${pushOk ? "OK" : "Failed"}, Pull: ${pullOk ? "OK" : "Failed"}`
+          : `Push: ${pushOk ? "OK" : "Failed"} (${pushCounts || "0 items"}), Pull: ${pullOk ? "OK" : "Failed"} (${pullCounts || "0 items"})`,
         variant: pushOk && pullOk ? "default" : "destructive",
       });
     },

@@ -291,27 +291,50 @@ class SyncBridgeService {
     
     // NEW: Import Express Lane, Hive Snapshots, and Daniela's Memories
     if (bundle.expressLaneSessions?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.expressLaneSessions.length} Express Lane sessions...`);
       const sessionResult = await this.importExpressLaneSessions(bundle.expressLaneSessions);
       counts['expressLaneSessions'] = sessionResult.imported;
-      if (sessionResult.errors.length) errors.push(...sessionResult.errors);
+      if (sessionResult.errors.length) {
+        console.error(`[SYNC-BRIDGE] Express Lane session errors:`, sessionResult.errors);
+        errors.push(...sessionResult.errors);
+      }
     }
     
     if (bundle.expressLaneMessages?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.expressLaneMessages.length} Express Lane messages...`);
       const messageResult = await this.importExpressLaneMessages(bundle.expressLaneMessages);
       counts['expressLaneMessages'] = messageResult.imported;
-      if (messageResult.errors.length) errors.push(...messageResult.errors);
+      if (messageResult.errors.length) {
+        console.error(`[SYNC-BRIDGE] Express Lane message errors:`, messageResult.errors);
+        errors.push(...messageResult.errors);
+      }
     }
     
     if (bundle.hiveSnapshots?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.hiveSnapshots.length} Hive Snapshots...`);
       const snapshotResult = await this.importHiveSnapshots(bundle.hiveSnapshots);
       counts['hiveSnapshots'] = snapshotResult.imported;
-      if (snapshotResult.errors.length) errors.push(...snapshotResult.errors);
+      if (snapshotResult.errors.length) {
+        console.error(`[SYNC-BRIDGE] Hive Snapshot errors:`, snapshotResult.errors);
+        errors.push(...snapshotResult.errors);
+      }
     }
     
     if (bundle.danielaGrowthMemories?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.danielaGrowthMemories.length} Daniela Growth Memories...`);
       const memoryResult = await this.importDanielaGrowthMemories(bundle.danielaGrowthMemories);
       counts['danielaGrowthMemories'] = memoryResult.imported;
-      if (memoryResult.errors.length) errors.push(...memoryResult.errors);
+      if (memoryResult.errors.length) {
+        console.error(`[SYNC-BRIDGE] Daniela Growth Memory errors:`, memoryResult.errors);
+        errors.push(...memoryResult.errors);
+      }
+    }
+    
+    // Log final sync result summary
+    if (errors.length > 0) {
+      console.error(`[SYNC-BRIDGE] Import completed with ${errors.length} errors:`, errors);
+    } else {
+      console.log(`[SYNC-BRIDGE] Import completed successfully. Counts:`, counts);
     }
     
     return {
