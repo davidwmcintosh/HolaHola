@@ -77,6 +77,19 @@ export interface DeepgramLiveConfig {
 const deepgramClient = createClient(process.env.DEEPGRAM_API_KEY || '');
 
 /**
+ * Deepgram Configuration Feature Flags
+ * 
+ * These flags control Deepgram model and feature usage. See streaming-voice-orchestrator.ts
+ * for detailed documentation on plan limitations and upgrade paths.
+ * 
+ * IMPORTANT: Nova-3 is required for reliable 'multi' language mode in live streaming.
+ * Nova-2 with 'multi' returns empty transcripts despite receiving valid audio.
+ * However, Nova-3 requires Enterprise plan access.
+ */
+const DEEPGRAM_MODEL = process.env.DEEPGRAM_MODEL || 'nova-2';
+const DEEPGRAM_INTELLIGENCE_ENABLED = process.env.DEEPGRAM_INTELLIGENCE_ENABLED === 'true';
+
+/**
  * Transcribe audio using Deepgram's live streaming API
  * 
  * This is more reliable than the prerecorded API for WebM/Opus audio
@@ -104,17 +117,19 @@ export async function transcribeWithLiveAPI(
       const enableIntelligence = config.enableIntelligence !== false;
       
       const connectionOptions: any = {
-        model: config.model || 'nova-2',
+        model: config.model || DEEPGRAM_MODEL,
         language: config.language,
         punctuate: true,
         smart_format: true,
         // NO encoding/sample_rate for container formats like WebM
       };
       
-      // Add Deepgram features - core only for live API stability
-      if (enableIntelligence) {
-        connectionOptions.diarize = true;           // Speaker separation (generally available)
-        console.log('[Deepgram Live] Core features enabled: diarize');
+      // Add Deepgram features - only when plan supports them
+      if (DEEPGRAM_INTELLIGENCE_ENABLED && enableIntelligence) {
+        connectionOptions.diarize = true;           // Speaker separation
+        console.log('[Deepgram Live] Intelligence features enabled: diarize');
+      } else {
+        console.log(`[Deepgram Live] Intelligence disabled (DEEPGRAM_INTELLIGENCE_ENABLED=${DEEPGRAM_INTELLIGENCE_ENABLED})`);
       }
       
       const connection = deepgramClient.listen.live(connectionOptions);
@@ -382,13 +397,14 @@ export class OpenMicSession {
         // MULTI-LANGUAGE: Always use 'multi' for bilingual detection
         // Students naturally mix native + target language during lessons
         // Better to get 85% accurate bilingual transcript than miss English entirely
-        // IMPORTANT: nova-3 is required for reliable 'multi' language mode
-        // nova-2 with 'multi' returns empty transcripts despite receiving valid audio
+        // CRITICAL: nova-3 is FORCED here because nova-2 + 'multi' returns empty transcripts
+        // This overrides DEEPGRAM_MODEL env var for open-mic mode specifically
         const languageCode = 'multi';
-        console.log(`[OpenMic] Creating Deepgram live connection (model: nova-3, language: ${languageCode}, target: ${this.language})`);
+        const openMicModel = 'nova-3';  // Always nova-3 for open-mic - multi-language requires it
+        console.log(`[OpenMic] Creating Deepgram live connection (model: ${openMicModel} [forced for multi-lang], language: ${languageCode}, target: ${this.language}, intelligence: ${DEEPGRAM_INTELLIGENCE_ENABLED})`);
         
         this.connection = deepgramClient.listen.live({
-          model: 'nova-3',  // nova-3 required for reliable multilingual streaming
+          model: openMicModel,  // nova-3 is required for reliable multi-language streaming
           language: languageCode,
           punctuate: true,
           smart_format: true,
@@ -399,10 +415,12 @@ export class OpenMicSession {
           sample_rate: 16000,
           channels: 1,
           endpointing: 100, // 100ms endpointing for better code-switching (recommended for multi)
-          // Core features only for live streaming - intelligence features added post-connection
-          diarize: true,           // Speaker separation (generally available)
+          // Intelligence features only when plan supports them
+          ...(DEEPGRAM_INTELLIGENCE_ENABLED && {
+            diarize: true,           // Speaker separation
+          }),
         });
-        console.log('[OpenMic] Core streaming features enabled: diarize');
+        console.log(`[OpenMic] Intelligence ${DEEPGRAM_INTELLIGENCE_ENABLED ? 'enabled: diarize' : 'disabled (plan limitation)'}`);
         
         // Attach Open handler first
         this.connection.on(LiveTranscriptionEvents.Open, () => {

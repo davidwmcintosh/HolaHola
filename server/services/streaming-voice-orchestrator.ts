@@ -74,6 +74,32 @@ import {
 } from "@shared/schema";
 
 /**
+ * Deepgram Configuration Feature Flags
+ * 
+ * These flags control Deepgram model and feature usage. Currently using conservative
+ * defaults due to plan limitations. When upgrading to Enterprise/Advanced plan:
+ * 
+ * 1. Set DEEPGRAM_MODEL=nova-3 for best transcription quality
+ * 2. Set DEEPGRAM_INTELLIGENCE_ENABLED=true to enable:
+ *    - Sentiment analysis (student emotional state)
+ *    - Intent recognition (what student is trying to do)
+ *    - Entity detection (names, places, topics)
+ *    - Topic detection (subject matter)
+ *    - Summarization (conversation synopsis)
+ *    - Speaker diarization (multi-speaker separation)
+ * 
+ * Feature availability by plan (as of Dec 2024):
+ * - Pay-as-you-go: Nova-2 only, no intelligence features
+ * - Growth: Nova-2, limited intelligence
+ * - Enterprise: Nova-3, full intelligence suite
+ * 
+ * IMPORTANT: These features were disabled because requesting unsupported features
+ * causes Deepgram to return "channels: 0" with empty transcripts, not errors.
+ */
+const DEEPGRAM_MODEL = process.env.DEEPGRAM_MODEL || 'nova-2';
+const DEEPGRAM_INTELLIGENCE_ENABLED = process.env.DEEPGRAM_INTELLIGENCE_ENABLED === 'true';
+
+/**
  * Clean text for display by removing markdown, emotion tags, and other formatting
  * that should not appear in subtitles
  */
@@ -2022,18 +2048,28 @@ Remember: David may reference things discussed in these recent text chats.
   private async transcribeWithPrerecorded(audioData: Buffer, languageCode: string, enableIntelligence: boolean = true): Promise<{ transcript: string; confidence: number; source: string; intelligence?: DeepgramIntelligence }> {
     const startTime = Date.now();
     
+    // Log configuration for debugging
+    console.log(`[Deepgram Prerecorded] Using model: ${DEEPGRAM_MODEL}, intelligence: ${DEEPGRAM_INTELLIGENCE_ENABLED}`);
+    
     const response = await deepgram.listen.prerecorded.transcribeFile(
       audioData,
       {
-        model: 'nova-2',
+        model: DEEPGRAM_MODEL,
         language: languageCode,
         smart_format: true,
         punctuate: true,
         mimetype: 'audio/webm;codecs=opus',  // Explicit codec for MediaRecorder output
         detect_language: true,
-        // NOTE: Intelligence features disabled - not supported on current Deepgram plan
-        // This was causing "channels: 0" errors on the prerecorded API
-        // Re-enable when upgrading: diarize, sentiment, intents, detect_entities, topics, summarize
+        // Intelligence features - only enabled when plan supports them
+        // See DEEPGRAM_INTELLIGENCE_ENABLED documentation at top of file
+        ...(DEEPGRAM_INTELLIGENCE_ENABLED && {
+          diarize: true,           // Speaker separation
+          sentiment: true,         // Sentiment analysis
+          intents: true,           // Intent recognition
+          detect_entities: true,   // Entity detection
+          topics: true,            // Topic detection
+          summarize: 'v2',         // Summarization (v2 for best quality)
+        }),
       }
     );
     

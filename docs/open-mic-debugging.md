@@ -51,10 +51,41 @@ Raw PCM linear16 ──────────┘                    │
 
 ## Key Configuration
 
+### Environment Variables (Deepgram Feature Flags)
+```bash
+# Model selection (used by PTT/prerecorded API)
+# Note: Open-mic mode FORCES nova-3 regardless of this setting (required for multi-language)
+DEEPGRAM_MODEL=nova-2           # Current: nova-2 (pay-as-you-go)
+                                 # Target: nova-3 (Enterprise plan)
+
+# Intelligence features - enable when plan supports them
+DEEPGRAM_INTELLIGENCE_ENABLED=false  # Current: disabled (plan limitation)
+                                      # Target: true (enables sentiment, intents, etc.)
+```
+
+**Important Override**: Open-mic mode always uses Nova-3 for streaming because Nova-2 
+with 'multi' language mode returns empty transcripts. PTT/prerecorded mode uses the 
+configured DEEPGRAM_MODEL since it uses single-language detection.
+
+### Feature Availability by Deepgram Plan (Dec 2024)
+
+| Feature | Pay-as-you-go | Growth | Enterprise |
+|---------|---------------|--------|------------|
+| Nova-2 | ✓ | ✓ | ✓ |
+| Nova-3 | ✗ | ✗ | ✓ |
+| Diarization | ✗ | ✓ | ✓ |
+| Sentiment | ✗ | ✗ | ✓ |
+| Intents | ✗ | ✗ | ✓ |
+| Topics | ✗ | ✗ | ✓ |
+| Summarization | ✗ | ✗ | ✓ |
+| Multi-language | Limited | ✓ | ✓ |
+
+**IMPORTANT**: Requesting unsupported features causes "channels: 0" errors (empty transcripts).
+
 ### Deepgram Settings
 ```typescript
 {
-  model: 'nova-2',
+  model: process.env.DEEPGRAM_MODEL || 'nova-2',
   language: 'multi',  // Key: enables bilingual detection
   encoding: 'linear16',
   sample_rate: 16000,
@@ -62,7 +93,9 @@ Raw PCM linear16 ──────────┘                    │
   vad_events: true,
   utterance_end_ms: 1000,  // 1 second of silence triggers end
   smart_format: true,
-  punctuate: true
+  punctuate: true,
+  // Intelligence features (only when DEEPGRAM_INTELLIGENCE_ENABLED=true)
+  // diarize, sentiment, intents, topics, summarize
 }
 ```
 
