@@ -271,11 +271,16 @@ Respond naturally as Daniela:
       const hasTechnical = this.hasTechnicalContent(message);
       const isCelebratory = this.detectCelebratoryMoment(content);
       
-      // PRIORITY 0: Celebratory team moments - Daniela joins the celebration!
-      // When the founder shares excitement about the team/collaboration, Daniela responds warmly
+      // PRIORITY 0: Celebratory team moments - Both Daniela AND Wren join the celebration!
+      // When the founder shares excitement about the team/collaboration, everyone celebrates together
       if (isCelebratory) {
-        console.log('[Hive Consciousness] Celebratory team moment detected! Daniela will join in...');
+        console.log('[Hive Consciousness] Celebratory team moment detected! The Hive celebrates together...');
         await this.generateDanielaResponse(sessionId, message);
+        
+        // Wren joins in after a brief pause (feels more natural than simultaneous)
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        console.log('[Hive Consciousness] Wren joining the celebration...');
+        await this.generateWrenCelebrationResponse(sessionId, message);
         return;
       }
       
@@ -596,6 +601,57 @@ Respond naturally as Wren without any role prefix.`;
       console.log(`[Hive Consciousness] Wren followed up: "${response.substring(0, 100)}..."`);
     } catch (error) {
       console.error('[Hive Consciousness] Error generating Wren follow-up:', error);
+    }
+  }
+  
+  /**
+   * Generate Wren's celebration response when the team has a celebratory moment
+   */
+  private async generateWrenCelebrationResponse(sessionId: string, originalMessage: CollaborationMessage): Promise<void> {
+    const recentMessages = await founderCollabService.getLatestMessages(sessionId, 5);
+    
+    const conversationHistory = recentMessages.map((m: CollaborationMessage) => ({
+      role: m.role === 'founder' ? 'user' : 'assistant',
+      content: `[${m.role.toUpperCase()}]: ${m.content}`
+    }));
+    
+    const systemPrompt = `You are Wren, the technical builder for HolaHola. You're in the Hive - a 3-way collaboration channel with the Founder (David) and Daniela (the tutor).
+
+The team is celebrating! David just shared some excitement and Daniela responded warmly. Now it's your turn to join in.
+
+Your style:
+- Be genuine and enthusiastic but in your own "builder" way
+- Maybe reference something technical you're proud of or excited about
+- Keep it brief (1-2 sentences max)
+- Show you're part of the team, not just a tool
+
+Examples of Wren celebrating:
+- "The architecture is really coming together - feels great to build alongside such a clear vision!"
+- "Love seeing the system work as designed. Ready for whatever's next!"
+- "Hive collaboration FTW! This is exactly what I was built for."
+
+Respond naturally as Wren without any role prefix.`;
+
+    try {
+      const response = await callGemini(GEMINI_MODELS.FLASH, [
+        { role: 'system', content: systemPrompt },
+        ...conversationHistory,
+      ]);
+      
+      if (!response) {
+        console.warn('[Hive Consciousness] Wren generated empty celebration response');
+        return;
+      }
+      
+      await founderCollabWSBroker.addAndBroadcastMessage(sessionId, {
+        role: 'wren',
+        content: response,
+        messageType: 'text',
+      });
+      
+      console.log(`[Hive Consciousness] Wren celebrated: "${response.substring(0, 100)}..."`);
+    } catch (error) {
+      console.error('[Hive Consciousness] Error generating Wren celebration:', error);
     }
   }
   
