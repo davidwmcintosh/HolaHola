@@ -2048,10 +2048,21 @@ Remember: David may reference things discussed in these recent text chats.
     const transcript = alternative?.transcript || '';
     const confidence = alternative?.confidence || 0;
     
+    // DEBUG: Log full Deepgram response metadata for troubleshooting
+    const metadata = response.result?.metadata;
+    const duration = metadata?.duration;
+    console.log(`[Deepgram Prerecorded] Result: "${transcript.substring(0, 50)}${transcript.length > 50 ? '...' : ''}" (${(confidence * 100).toFixed(0)}%, ${Date.now() - startTime}ms)`);
+    console.log(`[Deepgram Prerecorded] Audio duration: ${duration ? duration.toFixed(2) + 's' : 'unknown'}, channels: ${response.result?.results?.channels?.length || 0}`);
+    
     // Log detected language if available (for monitoring multi-language accuracy)
     const detectedLanguage = channel?.detected_language;
     if (detectedLanguage) {
       console.log(`[Deepgram Prerecorded] Detected language: ${detectedLanguage}`);
+    }
+    
+    // If empty transcript but audio duration exists, there might be silent audio
+    if (!transcript && duration && duration > 0.5) {
+      console.warn(`[Deepgram Prerecorded] WARNING: ${duration.toFixed(2)}s of audio but empty transcript - possibly silent or corrupted audio`);
     }
     
     // Extract intelligence data from response
