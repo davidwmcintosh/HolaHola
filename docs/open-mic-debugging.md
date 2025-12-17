@@ -53,49 +53,64 @@ Raw PCM linear16 ──────────┘                    │
 
 ### Environment Variables (Deepgram Feature Flags)
 ```bash
-# Model selection (used by PTT/prerecorded API)
-# Note: Open-mic mode FORCES nova-3 regardless of this setting (required for multi-language)
-DEEPGRAM_MODEL=nova-2           # Current: nova-2 (pay-as-you-go)
-                                 # Target: nova-3 (Enterprise plan)
+# Model selection - Nova-3 is available on all plans (Dec 2024)
+DEEPGRAM_MODEL=nova-3           # Default: nova-3 (best quality)
 
-# Intelligence features - enable when plan supports them
-DEEPGRAM_INTELLIGENCE_ENABLED=false  # Current: disabled (plan limitation)
-                                      # Target: true (enables sentiment, intents, etc.)
+# Intelligence features - available on all plans with concurrency limits
+DEEPGRAM_INTELLIGENCE_ENABLED=true  # Default: enabled
+                                     # Set to 'false' to disable
 ```
 
-**Important Override**: Open-mic mode always uses Nova-3 for streaming because Nova-2 
-with 'multi' language mode returns empty transcripts. PTT/prerecorded mode uses the 
-configured DEEPGRAM_MODEL since it uses single-language detection.
+**Note**: Open-mic mode always uses Nova-3 for streaming because Nova-2 
+with 'multi' language mode returns empty transcripts.
 
-### Feature Availability by Deepgram Plan (Dec 2024)
+### Concurrency Limits by Deepgram Plan (Dec 2024 - Confirmed)
 
-| Feature | Pay-as-you-go | Growth | Enterprise |
+All features are **available on all plans** - only concurrency limits differ:
+
+| Service | Pay-as-You-Go | Growth | Enterprise |
 |---------|---------------|--------|------------|
-| Nova-2 | ✓ | ✓ | ✓ |
-| Nova-3 | ✗ | ✗ | ✓ |
-| Diarization | ✗ | ✓ | ✓ |
-| Sentiment | ✗ | ✗ | ✓ |
-| Intents | ✗ | ✗ | ✓ |
-| Topics | ✗ | ✗ | ✓ |
-| Summarization | ✗ | ✗ | ✓ |
-| Multi-language | Limited | ✓ | ✓ |
+| Nova-3 Pre-recorded | 100 concurrent | 100 concurrent | 100+ (custom) |
+| Nova-3 Streaming | 50 concurrent | 50 concurrent | 100+ (custom) |
+| Intelligence (Intent, Sentiment, etc.) | 10 concurrent | 10 concurrent | 10+ (custom) |
 
-**IMPORTANT**: Requesting unsupported features causes "channels: 0" errors (empty transcripts).
+**Combined Limits**: When using STT + Intelligence together, the lower limit applies.
+For example: STT (100) + Intent (10) = 10 effective concurrent requests.
+
+**Intelligence Features** (pre-recorded/PTT only):
+- Intent Recognition (English only)
+- Sentiment Analysis
+- Topic Detection
+- Summarization
+- Diarization
 
 ### Deepgram Settings
 ```typescript
+// Open-mic (live streaming)
 {
-  model: process.env.DEEPGRAM_MODEL || 'nova-2',
-  language: 'multi',  // Key: enables bilingual detection
+  model: 'nova-3',          // Always nova-3 for multi-language
+  language: 'multi',        // Bilingual detection (student's native + target)
   encoding: 'linear16',
   sample_rate: 16000,
   channels: 1,
   vad_events: true,
-  utterance_end_ms: 1000,  // 1 second of silence triggers end
+  utterance_end_ms: 1400,   // 1.4s pause allows natural thinking
   smart_format: true,
   punctuate: true,
-  // Intelligence features (only when DEEPGRAM_INTELLIGENCE_ENABLED=true)
-  // diarize, sentiment, intents, topics, summarize
+  diarize: true,            // Speaker separation (when intelligence enabled)
+}
+
+// PTT (pre-recorded) - supports full intelligence
+{
+  model: 'nova-3',
+  language: 'es',           // Single language for PTT
+  punctuate: true,
+  smart_format: true,
+  diarize: true,
+  sentiment: true,          // Student emotional state
+  intents: true,            // What student is trying to do (English only)
+  topics: true,             // Subject matter detection
+  summarize: 'v2',          // Conversation synopsis
 }
 ```
 

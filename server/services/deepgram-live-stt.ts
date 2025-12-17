@@ -79,15 +79,18 @@ const deepgramClient = createClient(process.env.DEEPGRAM_API_KEY || '');
 /**
  * Deepgram Configuration Feature Flags
  * 
- * These flags control Deepgram model and feature usage. See streaming-voice-orchestrator.ts
- * for detailed documentation on plan limitations and upgrade paths.
+ * These flags control Deepgram model and feature usage.
+ * 
+ * AVAILABILITY: Nova-3 and Audio Intelligence features (intent, sentiment, topics, etc.)
+ * are available on ALL plans including Pay-as-You-Go. Only CONCURRENCY limits differ:
+ * - Pay-as-You-Go/Growth: 100 pre-recorded, 50 streaming, 10 intelligence concurrent
+ * - Enterprise: Higher limits, custom arrangements
  * 
  * IMPORTANT: Nova-3 is required for reliable 'multi' language mode in live streaming.
  * Nova-2 with 'multi' returns empty transcripts despite receiving valid audio.
- * However, Nova-3 requires Enterprise plan access.
  */
-const DEEPGRAM_MODEL = process.env.DEEPGRAM_MODEL || 'nova-2';
-const DEEPGRAM_INTELLIGENCE_ENABLED = process.env.DEEPGRAM_INTELLIGENCE_ENABLED === 'true';
+const DEEPGRAM_MODEL = process.env.DEEPGRAM_MODEL || 'nova-3';
+const DEEPGRAM_INTELLIGENCE_ENABLED = process.env.DEEPGRAM_INTELLIGENCE_ENABLED !== 'false'; // Default: enabled
 
 /**
  * Transcribe audio using Deepgram's live streaming API

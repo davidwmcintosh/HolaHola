@@ -76,28 +76,30 @@ import {
 /**
  * Deepgram Configuration Feature Flags
  * 
- * These flags control Deepgram model and feature usage. Currently using conservative
- * defaults due to plan limitations. When upgrading to Enterprise/Advanced plan:
+ * These flags control Deepgram model and feature usage.
  * 
- * 1. Set DEEPGRAM_MODEL=nova-3 for best transcription quality
- * 2. Set DEEPGRAM_INTELLIGENCE_ENABLED=true to enable:
+ * AVAILABILITY (Dec 2024 - confirmed with Deepgram):
+ * Nova-3 and Audio Intelligence features (intent, sentiment, topics, etc.)
+ * are available on ALL plans including Pay-as-You-Go. Only CONCURRENCY differs:
+ * 
+ * - Pay-as-You-Go/Growth: 100 pre-recorded, 50 streaming, 10 intelligence concurrent
+ * - Enterprise: Higher limits, custom arrangements
+ * 
+ * When using multiple services in one call (e.g., STT + Intelligence), the
+ * lower rate limit applies. For example: STT (100) + Intent (10) = 10 effective.
+ * 
+ * Audio Intelligence features (enabled by DEEPGRAM_INTELLIGENCE_ENABLED):
  *    - Sentiment analysis (student emotional state)
- *    - Intent recognition (what student is trying to do)
- *    - Entity detection (names, places, topics)
+ *    - Intent recognition (what student is trying to do) - English only
  *    - Topic detection (subject matter)
  *    - Summarization (conversation synopsis)
  *    - Speaker diarization (multi-speaker separation)
  * 
- * Feature availability by plan (as of Dec 2024):
- * - Pay-as-you-go: Nova-2 only, no intelligence features
- * - Growth: Nova-2, limited intelligence
- * - Enterprise: Nova-3, full intelligence suite
- * 
- * IMPORTANT: These features were disabled because requesting unsupported features
- * causes Deepgram to return "channels: 0" with empty transcripts, not errors.
+ * NOTE: Intelligence features are only supported for pre-recorded audio (PTT mode).
+ * For live streaming (open-mic), only core features (VAD, smart_format, diarize) work.
  */
-const DEEPGRAM_MODEL = process.env.DEEPGRAM_MODEL || 'nova-2';
-const DEEPGRAM_INTELLIGENCE_ENABLED = process.env.DEEPGRAM_INTELLIGENCE_ENABLED === 'true';
+const DEEPGRAM_MODEL = process.env.DEEPGRAM_MODEL || 'nova-3';
+const DEEPGRAM_INTELLIGENCE_ENABLED = process.env.DEEPGRAM_INTELLIGENCE_ENABLED !== 'false'; // Default: enabled
 
 /**
  * Clean text for display by removing markdown, emotion tags, and other formatting
