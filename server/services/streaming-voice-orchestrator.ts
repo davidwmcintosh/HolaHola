@@ -59,6 +59,7 @@ import { collaborationHubService } from "./collaboration-hub-service";
 import { editorFeedbackService } from "./editor-feedback-service";
 import { founderCollabService } from "./founder-collaboration-service";
 import { phaseTransitionService } from "./phase-transition-service";
+import { voiceDiagnostics } from "./voice-diagnostics-service";
 import { db } from "../db";
 import { 
   tutorProcedures, 
@@ -679,6 +680,14 @@ export class StreamingVoiceOrchestrator {
       sessionId,
     } as StreamingConnectedMessage);
     
+    // Emit diagnostic event for session creation
+    voiceDiagnostics.emit({
+      sessionId,
+      stage: 'session_start',
+      success: true,
+      metadata: { userId, targetLanguage: config.targetLanguage, isFounderMode }
+    });
+    
     console.log(`[Streaming Orchestrator] Session created: ${sessionId}`);
     return session;
   }
@@ -748,6 +757,15 @@ export class StreamingVoiceOrchestrator {
       metrics.sttLatencyMs = Date.now() - sttStart;
       
       console.log(`[Streaming Orchestrator] STT: "${transcript}" (${metrics.sttLatencyMs}ms, conf: ${(pronunciationConfidence * 100).toFixed(0)}%, Cartesia: ${cartesiaWarmupTime >= 0 ? cartesiaWarmupTime + 'ms' : 'fallback'})`);
+      
+      // Emit STT completion event for diagnostics
+      voiceDiagnostics.emit({
+        sessionId,
+        stage: 'stt',
+        success: !!transcript.trim(),
+        latencyMs: metrics.sttLatencyMs,
+        metadata: { confidence: pronunciationConfidence, hasTranscript: !!transcript.trim() }
+      });
       
       if (!transcript.trim()) {
         // Empty transcript - gracefully notify client and return
@@ -1048,6 +1066,14 @@ Remember: David may reference things discussed in these recent text chats.
             metrics.aiFirstTokenMs = Date.now() - aiStart;
             firstTokenReceived = true;
             console.log(`[Streaming Orchestrator] AI first token: ${metrics.aiFirstTokenMs}ms`);
+            // Emit LLM success for diagnostics (first token received)
+            voiceDiagnostics.emit({
+              sessionId,
+              stage: 'llm',
+              success: true,
+              latencyMs: metrics.aiFirstTokenMs,
+              metadata: { event: 'first_token' }
+            });
           }
           
           // WHITEBOARD: Parse markup from the raw chunk text FIRST (before display cleaning)
@@ -1422,6 +1448,14 @@ Remember: David may reference things discussed in these recent text chats.
         },
         onError: (error) => {
           console.error(`[Streaming Orchestrator] AI error:`, error.message);
+          // Emit LLM error for diagnostics
+          voiceDiagnostics.emit({
+            sessionId,
+            stage: 'llm',
+            success: false,
+            error: error.message,
+            metadata: { turnId }
+          });
           this.sendError(session.ws, 'AI_FAILED', error.message, true);
         },
       });
@@ -1484,6 +1518,15 @@ Remember: David may reference things discussed in these recent text chats.
       
       console.log(`[Streaming Orchestrator] Complete: ${metrics.sentenceCount} sentences in ${metrics.totalLatencyMs}ms (turnId: ${turnId})`);
       console.log(`[Streaming Orchestrator] Latencies: STT=${metrics.sttLatencyMs}ms, AI=${metrics.aiFirstTokenMs}ms, TTS=${metrics.ttsFirstByteMs}ms`);
+      
+      // Emit response completion for diagnostics (covers LLM + TTS success)
+      voiceDiagnostics.emit({
+        sessionId,
+        stage: 'tts',
+        success: true,
+        latencyMs: metrics.totalLatencyMs,
+        metadata: { sentenceCount: metrics.sentenceCount, sttMs: metrics.sttLatencyMs, aiMs: metrics.aiFirstTokenMs, ttsMs: metrics.ttsFirstByteMs }
+      });
       
       // HIVE BEACON EMISSION: Flag interesting teaching moments for Editor collaboration
       // Only emit for founder sessions to avoid noise, and run non-blocking
@@ -2216,6 +2259,14 @@ Remember: David may reference things discussed in these recent text chats.
       
     } catch (error: any) {
       console.error(`[Streaming] TTS error for sentence ${index}:`, error.message);
+      // Emit TTS error for diagnostics
+      voiceDiagnostics.emit({
+        sessionId: session.id,
+        stage: 'tts',
+        success: false,
+        error: error.message,
+        metadata: { sentenceIndex: index }
+      });
       // Send error to client but don't throw - allows session to continue
       this.sendError(session.ws, 'TTS_ERROR', `Audio generation failed for sentence ${index}`, true);
     }
@@ -2463,6 +2514,14 @@ Remember: David may reference things discussed in these recent text chats.
       
     } catch (error: any) {
       console.error(`[Progressive] TTS error for sentence ${index}:`, error.message);
+      // Emit TTS error for diagnostics (progressive mode)
+      voiceDiagnostics.emit({
+        sessionId: session.id,
+        stage: 'tts',
+        success: false,
+        error: error.message,
+        metadata: { sentenceIndex: index, mode: 'progressive' }
+      });
       // Send error to client but don't throw - allows session to continue
       this.sendError(session.ws, 'TTS_ERROR', `Audio generation failed for sentence ${index}`, true);
     }
