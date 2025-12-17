@@ -870,21 +870,48 @@ Respond naturally as Daniela without any role prefix.`;
   private async getWrenArchitecturalContext(messageContent: string): Promise<string> {
     const sections: string[] = [];
     
-    // LAYER 1: Architecture Baseline from Neural Network (synced from replit.md)
+    // LAYER 1: Architecture Baseline + North Star from Neural Network
     try {
-      const archBaseline = await db.select()
+      // Query both architecture baseline and north star principles
+      const nnEntries = await db.select()
         .from(toolKnowledge)
-        .where(eq(toolKnowledge.toolType, 'architecture_baseline'))
-        .limit(3);
+        .where(inArray(toolKnowledge.toolType, ['architecture_baseline', 'north_star_principle']))
+        .orderBy(toolKnowledge.toolType, toolKnowledge.toolName);
       
-      if (archBaseline.length > 0) {
+      // Separate by type
+      const archBaseline = nnEntries.filter(e => e.toolType === 'architecture_baseline');
+      const northStarPrinciples = nnEntries.filter(e => e.toolType === 'north_star_principle');
+      
+      if (archBaseline.length > 0 || northStarPrinciples.length > 0) {
         const baselineLines: string[] = [];
         
+        // Add architecture baseline entries
         for (const entry of archBaseline) {
           const sectionName = entry.toolName.replace('ARCH_BASELINE_', '').replace(/_/g, ' ');
           // Truncate for context window efficiency
           const content = entry.purpose?.substring(0, 800) || '';
           baselineLines.push(`**${sectionName}:**\n${content}`);
+        }
+        
+        // Add North Star principles (grouped by category)
+        if (northStarPrinciples.length > 0) {
+          const principlesByCategory: Record<string, string[]> = {};
+          for (const entry of northStarPrinciples) {
+            // Extract category from toolName: NORTH_STAR_PEDAGOGY_1 -> pedagogy
+            const match = entry.toolName.match(/NORTH_STAR_([A-Z]+)_/);
+            const category = match ? match[1].toLowerCase() : 'general';
+            if (!principlesByCategory[category]) {
+              principlesByCategory[category] = [];
+            }
+            principlesByCategory[category].push(entry.purpose || '');
+          }
+          
+          const northStarSection = Object.entries(principlesByCategory)
+            .map(([category, principles]) => 
+              `**${category.charAt(0).toUpperCase() + category.slice(1)}:**\n${principles.map(p => `- ${p}`).join('\n')}`
+            ).join('\n\n');
+          
+          baselineLines.push(`\n**NORTH STAR (Constitutional Foundation):**\n${northStarSection}`);
         }
         
         sections.push(`
