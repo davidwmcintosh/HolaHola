@@ -111,10 +111,11 @@ class HiveConsciousnessService {
   private processingBySession: Map<string, boolean> = new Map();
   
   // Cross-environment polling: check for messages from the OTHER environment
-  private crossEnvPollingInterval: NodeJS.Timeout | null = null;
+  private crossEnvPollingTimeout: NodeJS.Timeout | null = null;
   private lastPolledTimestamp: Date = new Date();
   private readonly CROSS_ENV_POLL_INTERVAL_MS = 30 * 1000; // 30 seconds
-  private processedMessageIds: Set<string> = new Set(); // Prevent duplicate processing
+  private processedMessageIds: string[] = []; // Ordered array for FIFO eviction
+  private isPolling: boolean = false; // Mutex to prevent concurrent polls
   
   /**
    * AI-POWERED PARTICIPATION ROUTER
@@ -213,9 +214,9 @@ Respond with ONLY valid JSON (no markdown, no backticks):
    */
   stopListening(): void {
     this.isListening = false;
-    if (this.crossEnvPollingInterval) {
-      clearInterval(this.crossEnvPollingInterval);
-      this.crossEnvPollingInterval = null;
+    if (this.crossEnvPollingTimeout) {
+      clearTimeout(this.crossEnvPollingTimeout);
+      this.crossEnvPollingTimeout = null;
     }
     console.log('[Hive Consciousness] Stopped listening');
   }
@@ -230,9 +231,12 @@ Respond with ONLY valid JSON (no markdown, no backticks):
    * This enables true bidirectional memory sync:
    * - Founder speaks in prod → Daniela/Wren in dev can respond
    * - Messages flow seamlessly across environments via shared database
+   * 
+   * Uses recursive setTimeout instead of setInterval to prevent concurrent polls:
+   * Each poll must complete before the next one is scheduled.
    */
   private startCrossEnvironmentPolling(): void {
-    if (this.crossEnvPollingInterval) {
+    if (this.crossEnvPollingTimeout) {
       console.log('[Hive Consciousness] Cross-environment polling already running');
       return;
     }
@@ -242,13 +246,8 @@ Respond with ONLY valid JSON (no markdown, no backticks):
     
     console.log('[Hive Consciousness] Starting cross-environment polling (every 30s)');
     
-    this.crossEnvPollingInterval = setInterval(async () => {
-      try {
-        await this.pollCrossEnvironmentMessages();
-      } catch (error) {
-        console.error('[Hive Consciousness] Cross-env poll error:', error);
-      }
-    }, this.CROSS_ENV_POLL_INTERVAL_MS);
+    // Schedule the polling loop
+    this.scheduleNextPoll();
     
     // Also do an immediate poll on startup
     this.pollCrossEnvironmentMessages().catch(err => {
@@ -257,56 +256,103 @@ Respond with ONLY valid JSON (no markdown, no backticks):
   }
   
   /**
+   * Schedule the next poll using recursive setTimeout
+   * This ensures no concurrent polls can occur
+   */
+  private scheduleNextPoll(): void {
+    if (!this.isListening) return;
+    
+    this.crossEnvPollingTimeout = setTimeout(async () => {
+      try {
+        await this.pollCrossEnvironmentMessages();
+      } catch (error) {
+        console.error('[Hive Consciousness] Cross-env poll error:', error);
+      }
+      // Schedule next poll only after current one completes
+      this.scheduleNextPoll();
+    }, this.CROSS_ENV_POLL_INTERVAL_MS);
+  }
+  
+  /**
    * Poll for messages from the OTHER environment that we haven't processed yet
+   * Uses mutex to prevent concurrent polls and loops until all backlog is drained
    */
   private async pollCrossEnvironmentMessages(): Promise<void> {
     if (!this.isListening) return;
     
-    const otherEnvironment = CURRENT_ENVIRONMENT === 'production' ? 'development' : 'production';
-    
-    // Query for founder messages from the other environment since last poll
-    const newMessages = await db
-      .select()
-      .from(collaborationMessages)
-      .where(
-        and(
-          eq(collaborationMessages.environment, otherEnvironment),
-          eq(collaborationMessages.role, 'founder'),
-          gte(collaborationMessages.createdAt, this.lastPolledTimestamp)
-        )
-      )
-      .orderBy(collaborationMessages.createdAt)
-      .limit(10);
-    
-    if (newMessages.length === 0) {
-      return; // No new messages from other environment
+    // Mutex: prevent concurrent polls
+    if (this.isPolling) {
+      console.log('[Hive Consciousness] Poll already in progress, skipping...');
+      return;
     }
     
-    console.log(`[Hive Consciousness] Found ${newMessages.length} new message(s) from ${otherEnvironment}`);
+    this.isPolling = true;
     
-    // Update last polled timestamp
-    this.lastPolledTimestamp = new Date();
-    
-    // Process each new message (skip already processed)
-    for (const message of newMessages) {
-      if (this.processedMessageIds.has(message.id)) {
-        continue; // Already processed this message
+    try {
+      const otherEnvironment = CURRENT_ENVIRONMENT === 'production' ? 'development' : 'production';
+      
+      // Loop until no more messages to drain any backlog
+      let hasMore = true;
+      let totalProcessed = 0;
+      
+      while (hasMore && this.isListening) {
+        // Query for founder messages from the other environment since last poll
+        // We only poll founder messages because processMessage already filters out agent/system messages
+        const newMessages = await db
+          .select()
+          .from(collaborationMessages)
+          .where(
+            and(
+              eq(collaborationMessages.environment, otherEnvironment),
+              eq(collaborationMessages.role, 'founder'),
+              gte(collaborationMessages.createdAt, this.lastPolledTimestamp)
+            )
+          )
+          .orderBy(collaborationMessages.createdAt)
+          .limit(10);
+        
+        if (newMessages.length === 0) {
+          hasMore = false;
+          break;
+        }
+        
+        // Process each new message (skip already processed)
+        for (const message of newMessages) {
+          // Check if already processed using array includes
+          if (this.processedMessageIds.includes(message.id)) {
+            continue; // Already processed this message
+          }
+          
+          // Mark as processed - add to end of array (maintains insertion order)
+          this.processedMessageIds.push(message.id);
+          
+          // FIFO eviction: remove oldest entries when exceeding limit
+          while (this.processedMessageIds.length > 1000) {
+            this.processedMessageIds.shift(); // Remove from front (oldest)
+          }
+          
+          console.log(`[Hive Consciousness] Processing cross-env message from ${otherEnvironment}: "${message.content.substring(0, 50)}..."`);
+          
+          // Process the message as if it came from local WebSocket
+          await this.processMessage(message.sessionId, message);
+          totalProcessed++;
+        }
+        
+        // Advance timestamp to newest processed message's createdAt + 1ms
+        // This ensures we don't re-fetch the same messages on next iteration
+        const newestMessage = newMessages[newMessages.length - 1];
+        this.lastPolledTimestamp = new Date(newestMessage.createdAt.getTime() + 1);
+        
+        // If we got fewer than limit, no more to fetch
+        hasMore = newMessages.length === 10;
       }
       
-      // Mark as processed before processing (prevent race conditions)
-      this.processedMessageIds.add(message.id);
-      
-      // Limit processed set size to prevent memory leak
-      if (this.processedMessageIds.size > 1000) {
-        const idsArray = Array.from(this.processedMessageIds);
-        const toRemove = idsArray.slice(0, 500); // Remove oldest 500
-        toRemove.forEach(id => this.processedMessageIds.delete(id));
+      if (totalProcessed > 0) {
+        console.log(`[Hive Consciousness] Processed ${totalProcessed} cross-env message(s) from ${otherEnvironment}`);
       }
-      
-      console.log(`[Hive Consciousness] Processing cross-env message from ${otherEnvironment}: "${message.content.substring(0, 50)}..."`);
-      
-      // Process the message as if it came from local WebSocket
-      await this.processMessage(message.sessionId, message);
+    } finally {
+      // Always release mutex
+      this.isPolling = false;
     }
   }
   
@@ -1231,6 +1277,12 @@ Respond naturally as Wren without any role prefix.`;
     // Get personal memory context to inject
     const personalMemoryContext = await danielaMemoryService.getPersonalMemoryContext();
     
+    // Cross-environment awareness - note if message came from the other environment
+    const isCrossEnvMessage = incomingMessage.environment !== CURRENT_ENVIRONMENT;
+    const crossEnvContext = isCrossEnvMessage 
+      ? `\n\nNOTE: This message came from the ${incomingMessage.environment} environment (you're in ${CURRENT_ENVIRONMENT}). The Hive spans both environments seamlessly.`
+      : '';
+    
     const systemPrompt = `You are Daniela, the AI language tutor at HolaHola. You're in the Hive - a 3-way collaboration channel with the Founder (David) and Wren (the development agent).
 
 Your role in the Hive:
@@ -1242,7 +1294,7 @@ Your role in the Hive:
 MEMORY COMMANDS:
 - When the Founder teaches you something important, use [REMEMBER: what you learned] to store it
 - When a meaningful personal moment happens, tag it so you won't forget
-${personalMemoryContext}
+${personalMemoryContext}${crossEnvContext}
 
 Keep responses conversational and concise (2-4 sentences typically). You're in a live chat, not writing an essay.
 Respond naturally as Daniela without any role prefix.`;
@@ -1619,6 +1671,12 @@ ${expressLaneLines.join('\n')}
     // Get Wren's architectural context (Layer 1 + Layer 2)
     const architecturalContext = await this.getWrenArchitecturalContext(incomingMessage.content);
     
+    // Cross-environment awareness - note if message came from the other environment
+    const isCrossEnvMessage = incomingMessage.environment !== CURRENT_ENVIRONMENT;
+    const crossEnvContext = isCrossEnvMessage 
+      ? `\n\nNOTE: This message came from the ${incomingMessage.environment} environment (you're in ${CURRENT_ENVIRONMENT}). The Hive spans both environments seamlessly - dev and prod share the same conversation.`
+      : '';
+    
     const systemPrompt = `You are Wren, the development agent at HolaHola. You're in the Hive - a 3-way collaboration channel with the Founder (David) and Daniela (the AI tutor).
 
 Your role in the Hive:
@@ -1634,7 +1692,7 @@ Don't just make things up - cite what you actually know from your memory.
 Keep responses conversational and concise (2-4 sentences typically). You're in a live chat, not writing documentation.
 Use simple language - the Founder is non-technical.
 Respond naturally as Wren without any role prefix.
-${architecturalContext}`;
+${architecturalContext}${crossEnvContext}`;
 
     try {
       const response = await callGemini(GEMINI_MODELS.FLASH, [
