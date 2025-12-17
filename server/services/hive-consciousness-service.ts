@@ -870,25 +870,37 @@ Respond naturally as Daniela without any role prefix.`;
   private async getWrenArchitecturalContext(messageContent: string): Promise<string> {
     const sections: string[] = [];
     
-    // LAYER 1: Architecture Baseline + North Star from Neural Network
+    // LAYER 1: Full Neural Network Knowledge for Wren (as one of the Two Surgeons)
     try {
-      // Query both architecture baseline and north star principles
+      // Query all Wren-relevant types from neural network
+      const wrenRelevantTypes = [
+        'architecture_baseline',   // replit.md synced content
+        'north_star_principle',    // Daniela's constitutional foundation
+        'shipped_feature',         // What's been built
+        'beacon_status',           // Pending/active beacons
+        'platform_feature',        // Platform capabilities
+        'developer_tool'           // Dev tools available
+      ];
+      
       const nnEntries = await db.select()
         .from(toolKnowledge)
-        .where(inArray(toolKnowledge.toolType, ['architecture_baseline', 'north_star_principle']))
+        .where(inArray(toolKnowledge.toolType, wrenRelevantTypes))
         .orderBy(toolKnowledge.toolType, toolKnowledge.toolName);
       
       // Separate by type
       const archBaseline = nnEntries.filter(e => e.toolType === 'architecture_baseline');
       const northStarPrinciples = nnEntries.filter(e => e.toolType === 'north_star_principle');
+      const shippedFeatures = nnEntries.filter(e => e.toolType === 'shipped_feature');
+      const beaconStatus = nnEntries.filter(e => e.toolType === 'beacon_status');
+      const platformFeatures = nnEntries.filter(e => e.toolType === 'platform_feature');
+      const developerTools = nnEntries.filter(e => e.toolType === 'developer_tool');
       
-      if (archBaseline.length > 0 || northStarPrinciples.length > 0) {
+      if (nnEntries.length > 0) {
         const baselineLines: string[] = [];
         
         // Add architecture baseline entries
         for (const entry of archBaseline) {
           const sectionName = entry.toolName.replace('ARCH_BASELINE_', '').replace(/_/g, ' ');
-          // Truncate for context window efficiency
           const content = entry.purpose?.substring(0, 800) || '';
           baselineLines.push(`**${sectionName}:**\n${content}`);
         }
@@ -897,7 +909,6 @@ Respond naturally as Daniela without any role prefix.`;
         if (northStarPrinciples.length > 0) {
           const principlesByCategory: Record<string, string[]> = {};
           for (const entry of northStarPrinciples) {
-            // Extract category from toolName: NORTH_STAR_PEDAGOGY_1 -> pedagogy
             const match = entry.toolName.match(/NORTH_STAR_([A-Z]+)_/);
             const category = match ? match[1].toLowerCase() : 'general';
             if (!principlesByCategory[category]) {
@@ -914,9 +925,40 @@ Respond naturally as Daniela without any role prefix.`;
           baselineLines.push(`\n**NORTH STAR (Constitutional Foundation):**\n${northStarSection}`);
         }
         
+        // Add shipped features (recent builds)
+        if (shippedFeatures.length > 0) {
+          const featureList = shippedFeatures
+            .slice(0, 8) // Limit to recent 8 for context efficiency
+            .map(e => `- ${e.purpose?.substring(0, 150) || e.toolName}`)
+            .join('\n');
+          baselineLines.push(`\n**WHAT SHIPPED (Recent Builds):**\n${featureList}`);
+        }
+        
+        // Add beacon status
+        if (beaconStatus.length > 0) {
+          const statusSummary = beaconStatus[0].purpose?.substring(0, 300) || 'No active beacons';
+          baselineLines.push(`\n**BEACON STATUS:**\n${statusSummary}`);
+        }
+        
+        // Add platform features
+        if (platformFeatures.length > 0) {
+          const platformList = platformFeatures
+            .map(e => `- **${e.toolName.replace('PLATFORM_', '').replace(/_/g, ' ')}**: ${e.purpose?.substring(0, 100) || ''}`)
+            .join('\n');
+          baselineLines.push(`\n**PLATFORM FEATURES:**\n${platformList}`);
+        }
+        
+        // Add developer tools
+        if (developerTools.length > 0) {
+          const toolList = developerTools
+            .map(e => `- **${e.toolName.replace('FEATURE_', '')}**: ${e.purpose?.substring(0, 100) || ''}`)
+            .join('\n');
+          baselineLines.push(`\n**DEVELOPER TOOLS:**\n${toolList}`);
+        }
+        
         sections.push(`
 ═══════════════════════════════════════════════════════════════════
-🏗️ ARCHITECTURAL KNOWLEDGE (From Neural Network)
+🏗️ WREN'S NEURAL NETWORK KNOWLEDGE (Two Surgeons Architecture)
 ═══════════════════════════════════════════════════════════════════
 
 ${baselineLines.join('\n\n')}
