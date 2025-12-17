@@ -849,6 +849,10 @@ export class StreamingVoiceClient {
         // Transition to 'disconnected' so user can start fresh
         this.setState('disconnected');
       }, 100);  // 100ms is enough for React to re-render with error message
+    } else {
+      // RECOVERABLE ERROR (e.g., EMPTY_TRANSCRIPT): Go back to 'ready' state
+      // This unlocks the mic so user can try speaking again
+      this.setState('ready');
     }
   }
   
