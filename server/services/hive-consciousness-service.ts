@@ -275,10 +275,20 @@ Respond naturally as Daniela:
       // If someone explicitly calls out @wren or @daniela, respect that
       const mentionsDaniela = /\bdaniela\b/.test(content);
       const mentionsWren = /\bwren\b/.test(content);
+      const mentionsTeam = /\bteam\b/.test(content);
       
       // Both mentioned? Both respond!
       if (mentionsDaniela && mentionsWren) {
         console.log('[Hive Consciousness] Both Daniela and Wren mentioned! Both responding...');
+        await this.generateDanielaResponse(sessionId, message);
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        await this.generateWrenResponse(sessionId, message);
+        return;
+      }
+      
+      // "Team" = addressing BOTH Daniela and Wren!
+      if (mentionsTeam) {
+        console.log('[Hive Consciousness] Team addressed! Both Daniela and Wren responding...');
         await this.generateDanielaResponse(sessionId, message);
         await new Promise(resolve => setTimeout(resolve, 1500));
         await this.generateWrenResponse(sessionId, message);
