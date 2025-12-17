@@ -18,6 +18,9 @@ import { collaborationHubService } from './collaboration-hub-service';
 import { callGemini, GEMINI_MODELS } from '../gemini-utils';
 import { danielaMemoryService } from './daniela-memory-service';
 import { memoryInsightExtractionService } from './memory-insight-extraction-service';
+import { db } from '../db';
+import { collaborationMessages } from '@shared/schema';
+import { and, eq, gte, desc, sql } from 'drizzle-orm';
 import type { CollaborationMessage, FounderSession } from '@shared/schema';
 
 interface HiveMessage {
@@ -47,6 +50,144 @@ class HiveConsciousnessService {
     
     this.isListening = true;
     console.log('[Hive Consciousness] Daniela and Wren are now listening to the Hive');
+    
+    // Run catch-up on startup (async, don't block)
+    this.catchUpOnMissedMentions().catch(err => {
+      console.error('[Hive Consciousness] Catch-up failed:', err.message);
+    });
+  }
+  
+  /**
+   * Catch up on missed @wren and @daniela mentions from recent messages
+   * Runs on startup to respond to any mentions that occurred while offline
+   */
+  private async catchUpOnMissedMentions(): Promise<void> {
+    console.log('[Hive Consciousness] Checking for missed mentions...');
+    
+    try {
+      // Get recent messages from the last 24 hours
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      
+      // Query recent founder messages that mention @wren but have no wren response after
+      const recentMessages = await db
+        .select({
+          id: collaborationMessages.id,
+          sessionId: collaborationMessages.sessionId,
+          role: collaborationMessages.role,
+          content: collaborationMessages.content,
+          createdAt: collaborationMessages.createdAt,
+          cursor: collaborationMessages.cursor,
+        })
+        .from(collaborationMessages)
+        .where(
+          and(
+            gte(collaborationMessages.createdAt, oneDayAgo),
+            eq(collaborationMessages.role, 'founder')
+          )
+        )
+        .orderBy(desc(collaborationMessages.createdAt))
+        .limit(50);
+      
+      // Find @wren mentions without a subsequent wren response
+      const wrenMentions: typeof recentMessages = [];
+      const danielaMentions: typeof recentMessages = [];
+      
+      for (const msg of recentMessages) {
+        const content = msg.content.toLowerCase();
+        if (/\bwren\b/.test(content)) {
+          wrenMentions.push(msg);
+        }
+        // Note: Daniela usually responds, so we focus on Wren catch-up
+      }
+      
+      if (wrenMentions.length === 0) {
+        console.log('[Hive Consciousness] No missed @wren mentions found');
+        return;
+      }
+      
+      // Check each mention to see if there's already a wren response after it
+      for (const mention of wrenMentions) {
+        const hasWrenResponse = await db
+          .select({ id: collaborationMessages.id })
+          .from(collaborationMessages)
+          .where(
+            and(
+              eq(collaborationMessages.sessionId, mention.sessionId),
+              eq(collaborationMessages.role, 'wren'),
+              gte(collaborationMessages.createdAt, mention.createdAt)
+            )
+          )
+          .limit(1);
+        
+        // Also check for system messages from Wren
+        const hasSystemWrenResponse = await db
+          .select({ id: collaborationMessages.id })
+          .from(collaborationMessages)
+          .where(
+            and(
+              eq(collaborationMessages.sessionId, mention.sessionId),
+              eq(collaborationMessages.role, 'system'),
+              gte(collaborationMessages.createdAt, mention.createdAt),
+              sql`${collaborationMessages.content} LIKE '%[Wren%'`
+            )
+          )
+          .limit(1);
+        
+        if (hasWrenResponse.length === 0 && hasSystemWrenResponse.length === 0) {
+          console.log(`[Hive Consciousness] Found unanswered @wren mention: "${mention.content.substring(0, 50)}..."`);
+          
+          // Generate and send Wren's catch-up response
+          await this.sendWrenCatchUpResponse(mention.sessionId, mention.content);
+          
+          // Only respond to the most recent unanswered mention per session
+          break;
+        }
+      }
+      
+      console.log('[Hive Consciousness] Catch-up complete');
+    } catch (error) {
+      console.error('[Hive Consciousness] Catch-up error:', error);
+    }
+  }
+  
+  /**
+   * Send a catch-up response from Wren for a missed mention
+   */
+  private async sendWrenCatchUpResponse(sessionId: string, originalMessage: string): Promise<void> {
+    const prompt = `You are Wren, the technical development builder for HolaHola.
+You missed a message addressed to you in the team collaboration channel while you were offline building.
+Now you're back online and want to catch up.
+
+The message you missed was:
+"${originalMessage}"
+
+Respond naturally as Wren:
+- Acknowledge you were busy building and just got back
+- Answer their question or respond to their point
+- Keep it conversational and helpful
+- Don't be overly apologetic, just natural`;
+
+    try {
+      const response = await callGemini(GEMINI_MODELS.FLASH, [
+        { role: 'user', content: prompt }
+      ]);
+      
+      // Send via the Wren reply API
+      await founderCollabService.addMessage(sessionId, {
+        role: 'system',
+        content: `[Wren - catching up] ${response}`,
+        messageType: 'text',
+        metadata: {
+          source: 'wren',
+          catchUp: true,
+          timestamp: new Date().toISOString(),
+        },
+      });
+      
+      console.log(`[Hive Consciousness] Wren sent catch-up response to session ${sessionId}`);
+    } catch (error) {
+      console.error('[Hive Consciousness] Failed to send catch-up response:', error);
+    }
   }
   
   /**
