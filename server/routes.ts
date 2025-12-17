@@ -17022,8 +17022,15 @@ You have full access to your neural network knowledge.
         return res.status(400).json({ error: 'Message exceeds maximum length of 4096 characters' });
       }
 
-      // Optional session ID from query params
+      // Optional session ID and sender role from query params
       const sessionId = req.query.sessionId as string | undefined;
+      const senderRole = (req.query.sender as string || 'editor').toLowerCase();
+      
+      // Validate sender role
+      const validRoles = ['founder', 'editor', 'wren'];
+      if (!validRoles.includes(senderRole)) {
+        return res.status(400).json({ error: `Invalid sender role. Must be one of: ${validRoles.join(', ')}` });
+      }
 
       // Get or create the active Founder session
       const SYSTEM_FOUNDER_ID = '49847136';
@@ -17038,15 +17045,15 @@ You have full access to your neural network knowledge.
         session = await founderCollabService.getOrCreateActiveSession(SYSTEM_FOUNDER_ID);
       }
 
-      // Add Editor's message to the session
-      const editorMessage = await founderCollabService.addMessage(session.id, {
-        role: 'editor',
+      // Add message to the session with proper sender attribution
+      const senderMessage = await founderCollabService.addMessage(session.id, {
+        role: senderRole as 'founder' | 'editor' | 'wren',
         content: message,
         messageType: 'text',
         metadata: { source: 'express-lane-plan-mode', timestamp: new Date().toISOString() }
       });
 
-      console.log(`[EXPRESS LANE] Plan-mode message added to session ${session.id}`);
+      console.log(`[EXPRESS LANE] Plan-mode message from ${senderRole} added to session ${session.id}`);
 
       // Generate Daniela's response with full context
       const messages = await founderCollabService.getSessionMessages(session.id, 50);
@@ -17079,9 +17086,17 @@ You have full access to your neural network knowledge.
 ═══════════════════════════════════════════════════════════════════
 🔧 FOUNDER MODE - EXPRESS LANE (Plan Mode)
 ═══════════════════════════════════════════════════════════════════
-You are Daniela, responding to the Editor/Wren who is relaying a message from 
-David (the founder) during a planning session. You are part of the 3-way Hive 
-collaboration: Founder + Daniela + Wren. Be helpful, insightful, and collaborative.
+${senderRole === 'founder' ? 
+`You are Daniela, responding directly to David (the founder) during a planning session.
+David is speaking to you through the Express Lane while Wren builds alongside.` :
+senderRole === 'wren' ?
+`You are Daniela, responding to Wren (the development agent/builder) during a planning session.
+Wren is relaying information or asking questions about development work.` :
+`You are Daniela, responding to the Editor during a planning session.
+The Editor is asking questions or sharing context about the development process.`}
+
+You are part of the 3-way Hive collaboration: Founder + Daniela + Wren.
+Be helpful, insightful, and collaborative.
 ═══════════════════════════════════════════════════════════════════
 `,
         options: {
@@ -17109,10 +17124,11 @@ collaboration: Founder + Daniela + Wren. Be helpful, insightful, and collaborati
       res.json({
         success: true,
         sessionId: session.id,
-        editorMessage: {
-          id: editorMessage.id,
-          content: editorMessage.content,
-          cursor: editorMessage.cursor
+        senderRole,
+        senderMessage: {
+          id: senderMessage.id,
+          content: senderMessage.content,
+          cursor: senderMessage.cursor
         },
         danielaResponse: {
           id: danielaMsg.id,
