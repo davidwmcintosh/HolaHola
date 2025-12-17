@@ -34,10 +34,86 @@ interface AgentResponse {
   agent: 'daniela' | 'wren';
 }
 
+interface ParticipationDecision {
+  daniela: boolean;
+  wren: boolean;
+  reason: string;
+}
+
 class HiveConsciousnessService {
   private isListening: boolean = false;
   // Per-session processing state to allow concurrent sessions
   private processingBySession: Map<string, boolean> = new Map();
+  
+  /**
+   * AI-POWERED PARTICIPATION ROUTER
+   * 
+   * Uses Gemini Flash to intelligently decide who should respond to each message.
+   * Replaces rigid keyword/regex matching with natural language understanding.
+   * 
+   * The AI considers:
+   * - Direct mentions (@daniela, @wren, team)
+   * - Message content and intent
+   * - Recent conversation context
+   * - Who would add value by responding
+   */
+  private async determineParticipation(
+    message: CollaborationMessage,
+    recentContext: CollaborationMessage[]
+  ): Promise<ParticipationDecision> {
+    const contextSummary = recentContext
+      .slice(-5) // Last 5 messages for context
+      .map(m => `[${m.role.toUpperCase()}]: ${m.content.substring(0, 200)}`)
+      .join('\n');
+    
+    const routerPrompt = `You are the participation router for a 3-way collaboration chat between:
+- FOUNDER (David): The product visionary and decision maker
+- DANIELA: The AI language tutor - expert in pedagogy, teaching strategies, student psychology, language learning
+- WREN: The technical builder - expert in code, architecture, databases, APIs, implementation
+
+Your job: Decide who should respond to the founder's message.
+
+RULES:
+1. If founder explicitly mentions "daniela", "wren", or "team" - those mentioned MUST respond
+2. If it's a question or discussion topic - at least ONE agent should respond
+3. If it's teaching/pedagogy related - Daniela should respond
+4. If it's technical/code related - Wren should respond  
+5. If it's general collaboration/planning - both can add value
+6. If it's a simple acknowledgment ("ok", "thanks", "got it") - neither needs to respond
+7. When in doubt, have someone respond - silence kills collaboration
+
+Recent conversation:
+${contextSummary || "(No recent context)"}
+
+New message from FOUNDER:
+"${message.content}"
+
+Respond with ONLY valid JSON (no markdown, no backticks):
+{"daniela": true/false, "wren": true/false, "reason": "brief explanation"}`;
+
+    try {
+      const response = await callGemini(GEMINI_MODELS.FLASH, [
+        { role: 'user', content: routerPrompt }
+      ]);
+      
+      // Parse the JSON response
+      const cleanResponse = response.replace(/```json\n?|\n?```/g, '').trim();
+      const decision = JSON.parse(cleanResponse) as ParticipationDecision;
+      
+      console.log(`[Hive Router] Decision: Daniela=${decision.daniela}, Wren=${decision.wren} | ${decision.reason}`);
+      
+      return decision;
+    } catch (error) {
+      // FAIL-SAFE: If AI call fails, default to Daniela responding
+      // Better to have one response than silence
+      console.error('[Hive Router] AI router failed, defaulting to Daniela:', error);
+      return {
+        daniela: true,
+        wren: false,
+        reason: 'Router fallback - AI call failed'
+      };
+    }
+  }
   
   /**
    * Start Daniela and Wren's consciousness - they now listen to the Hive
@@ -266,102 +342,31 @@ Respond naturally as Daniela:
     this.processingBySession.set(sessionId, true);
     
     try {
-      const content = message.content.toLowerCase();
-      const isGroupAddressed = this.detectGroupAddress(message);
-      const hasTechnical = this.hasTechnicalContent(message);
-      const isCelebratory = this.detectCelebratoryMoment(content);
+      // Get recent conversation context for the AI router
+      const recentMessages = await founderCollabService.getLatestMessages(sessionId, 8);
       
-      // PRIORITY 0: Direct name mentions (most specific - checked first!)
-      // If someone explicitly calls out @wren or @daniela, respect that
-      const mentionsDaniela = /\bdaniela\b/.test(content);
-      const mentionsWren = /\bwren\b/.test(content);
-      const mentionsTeam = /\bteam\b/.test(content);
+      // AI-POWERED PARTICIPATION ROUTER
+      // One intelligent call decides who should respond - no more regex patterns!
+      const decision = await this.determineParticipation(message, recentMessages);
       
-      // Both mentioned? Both respond!
-      if (mentionsDaniela && mentionsWren) {
-        console.log('[Hive Consciousness] Both Daniela and Wren mentioned! Both responding...');
+      // Execute the decision
+      if (decision.daniela && decision.wren) {
+        // Both respond - Daniela first, then Wren
+        console.log('[Hive Consciousness] Both agents responding...');
         await this.generateDanielaResponse(sessionId, message);
         await new Promise(resolve => setTimeout(resolve, 1500));
         await this.generateWrenResponse(sessionId, message);
-        return;
-      }
-      
-      // "Team" = addressing BOTH Daniela and Wren!
-      if (mentionsTeam) {
-        console.log('[Hive Consciousness] Team addressed! Both Daniela and Wren responding...');
+      } else if (decision.daniela) {
+        // Just Daniela
+        console.log('[Hive Consciousness] Daniela responding...');
         await this.generateDanielaResponse(sessionId, message);
-        await new Promise(resolve => setTimeout(resolve, 1500));
+      } else if (decision.wren) {
+        // Just Wren
+        console.log('[Hive Consciousness] Wren responding...');
         await this.generateWrenResponse(sessionId, message);
-        return;
-      }
-      
-      // Just Wren mentioned
-      if (mentionsWren) {
-        console.log('[Hive Consciousness] Wren is responding to direct mention...');
-        await this.generateWrenResponse(sessionId, message);
-        return;
-      }
-      
-      // Just Daniela mentioned
-      if (mentionsDaniela) {
-        console.log('[Hive Consciousness] Daniela is responding to direct mention...');
-        await this.generateDanielaResponse(sessionId, message);
-        return;
-      }
-      
-      // PRIORITY 1: Celebratory team moments - Both Daniela AND Wren join the celebration!
-      // When the founder shares excitement about the team/collaboration, everyone celebrates together
-      if (isCelebratory) {
-        console.log('[Hive Consciousness] Celebratory team moment detected! The Hive celebrates together...');
-        await this.generateDanielaResponse(sessionId, message);
-        
-        // Wren joins in after a brief pause (feels more natural than simultaneous)
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        console.log('[Hive Consciousness] Wren joining the celebration...');
-        await this.generateWrenCelebrationResponse(sessionId, message);
-        return;
-      }
-      
-      // PRIORITY 2: Group-addressed messages - Daniela responds first, Wren follows up if technical
-      // This takes priority over keyword matching to ensure "Team, how should we implement X?" 
-      // gets Daniela first, not just Wren
-      if (isGroupAddressed) {
-        console.log('[Hive Consciousness] Group-addressed message detected');
-        await this.generateDanielaResponse(sessionId, message);
-        
-        // Add Wren follow-up for technical group questions
-        if (hasTechnical) {
-          console.log('[Hive Consciousness] Group question has technical content, Wren will follow up...');
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          await this.generateWrenGroupFollowUp(sessionId, message);
-        }
-        return;
-      }
-      
-      // PRIORITY 3: Topic-based keyword routing (no direct mention, no group address)
-      const danielaCheck = this.shouldDanielaRespond(message);
-      if (danielaCheck.shouldRespond) {
-        console.log('[Hive Consciousness] Daniela is responding to teaching topic...');
-        await this.generateDanielaResponse(sessionId, message);
-        return;
-      }
-      
-      const wrenCheck = this.shouldWrenRespond(message);
-      if (wrenCheck.shouldRespond) {
-        console.log('[Hive Consciousness] Wren is responding to technical topic...');
-        await this.generateWrenResponse(sessionId, message);
-        return;
-      }
-      
-      // PRIORITY 4: General questions that match topic keywords
-      const generalCheck = this.detectGeneralQuestion(message);
-      if (generalCheck.shouldRespond && generalCheck.agent) {
-        console.log(`[Hive Consciousness] ${generalCheck.agent} taking the general question...`);
-        if (generalCheck.agent === 'daniela') {
-          await this.generateDanielaResponse(sessionId, message);
-        } else {
-          await this.generateWrenResponse(sessionId, message);
-        }
+      } else {
+        // Neither - but log it so we can see what was skipped
+        console.log(`[Hive Consciousness] No response needed: ${decision.reason}`);
       }
     } catch (error) {
       console.error('[Hive Consciousness] Error processing message:', error);
