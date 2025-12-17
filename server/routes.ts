@@ -14846,7 +14846,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
           session = recentSessions[0];
         } else {
           // Fallback: create new session if none exist
-          const SYSTEM_FOUNDER_ID = 'admin-test-user';
+          const SYSTEM_FOUNDER_ID = '49847136';
           session = await founderCollabService.getOrCreateActiveSession(SYSTEM_FOUNDER_ID);
         }
       }
@@ -16739,7 +16739,7 @@ ${memoryContext}
       // Get or create the active Founder session
       // Using a valid admin user ID for Editor-initiated sessions
       // This ensures foreign key constraint is satisfied
-      const SYSTEM_FOUNDER_ID = 'admin-test-user';
+      const SYSTEM_FOUNDER_ID = '49847136';
       let session;
       
       if (sessionId) {
@@ -17294,7 +17294,7 @@ You have full access to your neural network knowledge.
       }
 
       const sessionId = req.query.sessionId as string | undefined;
-      const SYSTEM_FOUNDER_ID = 'admin-test-user';
+      const SYSTEM_FOUNDER_ID = '49847136';
 
       let session;
       if (sessionId) {
