@@ -112,15 +112,13 @@ export async function transcribeWithLiveAPI(
       };
       
       // Add Deepgram Intelligence features (Dec 2024 upgrade)
+      // NOTE: intents, topics, summarize NOT available on live API for current plan
       if (enableIntelligence) {
         connectionOptions.diarize = true;           // Speaker separation (FREE)
         connectionOptions.sentiment = true;         // Sentiment analysis
-        connectionOptions.intents = true;           // Intent recognition
         connectionOptions.detect_entities = true;   // Entity detection
         connectionOptions.detect_language = true;   // Language detection
-        connectionOptions.topics = true;            // Topic detection
-        connectionOptions.summarize = 'v2';         // Summarization (v2 for best quality)
-        console.log('[Deepgram Live] Intelligence features enabled: diarize, sentiment, intents, entities, language, topics, summarize');
+        console.log('[Deepgram Live] Intelligence features enabled: diarize, sentiment, entities, language');
       }
       
       const connection = deepgramClient.listen.live(connectionOptions);
@@ -406,15 +404,13 @@ export class OpenMicSession {
           channels: 1,
           endpointing: 100, // 100ms endpointing for better code-switching (recommended for multi)
           // Deepgram Intelligence Features (Dec 2024)
+          // NOTE: intents, topics, summarize NOT available on live streaming API for current plan
           diarize: true,           // Speaker separation (FREE)
           sentiment: true,         // Real-time sentiment analysis
-          intents: true,           // Intent recognition
           detect_entities: true,   // Entity detection
           detect_language: true,   // Language detection
-          topics: true,            // Topic detection
-          summarize: 'v2',         // Summarization (v2 for best quality)
         });
-        console.log('[OpenMic] Intelligence features enabled: diarize, sentiment, intents, entities, language, topics, summarize');
+        console.log('[OpenMic] Intelligence features enabled: diarize, sentiment, entities, language');
         
         // Attach Open handler first
         this.connection.on(LiveTranscriptionEvents.Open, () => {
