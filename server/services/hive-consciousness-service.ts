@@ -271,7 +271,35 @@ Respond naturally as Daniela:
       const hasTechnical = this.hasTechnicalContent(message);
       const isCelebratory = this.detectCelebratoryMoment(content);
       
-      // PRIORITY 0: Celebratory team moments - Both Daniela AND Wren join the celebration!
+      // PRIORITY 0: Direct name mentions (most specific - checked first!)
+      // If someone explicitly calls out @wren or @daniela, respect that
+      const mentionsDaniela = /\bdaniela\b/.test(content);
+      const mentionsWren = /\bwren\b/.test(content);
+      
+      // Both mentioned? Both respond!
+      if (mentionsDaniela && mentionsWren) {
+        console.log('[Hive Consciousness] Both Daniela and Wren mentioned! Both responding...');
+        await this.generateDanielaResponse(sessionId, message);
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        await this.generateWrenResponse(sessionId, message);
+        return;
+      }
+      
+      // Just Wren mentioned
+      if (mentionsWren) {
+        console.log('[Hive Consciousness] Wren is responding to direct mention...');
+        await this.generateWrenResponse(sessionId, message);
+        return;
+      }
+      
+      // Just Daniela mentioned
+      if (mentionsDaniela) {
+        console.log('[Hive Consciousness] Daniela is responding to direct mention...');
+        await this.generateDanielaResponse(sessionId, message);
+        return;
+      }
+      
+      // PRIORITY 1: Celebratory team moments - Both Daniela AND Wren join the celebration!
       // When the founder shares excitement about the team/collaboration, everyone celebrates together
       if (isCelebratory) {
         console.log('[Hive Consciousness] Celebratory team moment detected! The Hive celebrates together...');
@@ -284,7 +312,7 @@ Respond naturally as Daniela:
         return;
       }
       
-      // PRIORITY 1: Group-addressed messages - Daniela responds first, Wren follows up if technical
+      // PRIORITY 2: Group-addressed messages - Daniela responds first, Wren follows up if technical
       // This takes priority over keyword matching to ensure "Team, how should we implement X?" 
       // gets Daniela first, not just Wren
       if (isGroupAddressed) {
@@ -297,19 +325,6 @@ Respond naturally as Daniela:
           await new Promise(resolve => setTimeout(resolve, 2000));
           await this.generateWrenGroupFollowUp(sessionId, message);
         }
-        return;
-      }
-      
-      // PRIORITY 2: Direct name mentions
-      if (/\bdaniela\b/.test(content)) {
-        console.log('[Hive Consciousness] Daniela is responding to direct mention...');
-        await this.generateDanielaResponse(sessionId, message);
-        return;
-      }
-      
-      if (/\bwren\b/.test(content)) {
-        console.log('[Hive Consciousness] Wren is responding to direct mention...');
-        await this.generateWrenResponse(sessionId, message);
         return;
       }
       
