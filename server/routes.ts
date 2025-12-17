@@ -483,6 +483,16 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Set up Replit Auth with rate limiting
   await setupAuth(app, authLimiter);
 
+  // Version endpoint - verify production deployment
+  app.get('/api/version', (_req, res) => {
+    res.json({
+      version: process.env.REPLIT_DEPLOYMENT_ID || 'development',
+      buildTime: Date.now(),
+      commit: '11c11ad', // Voice chat error handling fix
+      fixes: ['voice-disconnect-on-stt-error', 'tts-error-recovery', 'greeting-error-recovery']
+    });
+  });
+
   // Auth user route (with rate limiting)
   // Supports both Replit Auth (claims.sub) and password auth (userId directly in session)
   app.get('/api/auth/user', authLimiter, async (req: any, res) => {

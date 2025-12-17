@@ -2216,7 +2216,8 @@ Remember: David may reference things discussed in these recent text chats.
       
     } catch (error: any) {
       console.error(`[Streaming] TTS error for sentence ${index}:`, error.message);
-      throw error;
+      // Send error to client but don't throw - allows session to continue
+      this.sendError(session.ws, 'TTS_ERROR', `Audio generation failed for sentence ${index}`, true);
     }
   }
   
@@ -2462,7 +2463,8 @@ Remember: David may reference things discussed in these recent text chats.
       
     } catch (error: any) {
       console.error(`[Progressive] TTS error for sentence ${index}:`, error.message);
-      throw error;
+      // Send error to client but don't throw - allows session to continue
+      this.sendError(session.ws, 'TTS_ERROR', `Audio generation failed for sentence ${index}`, true);
     }
   }
   
@@ -2636,8 +2638,8 @@ Remember: David may reference things discussed in these recent text chats.
       });
       
     } catch (error: any) {
-      console.error('[Streaming Orchestrator] Database error:', error.message);
-      throw error;
+      // Log but don't throw - database persistence is non-critical for voice flow
+      console.error('[Streaming Orchestrator] Database error (non-fatal):', error.message);
     }
   }
   
@@ -4235,8 +4237,9 @@ Only include observations you can clearly justify from the exchange. Return empt
       
     } catch (error: any) {
       console.error(`[Streaming Greeting] Error:`, error.message);
-      this.sendError(session.ws, 'UNKNOWN', error.message, true);
-      throw error;
+      this.sendError(session.ws, 'GREETING_ERROR', error.message, true);
+      // Return metrics instead of throwing to prevent socket disconnect
+      return metrics;
     }
   }
   
@@ -4415,8 +4418,8 @@ Using this context, speak first to the student with a natural opening message. O
       
       console.log(`[Streaming Greeting] Message persisted to conversation: ${conversationId}`);
     } catch (error: any) {
-      console.error('[Streaming Greeting] Database error:', error.message);
-      throw error;
+      // Log but don't throw - greeting persistence is non-critical for voice flow
+      console.error('[Streaming Greeting] Database error (non-fatal):', error.message);
     }
   }
   
