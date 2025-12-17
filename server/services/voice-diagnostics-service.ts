@@ -147,6 +147,57 @@ class VoiceDiagnosticsService {
   }
   
   /**
+   * Emit a voice pipeline event (simplified interface for streaming-voice-orchestrator)
+   * 
+   * This adapts the simplified event format from the orchestrator to the full VoiceEvent format.
+   * Maps: { sessionId, stage, success, latencyMs?, metadata?, error? } → VoiceEvent
+   */
+  emit(event: {
+    sessionId: string;
+    stage: string;
+    success: boolean;
+    latencyMs?: number;
+    metadata?: Record<string, any>;
+    error?: string;
+  }): void {
+    // Map simplified stage names to VoiceEvent stage types
+    const stageMap: Record<string, VoiceEvent['stage']> = {
+      'session_start': 'connection',
+      'stt': 'stt',
+      'llm': 'ai',
+      'tts': 'tts',
+      'complete': 'complete',
+      'error': 'error',
+      'auth': 'auth',
+      'connection': 'connection',
+      'ai': 'ai',
+    };
+    
+    const mappedStage = stageMap[event.stage] || 'error';
+    const status: VoiceEvent['status'] = event.success ? 'success' : 'fail';
+    
+    // Build message from context
+    let message = `${event.stage}`;
+    if (event.error) {
+      message = event.error;
+    } else if (event.metadata) {
+      const metaStr = Object.entries(event.metadata)
+        .map(([k, v]) => `${k}=${v}`)
+        .join(', ');
+      if (metaStr) message += `: ${metaStr}`;
+    }
+    
+    this.logEvent({
+      sessionId: event.sessionId,
+      stage: mappedStage,
+      status,
+      message,
+      durationMs: event.latencyMs,
+      metadata: event.metadata,
+    });
+  }
+  
+  /**
    * Async flush (non-blocking)
    */
   private flushToDatabaseAsync(): void {
