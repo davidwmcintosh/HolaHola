@@ -8,6 +8,72 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: December 17, 2025 - Voice Diagnostics System for Production Observability
+
+**Status**: IMPLEMENTED - Ready for production use
+
+**Overview**: Added production observability infrastructure for the voice pipeline to help diagnose issues when Daniela becomes unresponsive.
+
+#### Components
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| Voice Diagnostics Service | `server/services/voice-diagnostics-service.ts` | Ring buffer (200 events) for voice pipeline events |
+| Founder Middleware | `server/middleware/rbac.ts` | `requireFounder` guard for sensitive endpoints |
+| Health Endpoint | `server/routes.ts` | `GET /api/admin/voice-health` |
+| Logs Endpoint | `server/routes.ts` | `GET /api/admin/logs/voice` |
+
+#### Ring Buffer Events
+
+| Event Type | Stage | Description |
+|------------|-------|-------------|
+| `session_start` | session | Voice session created |
+| `stt_complete` | stt | Deepgram transcription completed |
+| `stt_error` | stt | Speech-to-text failed |
+| `llm_success` | llm | Gemini first token received |
+| `llm_error` | llm | LLM response failed |
+| `tts_complete` | tts | Cartesia audio generated |
+| `tts_error` | tts | Text-to-speech failed |
+
+#### Instrumentation Points in `streaming-voice-orchestrator.ts`
+
+| Location | Event Emitted |
+|----------|---------------|
+| Session creation | `session_start` with userId, language |
+| After Deepgram transcription | `stt_complete` with latency |
+| Gemini first token | `llm_success` with latency |
+| LLM errors | `llm_error` with error message |
+| Cartesia completion | `tts_complete` with latency |
+| TTS failures | `tts_error` with error details |
+
+#### API Endpoints
+
+**GET /api/admin/voice-health**
+- Tests Deepgram, Gemini, Cartesia connectivity
+- Verifies secrets exist (boolean only, no values exposed)
+- Returns service status and response times
+
+**GET /api/admin/logs/voice**
+- Query params: `?sessionId=`, `?stage=`, `?success=`, `?limit=`
+- Returns filtered events from ring buffer
+- Newest events first
+
+#### Security
+
+- Endpoints protected by `requireFounder` middleware
+- Founder ID: `49847136`
+- Responses expose only operational metadata
+- No API keys, transcripts, or PII in responses
+
+#### Usage for Debugging
+
+When Daniela is unresponsive in production:
+1. Check `/api/admin/voice-health` - are all services reachable?
+2. Check `/api/admin/logs/voice` - where does the pipeline break?
+3. Look for `success: false` entries or gaps in sequence
+
+---
+
 ### Session: December 17, 2025 - Wren Architectural Memory: Neural Network + EXPRESS Lane Integration
 
 **Status**: APPROVED - Ready to implement
