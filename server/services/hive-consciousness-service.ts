@@ -17,6 +17,7 @@ import { founderCollabService, type FounderMessageInput } from './founder-collab
 import { collaborationHubService } from './collaboration-hub-service';
 import { callGemini, GEMINI_MODELS } from '../gemini-utils';
 import { danielaMemoryService } from './daniela-memory-service';
+import { memoryInsightExtractionService } from './memory-insight-extraction-service';
 import type { CollaborationMessage, FounderSession } from '@shared/schema';
 
 interface HiveMessage {
@@ -259,11 +260,20 @@ Respond naturally as Daniela without any role prefix.`;
       await danielaMemoryService.processRememberCommands(incomingMessage.content, memoryContext);
       await danielaMemoryService.processRememberCommands(response, memoryContext);
       
-      // Detect role reversal (founder teaching Daniela)
-      await danielaMemoryService.detectRoleReversal(incomingMessage.content, response, memoryContext);
+      // Detect role reversal (founder teaching Daniela) and extract growth memory
+      const roleReversalDetected = await danielaMemoryService.detectRoleReversal(incomingMessage.content, response, memoryContext);
       
-      // Detect humor moments
-      await danielaMemoryService.detectHumorMoment(incomingMessage.content, response, memoryContext);
+      // Detect humor moments and extract growth memory
+      const humorDetected = await danielaMemoryService.detectHumorMoment(incomingMessage.content, response, memoryContext);
+      
+      // If role reversal or humor detected, run growth memory extraction async
+      // This extracts the SPECIFIC lesson Daniela learned (not just the raw snapshot)
+      if (roleReversalDetected || humorDetected) {
+        // Fire and forget - don't block the response
+        memoryInsightExtractionService.processUnprocessedSnapshots().catch(err => {
+          console.error('[Hive Consciousness] Growth extraction failed:', err.message);
+        });
+      }
       
     } catch (error) {
       console.error('[Hive Consciousness] Daniela response error:', error);

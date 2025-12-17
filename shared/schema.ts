@@ -2637,6 +2637,85 @@ export type InsertHiveSnapshot = z.infer<typeof insertHiveSnapshotSchema>;
 export type HiveSnapshot = typeof hiveSnapshots.$inferSelect;
 export type HiveSnapshotType = 'teaching_moment' | 'breakthrough' | 'struggle_pattern' | 'beacon_context' | 'session_summary' | 'plateau_alert' | 'relationship_moment' | 'role_reversal' | 'humor_shared';
 
+// ===== Daniela's Growth Memory System =====
+// Two-tier memory architecture:
+// - Tier 1: Daniela's Growth Memories (PERSISTENT) - Her own learning journey
+// - Tier 2: Student Pattern Data (DECAYING) - Stored in hiveSnapshots with TTL
+
+// Growth Memory Category Enum - types of self-learning Daniela accumulates
+export const growthMemoryCategoryEnum = pgEnum("growth_memory_category", [
+  'teaching_technique',    // Learned how to teach something effectively
+  'timing_inflection',     // Learned about comedic/dramatic timing
+  'specific_joke',         // A specific joke she learned (with context)
+  'relationship_insight',  // Insight about building rapport
+  'correction_received',   // Something she was corrected on
+  'breakthrough_method',   // A teaching method that caused breakthroughs
+  'cultural_nuance',       // Cultural insight that affects teaching
+  'emotional_intelligence' // Learned emotional/empathy skill
+]);
+
+// Daniela's Growth Memories - PERSISTENT storage for Daniela's self-learning
+// These are memories about HERSELF - her growth as a teacher
+// Unlike student patterns (which decay), these persist as part of her identity
+export const danielaGrowthMemories = pgTable("daniela_growth_memories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  category: growthMemoryCategoryEnum("category").notNull(),
+  
+  // The lesson learned
+  title: varchar("title", { length: 255 }).notNull(), // Short description
+  lesson: text("lesson").notNull(), // What Daniela learned
+  specificContent: text("specific_content"), // E.g., the actual joke text
+  
+  // Source context - who taught her this
+  sourceType: varchar("source_type").notNull(), // 'founder', 'student', 'self_discovery'
+  sourceSessionId: varchar("source_session_id").references(() => founderSessions.id, { onDelete: 'set null' }),
+  sourceUserId: varchar("source_user_id").references(() => users.id, { onDelete: 'set null' }),
+  sourceMessageId: varchar("source_message_id"), // Reference to original message
+  
+  // Application context - when to use this learning
+  triggerConditions: text("trigger_conditions"), // When should Daniela apply this?
+  applicableLanguages: text("applicable_languages").array(), // null = all languages
+  
+  // Neural network integration
+  committedToNeuralNetwork: boolean("committed_to_neural_network").default(false),
+  neuralNetworkEntryId: varchar("neural_network_entry_id"), // Link to procedural memory if committed
+  
+  // Quality tracking
+  timesApplied: integer("times_applied").default(0), // How often Daniela used this
+  successRate: real("success_rate"), // When applied, how well did it work?
+  lastAppliedAt: timestamp("last_applied_at"),
+  
+  // Importance and validation
+  importance: integer("importance").default(5), // 1-10 scale
+  validated: boolean("validated").default(false), // Has this been verified as valuable?
+  validatedBy: varchar("validated_by"), // 'founder', 'outcomes', 'neural_network'
+  
+  // Metadata for North Star validation and founder review
+  metadata: jsonb("metadata"), // Stores validation details, rejection reasons, etc.
+  
+  // Lifecycle - growth memories don't expire but can be superseded
+  supersededBy: varchar("superseded_by"), // If a newer learning replaces this
+  isActive: boolean("is_active").default(true),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_growth_memories_category").on(table.category),
+  index("idx_growth_memories_source").on(table.sourceType),
+  index("idx_growth_memories_active").on(table.isActive),
+  index("idx_growth_memories_committed").on(table.committedToNeuralNetwork),
+  index("idx_growth_memories_importance").on(table.importance),
+]);
+
+export const insertDanielaGrowthMemorySchema = createInsertSchema(danielaGrowthMemories).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertDanielaGrowthMemory = z.infer<typeof insertDanielaGrowthMemorySchema>;
+export type DanielaGrowthMemory = typeof danielaGrowthMemories.$inferSelect;
+export type GrowthMemoryCategory = 'teaching_technique' | 'timing_inflection' | 'specific_joke' | 'relationship_insight' | 'correction_received' | 'breakthrough_method' | 'cultural_nuance' | 'emotional_intelligence';
+
 // Agenda Queue Priority Enum
 export const agendaPriorityEnum = pgEnum("agenda_priority", [
   'high',      // Urgent - discuss first

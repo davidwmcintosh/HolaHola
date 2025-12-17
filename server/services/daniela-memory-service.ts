@@ -1,22 +1,34 @@
 /**
  * Daniela Memory Service
  * 
- * Gives Daniela persistent memory of personal moments, not just learning data.
- * This includes:
- * - Relationship moments (rapport building, personal stories)
- * - Role reversal (when founder/student teaches Daniela something)
- * - Humor shared (jokes, funny moments)
- * - Explicit [REMEMBER] commands for things Daniela should not forget
- * - Session summaries capturing key non-learning moments
+ * Two-tier memory architecture:
  * 
- * These memories are injected into Daniela's prompts via getPersonalMemoryContext()
+ * TIER 1: Daniela's Growth Memories (PERSISTENT)
+ * - Stored in danielaGrowthMemories table
+ * - Her own learning journey (jokes learned, timing insights, teaching techniques)
+ * - Never expires - these become part of who she is
+ * - Can be committed to neural network
+ * 
+ * TIER 2: Student Pattern Data (DECAYING)
+ * - Stored in hiveSnapshots table with expiresAt set
+ * - Observations about individual students (humor preferences, learning styles)
+ * - Decays over time (default 30 days)
+ * - Provides context but doesn't define Daniela
+ * 
+ * This service handles Tier 2 (student patterns) while memory-insight-extraction-service
+ * handles extracting Tier 1 (growth memories) from these observations.
  */
 
 import { db } from "../db";
 import { hiveSnapshots } from "@shared/schema";
 import type { HiveSnapshotType, InsertHiveSnapshot } from "@shared/schema";
-import { desc, eq, or, isNull, gte, and, sql } from "drizzle-orm";
+import { desc, eq, or, isNull, gte, and, sql, lte } from "drizzle-orm";
 import { callGemini, GEMINI_MODELS } from "../gemini-utils";
+
+// Decay configuration for student pattern data (Tier 2)
+const STUDENT_PATTERN_TTL_DAYS = 30; // Student patterns decay after 30 days
+const FOUNDER_MEMORY_TTL_DAYS = 90; // Founder interactions last longer (90 days)
+const HIGH_IMPORTANCE_TTL_DAYS = 60; // High importance (8+) gets extended TTL
 
 // Memory types for personal moments
 export type PersonalMemoryType = 'relationship_moment' | 'role_reversal' | 'humor_shared';
@@ -54,10 +66,42 @@ export interface SessionSummary {
 class DanielaMemoryService {
   
   /**
-   * Capture a personal memory moment
+   * Calculate expiration date for student pattern data
+   * Higher importance memories and founder interactions get longer TTL
    */
-  async capturePersonalMemory(memory: PersonalMemory): Promise<string | null> {
+  private calculateExpiresAt(memory: PersonalMemory, isFounderInteraction: boolean = false): Date {
+    const now = new Date();
+    
+    // Determine base TTL in days
+    let ttlDays = STUDENT_PATTERN_TTL_DAYS;
+    
+    // Founder interactions get extended TTL
+    if (isFounderInteraction) {
+      ttlDays = FOUNDER_MEMORY_TTL_DAYS;
+    }
+    
+    // High importance (8+) gets extended TTL
+    if (memory.importance >= 8) {
+      ttlDays = Math.max(ttlDays, HIGH_IMPORTANCE_TTL_DAYS);
+    }
+    
+    // Role reversals are special - they're Daniela learning, so longer TTL
+    if (memory.type === 'role_reversal') {
+      ttlDays = FOUNDER_MEMORY_TTL_DAYS; // Extended TTL for learning moments
+    }
+    
+    return new Date(now.getTime() + ttlDays * 24 * 60 * 60 * 1000);
+  }
+  
+  /**
+   * Capture a personal memory moment (Tier 2 - student pattern data with TTL)
+   * Note: This creates decaying snapshots. The memory-insight-extraction-service
+   * may later extract permanent growth memories (Tier 1) from these snapshots.
+   */
+  async capturePersonalMemory(memory: PersonalMemory, isFounderInteraction: boolean = false): Promise<string | null> {
     try {
+      const expiresAt = this.calculateExpiresAt(memory, isFounderInteraction);
+      
       const result = await db.insert(hiveSnapshots).values({
         snapshotType: memory.type as HiveSnapshotType,
         title: memory.title,
@@ -67,17 +111,49 @@ class DanielaMemoryService {
         userId: memory.userId,
         language: memory.language,
         sessionId: memory.sessionId,
+        expiresAt, // Set TTL for decay
         metadata: {
           memoryType: 'personal',
+          tier: 'student_pattern', // Tier 2
           capturedAt: new Date().toISOString(),
+          isFounderInteraction,
         },
       }).returning({ id: hiveSnapshots.id });
       
-      console.log(`[Daniela Memory] Captured ${memory.type}: "${memory.title}"`);
+      const ttlDays = Math.round((expiresAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+      console.log(`[Daniela Memory] Captured ${memory.type}: "${memory.title}" (TTL: ${ttlDays} days)`);
       return result[0]?.id || null;
     } catch (err: any) {
       console.error(`[Daniela Memory] Failed to capture memory: ${err.message}`);
       return null;
+    }
+  }
+  
+  /**
+   * Clean up expired student pattern snapshots
+   * Should be run periodically (e.g., nightly job)
+   */
+  async cleanupExpiredPatterns(): Promise<number> {
+    try {
+      const now = new Date();
+      const result = await db
+        .delete(hiveSnapshots)
+        .where(
+          and(
+            lte(hiveSnapshots.expiresAt, now),
+            sql`${hiveSnapshots.metadata}->>'tier' = 'student_pattern'`
+          )
+        )
+        .returning({ id: hiveSnapshots.id });
+      
+      if (result.length > 0) {
+        console.log(`[Daniela Memory] Cleaned up ${result.length} expired student patterns`);
+      }
+      
+      return result.length;
+    } catch (err: any) {
+      console.error(`[Daniela Memory] Failed to cleanup expired patterns: ${err.message}`);
+      return 0;
     }
   }
   
@@ -182,7 +258,7 @@ class DanielaMemoryService {
         userId: context.userId,
         sessionId: context.sessionId,
         language: context.language,
-      });
+      }, true); // isFounderInteraction = true (extended TTL)
       return true;
     }
     

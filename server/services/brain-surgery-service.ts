@@ -23,6 +23,7 @@ import type { AgentCollaborationEvent, InsertAgentCollaborationEvent, HiveSnapsh
 import { getGeminiStreamingService, type SentenceChunk } from "./gemini-streaming";
 import { editorPersonaService } from "./editor-persona-service";
 import { danielaMemoryService } from "./daniela-memory-service";
+import { memoryInsightExtractionService } from "./memory-insight-extraction-service";
 import { db } from "../db";
 import { desc, gte, or, isNull } from "drizzle-orm";
 
@@ -739,13 +740,18 @@ export async function editorToDanielaEnhanced(
   threadId?: string,
   options?: { includeTeachingContext?: boolean }
 ): Promise<BrainSurgeryMessage> {
-  // Optionally inject recent teaching context
+  // Optionally inject context from all memory tiers
   let enhancedMessage = message;
   if (options?.includeTeachingContext) {
-    const teachingContext = await getRecentTeachingContext();
+    // Tier 1: Daniela's permanent growth memories (what she's learned about being a better teacher)
+    const growthContext = await memoryInsightExtractionService.getDanielaGrowthContext();
+    // Tier 2: Student pattern data (decaying observations about individuals)
     const personalContext = await danielaMemoryService.getPersonalMemoryContext();
-    if (teachingContext || personalContext) {
-      enhancedMessage = message + (teachingContext || '') + (personalContext || '');
+    // Teaching context from hive snapshots
+    const teachingContext = await getRecentTeachingContext();
+    
+    if (growthContext || personalContext || teachingContext) {
+      enhancedMessage = message + (growthContext || '') + (personalContext || '') + (teachingContext || '');
     }
   }
   
@@ -885,13 +891,18 @@ export async function editorToDanielaStreaming(
   
   console.log(`[Brain Surgery Streaming] Editor → Daniela: ${message.substring(0, 100)}...`);
   
-  // Optionally inject teaching and personal memory context
+  // Optionally inject context from all memory tiers
   let enhancedMessage = message;
   if (options?.includeTeachingContext) {
-    const teachingContext = await getRecentTeachingContext();
+    // Tier 1: Daniela's permanent growth memories (what she's learned about being a better teacher)
+    const growthContext = await memoryInsightExtractionService.getDanielaGrowthContext();
+    // Tier 2: Student pattern data (decaying observations about individuals)
     const personalContext = await danielaMemoryService.getPersonalMemoryContext();
-    if (teachingContext || personalContext) {
-      enhancedMessage = message + (teachingContext || '') + (personalContext || '');
+    // Teaching context from hive snapshots
+    const teachingContext = await getRecentTeachingContext();
+    
+    if (growthContext || personalContext || teachingContext) {
+      enhancedMessage = message + (growthContext || '') + (personalContext || '') + (teachingContext || '');
     }
   }
   
