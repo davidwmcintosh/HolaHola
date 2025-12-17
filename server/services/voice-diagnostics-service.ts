@@ -13,8 +13,41 @@
  * - Service degradation detection
  * - Cross-session pattern correlation
  * 
+ * TTS ARCHITECTURE:
+ * ================
+ * - DANIELA: Uses Cartesia streaming directly (cartesia-streaming.ts)
+ *   → NEVER falls back to Google TTS
+ *   → Her voice identity is tied to Cartesia's Sonic-3 model
+ * 
+ * - ARIS (Assistant Tutor): Uses Google Cloud TTS (drill-audio-service.ts)
+ *   → Consistent, high-quality pronunciation for drills
+ *   → Different voice identity from Daniela
+ * 
+ * - SUPPORT: Uses Google Cloud TTS
+ *   → Separate from teaching voices
+ * 
+ * The auto-remediation fallback (shouldUseFallback) is DISABLED for Daniela
+ * to preserve her unique voice identity. The detection logic remains active
+ * for monitoring purposes and potential future use with other voice contexts.
+ * 
  * All endpoints are founder-protected for security.
  */
+
+/**
+ * TTS Fallback Configuration
+ * 
+ * DISABLED: Daniela's voice never falls back to Google TTS.
+ * Her voice identity is tied to Cartesia's Sonic-3 model.
+ * 
+ * The detection logic (isTTSDegraded) still runs to:
+ * - Surface degradation in Wren insights
+ * - Alert founders to Cartesia issues
+ * - Inject awareness into Daniela's context
+ * 
+ * Set to true ONLY if you want to enable automatic TTS provider switching.
+ * This would change Daniela's voice mid-session - not recommended.
+ */
+export const DANIELA_TTS_FALLBACK_ENABLED = false;
 
 import { db } from "../db";
 import { hiveSnapshots } from "@shared/schema";
@@ -476,9 +509,21 @@ class VoiceDiagnosticsService {
   
   /**
    * Check if TTS (Cartesia) is currently degraded based on recent events
-   * Used for auto-remediation - suggests using Google TTS fallback
    * 
-   * Criteria:
+   * SCOPE: This method monitors Daniela's voice pipeline (Cartesia streaming).
+   * It does NOT affect Aris or Support - they use Google TTS directly via
+   * drill-audio-service.ts and have their own error handling.
+   * 
+   * FALLBACK CONTROL: shouldUseFallback is controlled by DANIELA_TTS_FALLBACK_ENABLED.
+   * When disabled (default), this method still detects degradation for monitoring
+   * but will NOT recommend fallback - preserving Daniela's Cartesia voice identity.
+   * 
+   * The detection runs for:
+   * - Surfacing degradation in Wren insights (nightly pattern analysis)
+   * - Alerting founders to Cartesia issues
+   * - Injecting awareness into Daniela's context
+   * 
+   * Criteria for degradation detection:
    * - >30% TTS failure rate in last 10 TTS events
    * - OR average TTS latency >2000ms in last 10 events
    */
@@ -488,35 +533,32 @@ class VoiceDiagnosticsService {
       .slice(-10); // Last 10 TTS events
     
     if (recentTTSEvents.length < 3) {
-      // Not enough data to determine
       return { degraded: false, shouldUseFallback: false };
     }
     
     const failures = recentTTSEvents.filter(e => e.status === 'fail').length;
     const failureRate = failures / recentTTSEvents.length;
     
-    // Calculate average latency for successful events
     const successfulEvents = recentTTSEvents.filter(e => e.status === 'success' && e.durationMs);
     const avgLatency = successfulEvents.length > 0
       ? successfulEvents.reduce((sum, e) => sum + (e.durationMs || 0), 0) / successfulEvents.length
       : 0;
     
-    // Check degradation criteria
     if (failureRate > 0.3) {
-      console.log(`[Voice Diagnostics] TTS DEGRADED: ${(failureRate * 100).toFixed(0)}% failure rate`);
+      console.log(`[Voice Diagnostics] TTS DEGRADED: ${(failureRate * 100).toFixed(0)}% failure rate (fallback ${DANIELA_TTS_FALLBACK_ENABLED ? 'ENABLED' : 'DISABLED'})`);
       return {
         degraded: true,
         reason: `High TTS failure rate: ${(failureRate * 100).toFixed(0)}% (${failures}/${recentTTSEvents.length} events)`,
-        shouldUseFallback: true,
+        shouldUseFallback: DANIELA_TTS_FALLBACK_ENABLED,
       };
     }
     
     if (avgLatency > 2000) {
-      console.log(`[Voice Diagnostics] TTS DEGRADED: ${avgLatency.toFixed(0)}ms average latency`);
+      console.log(`[Voice Diagnostics] TTS DEGRADED: ${avgLatency.toFixed(0)}ms average latency (fallback ${DANIELA_TTS_FALLBACK_ENABLED ? 'ENABLED' : 'DISABLED'})`);
       return {
         degraded: true,
         reason: `High TTS latency: ${avgLatency.toFixed(0)}ms average`,
-        shouldUseFallback: true,
+        shouldUseFallback: DANIELA_TTS_FALLBACK_ENABLED,
       };
     }
     

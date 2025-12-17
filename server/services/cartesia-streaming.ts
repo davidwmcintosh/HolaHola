@@ -1,6 +1,18 @@
 /**
  * Cartesia WebSocket Streaming Service
  * 
+ * ╔═══════════════════════════════════════════════════════════════════╗
+ * ║  DANIELA'S DEDICATED TTS SERVICE - NO GOOGLE FALLBACK            ║
+ * ╠═══════════════════════════════════════════════════════════════════╣
+ * ║  This service is used EXCLUSIVELY for Daniela's voice.           ║
+ * ║  Her voice identity is tied to Cartesia's Sonic-3 model.         ║
+ * ║  There is NO fallback to Google TTS - by design.                 ║
+ * ║                                                                   ║
+ * ║  If Cartesia is degraded, Daniela's voice may have issues,       ║
+ * ║  but she will NOT switch to a different voice provider.          ║
+ * ║  Voice diagnostics will detect and alert on degradation.         ║
+ * ╚═══════════════════════════════════════════════════════════════════╝
+ * 
  * Architecture: Connects to Cartesia's WebSocket API for real-time TTS streaming
  * with word-level timestamps for synchronized subtitles.
  * 
