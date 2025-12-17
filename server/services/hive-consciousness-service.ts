@@ -402,6 +402,32 @@ Respond naturally as Daniela:
       return;
     }
     
+    // Clean up expired pending insights periodically
+    this.cleanupExpiredInsights();
+    
+    // Check for pending insight confirmation/rejection FIRST
+    const pendingInsight = this.pendingInsights.get(sessionId);
+    if (pendingInsight && message.role === 'founder') {
+      if (this.isInsightConfirmation(message.content)) {
+        // Founder confirmed the insight
+        this.pendingInsights.delete(sessionId);
+        await this.handleInsightConfirmation(sessionId, pendingInsight);
+        return;
+      } else if (this.isInsightRejection(message.content)) {
+        // Founder rejected the insight
+        this.pendingInsights.delete(sessionId);
+        await founderCollabService.addMessage(sessionId, {
+          role: 'wren',
+          content: `No problem, skipping that one.`,
+          messageType: 'text',
+          metadata: { insightSkipped: true, timestamp: new Date().toISOString() },
+        });
+        return;
+      }
+      // If neither confirm nor reject, the pending insight expires naturally
+      // and we continue with normal processing
+    }
+    
     // Check for explicit @sync command - must be standalone command at start
     // Matches: "@sync", "@sync now", "sync please" at the start (not "async" or "in sync")
     if (/^@?sync(\s|$)/i.test(message.content.trim())) {
@@ -438,6 +464,34 @@ Respond naturally as Daniela:
         // Neither - but log it so we can see what was skipped
         console.log(`[Hive Consciousness] No response needed: ${decision.reason}`);
       }
+      
+      // AI-POWERED INSIGHT DETECTION (async, non-blocking)
+      // Only check founder messages that are substantial enough
+      if (message.role === 'founder' && message.content.length > 50) {
+        // Rate limit: don't check every message
+        const lastCheck = this.lastInsightCheck.get(sessionId) || 0;
+        const now = Date.now();
+        
+        if (now - lastCheck > this.INSIGHT_CHECK_COOLDOWN_MS) {
+          this.lastInsightCheck.set(sessionId, now);
+          
+          // Run insight detection in background (don't await to avoid blocking)
+          this.detectInsightInMessage(message).then(async (result) => {
+            if (result.hasInsight && result.insight && result.category && (result.confidence || 0) >= 0.7) {
+              // High-confidence insight detected - prompt for confirmation
+              await this.promptInsightConfirmation(sessionId, {
+                insight: result.insight,
+                category: result.category,
+                originalMessage: message.content,
+              });
+            } else if (result.hasInsight) {
+              console.log(`[Hive Consciousness] Low-confidence insight skipped: ${result.confidence}`);
+            }
+          }).catch(err => {
+            console.error('[Hive Consciousness] Background insight detection failed:', err.message);
+          });
+        }
+      }
     } catch (error) {
       console.error('[Hive Consciousness] Error processing message:', error);
     } finally {
@@ -449,6 +503,18 @@ Respond naturally as Daniela:
   // Sync cooldown: prevent rapid repeated syncs (5 minute cooldown)
   private lastSyncTime: number = 0;
   private readonly SYNC_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
+  
+  // Insight detection: track pending insights awaiting confirmation
+  private pendingInsights: Map<string, {
+    sessionId: string;
+    insight: string;
+    category: string;
+    originalMessage: string;
+    timestamp: number;
+  }> = new Map();
+  private lastInsightCheck: Map<string, number> = new Map(); // Per-session cooldown
+  private readonly INSIGHT_CHECK_COOLDOWN_MS = 30 * 1000; // 30 seconds between insight checks per session
+  private readonly INSIGHT_EXPIRY_MS = 5 * 60 * 1000; // Pending insights expire after 5 minutes
   
   /**
    * Handle @sync command - trigger on-demand memory sync between environments
@@ -506,10 +572,7 @@ Respond naturally as Daniela:
       let responseContent: string;
       if (result.success) {
         responseContent = `Memory sync complete.\n\n` +
-          `- **Synced items**: ${result.syncedCount || 0}\n` +
-          `- **Best practices**: ${result.details?.bestPractices || 0} promoted\n` +
-          `- **Wren insights**: ${result.details?.wrenInsights || 0} shared\n` +
-          `- **Tutor procedures**: ${result.details?.tutorProcedures || 0} synced\n\n` +
+          `- **Synced items**: ${result.syncedCount || 0}\n\n` +
           `Both Daniela and I now have the latest shared knowledge.`;
       } else {
         responseContent = `Sync encountered an issue: ${result.error || 'Unknown error'}\n\n` +
@@ -538,6 +601,195 @@ Respond naturally as Daniela:
         messageType: 'text',
         metadata: { syncCommand: true, syncError: error.message, timestamp: new Date().toISOString() },
       });
+    }
+  }
+  
+  /**
+   * AI-POWERED INSIGHT DETECTION
+   * Uses Gemini Flash to detect if a founder message contains insight-worthy content
+   * Returns null if no insight detected, or the extracted insight details
+   */
+  private async detectInsightInMessage(message: CollaborationMessage): Promise<{
+    hasInsight: boolean;
+    insight?: string;
+    category?: 'pattern' | 'gotcha' | 'architecture' | 'debugging' | 'decision' | 'lesson';
+    confidence?: number;
+  }> {
+    const detectionPrompt = `You are an insight detector for a development collaboration chat.
+
+Analyze this message from the founder and determine if it contains valuable insight worth remembering:
+
+MESSAGE: "${message.content}"
+
+Look for:
+- Lessons learned ("we learned that...", "turns out...", "the trick is...")
+- Patterns discovered ("always do X before Y", "this pattern works well")
+- Gotchas/warnings ("watch out for...", "don't forget to...", "this breaks if...")
+- Architecture decisions ("we decided to...", "the reason we use X is...")
+- Debugging insights ("the issue was...", "this happens because...")
+- Important decisions ("going forward we'll...", "the approach is...")
+
+DO NOT flag:
+- Simple questions
+- Status updates without learning
+- Casual conversation
+- Requests for help (until the answer comes)
+- Short acknowledgments (ok, thanks, got it)
+
+Respond with ONLY valid JSON (no markdown):
+{"hasInsight": true/false, "insight": "concise extracted insight", "category": "pattern|gotcha|architecture|debugging|decision|lesson", "confidence": 0.0-1.0}
+
+If no insight, just: {"hasInsight": false}`;
+
+    try {
+      const response = await callGemini(GEMINI_MODELS.FLASH, [
+        { role: 'user', content: detectionPrompt }
+      ]);
+      
+      const cleanResponse = response.replace(/```json\n?|\n?```/g, '').trim();
+      const result = JSON.parse(cleanResponse);
+      
+      return result;
+    } catch (error) {
+      console.error('[Hive Consciousness] Insight detection failed:', error);
+      return { hasInsight: false };
+    }
+  }
+  
+  /**
+   * Check if a message is confirming a pending insight
+   * Detects: "yes", "remember that", "save it", "confirm", etc.
+   */
+  private isInsightConfirmation(content: string): boolean {
+    const confirmPatterns = [
+      /^yes\b/i,
+      /^yep\b/i,
+      /^yeah\b/i,
+      /^confirm/i,
+      /^save (it|that|this)/i,
+      /^remember (it|that|this)/i,
+      /^store (it|that|this)/i,
+      /^do it/i,
+      /^go ahead/i,
+      /\byes,? (please|wren)\b/i,
+    ];
+    
+    return confirmPatterns.some(p => p.test(content.trim()));
+  }
+  
+  /**
+   * Check if a message is rejecting a pending insight
+   */
+  private isInsightRejection(content: string): boolean {
+    const rejectPatterns = [
+      /^no\b/i,
+      /^nope\b/i,
+      /^skip/i,
+      /^don'?t (save|remember|store)/i,
+      /^never ?mind/i,
+      /^cancel/i,
+    ];
+    
+    return rejectPatterns.some(p => p.test(content.trim()));
+  }
+  
+  /**
+   * Handle insight confirmation from founder
+   * Stores the insight and confirms to the user
+   */
+  private async handleInsightConfirmation(sessionId: string, pendingInsight: {
+    insight: string;
+    category: string;
+    originalMessage: string;
+  }): Promise<void> {
+    try {
+      // Store the insight via wrenIntelligenceService
+      await wrenIntelligenceService.createEnrichedInsight({
+        category: pendingInsight.category,
+        title: pendingInsight.insight.substring(0, 100),
+        content: pendingInsight.insight,
+        context: `Confirmed by founder from EXPRESS Lane discussion`,
+        tags: ['founder_confirmed', 'express_lane'],
+        relatedFiles: [],
+        shareWithDaniela: true,
+      });
+      
+      await founderCollabService.addMessage(sessionId, {
+        role: 'wren',
+        content: `Got it. I've stored that insight:\n\n> ${pendingInsight.insight}\n\nI'll remember this for future reference.`,
+        messageType: 'text',
+        metadata: { 
+          insightStored: true,
+          category: pendingInsight.category,
+          timestamp: new Date().toISOString() 
+        },
+      });
+      
+      console.log(`[Hive Consciousness] Insight confirmed and stored: "${pendingInsight.insight.substring(0, 50)}..."`);
+    } catch (error: any) {
+      console.error('[Hive Consciousness] Failed to store confirmed insight:', error);
+      await founderCollabService.addMessage(sessionId, {
+        role: 'wren',
+        content: `I had trouble storing that insight. I'll try to remember it anyway.`,
+        messageType: 'text',
+        metadata: { insightError: error.message, timestamp: new Date().toISOString() },
+      });
+    }
+  }
+  
+  /**
+   * Prompt founder to confirm an insight
+   */
+  private async promptInsightConfirmation(sessionId: string, insight: {
+    insight: string;
+    category: string;
+    originalMessage: string;
+  }): Promise<void> {
+    const categoryLabels: Record<string, string> = {
+      pattern: 'Pattern',
+      gotcha: 'Gotcha/Warning',
+      architecture: 'Architecture',
+      debugging: 'Debugging',
+      decision: 'Decision',
+      lesson: 'Lesson Learned',
+    };
+    
+    const categoryLabel = categoryLabels[insight.category] || insight.category;
+    
+    await founderCollabService.addMessage(sessionId, {
+      role: 'wren',
+      content: `That sounds like a useful insight. Should I remember this?\n\n> **${categoryLabel}**: ${insight.insight}\n\n_Reply "yes" to save, or just continue chatting to skip._`,
+      messageType: 'text',
+      metadata: { 
+        insightPrompt: true,
+        pendingInsight: insight,
+        timestamp: new Date().toISOString() 
+      },
+    });
+    
+    // Store as pending insight for this session
+    this.pendingInsights.set(sessionId, {
+      sessionId,
+      insight: insight.insight,
+      category: insight.category,
+      originalMessage: insight.originalMessage,
+      timestamp: Date.now(),
+    });
+    
+    console.log(`[Hive Consciousness] Prompted for insight confirmation in session ${sessionId}`);
+  }
+  
+  /**
+   * Clean up expired pending insights
+   */
+  private cleanupExpiredInsights(): void {
+    const now = Date.now();
+    const entries = Array.from(this.pendingInsights.entries());
+    for (const [sessionId, pending] of entries) {
+      if (now - pending.timestamp > this.INSIGHT_EXPIRY_MS) {
+        this.pendingInsights.delete(sessionId);
+        console.log(`[Hive Consciousness] Expired pending insight for session ${sessionId}`);
+      }
     }
   }
   
