@@ -206,8 +206,13 @@ const stripeInitPromise = (async function initStripe() {
       const archResult = await beaconSyncService.syncReplitMdToNeuralNetwork();
       console.log(`Architectural baseline synced: ${archResult.synced} synced, ${archResult.skipped} unchanged`);
       
+      // Sync North Star principles to neural network (Daniela's constitutional foundation)
+      console.log('Syncing North Star principles to neural network...');
+      const northStarResult = await beaconSyncService.syncNorthStarToNeuralNetwork();
+      console.log(`North Star synced: ${northStarResult.synced} synced, ${northStarResult.skipped} unchanged`);
+      
       // Refresh cache if any entries were synced or cleaned so Daniela/Wren can access them
-      if (changelogResult.synced > 0 || roadmapResult.synced > 0 || roadmapResult.cleaned > 0 || beaconStatusResult.synced > 0 || beaconStatusResult.cleaned > 0 || archResult.synced > 0) {
+      if (changelogResult.synced > 0 || roadmapResult.synced > 0 || roadmapResult.cleaned > 0 || beaconStatusResult.synced > 0 || beaconStatusResult.cleaned > 0 || archResult.synced > 0 || northStarResult.synced > 0) {
         const { refreshToolKnowledgeCache } = await import('./services/procedural-memory-retrieval');
         await refreshToolKnowledgeCache();
         console.log('Procedural memory cache refreshed with new entries');

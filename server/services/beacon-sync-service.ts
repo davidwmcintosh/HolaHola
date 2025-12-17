@@ -14,6 +14,7 @@ import {
   danielaBeacons, 
   toolKnowledge,
   tutorProcedures,
+  northStarPrinciples,
   type DanielaBeacon,
   type InsertToolKnowledge,
   type InsertTutorProcedure
@@ -1075,6 +1076,99 @@ class BeaconSyncService {
       console.log(`[BeaconSync] Architectural baseline sync: ${result.synced} synced, ${result.skipped} unchanged`);
     } catch (error: any) {
       console.error('[BeaconSync] Failed to sync replit.md:', error);
+      result.errors.push(error.message);
+    }
+    
+    return result;
+  }
+  
+  /**
+   * Sync North Star principles from database to neural network
+   * This gives Wren and Daniela access to the constitutional foundation
+   * through the neural network, enabling modification tracking and board review
+   * 
+   * Call this on startup to ensure North Star principles are accessible
+   */
+  async syncNorthStarToNeuralNetwork(): Promise<{
+    synced: number;
+    skipped: number;
+    errors: string[];
+  }> {
+    const result = { synced: 0, skipped: 0, errors: [] as string[] };
+    
+    try {
+      // Query all active North Star principles from database
+      const principles = await db.select()
+        .from(northStarPrinciples)
+        .where(eq(northStarPrinciples.isActive, true))
+        .orderBy(northStarPrinciples.category, northStarPrinciples.orderIndex);
+      
+      if (principles.length === 0) {
+        console.log('[BeaconSync] No North Star principles found, skipping sync');
+        return result;
+      }
+      
+      console.log(`[BeaconSync] Syncing ${principles.length} North Star principles to neural network...`);
+      
+      // Sync each principle to neural network
+      for (const principle of principles) {
+        try {
+          // Create unique toolName based on category and order
+          const categoryUpper = principle.category.toUpperCase();
+          const toolName = `NORTH_STAR_${categoryUpper}_${principle.orderIndex}`;
+          
+          // Check if already exists
+          const existing = await db.select()
+            .from(toolKnowledge)
+            .where(eq(toolKnowledge.toolName, toolName))
+            .limit(1);
+          
+          // Build the content for purpose field
+          const purposeContent = principle.principle;
+          
+          // Build syntax with category and context
+          const syntaxContent = [
+            `Category: ${principle.category}`,
+            principle.originalContext ? `Context: ${principle.originalContext}` : null
+          ].filter(Boolean).join('\n');
+          
+          if (existing.length > 0) {
+            // Update if content changed
+            if (existing[0].purpose !== purposeContent || existing[0].syntax !== syntaxContent) {
+              await db.update(toolKnowledge)
+                .set({ 
+                  purpose: purposeContent,
+                  syntax: syntaxContent
+                })
+                .where(eq(toolKnowledge.toolName, toolName));
+              result.synced++;
+            } else {
+              result.skipped++;
+            }
+          } else {
+            // Create new entry
+            await db.insert(toolKnowledge).values({
+              toolName,
+              toolType: 'north_star_principle',
+              purpose: purposeContent,
+              syntax: syntaxContent,
+              examples: null,
+              bestUsedFor: ['north_star', 'constitutional_foundation', principle.category],
+              avoidWhen: null,
+              combinesWith: null,
+              sequencePatterns: null,
+              isActive: true
+            });
+            result.synced++;
+          }
+        } catch (principleError: any) {
+          result.errors.push(`${principle.category}_${principle.orderIndex}: ${principleError.message}`);
+        }
+      }
+      
+      console.log(`[BeaconSync] North Star sync: ${result.synced} synced, ${result.skipped} unchanged`);
+    } catch (error: any) {
+      console.error('[BeaconSync] Failed to sync North Star principles:', error);
       result.errors.push(error.message);
     }
     
