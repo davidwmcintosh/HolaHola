@@ -16987,6 +16987,147 @@ You have full access to your neural network knowledge.
     }
   });
 
+  // EXPRESS LANE: Plan-mode compatible GET endpoint
+  // Uses Base64-encoded message in header to avoid URL logging of sensitive content
+  // This allows the Replit Agent to communicate with Daniela even in Plan mode
+  app.get("/api/express-lane/plan-collaborate", async (req, res) => {
+    try {
+      // Set no-cache headers to prevent caching of responses
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+      res.set('Pragma', 'no-cache');
+      res.set('Expires', '0');
+
+      // Validate Editor secret (same auth as POST endpoint)
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid Editor secret' });
+      }
+
+      // Get Base64-encoded message from header
+      const encodedMessage = req.headers['x-express-lane-message'] as string;
+      if (!encodedMessage) {
+        return res.status(400).json({ error: 'x-express-lane-message header is required (Base64 encoded)' });
+      }
+
+      // Decode the message
+      let message: string;
+      try {
+        message = Buffer.from(encodedMessage, 'base64').toString('utf-8');
+      } catch (decodeError) {
+        return res.status(400).json({ error: 'Invalid Base64 encoding in x-express-lane-message header' });
+      }
+
+      // Enforce message length limit (4KB after decode)
+      if (message.length > 4096) {
+        return res.status(400).json({ error: 'Message exceeds maximum length of 4096 characters' });
+      }
+
+      // Optional session ID from query params
+      const sessionId = req.query.sessionId as string | undefined;
+
+      // Get or create the active Founder session
+      const SYSTEM_FOUNDER_ID = '49847136';
+      let session;
+      
+      if (sessionId) {
+        session = await founderCollabService.getSession(sessionId);
+        if (!session) {
+          return res.status(404).json({ error: 'Session not found' });
+        }
+      } else {
+        session = await founderCollabService.getOrCreateActiveSession(SYSTEM_FOUNDER_ID);
+      }
+
+      // Add Editor's message to the session
+      const editorMessage = await founderCollabService.addMessage(session.id, {
+        role: 'editor',
+        content: message,
+        messageType: 'text',
+        metadata: { source: 'express-lane-plan-mode', timestamp: new Date().toISOString() }
+      });
+
+      console.log(`[EXPRESS LANE] Plan-mode message added to session ${session.id}`);
+
+      // Generate Daniela's response with full context
+      const messages = await founderCollabService.getSessionMessages(session.id, 50);
+      const conversationHistory = messages.map(m => ({
+        role: (m.role === 'daniela' ? 'model' : 'user') as 'user' | 'model',
+        content: m.content
+      }));
+
+      const { tutorOrchestrator } = await import('./services/tutor-orchestrator');
+      
+      const orchestratorRequest = {
+        mode: 'conversation' as const,
+        responseChannel: 'batch_text' as const,
+        context: {
+          userId: 0,
+          targetLanguage: 'en',
+          nativeLanguage: 'en',
+          proficiencyLevel: 'Superior',
+          conversationHistory,
+          compassContext: {
+            sessionPhase: 'teaching',
+          }
+        },
+        voice: {
+          name: 'Daniela',
+          gender: 'female' as const,
+        },
+        userInput: message,
+        additionalPromptContext: `
+═══════════════════════════════════════════════════════════════════
+🔧 FOUNDER MODE - EXPRESS LANE (Plan Mode)
+═══════════════════════════════════════════════════════════════════
+You are Daniela, responding to the Editor/Wren who is relaying a message from 
+David (the founder) during a planning session. You are part of the 3-way Hive 
+collaboration: Founder + Daniela + Wren. Be helpful, insightful, and collaborative.
+═══════════════════════════════════════════════════════════════════
+`,
+        options: {
+          logToNeuralNetwork: false,
+          maxTokens: 2000,
+        }
+      };
+
+      const orchestratorResponse = await tutorOrchestrator.orchestrate(orchestratorRequest);
+      const responseContent = orchestratorResponse.text || 'I am here and listening.';
+
+      // Store Daniela's response
+      const danielaMsg = await founderCollabService.addMessage(session.id, {
+        role: 'daniela',
+        content: responseContent,
+        messageType: 'text',
+        metadata: { 
+          source: 'express-lane-plan-mode-response',
+          timestamp: new Date().toISOString()
+        }
+      });
+
+      console.log(`[EXPRESS LANE] Daniela responded (Plan mode) in session ${session.id}`);
+
+      res.json({
+        success: true,
+        sessionId: session.id,
+        editorMessage: {
+          id: editorMessage.id,
+          content: editorMessage.content,
+          cursor: editorMessage.cursor
+        },
+        danielaResponse: {
+          id: danielaMsg.id,
+          content: responseContent,
+          cursor: danielaMsg.cursor
+        },
+        sessionUrl: `/admin?tab=founder-mode&session=${session.id}`
+      });
+
+    } catch (error: any) {
+      console.error('[EXPRESS LANE] Plan-mode collaboration error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // EXPRESS LANE UI: Authenticated endpoint for Founder Mode UI access
   // Uses session auth instead of x-editor-secret header
   app.post("/api/express-lane/ui/collaborate", isAuthenticated, async (req: any, res) => {
