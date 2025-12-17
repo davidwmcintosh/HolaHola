@@ -1,0 +1,52 @@
+
+(anonymous) @ chat-CTn9MNyi.js:19
+chat-CTn9MNyi.js:19 [MIC WARMUP] Re-warmed for next recording
+chat-CTn9MNyi.js:19 [StreamingVoice] Socket.io disconnect: io server disconnect
+chat-CTn9MNyi.js:19 [StreamingVoice] Error: {code: 'RECONNECTING', message: 'Connection lost. Reconnecting... (1/3)', recoverable: true}
+(anonymous) @ chat-CTn9MNyi.js:19
+(anonymous) @ chat-CTn9MNyi.js:19
+emit @ chat-CTn9MNyi.js:19
+handleDisconnect @ chat-CTn9MNyi.js:19
+(anonymous) @ chat-CTn9MNyi.js:19
+g.emit @ useFounderCollab-Dv8r3rw7.js:1
+onclose @ useFounderCollab-Dv8r3rw7.js:1
+ondisconnect @ useFounderCollab-Dv8r3rw7.js:1
+onpacket @ useFounderCollab-Dv8r3rw7.js:1
+g.emit @ useFounderCollab-Dv8r3rw7.js:1
+(anonymous) @ useFounderCollab-Dv8r3rw7.js:1
+Promise.then (async)
+(anonymous) @ useFounderCollab-Dv8r3rw7.js:1
+ondecoded @ useFounderCollab-Dv8r3rw7.js:1
+g.emit @ useFounderCollab-Dv8r3rw7.js:1
+add @ useFounderCollab-Dv8r3rw7.js:1
+ondata @ useFounderCollab-Dv8r3rw7.js:1
+g.emit @ useFounderCollab-Dv8r3rw7.js:1
+_onPacket @ useFounderCollab-Dv8r3rw7.js:1
+g.emit @ useFounderCollab-Dv8r3rw7.js:1
+onPacket @ useFounderCollab-Dv8r3rw7.js:1
+onData @ useFounderCollab-Dv8r3rw7.js:1
+ws.onmessage @ useFounderCollab-Dv8r3rw7.js:1
+2chat-CTn9MNyi.js:19 [STREAMING] Error: Connection lost. Reconnecting... (1/3)
+(anonymous) @ chat-CTn9MNyi.js:19
+Ma @ index-Cs1HQ9v-.js:41
+Hr @ index-Cs1HQ9v-.js:41
+(anonymous) @ index-Cs1HQ9v-.js:41
+b @ index-Cs1HQ9v-.js:26
+L @ index-Cs1HQ9v-.js:26
+chat-CTn9MNyi.js:19 [StreamingVoice] Creating Socket.io connection to /voice namespace...
+chat-CTn9MNyi.js:19 [STREAMING] Error: Connection lost. Reconnecting... (1/3)
+(anonymous) @ chat-CTn9MNyi.js:19
+Ma @ index-Cs1HQ9v-.js:41
+Hr @ index-Cs1HQ9v-.js:41
+(anonymous) @ index-Cs1HQ9v-.js:41
+b @ index-Cs1HQ9v-.js:26
+L @ index-Cs1HQ9v-.js:26
+chat-CTn9MNyi.js:19 [StreamingVoice] Socket.io connect event fired!
+chat-CTn9MNyi.js:19 [StreamingVoice] Connection complete via: connect
+chat-CTn9MNyi.js:19 [STREAMING] Error: Connection lost. Reconnecting... (1/3)
+(anonymous) @ chat-CTn9MNyi.js:19
+Ma @ index-Cs1HQ9v-.js:41
+Hr @ index-Cs1HQ9v-.js:41
+(anonymous) @ index-Cs1HQ9v-.js:41
+b @ index-Cs1HQ9v-.js:26
+L @ index-Cs1HQ9v-.js:26
