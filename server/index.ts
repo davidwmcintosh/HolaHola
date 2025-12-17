@@ -174,6 +174,16 @@ const stripeInitPromise = (async function initStripe() {
       console.error('Failed to initialize procedural memory cache:', error);
     }
     
+    // Initialize Wren's architectural memory (replit.md cache)
+    try {
+      console.log('Initializing Wren architectural memory...');
+      const { initReplitMdCache } = await import('./services/hive-consciousness-service');
+      await initReplitMdCache();
+      console.log('Wren architectural memory ready');
+    } catch (error) {
+      console.error('Failed to initialize Wren memory:', error);
+    }
+    
     // Sync build changelog to neural network (What Shipped for Daniela & Editor)
     try {
       console.log('Syncing build changelog to neural network...');

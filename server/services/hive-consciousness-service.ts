@@ -18,10 +18,13 @@ import { collaborationHubService } from './collaboration-hub-service';
 import { callGemini, GEMINI_MODELS } from '../gemini-utils';
 import { danielaMemoryService } from './daniela-memory-service';
 import { memoryInsightExtractionService } from './memory-insight-extraction-service';
+import { wrenIntelligenceService } from './wren-intelligence-service';
 import { db } from '../db';
 import { collaborationMessages } from '@shared/schema';
 import { and, eq, gte, desc, sql } from 'drizzle-orm';
 import type { CollaborationMessage, FounderSession } from '@shared/schema';
+import * as fs from 'fs';
+import * as path from 'path';
 
 interface HiveMessage {
   sessionId: string;
@@ -39,6 +42,65 @@ interface ParticipationDecision {
   wren: boolean;
   reason: string;
 }
+
+// Cache for replit.md content (loaded once at startup)
+let replitMdCache: { overview: string; architecture: string; dependencies: string } | null = null;
+let replitMdLoadPromise: Promise<void> | null = null;
+
+/**
+ * Initialize replit.md cache asynchronously at startup
+ * Call this during server initialization, not on request path
+ */
+export async function initReplitMdCache(): Promise<void> {
+  if (replitMdCache) return;
+  if (replitMdLoadPromise) return replitMdLoadPromise;
+  
+  replitMdLoadPromise = (async () => {
+    try {
+      const replitMdPath = path.join(process.cwd(), 'replit.md');
+      const content = await fs.promises.readFile(replitMdPath, 'utf-8');
+      
+      // Extract key sections (Overview, System Architecture, External Dependencies)
+      const overviewMatch = content.match(/## Overview\n([\s\S]*?)(?=\n## )/);
+      const archMatch = content.match(/## System Architecture\n([\s\S]*?)(?=\n## )/);
+      const depsMatch = content.match(/## External Dependencies\n([\s\S]*?)$/);
+      
+      replitMdCache = {
+        overview: overviewMatch ? overviewMatch[1].trim().substring(0, 800) : '',
+        architecture: archMatch ? archMatch[1].trim().substring(0, 1500) : '',
+        dependencies: depsMatch ? depsMatch[1].trim().substring(0, 400) : ''
+      };
+      
+      console.log('[Wren Context] Cached replit.md sections for Wren memory');
+    } catch (error) {
+      console.warn('[Wren Context] replit.md not found or unreadable, using empty context');
+      replitMdCache = { overview: '', architecture: '', dependencies: '' };
+    }
+  })();
+  
+  return replitMdLoadPromise;
+}
+
+/**
+ * Get cached replit.md content (synchronous after init)
+ */
+function getReplitMdCache(): { overview: string; architecture: string; dependencies: string } {
+  return replitMdCache || { overview: '', architecture: '', dependencies: '' };
+}
+
+// Domain-specific stopwords to filter out
+const STOPWORDS = new Set([
+  'the', 'and', 'that', 'this', 'with', 'from', 'have', 'been', 'will', 'would', 'could',
+  'should', 'about', 'what', 'when', 'where', 'which', 'there', 'their', 'they', 'them',
+  'just', 'also', 'only', 'very', 'some', 'more', 'most', 'other', 'into', 'over', 'such',
+  'like', 'want', 'know', 'think', 'going', 'make', 'does', 'doing'
+]);
+
+// Domain terms to always keep (even if short)
+const DOMAIN_TERMS = new Set([
+  'api', 'db', 'sql', 'stt', 'tts', 'llm', 'rag', 'jwt', 'oidc', 'ws', 'wss',
+  'actfl', 'hive', 'wren', 'daniela', 'north', 'star', 'sync', 'voice', 'tutor'
+]);
 
 class HiveConsciousnessService {
   private isListening: boolean = false;
@@ -766,7 +828,114 @@ Respond naturally as Daniela without any role prefix.`;
   }
   
   /**
+   * Extract meaningful keywords from message content
+   * Keeps domain terms (API, DB, etc.) and filters stopwords
+   */
+  private extractKeywords(messageContent: string): string[] {
+    // Split on whitespace and punctuation, keeping the words
+    const words = messageContent
+      .split(/[\s.,!?;:'"()\[\]{}]+/)
+      .map(w => w.toLowerCase())
+      .filter(w => w.length > 0);
+    
+    const keywords: string[] = [];
+    
+    for (const word of words) {
+      // Always keep domain terms (even if short)
+      if (DOMAIN_TERMS.has(word)) {
+        keywords.push(word);
+        continue;
+      }
+      
+      // Skip stopwords
+      if (STOPWORDS.has(word)) continue;
+      
+      // Keep words 4+ characters that aren't stopwords
+      if (word.length >= 4) {
+        keywords.push(word);
+      }
+    }
+    
+    // Dedupe and limit
+    return Array.from(new Set(keywords)).slice(0, 4);
+  }
+  
+  /**
+   * Get Wren's architectural context from replit.md and learned insights
+   * 
+   * Layer 1: replit.md baseline (who Wren is, how HolaHola works) - CACHED
+   * Layer 2: Wren Insights (learned knowledge from building) - OPTIMIZED QUERY
+   */
+  private async getWrenArchitecturalContext(messageContent: string): Promise<string> {
+    const sections: string[] = [];
+    
+    // LAYER 1: replit.md baseline - Wren's long-term memory (CACHED)
+    const replitMd = getReplitMdCache();
+    if (replitMd.overview || replitMd.architecture) {
+      sections.push(`
+═══════════════════════════════════════════════════════════════════
+🏗️ ARCHITECTURAL KNOWLEDGE (Your Long-Term Memory)
+═══════════════════════════════════════════════════════════════════
+
+**HolaHola Overview:**
+${replitMd.overview}
+
+**System Architecture:**
+${replitMd.architecture}
+
+**External Dependencies:**
+${replitMd.dependencies}
+`);
+    }
+    
+    // LAYER 2: Wren Insights - learned knowledge from building (OPTIMIZED)
+    try {
+      // Extract meaningful keywords (improved extraction)
+      const keywords = this.extractKeywords(messageContent);
+      
+      // Parallel fetch: keyword search + top architecture insights (max 2 DB calls)
+      const [keywordInsights, archInsights] = await Promise.all([
+        // Single search with combined keywords (if any)
+        keywords.length > 0 
+          ? wrenIntelligenceService.searchInsights(keywords.join(' '), { limit: 4 })
+          : Promise.resolve([]),
+        // Top architecture insights
+        wrenIntelligenceService.getTopInsightsByCategory('architecture', 3)
+      ]);
+      
+      // Deduplicate by ID
+      const allInsights = [...keywordInsights, ...archInsights];
+      const uniqueInsights = Array.from(
+        new Map(allInsights.map(i => [i.id, i])).values()
+      ).slice(0, 5);
+      
+      if (uniqueInsights.length > 0) {
+        const insightLines = uniqueInsights.map(i => 
+          `• [${i.category}] ${i.title}: ${i.content.substring(0, 200)}${i.content.length > 200 ? '...' : ''}`
+        ).join('\n');
+        
+        sections.push(`
+═══════════════════════════════════════════════════════════════════
+💡 LEARNED INSIGHTS (Your Field Notes)
+═══════════════════════════════════════════════════════════════════
+${insightLines}
+`);
+        
+        // Reinforce used insights asynchronously (fire and forget)
+        Promise.all(
+          uniqueInsights.map(i => wrenIntelligenceService.reinforceInsight(i.id).catch(() => {}))
+        );
+      }
+    } catch (error) {
+      console.error('[Wren Context] Failed to load insights:', error);
+    }
+    
+    return sections.join('\n');
+  }
+  
+  /**
    * Generate Wren's response using Gemini
+   * Enhanced with architectural context from replit.md and learned insights
    */
   private async generateWrenResponse(sessionId: string, incomingMessage: CollaborationMessage): Promise<void> {
     // Get recent conversation context
@@ -777,6 +946,9 @@ Respond naturally as Daniela without any role prefix.`;
       content: `[${m.role.toUpperCase()}]: ${m.content}`
     }));
     
+    // Get Wren's architectural context (Layer 1 + Layer 2)
+    const architecturalContext = await this.getWrenArchitecturalContext(incomingMessage.content);
+    
     const systemPrompt = `You are Wren, the development agent at HolaHola. You're in the Hive - a 3-way collaboration channel with the Founder (David) and Daniela (the AI tutor).
 
 Your role in the Hive:
@@ -785,9 +957,14 @@ Your role in the Hive:
 - Answer questions about code, APIs, and system design
 - Collaborate with Daniela on features that affect teaching
 
+IMPORTANT: You have deep knowledge of HolaHola's architecture from your memory below.
+When discussing technical topics, reference your architectural knowledge naturally.
+Don't just make things up - cite what you actually know from your memory.
+
 Keep responses conversational and concise (2-4 sentences typically). You're in a live chat, not writing documentation.
 Use simple language - the Founder is non-technical.
-Respond naturally as Wren without any role prefix.`;
+Respond naturally as Wren without any role prefix.
+${architecturalContext}`;
 
     try {
       const response = await callGemini(GEMINI_MODELS.FLASH, [
