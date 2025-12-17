@@ -1699,7 +1699,9 @@ Remember: David may reference things discussed in these recent text chats.
       session.isGenerating = false;
       console.error(`[Streaming Orchestrator] Error:`, error.message);
       this.sendError(session.ws, 'UNKNOWN', error.message, true);
-      throw error;
+      // Return metrics instead of throwing to prevent socket disconnect
+      // The error message has already been sent to the client
+      return metrics;
     }
   }
   
@@ -1909,7 +1911,8 @@ Remember: David may reference things discussed in these recent text chats.
       session.isGenerating = false;
       console.error(`[Streaming Orchestrator] Open mic error:`, error.message);
       this.sendError(session.ws, 'UNKNOWN', error.message, true);
-      throw error;
+      // Return metrics instead of throwing to prevent socket disconnect
+      return metrics;
     }
   }
   

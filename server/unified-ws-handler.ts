@@ -1958,24 +1958,31 @@ This is a voice conversation. Speak naturally, as you would.`;
             audioBuffer = Buffer.from(audioMessage.audio);
           }
           
-          const metrics = await orchestrator.processUserAudio(session.id, audioBuffer, audioMessage.format || 'webm');
-          
-          // Save messages to database
-          if (metrics.userTranscript && metrics.aiResponse && conversationId) {
-            try {
-              await storage.createMessage({
-                conversationId: conversationId,
-                role: 'user',
-                content: metrics.userTranscript,
-              });
-              await storage.createMessage({
-                conversationId: conversationId,
-                role: 'assistant',
-                content: metrics.aiResponse,
-              });
-            } catch (err: any) {
-              console.error('[Streaming Voice] Failed to save messages:', err.message);
+          // Wrap in try/catch to prevent STT/AI errors from disconnecting the session
+          // Errors like EMPTY_TRANSCRIPT are recoverable and shouldn't close the socket
+          try {
+            const metrics = await orchestrator.processUserAudio(session.id, audioBuffer, audioMessage.format || 'webm');
+            
+            // Save messages to database
+            if (metrics.userTranscript && metrics.aiResponse && conversationId) {
+              try {
+                await storage.createMessage({
+                  conversationId: conversationId,
+                  role: 'user',
+                  content: metrics.userTranscript,
+                });
+                await storage.createMessage({
+                  conversationId: conversationId,
+                  role: 'assistant',
+                  content: metrics.aiResponse,
+                });
+              } catch (err: any) {
+                console.error('[Streaming Voice] Failed to save messages:', err.message);
+              }
             }
+          } catch (audioError: any) {
+            // Log but don't disconnect - the orchestrator already sent an error message to the client
+            console.error('[Streaming Voice] Audio processing error (recoverable):', audioError.message);
           }
           break;
         }

@@ -394,7 +394,14 @@ export function setupStreamingVoiceProxy(server: Server) {
               audioBuffer = Buffer.from(audioMessage.audio);
             }
 
-            await orchestrator.processUserAudio(session.id, audioBuffer, audioMessage.format || 'webm');
+            // Wrap in try/catch to prevent STT/AI errors from disconnecting the session
+            // Errors like EMPTY_TRANSCRIPT are recoverable and shouldn't close the socket
+            try {
+              await orchestrator.processUserAudio(session.id, audioBuffer, audioMessage.format || 'webm');
+            } catch (audioError: any) {
+              // Log but don't disconnect - the orchestrator already sent an error message to the client
+              console.error('[Streaming Voice] Audio processing error (recoverable):', audioError.message);
+            }
             break;
           }
 

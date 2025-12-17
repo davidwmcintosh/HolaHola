@@ -117,7 +117,12 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
         }
         if (session) {
           console.log(`[Streaming Voice] Received ${data.length} bytes of audio`);
-          await orchestrator.processUserAudio(session.id, data, 'webm');
+          // Wrap in try/catch to prevent STT/AI errors from disconnecting the session
+          try {
+            await orchestrator.processUserAudio(session.id, data, 'webm');
+          } catch (audioError: any) {
+            console.error('[Streaming Voice] Audio processing error (recoverable):', audioError.message);
+          }
         }
         return;
       }
@@ -264,7 +269,12 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
             audioBuffer = Buffer.from(audioMessage.audio);
           }
 
-          await orchestrator.processUserAudio(session.id, audioBuffer, audioMessage.format || 'webm');
+          // Wrap in try/catch to prevent STT/AI errors from disconnecting the session
+          try {
+            await orchestrator.processUserAudio(session.id, audioBuffer, audioMessage.format || 'webm');
+          } catch (audioError: any) {
+            console.error('[Streaming Voice] Audio processing error (recoverable):', audioError.message);
+          }
           break;
         }
 
