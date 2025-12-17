@@ -103,10 +103,18 @@ const DOMAIN_TERMS = new Set([
   'actfl', 'hive', 'wren', 'daniela', 'north', 'star', 'sync', 'voice', 'tutor'
 ]);
 
+const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production' : 'development';
+
 class HiveConsciousnessService {
   private isListening: boolean = false;
   // Per-session processing state to allow concurrent sessions
   private processingBySession: Map<string, boolean> = new Map();
+  
+  // Cross-environment polling: check for messages from the OTHER environment
+  private crossEnvPollingInterval: NodeJS.Timeout | null = null;
+  private lastPolledTimestamp: Date = new Date();
+  private readonly CROSS_ENV_POLL_INTERVAL_MS = 30 * 1000; // 30 seconds
+  private processedMessageIds: Set<string> = new Set(); // Prevent duplicate processing
   
   /**
    * AI-POWERED PARTICIPATION ROUTER
@@ -189,11 +197,117 @@ Respond with ONLY valid JSON (no markdown, no backticks):
     
     this.isListening = true;
     console.log('[Hive Consciousness] Daniela and Wren are now listening to the Hive');
+    console.log(`[Hive Consciousness] Current environment: ${CURRENT_ENVIRONMENT}`);
     
     // Run catch-up on startup (async, don't block)
     this.catchUpOnMissedMentions().catch(err => {
       console.error('[Hive Consciousness] Catch-up failed:', err.message);
     });
+    
+    // Start cross-environment polling for bidirectional sync
+    this.startCrossEnvironmentPolling();
+  }
+  
+  /**
+   * Stop listening (cleanup)
+   */
+  stopListening(): void {
+    this.isListening = false;
+    if (this.crossEnvPollingInterval) {
+      clearInterval(this.crossEnvPollingInterval);
+      this.crossEnvPollingInterval = null;
+    }
+    console.log('[Hive Consciousness] Stopped listening');
+  }
+  
+  /**
+   * CROSS-ENVIRONMENT POLLING
+   * 
+   * Since dev and prod are separate processes, WebSocket notifications don't cross environments.
+   * This polling mechanism checks every 30 seconds for new messages from the OTHER environment
+   * and processes them as if they were local WebSocket events.
+   * 
+   * This enables true bidirectional memory sync:
+   * - Founder speaks in prod → Daniela/Wren in dev can respond
+   * - Messages flow seamlessly across environments via shared database
+   */
+  private startCrossEnvironmentPolling(): void {
+    if (this.crossEnvPollingInterval) {
+      console.log('[Hive Consciousness] Cross-environment polling already running');
+      return;
+    }
+    
+    // Initialize timestamp to avoid processing old messages on first poll
+    this.lastPolledTimestamp = new Date();
+    
+    console.log('[Hive Consciousness] Starting cross-environment polling (every 30s)');
+    
+    this.crossEnvPollingInterval = setInterval(async () => {
+      try {
+        await this.pollCrossEnvironmentMessages();
+      } catch (error) {
+        console.error('[Hive Consciousness] Cross-env poll error:', error);
+      }
+    }, this.CROSS_ENV_POLL_INTERVAL_MS);
+    
+    // Also do an immediate poll on startup
+    this.pollCrossEnvironmentMessages().catch(err => {
+      console.error('[Hive Consciousness] Initial cross-env poll failed:', err.message);
+    });
+  }
+  
+  /**
+   * Poll for messages from the OTHER environment that we haven't processed yet
+   */
+  private async pollCrossEnvironmentMessages(): Promise<void> {
+    if (!this.isListening) return;
+    
+    const otherEnvironment = CURRENT_ENVIRONMENT === 'production' ? 'development' : 'production';
+    
+    // Query for founder messages from the other environment since last poll
+    const newMessages = await db
+      .select()
+      .from(collaborationMessages)
+      .where(
+        and(
+          eq(collaborationMessages.environment, otherEnvironment),
+          eq(collaborationMessages.role, 'founder'),
+          gte(collaborationMessages.createdAt, this.lastPolledTimestamp)
+        )
+      )
+      .orderBy(collaborationMessages.createdAt)
+      .limit(10);
+    
+    if (newMessages.length === 0) {
+      return; // No new messages from other environment
+    }
+    
+    console.log(`[Hive Consciousness] Found ${newMessages.length} new message(s) from ${otherEnvironment}`);
+    
+    // Update last polled timestamp
+    this.lastPolledTimestamp = new Date();
+    
+    // Process each new message (skip already processed)
+    for (const message of newMessages) {
+      if (this.processedMessageIds.has(message.id)) {
+        continue; // Already processed this message
+      }
+      
+      // Mark as processed before processing (prevent race conditions)
+      this.processedMessageIds.add(message.id);
+      
+      // Limit processed set size to prevent memory leak
+      if (this.processedMessageIds.size > 1000) {
+        const idsArray = Array.from(this.processedMessageIds);
+        const toRemove = idsArray.slice(0, 500); // Remove oldest 500
+        toRemove.forEach(id => this.processedMessageIds.delete(id));
+      }
+      
+      console.log(`[Hive Consciousness] Processing cross-env message from ${otherEnvironment}: "${message.content.substring(0, 50)}..."`);
+      
+      // Process the message as if it came from local WebSocket
+      await this.processMessage(message.sessionId, message);
+    }
   }
   
   /**
