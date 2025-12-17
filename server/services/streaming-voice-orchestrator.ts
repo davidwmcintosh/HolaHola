@@ -2029,17 +2029,11 @@ Remember: David may reference things discussed in these recent text chats.
         language: languageCode,
         smart_format: true,
         punctuate: true,
-        mimetype: 'audio/webm',
+        mimetype: 'audio/webm;codecs=opus',  // Explicit codec for MediaRecorder output
         detect_language: true,
-        // Enable Deepgram Intelligence features for student understanding
-        ...(enableIntelligence && {
-          diarize: true,           // Speaker separation
-          sentiment: true,         // Sentiment analysis
-          intents: true,           // Intent recognition
-          detect_entities: true,   // Entity detection
-          topics: true,            // Topic detection
-          summarize: 'v2',         // Summarization (v2 for best quality)
-        }),
+        // NOTE: Intelligence features disabled - not supported on current Deepgram plan
+        // This was causing "channels: 0" errors on the prerecorded API
+        // Re-enable when upgrading: diarize, sentiment, intents, detect_entities, topics, summarize
       }
     );
     

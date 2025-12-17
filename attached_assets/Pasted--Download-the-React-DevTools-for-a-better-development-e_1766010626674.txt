@@ -1,0 +1,1624 @@
+ Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+ [APP] Screen orientation lock not available
+ [BUILD] App version: 1763747293
+ [LanguageContext] Initializing with language: spanish (from localStorage)
+ [LanguageContext] Initializing with difficulty: beginner (from localStorage)
+ [LanguageContext] Initializing with userName: David (from localStorage)
+ [LanguageContext] Initializing with subtitleMode: all (from localStorage)
+ [LanguageContext] Initializing with tutorGender: female (from localStorage)
+ [LanguageContext] Initializing with voiceSpeed: normal (from localStorage)
+ [LanguageContext] Hydrating from user preferences: Object
+ [PWA] Service Worker registered: https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/
+ Warning: Function components cannot be given refs. Attempts to access this ref will fail. Did you mean to use React.forwardRef()?
+
+Check the render method of `Primitive.button.SlotClone`.
+    at Badge (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/ui/badge.tsx:36:18)
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=eb5ed35a:79:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=eb5ed35a:56:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-Q6YJROYD.js?v=eb5ed35a:42:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=eb5ed35a:79:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=eb5ed35a:56:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-Q6YJROYD.js?v=eb5ed35a:42:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-T2HNFYQR.js?v=eb5ed35a:1931:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=eb5ed35a:200:13
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=eb5ed35a:38:15)
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=eb5ed35a:38:15)
+    at Popper (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-T2HNFYQR.js?v=eb5ed35a:1923:11)
+    at Tooltip (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=eb5ed35a:109:5)
+    at div
+    at div
+    at div
+    at Chat (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/pages/chat.tsx:40:18)
+    at Route (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=eb5ed35a:323:16)
+    at Switch (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=eb5ed35a:379:17)
+    at Suspense
+    at div
+    at PageWrapper (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/App.tsx?v=k0poRRVCoVDoPE_BEOGoG:124:24)
+    at Router (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/App.tsx?v=k0poRRVCoVDoPE_BEOGoG:161:48)
+    at main
+    at div
+    at div
+    at div
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=eb5ed35a:38:15)
+    at TooltipProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=eb5ed35a:65:5)
+    at SidebarProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/ui/sidebar.tsx:59:3)
+    at LearningFilterProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/contexts/LearningFilterContext.tsx:23:42)
+    at UsageProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/contexts/UsageContext.tsx:46:33)
+    at LanguageProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/contexts/LanguageContext.tsx:22:36)
+    at AuthenticatedApp (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/App.tsx?v=k0poRRVCoVDoPE_BEOGoG:430:29)
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=eb5ed35a:38:15)
+    at TooltipProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=eb5ed35a:65:5)
+    at QueryClientProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=eb5ed35a:2805:3)
+    at ErrorBoundary (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/ErrorBoundary.tsx:10:5)
+    at App
+printWarning @ chunk-RPCDYKBN.js?v=eb5ed35a:521
+ Warning: Function components cannot be given refs. Attempts to access this ref will fail. Did you mean to use React.forwardRef()?
+
+Check the render method of `Primitive.button.SlotClone`.
+    at Badge (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/ui/badge.tsx:36:18)
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=eb5ed35a:79:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=eb5ed35a:56:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-Q6YJROYD.js?v=eb5ed35a:42:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=eb5ed35a:79:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=eb5ed35a:56:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-Q6YJROYD.js?v=eb5ed35a:42:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-T2HNFYQR.js?v=eb5ed35a:1931:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=eb5ed35a:200:13
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=eb5ed35a:38:15)
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=eb5ed35a:38:15)
+    at Popper (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-T2HNFYQR.js?v=eb5ed35a:1923:11)
+    at Tooltip (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=eb5ed35a:109:5)
+    at CreditBalance (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/CreditBalance.tsx:24:3)
+    at div
+    at div
+    at div
+    at Chat (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/pages/chat.tsx:40:18)
+    at Route (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=eb5ed35a:323:16)
+    at Switch (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=eb5ed35a:379:17)
+    at Suspense
+    at div
+    at PageWrapper (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/App.tsx?v=k0poRRVCoVDoPE_BEOGoG:124:24)
+    at Router (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/App.tsx?v=k0poRRVCoVDoPE_BEOGoG:161:48)
+    at main
+    at div
+    at div
+    at div
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=eb5ed35a:38:15)
+    at TooltipProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=eb5ed35a:65:5)
+    at SidebarProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/ui/sidebar.tsx:59:3)
+    at LearningFilterProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/contexts/LearningFilterContext.tsx:23:42)
+    at UsageProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/contexts/UsageContext.tsx:46:33)
+    at LanguageProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/contexts/LanguageContext.tsx:22:36)
+    at AuthenticatedApp (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/App.tsx?v=k0poRRVCoVDoPE_BEOGoG:430:29)
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=eb5ed35a:38:15)
+    at TooltipProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=eb5ed35a:65:5)
+    at QueryClientProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=eb5ed35a:2805:3)
+    at ErrorBoundary (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/ErrorBoundary.tsx:10:5)
+    at App
+printWarning @ chunk-RPCDYKBN.js?v=eb5ed35a:521
+ [WHITEBOARD] Manually cleared
+chat.tsx:169 [SHARED CHAT] Checking for active voice session...
+chat.tsx:356 [SHARED CHAT] Auto-create check - waiting for active session check
+StreamingVoiceChat.tsx:966 [VOICE] TTS pre-warmed in 0ms
+chat.tsx:179 [SHARED CHAT] Found active session, resuming: 3e4e213c-8ccc-4a8f-9ab0-145501b4c26f
+StreamingVoiceChat.tsx:981 [CLEANUP] Cleaning up voice recording resources...
+StreamingVoiceChat.tsx:1365 [CLEANUP] Cleaning up recording resources...
+StreamingVoiceChat.tsx:621 [STREAMING] Connecting to streaming voice...
+streamingVoiceClient.ts:248 [StreamingVoice] Creating Socket.io connection to /voice namespace...
+useWhiteboard.ts:219 [WHITEBOARD] Manually cleared
+chat.tsx:373 [SHARED CHAT] Auto-create check - userName: David conversationId: 3e4e213c-8ccc-4a8f-9ab0-145501b4c26f isCreating: false mode: voice
+StreamingVoiceChat.tsx:480 [RINGING] Started telephone ring sound
+StreamingVoiceChat.tsx:955 [VOICE] Deepgram pre-warmed in 149ms
+streamingVoiceClient.ts:285 [StreamingVoice] Socket.io connect event fired!
+streamingVoiceClient.ts:268 [StreamingVoice] Connection complete via: connect
+StreamingVoiceChat.tsx:780 [STREAMING] Connected successfully
+StreamingVoiceChat.tsx:407 [MIC WARMUP] Pre-warming microphone (500ms after mount)...
+chat.tsx:373 [SHARED CHAT] Auto-create check - userName: David conversationId: 3e4e213c-8ccc-4a8f-9ab0-145501b4c26f isCreating: false mode: voice
+StreamingVoiceChat.tsx:502 [RINGING] Stopped telephone ring sound
+StreamingVoiceChat.tsx:108 [VOICE GREETING] Lock acquired for message: streaming-greeting-3e4e213c-8ccc-4a8f-9ab0-145501b4c26f-resumed
+StreamingVoiceChat.tsx:1084 [STREAMING GREETING] Requesting RESUMED (welcome-back) AI-generated personalized greeting...
+StreamingVoiceChat.tsx:412 [MIC WARMUP] SUCCESS! Microphone ready for instant recording (took 298 ms)
+audioUtils.ts:1037 [LOOP] Frame 10: entries=[S0(end=2.85)] now=0.11
+tick @ audioUtils.ts:1037
+audioUtils.ts:1037 [LOOP] Frame 20: entries=[S0(end=2.85)] now=0.27
+tick @ audioUtils.ts:1037
+audioUtils.ts:1037 [LOOP] Frame 30: entries=[S0(end=2.85)] now=0.44
+tick @ audioUtils.ts:1037
+audioUtils.ts:1037 [LOOP] Frame 40: entries=[S0(end=2.85)] now=0.61
+tick @ audioUtils.ts:1037
+audioUtils.ts:1037 [LOOP] Frame 50: entries=[S0(end=2.85)] now=0.77
+tick @ audioUtils.ts:1037
+audioUtils.ts:1037 [LOOP] Frame 60: entries=[S0(end=2.85)] now=0.94
+tick @ audioUtils.ts:1037
+audioUtils.ts:1037 [LOOP] Frame 70: entries=[S0(end=2.85)] now=1.10
+tick @ audioUtils.ts:1037
+audioUtils.ts:1037 [LOOP] Frame 80: entries=[S0(end=2.85)] now=1.27
+tick @ audioUtils.ts:1037
+audioUtils.ts:1037 [LOOP] Frame 90: entries=[S0(end=2.85)] now=1.45
+tick @ audioUtils.ts:1037
+audioUtils.ts:1037 [LOOP] Frame 100: entries=[S0(end=2.85)] now=1.62
+tick @ audioUtils.ts:1037
+audioUtils.ts:1037 [LOOP] Frame 110: entries=[S0(end=2.85)] now=1.78
+tick @ audioUtils.ts:1037
+audioUtils.ts:1037 [LOOP] Frame 120: entries=[S0(end=2.85)] now=1.94
+tick @ audioUtils.ts:1037
+StreamingVoiceChat.tsx:633 [STREAMING] Response complete - refreshing messages for 3e4e213c-8ccc-4a8f-9ab0-145501b4c26f
+StreamingVoiceChat.tsx:669 [STREAMING] Storing combined audio for replay: 940680 bytes
+StreamingVoiceChat.tsx:931 [STREAMING] Setting lastMessageId for replay: 7e7add8d-7aea-4272-ba0e-1b20de2997a8
+audioUtils.ts:1037 [LOOP] Frame 130: entries=[S0(end=2.85), S1(end=10.00)] now=2.11
+tick @ audioUtils.ts:1037
+audioUtils.ts:1037 [LOOP] Frame 140: entries=[S0(end=2.85), S1(end=10.00)] now=2.27
+tick @ audioUtils.ts:1037
+audioUtils.ts:1037 [LOOP] Frame 150: entries=[S0(end=2.85), S1(end=10.00)] now=2.44
+tick @ audioUtils.ts:1037
+audioUtils.ts:1037 [LOOP] Frame 160: entries=[S0(end=2.85), S1(end=10.00)] now=2.61
+tick @ audioUtils.ts:1037
+audioUtils.ts:1037 [LOOP] Frame 170: entries=[S0(end=2.85), S1(end=10.00)] now=2.77
+tick @ audioUtils.ts:1037
+audioUtils.ts:1037 [LOOP] Frame 180: entries=[S0(end=2.85), S1(end=10.00)] now=2.94
+tick @ audioUtils.ts:1037
+audioUtils.ts:1037 [LOOP] Frame 190: entries=[S0(end=2.85), S1(end=10.00)] now=3.11
+tick @ audioUtils.ts:1037
+audioUtils.ts:1037 [LOOP] Frame 200: entries=[S0(end=2.85), S1(end=10.00)] now=3.27
+tick @ audioUtils.ts:1037
+audioUtils.ts:1037 [LOOP] Frame 210: entries=[S0(end=2.85), S1(end=10.00)] now=3.45
+tick @ audioUtils.ts:1037
+audioUtils.ts:1037 [LOOP] Frame 220: entries=[S0(end=2.85), S1(end=10.00)] now=3.61
+tick @ audioUtils.ts:1037
+audioUtils.ts:1037 [LOOP] Frame 230: entries=[S0(end=2.85), S1(end=10.00)] now=3.78
+tick @ audioUtils.ts:1037
+audioUtils.ts:1037 [LOOP] Frame 240: entries=[S0(end=2.85), S1(end=10.00)] now=3.94
+tick @ audioUtils.ts:1037
+audioUtils.ts:1037 [LOOP] Frame 250: entries=[S0(end=2.85), S1(end=10.00)] now=4.11
+tick @ audioUtils.ts:1037
+audioUtils.ts:1037 [LOOP] Frame 260: entries=[S0(end=2.85), S1(end=10.00)] now=4.27
+tick @ audioUtils.ts:1037
+audioUtils.ts:1037 [LOOP] Frame 270: entries=[S0(end=2.85), S1(end=10.00)] now=4.44
+tick @ audioUtils.ts:1037
+audioUtils.ts:1037 [LOOP] Frame 280: entries=[S0(end=2.85), S1(end=10.00)] now=4.61
+tick @ audioUtils.ts:1037
+audioUtils.ts:1037 [LOOP] Frame 290: entries=[S0(end=2.85), S1(end=10.00)] now=4.77
+tick @ audioUtils.ts:1037
+audioUtils.ts:1037 [LOOP] Frame 300: entries=[S0(end=2.85), S1(end=10.00)] now=4.94
+tick @ audioUtils.ts:1037
+audioUtils.ts:1037 [LOOP] Frame 310: entries=[S0(end=2.85), S1(end=10.00)] now=5.11
+tick @ audioUtils.ts:1037
+audioUtils.ts:1037 [LOOP] Frame 320: entries=[S0(end=2.85), S1(end=10.00)] now=5.30
+tick @ audioUtils.ts:1037
+audioUtils.ts:1037 [LOOP] Frame 330: entries=[S0(end=2.85), S1(end=10.00)] now=5.46
+tick @ audioUtils.ts:1037
+audioUtils.ts:1037 [LOOP] Frame 340: entries=[S0(end=2.85), S1(end=10.00)] now=6.35
+tick @ audioUtils.ts:1037
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+audioUtils.ts:1037 [LOOP] Frame 350: entries=[S0(end=2.85), S1(end=10.00)] now=6.51
+tick @ audioUtils.ts:1037
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+audioUtils.ts:1037 [LOOP] Frame 360: entries=[S0(end=2.85), S1(end=10.00)] now=6.67
+tick @ audioUtils.ts:1037
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+audioUtils.ts:1037 [LOOP] Frame 370: entries=[S0(end=2.85), S1(end=10.00)] now=6.84
+tick @ audioUtils.ts:1037
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+audioUtils.ts:1037 [LOOP] Frame 380: entries=[S0(end=2.85), S1(end=10.00)] now=7.01
+tick @ audioUtils.ts:1037
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+audioUtils.ts:1037 [LOOP] Frame 390: entries=[S0(end=2.85), S1(end=10.00)] now=7.17
+tick @ audioUtils.ts:1037
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+audioUtils.ts:1037 [LOOP] Frame 400: entries=[S0(end=2.85), S1(end=10.00)] now=7.34
+tick @ audioUtils.ts:1037
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+audioUtils.ts:1037 [LOOP] Frame 410: entries=[S0(end=2.85), S1(end=10.00)] now=7.51
+tick @ audioUtils.ts:1037
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+audioUtils.ts:1037 [LOOP] Frame 420: entries=[S0(end=2.85), S1(end=10.00)] now=7.67
+tick @ audioUtils.ts:1037
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+audioUtils.ts:1037 [LOOP] Frame 430: entries=[S0(end=2.85), S1(end=10.00)] now=7.85
+tick @ audioUtils.ts:1037
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+audioUtils.ts:1037 [LOOP] Frame 440: entries=[S0(end=2.85), S1(end=10.00)] now=8.02
+tick @ audioUtils.ts:1037
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+audioUtils.ts:1037 [LOOP] Frame 450: entries=[S0(end=2.85), S1(end=10.00)] now=8.18
+tick @ audioUtils.ts:1037
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+audioUtils.ts:1037 [LOOP] Frame 460: entries=[S0(end=2.85), S1(end=10.00)] now=8.34
+tick @ audioUtils.ts:1037
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+audioUtils.ts:1037 [LOOP] Frame 470: entries=[S0(end=2.85), S1(end=10.00)] now=8.51
+tick @ audioUtils.ts:1037
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+audioUtils.ts:1037 [LOOP] Frame 480: entries=[S0(end=2.85), S1(end=10.00)] now=8.67
+tick @ audioUtils.ts:1037
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+audioUtils.ts:1037 [LOOP] Frame 490: entries=[S0(end=2.85), S1(end=10.00)] now=8.84
+tick @ audioUtils.ts:1037
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+audioUtils.ts:1037 [LOOP] Frame 500: entries=[S0(end=2.85), S1(end=10.00)] now=9.01
+tick @ audioUtils.ts:1037
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+audioUtils.ts:1037 [LOOP] Frame 510: entries=[S0(end=2.85), S1(end=10.00)] now=9.17
+tick @ audioUtils.ts:1037
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+audioUtils.ts:1037 [LOOP] Frame 520: entries=[S0(end=2.85), S1(end=10.00)] now=9.34
+tick @ audioUtils.ts:1037
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+audioUtils.ts:1037 [LOOP] Frame 530: entries=[S0(end=2.85), S1(end=10.00)] now=9.51
+tick @ audioUtils.ts:1037
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+audioUtils.ts:1037 [LOOP] Frame 540: entries=[S0(end=2.85), S1(end=10.00)] now=9.67
+tick @ audioUtils.ts:1037
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+audioUtils.ts:1037 [LOOP] Frame 550: entries=[S0(end=2.85), S1(end=10.00)] now=9.85
+tick @ audioUtils.ts:1037
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1248
+ImmersiveTutor.tsx:736 Unable to preventDefault inside passive event listener invocation.
+preventDefault @ chunk-RPCDYKBN.js?v=eb5ed35a:5760
+onTouchStart @ ImmersiveTutor.tsx:736
+callCallback2 @ chunk-RPCDYKBN.js?v=eb5ed35a:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=eb5ed35a:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=eb5ed35a:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=eb5ed35a:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=eb5ed35a:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=eb5ed35a:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=eb5ed35a:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=eb5ed35a:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=eb5ed35a:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=eb5ed35a:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=eb5ed35a:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=eb5ed35a:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=eb5ed35a:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=eb5ed35a:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=eb5ed35a:5449
+Show 16 more frames
+Show less
+ImmersiveTutor.tsx:738 [MIC BUTTON] Touch start, isUsersTurn: true
+StreamingVoiceChat.tsx:1589 [PUSH-TO-TALK] Button pressed at 24845 ms
+StreamingVoiceChat.tsx:1615 [PUSH-TO-TALK] Cached stream status: {exists: true, active: true, trackCount: 1, trackStates: Array(1), hasLiveTrack: true}
+StreamingVoiceChat.tsx:1624 [PUSH-TO-TALK] Using cached stream - INSTANT start! (+1ms)
+StreamingVoiceChat.tsx:1658 [PTT DIAGNOSTIC] Audio tracks: 1
+StreamingVoiceChat.tsx:1663 [PTT DIAGNOSTIC] Track 0 settings: {autoGainControl: true, channelCount: 1, deviceId: 'default', echoCancellation: true, groupId: '11c28e6e15a0ae8873f388cc6e8bcc654f43d3e71575dbbecbc0f926cccda5e7', …}
+StreamingVoiceChat.tsx:1664 [PTT DIAGNOSTIC] Track 0 constraints: {}
+StreamingVoiceChat.tsx:1665 [PTT DIAGNOSTIC] Track 0 capabilities: {autoGainControl: Array(2), channelCount: {…}, deviceId: 'default', echoCancellation: Array(2), groupId: '11c28e6e15a0ae8873f388cc6e8bcc654f43d3e71575dbbecbc0f926cccda5e7', …}
+StreamingVoiceChat.tsx:1666 [PTT DIAGNOSTIC] Track 0 state: {readyState: 'live', enabled: true, muted: false, label: 'Default - Microphone (Intel® Smart Sound Technology)', id: 'c143c1d1-64b4-45d2-bc10-31d1283d491d'}
+StreamingVoiceChat.tsx:1685 [RECORDING] Using audio codec: audio/webm;codecs=opus
+StreamingVoiceChat.tsx:1692 [PTT DIAGNOSTIC] MediaRecorder created: {mimeType: 'audio/webm;codecs=opus', state: 'inactive', audioBitsPerSecond: 128000}
+StreamingVoiceChat.tsx:1812 [PUSH-TO-TALK] Recording started - release to stop
+ImmersiveTutor.tsx:747 [MIC BUTTON] Touch end
+StreamingVoiceChat.tsx:1822 [PUSH-TO-TALK] Releasing button, stopping recording...
+StreamingVoiceChat.tsx:1834 [PUSH-TO-TALK] Resetting subtitles immediately on button release
+StreamingVoiceChat.tsx:1706 [PTT DIAGNOSTIC] ondataavailable #1: size=60399 bytes, type=audio/webm;codecs=opus
+StreamingVoiceChat.tsx:1722 [PTT DIAGNOSTIC] Recording stopped: {chunkCount: 1, totalChunkBytes: 60399, trackStatesOnStop: Array(1), recorderState: 'inactive'}
+StreamingVoiceChat.tsx:1729 [PUSH-TO-TALK] Stopped, processing audio...
+StreamingVoiceChat.tsx:1735 [PUSH-TO-TALK] Resetting subtitles immediately
+StreamingVoiceChat.tsx:1779 [PTT DIAGNOSTIC] Final blob: {size: 60399, type: 'audio/webm', chunksUsed: 1}
+StreamingVoiceChat.tsx:1789 [PUSH-TO-TALK] Processing audio for conversation: 3e4e213c-8ccc-4a8f-9ab0-145501b4c26f
+StreamingVoiceChat.tsx:2148 [STREAMING CHECK] {streamingConnectedRef: true, isReady: true, isStreamingReady: true}
+StreamingVoiceChat.tsx:2156 [STREAMING] Using streaming mode for low-latency response
+StreamingVoiceChat.tsx:931 [STREAMING] Setting lastMessageId for replay: e5180039-08ea-40b8-af94-f747799d47e7
+StreamingVoiceChat.tsx:2186 [STREAMING] Audio sent, awaiting progressive response...
+StreamingVoiceChat.tsx:1768 [MIC WARMUP] Re-warmed for next recording
+useStreamingVoice.ts:630 [StreamingVoice] Error: Error: Could not understand audio. Please try speaking again.
+    at StreamingVoiceClient.handleError (streamingVoiceClient.ts:823:24)
+    at StreamingVoiceClient.handleSocketMessage (streamingVoiceClient.ts:668:16)
+    at Socket2.<anonymous> (streamingVoiceClient.ts:309:18)
+    at Emitter.emit (socket__io-client.js?v=eb5ed35a:354:20)
+    at Socket2.emitEvent (socket__io-client.js?v=eb5ed35a:2655:16)
+    at Socket2.onevent (socket__io-client.js?v=eb5ed35a:2643:12)
+    at Socket2.onpacket (socket__io-client.js?v=eb5ed35a:2614:14)
+    at Emitter.emit (socket__io-client.js?v=eb5ed35a:354:20)
+    at socket__io-client.js?v=eb5ed35a:3218:12
+(anonymous) @ useStreamingVoice.ts:630
+(anonymous) @ streamingVoiceClient.ts:188
+emit @ streamingVoiceClient.ts:186
+handleError @ streamingVoiceClient.ts:823
+handleSocketMessage @ streamingVoiceClient.ts:668
+(anonymous) @ streamingVoiceClient.ts:309
+Emitter.emit @ socket__io-client.js?v=eb5ed35a:354
+emitEvent @ socket__io-client.js?v=eb5ed35a:2655
+onevent @ socket__io-client.js?v=eb5ed35a:2643
+onpacket @ socket__io-client.js?v=eb5ed35a:2614
+Emitter.emit @ socket__io-client.js?v=eb5ed35a:354
+(anonymous) @ socket__io-client.js?v=eb5ed35a:3218
+Promise.then (async)
+(anonymous) @ socket__io-client.js?v=eb5ed35a:372
+ondecoded @ socket__io-client.js?v=eb5ed35a:3217
+Emitter.emit @ socket__io-client.js?v=eb5ed35a:354
+add @ socket__io-client.js?v=eb5ed35a:2069
+ondata @ socket__io-client.js?v=eb5ed35a:3206
+Emitter.emit @ socket__io-client.js?v=eb5ed35a:354
+_onPacket @ socket__io-client.js?v=eb5ed35a:1379
+Emitter.emit @ socket__io-client.js?v=eb5ed35a:354
+onPacket @ socket__io-client.js?v=eb5ed35a:553
+onData @ socket__io-client.js?v=eb5ed35a:545
+ws.onmessage @ socket__io-client.js?v=eb5ed35a:1009
+Show 17 more frames
+Show less
+2StreamingVoiceChat.tsx:890 [STREAMING] Error: Could not understand audio. Please try speaking again.
+(anonymous) @ StreamingVoiceChat.tsx:890
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=eb5ed35a:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=eb5ed35a:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=eb5ed35a:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=eb5ed35a:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=eb5ed35a:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=eb5ed35a:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=eb5ed35a:19447
+(anonymous) @ chunk-RPCDYKBN.js?v=eb5ed35a:19328
+workLoop @ chunk-RPCDYKBN.js?v=eb5ed35a:197
+flushWork @ chunk-RPCDYKBN.js?v=eb5ed35a:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=eb5ed35a:384
+Show 11 more frames
+Show less
