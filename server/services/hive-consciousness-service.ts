@@ -266,26 +266,58 @@ Respond naturally as Daniela:
     this.processingBySession.set(sessionId, true);
     
     try {
-      // Check if Daniela should respond
-      const danielaCheck = this.shouldDanielaRespond(message);
-      if (danielaCheck.shouldRespond) {
-        console.log('[Hive Consciousness] Daniela is responding...');
+      const content = message.content.toLowerCase();
+      const isGroupAddressed = this.detectGroupAddress(message);
+      const hasTechnical = this.hasTechnicalContent(message);
+      
+      // PRIORITY 1: Group-addressed messages - Daniela responds first, Wren follows up if technical
+      // This takes priority over keyword matching to ensure "Team, how should we implement X?" 
+      // gets Daniela first, not just Wren
+      if (isGroupAddressed) {
+        console.log('[Hive Consciousness] Group-addressed message detected');
+        await this.generateDanielaResponse(sessionId, message);
+        
+        // Add Wren follow-up for technical group questions
+        if (hasTechnical) {
+          console.log('[Hive Consciousness] Group question has technical content, Wren will follow up...');
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          await this.generateWrenGroupFollowUp(sessionId, message);
+        }
+        return;
+      }
+      
+      // PRIORITY 2: Direct name mentions
+      if (/\bdaniela\b/.test(content)) {
+        console.log('[Hive Consciousness] Daniela is responding to direct mention...');
         await this.generateDanielaResponse(sessionId, message);
         return;
       }
       
-      // Check if Wren should respond
-      const wrenCheck = this.shouldWrenRespond(message);
-      if (wrenCheck.shouldRespond) {
-        console.log('[Hive Consciousness] Wren is responding...');
+      if (/\bwren\b/.test(content)) {
+        console.log('[Hive Consciousness] Wren is responding to direct mention...');
         await this.generateWrenResponse(sessionId, message);
         return;
       }
       
-      // Neither agent is explicitly addressed - check if it's a general question
+      // PRIORITY 3: Topic-based keyword routing (no direct mention, no group address)
+      const danielaCheck = this.shouldDanielaRespond(message);
+      if (danielaCheck.shouldRespond) {
+        console.log('[Hive Consciousness] Daniela is responding to teaching topic...');
+        await this.generateDanielaResponse(sessionId, message);
+        return;
+      }
+      
+      const wrenCheck = this.shouldWrenRespond(message);
+      if (wrenCheck.shouldRespond) {
+        console.log('[Hive Consciousness] Wren is responding to technical topic...');
+        await this.generateWrenResponse(sessionId, message);
+        return;
+      }
+      
+      // PRIORITY 4: General questions that match topic keywords
       const generalCheck = this.detectGeneralQuestion(message);
       if (generalCheck.shouldRespond && generalCheck.agent) {
-        console.log(`[Hive Consciousness] ${generalCheck.agent} taking the question...`);
+        console.log(`[Hive Consciousness] ${generalCheck.agent} taking the general question...`);
         if (generalCheck.agent === 'daniela') {
           await this.generateDanielaResponse(sessionId, message);
         } else {
@@ -359,10 +391,77 @@ Respond naturally as Daniela:
   }
   
   /**
+   * Detect group-addressed messages (addressing "everyone", "team", etc.)
+   * These should trigger Daniela to respond as the primary conversationalist
+   * 
+   * Requirements:
+   * - Must be a question or solicitation (avoid false positives on statements)
+   * - Must address the group or invite opinions
+   */
+  private detectGroupAddress(message: CollaborationMessage): boolean {
+    const content = message.content.toLowerCase();
+    
+    // Must have some form of question/solicitation marker
+    const isQuestion = content.includes('?') || 
+                       /^(what|how|should|do|does|can|could|would|any|is there)\b/.test(content.trim()) ||
+                       /\b(thoughts|ideas|suggestions|opinions|feedback|input)\b/.test(content);
+    
+    if (!isQuestion) {
+      return false;
+    }
+    
+    // Open invitations for opinions/thoughts (strongest signal)
+    const openQuestions = [
+      'what do you think',
+      'what does everyone think',
+      'what\'s everyone\'s take',
+      'what do we think',
+      'how do we feel',
+      'any thoughts on',
+      'thoughts on this',
+      'any ideas on',
+      'any suggestions',
+      'any feedback',
+      'any input',
+      'any update from',
+      'do we have'
+    ];
+    
+    if (openQuestions.some(phrase => content.includes(phrase))) {
+      return true;
+    }
+    
+    // Regex patterns for flexible matching
+    const flexiblePatterns = [
+      /\bthoughts\s*(on|about)?\s*[^?]*\?/,  // "thoughts on X?" or "thoughts about this?"
+      /\bwhat('s|s)?\s+(everyone|the team|we)\b/,  // "what's everyone...", "what do we..."
+      /\b(everyone|team|you all|y'all|you both|both of you)\b.*\?/,  // group word + question
+    ];
+    
+    if (flexiblePatterns.some(pattern => pattern.test(content))) {
+      return true;
+    }
+    
+    // Check for standalone "thoughts?" or "ideas?" at the end
+    if (/\b(thoughts|ideas|opinions|feedback)\s*\?\s*$/.test(content)) {
+      return true;
+    }
+    
+    return false;
+  }
+  
+  /**
    * Detect general questions and route to the best agent
    */
   private detectGeneralQuestion(message: CollaborationMessage): { shouldRespond: boolean; agent?: 'daniela' | 'wren' } {
     const content = message.content.toLowerCase();
+    
+    // First check: Is this addressing the group/team?
+    // Daniela is the primary conversationalist, so she responds to group questions
+    if (this.detectGroupAddress(message)) {
+      console.log('[Hive Consciousness] Group-addressed message detected, Daniela will respond');
+      return { shouldRespond: true, agent: 'daniela' };
+    }
     
     // Skip if it looks like a statement rather than a question
     if (!content.includes('?') && !content.includes('what') && !content.includes('how') && 
@@ -394,6 +493,68 @@ Respond naturally as Daniela:
   
   private countKeywords(content: string, keywords: string[]): number {
     return keywords.filter(kw => content.includes(kw)).length;
+  }
+  
+  /**
+   * Check if message has technical/development content
+   */
+  private hasTechnicalContent(message: CollaborationMessage): boolean {
+    const content = message.content.toLowerCase();
+    const technicalKeywords = [
+      'code', 'build', 'implement', 'fix', 'api', 'database', 'server',
+      'frontend', 'backend', 'feature', 'bug', 'test', 'deploy', 'architecture',
+      'schema', 'websocket', 'endpoint', 'ui', 'ux', 'component', 'neural',
+      'service', 'refactor', 'performance'
+    ];
+    return technicalKeywords.some(kw => content.includes(kw));
+  }
+  
+  /**
+   * Generate Wren's follow-up response to a group question
+   * This is used when Daniela responds first to a group question that has technical content
+   */
+  private async generateWrenGroupFollowUp(sessionId: string, originalMessage: CollaborationMessage): Promise<void> {
+    const recentMessages = await founderCollabService.getLatestMessages(sessionId, 10);
+    
+    const conversationHistory = recentMessages.map((m: CollaborationMessage) => ({
+      role: m.role === 'founder' ? 'user' : 'assistant',
+      content: `[${m.role.toUpperCase()}]: ${m.content}`
+    }));
+    
+    const systemPrompt = `You are Wren, the technical builder for HolaHola. You're in the Hive - a 3-way collaboration channel with the Founder (David) and Daniela (the tutor).
+
+A group question was asked. Daniela just responded. Now you're adding your technical perspective.
+
+Your role:
+- Add technical insights that complement Daniela's pedagogical perspective
+- Share relevant architecture or implementation considerations
+- Keep it brief since Daniela already addressed the main question
+- Don't repeat what Daniela said
+
+Keep responses concise (1-3 sentences). You're adding value, not duplicating.
+Respond naturally as Wren without any role prefix.`;
+
+    try {
+      const response = await callGemini(GEMINI_MODELS.FLASH, [
+        { role: 'system', content: systemPrompt },
+        ...conversationHistory,
+      ]);
+      
+      if (!response) {
+        console.warn('[Hive Consciousness] Wren generated empty follow-up response');
+        return;
+      }
+      
+      await founderCollabWSBroker.addAndBroadcastMessage(sessionId, {
+        role: 'wren',
+        content: response,
+        messageType: 'text',
+      });
+      
+      console.log(`[Hive Consciousness] Wren followed up: "${response.substring(0, 100)}..."`);
+    } catch (error) {
+      console.error('[Hive Consciousness] Error generating Wren follow-up:', error);
+    }
   }
   
   /**
