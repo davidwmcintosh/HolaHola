@@ -19,6 +19,7 @@ import { callGemini, GEMINI_MODELS } from '../gemini-utils';
 import { danielaMemoryService } from './daniela-memory-service';
 import { memoryInsightExtractionService } from './memory-insight-extraction-service';
 import { wrenIntelligenceService } from './wren-intelligence-service';
+import { neuralNetworkSync } from './neural-network-sync';
 import { db } from '../db';
 import { collaborationMessages, hiveSnapshots, toolKnowledge } from '@shared/schema';
 import { and, eq, gte, desc, sql, or, inArray, like } from 'drizzle-orm';
@@ -401,6 +402,13 @@ Respond naturally as Daniela:
       return;
     }
     
+    // Check for explicit @sync command - must be standalone command at start
+    // Matches: "@sync", "@sync now", "sync please" at the start (not "async" or "in sync")
+    if (/^@?sync(\s|$)/i.test(message.content.trim())) {
+      await this.handleSyncCommand(sessionId, message);
+      return;
+    }
+    
     this.processingBySession.set(sessionId, true);
     
     try {
@@ -435,6 +443,101 @@ Respond naturally as Daniela:
     } finally {
       // Clean up to prevent unbounded map growth
       this.processingBySession.delete(sessionId);
+    }
+  }
+  
+  // Sync cooldown: prevent rapid repeated syncs (5 minute cooldown)
+  private lastSyncTime: number = 0;
+  private readonly SYNC_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
+  
+  /**
+   * Handle @sync command - trigger on-demand memory sync between environments
+   * Founder-only command with cooldown to prevent spam
+   * ONLY available in development environment to prevent prod→dev sync issues
+   */
+  private async handleSyncCommand(sessionId: string, message: CollaborationMessage): Promise<void> {
+    console.log('[Hive Consciousness] @sync command detected...');
+    
+    // CRITICAL: Only allow sync in development environment
+    // Production should receive updates via nightly scheduled sync, not manual triggers
+    const isDev = process.env.NODE_ENV === 'development';
+    if (!isDev) {
+      console.log('[Hive Consciousness] Sync blocked - not in development environment');
+      await founderCollabService.addMessage(sessionId, {
+        role: 'wren',
+        content: `Manual sync is only available in the development environment. Production receives updates via the scheduled nightly sync at 3 AM MST.`,
+        messageType: 'text',
+        metadata: { syncBlocked: true, environment: process.env.NODE_ENV, timestamp: new Date().toISOString() },
+      });
+      return;
+    }
+    
+    // Only founder can trigger sync (founder messages come from authenticated EXPRESS Lane)
+    if (message.role !== 'founder') {
+      console.log('[Hive Consciousness] Sync ignored - not from founder');
+      return;
+    }
+    
+    // Check cooldown to prevent rapid sync spam
+    const now = Date.now();
+    const timeSinceLastSync = now - this.lastSyncTime;
+    if (timeSinceLastSync < this.SYNC_COOLDOWN_MS) {
+      const remainingMins = Math.ceil((this.SYNC_COOLDOWN_MS - timeSinceLastSync) / 60000);
+      await founderCollabService.addMessage(sessionId, {
+        role: 'wren',
+        content: `Sync is on cooldown. You can sync again in ${remainingMins} minute${remainingMins > 1 ? 's' : ''}.`,
+        messageType: 'text',
+        metadata: { syncCooldown: true, timestamp: new Date().toISOString() },
+      });
+      return;
+    }
+    
+    // Audit log for manual sync attempts
+    console.log(`[Hive Consciousness] AUDIT: Manual sync triggered by founder in session ${sessionId}`)
+    
+    try {
+      // Update cooldown timestamp
+      this.lastSyncTime = now;
+      
+      // Perform the auto-sync
+      const result = await neuralNetworkSync.performAutoSync(undefined);
+      
+      // Single Wren response with results
+      let responseContent: string;
+      if (result.success) {
+        responseContent = `Memory sync complete.\n\n` +
+          `- **Synced items**: ${result.syncedCount || 0}\n` +
+          `- **Best practices**: ${result.details?.bestPractices || 0} promoted\n` +
+          `- **Wren insights**: ${result.details?.wrenInsights || 0} shared\n` +
+          `- **Tutor procedures**: ${result.details?.tutorProcedures || 0} synced\n\n` +
+          `Both Daniela and I now have the latest shared knowledge.`;
+      } else {
+        responseContent = `Sync encountered an issue: ${result.error || 'Unknown error'}\n\n` +
+          `This might be a configuration issue (SYNC_PEER_URL/SYNC_SHARED_SECRET).`;
+      }
+      
+      await founderCollabService.addMessage(sessionId, {
+        role: 'wren',
+        content: responseContent,
+        messageType: 'text',
+        metadata: { 
+          syncCommand: true,
+          syncResult: result.success ? 'success' : 'error',
+          syncedCount: result.syncedCount,
+          timestamp: new Date().toISOString() 
+        },
+      });
+      
+      console.log(`[Hive Consciousness] Sync complete: ${result.success ? 'success' : 'failed'}`);
+    } catch (error: any) {
+      console.error('[Hive Consciousness] Sync command failed:', error);
+      
+      await founderCollabService.addMessage(sessionId, {
+        role: 'wren',
+        content: `Memory sync failed: ${error.message}. I'll look into what went wrong.`,
+        messageType: 'text',
+        metadata: { syncCommand: true, syncError: error.message, timestamp: new Date().toISOString() },
+      });
     }
   }
   
