@@ -485,6 +485,104 @@ export class WrenIntelligenceService {
       .limit(options?.limit || 10);
   }
   
+  // ============================================================================
+  // EXPRESS LANE INSIGHT EXTRACTION
+  // ============================================================================
+  
+  /**
+   * Minimum content length and score thresholds for insight extraction
+   */
+  private readonly MIN_INSIGHT_LENGTH = 100;
+  private readonly MIN_INSIGHT_SCORE = 2;
+  
+  /**
+   * Check if EXPRESS Lane message contains extractable architectural/debugging insight
+   * Returns the detected category and score, or null if not insightful
+   */
+  analyzeMessageForInsight(content: string, role: string): { category: string; score: number; title: string } | null {
+    // Only extract from founder or wren messages (not daniela - she captures her own growth)
+    if (role !== 'founder' && role !== 'wren') {
+      return null;
+    }
+    
+    // Skip short messages
+    if (content.length < this.MIN_INSIGHT_LENGTH) {
+      return null;
+    }
+    
+    // Categories worth extracting from EXPRESS Lane discussions
+    const extractableCategories = ['architecture', 'debugging', 'solution', 'gotcha', 'pattern', 'integration'];
+    const category = this.detectCategory(content);
+    
+    if (!extractableCategories.includes(category)) {
+      return null;
+    }
+    
+    // Calculate insight score based on pattern matches
+    let score = 0;
+    const patterns = CATEGORY_PATTERNS[category] || [];
+    for (const pattern of patterns) {
+      if (pattern.test(content)) {
+        score++;
+      }
+    }
+    
+    // Bonus for file references (concrete, actionable)
+    const fileRefs = this.extractFileReferences(content);
+    score += Math.min(fileRefs.length, 3);
+    
+    // Bonus for decision language
+    if (/should|must|always|never|important|critical|key insight|the trick is/i.test(content)) {
+      score += 1;
+    }
+    
+    // Threshold check
+    if (score < this.MIN_INSIGHT_SCORE) {
+      return null;
+    }
+    
+    // Generate title from first sentence or key phrase
+    const firstSentence = content.split(/[.!?]/)[0]?.trim() || '';
+    const title = firstSentence.length > 60 
+      ? firstSentence.substring(0, 57) + '...' 
+      : firstSentence;
+    
+    return { category, score, title };
+  }
+  
+  /**
+   * Extract and store an insight from an EXPRESS Lane message
+   * Called by founder-collaboration-service after saving messages
+   */
+  async extractExpressLaneInsight(
+    message: { content: string; role: string; sessionId: string; id: string }
+  ): Promise<string | null> {
+    const analysis = this.analyzeMessageForInsight(message.content, message.role);
+    
+    if (!analysis) {
+      return null;
+    }
+    
+    console.log(`[WrenIntelligence] Extracting ${analysis.category} insight from EXPRESS Lane: "${analysis.title}"`);
+    
+    try {
+      const insight = await this.createEnrichedInsight({
+        title: `[EXPRESS Lane] ${analysis.title}`,
+        content: message.content,
+        context: `Extracted from EXPRESS Lane discussion (${message.role} message)`,
+        category: analysis.category,
+        sessionId: message.sessionId,
+        shareWithDaniela: true, // Always share EXPRESS Lane insights
+      });
+      
+      console.log(`[WrenIntelligence] Created insight ${insight.id} from EXPRESS Lane message ${message.id}`);
+      return insight.id;
+    } catch (error) {
+      console.error('[WrenIntelligence] Failed to extract EXPRESS Lane insight:', error);
+      return null;
+    }
+  }
+  
   /**
    * Generate a summary of insights for a session
    */

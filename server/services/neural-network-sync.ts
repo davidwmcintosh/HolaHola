@@ -26,6 +26,7 @@ import {
   northStarPrinciples,
   northStarUnderstanding,
   northStarExamples,
+  wrenInsights,
   type SelfBestPractice,
   type PromotionQueue,
   type InsertPromotionQueue,
@@ -2922,28 +2923,28 @@ export class NeuralNetworkSyncService {
     teachingRelevance?: string;
   }): Promise<{ success: boolean; procedureId?: string; error?: string }> {
     try {
-      // Store as a procedural memory that Daniela can access
+      // Store as a tutor procedure that Daniela can access
       const procedureData = {
         title: `[WREN_INSIGHT] ${params.title}`,
-        steps: [
+        category: 'technical_explanation',
+        trigger: 'wren_insight_shared',
+        procedure: [
           `Source: Wren development insight (${params.category})`,
           `Content: ${params.content}`,
           params.teachingRelevance ? `Teaching application: ${params.teachingRelevance}` : null
         ].filter(Boolean).join('\n'),
-        category: 'technical_explanation' as const,
-        targetAudience: 'all_levels' as const,
-        applicableLanguages: ['all'],
-        isUniversal: true,
-        estimatedDuration: 0,
-        stepCount: 1,
-        confidenceScore: 0.7,
-        useCount: 0,
-        lastUsedAt: null,
-        source: 'wren_shared' as const,
-        sourceInsightId: params.insightId,
+        examples: [`Insight ID: ${params.insightId}`],
+        applicablePhases: ['teaching'],
+        language: null,
+        actflLevelRange: null,
+        priority: 50,
+        isActive: true,
+        syncStatus: 'local',
+        originId: params.insightId,
+        originEnvironment: CURRENT_ENVIRONMENT,
       };
 
-      const [procedure] = await db.insert(proceduralMemory).values(procedureData).returning();
+      const [procedure] = await db.insert(tutorProcedures).values(procedureData).returning();
       
       console.log(`[NeuralSync] Shared Wren insight "${params.title}" with Daniela as procedure ${procedure.id}`);
       
@@ -2997,9 +2998,9 @@ export class NeuralNetworkSyncService {
    */
   async getWrenSharedInsights(): Promise<any[]> {
     return db.select()
-      .from(proceduralMemory)
-      .where(eq(proceduralMemory.source, 'wren_shared'))
-      .orderBy(desc(proceduralMemory.createdAt))
+      .from(tutorProcedures)
+      .where(eq(tutorProcedures.trigger, 'wren_insight_shared'))
+      .orderBy(desc(tutorProcedures.createdAt))
       .limit(50);
   }
 

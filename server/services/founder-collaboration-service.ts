@@ -37,6 +37,7 @@ import {
   type InsertSyncCursor
 } from "@shared/schema";
 import { eq, desc, and, gt, sql, isNull } from "drizzle-orm";
+import { wrenIntelligenceService } from "./wren-intelligence-service";
 
 const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production' : 'development';
 
@@ -214,6 +215,17 @@ class FounderCollaborationService {
       .where(eq(founderSessions.id, sessionId));
     
     console.log(`[FounderCollab] Message added to session ${sessionId}, cursor: ${cursor}`);
+    
+    // Extract Wren insights from architectural/debugging discussions (async, non-blocking)
+    wrenIntelligenceService.extractExpressLaneInsight({
+      content: input.content,
+      role: input.role,
+      sessionId,
+      id: message.id,
+    }).catch(err => {
+      console.error('[FounderCollab] Insight extraction failed:', err.message);
+    });
+    
     return message;
   }
   
