@@ -14576,6 +14576,133 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
 
   // ============================================================================
+  // REAL-TIME EXPRESS LANE BRIDGE (Cross-Environment)
+  // ============================================================================
+  // This API enables production to participate in the dev Express Lane in real-time.
+  // When founder is in production (for stable voice chat), they can still message
+  // Daniela and Wren in the dev Hive through this bridge.
+
+  // Peer environment can post a message to Express Lane and get AI responses
+  app.post("/api/sync/express-lane-bridge", validateSyncRequest, async (req: any, res) => {
+    try {
+      console.log('[EXPRESS-LANE-BRIDGE] Message received from peer environment');
+      
+      const { content, sessionId, senderName, sessionName } = req.body;
+      
+      if (!content) {
+        return res.status(400).json({ error: 'content is required' });
+      }
+      
+      // Get or create session for this cross-env conversation
+      let session;
+      if (sessionId) {
+        session = await founderCollabService.getSession(sessionId);
+      }
+      
+      if (!session) {
+        // Create new session for cross-environment collaboration
+        const founderId = '49847136'; // Main founder account
+        session = await founderCollabService.createSession(founderId, {
+          name: sessionName || `Cross-Env Bridge ${new Date().toISOString().split('T')[0]}`,
+          metadata: { source: 'cross_env_bridge', createdFrom: 'peer_environment' }
+        });
+        console.log(`[EXPRESS-LANE-BRIDGE] Created new session: ${session.id}`);
+      }
+      
+      // Add the founder's message to the session
+      const founderMessage = await founderCollabService.addMessage(session.id, {
+        role: 'founder',
+        content,
+        metadata: { 
+          source: 'cross_env_bridge',
+          senderName: senderName || 'Founder (from peer)'
+        }
+      });
+      
+      // Process through Hive Consciousness to get Daniela/Wren responses
+      const hiveResult = await hiveConsciousnessService.processExternalMessage(
+        content,
+        senderName || 'founder'
+      );
+      
+      // If an agent responded, add their response to the session too
+      if (hiveResult.response && hiveResult.agent) {
+        await founderCollabService.addMessage(session.id, {
+          role: hiveResult.agent as 'daniela' | 'wren',
+          content: hiveResult.response,
+          metadata: { 
+            source: 'hive_consciousness',
+            triggeredBy: founderMessage.id
+          }
+        });
+      }
+      
+      console.log(`[EXPRESS-LANE-BRIDGE] Processed message, agent: ${hiveResult.agent || 'none'}`);
+      
+      res.json({
+        success: true,
+        sessionId: session.id,
+        messageId: founderMessage.id,
+        agent: hiveResult.agent,
+        response: hiveResult.response,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      console.error('[EXPRESS-LANE-BRIDGE] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Peer environment can fetch recent Express Lane messages
+  app.get("/api/sync/express-lane-bridge/messages", validateSyncRequest, async (req: any, res) => {
+    try {
+      const sessionId = req.query.sessionId as string;
+      const since = req.query.since as string; // ISO timestamp
+      const limit = parseInt(req.query.limit as string) || 50;
+      
+      if (!sessionId) {
+        return res.status(400).json({ error: 'sessionId is required' });
+      }
+      
+      const messages = await founderCollabService.getSessionMessages(sessionId, limit);
+      
+      // Filter by timestamp if 'since' is provided
+      let filteredMessages = messages;
+      if (since) {
+        const sinceDate = new Date(since);
+        filteredMessages = messages.filter((m: any) => new Date(m.createdAt) > sinceDate);
+      }
+      
+      res.json({
+        sessionId,
+        messages: filteredMessages,
+        count: filteredMessages.length,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      console.error('[EXPRESS-LANE-BRIDGE] Get messages error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Peer environment can get active Express Lane sessions
+  app.get("/api/sync/express-lane-bridge/sessions", validateSyncRequest, async (req: any, res) => {
+    try {
+      const founderId = '49847136'; // Main founder account
+      const sessions = await founderCollabService.getFounderSessions(founderId);
+      
+      res.json({
+        sessions,
+        count: sessions.length,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      console.error('[EXPRESS-LANE-BRIDGE] Get sessions error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================================================
   // FOUNDER COLLABORATION SYNC CHANNEL
   // ============================================================================
   // Cross-environment sync is automatic via shared PostgreSQL database.

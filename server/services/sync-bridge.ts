@@ -1,6 +1,6 @@
 import { db } from '../db';
-import { syncRuns, type SyncRun } from '@shared/schema';
-import { eq, desc } from 'drizzle-orm';
+import { syncRuns, founderSessions, collaborationMessages, hiveSnapshots, danielaGrowthMemories, type SyncRun } from '@shared/schema';
+import { eq, desc, gte, and, isNull, or, inArray } from 'drizzle-orm';
 import { neuralNetworkSync } from './neural-network-sync';
 import { createSyncHeaders, isSyncConfigured, getSyncPeerUrl } from '../middleware/sync-auth';
 import crypto from 'crypto';
@@ -32,6 +32,11 @@ export interface SyncBundle {
   northStarPrinciples: any[];
   northStarUnderstanding: any[];
   northStarExamples: any[];
+  // NEW: Express Lane, Hive Snapshots, and Daniela's Memories
+  expressLaneSessions: any[];
+  expressLaneMessages: any[];
+  hiveSnapshots: any[];
+  danielaGrowthMemories: any[];
 }
 
 export interface SyncResult {
@@ -52,6 +57,11 @@ class SyncBridgeService {
     const daniela = await neuralNetworkSync.exportDanielaSuggestions();
     const triLane = await neuralNetworkSync.exportTriLaneObservations();
     const northStar = await neuralNetworkSync.exportNorthStar();
+    
+    // NEW: Export Express Lane, Hive Snapshots, and Daniela's Memories
+    const expressLaneData = await this.exportExpressLaneData();
+    const hiveSnapshotData = await this.exportHiveSnapshots();
+    const danielaMemories = await this.exportDanielaGrowthMemories();
     
     const bundle: SyncBundle = {
       generatedAt: new Date().toISOString(),
@@ -78,10 +88,80 @@ class SyncBridgeService {
       northStarPrinciples: northStar.principles,
       northStarUnderstanding: northStar.understanding,
       northStarExamples: northStar.examples,
+      // NEW: Express Lane, Hive Snapshots, and Daniela's Memories
+      expressLaneSessions: expressLaneData.sessions,
+      expressLaneMessages: expressLaneData.messages,
+      hiveSnapshots: hiveSnapshotData,
+      danielaGrowthMemories: danielaMemories,
     };
     
     bundle.checksum = this.computeChecksum(bundle);
     return bundle;
+  }
+  
+  /**
+   * Export Express Lane sessions and messages for cross-environment sync
+   * Only exports recent sessions (last 30 days) to avoid massive data transfers
+   */
+  async exportExpressLaneData(): Promise<{ sessions: any[]; messages: any[] }> {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    
+    const sessions = await db
+      .select()
+      .from(founderSessions)
+      .where(gte(founderSessions.updatedAt, thirtyDaysAgo))
+      .orderBy(desc(founderSessions.updatedAt));
+    
+    const sessionIds = sessions.map(s => s.id);
+    
+    let messages: any[] = [];
+    if (sessionIds.length > 0) {
+      messages = await db
+        .select()
+        .from(collaborationMessages)
+        .where(
+          and(
+            gte(collaborationMessages.createdAt, thirtyDaysAgo),
+            inArray(collaborationMessages.sessionId, sessionIds)
+          )
+        )
+        .orderBy(desc(collaborationMessages.createdAt));
+    }
+    
+    console.log(`[SYNC-BRIDGE] Exporting ${sessions.length} Express Lane sessions, ${messages.length} messages`);
+    return { sessions, messages };
+  }
+  
+  /**
+   * Export Hive Snapshots for cross-environment sync
+   * Includes teaching moments, breakthroughs, relationship moments, etc.
+   */
+  async exportHiveSnapshots(): Promise<any[]> {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    
+    const snapshots = await db
+      .select()
+      .from(hiveSnapshots)
+      .where(gte(hiveSnapshots.createdAt, thirtyDaysAgo))
+      .orderBy(desc(hiveSnapshots.createdAt));
+    
+    console.log(`[SYNC-BRIDGE] Exporting ${snapshots.length} Hive Snapshots`);
+    return snapshots;
+  }
+  
+  /**
+   * Export Daniela's Growth Memories for cross-environment sync
+   * These are personal memories that make Daniela consistent across environments
+   */
+  async exportDanielaGrowthMemories(): Promise<any[]> {
+    // Export all growth memories - they're important for Daniela's personality
+    const memories = await db
+      .select()
+      .from(danielaGrowthMemories)
+      .orderBy(desc(danielaGrowthMemories.createdAt));
+    
+    console.log(`[SYNC-BRIDGE] Exporting ${memories.length} Daniela Growth Memories`);
+    return memories;
   }
   
   async applyImportBundle(bundle: SyncBundle): Promise<SyncResult> {
@@ -209,12 +289,265 @@ class SyncBridgeService {
       }
     }
     
+    // NEW: Import Express Lane, Hive Snapshots, and Daniela's Memories
+    if (bundle.expressLaneSessions?.length) {
+      const sessionResult = await this.importExpressLaneSessions(bundle.expressLaneSessions);
+      counts['expressLaneSessions'] = sessionResult.imported;
+      if (sessionResult.errors.length) errors.push(...sessionResult.errors);
+    }
+    
+    if (bundle.expressLaneMessages?.length) {
+      const messageResult = await this.importExpressLaneMessages(bundle.expressLaneMessages);
+      counts['expressLaneMessages'] = messageResult.imported;
+      if (messageResult.errors.length) errors.push(...messageResult.errors);
+    }
+    
+    if (bundle.hiveSnapshots?.length) {
+      const snapshotResult = await this.importHiveSnapshots(bundle.hiveSnapshots);
+      counts['hiveSnapshots'] = snapshotResult.imported;
+      if (snapshotResult.errors.length) errors.push(...snapshotResult.errors);
+    }
+    
+    if (bundle.danielaGrowthMemories?.length) {
+      const memoryResult = await this.importDanielaGrowthMemories(bundle.danielaGrowthMemories);
+      counts['danielaGrowthMemories'] = memoryResult.imported;
+      if (memoryResult.errors.length) errors.push(...memoryResult.errors);
+    }
+    
     return {
       success: errors.length === 0,
       counts,
       errors,
       durationMs: Date.now() - startTime,
     };
+  }
+  
+  /**
+   * Import Express Lane sessions with upsert logic (update if exists, insert if new)
+   * Schema: id, founderId, status, lastCursor, messageCount, environment, title, createdAt, updatedAt
+   * Preserves all source fields during sync.
+   */
+  async importExpressLaneSessions(sessions: any[]): Promise<{ imported: number; errors: string[] }> {
+    let imported = 0;
+    const errors: string[] = [];
+    
+    for (const session of sessions) {
+      try {
+        const existing = await db.select().from(founderSessions).where(eq(founderSessions.id, session.id)).limit(1);
+        
+        if (existing.length > 0) {
+          if (new Date(session.updatedAt) > new Date(existing[0].updatedAt)) {
+            // Update all mutable fields from source, preserving environment and founderId
+            await db.update(founderSessions)
+              .set({
+                title: session.title ?? existing[0].title,
+                status: session.status ?? existing[0].status,
+                lastCursor: session.lastCursor ?? existing[0].lastCursor,
+                messageCount: session.messageCount ?? existing[0].messageCount,
+                updatedAt: new Date(session.updatedAt),
+              })
+              .where(eq(founderSessions.id, session.id));
+            imported++;
+          }
+        } else {
+          // Insert with all required fields
+          await db.insert(founderSessions).values({
+            id: session.id,
+            founderId: session.founderId,
+            status: session.status ?? 'active',
+            lastCursor: session.lastCursor ?? null,
+            messageCount: session.messageCount ?? 0,
+            environment: session.environment,
+            title: session.title ?? null,
+            createdAt: new Date(session.createdAt),
+            updatedAt: new Date(session.updatedAt),
+          });
+          imported++;
+        }
+      } catch (err: any) {
+        errors.push(`expressLaneSession ${session.id}: ${err.message}`);
+      }
+    }
+    
+    console.log(`[SYNC-BRIDGE] Imported ${imported} Express Lane sessions`);
+    return { imported, errors };
+  }
+  
+  /**
+   * Import Express Lane messages with duplicate detection
+   * Schema: id, sessionId, role, messageType, content, audioUrl, audioDuration, metadata, cursor, environment, synced, syncedAt, createdAt
+   * Messages are immutable once created, so only insert new messages (no updates).
+   * Preserves source synced status for traceability.
+   */
+  async importExpressLaneMessages(messages: any[]): Promise<{ imported: number; errors: string[] }> {
+    let imported = 0;
+    const errors: string[] = [];
+    
+    for (const message of messages) {
+      try {
+        const existing = await db.select().from(collaborationMessages).where(eq(collaborationMessages.id, message.id)).limit(1);
+        
+        if (existing.length === 0) {
+          await db.insert(collaborationMessages).values({
+            id: message.id,
+            sessionId: message.sessionId,
+            role: message.role,
+            messageType: message.messageType ?? 'text',
+            content: message.content,
+            audioUrl: message.audioUrl ?? null,
+            audioDuration: message.audioDuration ?? null,
+            metadata: message.metadata ?? null,
+            cursor: message.cursor,
+            environment: message.environment,
+            // Preserve source synced status; mark as synced now since receiving via sync
+            synced: true,
+            syncedAt: new Date(),
+            createdAt: new Date(message.createdAt),
+          });
+          imported++;
+        } else {
+          // Message exists - log for visibility but don't fail
+          console.log(`[SYNC-BRIDGE] Message ${message.id} already exists, skipping`);
+        }
+      } catch (err: any) {
+        errors.push(`expressLaneMessage ${message.id}: ${err.message}`);
+      }
+    }
+    
+    console.log(`[SYNC-BRIDGE] Imported ${imported} Express Lane messages`);
+    return { imported, errors };
+  }
+  
+  /**
+   * Import Hive Snapshots with duplicate detection
+   * Schema: id, snapshotType, userId, conversationId, sessionId, language, title, content, context, importance, metadata, expiresAt, createdAt
+   * Snapshots are immutable once created.
+   */
+  async importHiveSnapshots(snapshots: any[]): Promise<{ imported: number; errors: string[] }> {
+    let imported = 0;
+    const errors: string[] = [];
+    
+    for (const snapshot of snapshots) {
+      try {
+        const existing = await db.select().from(hiveSnapshots).where(eq(hiveSnapshots.id, snapshot.id)).limit(1);
+        
+        if (existing.length === 0) {
+          await db.insert(hiveSnapshots).values({
+            id: snapshot.id,
+            snapshotType: snapshot.snapshotType,
+            userId: snapshot.userId ?? null,
+            conversationId: snapshot.conversationId ?? null,
+            sessionId: snapshot.sessionId ?? null,
+            language: snapshot.language ?? null,
+            title: snapshot.title,
+            content: snapshot.content,
+            context: snapshot.context ?? null,
+            importance: snapshot.importance ?? 5,
+            metadata: snapshot.metadata ?? null,
+            expiresAt: snapshot.expiresAt ? new Date(snapshot.expiresAt) : null,
+            createdAt: new Date(snapshot.createdAt),
+          });
+          imported++;
+        } else {
+          console.log(`[SYNC-BRIDGE] Snapshot ${snapshot.id} already exists, skipping`);
+        }
+      } catch (err: any) {
+        errors.push(`hiveSnapshot ${snapshot.id}: ${err.message}`);
+      }
+    }
+    
+    console.log(`[SYNC-BRIDGE] Imported ${imported} Hive Snapshots`);
+    return { imported, errors };
+  }
+  
+  /**
+   * Import Daniela's Growth Memories with upsert logic
+   * Full schema with defensive null defaults for optional fields.
+   * Updates only mutable fields; preserves immutable source fields on existing records.
+   */
+  async importDanielaGrowthMemories(memories: any[]): Promise<{ imported: number; errors: string[] }> {
+    let imported = 0;
+    const errors: string[] = [];
+    
+    for (const memory of memories) {
+      try {
+        const existing = await db.select().from(danielaGrowthMemories).where(eq(danielaGrowthMemories.id, memory.id)).limit(1);
+        
+        if (existing.length > 0) {
+          if (new Date(memory.updatedAt) > new Date(existing[0].updatedAt)) {
+            // Update mutable fields, preserve existing if source is null
+            await db.update(danielaGrowthMemories)
+              .set({
+                title: memory.title ?? existing[0].title,
+                lesson: memory.lesson ?? existing[0].lesson,
+                specificContent: memory.specificContent ?? existing[0].specificContent,
+                triggerConditions: memory.triggerConditions ?? existing[0].triggerConditions,
+                applicableLanguages: memory.applicableLanguages ?? existing[0].applicableLanguages,
+                timesApplied: memory.timesApplied ?? existing[0].timesApplied,
+                successRate: memory.successRate ?? existing[0].successRate,
+                lastAppliedAt: memory.lastAppliedAt ? new Date(memory.lastAppliedAt) : existing[0].lastAppliedAt,
+                importance: memory.importance ?? existing[0].importance,
+                validated: memory.validated ?? existing[0].validated,
+                validatedBy: memory.validatedBy ?? existing[0].validatedBy,
+                validatedAt: memory.validatedAt ? new Date(memory.validatedAt) : existing[0].validatedAt,
+                reviewStatus: memory.reviewStatus ?? existing[0].reviewStatus,
+                reviewedBy: memory.reviewedBy ?? existing[0].reviewedBy,
+                reviewedAt: memory.reviewedAt ? new Date(memory.reviewedAt) : existing[0].reviewedAt,
+                reviewNotes: memory.reviewNotes ?? existing[0].reviewNotes,
+                northStarChecksum: memory.northStarChecksum ?? existing[0].northStarChecksum,
+                committedToNeuralNetwork: memory.committedToNeuralNetwork ?? existing[0].committedToNeuralNetwork,
+                neuralNetworkEntryId: memory.neuralNetworkEntryId ?? existing[0].neuralNetworkEntryId,
+                supersededBy: memory.supersededBy ?? existing[0].supersededBy,
+                isActive: memory.isActive ?? existing[0].isActive,
+                metadata: memory.metadata ?? existing[0].metadata,
+                updatedAt: new Date(memory.updatedAt),
+              })
+              .where(eq(danielaGrowthMemories.id, memory.id));
+            imported++;
+          }
+        } else {
+          // Insert with all fields, using defaults for optional fields
+          await db.insert(danielaGrowthMemories).values({
+            id: memory.id,
+            category: memory.category,
+            title: memory.title,
+            lesson: memory.lesson,
+            specificContent: memory.specificContent ?? null,
+            sourceType: memory.sourceType,
+            sourceSessionId: memory.sourceSessionId ?? null,
+            sourceUserId: memory.sourceUserId ?? null,
+            sourceMessageId: memory.sourceMessageId ?? null,
+            triggerConditions: memory.triggerConditions ?? null,
+            applicableLanguages: memory.applicableLanguages ?? null,
+            committedToNeuralNetwork: memory.committedToNeuralNetwork ?? false,
+            neuralNetworkEntryId: memory.neuralNetworkEntryId ?? null,
+            timesApplied: memory.timesApplied ?? 0,
+            successRate: memory.successRate ?? null,
+            lastAppliedAt: memory.lastAppliedAt ? new Date(memory.lastAppliedAt) : null,
+            importance: memory.importance ?? 5,
+            validated: memory.validated ?? false,
+            validatedBy: memory.validatedBy ?? null,
+            validatedAt: memory.validatedAt ? new Date(memory.validatedAt) : null,
+            reviewStatus: memory.reviewStatus ?? 'pending',
+            reviewedBy: memory.reviewedBy ?? null,
+            reviewedAt: memory.reviewedAt ? new Date(memory.reviewedAt) : null,
+            reviewNotes: memory.reviewNotes ?? null,
+            northStarChecksum: memory.northStarChecksum ?? null,
+            supersededBy: memory.supersededBy ?? null,
+            isActive: memory.isActive ?? true,
+            metadata: memory.metadata ?? null,
+            createdAt: new Date(memory.createdAt),
+            updatedAt: new Date(memory.updatedAt),
+          });
+          imported++;
+        }
+      } catch (err: any) {
+        errors.push(`danielaGrowthMemory ${memory.id}: ${err.message}`);
+      }
+    }
+    
+    console.log(`[SYNC-BRIDGE] Imported ${imported} Daniela Growth Memories`);
+    return { imported, errors };
   }
   
   async pushToPeer(triggeredBy: string = 'manual'): Promise<SyncResult> {
