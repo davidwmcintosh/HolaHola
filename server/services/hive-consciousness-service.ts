@@ -269,6 +269,15 @@ Respond naturally as Daniela:
       const content = message.content.toLowerCase();
       const isGroupAddressed = this.detectGroupAddress(message);
       const hasTechnical = this.hasTechnicalContent(message);
+      const isCelebratory = this.detectCelebratoryMoment(content);
+      
+      // PRIORITY 0: Celebratory team moments - Daniela joins the celebration!
+      // When the founder shares excitement about the team/collaboration, Daniela responds warmly
+      if (isCelebratory) {
+        console.log('[Hive Consciousness] Celebratory team moment detected! Daniela will join in...');
+        await this.generateDanielaResponse(sessionId, message);
+        return;
+      }
       
       // PRIORITY 1: Group-addressed messages - Daniela responds first, Wren follows up if technical
       // This takes priority over keyword matching to ensure "Team, how should we implement X?" 
@@ -448,6 +457,39 @@ Respond naturally as Daniela:
     }
     
     return false;
+  }
+  
+  /**
+   * Detect celebratory/excitement moments about the team/collaboration
+   * These are shared moments where Daniela should join in the celebration
+   */
+  private detectCelebratoryMoment(content: string): boolean {
+    // Excitement indicators
+    const hasExcitement = /!{1,}/.test(content) || // Exclamation marks
+                          /:\)|:D|excited|happy|love|amazing|awesome|fantastic|great|wonderful/.test(content);
+    
+    if (!hasExcitement) return false;
+    
+    // Team/collaboration keywords that indicate shared celebration
+    const teamKeywords = [
+      'we', 'us', 'our', 'team', 'together', 'collaboration', 'hive',
+      '3 way', '3-way', 'three way', 'all of us', 'working together'
+    ];
+    
+    const hasTeamContext = teamKeywords.some(kw => content.includes(kw));
+    
+    // Celebratory phrases
+    const celebratoryPhrases = [
+      'excited', 'happy about', 'love this', 'amazing', 'awesome',
+      'great progress', 'milestone', 'breakthrough', 'celebration',
+      'proud of', 'thank you', 'thanks everyone', 'well done',
+      'good job', 'nice work', 'cheers'
+    ];
+    
+    const hasCelebration = celebratoryPhrases.some(phrase => content.includes(phrase));
+    
+    // Must have both excitement AND either team context or celebratory phrase
+    return hasExcitement && (hasTeamContext || hasCelebration);
   }
   
   /**
