@@ -1049,6 +1049,14 @@ Remember: David may reference things discussed in these recent text chats.
         enhancedSystemPrompt += editorFeedbackSection;
       }
       
+      // TECHNICAL HEALTH: Inject awareness of recent technical issues
+      // Enables Daniela to acknowledge audio problems or delays empathetically
+      const technicalHealthContext = voiceDiagnostics.getTechnicalHealthContext();
+      if (technicalHealthContext) {
+        enhancedSystemPrompt += `\n\n${technicalHealthContext}`;
+        console.log(`[Technical Health] Injecting technical awareness into context`);
+      }
+      
       const userMessageWithNote = transcript + contentRedirectNote + sttConfidenceNote + intelligenceContext + architectContext;
       
       await this.geminiService.streamWithSentenceChunking({

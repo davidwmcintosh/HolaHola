@@ -3,9 +3,10 @@ import { syncBridge, type SyncResult } from './sync-bridge';
 import { isSyncConfigured } from '../middleware/sync-auth';
 import { studentLearningService } from './student-learning-service';
 import { wrenIntelligenceService } from './wren-intelligence-service';
+import { voiceDiagnostics } from './voice-diagnostics-service';
 import { db } from '../db';
-import { users, recurringStruggles, hiveSnapshots } from '@shared/schema';
-import { sql, and, gte, isNotNull } from 'drizzle-orm';
+import { users, recurringStruggles, hiveSnapshots, wrenInsights } from '@shared/schema';
+import { sql, and, gte, isNotNull, eq, desc } from 'drizzle-orm';
 
 let scheduledTimer: NodeJS.Timeout | null = null;
 let lastSyncResult: { 
@@ -164,6 +165,157 @@ async function runInsightDecay(): Promise<{ insightsDecayed: number }> {
   return { insightsDecayed: decayed };
 }
 
+/**
+ * Analyze voice diagnostic patterns from last 24 hours
+ * Detects latency trends, error clusters, and service degradation
+ * Creates Wren proactive triggers when issues are found
+ */
+async function runVoicePatternAnalysis(): Promise<{
+  snapshotsAnalyzed: number;
+  patternsDetected: number;
+  triggersCreated: number;
+}> {
+  console.log('[SYNC-SCHEDULER] Running voice pattern analysis...');
+  
+  let snapshotsAnalyzed = 0;
+  let patternsDetected = 0;
+  let triggersCreated = 0;
+  
+  try {
+    // Get voice diagnostics from the last 24 hours
+    const diagnostics = await voiceDiagnostics.getHistoricalDiagnostics({
+      daysBack: 1,
+      minImportance: 1,
+      limit: 200,
+    });
+    
+    snapshotsAnalyzed = diagnostics.length;
+    
+    if (snapshotsAnalyzed === 0) {
+      console.log('[SYNC-SCHEDULER]   No voice diagnostics to analyze');
+      return { snapshotsAnalyzed: 0, patternsDetected: 0, triggersCreated: 0 };
+    }
+    
+    // Aggregate statistics across all snapshots
+    const stats = {
+      totalEvents: 0,
+      totalFailures: 0,
+      stageStats: {} as Record<string, { count: number; failures: number; avgLatency: number }>,
+    };
+    
+    for (const diag of diagnostics) {
+      const content = diag.content;
+      if (!content) continue;
+      
+      stats.totalEvents += content.eventCount || 0;
+      stats.totalFailures += content.failureCount || 0;
+      
+      // Aggregate stage breakdown
+      const breakdown = content.stageBreakdown as Record<string, { count: number; avgLatencyMs: number; failures: number }> | undefined;
+      if (breakdown) {
+        for (const [stage, data] of Object.entries(breakdown)) {
+          if (!stats.stageStats[stage]) {
+            stats.stageStats[stage] = { count: 0, failures: 0, avgLatency: 0 };
+          }
+          stats.stageStats[stage].count += data.count;
+          stats.stageStats[stage].failures += data.failures;
+          // Rolling average
+          const prev = stats.stageStats[stage];
+          prev.avgLatency = ((prev.avgLatency * (prev.count - data.count)) + (data.avgLatencyMs * data.count)) / prev.count;
+        }
+      }
+    }
+    
+    // Detect patterns and create triggers
+    const patterns: Array<{ type: string; message: string; severity: 'low' | 'medium' | 'high' }> = [];
+    
+    // Pattern 1: High failure rate (>10% of events are failures)
+    if (stats.totalEvents > 10 && stats.totalFailures / stats.totalEvents > 0.1) {
+      patterns.push({
+        type: 'high_failure_rate',
+        message: `Voice pipeline failure rate is ${((stats.totalFailures / stats.totalEvents) * 100).toFixed(1)}% (${stats.totalFailures}/${stats.totalEvents} events)`,
+        severity: 'high',
+      });
+    }
+    
+    // Pattern 2: Stage-specific failures (>20% failure rate for a stage)
+    for (const [stage, data] of Object.entries(stats.stageStats)) {
+      if (data.count > 5 && data.failures / data.count > 0.2) {
+        patterns.push({
+          type: 'stage_failure_cluster',
+          message: `${stage.toUpperCase()} stage has ${((data.failures / data.count) * 100).toFixed(1)}% failure rate`,
+          severity: 'medium',
+        });
+      }
+    }
+    
+    // Pattern 3: High latency (>2000ms average for any stage)
+    for (const [stage, data] of Object.entries(stats.stageStats)) {
+      if (data.avgLatency > 2000) {
+        patterns.push({
+          type: 'high_latency',
+          message: `${stage.toUpperCase()} average latency is ${data.avgLatency.toFixed(0)}ms (target: <1000ms)`,
+          severity: 'medium',
+        });
+      }
+    }
+    
+    // Pattern 4: TTS specifically degraded (since we have Cartesia fallback)
+    const ttsStats = stats.stageStats['tts'];
+    if (ttsStats && ttsStats.count > 5 && (ttsStats.failures / ttsStats.count > 0.15 || ttsStats.avgLatency > 1500)) {
+      patterns.push({
+        type: 'tts_degradation',
+        message: `TTS service degraded: ${ttsStats.failures} failures, ${ttsStats.avgLatency.toFixed(0)}ms avg latency. Consider Google TTS fallback.`,
+        severity: 'high',
+      });
+    }
+    
+    patternsDetected = patterns.length;
+    
+    // Create Wren insights for detected patterns
+    if (patterns.length > 0) {
+      console.log(`[SYNC-SCHEDULER]   Detected ${patterns.length} voice patterns:`);
+      
+      for (const pattern of patterns) {
+        console.log(`[SYNC-SCHEDULER]     [${pattern.severity.toUpperCase()}] ${pattern.type}: ${pattern.message}`);
+        
+        try {
+          // Create Wren insight for each pattern
+          await db.insert(wrenInsights).values({
+            category: 'integration',
+            title: `Voice Pattern: ${pattern.type}`,
+            content: pattern.message,
+            context: JSON.stringify({
+              detectedAt: new Date().toISOString(),
+              severity: pattern.severity,
+              stats: stats.stageStats,
+              totalEvents: stats.totalEvents,
+              totalFailures: stats.totalFailures,
+              patternType: pattern.type,
+            }),
+            tags: ['voice', 'diagnostics', pattern.severity, pattern.type],
+            environment: process.env.NODE_ENV || 'development',
+          });
+          
+          triggersCreated++;
+        } catch (insertErr: any) {
+          console.warn(`[SYNC-SCHEDULER]     Failed to create insight: ${insertErr.message}`);
+        }
+      }
+    } else {
+      console.log('[SYNC-SCHEDULER]   Voice pipeline healthy - no concerning patterns detected');
+    }
+    
+    // Log summary stats
+    console.log(`[SYNC-SCHEDULER]   Summary: ${stats.totalEvents} events, ${stats.totalFailures} failures across ${Object.keys(stats.stageStats).length} stages`);
+    
+  } catch (err: any) {
+    console.error('[SYNC-SCHEDULER]   Voice pattern analysis failed:', err.message);
+  }
+  
+  return { snapshotsAnalyzed, patternsDetected, triggersCreated };
+}
+
 async function runNightlySync(): Promise<void> {
   console.log('[SYNC-SCHEDULER] Running nightly auto-sync at', new Date().toISOString());
   
@@ -238,6 +390,10 @@ async function runNightlySync(): Promise<void> {
     // 7c. Wren insight decay for memory consolidation (daily)
     const decayResult = await runInsightDecay();
     console.log(`[SYNC-SCHEDULER] Insight decay: ${decayResult.insightsDecayed} insights decayed`);
+    
+    // 7d. Voice pattern analysis for service health monitoring (daily)
+    const voiceResult = await runVoicePatternAnalysis();
+    console.log(`[SYNC-SCHEDULER] Voice analysis: ${voiceResult.patternsDetected} patterns from ${voiceResult.snapshotsAnalyzed} snapshots, ${voiceResult.triggersCreated} triggers created`);
     
     console.log(`[SYNC-SCHEDULER] Emergent intelligence jobs complete`);
     

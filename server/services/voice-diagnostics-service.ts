@@ -1,13 +1,24 @@
 /**
  * Voice Diagnostics Service
  * 
- * Provides production monitoring capabilities for the voice pipeline:
- * - In-memory ring buffer capturing the last 200 voice events
+ * Commercial-grade production monitoring for the voice pipeline:
+ * - In-memory ring buffer for real-time debugging (last 200 events)
+ * - Persistent storage to hiveSnapshots for pattern analysis
  * - Health checks for Deepgram, Gemini, and Cartesia services
  * - Secrets verification (presence check, not values)
  * 
+ * Persistence enables:
+ * - Learning from failure patterns
+ * - Latency trend analysis
+ * - Service degradation detection
+ * - Cross-session pattern correlation
+ * 
  * All endpoints are founder-protected for security.
  */
+
+import { db } from "../db";
+import { hiveSnapshots } from "@shared/schema";
+import { eq, desc, gte, and } from "drizzle-orm";
 
 export interface VoiceEvent {
   timestamp: Date;
@@ -39,6 +50,41 @@ export interface VoiceHealthCheck {
 class VoiceDiagnosticsService {
   private events: VoiceEvent[] = [];
   private readonly MAX_EVENTS = 200;
+  private pendingFlush: VoiceEvent[] = [];
+  private readonly FLUSH_THRESHOLD = 50; // Flush after 50 events
+  private readonly FLUSH_INTERVAL_MS = 60000; // Or every 60 seconds
+  private flushTimer: NodeJS.Timeout | null = null;
+  private isShuttingDown = false;
+  
+  constructor() {
+    this.startPeriodicFlush();
+  }
+  
+  /**
+   * Start periodic flush timer
+   */
+  private startPeriodicFlush(): void {
+    this.flushTimer = setInterval(() => {
+      if (this.pendingFlush.length > 0) {
+        this.flushToDatabaseAsync();
+      }
+    }, this.FLUSH_INTERVAL_MS);
+  }
+  
+  /**
+   * Stop periodic flush (for graceful shutdown)
+   */
+  async shutdown(): Promise<void> {
+    this.isShuttingDown = true;
+    if (this.flushTimer) {
+      clearInterval(this.flushTimer);
+      this.flushTimer = null;
+    }
+    // Final flush
+    if (this.pendingFlush.length > 0) {
+      await this.flushToDatabase();
+    }
+  }
   
   /**
    * Log a voice pipeline event
@@ -50,6 +96,7 @@ class VoiceDiagnosticsService {
     };
     
     this.events.push(fullEvent);
+    this.pendingFlush.push(fullEvent);
     
     // Ring buffer: remove oldest events when exceeding limit
     while (this.events.length > this.MAX_EVENTS) {
@@ -59,6 +106,193 @@ class VoiceDiagnosticsService {
     // Also log to console for real-time visibility
     const statusIcon = event.status === 'success' ? '✓' : event.status === 'fail' ? '✗' : '→';
     console.log(`[Voice ${event.stage.toUpperCase()}] ${statusIcon} ${event.sessionId.substring(0, 8)}... ${event.message}${event.durationMs ? ` (${event.durationMs}ms)` : ''}`);
+    
+    // Flush if threshold reached
+    if (this.pendingFlush.length >= this.FLUSH_THRESHOLD) {
+      this.flushToDatabaseAsync();
+    }
+  }
+  
+  /**
+   * Async flush (non-blocking)
+   */
+  private flushToDatabaseAsync(): void {
+    this.flushToDatabase().catch(err => {
+      console.error('[Voice Diagnostics] Flush to database failed:', err.message);
+    });
+  }
+  
+  /**
+   * Flush pending events to hiveSnapshots table
+   */
+  async flushToDatabase(): Promise<number> {
+    if (this.pendingFlush.length === 0) return 0;
+    
+    const eventsToFlush = [...this.pendingFlush];
+    this.pendingFlush = [];
+    
+    try {
+      // Aggregate events into a single snapshot per flush
+      const failureCount = eventsToFlush.filter(e => e.status === 'fail').length;
+      const stageBreakdown: Record<string, { count: number; avgLatencyMs: number; failures: number }> = {};
+      
+      for (const event of eventsToFlush) {
+        if (!stageBreakdown[event.stage]) {
+          stageBreakdown[event.stage] = { count: 0, avgLatencyMs: 0, failures: 0 };
+        }
+        stageBreakdown[event.stage].count++;
+        if (event.durationMs) {
+          const prev = stageBreakdown[event.stage];
+          prev.avgLatencyMs = ((prev.avgLatencyMs * (prev.count - 1)) + event.durationMs) / prev.count;
+        }
+        if (event.status === 'fail') {
+          stageBreakdown[event.stage].failures++;
+        }
+      }
+      
+      // Determine importance based on failure rate
+      const importance = failureCount > 5 ? 9 : failureCount > 0 ? 7 : 5;
+      
+      // Create snapshot with aggregated data
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7-day expiry
+      
+      await db.insert(hiveSnapshots).values({
+        snapshotType: 'voice_diagnostic',
+        title: `Voice Pipeline: ${eventsToFlush.length} events (${failureCount} failures)`,
+        content: JSON.stringify({
+          eventCount: eventsToFlush.length,
+          failureCount,
+          stageBreakdown,
+          timeRange: {
+            start: eventsToFlush[0]?.timestamp,
+            end: eventsToFlush[eventsToFlush.length - 1]?.timestamp,
+          },
+        }),
+        context: JSON.stringify({
+          type: 'voice_diagnostic_batch',
+          environment: process.env.NODE_ENV || 'development',
+          events: eventsToFlush.map(e => ({
+            timestamp: e.timestamp,
+            sessionId: e.sessionId,
+            stage: e.stage,
+            status: e.status,
+            message: e.message,
+            durationMs: e.durationMs,
+          })),
+        }),
+        importance,
+        metadata: {
+          eventCount: eventsToFlush.length,
+          failureCount,
+          stages: Object.keys(stageBreakdown),
+        },
+        expiresAt,
+      });
+      
+      console.log(`[Voice Diagnostics] Flushed ${eventsToFlush.length} events to hiveSnapshots (${failureCount} failures, importance=${importance})`);
+      return eventsToFlush.length;
+    } catch (error: any) {
+      // Put events back for retry
+      this.pendingFlush = [...eventsToFlush, ...this.pendingFlush];
+      throw error;
+    }
+  }
+  
+  /**
+   * Query historical voice diagnostic snapshots
+   */
+  async getHistoricalDiagnostics(options: {
+    daysBack?: number;
+    minImportance?: number;
+    limit?: number;
+  } = {}): Promise<Array<{
+    id: string;
+    title: string;
+    content: any;
+    importance: number | null;
+    createdAt: Date;
+  }>> {
+    const { daysBack = 7, minImportance = 1, limit = 100 } = options;
+    
+    const since = new Date();
+    since.setDate(since.getDate() - daysBack);
+    
+    const results = await db.select({
+      id: hiveSnapshots.id,
+      title: hiveSnapshots.title,
+      content: hiveSnapshots.content,
+      importance: hiveSnapshots.importance,
+      createdAt: hiveSnapshots.createdAt,
+    })
+    .from(hiveSnapshots)
+    .where(and(
+      eq(hiveSnapshots.snapshotType, 'voice_diagnostic'),
+      gte(hiveSnapshots.createdAt, since),
+      gte(hiveSnapshots.importance, minImportance)
+    ))
+    .orderBy(desc(hiveSnapshots.createdAt))
+    .limit(limit);
+    
+    return results.map(r => ({
+      ...r,
+      content: typeof r.content === 'string' ? JSON.parse(r.content) : r.content,
+    }));
+  }
+  
+  /**
+   * Get recent technical issues for a user's sessions
+   * Used to inject awareness into Daniela's context
+   * Returns null if no issues, or a summary string if issues detected
+   */
+  async getRecentTechnicalIssuesForUser(userId: string): Promise<string | null> {
+    if (!userId) return null;
+    
+    // Check recent events in ring buffer for this user's sessions
+    // Events don't store userId directly, but we can check for failures
+    const recentFailures = this.events.filter(e => 
+      e.status === 'fail' && 
+      e.timestamp > new Date(Date.now() - 24 * 60 * 60 * 1000) // Last 24 hours
+    );
+    
+    if (recentFailures.length === 0) return null;
+    
+    // Categorize failures
+    const sttFailures = recentFailures.filter(e => e.stage === 'stt').length;
+    const aiFailures = recentFailures.filter(e => e.stage === 'ai').length;
+    const ttsFailures = recentFailures.filter(e => e.stage === 'tts').length;
+    
+    const issues: string[] = [];
+    
+    if (sttFailures > 0) {
+      issues.push('speech recognition hiccups');
+    }
+    if (aiFailures > 0) {
+      issues.push('response delays');
+    }
+    if (ttsFailures > 0) {
+      issues.push('voice synthesis issues');
+    }
+    
+    if (issues.length === 0) return null;
+    
+    return `Recent technical context: The system experienced some ${issues.join(' and ')} in the past 24 hours. If the student mentions audio problems or delays, acknowledge them empathetically and assure them you're here to help.`;
+  }
+  
+  /**
+   * Build context string for Daniela about technical health
+   * Lightweight version for prompt injection
+   */
+  getTechnicalHealthContext(): string | null {
+    const stats = this.getStats();
+    
+    // Only inject if there are notable issues
+    if (stats.failureCount === 0) return null;
+    
+    const failureRate = (stats.failureCount / stats.totalEvents) * 100;
+    if (failureRate < 5) return null; // Less than 5% failure rate is acceptable
+    
+    return `Note: Voice system health is ${failureRate > 20 ? 'degraded' : 'slightly impacted'}. If you notice delays or issues, be patient with the student and acknowledge any technical difficulties gracefully.`;
   }
   
   /**
@@ -238,6 +472,93 @@ class VoiceDiagnosticsService {
    */
   clear(): void {
     this.events = [];
+  }
+  
+  /**
+   * Check if TTS (Cartesia) is currently degraded based on recent events
+   * Used for auto-remediation - suggests using Google TTS fallback
+   * 
+   * Criteria:
+   * - >30% TTS failure rate in last 10 TTS events
+   * - OR average TTS latency >2000ms in last 10 events
+   */
+  isTTSDegraded(): { degraded: boolean; reason?: string; shouldUseFallback: boolean } {
+    const recentTTSEvents = this.events
+      .filter(e => e.stage === 'tts')
+      .slice(-10); // Last 10 TTS events
+    
+    if (recentTTSEvents.length < 3) {
+      // Not enough data to determine
+      return { degraded: false, shouldUseFallback: false };
+    }
+    
+    const failures = recentTTSEvents.filter(e => e.status === 'fail').length;
+    const failureRate = failures / recentTTSEvents.length;
+    
+    // Calculate average latency for successful events
+    const successfulEvents = recentTTSEvents.filter(e => e.status === 'success' && e.durationMs);
+    const avgLatency = successfulEvents.length > 0
+      ? successfulEvents.reduce((sum, e) => sum + (e.durationMs || 0), 0) / successfulEvents.length
+      : 0;
+    
+    // Check degradation criteria
+    if (failureRate > 0.3) {
+      console.log(`[Voice Diagnostics] TTS DEGRADED: ${(failureRate * 100).toFixed(0)}% failure rate`);
+      return {
+        degraded: true,
+        reason: `High TTS failure rate: ${(failureRate * 100).toFixed(0)}% (${failures}/${recentTTSEvents.length} events)`,
+        shouldUseFallback: true,
+      };
+    }
+    
+    if (avgLatency > 2000) {
+      console.log(`[Voice Diagnostics] TTS DEGRADED: ${avgLatency.toFixed(0)}ms average latency`);
+      return {
+        degraded: true,
+        reason: `High TTS latency: ${avgLatency.toFixed(0)}ms average`,
+        shouldUseFallback: true,
+      };
+    }
+    
+    return { degraded: false, shouldUseFallback: false };
+  }
+  
+  /**
+   * Check if any stage is critically degraded (>50% failure rate)
+   * Returns list of degraded stages for immediate attention
+   */
+  getCriticallyDegradedStages(): Array<{ stage: string; failureRate: number; eventCount: number }> {
+    const stageCounts: Record<string, { total: number; failures: number }> = {};
+    
+    // Only look at recent events (last 50)
+    const recentEvents = this.events.slice(-50);
+    
+    for (const event of recentEvents) {
+      if (!stageCounts[event.stage]) {
+        stageCounts[event.stage] = { total: 0, failures: 0 };
+      }
+      stageCounts[event.stage].total++;
+      if (event.status === 'fail') {
+        stageCounts[event.stage].failures++;
+      }
+    }
+    
+    const degraded: Array<{ stage: string; failureRate: number; eventCount: number }> = [];
+    
+    for (const [stage, counts] of Object.entries(stageCounts)) {
+      if (counts.total >= 3) { // Need at least 3 events
+        const failureRate = counts.failures / counts.total;
+        if (failureRate > 0.5) {
+          degraded.push({
+            stage,
+            failureRate,
+            eventCount: counts.total,
+          });
+        }
+      }
+    }
+    
+    return degraded;
   }
 }
 
