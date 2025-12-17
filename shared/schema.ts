@@ -2642,6 +2642,15 @@ export type HiveSnapshotType = 'teaching_moment' | 'breakthrough' | 'struggle_pa
 // - Tier 1: Daniela's Growth Memories (PERSISTENT) - Her own learning journey
 // - Tier 2: Student Pattern Data (DECAYING) - Stored in hiveSnapshots with TTL
 
+// Review Status Enum - state machine for founder approval workflow
+export const memoryReviewStatusEnum = pgEnum("memory_review_status", [
+  'pending',           // Awaiting review (default for scrutinized categories)
+  'approved_founder',  // Explicitly approved by founder
+  'approved_auto',     // Auto-approved (non-scrutinized categories that pass validation)
+  'rejected',          // Explicitly rejected
+  'needs_revision'     // Rejected but can be revised
+]);
+
 // Growth Memory Category Enum - types of self-learning Daniela accumulates
 export const growthMemoryCategoryEnum = pgEnum("growth_memory_category", [
   'teaching_technique',    // Learned how to teach something effectively
@@ -2689,9 +2698,41 @@ export const danielaGrowthMemories = pgTable("daniela_growth_memories", {
   importance: integer("importance").default(5), // 1-10 scale
   validated: boolean("validated").default(false), // Has this been verified as valuable?
   validatedBy: varchar("validated_by"), // 'founder', 'outcomes', 'neural_network'
+  validatedAt: timestamp("validated_at"), // When was it validated (for freshness checks)
   
-  // Metadata for North Star validation and founder review
-  metadata: jsonb("metadata"), // Stores validation details, rejection reasons, etc.
+  // Founder review state machine - REQUIRED for scrutinized categories
+  reviewStatus: memoryReviewStatusEnum("review_status").default('pending'),
+  reviewedBy: varchar("reviewed_by"), // User ID of reviewer (founder)
+  reviewedAt: timestamp("reviewed_at"), // Immutable timestamp of review
+  reviewNotes: text("review_notes"), // Optional notes from founder
+  
+  // North Star validation checksum - prevents bypass via manual DB updates
+  northStarChecksum: varchar("north_star_checksum"), // Hash of principles at validation time
+  
+  // Structured audit metadata (mandatory for all validation attempts)
+  metadata: jsonb("metadata").$type<{
+    validationHistory?: Array<{
+      timestamp: string;
+      result: 'passed' | 'failed' | 'flagged';
+      reason?: string;
+      validator: 'deterministic' | 'ai' | 'founder';
+      principlesDiff?: string[];
+    }>;
+    founderReview?: {
+      decision: string;
+      notes?: string;
+      timestamp: string;
+    };
+    northStarDiff?: {
+      touchedPrinciples: string[];
+      classification: 'style' | 'personality' | 'ambiguous';
+    };
+    commitAttempts?: Array<{
+      timestamp: string;
+      success: boolean;
+      blockReason?: string;
+    }>;
+  }>(),
   
   // Lifecycle - growth memories don't expire but can be superseded
   supersededBy: varchar("superseded_by"), // If a newer learning replaces this
@@ -2705,6 +2746,7 @@ export const danielaGrowthMemories = pgTable("daniela_growth_memories", {
   index("idx_growth_memories_active").on(table.isActive),
   index("idx_growth_memories_committed").on(table.committedToNeuralNetwork),
   index("idx_growth_memories_importance").on(table.importance),
+  index("idx_growth_memories_review_status").on(table.reviewStatus),
 ]);
 
 export const insertDanielaGrowthMemorySchema = createInsertSchema(danielaGrowthMemories).omit({
