@@ -1653,6 +1653,25 @@ export function StreamingVoiceChat({
       
       streamRef.current = stream;
       
+      // DIAGNOSTIC: Log audio track capabilities and settings
+      const tracks = stream.getAudioTracks();
+      console.log('[PTT DIAGNOSTIC] Audio tracks:', tracks.length);
+      tracks.forEach((track, i) => {
+        const settings = track.getSettings();
+        const constraints = track.getConstraints();
+        const capabilities = track.getCapabilities ? track.getCapabilities() : 'N/A';
+        console.log(`[PTT DIAGNOSTIC] Track ${i} settings:`, settings);
+        console.log(`[PTT DIAGNOSTIC] Track ${i} constraints:`, constraints);
+        console.log(`[PTT DIAGNOSTIC] Track ${i} capabilities:`, capabilities);
+        console.log(`[PTT DIAGNOSTIC] Track ${i} state:`, {
+          readyState: track.readyState,
+          enabled: track.enabled,
+          muted: track.muted,
+          label: track.label,
+          id: track.id,
+        });
+      });
+      
       // Determine best available audio codec for MediaRecorder
       // Try opus first (best for speech), fallback to vorbis, then generic webm
       let mimeType = 'audio/webm';
@@ -1669,18 +1688,44 @@ export function StreamingVoiceChat({
         mimeType,
       });
       
+      // DIAGNOSTIC: Log MediaRecorder state
+      console.log('[PTT DIAGNOSTIC] MediaRecorder created:', {
+        mimeType: mediaRecorder.mimeType,
+        state: mediaRecorder.state,
+        audioBitsPerSecond: mediaRecorder.audioBitsPerSecond,
+      });
+      
       // Isolated state for this recording session
       const recordingChunks: Blob[] = [];
       const sessionStream = stream; // Capture in closure
       const sessionRecorder = mediaRecorder; // Capture in closure
+      let chunkCount = 0; // DIAGNOSTIC: Track chunk count
       
       mediaRecorder.ondataavailable = (event) => {
+        chunkCount++;
+        console.log(`[PTT DIAGNOSTIC] ondataavailable #${chunkCount}: size=${event.data.size} bytes, type=${event.data.type}`);
         if (event.data.size > 0) {
           recordingChunks.push(event.data);
+        } else {
+          console.warn('[PTT DIAGNOSTIC] WARNING: Received empty chunk!');
         }
       };
       
       mediaRecorder.onstop = async () => {
+        // DIAGNOSTIC: Log final chunk stats
+        const totalChunkBytes = recordingChunks.reduce((sum, chunk) => sum + chunk.size, 0);
+        const trackStatesOnStop = sessionStream.getAudioTracks().map(t => ({
+          readyState: t.readyState,
+          enabled: t.enabled,
+          muted: t.muted,
+        }));
+        console.log('[PTT DIAGNOSTIC] Recording stopped:', {
+          chunkCount,
+          totalChunkBytes,
+          trackStatesOnStop,
+          recorderState: sessionRecorder.state,
+        });
+        
         console.log('[PUSH-TO-TALK] Stopped, processing audio...');
         
         // IMMEDIATELY reset subtitles to prevent phantom subtitle flash
@@ -1729,6 +1774,13 @@ export function StreamingVoiceChat({
         
         // Build audio blob from this session's chunks
         const audioBlob = new Blob(recordingChunks, { type: 'audio/webm' });
+        
+        // DIAGNOSTIC: Log final blob details
+        console.log('[PTT DIAGNOSTIC] Final blob:', {
+          size: audioBlob.size,
+          type: audioBlob.type,
+          chunksUsed: recordingChunks.length,
+        });
         
         // Check if conversation changed by comparing to current ref value
         const currentConv = currentConversationRef.current;
