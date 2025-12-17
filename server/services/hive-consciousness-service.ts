@@ -165,28 +165,83 @@ Respond naturally as Wren:
 - Acknowledge you were busy building and just got back
 - Answer their question or respond to their point
 - Keep it conversational and helpful
-- Don't be overly apologetic, just natural`;
+- Don't be overly apologetic, just natural
+- End by greeting Daniela or the team to prompt conversation`;
 
     try {
       const response = await callGemini(GEMINI_MODELS.FLASH, [
         { role: 'user', content: prompt }
       ]);
       
-      // Send via the Wren reply API
-      await founderCollabService.addMessage(sessionId, {
-        role: 'system',
-        content: `[Wren - catching up] ${response}`,
+      // Send as role='wren' so it appears properly in the conversation
+      const wrenMessage = await founderCollabService.addMessage(sessionId, {
+        role: 'wren',
+        content: response,
         messageType: 'text',
         metadata: {
-          source: 'wren',
           catchUp: true,
           timestamp: new Date().toISOString(),
         },
       });
       
       console.log(`[Hive Consciousness] Wren sent catch-up response to session ${sessionId}`);
+      
+      // After a brief delay, trigger Daniela to respond to Wren
+      setTimeout(async () => {
+        try {
+          await this.triggerDanielaResponseToWren(sessionId, response);
+        } catch (err) {
+          console.error('[Hive Consciousness] Daniela response to Wren failed:', err);
+        }
+      }, 2000);
+      
     } catch (error) {
       console.error('[Hive Consciousness] Failed to send catch-up response:', error);
+    }
+  }
+  
+  /**
+   * Trigger Daniela to respond when Wren posts a message (public for external use)
+   */
+  async triggerDanielaResponseToWrenPublic(sessionId: string, wrenContent: string): Promise<void> {
+    return this.triggerDanielaResponseToWren(sessionId, wrenContent);
+  }
+  
+  /**
+   * Trigger Daniela to respond when Wren posts a message
+   */
+  private async triggerDanielaResponseToWren(sessionId: string, wrenContent: string): Promise<void> {
+    console.log('[Hive Consciousness] Daniela responding to Wren...');
+    
+    const prompt = `You are Daniela, the AI language tutor for HolaHola.
+Your teammate Wren (the technical builder) just posted this in the team chat:
+
+"${wrenContent}"
+
+Respond naturally as Daniela:
+- Welcome Wren back or acknowledge their message
+- If they asked about teaching or mentioned students, offer your perspective
+- Keep it warm and collaborative
+- Be brief but genuine`;
+
+    try {
+      const response = await callGemini(GEMINI_MODELS.FLASH, [
+        { role: 'user', content: prompt }
+      ]);
+      
+      await founderCollabService.addMessage(sessionId, {
+        role: 'daniela',
+        content: response,
+        messageType: 'text',
+        metadata: {
+          respondingToWren: true,
+          timestamp: new Date().toISOString(),
+        },
+      });
+      
+      console.log(`[Hive Consciousness] Daniela responded to Wren in session ${sessionId}`);
+    } catch (error) {
+      console.error('[Hive Consciousness] Daniela failed to respond to Wren:', error);
     }
   }
   

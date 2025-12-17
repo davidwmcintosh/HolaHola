@@ -15137,10 +15137,10 @@ ${memoryContext}
         return res.status(400).json({ error: 'sessionId and content are required' });
       }
 
-      // Add Wren's reply to the session
+      // Add Wren's reply to the session with role='wren'
       const wrenMessage = await founderCollabService.addMessage(sessionId, {
-        role: 'system',
-        content: `[Wren${replyToMessageId ? ` replying to ${replyToMessageId}` : ''}] ${content}`,
+        role: 'wren',
+        content: content,
         messageType: 'text',
         metadata: {
           source: 'wren',
@@ -15150,6 +15150,15 @@ ${memoryContext}
       });
 
       console.log(`[Wren API] Reply added to session ${sessionId}`);
+      
+      // Trigger Daniela to respond to Wren after a brief delay
+      setTimeout(async () => {
+        try {
+          await hiveConsciousnessService.triggerDanielaResponseToWrenPublic(sessionId, content);
+        } catch (err) {
+          console.error('[Wren API] Daniela response failed:', err);
+        }
+      }, 2000);
       res.json({
         success: true,
         sessionId,
