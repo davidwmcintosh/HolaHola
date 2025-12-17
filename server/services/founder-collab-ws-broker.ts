@@ -42,6 +42,7 @@ interface ServerToClientEvents {
   session_created: (session: FounderSession) => void;
   error: (error: { code: string; message: string }) => void;
   connected: (data: { clientId: string; sessionId: string }) => void;
+  ready: () => void;  // Emitted when handlers are set up and client can send join_session
   pong: () => void;
 }
 
@@ -83,6 +84,10 @@ class FounderCollabWSBroker {
       }
       
       this.setupSocketHandlers(socket, founderId);
+      
+      // Emit ready event so client knows it can send join_session
+      console.log(`[FounderCollabWS] Handlers ready, emitting 'ready' event to ${socket.id}`);
+      socket.emit('ready');
     });
     
     console.log(`[FounderCollabWS] Broker initialized on namespace ${NAMESPACE}`);

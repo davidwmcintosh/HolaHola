@@ -37,6 +37,7 @@ interface ServerToClientEvents {
   session_created: (session: FounderSession) => void;
   error: (error: { code: string; message: string }) => void;
   connected: (data: { clientId: string; sessionId: string }) => void;
+  ready: () => void;  // Server signals handlers are ready, safe to emit join_session
   pong: () => void;
   // Voice events
   voice_transcript: (data: { text: string; isFinal: boolean }) => void;
@@ -293,13 +294,6 @@ export function useFounderCollab(): UseFounderCollabReturn {
     // Monitor socket.io Manager events for debugging
     socket.io.on('open', () => {
       console.log('[FounderCollab] Transport opened, socket.connected:', socket.connected);
-      // Fallback: If transport opens but connect event doesn't fire, emit after delay
-      setTimeout(() => {
-        if (!sessionIdRef.current && socket.connected) {
-          console.log('[FounderCollab] Fallback: transport open but no session, emitting join_session');
-          emitJoinSession();
-        }
-      }, 500);
     });
     
     socket.io.on('error', (err) => {
@@ -308,6 +302,13 @@ export function useFounderCollab(): UseFounderCollabReturn {
     
     socket.on('connect', () => {
       console.log('[FounderCollab] CONNECT EVENT FIRED! Socket.id:', socket.id);
+      // Don't emit join_session here - wait for 'ready' event from server
+      // The server needs time to authenticate and set up handlers
+    });
+    
+    // Wait for server to signal that handlers are ready before joining
+    socket.on('ready', () => {
+      console.log('[FounderCollab] Server ready, emitting join_session');
       emitJoinSession();
     });
     
