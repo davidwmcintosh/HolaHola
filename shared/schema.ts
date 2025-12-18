@@ -4760,6 +4760,14 @@ export const sprintStageEnum = pgEnum('sprint_stage', [
 // Sprint priority enum
 export const sprintPriorityEnum = pgEnum('sprint_priority', ['low', 'medium', 'high', 'critical']);
 
+// Sprint source enum - tracks where the sprint originated from
+export const sprintSourceEnum = pgEnum('sprint_source', [
+  'founder',          // Created directly by founder
+  'wren_commitment',  // Created from EXPRESS Lane Wren promise
+  'consultation',     // Converted from Daniela consultation
+  'ai_suggestion',    // Proactively suggested by AI
+]);
+
 // Feature sprints - main sprint items
 export const featureSprints = pgTable("feature_sprints", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -4796,6 +4804,11 @@ export const featureSprints = pgTable("feature_sprints", {
   aiSuggested: boolean("ai_suggested").default(false), // True if AI proactively suggested this
   aiConfidence: real("ai_confidence"), // 0.0-1.0 confidence in suggestion
   sourceConsultationId: varchar("source_consultation_id"), // If converted from a consultation
+  
+  // Source tracking - where this sprint originated
+  source: sprintSourceEnum("source"), // Origin type
+  sourceSessionId: varchar("source_session_id"), // EXPRESS Lane session ID (founderSessions.id)
+  sourceMessageId: varchar("source_message_id"), // EXPRESS Lane message ID (collaborationMessages.id)
   
   // Ownership
   createdBy: varchar("created_by").notNull(),
