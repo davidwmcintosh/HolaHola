@@ -241,7 +241,12 @@ Dynamic sections (Hive context, Express Lane, Editor feedback) are refreshed per
 
 ### Gap Bridge (Implemented Dec 2025)
 
-Added periodic context refresh every 15 minutes for active voice sessions to rebuild enhanced system prompt sections.
+Added periodic context refresh for **Founder Mode voice sessions only**:
+- Timer starts on session creation (Founder Mode only)
+- Runs every 15 minutes using `setInterval`
+- Refreshes neural network context (replit.md, North Star, tool knowledge)
+- Timer is cleared when session ends via `stopContextRefreshTimer()`
+- Non-Founder Mode sessions skip refresh (context changes less frequently)
 
 ---
 

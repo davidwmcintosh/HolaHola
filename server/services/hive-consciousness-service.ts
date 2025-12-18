@@ -89,6 +89,47 @@ function getReplitMdCache(): { overview: string; architecture: string; dependenc
   return replitMdCache || { overview: '', architecture: '', dependencies: '' };
 }
 
+/**
+ * Refresh replit.md cache mid-session
+ * Call this when replit.md has been updated and you want Wren to pick up changes
+ * without restarting the server
+ */
+export async function refreshReplitMdCache(): Promise<{ success: boolean; message: string }> {
+  try {
+    const replitMdPath = path.join(process.cwd(), 'replit.md');
+    const content = await fs.promises.readFile(replitMdPath, 'utf-8');
+    
+    // Extract key sections (Overview, System Architecture, External Dependencies)
+    const overviewMatch = content.match(/## Overview\n([\s\S]*?)(?=\n## )/);
+    const archMatch = content.match(/## System Architecture\n([\s\S]*?)(?=\n## )/);
+    const depsMatch = content.match(/## External Dependencies\n([\s\S]*?)$/);
+    
+    const oldCache = replitMdCache;
+    replitMdCache = {
+      overview: overviewMatch ? overviewMatch[1].trim().substring(0, 800) : '',
+      architecture: archMatch ? archMatch[1].trim().substring(0, 1500) : '',
+      dependencies: depsMatch ? depsMatch[1].trim().substring(0, 400) : ''
+    };
+    
+    // Check if anything actually changed
+    const hasChanges = !oldCache || 
+      oldCache.overview !== replitMdCache.overview ||
+      oldCache.architecture !== replitMdCache.architecture ||
+      oldCache.dependencies !== replitMdCache.dependencies;
+    
+    if (hasChanges) {
+      console.log('[Wren Context] Refreshed replit.md cache with new content');
+      return { success: true, message: 'Cache refreshed with new content' };
+    } else {
+      console.log('[Wren Context] replit.md cache unchanged');
+      return { success: true, message: 'Cache unchanged - content identical' };
+    }
+  } catch (error: any) {
+    console.error('[Wren Context] Failed to refresh replit.md cache:', error.message);
+    return { success: false, message: error.message };
+  }
+}
+
 // Domain-specific stopwords to filter out
 const STOPWORDS = new Set([
   'the', 'and', 'that', 'this', 'with', 'from', 'have', 'been', 'will', 'would', 'could',

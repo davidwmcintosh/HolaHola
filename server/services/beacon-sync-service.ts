@@ -1174,6 +1174,90 @@ class BeaconSyncService {
     
     return result;
   }
+  
+  /**
+   * Refresh all neural network context mid-session
+   * 
+   * This function enables on-demand refresh of architectural context
+   * without requiring a server restart. Call this when:
+   * - replit.md has been updated
+   * - North Star principles have changed
+   * - You want Wren/Daniela to pick up new context immediately
+   * 
+   * @returns Summary of what was refreshed
+   */
+  async refreshNeuralNetworkContext(): Promise<{
+    success: boolean;
+    fileCacheRefreshed: boolean;
+    dbSynced: { replitMd: number; northStar: number };
+    toolCacheRefreshed: boolean;
+    errors: string[];
+  }> {
+    const result = {
+      success: true,
+      fileCacheRefreshed: false,
+      dbSynced: { replitMd: 0, northStar: 0 },
+      toolCacheRefreshed: false,
+      errors: [] as string[]
+    };
+    
+    console.log('[BeaconSync] Starting neural network context refresh...');
+    
+    // 1. Refresh file cache (used by Wren's consciousness)
+    try {
+      const { refreshReplitMdCache } = await import('./hive-consciousness-service');
+      const cacheResult = await refreshReplitMdCache();
+      result.fileCacheRefreshed = cacheResult.success;
+      if (!cacheResult.success) {
+        result.errors.push(`File cache: ${cacheResult.message}`);
+      }
+    } catch (error: any) {
+      result.errors.push(`File cache error: ${error.message}`);
+    }
+    
+    // 2. Re-sync replit.md to database (neural network layer)
+    try {
+      const replitMdResult = await this.syncReplitMdToNeuralNetwork();
+      result.dbSynced.replitMd = replitMdResult.synced;
+      if (replitMdResult.errors.length > 0) {
+        result.errors.push(...replitMdResult.errors.map(e => `replit.md: ${e}`));
+      }
+    } catch (error: any) {
+      result.errors.push(`replit.md sync error: ${error.message}`);
+    }
+    
+    // 3. Re-sync North Star principles
+    try {
+      const northStarResult = await this.syncNorthStarToNeuralNetwork();
+      result.dbSynced.northStar = northStarResult.synced;
+      if (northStarResult.errors.length > 0) {
+        result.errors.push(...northStarResult.errors.map(e => `North Star: ${e}`));
+      }
+    } catch (error: any) {
+      result.errors.push(`North Star sync error: ${error.message}`);
+    }
+    
+    // 4. Refresh tool knowledge cache (used by TutorOrchestrator)
+    try {
+      const { refreshToolKnowledgeCache } = await import('./procedural-memory-retrieval');
+      await refreshToolKnowledgeCache();
+      result.toolCacheRefreshed = true;
+    } catch (error: any) {
+      result.errors.push(`Tool cache error: ${error.message}`);
+    }
+    
+    result.success = result.errors.length === 0;
+    
+    console.log(`[BeaconSync] Neural network refresh complete:`, {
+      fileCacheRefreshed: result.fileCacheRefreshed,
+      replitMdSynced: result.dbSynced.replitMd,
+      northStarSynced: result.dbSynced.northStar,
+      toolCacheRefreshed: result.toolCacheRefreshed,
+      errors: result.errors.length
+    });
+    
+    return result;
+  }
 }
 
 export const beaconSyncService = new BeaconSyncService();

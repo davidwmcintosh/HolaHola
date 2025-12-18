@@ -337,6 +337,8 @@ export interface StreamingSession {
   isFounderMode: boolean;  // Founder Mode uses English STT regardless of target language
   isRawHonestyMode: boolean;  // Raw Honesty Mode - minimal prompting for authentic conversation
   idleTimeoutId?: NodeJS.Timeout;  // Timer for idle cleanup
+  contextRefreshTimeoutId?: NodeJS.Timeout;  // Timer for periodic context refresh (long sessions)
+  lastContextRefreshTime: number;   // Timestamp of last context refresh
   lastActivityTime: number;         // Timestamp of last student activity
   currentTurnId: number;            // Monotonic counter for subtitle packet ordering (prevents phantom subtitles)
   warmupPromise?: Promise<void>;    // Gemini + Cartesia warmup promise to await before greeting
@@ -630,6 +632,7 @@ export class StreamingVoiceOrchestrator {
       isFounderMode,  // Founder Mode uses English STT regardless of target language
       isRawHonestyMode,  // Raw Honesty Mode - minimal prompting for authentic conversation
       lastActivityTime: Date.now(),
+      lastContextRefreshTime: Date.now(),  // For long session context refresh
       currentTurnId: 0,  // Start at 0, incremented on each new response
       isInterrupted: false,  // Reset on each new request
       isGenerating: false,   // Track when AI response is being generated
@@ -674,6 +677,11 @@ export class StreamingVoiceOrchestrator {
     });
     
     this.sessions.set(sessionId, session);
+    
+    // Start periodic context refresh timer for long sessions (Founder Mode only)
+    if (isFounderMode) {
+      this.startContextRefreshTimer(session);
+    }
     
     // PHASE TRANSITION: Initialize teaching phase for this session
     // This enables multi-agent teaching architecture with focused prompts per phase
@@ -4596,6 +4604,9 @@ Using this context, speak first to the student with a natural opening message. O
         session.idleTimeoutId = undefined;
       }
       
+      // Clear context refresh timer
+      this.stopContextRefreshTimer(session);
+      
       // HIVE CHANNEL: Transition to post_session for Editor continuation
       if (session.hiveChannelId) {
         hiveCollaborationService.endSession(session.hiveChannelId).catch((err: Error) => {
@@ -4669,6 +4680,79 @@ Using this context, speak first to the student with a natural opening message. O
     const session = this.sessions.get(sessionId);
     if (session && session.isActive) {
       this.resetIdleTimeout(session);
+    }
+  }
+  
+  // Context refresh interval: 15 minutes for long voice sessions
+  private readonly CONTEXT_REFRESH_INTERVAL_MS = 15 * 60 * 1000;
+  
+  /**
+   * Start periodic context refresh timer for long voice sessions
+   * Rebuilds dynamic prompt sections every 15 minutes to prevent context drift
+   */
+  private startContextRefreshTimer(session: StreamingSession): void {
+    // Clear any existing timer (defensive - prevents duplicate intervals)
+    if (session.contextRefreshTimeoutId) {
+      clearInterval(session.contextRefreshTimeoutId);
+      session.contextRefreshTimeoutId = undefined;
+    }
+    
+    session.contextRefreshTimeoutId = setInterval(async () => {
+      if (!session.isActive) {
+        this.stopContextRefreshTimer(session);
+        return;
+      }
+      
+      const sessionDuration = Date.now() - session.startTime;
+      console.log(`[Context Refresh] Session ${session.id} active for ${Math.round(sessionDuration / 60000)}m - refreshing context`);
+      
+      await this.refreshSessionContext(session);
+    }, this.CONTEXT_REFRESH_INTERVAL_MS) as unknown as NodeJS.Timeout;
+    
+    console.log(`[Context Refresh] Timer started for session ${session.id} (every ${this.CONTEXT_REFRESH_INTERVAL_MS / 60000}m)`);
+  }
+  
+  /**
+   * Stop context refresh timer
+   */
+  private stopContextRefreshTimer(session: StreamingSession): void {
+    if (session.contextRefreshTimeoutId) {
+      clearInterval(session.contextRefreshTimeoutId);
+      session.contextRefreshTimeoutId = undefined;
+    }
+  }
+  
+  /**
+   * Refresh dynamic context sections for a long-running voice session
+   * This prevents context drift by rebuilding enhanced prompt sections
+   */
+  private async refreshSessionContext(session: StreamingSession): Promise<void> {
+    try {
+      session.lastContextRefreshTime = Date.now();
+      
+      // Only refresh dynamic sections for Founder Mode (these are the ones that change)
+      if (!session.isFounderMode) {
+        console.log(`[Context Refresh] Skipping - not Founder Mode`);
+        return;
+      }
+      
+      // Refresh neural network context (replit.md, North Star, tool knowledge)
+      try {
+        const { beaconSyncService } = await import('./beacon-sync-service');
+        const refreshResult = await beaconSyncService.refreshNeuralNetworkContext();
+        
+        if (refreshResult.success) {
+          console.log(`[Context Refresh] Neural network refreshed: file=${refreshResult.fileCacheRefreshed}, db=${refreshResult.dbSynced.replitMd + refreshResult.dbSynced.northStar}`);
+        } else {
+          console.warn(`[Context Refresh] Neural network refresh had errors:`, refreshResult.errors);
+        }
+      } catch (err: any) {
+        console.warn(`[Context Refresh] Failed to refresh neural network:`, err.message);
+      }
+      
+      console.log(`[Context Refresh] Session ${session.id} context refreshed at ${new Date().toISOString()}`);
+    } catch (error: any) {
+      console.error(`[Context Refresh] Error refreshing session ${session.id}:`, error.message);
     }
   }
   
