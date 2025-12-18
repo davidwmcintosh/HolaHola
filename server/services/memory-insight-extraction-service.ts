@@ -127,16 +127,22 @@ Format as JSON:
       const insight: ExtractedInsight = JSON.parse(jsonMatch[0]);
       insight.sourceSnapshotId = snapshotId;
       
-      // Determine reviewStatus based on category
-      const scrutinizedCategories = ['relationship_insight', 'correction_received', 'emotional_intelligence'];
-      const isScrutinized = scrutinizedCategories.includes(insight.category);
+      // Determine reviewStatus based on category - auto-approve safe categories
+      const autoApproveCategories: GrowthMemoryCategory[] = [
+        'teaching_technique', 'timing_inflection', 'emotional_intelligence',
+        'breakthrough_method', 'relationship_insight', 'correction_received'
+      ];
+      const scrutinizedCategories: GrowthMemoryCategory[] = ['specific_joke', 'cultural_nuance'];
+      const isAutoApprove = autoApproveCategories.includes(insight.category as GrowthMemoryCategory);
       
       // Store as Daniela's growth memory
       const initialMetadata: GrowthMemoryMetadata = {
         validationHistory: [{
           timestamp: new Date().toISOString(),
-          result: 'flagged',
-          reason: isScrutinized ? 'Scrutinized category - requires founder review' : 'Pending validation',
+          result: isAutoApprove ? 'passed' : 'flagged',
+          reason: isAutoApprove 
+            ? `Auto-approved: ${insight.category} is a safe category`
+            : `Requires review: ${insight.category} is scrutinized`,
           validator: 'deterministic',
         }]
       };
@@ -152,8 +158,8 @@ Format as JSON:
         sourceMessageId: snapshotId,
         triggerConditions: insight.triggerConditions,
         importance: insight.importance,
-        validated: false, // Needs validation before neural network commit
-        reviewStatus: 'pending', // All start pending, scrutinized require founder approval
+        validated: isAutoApprove,
+        reviewStatus: isAutoApprove ? 'approved_auto' : 'pending',
         metadata: initialMetadata,
       };
       

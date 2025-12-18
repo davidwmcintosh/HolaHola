@@ -256,6 +256,27 @@ function MemoryMigrationTab() {
     },
   });
 
+  const batchApproveMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/growth-memories/batch-approve");
+      return res.json();
+    },
+    onSuccess: (data: { approvedCount: number }) => {
+      refetchMemories();
+      toast({ 
+        title: "Batch Approved", 
+        description: `${data.approvedCount} memories approved and committed to neural network` 
+      });
+    },
+    onError: (error: Error) => {
+      toast({ 
+        title: "Batch Approve Failed", 
+        description: error.message,
+        variant: "destructive"
+      });
+    },
+  });
+
   useEffect(() => {
     if (status && isRunning && status.remaining === 0) {
       setIsRunning(false);
@@ -369,17 +390,35 @@ function MemoryMigrationTab() {
                 Review and approve memories before they're committed to Daniela's neural network
               </CardDescription>
             </div>
-            <Select value={reviewFilter} onValueChange={setReviewFilter}>
-              <SelectTrigger className="w-40" data-testid="select-review-filter">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="approved">Approved</SelectItem>
-                <SelectItem value="rejected">Rejected</SelectItem>
-                <SelectItem value="all">All</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              {reviewFilter === 'pending' && memoriesData?.memories?.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => batchApproveMutation.mutate()}
+                  disabled={batchApproveMutation.isPending}
+                  data-testid="button-batch-approve"
+                >
+                  {batchApproveMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                  )}
+                  Approve All ({memoriesData?.memories?.length})
+                </Button>
+              )}
+              <Select value={reviewFilter} onValueChange={setReviewFilter}>
+                <SelectTrigger className="w-40" data-testid="select-review-filter">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                  <SelectItem value="all">All</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -401,7 +440,11 @@ function MemoryMigrationTab() {
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-1">
                         <Badge variant="outline">{memory.category}</Badge>
-                        <Badge variant={memory.reviewStatus === 'approved' ? 'default' : memory.reviewStatus === 'rejected' ? 'destructive' : 'secondary'}>
+                        <Badge variant={
+                          memory.reviewStatus?.includes('approved') ? 'default' : 
+                          memory.reviewStatus === 'rejected' ? 'destructive' : 
+                          'secondary'
+                        }>
                           {memory.reviewStatus}
                         </Badge>
                         {memory.metadata?.language && (

@@ -21,6 +21,22 @@ const FOUNDER_USER_ID = '49847136';
 const BATCH_SIZE = 10; // Process 10 conversations at a time
 const DELAY_BETWEEN_BATCHES_MS = 2000; // Rate limit protection
 
+// Categories safe for auto-approval (low risk, teaching-focused)
+const AUTO_APPROVE_CATEGORIES: GrowthMemoryCategory[] = [
+  'teaching_technique',    // How she teaches
+  'timing_inflection',     // Pacing and delivery
+  'emotional_intelligence',// Empathy skills
+  'breakthrough_method',   // What worked well
+  'relationship_insight',  // Building rapport
+  'correction_received',   // Things she was taught
+];
+
+// Categories requiring founder review (higher risk)
+const SCRUTINIZED_CATEGORIES: GrowthMemoryCategory[] = [
+  'specific_joke',    // Could be inappropriate
+  'cultural_nuance',  // Needs accuracy verification
+];
+
 interface ConversationSummary {
   conversationId: string;
   createdAt: Date;
@@ -212,6 +228,11 @@ Return {"memories": []} if no significant growth moments found.`;
     
     for (const memory of memories) {
       try {
+        // Auto-approve safe categories, require review for scrutinized ones
+        const isAutoApprove = AUTO_APPROVE_CATEGORIES.includes(memory.category);
+        const reviewStatus = isAutoApprove ? 'approved_auto' : 'pending';
+        const validated = isAutoApprove; // Auto-approved memories are validated
+        
         const growthMemory: InsertDanielaGrowthMemory = {
           category: memory.category,
           title: memory.title,
@@ -225,17 +246,20 @@ Return {"memories": []} if no significant growth moments found.`;
           sourceMessageId: memory.conversationId, // Store conversation ID here (no FK constraint)
           triggerConditions: memory.triggerConditions,
           importance: memory.importance,
-          validated: false, // Will need founder review
-          reviewStatus: 'pending',
+          validated: validated,
+          reviewStatus: reviewStatus,
           metadata: {
             migrationType: 'historical',
             sourceConversationId: memory.conversationId, // Also in metadata for clarity
             originalDate: conv.createdAt.toISOString(),
             language: conv.language,
+            autoApproved: isAutoApprove,
             validationHistory: [{
               timestamp: new Date().toISOString(),
-              result: 'flagged' as const,
-              reason: `Historical migration from ${conv.createdAt.toISOString()}`,
+              result: isAutoApprove ? 'passed' as const : 'flagged' as const,
+              reason: isAutoApprove 
+                ? `Auto-approved: ${memory.category} is a safe category`
+                : `Requires review: ${memory.category} is scrutinized`,
               validator: 'deterministic' as const,
             }],
           } as any,

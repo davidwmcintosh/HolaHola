@@ -9999,6 +9999,29 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  // Batch approve all pending memories - Founder Only
+  app.post("/api/admin/growth-memories/batch-approve", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      // Update all pending memories to approved_founder
+      const result = await db.update(danielaGrowthMemories)
+        .set({ 
+          reviewStatus: 'approved_founder',
+          validated: true 
+        })
+        .where(eq(danielaGrowthMemories.reviewStatus, 'pending'))
+        .returning({ id: danielaGrowthMemories.id });
+      
+      console.log(`[Growth Memories] Batch approved ${result.length} memories`);
+      res.json({ 
+        success: true, 
+        approvedCount: result.length 
+      });
+    } catch (error: any) {
+      console.error('[Growth Memories] Batch approve error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // ===== Class Management (Platform-wide) =====
   
   // Get all classes (admin/developer only)
