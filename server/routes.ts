@@ -9960,7 +9960,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Update a growth memory (approve/reject) - Founder Only
   // Strict schema validation - only allow reviewStatus and validated fields
   const growthMemoryUpdateSchema = z.object({
-    reviewStatus: z.enum(['pending', 'approved', 'rejected']).optional(),
+    reviewStatus: z.enum(['pending', 'approved_founder', 'approved_auto', 'rejected', 'needs_revision']).optional(),
     validated: z.boolean().optional(),
   }).strict();
   

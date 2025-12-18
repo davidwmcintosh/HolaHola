@@ -231,7 +231,7 @@ function MemoryMigrationTab() {
   const approveMemoryMutation = useMutation({
     mutationFn: async (memoryId: string) => {
       const res = await apiRequest("PATCH", `/api/admin/growth-memories/${memoryId}`, {
-        reviewStatus: "approved",
+        reviewStatus: "approved_founder",
         validated: true,
       });
       return res.json();
