@@ -225,13 +225,16 @@ Return {"memories": []} if no significant growth moments found.`;
           validated: false, // Will need founder review
           reviewStatus: 'pending',
           metadata: {
+            migrationType: 'historical',
+            originalDate: conv.createdAt.toISOString(),
+            language: conv.language,
             validationHistory: [{
               timestamp: new Date().toISOString(),
               result: 'flagged' as const,
               reason: `Historical migration from ${conv.createdAt.toISOString()}`,
               validator: 'deterministic' as const,
             }],
-          },
+          } as any,
         };
         
         await db.insert(danielaGrowthMemories).values([growthMemory as any]);
