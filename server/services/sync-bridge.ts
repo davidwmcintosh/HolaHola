@@ -1,5 +1,5 @@
 import { db } from '../db';
-import { syncRuns, founderSessions, collaborationMessages, hiveSnapshots, danielaGrowthMemories, type SyncRun } from '@shared/schema';
+import { syncRuns, founderSessions, collaborationMessages, hiveSnapshots, danielaGrowthMemories, users, type SyncRun } from '@shared/schema';
 import { eq, desc, gte, and, isNull, or, inArray } from 'drizzle-orm';
 import { neuralNetworkSync } from './neural-network-sync';
 import { createSyncHeaders, isSyncConfigured, getSyncPeerUrl } from '../middleware/sync-auth';
@@ -33,6 +33,7 @@ export interface SyncBundle {
   northStarUnderstanding: any[];
   northStarExamples: any[];
   // NEW: Express Lane, Hive Snapshots, and Daniela's Memories
+  founderUser: any | null;  // Founder user for EXPRESS Lane FK
   expressLaneSessions: any[];
   expressLaneMessages: any[];
   hiveSnapshots: any[];
@@ -59,6 +60,7 @@ class SyncBridgeService {
     const northStar = await neuralNetworkSync.exportNorthStar();
     
     // NEW: Export Express Lane, Hive Snapshots, and Daniela's Memories
+    const founderUser = await this.exportFounderUser();
     const expressLaneData = await this.exportExpressLaneData();
     const hiveSnapshotData = await this.exportHiveSnapshots();
     const danielaMemories = await this.exportDanielaGrowthMemories();
@@ -89,6 +91,7 @@ class SyncBridgeService {
       northStarUnderstanding: northStar.understanding,
       northStarExamples: northStar.examples,
       // NEW: Express Lane, Hive Snapshots, and Daniela's Memories
+      founderUser,
       expressLaneSessions: expressLaneData.sessions,
       expressLaneMessages: expressLaneData.messages,
       hiveSnapshots: hiveSnapshotData,
@@ -97,6 +100,25 @@ class SyncBridgeService {
     
     bundle.checksum = this.computeChecksum(bundle);
     return bundle;
+  }
+  
+  /**
+   * Export founder user for EXPRESS Lane FK dependency
+   * This ensures the founder user exists on target before syncing sessions
+   */
+  async exportFounderUser(): Promise<any | null> {
+    const FOUNDER_ID = '49847136';
+    
+    const [founder] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, FOUNDER_ID))
+      .limit(1);
+    
+    if (founder) {
+      console.log(`[SYNC-BRIDGE] Exporting founder user: ${founder.email}`);
+    }
+    return founder || null;
   }
   
   /**
@@ -290,6 +312,17 @@ class SyncBridgeService {
     }
     
     // NEW: Import Express Lane, Hive Snapshots, and Daniela's Memories
+    // First: Import founder user to satisfy FK constraint
+    if (bundle.founderUser) {
+      console.log(`[SYNC-BRIDGE] Importing founder user: ${bundle.founderUser.email}`);
+      const founderResult = await this.importFounderUser(bundle.founderUser);
+      if (founderResult.success) {
+        counts['founderUser'] = 1;
+      } else if (founderResult.error) {
+        errors.push(`founderUser: ${founderResult.error}`);
+      }
+    }
+    
     if (bundle.expressLaneSessions?.length) {
       console.log(`[SYNC-BRIDGE] Importing ${bundle.expressLaneSessions.length} Express Lane sessions...`);
       const sessionResult = await this.importExpressLaneSessions(bundle.expressLaneSessions);
@@ -343,6 +376,50 @@ class SyncBridgeService {
       errors,
       durationMs: Date.now() - startTime,
     };
+  }
+  
+  /**
+   * Import founder user to satisfy EXPRESS Lane FK constraints
+   * Uses upsert logic - updates if exists, inserts if new
+   */
+  async importFounderUser(founderUser: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const existing = await db.select().from(users).where(eq(users.id, founderUser.id)).limit(1);
+      
+      if (existing.length > 0) {
+        // Update non-critical fields if newer
+        if (founderUser.updatedAt && new Date(founderUser.updatedAt) > new Date(existing[0].updatedAt || 0)) {
+          await db.update(users)
+            .set({
+              firstName: founderUser.firstName || existing[0].firstName,
+              lastName: founderUser.lastName || existing[0].lastName,
+              profileImageUrl: founderUser.profileImageUrl || existing[0].profileImageUrl,
+              updatedAt: new Date(),
+            })
+            .where(eq(users.id, founderUser.id));
+          console.log(`[SYNC-BRIDGE] Updated founder user: ${founderUser.email}`);
+        } else {
+          console.log(`[SYNC-BRIDGE] Founder user already exists and is current: ${founderUser.email}`);
+        }
+      } else {
+        // Insert founder user
+        await db.insert(users).values({
+          id: founderUser.id,
+          email: founderUser.email,
+          firstName: founderUser.firstName,
+          lastName: founderUser.lastName,
+          profileImageUrl: founderUser.profileImageUrl,
+          createdAt: new Date(founderUser.createdAt),
+          updatedAt: new Date(),
+        });
+        console.log(`[SYNC-BRIDGE] Inserted founder user: ${founderUser.email}`);
+      }
+      
+      return { success: true };
+    } catch (err: any) {
+      console.error(`[SYNC-BRIDGE] Failed to import founder user:`, err.message);
+      return { success: false, error: err.message };
+    }
   }
   
   /**
