@@ -248,6 +248,7 @@ Return {"memories": []} if no significant growth moments found.`;
           importance: memory.importance,
           validated: validated,
           reviewStatus: reviewStatus,
+          committedToNeuralNetwork: isAutoApprove, // Auto-approved = immediately available to Daniela
           metadata: {
             migrationType: 'historical',
             sourceConversationId: memory.conversationId, // Also in metadata for clarity

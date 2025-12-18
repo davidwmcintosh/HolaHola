@@ -9980,9 +9980,14 @@ Return ONLY the ${targetLanguage} phrase:`;
       const { reviewStatus, validated } = parseResult.data;
       
       // Only update allowed fields
-      const updates: { reviewStatus?: string; validated?: boolean } = {};
+      const updates: { reviewStatus?: string; validated?: boolean; committedToNeuralNetwork?: boolean } = {};
       if (reviewStatus !== undefined) updates.reviewStatus = reviewStatus;
       if (validated !== undefined) updates.validated = validated;
+      
+      // Auto-commit to neural network when approved (either via reviewStatus or validated flag)
+      if (reviewStatus === 'approved_founder' || reviewStatus === 'approved_auto' || validated === true) {
+        updates.committedToNeuralNetwork = true;
+      }
       
       if (Object.keys(updates).length === 0) {
         return res.status(400).json({ error: "No valid fields to update" });
@@ -10002,11 +10007,12 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Batch approve all pending memories - Founder Only
   app.post("/api/admin/growth-memories/batch-approve", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {
-      // Update all pending memories to approved_founder
+      // Update all pending memories to approved_founder and commit to neural network
       const result = await db.update(danielaGrowthMemories)
         .set({ 
           reviewStatus: 'approved_founder',
-          validated: true 
+          validated: true,
+          committedToNeuralNetwork: true
         })
         .where(eq(danielaGrowthMemories.reviewStatus, 'pending'))
         .returning({ id: danielaGrowthMemories.id });

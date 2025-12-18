@@ -160,6 +160,7 @@ Format as JSON:
         importance: insight.importance,
         validated: isAutoApprove,
         reviewStatus: isAutoApprove ? 'approved_auto' : 'pending',
+        committedToNeuralNetwork: isAutoApprove, // Auto-approved = immediately available to Daniela
         metadata: initialMetadata,
       };
       
