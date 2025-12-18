@@ -5074,12 +5074,17 @@ function DepartmentChatTab() {
 // Types from database schema
 type SprintStage = 'idea' | 'pedagogy_spec' | 'build_plan' | 'in_progress' | 'shipped';
 
+type SprintSource = 'founder' | 'wren_commitment' | 'consultation' | 'ai_suggestion' | null;
+
 interface FeatureSprintData {
   id: string;
   title: string;
   description: string | null;
   stage: SprintStage;
   priority: 'low' | 'medium' | 'high' | 'critical';
+  source?: SprintSource;
+  sourceSessionId?: string | null;
+  sourceMessageId?: string | null;
   featureBrief?: {
     problem?: string;
     solution?: string;
@@ -7304,6 +7309,7 @@ function FeatureSprintTab() {
   const [newSprintDescription, setNewSprintDescription] = useState('');
   const [showNewSprintForm, setShowNewSprintForm] = useState(false);
   const [selectedSprint, setSelectedSprint] = useState<FeatureSprintData | null>(null);
+  const [sourceFilter, setSourceFilter] = useState<SprintSource | 'all'>('all');
 
   // Fetch sprints from API
   const { data: sprints = [], isLoading: sprintsLoading, refetch: refetchSprints } = useQuery<FeatureSprintData[]>({
@@ -7484,7 +7490,19 @@ function FeatureSprintTab() {
       <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-medium">Sprint Board</h3>
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
+              <Select value={sourceFilter || 'all'} onValueChange={(v) => setSourceFilter(v as SprintSource | 'all')}>
+                <SelectTrigger className="w-[160px] h-8" data-testid="select-source-filter">
+                  <SelectValue placeholder="Filter by source" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Sources</SelectItem>
+                  <SelectItem value="founder">Founder</SelectItem>
+                  <SelectItem value="wren_commitment">Wren Commitments</SelectItem>
+                  <SelectItem value="consultation">Consultation</SelectItem>
+                  <SelectItem value="ai_suggestion">AI Suggested</SelectItem>
+                </SelectContent>
+              </Select>
               <Button
                 size="sm"
                 variant="outline"
@@ -7609,12 +7627,13 @@ function FeatureSprintTab() {
                   <div className="font-medium text-sm mb-3 flex items-center justify-between">
                     {stageLabels[stage]}
                     <Badge variant="secondary" className="text-xs">
-                      {sprints.filter(s => s.stage === stage).length}
+                      {sprints.filter(s => s.stage === stage).filter(s => sourceFilter === 'all' || s.source === sourceFilter).length}
                     </Badge>
                   </div>
                   <div className="space-y-2">
                     {sprints
                       .filter(s => s.stage === stage)
+                      .filter(s => sourceFilter === 'all' || s.source === sourceFilter)
                       .map(sprint => (
                         <Card 
                           key={sprint.id} 
@@ -7623,7 +7642,19 @@ function FeatureSprintTab() {
                           data-testid={`card-sprint-${sprint.id}`}
                         >
                           <CardContent className="p-2">
-                            <div className="font-medium text-sm truncate">{sprint.title}</div>
+                            <div className="flex items-center gap-1">
+                              <div className="font-medium text-sm truncate flex-1">{sprint.title}</div>
+                              {sprint.source === 'wren_commitment' && (
+                                <Badge variant="outline" className="text-[10px] px-1 py-0 shrink-0 bg-purple-500/10 border-purple-500/30 text-purple-700 dark:text-purple-300">
+                                  Wren
+                                </Badge>
+                              )}
+                              {sprint.source === 'ai_suggestion' && (
+                                <Badge variant="outline" className="text-[10px] px-1 py-0 shrink-0 bg-blue-500/10 border-blue-500/30 text-blue-700 dark:text-blue-300">
+                                  AI
+                                </Badge>
+                              )}
+                            </div>
                             {sprint.description && (
                               <div className="text-xs text-muted-foreground truncate">
                                 {sprint.description}
@@ -7868,22 +7899,48 @@ Database migration pending"
               </CardContent>
             </Card>
           ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                if (projectContext) {
-                  setContextFeatures(projectContext.features?.map(f => `${f.name}:${f.status}:${f.description || ''}`).join('\n') || '');
-                  setContextPriorities(projectContext.currentFocus?.priorityAreas?.join('\n') || '');
-                  setContextBlockers(projectContext.currentFocus?.blockers?.join('\n') || '');
-                }
-                setShowContextEditor(true);
-              }}
-              data-testid="button-edit-context"
-            >
-              <Edit className="h-4 w-4 mr-2" />
-              {projectContext ? 'Update Context' : 'Set Context'}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const activeSprints = sprints.filter(s => s.stage === 'in_progress');
+                  
+                  const features = activeSprints.map(s => {
+                    return `${s.title}:in_development:${s.description?.substring(0, 100) || ''}`;
+                  });
+                  
+                  const priorities = activeSprints.map(s => s.title);
+                  
+                  setContextFeatures(features.join('\n'));
+                  setContextPriorities(priorities.join('\n'));
+                  setContextBlockers('');
+                  setShowContextEditor(true);
+                  
+                  toast({ title: "Context synced from active sprints", description: `${activeSprints.length} in-progress sprints` });
+                }}
+                data-testid="button-sync-context"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Sync from Sprints
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  if (projectContext) {
+                    setContextFeatures(projectContext.features?.map(f => `${f.name}:${f.status}:${f.description || ''}`).join('\n') || '');
+                    setContextPriorities(projectContext.currentFocus?.priorityAreas?.join('\n') || '');
+                    setContextBlockers(projectContext.currentFocus?.blockers?.join('\n') || '');
+                  }
+                  setShowContextEditor(true);
+                }}
+                data-testid="button-edit-context"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                {projectContext ? 'Update Context' : 'Set Context'}
+              </Button>
+            </div>
           )}
         </div>
       </CollapsibleSection>
