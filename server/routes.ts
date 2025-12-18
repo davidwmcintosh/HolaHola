@@ -13267,6 +13267,90 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
       res.status(500).json({ error: error.message });
     }
   });
+  
+  // Update sprint status (limited write access for agent)
+  // Only allows stage and notes updates - no title/priority/description changes
+  app.patch("/api/agent/sprints/:id", requireAgentToken, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { stage, notes, agentNotes } = req.body;
+      
+      // Validate sprint exists
+      const sprint = await storage.getFeatureSprint(id);
+      if (!sprint) {
+        logAgentAction('update_sprint', `/api/agent/sprints/${id}`, false, 'Sprint not found');
+        return res.status(404).json({ error: 'Sprint not found' });
+      }
+      
+      // Only allow specific fields to be updated
+      const allowedUpdates: any = {};
+      
+      // Stage transitions with validation
+      if (stage) {
+        const validStages = ['idea', 'pedagogical_review', 'technical_spec', 'in_progress', 'testing', 'shipped'];
+        if (!validStages.includes(stage)) {
+          logAgentAction('update_sprint', `/api/agent/sprints/${id}`, false, `Invalid stage: ${stage}`);
+          return res.status(400).json({ 
+            error: 'Invalid stage', 
+            validStages,
+            currentStage: sprint.stage 
+          });
+        }
+        
+        // Create stage transition record
+        if (stage !== sprint.stage) {
+          await storage.createSprintStageTransition({
+            sprintId: sprint.id,
+            fromStage: sprint.stage,
+            toStage: stage,
+            transitionedBy: 'replit-agent',
+            notes: `Agent transition: ${sprint.stage} → ${stage}`
+          });
+          
+          allowedUpdates.stage = stage;
+          
+          // Set shippedAt if transitioning to shipped
+          if (stage === 'shipped') {
+            allowedUpdates.shippedAt = new Date();
+          }
+        }
+      }
+      
+      // Allow notes updates
+      if (notes !== undefined) {
+        allowedUpdates.notes = notes;
+      }
+      
+      // Agent-specific notes (append to existing notes)
+      if (agentNotes) {
+        const timestamp = new Date().toISOString();
+        const existingNotes = sprint.notes || '';
+        const separator = existingNotes ? '\n\n' : '';
+        allowedUpdates.notes = `${existingNotes}${separator}[Agent ${timestamp}] ${agentNotes}`;
+      }
+      
+      // Only update if there are changes
+      if (Object.keys(allowedUpdates).length === 0) {
+        logAgentAction('update_sprint', `/api/agent/sprints/${id}`, false, 'No valid updates provided');
+        return res.status(400).json({ error: 'No valid updates provided. Allowed fields: stage, notes, agentNotes' });
+      }
+      
+      const updated = await storage.updateFeatureSprint(id, allowedUpdates);
+      
+      logAgentAction('update_sprint', `/api/agent/sprints/${id}`, true, 
+        `Updated: ${Object.keys(allowedUpdates).join(', ')}`);
+      
+      res.json({
+        success: true,
+        sprint: updated,
+        updatedFields: Object.keys(allowedUpdates)
+      });
+    } catch (error: any) {
+      console.error('[Agent API] Error updating sprint:', error);
+      logAgentAction('update_sprint', `/api/agent/sprints/${req.params.id}`, false, error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   // ===== FEATURE SPRINT SYSTEM API =====
   // Persistent collaborative workspace for AI-human feature development

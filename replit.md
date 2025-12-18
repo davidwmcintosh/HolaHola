@@ -79,11 +79,14 @@ The **Replit Agent API** provides secure, authenticated access for external Repl
 **Endpoints** (all require authentication except `/api/agent/status`):
 - `GET /api/agent/status` - Check if agent auth is configured (unauthenticated)
 - `GET /api/agent/sprints` - Get feature sprints (query: ?stage=, ?limit=, ?source=)
+- `PATCH /api/agent/sprints/:id` - Update sprint status (body: {stage?, notes?, agentNotes?})
 - `GET /api/agent/wren/priorities` - Get Wren's inferred priorities
 - `GET /api/agent/wren/insights` - Get Wren's insights (query: ?category=, ?limit=, ?search=)
 - `GET /api/agent/wren/context` - Get Wren's startup context (proactive intelligence)
 - `GET /api/agent/audit` - Get agent action audit log
 - `POST /api/agent/hive/message` - Post message to EXPRESS Lane (body: {message, targetAgent?})
+
+**Sprint Update Permissions**: The PATCH endpoint only allows `stage`, `notes`, and `agentNotes` fields. Stage transitions are validated against: idea, pedagogical_review, technical_spec, in_progress, testing, shipped. All transitions are recorded in `sprintStageTransitions` table.
 
 **Usage Example**:
 ```bash
