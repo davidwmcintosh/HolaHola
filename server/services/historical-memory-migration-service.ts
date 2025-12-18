@@ -93,7 +93,7 @@ class HistoricalMemoryMigrationService {
           eq(conversations.conversationType, 'learning'),
           sql`NOT EXISTS (
             SELECT 1 FROM hive_snapshots 
-            WHERE session_id = ${conversations.id}
+            WHERE conversation_id = ${conversations.id}
             AND snapshot_type = 'session_summary'
             AND metadata->>'migrationType' = 'historical'
           )`
@@ -218,14 +218,18 @@ Return {"memories": []} if no significant growth moments found.`;
           lesson: memory.lesson,
           specificContent: memory.specificContent,
           sourceType: 'founder',
-          sourceSessionId: memory.conversationId,
+          // sourceSessionId references founderSessions (EXPRESS Lane), but historical convos are in conversations table
+          // So we leave it null and track the source in metadata instead
+          sourceSessionId: null,
           sourceUserId: FOUNDER_USER_ID,
+          sourceMessageId: memory.conversationId, // Store conversation ID here (no FK constraint)
           triggerConditions: memory.triggerConditions,
           importance: memory.importance,
           validated: false, // Will need founder review
           reviewStatus: 'pending',
           metadata: {
             migrationType: 'historical',
+            sourceConversationId: memory.conversationId, // Also in metadata for clarity
             originalDate: conv.createdAt.toISOString(),
             language: conv.language,
             validationHistory: [{
@@ -255,7 +259,7 @@ Return {"memories": []} if no significant growth moments found.`;
       snapshotType: 'session_summary' as HiveSnapshotType,
       title: `Historical migration: ${conv.language} conversation`,
       content: `Migrated conversation from ${conv.createdAt.toISOString()}. Extracted ${memoriesExtracted} growth memories.`,
-      sessionId: conv.conversationId,
+      conversationId: conv.conversationId, // Use conversationId (no FK) instead of sessionId (has FK to founderSessions)
       userId: FOUNDER_USER_ID,
       language: conv.language,
       importance: 3,
@@ -324,7 +328,9 @@ Return {"memories": []} if no significant growth moments found.`;
     
     const stats = await this.getConversationCount();
     console.log(`[Memory Migration] Starting full migration of ${stats.total} conversations`);
-    console.log(`[Memory Migration] Date range: ${stats.earliest?.toISOString()} to ${stats.latest?.toISOString()}`);
+    const earliestStr = stats.earliest ? new Date(stats.earliest).toISOString() : 'unknown';
+    const latestStr = stats.latest ? new Date(stats.latest).toISOString() : 'unknown';
+    console.log(`[Memory Migration] Date range: ${earliestStr} to ${latestStr}`);
     
     let hasMore = true;
     let batchNum = 0;
@@ -368,7 +374,7 @@ Return {"memories": []} if no significant growth moments found.`;
     
     const migratedResult = await db
       .select({
-        count: sql<number>`COUNT(DISTINCT session_id)::int`,
+        count: sql<number>`COUNT(DISTINCT conversation_id)::int`,
       })
       .from(hiveSnapshots)
       .where(
