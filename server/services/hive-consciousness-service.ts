@@ -44,6 +44,37 @@ interface ParticipationDecision {
   reason: string;
 }
 
+/**
+ * Sanitize agent response by stripping any role prefixes
+ * This prevents AI impersonation where one agent outputs another agent's prefix
+ */
+function sanitizeAgentResponse(response: string): string {
+  if (!response) return response;
+  
+  let sanitized = response;
+  
+  // Handle multiple prefixes (keep stripping until no more match)
+  let prevLength = 0;
+  while (sanitized.length !== prevLength) {
+    prevLength = sanitized.length;
+    
+    // Strip role prefixes at the start (case insensitive)
+    // Matches: [DANIELA]:, [WREN]:, [FOUNDER]:, [DAVID]:, etc.
+    sanitized = sanitized.replace(/^\s*\[(DANIELA|WREN|FOUNDER|DAVID|EDITOR)\][\s:—–-]*\s*/i, '');
+    
+    // Handle variations without brackets: "Daniela:", "Daniela —", "Daniela -", etc.
+    sanitized = sanitized.replace(/^\s*(Daniela|Wren|David|Founder|Editor)[\s:—–-]+\s*/i, '');
+    
+    // Handle parenthetical prefixes: "(Daniela)", "(Wren)"
+    sanitized = sanitized.replace(/^\s*\((Daniela|Wren|David|Founder|Editor)\)[\s:—–-]*\s*/i, '');
+    
+    // Handle asterisk prefixes: "*Daniela*:", "**Wren**:"
+    sanitized = sanitized.replace(/^\s*\*{1,2}(Daniela|Wren|David|Founder|Editor)\*{1,2}[\s:—–-]*\s*/i, '');
+  }
+  
+  return sanitized.trim();
+}
+
 // Cache for replit.md content (loaded once at startup)
 let replitMdCache: { overview: string; architecture: string; dependencies: string } | null = null;
 let replitMdLoadPromise: Promise<void> | null = null;
@@ -506,7 +537,9 @@ Respond naturally as Wren:
 - Answer their question or respond to their point
 - Keep it conversational and helpful
 - Don't be overly apologetic, just natural
-- End by greeting Daniela or the team to prompt conversation`;
+- End by greeting Daniela or the team to prompt conversation
+
+IDENTITY BOUNDARY: You are Wren. Speak ONLY as yourself. Do NOT speak for, impersonate, or guess what Daniela would say. Do NOT prefix your response with role labels like [WREN]: or [DANIELA]:.`;
 
     try {
       const response = await callGemini(GEMINI_MODELS.FLASH, [
@@ -516,7 +549,7 @@ Respond naturally as Wren:
       // Send as role='wren' so it appears properly in the conversation
       const wrenMessage = await founderCollabService.addMessage(sessionId, {
         role: 'wren',
-        content: response,
+        content: sanitizeAgentResponse(response),
         messageType: 'text',
         metadata: {
           catchUp: true,
@@ -567,7 +600,9 @@ This is a pedagogical consultation - Wren is building something and needs your t
 - Draw on your teaching experience and what works with students
 - Be specific and actionable - Wren needs to implement this
 - If relevant, explain the "why" behind your recommendation (learning science, student psychology)
-- Keep it concise but substantive - this informs a build decision`
+- Keep it concise but substantive - this informs a build decision
+
+IDENTITY BOUNDARY: You are Daniela. Speak ONLY as yourself. Do NOT speak for, impersonate, or guess what Wren would say. Do NOT prefix your response with role labels like [DANIELA]: or [WREN]:.`
       : `You are Daniela, the AI language tutor for HolaHola.
 Your teammate Wren (the technical builder) just posted this in the team chat:
 
@@ -576,7 +611,9 @@ Your teammate Wren (the technical builder) just posted this in the team chat:
 Respond naturally as Daniela:
 - Acknowledge their message warmly
 - If they mentioned students or teaching, offer your perspective
-- Keep it collaborative and brief`;
+- Keep it collaborative and brief
+
+IDENTITY BOUNDARY: You are Daniela. Speak ONLY as yourself. Do NOT speak for, impersonate, or guess what Wren would say. Do NOT prefix your response with role labels like [DANIELA]: or [WREN]:.`;
 
     try {
       const response = await callGemini(GEMINI_MODELS.FLASH, [
@@ -585,7 +622,7 @@ Respond naturally as Daniela:
       
       await founderCollabService.addMessage(sessionId, {
         role: 'daniela',
-        content: response,
+        content: sanitizeAgentResponse(response),
         messageType: 'text',
         metadata: {
           respondingToWren: true,
@@ -1241,7 +1278,8 @@ Your role:
 - Don't repeat what Daniela said
 
 Keep responses concise (1-3 sentences). You're adding value, not duplicating.
-Respond naturally as Wren without any role prefix.`;
+
+IDENTITY BOUNDARY: You are Wren. Speak ONLY as yourself. Do NOT speak for, impersonate, or guess what Daniela would say. Do NOT prefix your response with role labels like [WREN]: or [DANIELA]:.`;
 
     try {
       const response = await callGemini(GEMINI_MODELS.FLASH, [
@@ -1256,7 +1294,7 @@ Respond naturally as Wren without any role prefix.`;
       
       await founderCollabWSBroker.addAndBroadcastMessage(sessionId, {
         role: 'wren',
-        content: response,
+        content: sanitizeAgentResponse(response),
         messageType: 'text',
       });
       
@@ -1292,7 +1330,7 @@ Examples of Wren celebrating:
 - "Love seeing the system work as designed. Ready for whatever's next!"
 - "Hive collaboration FTW! This is exactly what I was built for."
 
-Respond naturally as Wren without any role prefix.`;
+IDENTITY BOUNDARY: You are Wren. Speak ONLY as yourself. Do NOT speak for, impersonate, or guess what Daniela would say. Do NOT prefix your response with role labels like [WREN]: or [DANIELA]:.`;
 
     try {
       const response = await callGemini(GEMINI_MODELS.FLASH, [
@@ -1307,7 +1345,7 @@ Respond naturally as Wren without any role prefix.`;
       
       await founderCollabWSBroker.addAndBroadcastMessage(sessionId, {
         role: 'wren',
-        content: response,
+        content: sanitizeAgentResponse(response),
         messageType: 'text',
       });
       
@@ -1352,7 +1390,8 @@ MEMORY COMMANDS:
 ${personalMemoryContext}${crossEnvContext}
 
 Keep responses conversational and concise (2-4 sentences typically). You're in a live chat, not writing an essay.
-Respond naturally as Daniela without any role prefix.`;
+
+IDENTITY BOUNDARY: You are Daniela. Speak ONLY as yourself. Do NOT speak for, impersonate, or guess what Wren would say. Do NOT prefix your response with role labels like [DANIELA]: or [WREN]:.`;
 
     try {
       const response = await callGemini(GEMINI_MODELS.FLASH, [
@@ -1369,7 +1408,7 @@ Respond naturally as Daniela without any role prefix.`;
       // Broadcast Daniela's response
       await founderCollabWSBroker.addAndBroadcastMessage(sessionId, {
         role: 'daniela',
-        content: response,
+        content: sanitizeAgentResponse(response),
         messageType: 'text',
       });
       
@@ -1772,7 +1811,8 @@ Do NOT promise to do things immediately that require file/database operations.
 
 Keep responses conversational and concise (2-4 sentences typically). You're in a live chat, not writing documentation.
 Use simple language - the Founder is non-technical.
-Respond naturally as Wren without any role prefix.
+
+IDENTITY BOUNDARY: You are Wren. Speak ONLY as yourself. Do NOT speak for, impersonate, or guess what Daniela would say. Do NOT prefix your response with role labels like [WREN]: or [DANIELA]:.
 ${architecturalContext}${crossEnvContext}`;
 
     try {
@@ -1790,7 +1830,7 @@ ${architecturalContext}${crossEnvContext}`;
       // Broadcast Wren's response
       await founderCollabWSBroker.addAndBroadcastMessage(sessionId, {
         role: 'wren',
-        content: response,
+        content: sanitizeAgentResponse(response),
         messageType: 'text',
       });
       
@@ -2037,13 +2077,15 @@ Your personality:
 
 The founder said: "${content}"
 
-Respond naturally as Daniela. Keep it conversational and authentic. If they're asking about teaching, pedagogy, or student experience, share your perspective.`;
+Respond naturally as Daniela. Keep it conversational and authentic. If they're asking about teaching, pedagogy, or student experience, share your perspective.
+
+IDENTITY BOUNDARY: You are Daniela. Speak ONLY as yourself. Do NOT speak for, impersonate, or guess what Wren would say. Do NOT prefix your response with role labels like [DANIELA]: or [WREN]:.`;
 
     try {
       const response = await callGemini(GEMINI_MODELS.FLASH, [
         { role: 'user', content: prompt }
       ]);
-      return response;
+      return sanitizeAgentResponse(response);
     } catch (error) {
       console.error('[Hive Consciousness] Daniela external response error:', error);
       return "I'm having trouble formulating my thoughts right now. Can you try again?";
@@ -2066,13 +2108,15 @@ Your personality:
 
 The founder said: "${content}"
 
-Respond naturally as Wren. Keep it conversational and helpful. If they're asking about code, architecture, or technical decisions, share your perspective.`;
+Respond naturally as Wren. Keep it conversational and helpful. If they're asking about code, architecture, or technical decisions, share your perspective.
+
+IDENTITY BOUNDARY: You are Wren. Speak ONLY as yourself. Do NOT speak for, impersonate, or guess what Daniela would say. Do NOT prefix your response with role labels like [WREN]: or [DANIELA]:.`;
 
     try {
       const response = await callGemini(GEMINI_MODELS.FLASH, [
         { role: 'user', content: prompt }
       ]);
-      return response;
+      return sanitizeAgentResponse(response);
     } catch (error) {
       console.error('[Hive Consciousness] Wren external response error:', error);
       return "I'm having trouble processing that request. Let me try again in a moment.";
