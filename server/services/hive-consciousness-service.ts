@@ -20,9 +20,8 @@ import { danielaMemoryService } from './daniela-memory-service';
 import { memoryInsightExtractionService } from './memory-insight-extraction-service';
 import { wrenIntelligenceService } from './wren-intelligence-service';
 import { neuralNetworkSync } from './neural-network-sync';
-import { wrenCommitmentsService } from './wren-commitments-service';
 import { db } from '../db';
-import { collaborationMessages, hiveSnapshots, toolKnowledge } from '@shared/schema';
+import { collaborationMessages, hiveSnapshots, toolKnowledge, featureSprints } from '@shared/schema';
 import { and, eq, gte, desc, sql, or, inArray, like } from 'drizzle-orm';
 import type { CollaborationMessage, FounderSession, HiveSnapshot } from '@shared/schema';
 import * as fs from 'fs';
@@ -1847,22 +1846,31 @@ If no commitment: {"hasCommitment": false}`;
       const parsed = JSON.parse(cleanResult);
       
       if (parsed.hasCommitment && parsed.task) {
-        // Queue the commitment for Agent Wren
-        await wrenCommitmentsService.createCommitment({
-          task: parsed.task,
-          description: parsed.description,
-          commitmentType: parsed.type || 'general',
-          priority: parsed.priority || 'normal',
-          estimatedEffort: parsed.estimatedEffort,
-          sourceSessionId: sessionId,
-          requestedBy: 'founder',
-          metadata: {
-            originalRequest: founderRequest.substring(0, 500),
-            wrenResponse: wrenResponse.substring(0, 500),
-          },
-        });
+        // Map priority to sprint priority
+        const priorityMap: Record<string, 'low' | 'medium' | 'high' | 'critical'> = {
+          'urgent': 'critical',
+          'high': 'high',
+          'normal': 'medium',
+          'low': 'low',
+        };
+        const sprintPriority = priorityMap[parsed.priority] || 'medium';
         
-        console.log(`[Hive Consciousness] Queued Wren commitment: "${parsed.task}"`);
+        // Create a sprint item at 'idea' stage from Wren's commitment
+        const [sprintItem] = await db.insert(featureSprints).values({
+          title: parsed.task,
+          description: `${parsed.description || ''}\n\n---\n**Origin:** EXPRESS Lane commitment\n**Estimated Effort:** ${parsed.estimatedEffort || 'unknown'}\n**Type:** ${parsed.type || 'general'}`,
+          stage: 'idea',
+          priority: sprintPriority,
+          source: 'wren_commitment',
+          sourceSessionId: sessionId,
+          createdBy: 'wren',
+          featureBrief: {
+            problem: founderRequest.substring(0, 500),
+            solution: wrenResponse.substring(0, 500),
+          },
+        }).returning({ id: featureSprints.id, title: featureSprints.title });
+        
+        console.log(`[Hive Consciousness] Created sprint from Wren commitment: "${sprintItem.title}" (${sprintItem.id})`);
       }
     } catch (error) {
       // Silent fail - commitment detection is non-critical

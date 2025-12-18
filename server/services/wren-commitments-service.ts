@@ -1,3 +1,17 @@
+/**
+ * DEPRECATED: Wren Commitments Service
+ * 
+ * This service has been consolidated into the Sprint system.
+ * When EXPRESS Lane Wren makes a promise, it now creates a sprint item at 'idea' stage
+ * with source='wren_commitment' directly in hive-consciousness-service.ts.
+ * 
+ * Use the Sprint system instead:
+ * - GET /api/admin/sprints?source=wren_commitment to view Wren's commitments
+ * - Sprint items track the same information with full workflow integration
+ * 
+ * This file is kept for reference and potential rollback, but is no longer imported.
+ */
+
 import { db } from "../db";
 import { 
   wrenCommitments, 
