@@ -676,8 +676,8 @@ class SyncBridgeService {
       const bundle = await this.collectExportBundle();
       const headers = createSyncHeaders(bundle);
       
-      // 5-minute timeout for large sync payloads
-      const SYNC_TIMEOUT_MS = 5 * 60 * 1000;
+      // 10-minute timeout for large sync payloads
+      const SYNC_TIMEOUT_MS = 10 * 60 * 1000;
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS);
       
@@ -735,7 +735,7 @@ class SyncBridgeService {
       
     } catch (err: any) {
       const errorMessage = err.name === 'AbortError' 
-        ? `Sync timeout after 5 minutes - peer may be slow or unresponsive`
+        ? `Sync timeout after 10 minutes - peer may be slow or unresponsive`
         : err.message;
       
       console.error(`[SYNC-BRIDGE] Push failed: ${errorMessage}`);
@@ -785,8 +785,8 @@ class SyncBridgeService {
       const requestPayload = { requestedAt: new Date().toISOString() };
       const headers = createSyncHeaders(requestPayload);
       
-      // 5-minute timeout for large sync payloads
-      const SYNC_TIMEOUT_MS = 5 * 60 * 1000;
+      // 10-minute timeout for large sync payloads
+      const SYNC_TIMEOUT_MS = 10 * 60 * 1000;
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS);
       
@@ -845,7 +845,7 @@ class SyncBridgeService {
       
     } catch (err: any) {
       const errorMessage = err.name === 'AbortError' 
-        ? `Sync timeout after 5 minutes - peer may be slow or unresponsive`
+        ? `Sync timeout after 10 minutes - peer may be slow or unresponsive`
         : err.message;
       
       console.error(`[SYNC-BRIDGE] Pull failed: ${errorMessage}`);
