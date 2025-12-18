@@ -599,11 +599,22 @@ class SyncBridgeService {
       const bundle = await this.collectExportBundle();
       const headers = createSyncHeaders(bundle);
       
-      const response = await fetch(`${peerUrl}/api/sync/import`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(bundle),
-      });
+      // 5-minute timeout for large sync payloads
+      const SYNC_TIMEOUT_MS = 5 * 60 * 1000;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS);
+      
+      let response: Response;
+      try {
+        response = await fetch(`${peerUrl}/api/sync/import`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(bundle),
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
       
       if (!response.ok) {
         const error = await response.text();
@@ -646,10 +657,16 @@ class SyncBridgeService {
       return { ...result, syncRunId: syncRun.id };
       
     } catch (err: any) {
+      const errorMessage = err.name === 'AbortError' 
+        ? `Sync timeout after 5 minutes - peer may be slow or unresponsive`
+        : err.message;
+      
+      console.error(`[SYNC-BRIDGE] Push failed: ${errorMessage}`);
+      
       await db.update(syncRuns)
         .set({
           status: 'failed',
-          errorMessage: err.message,
+          errorMessage,
           durationMs: Date.now() - startTime,
           completedAt: new Date(),
         })
@@ -659,7 +676,7 @@ class SyncBridgeService {
         success: false,
         syncRunId: syncRun.id,
         counts: {},
-        errors: [err.message],
+        errors: [errorMessage],
         durationMs: Date.now() - startTime,
       };
     }
@@ -691,11 +708,22 @@ class SyncBridgeService {
       const requestPayload = { requestedAt: new Date().toISOString() };
       const headers = createSyncHeaders(requestPayload);
       
-      const response = await fetch(`${peerUrl}/api/sync/export`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(requestPayload),
-      });
+      // 5-minute timeout for large sync payloads
+      const SYNC_TIMEOUT_MS = 5 * 60 * 1000;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS);
+      
+      let response: Response;
+      try {
+        response = await fetch(`${peerUrl}/api/sync/export`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(requestPayload),
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
       
       if (!response.ok) {
         const error = await response.text();
@@ -739,10 +767,16 @@ class SyncBridgeService {
       return { ...result, syncRunId: syncRun.id };
       
     } catch (err: any) {
+      const errorMessage = err.name === 'AbortError' 
+        ? `Sync timeout after 5 minutes - peer may be slow or unresponsive`
+        : err.message;
+      
+      console.error(`[SYNC-BRIDGE] Pull failed: ${errorMessage}`);
+      
       await db.update(syncRuns)
         .set({
           status: 'failed',
-          errorMessage: err.message,
+          errorMessage,
           durationMs: Date.now() - startTime,
           completedAt: new Date(),
         })
@@ -752,7 +786,7 @@ class SyncBridgeService {
         success: false,
         syncRunId: syncRun.id,
         counts: {},
-        errors: [err.message],
+        errors: [errorMessage],
         durationMs: Date.now() - startTime,
       };
     }
