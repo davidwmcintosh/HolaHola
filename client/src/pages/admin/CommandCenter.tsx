@@ -277,6 +277,27 @@ function MemoryMigrationTab() {
     },
   });
 
+  const consolidateMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/growth-memories/consolidate");
+      return res.json();
+    },
+    onSuccess: (data: { clustersFound: number; memoriesConsolidated: number }) => {
+      refetchMemories();
+      toast({ 
+        title: "Consolidation Complete", 
+        description: `Found ${data.clustersFound} clusters, merged ${data.memoriesConsolidated} similar memories` 
+      });
+    },
+    onError: (error: Error) => {
+      toast({ 
+        title: "Consolidation Failed", 
+        description: error.message,
+        variant: "destructive"
+      });
+    },
+  });
+
   useEffect(() => {
     if (status && isRunning && status.remaining === 0) {
       setIsRunning(false);
@@ -371,9 +392,29 @@ function MemoryMigrationTab() {
               </div>
 
               {status.remaining === 0 && (
-                <div className="flex items-center gap-2 text-green-600 bg-green-50 dark:bg-green-950 p-3 rounded-lg">
-                  <CheckCircle className="h-5 w-5" />
-                  <span>Migration complete! All conversations have been processed.</span>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-green-600 bg-green-50 dark:bg-green-950 p-3 rounded-lg">
+                    <CheckCircle className="h-5 w-5" />
+                    <span>Migration complete! All conversations have been processed.</span>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                    <Sparkles className="h-5 w-5 text-purple-500" />
+                    <span className="flex-1 text-sm">Run consolidation to merge similar memories and boost importance scores.</span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => consolidateMutation.mutate()}
+                      disabled={consolidateMutation.isPending}
+                      data-testid="button-consolidate"
+                    >
+                      {consolidateMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <Sparkles className="h-4 w-4 mr-2" />
+                      )}
+                      Consolidate Memories
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
