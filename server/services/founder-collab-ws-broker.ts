@@ -364,6 +364,14 @@ class FounderCollabWSBroker {
   }
   
   /**
+   * Public method to emit a message to all clients in a session
+   * Used for broadcasting messages that have already been saved to the database
+   */
+  emitToSession(sessionId: string, event: keyof ServerToClientEvents, data: any): void {
+    this.broadcastToSession(sessionId, event, data);
+  }
+  
+  /**
    * Get connection stats
    */
   getStats(): {

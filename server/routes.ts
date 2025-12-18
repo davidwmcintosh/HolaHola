@@ -14984,11 +14984,8 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
       });
       
       // Broadcast via WebSocket so the founder UI updates in real-time
-      founderCollabWSBroker.broadcastToSession(sessionId, {
-        type: 'new_message',
-        sessionId,
-        message: agentMessage,
-      });
+      // Use addAndBroadcastMessage would double-save, so we broadcast directly via the namespace
+      founderCollabWSBroker.emitToSession(sessionId, 'message', agentMessage);
       
       console.log(`[EXPRESS-LANE-BRIDGE] Added ${agent} response from ${sourceEnvironment} to session ${sessionId.substring(0, 8)}...`);
       
