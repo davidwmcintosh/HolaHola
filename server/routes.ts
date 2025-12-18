@@ -10028,6 +10028,83 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  // ===== Wren Commitments Queue =====
+  
+  // Get Wren's pending commitments - for Agent Wren and Founder visibility
+  app.get("/api/admin/wren-commitments", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { wrenCommitmentsService } = await import("./services/wren-commitments-service");
+      const { status } = req.query;
+      
+      let commitments;
+      if (status === 'pending' || status === 'in_progress') {
+        commitments = await wrenCommitmentsService.getPendingCommitments();
+      } else if (status) {
+        commitments = await wrenCommitmentsService.getCommitmentsByStatus(status);
+      } else {
+        commitments = await wrenCommitmentsService.getRecentCommitments(50);
+      }
+      
+      const summary = await wrenCommitmentsService.getCommitmentsSummary();
+      
+      res.json({
+        commitments,
+        summary,
+      });
+    } catch (error: any) {
+      console.error('[Wren Commitments] Fetch error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Update a commitment status - for Agent Wren to mark progress
+  app.patch("/api/admin/wren-commitments/:id", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { wrenCommitmentsService } = await import("./services/wren-commitments-service");
+      const { id } = req.params;
+      const { status, progressNotes, completionResult, relatedEntityType, relatedEntityId, failureReason } = req.body;
+      
+      let result;
+      switch (status) {
+        case 'in_progress':
+          result = await wrenCommitmentsService.markInProgress(id, progressNotes);
+          break;
+        case 'completed':
+          result = await wrenCommitmentsService.markComplete(id, completionResult || '', relatedEntityType, relatedEntityId);
+          break;
+        case 'failed':
+          result = await wrenCommitmentsService.markFailed(id, failureReason || 'Unknown');
+          break;
+        case 'cancelled':
+          result = await wrenCommitmentsService.markCancelled(id, progressNotes);
+          break;
+        default:
+          return res.status(400).json({ error: 'Invalid status. Use: in_progress, completed, failed, cancelled' });
+      }
+      
+      if (!result) {
+        return res.status(404).json({ error: 'Commitment not found' });
+      }
+      
+      res.json({ success: true, commitment: result });
+    } catch (error: any) {
+      console.error('[Wren Commitments] Update error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get actionable commitments summary for Agent Wren
+  app.get("/api/admin/wren-commitments/actionable", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { wrenCommitmentsService } = await import("./services/wren-commitments-service");
+      const data = await wrenCommitmentsService.getForAgentWren();
+      res.json(data);
+    } catch (error: any) {
+      console.error('[Wren Commitments] Actionable fetch error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // ===== Class Management (Platform-wide) =====
   
   // Get all classes (admin/developer only)

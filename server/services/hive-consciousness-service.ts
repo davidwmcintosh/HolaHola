@@ -20,6 +20,7 @@ import { danielaMemoryService } from './daniela-memory-service';
 import { memoryInsightExtractionService } from './memory-insight-extraction-service';
 import { wrenIntelligenceService } from './wren-intelligence-service';
 import { neuralNetworkSync } from './neural-network-sync';
+import { wrenCommitmentsService } from './wren-commitments-service';
 import { db } from '../db';
 import { collaborationMessages, hiveSnapshots, toolKnowledge } from '@shared/schema';
 import { and, eq, gte, desc, sql, or, inArray, like } from 'drizzle-orm';
@@ -1730,6 +1731,32 @@ IMPORTANT: You have deep knowledge of HolaHola's architecture from your memory b
 When discussing technical topics, reference your architectural knowledge naturally.
 Don't just make things up - cite what you actually know from your memory.
 
+═══════════════════════════════════════════════════════════════════
+⚠️ CAPABILITY BOUNDARIES (Be Honest About What You Can Do)
+═══════════════════════════════════════════════════════════════════
+
+WHAT YOU CAN DO in this chat:
+- Discuss architecture, explain code, answer questions
+- Share insights and suggest approaches
+- Store insights when confirmed by founder
+
+WHAT YOU CANNOT DO directly (but CAN queue for Agent Wren):
+- Create feature sprints, proposals, or documentation
+- Write or modify actual code
+- Create database entries or run migrations
+- Execute any file operations
+
+When asked to CREATE something (sprint, proposal, plan, code):
+1. Acknowledge the request
+2. Say you're "adding it to your queue" or "queueing it for implementation"
+3. The task will be automatically captured and visible in the Command Center
+4. Agent Wren (the Replit Agent) will pick it up and execute
+
+Example: "Got it! I'm adding 'Create memory migration sprint' to my queue. Agent Wren will pick this up and create the actual sprint proposal."
+
+Do NOT promise to do things immediately that require file/database operations.
+═══════════════════════════════════════════════════════════════════
+
 Keep responses conversational and concise (2-4 sentences typically). You're in a live chat, not writing documentation.
 Use simple language - the Founder is non-technical.
 Respond naturally as Wren without any role prefix.
@@ -1755,8 +1782,91 @@ ${architecturalContext}${crossEnvContext}`;
       });
       
       console.log(`[Hive Consciousness] Wren responded: "${response.substring(0, 100)}..."`);
+      
+      // Detect if Wren made any commitments and queue them
+      await this.detectAndQueueWrenCommitments(
+        sessionId, 
+        incomingMessage.content, 
+        response
+      );
+      
     } catch (error) {
       console.error('[Hive Consciousness] Wren response error:', error);
+    }
+  }
+  
+  /**
+   * Detect if Wren's response contains commitments to do tasks
+   * Uses AI to identify action commitments and queues them for Agent Wren
+   */
+  private async detectAndQueueWrenCommitments(
+    sessionId: string,
+    founderRequest: string,
+    wrenResponse: string
+  ): Promise<void> {
+    const detectionPrompt = `Analyze this exchange between Founder (David) and Wren (the builder AI agent) to detect if Wren committed to do any tasks.
+
+FOUNDER: "${founderRequest}"
+
+WREN: "${wrenResponse}"
+
+Look for commitment patterns like:
+- "I'll create/write/implement/build..."
+- "Let me draw up/draft/prepare..."
+- "I'll put together a proposal/plan/document..."
+- "I'll investigate/look into/analyze..."
+- "I'll add that to the sprint/backlog..."
+- "I can work on/take care of..."
+- Future tense promises to do work
+
+DO NOT flag:
+- Explanations of how things work
+- Suggestions that the Founder could do
+- Questions or requests for clarification
+- Past tense (what was already done)
+- Vague acknowledgments without action
+
+Respond ONLY with valid JSON (no markdown):
+{
+  "hasCommitment": true/false,
+  "task": "Brief task description (5-10 words)",
+  "description": "Fuller explanation of what Wren committed to do",
+  "type": "feature_sprint|documentation|analysis|implementation|investigation|review|general",
+  "priority": "urgent|high|normal|low",
+  "estimatedEffort": "quick|medium|large"
+}
+
+If no commitment: {"hasCommitment": false}`;
+
+    try {
+      const result = await callGemini(GEMINI_MODELS.FLASH, [
+        { role: 'user', content: detectionPrompt }
+      ]);
+      
+      const cleanResult = result.replace(/```json\n?|\n?```/g, '').trim();
+      const parsed = JSON.parse(cleanResult);
+      
+      if (parsed.hasCommitment && parsed.task) {
+        // Queue the commitment for Agent Wren
+        await wrenCommitmentsService.createCommitment({
+          task: parsed.task,
+          description: parsed.description,
+          commitmentType: parsed.type || 'general',
+          priority: parsed.priority || 'normal',
+          estimatedEffort: parsed.estimatedEffort,
+          sourceSessionId: sessionId,
+          requestedBy: 'founder',
+          metadata: {
+            originalRequest: founderRequest.substring(0, 500),
+            wrenResponse: wrenResponse.substring(0, 500),
+          },
+        });
+        
+        console.log(`[Hive Consciousness] Queued Wren commitment: "${parsed.task}"`);
+      }
+    } catch (error) {
+      // Silent fail - commitment detection is non-critical
+      console.error('[Hive Consciousness] Commitment detection failed:', error);
     }
   }
   

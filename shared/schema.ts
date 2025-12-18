@@ -6428,3 +6428,88 @@ export const insertWrenCalibrationStatSchema = createInsertSchema(wrenCalibratio
 export type InsertWrenCalibrationStat = z.infer<typeof insertWrenCalibrationStatSchema>;
 export type WrenCalibrationStat = typeof wrenCalibrationStats.$inferSelect;
 
+// ===== Wren Commitments System =====
+// Tracks tasks Wren promises to do in EXPRESS Lane conversations
+// Enables accountability and visibility for Agent Wren execution
+
+export const wrenCommitmentStatusEnum = pgEnum("wren_commitment_status", [
+  'pending',      // Queued but not started
+  'in_progress',  // Agent Wren is working on it
+  'completed',    // Successfully finished
+  'failed',       // Attempted but failed
+  'cancelled'     // No longer needed
+]);
+
+export const wrenCommitmentPriorityEnum = pgEnum("wren_commitment_priority", [
+  'urgent',    // Do immediately
+  'high',      // Do soon
+  'normal',    // Standard priority
+  'low'        // When time permits
+]);
+
+export const wrenCommitmentTypeEnum = pgEnum("wren_commitment_type", [
+  'feature_sprint',     // Create a feature sprint proposal
+  'documentation',      // Document something
+  'analysis',           // Analyze code/architecture
+  'implementation',     // Build something
+  'investigation',      // Research/debug something
+  'review',             // Review code or decisions
+  'general'             // Other tasks
+]);
+
+export const wrenCommitments = pgTable("wren_commitments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  task: varchar("task", { length: 255 }).notNull(),
+  description: text("description"),
+  commitmentType: wrenCommitmentTypeEnum("commitment_type").default("general"),
+  
+  status: wrenCommitmentStatusEnum("status").default("pending"),
+  priority: wrenCommitmentPriorityEnum("priority").default("normal"),
+  
+  sourceSessionId: varchar("source_session_id").references(() => founderSessions.id, { onDelete: 'set null' }),
+  sourceMessageId: varchar("source_message_id"),
+  requestedBy: varchar("requested_by"), // 'founder', 'daniela', or user ID
+  
+  assignedTo: varchar("assigned_to").default("agent_wren"), // For future: could be different agents
+  
+  progressNotes: text("progress_notes"),
+  completionResult: text("completion_result"),
+  
+  estimatedEffort: varchar("estimated_effort"), // 'quick', 'medium', 'large'
+  actualEffort: varchar("actual_effort"),
+  
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  dueBy: timestamp("due_by"),
+  
+  relatedEntityType: varchar("related_entity_type"), // 'feature_sprint', 'wren_insight', etc.
+  relatedEntityId: varchar("related_entity_id"),
+  
+  metadata: jsonb("metadata").$type<{
+    originalRequest?: string;
+    wrenResponse?: string;
+    failureReason?: string;
+    retryCount?: number;
+  }>(),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_wren_commitments_status").on(table.status),
+  index("idx_wren_commitments_priority").on(table.priority),
+  index("idx_wren_commitments_type").on(table.commitmentType),
+  index("idx_wren_commitments_session").on(table.sourceSessionId),
+  index("idx_wren_commitments_created").on(table.createdAt),
+]);
+
+export const insertWrenCommitmentSchema = createInsertSchema(wrenCommitments).omit({
+  id: true,
+  startedAt: true,
+  completedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertWrenCommitment = z.infer<typeof insertWrenCommitmentSchema>;
+export type WrenCommitment = typeof wrenCommitments.$inferSelect;
+
