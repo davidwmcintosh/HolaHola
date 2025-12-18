@@ -30,7 +30,15 @@ The `getWrenArchitecturalContext()` function in hive-consciousness-service.ts as
 
 Key features include STT Confidence Integration for clarification, Deepgram Intelligence Integration for real-time voice analysis (sentiment, intent, entity detection, speaker diarization, language detection, topic detection, summarization), and Predictive Student Intelligence for anticipating struggles, analyzing root causes, and detecting motivation dips or plateaus. Predictive Teaching is implemented with a neural network-first architecture, writing predictions to the database for Daniela to read, and validated post-session.
 
-A Shared Memory Bridge enables bidirectional insight sharing between Wren and Daniela, building a knowledge graph of architectural and pedagogical discoveries. Nightly Emergent Intelligence Jobs perform cross-student pattern synthesis, plateau detection, and insight decay.
+A Shared Memory Bridge enables bidirectional insight sharing between Wren and Daniela, building a knowledge graph of architectural and pedagogical discoveries. Nightly Emergent Intelligence Jobs perform cross-student pattern synthesis, plateau detection, insight decay, and **memory consolidation**.
+
+**Memory Consolidation Service** (`memory-consolidation-service.ts`) merges semantically similar Daniela growth memories:
+- Groups memories by category and uses Gemini Flash to detect semantic similarity clusters
+- Selects the "best" memory as canonical (highest importance, best wording)
+- Boosts canonical importance proportionally to cluster size (max +3)
+- Marks merged memories as superseded (isActive=false, supersededBy set)
+- Tracks merge history via consolidatedFromCount and consolidatedSourceIds fields
+- API: POST `/api/admin/growth-memories/consolidate` (manual trigger), GET `.../consolidation-stats` (stats)
 
 The Hive Snapshots system (`hiveSnapshots` table) captures teaching moments for context injection. Snapshot types include `teaching_moment`, `breakthrough`, `struggle_pattern`, `beacon_context`, `session_summary`, `plateau_alert`, `relationship_moment`, `role_reversal`, and `humor_shared`. The `getRecentTeachingContext()` function in brain-surgery-service.ts queries recent high-importance snapshots and formats them for prompt injection. Plateau detection automatically creates hive snapshots when students are stuck, enabling Daniela to proactively adjust her teaching strategies.
 
