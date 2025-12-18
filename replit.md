@@ -71,6 +71,29 @@ The **Voice Diagnostics Service** (`voice-diagnostics-service.ts`) provides prod
 - **Daniela Awareness**: `getTechnicalHealthContext()` injects technical health into system prompts when failure rate >5%, enabling empathetic acknowledgment of audio issues
 - **Auto-Remediation**: `isTTSDegraded()` returns `shouldUseFallback: true` when Cartesia shows >30% failure rate or >2000ms latency
 
+## Replit Agent API (Builder Integration)
+The **Replit Agent API** provides secure, authenticated access for external Replit Agent instances to interact with Hive/Wren services. This enables builders to access Wren's priorities, sprints, and insights programmatically.
+
+**Authentication**: Uses `REPLIT_AGENT_TOKEN` secret via `x-agent-token` header. Token must be 32+ characters.
+
+**Endpoints** (all require authentication except `/api/agent/status`):
+- `GET /api/agent/status` - Check if agent auth is configured (unauthenticated)
+- `GET /api/agent/sprints` - Get feature sprints (query: ?stage=, ?limit=, ?source=)
+- `GET /api/agent/wren/priorities` - Get Wren's inferred priorities
+- `GET /api/agent/wren/insights` - Get Wren's insights (query: ?category=, ?limit=, ?search=)
+- `GET /api/agent/wren/context` - Get Wren's startup context (proactive intelligence)
+- `GET /api/agent/audit` - Get agent action audit log
+- `POST /api/agent/hive/message` - Post message to EXPRESS Lane (body: {message, targetAgent?})
+
+**Usage Example**:
+```bash
+curl -H "x-agent-token: YOUR_TOKEN" https://holahola.app/api/agent/wren/priorities
+```
+
+**Audit Logging**: All agent actions are logged with timestamp, endpoint, success status, and details. Ring buffer retains last 100 entries.
+
+**Security**: Token validation uses timing-safe comparison. Separate from ARCHITECT_SECRET for granular permissions.
+
 ## External Dependencies
 -   **Stripe**: Payment processing and subscription management.
 -   **Replit Auth**: OIDC authentication.
