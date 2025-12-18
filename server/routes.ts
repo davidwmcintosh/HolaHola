@@ -15067,6 +15067,18 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
       res.status(500).json({ error: error.message });
     }
   });
+  
+  // Peer-accessible: Get local nightly sync status (for cross-env status display)
+  // This endpoint is called by the peer environment to check production's nightly sync status
+  app.get("/api/sync/nightly-status", validateSyncRequest, async (req: any, res) => {
+    try {
+      const status = await syncBridge.getLocalNightlyStatus();
+      res.json(status);
+    } catch (error: any) {
+      console.error('[SYNC API] Nightly status error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   // ============================================================================
   // REAL-TIME EXPRESS LANE BRIDGE (Cross-Environment)

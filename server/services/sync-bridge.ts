@@ -876,6 +876,11 @@ class SyncBridgeService {
     lastPush: SyncRun | null;
     lastPull: SyncRun | null;
     recentRuns: SyncRun[];
+    peerNightlyStatus?: {
+      lastNightlySync: SyncRun | null;
+      nextSyncTime: string | null;
+      environment: string;
+    };
   }> {
     const [lastPush] = await db.select()
       .from(syncRuns)
@@ -894,6 +899,16 @@ class SyncBridgeService {
       .orderBy(desc(syncRuns.startedAt))
       .limit(10);
     
+    // Fetch peer's nightly sync status
+    let peerNightlyStatus: { lastNightlySync: SyncRun | null; nextSyncTime: string | null; environment: string } | undefined;
+    if (isSyncConfigured()) {
+      try {
+        peerNightlyStatus = await this.fetchPeerNightlyStatus();
+      } catch (err: any) {
+        console.warn(`[SYNC-BRIDGE] Could not fetch peer nightly status: ${err.message}`);
+      }
+    }
+    
     return {
       configured: isSyncConfigured(),
       peerUrl: getSyncPeerUrl(),
@@ -901,7 +916,66 @@ class SyncBridgeService {
       lastPush: lastPush || null,
       lastPull: lastPull || null,
       recentRuns,
+      peerNightlyStatus,
     };
+  }
+  
+  async getLocalNightlyStatus(): Promise<{
+    lastNightlySync: SyncRun | null;
+    nextSyncTime: string;
+    environment: string;
+  }> {
+    const [lastNightlySync] = await db.select()
+      .from(syncRuns)
+      .where(eq(syncRuns.triggeredBy, 'nightly'))
+      .orderBy(desc(syncRuns.startedAt))
+      .limit(1);
+    
+    // Calculate next sync time (11 AM UTC daily)
+    const now = new Date();
+    const nextSync = new Date(now);
+    nextSync.setUTCHours(11, 0, 0, 0);
+    if (now >= nextSync) {
+      nextSync.setUTCDate(nextSync.getUTCDate() + 1);
+    }
+    
+    return {
+      lastNightlySync: lastNightlySync || null,
+      nextSyncTime: nextSync.toISOString(),
+      environment: CURRENT_ENVIRONMENT,
+    };
+  }
+  
+  private async fetchPeerNightlyStatus(): Promise<{
+    lastNightlySync: SyncRun | null;
+    nextSyncTime: string | null;
+    environment: string;
+  }> {
+    const peerUrl = getSyncPeerUrl();
+    if (!peerUrl) {
+      throw new Error('Peer URL not configured');
+    }
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+    
+    try {
+      const response = await fetch(`${peerUrl}/api/sync/nightly-status`, {
+        method: 'GET',
+        headers: createSyncHeaders({}),
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`Peer returned ${response.status}`);
+      }
+      
+      return await response.json();
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
   
   async performFullSync(triggeredBy: string = 'manual'): Promise<{
