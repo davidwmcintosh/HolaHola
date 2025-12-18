@@ -174,6 +174,7 @@ export default function CommandCenter() {
     { id: "feature-sprint", label: "Feature Sprint", icon: Zap, roles: ['admin', 'developer'] },
     { id: "collaboration", label: "Collaboration", icon: Handshake, roles: ['admin', 'developer'] },
     { id: "beacons", label: "Beacons", icon: Radio, roles: ['admin', 'developer'] },
+    { id: "memory-migration", label: "Memory Migration", icon: Brain, roles: ['developer'] },
   ].filter(tab => {
     if (user?.role === 'admin') return true;
     if (user?.role === 'developer') return tab.roles.includes('developer');
@@ -303,6 +304,10 @@ export default function CommandCenter() {
 
           <TabsContent value="beacons" className="space-y-4">
             <BeaconsTab />
+          </TabsContent>
+
+          <TabsContent value="memory-migration" className="space-y-4">
+            <MemoryMigrationTab />
           </TabsContent>
         </Tabs>
       </div>
@@ -9797,6 +9802,326 @@ function BeaconsTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+interface MigrationStatus {
+  total: number;
+  migrated: number;
+  remaining: number;
+  memoriesCreated: number;
+}
+
+interface BatchResult {
+  totalConversations: number;
+  processedConversations: number;
+  memoriesCreated: number;
+  errors: number;
+  skipped: number;
+}
+
+interface GrowthMemory {
+  id: string;
+  category: string;
+  title: string;
+  lesson: string;
+  specificContent?: string;
+  triggerConditions?: string;
+  importance: number;
+  validated: boolean;
+  reviewStatus: string;
+  createdAt: string;
+  metadata?: {
+    migrationType?: string;
+    originalDate?: string;
+    language?: string;
+    sourceConversationId?: string;
+  };
+}
+
+function MemoryMigrationTab() {
+  const { toast } = useToast();
+  const [isRunning, setIsRunning] = useState(false);
+  const [reviewFilter, setReviewFilter] = useState<string>("pending");
+
+  const { data: status, isLoading: statusLoading, refetch: refetchStatus } = useQuery<MigrationStatus>({
+    queryKey: ["/api/admin/memory-migration/status"],
+    refetchInterval: isRunning ? 5000 : false,
+  });
+
+  const { data: memoriesData, isLoading: memoriesLoading, refetch: refetchMemories } = useQuery<{ memories: GrowthMemory[]; total: number }>({
+    queryKey: ["/api/admin/growth-memories", { reviewStatus: reviewFilter, migrationType: "historical" }],
+  });
+
+  const runBatchMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/admin/memory-migration/batch");
+    },
+    onSuccess: (data: BatchResult) => {
+      refetchStatus();
+      refetchMemories();
+      toast({
+        title: "Batch Complete",
+        description: `Processed ${data.processedConversations} conversations, extracted ${data.memoriesCreated} memories, skipped ${data.skipped}`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Batch Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const runFullMigrationMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/admin/memory-migration/full");
+    },
+    onSuccess: () => {
+      setIsRunning(true);
+      toast({
+        title: "Migration Started",
+        description: "Full migration is running in the background. Status will auto-refresh.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Migration Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const approveMemoryMutation = useMutation({
+    mutationFn: async (memoryId: string) => {
+      return apiRequest("PATCH", `/api/admin/growth-memories/${memoryId}`, {
+        reviewStatus: "approved",
+        validated: true,
+      });
+    },
+    onSuccess: () => {
+      refetchMemories();
+      toast({ title: "Memory Approved", description: "Memory committed to neural network" });
+    },
+  });
+
+  const rejectMemoryMutation = useMutation({
+    mutationFn: async (memoryId: string) => {
+      return apiRequest("PATCH", `/api/admin/growth-memories/${memoryId}`, {
+        reviewStatus: "rejected",
+        validated: false,
+      });
+    },
+    onSuccess: () => {
+      refetchMemories();
+      toast({ title: "Memory Rejected", description: "Memory will not be used" });
+    },
+  });
+
+  useEffect(() => {
+    if (status && isRunning && status.remaining === 0) {
+      setIsRunning(false);
+      toast({
+        title: "Migration Complete",
+        description: `All ${status.total} conversations processed. ${status.memoriesCreated} memories extracted.`,
+      });
+    }
+  }, [status, isRunning]);
+
+  const progressPercent = status ? Math.round((status.migrated / status.total) * 100) : 0;
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Brain className="h-5 w-5" />
+            Historical Memory Migration
+          </CardTitle>
+          <CardDescription>
+            Process founder voice conversations to extract memories for Daniela's neural network
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {statusLoading ? (
+            <Skeleton className="h-24 w-full" />
+          ) : status ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-4 gap-4">
+                <div className="text-center p-4 bg-muted rounded-lg">
+                  <div className="text-2xl font-bold" data-testid="text-total-conversations">{status.total}</div>
+                  <div className="text-sm text-muted-foreground">Total Conversations</div>
+                </div>
+                <div className="text-center p-4 bg-muted rounded-lg">
+                  <div className="text-2xl font-bold text-green-600" data-testid="text-migrated">{status.migrated}</div>
+                  <div className="text-sm text-muted-foreground">Processed</div>
+                </div>
+                <div className="text-center p-4 bg-muted rounded-lg">
+                  <div className="text-2xl font-bold text-orange-500" data-testid="text-remaining">{status.remaining}</div>
+                  <div className="text-sm text-muted-foreground">Remaining</div>
+                </div>
+                <div className="text-center p-4 bg-muted rounded-lg">
+                  <div className="text-2xl font-bold text-primary" data-testid="text-memories-created">{status.memoriesCreated}</div>
+                  <div className="text-sm text-muted-foreground">Memories Extracted</div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Progress</span>
+                  <span>{progressPercent}%</span>
+                </div>
+                <div className="w-full bg-muted rounded-full h-3">
+                  <div 
+                    className="bg-primary h-3 rounded-full transition-all duration-500"
+                    style={{ width: `${progressPercent}%` }}
+                    data-testid="progress-bar"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => runBatchMutation.mutate()}
+                  disabled={runBatchMutation.isPending || isRunning || status.remaining === 0}
+                  data-testid="button-run-batch"
+                >
+                  {runBatchMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : null}
+                  Run Single Batch (10)
+                </Button>
+                <Button
+                  onClick={() => runFullMigrationMutation.mutate()}
+                  disabled={runFullMigrationMutation.isPending || isRunning || status.remaining === 0}
+                  variant="default"
+                  data-testid="button-run-full"
+                >
+                  {(runFullMigrationMutation.isPending || isRunning) ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : null}
+                  {isRunning ? "Running..." : "Run Full Migration"}
+                </Button>
+                <Button
+                  onClick={() => refetchStatus()}
+                  variant="outline"
+                  data-testid="button-refresh-status"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {status.remaining === 0 && (
+                <div className="flex items-center gap-2 text-green-600 bg-green-50 dark:bg-green-950 p-3 rounded-lg">
+                  <CheckCircle className="h-5 w-5" />
+                  <span>Migration complete! All conversations have been processed.</span>
+                </div>
+              )}
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Memory Review Queue</CardTitle>
+              <CardDescription>
+                Review and approve memories before they're committed to Daniela's neural network
+              </CardDescription>
+            </div>
+            <Select value={reviewFilter} onValueChange={setReviewFilter}>
+              <SelectTrigger className="w-40" data-testid="select-review-filter">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="rejected">Rejected</SelectItem>
+                <SelectItem value="all">All</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {memoriesLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-20 w-full" />
+            </div>
+          ) : memoriesData?.memories?.length ? (
+            <div className="space-y-3">
+              {memoriesData.memories.map((memory) => (
+                <div 
+                  key={memory.id} 
+                  className="p-4 border rounded-lg space-y-2"
+                  data-testid={`memory-card-${memory.id}`}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge variant="outline">{memory.category}</Badge>
+                        <Badge variant={memory.reviewStatus === 'approved' ? 'default' : memory.reviewStatus === 'rejected' ? 'destructive' : 'secondary'}>
+                          {memory.reviewStatus}
+                        </Badge>
+                        {memory.metadata?.language && (
+                          <Badge variant="outline" className="text-xs">{memory.metadata.language}</Badge>
+                        )}
+                      </div>
+                      <h4 className="font-medium">{memory.title}</h4>
+                      <p className="text-sm text-muted-foreground mt-1">{memory.lesson}</p>
+                      {memory.specificContent && (
+                        <p className="text-xs text-muted-foreground mt-1 italic">"{memory.specificContent}"</p>
+                      )}
+                      {memory.triggerConditions && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          <strong>Trigger:</strong> {memory.triggerConditions}
+                        </p>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Importance: {memory.importance}/10 | 
+                        {memory.metadata?.originalDate && ` Original: ${new Date(memory.metadata.originalDate).toLocaleDateString()}`}
+                      </p>
+                    </div>
+                    {memory.reviewStatus === 'pending' && (
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => approveMemoryMutation.mutate(memory.id)}
+                          disabled={approveMemoryMutation.isPending}
+                          data-testid={`button-approve-${memory.id}`}
+                        >
+                          <Check className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => rejectMemoryMutation.mutate(memory.id)}
+                          disabled={rejectMemoryMutation.isPending}
+                          data-testid={`button-reject-${memory.id}`}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <div className="text-sm text-muted-foreground text-center mt-4">
+                Showing {memoriesData.memories.length} of {memoriesData.total} memories
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              No memories found with current filter
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

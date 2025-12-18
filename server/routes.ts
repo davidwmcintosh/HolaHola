@@ -9914,6 +9914,90 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  // Get growth memories for review (Founder Only)
+  app.get("/api/admin/growth-memories", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { reviewStatus, migrationType, limit = '50' } = req.query;
+      
+      let query = db.select().from(danielaGrowthMemories);
+      
+      const conditions: any[] = [];
+      
+      if (reviewStatus && reviewStatus !== 'all') {
+        conditions.push(eq(danielaGrowthMemories.reviewStatus, reviewStatus));
+      }
+      
+      if (migrationType === 'historical') {
+        conditions.push(sql`metadata->>'migrationType' = 'historical'`);
+      }
+      
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions)) as any;
+      }
+      
+      const memories = await query
+        .orderBy(desc(danielaGrowthMemories.createdAt))
+        .limit(parseInt(limit as string));
+      
+      // Get total count
+      let countQuery = db.select({ count: sql<number>`COUNT(*)::int` }).from(danielaGrowthMemories);
+      if (conditions.length > 0) {
+        countQuery = countQuery.where(and(...conditions)) as any;
+      }
+      const countResult = await countQuery;
+      
+      res.json({
+        memories,
+        total: countResult[0]?.count || 0,
+      });
+    } catch (error: any) {
+      console.error('[Growth Memories] Fetch error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Update a growth memory (approve/reject) - Founder Only
+  // Strict schema validation - only allow reviewStatus and validated fields
+  const growthMemoryUpdateSchema = z.object({
+    reviewStatus: z.enum(['pending', 'approved', 'rejected']).optional(),
+    validated: z.boolean().optional(),
+  }).strict();
+  
+  app.patch("/api/admin/growth-memories/:id", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Validate request body with strict schema
+      const parseResult = growthMemoryUpdateSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ 
+          error: "Invalid request body",
+          details: parseResult.error.flatten().fieldErrors 
+        });
+      }
+      
+      const { reviewStatus, validated } = parseResult.data;
+      
+      // Only update allowed fields
+      const updates: { reviewStatus?: string; validated?: boolean } = {};
+      if (reviewStatus !== undefined) updates.reviewStatus = reviewStatus;
+      if (validated !== undefined) updates.validated = validated;
+      
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ error: "No valid fields to update" });
+      }
+      
+      await db.update(danielaGrowthMemories)
+        .set(updates)
+        .where(eq(danielaGrowthMemories.id, id));
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('[Growth Memories] Update error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // ===== Class Management (Platform-wide) =====
   
   // Get all classes (admin/developer only)
