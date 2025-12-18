@@ -125,7 +125,127 @@ The EXPRESS Lane (founder collaboration WebSocket) stores messages in `collabora
 
 ---
 
-## 5. Wren's Memory Access
+## 5. Student Memory System
+
+The Student Learning Service maintains personalized memory through three key tables:
+
+### Tables
+
+| Table | Purpose | Key Fields |
+|-------|---------|------------|
+| `studentInsights` | Learning preferences and observations | `insightType`, `insight`, `evidence` |
+| `learningMotivations` | Why the student is learning | `motivation`, `details`, `sourceConversationId` |
+| `recurringStruggles` | Patterns of difficulty | `struggleArea`, `description`, `occurrenceCount` |
+
+### Injection Points
+
+**Teaching Suggestions Service** (`teaching-suggestions.ts`):
+- Reads `recurringStruggles` to generate struggle-based teaching suggestions
+- Reads `studentInsights` to adapt learning style recommendations
+- Combines with session context to provide real-time coaching hints
+
+```typescript
+// Lines 140-151 in teaching-suggestions.ts
+const struggleSuggestions = this.generateStruggleSuggestions(
+  studentContext.recurringStruggles,
+  sessionContext.currentTopic
+);
+const styleSuggestions = this.generateStyleSuggestions(
+  studentContext.studentInsights
+);
+```
+
+**Nightly Plateau Detection** (`sync-scheduler.ts`):
+- Queries `recurringStruggles` to identify students with persistent issues
+- Creates `userMotivationAlerts` when plateau patterns detected
+- Feeds into Wren insights for proactive development awareness
+
+**Verdict:** ✅ Student memory is fully integrated into teaching workflow and plateau detection.
+
+---
+
+## 6. Hive Snapshots Teaching Context
+
+The `hiveSnapshots` table captures teaching moments for prompt injection.
+
+### Snapshot Types
+
+| Type | Trigger | Purpose |
+|------|---------|---------|
+| `teaching_moment` | Manual or auto-detected | Key pedagogical insights |
+| `breakthrough` | Student "aha" moment | Celebrate and reinforce |
+| `struggle_pattern` | Recurring difficulty | Adjust approach |
+| `plateau_alert` | 3+ occurrences same error | Trigger intervention |
+| `relationship_moment` | Personal connection | Build rapport memory |
+| `humor_shared` | Jokes/fun moments | Relationship continuity |
+
+### Injection via `getRecentTeachingContext()`
+
+```typescript
+// Lines 688-750 in brain-surgery-service.ts
+export async function getRecentTeachingContext(limit: number = 10): Promise<string> {
+  // Queries hiveSnapshots for recent high-importance entries
+  // Formats them for prompt injection
+}
+```
+
+**Usage:**
+- Called by `enhanceWithContext()` in brain-surgery-service
+- Injected alongside personal memory and growth context
+- Enables Daniela to reference past teaching moments naturally
+
+**Verdict:** ✅ Hive snapshots properly integrated into prompt enhancement pipeline.
+
+---
+
+## 7. Neural Network Sync Timing
+
+The neural network (`toolKnowledge` table) stores procedural knowledge synced from files.
+
+### Startup Sync (Current Behavior)
+
+```typescript
+// Lines 178-216 in server/index.ts
+// On server startup:
+await initReplitMdCache();           // File-based cache for Wren
+await beaconSyncService.syncChangelogToNeuralNetwork();
+await beaconSyncService.syncReplitMdToNeuralNetwork();  // DB sync
+await beaconSyncService.syncNorthStarToNeuralNetwork();
+```
+
+### Limitation
+
+**Neural network content only syncs at server startup.** If `replit.md` or other source files change mid-session:
+- File cache (`replitMdCache`) remains stale until restart
+- Neural network DB entries remain unchanged
+- Daniela and Wren use outdated architectural context
+
+### Gap Bridge (Implemented Dec 2025)
+
+Added `refreshNeuralNetworkContext()` function for on-demand refresh without restart.
+
+---
+
+## 8. Long Voice Session Context Drift
+
+### The Issue
+
+Voice sessions establish `systemPrompt` at session creation (line 625 in streaming-voice-orchestrator.ts). For long sessions (30+ minutes), this base prompt becomes stale while:
+- Student skills may have improved
+- New insights may have been captured
+- Teaching phase should have evolved
+
+### Current Mitigation
+
+Dynamic sections (Hive context, Express Lane, Editor feedback) are refreshed per-message. However, the base pedagogical context is static.
+
+### Gap Bridge (Implemented Dec 2025)
+
+Added periodic context refresh every 15 minutes for active voice sessions to rebuild enhanced system prompt sections.
+
+---
+
+## 9. Wren's Memory Access
 
 | Context | Access Method | Status |
 |---------|---------------|--------|
@@ -136,7 +256,7 @@ The EXPRESS Lane (founder collaboration WebSocket) stores messages in `collabora
 
 ---
 
-## 6. Dev vs Production
+## 10. Dev vs Production
 
 | Aspect | Dev | Prod | Difference |
 |--------|-----|------|------------|
@@ -152,9 +272,13 @@ The EXPRESS Lane (founder collaboration WebSocket) stores messages in `collabora
 
 ## Recommendations
 
-### Completed
+### Completed (Dec 2025)
 1. ✅ EXPRESS Lane history injection for voice sessions
 2. ✅ Founder session filtering for context isolation
+3. ✅ Student Memory documentation (studentInsights, learningMotivations, recurringStruggles)
+4. ✅ Hive Snapshots documentation (getRecentTeachingContext)
+5. ✅ Neural Network refresh function (`refreshNeuralNetworkContext()`)
+6. ✅ Long voice session context refresh (every 15 minutes)
 
 ### Future Enhancements
 1. **Deepgram Intelligence Injection:** Feed sentiment/intent from STT into Gemini prompts for emotionally-aware responses
@@ -170,6 +294,10 @@ Memory is **consistent** across all HolaHola access points:
 - ✅ Backend-to-LLM: Same sources available (assembled differently)
 - ✅ Voice Flow: Full memory context maintained
 - ✅ EXPRESS Lane: Properly integrated with session filtering
+- ✅ Student Memory: Fully integrated into teaching workflow
+- ✅ Hive Snapshots: Properly injected via getRecentTeachingContext()
+- ✅ Neural Network: Now supports mid-session refresh
+- ✅ Long Sessions: Periodic context refresh prevents drift
 - ✅ Dev/Prod: Identical memory logic
 
 The "one brain, many voices" architecture is working as designed.
