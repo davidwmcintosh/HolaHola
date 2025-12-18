@@ -2739,6 +2739,10 @@ export const danielaGrowthMemories = pgTable("daniela_growth_memories", {
   supersededBy: varchar("superseded_by"), // If a newer learning replaces this
   isActive: boolean("is_active").default(true),
   
+  // Consolidation - when similar memories are merged into one canonical version
+  consolidatedFromCount: integer("consolidated_from_count").default(1), // How many memories were merged (1 = original, >1 = consolidated)
+  consolidatedSourceIds: text("consolidated_source_ids").array(), // IDs of memories that were merged into this one
+  
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => [

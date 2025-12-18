@@ -4,6 +4,7 @@ import { isSyncConfigured } from '../middleware/sync-auth';
 import { studentLearningService } from './student-learning-service';
 import { wrenIntelligenceService } from './wren-intelligence-service';
 import { voiceDiagnostics } from './voice-diagnostics-service';
+import { memoryConsolidationService } from './memory-consolidation-service';
 import { db } from '../db';
 import { users, recurringStruggles, hiveSnapshots, wrenInsights } from '@shared/schema';
 import { sql, and, gte, isNotNull, eq, desc } from 'drizzle-orm';
@@ -394,6 +395,15 @@ async function runNightlySync(): Promise<void> {
     // 7d. Voice pattern analysis for service health monitoring (daily)
     const voiceResult = await runVoicePatternAnalysis();
     console.log(`[SYNC-SCHEDULER] Voice analysis: ${voiceResult.patternsDetected} patterns from ${voiceResult.snapshotsAnalyzed} snapshots, ${voiceResult.triggersCreated} triggers created`);
+    
+    // 7e. Memory consolidation - merge semantically similar Daniela growth memories (daily)
+    try {
+      console.log(`[SYNC-SCHEDULER] Running memory consolidation...`);
+      const consolidationResult = await memoryConsolidationService.runConsolidation();
+      console.log(`[SYNC-SCHEDULER] Memory consolidation: ${consolidationResult.clustersFound} clusters, ${consolidationResult.memoriesConsolidated} memories merged`);
+    } catch (consolidationErr: any) {
+      console.warn(`[SYNC-SCHEDULER] Memory consolidation failed: ${consolidationErr.message}`);
+    }
     
     console.log(`[SYNC-SCHEDULER] Emergent intelligence jobs complete`);
     

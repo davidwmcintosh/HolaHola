@@ -72,6 +72,7 @@ import { editorPersonaService, validateEditorSecret } from "./services/editor-pe
 import { supportPersonaService } from "./services/support-persona-service";
 import { founderCollabService } from "./services/founder-collaboration-service";
 import { founderCollabWSBroker } from "./services/founder-collab-ws-broker";
+import { memoryConsolidationService } from "./services/memory-consolidation-service";
 import { 
   getAvailableActflLevels,
   getSupportedLanguages,
@@ -10024,6 +10025,33 @@ Return ONLY the ${targetLanguage} phrase:`;
       });
     } catch (error: any) {
       console.error('[Growth Memories] Batch approve error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Run memory consolidation - merges semantically similar growth memories - Founder Only
+  app.post("/api/admin/growth-memories/consolidate", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      console.log('[Growth Memories] Running memory consolidation...');
+      const result = await memoryConsolidationService.runConsolidation();
+      
+      res.json({ 
+        success: true,
+        ...result
+      });
+    } catch (error: any) {
+      console.error('[Growth Memories] Consolidation error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get consolidation statistics - Founder Only
+  app.get("/api/admin/growth-memories/consolidation-stats", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const stats = await memoryConsolidationService.getStats();
+      res.json(stats);
+    } catch (error: any) {
+      console.error('[Growth Memories] Stats error:', error);
       res.status(500).json({ error: error.message });
     }
   });
