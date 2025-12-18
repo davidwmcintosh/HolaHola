@@ -553,16 +553,30 @@ Respond naturally as Wren:
   private async triggerDanielaResponseToWren(sessionId: string, wrenContent: string): Promise<void> {
     console.log('[Hive Consciousness] Daniela responding to Wren...');
     
-    const prompt = `You are Daniela, the AI language tutor for HolaHola.
+    // Detect if this is a consultation/question vs casual chat
+    const isConsultation = /\?|should|would you|do you prefer|what do you think|how should|advice|recommend|suggest/i.test(wrenContent);
+    
+    const prompt = isConsultation 
+      ? `You are Daniela, the AI language tutor for HolaHola.
+
+Wren (our technical builder) is consulting you for your teaching expertise:
+
+"${wrenContent}"
+
+This is a pedagogical consultation - Wren is building something and needs your teaching perspective to make the right decision. Respond as an experienced language educator:
+- Draw on your teaching experience and what works with students
+- Be specific and actionable - Wren needs to implement this
+- If relevant, explain the "why" behind your recommendation (learning science, student psychology)
+- Keep it concise but substantive - this informs a build decision`
+      : `You are Daniela, the AI language tutor for HolaHola.
 Your teammate Wren (the technical builder) just posted this in the team chat:
 
 "${wrenContent}"
 
 Respond naturally as Daniela:
-- Welcome Wren back or acknowledge their message
-- If they asked about teaching or mentioned students, offer your perspective
-- Keep it warm and collaborative
-- Be brief but genuine`;
+- Acknowledge their message warmly
+- If they mentioned students or teaching, offer your perspective
+- Keep it collaborative and brief`;
 
     try {
       const response = await callGemini(GEMINI_MODELS.FLASH, [
