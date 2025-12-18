@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import type { User } from "../../shared/schema";
+import crypto from "crypto";
 
 // Role hierarchy: admin > developer > teacher > student
 const roleHierarchy = {
@@ -311,7 +312,6 @@ export function requireAgentToken(req: AgentAuthenticatedRequest, res: Response,
     }
     
     // Timing-safe comparison to prevent timing attacks
-    const crypto = require('crypto');
     const tokenBuffer = Buffer.from(providedToken);
     const expectedBuffer = Buffer.from(REPLIT_AGENT_TOKEN!);
     
