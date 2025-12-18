@@ -182,7 +182,7 @@ function MemoryMigrationTab() {
   });
 
   const { data: memoriesData, isLoading: memoriesLoading, refetch: refetchMemories } = useQuery<{ memories: GrowthMemory[]; total: number }>({
-    queryKey: ["/api/admin/growth-memories", { reviewStatus: reviewFilter, migrationType: "historical" }],
+    queryKey: [`/api/admin/growth-memories?reviewStatus=${reviewFilter}&migrationType=historical`],
   });
 
   const runBatchMutation = useMutation({

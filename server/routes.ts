@@ -29,6 +29,7 @@ import {
   collaborationMessages,
   postFlightReports,
   insertPostFlightReportSchema,
+  danielaGrowthMemories,
 } from "@shared/schema";
 import { hasTeacherAccess, hasDeveloperAccess } from "@shared/permissions";
 import OpenAI, { toFile } from "openai";
