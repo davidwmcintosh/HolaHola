@@ -9869,6 +9869,51 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  // ===== Historical Memory Migration (Founder Only) =====
+  // One-time migration of founder voice conversations to Daniela's neural network
+  
+  // Get migration status
+  app.get("/api/admin/memory-migration/status", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { historicalMemoryMigrationService } = await import("./services/historical-memory-migration-service");
+      const status = await historicalMemoryMigrationService.getMigrationStatus();
+      res.json(status);
+    } catch (error: any) {
+      console.error('[Memory Migration] Status error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Run a single batch of migration (10 conversations)
+  app.post("/api/admin/memory-migration/batch", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { historicalMemoryMigrationService } = await import("./services/historical-memory-migration-service");
+      const result = await historicalMemoryMigrationService.runBatch();
+      res.json(result);
+    } catch (error: any) {
+      console.error('[Memory Migration] Batch error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Run full migration (all conversations - background job)
+  app.post("/api/admin/memory-migration/full", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { historicalMemoryMigrationService } = await import("./services/historical-memory-migration-service");
+      
+      // Start migration in background, respond immediately
+      res.json({ status: 'started', message: 'Full migration started in background. Check status endpoint for progress.' });
+      
+      // Run in background (don't await)
+      historicalMemoryMigrationService.runFullMigration()
+        .then(result => console.log('[Memory Migration] Full migration completed:', result))
+        .catch(err => console.error('[Memory Migration] Full migration failed:', err.message));
+    } catch (error: any) {
+      console.error('[Memory Migration] Full migration start error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // ===== Class Management (Platform-wide) =====
   
   // Get all classes (admin/developer only)
