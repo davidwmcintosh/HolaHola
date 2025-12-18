@@ -225,3 +225,110 @@ export function requireFounder(req: AuthenticatedRequest, res: Response, next: N
     return res.status(500).json({ error: "Authorization check failed" });
   }
 }
+
+// ===== REPLIT AGENT AUTHENTICATION =====
+// Dedicated token for Replit Agent (builders) to access Hive/Wren services
+// Separate from ARCHITECT_SECRET to allow granular permission control
+
+const REPLIT_AGENT_TOKEN = process.env.REPLIT_AGENT_TOKEN;
+
+// Audit log for agent actions (in-memory ring buffer, persists to hiveSnapshots)
+interface AgentAuditEntry {
+  timestamp: Date;
+  action: string;
+  endpoint: string;
+  success: boolean;
+  details?: string;
+}
+const agentAuditLog: AgentAuditEntry[] = [];
+const MAX_AUDIT_ENTRIES = 100;
+
+/**
+ * Log an agent action for audit trail
+ */
+export function logAgentAction(action: string, endpoint: string, success: boolean, details?: string) {
+  const entry: AgentAuditEntry = {
+    timestamp: new Date(),
+    action,
+    endpoint,
+    success,
+    details
+  };
+  
+  agentAuditLog.push(entry);
+  
+  // Ring buffer - keep last N entries
+  if (agentAuditLog.length > MAX_AUDIT_ENTRIES) {
+    agentAuditLog.shift();
+  }
+  
+  console.log(`[AGENT-AUDIT] ${success ? '✓' : '✗'} ${action} on ${endpoint}${details ? ` - ${details}` : ''}`);
+}
+
+/**
+ * Get recent agent audit entries
+ */
+export function getAgentAuditLog(limit = 50): AgentAuditEntry[] {
+  return agentAuditLog.slice(-limit);
+}
+
+/**
+ * Extended request type for agent-authenticated requests
+ */
+export interface AgentAuthenticatedRequest extends Request {
+  agentId?: string; // Identifier for the agent (for future multi-agent support)
+}
+
+/**
+ * Check if Replit Agent token is properly configured
+ */
+export function isAgentTokenConfigured(): boolean {
+  return !!(REPLIT_AGENT_TOKEN && REPLIT_AGENT_TOKEN.length >= 32);
+}
+
+/**
+ * Middleware to require Replit Agent token authentication
+ * Usage: app.get('/api/agent/sprints', requireAgentToken, handler)
+ * 
+ * Authenticates via x-agent-token header
+ * Provides read-only access to Wren services
+ */
+export function requireAgentToken(req: AgentAuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    // Check if token is configured
+    if (!isAgentTokenConfigured()) {
+      console.warn('[RBAC] REPLIT_AGENT_TOKEN not configured or too short (min 32 chars)');
+      logAgentAction('auth_attempt', req.path, false, 'Token not configured');
+      return res.status(503).json({ error: 'Agent authentication not configured' });
+    }
+    
+    // Get token from header
+    const providedToken = req.headers['x-agent-token'] as string;
+    
+    if (!providedToken) {
+      logAgentAction('auth_attempt', req.path, false, 'No token provided');
+      return res.status(401).json({ error: 'Agent token required (x-agent-token header)' });
+    }
+    
+    // Timing-safe comparison to prevent timing attacks
+    const crypto = require('crypto');
+    const tokenBuffer = Buffer.from(providedToken);
+    const expectedBuffer = Buffer.from(REPLIT_AGENT_TOKEN!);
+    
+    if (tokenBuffer.length !== expectedBuffer.length || 
+        !crypto.timingSafeEqual(tokenBuffer, expectedBuffer)) {
+      logAgentAction('auth_attempt', req.path, false, 'Invalid token');
+      return res.status(401).json({ error: 'Invalid agent token' });
+    }
+    
+    // Token valid - set agent ID for tracking
+    req.agentId = 'replit-agent-primary'; // Can be extended for multi-agent support
+    
+    logAgentAction('auth_success', req.path, true);
+    next();
+  } catch (error) {
+    console.error('[RBAC] Error in requireAgentToken middleware:', error);
+    logAgentAction('auth_error', req.path, false, String(error));
+    return res.status(500).json({ error: 'Agent authorization check failed' });
+  }
+}

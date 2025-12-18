@@ -6,7 +6,7 @@ import { db } from "./db";
 import { eq, and, gte, desc, sql, isNotNull } from "drizzle-orm";
 import { stripeService } from "./stripeService";
 import { aiLimiter, voiceLimiter, authLimiter, mutationLimiter, hiveExternalLimiter } from "./middleware/rate-limiter";
-import { requireRole, allowRoles, loadAuthenticatedUser, requireFounder } from "./middleware/rbac";
+import { requireRole, allowRoles, loadAuthenticatedUser, requireFounder, requireAgentToken, logAgentAction, getAgentAuditLog, isAgentTokenConfigured } from "./middleware/rbac";
 import { voiceDiagnostics } from "./services/voice-diagnostics-service";
 import {
   insertConversationSchema,
@@ -13107,6 +13107,163 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
       res.json({ summary });
     } catch (error: any) {
       console.error('[API] Error generating Aris summary:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===== REPLIT AGENT API =====
+  // Dedicated endpoints for Replit Agent to access Wren services
+  // Uses x-agent-token header for authentication (separate from user auth)
+  
+  // Check if agent authentication is configured
+  app.get("/api/agent/status", async (req, res) => {
+    res.json({
+      configured: isAgentTokenConfigured(),
+      message: isAgentTokenConfigured() 
+        ? 'Agent authentication is configured. Use x-agent-token header to authenticate.'
+        : 'REPLIT_AGENT_TOKEN not set or too short (min 32 chars)'
+    });
+  });
+  
+  // Get feature sprints (read-only for agent)
+  app.get("/api/agent/sprints", requireAgentToken, async (req: any, res) => {
+    try {
+      const { stage, limit, source } = req.query;
+      const sprints = await storage.getFeatureSprints({
+        stage: stage as string,
+        limit: limit ? parseInt(limit as string) : 20
+      });
+      
+      // Filter by source if specified (e.g., 'wren_commitment')
+      const filtered = source 
+        ? sprints.filter((s: any) => s.source === source)
+        : sprints;
+      
+      logAgentAction('read_sprints', '/api/agent/sprints', true, `Retrieved ${filtered.length} sprints`);
+      res.json(filtered);
+    } catch (error: any) {
+      console.error('[Agent API] Error fetching sprints:', error);
+      logAgentAction('read_sprints', '/api/agent/sprints', false, error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get Wren's current priorities
+  app.get("/api/agent/wren/priorities", requireAgentToken, async (req: any, res) => {
+    try {
+      const { wrenProactiveIntelligenceService } = await import('./services/wren-proactive-intelligence-service');
+      const priorities = await wrenProactiveIntelligenceService.inferPriorities();
+      
+      logAgentAction('read_priorities', '/api/agent/wren/priorities', true, `Retrieved ${priorities.length} priorities`);
+      res.json(priorities);
+    } catch (error: any) {
+      console.error('[Agent API] Error fetching Wren priorities:', error);
+      logAgentAction('read_priorities', '/api/agent/wren/priorities', false, error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get Wren's insights
+  app.get("/api/agent/wren/insights", requireAgentToken, async (req: any, res) => {
+    try {
+      const { category, limit, search } = req.query;
+      let insights;
+      
+      if (search) {
+        insights = await storage.searchWrenInsights(search as string);
+      } else {
+        insights = await storage.getWrenInsights({
+          category: category as string,
+          limit: limit ? parseInt(limit as string) : 20
+        });
+      }
+      
+      logAgentAction('read_insights', '/api/agent/wren/insights', true, `Retrieved ${insights.length} insights`);
+      res.json(insights);
+    } catch (error: any) {
+      console.error('[Agent API] Error fetching Wren insights:', error);
+      logAgentAction('read_insights', '/api/agent/wren/insights', false, error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get Wren's proactive context (startup ritual data)
+  app.get("/api/agent/wren/context", requireAgentToken, async (req: any, res) => {
+    try {
+      const { wrenProactiveIntelligenceService } = await import('./services/wren-proactive-intelligence-service');
+      const context = await wrenProactiveIntelligenceService.getStartupContext();
+      
+      logAgentAction('read_context', '/api/agent/wren/context', true);
+      res.json(context);
+    } catch (error: any) {
+      console.error('[Agent API] Error fetching Wren context:', error);
+      logAgentAction('read_context', '/api/agent/wren/context', false, error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get agent audit log (for debugging/monitoring)
+  app.get("/api/agent/audit", requireAgentToken, async (req: any, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const auditLog = getAgentAuditLog(limit);
+      res.json(auditLog);
+    } catch (error: any) {
+      console.error('[Agent API] Error fetching audit log:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Post message to EXPRESS Lane (for agent → Hive communication)
+  app.post("/api/agent/hive/message", requireAgentToken, async (req: any, res) => {
+    try {
+      const { message, targetAgent } = req.body;
+      
+      if (!message) {
+        return res.status(400).json({ error: 'Message content required' });
+      }
+      
+      // Get or create founder session for agent communication
+      const founderCollabService = (await import('./services/founder-collaboration-service')).founderCollaborationService;
+      const SYSTEM_FOUNDER_ID = '49847136';
+      const session = await founderCollabService.getOrCreateActiveSession(SYSTEM_FOUNDER_ID);
+      
+      // Format message with agent identifier
+      const agentPrefix = '[REPLIT-AGENT] ';
+      const formattedMessage = `${agentPrefix}${message}`;
+      
+      // Save the message
+      const savedMessage = await founderCollabService.addMessage(
+        session.id,
+        'founder', // Role as founder proxy
+        formattedMessage,
+        {
+          agentSource: 'replit-agent',
+          targetAgent: targetAgent || 'wren'
+        }
+      );
+      
+      // Broadcast via WebSocket
+      const { founderCollabWSBroker } = await import('./services/founder-collab-ws-broker');
+      founderCollabWSBroker.emitToSession(session.id, 'message', {
+        id: savedMessage.id,
+        sessionId: session.id,
+        role: 'founder',
+        content: formattedMessage,
+        timestamp: savedMessage.createdAt,
+        metadata: savedMessage.metadata
+      });
+      
+      logAgentAction('post_message', '/api/agent/hive/message', true, `Message to ${targetAgent || 'wren'}`);
+      
+      res.json({
+        success: true,
+        messageId: savedMessage.id,
+        sessionId: session.id
+      });
+    } catch (error: any) {
+      console.error('[Agent API] Error posting to Hive:', error);
+      logAgentAction('post_message', '/api/agent/hive/message', false, error.message);
       res.status(500).json({ error: error.message });
     }
   });
