@@ -24,6 +24,7 @@ import { db } from '../db';
 import { collaborationMessages, hiveSnapshots, toolKnowledge, featureSprints } from '@shared/schema';
 import { and, eq, gte, desc, sql, or, inArray, like } from 'drizzle-orm';
 import type { CollaborationMessage, FounderSession, HiveSnapshot } from '@shared/schema';
+import { createSyncHeaders, isSyncConfigured, getSyncPeerUrl } from '../middleware/sync-auth';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -346,85 +347,164 @@ Respond with ONLY valid JSON (no markdown, no backticks):
   }
   
   /**
-   * Poll for messages from the OTHER environment that we haven't processed yet
-   * Uses mutex to prevent concurrent polls and loops until all backlog is drained
+   * Poll for messages from the OTHER environment via HTTP API
+   * 
+   * ARCHITECTURE:
+   * - Dev and prod have SEPARATE databases (Replit architecture)
+   * - This polls the peer's /api/sync/express-lane-bridge/messages endpoint
+   * - When founder messages in prod, dev Wren/Daniela can respond
+   * - Responses are POSTed back to prod via /api/sync/express-lane-bridge
+   * 
+   * Uses SYNC_PEER_URL and SYNC_SHARED_SECRET for authenticated requests
    */
   private async pollCrossEnvironmentMessages(): Promise<void> {
     if (!this.isListening) return;
     
     // Mutex: prevent concurrent polls
     if (this.isPolling) {
-      console.log('[Hive Consciousness] Poll already in progress, skipping...');
+      return; // Silent skip - no need to log every skip
+    }
+    
+    // Check if cross-env sync is configured
+    if (!isSyncConfigured()) {
+      // Only log once per startup, not every poll
       return;
     }
+    
+    const peerUrl = getSyncPeerUrl();
+    if (!peerUrl) return;
     
     this.isPolling = true;
     
     try {
-      const otherEnvironment = CURRENT_ENVIRONMENT === 'production' ? 'development' : 'production';
+      // First, get active sessions from peer
+      const sessionsUrl = `${peerUrl}/api/sync/express-lane-bridge/sessions`;
+      const sessionsPayload = {};
+      const sessionsHeaders = createSyncHeaders(sessionsPayload);
       
-      // Loop until no more messages to drain any backlog
-      let hasMore = true;
+      const sessionsResponse = await fetch(sessionsUrl, {
+        method: 'GET',
+        headers: sessionsHeaders,
+      });
+      
+      if (!sessionsResponse.ok) {
+        if (sessionsResponse.status !== 503) { // Don't log if peer sync not configured
+          console.error(`[Hive Consciousness] Peer sessions fetch failed: ${sessionsResponse.status}`);
+        }
+        return;
+      }
+      
+      const sessionsData = await sessionsResponse.json() as { sessions: any[]; count: number };
+      
+      if (!sessionsData.sessions || sessionsData.sessions.length === 0) {
+        return; // No active sessions in peer
+      }
+      
       let totalProcessed = 0;
       
-      while (hasMore && this.isListening) {
-        // Query for founder messages from the other environment since last poll
-        // We only poll founder messages because processMessage already filters out agent/system messages
-        const newMessages = await db
-          .select()
-          .from(collaborationMessages)
-          .where(
-            and(
-              eq(collaborationMessages.environment, otherEnvironment),
-              eq(collaborationMessages.role, 'founder'),
-              gte(collaborationMessages.createdAt, this.lastPolledTimestamp)
-            )
-          )
-          .orderBy(collaborationMessages.createdAt)
-          .limit(10);
+      // Poll messages from each active session
+      for (const session of sessionsData.sessions) {
+        const messagesUrl = `${peerUrl}/api/sync/express-lane-bridge/messages?sessionId=${session.id}&since=${this.lastPolledTimestamp.toISOString()}&limit=20`;
+        const messagesPayload = {};
+        const messagesHeaders = createSyncHeaders(messagesPayload);
         
-        if (newMessages.length === 0) {
-          hasMore = false;
-          break;
+        const messagesResponse = await fetch(messagesUrl, {
+          method: 'GET',
+          headers: messagesHeaders,
+        });
+        
+        if (!messagesResponse.ok) {
+          console.error(`[Hive Consciousness] Peer messages fetch failed for session ${session.id}: ${messagesResponse.status}`);
+          continue;
         }
         
-        // Process each new message (skip already processed)
-        for (const message of newMessages) {
-          // Check if already processed using array includes
+        const messagesData = await messagesResponse.json() as { messages: CollaborationMessage[]; count: number };
+        
+        if (!messagesData.messages || messagesData.messages.length === 0) {
+          continue;
+        }
+        
+        // Process founder messages that we haven't seen yet
+        for (const message of messagesData.messages) {
+          // Only process founder messages - agents respond to founder
+          if (message.role !== 'founder') continue;
+          
+          // Check if already processed
           if (this.processedMessageIds.includes(message.id)) {
-            continue; // Already processed this message
+            continue;
           }
           
-          // Mark as processed - add to end of array (maintains insertion order)
+          // Mark as processed
           this.processedMessageIds.push(message.id);
-          
-          // FIFO eviction: remove oldest entries when exceeding limit
           while (this.processedMessageIds.length > 1000) {
-            this.processedMessageIds.shift(); // Remove from front (oldest)
+            this.processedMessageIds.shift();
           }
           
-          console.log(`[Hive Consciousness] Processing cross-env message from ${otherEnvironment}: "${message.content.substring(0, 50)}..."`);
+          console.log(`[Hive Consciousness] Processing cross-env message from peer: "${message.content.substring(0, 50)}..."`);
           
-          // Process the message as if it came from local WebSocket
-          await this.processMessage(message.sessionId, message);
-          totalProcessed++;
+          // Generate response via Hive Consciousness
+          const hiveResult = await this.processExternalMessage(message.content, 'founder');
+          
+          if (hiveResult.response && hiveResult.agent) {
+            // POST response back to peer environment
+            await this.postResponseToPeer(peerUrl, session.id, hiveResult.agent, hiveResult.response, message.id);
+            totalProcessed++;
+          }
         }
-        
-        // Advance timestamp to newest processed message's createdAt + 1ms
-        // This ensures we don't re-fetch the same messages on next iteration
-        const newestMessage = newMessages[newMessages.length - 1];
-        this.lastPolledTimestamp = new Date(newestMessage.createdAt.getTime() + 1);
-        
-        // If we got fewer than limit, no more to fetch
-        hasMore = newMessages.length === 10;
       }
       
+      // Update last polled timestamp
+      this.lastPolledTimestamp = new Date();
+      
       if (totalProcessed > 0) {
-        console.log(`[Hive Consciousness] Processed ${totalProcessed} cross-env message(s) from ${otherEnvironment}`);
+        console.log(`[Hive Consciousness] Processed ${totalProcessed} cross-env message(s) from peer`);
+      }
+    } catch (error: any) {
+      // Only log non-network errors (network errors are expected when peer is down)
+      if (!error.message?.includes('fetch failed') && !error.message?.includes('ECONNREFUSED')) {
+        console.error('[Hive Consciousness] Cross-env poll error:', error.message);
       }
     } finally {
-      // Always release mutex
       this.isPolling = false;
+    }
+  }
+  
+  /**
+   * POST agent response back to peer environment
+   * This allows dev Daniela/Wren to respond to prod founder messages
+   */
+  private async postResponseToPeer(
+    peerUrl: string, 
+    sessionId: string, 
+    agent: string, 
+    response: string,
+    triggeredByMessageId: string
+  ): Promise<void> {
+    try {
+      const payload = {
+        sessionId,
+        agent,
+        response,
+        triggeredByMessageId,
+        sourceEnvironment: CURRENT_ENVIRONMENT,
+      };
+      
+      const headers = createSyncHeaders(payload);
+      
+      const url = `${peerUrl}/api/sync/express-lane-bridge/respond`;
+      const result = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+      });
+      
+      if (!result.ok) {
+        console.error(`[Hive Consciousness] Failed to post response to peer: ${result.status}`);
+      } else {
+        console.log(`[Hive Consciousness] Posted ${agent} response to peer session ${sessionId.substring(0, 8)}...`);
+      }
+    } catch (error: any) {
+      console.error('[Hive Consciousness] Error posting response to peer:', error.message);
     }
   }
   

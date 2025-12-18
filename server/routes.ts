@@ -14953,11 +14953,60 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
       res.status(500).json({ error: error.message });
     }
   });
+  
+  // Peer environment can POST agent responses back to this environment
+  // This enables dev Wren/Daniela to respond to prod founder messages
+  app.post("/api/sync/express-lane-bridge/respond", validateSyncRequest, async (req: any, res) => {
+    try {
+      console.log('[EXPRESS-LANE-BRIDGE] Response received from peer environment');
+      
+      const { sessionId, agent, response, triggeredByMessageId, sourceEnvironment } = req.body;
+      
+      if (!sessionId || !agent || !response) {
+        return res.status(400).json({ error: 'sessionId, agent, and response are required' });
+      }
+      
+      // Verify session exists
+      const session = await founderCollabService.getSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: 'Session not found' });
+      }
+      
+      // Add the agent's response to the session
+      const agentMessage = await founderCollabService.addMessage(sessionId, {
+        role: agent as 'daniela' | 'wren',
+        content: response,
+        metadata: { 
+          source: 'cross_env_bridge',
+          sourceEnvironment: sourceEnvironment || 'unknown',
+          triggeredByMessageId,
+        }
+      });
+      
+      // Broadcast via WebSocket so the founder UI updates in real-time
+      founderCollabWSBroker.broadcastToSession(sessionId, {
+        type: 'new_message',
+        sessionId,
+        message: agentMessage,
+      });
+      
+      console.log(`[EXPRESS-LANE-BRIDGE] Added ${agent} response from ${sourceEnvironment} to session ${sessionId.substring(0, 8)}...`);
+      
+      res.json({
+        success: true,
+        messageId: agentMessage.id,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      console.error('[EXPRESS-LANE-BRIDGE] Respond error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   // ============================================================================
   // FOUNDER COLLABORATION SYNC CHANNEL
   // ============================================================================
-  // Cross-environment sync is automatic via shared PostgreSQL database.
+  // Cross-environment sync uses HTTP API relay between dev and prod.
   // These endpoints provide visibility into sync status and WebSocket health.
 
   // Developer/Admin: Get founder collaboration sync status
