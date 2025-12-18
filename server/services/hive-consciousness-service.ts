@@ -183,12 +183,14 @@ class HiveConsciousnessService {
   // Per-session processing state to allow concurrent sessions
   private processingBySession: Map<string, boolean> = new Map();
   
-  // Cross-environment polling: check for messages from the OTHER environment
+  // Cross-environment polling: check for messages from the OTHER environment via HTTP API
   private crossEnvPollingTimeout: NodeJS.Timeout | null = null;
   private lastPolledTimestamp: Date = new Date();
   private readonly CROSS_ENV_POLL_INTERVAL_MS = 30 * 1000; // 30 seconds
   private processedMessageIds: string[] = []; // Ordered array for FIFO eviction
   private isPolling: boolean = false; // Mutex to prevent concurrent polls
+  private consecutiveFailures: number = 0; // Backoff counter for failed polls
+  private readonly MAX_BACKOFF_MS = 5 * 60 * 1000; // Max 5 minute backoff
   
   /**
    * AI-POWERED PARTICIPATION ROUTER
@@ -329,11 +331,16 @@ Respond with ONLY valid JSON (no markdown, no backticks):
   }
   
   /**
-   * Schedule the next poll using recursive setTimeout
-   * This ensures no concurrent polls can occur
+   * Schedule the next poll using recursive setTimeout with exponential backoff
+   * This ensures no concurrent polls can occur and backs off on failures
    */
   private scheduleNextPoll(): void {
     if (!this.isListening) return;
+    
+    // Calculate backoff interval based on consecutive failures
+    // 0 failures = 30s, 1 = 60s, 2 = 120s, 3 = 240s, max = 5 minutes
+    const backoffMultiplier = Math.min(Math.pow(2, this.consecutiveFailures), this.MAX_BACKOFF_MS / this.CROSS_ENV_POLL_INTERVAL_MS);
+    const interval = Math.min(this.CROSS_ENV_POLL_INTERVAL_MS * backoffMultiplier, this.MAX_BACKOFF_MS);
     
     this.crossEnvPollingTimeout = setTimeout(async () => {
       try {
@@ -343,7 +350,7 @@ Respond with ONLY valid JSON (no markdown, no backticks):
       }
       // Schedule next poll only after current one completes
       this.scheduleNextPoll();
-    }, this.CROSS_ENV_POLL_INTERVAL_MS);
+    }, interval);
   }
   
   /**
@@ -456,13 +463,25 @@ Respond with ONLY valid JSON (no markdown, no backticks):
       // Update last polled timestamp
       this.lastPolledTimestamp = new Date();
       
+      // Reset backoff on success
+      if (this.consecutiveFailures > 0) {
+        console.log(`[Hive Consciousness] Cross-env poll recovered, resetting backoff`);
+        this.consecutiveFailures = 0;
+      }
+      
       if (totalProcessed > 0) {
         console.log(`[Hive Consciousness] Processed ${totalProcessed} cross-env message(s) from peer`);
       }
     } catch (error: any) {
+      // Increment failure counter for backoff
+      this.consecutiveFailures++;
+      
       // Only log non-network errors (network errors are expected when peer is down)
       if (!error.message?.includes('fetch failed') && !error.message?.includes('ECONNREFUSED')) {
-        console.error('[Hive Consciousness] Cross-env poll error:', error.message);
+        console.error(`[Hive Consciousness] Cross-env poll error (failure ${this.consecutiveFailures}):`, error.message);
+      } else if (this.consecutiveFailures === 1) {
+        // Log once when peer goes down
+        console.log(`[Hive Consciousness] Peer unreachable, will retry with backoff`);
       }
     } finally {
       this.isPolling = false;

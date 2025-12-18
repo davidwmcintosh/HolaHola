@@ -15007,7 +15007,16 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   // FOUNDER COLLABORATION SYNC CHANNEL
   // ============================================================================
   // Cross-environment sync uses HTTP API relay between dev and prod.
-  // These endpoints provide visibility into sync status and WebSocket health.
+  // Dev and prod have SEPARATE PostgreSQL databases (Replit architecture).
+  // The Hive Consciousness service polls /api/sync/express-lane-bridge/* endpoints
+  // to enable real-time collaboration across environments.
+  //
+  // ARCHITECTURE:
+  // 1. Founder chats in EXPRESS Lane on production (stable, no restarts)
+  // 2. Dev polls prod's /sessions and /messages endpoints every 30s
+  // 3. Dev Wren/Daniela process founder messages and generate responses
+  // 4. Dev POSTs responses back to prod via /respond endpoint
+  // 5. Prod saves the response and broadcasts via WebSocket to update founder UI
 
   // Developer/Admin: Get founder collaboration sync status
   app.get("/api/founder-collab/sync-status", isAuthenticated, loadAuthenticatedUser(storage), allowRoles(['admin', 'developer']), async (req: any, res) => {
@@ -15032,9 +15041,10 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
         },
         health,
         architecture: {
-          description: 'Dev and prod share the same PostgreSQL database',
-          crossEnvSync: 'Automatic via shared database',
-          realtimePush: 'WebSocket-based for connected clients'
+          description: 'Dev and prod have SEPARATE databases - sync via HTTP API relay',
+          crossEnvSync: 'HTTP polling via /api/sync/express-lane-bridge/* endpoints',
+          realtimePush: 'WebSocket-based for connected clients',
+          pollInterval: '30 seconds',
         }
       });
     } catch (error: any) {
