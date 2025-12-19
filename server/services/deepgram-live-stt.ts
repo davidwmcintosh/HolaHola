@@ -145,9 +145,11 @@ export async function transcribeWithLiveAPI(
       };
       
       // Add Deepgram features - only when plan supports them
+      // OPTIMIZATION: Skip diarize for PTT mode (single speaker, adds latency)
+      // Diarize is only useful for multi-speaker scenarios like open-mic with echo
       if (DEEPGRAM_INTELLIGENCE_ENABLED && enableIntelligence) {
-        connectionOptions.diarize = true;           // Speaker separation
-        console.log('[Deepgram Live] Intelligence features enabled: diarize');
+        // connectionOptions.diarize = true;  // DISABLED: Adds ~500ms latency, not needed for single speaker
+        console.log('[Deepgram Live] Intelligence: diarize DISABLED for faster PTT response');
       } else {
         console.log(`[Deepgram Live] Intelligence disabled (DEEPGRAM_INTELLIGENCE_ENABLED=${DEEPGRAM_INTELLIGENCE_ENABLED})`);
       }

@@ -977,26 +977,45 @@ export class StreamingVoiceOrchestrator {
       
       // Process sentences as they arrive from Gemini
       // Include redirect note if mild content was detected
-      // Also check for architect notes (Claude's contributions to the conversation)
+      // OPTIMIZATION: Fetch all context in parallel for faster response time
+      const contextStart = Date.now();
+      
+      // Initialize context variables
       let architectContext = '';
-      session.pendingArchitectNoteIds = [];  // Reset for this turn
+      let hiveContextSection = '';
+      let expressLaneSection = '';
+      let textChatSection = '';
+      let editorFeedbackSection = '';
+      let surfacedFeedbackIds: string[] = [];
+      let expressLaneHistory: { role: 'user' | 'assistant'; content: string }[] = [];
+      session.pendingArchitectNoteIds = [];
+      
+      // Build parallel fetch promises
+      const contextPromises: Promise<void>[] = [];
+      
+      // 1. Architect context (always)
       if (session.conversationId) {
-        const { context, noteIds } = await architectVoiceService.buildArchitectContextWithIds(session.conversationId);
-        architectContext = context;
-        session.pendingArchitectNoteIds = noteIds;
-        if (architectContext) {
-          console.log(`[Streaming Orchestrator] Including ${noteIds.length} architect notes in context`);
-        }
+        contextPromises.push(
+          architectVoiceService.buildArchitectContextWithIds(session.conversationId)
+            .then(({ context, noteIds }) => {
+              architectContext = context;
+              session.pendingArchitectNoteIds = noteIds;
+              if (architectContext) {
+                console.log(`[Streaming Orchestrator] Including ${noteIds.length} architect notes in context`);
+              }
+            })
+            .catch(err => console.warn(`[Architect Context] Failed:`, err.message))
+        );
       }
       
-      // HIVE CONTEXT: Inject shared awareness of system state for Founder Mode
-      // This gives Daniela visibility into beacons, sprints, and collaborative activity
-      let hiveContextSection = '';
+      // Founder Mode context fetches (all parallel)
       if (session.isFounderMode) {
-        try {
-          const hiveSummary = await hiveContextService.getSummary();
-          if (hiveSummary) {
-            hiveContextSection = `
+        // 2. Hive context
+        contextPromises.push(
+          hiveContextService.getSummary()
+            .then(hiveSummary => {
+              if (hiveSummary) {
+                hiveContextSection = `
 ═══════════════════════════════════════════════════════════════════
 🐝 HIVE STATE (Shared System Awareness)
 ═══════════════════════════════════════════════════════════════════
@@ -1006,73 +1025,71 @@ ${hiveSummary}
 You and Wren are "two surgeons, one brain" - you teach and observe, Wren builds.
 Use this context to understand what's happening across the Hive.
 `;
-            console.log(`[Hive Context] Injecting Hive state into Founder Mode session`);
-          }
-        } catch (err: any) {
-          console.warn(`[Hive Context] Failed to fetch Hive summary:`, err.message);
-        }
-      }
-      
-      // EXPRESS LANE CONTEXT: Inject recent Hive conversations (Founder, Daniela, Wren)
-      // This gives Daniela memory of board meetings, North Star discussions, and collaborative decisions
-      let expressLaneSection = '';
-      if (session.isFounderMode) {
-        try {
-          const expressLaneContext = await founderCollabService.getRelevantExpressLaneContext({
+                console.log(`[Hive Context] Injecting Hive state into Founder Mode session`);
+              }
+            })
+            .catch(err => console.warn(`[Hive Context] Failed:`, err.message))
+        );
+        
+        // 3. Express Lane context
+        contextPromises.push(
+          founderCollabService.getRelevantExpressLaneContext({
             targetLanguage: session.targetLanguage,
             limit: 5,
             daysBack: 14
-          });
-          
-          if (expressLaneContext.hasRelevantContext) {
-            expressLaneSection = `
+          })
+            .then(expressLaneContext => {
+              if (expressLaneContext.hasRelevantContext) {
+                expressLaneSection = `
 ═══════════════════════════════════════════════════════════════════
 🔗 EXPRESS LANE MEMORY (Hive Collaboration Insights)
 ═══════════════════════════════════════════════════════════════════
 
 ${expressLaneContext.contextString}
 `;
-            console.log(`[Express Lane] Injected ${expressLaneContext.messageCount} Hive collaboration insights`);
-          }
-        } catch (err: any) {
-          console.warn(`[Express Lane] Failed to fetch context:`, err.message);
-        }
-      }
-      
-      // TEXT CHAT MEMORY: Inject recent text chat conversations from /chat
-      // This gives Daniela memory of recent text conversations before switching to voice
-      let textChatSection = '';
-      if (session.isFounderMode) {
-        try {
-          // Get recent conversations for this user (excluding current voice conversation)
-          const recentConversations = await storage.getUserConversations(String(session.userId));
-          const textConversations = recentConversations
-            .filter(c => c.id !== session.conversationId)
-            .slice(0, 2); // Last 2 conversations
-          
-          if (textConversations.length > 0) {
-            let textChatContext = '';
-            
-            for (const conv of textConversations) {
-              const messages = await storage.getMessagesByConversation(conv.id);
-              const recentMessages = messages.slice(-6); // Last 6 messages per conversation
-              
-              if (recentMessages.length > 0) {
-                const timeAgo = this.formatTimeAgo(conv.updatedAt);
-                textChatContext += `\n**${conv.title || 'Recent Chat'}** (${timeAgo}):\n`;
-                
-                for (const msg of recentMessages) {
-                  const role = msg.role === 'user' ? 'David' : 'Daniela';
-                  const content = msg.content.length > 200 
-                    ? msg.content.substring(0, 200) + '...'
-                    : msg.content;
-                  textChatContext += `- ${role}: ${content}\n`;
-                }
+                console.log(`[Express Lane] Injected ${expressLaneContext.messageCount} Hive collaboration insights`);
               }
-            }
+            })
+            .catch(err => console.warn(`[Express Lane] Failed:`, err.message))
+        );
+        
+        // 4. Text Chat memory
+        contextPromises.push(
+          (async () => {
+            const recentConversations = await storage.getUserConversations(String(session.userId));
+            const textConversations = recentConversations
+              .filter(c => c.id !== session.conversationId)
+              .slice(0, 2);
             
-            if (textChatContext) {
-              textChatSection = `
+            if (textConversations.length > 0) {
+              let textChatContext = '';
+              
+              // Fetch messages in parallel
+              const messagePromises = textConversations.map(async (conv) => {
+                const messages = await storage.getMessagesByConversation(conv.id);
+                const recentMessages = messages.slice(-6);
+                
+                if (recentMessages.length > 0) {
+                  const timeAgo = this.formatTimeAgo(conv.updatedAt);
+                  let convContext = `\n**${conv.title || 'Recent Chat'}** (${timeAgo}):\n`;
+                  
+                  for (const msg of recentMessages) {
+                    const role = msg.role === 'user' ? 'David' : 'Daniela';
+                    const content = msg.content.length > 200 
+                      ? msg.content.substring(0, 200) + '...'
+                      : msg.content;
+                    convContext += `- ${role}: ${content}\n`;
+                  }
+                  return convContext;
+                }
+                return '';
+              });
+              
+              const convContexts = await Promise.all(messagePromises);
+              textChatContext = convContexts.join('');
+              
+              if (textChatContext) {
+                textChatSection = `
 ═══════════════════════════════════════════════════════════════════
 💬 TEXT CHAT MEMORY (Recent /chat Conversations)
 ═══════════════════════════════════════════════════════════════════
@@ -1080,31 +1097,41 @@ ${textChatContext}
 
 Remember: David may reference things discussed in these recent text chats.
 `;
-              console.log(`[Text Chat Memory] Injected ${textConversations.length} recent conversation(s)`);
+                console.log(`[Text Chat Memory] Injected ${textConversations.length} recent conversation(s)`);
+              }
             }
-          }
-        } catch (err: any) {
-          console.warn(`[Text Chat Memory] Failed to fetch:`, err.message);
-        }
+          })().catch(err => console.warn(`[Text Chat Memory] Failed:`, err.message))
+        );
+        
+        // 5. Editor feedback
+        contextPromises.push(
+          editorFeedbackService.getUnsurfacedFeedback(String(session.userId), 3)
+            .then(feedback => {
+              if (feedback.hasNewFeedback) {
+                editorFeedbackSection = editorFeedbackService.buildPromptSection(feedback);
+                surfacedFeedbackIds = feedback.recentFeedback.map(f => f.id);
+                console.log(`[Editor Feedback] Injecting ${feedback.recentFeedback.length} insights into context`);
+              }
+            })
+            .catch(err => console.warn(`[Editor Feedback] Failed:`, err.message))
+        );
+        
+        // 6. Express Lane history for conversation context
+        contextPromises.push(
+          getExpressLaneHistoryForVoice(session.userId, 15)
+            .then(history => {
+              expressLaneHistory = history;
+              if (history.length > 0) {
+                console.log(`[EXPRESS Lane Memory] Prefetched ${history.length} messages from text chat`);
+              }
+            })
+            .catch(err => console.warn(`[EXPRESS Lane Memory] Failed to prefetch:`, err.message))
+        );
       }
       
-      // EDITOR FEEDBACK: Inject unsurfaced insights for Founder Mode collaboration
-      // This enables the Daniela-Editor feedback loop during voice sessions
-      // Uses getUnsurfacedFeedback(userId) to get ALL feedback for this user across conversations
-      let editorFeedbackSection = '';
-      let surfacedFeedbackIds: string[] = [];
-      if (session.isFounderMode) {
-        try {
-          const feedback = await editorFeedbackService.getUnsurfacedFeedback(String(session.userId), 3);
-          if (feedback.hasNewFeedback) {
-            editorFeedbackSection = editorFeedbackService.buildPromptSection(feedback);
-            surfacedFeedbackIds = feedback.recentFeedback.map(f => f.id);
-            console.log(`[Editor Feedback] Injecting ${feedback.recentFeedback.length} insights into context`);
-          }
-        } catch (err: any) {
-          console.warn(`[Editor Feedback] Failed to fetch feedback:`, err.message);
-        }
-      }
+      // Wait for all context fetches in parallel
+      await Promise.all(contextPromises);
+      console.log(`[Context Fetch] All context fetched in ${Date.now() - contextStart}ms (parallel)`)
       
       // Build enhanced system prompt with Hive context + Express Lane + Text Chat + Editor feedback
       let enhancedSystemPrompt = session.systemPrompt;
@@ -1131,20 +1158,12 @@ Remember: David may reference things discussed in these recent text chats.
       
       const userMessageWithNote = transcript + contentRedirectNote + sttConfidenceNote + intelligenceContext + architectContext;
       
-      // EXPRESS LANE MEMORY: For Founder Mode, prepend recent EXPRESS Lane messages
-      // so Daniela remembers text-based conversations when switching to voice
+      // EXPRESS LANE MEMORY: Use prefetched Express Lane history (already fetched in parallel above)
       let conversationHistoryWithExpressLane = session.conversationHistory;
-      if (session.isFounderMode) {
-        try {
-          const expressLaneHistory = await getExpressLaneHistoryForVoice(session.userId, 15);
-          if (expressLaneHistory.length > 0) {
-            // Prepend EXPRESS Lane history before voice conversation history
-            conversationHistoryWithExpressLane = [...expressLaneHistory, ...session.conversationHistory];
-            console.log(`[EXPRESS Lane Memory] Injected ${expressLaneHistory.length} messages from text chat into voice context`);
-          }
-        } catch (err: any) {
-          console.warn(`[EXPRESS Lane Memory] Failed to fetch:`, err.message);
-        }
+      if (session.isFounderMode && expressLaneHistory.length > 0) {
+        // Prepend EXPRESS Lane history before voice conversation history
+        conversationHistoryWithExpressLane = [...expressLaneHistory, ...session.conversationHistory];
+        console.log(`[EXPRESS Lane Memory] Injected ${expressLaneHistory.length} messages from text chat into voice context`);
       }
       
       await this.geminiService.streamWithSentenceChunking({
