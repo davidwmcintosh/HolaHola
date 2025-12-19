@@ -108,6 +108,7 @@ export interface UseStreamingVoiceReturn {
   setInputMode: (mode: 'push-to-talk' | 'open-mic') => void;
   sendInterrupt: () => void;
   sendUserActivity: () => void;
+  sendPttRelease: () => void;
   sendDrillResult: (drillId: string, drillType: string, isCorrect: boolean, responseTimeMs: number, toolContent?: string) => void;
   sendTextInput: (itemId: string, response: string) => void;
 }
@@ -945,6 +946,14 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   }, []);
   
   /**
+   * Send PTT release signal to finalize speculative transcript
+   * Called when user releases the push-to-talk button
+   */
+  const sendPttRelease = useCallback(() => {
+    clientRef.current?.sendPttRelease();
+  }, []);
+  
+  /**
    * Request AI-generated personalized greeting
    * Called when starting a new conversation or resuming a previous one
    * @param userName - Optional student name for personalization
@@ -1077,6 +1086,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     setInputMode,
     sendInterrupt,
     sendUserActivity,
+    sendPttRelease,
     sendDrillResult,
     sendTextInput,
   };
