@@ -2057,13 +2057,16 @@ Remember: David may reference things discussed in these recent text chats.
       }
       
       // Response complete
+      metrics.totalLatencyMs = Date.now() - startTime;
+      
       this.sendMessage(session.ws, {
         type: 'response_complete',
         timestamp: Date.now(),
         turnId,
+        totalSentences: metrics.sentenceCount,
+        totalDurationMs: metrics.totalLatencyMs,
+        fullText: fullText.trim(),
       } as StreamingResponseCompleteMessage);
-      
-      metrics.totalLatencyMs = Date.now() - startTime;
       
       // Persist messages
       this.persistMessages(session.conversationId, transcript, fullText.trim(), session, confidence).catch((err: Error) => {
