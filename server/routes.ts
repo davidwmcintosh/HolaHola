@@ -15070,6 +15070,18 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
     }
   });
   
+  // Admin: Query peer environment's database stats
+  app.get("/api/sync/peer-stats", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      console.log('[SYNC API] Fetching peer stats...');
+      const stats = await syncBridge.fetchPeerStats();
+      res.json(stats);
+    } catch (error: any) {
+      console.error('[SYNC API] Peer stats error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // Peer-accessible: Get local nightly sync status (for cross-env status display)
   // This endpoint is called by the peer environment to check production's nightly sync status
   app.get("/api/sync/nightly-status", validateSyncRequest, async (req: any, res) => {
@@ -15078,6 +15090,31 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
       res.json(status);
     } catch (error: any) {
       console.error('[SYNC API] Nightly status error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Peer-accessible: Get database stats for cross-environment verification
+  app.post("/api/sync/peer-stats", validateSyncRequest, async (req: any, res) => {
+    try {
+      const { danielaGrowthMemories, hiveSnapshots, collaborationMessages, users } = await import('@shared/schema');
+      const [memoryStats] = await db.select({ count: sql<number>`count(*)` }).from(danielaGrowthMemories);
+      const [snapshotStats] = await db.select({ count: sql<number>`count(*)` }).from(hiveSnapshots);
+      const [messageStats] = await db.select({ count: sql<number>`count(*)` }).from(collaborationMessages);
+      const [userStats] = await db.select({ count: sql<number>`count(*)` }).from(users);
+      
+      res.json({
+        environment: process.env.NODE_ENV === 'production' ? 'production' : 'development',
+        counts: {
+          danielaGrowthMemories: Number(memoryStats.count),
+          hiveSnapshots: Number(snapshotStats.count),
+          collaborationMessages: Number(messageStats.count),
+          users: Number(userStats.count),
+        },
+        queriedAt: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      console.error('[SYNC API] Peer stats error:', error);
       res.status(500).json({ error: error.message });
     }
   });

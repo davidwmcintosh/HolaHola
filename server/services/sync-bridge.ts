@@ -1177,6 +1177,43 @@ class SyncBridgeService {
     return { push, pull };
   }
   
+  async fetchPeerStats(): Promise<{
+    environment: string;
+    counts: {
+      danielaGrowthMemories: number;
+      hiveSnapshots: number;
+      collaborationMessages: number;
+      users: number;
+    };
+    queriedAt: string;
+  }> {
+    const peerUrl = getSyncPeerUrl();
+    if (!peerUrl || !isSyncConfigured()) {
+      throw new Error('Sync not configured');
+    }
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    
+    try {
+      const requestPayload = { requestedAt: new Date().toISOString() };
+      const response = await fetch(`${peerUrl}/api/sync/peer-stats`, {
+        method: 'POST',
+        headers: createSyncHeaders(requestPayload),
+        body: JSON.stringify(requestPayload),
+        signal: controller.signal,
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Peer returned ${response.status}`);
+      }
+      
+      return await response.json();
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+  
   private computeChecksum(bundle: Partial<Omit<SyncBundle, 'checksum'>>): string {
     const content = JSON.stringify({
       ...bundle,
