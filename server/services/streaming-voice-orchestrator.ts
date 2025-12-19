@@ -4282,31 +4282,36 @@ Only include observations you can clearly justify from the exchange. Return empt
         }
         
         // Process enrollments - find active class for this language
-        const activeClass = enrollments.find(e => 
-          e.isActive && 
-          e.class?.isActive && 
-          e.class?.language === session.targetLanguage
-        );
-        
-        if (activeClass?.class) {
-          classEnrollment = { className: activeClass.class.name };
+        // SKIP class context in Founder Mode - founder sessions are not class-bound
+        if (!session.isFounderMode) {
+          const activeClass = enrollments.find(e => 
+            e.isActive && 
+            e.class?.isActive && 
+            e.class?.language === session.targetLanguage
+          );
           
-          // If class has a curriculum, get current lesson context (sequential, but fast)
-          if (activeClass.class.curriculumPathId) {
-            try {
-              const units = await storage.getCurriculumUnits(activeClass.class.curriculumPathId);
-              if (units.length > 0) {
-                const lessons = await storage.getCurriculumLessons(units[0].id);
-                if (lessons.length > 0) {
-                  classEnrollment.curriculumUnit = units[0].name;
-                  classEnrollment.curriculumLesson = lessons[0].name;
+          if (activeClass?.class) {
+            classEnrollment = { className: activeClass.class.name };
+            
+            // If class has a curriculum, get current lesson context (sequential, but fast)
+            if (activeClass.class.curriculumPathId) {
+              try {
+                const units = await storage.getCurriculumUnits(activeClass.class.curriculumPathId);
+                if (units.length > 0) {
+                  const lessons = await storage.getCurriculumLessons(units[0].id);
+                  if (lessons.length > 0) {
+                    classEnrollment.curriculumUnit = units[0].name;
+                    classEnrollment.curriculumLesson = lessons[0].name;
+                  }
                 }
+              } catch (curriculumError: any) {
+                console.log(`[Streaming Greeting] Could not fetch curriculum: ${curriculumError.message}`);
               }
-            } catch (curriculumError: any) {
-              console.log(`[Streaming Greeting] Could not fetch curriculum: ${curriculumError.message}`);
             }
+            console.log(`[Streaming Greeting] Student enrolled in class: ${activeClass.class.name}`);
           }
-          console.log(`[Streaming Greeting] Student enrolled in class: ${activeClass.class.name}`);
+        } else {
+          console.log(`[Streaming Greeting] Founder Mode - skipping class enrollment context`);
         }
         
         // Process recent conversations for topic continuity
