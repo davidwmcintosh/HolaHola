@@ -51,8 +51,8 @@ APP_NAME = "HolaHola"
 APP_URL = "https://getholahola.com"
 FROM_EMAIL = "noreply@getholahola.com"
 COMPASS_ENABLED = "true"
-DEEPGRAM_MODEL = "nova-2"
-DEEPGRAM_INTELLIGENCE_ENABLED = "false"
+DEEPGRAM_MODEL = "nova-3"
+DEEPGRAM_INTELLIGENCE_ENABLED = "true"
 
 [userenv.development]
 SYNC_PEER_URL = "https://getholahola.com"
