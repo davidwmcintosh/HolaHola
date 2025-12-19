@@ -239,6 +239,15 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
   let openMicSessionStarting = false;  // Prevent multiple concurrent starts
   let currentInputMode: VoiceInputMode = 'push-to-talk';
   
+  // Speculative PTT state (stream audio during PTT for faster response)
+  let speculativePttSession: OpenMicSession | null = null;
+  let speculativePttPendingChunks: Buffer[] = [];
+  let speculativePttSessionStarting = false;
+  let speculativePttTranscript = '';  // Accumulated transcript from interim results
+  let speculativePttWordCount = 0;  // Track word count for speculation trigger
+  let speculativePttTriggered = false;  // Whether we've started speculative AI call
+  let speculativePttTranscriptUsed = '';  // The transcript used for speculation
+  
   // Usage tracking state
   let usageSession: UsageVoiceSession | null = null;
   let exchangeCount = 0;
@@ -1160,11 +1169,6 @@ Reference past discussions when relevant, but don't force it.
             return;
           }
           
-          if (currentInputMode !== 'open-mic') {
-            console.warn('[Streaming Voice] Received stream_audio_chunk but not in open-mic mode');
-            return;
-          }
-          
           const chunkMessage = message as ClientStreamAudioChunkMessage;
           let audioBuffer: Buffer;
           if (typeof chunkMessage.audio === 'string') {
@@ -1173,110 +1177,239 @@ Reference past discussions when relevant, but don't force it.
             audioBuffer = Buffer.from(chunkMessage.audio);
           }
           
-          // If session exists and is ready, send directly (raw PCM - no headers needed)
-          if (openMicSession) {
-            openMicSession.sendAudio(audioBuffer);
-            break;
-          }
-          
-          // Buffer this chunk while session is starting
-          openMicPendingChunks.push(audioBuffer);
-          
-          // If already starting, just buffer and wait
-          if (openMicSessionStarting) {
-            break;
-          }
-          
-          // Start new session
-          openMicSessionStarting = true;
-          const languageCode = getDeepgramLanguageCode(session.targetLanguage || 'spanish');
-          console.log(`[OpenMic] Starting PCM session for language: ${languageCode}`);
-          
-          const newSession = new OpenMicSession(languageCode, {
-            onSpeechStarted: () => {
-              console.log('[OpenMic] VAD: Speech started - sending to client');
-              if (ws.readyState === WS.OPEN) {
-                const msg = JSON.stringify({
-                  type: 'vad_speech_started',
-                  timestamp: Date.now(),
-                });
-                console.log('[OpenMic] Sending vad_speech_started to client');
-                ws.send(msg);
-              } else {
-                console.warn('[OpenMic] WebSocket not open, cannot send vad_speech_started');
-              }
-            },
-            onUtteranceEnd: async (transcript, confidence) => {
-              console.log(`[OpenMic] VAD: Utterance end - "${transcript}" (${(confidence * 100).toFixed(0)}%)`);
-              
-              if (ws.readyState === WS.OPEN) {
-                ws.send(JSON.stringify({
-                  type: 'vad_utterance_end',
-                  timestamp: Date.now(),
-                }));
-              }
-              
-              if (transcript.trim() && session) {
-                try {
-                  await orchestrator.processOpenMicTranscript(
-                    session.id,
-                    transcript,
-                    confidence
-                  );
-                } catch (err: any) {
-                  console.error('[OpenMic] Error processing utterance:', err);
-                  sendError(ws, 'AI_FAILED', 'Failed to process speech', true);
-                }
-              }
-            },
-            onInterimTranscript: (transcript) => {
-              if (ws.readyState === WS.OPEN) {
-                ws.send(JSON.stringify({
-                  type: 'interim_transcript',
-                  timestamp: Date.now(),
-                  text: transcript,
-                }));
-              }
-            },
-            onError: (error) => {
-              console.error('[OpenMic] Session error:', error);
-              sendError(ws, 'STT_FAILED', error.message, true);
-            },
-            onClose: () => {
-              console.log('[OpenMic] Session closed');
-              openMicSession = null;
-              
-              // Notify client that open mic session closed (so it can restart if needed)
-              if (ws.readyState === WS.OPEN) {
-                ws.send(JSON.stringify({
-                  type: 'open_mic_session_closed',
-                  timestamp: Date.now(),
-                }));
-              }
-            },
-          });
-          
-          try {
-            await newSession.start();
-            openMicSession = newSession;
-            openMicSessionStarting = false;
-            console.log('[OpenMic] Session started successfully');
+          // Handle based on current input mode
+          if (currentInputMode === 'open-mic') {
+            // OPEN MIC MODE: Continuous streaming with VAD
+            if (openMicSession) {
+              openMicSession.sendAudio(audioBuffer);
+              break;
+            }
             
-            // Send all buffered PCM chunks (no header needed for raw PCM)
-            if (openMicPendingChunks.length > 0) {
-              console.log(`[OpenMic] Sending ${openMicPendingChunks.length} buffered PCM chunks`);
-              for (const chunk of openMicPendingChunks) {
-                openMicSession.sendAudio(chunk);
+            // Buffer this chunk while session is starting
+            openMicPendingChunks.push(audioBuffer);
+            
+            // If already starting, just buffer and wait
+            if (openMicSessionStarting) {
+              break;
+            }
+            
+            // Start new session
+            openMicSessionStarting = true;
+            const languageCode = getDeepgramLanguageCode(session.targetLanguage || 'spanish');
+            console.log(`[OpenMic] Starting PCM session for language: ${languageCode}`);
+            
+            const newSession = new OpenMicSession(languageCode, {
+              onSpeechStarted: () => {
+                console.log('[OpenMic] VAD: Speech started - sending to client');
+                if (ws.readyState === WS.OPEN) {
+                  const msg = JSON.stringify({
+                    type: 'vad_speech_started',
+                    timestamp: Date.now(),
+                  });
+                  console.log('[OpenMic] Sending vad_speech_started to client');
+                  ws.send(msg);
+                } else {
+                  console.warn('[OpenMic] WebSocket not open, cannot send vad_speech_started');
+                }
+              },
+              onUtteranceEnd: async (transcript, confidence) => {
+                console.log(`[OpenMic] VAD: Utterance end - "${transcript}" (${(confidence * 100).toFixed(0)}%)`);
+                
+                if (ws.readyState === WS.OPEN) {
+                  ws.send(JSON.stringify({
+                    type: 'vad_utterance_end',
+                    timestamp: Date.now(),
+                  }));
+                }
+                
+                if (transcript.trim() && session) {
+                  try {
+                    await orchestrator.processOpenMicTranscript(
+                      session.id,
+                      transcript,
+                      confidence
+                    );
+                  } catch (err: any) {
+                    console.error('[OpenMic] Error processing utterance:', err);
+                    sendError(ws, 'AI_FAILED', 'Failed to process speech', true);
+                  }
+                }
+              },
+              onInterimTranscript: (transcript) => {
+                if (ws.readyState === WS.OPEN) {
+                  ws.send(JSON.stringify({
+                    type: 'interim_transcript',
+                    timestamp: Date.now(),
+                    text: transcript,
+                  }));
+                }
+              },
+              onError: (error) => {
+                console.error('[OpenMic] Session error:', error);
+                sendError(ws, 'STT_FAILED', error.message, true);
+              },
+              onClose: () => {
+                console.log('[OpenMic] Session closed');
+                openMicSession = null;
+                
+                // Notify client that open mic session closed (so it can restart if needed)
+                if (ws.readyState === WS.OPEN) {
+                  ws.send(JSON.stringify({
+                    type: 'open_mic_session_closed',
+                    timestamp: Date.now(),
+                  }));
+                }
+              },
+            });
+            
+            try {
+              await newSession.start();
+              openMicSession = newSession;
+              openMicSessionStarting = false;
+              console.log('[OpenMic] Session started successfully');
+              
+              // Send all buffered PCM chunks (no header needed for raw PCM)
+              if (openMicPendingChunks.length > 0) {
+                console.log(`[OpenMic] Sending ${openMicPendingChunks.length} buffered PCM chunks`);
+                for (const chunk of openMicPendingChunks) {
+                  openMicSession.sendAudio(chunk);
+                }
+                openMicPendingChunks = [];
               }
+            } catch (err: any) {
+              console.error('[OpenMic] Failed to start session:', err);
+              sendError(ws, 'STT_FAILED', 'Failed to start open mic session', true);
+              openMicSession = null;
+              openMicSessionStarting = false;
               openMicPendingChunks = [];
             }
-          } catch (err: any) {
-            console.error('[OpenMic] Failed to start session:', err);
-            sendError(ws, 'STT_FAILED', 'Failed to start open mic session', true);
-            openMicSession = null;
-            openMicSessionStarting = false;
-            openMicPendingChunks = [];
+          } else if (currentInputMode === 'push-to-talk') {
+            // SPECULATIVE PTT MODE: Stream audio during PTT for faster response
+            if (speculativePttSession) {
+              speculativePttSession.sendAudio(audioBuffer);
+              break;
+            }
+            
+            // Buffer this chunk while session is starting
+            speculativePttPendingChunks.push(audioBuffer);
+            
+            if (speculativePttSessionStarting) {
+              break;
+            }
+            
+            // Start speculative PTT session
+            speculativePttSessionStarting = true;
+            speculativePttTranscript = '';
+            speculativePttWordCount = 0;
+            speculativePttTriggered = false;
+            speculativePttTranscriptUsed = '';
+            
+            const languageCode = getDeepgramLanguageCode(session.targetLanguage || 'spanish');
+            console.log(`[SpeculativePTT] Starting PCM session for language: ${languageCode}`);
+            
+            const pttSession = new OpenMicSession(languageCode, {
+              onSpeechStarted: () => {
+                console.log('[SpeculativePTT] VAD: Speech started');
+                if (ws.readyState === WS.OPEN) {
+                  ws.send(JSON.stringify({
+                    type: 'ptt_speech_started',
+                    timestamp: Date.now(),
+                  }));
+                }
+              },
+              onUtteranceEnd: async (transcript, confidence) => {
+                // In PTT mode, we don't process on utterance end - wait for button release
+                console.log(`[SpeculativePTT] VAD: Utterance end (ignored) - "${transcript}"`);
+              },
+              onInterimTranscript: (transcript) => {
+                // Update accumulated transcript
+                speculativePttTranscript = transcript;
+                const words = transcript.trim().split(/\s+/).filter(w => w.length > 0);
+                speculativePttWordCount = words.length;
+                
+                console.log(`[SpeculativePTT] Interim: "${transcript}" (${speculativePttWordCount} words)`);
+                
+                // Send interim transcript to client for display
+                if (ws.readyState === WS.OPEN) {
+                  ws.send(JSON.stringify({
+                    type: 'ptt_interim_transcript',
+                    timestamp: Date.now(),
+                    text: transcript,
+                    wordCount: speculativePttWordCount,
+                  }));
+                }
+              },
+              onError: (error) => {
+                console.error('[SpeculativePTT] Session error:', error);
+                // Don't send error to client - fallback to normal PTT processing
+              },
+              onClose: () => {
+                console.log('[SpeculativePTT] Session closed');
+                speculativePttSession = null;
+              },
+            });
+            
+            try {
+              await pttSession.start();
+              speculativePttSession = pttSession;
+              speculativePttSessionStarting = false;
+              console.log('[SpeculativePTT] Session started successfully');
+              
+              // Send buffered chunks
+              if (speculativePttPendingChunks.length > 0) {
+                console.log(`[SpeculativePTT] Sending ${speculativePttPendingChunks.length} buffered PCM chunks`);
+                for (const chunk of speculativePttPendingChunks) {
+                  speculativePttSession.sendAudio(chunk);
+                }
+                speculativePttPendingChunks = [];
+              }
+            } catch (err: any) {
+              console.error('[SpeculativePTT] Failed to start session:', err);
+              speculativePttSession = null;
+              speculativePttSessionStarting = false;
+              speculativePttPendingChunks = [];
+              // Fallback: normal PTT will still work via audio_data message
+            }
           }
+          break;
+        }
+        
+        case 'ptt_release': {
+          // PTT button released - finalize speculative PTT and get final transcript
+          if (!isAuthenticated || !session) {
+            sendError(ws, 'UNKNOWN', 'Session not ready', true);
+            return;
+          }
+          
+          console.log(`[SpeculativePTT] PTT released - final transcript: "${speculativePttTranscript}"`);
+          
+          // Close the speculative session
+          if (speculativePttSession) {
+            speculativePttSession.close();
+            speculativePttSession = null;
+          }
+          speculativePttPendingChunks = [];
+          speculativePttSessionStarting = false;
+          
+          // The final transcript from interim results - this is our best guess
+          // Since we're using real-time streaming, the final interim is usually accurate
+          const finalTranscript = speculativePttTranscript.trim();
+          
+          if (ws.readyState === WS.OPEN) {
+            ws.send(JSON.stringify({
+              type: 'ptt_final_transcript',
+              timestamp: Date.now(),
+              text: finalTranscript,
+              wordCount: speculativePttWordCount,
+            }));
+          }
+          
+          // Reset state
+          speculativePttTranscript = '';
+          speculativePttWordCount = 0;
+          speculativePttTriggered = false;
+          speculativePttTranscriptUsed = '';
+          
           break;
         }
 
@@ -1288,6 +1421,18 @@ Reference past discussions when relevant, but don't force it.
           }
           openMicPendingChunks = [];
           openMicSessionStarting = false;
+          
+          // Also cleanup speculative PTT
+          if (speculativePttSession) {
+            speculativePttSession.close();
+            speculativePttSession = null;
+          }
+          speculativePttPendingChunks = [];
+          speculativePttSessionStarting = false;
+          speculativePttTranscript = '';
+          speculativePttWordCount = 0;
+          speculativePttTriggered = false;
+          speculativePttTranscriptUsed = '';
           break;
         }
 
@@ -1539,6 +1684,15 @@ Reference past discussions when relevant, but don't force it.
     openMicPendingChunks = [];
     openMicSessionStarting = false;
     
+    // Clean up speculative PTT session
+    if (speculativePttSession) {
+      console.log('[Streaming Voice] Cleaning up speculative PTT session on disconnect');
+      speculativePttSession.close();
+      speculativePttSession = null;
+    }
+    speculativePttPendingChunks = [];
+    speculativePttSessionStarting = false;
+    
     if (session) orchestrator.endSession(session.id);
     endUsageSession();
   });
@@ -1554,6 +1708,15 @@ Reference past discussions when relevant, but don't force it.
     }
     openMicPendingChunks = [];
     openMicSessionStarting = false;
+    
+    // Clean up speculative PTT session on error
+    if (speculativePttSession) {
+      console.log('[Streaming Voice] Cleaning up speculative PTT session on error');
+      speculativePttSession.close();
+      speculativePttSession = null;
+    }
+    speculativePttPendingChunks = [];
+    speculativePttSessionStarting = false;
     
     if (session) orchestrator.endSession(session.id);
     endUsageSession();
@@ -1703,6 +1866,15 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
   let openMicPendingChunks: Buffer[] = [];
   let openMicSessionStarting = false;
   let currentInputMode: VoiceInputMode = 'push-to-talk';
+  
+  // Speculative PTT state (stream audio during PTT for faster response)
+  let speculativePttSession: OpenMicSession | null = null;
+  let speculativePttPendingChunks: Buffer[] = [];
+  let speculativePttSessionStarting = false;
+  let speculativePttTranscript = '';
+  let speculativePttWordCount = 0;
+  let speculativePttTriggered = false;
+  let speculativePttTranscriptUsed = '';
   
   // Usage tracking state
   let usageSession: UsageVoiceSession | null = null;
@@ -2029,11 +2201,6 @@ This is a voice conversation. Speak naturally, as you would.`;
             return;
           }
           
-          if (currentInputMode !== 'open-mic') {
-            console.warn('[Streaming Voice] Received stream_audio_chunk but not in open-mic mode');
-            return;
-          }
-          
           const chunkMessage = message as ClientStreamAudioChunkMessage;
           let audioBuffer: Buffer;
           if (typeof chunkMessage.audio === 'string') {
@@ -2042,110 +2209,238 @@ This is a voice conversation. Speak naturally, as you would.`;
             audioBuffer = Buffer.from(chunkMessage.audio);
           }
           
-          // If session exists and is ready, send directly (raw PCM - no headers needed)
-          if (openMicSession) {
-            openMicSession.sendAudio(audioBuffer);
-            break;
-          }
-          
-          // Buffer this chunk while session is starting
-          openMicPendingChunks.push(audioBuffer);
-          
-          // If already starting, just buffer and wait
-          if (openMicSessionStarting) {
-            break;
-          }
-          
-          // Start new session
-          openMicSessionStarting = true;
-          const languageCode = getDeepgramLanguageCode(session.targetLanguage || 'spanish');
-          console.log(`[OpenMic] Starting PCM session for language: ${languageCode}`);
-          
-          const newSession = new OpenMicSession(languageCode, {
-            onSpeechStarted: () => {
-              console.log('[OpenMic] VAD: Speech started - sending to client');
-              if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
-                const msg = JSON.stringify({
-                  type: 'vad_speech_started',
-                  timestamp: Date.now(),
-                });
-                console.log('[OpenMic] Sending vad_speech_started to client');
-                ws.send(msg);
-              } else {
-                console.warn('[OpenMic] WebSocket not open, cannot send vad_speech_started');
-              }
-            },
-            onUtteranceEnd: async (transcript, confidence) => {
-              console.log(`[OpenMic] VAD: Utterance end - "${transcript}" (${(confidence * 100).toFixed(0)}%)`);
-              
-              if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
-                ws.send(JSON.stringify({
-                  type: 'vad_utterance_end',
-                  timestamp: Date.now(),
-                }));
-              }
-              
-              if (transcript.trim() && session) {
-                try {
-                  await orchestrator.processOpenMicTranscript(
-                    session.id,
-                    transcript,
-                    confidence
-                  );
-                } catch (err: any) {
-                  console.error('[OpenMic] Error processing utterance:', err);
-                  sendErrorAdapter(ws, 'AI_FAILED', 'Failed to process speech', true);
-                }
-              }
-            },
-            onInterimTranscript: (transcript) => {
-              if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
-                ws.send(JSON.stringify({
-                  type: 'interim_transcript',
-                  timestamp: Date.now(),
-                  text: transcript,
-                }));
-              }
-            },
-            onError: (error) => {
-              console.error('[OpenMic] Session error:', error);
-              sendErrorAdapter(ws, 'STT_FAILED', error.message, true);
-            },
-            onClose: () => {
-              console.log('[OpenMic] Session closed');
-              openMicSession = null;
-              
-              // Notify client that open mic session closed (so it can restart if needed)
-              if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
-                ws.send(JSON.stringify({
-                  type: 'open_mic_session_closed',
-                  timestamp: Date.now(),
-                }));
-              }
-            },
-          });
-          
-          try {
-            await newSession.start();
-            openMicSession = newSession;
-            openMicSessionStarting = false;
-            console.log('[OpenMic] Session started successfully');
+          // Handle based on current input mode
+          if (currentInputMode === 'open-mic') {
+            // OPEN MIC MODE: Continuous streaming with VAD
+            if (openMicSession) {
+              openMicSession.sendAudio(audioBuffer);
+              break;
+            }
             
-            // Send all buffered PCM chunks (no header needed for raw PCM)
-            if (openMicPendingChunks.length > 0) {
-              console.log(`[OpenMic] Sending ${openMicPendingChunks.length} buffered PCM chunks`);
-              for (const chunk of openMicPendingChunks) {
-                openMicSession.sendAudio(chunk);
+            // Buffer this chunk while session is starting
+            openMicPendingChunks.push(audioBuffer);
+            
+            // If already starting, just buffer and wait
+            if (openMicSessionStarting) {
+              break;
+            }
+            
+            // Start new session
+            openMicSessionStarting = true;
+            const languageCode = getDeepgramLanguageCode(session.targetLanguage || 'spanish');
+            console.log(`[OpenMic] Starting PCM session for language: ${languageCode}`);
+            
+            const newSession = new OpenMicSession(languageCode, {
+              onSpeechStarted: () => {
+                console.log('[OpenMic] VAD: Speech started - sending to client');
+                if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+                  const msg = JSON.stringify({
+                    type: 'vad_speech_started',
+                    timestamp: Date.now(),
+                  });
+                  console.log('[OpenMic] Sending vad_speech_started to client');
+                  ws.send(msg);
+                } else {
+                  console.warn('[OpenMic] WebSocket not open, cannot send vad_speech_started');
+                }
+              },
+              onUtteranceEnd: async (transcript, confidence) => {
+                console.log(`[OpenMic] VAD: Utterance end - "${transcript}" (${(confidence * 100).toFixed(0)}%)`);
+                
+                if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+                  ws.send(JSON.stringify({
+                    type: 'vad_utterance_end',
+                    timestamp: Date.now(),
+                  }));
+                }
+                
+                if (transcript.trim() && session) {
+                  try {
+                    await orchestrator.processOpenMicTranscript(
+                      session.id,
+                      transcript,
+                      confidence
+                    );
+                  } catch (err: any) {
+                    console.error('[OpenMic] Error processing utterance:', err);
+                    sendErrorAdapter(ws, 'AI_FAILED', 'Failed to process speech', true);
+                  }
+                }
+              },
+              onInterimTranscript: (transcript) => {
+                if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+                  ws.send(JSON.stringify({
+                    type: 'interim_transcript',
+                    timestamp: Date.now(),
+                    text: transcript,
+                  }));
+                }
+              },
+              onError: (error) => {
+                console.error('[OpenMic] Session error:', error);
+                sendErrorAdapter(ws, 'STT_FAILED', error.message, true);
+              },
+              onClose: () => {
+                console.log('[OpenMic] Session closed');
+                openMicSession = null;
+                
+                // Notify client that open mic session closed (so it can restart if needed)
+                if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+                  ws.send(JSON.stringify({
+                    type: 'open_mic_session_closed',
+                    timestamp: Date.now(),
+                  }));
+                }
+              },
+            });
+            
+            try {
+              await newSession.start();
+              openMicSession = newSession;
+              openMicSessionStarting = false;
+              console.log('[OpenMic] Session started successfully');
+              
+              // Send all buffered PCM chunks (no header needed for raw PCM)
+              if (openMicPendingChunks.length > 0) {
+                console.log(`[OpenMic] Sending ${openMicPendingChunks.length} buffered PCM chunks`);
+                for (const chunk of openMicPendingChunks) {
+                  openMicSession.sendAudio(chunk);
+                }
+                openMicPendingChunks = [];
               }
+            } catch (err: any) {
+              console.error('[OpenMic] Failed to start session:', err);
+              sendErrorAdapter(ws, 'STT_FAILED', 'Failed to start open mic session', true);
+              openMicSession = null;
+              openMicSessionStarting = false;
               openMicPendingChunks = [];
             }
-          } catch (err: any) {
-            console.error('[OpenMic] Failed to start session:', err);
-            sendErrorAdapter(ws, 'STT_FAILED', 'Failed to start open mic session', true);
-            openMicSession = null;
-            openMicSessionStarting = false;
-            openMicPendingChunks = [];
+          } else if (currentInputMode === 'push-to-talk') {
+            // SPECULATIVE PTT MODE: Stream audio during PTT for faster response
+            if (speculativePttSession) {
+              speculativePttSession.sendAudio(audioBuffer);
+              break;
+            }
+            
+            // Buffer this chunk while session is starting
+            speculativePttPendingChunks.push(audioBuffer);
+            
+            if (speculativePttSessionStarting) {
+              break;
+            }
+            
+            // Start speculative PTT session
+            speculativePttSessionStarting = true;
+            speculativePttTranscript = '';
+            speculativePttWordCount = 0;
+            speculativePttTriggered = false;
+            speculativePttTranscriptUsed = '';
+            
+            const languageCode = getDeepgramLanguageCode(session.targetLanguage || 'spanish');
+            console.log(`[SpeculativePTT] Starting PCM session for language: ${languageCode}`);
+            
+            const pttSession = new OpenMicSession(languageCode, {
+              onSpeechStarted: () => {
+                console.log('[SpeculativePTT] VAD: Speech started');
+                if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+                  ws.send(JSON.stringify({
+                    type: 'ptt_speech_started',
+                    timestamp: Date.now(),
+                  }));
+                }
+              },
+              onUtteranceEnd: async (transcript, confidence) => {
+                // In PTT mode, we don't process on utterance end - wait for button release
+                console.log(`[SpeculativePTT] VAD: Utterance end (ignored) - "${transcript}"`);
+              },
+              onInterimTranscript: (transcript) => {
+                // Update accumulated transcript
+                speculativePttTranscript = transcript;
+                const words = transcript.trim().split(/\s+/).filter(w => w.length > 0);
+                speculativePttWordCount = words.length;
+                
+                console.log(`[SpeculativePTT] Interim: "${transcript}" (${speculativePttWordCount} words)`);
+                
+                // Send interim transcript to client for display
+                if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+                  ws.send(JSON.stringify({
+                    type: 'ptt_interim_transcript',
+                    timestamp: Date.now(),
+                    text: transcript,
+                    wordCount: speculativePttWordCount,
+                  }));
+                }
+              },
+              onError: (error) => {
+                console.error('[SpeculativePTT] Session error:', error);
+                // Don't send error to client - fallback to normal PTT processing
+              },
+              onClose: () => {
+                console.log('[SpeculativePTT] Session closed');
+                speculativePttSession = null;
+              },
+            });
+            
+            try {
+              await pttSession.start();
+              speculativePttSession = pttSession;
+              speculativePttSessionStarting = false;
+              console.log('[SpeculativePTT] Session started successfully');
+              
+              // Send buffered chunks
+              if (speculativePttPendingChunks.length > 0) {
+                console.log(`[SpeculativePTT] Sending ${speculativePttPendingChunks.length} buffered PCM chunks`);
+                for (const chunk of speculativePttPendingChunks) {
+                  speculativePttSession.sendAudio(chunk);
+                }
+                speculativePttPendingChunks = [];
+              }
+            } catch (err: any) {
+              console.error('[SpeculativePTT] Failed to start session:', err);
+              speculativePttSession = null;
+              speculativePttSessionStarting = false;
+              speculativePttPendingChunks = [];
+              // Fallback: normal PTT will still work via audio_data message
+            }
           }
+          break;
+        }
+        
+        case 'ptt_release': {
+          // PTT button released - finalize speculative PTT and get final transcript
+          if (!isAuthenticated || !session) {
+            sendErrorAdapter(ws, 'UNKNOWN', 'Session not ready', true);
+            return;
+          }
+          
+          console.log(`[SpeculativePTT] PTT released - final transcript: "${speculativePttTranscript}"`);
+          
+          // Close the speculative session
+          if (speculativePttSession) {
+            speculativePttSession.close();
+            speculativePttSession = null;
+          }
+          speculativePttPendingChunks = [];
+          speculativePttSessionStarting = false;
+          
+          // The final transcript from interim results - this is our best guess
+          const finalTranscript = speculativePttTranscript.trim();
+          
+          if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+            ws.send(JSON.stringify({
+              type: 'ptt_final_transcript',
+              timestamp: Date.now(),
+              text: finalTranscript,
+              wordCount: speculativePttWordCount,
+            }));
+          }
+          
+          // Reset state
+          speculativePttTranscript = '';
+          speculativePttWordCount = 0;
+          speculativePttTriggered = false;
+          speculativePttTranscriptUsed = '';
+          
           break;
         }
         

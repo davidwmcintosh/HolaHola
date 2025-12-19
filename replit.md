@@ -74,6 +74,17 @@ User Audio → Deepgram Nova-3 (LIVE API) → Gemini Streaming → Cartesia Soni
 - `DEEPGRAM_INTELLIGENCE_ENABLED`: Must be "true" for intents/sentiment/entities
 - `GOOGLE_CLOUD_TTS_CREDENTIALS`: For support/assistant tutors (optional)
 
+### Speculative PTT Streaming (Performance Optimization)
+When user holds PTT button, audio streams in real-time to Deepgram (in parallel with MediaRecorder):
+- Client: AudioContext + ScriptProcessorNode captures 16kHz PCM alongside MediaRecorder
+- Server: Creates `OpenMicSession` to stream to Deepgram live API
+- Server sends `ptt_interim_transcript` messages with real-time transcription
+- On button release: `ptt_release` message closes Deepgram session, `ptt_final_transcript` sent
+- Fallback: If streaming fails, normal PTT via MediaRecorder still works
+
+Files: `unified-ws-handler.ts` (speculative PTT handlers), `StreamingVoiceChat.tsx` (PTT streaming setup)
+Phase 2 TODO: Trigger speculative AI call on confident interim transcript (3+ words)
+
 ### Pre-Release Voice Checklist
 Before any deployment affecting voice:
 1. ✅ Confirm `DEEPGRAM_MODEL=nova-3` in .replit env

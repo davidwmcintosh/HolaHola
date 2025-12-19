@@ -1819,6 +1819,56 @@ export function StreamingVoiceChat({
       // This is important because push-to-talk doesn't send audio until release
       streamingVoice.sendUserActivity();
       
+      // SPECULATIVE PTT: Also set up real-time PCM streaming for faster response
+      // This streams audio to Deepgram in parallel with MediaRecorder
+      // Server will use the interim transcript to prepare AI response
+      try {
+        const pttAudioContext = new AudioContext({ sampleRate: 16000 });
+        pttStreamingAudioContextRef.current = pttAudioContext;
+        
+        const actualSampleRate = pttAudioContext.sampleRate;
+        const targetSampleRate = 16000;
+        const needsResampling = actualSampleRate !== targetSampleRate;
+        
+        console.log(`[SpeculativePTT] AudioContext sample rate: ${actualSampleRate}Hz (target: ${targetSampleRate}Hz, resampling: ${needsResampling})`);
+        
+        const source = pttAudioContext.createMediaStreamSource(stream);
+        const processor = pttAudioContext.createScriptProcessor(4096, 1, 1);
+        pttStreamingProcessorRef.current = processor;
+        pttStreamingActiveRef.current = true;
+        pttStreamingSequenceIdRef.current = 0;
+        pttInterimTranscriptRef.current = '';
+        
+        processor.onaudioprocess = (event) => {
+          if (!pttStreamingActiveRef.current) return;
+          
+          let inputBuffer = event.inputBuffer.getChannelData(0);
+          
+          // Resample to 16kHz if needed
+          if (needsResampling) {
+            inputBuffer = resampleAudio(inputBuffer, actualSampleRate, targetSampleRate);
+          }
+          
+          // Convert Float32Array to Int16Array (linear16 PCM)
+          const pcm16 = new Int16Array(inputBuffer.length);
+          for (let i = 0; i < inputBuffer.length; i++) {
+            const s = Math.max(-1, Math.min(1, inputBuffer[i]));
+            pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+          }
+          
+          const sequenceId = pttStreamingSequenceIdRef.current++;
+          streamingVoice.sendStreamingChunk(pcm16.buffer, sequenceId);
+        };
+        
+        source.connect(processor);
+        processor.connect(pttAudioContext.destination);
+        
+        console.log('[SpeculativePTT] Real-time streaming started');
+      } catch (pttErr) {
+        console.warn('[SpeculativePTT] Failed to set up streaming (fallback to normal PTT):', pttErr);
+        // Continue without streaming - normal PTT will still work
+      }
+      
       // PHASE 2: Mic is ready - transition to actual recording state
       // NOW the user can start speaking (they'll see "Release to send")
       setIsMicPreparing(false);
@@ -1844,6 +1894,21 @@ export function StreamingVoiceChat({
     // Clear preparing state if still waiting for mic
     setIsMicPreparing(false);
     
+    // Stop speculative PTT streaming and notify server
+    pttStreamingActiveRef.current = false;
+    if (pttStreamingProcessorRef.current) {
+      pttStreamingProcessorRef.current.disconnect();
+      pttStreamingProcessorRef.current = null;
+    }
+    if (pttStreamingAudioContextRef.current) {
+      pttStreamingAudioContextRef.current.close().catch(console.error);
+      pttStreamingAudioContextRef.current = null;
+    }
+    
+    // Send ptt_release to server to finalize the speculative transcript
+    streamingVoice.sendPttRelease();
+    console.log('[SpeculativePTT] Stopped streaming and sent ptt_release');
+    
     // IMMEDIATELY reset subtitles to prevent phantom flash during the gap
     // between stop() being called and onstop callback firing
     // This must happen SYNCHRONOUSLY before any other async operations
@@ -1865,6 +1930,13 @@ export function StreamingVoiceChat({
   const openMicAudioContextRef = useRef<AudioContext | null>(null);
   const openMicProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const openMicActiveRef = useRef(false);
+  
+  // Speculative PTT streaming refs - stream audio in real-time during PTT for faster response
+  const pttStreamingSequenceIdRef = useRef(0);
+  const pttStreamingAudioContextRef = useRef<AudioContext | null>(null);
+  const pttStreamingProcessorRef = useRef<ScriptProcessorNode | null>(null);
+  const pttStreamingActiveRef = useRef(false);
+  const pttInterimTranscriptRef = useRef('');
   
   // Refs for open mic functions - used by callbacks that can't access the functions directly
   const startOpenMicRecordingRef = useRef<(() => Promise<void>) | null>(null);

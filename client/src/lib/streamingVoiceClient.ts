@@ -451,6 +451,17 @@ export class StreamingVoiceClient {
   }
   
   /**
+   * Send PTT release signal to finalize speculative transcript
+   * Called when user releases the push-to-talk button
+   * Server will close the speculative Deepgram session and return final transcript
+   */
+  sendPttRelease(): void {
+    if (this.socket?.connected) {
+      this.socket.emit('message', { type: 'ptt_release' });
+    }
+  }
+  
+  /**
    * Convert ArrayBuffer to base64 string
    */
   private arrayBufferToBase64(buffer: ArrayBuffer): string {
