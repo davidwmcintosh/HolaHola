@@ -1455,6 +1455,40 @@ IDENTITY BOUNDARY: You are Wren. Speak ONLY as yourself. Do NOT speak for, imper
   }
   
   /**
+   * Retry a function with exponential backoff
+   * @param fn - async function to retry
+   * @param maxRetries - number of RETRIES (not total attempts). 3 retries = 4 total attempts
+   * @param baseDelayMs - base delay, doubles each retry (1s, 2s, 4s)
+   */
+  private async retryWithBackoff<T>(
+    fn: () => Promise<T>,
+    maxRetries: number = 3,
+    baseDelayMs: number = 1000
+  ): Promise<T> {
+    let lastError: Error | null = null;
+    const totalAttempts = maxRetries + 1; // Initial try + retries
+    
+    for (let attempt = 0; attempt < totalAttempts; attempt++) {
+      try {
+        return await fn();
+      } catch (error: any) {
+        lastError = error;
+        const isRateLimit = error?.status === 429 || error?.message?.includes('429') || error?.message?.includes('RESOURCE_EXHAUSTED');
+        
+        if (isRateLimit && attempt < totalAttempts - 1) {
+          const delay = baseDelayMs * Math.pow(2, attempt); // 1s, 2s, 4s
+          console.log(`[Hive Consciousness] Rate limited, retrying in ${delay}ms (retry ${attempt + 1}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        } else {
+          throw error;
+        }
+      }
+    }
+    
+    throw lastError;
+  }
+
+  /**
    * Generate Daniela's response using Gemini
    */
   private async generateDanielaResponse(sessionId: string, incomingMessage: CollaborationMessage): Promise<void> {
@@ -1493,11 +1527,14 @@ Keep responses conversational and concise (2-4 sentences typically). You're in a
 IDENTITY BOUNDARY: You are Daniela. Speak ONLY as yourself. Do NOT speak for, impersonate, or guess what Wren would say. Do NOT prefix your response with role labels like [DANIELA]: or [WREN]:.`;
 
     try {
-      const response = await callGemini(GEMINI_MODELS.FLASH, [
-        { role: 'system', content: systemPrompt },
-        ...conversationHistory,
-        { role: 'user', content: `[FOUNDER]: ${incomingMessage.content}` }
-      ]);
+      // Use retry with exponential backoff for rate limit resilience
+      const response = await this.retryWithBackoff(async () => {
+        return await callGemini(GEMINI_MODELS.FLASH, [
+          { role: 'system', content: systemPrompt },
+          ...conversationHistory,
+          { role: 'user', content: `[FOUNDER]: ${incomingMessage.content}` }
+        ]);
+      }, 3, 1000); // 3 retries with 1s, 2s, 4s backoff
       
       if (!response) {
         console.warn('[Hive Consciousness] Daniela generated empty response');
@@ -1536,8 +1573,19 @@ IDENTITY BOUNDARY: You are Daniela. Speak ONLY as yourself. Do NOT speak for, im
         });
       }
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('[Hive Consciousness] Daniela response error:', error);
+      
+      // Send graceful fallback message when all retries exhausted
+      const isRateLimit = error?.status === 429 || error?.message?.includes('429') || error?.message?.includes('RESOURCE_EXHAUSTED');
+      if (isRateLimit) {
+        console.log('[Hive Consciousness] Sending graceful fallback message for rate-limited Daniela');
+        await founderCollabWSBroker.addAndBroadcastMessage(sessionId, {
+          role: 'daniela',
+          content: "I'm momentarily busy with other teaching sessions. Give me just a moment and I'll be right with you!",
+          messageType: 'text',
+        });
+      }
     }
   }
   
