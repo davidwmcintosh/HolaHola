@@ -676,6 +676,43 @@ class SyncBridgeService {
     return { imported, errors };
   }
   
+  /**
+   * Send a single batch to the peer with timeout handling
+   */
+  private async sendBatch(
+    peerUrl: string, 
+    batchType: string, 
+    bundle: any,
+    timeoutMs: number = 45000 // 45s to stay under Replit's ~60s proxy timeout
+  ): Promise<{ success: boolean; counts: Record<string, number>; errors: string[] }> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    
+    try {
+      const headers = createSyncHeaders(bundle);
+      const response = await fetch(`${peerUrl}/api/sync/import`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(bundle),
+        signal: controller.signal,
+      });
+      
+      if (!response.ok) {
+        const error = await response.text();
+        return { success: false, counts: {}, errors: [`${batchType}: ${response.status} - ${error}`] };
+      }
+      
+      const result = await response.json() as SyncResult;
+      console.log(`[SYNC-BRIDGE] Batch ${batchType} complete: ${JSON.stringify(result.counts)}`);
+      return { success: result.success, counts: result.counts, errors: result.errors };
+    } catch (err: any) {
+      const errorMsg = err.name === 'AbortError' ? `${batchType} timeout after ${timeoutMs/1000}s` : err.message;
+      return { success: false, counts: {}, errors: [errorMsg] };
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+  
   async pushToPeer(triggeredBy: string = 'manual'): Promise<SyncResult> {
     const startTime = Date.now();
     const peerUrl = getSyncPeerUrl();
@@ -701,73 +738,111 @@ class SyncBridgeService {
     try {
       // Use incremental sync - only export items newer than last successful push
       const lastSuccessfulPush = await this.getLastSuccessfulPushTime();
-      console.log(`[SYNC-BRIDGE] Incremental sync since: ${lastSuccessfulPush?.toISOString() || 'never (full sync)'}`);
+      console.log(`[SYNC-BRIDGE] Batched incremental sync since: ${lastSuccessfulPush?.toISOString() || 'never (full sync)'}`);
       
-      const bundle = await this.collectExportBundle(lastSuccessfulPush);
-      const headers = createSyncHeaders(bundle);
+      const allCounts: Record<string, number> = {};
+      const allErrors: string[] = [];
+      let overallSuccess = true;
       
-      // 10-minute timeout for large sync payloads
-      const SYNC_TIMEOUT_MS = 10 * 60 * 1000;
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS);
+      // BATCH 1: Neural network core (small, fast)
+      console.log('[SYNC-BRIDGE] Batch 1/4: Neural network core...');
+      const coreBundle: Partial<SyncBundle> = {
+        generatedAt: new Date().toISOString(),
+        sourceEnvironment: CURRENT_ENVIRONMENT,
+        bestPractices: await neuralNetworkSync.getBestPracticesForExport(),
+        ...await neuralNetworkSync.exportNeuralNetworkExpansion(),
+        ...await neuralNetworkSync.exportProceduralMemory(),
+      };
+      const batch1 = await this.sendBatch(peerUrl, 'neural-core', coreBundle);
+      Object.assign(allCounts, batch1.counts);
+      allErrors.push(...batch1.errors);
+      if (!batch1.success) overallSuccess = false;
       
-      let response: Response;
-      try {
-        response = await fetch(`${peerUrl}/api/sync/import`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(bundle),
-          signal: controller.signal,
-        });
-      } finally {
-        clearTimeout(timeoutId);
-      }
+      // BATCH 2: Advanced intelligence (medium)
+      console.log('[SYNC-BRIDGE] Batch 2/4: Advanced intelligence...');
+      const advancedBundle: Partial<SyncBundle> = {
+        generatedAt: new Date().toISOString(),
+        sourceEnvironment: CURRENT_ENVIRONMENT,
+        ...await neuralNetworkSync.exportAdvancedIntelligence(),
+        ...await neuralNetworkSync.exportDanielaSuggestions(),
+        ...await neuralNetworkSync.exportTriLaneObservations(),
+        ...await neuralNetworkSync.exportNorthStar(),
+      };
+      const batch2 = await this.sendBatch(peerUrl, 'advanced-intel', advancedBundle);
+      Object.assign(allCounts, batch2.counts);
+      allErrors.push(...batch2.errors);
+      if (!batch2.success) overallSuccess = false;
       
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Peer rejected: ${response.status} - ${error}`);
-      }
+      // BATCH 3: Express Lane data (can be large)
+      console.log('[SYNC-BRIDGE] Batch 3/4: Express Lane...');
+      const expressLaneData = await this.exportExpressLaneData(lastSuccessfulPush);
+      const expressBundle: Partial<SyncBundle> = {
+        generatedAt: new Date().toISOString(),
+        sourceEnvironment: CURRENT_ENVIRONMENT,
+        founderUser: await this.exportFounderUser(),
+        expressLaneSessions: expressLaneData.sessions,
+        expressLaneMessages: expressLaneData.messages,
+      };
+      const batch3 = await this.sendBatch(peerUrl, 'express-lane', expressBundle, 60000); // 60s for larger batch
+      Object.assign(allCounts, batch3.counts);
+      allErrors.push(...batch3.errors);
+      if (!batch3.success) overallSuccess = false;
       
-      const result = await response.json() as SyncResult;
+      // BATCH 4: Hive snapshots + Growth memories (can be large)
+      console.log('[SYNC-BRIDGE] Batch 4/4: Hive & Memories...');
+      const hiveBundle: Partial<SyncBundle> = {
+        generatedAt: new Date().toISOString(),
+        sourceEnvironment: CURRENT_ENVIRONMENT,
+        hiveSnapshots: await this.exportHiveSnapshots(lastSuccessfulPush),
+        danielaGrowthMemories: await this.exportDanielaGrowthMemories(lastSuccessfulPush),
+      };
+      const batch4 = await this.sendBatch(peerUrl, 'hive-memories', hiveBundle, 60000); // 60s for larger batch
+      Object.assign(allCounts, batch4.counts);
+      allErrors.push(...batch4.errors);
+      if (!batch4.success) overallSuccess = false;
+      
+      console.log(`[SYNC-BRIDGE] All 4 batches complete. Overall success: ${overallSuccess}`);
       
       await db.update(syncRuns)
         .set({
-          status: result.success ? 'success' : 'partial',
-          bestPracticesCount: result.counts.bestPractices || 0,
-          idiomCount: result.counts.idioms || 0,
-          nuanceCount: result.counts.nuances || 0,
-          errorPatternCount: result.counts.errorPatterns || 0,
-          dialectCount: result.counts.dialects || 0,
-          bridgeCount: result.counts.bridges || 0,
-          toolCount: result.counts.tools || 0,
-          procedureCount: result.counts.procedures || 0,
-          principleCount: result.counts.principles || 0,
-          patternCount: result.counts.patterns || 0,
-          subtletyCount: result.counts.subtletyCues || 0,
-          emotionalCount: result.counts.emotionalPatterns || 0,
-          creativityCount: result.counts.creativityTemplates || 0,
-          suggestionCount: result.counts.suggestions || 0,
-          triggerCount: result.counts.triggers || 0,
-          actionCount: result.counts.actions || 0,
-          observationCount: result.counts.observations || 0,
-          alertCount: result.counts.alerts || 0,
-          northStarPrincipleCount: result.counts.northStarPrinciples || 0,
-          northStarUnderstandingCount: result.counts.northStarUnderstanding || 0,
-          northStarExampleCount: result.counts.northStarExamples || 0,
+          status: overallSuccess ? 'success' : (allErrors.length > 0 ? 'partial' : 'failed'),
+          bestPracticesCount: allCounts.bestPractices || 0,
+          idiomCount: allCounts.idioms || 0,
+          nuanceCount: allCounts.nuances || 0,
+          errorPatternCount: allCounts.errorPatterns || 0,
+          dialectCount: allCounts.dialects || 0,
+          bridgeCount: allCounts.bridges || 0,
+          toolCount: allCounts.tools || 0,
+          procedureCount: allCounts.procedures || 0,
+          principleCount: allCounts.principles || 0,
+          patternCount: allCounts.patterns || 0,
+          subtletyCount: allCounts.subtletyCues || 0,
+          emotionalCount: allCounts.emotionalPatterns || 0,
+          creativityCount: allCounts.creativityTemplates || 0,
+          suggestionCount: allCounts.suggestions || 0,
+          triggerCount: allCounts.triggers || 0,
+          actionCount: allCounts.actions || 0,
+          observationCount: allCounts.observations || 0,
+          alertCount: allCounts.alerts || 0,
+          northStarPrincipleCount: allCounts.northStarPrinciples || 0,
+          northStarUnderstandingCount: allCounts.northStarUnderstanding || 0,
+          northStarExampleCount: allCounts.northStarExamples || 0,
           durationMs: Date.now() - startTime,
-          payloadChecksum: bundle.checksum,
           completedAt: new Date(),
-          errorMessage: result.errors.length > 0 ? result.errors.join('; ') : null,
+          errorMessage: allErrors.length > 0 ? allErrors.join('; ') : null,
         })
         .where(eq(syncRuns.id, syncRun.id));
       
-      return { ...result, syncRunId: syncRun.id };
+      return { 
+        success: overallSuccess, 
+        syncRunId: syncRun.id,
+        counts: allCounts, 
+        errors: allErrors,
+        durationMs: Date.now() - startTime,
+      };
       
     } catch (err: any) {
-      const errorMessage = err.name === 'AbortError' 
-        ? `Sync timeout after 10 minutes - peer may be slow or unresponsive`
-        : err.message;
-      
+      const errorMessage = err.message;
       console.error(`[SYNC-BRIDGE] Push failed: ${errorMessage}`);
       
       await db.update(syncRuns)
