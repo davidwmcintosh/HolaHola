@@ -18005,7 +18005,8 @@ You have full access to your neural network knowledge.
         });
       }
 
-      const messages = await founderCollabService.getSessionMessages(session.id, 100);
+      // Get latest messages (most recent) with higher limit to show full session history
+      const messages = await founderCollabService.getLatestMessages(session.id, 500);
       
       res.json({
         hasActiveSession: true,
