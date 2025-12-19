@@ -906,6 +906,13 @@ Reference past discussions when relevant, but don't force it.
 
           console.log(`[Streaming Voice] Session created: ${session.id}${dbSessionId ? ` (db: ${dbSessionId.substring(0, 8)}...)` : ' (no db session)'}`);
           
+          // ECHO SUPPRESSION: Set callback to control OpenMic suppression during TTS
+          orchestrator.setTtsStateCallback(session.id, (isTtsPlaying: boolean) => {
+            if (openMicSession) {
+              openMicSession.setSuppressed(isTtsPlaying);
+            }
+          });
+          
           
           if (ws.readyState === WS.OPEN) {
             ws.send(JSON.stringify({
@@ -2149,6 +2156,13 @@ This is a voice conversation. Speak naturally, as you would.`;
             
             pendingVoiceUpdate = tutorGender;
             console.log('[Streaming Voice] Session created:', session.id);
+            
+            // ECHO SUPPRESSION: Set callback to control OpenMic suppression during TTS
+            orchestrator.setTtsStateCallback(session.id, (isTtsPlaying: boolean) => {
+              if (openMicSession) {
+                openMicSession.setSuppressed(isTtsPlaying);
+              }
+            });
             
             ws.send(JSON.stringify({
               type: 'session_started',

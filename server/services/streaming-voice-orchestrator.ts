@@ -397,6 +397,7 @@ export interface StreamingSession {
   toolsUsedSession: string[];        // Tools used in this session for ACTFL analytics
   hiveChannelId?: string;            // Hive collaboration channel ID for Daniela-Editor collaboration
   pendingArchitectNoteIds: string[]; // Architect notes awaiting delivery (cleared on interrupt)
+  onTtsStateChange?: (isTtsPlaying: boolean) => void;  // Callback to suppress OpenMic during TTS
 }
 
 /**
@@ -611,6 +612,17 @@ export class StreamingVoiceOrchestrator {
   
   constructor() {
     console.log('[Streaming Orchestrator] Initialized');
+  }
+  
+  /**
+   * Set callback for TTS state changes (used to suppress OpenMic during TTS)
+   */
+  setTtsStateCallback(sessionId: string, callback: (isTtsPlaying: boolean) => void): void {
+    const session = this.sessions.get(sessionId);
+    if (session) {
+      session.onTtsStateChange = callback;
+      console.log(`[Streaming Orchestrator] TTS state callback set for session ${sessionId}`);
+    }
   }
   
   /**
@@ -1981,6 +1993,9 @@ Remember: David may reference things discussed in these recent text chats.
             metrics.aiFirstTokenMs = Date.now() - aiStart;
             firstTokenReceived = true;
             console.log(`[Streaming Orchestrator] AI first token: ${metrics.aiFirstTokenMs}ms`);
+            
+            // ECHO SUPPRESSION: Notify OpenMic to suppress transcripts while TTS plays
+            session.onTtsStateChange?.(true);
           }
           
           const displayText = cleanTextForDisplay(chunk.text);
@@ -2059,6 +2074,9 @@ Remember: David may reference things discussed in these recent text chats.
       // Response complete
       metrics.totalLatencyMs = Date.now() - startTime;
       
+      // ECHO SUPPRESSION: Re-enable OpenMic transcription now that TTS is done
+      session.onTtsStateChange?.(false);
+      
       this.sendMessage(session.ws, {
         type: 'response_complete',
         timestamp: Date.now(),
@@ -2078,6 +2096,8 @@ Remember: David may reference things discussed in these recent text chats.
     } catch (error: any) {
       // Clear generating flag on error
       session.isGenerating = false;
+      // ECHO SUPPRESSION: Re-enable OpenMic transcription on error too
+      session.onTtsStateChange?.(false);
       console.error(`[Streaming Orchestrator] Open mic error:`, error.message);
       this.sendError(session.ws, 'UNKNOWN', error.message, true);
       // Return metrics instead of throwing to prevent socket disconnect

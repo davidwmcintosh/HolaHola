@@ -412,10 +412,34 @@ export class OpenMicSession {
   private chunkCount = 0;
   private totalBytes = 0;
   private keepaliveInterval: NodeJS.Timeout | null = null;
+  private isSuppressed = false;
   
   constructor(language: string, events: OpenMicEvents) {
     this.language = language;
     this.events = events;
+  }
+  
+  /**
+   * Suppress transcript events while TTS is playing
+   * Prevents echo/feedback from being treated as user speech
+   */
+  setSuppressed(suppressed: boolean): void {
+    if (this.isSuppressed !== suppressed) {
+      console.log(`[OpenMic] Suppression ${suppressed ? 'ENABLED' : 'DISABLED'} (TTS ${suppressed ? 'playing' : 'stopped'})`);
+      this.isSuppressed = suppressed;
+      if (suppressed) {
+        this.currentTranscript = '';
+        this.currentConfidence = 0;
+        this.currentIntelligence = {};
+      }
+    }
+  }
+  
+  /**
+   * Check if session is currently suppressing transcripts
+   */
+  getSuppressed(): boolean {
+    return this.isSuppressed;
   }
   
   /**
@@ -488,11 +512,28 @@ export class OpenMicSession {
           console.log('[OpenMic] Speech started (VAD)');
           // If we get a SpeechStarted event, connection is definitely open
           resolveOnce();
+          
+          // ECHO SUPPRESSION: Don't emit VAD events while TTS is playing
+          // Browser echo cancellation isn't perfect, Deepgram picks up TTS output
+          if (this.isSuppressed) {
+            console.log('[OpenMic] VAD suppressed - TTS playing');
+            return;
+          }
           this.events.onSpeechStarted?.();
         });
         
         this.connection.on(LiveTranscriptionEvents.UtteranceEnd, () => {
           console.log(`[OpenMic] Utterance end - transcript: "${this.currentTranscript}"`);
+          
+          // ECHO SUPPRESSION: Don't process utterance end while TTS is playing
+          if (this.isSuppressed) {
+            console.log('[OpenMic] Utterance end suppressed - TTS playing');
+            this.currentTranscript = '';
+            this.currentConfidence = 0;
+            this.currentIntelligence = {};
+            return;
+          }
+          
           if (this.currentTranscript.trim()) {
             const intel = Object.keys(this.currentIntelligence).length > 0 ? this.currentIntelligence : undefined;
             this.events.onUtteranceEnd?.(this.currentTranscript, this.currentConfidence, intel);
@@ -587,6 +628,13 @@ export class OpenMicSession {
           
           // Track the latest transcript (both interim and final)
           if (transcript.length > 0) {
+            // ECHO SUPPRESSION: Don't accumulate or emit while TTS is playing
+            if (this.isSuppressed) {
+              // Still log but don't process
+              console.log(`[OpenMic] Transcript suppressed (TTS playing): "${transcript.slice(0, 50)}..."`);
+              return;
+            }
+            
             if (data.is_final) {
               // Accumulate final segments
               this.currentTranscript += (this.currentTranscript ? ' ' : '') + transcript;
