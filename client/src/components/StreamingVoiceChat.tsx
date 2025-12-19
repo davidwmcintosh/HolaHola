@@ -850,6 +850,16 @@ export function StreamingVoiceChat({
     if (isStreamingPlaying) {
       // Audio is actually playing - show speaking state
       setAvatarState('speaking');
+      
+      // CRITICAL: Clear isProcessing when audio starts playing
+      // This prevents "thinking" avatar from showing during "speaking" state
+      if (isProcessingRef.current) {
+        console.log('[AVATAR STATE] Audio playing - clearing isProcessing to prevent thinking/speaking overlap');
+        setIsProcessing(false);
+        isProcessingRef.current = false;
+        setProcessingStage(null);
+      }
+      
       // Mark that Daniela has spoken at least once this session
       hasDanielaSpokeOnceRef.current = true;
       // TRUE DUPLEX: Keep green light ON while Daniela speaks
