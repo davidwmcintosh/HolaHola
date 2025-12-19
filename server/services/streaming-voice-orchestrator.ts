@@ -365,6 +365,7 @@ export interface StreamingSession {
   currentTurnId: number;            // Monotonic counter for subtitle packet ordering (prevents phantom subtitles)
   warmupPromise?: Promise<void>;    // Gemini + Cartesia warmup promise to await before greeting
   isInterrupted: boolean;           // Set to true when user barges in (for open mic mode)
+  lastTurnWasInterrupted: boolean;  // True if previous turn was interrupted by user barge-in (for context injection)
   isGenerating: boolean;            // True while AI response is being generated (for barge-in detection)
   pendingTutorSwitch?: {            // Queued tutor switch to execute after response completes
     targetGender: 'male' | 'female';
@@ -668,6 +669,7 @@ export class StreamingVoiceOrchestrator {
       lastContextRefreshTime: Date.now(),  // For long session context refresh
       currentTurnId: 0,  // Start at 0, incremented on each new response
       isInterrupted: false,  // Reset on each new request
+      lastTurnWasInterrupted: false,  // Track if previous turn was barged-in
       isGenerating: false,   // Track when AI response is being generated
       // Additional context for personalized greetings
       conversationTopic: additionalContext?.conversationTopic,
@@ -1935,7 +1937,15 @@ Remember: David may reference things discussed in these recent text chats.
         }
       }
       
-      const userMessageWithNote = transcript + architectContext;
+      // BARGE-IN CONTEXT: Let Daniela know the student interrupted her
+      let interruptContext = '';
+      if (session.lastTurnWasInterrupted) {
+        interruptContext = '\n\n[CONTEXT: The student just interrupted you while you were speaking. They clearly have something important to say. Acknowledge what they said naturally without drawing attention to the interruption itself - just respond to their message directly.]';
+        session.lastTurnWasInterrupted = false;  // Reset after using
+        console.log('[Streaming Orchestrator] Injecting barge-in context for interrupted response');
+      }
+      
+      const userMessageWithNote = transcript + architectContext + interruptContext;
       
       await this.geminiService.streamWithSentenceChunking({
         systemPrompt: session.systemPrompt,
@@ -4701,6 +4711,9 @@ Using this context, speak first to the student with a natural opening message. O
       
       // Set interrupted flag to stop ongoing TTS streaming
       session.isInterrupted = true;
+      
+      // Track that this turn was interrupted for context injection in next turn
+      session.lastTurnWasInterrupted = true;
       
       // Clear generating flag since we're aborting
       session.isGenerating = false;
