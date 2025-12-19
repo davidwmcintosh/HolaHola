@@ -6065,22 +6065,36 @@ function EditorChatTab() {
                       value={expressSession?.id || ''} 
                       onValueChange={(val) => switchToSession(val)}
                     >
-                      <SelectTrigger className="w-[180px] h-8 text-xs" data-testid="select-session-history">
+                      <SelectTrigger className="w-[320px] h-8 text-xs" data-testid="select-session-history">
                         <SelectValue placeholder="Session history" />
                       </SelectTrigger>
-                      <SelectContent>
-                        {sessionHistory.sessions.map((session) => (
-                          <SelectItem key={session.id} value={session.id}>
-                            <div className="flex items-center gap-2">
-                              <span className="truncate max-w-[120px]">
-                                {session.title || session.id.substring(0, 8)}
-                              </span>
-                              <Badge variant="secondary" className="text-xs">
-                                {session.messageCount}
-                              </Badge>
-                            </div>
-                          </SelectItem>
-                        ))}
+                      <SelectContent className="w-[340px]">
+                        {sessionHistory.sessions.map((session) => {
+                          const lastUpdated = new Date(session.updatedAt);
+                          const formattedDate = lastUpdated.toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric' 
+                          });
+                          const formattedTime = lastUpdated.toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit'
+                          });
+                          return (
+                            <SelectItem key={session.id} value={session.id}>
+                              <div className="flex items-center justify-between gap-2 w-full">
+                                <span className="truncate max-w-[180px]">
+                                  {session.title || session.id.substring(0, 8)}
+                                </span>
+                                <div className="flex items-center gap-1.5 text-muted-foreground shrink-0">
+                                  <span className="text-xs">Last: {formattedDate} {formattedTime}</span>
+                                  <Badge variant="secondary" className="text-xs h-5 px-1.5">
+                                    {session.messageCount}
+                                  </Badge>
+                                </div>
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                   )}
