@@ -7,9 +7,16 @@ import { stripWhiteboardMarkup } from '@shared/whiteboard-types';
 
 /**
  * TTS Provider Interface
- * - cartesia: Cartesia Sonic-3 (40ms latency, full SSML support, emotion tags)
- * - google: Google Cloud Chirp HD (500-1500ms latency, limited SSML)
- * - openai: OpenAI TTS (fallback, not used for language learning)
+ * 
+ * VOICE ARCHITECTURE:
+ * - Daniela (main AI tutor, streaming voice chat): Deepgram Nova-3 (STT) → Gemini (LLM) → Cartesia Sonic-3 (TTS)
+ * - Support/Assistant tutors: Google Cloud TTS
+ * - OpenAI Realtime: Separate legacy proxy (realtime-proxy.ts), NOT used for Daniela
+ * 
+ * Providers:
+ * - cartesia: Cartesia Sonic-3 (40ms latency, full SSML support, emotion tags) - PRIMARY for Daniela
+ * - google: Google Cloud Chirp HD (500-1500ms latency, limited SSML) - For support/assistant tutors
+ * - openai: OpenAI TTS (legacy, available if USER_OPENAI_API_KEY set)
  */
 export type TTSProvider = 'cartesia' | 'google' | 'openai';
 
@@ -828,7 +835,7 @@ export class TTSService {
       }
     }
 
-    // OpenAI client (legacy, not used for voice chat)
+    // OpenAI client (legacy, not used for Daniela voice chat - see realtime-proxy.ts for OpenAI Realtime)
     if (process.env.USER_OPENAI_API_KEY) {
       this.openaiClient = new OpenAI({
         apiKey: process.env.USER_OPENAI_API_KEY,
@@ -837,6 +844,7 @@ export class TTSService {
     }
 
     // Determine primary provider based on env var or availability
+    // VOICE ARCHITECTURE: Daniela uses Cartesia, Support/Assistant use Google
     const envProvider = process.env.TTS_PRIMARY_PROVIDER as TTSProvider | undefined;
     if (envProvider && ['cartesia', 'google', 'openai'].includes(envProvider)) {
       this.provider = envProvider;
@@ -847,6 +855,7 @@ export class TTSService {
     } else if (this.googleClient) {
       this.provider = 'google';
     } else {
+      // Fallback to openai if nothing else configured
       this.provider = 'openai';
     }
     

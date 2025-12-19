@@ -35,12 +35,35 @@ The Replit Agent API provides secure, authenticated access for external Replit A
 
 The `streaming-voice-orchestrator.ts` enables Daniela to push messages directly to the EXPRESS Lane collaboration system during voice chat sessions using tag patterns like `[WREN_SPRINT_SUGGEST: {...}]` and `[WREN_MESSAGE: ...]`.
 
+## Voice Architecture (CRITICAL - DO NOT USE OpenAI FOR DANIELA)
+
+**Daniela (Main AI Tutor - Streaming Voice Chat):**
+- STT: Deepgram Nova-3 (`DEEPGRAM_MODEL=nova-3`, `DEEPGRAM_INTELLIGENCE_ENABLED=true`)
+- LLM: Gemini (streaming)
+- TTS: Cartesia Sonic-3 (`TTS_CARTESIA_MODEL=sonic-3`)
+- Files: `streaming-voice-orchestrator.ts`, `deepgram-live-stt.ts`, `tts-service.ts`
+
+**Support/Assistant Tutors:**
+- TTS: Google Cloud Text-to-Speech
+
+**OpenAI Realtime API (LEGACY - NOT FOR DANIELA):**
+- Separate proxy in `realtime-proxy.ts`
+- Opt-in only, requires `USER_OPENAI_API_KEY`
+- NOT used for Daniela's voice chat
+
+**Environment Variables:**
+- `DEEPGRAM_API_KEY`: Required for STT
+- `CARTESIA_API_KEY`: Required for Daniela's voice
+- `DEEPGRAM_MODEL`: Must be "nova-3" (not nova-2)
+- `DEEPGRAM_INTELLIGENCE_ENABLED`: Must be "true" for intents/sentiment/entities
+- `GOOGLE_CLOUD_TTS_CREDENTIALS`: For support/assistant tutors (optional)
+
 ## External Dependencies
 -   Stripe: Payment processing and subscription management.
 -   Replit Auth: OIDC authentication.
 -   Gemini API: Text chat completions and voice chat LLM.
--   Deepgram API: Voice STT (Nova-3 model).
--   Cartesia API: Primary TTS provider (Sonic-3 model).
--   Google Cloud Text-to-Speech: Fallback TTS.
+-   Deepgram API: Voice STT (Nova-3 model) - REQUIRED for Daniela.
+-   Cartesia API: Primary TTS (Sonic-3 model) - REQUIRED for Daniela.
+-   Google Cloud Text-to-Speech: For support/assistant tutors.
 -   Unsplash: Stock educational images.
 -   Gemini Flash-Image: AI-generated contextual images.
