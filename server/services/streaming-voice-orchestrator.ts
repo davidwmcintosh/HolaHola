@@ -400,9 +400,20 @@ export interface StreamingMetrics {
 }
 
 /**
- * Deepgram client (STT)
+ * Deepgram client (STT) - lazy initialization to allow server start without API key
  */
-const deepgram = createClient(process.env.DEEPGRAM_API_KEY || '');
+let _deepgramClient: ReturnType<typeof createClient> | null = null;
+function getDeepgramClient(): ReturnType<typeof createClient> {
+  if (!_deepgramClient) {
+    const apiKey = process.env.DEEPGRAM_API_KEY;
+    if (!apiKey) {
+      throw new Error('DEEPGRAM_API_KEY is required for voice features');
+    }
+    _deepgramClient = createClient(apiKey);
+  }
+  return _deepgramClient;
+}
+const deepgram = { get client() { return getDeepgramClient(); } };
 
 /**
  * Gemini client for vocabulary extraction (using Replit AI integrations)
@@ -2086,7 +2097,7 @@ Remember: David may reference things discussed in these recent text chats.
     // Log configuration for debugging
     console.log(`[Deepgram Prerecorded] Using model: ${DEEPGRAM_MODEL}, intelligence: ${DEEPGRAM_INTELLIGENCE_ENABLED}`);
     
-    const response = await deepgram.listen.prerecorded.transcribeFile(
+    const response = await deepgram.client.listen.prerecorded.transcribeFile(
       audioData,
       {
         model: DEEPGRAM_MODEL,
@@ -2957,12 +2968,9 @@ Remember: David may reference things discussed in these recent text chats.
       const sprintContent = sprintMatch[1].trim();
       
       try {
-        // Get or create an active founder session
+        // Get or create an active founder session for THIS specific founder
         const founderId = String(session.userId);
-        let activeSession = await founderCollabService.getActiveSession(founderId);
-        if (!activeSession) {
-          activeSession = await founderCollabService.createSession(founderId, 'Voice Chat Sprint Suggestions');
-        }
+        const activeSession = await founderCollabService.getOrCreateActiveSession(founderId);
         
         // Post message to Express Lane as Daniela to Wren
         await founderCollabService.addMessage(activeSession.id, {
@@ -3002,11 +3010,9 @@ Remember: David may reference things discussed in these recent text chats.
       const messageContent = messageMatch[1].trim();
       
       try {
+        // Get or create an active founder session for THIS specific founder
         const founderId = String(session.userId);
-        let activeSession = await founderCollabService.getActiveSession(founderId);
-        if (!activeSession) {
-          activeSession = await founderCollabService.createSession(founderId, 'Voice Chat Messages');
-        }
+        const activeSession = await founderCollabService.getOrCreateActiveSession(founderId);
         
         await founderCollabService.addMessage(activeSession.id, {
           role: 'daniela',

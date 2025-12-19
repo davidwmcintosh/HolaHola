@@ -99,7 +99,18 @@ const gemini = new GoogleGenAI({
 
 // Deepgram for voice STT (Speech-to-Text)
 // 54% better accuracy for non-native speakers, <300ms latency
-const deepgram = createClient(process.env.DEEPGRAM_API_KEY || '');
+// Lazy initialization to allow server start without API key
+let _deepgramClient: ReturnType<typeof createClient> | null = null;
+function getDeepgramClient(): ReturnType<typeof createClient> {
+  if (!_deepgramClient) {
+    const apiKey = process.env.DEEPGRAM_API_KEY;
+    if (!apiKey) {
+      throw new Error('DEEPGRAM_API_KEY is required for voice features');
+    }
+    _deepgramClient = createClient(apiKey);
+  }
+  return _deepgramClient;
+}
 
 // Keep OpenAI for legacy fallback during migration
 const openai = new OpenAI({
@@ -5394,7 +5405,7 @@ ${memoryContext}
       ]);
       
       // Make a quick Deepgram API call to warm the connection
-      await deepgram.listen.prerecorded.transcribeFile(silentWav, {
+      await getDeepgramClient().listen.prerecorded.transcribeFile(silentWav, {
         model: "nova-2",
         language: "en",
       });
@@ -5451,7 +5462,7 @@ ${memoryContext}
       // - utterances: false (multi-pass alignment not needed)
       // Word-level timestamps are included by default without these options
       const transcribeStart = Date.now();
-      const { result } = await deepgram.listen.prerecorded.transcribeFile(
+      const { result } = await getDeepgramClient().listen.prerecorded.transcribeFile(
         req.file.buffer,
         {
           model: "nova-2", // Use nova-2 for faster processing (nova-3 has more post-processing)
@@ -12219,10 +12230,7 @@ Current conversation context:
       // Transcribe using Deepgram prerecorded API
       let transcript = '';
       try {
-        const { createClient } = await import('@deepgram/sdk');
-        const deepgram = createClient(process.env.DEEPGRAM_API_KEY || '');
-        
-        const response = await deepgram.listen.prerecorded.transcribeFile(
+        const response = await getDeepgramClient().listen.prerecorded.transcribeFile(
           audioFile.buffer,
           {
             model: 'nova-2',

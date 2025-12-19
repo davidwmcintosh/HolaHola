@@ -74,7 +74,19 @@ export interface DeepgramLiveConfig {
   enableIntelligence?: boolean;
 }
 
-const deepgramClient = createClient(process.env.DEEPGRAM_API_KEY || '');
+// Lazy initialization to allow server start without API key
+let _deepgramClient: ReturnType<typeof createClient> | null = null;
+function getDeepgramClient(): ReturnType<typeof createClient> {
+  if (!_deepgramClient) {
+    const apiKey = process.env.DEEPGRAM_API_KEY;
+    if (!apiKey) {
+      throw new Error('DEEPGRAM_API_KEY is required for voice features');
+    }
+    _deepgramClient = createClient(apiKey);
+  }
+  return _deepgramClient;
+}
+const deepgramClient = { get client() { return getDeepgramClient(); } };
 
 /**
  * Deepgram Configuration Feature Flags
@@ -135,7 +147,7 @@ export async function transcribeWithLiveAPI(
         console.log(`[Deepgram Live] Intelligence disabled (DEEPGRAM_INTELLIGENCE_ENABLED=${DEEPGRAM_INTELLIGENCE_ENABLED})`);
       }
       
-      const connection = deepgramClient.listen.live(connectionOptions);
+      const connection = deepgramClient.client.listen.live(connectionOptions);
       
       let finalTranscript = '';
       let finalConfidence = 0;
@@ -406,7 +418,7 @@ export class OpenMicSession {
         const openMicModel = 'nova-3';  // Always nova-3 for open-mic - multi-language requires it
         console.log(`[OpenMic] Creating Deepgram live connection (model: ${openMicModel} [forced for multi-lang], language: ${languageCode}, target: ${this.language}, intelligence: ${DEEPGRAM_INTELLIGENCE_ENABLED})`);
         
-        this.connection = deepgramClient.listen.live({
+        this.connection = deepgramClient.client.listen.live({
           model: openMicModel,  // nova-3 is required for reliable multi-language streaming
           language: languageCode,
           punctuate: true,
