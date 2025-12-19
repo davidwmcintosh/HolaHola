@@ -136,6 +136,14 @@ function cleanTextForDisplay(text: string): string {
   // Strip KNOWLEDGE_PING tags
   text = text.replace(/\[KNOWLEDGE_PING[^\]]*\]/gi, '');
   
+  // Strip WREN_SPRINT_SUGGEST tags (Daniela's sprint suggestions to Wren - invisible to students)
+  // Pattern: [WREN_SPRINT_SUGGEST: {...JSON...}] or [WREN_SPRINT_SUGGEST title="..." ...]
+  text = text.replace(/\[WREN_SPRINT_SUGGEST[:\s][^\]]*\]/gi, '');
+  
+  // Strip WREN_MESSAGE tags (Daniela's direct messages to Wren via Express Lane)
+  // Pattern: [WREN_MESSAGE: content here] or [WREN_MESSAGE content="..."]
+  text = text.replace(/\[WREN_MESSAGE[:\s][^\]]*\]/gi, '');
+  
   // First strip all whiteboard markup (WRITE, DRILL, SWITCH_TUTOR, etc.)
   // This must happen before other cleaning to ensure markup doesn't appear in TTS
   let cleaned = stripWhiteboardMarkup(text)
@@ -2937,6 +2945,83 @@ Remember: David may reference things discussed in these recent text chats.
         }
       } catch (err: any) {
         console.error(`[SELF_LEARN] Failed to write to neural network:`, err.message);
+      }
+    }
+    
+    // WREN_SPRINT_SUGGEST tags: [WREN_SPRINT_SUGGEST: {...}] or [WREN_SPRINT_SUGGEST title="..." ...]
+    // Daniela suggests a new feature sprint to Wren via EXPRESS Lane
+    // Posts as a collaboration message so it appears in the EXPRESS Lane window
+    const wrenSprintPattern = /\[WREN_SPRINT_SUGGEST[:\s]([^\]]+)\]/gi;
+    let sprintMatch;
+    while ((sprintMatch = wrenSprintPattern.exec(rawText)) !== null) {
+      const sprintContent = sprintMatch[1].trim();
+      
+      try {
+        // Get or create an active founder session
+        const founderId = String(session.userId);
+        let activeSession = await founderCollabService.getActiveSession(founderId);
+        if (!activeSession) {
+          activeSession = await founderCollabService.createSession(founderId, 'Voice Chat Sprint Suggestions');
+        }
+        
+        // Post message to Express Lane as Daniela to Wren
+        await founderCollabService.addMessage(activeSession.id, {
+          role: 'daniela',
+          messageType: 'text',
+          content: `@Wren Sprint Suggestion:\n\n${sprintContent}`,
+          metadata: {
+            wrenTagged: true,
+            fromVoiceChat: true,
+            suggestionType: 'sprint',
+            timestamp: new Date().toISOString(),
+          },
+        });
+        
+        console.log(`[EXPRESS Lane] ✅ Daniela posted sprint suggestion to Wren: "${sprintContent.slice(0, 50)}..."`);
+        
+        // Also emit a beacon for visibility
+        if (session.hiveChannelId) {
+          await hiveCollaborationService.emitBeacon({
+            channelId: session.hiveChannelId,
+            tutorTurn: `[SPRINT SUGGESTION] ${sprintContent.slice(0, 100)}`,
+            studentTurn,
+            beaconType: 'feature_idea',
+            beaconReason: 'Daniela suggested a sprint feature to Wren',
+          });
+        }
+      } catch (err: any) {
+        console.error(`[EXPRESS Lane] Failed to post sprint suggestion:`, err.message);
+      }
+    }
+    
+    // WREN_MESSAGE tags: [WREN_MESSAGE: content here] or [WREN_MESSAGE content="..."]
+    // Direct messages from Daniela to Wren via EXPRESS Lane
+    const wrenMessagePattern = /\[WREN_MESSAGE[:\s]([^\]]+)\]/gi;
+    let messageMatch;
+    while ((messageMatch = wrenMessagePattern.exec(rawText)) !== null) {
+      const messageContent = messageMatch[1].trim();
+      
+      try {
+        const founderId = String(session.userId);
+        let activeSession = await founderCollabService.getActiveSession(founderId);
+        if (!activeSession) {
+          activeSession = await founderCollabService.createSession(founderId, 'Voice Chat Messages');
+        }
+        
+        await founderCollabService.addMessage(activeSession.id, {
+          role: 'daniela',
+          messageType: 'text',
+          content: `@Wren ${messageContent}`,
+          metadata: {
+            wrenTagged: true,
+            fromVoiceChat: true,
+            timestamp: new Date().toISOString(),
+          },
+        });
+        
+        console.log(`[EXPRESS Lane] ✅ Daniela sent message to Wren: "${messageContent.slice(0, 50)}..."`);
+      } catch (err: any) {
+        console.error(`[EXPRESS Lane] Failed to post message to Wren:`, err.message);
       }
     }
     
