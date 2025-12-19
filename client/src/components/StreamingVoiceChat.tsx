@@ -859,38 +859,34 @@ export function StreamingVoiceChat({
         setOpenMicState('ready');
       }
     } else if (!streamProcessing && !isProcessingRef.current) {
-      // Not processing (hook) AND not processing (component) AND not playing - reset to idle
+      // Not processing (hook) AND not processing (component) AND not playing - reset state
       // CRITICAL: Don't reset if component's isProcessing is true (user just finished speaking)
       // The hook's streamProcessing only tracks server-side processing, not our local "thinking" state
-      setAvatarState('idle');
       
-      // OPEN MIC: Restart session and show green light when Daniela finishes speaking
-      // This is the reliable place to know audio playback is complete
+      // OPEN MIC: Show listening immediately when Daniela finishes speaking
       // CRITICAL: Only do this if Daniela has actually spoken at least once (prevents premature green light)
       if (inputModeRef.current === 'open-mic' && hasDanielaSpokeOnceRef.current) {
-        console.log('[OPEN MIC] Playback finished - checking if restart needed');
+        console.log('[OPEN MIC] Playback finished - transitioning to listening');
         // Clear awaiting flag when playback completes
         isAwaitingResponseRef.current = false;
         
-        // If session is active, just show green light
-        if (isRecordingRef.current && openMicActiveRef.current) {
-          console.log('[OPEN MIC] Session active - showing green light NOW');
-          setOpenMicState('ready');
-          setAvatarState('listening');
-        } else {
-          // Session was closed (e.g., during greeting) - restart it
-          console.log('[OPEN MIC] Session inactive (greeting ended) - restarting');
+        // IMMEDIATELY show listening state - don't wait for ref checks
+        // This fixes the delay where avatar stays in idle/speaking for 4-10 seconds
+        setOpenMicState('ready');
+        setAvatarState('listening');
+        
+        // If session isn't active yet (rare race condition), start it
+        if (!isRecordingRef.current || !openMicActiveRef.current) {
+          console.log('[OPEN MIC] Session not fully active - ensuring it starts');
           if (startOpenMicRecordingRef.current) {
-            startOpenMicRecordingRef.current().then(() => {
-              console.log('[OPEN MIC] Restarted after playback - showing green light');
-              setOpenMicState('ready');
-              setAvatarState('listening');
-            }).catch((err: any) => {
-              console.error('[OPEN MIC] Failed to restart after playback:', err);
-              setOpenMicState('idle');
+            startOpenMicRecordingRef.current().catch((err: any) => {
+              console.error('[OPEN MIC] Failed to ensure session after playback:', err);
             });
           }
         }
+      } else {
+        // Not in open mic mode or Daniela hasn't spoken yet - go to idle
+        setAvatarState('idle');
       }
     }
     // Note: When streamProcessing is true but not playing yet, 
