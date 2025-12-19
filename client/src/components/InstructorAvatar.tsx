@@ -4,7 +4,7 @@ import listeningImage from "@assets/generated_images/Teacher_listening_attentive
 import speakingImage from "@assets/generated_images/Teacher_speaking_animatedly_62a6f01b.png";
 import type { OpenMicState } from "@shared/streaming-voice-types";
 
-export type AvatarState = "idle" | "listening" | "speaking";
+export type AvatarState = "idle" | "listening" | "speaking" | "thinking";
 
 interface InstructorAvatarProps {
   state: AvatarState;
@@ -28,6 +28,10 @@ export function InstructorAvatar({ state, openMicState, className = "" }: Instru
         newImage = listeningImage;
         break;
       case "speaking":
+        newImage = speakingImage;
+        break;
+      case "thinking":
+        // Use speaking image with different animation for "thinking/processing"
         newImage = speakingImage;
         break;
     }
@@ -58,6 +62,9 @@ export function InstructorAvatar({ state, openMicState, className = "" }: Instru
         return "animate-pulse";
       case "speaking":
         return "animate-bounce-subtle";
+      case "thinking":
+        // Gentle scale pulse to show "processing/thinking"
+        return "animate-thinking";
       default:
         return "";
     }
@@ -70,10 +77,10 @@ export function InstructorAvatar({ state, openMicState, className = "" }: Instru
           isTransitioning ? "opacity-50 scale-95" : "opacity-100 scale-100"
         }`}
       >
-        {/* Glow effect for speaking state */}
-        {state === "speaking" && (
-          <div className="absolute inset-0 -z-10 animate-pulse">
-            <div className="absolute inset-0 bg-primary/20 rounded-full blur-2xl" />
+        {/* Glow effect for speaking and thinking states */}
+        {(state === "speaking" || state === "thinking") && (
+          <div className={`absolute inset-0 -z-10 ${state === "thinking" ? "animate-thinking" : "animate-pulse"}`}>
+            <div className={`absolute inset-0 rounded-full blur-2xl ${state === "thinking" ? "bg-amber-500/30" : "bg-primary/20"}`} />
           </div>
         )}
 

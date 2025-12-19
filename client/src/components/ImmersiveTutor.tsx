@@ -228,15 +228,21 @@ export function ImmersiveTutor({
     const listeningUrl = tutorGender === 'male' ? maleTutorListeningUrl : femaleTutorListeningUrl;
     const idleUrl = listeningUrl; // Idle uses listening pose
     
+    // Show speaking avatar when playing, thinking avatar when processing (gives instant feedback)
     if (isPlaying) return speakingUrl;
+    if (isProcessing) return speakingUrl;  // Thinking uses same pose as speaking
     if (isRecording) return listeningUrl;
     return idleUrl;
   };
   const tutorImageUrl = getTutorImage();
   
-  // Get the current avatar state for test IDs
-  const getAvatarState = () => {
+  // Get the current avatar state for test IDs and animation
+  const getAvatarState = (): "idle" | "listening" | "speaking" | "thinking" => {
+    // Speaking = audio actively playing
     if (isPlaying) return "speaking";
+    // Thinking = processing user input, preparing response (instant visual feedback)
+    if (isProcessing) return "thinking";
+    // Listening = user is recording/speaking
     if (isRecording) return "listening";
     return "idle";
   };

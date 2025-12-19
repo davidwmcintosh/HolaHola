@@ -299,4 +299,20 @@
   .animate-bounce-subtle {
     animation: bounce-subtle 2s ease-in-out infinite;
   }
+
+  /* Thinking/processing animation - gentle scale pulse */
+  @keyframes thinking {
+    0%, 100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.03);
+      opacity: 0.85;
+    }
+  }
+
+  .animate-thinking {
+    animation: thinking 1.2s ease-in-out infinite;
+  }
 }
