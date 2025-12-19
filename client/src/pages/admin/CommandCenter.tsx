@@ -6070,7 +6070,9 @@ function EditorChatTab() {
                       </SelectTrigger>
                       <SelectContent className="w-[340px]">
                         {sessionHistory.sessions.map((session) => {
-                          const lastUpdated = new Date(session.updatedAt);
+                          // Append 'Z' to indicate UTC so browser converts to local timezone
+                          const utcTimestamp = session.updatedAt.endsWith('Z') ? session.updatedAt : session.updatedAt + 'Z';
+                          const lastUpdated = new Date(utcTimestamp);
                           const formattedDate = lastUpdated.toLocaleDateString('en-US', { 
                             month: 'short', 
                             day: 'numeric' 
