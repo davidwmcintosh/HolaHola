@@ -13411,6 +13411,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   // Update feature sprint
   app.patch("/api/feature-sprints/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
     try {
+      const userId = req.session?.userId || req.user?.claims?.sub;
       const sprint = await storage.getFeatureSprint(req.params.id);
       if (!sprint) {
         return res.status(404).json({ error: "Sprint not found" });
@@ -13422,7 +13423,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
           sprintId: sprint.id,
           fromStage: sprint.stage,
           toStage: req.body.stage,
-          transitionedBy: req.user?.id,
+          transitionedBy: userId || 'system',
           notes: req.body.transitionNotes
         });
         
