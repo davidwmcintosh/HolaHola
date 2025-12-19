@@ -34,6 +34,7 @@ import {
   ClientTextInputMessage,
   StreamingErrorMessage,
   VoiceInputMode,
+  StreamingMetrics,
 } from '@shared/streaming-voice-types';
 import { OpenMicSession, getDeepgramLanguageCode } from './services/deepgram-live-stt';
 import { generateCongratulatoryPromptAddition } from './services/competency-verifier';
@@ -247,6 +248,12 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
   let speculativePttWordCount = 0;  // Track word count for speculation trigger
   let speculativePttTriggered = false;  // Whether we've started speculative AI call
   let speculativePttTranscriptUsed = '';  // The transcript used for speculation
+  
+  // Pending speculative transcript - set on PTT release, consumed by audio_data
+  // This allows bypassing redundant STT when we already have real-time transcript
+  let pendingSpeculativeTranscript: string | null = null;
+  let pendingSpeculativeWordCount = 0;
+  const SPECULATIVE_TRANSCRIPT_MIN_WORDS = 2;  // Minimum words to use speculative transcript
   
   // Usage tracking state
   let usageSession: UsageVoiceSession | null = null;
@@ -976,7 +983,32 @@ Reference past discussions when relevant, but don't force it.
             audioBuffer = Buffer.from(audioMessage.audio);
           }
 
-          const metrics = await orchestrator.processUserAudio(session.id, audioBuffer, audioMessage.format || 'webm');
+          let metrics: StreamingMetrics;
+          
+          // SPECULATIVE PTT BYPASS: If we have a pending speculative transcript,
+          // skip the expensive blob STT and go straight to AI generation
+          if (pendingSpeculativeTranscript && pendingSpeculativeWordCount >= SPECULATIVE_TRANSCRIPT_MIN_WORDS) {
+            const transcriptToUse = pendingSpeculativeTranscript;
+            const wordCount = pendingSpeculativeWordCount;
+            
+            // Clear the pending transcript immediately to prevent reuse
+            pendingSpeculativeTranscript = null;
+            pendingSpeculativeWordCount = 0;
+            
+            console.log(`[SpeculativePTT] BYPASS: Using speculative transcript (${wordCount} words), skipping blob STT`);
+            console.log(`[SpeculativePTT] Transcript: "${transcriptToUse}"`);
+            
+            // Use processOpenMicTranscript which skips STT entirely
+            metrics = await orchestrator.processOpenMicTranscript(session.id, transcriptToUse, 1.0);
+          } else {
+            // Fallback: No speculative transcript available, process blob normally
+            if (pendingSpeculativeTranscript) {
+              console.log(`[SpeculativePTT] Transcript too short, falling back to blob STT`);
+              pendingSpeculativeTranscript = null;
+              pendingSpeculativeWordCount = 0;
+            }
+            metrics = await orchestrator.processUserAudio(session.id, audioBuffer, audioMessage.format || 'webm');
+          }
           
           // Track exchange for usage accounting
           if (metrics.userTranscript && metrics.aiResponse) {
@@ -1381,7 +1413,7 @@ Reference past discussions when relevant, but don't force it.
             return;
           }
           
-          console.log(`[SpeculativePTT] PTT released - final transcript: "${speculativePttTranscript}"`);
+          console.log(`[SpeculativePTT] PTT released - final transcript: "${speculativePttTranscript}" (${speculativePttWordCount} words)`);
           
           // Close the speculative session
           if (speculativePttSession) {
@@ -1395,6 +1427,19 @@ Reference past discussions when relevant, but don't force it.
           // Since we're using real-time streaming, the final interim is usually accurate
           const finalTranscript = speculativePttTranscript.trim();
           
+          // CRITICAL: Save the speculative transcript for the upcoming audio_data message
+          // This allows us to bypass redundant STT and go straight to AI generation
+          if (finalTranscript && speculativePttWordCount >= SPECULATIVE_TRANSCRIPT_MIN_WORDS) {
+            pendingSpeculativeTranscript = finalTranscript;
+            pendingSpeculativeWordCount = speculativePttWordCount;
+            console.log(`[SpeculativePTT] Saved pending transcript for bypass (${pendingSpeculativeWordCount} words)`);
+          } else {
+            // Not enough words - fallback to blob STT
+            pendingSpeculativeTranscript = null;
+            pendingSpeculativeWordCount = 0;
+            console.log(`[SpeculativePTT] Transcript too short (${speculativePttWordCount} words), will use blob STT`);
+          }
+          
           if (ws.readyState === WS.OPEN) {
             ws.send(JSON.stringify({
               type: 'ptt_final_transcript',
@@ -1404,7 +1449,7 @@ Reference past discussions when relevant, but don't force it.
             }));
           }
           
-          // Reset state
+          // Reset speculative state (but keep pendingSpeculativeTranscript!)
           speculativePttTranscript = '';
           speculativePttWordCount = 0;
           speculativePttTriggered = false;
@@ -1876,6 +1921,12 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
   let speculativePttTriggered = false;
   let speculativePttTranscriptUsed = '';
   
+  // Pending speculative transcript - set on PTT release, consumed by audio_data
+  // This allows bypassing redundant STT when we already have real-time transcript
+  let pendingSpeculativeTranscript: string | null = null;
+  let pendingSpeculativeWordCount = 0;
+  const SPECULATIVE_TRANSCRIPT_MIN_WORDS = 2;  // Minimum words to use speculative transcript
+  
   // Usage tracking state
   let usageSession: UsageVoiceSession | null = null;
   let exchangeCount = 0;
@@ -2133,7 +2184,32 @@ This is a voice conversation. Speak naturally, as you would.`;
           // Wrap in try/catch to prevent STT/AI errors from disconnecting the session
           // Errors like EMPTY_TRANSCRIPT are recoverable and shouldn't close the socket
           try {
-            const metrics = await orchestrator.processUserAudio(session.id, audioBuffer, audioMessage.format || 'webm');
+            let metrics: StreamingMetrics;
+            
+            // SPECULATIVE PTT BYPASS: If we have a pending speculative transcript,
+            // skip the expensive blob STT and go straight to AI generation
+            if (pendingSpeculativeTranscript && pendingSpeculativeWordCount >= SPECULATIVE_TRANSCRIPT_MIN_WORDS) {
+              const transcriptToUse = pendingSpeculativeTranscript;
+              const wordCount = pendingSpeculativeWordCount;
+              
+              // Clear the pending transcript immediately to prevent reuse
+              pendingSpeculativeTranscript = null;
+              pendingSpeculativeWordCount = 0;
+              
+              console.log(`[SpeculativePTT] BYPASS: Using speculative transcript (${wordCount} words), skipping blob STT`);
+              console.log(`[SpeculativePTT] Transcript: "${transcriptToUse}"`);
+              
+              // Use processOpenMicTranscript which skips STT entirely
+              metrics = await orchestrator.processOpenMicTranscript(session.id, transcriptToUse, 1.0);
+            } else {
+              // Fallback: No speculative transcript available, process blob normally
+              if (pendingSpeculativeTranscript) {
+                console.log(`[SpeculativePTT] Transcript too short, falling back to blob STT`);
+                pendingSpeculativeTranscript = null;
+                pendingSpeculativeWordCount = 0;
+              }
+              metrics = await orchestrator.processUserAudio(session.id, audioBuffer, audioMessage.format || 'webm');
+            }
             
             // Save messages to database
             if (metrics.userTranscript && metrics.aiResponse && conversationId) {
@@ -2413,7 +2489,7 @@ This is a voice conversation. Speak naturally, as you would.`;
             return;
           }
           
-          console.log(`[SpeculativePTT] PTT released - final transcript: "${speculativePttTranscript}"`);
+          console.log(`[SpeculativePTT] PTT released - final transcript: "${speculativePttTranscript}" (${speculativePttWordCount} words)`);
           
           // Close the speculative session
           if (speculativePttSession) {
@@ -2426,6 +2502,19 @@ This is a voice conversation. Speak naturally, as you would.`;
           // The final transcript from interim results - this is our best guess
           const finalTranscript = speculativePttTranscript.trim();
           
+          // CRITICAL: Save the speculative transcript for the upcoming audio_data message
+          // This allows us to bypass redundant STT and go straight to AI generation
+          if (finalTranscript && speculativePttWordCount >= SPECULATIVE_TRANSCRIPT_MIN_WORDS) {
+            pendingSpeculativeTranscript = finalTranscript;
+            pendingSpeculativeWordCount = speculativePttWordCount;
+            console.log(`[SpeculativePTT] Saved pending transcript for bypass (${pendingSpeculativeWordCount} words)`);
+          } else {
+            // Not enough words - fallback to blob STT
+            pendingSpeculativeTranscript = null;
+            pendingSpeculativeWordCount = 0;
+            console.log(`[SpeculativePTT] Transcript too short (${speculativePttWordCount} words), will use blob STT`);
+          }
+          
           if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
             ws.send(JSON.stringify({
               type: 'ptt_final_transcript',
@@ -2435,7 +2524,7 @@ This is a voice conversation. Speak naturally, as you would.`;
             }));
           }
           
-          // Reset state
+          // Reset speculative state (but keep pendingSpeculativeTranscript!)
           speculativePttTranscript = '';
           speculativePttWordCount = 0;
           speculativePttTriggered = false;
