@@ -673,12 +673,15 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   
   /**
    * Handle interim transcript (open mic mode)
+   * NOTE: Server sends "text" field, not "transcript"
    */
-  const handleInterimTranscript = useCallback((message: { type: string; transcript: string }) => {
+  const handleInterimTranscript = useCallback((message: { type: string; text?: string; transcript?: string }) => {
+    // Server sends "text" field, but support "transcript" as fallback
+    const transcript = message.text || message.transcript || '';
     if (isVerboseLoggingEnabled()) {
-      console.log('[StreamingVoice] Interim transcript:', message.transcript);
+      console.log('[StreamingVoice] Interim transcript:', transcript);
     }
-    sessionConfigRef.current?.onInterimTranscript?.(message.transcript);
+    sessionConfigRef.current?.onInterimTranscript?.(transcript);
   }, []);
   
   /**
