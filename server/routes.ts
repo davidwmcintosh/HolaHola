@@ -14994,10 +14994,12 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   const { syncBridge } = await import('./services/sync-bridge');
   
   // Peer-to-peer: Export bundle (called by remote peer pulling from us)
+  // Supports optional batchType parameter for batched sync
   app.post("/api/sync/export", validateSyncRequest, async (req: any, res) => {
     try {
-      console.log('[SYNC API] Export request received from peer');
-      const bundle = await syncBridge.collectExportBundle();
+      const { batchType } = req.body;
+      console.log(`[SYNC API] Export request received from peer${batchType ? ` (batch: ${batchType})` : ''}`);
+      const bundle = await syncBridge.collectExportBundle(null, batchType);
       res.json(bundle);
     } catch (error: any) {
       console.error('[SYNC API] Export error:', error);

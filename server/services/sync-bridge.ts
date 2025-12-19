@@ -70,54 +70,71 @@ class SyncBridgeService {
     return lastPush?.completedAt || null;
   }
   
-  async collectExportBundle(incrementalSince?: Date | null): Promise<SyncBundle> {
-    const bestPractices = await neuralNetworkSync.getBestPracticesForExport();
-    const expansion = await neuralNetworkSync.exportNeuralNetworkExpansion();
-    const procedural = await neuralNetworkSync.exportProceduralMemory();
-    const advanced = await neuralNetworkSync.exportAdvancedIntelligence();
-    const daniela = await neuralNetworkSync.exportDanielaSuggestions();
-    const triLane = await neuralNetworkSync.exportTriLaneObservations();
-    const northStar = await neuralNetworkSync.exportNorthStar();
+  async collectExportBundle(incrementalSince?: Date | null, batchType?: string): Promise<Partial<SyncBundle>> {
+    // If a specific batch type is requested, only export that batch
+    // This enables batched sync to avoid timeout issues
     
-    // NEW: Export Express Lane, Hive Snapshots, and Daniela's Memories
-    // Use incrementalSince for delta sync to reduce payload size
-    const founderUser = await this.exportFounderUser();
-    const expressLaneData = await this.exportExpressLaneData(incrementalSince);
-    const hiveSnapshotData = await this.exportHiveSnapshots(incrementalSince);
-    const danielaMemories = await this.exportDanielaGrowthMemories(incrementalSince);
-    
-    const bundle: SyncBundle = {
+    const bundle: Partial<SyncBundle> = {
       generatedAt: new Date().toISOString(),
       sourceEnvironment: CURRENT_ENVIRONMENT,
-      checksum: '',
-      bestPractices,
-      idioms: expansion.idioms,
-      nuances: expansion.nuances,
-      errorPatterns: expansion.errorPatterns,
-      dialects: expansion.dialects,
-      bridges: expansion.bridges,
-      tools: procedural.tools,
-      procedures: procedural.procedures,
-      principles: procedural.principles,
-      patterns: procedural.patterns,
-      subtletyCues: advanced.subtletyCues,
-      emotionalPatterns: advanced.emotionalPatterns,
-      creativityTemplates: advanced.creativityTemplates,
-      suggestions: daniela.suggestions,
-      triggers: daniela.triggers,
-      actions: daniela.actions,
-      observations: [...triLane.agentObservations, ...triLane.supportObservations],
-      alerts: triLane.systemAlerts,
-      northStarPrinciples: northStar.principles,
-      northStarUnderstanding: northStar.understanding,
-      northStarExamples: northStar.examples,
-      // NEW: Express Lane, Hive Snapshots, and Daniela's Memories
-      founderUser,
-      expressLaneSessions: expressLaneData.sessions,
-      expressLaneMessages: expressLaneData.messages,
-      hiveSnapshots: hiveSnapshotData,
-      danielaGrowthMemories: danielaMemories,
     };
+    
+    // BATCH: neural-core - Best practices, expansion, procedural
+    if (!batchType || batchType === 'neural-core') {
+      const bestPractices = await neuralNetworkSync.getBestPracticesForExport();
+      const expansion = await neuralNetworkSync.exportNeuralNetworkExpansion();
+      const procedural = await neuralNetworkSync.exportProceduralMemory();
+      
+      bundle.bestPractices = bestPractices;
+      bundle.idioms = expansion.idioms;
+      bundle.nuances = expansion.nuances;
+      bundle.errorPatterns = expansion.errorPatterns;
+      bundle.dialects = expansion.dialects;
+      bundle.bridges = expansion.bridges;
+      bundle.tools = procedural.tools;
+      bundle.procedures = procedural.procedures;
+      bundle.principles = procedural.principles;
+      bundle.patterns = procedural.patterns;
+    }
+    
+    // BATCH: advanced-intel - Advanced intelligence, Daniela suggestions, tri-lane, North Star
+    if (!batchType || batchType === 'advanced-intel') {
+      const advanced = await neuralNetworkSync.exportAdvancedIntelligence();
+      const daniela = await neuralNetworkSync.exportDanielaSuggestions();
+      const triLane = await neuralNetworkSync.exportTriLaneObservations();
+      const northStar = await neuralNetworkSync.exportNorthStar();
+      
+      bundle.subtletyCues = advanced.subtletyCues;
+      bundle.emotionalPatterns = advanced.emotionalPatterns;
+      bundle.creativityTemplates = advanced.creativityTemplates;
+      bundle.suggestions = daniela.suggestions;
+      bundle.triggers = daniela.triggers;
+      bundle.actions = daniela.actions;
+      bundle.observations = [...triLane.agentObservations, ...triLane.supportObservations];
+      bundle.alerts = triLane.systemAlerts;
+      bundle.northStarPrinciples = northStar.principles;
+      bundle.northStarUnderstanding = northStar.understanding;
+      bundle.northStarExamples = northStar.examples;
+    }
+    
+    // BATCH: express-lane - Founder user, sessions, messages
+    if (!batchType || batchType === 'express-lane') {
+      const founderUser = await this.exportFounderUser();
+      const expressLaneData = await this.exportExpressLaneData(incrementalSince);
+      
+      bundle.founderUser = founderUser;
+      bundle.expressLaneSessions = expressLaneData.sessions;
+      bundle.expressLaneMessages = expressLaneData.messages;
+    }
+    
+    // BATCH: hive-memories - Hive snapshots, Daniela growth memories
+    if (!batchType || batchType === 'hive-memories') {
+      const hiveSnapshotData = await this.exportHiveSnapshots(incrementalSince);
+      const danielaMemories = await this.exportDanielaGrowthMemories(incrementalSince);
+      
+      bundle.hiveSnapshots = hiveSnapshotData;
+      bundle.danielaGrowthMemories = danielaMemories;
+    }
     
     bundle.checksum = this.computeChecksum(bundle);
     return bundle;
@@ -873,6 +890,46 @@ class SyncBridgeService {
     }
   }
   
+  /**
+   * Fetch a single batch from the peer with timeout handling
+   */
+  private async fetchBatch(
+    peerUrl: string,
+    batchType: string,
+    timeoutMs: number = 45000
+  ): Promise<{ success: boolean; bundle: Partial<SyncBundle>; error?: string }> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    
+    try {
+      const requestPayload = { requestedAt: new Date().toISOString(), batchType };
+      const headers = createSyncHeaders(requestPayload);
+      
+      const response = await fetch(`${peerUrl}/api/sync/export`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(requestPayload),
+        signal: controller.signal,
+      });
+      
+      if (!response.ok) {
+        const error = await response.text();
+        console.error(`[SYNC-BRIDGE] Pull batch ${batchType} rejected: ${response.status} - ${error.substring(0, 200)}`);
+        return { success: false, bundle: {}, error: `${batchType}: ${response.status} - ${error}` };
+      }
+      
+      const bundle = await response.json() as Partial<SyncBundle>;
+      console.log(`[SYNC-BRIDGE] Pull batch ${batchType} complete`);
+      return { success: true, bundle };
+    } catch (err: any) {
+      const errorMsg = err.name === 'AbortError' ? `${batchType} timeout after ${timeoutMs/1000}s` : err.message;
+      console.error(`[SYNC-BRIDGE] Pull batch ${batchType} FAILED: ${errorMsg}`);
+      return { success: false, bundle: {}, error: errorMsg };
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+  
   async pullFromPeer(triggeredBy: string = 'manual'): Promise<SyncResult> {
     const startTime = Date.now();
     const peerUrl = getSyncPeerUrl();
@@ -896,72 +953,75 @@ class SyncBridgeService {
     }).returning();
     
     try {
-      const requestPayload = { requestedAt: new Date().toISOString() };
-      const headers = createSyncHeaders(requestPayload);
+      const allCounts: Record<string, number> = {};
+      const allErrors: string[] = [];
+      let overallSuccess = true;
       
-      // 10-minute timeout for large sync payloads
-      const SYNC_TIMEOUT_MS = 10 * 60 * 1000;
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS);
+      // Batched pull - fetch each batch type separately to avoid timeout
+      const batchTypes = ['neural-core', 'advanced-intel', 'express-lane', 'hive-memories'];
       
-      let response: Response;
-      try {
-        response = await fetch(`${peerUrl}/api/sync/export`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(requestPayload),
-          signal: controller.signal,
-        });
-      } finally {
-        clearTimeout(timeoutId);
+      for (let i = 0; i < batchTypes.length; i++) {
+        const batchType = batchTypes[i];
+        console.log(`[SYNC-BRIDGE] Pull batch ${i + 1}/${batchTypes.length}: ${batchType}...`);
+        
+        const timeout = (batchType === 'express-lane' || batchType === 'hive-memories') ? 60000 : 45000;
+        const result = await this.fetchBatch(peerUrl, batchType, timeout);
+        
+        if (!result.success) {
+          allErrors.push(result.error || `${batchType} failed`);
+          overallSuccess = false;
+          continue;
+        }
+        
+        // Apply the partial bundle
+        const importResult = await this.applyImportBundle(result.bundle as SyncBundle);
+        Object.assign(allCounts, importResult.counts);
+        allErrors.push(...importResult.errors);
+        if (!importResult.success) overallSuccess = false;
       }
       
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Peer rejected: ${response.status} - ${error}`);
-      }
-      
-      const bundle = await response.json() as SyncBundle;
-      const result = await this.applyImportBundle(bundle);
+      console.log(`[SYNC-BRIDGE] All ${batchTypes.length} pull batches complete. Overall success: ${overallSuccess}`);
       
       await db.update(syncRuns)
         .set({
-          status: result.success ? 'success' : 'partial',
-          bestPracticesCount: result.counts.bestPractices || 0,
-          idiomCount: result.counts.idioms || 0,
-          nuanceCount: result.counts.nuances || 0,
-          errorPatternCount: result.counts.errorPatterns || 0,
-          dialectCount: result.counts.dialects || 0,
-          bridgeCount: result.counts.bridges || 0,
-          toolCount: result.counts.tools || 0,
-          procedureCount: result.counts.procedures || 0,
-          principleCount: result.counts.principles || 0,
-          patternCount: result.counts.patterns || 0,
-          subtletyCount: result.counts.subtletyCues || 0,
-          emotionalCount: result.counts.emotionalPatterns || 0,
-          creativityCount: result.counts.creativityTemplates || 0,
-          suggestionCount: result.counts.suggestions || 0,
-          triggerCount: result.counts.triggers || 0,
-          actionCount: result.counts.actions || 0,
-          observationCount: result.counts.observations || 0,
-          alertCount: result.counts.alerts || 0,
-          northStarPrincipleCount: result.counts.northStarPrinciples || 0,
-          northStarUnderstandingCount: result.counts.northStarUnderstanding || 0,
-          northStarExampleCount: result.counts.northStarExamples || 0,
+          status: overallSuccess ? 'success' : (allErrors.length > 0 ? 'partial' : 'failed'),
+          bestPracticesCount: allCounts.bestPractices || 0,
+          idiomCount: allCounts.idioms || 0,
+          nuanceCount: allCounts.nuances || 0,
+          errorPatternCount: allCounts.errorPatterns || 0,
+          dialectCount: allCounts.dialects || 0,
+          bridgeCount: allCounts.bridges || 0,
+          toolCount: allCounts.tools || 0,
+          procedureCount: allCounts.procedures || 0,
+          principleCount: allCounts.principles || 0,
+          patternCount: allCounts.patterns || 0,
+          subtletyCount: allCounts.subtletyCues || 0,
+          emotionalCount: allCounts.emotionalPatterns || 0,
+          creativityCount: allCounts.creativityTemplates || 0,
+          suggestionCount: allCounts.suggestions || 0,
+          triggerCount: allCounts.triggers || 0,
+          actionCount: allCounts.actions || 0,
+          observationCount: allCounts.observations || 0,
+          alertCount: allCounts.alerts || 0,
+          northStarPrincipleCount: allCounts.northStarPrinciples || 0,
+          northStarUnderstandingCount: allCounts.northStarUnderstanding || 0,
+          northStarExampleCount: allCounts.northStarExamples || 0,
           durationMs: Date.now() - startTime,
-          payloadChecksum: bundle.checksum,
           completedAt: new Date(),
-          errorMessage: result.errors.length > 0 ? result.errors.join('; ') : null,
+          errorMessage: allErrors.length > 0 ? allErrors.join('; ') : null,
         })
         .where(eq(syncRuns.id, syncRun.id));
       
-      return { ...result, syncRunId: syncRun.id };
+      return { 
+        success: overallSuccess, 
+        syncRunId: syncRun.id,
+        counts: allCounts, 
+        errors: allErrors,
+        durationMs: Date.now() - startTime,
+      };
       
     } catch (err: any) {
-      const errorMessage = err.name === 'AbortError' 
-        ? `Sync timeout after 10 minutes - peer may be slow or unresponsive`
-        : err.message;
-      
+      const errorMessage = err.message;
       console.error(`[SYNC-BRIDGE] Pull failed: ${errorMessage}`);
       
       await db.update(syncRuns)
@@ -1101,7 +1161,7 @@ class SyncBridgeService {
     return { push, pull };
   }
   
-  private computeChecksum(bundle: Omit<SyncBundle, 'checksum'>): string {
+  private computeChecksum(bundle: Partial<Omit<SyncBundle, 'checksum'>>): string {
     const content = JSON.stringify({
       ...bundle,
       checksum: undefined,
