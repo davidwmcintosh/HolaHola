@@ -8,7 +8,7 @@
  */
 
 import { createClient } from "@deepgram/sdk";
-import { getDeepgramLanguageCode, DeepgramIntelligence, DeepgramSentiment, DeepgramIntent, DeepgramEntity, DeepgramTopic } from "./deepgram-live-stt";
+import { getDeepgramLanguageCode, DeepgramIntelligence, DeepgramSentiment, DeepgramIntent, DeepgramEntity, DeepgramTopic, transcribeWithLiveAPI } from "./deepgram-live-stt";
 import { getGeminiStreamingService, SentenceChunk } from "./gemini-streaming";
 import { getCartesiaStreamingService } from "./cartesia-streaming";
 import { WebSocket as WS } from "ws";
@@ -2074,15 +2074,35 @@ Remember: David may reference things discussed in these recent text chats.
     const header = audioData.slice(0, 16);
     console.log(`[Deepgram] Audio header: ${header.toString('hex')}`);
     
-    // Use prerecorded API for push-to-talk (complete audio blobs)
-    // Enable intelligence features for student understanding (sentiment, intent, etc.)
-    const result = await this.transcribeWithPrerecorded(audioData, languageCode, true);
-    
-    if (!result.transcript) {
-      console.log('[Deepgram] Empty transcript returned');
+    // Use LIVE API for push-to-talk (more reliable for WebM/Opus from MediaRecorder)
+    // The prerecorded API returns "duration: unknown, channels: 0" for browser WebM
+    try {
+      const result = await transcribeWithLiveAPI(audioData, {
+        language: languageCode,
+        enableIntelligence: true,
+      });
+      
+      if (!result.transcript) {
+        console.log('[Deepgram Live] Empty transcript returned');
+      } else {
+        console.log(`[Deepgram Live] Result: "${result.transcript.substring(0, 50)}..." (${(result.confidence * 100).toFixed(0)}%, ${result.durationMs}ms)`);
+      }
+      
+      return { 
+        transcript: result.transcript, 
+        confidence: result.confidence, 
+        intelligence: result.intelligence 
+      };
+    } catch (error: any) {
+      console.error(`[Deepgram Live] Error: ${error.message}`);
+      // Fallback to prerecorded API if live fails
+      console.log('[Deepgram] Falling back to prerecorded API...');
+      const result = await this.transcribeWithPrerecorded(audioData, languageCode, true);
+      if (!result.transcript) {
+        console.log('[Deepgram Prerecorded] Empty transcript returned');
+      }
+      return { transcript: result.transcript, confidence: result.confidence, intelligence: result.intelligence };
     }
-    
-    return { transcript: result.transcript, confidence: result.confidence, intelligence: result.intelligence };
   }
   
   /**
