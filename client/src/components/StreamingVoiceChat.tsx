@@ -679,7 +679,9 @@ export function StreamingVoiceChat({
             whiteboard.addOrUpdateItems(items, shouldClear);
           },
           onVadSpeechStarted: () => {
-            // TRUE DUPLEX: Always handle VAD speech events for barge-in support
+            // TRUE DUPLEX: Always handle VAD speech events for visual feedback
+            // NOTE: We no longer interrupt on VAD alone - echo/feedback can trigger false VAD
+            // Interrupt is now handled in onInterimTranscript when we have ACTUAL user speech
             console.log('[OPEN MIC] VAD speech started - avatarState=', avatarStateRef.current, 'hasDanielaSpokeOnce=', hasDanielaSpokeOnceRef.current);
             
             // PHONE CALL MODEL: Only show green light if Daniela has "answered the call" (spoken at least once)
@@ -689,19 +691,6 @@ export function StreamingVoiceChat({
             } else {
               console.log('[OPEN MIC] Daniela hasnt spoken yet - keeping mic blue (waiting for her to answer)');
             }
-            
-            // Barge-in: Interrupt tutor if playing (use ref to avoid stale closure)
-            if (avatarStateRef.current === 'speaking' || isAwaitingResponseRef.current) {
-              console.log('[BARGE-IN] User speaking while tutor active - stopping audio and sending interrupt');
-              // CRITICAL: Stop audio playback immediately on client side
-              streamingVoice.stop();
-              // Also notify server to stop generating
-              streamingVoice.sendInterrupt();
-              // Reset awaiting flag so new speech is captured
-              isAwaitingResponseRef.current = false;
-              // Update avatar state immediately
-              setAvatarState('listening');
-            }
           },
           onVadUtteranceEnd: (transcript) => {
             console.log('[OPEN MIC] VAD utterance end, transcript:', transcript);
@@ -710,6 +699,22 @@ export function StreamingVoiceChat({
           },
           onInterimTranscript: (transcript) => {
             console.log('[OPEN MIC] Interim transcript:', transcript);
+            
+            // BARGE-IN: Interrupt tutor when we have ACTUAL transcribed speech
+            // This is more reliable than VAD alone, which can trigger on TTS echo
+            if (transcript && transcript.trim().length > 0) {
+              if (avatarStateRef.current === 'speaking' || isAwaitingResponseRef.current) {
+                console.log('[BARGE-IN] User speaking with transcript - stopping audio and sending interrupt');
+                // CRITICAL: Stop audio playback immediately on client side
+                streamingVoice.stop();
+                // Also notify server to stop generating
+                streamingVoice.sendInterrupt();
+                // Reset awaiting flag so new speech is captured
+                isAwaitingResponseRef.current = false;
+                // Update avatar state immediately
+                setAvatarState('listening');
+              }
+            }
           },
           onOpenMicSessionClosed: () => {
             console.log('[OPEN MIC] Server session closed');
@@ -2220,7 +2225,9 @@ export function StreamingVoiceChat({
                 whiteboard.addOrUpdateItems(items, shouldClear);
               },
               onVadSpeechStarted: () => {
-                // TRUE DUPLEX: Always handle VAD speech events for barge-in support
+                // TRUE DUPLEX: Always handle VAD speech events for visual feedback
+                // NOTE: We no longer interrupt on VAD alone - echo/feedback can trigger false VAD
+                // Interrupt is now handled in onInterimTranscript when we have ACTUAL user speech
                 console.log('[OPEN MIC] VAD speech started (reconnect) - avatarState=', avatarStateRef.current, 'hasDanielaSpokeOnce=', hasDanielaSpokeOnceRef.current);
                 
                 // PHONE CALL MODEL: Only show green light if Daniela has "answered the call" (spoken at least once)
@@ -2228,18 +2235,6 @@ export function StreamingVoiceChat({
                   setOpenMicState('listening');
                 } else {
                   console.log('[OPEN MIC] Daniela hasnt spoken yet - keeping mic blue (reconnect)');
-                }
-                
-                // Barge-in: Interrupt tutor if playing (use ref to avoid stale closure)
-                if (avatarStateRef.current === 'speaking' || isAwaitingResponseRef.current) {
-                  console.log('[BARGE-IN] User speaking while tutor active - stopping audio and sending interrupt');
-                  // CRITICAL: Stop audio playback immediately on client side
-                  streamingVoice.stop();
-                  // Also notify server to stop generating
-                  streamingVoice.sendInterrupt();
-                  isAwaitingResponseRef.current = false;
-                  // Update avatar state immediately
-                  setAvatarState('listening');
                 }
               },
               onVadUtteranceEnd: (transcript) => {
@@ -2249,6 +2244,21 @@ export function StreamingVoiceChat({
               },
               onInterimTranscript: (transcript) => {
                 console.log('[OPEN MIC] Interim transcript:', transcript);
+                
+                // BARGE-IN: Interrupt tutor when we have ACTUAL transcribed speech
+                // This is more reliable than VAD alone, which can trigger on TTS echo
+                if (transcript && transcript.trim().length > 0) {
+                  if (avatarStateRef.current === 'speaking' || isAwaitingResponseRef.current) {
+                    console.log('[BARGE-IN] User speaking with transcript - stopping audio and sending interrupt');
+                    // CRITICAL: Stop audio playback immediately on client side
+                    streamingVoice.stop();
+                    // Also notify server to stop generating
+                    streamingVoice.sendInterrupt();
+                    isAwaitingResponseRef.current = false;
+                    // Update avatar state immediately
+                    setAvatarState('listening');
+                  }
+                }
               },
               onOpenMicSessionClosed: () => {
                 console.log('[OPEN MIC] Server session closed (reconnect context)');
