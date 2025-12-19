@@ -633,6 +633,9 @@ export function StreamingVoiceChat({
             console.log('[STREAMING] Response complete - refreshing messages for', convId);
             queryClient.invalidateQueries({ queryKey: ["/api/conversations", convId, "messages"] });
             
+            // Reset processing state now that response is complete
+            setIsProcessing(false);
+            isProcessingRef.current = false;
             // Reset awaiting flag for next utterance
             isAwaitingResponseRef.current = false;
             // TRUE DUPLEX: Keep green light ready if open mic is active
@@ -695,6 +698,9 @@ export function StreamingVoiceChat({
           onVadUtteranceEnd: (transcript) => {
             console.log('[OPEN MIC] VAD utterance end, transcript:', transcript);
             setOpenMicState('processing');
+            // CRITICAL: Set isProcessing so ImmersiveTutor shows "thinking" avatar
+            setIsProcessing(true);
+            isProcessingRef.current = true;
             isAwaitingResponseRef.current = true; // Block further VAD until response complete
           },
           onInterimTranscript: (transcript) => {
