@@ -669,8 +669,8 @@ export function ImmersiveTutor({
                   ? "Preparing mic..." 
                   : isProcessing 
                     ? "Processing..." 
-                    : isPlaying
-                      ? "Please wait..."  // Locked out while Daniela speaks
+                    : isPlaying || !isUsersTurn
+                      ? "Please wait..."  // Locked out while Daniela speaks or connection not ready
                       : "Hold to speak"
           }
         </p>
