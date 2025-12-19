@@ -219,9 +219,13 @@ class SyncBridgeService {
     
     const importWithCount = async (
       name: string,
-      items: any[],
+      items: any[] | undefined,
       importFn: (item: any) => Promise<any>
     ) => {
+      // Handle partial bundles - skip if array is undefined or empty
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        return;
+      }
       let successCount = 0;
       for (const item of items) {
         try {
@@ -255,13 +259,16 @@ class SyncBridgeService {
     await importWithCount('patterns', bundle.patterns, 
       (p) => neuralNetworkSync.importSituationalPattern(p, 'sync-bridge'));
     
-    // Advanced intelligence is a batch import
-    if (bundle.subtletyCues.length || bundle.emotionalPatterns.length || bundle.creativityTemplates.length) {
+    // Advanced intelligence is a batch import - handle partial bundles
+    const hasSubtlety = bundle.subtletyCues?.length > 0;
+    const hasEmotional = bundle.emotionalPatterns?.length > 0;
+    const hasCreativity = bundle.creativityTemplates?.length > 0;
+    if (hasSubtlety || hasEmotional || hasCreativity) {
       try {
         const result = await neuralNetworkSync.importAdvancedIntelligence({
-          subtletyCues: bundle.subtletyCues,
-          emotionalPatterns: bundle.emotionalPatterns,
-          creativityTemplates: bundle.creativityTemplates,
+          subtletyCues: bundle.subtletyCues || [],
+          emotionalPatterns: bundle.emotionalPatterns || [],
+          creativityTemplates: bundle.creativityTemplates || [],
         }, 'sync-bridge');
         counts['subtletyCues'] = result.subtletyCuesImported;
         counts['emotionalPatterns'] = result.emotionalPatternsImported;
