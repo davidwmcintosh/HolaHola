@@ -325,51 +325,31 @@ export function StreamingVoiceChat({
     const prevMode = prevInputModeRef.current;
     
     // If switching FROM open-mic to push-to-talk, cleanup open mic state
+    // NOTE: We do NOT stop audio here - let barge-in handle interruption when user speaks
     if (prevMode === 'open-mic' && inputMode === 'push-to-talk') {
-      console.log('[MODE SWITCH] Switching from open-mic to push-to-talk - stopping audio and cleaning up');
-      
-      // CRITICAL: Stop any currently playing audio from open-mic response
-      streamingVoice.stop();
-      if (audioPlayerRef.current) {
-        audioPlayerRef.current.pause();
-        audioPlayerRef.current.currentTime = 0;
-      }
+      console.log('[MODE SWITCH] Switching from open-mic to push-to-talk - cleaning up mic state (audio continues)');
       
       // Use ref-based cleanup function if available
       if (handleModeChangeCleanupRef.current) {
         handleModeChangeCleanupRef.current();
       }
       
-      // Stop WebSocket streaming
+      // Stop WebSocket streaming for mic
       streamingVoice.stopStreaming();
       
-      // Reset all states
+      // Reset recording states only (let audio continue)
       setIsRecording(false);
       isRecordingRef.current = false;
-      setIsProcessing(false);
-      isProcessingRef.current = false;
       setOpenMicState('idle');
-      setAvatarState('idle');
       isAwaitingResponseRef.current = false;
     }
     
     // If switching TO open-mic mode, AUTO-START the session
     // This eliminates the confusing extra tap requirement
     // IMPORTANT: Must wait for session to be fully ready (session_started received)
+    // NOTE: We do NOT stop audio here - barge-in handles interruption when user actually speaks
     if (prevMode === 'push-to-talk' && inputMode === 'open-mic') {
-      console.log('[MODE SWITCH] Switching to open-mic - stopping current audio and will AUTO-START when session ready');
-      
-      // CRITICAL: Stop any currently playing audio from PTT response
-      // This prevents the "double response" issue when switching mid-playback
-      streamingVoice.stop();
-      if (audioPlayerRef.current) {
-        audioPlayerRef.current.pause();
-        audioPlayerRef.current.currentTime = 0;
-      }
-      // Reset processing state
-      setIsProcessing(false);
-      isProcessingRef.current = false;
-      setAvatarState('idle');
+      console.log('[MODE SWITCH] Switching to open-mic - will AUTO-START when session ready (audio continues until barge-in)');
       
       // Show preparing state while we start
       setOpenMicState('idle');
