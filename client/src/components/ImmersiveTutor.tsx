@@ -35,10 +35,13 @@ import type { VoiceInputMode, OpenMicState } from "@shared/streaming-voice-types
 // Female tutor avatars (default)
 import femaleTutorSpeakingUrl from "@assets/tutor-speaking-No-Background_1764099971093.png";
 import femaleTutorListeningUrl from "@assets/tutor-listening-no-background_1764099971094.png";
+import femaleTutorThinkingUrl from "@assets/daniela_thinking_No_Background_1766161816613.jpg";
 
 // Male tutor avatars
 import maleTutorSpeakingUrl from "@assets/Boy-tutor-speaking-No-Background_1764186322050.png";
 import maleTutorListeningUrl from "@assets/Boy-tutor-waiting-No-Background_1764186322051.png";
+// Male thinking uses speaking pose (no dedicated image yet)
+const maleTutorThinkingUrl = maleTutorSpeakingUrl;
 
 // Types for hive channel collaboration
 interface HiveSnapshot {
@@ -226,11 +229,12 @@ export function ImmersiveTutor({
     // Select avatar set based on gender preference
     const speakingUrl = tutorGender === 'male' ? maleTutorSpeakingUrl : femaleTutorSpeakingUrl;
     const listeningUrl = tutorGender === 'male' ? maleTutorListeningUrl : femaleTutorListeningUrl;
+    const thinkingUrl = tutorGender === 'male' ? maleTutorThinkingUrl : femaleTutorThinkingUrl;
     const idleUrl = listeningUrl; // Idle uses listening pose
     
-    // Show speaking avatar when playing, thinking avatar when processing (gives instant feedback)
+    // Show speaking avatar when playing, dedicated thinking pose when processing
     if (isPlaying) return speakingUrl;
-    if (isProcessing) return speakingUrl;  // Thinking uses same pose as speaking
+    if (isProcessing) return thinkingUrl;  // Hand on chin, contemplative look
     if (isRecording) return listeningUrl;
     return idleUrl;
   };

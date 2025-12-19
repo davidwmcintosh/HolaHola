@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import idleImage from "@assets/generated_images/Friendly_teacher_idle_state_fd4580c6.png";
 import listeningImage from "@assets/generated_images/Teacher_listening_attentively_f9f6c37e.png";
 import speakingImage from "@assets/generated_images/Teacher_speaking_animatedly_62a6f01b.png";
+import thinkingImage from "@assets/daniela_thinking_No_Background_1766161816613.jpg";
 import type { OpenMicState } from "@shared/streaming-voice-types";
 
 export type AvatarState = "idle" | "listening" | "speaking" | "thinking";
@@ -31,8 +32,8 @@ export function InstructorAvatar({ state, openMicState, className = "" }: Instru
         newImage = speakingImage;
         break;
       case "thinking":
-        // Use speaking image with different animation for "thinking/processing"
-        newImage = speakingImage;
+        // Dedicated thinking pose - hand on chin, contemplative look
+        newImage = thinkingImage;
         break;
     }
 
