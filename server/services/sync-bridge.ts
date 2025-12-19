@@ -699,6 +699,7 @@ class SyncBridgeService {
       
       if (!response.ok) {
         const error = await response.text();
+        console.error(`[SYNC-BRIDGE] Batch ${batchType} rejected: ${response.status} - ${error.substring(0, 200)}`);
         return { success: false, counts: {}, errors: [`${batchType}: ${response.status} - ${error}`] };
       }
       
@@ -707,6 +708,7 @@ class SyncBridgeService {
       return { success: result.success, counts: result.counts, errors: result.errors };
     } catch (err: any) {
       const errorMsg = err.name === 'AbortError' ? `${batchType} timeout after ${timeoutMs/1000}s` : err.message;
+      console.error(`[SYNC-BRIDGE] Batch ${batchType} FAILED: ${errorMsg}`);
       return { success: false, counts: {}, errors: [errorMsg] };
     } finally {
       clearTimeout(timeoutId);
