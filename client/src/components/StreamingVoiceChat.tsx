@@ -855,14 +855,11 @@ export function StreamingVoiceChat({
         console.log('[OPEN MIC DUPLEX] Daniela speaking - showing green light (duplex mode)');
         setOpenMicState('ready');
       }
-    } else if (!streamProcessing) {
-      // Not processing AND not playing - reset to idle
+    } else if (!streamProcessing && !isProcessingRef.current) {
+      // Not processing (hook) AND not processing (component) AND not playing - reset to idle
+      // CRITICAL: Don't reset if component's isProcessing is true (user just finished speaking)
+      // The hook's streamProcessing only tracks server-side processing, not our local "thinking" state
       setAvatarState('idle');
-      if (isProcessingRef.current) {
-        setIsProcessing(false);
-        isProcessingRef.current = false;
-        setProcessingStage(null);
-      }
       
       // OPEN MIC: Restart session and show green light when Daniela finishes speaking
       // This is the reliable place to know audio playback is complete
