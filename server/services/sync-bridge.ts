@@ -50,7 +50,27 @@ export interface SyncResult {
 
 class SyncBridgeService {
   
-  async collectExportBundle(): Promise<SyncBundle> {
+  /**
+   * Get the timestamp of the last successful push sync
+   * Used for incremental sync to only export newer items
+   */
+  async getLastSuccessfulPushTime(): Promise<Date | null> {
+    const [lastPush] = await db
+      .select()
+      .from(syncRuns)
+      .where(
+        and(
+          eq(syncRuns.direction, 'push'),
+          eq(syncRuns.status, 'success')
+        )
+      )
+      .orderBy(desc(syncRuns.completedAt))
+      .limit(1);
+    
+    return lastPush?.completedAt || null;
+  }
+  
+  async collectExportBundle(incrementalSince?: Date | null): Promise<SyncBundle> {
     const bestPractices = await neuralNetworkSync.getBestPracticesForExport();
     const expansion = await neuralNetworkSync.exportNeuralNetworkExpansion();
     const procedural = await neuralNetworkSync.exportProceduralMemory();
@@ -60,10 +80,11 @@ class SyncBridgeService {
     const northStar = await neuralNetworkSync.exportNorthStar();
     
     // NEW: Export Express Lane, Hive Snapshots, and Daniela's Memories
+    // Use incrementalSince for delta sync to reduce payload size
     const founderUser = await this.exportFounderUser();
-    const expressLaneData = await this.exportExpressLaneData();
-    const hiveSnapshotData = await this.exportHiveSnapshots();
-    const danielaMemories = await this.exportDanielaGrowthMemories();
+    const expressLaneData = await this.exportExpressLaneData(incrementalSince);
+    const hiveSnapshotData = await this.exportHiveSnapshots(incrementalSince);
+    const danielaMemories = await this.exportDanielaGrowthMemories(incrementalSince);
     
     const bundle: SyncBundle = {
       generatedAt: new Date().toISOString(),
@@ -123,15 +144,16 @@ class SyncBridgeService {
   
   /**
    * Export Express Lane sessions and messages for cross-environment sync
-   * Only exports recent sessions (last 30 days) to avoid massive data transfers
+   * Uses incrementalSince for delta sync, falls back to 7-day window
    */
-  async exportExpressLaneData(): Promise<{ sessions: any[]; messages: any[] }> {
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  async exportExpressLaneData(incrementalSince?: Date | null): Promise<{ sessions: any[]; messages: any[] }> {
+    // Use incrementalSince if available, otherwise 7-day window for manageable payload
+    const sinceDate = incrementalSince || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     
     const sessions = await db
       .select()
       .from(founderSessions)
-      .where(gte(founderSessions.updatedAt, thirtyDaysAgo))
+      .where(gte(founderSessions.updatedAt, sinceDate))
       .orderBy(desc(founderSessions.updatedAt));
     
     const sessionIds = sessions.map(s => s.id);
@@ -143,7 +165,7 @@ class SyncBridgeService {
         .from(collaborationMessages)
         .where(
           and(
-            gte(collaborationMessages.createdAt, thirtyDaysAgo),
+            gte(collaborationMessages.createdAt, sinceDate),
             inArray(collaborationMessages.sessionId, sessionIds)
           )
         )
@@ -156,33 +178,37 @@ class SyncBridgeService {
   
   /**
    * Export Hive Snapshots for cross-environment sync
-   * Includes teaching moments, breakthroughs, relationship moments, etc.
+   * Uses incrementalSince for delta sync, falls back to 7-day window
    */
-  async exportHiveSnapshots(): Promise<any[]> {
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  async exportHiveSnapshots(incrementalSince?: Date | null): Promise<any[]> {
+    // Use incrementalSince if available, otherwise 7-day window for manageable payload
+    const sinceDate = incrementalSince || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     
     const snapshots = await db
       .select()
       .from(hiveSnapshots)
-      .where(gte(hiveSnapshots.createdAt, thirtyDaysAgo))
+      .where(gte(hiveSnapshots.createdAt, sinceDate))
       .orderBy(desc(hiveSnapshots.createdAt));
     
-    console.log(`[SYNC-BRIDGE] Exporting ${snapshots.length} Hive Snapshots`);
+    console.log(`[SYNC-BRIDGE] Exporting ${snapshots.length} Hive Snapshots (since ${sinceDate.toISOString()})`);
     return snapshots;
   }
   
   /**
    * Export Daniela's Growth Memories for cross-environment sync
-   * These are personal memories that make Daniela consistent across environments
+   * Uses incrementalSince for delta sync, falls back to 7-day window
    */
-  async exportDanielaGrowthMemories(): Promise<any[]> {
-    // Export all growth memories - they're important for Daniela's personality
+  async exportDanielaGrowthMemories(incrementalSince?: Date | null): Promise<any[]> {
+    // Use incrementalSince if available, otherwise 7-day window for manageable payload
+    const sinceDate = incrementalSince || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    
     const memories = await db
       .select()
       .from(danielaGrowthMemories)
+      .where(gte(danielaGrowthMemories.createdAt, sinceDate))
       .orderBy(desc(danielaGrowthMemories.createdAt));
     
-    console.log(`[SYNC-BRIDGE] Exporting ${memories.length} Daniela Growth Memories`);
+    console.log(`[SYNC-BRIDGE] Exporting ${memories.length} Daniela Growth Memories (since ${sinceDate.toISOString()})`);
     return memories;
   }
   
@@ -673,7 +699,11 @@ class SyncBridgeService {
     }).returning();
     
     try {
-      const bundle = await this.collectExportBundle();
+      // Use incremental sync - only export items newer than last successful push
+      const lastSuccessfulPush = await this.getLastSuccessfulPushTime();
+      console.log(`[SYNC-BRIDGE] Incremental sync since: ${lastSuccessfulPush?.toISOString() || 'never (full sync)'}`);
+      
+      const bundle = await this.collectExportBundle(lastSuccessfulPush);
       const headers = createSyncHeaders(bundle);
       
       // 10-minute timeout for large sync payloads
