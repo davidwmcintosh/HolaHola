@@ -40,8 +40,7 @@ import femaleTutorThinkingUrl from "@assets/daniela_thinking_No_Background_17661
 // Male tutor avatars
 import maleTutorSpeakingUrl from "@assets/Boy-tutor-speaking-No-Background_1764186322050.png";
 import maleTutorListeningUrl from "@assets/Boy-tutor-waiting-No-Background_1764186322051.png";
-// Male thinking uses speaking pose (no dedicated image yet)
-const maleTutorThinkingUrl = maleTutorSpeakingUrl;
+import maleTutorThinkingUrl from "@assets/Boy_Tutor_Thinking_No_Background_1766162338594.jpg";
 
 // Types for hive channel collaboration
 interface HiveSnapshot {
