@@ -2007,7 +2007,49 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
         }
         if (session) {
           const audioBuffer = Buffer.isBuffer(data) ? data : Buffer.from(data as string);
-          await orchestrator.processUserAudio(session.id, audioBuffer, 'webm');
+          
+          // SPECULATIVE PTT BYPASS: If we have a pending speculative transcript,
+          // skip the expensive blob STT and go straight to AI generation
+          if (pendingSpeculativeTranscript && pendingSpeculativeWordCount >= SPECULATIVE_TRANSCRIPT_MIN_WORDS) {
+            const transcriptToUse = pendingSpeculativeTranscript;
+            const wordCount = pendingSpeculativeWordCount;
+            
+            // Clear the pending transcript immediately to prevent reuse
+            pendingSpeculativeTranscript = null;
+            pendingSpeculativeWordCount = 0;
+            
+            console.log(`[SpeculativePTT] BYPASS: Using speculative transcript (${wordCount} words), skipping blob STT`);
+            console.log(`[SpeculativePTT] Transcript: "${transcriptToUse}"`);
+            
+            // Use processOpenMicTranscript which skips STT entirely
+            const metrics = await orchestrator.processOpenMicTranscript(session.id, transcriptToUse, 1.0);
+            
+            // Save messages to database
+            if (metrics.userTranscript && metrics.aiResponse && conversationId) {
+              try {
+                await storage.createMessage({
+                  conversationId: conversationId,
+                  role: 'user',
+                  content: metrics.userTranscript,
+                });
+                await storage.createMessage({
+                  conversationId: conversationId,
+                  role: 'assistant',
+                  content: metrics.aiResponse,
+                });
+              } catch (err: any) {
+                console.error('[Streaming Voice] Failed to save messages:', err.message);
+              }
+            }
+          } else {
+            // Fallback: No speculative transcript available, process blob normally
+            if (pendingSpeculativeTranscript) {
+              console.log(`[SpeculativePTT] Transcript too short (${pendingSpeculativeWordCount} words), falling back to blob STT`);
+              pendingSpeculativeTranscript = null;
+              pendingSpeculativeWordCount = 0;
+            }
+            await orchestrator.processUserAudio(session.id, audioBuffer, 'webm');
+          }
         }
         return;
       }
