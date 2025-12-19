@@ -4282,8 +4282,8 @@ Only include observations you can clearly justify from the exchange. Return empt
         }
         
         // Process enrollments - find active class for this language
-        // SKIP class context in Founder Mode - founder sessions are not class-bound
-        if (!session.isFounderMode) {
+        // SKIP class context in Founder Mode or Raw Honesty Mode - these sessions are not class-bound
+        if (!session.isFounderMode && !session.isRawHonestyMode) {
           const activeClass = enrollments.find(e => 
             e.isActive && 
             e.class?.isActive && 
@@ -4310,8 +4310,10 @@ Only include observations you can clearly justify from the exchange. Return empt
             }
             console.log(`[Streaming Greeting] Student enrolled in class: ${activeClass.class.name}`);
           }
-        } else {
+        } else if (session.isFounderMode) {
           console.log(`[Streaming Greeting] Founder Mode - skipping class enrollment context`);
+        } else if (session.isRawHonestyMode) {
+          console.log(`[Streaming Greeting] Raw Honesty Mode - skipping class enrollment context`);
         }
         
         // Process recent conversations for topic continuity
