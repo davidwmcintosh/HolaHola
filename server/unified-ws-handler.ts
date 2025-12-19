@@ -25,6 +25,7 @@ import signature from 'cookie-signature';
 import {
   getStreamingVoiceOrchestrator,
   StreamingSession,
+  StreamingMetrics,
 } from './services/streaming-voice-orchestrator';
 import {
   ClientStartSessionMessage,
@@ -34,7 +35,6 @@ import {
   ClientTextInputMessage,
   StreamingErrorMessage,
   VoiceInputMode,
-  StreamingMetrics,
 } from '@shared/streaming-voice-types';
 import { OpenMicSession, getDeepgramLanguageCode } from './services/deepgram-live-stt';
 import { generateCongratulatoryPromptAddition } from './services/competency-verifier';
