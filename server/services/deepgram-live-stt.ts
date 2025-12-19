@@ -171,13 +171,14 @@ export async function transcribeWithLiveAPI(
         connection.send(audioBuffer);
         
         // Adaptive close: wait for transcripts to stop coming
-        // Start with 3s, then extend if transcripts are still arriving
+        // OPTIMIZED: Use shorter timeouts for faster PTT response
+        // 1s initial, extend only if actively receiving transcripts
         const scheduleClose = () => {
           if (closeTimeout) clearTimeout(closeTimeout);
           closeTimeout = setTimeout(() => {
             const timeSinceLastTranscript = Date.now() - lastTranscriptTime;
-            // If we got a transcript in the last 1.5s, wait longer
-            if (timeSinceLastTranscript < 1500 && hasReceivedAnyTranscript) {
+            // If we got a transcript in the last 500ms, wait a bit longer
+            if (timeSinceLastTranscript < 500 && hasReceivedAnyTranscript) {
               console.log(`[Deepgram Live] Still receiving transcripts, extending timeout...`);
               scheduleClose();
             } else {
@@ -185,7 +186,7 @@ export async function transcribeWithLiveAPI(
               console.log(`[Deepgram Live] Closing (collected ${collectedTranscripts.length} segments: "${fullTranscript.substring(0, 50)}...")`);
               connection.requestClose();
             }
-          }, 3000);
+          }, 1000); // Reduced from 3000ms to 1000ms
         };
         scheduleClose();
       });
