@@ -127,12 +127,15 @@ class SyncBridgeService {
       bundle.expressLaneMessages = expressLaneData.messages;
     }
     
-    // BATCH: hive-memories - Hive snapshots, Daniela growth memories
-    if (!batchType || batchType === 'hive-memories') {
+    // BATCH: hive-snapshots - Hive snapshots only
+    if (!batchType || batchType === 'hive-snapshots' || batchType === 'hive-memories') {
       const hiveSnapshotData = await this.exportHiveSnapshots(incrementalSince);
-      const danielaMemories = await this.exportDanielaGrowthMemories(incrementalSince);
-      
       bundle.hiveSnapshots = hiveSnapshotData;
+    }
+    
+    // BATCH: daniela-memories - Daniela growth memories only
+    if (!batchType || batchType === 'daniela-memories' || batchType === 'hive-memories') {
+      const danielaMemories = await this.exportDanielaGrowthMemories(incrementalSince);
       bundle.danielaGrowthMemories = danielaMemories;
     }
     
@@ -814,20 +817,33 @@ class SyncBridgeService {
       allErrors.push(...batch3.errors);
       if (!batch3.success) overallSuccess = false;
       
-      // BATCH 4: Hive snapshots + Growth memories (can be large)
-      console.log('[SYNC-BRIDGE] Batch 4/4: Hive & Memories...');
+      // BATCH 4: Hive snapshots only
+      console.log('[SYNC-BRIDGE] Batch 4/5: Hive Snapshots...');
+      const hiveSnapshots = await this.exportHiveSnapshots(lastSuccessfulPush);
       const hiveBundle: Partial<SyncBundle> = {
         generatedAt: new Date().toISOString(),
         sourceEnvironment: CURRENT_ENVIRONMENT,
-        hiveSnapshots: await this.exportHiveSnapshots(lastSuccessfulPush),
-        danielaGrowthMemories: await this.exportDanielaGrowthMemories(lastSuccessfulPush),
+        hiveSnapshots,
       };
-      const batch4 = await this.sendBatch(peerUrl, 'hive-memories', hiveBundle, 60000); // 60s for larger batch
+      const batch4 = await this.sendBatch(peerUrl, 'hive-snapshots', hiveBundle, 60000); // 60s
       Object.assign(allCounts, batch4.counts);
       allErrors.push(...batch4.errors);
       if (!batch4.success) overallSuccess = false;
       
-      console.log(`[SYNC-BRIDGE] All 4 batches complete. Overall success: ${overallSuccess}`);
+      // BATCH 5: Daniela growth memories only
+      console.log('[SYNC-BRIDGE] Batch 5/5: Daniela Memories...');
+      const danielaMemories = await this.exportDanielaGrowthMemories(lastSuccessfulPush);
+      const memoriesBundle: Partial<SyncBundle> = {
+        generatedAt: new Date().toISOString(),
+        sourceEnvironment: CURRENT_ENVIRONMENT,
+        danielaGrowthMemories: danielaMemories,
+      };
+      const batch5 = await this.sendBatch(peerUrl, 'daniela-memories', memoriesBundle, 60000); // 60s
+      Object.assign(allCounts, batch5.counts);
+      allErrors.push(...batch5.errors);
+      if (!batch5.success) overallSuccess = false;
+      
+      console.log(`[SYNC-BRIDGE] All 5 batches complete. Overall success: ${overallSuccess}`);
       
       await db.update(syncRuns)
         .set({
@@ -958,13 +974,13 @@ class SyncBridgeService {
       let overallSuccess = true;
       
       // Batched pull - fetch each batch type separately to avoid timeout
-      const batchTypes = ['neural-core', 'advanced-intel', 'express-lane', 'hive-memories'];
+      const batchTypes = ['neural-core', 'advanced-intel', 'express-lane', 'hive-snapshots', 'daniela-memories'];
       
       for (let i = 0; i < batchTypes.length; i++) {
         const batchType = batchTypes[i];
         console.log(`[SYNC-BRIDGE] Pull batch ${i + 1}/${batchTypes.length}: ${batchType}...`);
         
-        const timeout = (batchType === 'express-lane' || batchType === 'hive-memories') ? 60000 : 45000;
+        const timeout = ['express-lane', 'hive-snapshots', 'daniela-memories'].includes(batchType) ? 60000 : 45000;
         const result = await this.fetchBatch(peerUrl, batchType, timeout);
         
         if (!result.success) {
