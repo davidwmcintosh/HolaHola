@@ -37,11 +37,27 @@ The `streaming-voice-orchestrator.ts` enables Daniela to push messages directly 
 
 ## Voice Architecture (CRITICAL - DO NOT USE OpenAI FOR DANIELA)
 
+### ⚠️ NON-NEGOTIABLE VOICE STACK REQUIREMENTS ⚠️
+
+**These requirements are MANDATORY. Any deviation requires explicit founder approval logged in `docs/daniela-development-journal.md`.**
+
+**Daniela's Voice Pipeline (LOCKED):**
+```
+User Audio → Deepgram Nova-3 (LIVE API) → Gemini Streaming → Cartesia Sonic-3 → Audio Output
+```
+
+**NEVER DO:**
+- ❌ Switch Daniela to OpenAI TTS/STT
+- ❌ Switch from Deepgram LIVE API to PRERECORDED API (prerecorded fails with browser WebM/Opus)
+- ❌ Use nova-2 model (must be nova-3 for multi-language)
+- ❌ Disable DEEPGRAM_INTELLIGENCE_ENABLED
+
 **Daniela (Main AI Tutor - Streaming Voice Chat):**
-- STT: Deepgram Nova-3 (`DEEPGRAM_MODEL=nova-3`, `DEEPGRAM_INTELLIGENCE_ENABLED=true`)
+- STT: Deepgram Nova-3 via **LIVE API** (not prerecorded - prerecorded returns "duration: unknown" for WebM)
 - LLM: Gemini (streaming)
 - TTS: Cartesia Sonic-3 (`TTS_CARTESIA_MODEL=sonic-3`)
 - Files: `streaming-voice-orchestrator.ts`, `deepgram-live-stt.ts`, `tts-service.ts`
+- Config: `server/services/voice-config.ts` (shared constants with runtime validation)
 
 **Support/Assistant Tutors:**
 - TTS: Google Cloud Text-to-Speech
@@ -57,6 +73,14 @@ The `streaming-voice-orchestrator.ts` enables Daniela to push messages directly 
 - `DEEPGRAM_MODEL`: Must be "nova-3" (not nova-2)
 - `DEEPGRAM_INTELLIGENCE_ENABLED`: Must be "true" for intents/sentiment/entities
 - `GOOGLE_CLOUD_TTS_CREDENTIALS`: For support/assistant tutors (optional)
+
+### Pre-Release Voice Checklist
+Before any deployment affecting voice:
+1. ✅ Confirm `DEEPGRAM_MODEL=nova-3` in .replit env
+2. ✅ Confirm `DEEPGRAM_INTELLIGENCE_ENABLED=true` in .replit env
+3. ✅ Verify Deepgram uses `transcribeWithLiveAPI` (NOT `transcribeWithPrerecorded`)
+4. ✅ Verify TTS logs show "Cartesia initialized (model: sonic-3)"
+5. ✅ Test voice chat end-to-end: speak → transcription → response → audio playback
 
 ## External Dependencies
 -   Stripe: Payment processing and subscription management.

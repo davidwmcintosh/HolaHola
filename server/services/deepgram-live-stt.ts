@@ -91,18 +91,26 @@ const deepgramClient = { get client() { return getDeepgramClient(); } };
 /**
  * Deepgram Configuration Feature Flags
  * 
+ * ⚠️ LOCKED CONFIGURATION - See replit.md "Voice Architecture" ⚠️
+ * 
  * These flags control Deepgram model and feature usage.
+ * Constants are imported from voice-config.ts to ensure consistency.
  * 
  * AVAILABILITY: Nova-3 and Audio Intelligence features (intent, sentiment, topics, etc.)
  * are available on ALL plans including Pay-as-You-Go. Only CONCURRENCY limits differ:
  * - Pay-as-You-Go/Growth: 100 pre-recorded, 50 streaming, 10 intelligence concurrent
  * - Enterprise: Higher limits, custom arrangements
  * 
- * IMPORTANT: Nova-3 is required for reliable 'multi' language mode in live streaming.
+ * CRITICAL: Nova-3 is REQUIRED for reliable 'multi' language mode in live streaming.
  * Nova-2 with 'multi' returns empty transcripts despite receiving valid audio.
+ * 
+ * DO NOT change to nova-2 or disable intelligence without founder approval.
  */
-const DEEPGRAM_MODEL = process.env.DEEPGRAM_MODEL || 'nova-3';
-const DEEPGRAM_INTELLIGENCE_ENABLED = process.env.DEEPGRAM_INTELLIGENCE_ENABLED !== 'false'; // Default: enabled
+import { DANIELA_STT_MODEL, DANIELA_STT_INTELLIGENCE_ENABLED } from './voice-config';
+
+// Use centralized constants - DO NOT override with process.env directly
+const DEEPGRAM_MODEL = process.env.DEEPGRAM_MODEL || DANIELA_STT_MODEL;
+const DEEPGRAM_INTELLIGENCE_ENABLED = process.env.DEEPGRAM_INTELLIGENCE_ENABLED !== 'false' && DANIELA_STT_INTELLIGENCE_ENABLED;
 
 /**
  * Transcribe audio using Deepgram's live streaming API

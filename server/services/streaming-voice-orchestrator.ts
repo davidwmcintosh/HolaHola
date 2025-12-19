@@ -1,8 +1,22 @@
 /**
  * Streaming Voice Orchestrator
  * 
+ * ⚠️ CRITICAL: DANIELA'S VOICE PIPELINE - DO NOT MODIFY WITHOUT FOUNDER APPROVAL ⚠️
+ * 
  * The central coordinator for streaming voice mode:
  * User audio → Deepgram STT → Gemini streaming → Sentence chunks → Cartesia TTS → Audio stream
+ * 
+ * LOCKED CONFIGURATION (see replit.md "Voice Architecture"):
+ * - STT: Deepgram Nova-3 via LIVE API (NOT prerecorded - prerecorded fails with WebM)
+ * - LLM: Gemini (streaming)
+ * - TTS: Cartesia Sonic-3 (NOT OpenAI)
+ * 
+ * NEVER:
+ * - Switch to OpenAI TTS/STT
+ * - Switch from transcribeWithLiveAPI to transcribeWithPrerecorded
+ * - Use nova-2 model
+ * 
+ * Any changes require approval logged in docs/daniela-development-journal.md
  * 
  * Target: < 1 second time to first audio byte (vs 5-7s synchronous mode)
  */

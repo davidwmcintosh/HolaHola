@@ -7,6 +7,7 @@ import { WebhookHandlers } from "./webhookHandlers";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { getTTSService } from "./services/tts-service";
+import { validateVoiceConfig } from "./services/voice-config";
 import { generalLimiter } from "./middleware/rate-limiter";
 import { setupUnifiedWebSocketHandler, setupSocketIOHandler } from "./unified-ws-handler";
 import { founderCollabWSBroker } from "./services/founder-collab-ws-broker";
@@ -365,6 +366,9 @@ app.use((req, res, next) => {
   } catch (error: any) {
     console.error('TTS health check failed:', error.message);
   }
+
+  // Validate voice configuration (Deepgram + Cartesia requirements)
+  validateVoiceConfig();
 
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
