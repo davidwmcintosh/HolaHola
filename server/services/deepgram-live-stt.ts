@@ -130,9 +130,11 @@ export async function transcribeWithLiveAPI(
   const startTime = Date.now();
   
   return new Promise((resolve, reject) => {
+    // Increased timeout to 20s - long audio needs more processing time
+    // The Close event should resolve before this, but this is a safety net
     const timeout = setTimeout(() => {
-      reject(new Error('Deepgram live transcription timeout (10s)'));
-    }, 10000);
+      reject(new Error('Deepgram live transcription timeout (20s)'));
+    }, 20000);
     
     try {
       // For WebM container format (from browser MediaRecorder), DON'T specify
@@ -157,12 +159,15 @@ export async function transcribeWithLiveAPI(
       
       const connection = deepgramClient.client.listen.live(connectionOptions);
       
-      let finalTranscript = '';
+      // IMPORTANT: Collect ALL final transcripts - Deepgram sends one per utterance
+      let collectedTranscripts: string[] = [];
       let finalConfidence = 0;
+      let confidenceCount = 0;
       let finalWords: TranscriptionResult['words'] = [];
       let finalIntelligence: DeepgramIntelligence = {};
       let hasReceivedAnyTranscript = false;
       let closeTimeout: NodeJS.Timeout | null = null;
+      let lastTranscriptTime = Date.now();
       
       connection.on(LiveTranscriptionEvents.Open, () => {
         console.log(`[Deepgram Live] Connected, sending ${audioBuffer.length} bytes`);
@@ -170,12 +175,24 @@ export async function transcribeWithLiveAPI(
         // Send all audio data at once
         connection.send(audioBuffer);
         
-        // Wait for Deepgram to process, then close connection
-        // The 2.5 second timeout worked in earlier tests
-        closeTimeout = setTimeout(() => {
-          console.log(`[Deepgram Live] Closing after timeout (transcript: "${finalTranscript}")`);
-          connection.requestClose();
-        }, 2500);
+        // Adaptive close: wait for transcripts to stop coming
+        // Start with 3s, then extend if transcripts are still arriving
+        const scheduleClose = () => {
+          if (closeTimeout) clearTimeout(closeTimeout);
+          closeTimeout = setTimeout(() => {
+            const timeSinceLastTranscript = Date.now() - lastTranscriptTime;
+            // If we got a transcript in the last 1.5s, wait longer
+            if (timeSinceLastTranscript < 1500 && hasReceivedAnyTranscript) {
+              console.log(`[Deepgram Live] Still receiving transcripts, extending timeout...`);
+              scheduleClose();
+            } else {
+              const fullTranscript = collectedTranscripts.join(' ');
+              console.log(`[Deepgram Live] Closing (collected ${collectedTranscripts.length} segments: "${fullTranscript.substring(0, 50)}...")`);
+              connection.requestClose();
+            }
+          }, 3000);
+        };
+        scheduleClose();
       });
       
       connection.on(LiveTranscriptionEvents.Transcript, (data) => {
@@ -189,15 +206,24 @@ export async function transcribeWithLiveAPI(
         hasReceivedAnyTranscript = true;
         
         if (data.is_final && transcript.length > 0) {
-          finalTranscript = transcript;
-          finalConfidence = confidence;
-          finalWords = words.map((w: any) => ({
+          // APPEND to collected transcripts instead of overwriting
+          collectedTranscripts.push(transcript);
+          lastTranscriptTime = Date.now();
+          
+          // Average confidence across all segments
+          finalConfidence = ((finalConfidence * confidenceCount) + confidence) / (confidenceCount + 1);
+          confidenceCount++;
+          
+          // Append words with offset
+          const wordOffset = finalWords.length > 0 ? finalWords[finalWords.length - 1].end : 0;
+          const mappedWords = words.map((w: any) => ({
             word: w.word || '',
-            start: w.start || 0,
-            end: w.end || 0,
+            start: (w.start || 0) + wordOffset,
+            end: (w.end || 0) + wordOffset,
             confidence: w.confidence || 0,
             speaker: w.speaker,
           }));
+          finalWords = [...finalWords, ...mappedWords];
           
           // Extract intelligence data from response
           if (enableIntelligence) {
@@ -257,15 +283,6 @@ export async function transcribeWithLiveAPI(
           }
           
           console.log(`[Deepgram Live] Final: "${transcript}" (${(confidence * 100).toFixed(0)}%)`);
-          
-          // Got final result - close early instead of waiting for timeout
-          if (closeTimeout) {
-            clearTimeout(closeTimeout);
-            closeTimeout = null;
-          }
-          // Wait 500ms for metadata events (summaries, topics) before closing
-          // Metadata events often arrive after the final transcript
-          setTimeout(() => connection.requestClose(), 500);
         } else if (transcript.length > 0) {
           console.log(`[Deepgram Live] Interim: "${transcript}"`);
         }
@@ -304,6 +321,9 @@ export async function transcribeWithLiveAPI(
         if (closeTimeout) clearTimeout(closeTimeout);
         const durationMs = Date.now() - startTime;
         
+        // Join all collected transcript segments
+        const fullTranscript = collectedTranscripts.join(' ').trim();
+        
         // Log final intelligence state before resolving
         const intelKeys = Object.keys(finalIntelligence);
         if (intelKeys.length > 0) {
@@ -316,10 +336,11 @@ export async function transcribeWithLiveAPI(
           }
         }
         
-        console.log(`[Deepgram Live] Closed after ${durationMs}ms`);
+        console.log(`[Deepgram Live] Closed after ${durationMs}ms with ${collectedTranscripts.length} segments`);
+        console.log(`[Deepgram Live] Full transcript: "${fullTranscript.substring(0, 100)}..."`);
         
         resolve({
-          transcript: finalTranscript,
+          transcript: fullTranscript,
           confidence: finalConfidence,
           words: finalWords,
           durationMs,
