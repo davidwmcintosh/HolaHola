@@ -21,6 +21,12 @@ Wren's intelligence is enhanced by the Wren Intelligence Service for insight cap
 
 The Student Learning Service tracks student error patterns, validates teaching strategies, and injects personalized learning context into Daniela's prompts. Key features include STT Confidence Integration, Deepgram Intelligence Integration for real-time voice analysis, and Predictive Student Intelligence for anticipating struggles. Predictive Teaching is implemented with a neural network-first architecture.
 
+**Proactive Student Intelligence (Voice Chat Integration):**
+- `streaming-voice-orchestrator.ts` fetches student learning context in parallel during `processUserAudio` and `processOpenMicTranscript`
+- Injects `[STUDENT PROFILE]` section with struggles, effective strategies, and personal facts
+- Context includes teaching guidance: support struggles gently, use proven strategies, build on progress
+- Applied to ALL voice sessions (not just Founder Mode) for personalized teaching
+
 **Learner Personal Facts System** (`learner_personal_facts` table): Permanent student memories that don't decay (unlike `hiveSnapshots` which expire after 30 days). The `LearnerMemoryExtractionService` uses Gemini Flash to automatically extract personal facts from conversations at session end. Fact types: `life_event`, `personal_detail`, `goal`, `preference`, `relationship`, `travel`, `work`, `family`, `hobby`. Features deduplication (similar facts bump `mentionCount`), confidence scoring (>0.6 threshold), and explicit `[REMEMBER: ...]` command detection. Personal facts are injected into Daniela's prompt under `[PERSONAL MEMORIES]` section, prioritizing upcoming events and frequently mentioned facts.
 
 A Shared Memory Bridge enables bidirectional insight sharing between Wren and Daniela, building a knowledge graph. Nightly Emergent Intelligence Jobs perform cross-student pattern synthesis and memory consolidation. The Memory Consolidation Service (`memory-consolidation-service.ts`) merges semantically similar Daniela growth memories by grouping, selecting a canonical memory, boosting its importance, and marking merged memories as superseded.

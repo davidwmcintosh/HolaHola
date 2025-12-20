@@ -76,6 +76,7 @@ import { founderCollabService } from "./founder-collaboration-service";
 import { phaseTransitionService } from "./phase-transition-service";
 import { voiceDiagnostics } from "./voice-diagnostics-service";
 import { learnerMemoryExtractionService } from "./learner-memory-extraction-service";
+import { studentLearningService } from "./student-learning-service";
 import { db } from "../db";
 import { 
   tutorProcedures, 
@@ -1051,6 +1052,7 @@ export class StreamingVoiceOrchestrator {
       let expressLaneSection = '';
       let textChatSection = '';
       let editorFeedbackSection = '';
+      let studentLearningSection = '';  // PROACTIVE STUDENT INTELLIGENCE: Struggles & strategies
       let surfacedFeedbackIds: string[] = [];
       let expressLaneHistory: { role: 'user' | 'assistant'; content: string }[] = [];
       session.pendingArchitectNoteIds = [];
@@ -1070,6 +1072,35 @@ export class StreamingVoiceOrchestrator {
               }
             })
             .catch(err => console.warn(`[Architect Context] Failed:`, err.message))
+        );
+      }
+      
+      // 2. PROACTIVE STUDENT INTELLIGENCE: Fetch learning context (struggles, strategies, personal facts)
+      // This enables Daniela to anticipate struggles and use proven strategies for THIS student
+      // Guard: Only fetch if we have a valid userId (skip for admin/founder-only sessions)
+      if (session.userId && session.targetLanguage) {
+        contextPromises.push(
+          studentLearningService.getStudentLearningContext(String(session.userId), session.targetLanguage)
+            .then(context => {
+              if (!context) return; // Guard against null/undefined context
+              const formatted = studentLearningService.formatContextForPrompt(context);
+              if (formatted) {
+                studentLearningSection = `
+═══════════════════════════════════════════════════════════════════
+📚 STUDENT INTELLIGENCE (Proactive Personalization)
+═══════════════════════════════════════════════════════════════════
+${formatted}
+
+TEACHING GUIDANCE:
+- Gently support struggles without dwelling on them
+- Use proven strategies that work for this student
+- Build on recent progress to maintain momentum
+- Reference personal facts naturally to show you remember them
+`;
+                console.log(`[Student Intelligence] Injecting learning context: ${context.struggles?.length || 0} struggles, ${context.effectiveStrategies?.length || 0} strategies`);
+              }
+            })
+            .catch(err => console.warn(`[Student Intelligence] Failed:`, err.message))
         );
       }
       
@@ -1198,8 +1229,14 @@ Remember: David may reference things discussed in these recent text chats.
       await Promise.all(contextPromises);
       console.log(`[Context Fetch] All context fetched in ${Date.now() - contextStart}ms (parallel)`)
       
-      // Build enhanced system prompt with Hive context + Express Lane + Text Chat + Editor feedback
+      // Build enhanced system prompt with all context layers
       let enhancedSystemPrompt = session.systemPrompt;
+      
+      // PROACTIVE STUDENT INTELLIGENCE: Include learning context for ALL sessions (not just Founder Mode)
+      if (studentLearningSection) {
+        enhancedSystemPrompt += studentLearningSection;
+      }
+      
       if (hiveContextSection) {
         enhancedSystemPrompt += hiveContextSection;
       }
@@ -2081,17 +2118,46 @@ Remember: David may reference things discussed in these recent text chats.
       const MAX_SENTENCES = 5;
       let actualSentenceCount = 0;
       
-      // Check for architect notes
+      // Check for architect notes and student learning context in parallel
       let architectContext = '';
+      let studentLearningSection = '';
       session.pendingArchitectNoteIds = [];  // Reset for this turn
+      
+      const contextPromises: Promise<void>[] = [];
+      
+      // Architect notes (if conversationId available)
       if (session.conversationId) {
-        const { context, noteIds } = await architectVoiceService.buildArchitectContextWithIds(session.conversationId);
-        architectContext = context;
-        session.pendingArchitectNoteIds = noteIds;
-        if (architectContext) {
-          console.log(`[Streaming Orchestrator] Including ${noteIds.length} architect notes in context (open mic)`);
-        }
+        contextPromises.push(
+          architectVoiceService.buildArchitectContextWithIds(session.conversationId)
+            .then(({ context, noteIds }) => {
+              architectContext = context;
+              session.pendingArchitectNoteIds = noteIds;
+              if (architectContext) {
+                console.log(`[Streaming Orchestrator] Including ${noteIds.length} architect notes in context (open mic)`);
+              }
+            })
+            .catch(err => console.warn(`[Architect Context] Failed (open mic):`, err.message))
+        );
       }
+      
+      // PROACTIVE STUDENT INTELLIGENCE: Fetch learning context for personalization
+      // Guard: Only fetch if we have a valid userId (skip for admin/founder-only sessions)
+      if (session.userId && session.targetLanguage) {
+        contextPromises.push(
+          studentLearningService.getStudentLearningContext(String(session.userId), session.targetLanguage)
+            .then(context => {
+              if (!context) return; // Guard against null/undefined context
+              const formatted = studentLearningService.formatContextForPrompt(context);
+              if (formatted) {
+                studentLearningSection = `\n\n[STUDENT PROFILE]${formatted}`;
+                console.log(`[Student Intelligence] Open mic: ${context.struggles?.length || 0} struggles, ${context.effectiveStrategies?.length || 0} strategies`);
+              }
+            })
+            .catch(err => console.warn(`[Student Intelligence] Failed (open mic):`, err.message))
+        );
+      }
+      
+      await Promise.all(contextPromises);
       
       // BARGE-IN CONTEXT: Let Daniela know the student interrupted her
       let interruptContext = '';
@@ -2103,8 +2169,13 @@ Remember: David may reference things discussed in these recent text chats.
       
       const userMessageWithNote = transcript + architectContext + interruptContext;
       
+      // Build enhanced system prompt with student learning context
+      const enhancedSystemPrompt = studentLearningSection 
+        ? session.systemPrompt + studentLearningSection 
+        : session.systemPrompt;
+      
       await this.geminiService.streamWithSentenceChunking({
-        systemPrompt: session.systemPrompt,
+        systemPrompt: enhancedSystemPrompt,
         conversationHistory: session.conversationHistory,
         userMessage: userMessageWithNote,
         onSentence: async (chunk: SentenceChunk) => {
