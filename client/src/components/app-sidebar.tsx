@@ -20,11 +20,12 @@ import { StreakIndicator } from "@/components/StreakIndicator";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/hooks/useAuth";
 import { hasTeacherAccess, hasAdminAccess } from "@shared/permissions";
+import { useQuery } from "@tanstack/react-query";
 
 const dashboardItem = { title: "Language Hub", url: "/", icon: Target };
 
-const libraryMenuItems = [
-  { title: "Practice with Aris", url: "/practice", icon: Dumbbell },
+// Static menu items (practice item will be dynamic)
+const staticLibraryMenuItems = [
   { title: "Vocabulary", url: "/vocabulary", icon: BookOpen },
   { title: "Grammar", url: "/grammar", icon: Languages },
   { title: "Past Chats", url: "/history", icon: History },
@@ -52,6 +53,20 @@ export function AppSidebar() {
   const { userName } = useLanguage();
   const { user } = useAuth();
   const { setOpenMobile, setOpen, isMobile } = useSidebar();
+  
+  // Fetch assistant name for the user's current language
+  const { data: assistantData } = useQuery<{ name: string; language: string; gender: string }>({
+    queryKey: ['/api/assistant/name'],
+    enabled: !!user,
+    staleTime: 60000, // Cache for 1 minute
+  });
+  
+  // Build library menu items with dynamic assistant name
+  const assistantName = assistantData?.name || 'Aris';
+  const libraryMenuItems = [
+    { title: `Practice with ${assistantName}`, url: "/practice", icon: Dumbbell },
+    ...staticLibraryMenuItems,
+  ];
   
   // Auto-close sidebar when a menu item is clicked (both mobile and desktop)
   const closeSidebar = () => {

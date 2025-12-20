@@ -59,8 +59,15 @@ User Audio → Deepgram Nova-3 (LIVE API) → Gemini Streaming → Cartesia Soni
 - Files: `streaming-voice-orchestrator.ts`, `deepgram-live-stt.ts`, `tts-service.ts`
 - Config: `server/services/voice-config.ts` (shared constants with runtime validation)
 
-**Support/Assistant Tutors:**
-- TTS: Google Cloud Text-to-Speech
+**Support/Assistant Tutors (Language-Specific):**
+- TTS: Google Cloud Text-to-Speech (Chirp HD voices matching main tutor gender)
+- Config: `server/services/assistant-tutor-config.ts`
+- API: `/api/assistant/name` (returns language-aware name), `/api/aris/persona` (full persona)
+- Assistant names match main tutor gender and are culturally appropriate:
+  - Spanish: Aris♀/Marco♂, French: Amélie♀/Étienne♂, German: Greta♀/Felix♂
+  - Italian: Chiara♀/Matteo♂, Japanese: Hana♀/Kenji♂, Mandarin: Mei♀/Wei♂
+  - Portuguese: Clara♀/Rafael♂, English: Emma♀/Jack♂, Korean: Soo-yeon♀/Ji-ho♂
+- Sidebar dynamically displays "Practice with [name]" based on user's language/gender preference
 
 **OpenAI Realtime API (LEGACY - NOT FOR DANIELA):**
 - Separate proxy in `realtime-proxy.ts`

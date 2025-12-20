@@ -13019,15 +13019,33 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
     }
   });
   
-  // Get Aris persona info (for UI display)
+  // Get assistant persona - now language-aware
+  // Query params: ?language=spanish&gender=female (optional, defaults to user's settings)
   app.get("/api/aris/persona", isAuthenticated, async (req: any, res) => {
     try {
-      const { ARIS_PERSONA, ARIS_FEEDBACK } = await import('./services/assistant-tutor-config');
+      const { getAssistantPersona, ARIS_FEEDBACK } = await import('./services/assistant-tutor-config');
+      
+      // Get language and gender from query params or user profile
+      const userId = req.session?.userId || req.user?.claims?.sub;
+      let targetLanguage = req.query.language as string;
+      let tutorGender = req.query.gender as 'female' | 'male';
+      
+      // If not provided in query, get from user preferences
+      if (!targetLanguage || !tutorGender) {
+        const user = userId ? await storage.getUser(userId) : null;
+        targetLanguage = targetLanguage || user?.targetLanguage || 'spanish';
+        tutorGender = tutorGender || (user?.tutorGender as 'female' | 'male') || 'female';
+      }
+      
+      const persona = getAssistantPersona(targetLanguage, tutorGender);
+      
       res.json({
-        name: ARIS_PERSONA.name,
-        role: ARIS_PERSONA.role,
-        personality: ARIS_PERSONA.personality.traits,
-        voiceTone: ARIS_PERSONA.voice.tone,
+        name: persona.name,
+        role: persona.role,
+        language: persona.language,
+        gender: persona.gender,
+        personality: persona.personality.traits,
+        voiceTone: persona.voice.tone,
         feedbackPhrases: {
           correct: ARIS_FEEDBACK.correct,
           almostCorrect: ARIS_FEEDBACK.almostCorrect,
@@ -13036,7 +13054,31 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
         },
       });
     } catch (error: any) {
-      console.error('[API] Error fetching Aris persona:', error);
+      console.error('[API] Error fetching assistant persona:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get assistant name for current language (lightweight endpoint for sidebar)
+  app.get("/api/assistant/name", isAuthenticated, async (req: any, res) => {
+    try {
+      const { getAssistantPersona } = await import('./services/assistant-tutor-config');
+      
+      const userId = req.session?.userId || req.user?.claims?.sub;
+      const user = userId ? await storage.getUser(userId) : null;
+      const targetLanguage = user?.targetLanguage || 'spanish';
+      const tutorGender = user?.tutorGender;
+      
+      // Use getAssistantPersona which normalizes both language and gender internally
+      const persona = getAssistantPersona(targetLanguage, tutorGender);
+      
+      res.json({
+        name: persona.name,
+        language: persona.language,
+        gender: persona.gender,
+      });
+    } catch (error: any) {
+      console.error('[API] Error fetching assistant name:', error);
       res.status(500).json({ error: error.message });
     }
   });
