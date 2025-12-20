@@ -61,7 +61,8 @@ User Audio → Deepgram Nova-3 (LIVE API) → Gemini Streaming → Cartesia Soni
 
 **Support/Assistant Tutors (Language-Specific):**
 - TTS: Google Cloud Text-to-Speech (Chirp HD voices matching main tutor gender)
-- Config: `server/services/assistant-tutor-config.ts`
+- **Runtime Config**: `server/services/assistant-tutor-config.ts` (for voice routing)
+- **Neural Network**: `tutor_procedures` table contains "Assistant Tutor Handoff Protocol" procedure with full directory (for Daniela's procedural knowledge)
 - API: `/api/assistant/name` (returns language-aware name), `/api/aris/persona` (full persona)
 - Assistant names match main tutor gender and are culturally appropriate:
   - Spanish: Aris♀/Marco♂, French: Amélie♀/Étienne♂, German: Greta♀/Felix♂
@@ -70,6 +71,8 @@ User Audio → Deepgram Nova-3 (LIVE API) → Gemini Streaming → Cartesia Soni
 - Sidebar dynamically displays "Practice with [name]" based on user's language/gender preference
 
 **Tutor Handoff System (`[SWITCH_TUTOR]` Command):**
+- **Procedural Memory**: The handoff protocol and assistant directory live in `tutor_procedures` table (category: 'transition', trigger: 'practice_opportunity')
+- Daniela retrieves this procedure contextually when practice opportunities arise
 - Main tutors can seamlessly hand off to assistant tutors using `[SWITCH_TUTOR target="female" role="assistant"]`
 - Session state tracks `isAssistantActive` flag and `cachedMainTutorVoiceId` for voice restoration
 - TTS routing: `forceProvider: 'google'` bypasses Cartesia for assistant mode
