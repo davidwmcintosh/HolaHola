@@ -8,6 +8,64 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: December 20, 2025 - Sprint System Wiring (Daniela → EXPRESS Lane → Wren)
+
+**Status**: IMPLEMENTED - Core wiring complete, follow-ups identified
+
+**Overview**: Wired Daniela's `[WREN_SPRINT_SUGGEST]` voice chat tags to create actual `featureSprint` database records, with automatic EXPRESS Lane posting and teaching perspective feedback loop.
+
+#### What Was Implemented
+
+| Component | Description |
+|-----------|-------------|
+| Sprint Record Creation | `[WREN_SPRINT_SUGGEST]` tags now create real `featureSprint` records in DB |
+| Robust JSON Parsing | 3-level fallback: direct JSON → extract JSON from text → pattern matching |
+| EXPRESS Lane Posting | New sprints auto-post to collaboration channel for visibility |
+| Teaching Perspective Pipeline | `notifyDanielaAboutSprint()` triggers Daniela's pedagogical input |
+| Source Attribution | Uses `source: 'ai_suggestion'` to distinguish from founder/Wren-created sprints |
+
+#### Key Files Modified
+
+| File | Changes |
+|------|---------|
+| `server/services/streaming-voice-orchestrator.ts` | Sprint creation from voice tags, Daniela notification |
+| `server/services/hive-consciousness-service.ts` | Enhanced JSON parsing with fallbacks |
+
+#### JSON Parsing Fallback Strategy
+
+```typescript
+// Level 1: Direct JSON parse
+JSON.parse(content)
+
+// Level 2: Extract JSON from text wrapper
+const jsonMatch = content.match(/\{[\s\S]*\}/);
+JSON.parse(jsonMatch[1])
+
+// Level 3: Pattern extraction
+const titleMatch = content.match(/title['":\s]+([^,}]+)/i);
+const descMatch = content.match(/description['":\s]+([^}]+)/i);
+```
+
+#### Follow-Up Work for Builders
+
+| Priority | Task | Description |
+|----------|------|-------------|
+| Medium | `[WREN_MESSAGE]` Persistence | Tags post to EXPRESS Lane but don't persist separately. Consider `wrenVoiceMessages` table for Wren's "voice" history |
+| Medium | Sprint Stage Transitions | If Daniela/Wren suggest moving a sprint to different stage during conversation, wire that up |
+| Low | Bidirectional Sprint Linking | Currently sprint → session. Add conversation-level breadcrumbs showing which teaching moments triggered which sprints |
+| Low | Priority Inference Enhancement | Currently defaults to 'medium'/'high' by keywords. Could use Daniela's confidence signals or student impact data |
+
+#### Architecture Pattern
+
+Follows existing Hive collaboration pattern:
+1. Voice chat detects `[WREN_SPRINT_SUGGEST: {...}]` tag
+2. Parse JSON with multi-level fallback for AI output robustness
+3. Create `featureSprint` record with `source: 'ai_suggestion'`
+4. Post to EXPRESS Lane for Wren/Founder visibility
+5. Trigger Daniela feedback for teaching perspective
+
+---
+
 ### Session: December 17, 2025 - Voice Diagnostics Learning Capabilities
 
 **Status**: IMPLEMENTED - Commercial-grade diagnostics with emergent intelligence
