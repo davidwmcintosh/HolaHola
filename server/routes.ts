@@ -13899,6 +13899,27 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
       res.status(500).json({ error: error.message });
     }
   });
+  
+  // Manually trigger Daniela→Wren collaboration on existing sprints
+  // Used to retroactively run collaboration on sprints created before bidirectional code was added
+  app.post("/api/feature-sprints/:id/trigger-collaboration", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const { founderContext } = req.body;
+      const result = await hiveConsciousnessService.triggerSprintCollaborationManual(
+        req.params.id,
+        founderContext
+      );
+      
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(400).json(result);
+      }
+    } catch (error: any) {
+      console.error('[API] Error triggering sprint collaboration:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   // ===== Consultation Threads API =====
   

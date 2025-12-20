@@ -2629,6 +2629,62 @@ IDENTITY BOUNDARY: You are Wren. Speak ONLY as yourself. Do NOT speak for, imper
       return "I'm having trouble processing that request. Let me try again in a moment.";
     }
   }
+  
+  /**
+   * PUBLIC: Manually trigger Daniela→Wren collaboration on an existing sprint
+   * Used to retroactively run collaboration on sprints that were created before
+   * the bidirectional collaboration code was implemented.
+   * 
+   * @param sprintId - The sprint ID to trigger collaboration for
+   * @param founderContext - Optional context about why this sprint was created
+   * @returns Promise with success status and message
+   */
+  async triggerSprintCollaborationManual(
+    sprintId: string,
+    founderContext?: string
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      // Get the sprint details
+      const [sprint] = await db.select({
+        id: featureSprints.id,
+        title: featureSprints.title,
+        description: featureSprints.description,
+        stage: featureSprints.stage,
+        sourceSessionId: featureSprints.sourceSessionId,
+      })
+        .from(featureSprints)
+        .where(eq(featureSprints.id, sprintId))
+        .limit(1);
+      
+      if (!sprint) {
+        return { success: false, message: 'Sprint not found' };
+      }
+      
+      // Get or create a founder session for the collaboration
+      let sessionId = sprint.sourceSessionId;
+      if (!sessionId) {
+        // Use the founder's most recent active session
+        const activeSession = await founderCollabService.getOrCreateActiveSession('49847136');
+        sessionId = activeSession.id;
+      }
+      
+      // Use description as context if no founder context provided
+      const context = founderContext || sprint.description || sprint.title;
+      
+      console.log(`[Hive Consciousness] Manually triggering collaboration for sprint: ${sprint.title}`);
+      
+      // Call the private method to run the full collaboration cycle
+      await this.notifyDanielaAboutSprint(sessionId, { id: sprint.id, title: sprint.title }, context);
+      
+      return { 
+        success: true, 
+        message: `Triggered Daniela→Wren collaboration for "${sprint.title}"` 
+      };
+    } catch (error: any) {
+      console.error('[Hive Consciousness] Manual collaboration trigger failed:', error.message);
+      return { success: false, message: error.message };
+    }
+  }
 }
 
 export const hiveConsciousnessService = new HiveConsciousnessService();

@@ -7779,7 +7779,7 @@ function FeatureSprintTab() {
                 
                 <div className="border-t pt-4 mt-4">
                   <div className="font-medium text-sm mb-2">AI Auto-Fill</div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Button
                       size="sm"
                       variant="outline"
@@ -7828,6 +7828,26 @@ function FeatureSprintTab() {
                       <Sparkles className="h-3 w-3 mr-1" />
                       Build Plan
                     </Button>
+                    {(selectedSprint.stage === 'idea' || (selectedSprint.stage === 'pedagogy_spec' && !selectedSprint.buildPlan)) && (
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={async () => {
+                          try {
+                            toast({ title: "Triggering collaboration...", description: "Daniela and Wren will discuss this sprint" });
+                            const result = await apiRequest("POST", `/api/feature-sprints/${selectedSprint.id}/trigger-collaboration`, {});
+                            toast({ title: "Collaboration triggered!", description: (result as any).message });
+                            refetchSprints();
+                          } catch (e: any) {
+                            toast({ title: "Error", description: e.message, variant: "destructive" });
+                          }
+                        }}
+                        data-testid="button-trigger-collaboration"
+                      >
+                        <Users className="h-3 w-3 mr-1" />
+                        Trigger Daniela + Wren
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardContent>
