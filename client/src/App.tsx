@@ -47,6 +47,7 @@ const CurriculumLibrary = lazy(() => import("@/pages/curriculum-library"));
 const ClassCreationHub = lazy(() => import("@/pages/class-creation-hub"));
 const CommandCenter = lazy(() => import("@/pages/admin/CommandCenter"));
 const AdminVoiceConsole = lazy(() => import("@/pages/admin/VoiceConsole"));
+const AdminNorthStar = lazy(() => import("@/pages/admin/NorthStar"));
 const Lessons = lazy(() => import("@/pages/lessons"));
 const ReviewHub = lazy(() => import("@/pages/review-hub"));
 const ArisPractice = lazy(() => import("@/pages/aris-practice"));
@@ -165,6 +166,7 @@ function Router() {
         {/* Admin Routes - Command Center consolidates all admin features */}
         <Route path="/admin" component={CommandCenter} />
         <Route path="/admin/voices" component={AdminVoiceConsole} />
+        <Route path="/admin/north-star" component={AdminNorthStar} />
         
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />

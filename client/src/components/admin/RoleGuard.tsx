@@ -4,7 +4,7 @@ import { useEffect } from "react";
 
 interface RoleGuardProps {
   children: React.ReactNode;
-  allowedRoles: Array<'student' | 'teacher' | 'developer' | 'admin'>;
+  allowedRoles: Array<'student' | 'teacher' | 'developer' | 'admin' | 'founder'>;
   redirectTo?: string;
 }
 
