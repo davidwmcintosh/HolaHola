@@ -18962,7 +18962,7 @@ You have full access to your neural network knowledge.
     }
   });
 
-  // Update a principle (Admin/Founder only - guidance updates)
+  // Update a principle (Admin can update metadata, Founder can update everything including constitutional text)
   app.patch("/api/north-star/principles/:id", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.session?.userId || req.user?.claims?.sub;
@@ -18971,18 +18971,38 @@ You have full access to your neural network knowledge.
       }
       
       const user = await storage.getUser(userId);
-      if (!user || user.role !== 'admin') {
-        return res.status(403).json({ error: 'Admin access required (Founder only)' });
+      if (!user || (user.role !== 'admin' && user.role !== 'founder')) {
+        return res.status(403).json({ error: 'Admin or Founder access required' });
       }
 
       const { id } = req.params;
-      const { originalContext, orderIndex, isActive } = req.body;
+      const { originalContext, orderIndex, isActive, principle, category } = req.body;
       
-      const updated = await storage.updateNorthStarPrinciple(id, {
+      // Build update object - metadata fields available to all admins
+      const updateData: any = {
         originalContext: originalContext !== undefined ? originalContext : undefined,
         orderIndex: orderIndex !== undefined ? orderIndex : undefined,
         isActive: isActive !== undefined ? isActive : undefined,
-      });
+      };
+      
+      // Constitutional text fields (principle, category) - FOUNDER ONLY
+      if (user.role === 'founder') {
+        if (principle !== undefined) {
+          updateData.principle = principle;
+          console.log(`[NORTH-STAR] Founder ${user.id} editing principle text for ${id}`);
+        }
+        if (category !== undefined) {
+          updateData.category = category;
+          console.log(`[NORTH-STAR] Founder ${user.id} editing category for ${id}`);
+        }
+      } else if (principle !== undefined || category !== undefined) {
+        // Admin tried to edit constitutional fields
+        return res.status(403).json({ 
+          error: 'Only the Founder can edit principle text and category (constitutional DNA)' 
+        });
+      }
+      
+      const updated = await storage.updateNorthStarPrinciple(id, updateData);
       
       if (!updated) {
         return res.status(404).json({ error: 'Principle not found' });

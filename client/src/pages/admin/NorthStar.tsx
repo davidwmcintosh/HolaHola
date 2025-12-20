@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { RoleGuard } from "@/components/admin/RoleGuard";
+import { useUser } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Plus, Edit2, Save, X, Compass, BookOpen, Heart, Users, HelpCircle, Sparkles } from "lucide-react";
+import { Plus, Edit2, Save, X, Compass, BookOpen, Heart, Users, HelpCircle, Sparkles, Shield } from "lucide-react";
 
 type NorthStarCategory = 'pedagogy' | 'honesty' | 'identity' | 'collaboration' | 'ambiguity';
 
@@ -47,6 +48,8 @@ const categoryColors: Record<NorthStarCategory, string> = {
 
 export default function NorthStar() {
   const { toast } = useToast();
+  const { user } = useUser();
+  const isFounder = user?.role === 'founder';
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<NorthStarPrinciple>>({});
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -95,6 +98,8 @@ export default function NorthStar() {
   const startEditing = (principle: NorthStarPrinciple) => {
     setEditingId(principle.id);
     setEditForm({
+      principle: principle.principle,
+      category: principle.category,
       originalContext: principle.originalContext || '',
       orderIndex: principle.orderIndex,
       isActive: principle.isActive,
@@ -107,14 +112,19 @@ export default function NorthStar() {
   };
 
   const saveEdit = (id: string) => {
-    updateMutation.mutate({ 
-      id, 
-      data: {
-        originalContext: editForm.originalContext,
-        orderIndex: editForm.orderIndex,
-        isActive: editForm.isActive,
-      }
-    });
+    const data: Partial<NorthStarPrinciple> = {
+      originalContext: editForm.originalContext,
+      orderIndex: editForm.orderIndex,
+      isActive: editForm.isActive,
+    };
+    
+    // Founder can also edit constitutional fields
+    if (isFounder) {
+      data.principle = editForm.principle;
+      data.category = editForm.category;
+    }
+    
+    updateMutation.mutate({ id, data });
   };
 
   const toggleActive = (principle: NorthStarPrinciple) => {
@@ -302,23 +312,62 @@ export default function NorthStar() {
                         <div className="flex-1">
                           {isEditing ? (
                             <div className="space-y-4">
-                              <div className="space-y-2">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <Badge 
-                                    variant="outline" 
-                                    className={`${categoryColors[principle.category]} flex items-center gap-1`}
-                                  >
-                                    <CategoryIcon className="h-3 w-3" />
-                                    {categoryInfo?.label}
-                                  </Badge>
-                                  <Badge variant="outline" className="text-muted-foreground text-xs">
-                                    Principle text is immutable
-                                  </Badge>
+                              {isFounder ? (
+                                <>
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Badge variant="outline" className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 flex items-center gap-1">
+                                      <Shield className="h-3 w-3" />
+                                      Founder Override
+                                    </Badge>
+                                    <span className="text-xs text-muted-foreground">You can edit constitutional text</span>
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label>Principle Text</Label>
+                                    <Textarea
+                                      value={editForm.principle || ''}
+                                      onChange={(e) => setEditForm({ ...editForm, principle: e.target.value })}
+                                      className="min-h-[80px]"
+                                      data-testid="input-edit-principle"
+                                    />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label>Category</Label>
+                                    <Select
+                                      value={editForm.category}
+                                      onValueChange={(v) => setEditForm({ ...editForm, category: v as NorthStarCategory })}
+                                    >
+                                      <SelectTrigger data-testid="select-edit-category">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {CATEGORIES.map((cat) => (
+                                          <SelectItem key={cat.value} value={cat.value}>
+                                            {cat.label}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </>
+                              ) : (
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Badge 
+                                      variant="outline" 
+                                      className={`${categoryColors[principle.category]} flex items-center gap-1`}
+                                    >
+                                      <CategoryIcon className="h-3 w-3" />
+                                      {categoryInfo?.label}
+                                    </Badge>
+                                    <Badge variant="outline" className="text-muted-foreground text-xs">
+                                      Principle text is immutable
+                                    </Badge>
+                                  </div>
+                                  <p className="text-base font-medium leading-relaxed text-muted-foreground">
+                                    {principle.principle}
+                                  </p>
                                 </div>
-                                <p className="text-base font-medium leading-relaxed text-muted-foreground">
-                                  {principle.principle}
-                                </p>
-                              </div>
+                              )}
                               <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                   <Label>Order Index</Label>
