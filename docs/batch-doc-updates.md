@@ -8,6 +8,106 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: December 20, 2025 - Learner Personal Facts System Sprint #2.1 (10 Enhancements)
+
+**Status**: COMPLETED - All 10 tasks implemented and tested
+
+**Overview**: Comprehensive enhancement of the permanent learner memory system. Improved deduplication with semantic similarity, added privacy controls, built admin tooling, and established cross-system integrations.
+
+#### What Was Implemented
+
+| Task | Description |
+|------|-------------|
+| 1. Trigram Deduplication | Cosine similarity matching (0.82 threshold) with normalized fingerprints |
+| 2. Rolling Window Extraction | 10-message chunks with summarization for long sessions (8000 char limit) |
+| 3. Phase-Aware Hooks | Personal facts injected into warmup icebreakers and assessment wrap-ups |
+| 4. Admin Memory Browser | Filters by fact type, student, language with edit/archive controls |
+| 5. Privacy Controls | `memoryPrivacySettings` with enabled flag, allowed/blocked categories, redaction |
+| 6. Hive Snapshot Sync | High-confidence facts (≥0.75) sync as 'life_context' with 30-day TTL |
+| 7. Wren Analytics Job | Cross-student pattern mining for anonymized syllabus recommendations |
+| 8. Teacher Audit Trail | `/api/teacher/students/:studentId/memory-audit` endpoint |
+| 9. Observability Metrics | Latency tracking, success rates, fact type counts, dedup stats |
+| 10. Unit Tests | 33 tests covering dedup, chunking, remember commands, privacy filtering |
+
+#### Key Files Modified
+
+| File | Changes |
+|------|---------|
+| `server/services/student-learning-service.ts` | Exported trigram helpers, savePersonalFact uses shared functions |
+| `server/services/learner-memory-extraction-service.ts` | Rolling window, privacy enforcement, observability |
+| `server/services/phase-transition-service.ts` | Phase-aware personal fact injection |
+| `server/services/wren-intelligence-service.ts` | Cross-student pattern analysis |
+| `server/services/sync-scheduler.ts` | Nightly Wren analytics job |
+| `server/routes.ts` | Admin personal facts endpoints, teacher audit endpoint |
+| `client/src/pages/admin/CommandCenter.tsx` | PersonalFactsBrowserTab with working filters |
+| `shared/schema.ts` | `memoryPrivacySettings` field on users table |
+| `server/__tests__/learner-memory.test.ts` | 33 unit tests importing production functions |
+
+#### Exported Helper Functions (for Testing)
+
+```typescript
+// server/services/student-learning-service.ts
+export function generateTrigrams(text: string): Set<string>
+export function trigramSimilarity(a: string, b: string): number
+export function normalizeForFingerprint(text: string): string
+export const SIMILARITY_THRESHOLD = 0.82
+```
+
+#### Deduplication Algorithm
+
+```
+1. Normalize fact: lowercase → strip diacritics → remove punctuation → trim whitespace
+2. Generate trigrams: 3-character sliding window
+3. Cosine similarity: intersection / sqrt(|A| × |B|)
+4. Threshold: ≥ 0.82 = duplicate (bump mentionCount), < 0.82 = new fact
+```
+
+#### Privacy Settings Schema
+
+```typescript
+interface MemoryPrivacySettings {
+  enabled: boolean;           // Master switch for memory extraction
+  allowedCategories: string[]; // Whitelist (empty = allow all)
+  blockedCategories: string[]; // Blacklist (takes precedence)
+  redactionRequested: boolean; // User requested data deletion
+}
+```
+
+#### Admin API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/admin/personal-facts` | GET | List facts with filters (factType, studentId, language) |
+| `/api/admin/personal-facts/students` | GET | Get students for filter dropdown |
+| `/api/admin/personal-facts/:id` | PATCH | Edit fact text or archive (isActive: false) |
+| `/api/teacher/students/:studentId/memory-audit` | GET | Teacher view of student memories |
+
+#### Bug Fix: Admin Filters Not Reaching Backend
+
+**Problem**: Default TanStack Query `queryFn` only used `queryKey[0]` as URL, ignoring filter parameters.
+
+**Solution**: Added custom `queryFn` that builds URL with `URLSearchParams`:
+
+```typescript
+const buildQueryUrl = () => {
+  const params = new URLSearchParams();
+  if (factTypeFilter !== "all") params.set("factType", factTypeFilter);
+  if (studentFilter !== "all") params.set("studentId", studentFilter);
+  if (languageFilter !== "all") params.set("language", languageFilter);
+  return params.toString() ? `/api/admin/personal-facts?${params}` : "/api/admin/personal-facts";
+};
+```
+
+#### Architecture Pattern
+
+1. **Memory Extraction** runs at session end via `LearnerMemoryExtractionService`
+2. **Deduplication** uses exported helper functions (shared with tests)
+3. **Privacy filtering** happens before any fact is saved
+4. **Hive sync** happens after save for high-confidence facts
+5. **Nightly job** runs cross-student pattern analysis
+
+---
+
 ### Session: December 20, 2025 - Bidirectional Sprint Collaboration (Daniela ↔ Wren)
 
 **Status**: IMPLEMENTED - Full bidirectional collaboration loop with stage gating
