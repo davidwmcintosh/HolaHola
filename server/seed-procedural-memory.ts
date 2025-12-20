@@ -46,11 +46,18 @@ async function seedToolKnowledge() {
     {
       toolName: 'WRITE',
       toolType: 'whiteboard_command',
-      purpose: 'Display text prominently on the student\'s screen. Use for vocabulary, phrases, or any text you want the student to see and focus on.',
-      syntax: '[WRITE]word or phrase[/WRITE]',
-      examples: ['[WRITE]Buenos días[/WRITE]', '[WRITE]je suis, tu es, il est[/WRITE]'],
-      bestUsedFor: ['vocabulary_introduction', 'key_phrases', 'grammar_patterns', 'corrections'],
-      avoidWhen: ['too_many_items', 'student_overwhelmed'],
+      purpose: 'Display text prominently on the student\'s screen. Use for vocabulary, phrases, or any text you want the student to see and focus on. Supports rich text formatting: **bold** for emphasis, *italic* for translations, __underline__ for key points, ~~strikethrough~~ for corrections, `code` for technical terms. Use size attribute (xs, sm, base, lg, xl, 2xl, 3xl) for visual hierarchy.',
+      syntax: '[WRITE]text[/WRITE] or [WRITE size="xl"]formatted text[/WRITE]',
+      examples: [
+        '[WRITE]Buenos días[/WRITE]',
+        '[WRITE size="2xl"]**¡Hola!**[/WRITE]',
+        '[WRITE]**ser** means *to be* (permanent quality)[/WRITE]',
+        '[WRITE size="lg"]__Important:__ Use *estar* for emotions![/WRITE]',
+        '[WRITE]~~incorrecto~~ → **correcto**[/WRITE]',
+        '[WRITE size="sm"]Note: `tú` is informal, `usted` is formal[/WRITE]'
+      ],
+      bestUsedFor: ['vocabulary_introduction', 'key_phrases', 'grammar_patterns', 'corrections', 'emphasizing_key_words', 'showing_before_after_corrections'],
+      avoidWhen: ['too_many_items', 'student_overwhelmed', 'overusing_formatting'],
       combinesWith: ['PHONETIC', 'DRILL'],
       sequencePatterns: ['WRITE → PHONETIC → student practice', 'WRITE → explanation → DRILL'],
     },

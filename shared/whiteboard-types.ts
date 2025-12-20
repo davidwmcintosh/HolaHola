@@ -346,9 +346,28 @@ export interface WhiteboardItemBase {
   id?: string;
 }
 
+/**
+ * Write item formatting options
+ * Size: Controls text size (xs, sm, base, lg, xl, 2xl, 3xl)
+ * Content supports inline markdown-like formatting:
+ * - **bold** → bold text
+ * - *italic* → italic text  
+ * - __underline__ → underlined text
+ * - ~~strikethrough~~ → strikethrough text
+ * - `code` → monospace/code text
+ * 
+ * Example: [WRITE size="xl"]**¡Hola!** means *hello*[/WRITE]
+ */
+export type WriteItemSize = 'xs' | 'sm' | 'base' | 'lg' | 'xl' | '2xl' | '3xl';
+
+export interface WriteItemData {
+  size?: WriteItemSize;
+}
+
 export interface WriteItem extends WhiteboardItemBase {
   type: 'write';
   content: string;
+  data?: WriteItemData;
 }
 
 export interface PhoneticItem extends WhiteboardItemBase {
@@ -733,7 +752,8 @@ export interface WhiteboardParseResult {
  * Non-greedy matching to handle multiple tags in one response
  */
 export const WHITEBOARD_PATTERNS = {
-  WRITE: /\[WRITE\]([\s\S]*?)\[\/WRITE\]/gi,
+  // WRITE now supports optional size attribute: [WRITE size="xl"]content[/WRITE]
+  WRITE: /\[WRITE(?:\s+size=["']?(xs|sm|base|lg|xl|2xl|3xl)["']?)?\]([\s\S]*?)\[\/WRITE\]/gi,
   PHONETIC: /\[PHONETIC\]([\s\S]*?)\[\/PHONETIC\]/gi,
   COMPARE: /\[COMPARE\]([\s\S]*?)\[\/COMPARE\]/gi,
   IMAGE: /\[IMAGE\]([\s\S]*?)\[\/IMAGE\]/gi,
@@ -1297,12 +1317,14 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
 
   WHITEBOARD_PATTERNS.WRITE.lastIndex = 0;
   while ((match = WHITEBOARD_PATTERNS.WRITE.exec(text)) !== null) {
-    const content = match[1].trim();
+    const sizeAttr = match[1] as WriteItemSize | undefined;
+    const content = match[2].trim();
     items.push({
       type: 'write',
       content,
       timestamp: now,
       id: generateItemId(),
+      data: sizeAttr ? { size: sizeAttr } : undefined,
     });
     vocabularyWords.push(content);
   }

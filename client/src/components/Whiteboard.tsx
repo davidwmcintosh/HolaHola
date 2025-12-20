@@ -63,6 +63,8 @@ import type HanziWriter from "hanzi-writer";
 import type { 
   WhiteboardItem, 
   WhiteboardItemType,
+  WriteItem,
+  WriteItemSize,
   ImageItem,
   DrillItem,
   PronunciationItem,
@@ -1018,6 +1020,98 @@ const PronunciationItemDisplay = ({ item, index }: PronunciationItemDisplayProps
   );
 };
 
+/**
+ * Parse markdown-like formatting in whiteboard text content
+ * Supports: **bold**, *italic*, __underline__, ~~strikethrough~~, `code`
+ */
+function parseFormattedText(text: string): JSX.Element[] {
+  const elements: JSX.Element[] = [];
+  let keyIndex = 0;
+  
+  // Combined regex for all formatting patterns
+  // Order matters: check longer patterns first (** before *, __ before _)
+  const formatRegex = /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(__(.+?)__)|(\~\~(.+?)\~\~)|(`(.+?)`)/g;
+  
+  let lastIndex = 0;
+  let match;
+  
+  while ((match = formatRegex.exec(text)) !== null) {
+    // Add plain text before this match
+    if (match.index > lastIndex) {
+      elements.push(
+        <span key={keyIndex++}>{text.slice(lastIndex, match.index)}</span>
+      );
+    }
+    
+    // Determine which format matched and render accordingly
+    if (match[1]) {
+      // **bold**
+      elements.push(
+        <strong key={keyIndex++} className="font-bold">{match[2]}</strong>
+      );
+    } else if (match[3]) {
+      // *italic*
+      elements.push(
+        <em key={keyIndex++} className="italic">{match[4]}</em>
+      );
+    } else if (match[5]) {
+      // __underline__
+      elements.push(
+        <span key={keyIndex++} className="underline decoration-2">{match[6]}</span>
+      );
+    } else if (match[7]) {
+      // ~~strikethrough~~
+      elements.push(
+        <span key={keyIndex++} className="line-through opacity-60">{match[8]}</span>
+      );
+    } else if (match[9]) {
+      // `code`
+      elements.push(
+        <code key={keyIndex++} className="font-mono bg-muted px-1.5 py-0.5 rounded text-sm">{match[10]}</code>
+      );
+    }
+    
+    lastIndex = match.index + match[0].length;
+  }
+  
+  // Add remaining plain text
+  if (lastIndex < text.length) {
+    elements.push(
+      <span key={keyIndex++}>{text.slice(lastIndex)}</span>
+    );
+  }
+  
+  // If no formatting found, return original text
+  if (elements.length === 0) {
+    elements.push(<span key={0}>{text}</span>);
+  }
+  
+  return elements;
+}
+
+/**
+ * Get Tailwind text size class from WriteItemSize
+ */
+function getTextSizeClass(size?: WriteItemSize): string {
+  switch (size) {
+    case 'xs': return 'text-xs';
+    case 'sm': return 'text-sm';
+    case 'base': return 'text-base';
+    case 'lg': return 'text-lg';
+    case 'xl': return 'text-xl';
+    case '2xl': return 'text-2xl';
+    case '3xl': return 'text-3xl';
+    default: return 'text-lg md:text-xl'; // Default size
+  }
+}
+
+/**
+ * Type guard for WriteItem
+ */
+function isWriteItem(item: WhiteboardItem): item is WriteItem {
+  return item.type === 'write';
+}
+
 interface TextItemDisplayProps {
   item: WhiteboardItem;
   index: number;
@@ -1026,6 +1120,10 @@ interface TextItemDisplayProps {
 const TextItemDisplay = ({ item, index }: TextItemDisplayProps) => {
   const icon = getItemIcon(item.type);
   const style = getItemStyle(item.type);
+  
+  // Get size from WriteItem data if available
+  const size = isWriteItem(item) ? item.data?.size : undefined;
+  const textSizeClass = getTextSizeClass(size);
   
   return (
     <motion.div
@@ -1041,8 +1139,8 @@ const TextItemDisplay = ({ item, index }: TextItemDisplayProps) => {
           {icon}
         </span>
       )}
-      <span className="text-lg md:text-xl font-medium leading-relaxed">
-        {item.content}
+      <span className={`${textSizeClass} font-medium leading-relaxed`}>
+        {parseFormattedText(item.content)}
       </span>
     </motion.div>
   );
