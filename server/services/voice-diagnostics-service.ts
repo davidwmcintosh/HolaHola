@@ -36,7 +36,7 @@
 /**
  * TTS Fallback Configuration
  * 
- * DISABLED: Daniela's voice never falls back to Google TTS.
+ * DISABLED: Daniela's voice never falls back to Google TTS automatically.
  * Her voice identity is tied to Cartesia's Sonic-3 model.
  * 
  * The detection logic (isTTSDegraded) still runs to:
@@ -44,10 +44,47 @@
  * - Alert founders to Cartesia issues
  * - Inject awareness into Daniela's context
  * 
- * Set to true ONLY if you want to enable automatic TTS provider switching.
- * This would change Daniela's voice mid-session - not recommended.
+ * Auto-remediation is controlled per-persona:
+ * - 'daniela': Fallback DISABLED (alerts only), founders can override
+ * - 'general': Auto-fallback ENABLED with auto-restore
  */
 export const DANIELA_TTS_FALLBACK_ENABLED = false;
+
+/**
+ * Auto-Remediation Configuration
+ */
+export const AUTO_REMEDIATION_CONFIG = {
+  // Number of consecutive successes required to restore Cartesia
+  successesToRestore: 5,
+  // Number of failures to trigger fallback (for general persona)
+  failuresToTrigger: 3,
+  // Latency threshold in ms to trigger fallback
+  latencyThreshold: 2000,
+  // Cooldown period in ms before attempting to restore Cartesia
+  restoreCooldownMs: 60000, // 1 minute
+};
+
+/**
+ * Remediation State
+ * Tracks the current state of the auto-remediation system
+ */
+export type RemediationState = 'healthy' | 'degraded' | 'fallback' | 'restoring';
+
+/**
+ * Remediation Status
+ * Full status of the auto-remediation system
+ */
+export interface RemediationStatus {
+  state: RemediationState;
+  inFallbackMode: boolean;
+  consecutiveSuccesses: number;
+  consecutiveFailures: number;
+  lastDegradationAt: Date | null;
+  lastRestorationAt: Date | null;
+  lastAlertAt: Date | null;
+  founderOverrideActive: boolean;
+  currentProvider: 'cartesia' | 'google';
+}
 
 import { db } from "../db";
 import { hiveSnapshots } from "@shared/schema";
@@ -88,6 +125,16 @@ class VoiceDiagnosticsService {
   private readonly FLUSH_INTERVAL_MS = 60000; // Or every 60 seconds
   private flushTimer: NodeJS.Timeout | null = null;
   private isShuttingDown = false;
+  
+  // Auto-Remediation State Machine
+  private remediationState: RemediationState = 'healthy';
+  private inFallbackMode: boolean = false;
+  private consecutiveSuccesses: number = 0;
+  private consecutiveFailures: number = 0;
+  private lastDegradationAt: Date | null = null;
+  private lastRestorationAt: Date | null = null;
+  private lastAlertAt: Date | null = null;
+  private founderOverrideActive: boolean = false;
   
   constructor() {
     this.startPeriodicFlush();
@@ -656,6 +703,222 @@ class VoiceDiagnosticsService {
     }
     
     return degraded;
+  }
+  
+  // ============================================================
+  // AUTO-REMEDIATION SYSTEM
+  // ============================================================
+  
+  /**
+   * Get current remediation status
+   */
+  getRemediationStatus(): RemediationStatus {
+    return {
+      state: this.remediationState,
+      inFallbackMode: this.inFallbackMode,
+      consecutiveSuccesses: this.consecutiveSuccesses,
+      consecutiveFailures: this.consecutiveFailures,
+      lastDegradationAt: this.lastDegradationAt,
+      lastRestorationAt: this.lastRestorationAt,
+      lastAlertAt: this.lastAlertAt,
+      founderOverrideActive: this.founderOverrideActive,
+      currentProvider: this.inFallbackMode ? 'google' : 'cartesia',
+    };
+  }
+  
+  /**
+   * Record a TTS result and update remediation state
+   * Call this after each TTS request to track success/failure patterns
+   * 
+   * @param success - Whether the TTS request succeeded
+   * @param latencyMs - Optional latency in milliseconds
+   * @param persona - The persona making the request
+   * @returns Whether to use fallback provider for next request
+   */
+  recordTTSResult(success: boolean, latencyMs?: number, persona: 'daniela' | 'general' = 'daniela'): {
+    useFallback: boolean;
+    stateChanged: boolean;
+    newState: RemediationState;
+  } {
+    const allowAutoFallback = persona === 'daniela' ? DANIELA_TTS_FALLBACK_ENABLED : true;
+    const prevState = this.remediationState;
+    
+    // Track consecutive success/failures
+    if (success && (!latencyMs || latencyMs < AUTO_REMEDIATION_CONFIG.latencyThreshold)) {
+      this.consecutiveSuccesses++;
+      this.consecutiveFailures = 0;
+    } else {
+      this.consecutiveFailures++;
+      this.consecutiveSuccesses = 0;
+    }
+    
+    // State machine transitions
+    switch (this.remediationState) {
+      case 'healthy':
+        // Check for degradation
+        if (this.consecutiveFailures >= AUTO_REMEDIATION_CONFIG.failuresToTrigger) {
+          this.remediationState = 'degraded';
+          this.lastDegradationAt = new Date();
+          console.log(`[Auto-Remediation] State: healthy → degraded (${this.consecutiveFailures} consecutive failures, persona: ${persona})`);
+          
+          // For general persona, enter fallback immediately
+          if (allowAutoFallback) {
+            this.inFallbackMode = true;
+            this.remediationState = 'fallback';
+            console.log(`[Auto-Remediation] State: degraded → fallback (auto-fallback enabled for ${persona})`);
+          } else {
+            // For Daniela, alert but don't fallback
+            this.emitDegradationAlert(persona);
+          }
+        }
+        break;
+        
+      case 'degraded':
+        // Already degraded, check if we should fallback (if allowed)
+        if (allowAutoFallback && this.consecutiveFailures >= AUTO_REMEDIATION_CONFIG.failuresToTrigger) {
+          this.inFallbackMode = true;
+          this.remediationState = 'fallback';
+          console.log(`[Auto-Remediation] State: degraded → fallback (auto-fallback triggered)`);
+        }
+        // Or check if recovered
+        if (this.consecutiveSuccesses >= AUTO_REMEDIATION_CONFIG.successesToRestore) {
+          this.remediationState = 'healthy';
+          this.lastRestorationAt = new Date();
+          console.log(`[Auto-Remediation] State: degraded → healthy (${this.consecutiveSuccesses} consecutive successes)`);
+        }
+        break;
+        
+      case 'fallback':
+        // We're in fallback mode - check if Cartesia is healthy again
+        // Start restoring if cooldown passed and we have some successes
+        const cooldownPassed = !this.lastDegradationAt || 
+          (Date.now() - this.lastDegradationAt.getTime()) > AUTO_REMEDIATION_CONFIG.restoreCooldownMs;
+        
+        if (cooldownPassed && this.consecutiveSuccesses >= 2) {
+          this.remediationState = 'restoring';
+          console.log(`[Auto-Remediation] State: fallback → restoring (attempting Cartesia restoration)`);
+        }
+        break;
+        
+      case 'restoring':
+        // Try Cartesia - if it succeeds enough times, restore fully
+        if (this.consecutiveSuccesses >= AUTO_REMEDIATION_CONFIG.successesToRestore) {
+          this.inFallbackMode = false;
+          this.remediationState = 'healthy';
+          this.lastRestorationAt = new Date();
+          console.log(`[Auto-Remediation] ✓ State: restoring → healthy (Cartesia restored after ${this.consecutiveSuccesses} successes)`);
+        }
+        // If it fails again, go back to fallback
+        if (this.consecutiveFailures >= 1) {
+          this.remediationState = 'fallback';
+          console.log(`[Auto-Remediation] State: restoring → fallback (restoration failed, back to fallback)`);
+        }
+        break;
+    }
+    
+    return {
+      useFallback: this.inFallbackMode && allowAutoFallback,
+      stateChanged: prevState !== this.remediationState,
+      newState: this.remediationState,
+    };
+  }
+  
+  /**
+   * Emit an alert when Daniela's TTS is degraded (but fallback is disabled)
+   * This creates a hiveSnapshot for founder visibility
+   */
+  private async emitDegradationAlert(persona: string): Promise<void> {
+    // Rate limit alerts to once per 5 minutes
+    if (this.lastAlertAt && (Date.now() - this.lastAlertAt.getTime()) < 300000) {
+      return;
+    }
+    
+    this.lastAlertAt = new Date();
+    
+    const alertContent = {
+      type: 'tts_degradation_alert',
+      persona,
+      message: `TTS degradation detected for ${persona}. Fallback is ${persona === 'daniela' ? 'DISABLED' : 'ENABLED'}.`,
+      consecutiveFailures: this.consecutiveFailures,
+      remediationState: this.remediationState,
+      timestamp: this.lastAlertAt.toISOString(),
+    };
+    
+    console.log(`[Auto-Remediation] ⚠️ ALERT: TTS degradation for ${persona} - ${this.consecutiveFailures} failures`);
+    
+    try {
+      await db.insert(hiveSnapshots).values({
+        snapshotType: 'voice_diagnostic', // Use existing type, alert info in content
+        title: `⚠️ TTS Degradation Alert (${persona})`,
+        content: JSON.stringify(alertContent),
+        context: JSON.stringify({
+          environment: process.env.NODE_ENV || 'development',
+          recentEvents: this.events.filter(e => e.stage === 'tts').slice(-10),
+        }),
+        importance: 9, // High importance for alerts
+        metadata: { persona, failures: this.consecutiveFailures },
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      });
+    } catch (error: any) {
+      console.error('[Auto-Remediation] Failed to persist degradation alert:', error.message);
+    }
+  }
+  
+  /**
+   * Check if we should use fallback provider for the current request
+   * This is a quick check for TTS service to consult before each request
+   * 
+   * @param persona - The persona making the request
+   * @returns Whether to use fallback (Google) instead of primary (Cartesia)
+   */
+  shouldUseFallback(persona: 'daniela' | 'general' = 'daniela'): boolean {
+    // If founder override is active, check what it's set to
+    if (this.founderOverrideActive) {
+      return this.inFallbackMode;
+    }
+    
+    // For Daniela, never auto-fallback unless override is active
+    if (persona === 'daniela' && !DANIELA_TTS_FALLBACK_ENABLED) {
+      return false;
+    }
+    
+    // For general persona, use the current fallback state
+    return this.inFallbackMode;
+  }
+  
+  /**
+   * Founder override to force fallback mode (or restore)
+   * Used when founders want to manually switch providers
+   * 
+   * @param enableFallback - Whether to enable fallback mode
+   */
+  setFounderOverride(enableFallback: boolean): void {
+    this.founderOverrideActive = true;
+    this.inFallbackMode = enableFallback;
+    this.remediationState = enableFallback ? 'fallback' : 'healthy';
+    console.log(`[Auto-Remediation] Founder override: fallback=${enableFallback}`);
+  }
+  
+  /**
+   * Clear founder override, return to automatic remediation
+   */
+  clearFounderOverride(): void {
+    this.founderOverrideActive = false;
+    console.log(`[Auto-Remediation] Founder override cleared, returning to automatic mode`);
+  }
+  
+  /**
+   * Force restore to Cartesia (skip the gradual restoration)
+   * Used when founders want to immediately try Cartesia again
+   */
+  forceRestore(): void {
+    this.inFallbackMode = false;
+    this.remediationState = 'healthy';
+    this.consecutiveSuccesses = 0;
+    this.consecutiveFailures = 0;
+    this.lastRestorationAt = new Date();
+    this.founderOverrideActive = false;
+    console.log(`[Auto-Remediation] Force restore to Cartesia completed`);
   }
 }
 

@@ -901,15 +901,39 @@ export class TTSService {
       return result;
     }
 
+    // Check auto-remediation state before selecting provider
+    const { voiceDiagnostics } = await import('./voice-diagnostics-service');
+    const shouldUseFallbackProvider = voiceDiagnostics.shouldUseFallback('general');
+    
+    // If auto-remediation says to use fallback, skip Cartesia and go directly to Google
+    if (shouldUseFallbackProvider && this.googleClient) {
+      console.log('[TTS] Auto-remediation active: skipping Cartesia, using Google fallback');
+      try {
+        const result = await this.synthesizeWithGoogle(text, language, targetLanguage, returnTimings, speakingRate, voice);
+        const elapsed = Date.now() - startTime;
+        console.log(`[TTS] ✓ Google (auto-remediation) completed in ${elapsed}ms`);
+        voiceDiagnostics.recordTTSResult(true, elapsed, 'general');
+        return result;
+      } catch (googleError: any) {
+        console.error(`[TTS] ❌ Google (auto-remediation) failed: ${googleError.message}`);
+        voiceDiagnostics.recordTTSResult(false, undefined, 'general');
+        throw new Error(`Google TTS failed during auto-remediation: ${googleError.message}`);
+      }
+    }
+    
     // Try Cartesia first if it's the primary provider
     if (this.provider === 'cartesia' && this.cartesiaClient) {
       try {
         const result = await this.synthesizeWithCartesia(text, language, speakingRate, emotion, voiceId, targetLanguage);
         const elapsed = Date.now() - startTime;
         console.log(`[TTS] ✓ Cartesia completed in ${elapsed}ms (emotion: ${emotion || 'default'})`);
+        // Record TTS success for auto-remediation (general persona for non-streaming TTS)
+        voiceDiagnostics.recordTTSResult(true, elapsed, 'general');
         return result;
       } catch (error: any) {
         console.error(`[TTS] ⚠ Cartesia failed: ${error.message}`);
+        // Record TTS failure for auto-remediation
+        voiceDiagnostics.recordTTSResult(false, undefined, 'general');
         
         // Try fallback to Google if enabled
         if (this.fallbackEnabled && this.googleClient) {

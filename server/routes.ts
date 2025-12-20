@@ -9887,6 +9887,70 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  // ===== Voice Auto-Remediation (Founder Only) =====
+  // Persona-aware TTS fallback with auto-restore
+  
+  // Get auto-remediation status
+  app.get("/api/admin/voice-remediation/status", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const status = voiceDiagnostics.getRemediationStatus();
+      res.json(status);
+    } catch (error: any) {
+      console.error('[Auto-Remediation] Status error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Founder override: force fallback mode
+  app.post("/api/admin/voice-remediation/fallback", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { enable } = req.body;
+      if (typeof enable !== 'boolean') {
+        return res.status(400).json({ error: 'enable parameter required (boolean)' });
+      }
+      
+      voiceDiagnostics.setFounderOverride(enable);
+      const status = voiceDiagnostics.getRemediationStatus();
+      res.json({ 
+        message: `Founder override: fallback ${enable ? 'ENABLED' : 'DISABLED'}`,
+        status 
+      });
+    } catch (error: any) {
+      console.error('[Auto-Remediation] Override error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Clear founder override, return to automatic mode
+  app.post("/api/admin/voice-remediation/auto", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      voiceDiagnostics.clearFounderOverride();
+      const status = voiceDiagnostics.getRemediationStatus();
+      res.json({ 
+        message: 'Returned to automatic remediation mode',
+        status 
+      });
+    } catch (error: any) {
+      console.error('[Auto-Remediation] Clear override error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Force restore to Cartesia (skip gradual restoration)
+  app.post("/api/admin/voice-remediation/restore", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      voiceDiagnostics.forceRestore();
+      const status = voiceDiagnostics.getRemediationStatus();
+      res.json({ 
+        message: 'Force restored to Cartesia. All counters reset.',
+        status 
+      });
+    } catch (error: any) {
+      console.error('[Auto-Remediation] Force restore error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // ===== Historical Memory Migration (Founder Only) =====
   // One-time migration of founder voice conversations to Daniela's neural network
   

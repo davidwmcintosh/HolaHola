@@ -38,6 +38,7 @@ import {
   PERSONALITY_PRESETS,
   addCartesiaPhonemesToText,
 } from './tts-service';
+import { voiceDiagnostics } from './voice-diagnostics-service';
 
 /**
  * Pronunciation dictionary IDs from Cartesia
@@ -615,8 +616,15 @@ export class CartesiaStreamingService extends EventEmitter {
       const apiType = useWebSocket ? 'WebSocket' : 'bytes';
       console.log(`[Cartesia Streaming] ✓ Complete (${apiType}): ${chunkCount} chunks, ${totalBytes} bytes in ${elapsed}ms`);
       
+      // Record TTS success for auto-remediation state machine
+      // Persona: 'daniela' since Cartesia streaming is used exclusively for Daniela
+      voiceDiagnostics.recordTTSResult(true, elapsed, 'daniela');
+      
     } catch (error: any) {
       console.error('[Cartesia Streaming] Error:', error.message);
+      
+      // Record TTS failure for auto-remediation state machine
+      voiceDiagnostics.recordTTSResult(false, undefined, 'daniela');
       
       // If WebSocket failed, try falling back to bytes API
       if (useWebSocket && this.client) {
