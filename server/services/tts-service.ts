@@ -258,6 +258,7 @@ export interface TTSRequest {
   returnTimings?: boolean; // Request word-level timing data for subtitle sync
   speakingRate?: number; // Speaking rate: 0.25 to 4.0, default 0.9 (0.7 for slow mode)
   emotion?: CartesiaEmotion; // Cartesia Sonic-3 emotion control for natural tutoring
+  forceProvider?: TTSProvider; // Force a specific provider (bypasses primary provider selection)
 }
 
 /**
@@ -884,8 +885,21 @@ export class TTSService {
    * Falls back to Google Cloud TTS if primary fails and fallback is enabled
    */
   async synthesize(request: TTSRequest): Promise<TTSResponse> {
-    const { text, language, voice, voiceId, targetLanguage, returnTimings, speakingRate, emotion } = request;
+    const { text, language, voice, voiceId, targetLanguage, returnTimings, speakingRate, emotion, forceProvider } = request;
     const startTime = Date.now();
+
+    // If forceProvider is specified, use that provider directly (bypass normal provider selection)
+    // This is used for assistant tutors who need Google TTS even when Cartesia is primary
+    if (forceProvider === 'google') {
+      if (!this.googleClient) {
+        throw new Error('Google Cloud TTS is not available. Set GOOGLE_CLOUD_TTS_CREDENTIALS.');
+      }
+      console.log(`[TTS] Force provider: Google (assistant mode)`);
+      const result = await this.synthesizeWithGoogle(text, language, targetLanguage, returnTimings, speakingRate, voice);
+      const elapsed = Date.now() - startTime;
+      console.log(`[TTS] ✓ Google (forced) completed in ${elapsed}ms`);
+      return result;
+    }
 
     // Try Cartesia first if it's the primary provider
     if (this.provider === 'cartesia' && this.cartesiaClient) {
@@ -901,7 +915,7 @@ export class TTSService {
         if (this.fallbackEnabled && this.googleClient) {
           console.log('[TTS] Falling back to Google Cloud TTS...');
           try {
-            const result = await this.synthesizeWithGoogle(text, language, targetLanguage, returnTimings, speakingRate);
+            const result = await this.synthesizeWithGoogle(text, language, targetLanguage, returnTimings, speakingRate, voice);
             const elapsed = Date.now() - startTime;
             console.log(`[TTS] ✓ Google fallback completed in ${elapsed}ms`);
             return result;
@@ -921,7 +935,7 @@ export class TTSService {
       }
 
       try {
-        const result = await this.synthesizeWithGoogle(text, language, targetLanguage, returnTimings, speakingRate);
+        const result = await this.synthesizeWithGoogle(text, language, targetLanguage, returnTimings, speakingRate, voice);
         const elapsed = Date.now() - startTime;
         console.log(`[TTS] ✓ Google completed in ${elapsed}ms`);
         return result;
@@ -1453,7 +1467,7 @@ export class TTSService {
    * @param returnTimings - Whether to return word-level timing data for subtitles
    * @param speakingRate - Speaking rate: 0.25 to 4.0 (default 0.9, use 0.7 for slow mode)
    */
-  private async synthesizeWithGoogle(text: string, language?: string, targetLanguage?: string, returnTimings?: boolean, speakingRate?: number): Promise<TTSResponse> {
+  private async synthesizeWithGoogle(text: string, language?: string, targetLanguage?: string, returnTimings?: boolean, speakingRate?: number, voiceOverride?: string): Promise<TTSResponse> {
     if (!this.googleClient) {
       throw new Error('Google Cloud TTS client not initialized');
     }
@@ -1483,7 +1497,15 @@ export class TTSService {
     // CRITICAL: Chirp 3 HD voices do NOT support SSML!
     // If SSML is needed, switch to Neural2 voice which supports phoneme tags
     let voiceConfig: { name: string; languageCode: string };
-    if (usesSSML) {
+    
+    // If a specific voice override is provided (e.g., for assistant tutors), use it directly
+    if (voiceOverride) {
+      // Parse the voice name to extract language code (e.g., "es-ES-Chirp3-HD-Eosi" → "es-ES")
+      const voiceParts = voiceOverride.split('-');
+      const languageCode = voiceParts.length >= 2 ? `${voiceParts[0]}-${voiceParts[1]}` : 'en-US';
+      voiceConfig = { name: voiceOverride, languageCode };
+      console.log(`[Google TTS] Using voice override: ${voiceConfig.name} (${voiceConfig.languageCode}) for assistant tutor`);
+    } else if (usesSSML) {
       // Use Neural2 voice for SSML compatibility
       voiceConfig = GOOGLE_SSML_VOICE_MAP[selectedLanguage] || GOOGLE_SSML_VOICE_MAP['english'];
       console.log(`[Google TTS] Using SSML-compatible voice: ${voiceConfig.name} (${selectedLanguage}) for phoneme pronunciation`);

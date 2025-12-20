@@ -57,7 +57,7 @@ import { parseWhiteboardMarkup, WhiteboardItem, WordMapItem, isWordMapItem, stri
 function logMetric(type: string, data: Record<string, number | string | boolean>) {
   console.log(`[METRICS] ${JSON.stringify({ type, ...data, ts: Date.now() })}`);
 }
-import { constrainEmotion, TutorPersonality, CartesiaEmotion } from "./tts-service";
+import { constrainEmotion, TutorPersonality, CartesiaEmotion, getTTSService, getAssistantVoice } from "./tts-service";
 import { extractTargetLanguageText, extractTargetLanguageWithMapping, hasSignificantTargetLanguageContent } from "../text-utils";
 import { storage } from "../storage";
 import { validateOneUnitRule, UnitValidationResult } from "../phrase-detection";
@@ -388,6 +388,8 @@ export interface StreamingSession {
     items: string[];
     priority?: 'low' | 'medium' | 'high';
   };
+  isAssistantActive?: boolean;       // True when practice partner (assistant tutor) is active - uses Google TTS
+  cachedMainTutorVoiceId?: string;   // Cached main tutor voiceId to restore when returning from assistant
   // Additional context for personalized greetings
   conversationTopic?: string;       // What student chose to work on (from conversation.topic)
   conversationTitle?: string;       // Thread name for context (from conversation.title)
@@ -1720,15 +1722,23 @@ Remember: David may reference things discussed in these recent text chats.
             if (assistantConfig) {
               tutorName = targetGender === 'male' ? assistantConfig.male : assistantConfig.female;
               
+              // CRITICAL: Cache current voiceId before entering assistant mode
+              // This allows restoring the main tutor's voice when switching back
+              if (session.voiceId && !session.isAssistantActive) {
+                session.cachedMainTutorVoiceId = session.voiceId;
+                console.log(`[Tutor Switch] Cached main tutor voiceId: ${session.voiceId}`);
+              }
+              
               // Update session for assistant mode
-              // Note: voiceId is NOT set for assistants - they use Google Cloud TTS
+              // CRITICAL: Set isAssistantActive flag for TTS routing to use Google Cloud TTS
+              session.isAssistantActive = true;
+              session.voiceId = undefined; // Clear voiceId to signal Google TTS should be used
               session.tutorGender = targetGender;
               session.tutorName = tutorName;
               
-              console.log(`[Tutor Switch] Assistant handoff: ${tutorName} (${effectiveLanguage}, ${targetGender})`);
+              console.log(`[Tutor Switch] Assistant handoff: ${tutorName} (${effectiveLanguage}, ${targetGender}) - TTS: Google Cloud`);
               
               // Notify client of assistant handoff
-              // Note: isAssistant flag not in type - client should detect by tutorName matching assistant config
               this.sendMessage(session.ws, {
                 type: 'tutor_handoff',
                 timestamp: Date.now(),
@@ -1754,8 +1764,17 @@ Remember: David may reference things discussed in these recent text chats.
               // Extract tutor name from voice_name (e.g., "Sayuri - Peppy Colleague" → "Sayuri")
               const voiceNameParts = matchingVoice.voiceName?.split(/\s*[-–]\s*/) || [];
               tutorName = voiceNameParts[0]?.trim();
+              
+              // CRITICAL: Clear assistant mode when switching to main tutor
+              // This ensures TTS routing uses Cartesia again
+              const wasAssistantActive = session.isAssistantActive;
+              session.isAssistantActive = false;
+              
+              if (wasAssistantActive) {
+                console.log(`[Tutor Switch] Returning from assistant mode to main tutor - TTS: Cartesia`);
+              }
             
-              // Update session voice
+              // Update session voice with Cartesia voiceId
               session.voiceId = matchingVoice.voiceId;
               session.tutorGender = targetGender;
               session.tutorName = tutorName;
@@ -2375,6 +2394,12 @@ Remember: David may reference things discussed in these recent text chats.
   ): Promise<void> {
     const { text: originalText, index } = chunk;
     
+    // ASSISTANT MODE: Use Google TTS instead of Cartesia for practice partners
+    if (session.isAssistantActive) {
+      await this.streamSentenceAudioWithGoogle(session, chunk, displayText, metrics, turnId);
+      return;
+    }
+    
     // Determine emotion based on original text (which may have emotion tags)
     const emotion = this.selectEmotionForContext(originalText, session);
     
@@ -2495,6 +2520,108 @@ Remember: David may reference things discussed in these recent text chats.
   }
   
   /**
+   * Stream audio for a sentence using Google Cloud TTS (for assistant tutors)
+   * Non-streaming but provides reliable audio for practice partners
+   * 
+   * @param session - Current streaming session (must have isAssistantActive = true)
+   * @param chunk - The sentence chunk from Gemini
+   * @param displayText - Cleaned text for display/timing
+   * @param metrics - Metrics to update  
+   * @param turnId - Turn ID for packet ordering
+   */
+  private async streamSentenceAudioWithGoogle(
+    session: StreamingSession,
+    chunk: SentenceChunk,
+    displayText: string,
+    metrics: StreamingMetrics,
+    turnId?: number
+  ): Promise<void> {
+    const { index } = chunk;
+    const effectiveTurnId = turnId ?? session.currentTurnId;
+    
+    try {
+      const ttsService = getTTSService();
+      
+      // Get the appropriate Google voice for the assistant based on language and gender
+      const assistantGender = session.tutorGender === 'male' ? 'male' : 'female';
+      const assistantVoice = getAssistantVoice(session.targetLanguage, assistantGender as any);
+      
+      console.log(`[Streaming] Assistant TTS (Google): sentence ${index}, voice: ${assistantVoice.name}, language: ${session.targetLanguage}`);
+      
+      // Synthesize using Google Cloud TTS with the assistant-specific voice
+      // CRITICAL: forceProvider bypasses Cartesia and goes directly to Google
+      const result = await ttsService.synthesize({
+        text: displayText,
+        language: session.targetLanguage,
+        targetLanguage: session.targetLanguage,
+        voice: assistantVoice.name, // Use the assistant voice name (e.g., "es-ES-Chirp3-HD-Eosi")
+        speakingRate: 1.0, // Standard rate for practice
+        forceProvider: 'google', // CRITICAL: Force Google TTS for assistant tutors, bypass Cartesia
+      });
+      
+      if (!result.audio || result.audio.length === 0) {
+        console.warn(`[Streaming] Google TTS returned empty audio for sentence ${index}`);
+        return;
+      }
+      
+      metrics.audioBytes += result.audio.length;
+      const totalDurationMs = result.durationMs || 3000; // Estimate if not provided
+      
+      console.log(`[Streaming] Assistant sentence ${index}: ${result.audio.length} bytes (Google MP3), ~${Math.round(totalDurationMs)}ms`);
+      
+      // Send word timings (estimated since Google doesn't provide native timings)
+      if (session.subtitleMode !== 'off') {
+        const estimatedTimings = this.estimateWordTimings(displayText, totalDurationMs / 1000);
+        
+        this.sendMessage(session.ws, {
+          type: 'word_timing',
+          timestamp: Date.now(),
+          turnId: effectiveTurnId,
+          sentenceIndex: index,
+          words: estimatedTimings,
+          timings: estimatedTimings,
+          expectedDurationMs: totalDurationMs,
+        } as StreamingWordTimingMessage);
+      }
+      
+      // Send the audio
+      const audioBase64 = result.audio.toString('base64');
+      this.sendMessage(session.ws, {
+        type: 'audio_chunk',
+        timestamp: Date.now(),
+        turnId: effectiveTurnId,
+        sentenceIndex: index,
+        chunkIndex: 0,
+        isLast: true,
+        durationMs: totalDurationMs,
+        audio: audioBase64,
+        audioFormat: 'mp3',
+        sampleRate: 24000,
+      } as StreamingAudioChunkMessage);
+      
+      // Send sentence end
+      this.sendMessage(session.ws, {
+        type: 'sentence_end',
+        timestamp: Date.now(),
+        turnId: effectiveTurnId,
+        sentenceIndex: index,
+        totalDurationMs,
+      } as StreamingSentenceEndMessage);
+      
+    } catch (error: any) {
+      console.error(`[Streaming] Google TTS error for assistant sentence ${index}:`, error.message);
+      voiceDiagnostics.emit({
+        sessionId: session.id,
+        stage: 'tts',
+        success: false,
+        error: `Google TTS: ${error.message}`,
+        metadata: { sentenceIndex: index, provider: 'google', isAssistant: true }
+      });
+      this.sendError(session.ws, 'TTS_ERROR', `Audio generation failed for assistant sentence ${index}`, true);
+    }
+  }
+  
+  /**
    * PROGRESSIVE STREAMING: Stream audio for a single sentence with immediate forwarding
    * 
    * Unlike streamSentenceAudio (which buffers full sentence), this method forwards
@@ -2521,6 +2648,13 @@ Remember: David may reference things discussed in these recent text chats.
     metrics: StreamingMetrics,
     turnId?: number
   ): Promise<void> {
+    // ASSISTANT MODE: Use Google TTS instead of Cartesia for practice partners
+    // Falls back to non-progressive streaming since Google doesn't support streaming
+    if (session.isAssistantActive) {
+      await this.streamSentenceAudioWithGoogle(session, chunk, displayText, metrics, turnId);
+      return;
+    }
+    
     const { text: originalText, index } = chunk;
     const emotion = this.selectEmotionForContext(originalText, session);
     const effectiveTurnId = turnId ?? session.currentTurnId;
