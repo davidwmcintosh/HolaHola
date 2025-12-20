@@ -2043,8 +2043,41 @@ If no commitment: {"hasCommitment": false}`;
         { role: 'user', content: detectionPrompt }
       ]);
       
+      // Robust JSON parsing with multiple fallbacks
+      let parsed: any = { hasCommitment: false };
       const cleanResult = result.replace(/```json\n?|\n?```/g, '').trim();
-      const parsed = JSON.parse(cleanResult);
+      
+      try {
+        parsed = JSON.parse(cleanResult);
+      } catch (jsonError) {
+        // Fallback 1: Try to extract JSON object from response
+        const jsonMatch = cleanResult.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            parsed = JSON.parse(jsonMatch[0]);
+          } catch {
+            // Fallback 2: Pattern matching for common responses
+            if (/hasCommitment["']?\s*:\s*true/i.test(cleanResult)) {
+              const taskMatch = cleanResult.match(/["']?task["']?\s*:\s*["']([^"']+)["']/i);
+              const descMatch = cleanResult.match(/["']?description["']?\s*:\s*["']([^"']+)["']/i);
+              if (taskMatch) {
+                parsed = {
+                  hasCommitment: true,
+                  task: taskMatch[1],
+                  description: descMatch?.[1] || wrenResponse.substring(0, 200),
+                  type: 'general',
+                  priority: 'normal',
+                  estimatedEffort: 'medium',
+                };
+              }
+            }
+          }
+        }
+        
+        if (!parsed.hasCommitment) {
+          console.log(`[Hive Consciousness] JSON parse failed, raw: "${cleanResult.substring(0, 100)}..."`);
+        }
+      }
       
       if (parsed.hasCommitment && parsed.task) {
         // Map priority to sprint priority
@@ -2071,11 +2104,64 @@ If no commitment: {"hasCommitment": false}`;
           },
         }).returning({ id: featureSprints.id, title: featureSprints.title });
         
-        console.log(`[Hive Consciousness] Created sprint from Wren commitment: "${sprintItem.title}" (${sprintItem.id})`);
+        console.log(`[Hive Consciousness] ✅ Created sprint from Wren commitment: "${sprintItem.title}" (${sprintItem.id})`);
+        
+        // Notify Daniela about the new sprint for her teaching perspective
+        try {
+          await this.notifyDanielaAboutSprint(sessionId, sprintItem, founderRequest);
+        } catch (notifyErr: any) {
+          console.error('[Hive Consciousness] Failed to notify Daniela about sprint:', notifyErr.message);
+        }
       }
     } catch (error) {
       // Silent fail - commitment detection is non-critical
       console.error('[Hive Consciousness] Commitment detection failed:', error);
+    }
+  }
+  
+  /**
+   * Notify Daniela about a newly created sprint for her teaching perspective
+   * This creates the "discussion with Daniela" flow for sprint refinement
+   */
+  private async notifyDanielaAboutSprint(
+    sessionId: string, 
+    sprint: { id: string; title: string }, 
+    founderContext: string
+  ): Promise<void> {
+    // Generate Daniela's teaching perspective on the sprint
+    const perspectivePrompt = `You are Daniela, HolaHola's AI language tutor. A new feature sprint has been created:
+
+Sprint: "${sprint.title}"
+Context from founder: "${founderContext.substring(0, 300)}"
+
+Provide a brief teaching perspective (2-3 sentences):
+1. How might this feature affect student learning experience?
+2. Any pedagogical considerations to keep in mind?
+3. What teaching opportunities does this create?
+
+Keep it conversational - you're in a team chat with the founder and Wren (the builder).`;
+
+    try {
+      const perspective = await callGemini(GEMINI_MODELS.FLASH, [
+        { role: 'user', content: perspectivePrompt }
+      ]);
+      
+      if (perspective && perspective.trim()) {
+        // Post Daniela's perspective to EXPRESS Lane
+        await founderCollabWSBroker.addAndBroadcastMessage(sessionId, {
+          role: 'daniela',
+          content: `📚 Teaching perspective on **${sprint.title}**:\n\n${perspective.trim()}`,
+          messageType: 'text',
+          metadata: {
+            sprintId: sprint.id,
+            responseType: 'sprint_perspective',
+          },
+        });
+        
+        console.log(`[Hive Consciousness] Daniela provided perspective on sprint: ${sprint.title}`);
+      }
+    } catch (err: any) {
+      console.error('[Hive Consciousness] Failed to generate Daniela perspective:', err.message);
     }
   }
   

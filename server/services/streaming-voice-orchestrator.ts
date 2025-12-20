@@ -86,7 +86,55 @@ import {
   learnerErrorPatterns,
   dialectVariations,
   linguisticBridges,
+  featureSprints,
 } from "@shared/schema";
+
+/**
+ * Parse sprint suggestion content with fallback
+ * Handles both JSON format and free-form text
+ */
+function parseSprintSuggestion(content: string): { title: string; description: string; priority?: string } {
+  // First try JSON parsing
+  try {
+    // Handle JSON-like content (with or without outer braces)
+    let jsonContent = content.trim();
+    if (!jsonContent.startsWith('{')) {
+      jsonContent = `{${jsonContent}}`;
+    }
+    const parsed = JSON.parse(jsonContent);
+    return {
+      title: parsed.title || parsed.name || 'Untitled Sprint',
+      description: parsed.description || parsed.desc || parsed.details || content,
+      priority: parsed.priority || 'medium',
+    };
+  } catch {
+    // JSON parsing failed - extract from text patterns
+  }
+  
+  // Try key="value" pattern matching
+  const titleMatch = content.match(/title\s*[=:]\s*["']?([^"'\n,}]+)["']?/i);
+  const descMatch = content.match(/(?:description|desc)\s*[=:]\s*["']?([^"'\n}]+)["']?/i);
+  const priorityMatch = content.match(/priority\s*[=:]\s*["']?([^"'\n,}]+)["']?/i);
+  
+  if (titleMatch) {
+    return {
+      title: titleMatch[1].trim(),
+      description: descMatch?.[1]?.trim() || content,
+      priority: priorityMatch?.[1]?.trim() || 'medium',
+    };
+  }
+  
+  // Last resort: use first line as title, rest as description
+  const lines = content.split('\n').filter(l => l.trim());
+  const firstLine = lines[0] || 'Sprint suggestion from Daniela';
+  const restLines = lines.slice(1).join('\n') || content;
+  
+  return {
+    title: firstLine.slice(0, 100), // Limit title length
+    description: restLines,
+    priority: 'medium',
+  };
+}
 
 /**
  * Deepgram Configuration Feature Flags
@@ -3238,44 +3286,76 @@ Remember: David may reference things discussed in these recent text chats.
     
     // WREN_SPRINT_SUGGEST tags: [WREN_SPRINT_SUGGEST: {...}] or [WREN_SPRINT_SUGGEST title="..." ...]
     // Daniela suggests a new feature sprint to Wren via EXPRESS Lane
-    // Posts as a collaboration message so it appears in the EXPRESS Lane window
+    // Creates an actual featureSprint record AND posts to EXPRESS Lane for discussion
     const wrenSprintPattern = /\[WREN_SPRINT_SUGGEST[:\s]([^\]]+)\]/gi;
     let sprintMatch;
     while ((sprintMatch = wrenSprintPattern.exec(rawText)) !== null) {
       const sprintContent = sprintMatch[1].trim();
       
       try {
+        // Parse the sprint content with robust fallback
+        const parsed = parseSprintSuggestion(sprintContent);
+        
+        // Map priority string to valid enum
+        const priorityMap: Record<string, 'low' | 'medium' | 'high' | 'critical'> = {
+          'low': 'low',
+          'medium': 'medium',
+          'high': 'high',
+          'critical': 'critical',
+          'urgent': 'critical',
+        };
+        const sprintPriority = priorityMap[parsed.priority?.toLowerCase() || 'medium'] || 'medium';
+        
         // Get or create an active founder session for THIS specific founder
         const founderId = String(session.userId);
         const activeSession = await founderCollabService.getOrCreateActiveSession(founderId);
         
-        // Post message to Express Lane as Daniela to Wren
+        // Create the actual featureSprint record
+        // Using 'ai_suggestion' source since Daniela is an AI suggesting from teaching observations
+        const [createdSprint] = await db.insert(featureSprints).values({
+          title: parsed.title,
+          description: `${parsed.description}\n\n---\n**Origin:** Daniela voice suggestion\n**Context:** During voice chat with student`,
+          stage: 'idea',
+          priority: sprintPriority,
+          source: 'ai_suggestion',
+          sourceSessionId: activeSession.id,
+          createdBy: 'daniela',
+          featureBrief: {
+            problem: `Daniela identified this during teaching: ${sprintContent.slice(0, 300)}`,
+            solution: parsed.description.slice(0, 500),
+          },
+        }).returning({ id: featureSprints.id, title: featureSprints.title });
+        
+        console.log(`[Sprint] ✅ Created sprint from Daniela suggestion: "${createdSprint.title}" (${createdSprint.id})`);
+        
+        // Post to EXPRESS Lane for discussion with Wren and Founder
         await founderCollabService.addMessage(activeSession.id, {
           role: 'daniela',
           messageType: 'text',
-          content: `@Wren Sprint Suggestion:\n\n${sprintContent}`,
+          content: `@Wren Sprint Created: **${createdSprint.title}**\n\nI've created sprint #${createdSprint.id} based on what I'm seeing in teaching. Here's my thinking:\n\n${parsed.description}\n\nWhat do you think about the technical approach?`,
           metadata: {
             wrenTagged: true,
             fromVoiceChat: true,
             suggestionType: 'sprint',
+            sprintId: createdSprint.id,
             timestamp: new Date().toISOString(),
           },
         });
         
-        console.log(`[EXPRESS Lane] ✅ Daniela posted sprint suggestion to Wren: "${sprintContent.slice(0, 50)}..."`);
+        console.log(`[EXPRESS Lane] ✅ Daniela posted sprint to discuss: "${createdSprint.title}"`);
         
         // Also emit a beacon for visibility
         if (session.hiveChannelId) {
           await hiveCollaborationService.emitBeacon({
             channelId: session.hiveChannelId,
-            tutorTurn: `[SPRINT SUGGESTION] ${sprintContent.slice(0, 100)}`,
+            tutorTurn: `[SPRINT CREATED] ${createdSprint.title}`,
             studentTurn,
             beaconType: 'feature_idea',
-            beaconReason: 'Daniela suggested a sprint feature to Wren',
+            beaconReason: `Daniela created sprint: ${createdSprint.title}`,
           });
         }
       } catch (err: any) {
-        console.error(`[EXPRESS Lane] Failed to post sprint suggestion:`, err.message);
+        console.error(`[Sprint] Failed to create sprint from Daniela suggestion:`, err.message);
       }
     }
     
