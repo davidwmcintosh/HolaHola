@@ -92,7 +92,10 @@ import {
   Paperclip,
   FileIcon,
   Mic,
-  MicOff
+  MicOff,
+  Heart,
+  HelpCircle,
+  Save
 } from "lucide-react";
 import {
   AlertDialog,
@@ -105,6 +108,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 
 interface CollapsibleSectionProps {
   title: string;
@@ -575,6 +579,7 @@ export default function CommandCenter() {
     { id: "voice-lab", label: "Voice Lab", icon: Volume2, roles: ['admin', 'developer'] },
     { id: "neural-network", label: "Neural Network", icon: Zap, roles: ['developer', 'admin'] },
     { id: "brain-surgery", label: "Brain Surgery", icon: Brain, roles: ['developer', 'admin'] },
+    { id: "north-star", label: "North Star", icon: Compass, roles: ['developer', 'admin'] },
     { id: "teaching-tools", label: "Teaching Tools", icon: Activity, roles: ['developer', 'admin'] },
     { id: "dev-tools", label: "Dev Tools", icon: Code, roles: ['developer', 'admin'] },
     { id: "audit", label: "Audit", icon: FileText, roles: ['admin'] },
@@ -678,6 +683,10 @@ export default function CommandCenter() {
 
           <TabsContent value="brain-surgery" className="space-y-4">
             <BrainSurgeryTab />
+          </TabsContent>
+
+          <TabsContent value="north-star" className="space-y-4">
+            <NorthStarTab />
           </TabsContent>
 
           <TabsContent value="teaching-tools" className="space-y-4">
@@ -9086,6 +9095,340 @@ function CollaborationTab() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// North Star Principles Tab
+type NorthStarCategory = 'pedagogy' | 'honesty' | 'identity' | 'collaboration' | 'ambiguity';
+
+interface NorthStarPrinciple {
+  id: string;
+  principle: string;
+  category: NorthStarCategory;
+  originalContext: string | null;
+  founderSessionId: string | null;
+  orderIndex: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
+const NORTH_STAR_CATEGORIES: { value: NorthStarCategory; label: string; icon: typeof BookOpen; description: string }[] = [
+  { value: 'pedagogy', label: 'Pedagogy', icon: BookOpen, description: 'How to teach' },
+  { value: 'honesty', label: 'Honesty', icon: Heart, description: 'Ethics and feedback' },
+  { value: 'identity', label: 'Identity', icon: Sparkles, description: 'Who Daniela is' },
+  { value: 'collaboration', label: 'Collaboration', icon: Handshake, description: 'How the team works' },
+  { value: 'ambiguity', label: 'Ambiguity', icon: HelpCircle, description: 'Strategic uncertainty' },
+];
+
+const northStarCategoryColors: Record<NorthStarCategory, string> = {
+  pedagogy: 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30',
+  honesty: 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30',
+  identity: 'bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/30',
+  collaboration: 'bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30',
+  ambiguity: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30',
+};
+
+function NorthStarTab() {
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const isFounder = user?.role === 'founder' || user?.role === 'admin' || user?.role === 'developer';
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<Partial<NorthStarPrinciple>>({});
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [newPrinciple, setNewPrinciple] = useState({
+    principle: '',
+    category: 'pedagogy' as NorthStarCategory,
+    originalContext: '',
+    orderIndex: 1,
+  });
+  const [filterCategory, setFilterCategory] = useState<NorthStarCategory | 'all'>('all');
+
+  const { data: principles, isLoading, error } = useQuery<NorthStarPrinciple[]>({
+    queryKey: ['/api/north-star/principles'],
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<NorthStarPrinciple> }) => {
+      return apiRequest('PATCH', `/api/north-star/principles/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/north-star/principles'] });
+      setEditingId(null);
+      setEditForm({});
+      toast({ title: "Principle updated", description: "The North Star principle has been updated." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Update failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: typeof newPrinciple) => {
+      return apiRequest('POST', '/api/north-star/principles', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/north-star/principles'] });
+      setIsAddDialogOpen(false);
+      setNewPrinciple({ principle: '', category: 'pedagogy', originalContext: '', orderIndex: 1 });
+      toast({ title: "Principle created", description: "A new North Star principle has been added." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Creation failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const startEditing = (principle: NorthStarPrinciple) => {
+    setEditingId(principle.id);
+    setEditForm({
+      principle: principle.principle,
+      category: principle.category,
+      originalContext: principle.originalContext || '',
+      orderIndex: principle.orderIndex,
+      isActive: principle.isActive,
+    });
+  };
+
+  const cancelEditing = () => {
+    setEditingId(null);
+    setEditForm({});
+  };
+
+  const saveEdit = (id: string) => {
+    const data: Partial<NorthStarPrinciple> = {
+      originalContext: editForm.originalContext,
+      orderIndex: editForm.orderIndex,
+      isActive: editForm.isActive,
+    };
+    if (isFounder) {
+      data.principle = editForm.principle;
+      data.category = editForm.category;
+    }
+    updateMutation.mutate({ id, data });
+  };
+
+  const toggleActive = (principle: NorthStarPrinciple) => {
+    updateMutation.mutate({ id: principle.id, data: { isActive: !principle.isActive } });
+  };
+
+  const filteredPrinciples = principles?.filter(p => 
+    filterCategory === 'all' || p.category === filterCategory
+  ) || [];
+
+  const categoryCounts = principles?.reduce((acc, p) => {
+    acc[p.category] = (acc[p.category] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>) || {};
+
+  if (error) {
+    return (
+      <Card className="border-destructive">
+        <CardContent className="pt-6">
+          <p className="text-destructive">Failed to load North Star principles. Please try again.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Compass className="h-8 w-8 text-primary" />
+          <div>
+            <h2 className="text-2xl font-bold" data-testid="text-north-star-title">North Star Principles</h2>
+            <p className="text-sm text-muted-foreground">
+              Daniela's constitutional truths - her DNA that guides all teaching decisions
+            </p>
+          </div>
+        </div>
+
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogTrigger asChild>
+            <Button data-testid="button-add-principle">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Principle
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add New North Star Principle</DialogTitle>
+              <DialogDescription>
+                Add a constitutional principle that will guide Daniela's teaching decisions.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Principle</label>
+                <Textarea
+                  placeholder="Enter the principle..."
+                  value={newPrinciple.principle}
+                  onChange={(e) => setNewPrinciple({ ...newPrinciple, principle: e.target.value })}
+                  data-testid="input-new-principle"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Category</label>
+                <Select
+                  value={newPrinciple.category}
+                  onValueChange={(v) => setNewPrinciple({ ...newPrinciple, category: v as NorthStarCategory })}
+                >
+                  <SelectTrigger data-testid="select-new-category">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {NORTH_STAR_CATEGORIES.map(cat => (
+                      <SelectItem key={cat.value} value={cat.value}>
+                        {cat.label} - {cat.description}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Original Context (optional)</label>
+                <Textarea
+                  placeholder="Where did this principle come from?"
+                  value={newPrinciple.originalContext}
+                  onChange={(e) => setNewPrinciple({ ...newPrinciple, originalContext: e.target.value })}
+                  data-testid="input-new-context"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Priority (1 = highest)</label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={newPrinciple.orderIndex}
+                  onChange={(e) => setNewPrinciple({ ...newPrinciple, orderIndex: parseInt(e.target.value) || 1 })}
+                  data-testid="input-new-order"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+              <Button 
+                onClick={() => createMutation.mutate(newPrinciple)}
+                disabled={!newPrinciple.principle || createMutation.isPending}
+                data-testid="button-save-new-principle"
+              >
+                {createMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                Add Principle
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Category Filter */}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant={filterCategory === 'all' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setFilterCategory('all')}
+          data-testid="filter-all"
+        >
+          All ({principles?.length || 0})
+        </Button>
+        {NORTH_STAR_CATEGORIES.map(cat => {
+          const Icon = cat.icon;
+          return (
+            <Button
+              key={cat.value}
+              variant={filterCategory === cat.value ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilterCategory(cat.value)}
+              data-testid={`filter-${cat.value}`}
+            >
+              <Icon className="h-4 w-4 mr-1" />
+              {cat.label} ({categoryCounts[cat.value] || 0})
+            </Button>
+          );
+        })}
+      </div>
+
+      {/* Principles List */}
+      {isLoading ? (
+        <div className="space-y-4">
+          {[1, 2, 3].map(i => (
+            <Skeleton key={i} className="h-32 w-full" />
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {filteredPrinciples.length === 0 ? (
+            <Card>
+              <CardContent className="pt-6 text-center text-muted-foreground">
+                No principles found. Add your first North Star principle to guide Daniela.
+              </CardContent>
+            </Card>
+          ) : (
+            filteredPrinciples.sort((a, b) => a.orderIndex - b.orderIndex).map(principle => (
+              <Card 
+                key={principle.id} 
+                className={principle.isActive ? '' : 'opacity-50'}
+                data-testid={`card-principle-${principle.id}`}
+              >
+                <CardHeader className="pb-2">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge className={northStarCategoryColors[principle.category]}>
+                          {NORTH_STAR_CATEGORIES.find(c => c.value === principle.category)?.label}
+                        </Badge>
+                        <Badge variant="outline">Priority: {principle.orderIndex}</Badge>
+                        {!principle.isActive && <Badge variant="secondary">Inactive</Badge>}
+                      </div>
+                      {editingId === principle.id ? (
+                        <Textarea
+                          value={editForm.principle || ''}
+                          onChange={(e) => setEditForm({ ...editForm, principle: e.target.value })}
+                          className="font-medium"
+                          data-testid={`input-edit-principle-${principle.id}`}
+                        />
+                      ) : (
+                        <p className="font-medium" data-testid={`text-principle-${principle.id}`}>
+                          {principle.principle}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {editingId === principle.id ? (
+                        <>
+                          <Button size="sm" onClick={() => saveEdit(principle.id)} disabled={updateMutation.isPending}>
+                            <Save className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={cancelEditing}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button size="sm" variant="ghost" onClick={() => startEditing(principle)} data-testid={`button-edit-${principle.id}`}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Switch
+                            checked={principle.isActive}
+                            onCheckedChange={() => toggleActive(principle)}
+                            data-testid={`switch-active-${principle.id}`}
+                          />
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </CardHeader>
+                {principle.originalContext && (
+                  <CardContent className="pt-0">
+                    <p className="text-sm text-muted-foreground">
+                      <span className="font-medium">Context:</span> {principle.originalContext}
+                    </p>
+                  </CardContent>
+                )}
+              </Card>
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }
