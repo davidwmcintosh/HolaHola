@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +26,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { synthesizeSpeech } from "@/lib/restVoiceApi";
 import type { ArisDrillAssignment } from "@shared/schema";
 import { motion, AnimatePresence } from "framer-motion";
+import { useWhiteboard } from "@/hooks/useWhiteboard";
+import { Whiteboard } from "@/components/Whiteboard";
 
 interface DrillContentItem {
   prompt: string;
@@ -90,6 +92,8 @@ export default function ArisPractice() {
   const [sessionGreeting, setSessionGreeting] = useState<string>("");
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoadingFeedback, setIsLoadingFeedback] = useState(false);
+  
+  const whiteboard = useWhiteboard();
   
   const { data: pendingDrills, isLoading: loadingDrills } = useQuery<ArisDrillAssignment[]>({
     queryKey: ['/api/aris/drills/pending'],
@@ -160,6 +164,7 @@ export default function ArisPractice() {
       setShowResult(false);
       setIsCorrect(null);
       setCurrentFeedback(null);
+      whiteboard.clear();
       
       // Fetch AI greeting
       try {
@@ -169,7 +174,11 @@ export default function ArisPractice() {
           focusArea: content?.focusArea,
           itemCount,
         }) as { greeting?: string };
-        setSessionGreeting(greetingData?.greeting || "");
+        const greeting = greetingData?.greeting || "";
+        setSessionGreeting(greeting);
+        if (greeting) {
+          whiteboard.processMessage(greeting, assignment.targetLanguage);
+        }
       } catch {
         setSessionGreeting("");
       }
@@ -180,7 +189,7 @@ export default function ArisPractice() {
         variant: "destructive",
       });
     }
-  }, [startDrillMutation, toast]);
+  }, [startDrillMutation, toast, whiteboard]);
   
   const getRandomFeedback = useCallback((type: 'correct' | 'almostCorrect' | 'incorrect' | 'encouragement') => {
     const phrases = arisPersona?.feedbackPhrases[type] || [];
@@ -259,6 +268,11 @@ export default function ArisPractice() {
         isCorrect: correct,
       }) as unknown as ArisFeedbackResult;
       setCurrentFeedback(aiFeedback);
+      
+      // Process feedback for whiteboard markup (WRITE, PHONETIC, etc.)
+      if (aiFeedback?.feedback) {
+        whiteboard.processMessage(aiFeedback.feedback, selectedAssignment.targetLanguage);
+      }
     } catch {
       // Fallback to static feedback if AI fails
       setCurrentFeedback({
@@ -303,7 +317,7 @@ export default function ArisPractice() {
         ].slice(-5),
       };
     });
-  }, [selectedAssignment, drillState, userAnswer, getRandomFeedback]);
+  }, [selectedAssignment, drillState, userAnswer, getRandomFeedback, whiteboard]);
   
   const nextItem = useCallback(() => {
     if (!selectedAssignment || !drillState) return;
@@ -343,8 +357,9 @@ export default function ArisPractice() {
       setShowResult(false);
       setIsCorrect(null);
       setCurrentFeedback(null);
+      whiteboard.clear();
     }
-  }, [selectedAssignment, drillState, completeDrillMutation]);
+  }, [selectedAssignment, drillState, completeDrillMutation, whiteboard]);
   
   if (loadingDrills) {
     return (
@@ -542,6 +557,19 @@ export default function ArisPractice() {
             </AnimatePresence>
           </CardContent>
         </Card>
+        
+        {/* Whiteboard - Visual teaching aids from Aris (same tools as Daniela) */}
+        {whiteboard.items.length > 0 && (
+          <div data-testid="aris-whiteboard-container">
+            <Whiteboard 
+              items={whiteboard.items} 
+              onClear={whiteboard.clear}
+              onDrillComplete={(drillId, drillType, isCorrect, responseTimeMs) => {
+                console.log('[ArisPractice] Drill complete:', { drillId, drillType, isCorrect, responseTimeMs });
+              }}
+            />
+          </div>
+        )}
       </div>
     );
   }
