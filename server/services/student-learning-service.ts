@@ -22,6 +22,7 @@ import {
   userMotivationAlerts,
   pedagogicalInsights,
   learnerPersonalFacts,
+  hiveSnapshots,
   type RecurringStruggle,
   type StudentInsight,
   type PredictedStruggle,
@@ -71,6 +72,64 @@ export type TeachingStrategy = typeof TEACHING_STRATEGIES[number];
 // Export error categories for validation
 export const ERROR_CATEGORIES = Object.keys(ERROR_TAXONOMY);
 export { ERROR_TAXONOMY };
+
+// ============================================================
+// EXPORTED UTILITY FUNCTIONS FOR DEDUPLICATION
+// These are used by the service and can be imported for testing
+// ============================================================
+
+/**
+ * Generate trigrams from a string for similarity matching
+ * e.g., "hello" -> ["hel", "ell", "llo"]
+ */
+export function generateTrigrams(text: string): Set<string> {
+  const normalized = text.toLowerCase().trim().replace(/[^a-z0-9 ]/g, '');
+  const trigrams = new Set<string>();
+  for (let i = 0; i <= normalized.length - 3; i++) {
+    trigrams.add(normalized.slice(i, i + 3));
+  }
+  return trigrams;
+}
+
+/**
+ * Calculate trigram cosine similarity between two strings
+ * Returns value between 0 (no similarity) and 1 (identical)
+ */
+export function trigramSimilarity(a: string, b: string): number {
+  const trigramsA = generateTrigrams(a);
+  const trigramsB = generateTrigrams(b);
+  
+  if (trigramsA.size === 0 || trigramsB.size === 0) return 0;
+  
+  // Calculate intersection (dot product for binary vectors)
+  let dotProduct = 0;
+  for (const trigram of trigramsA) {
+    if (trigramsB.has(trigram)) dotProduct++;
+  }
+  
+  // Cosine similarity: dot product / (magnitude A * magnitude B)
+  const magnitudeA = Math.sqrt(trigramsA.size);
+  const magnitudeB = Math.sqrt(trigramsB.size);
+  
+  return dotProduct / (magnitudeA * magnitudeB);
+}
+
+/**
+ * Normalize a fact string for fingerprinting
+ * Strips diacritics, lowercases, removes punctuation and extra whitespace
+ */
+export function normalizeForFingerprint(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
+    .replace(/[^\w\s]/g, '') // Remove punctuation
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Similarity threshold for semantic deduplication */
+export const SIMILARITY_THRESHOLD = 0.82;
 
 export interface StudentErrorEvent {
   studentId: string;
@@ -1833,15 +1892,16 @@ export class StudentLearningService {
   // ============================================================
   // PERSONAL FACTS SYSTEM
   // Permanent memories about students that don't decay
+  // Uses exported helper functions: trigramSimilarity, normalizeForFingerprint
   // ============================================================
   
   /**
    * Save or update a personal fact about a student
-   * Uses deduplication - if a similar fact exists, updates mention count
+   * Uses semantic similarity (trigram cosine) for robust deduplication
    */
   async savePersonalFact(input: PersonalFactInput): Promise<LearnerPersonalFact> {
-    // Normalize fact for better deduplication (lowercase, trim, collapse whitespace)
-    const normalizedFact = input.fact.toLowerCase().trim().replace(/\s+/g, ' ');
+    // Normalize fact for fingerprinting using exported helper
+    const normalizedFact = normalizeForFingerprint(input.fact);
     
     // Get all existing facts of same type for this student
     const existingFacts = await db
@@ -1855,28 +1915,21 @@ export class StudentLearningService {
         )
       );
     
-    // Check for similar facts using normalized comparison
+    // Find similar facts using trigram cosine similarity (exported helper)
     const existing = existingFacts.filter(f => {
-      const existingNormalized = f.fact.toLowerCase().trim().replace(/\s+/g, ' ');
+      const existingNormalized = normalizeForFingerprint(f.fact);
       
       // Exact match check (after normalization)
       if (normalizedFact === existingNormalized) return true;
       
-      // For short facts (< 30 chars), require higher similarity
-      const isShortFact = normalizedFact.length < 30 || existingNormalized.length < 30;
+      // Skip trigram comparison for very short strings (< 6 chars can't generate meaningful trigrams)
+      if (normalizedFact.length < 6 || existingNormalized.length < 6) {
+        return normalizedFact === existingNormalized;
+      }
       
-      // Extract meaningful words (skip common words)
-      const stopWords = new Set(['the', 'a', 'an', 'is', 'are', 'was', 'were', 'has', 'have', 'had', 'to', 'for', 'in', 'on', 'at', 'with', 'and', 'or']);
-      const newWords = new Set(normalizedFact.split(' ').filter(w => w.length > 2 && !stopWords.has(w)));
-      const existingWords = new Set(existingNormalized.split(' ').filter(w => w.length > 2 && !stopWords.has(w)));
-      
-      if (newWords.size === 0 || existingWords.size === 0) return false;
-      
-      const intersection = [...newWords].filter(w => existingWords.has(w)).length;
-      const similarity = intersection / Math.max(newWords.size, existingWords.size);
-      
-      // Require 80% similarity for short facts, 60% for longer ones
-      return isShortFact ? similarity > 0.8 : similarity > 0.6;
+      // Use trigram cosine similarity for semantic matching
+      const similarity = trigramSimilarity(normalizedFact, existingNormalized);
+      return similarity >= SIMILARITY_THRESHOLD;
     });
     
     if (existing.length > 0) {
@@ -1915,7 +1968,51 @@ export class StudentLearningService {
       .returning();
     
     console.log(`[StudentLearning] Created personal fact: ${input.factType} - "${input.fact.slice(0, 50)}"`);
+    
+    // Sync high-confidence facts to Hive Snapshots for broader context awareness
+    await this.syncToHiveSnapshot(created);
+    
     return created;
+  }
+  
+  /**
+   * Sync a personal fact to Hive Snapshots as 'life_context' type
+   * Creates a 30-day decaying snapshot for Daniela's broader awareness
+   */
+  private async syncToHiveSnapshot(fact: LearnerPersonalFact): Promise<void> {
+    // Only sync high-confidence facts (>= 0.75)
+    if (fact.confidenceScore < 0.75) return;
+    
+    // Only sync meaningful fact types
+    const meaningfulTypes = ['life_event', 'goal', 'travel', 'work', 'family'];
+    if (!meaningfulTypes.includes(fact.factType)) return;
+    
+    try {
+      // Set expiry to 30 days from now (hive snapshots are decaying)
+      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      
+      await db.insert(hiveSnapshots).values({
+        snapshotType: 'life_context',
+        userId: fact.studentId,
+        conversationId: fact.sourceConversationId,
+        language: fact.language,
+        title: `${fact.factType}: ${fact.fact.slice(0, 50)}`,
+        content: fact.fact,
+        context: fact.context || `Extracted from conversation`,
+        importance: Math.round(fact.confidenceScore * 10), // Convert to 1-10 scale
+        metadata: {
+          personalFactId: fact.id,
+          factType: fact.factType,
+          relevantDate: fact.relevantDate?.toISOString(),
+        },
+        expiresAt,
+      });
+      
+      console.log(`[StudentLearning] Synced fact to Hive Snapshot: ${fact.factType}`);
+    } catch (err: any) {
+      // Don't fail the main save if snapshot sync fails
+      console.warn(`[StudentLearning] Failed to sync to Hive: ${err.message}`);
+    }
   }
   
   /**

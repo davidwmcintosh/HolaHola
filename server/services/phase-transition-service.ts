@@ -17,7 +17,8 @@
 
 import { GoogleGenAI } from "@google/genai";
 import { db } from "../db";
-import { hiveSnapshots, conversations, messages, hiveSnapshotTypeEnum } from "@shared/schema";
+import { hiveSnapshots, conversations, messages, hiveSnapshotTypeEnum, learnerPersonalFacts } from "@shared/schema";
+import { studentLearningService } from "./student-learning-service";
 
 type HiveSnapshotType = typeof hiveSnapshotTypeEnum.enumValues[number];
 import { eq, desc, and, gte, inArray } from "drizzle-orm";
@@ -405,7 +406,78 @@ Be concise - this summary will be injected into the next phase's context.`;
     }
   }
 
-  buildPhasePromptSection(context: PhaseContext): string {
+  /**
+   * Get phase-aware personal facts for warmup/assessment prompts
+   * Warmup: Use facts for icebreakers and personal connection
+   * Assessment: Use facts for wrap-up encouragement
+   */
+  async getPhaseAwarePersonalFacts(
+    userId: string,
+    language: string,
+    phase: TeachingPhase
+  ): Promise<string> {
+    // Only inject personal facts for warmup and reflection/assessment phases
+    if (phase !== 'warmup' && phase !== 'reflection' && phase !== 'assessment') {
+      return '';
+    }
+    
+    try {
+      const facts = await studentLearningService.getPersonalFacts(userId, language);
+      if (facts.length === 0) return '';
+      
+      // Get upcoming events for warmup phase
+      const upcomingEvents = phase === 'warmup' 
+        ? await studentLearningService.getUpcomingEvents(userId)
+        : [];
+      
+      const lines: string[] = [];
+      
+      if (phase === 'warmup') {
+        lines.push('\n💡 PERSONAL CONNECTION OPPORTUNITIES:');
+        lines.push('Use these facts naturally to build rapport and show you remember them:');
+        
+        // Prioritize upcoming events as great icebreakers
+        if (upcomingEvents.length > 0) {
+          lines.push('UPCOMING EVENTS (great for icebreakers):');
+          upcomingEvents.slice(0, 2).forEach(e => {
+            const date = e.relevantDate ? new Date(e.relevantDate).toLocaleDateString() : '';
+            lines.push(`  • ${e.fact} ${date ? `(${date})` : ''}`);
+          });
+        }
+        
+        // Add other personal facts
+        const otherFacts = facts.filter(f => 
+          !upcomingEvents.some(e => e.id === f.id)
+        ).slice(0, 3);
+        
+        if (otherFacts.length > 0) {
+          lines.push('OTHER THINGS THEY\'VE SHARED:');
+          otherFacts.forEach(f => {
+            lines.push(`  • ${f.fact.slice(0, 60)}${f.fact.length > 60 ? '...' : ''}`);
+          });
+        }
+      } else {
+        // Reflection/Assessment - use for encouraging wrap-up
+        lines.push('\n💡 PERSONAL CONTEXT FOR WRAP-UP:');
+        lines.push('Tie their progress to their goals/motivations:');
+        
+        const goalFacts = facts.filter(f => 
+          f.factType === 'goal' || f.factType === 'travel' || f.factType === 'work'
+        ).slice(0, 2);
+        
+        goalFacts.forEach(f => {
+          lines.push(`  • ${f.fact.slice(0, 60)}${f.fact.length > 60 ? '...' : ''}`);
+        });
+      }
+      
+      return lines.join('\n');
+    } catch (err: any) {
+      console.warn(`[PHASE-TRANSITION] Failed to get personal facts: ${err.message}`);
+      return '';
+    }
+  }
+
+  buildPhasePromptSection(context: PhaseContext, personalFactsSection?: string): string {
     const phaseDef = PHASE_DEFINITIONS[context.currentPhase];
     
     let section = `
@@ -418,6 +490,11 @@ ${phaseDef.promptAdditions}
 AVAILABLE TOOLS FOR THIS PHASE:
 ${phaseDef.focusedTools.map(t => `• ${t}`).join('\n')}
 `;
+
+    // Inject personal facts for warmup/assessment phases
+    if (personalFactsSection) {
+      section += personalFactsSection;
+    }
 
     if (context.summarizedHistory) {
       section += `

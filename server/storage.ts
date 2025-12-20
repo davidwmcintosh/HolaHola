@@ -251,6 +251,15 @@ export interface IStorage {
     tutorGender?: 'male' | 'female';
     tutorPersonality?: 'warm' | 'calm' | 'energetic' | 'professional';
     tutorExpressiveness?: number;
+    selfDirectedFlexibility?: 'guided' | 'flexible_goals' | 'open_exploration' | 'free_conversation';
+    selfDirectedPlacementDone?: boolean;
+    memoryPrivacySettings?: {
+      enabled: boolean;
+      allowedCategories: string[];
+      blockedCategories: string[];
+      redactionRequested: boolean;
+      redactionRequestedAt?: string;
+    };
   }): Promise<User | undefined>;
   updateUserStripeInfo(userId: string, stripeInfo: {
     stripeCustomerId?: string;
@@ -1359,6 +1368,13 @@ export class DatabaseStorage implements IStorage {
     tutorExpressiveness?: number;
     selfDirectedFlexibility?: 'guided' | 'flexible_goals' | 'open_exploration' | 'free_conversation';
     selfDirectedPlacementDone?: boolean;
+    memoryPrivacySettings?: {
+      enabled: boolean;
+      allowedCategories: string[];
+      blockedCategories: string[];
+      redactionRequested: boolean;
+      redactionRequestedAt?: string;
+    };
   }): Promise<User | undefined> {
     const [updated] = await db
       .update(users)

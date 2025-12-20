@@ -405,6 +405,16 @@ async function runNightlySync(): Promise<void> {
       console.warn(`[SYNC-SCHEDULER] Memory consolidation failed: ${consolidationErr.message}`);
     }
     
+    // 7f. Wren cross-student analytics - mine anonymized patterns for syllabus recommendations (daily)
+    try {
+      console.log(`[SYNC-SCHEDULER] Running Wren cross-student analytics...`);
+      const { wrenIntelligenceService } = await import('./wren-intelligence-service');
+      const analyticsResult = await wrenIntelligenceService.runCrossStudentPatternAnalysis();
+      console.log(`[SYNC-SCHEDULER] Wren analytics: ${analyticsResult.totalFactsAnalyzed} facts, ${analyticsResult.patternsFound.length} patterns, ${analyticsResult.recommendationsGenerated} recommendations`);
+    } catch (analyticsErr: any) {
+      console.warn(`[SYNC-SCHEDULER] Wren analytics failed: ${analyticsErr.message}`);
+    }
+    
     console.log(`[SYNC-SCHEDULER] Emergent intelligence jobs complete`);
     
     if (bestPracticesResult.success) {

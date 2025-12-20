@@ -13,7 +13,10 @@
 
 import { callGemini, GEMINI_MODELS } from '../gemini-utils';
 import { studentLearningService, type PersonalFactType, PERSONAL_FACT_TYPES } from './student-learning-service';
-import type { LearnerPersonalFact } from '@shared/schema';
+import type { LearnerPersonalFact, MemoryPrivacySettings } from '@shared/schema';
+import { db } from '../db';
+import { users } from '@shared/schema';
+import { eq } from 'drizzle-orm';
 
 // Structure for extracted facts from conversation
 interface ExtractedFact {
@@ -71,10 +74,244 @@ Respond with JSON:
 
 If no personal facts were shared, return: {"facts": [], "sessionSummary": "..."}`;
 
+// Summarization prompt for earlier conversation chunks
+const SUMMARIZATION_PROMPT = `Summarize the personal details shared by the student in this conversation segment.
+Focus ONLY on personal facts (not language learning progress). 
+Keep it concise - just list any personal facts mentioned.
+If no personal facts, respond with "No personal facts".`;
+
+// Observability metrics for memory extraction
+interface ExtractionMetrics {
+  totalExtractions: number;
+  successfulExtractions: number;
+  failedExtractions: number;
+  totalFactsSaved: number;
+  totalFactsDeduplicated: number;
+  totalPrivacyBlocked: number;
+  avgExtractionLatencyMs: number;
+  latencyHistory: number[]; // Last 100 latencies for averaging
+  factsByType: Record<string, number>;
+  lastExtractionAt: Date | null;
+  hiveSyncs: number;
+}
+
 class LearnerMemoryExtractionService {
+  
+  // Configuration for rolling window extraction
+  private readonly MESSAGES_PER_WINDOW = 10;
+  private readonly MAX_CHARS_PER_MESSAGE = 400;
+  private readonly MAX_TOTAL_CHARS = 8000; // Stay well under Gemini Flash limits
+  
+  // Default privacy settings
+  private readonly DEFAULT_PRIVACY: MemoryPrivacySettings = {
+    enabled: true,
+    allowedCategories: [],
+    blockedCategories: [],
+    redactionRequested: false,
+  };
+  
+  // Observability metrics
+  private metrics: ExtractionMetrics = {
+    totalExtractions: 0,
+    successfulExtractions: 0,
+    failedExtractions: 0,
+    totalFactsSaved: 0,
+    totalFactsDeduplicated: 0,
+    totalPrivacyBlocked: 0,
+    avgExtractionLatencyMs: 0,
+    latencyHistory: [],
+    factsByType: {},
+    lastExtractionAt: null,
+    hiveSyncs: 0,
+  };
+  
+  /**
+   * Get current observability metrics
+   */
+  getMetrics(): ExtractionMetrics {
+    return { ...this.metrics };
+  }
+  
+  /**
+   * Record extraction latency and update average
+   */
+  private recordLatency(latencyMs: number): void {
+    this.metrics.latencyHistory.push(latencyMs);
+    // Keep only last 100 latencies
+    if (this.metrics.latencyHistory.length > 100) {
+      this.metrics.latencyHistory.shift();
+    }
+    // Recalculate average
+    this.metrics.avgExtractionLatencyMs = 
+      this.metrics.latencyHistory.reduce((a, b) => a + b, 0) / this.metrics.latencyHistory.length;
+  }
+  
+  /**
+   * Increment fact count by type
+   */
+  private recordFactSaved(factType: string): void {
+    this.metrics.totalFactsSaved++;
+    this.metrics.factsByType[factType] = (this.metrics.factsByType[factType] || 0) + 1;
+  }
+  
+  /**
+   * Get privacy settings for a user
+   */
+  private async getPrivacySettings(studentId: string): Promise<MemoryPrivacySettings> {
+    try {
+      const [user] = await db
+        .select({ memoryPrivacySettings: users.memoryPrivacySettings })
+        .from(users)
+        .where(eq(users.id, studentId));
+      
+      if (!user || !user.memoryPrivacySettings) {
+        return this.DEFAULT_PRIVACY;
+      }
+      
+      return user.memoryPrivacySettings as MemoryPrivacySettings;
+    } catch (err) {
+      console.warn('[MemoryExtraction] Failed to get privacy settings, using defaults');
+      return this.DEFAULT_PRIVACY;
+    }
+  }
+  
+  /**
+   * Check if a fact type is allowed by user's privacy settings
+   */
+  private isCategoryAllowed(
+    factType: string,
+    privacy: MemoryPrivacySettings
+  ): boolean {
+    // If memory extraction is disabled, block all
+    if (!privacy.enabled) return false;
+    
+    // If redaction requested, block all
+    if (privacy.redactionRequested) return false;
+    
+    // If blocked categories specified, check if this type is blocked
+    if (privacy.blockedCategories.length > 0) {
+      if (privacy.blockedCategories.includes(factType)) return false;
+    }
+    
+    // If allowed categories specified (whitelist mode), check if included
+    if (privacy.allowedCategories.length > 0) {
+      return privacy.allowedCategories.includes(factType);
+    }
+    
+    // Default: allow all
+    return true;
+  }
+  
+  /**
+   * Split messages into windows for processing long sessions
+   */
+  private chunkMessages(
+    messages: Array<{ role: string; content: string }>
+  ): Array<Array<{ role: string; content: string }>> {
+    const chunks: Array<Array<{ role: string; content: string }>> = [];
+    for (let i = 0; i < messages.length; i += this.MESSAGES_PER_WINDOW) {
+      chunks.push(messages.slice(i, i + this.MESSAGES_PER_WINDOW));
+    }
+    return chunks;
+  }
+  
+  /**
+   * Summarize an earlier conversation chunk to preserve personal facts
+   */
+  private async summarizeChunk(
+    messages: Array<{ role: string; content: string }>
+  ): Promise<string> {
+    const transcript = messages
+      .map(m => {
+        const role = m.role === 'user' ? 'Student' : 'Tutor';
+        const content = m.content.length > this.MAX_CHARS_PER_MESSAGE 
+          ? m.content.slice(0, this.MAX_CHARS_PER_MESSAGE) + '...'
+          : m.content;
+        return `${role}: ${content}`;
+      })
+      .join('\n');
+    
+    try {
+      const response = await callGemini(GEMINI_MODELS.FLASH, [
+        { role: 'user', content: `${SUMMARIZATION_PROMPT}\n\n${transcript}` }
+      ]);
+      return response.trim();
+    } catch (err) {
+      console.warn('[MemoryExtraction] Failed to summarize chunk, skipping');
+      return '';
+    }
+  }
+  
+  /**
+   * Build optimized transcript with rolling window + summarization
+   * - Recent messages: full detail
+   * - Earlier messages: summarized for personal facts
+   */
+  private async buildOptimizedTranscript(
+    messages: Array<{ role: string; content: string }>
+  ): Promise<string> {
+    // For short conversations, use full transcript
+    if (messages.length <= this.MESSAGES_PER_WINDOW * 2) {
+      return messages
+        .map(m => {
+          const role = m.role === 'user' ? 'Student' : 'Tutor';
+          const content = m.content.length > this.MAX_CHARS_PER_MESSAGE 
+            ? m.content.slice(0, this.MAX_CHARS_PER_MESSAGE) + '...'
+            : m.content;
+          return `${role}: ${content}`;
+        })
+        .join('\n');
+    }
+    
+    // For long sessions: summarize earlier chunks, keep recent in full
+    const chunks = this.chunkMessages(messages);
+    const parts: string[] = [];
+    
+    // Summarize earlier chunks (all except last 2)
+    const earlierChunks = chunks.slice(0, -2);
+    if (earlierChunks.length > 0) {
+      console.log(`[MemoryExtraction] Summarizing ${earlierChunks.length} earlier conversation chunks`);
+      
+      // Summarize in parallel for speed
+      const summaries = await Promise.all(
+        earlierChunks.map(chunk => this.summarizeChunk(chunk))
+      );
+      
+      const validSummaries = summaries.filter(s => s && s !== 'No personal facts');
+      if (validSummaries.length > 0) {
+        parts.push('[EARLIER IN CONVERSATION - Personal facts mentioned:]');
+        parts.push(validSummaries.join('\n'));
+        parts.push('\n[RECENT CONVERSATION:]');
+      }
+    }
+    
+    // Keep last 2 chunks in full detail
+    const recentChunks = chunks.slice(-2);
+    const recentTranscript = recentChunks.flat()
+      .map(m => {
+        const role = m.role === 'user' ? 'Student' : 'Tutor';
+        const content = m.content.length > this.MAX_CHARS_PER_MESSAGE 
+          ? m.content.slice(0, this.MAX_CHARS_PER_MESSAGE) + '...'
+          : m.content;
+        return `${role}: ${content}`;
+      })
+      .join('\n');
+    
+    parts.push(recentTranscript);
+    
+    // Final safeguard: truncate if somehow exceeded
+    const result = parts.join('\n');
+    if (result.length > this.MAX_TOTAL_CHARS) {
+      console.warn(`[MemoryExtraction] Transcript exceeded ${this.MAX_TOTAL_CHARS} chars, truncating`);
+      return result.slice(-this.MAX_TOTAL_CHARS);
+    }
+    
+    return result;
+  }
   
   /**
    * Extract personal facts from a conversation transcript
+   * Uses rolling window with summarization for long sessions
    */
   async extractFromConversation(
     studentId: string,
@@ -82,6 +319,9 @@ class LearnerMemoryExtractionService {
     conversationId: string,
     messages: Array<{ role: string; content: string }>
   ): Promise<{ saved: LearnerPersonalFact[]; summary?: string }> {
+    const startTime = Date.now();
+    this.metrics.totalExtractions++;
+    
     try {
       // Filter to just get the conversation content
       const userMessages = messages
@@ -91,24 +331,14 @@ class LearnerMemoryExtractionService {
       
       if (userMessages.length < 50) {
         console.log('[MemoryExtraction] Conversation too short for extraction');
+        this.recordLatency(Date.now() - startTime);
         return { saved: [] };
       }
       
-      // Truncate long transcripts to avoid exceeding Gemini Flash limits
-      // Keep last N messages to focus on most recent conversation (most likely to have personal details)
-      const MAX_MESSAGES = 20;
-      const MAX_CHARS_PER_MESSAGE = 500;
-      const recentMessages = messages.slice(-MAX_MESSAGES);
+      // Build optimized transcript using rolling window + summarization
+      const transcript = await this.buildOptimizedTranscript(messages);
       
-      const transcript = recentMessages
-        .map(m => {
-          const role = m.role === 'user' ? 'Student' : 'Tutor';
-          const content = m.content.length > MAX_CHARS_PER_MESSAGE 
-            ? m.content.slice(0, MAX_CHARS_PER_MESSAGE) + '...'
-            : m.content;
-          return `${role}: ${content}`;
-        })
-        .join('\n');
+      console.log(`[MemoryExtraction] Processing ${messages.length} messages (${transcript.length} chars)`);
       
       // Call Gemini to extract facts
       const response = await callGemini(GEMINI_MODELS.FLASH, [
@@ -119,6 +349,7 @@ class LearnerMemoryExtractionService {
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         console.log('[MemoryExtraction] No JSON found in response');
+        this.recordLatency(Date.now() - startTime);
         return { saved: [] };
       }
       
@@ -126,6 +357,20 @@ class LearnerMemoryExtractionService {
       
       if (!result.facts || result.facts.length === 0) {
         console.log('[MemoryExtraction] No facts extracted from conversation');
+        this.metrics.successfulExtractions++;
+        this.recordLatency(Date.now() - startTime);
+        this.metrics.lastExtractionAt = new Date();
+        return { saved: [], summary: result.sessionSummary };
+      }
+      
+      // Get privacy settings for this student
+      const privacySettings = await this.getPrivacySettings(studentId);
+      
+      // Check if memory extraction is completely disabled
+      if (!privacySettings.enabled || privacySettings.redactionRequested) {
+        console.log(`[MemoryExtraction] Memory disabled for student ${studentId} - skipping all facts`);
+        this.metrics.totalPrivacyBlocked += result.facts.length;
+        this.recordLatency(Date.now() - startTime);
         return { saved: [], summary: result.sessionSummary };
       }
       
@@ -145,6 +390,13 @@ class LearnerMemoryExtractionService {
           continue;
         }
         
+        // Check if category is allowed by privacy settings
+        if (!this.isCategoryAllowed(fact.factType, privacySettings)) {
+          console.log(`[MemoryExtraction] Category ${fact.factType} blocked by privacy settings`);
+          this.metrics.totalPrivacyBlocked++;
+          continue;
+        }
+        
         try {
           const savedFact = await studentLearningService.savePersonalFact({
             studentId,
@@ -157,16 +409,27 @@ class LearnerMemoryExtractionService {
           });
           
           saved.push(savedFact);
+          this.recordFactSaved(fact.factType);
         } catch (err: any) {
           console.error(`[MemoryExtraction] Failed to save fact: ${err.message}`);
+          // Check if it was a dedup (fact already existed)
+          if (err.message?.includes('duplicate') || err.message?.includes('already exists')) {
+            this.metrics.totalFactsDeduplicated++;
+          }
         }
       }
       
       console.log(`[MemoryExtraction] Extracted and saved ${saved.length} personal facts`);
       
+      this.metrics.successfulExtractions++;
+      this.metrics.lastExtractionAt = new Date();
+      this.recordLatency(Date.now() - startTime);
+      
       return { saved, summary: result.sessionSummary };
     } catch (err: any) {
       console.error(`[MemoryExtraction] Extraction failed: ${err.message}`);
+      this.metrics.failedExtractions++;
+      this.recordLatency(Date.now() - startTime);
       return { saved: [] };
     }
   }

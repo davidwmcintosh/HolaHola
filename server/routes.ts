@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { z } from "zod";
 import { storage } from "./storage";
 import { db } from "./db";
-import { eq, and, gte, desc, sql, isNotNull } from "drizzle-orm";
+import { eq, and, gte, desc, sql, isNotNull, inArray } from "drizzle-orm";
 import { stripeService } from "./stripeService";
 import { aiLimiter, voiceLimiter, authLimiter, mutationLimiter, hiveExternalLimiter } from "./middleware/rate-limiter";
 import { requireRole, allowRoles, loadAuthenticatedUser, requireFounder, requireAgentToken, logAgentAction, getAgentAuditLog, isAgentTokenConfigured } from "./middleware/rbac";
@@ -30,6 +30,8 @@ import {
   postFlightReports,
   insertPostFlightReportSchema,
   danielaGrowthMemories,
+  learnerPersonalFacts,
+  hiveSnapshots,
 } from "@shared/schema";
 import { hasTeacherAccess, hasDeveloperAccess } from "@shared/permissions";
 import OpenAI, { toFile } from "openai";
@@ -73,6 +75,7 @@ import { supportPersonaService } from "./services/support-persona-service";
 import { founderCollabService } from "./services/founder-collaboration-service";
 import { founderCollabWSBroker } from "./services/founder-collab-ws-broker";
 import { memoryConsolidationService } from "./services/memory-consolidation-service";
+import { learnerMemoryExtractionService } from "./services/learner-memory-extraction-service";
 import { 
   getAvailableActflLevels,
   getSupportedLanguages,
@@ -806,7 +809,7 @@ export async function registerRoutes(app: Express): Promise<void> {
         });
       }
       
-      const { targetLanguage, nativeLanguage, difficultyLevel, onboardingCompleted, tutorGender, tutorPersonality, tutorExpressiveness, selfDirectedFlexibility, selfDirectedPlacementDone } = validationResult.data;
+      const { targetLanguage, nativeLanguage, difficultyLevel, onboardingCompleted, tutorGender, tutorPersonality, tutorExpressiveness, selfDirectedFlexibility, selfDirectedPlacementDone, memoryPrivacySettings } = validationResult.data;
       
       // Check if user is a super admin (developer role)
       // Only super admins can set tutorPersonality and tutorExpressiveness
@@ -826,6 +829,8 @@ export async function registerRoutes(app: Express): Promise<void> {
         // Self-directed learners can set their own flexibility level
         selfDirectedFlexibility,
         selfDirectedPlacementDone,
+        // Memory privacy settings - all users can update their own
+        memoryPrivacySettings,
       });
       
       if (!updated) {
@@ -10063,6 +10068,245 @@ Return ONLY the ${targetLanguage} phrase:`;
       res.json(stats);
     } catch (error: any) {
       console.error('[Growth Memories] Stats error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // ===== Learner Personal Facts (Admin Memory Browser) =====
+  // Permanent student memories extracted from conversations
+  
+  // Get all personal facts with filters (Admin/Developer)
+  app.get("/api/admin/personal-facts", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { factType, studentId, language, limit = '100', offset = '0' } = req.query;
+      
+      const conditions: any[] = [eq(learnerPersonalFacts.isActive, true)];
+      
+      if (factType && factType !== 'all') {
+        conditions.push(eq(learnerPersonalFacts.factType, factType));
+      }
+      if (studentId) {
+        conditions.push(eq(learnerPersonalFacts.studentId, studentId));
+      }
+      if (language && language !== 'all') {
+        conditions.push(eq(learnerPersonalFacts.language, language));
+      }
+      
+      const facts = await db.select({
+        id: learnerPersonalFacts.id,
+        studentId: learnerPersonalFacts.studentId,
+        factType: learnerPersonalFacts.factType,
+        fact: learnerPersonalFacts.fact,
+        context: learnerPersonalFacts.context,
+        language: learnerPersonalFacts.language,
+        relevantDate: learnerPersonalFacts.relevantDate,
+        confidenceScore: learnerPersonalFacts.confidenceScore,
+        mentionCount: learnerPersonalFacts.mentionCount,
+        lastMentionedAt: learnerPersonalFacts.lastMentionedAt,
+        createdAt: learnerPersonalFacts.createdAt,
+        isActive: learnerPersonalFacts.isActive,
+      })
+        .from(learnerPersonalFacts)
+        .where(and(...conditions))
+        .orderBy(desc(learnerPersonalFacts.lastMentionedAt))
+        .limit(parseInt(limit as string))
+        .offset(parseInt(offset as string));
+      
+      // Get total count
+      const countResult = await db.select({ count: sql<number>`COUNT(*)::int` })
+        .from(learnerPersonalFacts)
+        .where(and(...conditions));
+      
+      // Get stats by fact type
+      const statsResult = await db.select({
+        factType: learnerPersonalFacts.factType,
+        count: sql<number>`COUNT(*)::int`,
+      })
+        .from(learnerPersonalFacts)
+        .where(eq(learnerPersonalFacts.isActive, true))
+        .groupBy(learnerPersonalFacts.factType);
+      
+      res.json({
+        facts,
+        total: countResult[0]?.count || 0,
+        stats: statsResult,
+      });
+    } catch (error: any) {
+      console.error('[Personal Facts] Fetch error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Update/archive a personal fact (Admin/Developer)
+  app.patch("/api/admin/personal-facts/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { fact, isActive } = req.body;
+      
+      const updateData: any = { updatedAt: new Date() };
+      if (fact !== undefined) updateData.fact = fact;
+      if (isActive !== undefined) updateData.isActive = isActive;
+      
+      const [updated] = await db.update(learnerPersonalFacts)
+        .set(updateData)
+        .where(eq(learnerPersonalFacts.id, id))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Personal fact not found" });
+      }
+      
+      console.log(`[Personal Facts] Updated fact ${id}: ${isActive === false ? 'archived' : 'edited'}`);
+      res.json(updated);
+    } catch (error: any) {
+      console.error('[Personal Facts] Update error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get unique students with personal facts (for filter dropdown)
+  app.get("/api/admin/personal-facts/students", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const students = await db.selectDistinct({ studentId: learnerPersonalFacts.studentId })
+        .from(learnerPersonalFacts)
+        .where(eq(learnerPersonalFacts.isActive, true));
+      
+      // Join with users to get names
+      const studentIds = students.map(s => s.studentId);
+      if (studentIds.length === 0) {
+        return res.json({ students: [] });
+      }
+      
+      const usersWithFacts = await db.select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+      })
+        .from(users)
+        .where(inArray(users.id, studentIds));
+      
+      res.json({ students: usersWithFacts });
+    } catch (error: any) {
+      console.error('[Personal Facts] Students error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // ===== Memory Extraction Observability Metrics =====
+  // Provides metrics about the learner memory extraction system
+  app.get("/api/admin/memory-extraction/metrics", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const metrics = learnerMemoryExtractionService.getMetrics();
+      
+      res.json({
+        ...metrics,
+        successRate: metrics.totalExtractions > 0 
+          ? ((metrics.successfulExtractions / metrics.totalExtractions) * 100).toFixed(1) + '%'
+          : 'N/A',
+        latencyHistoryCount: metrics.latencyHistory.length,
+        latencyHistory: undefined, // Don't expose full history
+      });
+    } catch (error: any) {
+      console.error('[Memory Metrics] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // ===== Teacher Dashboard: What Daniela Remembered =====
+  // Audit trail of personal facts for a student - for teacher dashboards
+  app.get("/api/teacher/students/:studentId/memory-audit", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
+    try {
+      const { studentId } = req.params;
+      const user = req.authenticatedUser;
+      
+      // Teachers can view their students, admins can view anyone
+      const isAdmin = user.role === 'admin' || user.role === 'developer';
+      if (!isAdmin) {
+        // Verify teacher relationship to student
+        const teacherClassList = await db.select({ classId: teacherClasses.id })
+          .from(teacherClasses)
+          .where(eq(teacherClasses.teacherId, user.id));
+        
+        if (teacherClassList.length === 0) {
+          return res.status(403).json({ error: 'Not authorized to view this student' });
+        }
+        
+        const classIds = teacherClassList.map(c => c.classId);
+        const studentEnrollment = await db.select()
+          .from(classEnrollments)
+          .where(and(
+            eq(classEnrollments.studentId, studentId),
+            inArray(classEnrollments.classId, classIds)
+          ))
+          .limit(1);
+        
+        if (studentEnrollment.length === 0) {
+          return res.status(403).json({ error: 'Not authorized to view this student' });
+        }
+      }
+      
+      // Get all personal facts Daniela knows about this student
+      const facts = await db.select()
+        .from(learnerPersonalFacts)
+        .where(eq(learnerPersonalFacts.studentId, studentId))
+        .orderBy(desc(learnerPersonalFacts.lastMentionedAt));
+      
+      // Get related hive snapshots (life_context type) that synced from personal facts
+      const lifeContextSnapshots = await db.select()
+        .from(hiveSnapshots)
+        .where(and(
+          eq(hiveSnapshots.userId, studentId),
+          eq(hiveSnapshots.snapshotType, 'life_context')
+        ))
+        .orderBy(desc(hiveSnapshots.createdAt))
+        .limit(20);
+      
+      // Get student info
+      const [student] = await db.select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+      })
+      .from(users)
+      .where(eq(users.id, studentId));
+      
+      res.json({
+        student: student || { id: studentId, firstName: 'Unknown', lastName: 'Student' },
+        personalFacts: facts.map(f => ({
+          id: f.id,
+          factType: f.factType,
+          fact: f.fact,
+          context: f.context,
+          language: f.language,
+          confidenceScore: f.confidenceScore,
+          mentionCount: f.mentionCount,
+          lastMentionedAt: f.lastMentionedAt,
+          relevantDate: f.relevantDate,
+          isActive: f.isActive,
+          createdAt: f.createdAt,
+        })),
+        hiveSyncedFacts: lifeContextSnapshots.map(s => ({
+          id: s.id,
+          title: s.title,
+          content: s.content,
+          importance: s.importance,
+          expiresAt: s.expiresAt,
+          createdAt: s.createdAt,
+        })),
+        summary: {
+          totalFacts: facts.length,
+          activeFacts: facts.filter(f => f.isActive).length,
+          archivedFacts: facts.filter(f => !f.isActive).length,
+          factsByType: facts.reduce((acc, f) => {
+            acc[f.factType] = (acc[f.factType] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>),
+          highConfidenceFacts: facts.filter(f => f.confidenceScore >= 0.75).length,
+          hiveSyncedCount: lifeContextSnapshots.length,
+        },
+      });
+    } catch (error: any) {
+      console.error('[Memory Audit] Error:', error);
       res.status(500).json({ error: error.message });
     }
   });

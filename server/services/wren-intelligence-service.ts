@@ -632,6 +632,143 @@ export class WrenIntelligenceService {
     
     return lines.join('\n');
   }
+  
+  /**
+   * Wren Analytics Job - Mine anonymized patterns across students for syllabus recommendations
+   * This runs as a nightly job to surface cross-student learning patterns
+   */
+  async runCrossStudentPatternAnalysis(): Promise<{
+    totalFactsAnalyzed: number;
+    patternsFound: Pattern[];
+    recommendationsGenerated: number;
+  }> {
+    console.log('[WrenAnalytics] Starting cross-student pattern analysis...');
+    
+    try {
+      // Import learner facts table
+      const { learnerPersonalFacts, recurringStruggles, users } = await import('@shared/schema');
+      
+      // 1. Aggregate anonymized fact patterns by type and language
+      const factPatterns = await db.select({
+        factType: learnerPersonalFacts.factType,
+        language: learnerPersonalFacts.language,
+        count: sql<number>`count(*)`,
+        avgConfidence: sql<number>`avg(${learnerPersonalFacts.confidenceScore})`,
+        avgMentions: sql<number>`avg(${learnerPersonalFacts.mentionCount})`,
+      })
+      .from(learnerPersonalFacts)
+      .where(eq(learnerPersonalFacts.isActive, true))
+      .groupBy(learnerPersonalFacts.factType, learnerPersonalFacts.language);
+      
+      // 2. Aggregate struggle patterns by language
+      const strugglePatterns = await db.select({
+        language: recurringStruggles.language,
+        struggleArea: recurringStruggles.struggleArea,
+        count: sql<number>`count(*)`,
+        avgOccurrence: sql<number>`avg(${recurringStruggles.occurrenceCount})`,
+      })
+      .from(recurringStruggles)
+      .where(eq(recurringStruggles.status, 'active'))
+      .groupBy(recurringStruggles.language, recurringStruggles.struggleArea);
+      
+      // 3. Identify patterns worth sharing
+      const patterns: Pattern[] = [];
+      
+      // High-frequency fact types indicate common student characteristics
+      for (const fp of factPatterns) {
+        if (fp.count >= 5 && fp.avgConfidence >= 0.7) {
+          patterns.push({
+            type: 'student_characteristic',
+            pattern: `${fp.factType} facts are common in ${fp.language || 'all'} learners`,
+            frequency: fp.count,
+            confidence: fp.avgConfidence,
+            recommendation: this.generateFactRecommendation(fp.factType, fp.language),
+          });
+        }
+      }
+      
+      // High-frequency struggles indicate syllabus gaps
+      for (const sp of strugglePatterns) {
+        if (sp.count >= 3 && sp.avgOccurrence >= 2) {
+          patterns.push({
+            type: 'struggle_pattern',
+            pattern: `${sp.struggleArea} struggles in ${sp.language || 'all'}`,
+            frequency: sp.count,
+            confidence: Math.min(sp.avgOccurrence / 5, 1), // Normalize occurrence count to 0-1
+            recommendation: this.generateStruggleRecommendation(sp.struggleArea, null, sp.language),
+          });
+        }
+      }
+      
+      // 4. Create Wren insights for significant patterns
+      let recommendationsGenerated = 0;
+      for (const pattern of patterns.slice(0, 10)) { // Limit to top 10
+        try {
+          await this.createEnrichedInsight({
+            title: `[Analytics] ${pattern.type}: ${pattern.pattern}`,
+            content: pattern.recommendation,
+            context: `Discovered from cross-student analysis (${pattern.frequency} occurrences, ${(pattern.confidence * 100).toFixed(0)}% confidence)`,
+            category: 'pattern',
+            shareWithDaniela: true,
+          });
+          recommendationsGenerated++;
+        } catch (err) {
+          console.warn('[WrenAnalytics] Failed to create insight:', err);
+        }
+      }
+      
+      const totalFactsAnalyzed = factPatterns.reduce((sum, fp) => sum + fp.count, 0);
+      
+      console.log(`[WrenAnalytics] Complete: ${totalFactsAnalyzed} facts, ${patterns.length} patterns, ${recommendationsGenerated} recommendations`);
+      
+      return {
+        totalFactsAnalyzed,
+        patternsFound: patterns,
+        recommendationsGenerated,
+      };
+    } catch (error) {
+      console.error('[WrenAnalytics] Analysis failed:', error);
+      return {
+        totalFactsAnalyzed: 0,
+        patternsFound: [],
+        recommendationsGenerated: 0,
+      };
+    }
+  }
+  
+  /**
+   * Generate recommendation based on common fact types
+   */
+  private generateFactRecommendation(factType: string, language: string | null): string {
+    const langStr = language ? ` ${language}` : '';
+    const recommendations: Record<string, string> = {
+      'goal': `Many${langStr} students have learning goals. Consider adding goal-tracking to the syllabus with milestone celebrations.`,
+      'travel': `Travel plans are common among${langStr} learners. Include travel-focused vocabulary units and situational practice.`,
+      'work': `Professional contexts matter to${langStr} students. Add business language modules or workplace scenario practice.`,
+      'family': `Family topics resonate with${langStr} learners. Include family-related vocabulary and cultural context.`,
+      'hobby': `Hobbies provide engagement opportunities. Personalize practice with hobby-related content.`,
+      'life_event': `Life events create teachable moments. Use them for contextual vocabulary introduction.`,
+    };
+    return recommendations[factType] || `Pattern detected in ${factType} facts. Consider curriculum adjustments.`;
+  }
+  
+  /**
+   * Generate recommendation based on common struggles
+   */
+  private generateStruggleRecommendation(struggleArea: string, subcategory: string | null, language: string | null): string {
+    const langStr = language ? ` ${language}` : '';
+    const areaStr = subcategory ? `${struggleArea}/${subcategory}` : struggleArea;
+    return `Multiple${langStr} students struggle with ${areaStr}. Consider: (1) Adding more practice exercises, (2) Creating focused mini-lessons, (3) Adjusting pacing in the syllabus for this topic.`;
+  }
+}
+
+// Pattern type for cross-student analysis
+interface Pattern {
+  type: 'student_characteristic' | 'struggle_pattern';
+  pattern: string;
+  frequency: number;
+  confidence: number;
+  recommendation: string;
 }
 
 export const wrenIntelligenceService = new WrenIntelligenceService();

@@ -95,7 +95,8 @@ import {
   MicOff,
   Heart,
   HelpCircle,
-  Save
+  Save,
+  Archive
 } from "lucide-react";
 import {
   AlertDialog,
@@ -550,6 +551,330 @@ function MemoryMigrationTab() {
   );
 }
 
+// Types for personal facts browser
+interface PersonalFact {
+  id: string;
+  studentId: string;
+  factType: string;
+  fact: string;
+  context: string | null;
+  language: string | null;
+  relevantDate: string | null;
+  confidenceScore: number;
+  mentionCount: number;
+  lastMentionedAt: string | null;
+  createdAt: string;
+  isActive: boolean;
+}
+
+interface StudentOption {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+}
+
+const FACT_TYPE_LABELS: Record<string, { label: string; color: string }> = {
+  life_event: { label: "Life Event", color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" },
+  personal_detail: { label: "Personal", color: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200" },
+  goal: { label: "Goal", color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
+  preference: { label: "Preference", color: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200" },
+  relationship: { label: "Relationship", color: "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200" },
+  travel: { label: "Travel", color: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200" },
+  work: { label: "Work", color: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200" },
+  family: { label: "Family", color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" },
+  hobby: { label: "Hobby", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200" },
+};
+
+function PersonalFactsBrowserTab() {
+  const { toast } = useToast();
+  const [factTypeFilter, setFactTypeFilter] = useState<string>("all");
+  const [studentFilter, setStudentFilter] = useState<string>("all");
+  const [languageFilter, setLanguageFilter] = useState<string>("all");
+  const [editingFact, setEditingFact] = useState<PersonalFact | null>(null);
+  const [editText, setEditText] = useState<string>("");
+
+  // Build query URL with filters
+  const buildQueryUrl = () => {
+    const params = new URLSearchParams();
+    if (factTypeFilter && factTypeFilter !== "all") {
+      params.set("factType", factTypeFilter);
+    }
+    if (studentFilter && studentFilter !== "all") {
+      params.set("studentId", studentFilter);
+    }
+    if (languageFilter && languageFilter !== "all") {
+      params.set("language", languageFilter);
+    }
+    const query = params.toString();
+    return query ? `/api/admin/personal-facts?${query}` : "/api/admin/personal-facts";
+  };
+
+  // Fetch personal facts with filters
+  const { data: factsData, isLoading, refetch } = useQuery<{
+    facts: PersonalFact[];
+    total: number;
+    stats: Array<{ factType: string; count: number }>;
+  }>({
+    queryKey: ["/api/admin/personal-facts", factTypeFilter, studentFilter, languageFilter],
+    queryFn: async () => {
+      const res = await fetch(buildQueryUrl(), { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch personal facts");
+      return res.json();
+    },
+  });
+
+  // Fetch students for filter dropdown
+  const { data: studentsData } = useQuery<{ students: StudentOption[] }>({
+    queryKey: ["/api/admin/personal-facts/students"],
+  });
+
+  // Archive mutation
+  const archiveMutation = useMutation({
+    mutationFn: async (factId: string) => {
+      const res = await apiRequest("PATCH", `/api/admin/personal-facts/${factId}`, { isActive: false });
+      return res.json();
+    },
+    onSuccess: () => {
+      refetch();
+      toast({ title: "Memory Archived", description: "The personal fact has been archived and will no longer be used." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Archive Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Edit mutation
+  const editMutation = useMutation({
+    mutationFn: async ({ factId, fact }: { factId: string; fact: string }) => {
+      const res = await apiRequest("PATCH", `/api/admin/personal-facts/${factId}`, { fact });
+      return res.json();
+    },
+    onSuccess: () => {
+      refetch();
+      setEditingFact(null);
+      setEditText("");
+      toast({ title: "Memory Updated", description: "The personal fact has been updated." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Update Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleStartEdit = (fact: PersonalFact) => {
+    setEditingFact(fact);
+    setEditText(fact.fact);
+  };
+
+  const handleSaveEdit = () => {
+    if (editingFact && editText.trim()) {
+      editMutation.mutate({ factId: editingFact.id, fact: editText.trim() });
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Brain className="h-5 w-5 text-primary" />
+                Student Memory Browser
+              </CardTitle>
+              <CardDescription>
+                View and manage permanent personal facts Daniela remembers about students
+              </CardDescription>
+            </div>
+            <div className="text-sm text-muted-foreground">
+              {factsData?.total || 0} total memories
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap items-center gap-3 mb-6">
+            <Select value={factTypeFilter} onValueChange={setFactTypeFilter}>
+              <SelectTrigger className="w-40" data-testid="select-fact-type">
+                <SelectValue placeholder="All Types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                {Object.entries(FACT_TYPE_LABELS).map(([key, { label }]) => (
+                  <SelectItem key={key} value={key}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={studentFilter} onValueChange={setStudentFilter}>
+              <SelectTrigger className="w-48" data-testid="select-student">
+                <SelectValue placeholder="All Students" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Students</SelectItem>
+                {studentsData?.students?.map((student) => (
+                  <SelectItem key={student.id} value={student.id}>
+                    {student.firstName || "Unknown"} {student.lastName || ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={languageFilter} onValueChange={setLanguageFilter}>
+              <SelectTrigger className="w-36" data-testid="select-language">
+                <SelectValue placeholder="All Languages" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Languages</SelectItem>
+                <SelectItem value="spanish">Spanish</SelectItem>
+                <SelectItem value="french">French</SelectItem>
+                <SelectItem value="german">German</SelectItem>
+                <SelectItem value="italian">Italian</SelectItem>
+                <SelectItem value="portuguese">Portuguese</SelectItem>
+                <SelectItem value="mandarin">Mandarin</SelectItem>
+                <SelectItem value="japanese">Japanese</SelectItem>
+                <SelectItem value="korean">Korean</SelectItem>
+                <SelectItem value="english">English</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {factsData?.stats && factsData.stats.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-6">
+              {factsData.stats.map(({ factType, count }) => {
+                const typeInfo = FACT_TYPE_LABELS[factType] || { label: factType, color: "bg-gray-100 text-gray-800" };
+                return (
+                  <Badge 
+                    key={factType} 
+                    variant="secondary"
+                    className={`${typeInfo.color} cursor-pointer`}
+                    onClick={() => setFactTypeFilter(factType)}
+                    data-testid={`badge-stat-${factType}`}
+                  >
+                    {typeInfo.label}: {count}
+                  </Badge>
+                );
+              })}
+            </div>
+          )}
+
+          {isLoading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-24 w-full" />
+            </div>
+          ) : factsData?.facts?.length ? (
+            <div className="space-y-3">
+              {factsData.facts.map((fact) => {
+                const typeInfo = FACT_TYPE_LABELS[fact.factType] || { label: fact.factType, color: "bg-gray-100 text-gray-800" };
+                const isEditing = editingFact?.id === fact.id;
+
+                return (
+                  <div 
+                    key={fact.id}
+                    className="p-4 border rounded-lg space-y-2"
+                    data-testid={`fact-card-${fact.id}`}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge className={typeInfo.color}>{typeInfo.label}</Badge>
+                          {fact.language && (
+                            <Badge variant="outline">{fact.language}</Badge>
+                          )}
+                          {fact.relevantDate && (
+                            <span className="text-xs text-muted-foreground">
+                              Date: {new Date(fact.relevantDate).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                        
+                        {isEditing ? (
+                          <div className="flex gap-2">
+                            <Textarea
+                              value={editText}
+                              onChange={(e) => setEditText(e.target.value)}
+                              className="flex-1 min-h-[60px]"
+                              data-testid={`textarea-edit-${fact.id}`}
+                            />
+                            <div className="flex flex-col gap-1">
+                              <Button 
+                                size="sm" 
+                                onClick={handleSaveEdit}
+                                disabled={editMutation.isPending}
+                                data-testid={`button-save-${fact.id}`}
+                              >
+                                {editMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                onClick={() => setEditingFact(null)}
+                                data-testid={`button-cancel-${fact.id}`}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-sm">{fact.fact}</p>
+                        )}
+                        
+                        {fact.context && !isEditing && (
+                          <p className="text-xs text-muted-foreground mt-1 italic">
+                            Context: {fact.context.slice(0, 100)}{fact.context.length > 100 ? "..." : ""}
+                          </p>
+                        )}
+                      </div>
+                      
+                      {!isEditing && (
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleStartEdit(fact)}
+                            data-testid={`button-edit-${fact.id}`}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => archiveMutation.mutate(fact.id)}
+                            disabled={archiveMutation.isPending}
+                            data-testid={`button-archive-${fact.id}`}
+                          >
+                            <Archive className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                      <span>Confidence: {(fact.confidenceScore * 100).toFixed(0)}%</span>
+                      <span>Mentioned: {fact.mentionCount}x</span>
+                      {fact.lastMentionedAt && (
+                        <span>Last: {new Date(fact.lastMentionedAt).toLocaleDateString()}</span>
+                      )}
+                      <span>Created: {new Date(fact.createdAt).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="text-sm text-muted-foreground text-center mt-4">
+                Showing {factsData.facts.length} of {factsData.total} memories
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              No personal facts found with current filters
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function CommandCenter() {
   const { user } = useAuth();
   const { user: fullUser } = useUser();
@@ -590,6 +915,7 @@ export default function CommandCenter() {
     { id: "collaboration", label: "Collaboration", icon: Handshake, roles: ['admin', 'developer'] },
     { id: "beacons", label: "Beacons", icon: Radio, roles: ['admin', 'developer'] },
     { id: "memory-migration", label: "Memory Migration", icon: Brain, roles: ['developer'] },
+    { id: "personal-facts", label: "Student Memories", icon: BookOpen, roles: ['admin', 'developer'] },
   ].filter(tab => {
     if (user?.role === 'admin') return true;
     if (user?.role === 'developer') return tab.roles.includes('developer');
@@ -727,6 +1053,10 @@ export default function CommandCenter() {
 
           <TabsContent value="memory-migration" className="space-y-4">
             <MemoryMigrationTab />
+          </TabsContent>
+
+          <TabsContent value="personal-facts" className="space-y-4">
+            <PersonalFactsBrowserTab />
           </TabsContent>
         </Tabs>
       </div>

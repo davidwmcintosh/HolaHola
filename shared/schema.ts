@@ -121,6 +121,15 @@ export const users = pgTable("users", {
   lastAssessmentDate: timestamp("last_assessment_date"), // When ACTFL level was last updated
   // Timezone for time-aware greetings (auto-detected from browser, handles traveling)
   timezone: varchar("timezone"), // IANA timezone (e.g., "America/Denver", "Asia/Tokyo")
+  // Memory privacy settings - controls what personal facts Daniela can remember
+  // Categories: life_event, personal_detail, goal, preference, relationship, travel, work, family, hobby
+  memoryPrivacySettings: jsonb("memory_privacy_settings").$type<{
+    enabled: boolean; // Master switch for memory extraction
+    allowedCategories: string[]; // Categories user allows (empty = all allowed)
+    blockedCategories: string[]; // Categories user blocks
+    redactionRequested: boolean; // User requested deletion of all memories
+    redactionRequestedAt?: string; // When redaction was requested
+  }>().default({ enabled: true, allowedCategories: [], blockedCategories: [], redactionRequested: false }),
   // Stripe billing integration
   stripeCustomerId: varchar("stripe_customer_id"),
   stripeSubscriptionId: varchar("stripe_subscription_id"),
@@ -145,7 +154,23 @@ export const updateUserPreferencesSchema = z.object({
   tutorExpressiveness: z.number().min(1).max(5).optional(),
   selfDirectedFlexibility: z.enum(['guided', 'flexible_goals', 'open_exploration', 'free_conversation']).optional(),
   selfDirectedPlacementDone: z.boolean().optional(),
+  memoryPrivacySettings: z.object({
+    enabled: z.boolean(),
+    allowedCategories: z.array(z.string()),
+    blockedCategories: z.array(z.string()),
+    redactionRequested: z.boolean(),
+    redactionRequestedAt: z.string().optional(),
+  }).optional(),
 });
+
+// Memory privacy settings type for convenience
+export type MemoryPrivacySettings = {
+  enabled: boolean;
+  allowedCategories: string[];
+  blockedCategories: string[];
+  redactionRequested: boolean;
+  redactionRequestedAt?: string;
+};
 
 // Type for tutor freedom/flexibility levels
 export type TutorFreedomLevel = 'guided' | 'flexible_goals' | 'open_exploration' | 'free_conversation';
@@ -2601,7 +2626,8 @@ export const hiveSnapshotTypeEnum = pgEnum("hive_snapshot_type", [
   'relationship_moment',  // Personal connection/rapport building moment
   'role_reversal',        // Founder/student teaching Daniela something
   'humor_shared',         // Jokes, funny moments, lighthearted exchanges
-  'voice_diagnostic'      // Voice pipeline diagnostic events for pattern analysis
+  'voice_diagnostic',     // Voice pipeline diagnostic events for pattern analysis
+  'life_context'          // Personal facts about student's life (synced from learner_personal_facts)
 ]);
 
 // Hive Snapshots - Captures moments of teaching context for Daniela's awareness
