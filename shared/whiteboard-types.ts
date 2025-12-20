@@ -1326,7 +1326,14 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
       id: generateItemId(),
       data: sizeAttr ? { size: sizeAttr } : undefined,
     });
-    vocabularyWords.push(content);
+    // Strip markdown formatting from vocabulary words for clean extraction
+    const cleanContent = content
+      .replace(/\*\*(.+?)\*\*/g, '$1')  // **bold** → bold
+      .replace(/\*(.+?)\*/g, '$1')      // *italic* → italic
+      .replace(/__(.+?)__/g, '$1')      // __underline__ → underline
+      .replace(/~~(.+?)~~/g, '$1')      // ~~strike~~ → strike
+      .replace(/`(.+?)`/g, '$1');       // `code` → code
+    vocabularyWords.push(cleanContent);
   }
 
   WHITEBOARD_PATTERNS.PHONETIC.lastIndex = 0;
@@ -1797,6 +1804,27 @@ export function hasWhiteboardMarkup(text: string): boolean {
   const result = ALL_WHITEBOARD_MARKUP_PATTERN.test(text);
   ALL_WHITEBOARD_MARKUP_PATTERN.lastIndex = 0;
   return result;
+}
+
+/**
+ * Strip inline markdown formatting from text
+ * Use for vocabulary extraction, TTS, logging, etc.
+ * Preserves the actual text content, removes only formatting markers
+ * 
+ * Supported formats:
+ * - **bold** → bold
+ * - *italic* → italic
+ * - __underline__ → underline
+ * - ~~strikethrough~~ → strikethrough
+ * - `code` → code
+ */
+export function stripInlineMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '$1')  // **bold** → bold
+    .replace(/\*(.+?)\*/g, '$1')      // *italic* → italic
+    .replace(/__(.+?)__/g, '$1')      // __underline__ → underline
+    .replace(/~~(.+?)~~/g, '$1')      // ~~strike~~ → strike
+    .replace(/`(.+?)`/g, '$1');       // `code` → code
 }
 
 /**
