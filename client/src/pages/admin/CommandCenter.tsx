@@ -551,6 +551,201 @@ function MemoryMigrationTab() {
   );
 }
 
+// Memory Extraction Metrics Dashboard
+interface ExtractionMetrics {
+  totalExtractions: number;
+  successfulExtractions: number;
+  failedExtractions: number;
+  totalFactsSaved: number;
+  totalFactsDeduplicated: number;
+  totalPrivacyBlocked: number;
+  avgExtractionLatencyMs: number;
+  factsByType: Record<string, number>;
+  lastExtractionAt: string | null;
+  hiveSyncs: number;
+  successRate: string;
+}
+
+function MemoryMetricsDashboardTab() {
+  const { data: metrics, isLoading, refetch } = useQuery<ExtractionMetrics>({
+    queryKey: ["/api/admin/memory-extraction/metrics"],
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  const factTypeColors: Record<string, string> = {
+    life_event: "bg-blue-500",
+    personal_detail: "bg-gray-500",
+    goal: "bg-green-500",
+    preference: "bg-purple-500",
+    relationship: "bg-pink-500",
+    travel: "bg-orange-500",
+    work: "bg-indigo-500",
+    family: "bg-red-500",
+    hobby: "bg-yellow-500",
+  };
+
+  const totalFactsByType = metrics?.factsByType 
+    ? Object.values(metrics.factsByType).reduce((a, b) => a + b, 0) 
+    : 0;
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="h-5 w-5 text-primary" />
+                Memory Extraction Metrics
+              </CardTitle>
+              <CardDescription>
+                Real-time observability into Daniela's memory extraction system
+              </CardDescription>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => refetch()}
+              data-testid="button-refresh-metrics"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <Skeleton key={i} className="h-24" />
+              ))}
+            </div>
+          ) : metrics ? (
+            <div className="space-y-6">
+              {/* Key Metrics Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Card className="p-4">
+                  <div className="text-sm text-muted-foreground">Total Extractions</div>
+                  <div className="text-2xl font-bold" data-testid="metric-total-extractions">
+                    {metrics.totalExtractions}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Success Rate: <span className="text-green-600 dark:text-green-400">{metrics.successRate}</span>
+                  </div>
+                </Card>
+                
+                <Card className="p-4">
+                  <div className="text-sm text-muted-foreground">Facts Saved</div>
+                  <div className="text-2xl font-bold text-green-600 dark:text-green-400" data-testid="metric-facts-saved">
+                    {metrics.totalFactsSaved}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Deduplicated: {metrics.totalFactsDeduplicated}
+                  </div>
+                </Card>
+                
+                <Card className="p-4">
+                  <div className="text-sm text-muted-foreground">Avg Latency</div>
+                  <div className="text-2xl font-bold" data-testid="metric-avg-latency">
+                    {metrics.avgExtractionLatencyMs.toFixed(0)}ms
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Hive Syncs: {metrics.hiveSyncs}
+                  </div>
+                </Card>
+                
+                <Card className="p-4">
+                  <div className="text-sm text-muted-foreground">Privacy Blocked</div>
+                  <div className="text-2xl font-bold text-orange-600 dark:text-orange-400" data-testid="metric-privacy-blocked">
+                    {metrics.totalPrivacyBlocked}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Protected by user settings
+                  </div>
+                </Card>
+              </div>
+
+              {/* Success/Failure Breakdown */}
+              <Card className="p-4">
+                <div className="text-sm font-medium mb-3">Extraction Results</div>
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between text-sm mb-1">
+                      <span className="text-green-600 dark:text-green-400">Successful</span>
+                      <span>{metrics.successfulExtractions}</span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-green-500" 
+                        style={{ 
+                          width: metrics.totalExtractions > 0 
+                            ? `${(metrics.successfulExtractions / metrics.totalExtractions) * 100}%` 
+                            : '0%' 
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between text-sm mb-1">
+                      <span className="text-red-600 dark:text-red-400">Failed</span>
+                      <span>{metrics.failedExtractions}</span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-red-500" 
+                        style={{ 
+                          width: metrics.totalExtractions > 0 
+                            ? `${(metrics.failedExtractions / metrics.totalExtractions) * 100}%` 
+                            : '0%' 
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Facts by Type Distribution */}
+              {metrics.factsByType && Object.keys(metrics.factsByType).length > 0 && (
+                <Card className="p-4">
+                  <div className="text-sm font-medium mb-3">Facts by Type</div>
+                  <div className="space-y-2">
+                    {Object.entries(metrics.factsByType)
+                      .sort(([, a], [, b]) => b - a)
+                      .map(([type, count]) => (
+                        <div key={type} className="flex items-center gap-2">
+                          <div className={`w-3 h-3 rounded-full ${factTypeColors[type] || 'bg-gray-500'}`} />
+                          <span className="text-sm flex-1 capitalize">{type.replace(/_/g, ' ')}</span>
+                          <span className="text-sm font-medium">{count}</span>
+                          <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full ${factTypeColors[type] || 'bg-gray-500'}`}
+                              style={{ width: totalFactsByType > 0 ? `${(count / totalFactsByType) * 100}%` : '0%' }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </Card>
+              )}
+
+              {/* Last Extraction Time */}
+              {metrics.lastExtractionAt && (
+                <div className="text-sm text-muted-foreground text-center">
+                  Last extraction: {new Date(metrics.lastExtractionAt).toLocaleString()}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              No metrics available yet. Metrics will appear after memory extractions occur.
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // Types for personal facts browser
 interface PersonalFact {
   id: string;
@@ -916,6 +1111,7 @@ export default function CommandCenter() {
     { id: "beacons", label: "Beacons", icon: Radio, roles: ['admin', 'developer'] },
     { id: "memory-migration", label: "Memory Migration", icon: Brain, roles: ['developer'] },
     { id: "personal-facts", label: "Student Memories", icon: BookOpen, roles: ['admin', 'developer'] },
+    { id: "memory-metrics", label: "Memory Metrics", icon: Activity, roles: ['admin', 'developer'] },
   ].filter(tab => {
     if (user?.role === 'admin') return true;
     if (user?.role === 'developer') return tab.roles.includes('developer');
@@ -1057,6 +1253,10 @@ export default function CommandCenter() {
 
           <TabsContent value="personal-facts" className="space-y-4">
             <PersonalFactsBrowserTab />
+          </TabsContent>
+
+          <TabsContent value="memory-metrics" className="space-y-4">
+            <MemoryMetricsDashboardTab />
           </TabsContent>
         </Tabs>
       </div>

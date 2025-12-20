@@ -77,16 +77,45 @@ describe('Learner Memory Deduplication', () => {
   });
 
   describe('Edge Cases', () => {
-    it('should handle unicode by normalizing to ASCII (current behavior)', () => {
-      // Note: Current implementation strips non-ASCII, so Japanese text becomes empty
-      // This is expected for the latin-alphabet focused dedup system
-      // Future: May want to add unicode support for Asian languages
+    it('should handle identical Japanese text with similarity = 1', () => {
       const similarity = trigramSimilarity(
         '日本語を勉強しています',
         '日本語を勉強しています'
       );
-      // Empty strings return 0 similarity
-      expect(similarity).toBe(0);
+      expect(similarity).toBeCloseTo(1, 5);
+    });
+
+    it('should calculate meaningful similarity for similar Japanese text', () => {
+      const similarity = trigramSimilarity(
+        '東京に旅行します',
+        '東京に旅行する'
+      );
+      // Similar but not identical - produces meaningful similarity (not 0 or 1)
+      // Actual: ~0.55 due to different verb endings (します vs する)
+      expect(similarity).toBeGreaterThan(0.4);
+      expect(similarity).toBeLessThan(1);
+    });
+
+    it('should handle Korean text deduplication', () => {
+      const similarity = trigramSimilarity(
+        '한국어를 공부하고 있습니다',
+        '한국어를 공부하고 있습니다'
+      );
+      expect(similarity).toBeCloseTo(1, 5);
+    });
+
+    it('should handle Chinese text deduplication', () => {
+      const similarity = trigramSimilarity(
+        '我正在学习中文',
+        '我正在学习中文'
+      );
+      expect(similarity).toBeCloseTo(1, 5);
+    });
+
+    it('should handle mixed Latin and CJK content', () => {
+      const normalized = normalizeForFingerprint('I am learning 日本語');
+      expect(normalized).toContain('日本語');
+      expect(normalized).toContain('learning');
     });
 
     it('should handle mixed language content', () => {

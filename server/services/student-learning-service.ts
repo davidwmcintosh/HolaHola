@@ -78,12 +78,27 @@ export { ERROR_TAXONOMY };
 // These are used by the service and can be imported for testing
 // ============================================================
 
+// CJK Unicode ranges for Japanese, Mandarin, and Korean
+// Preserves these while still normalizing Latin scripts
+const CJK_RANGES = [
+  '\u4e00-\u9fff',   // CJK Unified Ideographs (Chinese/Japanese Kanji)
+  '\u3040-\u309f',   // Hiragana (Japanese)
+  '\u30a0-\u30ff',   // Katakana (Japanese)
+  '\uac00-\ud7af',   // Hangul Syllables (Korean)
+  '\u1100-\u11ff',   // Hangul Jamo (Korean)
+  '\u3400-\u4dbf',   // CJK Extension A
+].join('');
+
+// Pattern to match allowed characters: Latin alphanumeric, spaces, and CJK
+const ALLOWED_CHARS_PATTERN = new RegExp(`[^a-z0-9 ${CJK_RANGES}]`, 'g');
+
 /**
  * Generate trigrams from a string for similarity matching
  * e.g., "hello" -> ["hel", "ell", "llo"]
+ * Supports CJK characters (Japanese, Mandarin, Korean)
  */
 export function generateTrigrams(text: string): Set<string> {
-  const normalized = text.toLowerCase().trim().replace(/[^a-z0-9 ]/g, '');
+  const normalized = text.toLowerCase().trim().replace(ALLOWED_CHARS_PATTERN, '');
   const trigrams = new Set<string>();
   for (let i = 0; i <= normalized.length - 3; i++) {
     trigrams.add(normalized.slice(i, i + 3));
@@ -114,16 +129,20 @@ export function trigramSimilarity(a: string, b: string): number {
   return dotProduct / (magnitudeA * magnitudeB);
 }
 
+// Pattern to remove punctuation but keep CJK characters
+const PUNCTUATION_PATTERN = new RegExp(`[^\\w\\s${CJK_RANGES}]`, 'g');
+
 /**
  * Normalize a fact string for fingerprinting
- * Strips diacritics, lowercases, removes punctuation and extra whitespace
+ * Strips diacritics from Latin scripts, lowercases, removes punctuation
+ * Preserves CJK characters (Japanese, Mandarin, Korean)
  */
 export function normalizeForFingerprint(text: string): string {
   return text
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
-    .replace(/[^\w\s]/g, '') // Remove punctuation
+    .replace(/[\u0300-\u036f]/g, '') // Remove diacritics (Latin only)
+    .replace(PUNCTUATION_PATTERN, '') // Remove punctuation, keep CJK
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -184,6 +203,7 @@ export interface PersonalFactInput {
   language?: string;
   relevantDate?: Date;
   sourceConversationId?: string;
+  confidenceScore?: number; // 0-1, defaults to 0.8 if not provided
 }
 
 export class StudentLearningService {
@@ -1949,7 +1969,8 @@ export class StudentLearningService {
       return updated;
     }
     
-    // Create new fact
+    // Create new fact - use passed confidence or default to 0.8
+    const confidence = input.confidenceScore ?? 0.8;
     const [created] = await db
       .insert(learnerPersonalFacts)
       .values({
@@ -1960,7 +1981,7 @@ export class StudentLearningService {
         language: input.language,
         relevantDate: input.relevantDate,
         sourceConversationId: input.sourceConversationId,
-        confidenceScore: 0.8,
+        confidenceScore: confidence,
         mentionCount: 1,
         lastMentionedAt: new Date(),
         isActive: true,

@@ -406,6 +406,7 @@ class LearnerMemoryExtractionService {
             language,
             relevantDate: fact.relevantDate ? new Date(fact.relevantDate) : undefined,
             sourceConversationId: conversationId,
+            confidenceScore: fact.confidence, // Pass through extracted confidence
           });
           
           saved.push(savedFact);
@@ -465,6 +466,7 @@ class LearnerMemoryExtractionService {
         context: role === 'tutor' ? 'Daniela noted this' : 'Student mentioned',
         language,
         sourceConversationId: conversationId,
+        confidenceScore: 0.95, // Explicit commands get high confidence
       });
       
       console.log(`[MemoryExtraction] Saved explicit remember command: ${content.slice(0, 50)}`);
