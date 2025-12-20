@@ -390,10 +390,14 @@ class FounderCollaborationService {
   
   /**
    * Get messages that need to be replayed to a reconnecting client
+   * IMPORTANT: Always returns at least the most recent messages, even if cursor
+   * is up-to-date. This handles the case where client's React state was wiped
+   * on navigation but the server thinks they have the messages.
    */
   async getReplayMessagesForClient(
     clientId: string, 
-    sessionId: string
+    sessionId: string,
+    minRecentMessages = 100
   ): Promise<MessageReplayResult> {
     const [syncCursor] = await db.select()
       .from(syncCursors)
@@ -403,16 +407,35 @@ class FounderCollaborationService {
       ))
       .limit(1);
     
+    // Always fetch at least the recent messages to handle client state loss
+    const recentMessages = await this.getLatestMessages(sessionId, minRecentMessages);
+    
     if (!syncCursor || !syncCursor.lastProcessedCursor) {
-      const messages = await this.getLatestMessages(sessionId);
+      // First connection - return recent messages
       return {
-        messages,
-        lastCursor: messages.length > 0 ? messages[messages.length - 1].cursor : null,
+        messages: recentMessages,
+        lastCursor: recentMessages.length > 0 ? recentMessages[recentMessages.length - 1].cursor : null,
         hasMore: false
       };
     }
     
-    return this.getMessagesAfterCursor(sessionId, syncCursor.lastProcessedCursor);
+    // Get any messages after the cursor that might not be in recent batch
+    const afterCursorResult = await this.getMessagesAfterCursor(sessionId, syncCursor.lastProcessedCursor);
+    
+    // Merge recent messages with any new ones, deduplicating by cursor
+    const allCursors = new Set(recentMessages.map(m => m.cursor));
+    const newMessages = afterCursorResult.messages.filter(m => !allCursors.has(m.cursor));
+    
+    // Combine and sort by cursor
+    const combinedMessages = [...recentMessages, ...newMessages].sort((a, b) => 
+      a.cursor.localeCompare(b.cursor)
+    );
+    
+    return {
+      messages: combinedMessages,
+      lastCursor: combinedMessages.length > 0 ? combinedMessages[combinedMessages.length - 1].cursor : null,
+      hasMore: afterCursorResult.hasMore
+    };
   }
   
   // ============================================================================
