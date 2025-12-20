@@ -54,6 +54,18 @@ const STREAMING_VOICE_PATH = '/api/voice/stream/ws';
 const REALTIME_PATH = '/api/realtime/ws';
 
 /**
+ * Normalize language keys for consistent comparison
+ * Handles variations like "mandarin" vs "mandarin chinese"
+ */
+function normalizeLanguageKey(lang: string): string {
+  const lower = lang.toLowerCase().trim();
+  if (lower === 'mandarin' || lower === 'mandarin chinese' || lower === 'chinese') {
+    return 'mandarin chinese';
+  }
+  return lower;
+}
+
+/**
  * Socket.io to ws-compatible adapter
  * Allows existing handleStreamingVoiceConnection to work with Socket.io
  */
@@ -479,7 +491,8 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
               // IMPORTANT: Trust conversation.language over client's config.targetLanguage
               // This prevents stale localStorage on client from overriding the conversation's actual language
               // (e.g., after tutor handoff + page reload, client may send wrong language)
-              const conversationLanguage = conversation.language?.toLowerCase() || config.targetLanguage?.toLowerCase() || 'spanish';
+              // NORMALIZE at the source: handles "mandarin" vs "mandarin chinese" variations
+              const conversationLanguage = normalizeLanguageKey(conversation.language?.toLowerCase() || config.targetLanguage?.toLowerCase() || 'spanish');
               const langPrefs = await storage.getLanguagePreferences(userId!, conversationLanguage);
               
               // Get ACTFL progress to derive difficulty organically
@@ -692,12 +705,14 @@ Reference past discussions when relevant, but don't force it.
           // IMPORTANT: Trust conversation.language over client's config.targetLanguage
           // This prevents stale localStorage on client from overriding the conversation's actual language
           // (e.g., after tutor handoff + page reload, client may send wrong language)
-          const effectiveLanguage = conversation.language?.toLowerCase() || config.targetLanguage?.toLowerCase() || 'spanish';
+          // NORMALIZE at the source: handles "mandarin" vs "mandarin chinese" variations
+          const rawLanguage = conversation.language?.toLowerCase() || config.targetLanguage?.toLowerCase() || 'spanish';
+          const effectiveLanguage = normalizeLanguageKey(rawLanguage);
           
           // Log a warning if client and conversation languages differ (helps debug sync issues)
           if (config.targetLanguage && conversation.language && 
               config.targetLanguage.toLowerCase() !== conversation.language.toLowerCase()) {
-            console.warn(`[Streaming Voice] Language mismatch: client sent "${config.targetLanguage}" but conversation is "${conversation.language}" - using conversation language`);
+            console.warn(`[Streaming Voice] Language mismatch: client sent "${config.targetLanguage}" but conversation is "${conversation.language}" - using normalized: "${effectiveLanguage}"`);
           }
           let voiceId: string | undefined;
           let tutorNameForPrompt = tutorGenderForPrompt === 'male' ? 'Agustin' : 'Daniela'; // Default fallback
@@ -725,13 +740,14 @@ Reference past discussions when relevant, but don't force it.
             // This gives Daniela knowledge of who she can hand off to by name
             const studentPreferredGender = (user?.tutorGender || 'female') as 'male' | 'female';
             
-            // Main tutors from voice database
+            // Main tutors from voice database (exclude assistants)
+            // effectiveLanguage is already normalized at source, no need to normalize again
             const mainTutorEntries = allVoices
-              .filter((v: any) => v.isActive && v.voiceName)
+              .filter((v: any) => v.isActive && v.voiceName && v.role !== 'assistant')
               .map((v: any) => {
                 const voiceNameParts = v.voiceName?.split(/\s*[-–]\s*/) || [];
                 const tutorName = voiceNameParts[0]?.trim() || 'Tutor';
-                const lang = v.language?.toLowerCase() || 'spanish';
+                const lang = normalizeLanguageKey(v.language || 'spanish');
                 const gender = (v.gender?.toLowerCase() || 'female') as 'male' | 'female';
                 
                 // Mark current tutor (current language + current gender)
@@ -751,39 +767,31 @@ Reference past discussions when relevant, but don't force it.
                 };
               });
             
-            // Add assistant practice partners from config
-            // Import assistant tutor names dynamically
+            // Add assistant practice partners from neural network database
+            // Neural network philosophy: "Prompts for context ONLY; neural network for procedures/capabilities/knowledge"
             let assistantEntries: TutorDirectoryEntry[] = [];
             try {
-              const { ASSISTANT_TUTORS } = await import('./services/assistant-tutor-config');
+              // Get assistants from tutorVoices table (role='assistant')
+              const assistantVoices = allVoices.filter((v: any) => v.role === 'assistant' && v.isActive);
               
-              // Get unique languages from main tutors
-              const languages = [...new Set(mainTutorEntries.map(t => t.language))];
-              
-              for (const lang of languages) {
-                const config = ASSISTANT_TUTORS[lang] || ASSISTANT_TUTORS.spanish;
-                if (config) {
-                  // Add both female and male assistant for each language
-                  assistantEntries.push({
-                    language: lang,
-                    gender: 'female',
-                    name: config.female,
-                    isPreferred: studentPreferredGender === 'female',
-                    isCurrent: false,
-                    role: 'assistant' as const,
-                  });
-                  assistantEntries.push({
-                    language: lang,
-                    gender: 'male',
-                    name: config.male,
-                    isPreferred: studentPreferredGender === 'male',
-                    isCurrent: false,
-                    role: 'assistant' as const,
-                  });
-                }
+              for (const av of assistantVoices) {
+                // Extract assistant name from voice name (e.g., "Aris - Practice Partner" -> "Aris")
+                const nameParts = av.voiceName?.split(/\s*[-–]\s*/) || [];
+                const assistantName = nameParts[0]?.trim() || 'Assistant';
+                const lang = normalizeLanguageKey(av.language || 'spanish');
+                const gender = (av.gender?.toLowerCase() || 'female') as 'male' | 'female';
+                
+                assistantEntries.push({
+                  language: lang,
+                  gender,
+                  name: assistantName,
+                  isPreferred: gender === studentPreferredGender,
+                  isCurrent: false,
+                  role: 'assistant' as const,
+                });
               }
             } catch (asstErr: any) {
-              console.warn('[Streaming Voice] Could not load assistant tutors:', asstErr.message);
+              console.warn('[Streaming Voice] Could not load assistant tutors from database:', asstErr.message);
             }
             
             tutorDirectory = [...mainTutorEntries, ...assistantEntries];
@@ -2129,8 +2137,8 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
             const isFounderMode = isDeveloper && !conversation?.classId;
             const messages = conversationId ? await storage.getMessagesByConversation(conversationId) : [];
             
-            // Get tutor voice
-            const effectiveLanguage = config.targetLanguage || 'spanish';
+            // Get tutor voice - normalize language key for consistency
+            const effectiveLanguage = normalizeLanguageKey(config.targetLanguage || 'spanish');
             const tutorVoice = await storage.getTutorVoice(effectiveLanguage, tutorGender);
             const voiceId = tutorVoice?.voiceId || '';
             const tutorName = tutorGender === 'male' ? 'Agustin' : 'Daniela';

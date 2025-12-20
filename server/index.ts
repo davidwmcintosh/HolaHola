@@ -145,6 +145,16 @@ const stripeInitPromise = (async function initStripe() {
       console.error('Failed to seed neural network data:', error);
     }
     
+    // Seed Assistant Tutors (practice partners for all languages)
+    try {
+      console.log('Seeding assistant tutors...');
+      const { seedAssistantTutors } = await import('./seed-assistant-tutors');
+      await seedAssistantTutors();
+      console.log('Assistant tutors ready');
+    } catch (error) {
+      console.error('Failed to seed assistant tutors:', error);
+    }
+    
     // Seed Daniela's Advanced Intelligence Layer (subtlety, emotions, creativity)
     try {
       console.log('Seeding advanced intelligence layer...');

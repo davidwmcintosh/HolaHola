@@ -297,15 +297,20 @@ export const updateLanguagePreferencesSchema = z.object({
 });
 export type UpdateLanguagePreferences = z.infer<typeof updateLanguagePreferencesSchema>;
 
+// Tutor role enum - distinguishes main tutors from practice partner assistants
+export const tutorRoleEnum = pgEnum("tutor_role", ["tutor", "assistant"]);
+
 // Tutor Voices - Admin-configurable voices per language with male/female options
 // This replaces hardcoded voice mappings and allows admin voice audition/assignment
+// Now includes both main tutors (Cartesia) and practice partner assistants (Google TTS)
 export const tutorVoices = pgTable("tutor_voices", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   language: varchar("language").notNull(), // spanish, french, german, etc.
   gender: varchar("gender").notNull(), // male, female
+  role: tutorRoleEnum("role").notNull().default("tutor"), // tutor = main conversation partner, assistant = drill practice partner
   provider: varchar("provider").notNull().default("cartesia"), // cartesia, google
   voiceId: varchar("voice_id").notNull(), // Cartesia voice ID or Google voice name
-  voiceName: varchar("voice_name").notNull(), // Display name for admin UI (e.g., "Mexican Woman")
+  voiceName: varchar("voice_name").notNull(), // Display name for admin UI (e.g., "Daniela - Warmhearted Teacher")
   languageCode: varchar("language_code").notNull(), // Language code for TTS (e.g., "es", "en")
   speakingRate: real("speaking_rate").notNull().default(0.9), // Speed: 0.7 (slow) to 1.3 (fast), 0.9 = natural
   personality: varchar("personality").notNull().default("warm"), // warm, calm, energetic, professional
@@ -316,6 +321,7 @@ export const tutorVoices = pgTable("tutor_voices", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => [
   index("idx_tutor_voices_language_gender").on(table.language, table.gender),
+  index("idx_tutor_voices_role").on(table.role),
 ]);
 
 export const insertTutorVoiceSchema = createInsertSchema(tutorVoices).omit({ id: true, createdAt: true, updatedAt: true });
