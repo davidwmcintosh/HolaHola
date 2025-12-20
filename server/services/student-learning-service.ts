@@ -21,10 +21,12 @@ import {
   predictedStruggles,
   userMotivationAlerts,
   pedagogicalInsights,
+  learnerPersonalFacts,
   type RecurringStruggle,
   type StudentInsight,
   type PredictedStruggle,
   type UserMotivationAlert,
+  type LearnerPersonalFact,
 } from '@shared/schema';
 import { eq, and, desc, sql, gte, ilike, or, count, ne } from 'drizzle-orm';
 import { storage } from '../storage';
@@ -94,9 +96,35 @@ export interface StrategyOutcome {
 export interface StudentLearningContext {
   struggles: RecurringStruggle[];
   insights: StudentInsight[];
+  personalFacts: LearnerPersonalFact[];
   effectiveStrategies: string[];
   strugglingAreas: string[];
   recentProgress: string[];
+}
+
+// Personal fact types for categorization
+export const PERSONAL_FACT_TYPES = [
+  'life_event',      // "Getting married in June"
+  'personal_detail', // "Works as a nurse"
+  'goal',            // "Want to be conversational for trip"
+  'preference',      // "Prefers morning practice sessions"
+  'relationship',    // "Has a sister named Maria"
+  'travel',          // "Planning trip to Madrid"
+  'work',            // "Started new job at hospital"
+  'family',          // "Just had a baby"
+  'hobby',           // "Loves playing guitar"
+] as const;
+
+export type PersonalFactType = typeof PERSONAL_FACT_TYPES[number];
+
+export interface PersonalFactInput {
+  studentId: string;
+  factType: PersonalFactType;
+  fact: string;
+  context?: string;
+  language?: string;
+  relevantDate?: Date;
+  sourceConversationId?: string;
 }
 
 export class StudentLearningService {
@@ -296,6 +324,22 @@ export class StudentLearningService {
       )
       .orderBy(desc(studentInsights.confidenceScore));
     
+    // Get personal facts about this student (permanent memories)
+    const personalFacts = await db
+      .select()
+      .from(learnerPersonalFacts)
+      .where(
+        and(
+          eq(learnerPersonalFacts.studentId, studentId),
+          eq(learnerPersonalFacts.isActive, true),
+          or(
+            eq(learnerPersonalFacts.language, language),
+            sql`${learnerPersonalFacts.language} IS NULL`
+          )
+        )
+      )
+      .orderBy(desc(learnerPersonalFacts.lastMentionedAt));
+    
     // Aggregate effective strategies across all struggles
     const effectiveStrategies = new Set<string>();
     const strugglingAreas: string[] = [];
@@ -318,6 +362,7 @@ export class StudentLearningService {
     return {
       struggles: struggles.slice(0, 10),
       insights: insights.slice(0, 10),
+      personalFacts: personalFacts.slice(0, 10),
       effectiveStrategies: Array.from(effectiveStrategies),
       strugglingAreas: strugglingAreas.slice(0, 5),
       recentProgress: recentProgress.slice(0, 5),
@@ -344,6 +389,7 @@ export class StudentLearningService {
     // Only include if there's meaningful content
     const hasContent = context.strugglingAreas.length > 0 || 
                        context.effectiveStrategies.length > 0 ||
+                       context.personalFacts.length > 0 ||
                        context.struggles.some(s => s.status === 'active' && (s.occurrenceCount || 0) > 1);
     
     if (!hasContent) return '';
@@ -374,6 +420,18 @@ export class StudentLearningService {
     // One progress note if improving
     if (context.recentProgress.length > 0) {
       lines.push('Progress: ' + truncate(context.recentProgress[0]));
+    }
+    
+    // Personal facts (things student shared about their life)
+    if (context.personalFacts.length > 0) {
+      const topFacts = context.personalFacts.slice(0, 3);
+      lines.push('Remembers:');
+      topFacts.forEach(f => {
+        const dateNote = f.relevantDate && new Date(f.relevantDate) > new Date()
+          ? ` (${new Date(f.relevantDate).toLocaleDateString()})`
+          : '';
+        lines.push(`  - ${truncate(f.fact)}${dateNote}`);
+      });
     }
     
     const result = lines.join('\n');
@@ -1770,6 +1828,191 @@ export class StudentLearningService {
     ]);
     
     return [predictions, alerts].filter(Boolean).join('\n');
+  }
+  
+  // ============================================================
+  // PERSONAL FACTS SYSTEM
+  // Permanent memories about students that don't decay
+  // ============================================================
+  
+  /**
+   * Save or update a personal fact about a student
+   * Uses deduplication - if a similar fact exists, updates mention count
+   */
+  async savePersonalFact(input: PersonalFactInput): Promise<LearnerPersonalFact> {
+    // Normalize fact for better deduplication (lowercase, trim, collapse whitespace)
+    const normalizedFact = input.fact.toLowerCase().trim().replace(/\s+/g, ' ');
+    
+    // Get all existing facts of same type for this student
+    const existingFacts = await db
+      .select()
+      .from(learnerPersonalFacts)
+      .where(
+        and(
+          eq(learnerPersonalFacts.studentId, input.studentId),
+          eq(learnerPersonalFacts.factType, input.factType),
+          eq(learnerPersonalFacts.isActive, true)
+        )
+      );
+    
+    // Check for similar facts using normalized comparison
+    const existing = existingFacts.filter(f => {
+      const existingNormalized = f.fact.toLowerCase().trim().replace(/\s+/g, ' ');
+      
+      // Exact match check (after normalization)
+      if (normalizedFact === existingNormalized) return true;
+      
+      // For short facts (< 30 chars), require higher similarity
+      const isShortFact = normalizedFact.length < 30 || existingNormalized.length < 30;
+      
+      // Extract meaningful words (skip common words)
+      const stopWords = new Set(['the', 'a', 'an', 'is', 'are', 'was', 'were', 'has', 'have', 'had', 'to', 'for', 'in', 'on', 'at', 'with', 'and', 'or']);
+      const newWords = new Set(normalizedFact.split(' ').filter(w => w.length > 2 && !stopWords.has(w)));
+      const existingWords = new Set(existingNormalized.split(' ').filter(w => w.length > 2 && !stopWords.has(w)));
+      
+      if (newWords.size === 0 || existingWords.size === 0) return false;
+      
+      const intersection = [...newWords].filter(w => existingWords.has(w)).length;
+      const similarity = intersection / Math.max(newWords.size, existingWords.size);
+      
+      // Require 80% similarity for short facts, 60% for longer ones
+      return isShortFact ? similarity > 0.8 : similarity > 0.6;
+    });
+    
+    if (existing.length > 0) {
+      // Update existing fact - bump mention count and update timestamp
+      const [updated] = await db
+        .update(learnerPersonalFacts)
+        .set({
+          mentionCount: sql`${learnerPersonalFacts.mentionCount} + 1`,
+          lastMentionedAt: new Date(),
+          context: input.context || existing[0].context,
+          updatedAt: new Date(),
+        })
+        .where(eq(learnerPersonalFacts.id, existing[0].id))
+        .returning();
+      
+      console.log(`[StudentLearning] Updated personal fact: ${input.factType} (${updated.mentionCount}x)`);
+      return updated;
+    }
+    
+    // Create new fact
+    const [created] = await db
+      .insert(learnerPersonalFacts)
+      .values({
+        studentId: input.studentId,
+        factType: input.factType,
+        fact: input.fact,
+        context: input.context,
+        language: input.language,
+        relevantDate: input.relevantDate,
+        sourceConversationId: input.sourceConversationId,
+        confidenceScore: 0.8,
+        mentionCount: 1,
+        lastMentionedAt: new Date(),
+        isActive: true,
+      })
+      .returning();
+    
+    console.log(`[StudentLearning] Created personal fact: ${input.factType} - "${input.fact.slice(0, 50)}"`);
+    return created;
+  }
+  
+  /**
+   * Get all active personal facts for a student
+   */
+  async getPersonalFacts(
+    studentId: string, 
+    language?: string
+  ): Promise<LearnerPersonalFact[]> {
+    const conditions = [
+      eq(learnerPersonalFacts.studentId, studentId),
+      eq(learnerPersonalFacts.isActive, true),
+    ];
+    
+    if (language) {
+      conditions.push(
+        or(
+          eq(learnerPersonalFacts.language, language),
+          sql`${learnerPersonalFacts.language} IS NULL`
+        )!
+      );
+    }
+    
+    return db
+      .select()
+      .from(learnerPersonalFacts)
+      .where(and(...conditions))
+      .orderBy(desc(learnerPersonalFacts.lastMentionedAt));
+  }
+  
+  /**
+   * Get upcoming events/dates for a student (facts with relevant dates in the future)
+   */
+  async getUpcomingEvents(studentId: string): Promise<LearnerPersonalFact[]> {
+    const now = new Date();
+    const threeMonthsFromNow = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+    
+    return db
+      .select()
+      .from(learnerPersonalFacts)
+      .where(
+        and(
+          eq(learnerPersonalFacts.studentId, studentId),
+          eq(learnerPersonalFacts.isActive, true),
+          gte(learnerPersonalFacts.relevantDate, now),
+          sql`${learnerPersonalFacts.relevantDate} <= ${threeMonthsFromNow.toISOString()}`
+        )
+      )
+      .orderBy(learnerPersonalFacts.relevantDate);
+  }
+  
+  /**
+   * Deactivate a personal fact (soft delete)
+   */
+  async deactivatePersonalFact(factId: string): Promise<void> {
+    await db
+      .update(learnerPersonalFacts)
+      .set({
+        isActive: false,
+        updatedAt: new Date(),
+      })
+      .where(eq(learnerPersonalFacts.id, factId));
+    
+    console.log(`[StudentLearning] Deactivated personal fact: ${factId}`);
+  }
+  
+  /**
+   * Format personal facts for injection into Daniela's prompt
+   */
+  formatPersonalFactsForPrompt(facts: LearnerPersonalFact[]): string {
+    if (facts.length === 0) return '';
+    
+    const lines: string[] = ['[PERSONAL MEMORIES]'];
+    const MAX_FACTS = 5;
+    const MAX_CHARS = 60;
+    
+    const truncate = (s: string) => s.length > MAX_CHARS ? s.substring(0, MAX_CHARS - 3) + '...' : s;
+    
+    // Prioritize: upcoming events first, then by mention count
+    const sortedFacts = [...facts].sort((a, b) => {
+      // Upcoming events get priority
+      const aHasDate = a.relevantDate && new Date(a.relevantDate) > new Date();
+      const bHasDate = b.relevantDate && new Date(b.relevantDate) > new Date();
+      if (aHasDate && !bHasDate) return -1;
+      if (bHasDate && !aHasDate) return 1;
+      // Then by mention count
+      return (b.mentionCount || 1) - (a.mentionCount || 1);
+    });
+    
+    for (const fact of sortedFacts.slice(0, MAX_FACTS)) {
+      const dateNote = fact.relevantDate 
+        ? ` (${new Date(fact.relevantDate).toLocaleDateString()})` 
+        : '';
+      lines.push(`• ${truncate(fact.fact)}${dateNote}`);
+    }
+    
+    return lines.join('\n');
   }
 }
 

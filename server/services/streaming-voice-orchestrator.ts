@@ -75,6 +75,7 @@ import { editorFeedbackService } from "./editor-feedback-service";
 import { founderCollabService } from "./founder-collaboration-service";
 import { phaseTransitionService } from "./phase-transition-service";
 import { voiceDiagnostics } from "./voice-diagnostics-service";
+import { learnerMemoryExtractionService } from "./learner-memory-extraction-service";
 import { db } from "../db";
 import { 
   tutorProcedures, 
@@ -5069,6 +5070,14 @@ Using this context, speak first to the student with a natural opening message. O
   endSession(sessionId: string): void {
     const session = this.sessions.get(sessionId);
     if (session) {
+      // Capture session data for async memory extraction before deletion
+      const sessionData = {
+        userId: String(session.userId),
+        language: session.targetLanguage,
+        conversationId: session.conversationId,
+        history: [...session.conversationHistory], // Clone before deletion
+      };
+      
       // Clear any pending idle timeout
       if (session.idleTimeoutId) {
         clearTimeout(session.idleTimeoutId);
@@ -5087,6 +5096,23 @@ Using this context, speak first to the student with a natural opening message. O
       
       // PHASE TRANSITION: End the teaching phase session
       phaseTransitionService.endSession(String(session.userId));
+      
+      // MEMORY EXTRACTION: Async extraction of personal facts from conversation
+      // Runs in background after session ends - doesn't block cleanup
+      if (sessionData.history.length >= 4) {
+        learnerMemoryExtractionService.extractFromConversation(
+          sessionData.userId,
+          sessionData.language,
+          sessionData.conversationId,
+          sessionData.history.map(h => ({ role: h.role, content: h.content }))
+        ).then(result => {
+          if (result.saved.length > 0) {
+            console.log(`[Streaming Orchestrator] Extracted ${result.saved.length} personal facts from session`);
+          }
+        }).catch((err: Error) => {
+          console.warn(`[Streaming Orchestrator] Memory extraction failed:`, err.message);
+        });
+      }
       
       session.isActive = false;
       this.sessions.delete(sessionId);
