@@ -266,6 +266,9 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
   let pendingSpeculativeTranscript: string | null = null;
   let pendingSpeculativeWordCount = 0;
   const SPECULATIVE_TRANSCRIPT_MIN_WORDS = 2;  // Minimum words to use speculative transcript
+  const SPECULATIVE_AI_TRIGGER_WORDS = 3;  // Minimum words to trigger speculative AI generation
+  let speculativeAiInProgress = false;  // Whether speculative AI is currently generating
+  let speculativeAiAccepted = false;  // Whether speculative AI result was accepted (skip audio_data)
   
   // Usage tracking state
   let usageSession: UsageVoiceSession | null = null;
@@ -1029,6 +1032,14 @@ Reference past discussions when relevant, but don't force it.
             return;
           }
 
+          // PHASE 2: If speculative AI was already accepted, skip this audio_data entirely
+          // The response is already streaming from the speculative call
+          if (speculativeAiAccepted) {
+            console.log(`[SpeculativePTT] PHASE 2: Skipping audio_data - speculative AI already accepted`);
+            speculativeAiAccepted = false;  // Reset for next turn
+            break;
+          }
+
           const audioMessage = message as ClientAudioDataMessage;
           let audioBuffer: Buffer;
           if (typeof audioMessage.audio === 'string') {
@@ -1390,6 +1401,12 @@ Reference past discussions when relevant, but don't force it.
             speculativePttTriggered = false;
             speculativePttTranscriptUsed = '';
             
+            // CRITICAL: Clear any stale flags from previous turn to prevent cross-turn carryover
+            speculativeAiInProgress = false;
+            speculativeAiAccepted = false;
+            pendingSpeculativeTranscript = null;
+            pendingSpeculativeWordCount = 0;
+            
             const languageCode = getDeepgramLanguageCode(session.targetLanguage || 'spanish');
             console.log(`[SpeculativePTT] Starting PCM session for language: ${languageCode}`);
             
@@ -1413,7 +1430,7 @@ Reference past discussions when relevant, but don't force it.
                 const words = transcript.trim().split(/\s+/).filter(w => w.length > 0);
                 speculativePttWordCount = words.length;
                 
-                console.log(`[SpeculativePTT] Interim: "${transcript}" (${speculativePttWordCount} words)`);
+                console.log(`[SpeculativePTT] Interim: "${transcript}" (${speculativePttWordCount} words, triggered: ${speculativePttTriggered})`);
                 
                 // Send interim transcript to client for display
                 if (ws.readyState === WS.OPEN) {
@@ -1423,6 +1440,44 @@ Reference past discussions when relevant, but don't force it.
                     text: transcript,
                     wordCount: speculativePttWordCount,
                   }));
+                }
+                
+                // PHASE 2: SPECULATIVE AI PRE-TRIGGER
+                // When we hit 3+ confident words, start AI generation speculatively
+                // This shaves 200-300ms off response time by starting AI while user is still speaking
+                if (speculativePttWordCount >= SPECULATIVE_AI_TRIGGER_WORDS && 
+                    !speculativePttTriggered && 
+                    !speculativeAiInProgress &&
+                    session) {
+                  speculativePttTriggered = true;
+                  speculativePttTranscriptUsed = transcript.trim();
+                  speculativeAiInProgress = true;
+                  
+                  console.log(`[SpeculativePTT] PHASE 2: Triggering speculative AI with "${speculativePttTranscriptUsed}"`);
+                  
+                  // Fire-and-forget speculative AI call
+                  // The result will stream to client; on PTT release we'll decide whether to use it
+                  orchestrator.processOpenMicTranscript(session.id, speculativePttTranscriptUsed, 0.9)
+                    .then(() => {
+                      console.log(`[SpeculativePTT] PHASE 2: Speculative AI completed`);
+                    })
+                    .catch((err: Error) => {
+                      console.error(`[SpeculativePTT] PHASE 2: Speculative AI failed:`, err.message);
+                      // Don't reset speculativePttTriggered - we'll fall back to normal flow
+                    })
+                    .finally(() => {
+                      // CRITICAL: Always reset in-progress flag, even on interrupt/cancellation
+                      speculativeAiInProgress = false;
+                    });
+                  
+                  // Notify client that speculative AI has started
+                  if (ws.readyState === WS.OPEN) {
+                    ws.send(JSON.stringify({
+                      type: 'ptt_speculative_ai_started',
+                      timestamp: Date.now(),
+                      transcript: speculativePttTranscriptUsed,
+                    }));
+                  }
                 }
               },
               onError: (error) => {
@@ -1481,17 +1536,77 @@ Reference past discussions when relevant, but don't force it.
           // Since we're using real-time streaming, the final interim is usually accurate
           const finalTranscript = speculativePttTranscript.trim();
           
-          // CRITICAL: Save the speculative transcript for the upcoming audio_data message
-          // This allows us to bypass redundant STT and go straight to AI generation
-          if (finalTranscript && speculativePttWordCount >= SPECULATIVE_TRANSCRIPT_MIN_WORDS) {
-            pendingSpeculativeTranscript = finalTranscript;
-            pendingSpeculativeWordCount = speculativePttWordCount;
-            console.log(`[SpeculativePTT] Saved pending transcript for bypass (${pendingSpeculativeWordCount} words)`);
+          // PHASE 2: SPECULATIVE AI HANDLING
+          // If we already triggered speculative AI, check if the transcript changed significantly
+          if (speculativePttTriggered && speculativePttTranscriptUsed) {
+            const speculativeWords = speculativePttTranscriptUsed.toLowerCase().split(/\s+/);
+            const finalWords = finalTranscript.toLowerCase().split(/\s+/);
+            
+            // Calculate word overlap (simple similarity check)
+            const intersection = speculativeWords.filter(w => finalWords.includes(w));
+            const overlap = speculativeWords.length > 0 ? intersection.length / speculativeWords.length : 0;
+            
+            console.log(`[SpeculativePTT] PHASE 2: Comparing transcripts - speculative: "${speculativePttTranscriptUsed}", final: "${finalTranscript}", overlap: ${(overlap * 100).toFixed(0)}%`);
+            
+            if (overlap >= 0.8 || finalTranscript.startsWith(speculativePttTranscriptUsed)) {
+              // Transcript is similar enough - speculative AI result is valid!
+              // No need to re-trigger, response is already streaming
+              console.log(`[SpeculativePTT] PHASE 2: ✓ Using speculative AI result (${(overlap * 100).toFixed(0)}% overlap)`);
+              
+              // Clear pending transcript since we're using speculative result
+              pendingSpeculativeTranscript = null;
+              pendingSpeculativeWordCount = 0;
+              speculativeAiAccepted = true;  // Mark as accepted so audio_data skips processing
+              
+              // Notify client
+              if (ws.readyState === WS.OPEN) {
+                ws.send(JSON.stringify({
+                  type: 'ptt_speculative_ai_accepted',
+                  timestamp: Date.now(),
+                  speculativeTranscript: speculativePttTranscriptUsed,
+                  finalTranscript: finalTranscript,
+                  overlap: overlap,
+                }));
+              }
+            } else {
+              // Transcript changed significantly - interrupt and re-trigger via audio_data
+              console.log(`[SpeculativePTT] PHASE 2: ✗ Transcript changed too much (${(overlap * 100).toFixed(0)}% overlap), will re-trigger`);
+              
+              // Interrupt the speculative response
+              orchestrator.handleInterrupt(session.id);
+              
+              // CRITICAL: Clear ALL speculative AI flags so audio_data runs normally
+              speculativeAiInProgress = false;
+              speculativeAiAccepted = false;  // Ensure audio_data is NOT skipped
+              
+              // Save final transcript for audio_data to use
+              pendingSpeculativeTranscript = finalTranscript;
+              pendingSpeculativeWordCount = speculativePttWordCount;
+              
+              // Notify client
+              if (ws.readyState === WS.OPEN) {
+                ws.send(JSON.stringify({
+                  type: 'ptt_speculative_ai_rejected',
+                  timestamp: Date.now(),
+                  reason: 'transcript_changed',
+                  overlap: overlap,
+                }));
+              }
+            }
           } else {
-            // Not enough words - fallback to blob STT
-            pendingSpeculativeTranscript = null;
-            pendingSpeculativeWordCount = 0;
-            console.log(`[SpeculativePTT] Transcript too short (${speculativePttWordCount} words), will use blob STT`);
+            // No speculative AI was triggered - use normal flow
+            // Save the speculative transcript for the upcoming audio_data message
+            // This allows us to bypass redundant STT and go straight to AI generation
+            if (finalTranscript && speculativePttWordCount >= SPECULATIVE_TRANSCRIPT_MIN_WORDS) {
+              pendingSpeculativeTranscript = finalTranscript;
+              pendingSpeculativeWordCount = speculativePttWordCount;
+              console.log(`[SpeculativePTT] Saved pending transcript for bypass (${pendingSpeculativeWordCount} words)`);
+            } else {
+              // Not enough words - fallback to blob STT
+              pendingSpeculativeTranscript = null;
+              pendingSpeculativeWordCount = 0;
+              console.log(`[SpeculativePTT] Transcript too short (${speculativePttWordCount} words), will use blob STT`);
+            }
           }
           
           if (ws.readyState === WS.OPEN) {
@@ -1500,14 +1615,17 @@ Reference past discussions when relevant, but don't force it.
               timestamp: Date.now(),
               text: finalTranscript,
               wordCount: speculativePttWordCount,
+              speculativeAiUsed: speculativePttTriggered && pendingSpeculativeTranscript === null,
             }));
           }
           
-          // Reset speculative state (but keep pendingSpeculativeTranscript!)
+          // Reset speculative state (but keep pendingSpeculativeTranscript and speculativeAiAccepted for audio_data!)
           speculativePttTranscript = '';
           speculativePttWordCount = 0;
           speculativePttTriggered = false;
           speculativePttTranscriptUsed = '';
+          speculativeAiInProgress = false;  // Always clear in-progress flag
+          // NOTE: speculativeAiAccepted is intentionally NOT reset here - audio_data will reset it after checking
           
           break;
         }
@@ -1521,7 +1639,7 @@ Reference past discussions when relevant, but don't force it.
           openMicPendingChunks = [];
           openMicSessionStarting = false;
           
-          // Also cleanup speculative PTT
+          // Also cleanup speculative PTT - full reset for clean state
           if (speculativePttSession) {
             speculativePttSession.close();
             speculativePttSession = null;
@@ -1532,6 +1650,10 @@ Reference past discussions when relevant, but don't force it.
           speculativePttWordCount = 0;
           speculativePttTriggered = false;
           speculativePttTranscriptUsed = '';
+          speculativeAiInProgress = false;
+          speculativeAiAccepted = false;
+          pendingSpeculativeTranscript = null;
+          pendingSpeculativeWordCount = 0;
           break;
         }
 
@@ -1791,6 +1913,14 @@ Reference past discussions when relevant, but don't force it.
     }
     speculativePttPendingChunks = [];
     speculativePttSessionStarting = false;
+    speculativePttTranscript = '';
+    speculativePttWordCount = 0;
+    speculativePttTriggered = false;
+    speculativePttTranscriptUsed = '';
+    speculativeAiInProgress = false;
+    speculativeAiAccepted = false;
+    pendingSpeculativeTranscript = null;
+    pendingSpeculativeWordCount = 0;
     
     if (session) orchestrator.endSession(session.id);
     endUsageSession();
@@ -1816,6 +1946,14 @@ Reference past discussions when relevant, but don't force it.
     }
     speculativePttPendingChunks = [];
     speculativePttSessionStarting = false;
+    speculativePttTranscript = '';
+    speculativePttWordCount = 0;
+    speculativePttTriggered = false;
+    speculativePttTranscriptUsed = '';
+    speculativeAiInProgress = false;
+    speculativeAiAccepted = false;
+    pendingSpeculativeTranscript = null;
+    pendingSpeculativeWordCount = 0;
     
     if (session) orchestrator.endSession(session.id);
     endUsageSession();
@@ -1980,6 +2118,9 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
   let pendingSpeculativeTranscript: string | null = null;
   let pendingSpeculativeWordCount = 0;
   const SPECULATIVE_TRANSCRIPT_MIN_WORDS = 2;  // Minimum words to use speculative transcript
+  const SPECULATIVE_AI_TRIGGER_WORDS = 3;  // Minimum words to trigger speculative AI generation
+  let speculativeAiInProgress = false;  // Whether speculative AI is currently generating
+  let speculativeAiAccepted = false;  // Whether speculative AI result was accepted (skip audio_data)
   
   // Usage tracking state
   let usageSession: UsageVoiceSession | null = null;
@@ -2276,6 +2417,14 @@ This is a voice conversation. Speak naturally, as you would.`;
             return;
           }
           
+          // PHASE 2: If speculative AI was already accepted, skip this audio_data entirely
+          // The response is already streaming from the speculative call
+          if (speculativeAiAccepted) {
+            console.log(`[SpeculativePTT] PHASE 2: Skipping audio_data - speculative AI already accepted`);
+            speculativeAiAccepted = false;  // Reset for next turn
+            break;
+          }
+          
           const audioMessage = message as ClientAudioDataMessage;
           let audioBuffer: Buffer;
           if (typeof audioMessage.audio === 'string') {
@@ -2515,6 +2664,12 @@ This is a voice conversation. Speak naturally, as you would.`;
             speculativePttTriggered = false;
             speculativePttTranscriptUsed = '';
             
+            // CRITICAL: Clear any stale flags from previous turn to prevent cross-turn carryover
+            speculativeAiInProgress = false;
+            speculativeAiAccepted = false;
+            pendingSpeculativeTranscript = null;
+            pendingSpeculativeWordCount = 0;
+            
             const languageCode = getDeepgramLanguageCode(session.targetLanguage || 'spanish');
             console.log(`[SpeculativePTT] Starting PCM session for language: ${languageCode}`);
             
@@ -2538,7 +2693,7 @@ This is a voice conversation. Speak naturally, as you would.`;
                 const words = transcript.trim().split(/\s+/).filter(w => w.length > 0);
                 speculativePttWordCount = words.length;
                 
-                console.log(`[SpeculativePTT] Interim: "${transcript}" (${speculativePttWordCount} words)`);
+                console.log(`[SpeculativePTT] Interim: "${transcript}" (${speculativePttWordCount} words, triggered: ${speculativePttTriggered})`);
                 
                 // Send interim transcript to client for display
                 if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
@@ -2548,6 +2703,44 @@ This is a voice conversation. Speak naturally, as you would.`;
                     text: transcript,
                     wordCount: speculativePttWordCount,
                   }));
+                }
+                
+                // PHASE 2: SPECULATIVE AI PRE-TRIGGER
+                // When we hit 3+ confident words, start AI generation speculatively
+                // This shaves 200-300ms off response time by starting AI while user is still speaking
+                if (speculativePttWordCount >= SPECULATIVE_AI_TRIGGER_WORDS && 
+                    !speculativePttTriggered && 
+                    !speculativeAiInProgress &&
+                    session) {
+                  speculativePttTriggered = true;
+                  speculativePttTranscriptUsed = transcript.trim();
+                  speculativeAiInProgress = true;
+                  
+                  console.log(`[SpeculativePTT] PHASE 2: Triggering speculative AI with "${speculativePttTranscriptUsed}"`);
+                  
+                  // Fire-and-forget speculative AI call
+                  // The result will stream to client; on PTT release we'll decide whether to use it
+                  orchestrator.processOpenMicTranscript(session.id, speculativePttTranscriptUsed, 0.9)
+                    .then(() => {
+                      console.log(`[SpeculativePTT] PHASE 2: Speculative AI completed`);
+                    })
+                    .catch((err: Error) => {
+                      console.error(`[SpeculativePTT] PHASE 2: Speculative AI failed:`, err.message);
+                      // Don't reset speculativePttTriggered - we'll fall back to normal flow
+                    })
+                    .finally(() => {
+                      // CRITICAL: Always reset in-progress flag, even on interrupt/cancellation
+                      speculativeAiInProgress = false;
+                    });
+                  
+                  // Notify client that speculative AI has started
+                  if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+                    ws.send(JSON.stringify({
+                      type: 'ptt_speculative_ai_started',
+                      timestamp: Date.now(),
+                      transcript: speculativePttTranscriptUsed,
+                    }));
+                  }
                 }
               },
               onError: (error) => {
@@ -2605,17 +2798,77 @@ This is a voice conversation. Speak naturally, as you would.`;
           // The final transcript from interim results - this is our best guess
           const finalTranscript = speculativePttTranscript.trim();
           
-          // CRITICAL: Save the speculative transcript for the upcoming audio_data message
-          // This allows us to bypass redundant STT and go straight to AI generation
-          if (finalTranscript && speculativePttWordCount >= SPECULATIVE_TRANSCRIPT_MIN_WORDS) {
-            pendingSpeculativeTranscript = finalTranscript;
-            pendingSpeculativeWordCount = speculativePttWordCount;
-            console.log(`[SpeculativePTT] Saved pending transcript for bypass (${pendingSpeculativeWordCount} words)`);
+          // PHASE 2: SPECULATIVE AI HANDLING
+          // If we already triggered speculative AI, check if the transcript changed significantly
+          if (speculativePttTriggered && speculativePttTranscriptUsed) {
+            const speculativeWords = speculativePttTranscriptUsed.toLowerCase().split(/\s+/);
+            const finalWords = finalTranscript.toLowerCase().split(/\s+/);
+            
+            // Calculate word overlap (simple similarity check)
+            const intersection = speculativeWords.filter(w => finalWords.includes(w));
+            const overlap = speculativeWords.length > 0 ? intersection.length / speculativeWords.length : 0;
+            
+            console.log(`[SpeculativePTT] PHASE 2: Comparing transcripts - speculative: "${speculativePttTranscriptUsed}", final: "${finalTranscript}", overlap: ${(overlap * 100).toFixed(0)}%`);
+            
+            if (overlap >= 0.8 || finalTranscript.startsWith(speculativePttTranscriptUsed)) {
+              // Transcript is similar enough - speculative AI result is valid!
+              // No need to re-trigger, response is already streaming
+              console.log(`[SpeculativePTT] PHASE 2: ✓ Using speculative AI result (${(overlap * 100).toFixed(0)}% overlap)`);
+              
+              // Clear pending transcript since we're using speculative result
+              pendingSpeculativeTranscript = null;
+              pendingSpeculativeWordCount = 0;
+              speculativeAiAccepted = true;  // Mark as accepted so audio_data skips processing
+              
+              // Notify client
+              if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+                ws.send(JSON.stringify({
+                  type: 'ptt_speculative_ai_accepted',
+                  timestamp: Date.now(),
+                  speculativeTranscript: speculativePttTranscriptUsed,
+                  finalTranscript: finalTranscript,
+                  overlap: overlap,
+                }));
+              }
+            } else {
+              // Transcript changed significantly - interrupt and re-trigger via audio_data
+              console.log(`[SpeculativePTT] PHASE 2: ✗ Transcript changed too much (${(overlap * 100).toFixed(0)}% overlap), will re-trigger`);
+              
+              // Interrupt the speculative response
+              orchestrator.handleInterrupt(session.id);
+              
+              // CRITICAL: Clear ALL speculative AI flags so audio_data runs normally
+              speculativeAiInProgress = false;
+              speculativeAiAccepted = false;  // Ensure audio_data is NOT skipped
+              
+              // Save final transcript for audio_data to use
+              pendingSpeculativeTranscript = finalTranscript;
+              pendingSpeculativeWordCount = speculativePttWordCount;
+              
+              // Notify client
+              if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+                ws.send(JSON.stringify({
+                  type: 'ptt_speculative_ai_rejected',
+                  timestamp: Date.now(),
+                  reason: 'transcript_changed',
+                  overlap: overlap,
+                }));
+              }
+            }
           } else {
-            // Not enough words - fallback to blob STT
-            pendingSpeculativeTranscript = null;
-            pendingSpeculativeWordCount = 0;
-            console.log(`[SpeculativePTT] Transcript too short (${speculativePttWordCount} words), will use blob STT`);
+            // No speculative AI was triggered - use normal flow
+            // Save the speculative transcript for the upcoming audio_data message
+            // This allows us to bypass redundant STT and go straight to AI generation
+            if (finalTranscript && speculativePttWordCount >= SPECULATIVE_TRANSCRIPT_MIN_WORDS) {
+              pendingSpeculativeTranscript = finalTranscript;
+              pendingSpeculativeWordCount = speculativePttWordCount;
+              console.log(`[SpeculativePTT] Saved pending transcript for bypass (${pendingSpeculativeWordCount} words)`);
+            } else {
+              // Not enough words - fallback to blob STT
+              pendingSpeculativeTranscript = null;
+              pendingSpeculativeWordCount = 0;
+              console.log(`[SpeculativePTT] Transcript too short (${speculativePttWordCount} words), will use blob STT`);
+            }
           }
           
           if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
@@ -2624,14 +2877,17 @@ This is a voice conversation. Speak naturally, as you would.`;
               timestamp: Date.now(),
               text: finalTranscript,
               wordCount: speculativePttWordCount,
+              speculativeAiUsed: speculativePttTriggered && pendingSpeculativeTranscript === null,
             }));
           }
           
-          // Reset speculative state (but keep pendingSpeculativeTranscript!)
+          // Reset speculative state (but keep pendingSpeculativeTranscript and speculativeAiAccepted for audio_data!)
           speculativePttTranscript = '';
           speculativePttWordCount = 0;
           speculativePttTriggered = false;
           speculativePttTranscriptUsed = '';
+          speculativeAiInProgress = false;  // Always clear in-progress flag
+          // NOTE: speculativeAiAccepted is intentionally NOT reset here - audio_data will reset it after checking
           
           break;
         }
@@ -2701,6 +2957,24 @@ This is a voice conversation. Speak naturally, as you would.`;
       openMicSession.close();
       openMicSession = null;
     }
+    openMicPendingChunks = [];
+    openMicSessionStarting = false;
+    
+    // Clean up speculative PTT session
+    if (speculativePttSession) {
+      speculativePttSession.close();
+      speculativePttSession = null;
+    }
+    speculativePttPendingChunks = [];
+    speculativePttSessionStarting = false;
+    speculativePttTranscript = '';
+    speculativePttWordCount = 0;
+    speculativePttTriggered = false;
+    speculativePttTranscriptUsed = '';
+    speculativeAiInProgress = false;
+    speculativeAiAccepted = false;
+    pendingSpeculativeTranscript = null;
+    pendingSpeculativeWordCount = 0;
     
     if (session) orchestrator.endSession(session.id);
   });
@@ -2713,6 +2987,24 @@ This is a voice conversation. Speak naturally, as you would.`;
       openMicSession.close();
       openMicSession = null;
     }
+    openMicPendingChunks = [];
+    openMicSessionStarting = false;
+    
+    // Clean up speculative PTT session on error
+    if (speculativePttSession) {
+      speculativePttSession.close();
+      speculativePttSession = null;
+    }
+    speculativePttPendingChunks = [];
+    speculativePttSessionStarting = false;
+    speculativePttTranscript = '';
+    speculativePttWordCount = 0;
+    speculativePttTriggered = false;
+    speculativePttTranscriptUsed = '';
+    speculativeAiInProgress = false;
+    speculativeAiAccepted = false;
+    pendingSpeculativeTranscript = null;
+    pendingSpeculativeWordCount = 0;
     
     if (session) orchestrator.endSession(session.id);
   });

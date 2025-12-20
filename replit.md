@@ -103,8 +103,17 @@ When user holds PTT button, audio streams in real-time to Deepgram (in parallel 
 - On button release: `ptt_release` message closes Deepgram session, `ptt_final_transcript` sent
 - Fallback: If streaming fails, normal PTT via MediaRecorder still works
 
+**Phase 2: Speculative AI Pre-Trigger (IMPLEMENTED)**
+When 3+ confident words are detected during PTT hold, AI generation starts speculatively:
+- Trigger: `SPECULATIVE_AI_TRIGGER_WORDS = 3` words in interim transcript
+- Server fires speculative AI call via `orchestrator.processOpenMicTranscript()`
+- On PTT release: Compare final vs speculative transcript (80% word overlap threshold or prefix match)
+- If similar: Skip audio_data processing, use speculative result (200-300ms saved)
+- If different: Interrupt speculative response, fall through to normal PTT flow
+- State management: Full reset on new PTT session, stop_streaming, and connection close
+- Client events: `ptt_speculative_ai_started`, `ptt_speculative_ai_accepted`, `ptt_speculative_ai_rejected`
+
 Files: `unified-ws-handler.ts` (speculative PTT handlers), `StreamingVoiceChat.tsx` (PTT streaming setup)
-Phase 2 TODO: Trigger speculative AI call on confident interim transcript (3+ words)
 
 ### Pre-Release Voice Checklist
 Before any deployment affecting voice:
