@@ -69,7 +69,7 @@ import { trackToolEvent, mapWhiteboardTypeToToolType } from "./pedagogical-insig
 import { createSystemPrompt } from "../system-prompt";
 import { hiveCollaborationService, BeaconType } from "./hive-collaboration-service";
 import { hiveContextService } from "./hive-context-service";
-import { getExpressLaneHistoryForVoice } from "./hive-consciousness-service";
+import { getExpressLaneHistoryForVoice, hiveConsciousnessService } from "./hive-consciousness-service";
 import { collaborationHubService } from "./collaboration-hub-service";
 import { editorFeedbackService } from "./editor-feedback-service";
 import { founderCollabService } from "./founder-collaboration-service";
@@ -3343,6 +3343,19 @@ Remember: David may reference things discussed in these recent text chats.
         });
         
         console.log(`[EXPRESS Lane] ✅ Daniela posted sprint to discuss: "${createdSprint.title}"`);
+        
+        // Trigger Wren's build plan response via Hive Consciousness
+        // This creates the bidirectional collaboration loop
+        try {
+          await hiveConsciousnessService.triggerSprintCollaboration(
+            activeSession.id,
+            createdSprint,
+            parsed.description
+          );
+          console.log(`[Sprint] ✅ Triggered Wren build plan for: "${createdSprint.title}"`);
+        } catch (wrenErr: any) {
+          console.error(`[Sprint] Failed to trigger Wren build plan:`, wrenErr.message);
+        }
         
         // Also emit a beacon for visibility
         if (session.hiveChannelId) {

@@ -2139,7 +2139,10 @@ Provide a brief teaching perspective (2-3 sentences):
 2. Any pedagogical considerations to keep in mind?
 3. What teaching opportunities does this create?
 
-Keep it conversational - you're in a team chat with the founder and Wren (the builder).`;
+ALSO output a structured tag for database persistence:
+[PEDAGOGY_SPEC: {"learningObjectives": ["..."], "targetProficiency": "...", "teachingApproach": "...", "danielaGuidance": "..."}]
+
+Keep it conversational - you're in a team chat with the founder and Wren (the builder). The structured tag will be parsed and stored.`;
 
     try {
       const perspective = await callGemini(GEMINI_MODELS.FLASH, [
@@ -2159,9 +2162,250 @@ Keep it conversational - you're in a team chat with the founder and Wren (the bu
         });
         
         console.log(`[Hive Consciousness] Daniela provided perspective on sprint: ${sprint.title}`);
+        
+        // Parse and persist Daniela's pedagogySpec to the sprint record
+        await this.parsePedagogySpecAndUpdateSprint(sprint.id, perspective);
+        
+        // Now trigger Wren's response with build plan
+        try {
+          await this.notifyWrenAboutSprintUpdate(sessionId, sprint, perspective.trim(), founderContext);
+        } catch (wrenErr: any) {
+          console.error('[Hive Consciousness] Failed to get Wren build plan:', wrenErr.message);
+        }
       }
     } catch (err: any) {
       console.error('[Hive Consciousness] Failed to generate Daniela perspective:', err.message);
+    }
+  }
+  
+  /**
+   * Parse [PEDAGOGY_SPEC: {...}] tag from Daniela's response and update sprint record
+   */
+  private async parsePedagogySpecAndUpdateSprint(sprintId: string, danielaResponse: string): Promise<void> {
+    const pedagogyMatch = danielaResponse.match(/\[PEDAGOGY_SPEC:\s*(\{[\s\S]*?\})\]/);
+    if (!pedagogyMatch) {
+      console.log('[Hive Consciousness] No PEDAGOGY_SPEC tag found in Daniela response');
+      return;
+    }
+    
+    try {
+      let pedagogySpec: {
+        learningObjectives?: string[];
+        targetProficiency?: string;
+        teachingApproach?: string;
+        assessmentCriteria?: string[];
+        danielaGuidance?: string;
+      };
+      
+      // Try parsing JSON directly
+      try {
+        pedagogySpec = JSON.parse(pedagogyMatch[1]);
+      } catch {
+        // Fallback: extract guidance from natural language
+        pedagogySpec = {
+          danielaGuidance: danielaResponse.substring(0, 500),
+          teachingApproach: 'See Daniela\'s notes in EXPRESS Lane',
+        };
+      }
+      
+      // First, check current stage to ensure monotonic progression (never regress stages)
+      const [currentSprint] = await db.select({ stage: featureSprints.stage })
+        .from(featureSprints)
+        .where(eq(featureSprints.id, sprintId))
+        .limit(1);
+      
+      // Only transition to pedagogy_spec if currently at 'idea' stage
+      const shouldAdvanceStage = currentSprint?.stage === 'idea';
+      
+      // Update the sprint record with pedagogy spec (and stage only if appropriate)
+      await db.update(featureSprints)
+        .set({ 
+          pedagogySpec,
+          ...(shouldAdvanceStage ? { stage: 'pedagogy_spec' as const } : {}), // Only advance from 'idea'
+          updatedAt: new Date(),
+        })
+        .where(eq(featureSprints.id, sprintId));
+      
+      if (shouldAdvanceStage) {
+        console.log(`[Hive Consciousness] ✅ Updated sprint ${sprintId} with pedagogy spec (stage: idea → pedagogy_spec)`);
+      } else {
+        console.log(`[Hive Consciousness] ✅ Updated sprint ${sprintId} with pedagogy spec (stage unchanged: ${currentSprint?.stage})`);
+      }
+      
+      // Also check readiness in case buildPlan was already present
+      await this.checkAndAdvanceSprintReadiness(sprintId);
+    } catch (err: any) {
+      console.error('[Hive Consciousness] Failed to parse/save pedagogy spec:', err.message);
+    }
+  }
+  
+  /**
+   * Notify Wren about a sprint that needs a build plan
+   * Called after Daniela provides her teaching perspective
+   * Wren analyzes the pedagogical requirements and generates a technical build plan
+   */
+  private async notifyWrenAboutSprintUpdate(
+    sessionId: string,
+    sprint: { id: string; title: string },
+    danielaPerspective: string,
+    founderContext: string
+  ): Promise<void> {
+    const buildPlanPrompt = `You are Wren, HolaHola's development builder. Daniela (the AI tutor) just provided her teaching perspective on a new feature sprint.
+
+Sprint: "${sprint.title}"
+Founder context: "${founderContext.substring(0, 200)}"
+Daniela's teaching perspective: "${danielaPerspective}"
+
+Now provide a concise BUILD PLAN (3-4 sentences):
+1. What's the technical approach to implement this?
+2. Which components/services would be affected?
+3. Rough effort estimate (small/medium/large)?
+
+ALSO output a structured tag for database persistence:
+[BUILD_PLAN: {"technicalApproach": "...", "componentsAffected": ["..."], "estimatedEffort": "small|medium|large", "testingStrategy": "..."}]
+
+Keep it conversational - you're in a team chat. The structured tag will be parsed and stored.`;
+
+    try {
+      const buildPlanResponse = await callGemini(GEMINI_MODELS.FLASH, [
+        { role: 'user', content: buildPlanPrompt }
+      ]);
+      
+      if (buildPlanResponse && buildPlanResponse.trim()) {
+        // Post Wren's build plan to EXPRESS Lane
+        await founderCollabWSBroker.addAndBroadcastMessage(sessionId, {
+          role: 'wren',
+          content: `🔧 Build plan for **${sprint.title}**:\n\n${buildPlanResponse.trim()}`,
+          messageType: 'text',
+          metadata: {
+            sprintId: sprint.id,
+            responseType: 'sprint_build_plan',
+          },
+        });
+        
+        console.log(`[Hive Consciousness] Wren provided build plan for sprint: ${sprint.title}`);
+        
+        // Parse and persist the BUILD_PLAN tag to the sprint record
+        await this.parseBuildPlanAndUpdateSprint(sprint.id, buildPlanResponse);
+      }
+    } catch (err: any) {
+      console.error('[Hive Consciousness] Failed to generate Wren build plan:', err.message);
+    }
+  }
+  
+  /**
+   * Parse [BUILD_PLAN: {...}] tag from Wren's response and update sprint record
+   */
+  private async parseBuildPlanAndUpdateSprint(sprintId: string, wrenResponse: string): Promise<void> {
+    const buildPlanMatch = wrenResponse.match(/\[BUILD_PLAN:\s*(\{[\s\S]*?\})\]/);
+    if (!buildPlanMatch) {
+      console.log('[Hive Consciousness] No BUILD_PLAN tag found in Wren response');
+      return;
+    }
+    
+    try {
+      let buildPlan: {
+        technicalApproach?: string;
+        componentsAffected?: string[];
+        estimatedEffort?: string;
+        testingStrategy?: string;
+      };
+      
+      // Try parsing JSON directly
+      try {
+        buildPlan = JSON.parse(buildPlanMatch[1]);
+      } catch {
+        // Fallback: extract fields via patterns
+        const approachMatch = wrenResponse.match(/technicalApproach['":\s]+([^,}]+)/i);
+        const effortMatch = wrenResponse.match(/estimatedEffort['":\s]+(small|medium|large)/i);
+        
+        buildPlan = {
+          technicalApproach: approachMatch?.[1]?.replace(/['"]/g, '').trim() || 'See Wren\'s notes in EXPRESS Lane',
+          estimatedEffort: effortMatch?.[1] || 'medium',
+        };
+      }
+      
+      // Update the sprint record with build plan
+      await db.update(featureSprints)
+        .set({ 
+          buildPlan,
+          updatedAt: new Date(),
+        })
+        .where(eq(featureSprints.id, sprintId));
+      
+      console.log(`[Hive Consciousness] ✅ Updated sprint ${sprintId} with build plan`);
+      
+      // Check if sprint is now ready (has both pedagogySpec and buildPlan)
+      await this.checkAndAdvanceSprintReadiness(sprintId);
+    } catch (err: any) {
+      console.error('[Hive Consciousness] Failed to parse/save build plan:', err.message);
+    }
+  }
+  
+  /**
+   * Check if a sprint has both pedagogySpec and buildPlan, and advance to 'specced' if so
+   * This is the "readiness gate" for sprint collaboration
+   */
+  private async checkAndAdvanceSprintReadiness(sprintId: string): Promise<void> {
+    try {
+      const [sprint] = await db.select()
+        .from(featureSprints)
+        .where(eq(featureSprints.id, sprintId))
+        .limit(1);
+      
+      if (!sprint) {
+        console.log(`[Sprint Readiness] Sprint ${sprintId} not found`);
+        return;
+      }
+      
+      // Check if both specs are present
+      const hasPedagogySpec = sprint.pedagogySpec && Object.keys(sprint.pedagogySpec).length > 0;
+      const hasBuildPlan = sprint.buildPlan && Object.keys(sprint.buildPlan).length > 0;
+      
+      if (hasPedagogySpec && hasBuildPlan && (sprint.stage === 'idea' || sprint.stage === 'pedagogy_spec')) {
+        // Both specs present - advance to 'build_plan' stage (fully specced, ready for work)
+        await db.update(featureSprints)
+          .set({ 
+            stage: 'build_plan',
+            updatedAt: new Date(),
+          })
+          .where(eq(featureSprints.id, sprintId));
+        
+        console.log(`[Sprint Readiness] ✅ Sprint "${sprint.title}" advanced to 'build_plan' - collaboration complete!`);
+        
+        // Notify via console
+        console.log(`[Sprint Readiness] 📋 pedagogySpec: ${JSON.stringify(sprint.pedagogySpec).slice(0, 100)}...`);
+        console.log(`[Sprint Readiness] 🔧 buildPlan: ${JSON.stringify(sprint.buildPlan).slice(0, 100)}...`);
+        
+        // Post celebration to EXPRESS Lane (find active session for this sprint)
+        try {
+          if (sprint.sourceSessionId) {
+            await founderCollabWSBroker.addAndBroadcastMessage(sprint.sourceSessionId, {
+              role: 'wren',
+              content: `✅ **Sprint Ready!** "${sprint.title}" now has both teaching spec and build plan.\n\n🎯 **Stage:** ${sprint.stage} → build_plan\n\nReady for implementation when founder approves!`,
+              messageType: 'text',
+              metadata: {
+                sprintId: sprint.id,
+                responseType: 'sprint_ready',
+              },
+            });
+          }
+        } catch (notifyErr: any) {
+          console.error('[Sprint Readiness] Failed to post celebration:', notifyErr.message);
+        }
+      } else {
+        // Log what's still needed
+        const missing: string[] = [];
+        if (!hasPedagogySpec) missing.push('pedagogySpec (Daniela)');
+        if (!hasBuildPlan) missing.push('buildPlan (Wren)');
+        if (sprint.stage !== 'idea') missing.push(`stage is ${sprint.stage}, not idea`);
+        
+        if (missing.length > 0) {
+          console.log(`[Sprint Readiness] Sprint "${sprint.title}" not ready yet. Missing: ${missing.join(', ')}`);
+        }
+      }
+    } catch (err: any) {
+      console.error('[Sprint Readiness] Failed to check/advance sprint:', err.message);
     }
   }
   
@@ -2174,6 +2418,36 @@ Keep it conversational - you're in a team chat with the founder and Wren (the bu
       content,
       messageType: 'text',
     });
+  }
+  
+  /**
+   * PUBLIC: Trigger Wren's build plan response for a sprint
+   * Called from streaming-voice-orchestrator when Daniela suggests a sprint during voice chat
+   */
+  async triggerWrenBuildPlan(
+    sessionId: string,
+    sprint: { id: string; title: string },
+    danielaContext: string
+  ): Promise<void> {
+    await this.notifyWrenAboutSprintUpdate(sessionId, sprint, danielaContext, danielaContext);
+  }
+  
+  /**
+   * PUBLIC: Trigger full sprint collaboration cycle
+   * Daniela provides teaching perspective, then Wren provides build plan
+   * Used when sprints are created from voice chat where Daniela already provided context
+   */
+  async triggerSprintCollaboration(
+    sessionId: string,
+    sprint: { id: string; title: string },
+    danielaVoiceContext: string
+  ): Promise<void> {
+    // Since Daniela already spoke about this in voice chat, we can use her voice context as her perspective
+    // First, parse any PEDAGOGY_SPEC from Daniela's voice context and save it
+    await this.parsePedagogySpecAndUpdateSprint(sprint.id, danielaVoiceContext);
+    
+    // Then trigger Wren's build plan response
+    await this.notifyWrenAboutSprintUpdate(sessionId, sprint, danielaVoiceContext, danielaVoiceContext);
   }
   
   /**
