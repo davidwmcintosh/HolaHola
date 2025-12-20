@@ -75,7 +75,8 @@ User Audio → Deepgram Nova-3 (LIVE API) → Gemini Streaming → Cartesia Soni
 - TTS routing: `forceProvider: 'google'` bypasses Cartesia for assistant mode
 - Pending switch mechanism ensures handoff executes AFTER current turn completes (race condition prevention)
 - Voice IDs: Main tutor's voiceId cached before assistant mode, restored on return
-- Return to main tutor: `[SWITCH_TUTOR target="female"]` (without `role="assistant"`) clears assistant mode
+- Gender preservation: `cachedMainTutorGender` stores original preference, restoring even if AI specifies wrong gender
+- Return to main tutor: `[SWITCH_TUTOR target="female"]` (without `role="assistant"`) clears assistant mode and restores original tutor gender
 
 **OpenAI Realtime API (LEGACY - NOT FOR DANIELA):**
 - Separate proxy in `realtime-proxy.ts`

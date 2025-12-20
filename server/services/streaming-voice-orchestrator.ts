@@ -390,6 +390,7 @@ export interface StreamingSession {
   };
   isAssistantActive?: boolean;       // True when practice partner (assistant tutor) is active - uses Google TTS
   cachedMainTutorVoiceId?: string;   // Cached main tutor voiceId to restore when returning from assistant
+  cachedMainTutorGender?: 'male' | 'female'; // Cached main tutor gender to restore when returning from assistant
   // Additional context for personalized greetings
   conversationTopic?: string;       // What student chose to work on (from conversation.topic)
   conversationTitle?: string;       // Thread name for context (from conversation.title)
@@ -1722,11 +1723,14 @@ Remember: David may reference things discussed in these recent text chats.
             if (assistantConfig) {
               tutorName = targetGender === 'male' ? assistantConfig.male : assistantConfig.female;
               
-              // CRITICAL: Cache current voiceId before entering assistant mode
-              // This allows restoring the main tutor's voice when switching back
-              if (session.voiceId && !session.isAssistantActive) {
-                session.cachedMainTutorVoiceId = session.voiceId;
-                console.log(`[Tutor Switch] Cached main tutor voiceId: ${session.voiceId}`);
+              // CRITICAL: Cache current voiceId and gender before entering assistant mode
+              // This allows restoring the main tutor's voice AND gender when switching back
+              if (!session.isAssistantActive) {
+                if (session.voiceId) {
+                  session.cachedMainTutorVoiceId = session.voiceId;
+                }
+                session.cachedMainTutorGender = session.tutorGender as 'male' | 'female';
+                console.log(`[Tutor Switch] Cached main tutor: voiceId=${session.voiceId}, gender=${session.tutorGender}`);
               }
               
               // Update session for assistant mode
@@ -1753,10 +1757,20 @@ Remember: David may reference things discussed in these recent text chats.
             }
           } else {
             // MAIN TUTOR SWITCH: Look up the voice for the target language + gender (Cartesia)
+            // CRITICAL: When returning from assistant mode, use cached gender to restore original tutor
+            const wasAssistantActive = session.isAssistantActive;
+            const effectiveGender = wasAssistantActive && session.cachedMainTutorGender
+              ? session.cachedMainTutorGender  // Restore student's original preference
+              : targetGender;                  // Use command's target for normal switches
+            
+            if (wasAssistantActive && session.cachedMainTutorGender && session.cachedMainTutorGender !== targetGender) {
+              console.log(`[Tutor Switch] Overriding target=${targetGender} with cached main tutor gender=${session.cachedMainTutorGender}`);
+            }
+            
             const allVoices = await storage.getAllTutorVoices();
             const matchingVoice = allVoices.find(
               (v: any) => v.language?.toLowerCase() === effectiveLanguage &&
-                          v.gender?.toLowerCase() === targetGender &&
+                          v.gender?.toLowerCase() === effectiveGender &&
                           v.isActive
             );
           
@@ -1767,16 +1781,18 @@ Remember: David may reference things discussed in these recent text chats.
               
               // CRITICAL: Clear assistant mode when switching to main tutor
               // This ensures TTS routing uses Cartesia again
-              const wasAssistantActive = session.isAssistantActive;
               session.isAssistantActive = false;
               
               if (wasAssistantActive) {
-                console.log(`[Tutor Switch] Returning from assistant mode to main tutor - TTS: Cartesia`);
+                console.log(`[Tutor Switch] Returning from assistant mode to main tutor (${effectiveGender}) - TTS: Cartesia`);
+                // Clear cached values after restoring
+                session.cachedMainTutorGender = undefined;
+                session.cachedMainTutorVoiceId = undefined;
               }
             
               // Update session voice with Cartesia voiceId
               session.voiceId = matchingVoice.voiceId;
-              session.tutorGender = targetGender;
+              session.tutorGender = effectiveGender;
               session.tutorName = tutorName;
             
               // If cross-language switch, update target language and regenerate system prompt
