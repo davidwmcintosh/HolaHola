@@ -69,6 +69,14 @@ User Audio → Deepgram Nova-3 (LIVE API) → Gemini Streaming → Cartesia Soni
   - Portuguese: Clara♀/Rafael♂, English: Emma♀/Jack♂, Korean: Soo-yeon♀/Ji-ho♂
 - Sidebar dynamically displays "Practice with [name]" based on user's language/gender preference
 
+**Tutor Handoff System (`[SWITCH_TUTOR]` Command):**
+- Main tutors can seamlessly hand off to assistant tutors using `[SWITCH_TUTOR target="female" role="assistant"]`
+- Session state tracks `isAssistantActive` flag and `cachedMainTutorVoiceId` for voice restoration
+- TTS routing: `forceProvider: 'google'` bypasses Cartesia for assistant mode
+- Pending switch mechanism ensures handoff executes AFTER current turn completes (race condition prevention)
+- Voice IDs: Main tutor's voiceId cached before assistant mode, restored on return
+- Return to main tutor: `[SWITCH_TUTOR target="female"]` (without `role="assistant"`) clears assistant mode
+
 **OpenAI Realtime API (LEGACY - NOT FOR DANIELA):**
 - Separate proxy in `realtime-proxy.ts`
 - Opt-in only, requires `USER_OPENAI_API_KEY`
