@@ -370,6 +370,7 @@ export interface StreamingSession {
   pendingTutorSwitch?: {            // Queued tutor switch to execute after response completes
     targetGender: 'male' | 'female';
     targetLanguage?: string;        // Optional: for cross-language handoffs (e.g., "japanese")
+    targetRole?: 'tutor' | 'assistant'; // Optional: for assistant handoffs (practice partners)
   };
   previousTutorName?: string;       // Stored during handoff for natural intro by new tutor
   isLanguageSwitchHandoff?: boolean; // True when current handoff is a cross-language switch
@@ -1260,18 +1261,24 @@ Remember: David may reference things discussed in these recent text chats.
             // IMPORTANT: When SWITCH_TUTOR is detected, we must:
             // 1. Queue the handoff
             // 2. STOP synthesizing further sentences (don't let current tutor speak as new tutor)
-            // Supports both intra-language (gender only) and cross-language (gender + language) handoffs
+            // Supports intra-language (gender only), cross-language (gender + language), and assistant handoffs
             const switchItem = whiteboardParsed.whiteboardItems.find(item => item.type === 'switch_tutor');
             if (switchItem && 'data' in switchItem && switchItem.data) {
-              const data = switchItem.data as { targetGender: 'male' | 'female'; targetLanguage?: string };
+              const data = switchItem.data as { 
+                targetGender: 'male' | 'female'; 
+                targetLanguage?: string;
+                targetRole?: 'tutor' | 'assistant';
+              };
               session.pendingTutorSwitch = { 
                 targetGender: data.targetGender,
                 targetLanguage: data.targetLanguage,
+                targetRole: data.targetRole, // Support assistant handoffs
               };
               // Set flag to stop processing further sentences - the NEW tutor will speak their intro
               session.switchTutorTriggered = true;
               const languageInfo = data.targetLanguage ? ` in ${data.targetLanguage}` : '';
-              console.log(`[Tutor Switch] Queued handoff to ${data.targetGender} tutor${languageInfo} - stopping current tutor's speech`);
+              const roleInfo = data.targetRole === 'assistant' ? ' (assistant)' : '';
+              console.log(`[Tutor Switch] Queued handoff to ${data.targetGender} tutor${languageInfo}${roleInfo} - stopping current tutor's speech`);
             }
             
             // ACTFL_UPDATE: Emergent neural network command - process server-side
@@ -1686,42 +1693,75 @@ Remember: David may reference things discussed in these recent text chats.
       });
       
       // TUTOR SWITCH: Execute pending handoff after farewell completes
-      // Supports both intra-language (gender only) and cross-language (gender + language) handoffs
+      // Supports intra-language (gender only), cross-language (gender + language), and assistant handoffs
       if (session.pendingTutorSwitch) {
-        const { targetGender, targetLanguage } = session.pendingTutorSwitch;
+        const { targetGender, targetLanguage, targetRole } = session.pendingTutorSwitch;
         session.pendingTutorSwitch = undefined; // Clear the pending switch
         
+        const isAssistantSwitch = targetRole === 'assistant';
         const isLanguageSwitch = !!targetLanguage && targetLanguage.toLowerCase() !== session.targetLanguage.toLowerCase();
         const effectiveLanguage = targetLanguage?.toLowerCase() || session.targetLanguage.toLowerCase();
         
-        console.log(`[Tutor Switch] Executing handoff to ${targetGender} tutor${isLanguageSwitch ? ` in ${effectiveLanguage}` : ''}`);
+        const roleInfo = isAssistantSwitch ? ' (assistant)' : '';
+        console.log(`[Tutor Switch] Executing handoff to ${targetGender} tutor${roleInfo}${isLanguageSwitch ? ` in ${effectiveLanguage}` : ''}`);
         
         // Store previous tutor name for natural handoff intro by the new tutor
         session.previousTutorName = session.tutorName;
         
         try {
-          // Look up the voice for the target language + gender
-          const allVoices = await storage.getAllTutorVoices();
-          const matchingVoice = allVoices.find(
-            (v: any) => v.language?.toLowerCase() === effectiveLanguage &&
-                        v.gender?.toLowerCase() === targetGender &&
-                        v.isActive
-          );
-          
           let tutorName: string | undefined;
           
-          if (matchingVoice) {
-            // Extract tutor name from voice_name (e.g., "Sayuri - Peppy Colleague" → "Sayuri")
-            const voiceNameParts = matchingVoice.voiceName?.split(/\s*[-–]\s*/) || [];
-            tutorName = voiceNameParts[0]?.trim();
+          // ASSISTANT SWITCH: Use assistant tutor config + Google Cloud TTS
+          if (isAssistantSwitch) {
+            // Import assistant tutor config dynamically
+            const { ASSISTANT_TUTORS } = await import('./assistant-tutor-config');
+            const assistantConfig = ASSISTANT_TUTORS[effectiveLanguage] || ASSISTANT_TUTORS.spanish;
             
-            // Update session voice
-            session.voiceId = matchingVoice.voiceId;
-            session.tutorGender = targetGender;
-            session.tutorName = tutorName;
+            if (assistantConfig) {
+              tutorName = targetGender === 'male' ? assistantConfig.male : assistantConfig.female;
+              
+              // Update session for assistant mode
+              // Note: voiceId is NOT set for assistants - they use Google Cloud TTS
+              session.tutorGender = targetGender;
+              session.tutorName = tutorName;
+              
+              console.log(`[Tutor Switch] Assistant handoff: ${tutorName} (${effectiveLanguage}, ${targetGender})`);
+              
+              // Notify client of assistant handoff
+              // Note: isAssistant flag not in type - client should detect by tutorName matching assistant config
+              this.sendMessage(session.ws, {
+                type: 'tutor_handoff',
+                timestamp: Date.now(),
+                targetGender,
+                targetLanguage: isLanguageSwitch ? effectiveLanguage : undefined,
+                tutorName,
+                isLanguageSwitch,
+                requiresGreeting: true,
+              });
+            } else {
+              console.warn(`[Tutor Switch] No assistant config found for ${effectiveLanguage}`);
+            }
+          } else {
+            // MAIN TUTOR SWITCH: Look up the voice for the target language + gender (Cartesia)
+            const allVoices = await storage.getAllTutorVoices();
+            const matchingVoice = allVoices.find(
+              (v: any) => v.language?.toLowerCase() === effectiveLanguage &&
+                          v.gender?.toLowerCase() === targetGender &&
+                          v.isActive
+            );
+          
+            if (matchingVoice) {
+              // Extract tutor name from voice_name (e.g., "Sayuri - Peppy Colleague" → "Sayuri")
+              const voiceNameParts = matchingVoice.voiceName?.split(/\s*[-–]\s*/) || [];
+              tutorName = voiceNameParts[0]?.trim();
             
-            // If cross-language switch, update target language and regenerate system prompt
-            if (isLanguageSwitch) {
+              // Update session voice
+              session.voiceId = matchingVoice.voiceId;
+              session.tutorGender = targetGender;
+              session.tutorName = tutorName;
+            
+              // If cross-language switch, update target language and regenerate system prompt
+              if (isLanguageSwitch) {
               // Store previous language for context in handoff intro
               session.previousLanguage = session.targetLanguage;
               session.isLanguageSwitchHandoff = true;
@@ -1815,18 +1855,19 @@ Remember: David may reference things discussed in these recent text chats.
             console.warn(`[Tutor Switch] No matching voice found for ${targetGender} in ${effectiveLanguage}`);
           }
           
-          // Notify client to update voice preference
-          // ALL handoffs should trigger a greeting from the new tutor
-          // The new tutor introduces themselves rather than the old tutor speaking for them
-          this.sendMessage(session.ws, {
-            type: 'tutor_handoff',
-            timestamp: Date.now(),
-            targetGender,
-            targetLanguage: isLanguageSwitch ? effectiveLanguage : undefined,
-            tutorName,
-            isLanguageSwitch,
-            requiresGreeting: true, // New tutor always speaks their own intro
-          });
+            // Notify client to update voice preference
+            // ALL handoffs should trigger a greeting from the new tutor
+            // The new tutor introduces themselves rather than the old tutor speaking for them
+            this.sendMessage(session.ws, {
+              type: 'tutor_handoff',
+              timestamp: Date.now(),
+              targetGender,
+              targetLanguage: isLanguageSwitch ? effectiveLanguage : undefined,
+              tutorName,
+              isLanguageSwitch,
+              requiresGreeting: true, // New tutor always speaks their own intro
+            });
+          } // End of else (main tutor switch)
         } catch (err: any) {
           console.error(`[Tutor Switch] Error during handoff:`, err.message);
           // Still send handoff message so client can proceed

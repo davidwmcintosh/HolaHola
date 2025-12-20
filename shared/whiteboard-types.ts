@@ -495,15 +495,19 @@ export interface TextInputItem extends WhiteboardItemBase {
  * Formats:
  * - Same language: [SWITCH_TUTOR target="male|female"]
  * - Cross-language: [SWITCH_TUTOR target="male|female" language="japanese"]
+ * - To assistant: [SWITCH_TUTOR target="male|female" role="assistant"]
+ * - To assistant (cross-language): [SWITCH_TUTOR target="male|female" language="japanese" role="assistant"]
  * 
  * When language is omitted, switches to the other gender tutor in the current language.
  * When language is provided, switches to that language's tutor with the specified gender.
+ * When role is "assistant", switches to a practice partner (drill specialist) instead of main tutor.
  * 
  * Supported languages: spanish, french, german, italian, portuguese, japanese, mandarin chinese, korean, english
  */
 export interface SwitchTutorItemData {
   targetGender: 'male' | 'female';  // The tutor gender to switch to
   targetLanguage?: string;          // Optional: switch to a different language (e.g., "japanese")
+  targetRole?: 'tutor' | 'assistant'; // Optional: 'tutor' (default) or 'assistant' (practice partner)
 }
 
 export interface SwitchTutorItem extends WhiteboardItemBase {
@@ -779,9 +783,9 @@ export const WHITEBOARD_PATTERNS = {
   SUBTITLE_TEXT: /\[SUBTITLE_TEXT:\s*([\s\S]*?)\s*\]/gi,
   // Text input for writing practice during voice chat: [TEXT_INPUT:prompt]
   TEXT_INPUT: /\[TEXT_INPUT:([\s\S]*?)\]/gi,
-  // Switch tutor mid-session: [SWITCH_TUTOR target="male|female" language="optional"]
-  // Supports both intra-language (gender only) and cross-language (gender + language) handoffs
-  SWITCH_TUTOR: /\[SWITCH_TUTOR\s+target="(male|female)"(?:\s+language="([^"]+)")?\]/gi,
+  // Switch tutor mid-session: [SWITCH_TUTOR target="male|female" language="optional" role="optional"]
+  // Supports intra-language (gender only), cross-language (gender + language), and assistant handoffs
+  SWITCH_TUTOR: /\[SWITCH_TUTOR\s+target="(male|female)"(?:\s+language="([^"]+)")?(?:\s+role="(tutor|assistant)")?\]/gi,
   // Call support - hand off to Support Agent: [CALL_SUPPORT category="technical" reason="description"]
   CALL_SUPPORT: /\[CALL_SUPPORT\s+category="(technical|account|billing|content|feedback|other)"\s+reason="([^"]+)"(?:\s+priority="(low|normal|high|critical)")?(?:\s+context="([^"]+)")?\]/gi,
   // ACTFL Neural Network Commands (internal - processed server-side)
@@ -808,7 +812,7 @@ export const WHITEBOARD_PATTERNS = {
  * Includes ACTFL Neural Network commands: ACTFL_UPDATE, SYLLABUS_PROGRESS, PHASE_SHIFT
  */
 export const ALL_WHITEBOARD_MARKUP_PATTERN = 
-  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|TONE|WORD_MAP|CULTURE|SCENARIO|SUMMARY|ERROR_PATTERNS|VOCABULARY_TIMELINE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[PLAY(?:\s+speed="[^"]*")?\]([\s\S]*?)\[\/PLAY\]|\[SUBTITLE\s*(?:off|on|target)\s*\]|\[SHOW:\s*[\s\S]*?\s*\]|\[HIDE\]|\[SUBTITLE_TEXT:\s*[\s\S]*?\s*\]|\[TEXT_INPUT:[\s\S]*?\]|\[SWITCH_TUTOR\s+target="(?:male|female)"(?:\s+language="[^"]+")?\]|\[CALL_SUPPORT\s+category="(?:technical|account|billing|content|feedback|other)"\s+reason="[^"]+"(?:\s+priority="(?:low|normal|high|critical)")?(?:\s+context="[^"]+")?\]|\[ACTFL_UPDATE\s+level="[^"]+"\s+confidence=[0-9.]+\s+reason="[^"]+"(?:\s+direction="(?:up|down|confirm)")?\]|\[SYLLABUS_PROGRESS\s+topic="[^"]+"\s+status="(?:demonstrated|needs_review|struggling)"\s+evidence="[^"]+"\]|\[PHASE_SHIFT\s+to="(?:warmup|active_teaching|challenge|reflection|drill|assessment)"\s+reason="[^"]+"\]|\[HIVE\s+category="(?:self_improvement|content_gap|ux_observation|teaching_insight|product_feature|technical_issue|student_pattern|tool_enhancement)"\s+title="[^"]+"\s+description="[^"]+"(?:\s+reasoning="[^"]+")?(?:\s+priority=\d+)?\]|\[(CLEAR|HOLD)\]/gi;
+  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|TONE|WORD_MAP|CULTURE|SCENARIO|SUMMARY|ERROR_PATTERNS|VOCABULARY_TIMELINE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[PLAY(?:\s+speed="[^"]*")?\]([\s\S]*?)\[\/PLAY\]|\[SUBTITLE\s*(?:off|on|target)\s*\]|\[SHOW:\s*[\s\S]*?\s*\]|\[HIDE\]|\[SUBTITLE_TEXT:\s*[\s\S]*?\s*\]|\[TEXT_INPUT:[\s\S]*?\]|\[SWITCH_TUTOR\s+target="(?:male|female)"(?:\s+language="[^"]+")?(?:\s+role="(?:tutor|assistant)")?\]|\[CALL_SUPPORT\s+category="(?:technical|account|billing|content|feedback|other)"\s+reason="[^"]+"(?:\s+priority="(?:low|normal|high|critical)")?(?:\s+context="[^"]+")?\]|\[ACTFL_UPDATE\s+level="[^"]+"\s+confidence=[0-9.]+\s+reason="[^"]+"(?:\s+direction="(?:up|down|confirm)")?\]|\[SYLLABUS_PROGRESS\s+topic="[^"]+"\s+status="(?:demonstrated|needs_review|struggling)"\s+evidence="[^"]+"\]|\[PHASE_SHIFT\s+to="(?:warmup|active_teaching|challenge|reflection|drill|assessment)"\s+reason="[^"]+"\]|\[HIVE\s+category="(?:self_improvement|content_gap|ux_observation|teaching_insight|product_feature|technical_issue|student_pattern|tool_enhancement)"\s+title="[^"]+"\s+description="[^"]+"(?:\s+reasoning="[^"]+")?(?:\s+priority=\d+)?\]|\[(CLEAR|HOLD)\]/gi;
 
 /**
  * Generate unique ID for whiteboard items
@@ -1572,18 +1576,27 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
   // Parse SWITCH_TUTOR tags (tutor handoff during voice session)
   // Format: [SWITCH_TUTOR target="male|female"] - same language
   // Format: [SWITCH_TUTOR target="male|female" language="japanese"] - cross-language
+  // Format: [SWITCH_TUTOR target="male|female" role="assistant"] - to assistant
   WHITEBOARD_PATTERNS.SWITCH_TUTOR.lastIndex = 0;
   while ((match = WHITEBOARD_PATTERNS.SWITCH_TUTOR.exec(text)) !== null) {
     const targetGender = match[1] as 'male' | 'female';
     const targetLanguage = match[2] || undefined;  // Optional language for cross-language handoffs
+    const targetRole = (match[3] as 'tutor' | 'assistant') || undefined;  // Optional role for assistant handoffs
+    
+    // Build content string for debugging/logging
+    let content = targetGender;
+    if (targetLanguage) content += `:${targetLanguage}`;
+    if (targetRole) content += `:${targetRole}`;
+    
     items.push({
       type: 'switch_tutor',
-      content: targetLanguage ? `${targetGender}:${targetLanguage}` : targetGender,
+      content,
       timestamp: now,
       id: generateItemId(),
       data: {
         targetGender,
         targetLanguage,
+        targetRole,
       },
     });
   }

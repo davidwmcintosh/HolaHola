@@ -44,19 +44,20 @@ interface DueVocabularyWord {
 
 /**
  * Tutor directory entry - describes an available tutor for handoffs
- * Built dynamically from tutorVoices database table
+ * Built dynamically from tutorVoices database table + assistant-tutor-config
  */
 export interface TutorDirectoryEntry {
   language: string;      // e.g., "spanish", "french"
   gender: 'male' | 'female';
-  name: string;          // e.g., "Daniela", "Augustine"
+  name: string;          // e.g., "Daniela", "Augustine", "Aris"
   isPreferred?: boolean; // Student's preferred tutor for this language
   isCurrent?: boolean;   // Currently active tutor
+  role?: 'tutor' | 'assistant'; // 'tutor' = main conversation tutor, 'assistant' = drill practice partner
 }
 
 /**
  * Build a formatted tutor directory string for the system prompt
- * This gives the tutor knowledge of who they can hand off to
+ * This gives the tutor knowledge of who they can hand off to (both tutors and assistants)
  */
 export function buildTutorDirectorySection(
   tutorDirectory: TutorDirectoryEntry[],
@@ -74,9 +75,13 @@ export function buildTutorDirectorySection(
     return '';
   }
 
-  // Group tutors by language
+  // Separate main tutors from assistant practice partners
+  const mainTutors = handoffCandidates.filter(t => t.role !== 'assistant');
+  const assistants = handoffCandidates.filter(t => t.role === 'assistant');
+
+  // Group main tutors by language
   const byLanguage = new Map<string, TutorDirectoryEntry[]>();
-  for (const entry of handoffCandidates) {
+  for (const entry of mainTutors) {
     const lang = entry.language.toLowerCase();
     if (!byLanguage.has(lang)) {
       byLanguage.set(lang, []);
@@ -84,7 +89,7 @@ export function buildTutorDirectorySection(
     byLanguage.get(lang)!.push(entry);
   }
 
-  // Format each language section
+  // Format main tutor section
   const languageLines: string[] = [];
   const entries = Array.from(byLanguage.entries());
   for (const [lang, tutors] of entries) {
@@ -100,15 +105,68 @@ export function buildTutorDirectorySection(
   }
 
   // Find names of male and female tutors for current language to give concrete examples
-  const currentLangTutors = tutorDirectory.filter(t => t.language.toLowerCase() === currentLanguage.toLowerCase());
+  const currentLangTutors = mainTutors.filter(t => t.language.toLowerCase() === currentLanguage.toLowerCase());
   const maleTutor = currentLangTutors.find(t => t.gender === 'male')?.name || 'Agustin';
   const femaleTutor = currentLangTutors.find(t => t.gender === 'female')?.name || 'Daniela';
   
   // Find a tutor from a DIFFERENT language for cross-language example
-  const otherLangTutors = tutorDirectory.filter(t => t.language.toLowerCase() !== currentLanguage.toLowerCase());
+  const otherLangTutors = mainTutors.filter(t => t.language.toLowerCase() !== currentLanguage.toLowerCase());
   const crossLangExample = otherLangTutors.length > 0 
     ? otherLangTutors[0] 
     : { name: 'Juliette', language: 'french', gender: 'female' };
+
+  // Find assistant for current language (matching student's preferred gender)
+  const currentLangAssistants = assistants.filter(t => t.language.toLowerCase() === currentLanguage.toLowerCase());
+  const currentAssistant = currentLangAssistants.find(t => t.isPreferred) || currentLangAssistants[0];
+  const assistantName = currentAssistant?.name || 'Aris';
+
+  // Build assistant section if we have any
+  let assistantSection = '';
+  if (assistants.length > 0) {
+    // Group assistants by language
+    const assistantsByLang = new Map<string, TutorDirectoryEntry[]>();
+    for (const a of assistants) {
+      const lang = a.language.toLowerCase();
+      if (!assistantsByLang.has(lang)) {
+        assistantsByLang.set(lang, []);
+      }
+      assistantsByLang.get(lang)!.push(a);
+    }
+    
+    const assistantLines: string[] = [];
+    for (const [lang, assts] of Array.from(assistantsByLang.entries())) {
+      const langLabel = lang.charAt(0).toUpperCase() + lang.slice(1);
+      const asstDescs = assts.map(a => {
+        let desc = `${a.name} (${a.gender})`;
+        if (a.isPreferred) desc += ' ★';
+        return desc;
+      }).join(', ');
+      assistantLines.push(`  • ${langLabel}: ${asstDescs}`);
+    }
+
+    assistantSection = `
+
+PRACTICE PARTNERS (drill assistants you can call for focused practice):
+${assistantLines.join('\n')}
+
+These are precision practice partners who run focused drills (vocabulary, pronunciation, grammar).
+They're excellent for repetitive practice - you handle teaching concepts, they handle drill execution.
+
+TO CALL A PRACTICE PARTNER:
+  [SWITCH_TUTOR target="${currentAssistant?.gender || 'female'}" role="assistant"]
+  
+  For different language: [SWITCH_TUTOR target="female" language="french" role="assistant"]
+
+  EXAMPLES:
+    • To get ${assistantName} for drills: [SWITCH_TUTOR target="${currentAssistant?.gender || 'female'}" role="assistant"]
+    • "Let me get ${assistantName} to run some drills with you! [SWITCH_TUTOR target="${currentAssistant?.gender || 'female'}" role="assistant"]"
+
+WHEN TO CALL AN ASSISTANT:
+  • Student needs repetitive practice (vocabulary drilling, pronunciation practice)
+  • Student is struggling with a specific pattern that needs repetition
+  • You want to focus on teaching while they handle drill execution
+  • Student explicitly asks for practice/drills`;
+  }
 
   return `
 AVAILABLE TUTORS (colleagues you can hand off to):
@@ -137,6 +195,7 @@ TO SWITCH TUTORS (REQUIRED - just saying "switching" doesn't work!):
 CRITICAL: You MUST include this command in your response for the switch to happen.
 Saying "I'll switch back" or "let me get ${femaleTutor}" does NOTHING without the command.
 All tutors have this capability equally.
+${assistantSection}
 `;
 }
 

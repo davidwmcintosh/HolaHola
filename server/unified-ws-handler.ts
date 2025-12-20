@@ -725,7 +725,8 @@ Reference past discussions when relevant, but don't force it.
             // This gives Daniela knowledge of who she can hand off to by name
             const studentPreferredGender = (user?.tutorGender || 'female') as 'male' | 'female';
             
-            tutorDirectory = allVoices
+            // Main tutors from voice database
+            const mainTutorEntries = allVoices
               .filter((v: any) => v.isActive && v.voiceName)
               .map((v: any) => {
                 const voiceNameParts = v.voiceName?.split(/\s*[-–]\s*/) || [];
@@ -746,10 +747,48 @@ Reference past discussions when relevant, but don't force it.
                   name: tutorName,
                   isCurrent,
                   isPreferred: !isCurrent && isPreferred, // Don't mark current as preferred
+                  role: 'tutor' as const,
                 };
               });
+            
+            // Add assistant practice partners from config
+            // Import assistant tutor names dynamically
+            let assistantEntries: TutorDirectoryEntry[] = [];
+            try {
+              const { ASSISTANT_TUTORS } = await import('./services/assistant-tutor-config');
               
-            console.log(`[Streaming Voice] Built tutor directory with ${tutorDirectory.length} tutors`);
+              // Get unique languages from main tutors
+              const languages = [...new Set(mainTutorEntries.map(t => t.language))];
+              
+              for (const lang of languages) {
+                const config = ASSISTANT_TUTORS[lang] || ASSISTANT_TUTORS.spanish;
+                if (config) {
+                  // Add both female and male assistant for each language
+                  assistantEntries.push({
+                    language: lang,
+                    gender: 'female',
+                    name: config.female,
+                    isPreferred: studentPreferredGender === 'female',
+                    isCurrent: false,
+                    role: 'assistant' as const,
+                  });
+                  assistantEntries.push({
+                    language: lang,
+                    gender: 'male',
+                    name: config.male,
+                    isPreferred: studentPreferredGender === 'male',
+                    isCurrent: false,
+                    role: 'assistant' as const,
+                  });
+                }
+              }
+            } catch (asstErr: any) {
+              console.warn('[Streaming Voice] Could not load assistant tutors:', asstErr.message);
+            }
+            
+            tutorDirectory = [...mainTutorEntries, ...assistantEntries];
+              
+            console.log(`[Streaming Voice] Built tutor directory with ${mainTutorEntries.length} tutors + ${assistantEntries.length} assistants`);
           } catch (err: any) {
             console.warn(`[Streaming Voice] Voice config error: ${err.message}`);
           }
