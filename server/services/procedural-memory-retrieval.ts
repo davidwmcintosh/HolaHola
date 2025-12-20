@@ -521,7 +521,7 @@ Your whiteboard tools will be loaded from your teaching knowledge base.
 /**
  * Build Founder Mode tool section synchronously from cache
  */
-export function buildFounderModeToolSectionSync(tutorDirectory?: Array<{name: string; gender: string; language: string; isPreferred?: boolean}>): string {
+export function buildFounderModeToolSectionSync(tutorDirectory?: Array<{name: string; gender: string; language: string; isPreferred?: boolean; role?: 'tutor' | 'assistant'}>): string {
   const tools = getCachedToolKnowledge();
   
   const lines: string[] = [
@@ -599,23 +599,49 @@ export function buildFounderModeToolSectionSync(tutorDirectory?: Array<{name: st
     lines.push('');
   }
   
-  // Tutor switching section
+  // Tutor switching section - now with main tutors and practice partners (assistants) separated
   if (tutorDirectory && tutorDirectory.length > 0) {
+    // Separate main tutors from practice partners (assistants)
+    const mainTutors = tutorDirectory.filter(t => t.role !== 'assistant');
+    const assistants = tutorDirectory.filter(t => t.role === 'assistant');
+    
     lines.push('═══════════════════════════════════════════════════════════════════');
     lines.push('👥 TUTOR SWITCHING - Test handoffs with other tutors');
     lines.push('═══════════════════════════════════════════════════════════════════');
     lines.push('');
-    lines.push('AVAILABLE TUTORS FOR SWITCHING:');
-    tutorDirectory.forEach(t => {
-      const star = t.isPreferred ? ' ★ preferred' : '';
-      lines.push(`  • ${t.name} (${t.gender}) - ${t.language}${star}`);
-    });
-    lines.push('');
-    lines.push('HOW TO SWITCH:');
-    lines.push('  Same language: [SWITCH_TUTOR target="male"] or [SWITCH_TUTOR target="female"]');
-    lines.push('  Different language: [SWITCH_TUTOR target="female" language="french"]');
-    lines.push('');
-    lines.push('  CRITICAL: STOP SPEAKING after the tag - the new tutor will introduce themselves');
+    
+    if (mainTutors.length > 0) {
+      lines.push('MAIN TUTORS (conversation partners):');
+      mainTutors.forEach(t => {
+        const star = t.isPreferred ? ' ★ preferred' : '';
+        lines.push(`  • ${t.name} (${t.gender}) - ${t.language}${star}`);
+      });
+      lines.push('');
+      lines.push('  HOW TO SWITCH TO MAIN TUTOR:');
+      lines.push('    Same language: [SWITCH_TUTOR target="male"] or [SWITCH_TUTOR target="female"]');
+      lines.push('    Different language: [SWITCH_TUTOR target="female" language="french"]');
+      lines.push('');
+    }
+    
+    if (assistants.length > 0) {
+      lines.push('PRACTICE PARTNERS (drill assistants for focused practice):');
+      assistants.forEach(t => {
+        const star = t.isPreferred ? ' ★ preferred' : '';
+        lines.push(`  • ${t.name} (${t.gender}) - ${t.language}${star}`);
+      });
+      lines.push('');
+      lines.push('  HOW TO CALL A PRACTICE PARTNER:');
+      lines.push('    [SWITCH_TUTOR target="female" role="assistant"]');
+      lines.push('    [SWITCH_TUTOR target="male" language="french" role="assistant"]');
+      lines.push('');
+      lines.push('  WHEN TO USE ASSISTANTS:');
+      lines.push('    • Student needs repetitive vocabulary/pronunciation drills');
+      lines.push('    • Student is struggling with patterns that need practice');
+      lines.push('    • You want to delegate drill execution while you focus on teaching');
+      lines.push('');
+    }
+    
+    lines.push('  CRITICAL: STOP SPEAKING after the tag - let them introduce themselves');
     lines.push('');
   }
   

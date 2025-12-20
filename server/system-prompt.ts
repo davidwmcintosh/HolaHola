@@ -993,12 +993,13 @@ NATURAL CONVERSATION FLOW:
 ` : '';
 
     // FOUNDER MODE TEACHING TOOLS - Dynamic from neural network
-    // Format tutor directory for the helper function
+    // Format tutor directory for the helper function (include role for assistant distinction)
     const tutorDirForTools = tutorDirectory?.map(t => ({
       name: t.name,
       gender: t.gender,
       language: t.language,
-      isPreferred: t.isPreferred
+      isPreferred: t.isPreferred,
+      role: t.role, // CRITICAL: Include role to distinguish assistants from main tutors
     }));
     const founderTeachingTools = buildFounderModeToolSectionSync(tutorDirForTools);
     
