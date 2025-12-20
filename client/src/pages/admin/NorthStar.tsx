@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { AdminLayout } from "@/components/admin/AdminLayout";
+import { Link } from "wouter";
+import { ArrowLeft } from "lucide-react";
 import { RoleGuard } from "@/components/admin/RoleGuard";
 import { useUser } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -143,22 +144,28 @@ export default function NorthStar() {
   if (error) {
     return (
       <RoleGuard allowedRoles={['founder', 'admin']}>
-        <AdminLayout>
-          <div className="p-6">
-            <Card className="border-destructive">
-              <CardContent className="pt-6">
-                <p className="text-destructive">Failed to load North Star principles. Please try again.</p>
-              </CardContent>
-            </Card>
-          </div>
-        </AdminLayout>
+        <div className="min-h-screen bg-background p-6">
+          <Link href="/admin" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Command Center
+          </Link>
+          <Card className="border-destructive">
+            <CardContent className="pt-6">
+              <p className="text-destructive">Failed to load North Star principles. Please try again.</p>
+            </CardContent>
+          </Card>
+        </div>
       </RoleGuard>
     );
   }
 
   return (
     <RoleGuard allowedRoles={['founder', 'admin']}>
-      <AdminLayout>
+      <div className="min-h-screen bg-background p-6">
+        <Link href="/admin" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4">
+          <ArrowLeft className="h-4 w-4" />
+          Back to Command Center
+        </Link>
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -491,7 +498,7 @@ export default function NorthStar() {
             </div>
           )}
         </div>
-      </AdminLayout>
+      </div>
     </RoleGuard>
   );
 }
