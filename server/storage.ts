@@ -4411,39 +4411,9 @@ export class DatabaseStorage implements IStorage {
       eq(vocabularyWords.language, language)
     ];
     
-    // Class-based ACTFL level filtering
+    // Class-based filtering: show only vocabulary learned in this specific class
     if (filter.classId) {
-      const classResult = await db.select({
-        curriculumPathId: teacherClasses.curriculumPathId,
-      })
-        .from(teacherClasses)
-        .where(eq(teacherClasses.id, filter.classId))
-        .limit(1);
-      
-      if (classResult.length > 0 && classResult[0].curriculumPathId) {
-        const pathResult = await db.select({
-          endLevel: curriculumPaths.endLevel,
-        })
-          .from(curriculumPaths)
-          .where(eq(curriculumPaths.id, classResult[0].curriculumPathId))
-          .limit(1);
-        
-        if (pathResult.length > 0 && pathResult[0].endLevel) {
-          // Normalize to lowercase for lookup (stored values may be UPPERCASE)
-          const maxLevel = pathResult[0].endLevel.toLowerCase();
-          // Filter vocabulary to only words at or below the class's end level
-          const allowedLevels = Object.entries(actflLevelToNumeric)
-            .filter(([_, num]) => num <= (actflLevelToNumeric[maxLevel] || 11))
-            .map(([level]) => level);
-          
-          // Include words with matching ACTFL level OR no level assigned (legacy data)
-          // TODO: Backfill actflLevel for vocabulary words to enable strict class filtering
-          conditions.push(or(
-            isNull(vocabularyWords.actflLevel),
-            sql`LOWER(${vocabularyWords.actflLevel}) IN (${sql.join(allowedLevels.map(l => sql`${l}`), sql`, `)})`
-          ));
-        }
-      }
+      conditions.push(eq(vocabularyWords.classId, filter.classId));
     }
     
     // Time-based filtering
