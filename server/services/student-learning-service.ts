@@ -171,6 +171,14 @@ export interface StrategyOutcome {
   conversationId?: string;
 }
 
+export interface BreakthroughInfo {
+  struggleArea: string;
+  description: string;
+  occurrenceCount: number;
+  successfulStrategies: string[];
+  createdAt: Date;
+}
+
 export interface StudentLearningContext {
   struggles: RecurringStruggle[];
   insights: StudentInsight[];
@@ -178,6 +186,7 @@ export interface StudentLearningContext {
   effectiveStrategies: string[];
   strugglingAreas: string[];
   recentProgress: string[];
+  recentBreakthroughs: BreakthroughInfo[];  // Celebrate mastered struggles
 }
 
 // Personal fact types for categorization
@@ -306,7 +315,7 @@ export class StudentLearningService {
    * Tracks what works for each student
    */
   async recordStrategyOutcome(outcome: StrategyOutcome): Promise<void> {
-    // Find the related struggle
+    // Find the related struggle (include 'improving' to allow breakthrough detection)
     const struggles = await db
       .select()
       .from(recurringStruggles)
@@ -315,7 +324,10 @@ export class StudentLearningService {
           eq(recurringStruggles.studentId, outcome.studentId),
           eq(recurringStruggles.language, outcome.language),
           eq(recurringStruggles.struggleArea, outcome.struggleArea),
-          eq(recurringStruggles.status, 'active')
+          or(
+            eq(recurringStruggles.status, 'active'),
+            eq(recurringStruggles.status, 'improving')
+          )
         )
       )
       .limit(1);
@@ -333,6 +345,26 @@ export class StudentLearningService {
     
     if (outcome.wasEffective) {
       successfulApproaches.add(outcome.strategy);
+      
+      // BREAKTHROUGH DETECTION: Auto-resolve when 3+ successful strategies
+      // This indicates the student has mastered the concept
+      if (successfulApproaches.size >= 3) {
+        // First, persist the successful strategy to the database
+        // This ensures the snapshot includes the winning strategy
+        await db
+          .update(recurringStruggles)
+          .set({
+            approachesAttempted: Array.from(attemptedApproaches),
+            successfulApproaches: Array.from(successfulApproaches),
+            updatedAt: new Date(),
+          })
+          .where(eq(recurringStruggles.id, struggle.id));
+        
+        // Then trigger breakthrough celebration by resolving the struggle
+        await this.resolveStruggle(struggle.id, `Mastered after ${successfulApproaches.size} successful strategies: ${Array.from(successfulApproaches).join(', ')}`);
+        console.log(`[StudentLearning] BREAKTHROUGH! Student mastered ${struggle.struggleArea} with ${successfulApproaches.size} successful strategies`);
+        return;
+      }
       
       // Check if we should mark as improving
       const newStatus = successfulApproaches.size >= 2 ? 'improving' : 'active';
@@ -438,6 +470,9 @@ export class StudentLearningService {
       }
     }
     
+    // Get recent breakthroughs for celebration
+    const recentBreakthroughs = await this.getRecentBreakthroughs(studentId, language);
+    
     return {
       struggles: struggles.slice(0, 10),
       insights: insights.slice(0, 10),
@@ -445,6 +480,7 @@ export class StudentLearningService {
       effectiveStrategies: Array.from(effectiveStrategies),
       strugglingAreas: strugglingAreas.slice(0, 5),
       recentProgress: recentProgress.slice(0, 5),
+      recentBreakthroughs,
     };
   }
   
@@ -469,7 +505,8 @@ export class StudentLearningService {
     const hasContent = context.strugglingAreas.length > 0 || 
                        context.effectiveStrategies.length > 0 ||
                        context.personalFacts.length > 0 ||
-                       context.struggles.some(s => s.status === 'active' && (s.occurrenceCount || 0) > 1);
+                       context.struggles.some(s => s.status === 'active' && (s.occurrenceCount || 0) > 1) ||
+                       context.recentBreakthroughs?.length > 0;
     
     if (!hasContent) return '';
     
@@ -499,6 +536,25 @@ export class StudentLearningService {
     // One progress note if improving
     if (context.recentProgress.length > 0) {
       lines.push('Progress: ' + truncate(context.recentProgress[0]));
+    }
+    
+    // BREAKTHROUGH CELEBRATION: Recently mastered struggles
+    // This enables Daniela to naturally celebrate student achievements
+    if (context.recentBreakthroughs && context.recentBreakthroughs.length > 0) {
+      const latestBreakthrough = context.recentBreakthroughs[0];
+      const hoursSince = (Date.now() - new Date(latestBreakthrough.createdAt).getTime()) / (1000 * 60 * 60);
+      
+      if (hoursSince < 24) {
+        lines.push('');
+        lines.push('[BREAKTHROUGH - CELEBRATE!]');
+        lines.push(`Student just mastered: ${truncate(latestBreakthrough.struggleArea)}`);
+        lines.push(`After ${latestBreakthrough.occurrenceCount}x practice sessions, they overcame this challenge!`);
+        if (latestBreakthrough.successfulStrategies.length > 0) {
+          lines.push(`What worked: ${latestBreakthrough.successfulStrategies.slice(0, 2).join(', ')}`);
+        }
+        lines.push('');
+        lines.push('ACTION: Genuinely celebrate this achievement! Reference how far they\'ve come.');
+      }
     }
     
     // Personal facts (things student shared about their life)
@@ -583,18 +639,123 @@ export class StudentLearningService {
   }
   
   /**
-   * Mark a struggle as resolved
+   * Mark a struggle as resolved and record a breakthrough
+   * Returns the resolved struggle for breakthrough celebration
    */
-  async resolveStruggle(struggleId: string, resolutionNotes?: string): Promise<void> {
-    await db
+  async resolveStruggle(struggleId: string, resolutionNotes?: string): Promise<RecurringStruggle | null> {
+    // Get the struggle first for breakthrough recording
+    const [struggle] = await db
+      .select()
+      .from(recurringStruggles)
+      .where(eq(recurringStruggles.id, struggleId))
+      .limit(1);
+    
+    if (!struggle) {
+      console.warn(`[StudentLearning] Struggle not found: ${struggleId}`);
+      return null;
+    }
+    
+    // Update struggle status
+    const [resolved] = await db
       .update(recurringStruggles)
       .set({
         status: 'resolved',
         updatedAt: new Date(),
       })
-      .where(eq(recurringStruggles.id, struggleId));
+      .where(eq(recurringStruggles.id, struggleId))
+      .returning();
     
-    console.log(`[StudentLearning] Resolved struggle: ${struggleId}`);
+    // Record breakthrough in hiveSnapshots for Wren awareness
+    await this.recordBreakthrough({
+      studentId: struggle.studentId,
+      language: struggle.language,
+      struggleArea: struggle.struggleArea,
+      description: struggle.description || '',
+      occurrenceCount: struggle.occurrenceCount || 1,
+      successfulStrategies: struggle.successfulApproaches || [],
+      resolutionNotes,
+    });
+    
+    console.log(`[StudentLearning] Resolved struggle: ${struggleId} - recorded breakthrough`);
+    return resolved;
+  }
+  
+  /**
+   * Record a breakthrough in hiveSnapshots for Wren awareness and celebration
+   */
+  private async recordBreakthrough(params: {
+    studentId: string;
+    language: string;
+    struggleArea: string;
+    description: string;
+    occurrenceCount: number;
+    successfulStrategies: string[];
+    resolutionNotes?: string;
+  }): Promise<void> {
+    const { studentId, language, struggleArea, description, occurrenceCount, successfulStrategies, resolutionNotes } = params;
+    
+    const content = [
+      `Breakthrough: Student mastered "${struggleArea}"`,
+      `After ${occurrenceCount} encounters, the student has overcome this challenge.`,
+      `Description: ${description}`,
+      successfulStrategies.length > 0 
+        ? `What worked: ${successfulStrategies.join(', ')}`
+        : '',
+      resolutionNotes ? `Notes: ${resolutionNotes}` : '',
+    ].filter(Boolean).join('\n');
+    
+    await db.insert(hiveSnapshots).values({
+      snapshotType: 'breakthrough',
+      userId: studentId,
+      language,
+      content,
+      importance: occurrenceCount >= 5 ? 'high' : occurrenceCount >= 3 ? 'medium' : 'low',
+      metadata: {
+        struggleArea,
+        description,
+        occurrenceCount,
+        successfulStrategies,
+        resolutionNotes,
+      },
+    });
+    
+    console.log(`[StudentLearning] Recorded breakthrough for ${language}/${struggleArea}`);
+  }
+  
+  /**
+   * Get recent breakthroughs for a student (for celebration injection)
+   * Returns breakthroughs from the last 24 hours that haven't been celebrated
+   */
+  async getRecentBreakthroughs(studentId: string, language: string): Promise<Array<{
+    struggleArea: string;
+    description: string;
+    occurrenceCount: number;
+    successfulStrategies: string[];
+    createdAt: Date;
+  }>> {
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    
+    const breakthroughs = await db
+      .select()
+      .from(hiveSnapshots)
+      .where(
+        and(
+          eq(hiveSnapshots.snapshotType, 'breakthrough'),
+          eq(hiveSnapshots.userId, studentId),
+          eq(hiveSnapshots.language, language),
+          gte(hiveSnapshots.createdAt, oneDayAgo)
+        )
+      )
+      .orderBy(desc(hiveSnapshots.createdAt))
+      .limit(3);
+    
+    return breakthroughs.map(b => ({
+      struggleArea: (b.metadata as any)?.struggleArea || 'unknown',
+      description: (b.metadata as any)?.description || '',
+      occurrenceCount: (b.metadata as any)?.occurrenceCount || 1,
+      successfulStrategies: (b.metadata as any)?.successfulStrategies || [],
+      createdAt: b.createdAt,
+    }));
   }
   
   /**
