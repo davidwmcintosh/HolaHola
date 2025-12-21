@@ -719,70 +719,6 @@ export default function ReviewHub() {
         </CardContent>
       </Card>
 
-      {/* Recommended Pronunciation Drills */}
-      {drillRecommendations && drillRecommendations.length > 0 && (
-        <Card data-testid="section-recommended-drills">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Mic className="h-5 w-5 text-primary" />
-              Recommended for You
-            </CardTitle>
-            <CardDescription>Personalized pronunciation practice based on your learning patterns</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {drillRecommendations.map((rec, index) => (
-              <Link key={`${rec.phoneme}-${index}`} href={`/pronunciation?phoneme=${rec.phoneme}&language=${rec.language}`}>
-                <div 
-                  className="flex items-center justify-between p-3 rounded-lg bg-violet-50 dark:bg-violet-900/20 hover-elevate cursor-pointer"
-                  data-testid={`link-drill-${rec.phoneme}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-full bg-violet-100 dark:bg-violet-800">
-                      <Mic className="h-5 w-5 text-violet-700 dark:text-violet-300" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-medium capitalize">Practice: "{rec.phoneme}" sound</p>
-                        <Badge 
-                          variant="outline" 
-                          className={`text-xs ${
-                            rec.difficulty === 'advanced' 
-                              ? 'border-red-300 text-red-700 dark:border-red-700 dark:text-red-300' 
-                              : rec.difficulty === 'intermediate'
-                                ? 'border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-300'
-                                : 'border-green-300 text-green-700 dark:border-green-700 dark:text-green-300'
-                          }`}
-                        >
-                          {rec.difficulty}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        {rec.reason} • ~{rec.estimatedMinutes} min
-                      </p>
-                    </div>
-                  </div>
-                  <Button variant="ghost" size="icon">
-                    <ChevronRight className="h-5 w-5" />
-                  </Button>
-                </div>
-              </Link>
-            ))}
-            <div className="flex gap-2 mt-2">
-              <Link href="/pronunciation" className="flex-1">
-                <Button variant="outline" className="w-full" data-testid="button-view-all-drills">
-                  View All Pronunciation Drills
-                </Button>
-              </Link>
-              <Link href="/session-replay">
-                <Button variant="ghost" size="icon" data-testid="button-session-replay">
-                  <History className="h-5 w-5" />
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Learning Journey - Mind Map or Linear View for all learners */}
       {(() => {
         // Check if we're viewing a specific class (not self-directed, all-learning, or special modes)
@@ -901,6 +837,70 @@ export default function ReviewHub() {
 
       {/* Daniela's Learning Insights - Personalized recommendations */}
       <DanielaLearningInsights language={language} userId={user?.id} />
+
+      {/* Recommended Pronunciation Drills */}
+      {drillRecommendations && drillRecommendations.length > 0 && (
+        <Card data-testid="section-recommended-drills">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Mic className="h-5 w-5 text-primary" />
+              Recommended for You
+            </CardTitle>
+            <CardDescription>Personalized pronunciation practice based on your learning patterns</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {drillRecommendations.map((rec, index) => (
+              <Link key={`${rec.phoneme}-${index}`} href={`/pronunciation?phoneme=${rec.phoneme}&language=${rec.language}`}>
+                <div 
+                  className="flex items-center justify-between p-3 rounded-lg bg-violet-50 dark:bg-violet-900/20 hover-elevate cursor-pointer"
+                  data-testid={`link-drill-${rec.phoneme}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-full bg-violet-100 dark:bg-violet-800">
+                      <Mic className="h-5 w-5 text-violet-700 dark:text-violet-300" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-medium capitalize">Practice: "{rec.phoneme}" sound</p>
+                        <Badge 
+                          variant="outline" 
+                          className={`text-xs ${
+                            rec.difficulty === 'advanced' 
+                              ? 'border-red-300 text-red-700 dark:border-red-700 dark:text-red-300' 
+                              : rec.difficulty === 'intermediate'
+                                ? 'border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-300'
+                                : 'border-green-300 text-green-700 dark:border-green-700 dark:text-green-300'
+                          }`}
+                        >
+                          {rec.difficulty}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {rec.reason} • ~{rec.estimatedMinutes} min
+                      </p>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="icon">
+                    <ChevronRight className="h-5 w-5" />
+                  </Button>
+                </div>
+              </Link>
+            ))}
+            <div className="flex gap-2 mt-2">
+              <Link href="/pronunciation" className="flex-1">
+                <Button variant="outline" className="w-full" data-testid="button-view-all-drills">
+                  View All Pronunciation Drills
+                </Button>
+              </Link>
+              <Link href="/session-replay">
+                <Button variant="ghost" size="icon" data-testid="button-session-replay">
+                  <History className="h-5 w-5" />
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Syllabus Time Progress - Shows expected vs actual time per unit */}
       {(() => {
