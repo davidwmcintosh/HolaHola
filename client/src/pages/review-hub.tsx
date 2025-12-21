@@ -783,9 +783,6 @@ export default function ReviewHub() {
         </Card>
       )}
 
-      {/* Daniela's Learning Insights - Personalized recommendations */}
-      <DanielaLearningInsights language={language} userId={user?.id} />
-
       {/* Learning Journey - Mind Map or Linear View for all learners */}
       {(() => {
         // Check if we're viewing a specific class (not self-directed, all-learning, or special modes)
@@ -901,6 +898,9 @@ export default function ReviewHub() {
           </Card>
         );
       })()}
+
+      {/* Daniela's Learning Insights - Personalized recommendations */}
+      <DanielaLearningInsights language={language} userId={user?.id} />
 
       {/* Syllabus Time Progress - Shows expected vs actual time per unit */}
       {(() => {
