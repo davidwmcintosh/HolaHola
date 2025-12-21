@@ -947,6 +947,8 @@ export const userDrillProgress = pgTable("user_drill_progress", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   drillItemId: varchar("drill_item_id").notNull().references(() => curriculumDrillItems.id, { onDelete: 'cascade' }),
+  // Learning source tracking - which class context this review happened in
+  classId: varchar("class_id"), // Links to teacherClasses table (null = self-directed)
   // Progress tracking
   attempts: integer("attempts").default(0),
   correctCount: integer("correct_count").default(0),
@@ -2986,6 +2988,9 @@ export const phonemeStruggles = pgTable("phoneme_struggles", {
   
   studentId: varchar("student_id").notNull().references(() => users.id),
   language: varchar("language").notNull(),
+  
+  // Learning source tracking - which class context this was detected in
+  classId: varchar("class_id"), // Links to teacherClasses table (null = self-directed)
   
   // Canonical phoneme identifier (IPA notation when possible)
   phoneme: varchar("phoneme").notNull(), // e.g., "r", "ɲ", "θ", "ð", "ʁ"

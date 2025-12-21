@@ -5696,7 +5696,7 @@ ${memoryContext}
         });
       }
 
-      const { referenceText, language } = req.body;
+      const { referenceText, language, classId, sessionId } = req.body;
       const userId = req.user.claims.sub;
       
       if (!req.file) {
@@ -5722,11 +5722,13 @@ ${memoryContext}
         return res.status(500).json({ error: "Pronunciation assessment failed" });
       }
       
-      // Store phoneme struggles in database
+      // Store phoneme struggles in database with learning context
       await azurePronunciationService.storePhonemeStruggles(
         userId,
         targetLanguage,
-        result
+        result,
+        sessionId || undefined,
+        classId || undefined // Learning source tracking
       );
       
       res.json({
@@ -7886,7 +7888,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   app.post("/api/drill-progress/attempt", mutationLimiter, isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { drillItemId, score, timeSpentMs } = req.body;
+      const { drillItemId, score, timeSpentMs, classId } = req.body;
       
       if (!drillItemId || typeof score !== 'number') {
         return res.status(400).json({ error: "drillItemId and score are required" });
@@ -7896,7 +7898,8 @@ Return ONLY the ${targetLanguage} phrase:`;
         userId, 
         drillItemId, 
         score, 
-        timeSpentMs || 0
+        timeSpentMs || 0,
+        classId || undefined // Learning source tracking
       );
       
       res.json(progress);

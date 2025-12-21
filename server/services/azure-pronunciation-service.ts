@@ -250,7 +250,8 @@ class AzurePronunciationService {
     studentId: string,
     language: string,
     result: PronunciationResult,
-    sessionId?: string
+    sessionId?: string,
+    classId?: string
   ): Promise<void> {
     const strugglingPhonemes = result.rawPhonemes.filter(p => p.score < 85);
     
@@ -334,6 +335,7 @@ class AzurePronunciationService {
             exampleWords: data.words.slice(0, 10),
             sessionIds: sessionId ? [sessionId] : [],
             status: "active",
+            classId: classId || undefined, // Learning source tracking
           };
 
           await db.insert(phonemeStruggles).values(insertData);

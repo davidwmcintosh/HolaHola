@@ -459,7 +459,7 @@ export interface IStorage {
   // User Drill Progress
   getDrillProgress(userId: string, drillItemId: string): Promise<UserDrillProgress | undefined>;
   getDrillProgressForLesson(userId: string, lessonId: string): Promise<UserDrillProgress[]>;
-  recordDrillAttempt(userId: string, drillItemId: string, score: number, timeSpentMs: number): Promise<UserDrillProgress>;
+  recordDrillAttempt(userId: string, drillItemId: string, score: number, timeSpentMs: number, classId?: string): Promise<UserDrillProgress>;
   getDueReviewItems(userId: string, lessonId?: string, limit?: number): Promise<CurriculumDrillItem[]>;
   checkDrillLessonCompletion(userId: string, lessonId: string): Promise<{ completed: boolean; masteredCount: number; totalCount: number; completionPercent: number }>;
 
@@ -3035,7 +3035,7 @@ export class DatabaseStorage implements IStorage {
       ));
   }
 
-  async recordDrillAttempt(userId: string, drillItemId: string, score: number, timeSpentMs: number): Promise<UserDrillProgress> {
+  async recordDrillAttempt(userId: string, drillItemId: string, score: number, timeSpentMs: number, classId?: string): Promise<UserDrillProgress> {
     const existing = await this.getDrillProgress(userId, drillItemId);
     const now = new Date();
     const isCorrect = score >= 0.8; // 80% threshold for "correct"
@@ -3092,6 +3092,7 @@ export class DatabaseStorage implements IStorage {
         .values({
           userId,
           drillItemId,
+          classId: classId || undefined, // Learning source tracking
           attempts: 1,
           correctCount: isCorrect ? 1 : 0,
           lastScore: score,
