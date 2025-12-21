@@ -1201,29 +1201,39 @@ export class StreamingVoiceOrchestrator {
       // This enables Daniela to anticipate struggles and use proven strategies for THIS student
       // Guard: Only fetch if we have a valid userId (skip for admin/founder-only sessions)
       if (session.userId && session.targetLanguage) {
+        // Fetch student learning context and cross-session context in parallel
         contextPromises.push(
-          studentLearningService.getStudentLearningContext(String(session.userId), session.targetLanguage)
-            .then(context => {
-              if (!context) return; // Guard against null/undefined context
-              const formatted = studentLearningService.formatContextForPrompt(context);
-              if (formatted) {
+          Promise.all([
+            studentLearningService.getStudentLearningContext(String(session.userId), session.targetLanguage),
+            studentLearningService.getCrossSessionContext(String(session.userId), 3)
+          ]).then(([learningContext, crossSessionContext]) => {
+              if (!learningContext) return; // Guard against null/undefined context
+              
+              // Format learning context
+              const learningFormatted = studentLearningService.formatContextForPrompt(learningContext);
+              
+              // Format cross-session context (previous topics, deferred items, notes)
+              const crossSessionFormatted = studentLearningService.formatCrossSessionContext(crossSessionContext);
+              
+              if (learningFormatted || crossSessionFormatted) {
                 studentLearningSection = `
 ═══════════════════════════════════════════════════════════════════
 📚 STUDENT INTELLIGENCE (Proactive Personalization)
 ═══════════════════════════════════════════════════════════════════
-${formatted}
+${learningFormatted}${crossSessionFormatted}
 
 TEACHING GUIDANCE:
 - Gently support struggles without dwelling on them
 - Use proven strategies that work for this student
 - Build on recent progress to maintain momentum
 - Reference personal facts naturally to show you remember them
+- Pick up where you left off if there's session history
 `;
-                console.log(`[Student Intelligence] Injecting learning context: ${context.struggles?.length || 0} struggles, ${context.effectiveStrategies?.length || 0} strategies`);
+                console.log(`[Student Intelligence] Injecting learning context: ${learningContext.struggles?.length || 0} struggles, ${learningContext.effectiveStrategies?.length || 0} strategies, ${crossSessionContext.recentSessions.length} recent sessions`);
                 
                 // ADAPTIVE SPEED: Sync session struggle count from persistent data
                 // This enables adaptive speech rate to slow down for students with known struggles
-                const activeStruggles = context.struggles?.filter(s => s.status === 'active') || [];
+                const activeStruggles = learningContext.struggles?.filter(s => s.status === 'active') || [];
                 if (activeStruggles.length > session.sessionStruggleCount) {
                   session.sessionStruggleCount = activeStruggles.length;
                   console.log(`[Adaptive Speed] Synced ${activeStruggles.length} active struggles from student profile`);
@@ -2270,20 +2280,24 @@ Remember: David may reference things discussed in these recent text chats.
         );
       }
       
-      // PROACTIVE STUDENT INTELLIGENCE: Fetch learning context for personalization
+      // PROACTIVE STUDENT INTELLIGENCE: Fetch learning context and cross-session history
       // Guard: Only fetch if we have a valid userId (skip for admin/founder-only sessions)
       if (session.userId && session.targetLanguage) {
         contextPromises.push(
-          studentLearningService.getStudentLearningContext(String(session.userId), session.targetLanguage)
-            .then(context => {
-              if (!context) return; // Guard against null/undefined context
-              const formatted = studentLearningService.formatContextForPrompt(context);
-              if (formatted) {
-                studentLearningSection = `\n\n[STUDENT PROFILE]${formatted}`;
-                console.log(`[Student Intelligence] Open mic: ${context.struggles?.length || 0} struggles, ${context.effectiveStrategies?.length || 0} strategies`);
+          Promise.all([
+            studentLearningService.getStudentLearningContext(String(session.userId), session.targetLanguage),
+            studentLearningService.getCrossSessionContext(String(session.userId), 3)
+          ]).then(([learningContext, crossSessionContext]) => {
+              if (!learningContext) return; // Guard against null/undefined context
+              const learningFormatted = studentLearningService.formatContextForPrompt(learningContext);
+              const crossSessionFormatted = studentLearningService.formatCrossSessionContext(crossSessionContext);
+              
+              if (learningFormatted || crossSessionFormatted) {
+                studentLearningSection = `\n\n[STUDENT PROFILE]${learningFormatted}${crossSessionFormatted}`;
+                console.log(`[Student Intelligence] Open mic: ${learningContext.struggles?.length || 0} struggles, ${crossSessionContext.recentSessions.length} recent sessions`);
                 
                 // ADAPTIVE SPEED: Sync session struggle count from persistent data
-                const activeStruggles = context.struggles?.filter(s => s.status === 'active') || [];
+                const activeStruggles = learningContext.struggles?.filter(s => s.status === 'active') || [];
                 if (activeStruggles.length > session.sessionStruggleCount) {
                   session.sessionStruggleCount = activeStruggles.length;
                   console.log(`[Adaptive Speed] Open mic: Synced ${activeStruggles.length} active struggles from student profile`);

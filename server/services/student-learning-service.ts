@@ -23,6 +23,7 @@ import {
   pedagogicalInsights,
   learnerPersonalFacts,
   hiveSnapshots,
+  tutorSessions,
   type RecurringStruggle,
   type StudentInsight,
   type PredictedStruggle,
@@ -756,6 +757,145 @@ export class StudentLearningService {
       successfulStrategies: (b.metadata as any)?.successfulStrategies || [],
       createdAt: b.createdAt,
     }));
+  }
+  
+  /**
+   * CROSS-SESSION CONTEXT: Get recent session history for continuity
+   * Returns topics covered, session summaries, and deferred topics from recent sessions
+   * This enables Daniela to reference previous sessions naturally
+   */
+  async getCrossSessionContext(studentId: string, limit: number = 3): Promise<{
+    recentSessions: Array<{
+      date: Date;
+      summary: string | null;
+      topicsCovered: string[];
+      deferredTopics: string[];
+      tutorNotes: string | null;
+    }>;
+    allRecentTopics: string[];
+    pendingTopics: string[];  // Topics deferred but not yet covered
+  }> {
+    // Get recent completed sessions for this student
+    const sessions = await db
+      .select({
+        createdAt: tutorSessions.createdAt,
+        sessionSummary: tutorSessions.sessionSummary,
+        topicsCoveredJson: tutorSessions.topicsCoveredJson,
+        deferredTopicsJson: tutorSessions.deferredTopicsJson,
+        tutorNotes: tutorSessions.tutorNotes,
+      })
+      .from(tutorSessions)
+      .where(
+        and(
+          eq(tutorSessions.userId, studentId),
+          eq(tutorSessions.status, 'completed')
+        )
+      )
+      .orderBy(desc(tutorSessions.createdAt))
+      .limit(limit);
+    
+    // Parse JSON fields and collect topics
+    const allTopics = new Set<string>();
+    const pendingTopicsSet = new Set<string>();
+    const coveredTopicsSet = new Set<string>();
+    
+    // Helper to safely parse topic JSON (handles strings, objects, malformed data)
+    const safeParseTopics = (json: string | null): string[] => {
+      if (!json) return [];
+      try {
+        const parsed = JSON.parse(json);
+        if (!Array.isArray(parsed)) return [];
+        
+        // Handle both string arrays and object arrays (e.g., { id, title })
+        return parsed.map((t: any) => {
+          if (typeof t === 'string') return t;
+          if (typeof t === 'object' && t !== null) {
+            return t.title || t.name || t.id || String(t);
+          }
+          return String(t);
+        }).filter((t): t is string => typeof t === 'string' && t.length > 0);
+      } catch (err) {
+        console.warn('[CrossSession] Failed to parse topic JSON:', err);
+        return [];
+      }
+    };
+    
+    const recentSessions = sessions.map(s => {
+      const topicsCovered = safeParseTopics(s.topicsCoveredJson);
+      const deferredTopics = safeParseTopics(s.deferredTopicsJson);
+      
+      // Track all topics (using string values for proper Set deduplication)
+      topicsCovered.forEach((t: string) => {
+        allTopics.add(t);
+        coveredTopicsSet.add(t);
+      });
+      deferredTopics.forEach((t: string) => {
+        allTopics.add(t);
+        pendingTopicsSet.add(t);
+      });
+      
+      return {
+        date: s.createdAt,
+        summary: s.sessionSummary,
+        topicsCovered,
+        deferredTopics,
+        tutorNotes: s.tutorNotes,
+      };
+    });
+    
+    // Pending topics are those deferred but not yet covered (string comparison works now)
+    const pendingTopics = Array.from(pendingTopicsSet).filter(t => !coveredTopicsSet.has(t));
+    
+    return {
+      recentSessions,
+      allRecentTopics: Array.from(allTopics),
+      pendingTopics,
+    };
+  }
+  
+  /**
+   * Format cross-session context for prompt injection
+   * Concise summary of recent learning for continuity
+   */
+  formatCrossSessionContext(context: Awaited<ReturnType<StudentLearningService['getCrossSessionContext']>>): string {
+    const lines: string[] = [];
+    
+    if (context.recentSessions.length === 0) {
+      return '';
+    }
+    
+    // Only include if there's meaningful content
+    const hasMeaningfulContent = context.recentSessions.some(s => s.summary || s.topicsCovered.length > 0);
+    if (!hasMeaningfulContent) return '';
+    
+    lines.push('');
+    lines.push('[RECENT SESSION HISTORY]');
+    
+    // Most recent session summary
+    const latestWithSummary = context.recentSessions.find(s => s.summary);
+    if (latestWithSummary) {
+      const daysSince = Math.floor((Date.now() - new Date(latestWithSummary.date).getTime()) / (1000 * 60 * 60 * 24));
+      const timeAgo = daysSince === 0 ? 'Today' : daysSince === 1 ? 'Yesterday' : `${daysSince} days ago`;
+      lines.push(`Last session (${timeAgo}): ${latestWithSummary.summary?.substring(0, 100)}...`);
+    }
+    
+    // Topics covered across sessions
+    if (context.allRecentTopics.length > 0) {
+      lines.push(`Recent topics: ${context.allRecentTopics.slice(0, 5).join(', ')}`);
+    }
+    
+    // Pending topics (deferred from previous sessions)
+    if (context.pendingTopics.length > 0) {
+      lines.push(`Pending from before: ${context.pendingTopics.slice(0, 3).join(', ')}`);
+    }
+    
+    // Tutor notes from recent session
+    const latestWithNotes = context.recentSessions.find(s => s.tutorNotes);
+    if (latestWithNotes?.tutorNotes) {
+      lines.push(`Your notes: ${latestWithNotes.tutorNotes.substring(0, 80)}...`);
+    }
+    
+    return lines.join('\n');
   }
   
   /**
