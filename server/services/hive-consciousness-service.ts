@@ -192,6 +192,12 @@ class HiveConsciousnessService {
   private consecutiveFailures: number = 0; // Backoff counter for failed polls
   private readonly MAX_BACKOFF_MS = 5 * 60 * 1000; // Max 5 minute backoff
   
+  // Local polling: catch messages inserted via SQL/external means that bypass WebSocket
+  private localPollingTimeout: NodeJS.Timeout | null = null;
+  private lastLocalPollTimestamp: Date = new Date();
+  private readonly LOCAL_POLL_INTERVAL_MS = 15 * 1000; // 15 seconds - faster than cross-env
+  private localProcessedMessageIds: string[] = []; // Separate from cross-env to avoid conflicts
+  
   /**
    * AI-POWERED PARTICIPATION ROUTER
    * 
@@ -282,6 +288,9 @@ Respond with ONLY valid JSON (no markdown, no backticks):
     
     // Start cross-environment polling for bidirectional sync
     this.startCrossEnvironmentPolling();
+    
+    // Start local polling to catch SQL-inserted messages that bypass WebSocket
+    this.startLocalPolling();
   }
   
   /**
@@ -293,7 +302,162 @@ Respond with ONLY valid JSON (no markdown, no backticks):
       clearTimeout(this.crossEnvPollingTimeout);
       this.crossEnvPollingTimeout = null;
     }
+    if (this.localPollingTimeout) {
+      clearTimeout(this.localPollingTimeout);
+      this.localPollingTimeout = null;
+    }
     console.log('[Hive Consciousness] Stopped listening');
+  }
+  
+  /**
+   * LOCAL POLLING
+   * 
+   * Catches messages inserted via SQL or external means that bypass WebSocket.
+   * This ensures agents respond even when messages are added programmatically
+   * (e.g., by Replit Agent inserting directly to the database).
+   * 
+   * Checks for:
+   * - founder messages with @daniela/@wren that have no agent response
+   * - system messages with @daniela/@wren that have no agent response
+   */
+  private startLocalPolling(): void {
+    if (this.localPollingTimeout) {
+      console.log('[Hive Consciousness] Local polling already running');
+      return;
+    }
+    
+    // On startup, look back 5 minutes to catch messages inserted while service was down
+    this.lastLocalPollTimestamp = new Date(Date.now() - 5 * 60 * 1000);
+    console.log(`[Hive Consciousness] Starting local polling (every ${this.LOCAL_POLL_INTERVAL_MS / 1000}s, initial lookback: 5min)`);
+    
+    this.scheduleNextLocalPoll();
+    
+    // Do an immediate poll on startup
+    this.pollLocalMessages().catch(err => {
+      console.error('[Hive Consciousness] Initial local poll failed:', err.message);
+    });
+  }
+  
+  private scheduleNextLocalPoll(): void {
+    if (!this.isListening) return;
+    
+    this.localPollingTimeout = setTimeout(async () => {
+      try {
+        await this.pollLocalMessages();
+      } catch (error) {
+        console.error('[Hive Consciousness] Local poll error:', error);
+      }
+      this.scheduleNextLocalPoll();
+    }, this.LOCAL_POLL_INTERVAL_MS);
+  }
+  
+  /**
+   * Poll for local messages that may have bypassed WebSocket
+   * Checks for unanswered @mentions from founder and system roles
+   * 
+   * SAFETY: Timestamp only advances AFTER successful processing
+   * to ensure missed messages are retried on next poll
+   */
+  private async pollLocalMessages(): Promise<void> {
+    if (!this.isListening) return;
+    
+    try {
+      // Use a wider window on first poll after startup (last 5 minutes)
+      // This catches messages inserted while service was down
+      const sinceTime = this.lastLocalPollTimestamp;
+      const queryTime = new Date(); // Capture now, only update after success
+      
+      const recentMessages = await db
+        .select({
+          id: collaborationMessages.id,
+          sessionId: collaborationMessages.sessionId,
+          role: collaborationMessages.role,
+          content: collaborationMessages.content,
+          createdAt: collaborationMessages.createdAt,
+        })
+        .from(collaborationMessages)
+        .where(
+          and(
+            gte(collaborationMessages.createdAt, sinceTime),
+            or(
+              eq(collaborationMessages.role, 'founder'),
+              eq(collaborationMessages.role, 'system')
+            ),
+            eq(collaborationMessages.environment, CURRENT_ENVIRONMENT)
+          )
+        )
+        .orderBy(desc(collaborationMessages.createdAt))
+        .limit(20);
+      
+      if (recentMessages.length === 0) {
+        // Only advance timestamp when query succeeds (even with no results)
+        this.lastLocalPollTimestamp = queryTime;
+        return;
+      }
+      
+      let processedCount = 0;
+      
+      // Check each message for unanswered mentions
+      for (const msg of recentMessages) {
+        // Skip if already processed this message ID (use separate local list)
+        if (this.localProcessedMessageIds.includes(msg.id)) continue;
+        
+        const content = msg.content.toLowerCase();
+        const mentionsDaniela = /\bdaniela\b/.test(content);
+        const mentionsWren = /\bwren\b/.test(content);
+        
+        if (!mentionsDaniela && !mentionsWren) continue;
+        
+        // Check for existing responses after this message
+        const existingResponses = await db
+          .select({ id: collaborationMessages.id, role: collaborationMessages.role })
+          .from(collaborationMessages)
+          .where(
+            and(
+              eq(collaborationMessages.sessionId, msg.sessionId),
+              gte(collaborationMessages.createdAt, msg.createdAt),
+              or(
+                eq(collaborationMessages.role, 'daniela'),
+                eq(collaborationMessages.role, 'wren')
+              )
+            )
+          )
+          .limit(5);
+        
+        const hasWrenResponse = existingResponses.some(r => r.role === 'wren');
+        const hasDanielaResponse = existingResponses.some(r => r.role === 'daniela');
+        
+        // If there's a mention without a response, process the message
+        if ((mentionsWren && !hasWrenResponse) || (mentionsDaniela && !hasDanielaResponse)) {
+          console.log(`[Local Poll] Found unanswered mention in message ${msg.id.substring(0, 8)}... - processing`);
+          
+          try {
+            // Process through the normal message handler
+            await this.processMessage(msg.sessionId, msg as CollaborationMessage);
+            
+            // Only mark as processed AFTER successful processing (FIFO eviction at 500)
+            this.localProcessedMessageIds.push(msg.id);
+            if (this.localProcessedMessageIds.length > 500) {
+              this.localProcessedMessageIds.shift();
+            }
+            processedCount++;
+          } catch (processErr: any) {
+            // Don't mark as processed - will retry on next poll
+            console.error(`[Local Poll] Failed to process message ${msg.id.substring(0, 8)}:`, processErr.message);
+          }
+        }
+      }
+      
+      // Only advance timestamp after successful processing
+      this.lastLocalPollTimestamp = queryTime;
+      
+      if (processedCount > 0) {
+        console.log(`[Local Poll] Processed ${processedCount} unanswered mentions`);
+      }
+    } catch (error: any) {
+      // DON'T advance timestamp on error - retry these messages next poll
+      console.error('[Local Poll] Error:', error.message);
+    }
   }
   
   /**
@@ -2362,8 +2526,14 @@ Keep it conversational - you're in a team chat. The structured tag will be parse
       const hasPedagogySpec = sprint.pedagogySpec && Object.keys(sprint.pedagogySpec).length > 0;
       const hasBuildPlan = sprint.buildPlan && Object.keys(sprint.buildPlan).length > 0;
       
+      // STAGED ADVANCEMENT: Respect the stage progression
+      // idea → pedagogy_spec → build_plan → in_progress → shipped
+      
+      // Stage 1: If both specs present and at idea/pedagogy_spec → advance to build_plan only
+      // The next readiness check will advance from build_plan to in_progress
       if (hasPedagogySpec && hasBuildPlan && (sprint.stage === 'idea' || sprint.stage === 'pedagogy_spec')) {
-        // Both specs present - advance to 'build_plan' stage (fully specced, ready for work)
+        const previousStage = sprint.stage;
+        
         await db.update(featureSprints)
           .set({ 
             stage: 'build_plan',
@@ -2371,34 +2541,68 @@ Keep it conversational - you're in a team chat. The structured tag will be parse
           })
           .where(eq(featureSprints.id, sprintId));
         
-        console.log(`[Sprint Readiness] ✅ Sprint "${sprint.title}" advanced to 'build_plan' - collaboration complete!`);
-        
-        // Notify via console
+        console.log(`[Sprint Readiness] ✅ Sprint "${sprint.title}" advanced to 'build_plan' - both specs complete!`);
         console.log(`[Sprint Readiness] 📋 pedagogySpec: ${JSON.stringify(sprint.pedagogySpec).slice(0, 100)}...`);
         console.log(`[Sprint Readiness] 🔧 buildPlan: ${JSON.stringify(sprint.buildPlan).slice(0, 100)}...`);
         
-        // Post celebration to EXPRESS Lane (find active session for this sprint)
+        // Notify in EXPRESS Lane that specs are complete
         try {
           if (sprint.sourceSessionId) {
             await founderCollabWSBroker.addAndBroadcastMessage(sprint.sourceSessionId, {
               role: 'wren',
-              content: `✅ **Sprint Ready!** "${sprint.title}" now has both teaching spec and build plan.\n\n🎯 **Stage:** ${sprint.stage} → build_plan\n\nReady for implementation when founder approves!`,
+              content: `✅ **Sprint Specced!** "${sprint.title}" now has both teaching spec and build plan.\n\n🎯 **Stage:** ${previousStage} → build_plan\n\nWill auto-advance to in_progress shortly!`,
               messageType: 'text',
               metadata: {
                 sprintId: sprint.id,
-                responseType: 'sprint_ready',
+                responseType: 'sprint_specced',
               },
             });
           }
         } catch (notifyErr: any) {
-          console.error('[Sprint Readiness] Failed to post celebration:', notifyErr.message);
+          console.error('[Sprint Readiness] Failed to post notification:', notifyErr.message);
+        }
+        
+        // Schedule immediate follow-up check to advance to in_progress
+        // Use setTimeout to allow the current transaction to complete
+        setTimeout(() => {
+          this.checkAndAdvanceSprintReadiness(sprintId).catch(err => {
+            console.error('[Sprint Readiness] Follow-up check failed:', err.message);
+          });
+        }, 1000);
+        
+        return; // Exit - don't fall through to other branches
+      } 
+      // Stage 2: If already at build_plan with both specs → advance to in_progress
+      else if (hasPedagogySpec && hasBuildPlan && sprint.stage === 'build_plan') {
+        await db.update(featureSprints)
+          .set({ 
+            stage: 'in_progress',
+            updatedAt: new Date(),
+          })
+          .where(eq(featureSprints.id, sprintId));
+        
+        console.log(`[Sprint Readiness] 🚀 Sprint "${sprint.title}" advanced from build_plan to 'in_progress'!`);
+        
+        try {
+          if (sprint.sourceSessionId) {
+            await founderCollabWSBroker.addAndBroadcastMessage(sprint.sourceSessionId, {
+              role: 'wren',
+              content: `🚀 **Sprint Started!** "${sprint.title}" is now in progress.\n\n🎯 **Stage:** build_plan → in_progress\n\nImplementation is now underway!`,
+              messageType: 'text',
+              metadata: {
+                sprintId: sprint.id,
+                responseType: 'sprint_started',
+              },
+            });
+          }
+        } catch (notifyErr: any) {
+          console.error('[Sprint Readiness] Failed to post notification:', notifyErr.message);
         }
       } else {
         // Log what's still needed
         const missing: string[] = [];
         if (!hasPedagogySpec) missing.push('pedagogySpec (Daniela)');
         if (!hasBuildPlan) missing.push('buildPlan (Wren)');
-        if (sprint.stage !== 'idea') missing.push(`stage is ${sprint.stage}, not idea`);
         
         if (missing.length > 0) {
           console.log(`[Sprint Readiness] Sprint "${sprint.title}" not ready yet. Missing: ${missing.join(', ')}`);
