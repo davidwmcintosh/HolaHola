@@ -10001,6 +10001,139 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  // ===== Pronunciation Drill Mode =====
+  // Focused phoneme practice sessions based on struggle patterns
+  
+  // Get available phoneme challenges for a language
+  app.get("/api/pronunciation-drills/phonemes/:language", isAuthenticated, async (req: any, res) => {
+    try {
+      const { pronunciationDrillService } = await import("./services/pronunciation-drill-service");
+      const { language } = req.params;
+      const phonemes = pronunciationDrillService.getLanguagePhonemes(language);
+      res.json({ language, phonemes });
+    } catch (error: any) {
+      console.error('[Pronunciation Drill] Get phonemes error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get student's pronunciation struggles for personalized drills
+  app.get("/api/pronunciation-drills/struggles", isAuthenticated, async (req: any, res) => {
+    try {
+      const { pronunciationDrillService } = await import("./services/pronunciation-drill-service");
+      const userId = req.user?.claims?.sub || req.userId;
+      const { language } = req.query;
+      
+      if (!language) {
+        return res.status(400).json({ error: 'Language parameter required' });
+      }
+      
+      const struggles = await pronunciationDrillService.getStudentPronunciationStruggles(userId, language as string);
+      res.json({ struggles });
+    } catch (error: any) {
+      console.error('[Pronunciation Drill] Get struggles error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Start a pronunciation drill session
+  app.post("/api/pronunciation-drills/start", isAuthenticated, async (req: any, res) => {
+    try {
+      const { pronunciationDrillService } = await import("./services/pronunciation-drill-service");
+      const userId = req.user?.claims?.sub || req.userId;
+      const { language, difficulty, phonemes } = req.body;
+      
+      if (!language) {
+        return res.status(400).json({ error: 'Language parameter required' });
+      }
+      
+      const session = await pronunciationDrillService.startSession(
+        userId, 
+        language, 
+        difficulty || 'intermediate',
+        phonemes
+      );
+      
+      res.json(session);
+    } catch (error: any) {
+      console.error('[Pronunciation Drill] Start session error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get current drill session status and next item
+  app.get("/api/pronunciation-drills/session/:sessionId", isAuthenticated, async (req: any, res) => {
+    try {
+      const { pronunciationDrillService } = await import("./services/pronunciation-drill-service");
+      const { sessionId } = req.params;
+      
+      const session = pronunciationDrillService.getSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: 'Session not found' });
+      }
+      
+      const currentItem = pronunciationDrillService.getCurrentItem(sessionId);
+      
+      res.json({
+        session: {
+          sessionId: session.sessionId,
+          language: session.language,
+          targetPhonemes: session.targetPhonemes,
+          totalItems: session.totalItems,
+          currentIndex: session.currentIndex,
+          correctCount: session.correctCount,
+          incorrectCount: session.incorrectCount,
+        },
+        currentItem,
+      });
+    } catch (error: any) {
+      console.error('[Pronunciation Drill] Get session error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Submit pronunciation response for evaluation
+  app.post("/api/pronunciation-drills/session/:sessionId/submit", isAuthenticated, async (req: any, res) => {
+    try {
+      const { pronunciationDrillService } = await import("./services/pronunciation-drill-service");
+      const { sessionId } = req.params;
+      const { transcribedSpeech, pronunciationScore } = req.body;
+      
+      if (pronunciationScore === undefined) {
+        return res.status(400).json({ error: 'Pronunciation score required' });
+      }
+      
+      const result = await pronunciationDrillService.submitResponse(
+        sessionId, 
+        transcribedSpeech || '', 
+        pronunciationScore
+      );
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error('[Pronunciation Drill] Submit response error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // End drill session early
+  app.post("/api/pronunciation-drills/session/:sessionId/end", isAuthenticated, async (req: any, res) => {
+    try {
+      const { pronunciationDrillService } = await import("./services/pronunciation-drill-service");
+      const { sessionId } = req.params;
+      
+      const summary = await pronunciationDrillService.endSession(sessionId);
+      if (!summary) {
+        return res.status(404).json({ error: 'Session not found' });
+      }
+      
+      res.json({ summary });
+    } catch (error: any) {
+      console.error('[Pronunciation Drill] End session error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // ===== Historical Memory Migration (Founder Only) =====
   // One-time migration of founder voice conversations to Daniela's neural network
   
