@@ -60,10 +60,17 @@ const stripeInitPromise = (async function initStripe() {
     });
     console.log('Stripe schema ready');
 
-    console.log('Syncing Stripe data...');
+    console.log('Checking Stripe credentials...');
     const secretKey = await getStripeSecretKey();
     const webhookSecret = await getStripeWebhookSecret();
     
+    if (!secretKey || !webhookSecret) {
+      console.log('Stripe credentials not available - skipping Stripe sync');
+      stripeReady = false;
+      return;
+    }
+    
+    console.log('Syncing Stripe data...');
     const stripeSync = new StripeSync({
       poolConfig: {
         connectionString: databaseUrl,

@@ -23,8 +23,16 @@ export const INSTITUTIONAL_PACKAGES = {
 export type InstitutionalPackageTier = keyof typeof INSTITUTIONAL_PACKAGES;
 
 export class StripeService {
-  async createCustomer(email: string, userId: string) {
+  private async getStripeOrThrow() {
     const stripe = await getUncachableStripeClient();
+    if (!stripe) {
+      throw new Error('Stripe is not configured. Please set up Stripe in the deployment settings.');
+    }
+    return stripe;
+  }
+
+  async createCustomer(email: string, userId: string) {
+    const stripe = await this.getStripeOrThrow();
     return await stripe.customers.create({
       email,
       metadata: { userId },
@@ -32,7 +40,7 @@ export class StripeService {
   }
 
   async createCheckoutSession(customerId: string, priceId: string, successUrl: string, cancelUrl: string) {
-    const stripe = await getUncachableStripeClient();
+    const stripe = await this.getStripeOrThrow();
     return await stripe.checkout.sessions.create({
       customer: customerId,
       payment_method_types: ['card'],
@@ -50,7 +58,7 @@ export class StripeService {
     successUrl: string, 
     cancelUrl: string
   ) {
-    const stripe = await getUncachableStripeClient();
+    const stripe = await this.getStripeOrThrow();
     const pkg = HOUR_PACKAGES[packageTier];
     
     if (!pkg) {
@@ -89,7 +97,7 @@ export class StripeService {
   
   async fulfillHourPackage(sessionId: string, requestingUserId?: string): Promise<{ success: boolean; hoursAdded?: number; error?: string; alreadyProcessed?: boolean }> {
     try {
-      const stripe = await getUncachableStripeClient();
+      const stripe = await this.getStripeOrThrow();
       const session = await stripe.checkout.sessions.retrieve(sessionId);
       
       if (session.payment_status !== 'paid') {
@@ -156,7 +164,7 @@ export class StripeService {
   }
 
   async createCustomerPortalSession(customerId: string, returnUrl: string) {
-    const stripe = await getUncachableStripeClient();
+    const stripe = await this.getStripeOrThrow();
     return await stripe.billingPortal.sessions.create({
       customer: customerId,
       return_url: returnUrl,

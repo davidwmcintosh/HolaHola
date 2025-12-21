@@ -3,15 +3,21 @@ import { getStripeSecretKey, getStripeWebhookSecret } from './stripeClient';
 
 let stripeSync: StripeSync | null = null;
 
-async function getStripeSync(): Promise<StripeSync> {
+async function getStripeSync(): Promise<StripeSync | null> {
   if (!stripeSync) {
     const databaseUrl = process.env.DATABASE_URL;
     if (!databaseUrl) {
-      throw new Error('DATABASE_URL is required for Stripe webhook processing');
+      console.warn('[Stripe] DATABASE_URL is required for Stripe webhook processing');
+      return null;
     }
 
     const secretKey = await getStripeSecretKey();
     const webhookSecret = await getStripeWebhookSecret();
+
+    if (!secretKey || !webhookSecret) {
+      console.warn('[Stripe] Stripe credentials not available - webhooks disabled');
+      return null;
+    }
 
     stripeSync = new StripeSync({
       poolConfig: {
@@ -37,6 +43,10 @@ export class WebhookHandlers {
     }
     
     const sync = await getStripeSync();
+    if (!sync) {
+      console.warn('[Stripe] Webhook received but Stripe is not configured - ignoring');
+      return;
+    }
     await sync.processWebhook(payload, signature, undefined);
   }
 }
