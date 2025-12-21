@@ -110,6 +110,21 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+} from "recharts";
 
 interface CollapsibleSectionProps {
   title: string;
@@ -3047,6 +3062,11 @@ interface VelocityAnalyticsData {
     masteredConcepts: number;
     velocityScore: number;
   }>;
+  trendData?: Array<{
+    date: string;
+    breakthroughs: number;
+    avgMasteryDays: number;
+  }>;
 }
 
 function VelocityTab() {
@@ -3150,31 +3170,114 @@ function VelocityTab() {
           </div>
 
           {analytics.byStruggleArea.length > 0 && (
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Mastery by Struggle Area</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {analytics.byStruggleArea.map((area) => (
+                      <div key={area.area} className="flex items-center justify-between py-2 border-b last:border-0">
+                        <div className="flex items-center gap-3">
+                          <Badge variant="outline" className="capitalize">
+                            {area.area}
+                          </Badge>
+                          <span className="text-sm text-muted-foreground">
+                            {area.masteredCount} mastered
+                          </span>
+                        </div>
+                        <div className="text-sm">
+                          {area.avgTimeToMasteryDays !== null ? (
+                            <span className="font-medium">{area.avgTimeToMasteryDays} days avg</span>
+                          ) : (
+                            <span className="text-muted-foreground">No data</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Mastery Distribution</CardTitle>
+                  <CardDescription>Breakthroughs by learning area</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[200px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={analytics.byStruggleArea.map(a => ({ 
+                        name: a.area.charAt(0).toUpperCase() + a.area.slice(1), 
+                        count: a.masteredCount,
+                        days: a.avgTimeToMasteryDays || 0
+                      }))}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                        <YAxis tick={{ fontSize: 12 }} />
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: 'hsl(var(--card))', 
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '8px'
+                          }}
+                          formatter={(value: number, name: string) => [
+                            name === 'count' ? `${value} mastered` : `${value} days avg`,
+                            name === 'count' ? 'Breakthroughs' : 'Avg Time'
+                          ]}
+                        />
+                        <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {analytics.trendData && Array.isArray(analytics.trendData) && analytics.trendData.length > 0 && analytics.trendData.some(d => d.breakthroughs > 0) && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Mastery by Struggle Area</CardTitle>
+                <CardTitle className="text-base">Learning Velocity Trend</CardTitle>
+                <CardDescription>Breakthroughs and mastery time over the past 30 days</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {analytics.byStruggleArea.map((area) => (
-                    <div key={area.area} className="flex items-center justify-between py-2 border-b last:border-0">
-                      <div className="flex items-center gap-3">
-                        <Badge variant="outline" className="capitalize">
-                          {area.area}
-                        </Badge>
-                        <span className="text-sm text-muted-foreground">
-                          {area.masteredCount} mastered
-                        </span>
-                      </div>
-                      <div className="text-sm">
-                        {area.avgTimeToMasteryDays !== null ? (
-                          <span className="font-medium">{area.avgTimeToMasteryDays} days avg</span>
-                        ) : (
-                          <span className="text-muted-foreground">No data</span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                <div className="h-[250px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={analytics.trendData || []}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                      <YAxis yAxisId="left" tick={{ fontSize: 12 }} />
+                      <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'hsl(var(--card))', 
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px'
+                        }}
+                      />
+                      <Legend />
+                      <Line 
+                        yAxisId="left"
+                        type="monotone" 
+                        dataKey="breakthroughs" 
+                        stroke="hsl(var(--primary))" 
+                        strokeWidth={2}
+                        dot={{ r: 3 }}
+                        name="Breakthroughs"
+                      />
+                      <Line 
+                        yAxisId="right"
+                        type="monotone" 
+                        dataKey="avgMasteryDays" 
+                        stroke="hsl(var(--chart-2))" 
+                        strokeWidth={2}
+                        dot={{ r: 3 }}
+                        name="Avg Days to Mastery"
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
                 </div>
               </CardContent>
             </Card>

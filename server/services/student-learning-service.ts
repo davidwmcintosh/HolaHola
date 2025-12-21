@@ -2669,6 +2669,9 @@ export class StudentLearningService {
     // Top learners
     const leaderboard = await this.getVelocityLeaderboard(undefined, 5);
     
+    // Generate trend data for last 30 days
+    const trendData = await this.getVelocityTrendData(30);
+    
     return {
       totalMasteredConcepts: totalResolved.count || 0,
       totalActiveStruggles: totalActive.count || 0,
@@ -2680,7 +2683,48 @@ export class StudentLearningService {
         avgTimeToMasteryDays: a.avgDays,
       })),
       topLearners: leaderboard,
+      trendData,
     };
+  }
+  
+  /**
+   * Get velocity trend data over time for visualization
+   */
+  private async getVelocityTrendData(days: number = 30): Promise<Array<{ date: string; breakthroughs: number; avgMasteryDays: number }>> {
+    const result: Array<{ date: string; breakthroughs: number; avgMasteryDays: number }> = [];
+    
+    // Generate data points for each day
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const startOfDay = new Date(date);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(date);
+      endOfDay.setHours(23, 59, 59, 999);
+      
+      // Count breakthroughs for this day
+      const [dayBreakthroughs] = await db
+        .select({ 
+          count: sql<number>`COUNT(*)::integer`,
+          avgDays: sql<number>`AVG(${recurringStruggles.timeToMasteryDays})::integer`
+        })
+        .from(recurringStruggles)
+        .where(and(
+          eq(recurringStruggles.status, 'resolved'),
+          gte(recurringStruggles.resolvedAt, startOfDay),
+          sql`${recurringStruggles.resolvedAt} <= ${endOfDay}`
+        ));
+      
+      const formattedDate = `${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')}`;
+      
+      result.push({
+        date: formattedDate,
+        breakthroughs: dayBreakthroughs.count || 0,
+        avgMasteryDays: dayBreakthroughs.avgDays || 0,
+      });
+    }
+    
+    return result;
   }
   
   private getVelocityLabel(score: number): string {
@@ -2733,6 +2777,11 @@ export interface VelocityAnalytics {
     avgTimeToMasteryDays: number | null;
   }>;
   topLearners: VelocityLeaderboardEntry[];
+  trendData?: Array<{
+    date: string;
+    breakthroughs: number;
+    avgMasteryDays: number;
+  }>;
 }
 
 export const studentLearningService = new StudentLearningService();

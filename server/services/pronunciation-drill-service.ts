@@ -12,8 +12,9 @@
 import { GoogleGenAI } from '@google/genai';
 import { db } from '../db';
 import { recurringStruggles, hiveSnapshots } from '@shared/schema';
-import { eq, and, desc, isNull } from 'drizzle-orm';
+import { eq, and, desc, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
+import { studentLearningService } from './student-learning-service';
 
 export const startSessionSchema = z.object({
   language: z.string().min(1, "Language is required"),
@@ -486,8 +487,124 @@ Guidelines:
       
       console.log(`[PronunciationDrill] Session results persisted to hiveSnapshots`);
       
+      // ===== INTEGRATION: Update Student Learning Profile =====
+      // Connect drill results to recurring struggles for tracking and breakthrough detection
+      await this.updateStudentLearningProfile(session, accuracy);
+      
     } catch (error: any) {
       console.error('[PronunciationDrill] Error recording results:', error.message);
+    }
+  }
+  
+  /**
+   * Update student learning profile based on drill session results
+   * - High accuracy (>=85%) on phoneme = potential breakthrough
+   * - Low accuracy (<50%) = reinforce the struggle
+   * - Medium accuracy = track progress
+   */
+  private async updateStudentLearningProfile(
+    session: PronunciationDrillSession, 
+    accuracy: number
+  ): Promise<void> {
+    try {
+      for (const phoneme of session.targetPhonemes) {
+        // Use description field for pattern matching since specificExamples is free-form text
+        const phonemeDescription = `Struggling with ${phoneme} pronunciation`;
+        
+        // Check for existing pronunciation struggle containing this phoneme
+        // Use LIKE pattern to find struggles that mention this phoneme
+        const existingStruggles = await db
+          .select()
+          .from(recurringStruggles)
+          .where(and(
+            eq(recurringStruggles.studentId, session.studentId),
+            eq(recurringStruggles.language, session.language),
+            eq(recurringStruggles.struggleArea, 'pronunciation'),
+            eq(recurringStruggles.status, 'active'),
+            sql`${recurringStruggles.description} ILIKE ${'%' + phoneme + '%'}`
+          ))
+          .limit(1);
+        
+        if (accuracy >= 85) {
+          // High accuracy = breakthrough! Mark as resolved
+          if (existingStruggles.length > 0) {
+            const struggle = existingStruggles[0];
+            const daysSinceCreated = struggle.createdAt 
+              ? Math.round((Date.now() - new Date(struggle.createdAt).getTime()) / (1000 * 60 * 60 * 24))
+              : null;
+            
+            await db
+              .update(recurringStruggles)
+              .set({
+                status: 'resolved',
+                resolvedAt: new Date(),
+                timeToMasteryDays: daysSinceCreated,
+                resolutionNotes: `Mastered via pronunciation drill with ${Math.round(accuracy)}% accuracy`,
+              })
+              .where(eq(recurringStruggles.id, struggle.id));
+            
+            console.log(`[PronunciationDrill] BREAKTHROUGH: ${phoneme} mastered by ${session.studentId}`);
+            
+            // Record breakthrough in hiveSnapshots
+            await db.insert(hiveSnapshots).values({
+              snapshotType: 'breakthrough',
+              userId: session.studentId,
+              language: session.language,
+              title: `Pronunciation Breakthrough: ${phoneme}`,
+              content: JSON.stringify({
+                type: 'pronunciation_breakthrough',
+                phoneme,
+                accuracy: Math.round(accuracy),
+                sessionId: session.sessionId,
+                timeToMasteryDays: daysSinceCreated,
+              }),
+              context: `Student mastered the ${phoneme} sound with ${Math.round(accuracy)}% accuracy in drill practice`,
+              importance: 9,
+              metadata: { tags: ['pronunciation', 'breakthrough', phoneme] },
+            });
+          }
+        } else if (accuracy < 50) {
+          // Low accuracy = record or reinforce the struggle
+          if (existingStruggles.length === 0) {
+            // Create new struggle record with all required fields
+            await db.insert(recurringStruggles).values({
+              studentId: session.studentId,
+              language: session.language,
+              struggleArea: 'pronunciation',
+              description: phonemeDescription,
+              specificExamples: `${phoneme} sound - drill accuracy: ${Math.round(accuracy)}%`,
+              occurrenceCount: 1,
+              lastOccurredAt: new Date(),
+              status: 'active',
+            });
+            
+            console.log(`[PronunciationDrill] New struggle recorded: ${phoneme} for ${session.studentId}`);
+          } else {
+            // Increment occurrence count
+            const struggle = existingStruggles[0];
+            await db
+              .update(recurringStruggles)
+              .set({
+                occurrenceCount: (struggle.occurrenceCount || 0) + 1,
+                lastOccurredAt: new Date(),
+                status: 'active',
+              })
+              .where(eq(recurringStruggles.id, struggle.id));
+            
+            console.log(`[PronunciationDrill] Struggle reinforced: ${phoneme} (${(struggle.occurrenceCount || 0) + 1} occurrences)`);
+          }
+        } else if (existingStruggles.length > 0) {
+          // Medium accuracy - update last seen to track progress
+          await db
+            .update(recurringStruggles)
+            .set({
+              lastOccurredAt: new Date(),
+            })
+            .where(eq(recurringStruggles.id, existingStruggles[0].id));
+        }
+      }
+    } catch (error: any) {
+      console.error('[PronunciationDrill] Error updating learning profile:', error.message);
     }
   }
 
