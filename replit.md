@@ -50,6 +50,15 @@ Support/Assistant Tutors use Google Cloud Text-to-Speech with language-specific 
 **Speculative PTT Streaming (Performance Optimization):**
 When the user holds the PTT button, audio streams in real-time to Deepgram. Speculative AI Pre-Trigger starts AI generation when 3+ confident words are detected during PTT hold, potentially saving 200-300ms by pre-processing the AI response.
 
+## Azure Pronunciation Assessment (POC - Post-Session Analysis)
+**Architecture:** Post-session batch analysis for drill assignment (not real-time)
+- **Flow:** Voice session ends → Background transcodes audio (WebM→WAV) → Azure analyzes → Stores phoneme struggles → Informs drill recommendations
+- **Why post-session:** Browser sends WebM/Opus; Azure requires PCM 16kHz WAV. Real-time transcoding adds 50-150ms latency per chunk - unacceptable for live conversation.
+- **Service:** `server/services/azure-pronunciation-service.ts` with `assessPronunciation()` and `storePhonemeStruggles()`
+- **Test endpoint:** `POST /api/voice/assess-pronunciation` (accepts WAV files for validation)
+- **Data flow:** Results merge with existing `phonemeStruggles` table using weighted averages
+- **Production TODO:** Implement WebM→WAV transcoding job triggered on session end
+
 ## External Dependencies
 -   Stripe: Payment processing and subscription management.
 -   Replit Auth: OIDC authentication.
@@ -57,5 +66,6 @@ When the user holds the PTT button, audio streams in real-time to Deepgram. Spec
 -   Deepgram API: Voice STT (Nova-3 model).
 -   Cartesia API: Primary TTS (Sonic-3 model).
 -   Google Cloud Text-to-Speech: For support/assistant tutors.
+-   Azure Speech Services: Pronunciation assessment for drill assignment (post-session).
 -   Unsplash: Stock educational images.
 -   Gemini Flash-Image: AI-generated contextual images.
