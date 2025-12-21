@@ -385,6 +385,117 @@ export function voiceSpeedToRate(speed: VoiceSpeedOption | undefined): number {
 }
 
 /**
+ * Adaptive Speech Rate Configuration
+ * Auto-adjusts Daniela's speaking speed based on student comprehension signals
+ */
+const ADAPTIVE_SPEED_CONFIG = {
+  // STT confidence thresholds
+  LOW_CONFIDENCE_THRESHOLD: 0.7,    // Below this triggers slowdown consideration
+  VERY_LOW_CONFIDENCE_THRESHOLD: 0.5, // Below this forces significant slowdown
+  
+  // Struggle thresholds
+  STRUGGLE_SLOWDOWN_THRESHOLD: 3,   // After N struggles, start slowing down
+  STRUGGLE_MAX_EFFECT: 6,           // Cap slowdown effect at N struggles
+  
+  // Speed adjustment factors
+  MIN_SPEED_MULTIPLIER: 0.7,        // Never go below 70% of user's chosen speed
+  MAX_SPEED_MULTIPLIER: 1.0,        // Never exceed user's chosen speed
+  
+  // Rolling window for STT confidence
+  CONFIDENCE_WINDOW_SIZE: 5,        // Track last N transcripts
+};
+
+/**
+ * Calculate adaptive speaking rate based on session signals
+ * Returns a multiplier to apply to the user's chosen speed
+ * 
+ * @param session - Current streaming session with tracking data
+ * @returns Multiplier (0.7 - 1.0) to apply to base speaking rate
+ */
+export function calculateAdaptiveSpeedMultiplier(session: StreamingSession): number {
+  if (!session.adaptiveSpeedEnabled) {
+    return 1.0; // No adjustment if adaptive speed is disabled
+  }
+  
+  let multiplier = 1.0;
+  
+  // Factor 1: Recent STT confidence (if student is hard to understand, slow down)
+  if (session.recentSttConfidences.length > 0) {
+    const avgConfidence = session.recentSttConfidences.reduce((a, b) => a + b, 0) / session.recentSttConfidences.length;
+    
+    if (avgConfidence < ADAPTIVE_SPEED_CONFIG.VERY_LOW_CONFIDENCE_THRESHOLD) {
+      // Very low confidence: significant slowdown (0.8x)
+      multiplier = Math.min(multiplier, 0.8);
+    } else if (avgConfidence < ADAPTIVE_SPEED_CONFIG.LOW_CONFIDENCE_THRESHOLD) {
+      // Low confidence: moderate slowdown (0.9x)
+      multiplier = Math.min(multiplier, 0.9);
+    }
+  }
+  
+  // Factor 2: Session struggle count (if student is struggling, slow down)
+  if (session.sessionStruggleCount >= ADAPTIVE_SPEED_CONFIG.STRUGGLE_SLOWDOWN_THRESHOLD) {
+    // Calculate slowdown based on struggle count (capped)
+    const effectiveStruggles = Math.min(session.sessionStruggleCount, ADAPTIVE_SPEED_CONFIG.STRUGGLE_MAX_EFFECT);
+    const struggleEffect = (effectiveStruggles - ADAPTIVE_SPEED_CONFIG.STRUGGLE_SLOWDOWN_THRESHOLD + 1) * 0.05;
+    multiplier = Math.min(multiplier, 1.0 - struggleEffect);
+  }
+  
+  // Clamp to configured range
+  return Math.max(ADAPTIVE_SPEED_CONFIG.MIN_SPEED_MULTIPLIER, Math.min(ADAPTIVE_SPEED_CONFIG.MAX_SPEED_MULTIPLIER, multiplier));
+}
+
+/**
+ * Get the effective speaking rate with adaptive adjustment
+ * @param session - Current streaming session
+ * @returns Final speaking rate to use for TTS
+ */
+export function getAdaptiveSpeakingRate(session: StreamingSession): number {
+  const baseRate = voiceSpeedToRate(session.voiceSpeed);
+  const multiplier = calculateAdaptiveSpeedMultiplier(session);
+  const adaptiveRate = baseRate * multiplier;
+  
+  // Log when adaptive rate differs from base
+  if (multiplier < 1.0) {
+    console.log(`[Adaptive Speed] Slowing down: ${baseRate} → ${adaptiveRate.toFixed(2)} (${(multiplier * 100).toFixed(0)}% of user speed)`);
+  }
+  
+  // Clamp to Cartesia's valid range (0.6 - 1.5)
+  return Math.max(0.6, Math.min(1.5, adaptiveRate));
+}
+
+/**
+ * Update session's STT confidence tracking
+ * Call this after each transcript is received
+ */
+export function trackSttConfidence(session: StreamingSession, confidence: number): void {
+  session.recentSttConfidences.push(confidence);
+  
+  // Keep only the most recent N confidences
+  while (session.recentSttConfidences.length > ADAPTIVE_SPEED_CONFIG.CONFIDENCE_WINDOW_SIZE) {
+    session.recentSttConfidences.shift();
+  }
+  
+  // Auto-enable adaptive speed when confidence drops below threshold
+  if (confidence < ADAPTIVE_SPEED_CONFIG.LOW_CONFIDENCE_THRESHOLD && !session.adaptiveSpeedEnabled) {
+    session.adaptiveSpeedEnabled = true;
+    console.log(`[Adaptive Speed] Auto-enabled due to low STT confidence (${(confidence * 100).toFixed(0)}%)`);
+  }
+}
+
+/**
+ * Increment struggle count for adaptive speed tracking
+ */
+export function trackStruggle(session: StreamingSession): void {
+  session.sessionStruggleCount++;
+  
+  // Auto-enable adaptive speed when struggles accumulate
+  if (session.sessionStruggleCount >= ADAPTIVE_SPEED_CONFIG.STRUGGLE_SLOWDOWN_THRESHOLD && !session.adaptiveSpeedEnabled) {
+    session.adaptiveSpeedEnabled = true;
+    console.log(`[Adaptive Speed] Auto-enabled due to struggle count (${session.sessionStruggleCount})`);
+  }
+}
+
+/**
  * Session state for a streaming voice connection
  */
 export interface StreamingSession {
@@ -452,6 +563,10 @@ export interface StreamingSession {
   hiveChannelId?: string;            // Hive collaboration channel ID for Daniela-Editor collaboration
   pendingArchitectNoteIds: string[]; // Architect notes awaiting delivery (cleared on interrupt)
   onTtsStateChange?: (isTtsPlaying: boolean) => void;  // Callback to suppress OpenMic during TTS
+  // Adaptive Speech Rate tracking
+  recentSttConfidences: number[];     // Rolling window of last N STT confidence scores
+  sessionStruggleCount: number;       // Count of struggles detected this session
+  adaptiveSpeedEnabled: boolean;      // Whether adaptive speed is active (auto-enabled on low confidence)
 }
 
 /**
@@ -745,6 +860,10 @@ export class StreamingVoiceOrchestrator {
       dbSessionId,  // Database voice_sessions.id for pedagogical tracking
       toolsUsedSession: [],  // Track tools for ACTFL analytics
       pendingArchitectNoteIds: [],  // Architect notes awaiting delivery
+      // Adaptive Speech Rate tracking
+      recentSttConfidences: [],     // Rolling window of STT confidence scores
+      sessionStruggleCount: 0,       // Count of struggles detected this session
+      adaptiveSpeedEnabled: false,   // Auto-enabled when low confidence/struggles detected
     };
     
     // PARALLEL WARMUP: Pre-warm both Cartesia and Gemini connections concurrently
@@ -904,6 +1023,9 @@ export class StreamingVoiceOrchestrator {
         latencyMs: metrics.sttLatencyMs,
         metadata: { confidence: pronunciationConfidence, hasTranscript: !!transcript.trim() }
       });
+      
+      // Track STT confidence for adaptive speech rate
+      trackSttConfidence(session, pronunciationConfidence);
       
       if (!transcript.trim()) {
         // Empty transcript - gracefully notify client and return
@@ -1098,6 +1220,14 @@ TEACHING GUIDANCE:
 - Reference personal facts naturally to show you remember them
 `;
                 console.log(`[Student Intelligence] Injecting learning context: ${context.struggles?.length || 0} struggles, ${context.effectiveStrategies?.length || 0} strategies`);
+                
+                // ADAPTIVE SPEED: Sync session struggle count from persistent data
+                // This enables adaptive speech rate to slow down for students with known struggles
+                const activeStruggles = context.struggles?.filter(s => s.status === 'active') || [];
+                if (activeStruggles.length > session.sessionStruggleCount) {
+                  session.sessionStruggleCount = activeStruggles.length;
+                  console.log(`[Adaptive Speed] Synced ${activeStruggles.length} active struggles from student profile`);
+                }
               }
             })
             .catch(err => console.warn(`[Student Intelligence] Failed:`, err.message))
@@ -2151,6 +2281,13 @@ Remember: David may reference things discussed in these recent text chats.
               if (formatted) {
                 studentLearningSection = `\n\n[STUDENT PROFILE]${formatted}`;
                 console.log(`[Student Intelligence] Open mic: ${context.struggles?.length || 0} struggles, ${context.effectiveStrategies?.length || 0} strategies`);
+                
+                // ADAPTIVE SPEED: Sync session struggle count from persistent data
+                const activeStruggles = context.struggles?.filter(s => s.status === 'active') || [];
+                if (activeStruggles.length > session.sessionStruggleCount) {
+                  session.sessionStruggleCount = activeStruggles.length;
+                  console.log(`[Adaptive Speed] Open mic: Synced ${activeStruggles.length} active struggles from student profile`);
+                }
               }
             })
             .catch(err => console.warn(`[Student Intelligence] Failed (open mic):`, err.message))
@@ -2552,7 +2689,7 @@ Remember: David may reference things discussed in these recent text chats.
         language: session.targetLanguage,
         targetLanguage: session.targetLanguage, // For phoneme pronunciation
         voiceId: session.voiceId,
-        speakingRate: voiceSpeedToRate(session.voiceSpeed),
+        speakingRate: getAdaptiveSpeakingRate(session),
         emotion,
         personality: session.tutorPersonality,
         expressiveness: session.tutorExpressiveness,
@@ -2880,7 +3017,7 @@ Remember: David may reference things discussed in these recent text chats.
           language: session.targetLanguage,
           targetLanguage: session.targetLanguage,
           voiceId: session.voiceId,
-          speakingRate: voiceSpeedToRate(session.voiceSpeed),
+          speakingRate: getAdaptiveSpeakingRate(session),
           emotion,
           personality: session.tutorPersonality,
           expressiveness: session.tutorExpressiveness,
