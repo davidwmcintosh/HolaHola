@@ -571,6 +571,9 @@ export interface StreamingSession {
   adaptiveSpeedEnabled: boolean;      // Whether adaptive speed is active (auto-enabled on low confidence)
   // Phoneme analytics tracking (accumulated word-level data for session)
   sessionWordAnalyses: Array<{ word: string; confidence: number }>;  // Words with confidence < 0.95 for phoneme analysis
+  // Azure Pronunciation Assessment: accumulated audio and text for post-session analysis
+  sessionAudioChunks: Buffer[];             // Raw PCM audio chunks from user speech
+  sessionTranscripts: Array<{ text: string; timestamp: number }>;  // Transcribed text with timing
 }
 
 /**
@@ -870,6 +873,9 @@ export class StreamingVoiceOrchestrator {
       adaptiveSpeedEnabled: false,   // Auto-enabled when low confidence/struggles detected
       // Phoneme analytics tracking
       sessionWordAnalyses: [],       // Accumulated word-level data for phoneme analysis on session end
+      // Azure Pronunciation Assessment tracking
+      sessionAudioChunks: [],        // Accumulated audio chunks for post-session assessment
+      sessionTranscripts: [],        // Accumulated transcripts with timing
     };
     
     // PARALLEL WARMUP: Pre-warm both Cartesia and Gemini connections concurrently
@@ -992,6 +998,12 @@ export class StreamingVoiceOrchestrator {
     // Student activity detected - reset idle timeout
     this.resetIdleTimeout(session);
     
+    // AZURE PRONUNCIATION: Accumulate audio for post-session assessment
+    // Store a copy of the raw audio buffer for Azure analysis on session end
+    if (audioData.length > 0) {
+      session.sessionAudioChunks.push(Buffer.from(audioData));
+    }
+    
     const startTime = Date.now();
     const metrics: StreamingMetrics = {
       sessionId,
@@ -1040,6 +1052,14 @@ export class StreamingVoiceOrchestrator {
       
       // Track STT confidence for adaptive speech rate
       trackSttConfidence(session, pronunciationConfidence);
+      
+      // AZURE PRONUNCIATION: Store transcript with timing for post-session assessment
+      if (transcript.trim()) {
+        session.sessionTranscripts.push({
+          text: transcript.trim(),
+          timestamp: Date.now(),
+        });
+      }
       
       // LIVE PRONUNCIATION COACHING: Analyze word-level confidence and send coaching feedback
       // Only send for non-founder modes when there's word-level data available
@@ -5406,6 +5426,9 @@ Using this context, speak first to the student with a natural opening message. O
         history: [...session.conversationHistory], // Clone before deletion
         wordAnalyses: [...session.sessionWordAnalyses], // Clone word-level data for phoneme analysis
         dbSessionId: session.dbSessionId,
+        // Azure pronunciation assessment data
+        audioChunks: [...session.sessionAudioChunks], // Clone audio chunks for Azure analysis
+        transcripts: [...session.sessionTranscripts], // Clone transcripts for reference text
       };
       
       // Clear any pending idle timeout
@@ -5460,6 +5483,16 @@ Using this context, speak first to the student with a natural opening message. O
           console.warn(`[Streaming Orchestrator] Phoneme analytics failed:`, err.message);
         });
       }
+      
+      // AZURE PRONUNCIATION ASSESSMENT: Deep phoneme-level analysis (when configured)
+      // NOTE: Currently disabled for live sessions - requires audio transcoding from WebM to WAV
+      // The test endpoint (/api/voice/assess-pronunciation) works with WAV files uploaded directly
+      // To enable for live sessions, implement WebM→WAV transcoding (e.g., using ffmpeg or audio-decode)
+      // 
+      // if (sessionData.audioChunks.length > 0 && sessionData.transcripts.length > 0) {
+      //   // Audio from browser is WebM/Opus - Azure requires PCM 16kHz WAV
+      //   // Would need: const wavBuffer = await transcodeToWav(Buffer.concat(sessionData.audioChunks));
+      // }
       
       session.isActive = false;
       this.sessions.delete(sessionId);

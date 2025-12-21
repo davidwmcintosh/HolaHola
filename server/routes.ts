@@ -5683,6 +5683,83 @@ ${memoryContext}
     }
   });
 
+  // Azure Pronunciation Assessment - Test endpoint for POC
+  // Analyzes audio against expected text and returns phoneme-level scores
+  app.post("/api/voice/assess-pronunciation", voiceLimiter, isAuthenticated, upload.single('audio'), async (req: any, res) => {
+    try {
+      const { azurePronunciationService } = await import("./services/azure-pronunciation-service");
+      
+      if (!azurePronunciationService.isAvailable()) {
+        return res.status(503).json({ 
+          error: "Azure Pronunciation Assessment not configured",
+          hint: "Set AZURE_SPEECH_KEY and AZURE_SPEECH_REGION environment variables" 
+        });
+      }
+
+      const { referenceText, language } = req.body;
+      const userId = req.user.claims.sub;
+      
+      if (!req.file) {
+        return res.status(400).json({ error: "Audio file required" });
+      }
+      
+      if (!referenceText) {
+        return res.status(400).json({ error: "Reference text required for pronunciation assessment" });
+      }
+
+      const audioBuffer = req.file.buffer;
+      const targetLanguage = language || 'spanish';
+      
+      console.log(`[Azure Pronunciation] Assessing pronunciation for: "${referenceText}" (${targetLanguage})`);
+      
+      const result = await azurePronunciationService.assessPronunciation(
+        audioBuffer,
+        referenceText,
+        targetLanguage
+      );
+      
+      if (!result) {
+        return res.status(500).json({ error: "Pronunciation assessment failed" });
+      }
+      
+      // Store phoneme struggles in database
+      await azurePronunciationService.storePhonemeStruggles(
+        userId,
+        targetLanguage,
+        result
+      );
+      
+      res.json({
+        success: true,
+        scores: {
+          accuracy: result.accuracyScore,
+          fluency: result.fluencyScore,
+          completeness: result.completenessScore,
+          pronunciation: result.pronScore,
+        },
+        words: result.words.map(w => ({
+          word: w.word,
+          accuracy: w.accuracyScore,
+          errorType: w.errorType,
+          phonemes: w.phonemes.map(p => ({
+            phoneme: p.phoneme,
+            accuracy: p.accuracyScore,
+          })),
+        })),
+        strugglingPhonemes: result.rawPhonemes
+          .filter(p => p.score < 85)
+          .map(p => ({
+            phoneme: p.phoneme,
+            score: p.score,
+            word: p.word,
+          })),
+      });
+    } catch (error: any) {
+      console.error("[Azure Pronunciation] Assessment error:", error);
+      res.status(500).json({ error: error.message || "Pronunciation assessment failed" });
+    }
+  });
+
   // Slow repeat: Get simplified version of last teaching and speak it slowly
   // Used when student needs more help understanding a phrase
   app.post("/api/voice/slow-repeat", voiceLimiter, isAuthenticated, async (req: any, res) => {
