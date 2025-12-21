@@ -80,20 +80,35 @@ class FounderCollaborationService {
   
   /**
    * Get or create the active session for a founder
-   * Returns existing active session or creates a new one
+   * Returns the session with the most recent message activity, or creates a new one
+   * This ensures the user lands in the conversation they were last active in
    */
   async getOrCreateActiveSession(founderId: string): Promise<FounderSession> {
-    const [existing] = await db.select()
-      .from(founderSessions)
-      .where(and(
-        eq(founderSessions.founderId, founderId),
-        eq(founderSessions.status, 'active')
-      ))
-      .orderBy(desc(founderSessions.createdAt))
-      .limit(1);
+    // Find active sessions ordered by last message activity (not creation date)
+    const sessionsWithActivity = await db.execute(sql`
+      SELECT fs.*, 
+        COALESCE(
+          (SELECT MAX(cm.created_at) FROM collaboration_messages cm WHERE cm.session_id = fs.id),
+          fs.created_at
+        ) as last_activity
+      FROM founder_sessions fs
+      WHERE fs.founder_id = ${founderId} AND fs.status = 'active'
+      ORDER BY last_activity DESC
+      LIMIT 1
+    `);
     
-    if (existing) {
-      return existing;
+    if (sessionsWithActivity.rows && sessionsWithActivity.rows.length > 0) {
+      const row = sessionsWithActivity.rows[0] as any;
+      return {
+        id: row.id,
+        founderId: row.founder_id,
+        environment: row.environment,
+        title: row.title,
+        status: row.status,
+        messageCount: row.message_count,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      } as FounderSession;
     }
     
     return this.createSession(founderId);
