@@ -13,6 +13,23 @@ async function getCredentials(): Promise<{ publishableKey: string; secretKey: st
     return null;
   }
 
+  // First, check for environment variables (direct secrets)
+  const envPublishable = process.env.STRIPE_PUBLISHABLE_KEY;
+  const envSecret = process.env.STRIPE_SECRET_KEY;
+  const envWebhook = process.env.STRIPE_WEBHOOK_SECRET;
+
+  if (envPublishable && envSecret && envWebhook) {
+    console.log('[Stripe] Using credentials from environment variables');
+    credentialsCache = {
+      publishableKey: envPublishable,
+      secretKey: envSecret,
+      webhookSecretKey: envWebhook,
+    };
+    stripeAvailable = true;
+    return credentialsCache;
+  }
+
+  // Fallback: Try Replit Connectors API
   try {
     const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
     const xReplitToken = process.env.REPL_IDENTITY
@@ -21,8 +38,8 @@ async function getCredentials(): Promise<{ publishableKey: string; secretKey: st
         ? 'depl ' + process.env.WEB_REPL_RENEWAL
         : null;
 
-    if (!xReplitToken) {
-      console.warn('[Stripe] X_REPLIT_TOKEN not found - Stripe features will be disabled');
+    if (!xReplitToken || !hostname) {
+      console.warn('[Stripe] No credentials found - add STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, and STRIPE_WEBHOOK_SECRET to Secrets');
       stripeAvailable = false;
       return null;
     }
@@ -48,7 +65,7 @@ async function getCredentials(): Promise<{ publishableKey: string; secretKey: st
     connectionSettings = data.items?.[0];
 
     if (!connectionSettings || (!connectionSettings.settings?.publishable || !connectionSettings.settings?.secret || !connectionSettings.settings?.webhook_secret)) {
-      console.warn(`[Stripe] ${targetEnvironment} connection not configured - Stripe features will be disabled`);
+      console.warn(`[Stripe] ${targetEnvironment} connector not configured - add STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, and STRIPE_WEBHOOK_SECRET to Secrets`);
       stripeAvailable = false;
       return null;
     }
@@ -60,10 +77,10 @@ async function getCredentials(): Promise<{ publishableKey: string; secretKey: st
     };
     
     stripeAvailable = true;
-    console.log(`[Stripe] Successfully connected to ${targetEnvironment} environment`);
+    console.log(`[Stripe] Successfully connected via ${targetEnvironment} connector`);
     return credentialsCache;
   } catch (error) {
-    console.warn('[Stripe] Failed to fetch credentials - Stripe features will be disabled:', error);
+    console.warn('[Stripe] Failed to fetch credentials - add STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, and STRIPE_WEBHOOK_SECRET to Secrets');
     stripeAvailable = false;
     return null;
   }
