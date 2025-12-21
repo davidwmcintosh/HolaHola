@@ -9951,6 +9951,17 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  // Voice Analytics Dashboard - comprehensive metrics for admin/support
+  app.get("/api/admin/voice-analytics", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const analytics = voiceDiagnostics.getComprehensiveAnalytics();
+      res.json(analytics);
+    } catch (error: any) {
+      console.error('[Voice Analytics] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // ===== Historical Memory Migration (Founder Only) =====
   // One-time migration of founder voice conversations to Daniela's neural network
   

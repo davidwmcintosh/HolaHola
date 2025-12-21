@@ -1097,6 +1097,7 @@ export default function CommandCenter() {
     { id: "reports", label: "Reports", icon: DollarSign, roles: ['admin', 'developer'] },
     { id: "images", label: "Images", icon: Image, roles: ['admin', 'developer'] },
     { id: "voice-lab", label: "Voice Lab", icon: Volume2, roles: ['admin', 'developer'] },
+    { id: "voice-analytics", label: "Voice Metrics", icon: Mic, roles: ['admin', 'developer'] },
     { id: "neural-network", label: "Neural Network", icon: Zap, roles: ['developer', 'admin'] },
     { id: "brain-surgery", label: "Brain Surgery", icon: Brain, roles: ['developer', 'admin'] },
     { id: "north-star", label: "North Star", icon: Compass, roles: ['developer', 'admin'] },
@@ -1197,6 +1198,10 @@ export default function CommandCenter() {
 
           <TabsContent value="voice-lab" className="space-y-4">
             <VoiceLabTab />
+          </TabsContent>
+
+          <TabsContent value="voice-analytics" className="space-y-4">
+            <VoiceAnalyticsTab />
           </TabsContent>
 
           <TabsContent value="neural-network" className="space-y-4">
@@ -2689,6 +2694,326 @@ function VoiceLabTab() {
               </Button>
             </CardContent>
           </Card>
+        </div>
+      </CollapsibleSection>
+    </div>
+  );
+}
+
+interface VoiceAnalyticsData {
+  summary: {
+    totalEvents: number;
+    totalSessions: number;
+    successRate: number;
+    failureRate: number;
+    bufferAge: string;
+  };
+  latencyMetrics: {
+    stt: { avg: number; p50: number; p95: number; p99: number; count: number };
+    ai: { avg: number; p50: number; p95: number; p99: number; count: number };
+    tts: { avg: number; p50: number; p95: number; p99: number; count: number };
+    e2e: { avg: number; p50: number; p95: number; p99: number; count: number };
+  };
+  stageHealth: Array<{
+    stage: string;
+    total: number;
+    successes: number;
+    failures: number;
+    successRate: number;
+    avgDurationMs: number;
+  }>;
+  recentFailures: Array<{
+    timestamp: string;
+    stage: string;
+    message: string;
+    sessionId: string;
+  }>;
+  timeDistribution: {
+    last5min: number;
+    last15min: number;
+    last1hr: number;
+    older: number;
+  };
+  remediation: {
+    state: string;
+    inFallbackMode: boolean;
+    consecutiveSuccesses: number;
+    consecutiveFailures: number;
+    founderOverrideActive: boolean;
+    currentProvider: string;
+  };
+}
+
+function VoiceAnalyticsTab() {
+  const { data: analytics, isLoading, refetch } = useQuery<VoiceAnalyticsData>({
+    queryKey: ["/api/admin/voice-analytics"],
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  const getLatencyColor = (ms: number) => {
+    if (ms === 0) return "text-muted-foreground";
+    if (ms < 200) return "text-green-600 dark:text-green-400";
+    if (ms < 500) return "text-yellow-600 dark:text-yellow-400";
+    return "text-red-600 dark:text-red-400";
+  };
+
+  const getHealthColor = (rate: number) => {
+    if (rate >= 95) return "bg-green-500/20 text-green-700 dark:text-green-300";
+    if (rate >= 80) return "bg-yellow-500/20 text-yellow-700 dark:text-yellow-300";
+    return "bg-red-500/20 text-red-700 dark:text-red-300";
+  };
+
+  const stageLabels: Record<string, string> = {
+    connection: "Connection",
+    auth: "Authentication",
+    stt: "Speech-to-Text",
+    ai: "AI Response",
+    tts: "Text-to-Speech",
+    complete: "Complete",
+    error: "Errors",
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-32" />
+        <Skeleton className="h-64" />
+        <Skeleton className="h-48" />
+      </div>
+    );
+  }
+
+  if (!analytics) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        Voice analytics not available. The voice pipeline may be initializing.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <CollapsibleSection
+        title="Real-time Voice Pipeline Metrics"
+        icon={<Mic className="h-5 w-5 text-primary" />}
+        defaultOpen={true}
+      >
+        <div className="space-y-4 mt-4">
+          <p className="text-sm text-muted-foreground">
+            Live metrics from in-memory ring buffer (last ~200 events). Provides real-time visibility into voice pipeline health.
+            For historical analytics, see the Analytics tab.
+          </p>
+          
+          {/* Summary Cards */}
+          <div className="grid gap-4 md:grid-cols-5">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Total Events</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold" data-testid="text-total-events">{analytics.summary.totalEvents}</div>
+                <p className="text-xs text-muted-foreground">{analytics.summary.bufferAge} buffer</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Sessions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold" data-testid="text-total-sessions">{analytics.summary.totalSessions}</div>
+                <p className="text-xs text-muted-foreground">Unique sessions</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Success Rate</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className={`text-2xl font-bold ${analytics.summary.successRate >= 95 ? 'text-green-600' : analytics.summary.successRate >= 80 ? 'text-yellow-600' : 'text-red-600'}`} data-testid="text-success-rate">
+                  {analytics.summary.successRate}%
+                </div>
+                <p className="text-xs text-muted-foreground">Across all stages</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Failures</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className={`text-2xl font-bold ${analytics.summary.failureRate > 5 ? 'text-red-600' : analytics.summary.failureRate > 1 ? 'text-yellow-600' : 'text-green-600'}`} data-testid="text-failure-rate">
+                  {analytics.summary.failureRate}%
+                </div>
+                <p className="text-xs text-muted-foreground">Failure rate</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Provider</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Badge className={analytics.remediation.currentProvider === 'cartesia' ? 'bg-blue-500/20 text-blue-700' : 'bg-orange-500/20 text-orange-700'}>
+                  {analytics.remediation.currentProvider === 'cartesia' ? 'Cartesia' : 'Google'}
+                </Badge>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {analytics.remediation.inFallbackMode ? 'Fallback active' : 'Primary'}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Latency Metrics */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                Latency Percentiles (ms)
+              </CardTitle>
+              <CardDescription>Response times for each pipeline stage</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left p-2">Stage</th>
+                      <th className="text-right p-2">Count</th>
+                      <th className="text-right p-2">Avg</th>
+                      <th className="text-right p-2">P50</th>
+                      <th className="text-right p-2">P95</th>
+                      <th className="text-right p-2">P99</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(analytics.latencyMetrics).map(([stage, metrics]) => (
+                      <tr key={stage} className="border-b">
+                        <td className="p-2 font-medium">{stage.toUpperCase()}</td>
+                        <td className="text-right p-2 text-muted-foreground">{metrics.count}</td>
+                        <td className={`text-right p-2 font-mono ${getLatencyColor(metrics.avg)}`}>{metrics.avg || '-'}</td>
+                        <td className={`text-right p-2 font-mono ${getLatencyColor(metrics.p50)}`}>{metrics.p50 || '-'}</td>
+                        <td className={`text-right p-2 font-mono ${getLatencyColor(metrics.p95)}`}>{metrics.p95 || '-'}</td>
+                        <td className={`text-right p-2 font-mono ${getLatencyColor(metrics.p99)}`}>{metrics.p99 || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Stage Health */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Activity className="h-4 w-4" />
+                Stage Health
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-2 md:grid-cols-3 lg:grid-cols-4">
+                {analytics.stageHealth.map(stage => (
+                  <div key={stage.stage} className="flex items-center justify-between p-2 rounded-md border">
+                    <div>
+                      <div className="font-medium text-sm">{stageLabels[stage.stage] || stage.stage}</div>
+                      <div className="text-xs text-muted-foreground">{stage.total} events</div>
+                    </div>
+                    <Badge className={getHealthColor(stage.successRate)}>
+                      {stage.successRate}%
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Time Distribution */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" />
+                Event Time Distribution
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-4">
+                <div className="flex-1 text-center p-3 rounded-md bg-muted/50">
+                  <div className="text-2xl font-bold text-green-600">{analytics.timeDistribution.last5min}</div>
+                  <div className="text-xs text-muted-foreground">Last 5 min</div>
+                </div>
+                <div className="flex-1 text-center p-3 rounded-md bg-muted/50">
+                  <div className="text-2xl font-bold text-blue-600">{analytics.timeDistribution.last15min}</div>
+                  <div className="text-xs text-muted-foreground">5-15 min</div>
+                </div>
+                <div className="flex-1 text-center p-3 rounded-md bg-muted/50">
+                  <div className="text-2xl font-bold text-yellow-600">{analytics.timeDistribution.last1hr}</div>
+                  <div className="text-xs text-muted-foreground">15-60 min</div>
+                </div>
+                <div className="flex-1 text-center p-3 rounded-md bg-muted/50">
+                  <div className="text-2xl font-bold text-muted-foreground">{analytics.timeDistribution.older}</div>
+                  <div className="text-xs text-muted-foreground">Older</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Remediation Status */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                Auto-Remediation Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-4 flex-wrap">
+                <Badge variant={analytics.remediation.state === 'healthy' ? 'default' : 'destructive'}>
+                  {analytics.remediation.state.toUpperCase()}
+                </Badge>
+                <span className="text-sm text-muted-foreground">
+                  Successes: <span className="font-mono">{analytics.remediation.consecutiveSuccesses}</span>
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  Failures: <span className="font-mono">{analytics.remediation.consecutiveFailures}</span>
+                </span>
+                {analytics.remediation.founderOverrideActive && (
+                  <Badge variant="secondary">Founder Override Active</Badge>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Recent Failures */}
+          {analytics.recentFailures.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm flex items-center gap-2 text-red-600">
+                  <AlertCircle className="h-4 w-4" />
+                  Recent Failures ({analytics.recentFailures.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {analytics.recentFailures.map((failure, idx) => (
+                    <div key={idx} className="flex items-start gap-3 p-2 rounded-md border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30">
+                      <Badge variant="outline" className="shrink-0">{failure.stage}</Badge>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm truncate">{failure.message}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(failure.timestamp).toLocaleTimeString()} - {failure.sessionId.slice(0, 8)}...
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={() => refetch()} data-testid="button-refresh-analytics">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
         </div>
       </CollapsibleSection>
     </div>

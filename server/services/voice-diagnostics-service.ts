@@ -920,6 +920,173 @@ class VoiceDiagnosticsService {
     this.founderOverrideActive = false;
     console.log(`[Auto-Remediation] Force restore to Cartesia completed`);
   }
+  
+  // ============================================================
+  // VOICE ANALYTICS DASHBOARD
+  // ============================================================
+  
+  /**
+   * Get comprehensive voice session analytics for dashboard
+   * Includes latency percentiles, success rates, stage breakdown, and engagement metrics
+   */
+  getComprehensiveAnalytics(): {
+    summary: {
+      totalEvents: number;
+      totalSessions: number;
+      successRate: number;
+      failureRate: number;
+      bufferAge: string;
+    };
+    latencyMetrics: {
+      stt: { avg: number; p50: number; p95: number; p99: number; count: number };
+      ai: { avg: number; p50: number; p95: number; p99: number; count: number };
+      tts: { avg: number; p50: number; p95: number; p99: number; count: number };
+      e2e: { avg: number; p50: number; p95: number; p99: number; count: number };
+    };
+    stageHealth: Array<{
+      stage: string;
+      total: number;
+      successes: number;
+      failures: number;
+      successRate: number;
+      avgDurationMs: number;
+    }>;
+    recentFailures: Array<{
+      timestamp: Date;
+      stage: string;
+      message: string;
+      sessionId: string;
+    }>;
+    timeDistribution: {
+      last5min: number;
+      last15min: number;
+      last1hr: number;
+      older: number;
+    };
+    remediation: RemediationStatus;
+  } {
+    const now = Date.now();
+    const events = this.events;
+    const uniqueSessions = new Set(events.map(e => e.sessionId)).size;
+    
+    // Calculate buffer age
+    const oldestEvent = events.length > 0 ? events[0].timestamp : new Date();
+    const bufferAgeMs = now - new Date(oldestEvent).getTime();
+    const bufferAgeMinutes = Math.floor(bufferAgeMs / 60000);
+    const bufferAge = bufferAgeMinutes < 60 
+      ? `${bufferAgeMinutes} minutes` 
+      : `${Math.floor(bufferAgeMinutes / 60)} hours ${bufferAgeMinutes % 60} min`;
+    
+    // Calculate success/failure rates
+    const totalSuccesses = events.filter(e => e.status === 'success').length;
+    const totalFailures = events.filter(e => e.status === 'fail').length;
+    const successRate = events.length > 0 ? (totalSuccesses / events.length) * 100 : 100;
+    const failureRate = events.length > 0 ? (totalFailures / events.length) * 100 : 0;
+    
+    // Latency calculations by stage
+    const getLatencyMetrics = (stage: VoiceEvent['stage']) => {
+      const stageEvents = events.filter(e => e.stage === stage && e.status === 'success' && e.durationMs);
+      if (stageEvents.length === 0) {
+        return { avg: 0, p50: 0, p95: 0, p99: 0, count: 0 };
+      }
+      
+      const durations = stageEvents.map(e => e.durationMs!).sort((a, b) => a - b);
+      const count = durations.length;
+      const avg = Math.round(durations.reduce((a, b) => a + b, 0) / count);
+      const p50 = durations[Math.floor(count * 0.5)] || 0;
+      const p95 = durations[Math.floor(count * 0.95)] || durations[count - 1] || 0;
+      const p99 = durations[Math.floor(count * 0.99)] || durations[count - 1] || 0;
+      
+      return { avg, p50, p95, p99, count };
+    };
+    
+    // E2E latency (sum of stt + ai + tts for complete sessions)
+    const completeEvents = events.filter(e => e.stage === 'complete' && e.status === 'success' && e.durationMs);
+    const e2eMetrics = completeEvents.length > 0 ? (() => {
+      const durations = completeEvents.map(e => e.durationMs!).sort((a, b) => a - b);
+      const count = durations.length;
+      const avg = Math.round(durations.reduce((a, b) => a + b, 0) / count);
+      return {
+        avg,
+        p50: durations[Math.floor(count * 0.5)] || 0,
+        p95: durations[Math.floor(count * 0.95)] || durations[count - 1] || 0,
+        p99: durations[Math.floor(count * 0.99)] || durations[count - 1] || 0,
+        count,
+      };
+    })() : { avg: 0, p50: 0, p95: 0, p99: 0, count: 0 };
+    
+    // Stage health breakdown
+    const stageMap: Record<string, { total: number; successes: number; failures: number; durations: number[] }> = {};
+    for (const event of events) {
+      if (!stageMap[event.stage]) {
+        stageMap[event.stage] = { total: 0, successes: 0, failures: 0, durations: [] };
+      }
+      stageMap[event.stage].total++;
+      if (event.status === 'success') {
+        stageMap[event.stage].successes++;
+        if (event.durationMs) stageMap[event.stage].durations.push(event.durationMs);
+      } else if (event.status === 'fail') {
+        stageMap[event.stage].failures++;
+      }
+    }
+    
+    const stageHealth = Object.entries(stageMap).map(([stage, data]) => ({
+      stage,
+      total: data.total,
+      successes: data.successes,
+      failures: data.failures,
+      successRate: data.total > 0 ? Math.round((data.successes / data.total) * 100) : 100,
+      avgDurationMs: data.durations.length > 0 
+        ? Math.round(data.durations.reduce((a, b) => a + b, 0) / data.durations.length) 
+        : 0,
+    }));
+    
+    // Time distribution
+    const timeDistribution = {
+      last5min: events.filter(e => now - new Date(e.timestamp).getTime() < 5 * 60 * 1000).length,
+      last15min: events.filter(e => {
+        const age = now - new Date(e.timestamp).getTime();
+        return age >= 5 * 60 * 1000 && age < 15 * 60 * 1000;
+      }).length,
+      last1hr: events.filter(e => {
+        const age = now - new Date(e.timestamp).getTime();
+        return age >= 15 * 60 * 1000 && age < 60 * 60 * 1000;
+      }).length,
+      older: events.filter(e => now - new Date(e.timestamp).getTime() >= 60 * 60 * 1000).length,
+    };
+    
+    // Recent failures (last 10)
+    const recentFailures = events
+      .filter(e => e.status === 'fail')
+      .slice(-10)
+      .reverse()
+      .map(e => ({
+        timestamp: e.timestamp,
+        stage: e.stage,
+        message: e.message,
+        sessionId: e.sessionId,
+      }));
+    
+    return {
+      summary: {
+        totalEvents: events.length,
+        totalSessions: uniqueSessions,
+        successRate: Math.round(successRate * 10) / 10,
+        failureRate: Math.round(failureRate * 10) / 10,
+        bufferAge,
+      },
+      latencyMetrics: {
+        stt: getLatencyMetrics('stt'),
+        ai: getLatencyMetrics('ai'),
+        tts: getLatencyMetrics('tts'),
+        e2e: e2eMetrics,
+      },
+      stageHealth,
+      recentFailures,
+      timeDistribution,
+      remediation: this.getRemediationStatus(),
+    };
+  }
 }
 
 // Singleton instance

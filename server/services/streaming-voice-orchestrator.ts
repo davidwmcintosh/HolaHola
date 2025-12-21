@@ -959,6 +959,14 @@ export class StreamingVoiceOrchestrator {
   ): Promise<StreamingMetrics> {
     const session = this.sessions.get(sessionId);
     if (!session || !session.isActive) {
+      // Emit connection failure for analytics before throwing
+      voiceDiagnostics.emit({
+        sessionId,
+        stage: 'connection',
+        success: false,
+        error: 'Session not found or inactive',
+        metadata: { phase: 'processUserAudio' }
+      });
       throw new Error(`Session not found or inactive: ${sessionId}`);
     }
     
@@ -1882,13 +1890,27 @@ Remember: David may reference things discussed in these recent text chats.
       console.log(`[Streaming Orchestrator] Complete: ${metrics.sentenceCount} sentences in ${metrics.totalLatencyMs}ms (turnId: ${turnId})`);
       console.log(`[Streaming Orchestrator] Latencies: STT=${metrics.sttLatencyMs}ms, AI=${metrics.aiFirstTokenMs}ms, TTS=${metrics.ttsFirstByteMs}ms`);
       
-      // Emit response completion for diagnostics (covers LLM + TTS success)
+      // Emit TTS success for diagnostics (use ttsFirstByteMs for TTS-specific latency)
       voiceDiagnostics.emit({
         sessionId,
         stage: 'tts',
         success: true,
+        latencyMs: metrics.ttsFirstByteMs || 0,
+        metadata: { sentenceCount: metrics.sentenceCount }
+      });
+      
+      // Emit complete E2E response for overall diagnostics
+      voiceDiagnostics.emit({
+        sessionId,
+        stage: 'complete',
+        success: true,
         latencyMs: metrics.totalLatencyMs,
-        metadata: { sentenceCount: metrics.sentenceCount, sttMs: metrics.sttLatencyMs, aiMs: metrics.aiFirstTokenMs, ttsMs: metrics.ttsFirstByteMs }
+        metadata: { 
+          sttMs: metrics.sttLatencyMs, 
+          aiMs: metrics.aiFirstTokenMs, 
+          ttsMs: metrics.ttsFirstByteMs,
+          sentenceCount: metrics.sentenceCount 
+        }
       });
       
       // HIVE BEACON EMISSION: Flag interesting teaching moments for Editor collaboration
@@ -2170,6 +2192,20 @@ Remember: David may reference things discussed in these recent text chats.
       // Clear generating flag on error
       session.isGenerating = false;
       console.error(`[Streaming Orchestrator] Error:`, error.message);
+      
+      // Emit error diagnostic for analytics
+      voiceDiagnostics.emit({
+        sessionId,
+        stage: 'error',
+        success: false,
+        error: error.message,
+        metadata: { 
+          phase: 'processUserAudio',
+          sttMs: metrics.sttLatencyMs || 0,
+          aiMs: metrics.aiFirstTokenMs || 0 
+        }
+      });
+      
       this.sendError(session.ws, 'UNKNOWN', error.message, true);
       // Return metrics instead of throwing to prevent socket disconnect
       // The error message has already been sent to the client
@@ -2188,6 +2224,14 @@ Remember: David may reference things discussed in these recent text chats.
   ): Promise<StreamingMetrics> {
     const session = this.sessions.get(sessionId);
     if (!session || !session.isActive) {
+      // Emit connection failure for analytics before throwing
+      voiceDiagnostics.emit({
+        sessionId,
+        stage: 'connection',
+        success: false,
+        error: 'Session not found or inactive',
+        metadata: { phase: 'processOpenMicTranscript' }
+      });
       throw new Error(`Session not found or inactive: ${sessionId}`);
     }
     
@@ -2446,6 +2490,16 @@ Remember: David may reference things discussed in these recent text chats.
       // ECHO SUPPRESSION: Re-enable OpenMic transcription on error too
       session.onTtsStateChange?.(false);
       console.error(`[Streaming Orchestrator] Open mic error:`, error.message);
+      
+      // Emit error diagnostic for analytics
+      voiceDiagnostics.emit({
+        sessionId,
+        stage: 'error',
+        success: false,
+        error: error.message,
+        metadata: { phase: 'processOpenMicTranscript' }
+      });
+      
       this.sendError(session.ws, 'UNKNOWN', error.message, true);
       // Return metrics instead of throwing to prevent socket disconnect
       return metrics;
@@ -2694,6 +2748,8 @@ Remember: David may reference things discussed in these recent text chats.
     const audioChunks: Buffer[] = [];
     let audioFormat: 'mp3' | 'pcm_f32le' = 'mp3';  // Track format from first chunk
     let sampleRate: number = 24000;
+    const ttsStart = Date.now();  // Track TTS timing for non-progressive mode
+    let firstChunkReceived = false;
     
     try {
       // Collect all audio chunks from Cartesia (MP3 fragments need concatenation)
@@ -2709,6 +2765,13 @@ Remember: David may reference things discussed in these recent text chats.
         expressiveness: session.tutorExpressiveness,
       })) {
         if (audioChunk.audio.length > 0) {
+          // Track TTS first byte timing only on non-empty audio (actual TTS output)
+          if (!firstChunkReceived) {
+            firstChunkReceived = true;
+            if (index === 0 && !metrics.ttsFirstByteMs) {
+              metrics.ttsFirstByteMs = Date.now() - ttsStart;
+            }
+          }
           audioChunks.push(audioChunk.audio);
           metrics.audioBytes += audioChunk.audio.length;
           totalDurationMs += audioChunk.durationMs;
