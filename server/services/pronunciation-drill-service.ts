@@ -11,8 +11,20 @@
 
 import { GoogleGenAI } from '@google/genai';
 import { db } from '../db';
-import { recurringStruggles } from '@shared/schema';
+import { recurringStruggles, hiveSnapshots } from '@shared/schema';
 import { eq, and, desc, isNull } from 'drizzle-orm';
+import { z } from 'zod';
+
+export const startSessionSchema = z.object({
+  language: z.string().min(1, "Language is required"),
+  difficulty: z.enum(['beginner', 'intermediate', 'advanced']).optional().default('intermediate'),
+  phonemes: z.array(z.string()).optional(),
+});
+
+export const submitResponseSchema = z.object({
+  transcribedSpeech: z.string().optional().default(''),
+  pronunciationScore: z.number().min(0).max(100),
+});
 
 const gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
@@ -440,6 +452,7 @@ Guidelines:
   private async recordSessionResults(session: PronunciationDrillSession): Promise<void> {
     try {
       const accuracy = (session.correctCount / Math.max(1, session.correctCount + session.incorrectCount)) * 100;
+      const duration = Math.round((Date.now() - session.startedAt.getTime()) / 1000);
       
       console.log(`[PronunciationDrill] Session ${session.sessionId} completed:`);
       console.log(`  - Student: ${session.studentId}`);
@@ -447,7 +460,31 @@ Guidelines:
       console.log(`  - Target phonemes: ${session.targetPhonemes.join(', ')}`);
       console.log(`  - Items completed: ${session.currentIndex}/${session.totalItems}`);
       console.log(`  - Accuracy: ${Math.round(accuracy)}% (${session.correctCount} correct, ${session.incorrectCount} incorrect)`);
-      console.log(`  - Duration: ${Math.round((Date.now() - session.startedAt.getTime()) / 1000)}s`);
+      console.log(`  - Duration: ${duration}s`);
+      
+      await db.insert(hiveSnapshots).values({
+        snapshotType: 'teaching_moment',
+        userId: session.studentId,
+        language: session.language,
+        title: `Pronunciation Drill: ${session.targetPhonemes.join(', ')}`,
+        content: JSON.stringify({
+          type: 'pronunciation_drill_session',
+          sessionId: session.sessionId,
+          targetPhonemes: session.targetPhonemes,
+          itemsCompleted: session.currentIndex,
+          totalItems: session.totalItems,
+          correctCount: session.correctCount,
+          incorrectCount: session.incorrectCount,
+          accuracy: Math.round(accuracy),
+          durationSeconds: duration,
+          focusAreas: session.focusAreas.map(f => f.phoneme),
+        }),
+        context: `Student completed pronunciation drill with ${Math.round(accuracy)}% accuracy on ${session.targetPhonemes.join(', ')}`,
+        importance: accuracy >= 80 ? 8 : accuracy >= 60 ? 5 : 3,
+        metadata: { tags: ['pronunciation', 'drill', ...session.targetPhonemes] },
+      });
+      
+      console.log(`[PronunciationDrill] Session results persisted to hiveSnapshots`);
       
     } catch (error: any) {
       console.error('[PronunciationDrill] Error recording results:', error.message);

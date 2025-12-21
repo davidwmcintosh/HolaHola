@@ -10039,18 +10039,20 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Start a pronunciation drill session
   app.post("/api/pronunciation-drills/start", isAuthenticated, async (req: any, res) => {
     try {
-      const { pronunciationDrillService } = await import("./services/pronunciation-drill-service");
+      const { pronunciationDrillService, startSessionSchema } = await import("./services/pronunciation-drill-service");
       const userId = req.user?.claims?.sub || req.userId;
-      const { language, difficulty, phonemes } = req.body;
       
-      if (!language) {
-        return res.status(400).json({ error: 'Language parameter required' });
+      const parseResult = startSessionSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: parseResult.error.errors[0]?.message || 'Invalid request' });
       }
+      
+      const { language, difficulty, phonemes } = parseResult.data;
       
       const session = await pronunciationDrillService.startSession(
         userId, 
         language, 
-        difficulty || 'intermediate',
+        difficulty,
         phonemes
       );
       
@@ -10095,17 +10097,19 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Submit pronunciation response for evaluation
   app.post("/api/pronunciation-drills/session/:sessionId/submit", isAuthenticated, async (req: any, res) => {
     try {
-      const { pronunciationDrillService } = await import("./services/pronunciation-drill-service");
+      const { pronunciationDrillService, submitResponseSchema } = await import("./services/pronunciation-drill-service");
       const { sessionId } = req.params;
-      const { transcribedSpeech, pronunciationScore } = req.body;
       
-      if (pronunciationScore === undefined) {
-        return res.status(400).json({ error: 'Pronunciation score required' });
+      const parseResult = submitResponseSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: parseResult.error.errors[0]?.message || 'Invalid request' });
       }
+      
+      const { transcribedSpeech, pronunciationScore } = parseResult.data;
       
       const result = await pronunciationDrillService.submitResponse(
         sessionId, 
-        transcribedSpeech || '', 
+        transcribedSpeech, 
         pronunciationScore
       );
       
