@@ -324,8 +324,11 @@ function LinearSyllabusView({ syllabus }: { syllabus: SyllabusOverview }) {
                   <div>
                     <div className="flex items-center gap-2">
                       <p className="font-medium text-sm">Continue: {content}</p>
-                      {prefix && <TemplatePrefixBadge prefix={prefix} size="xs" />}
-                      <LessonTypeBadge lessonType={nextLesson.lessonType} size="xs" />
+                      {prefix ? (
+                        <TemplatePrefixBadge prefix={prefix} size="xs" />
+                      ) : (
+                        <LessonTypeBadge lessonType={nextLesson.lessonType} size="xs" />
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground">{nextLesson.unitName}</p>
                   </div>
@@ -406,8 +409,11 @@ function LinearSyllabusView({ syllabus }: { syllabus: SyllabusOverview }) {
                             </p>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
-                            {prefix && <TemplatePrefixBadge prefix={prefix} size="xs" />}
-                            <LessonTypeBadge lessonType={lesson.lessonType} size="xs" />
+                            {prefix ? (
+                              <TemplatePrefixBadge prefix={prefix} size="xs" />
+                            ) : (
+                              <LessonTypeBadge lessonType={lesson.lessonType} size="xs" />
+                            )}
                             {lesson.estimatedMinutes && (
                               <span className="text-xs text-muted-foreground">
                                 ~{lesson.estimatedMinutes}m
