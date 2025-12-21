@@ -4432,11 +4432,12 @@ export class DatabaseStorage implements IStorage {
           // Normalize to lowercase for lookup (stored values may be UPPERCASE)
           const maxLevel = pathResult[0].endLevel.toLowerCase();
           // Filter vocabulary to only words at or below the class's end level
-          // Words with no actflLevel are included (legacy data)
           const allowedLevels = Object.entries(actflLevelToNumeric)
             .filter(([_, num]) => num <= (actflLevelToNumeric[maxLevel] || 11))
             .map(([level]) => level);
           
+          // Include words with matching ACTFL level OR no level assigned (legacy data)
+          // TODO: Backfill actflLevel for vocabulary words to enable strict class filtering
           conditions.push(or(
             isNull(vocabularyWords.actflLevel),
             sql`LOWER(${vocabularyWords.actflLevel}) IN (${sql.join(allowedLevels.map(l => sql`${l}`), sql`, `)})`
