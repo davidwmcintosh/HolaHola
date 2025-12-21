@@ -6209,11 +6209,14 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Grammar Competencies (ACTFL-aligned grammar topics)
   app.get("/api/grammar/competencies", async (req, res) => {
     try {
-      const { language } = req.query;
+      const { language, classId } = req.query;
       if (!language) {
         return res.status(400).json({ error: "Language parameter is required" });
       }
-      const competencies = await storage.getGrammarCompetencies(language as string);
+      const competencies = await storage.getGrammarCompetencies(
+        language as string,
+        classId as string | undefined
+      );
       res.json(competencies);
     } catch (error: any) {
       res.status(500).json({ error: error.message });

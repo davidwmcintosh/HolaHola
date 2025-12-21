@@ -325,7 +325,7 @@ export interface IStorage {
   // Grammar
   createGrammarExercise(data: InsertGrammarExercise): Promise<GrammarExercise>;
   getGrammarExercises(language: string, difficulty?: string): Promise<GrammarExercise[]>;
-  getGrammarCompetencies(language: string): Promise<GrammarCompetency[]>;
+  getGrammarCompetencies(language: string, classId?: string): Promise<GrammarCompetency[]>;
   getGrammarExercisesByCompetency(language: string, competencyId?: string): Promise<GrammarExercise[]>;
 
   // User Progress
@@ -1979,7 +1979,54 @@ export class DatabaseStorage implements IStorage {
       .where(eq(grammarExercises.language, language));
   }
 
-  async getGrammarCompetencies(language: string): Promise<GrammarCompetency[]> {
+  async getGrammarCompetencies(language: string, classId?: string): Promise<GrammarCompetency[]> {
+    // ACTFL level to numeric mapping
+    const actflLevelToNumeric: Record<string, number> = {
+      'novice_low': 1,
+      'novice_mid': 2,
+      'novice_high': 3,
+      'intermediate_low': 4,
+      'intermediate_mid': 5,
+      'intermediate_high': 6,
+      'advanced_low': 7,
+      'advanced_mid': 8,
+      'advanced_high': 9,
+      'superior': 10,
+      'distinguished': 11,
+    };
+    
+    // If classId provided, look up the class's curriculum path to get the endLevel
+    if (classId) {
+      const classResult = await db.select({
+        curriculumPathId: teacherClasses.curriculumPathId,
+      })
+        .from(teacherClasses)
+        .where(eq(teacherClasses.id, classId))
+        .limit(1);
+      
+      if (classResult.length > 0 && classResult[0].curriculumPathId) {
+        const pathResult = await db.select({
+          endLevel: curriculumPaths.endLevel,
+        })
+          .from(curriculumPaths)
+          .where(eq(curriculumPaths.id, classResult[0].curriculumPathId))
+          .limit(1);
+        
+        if (pathResult.length > 0 && pathResult[0].endLevel) {
+          const maxLevelNumeric = actflLevelToNumeric[pathResult[0].endLevel] || 11;
+          
+          // Filter competencies to only those at or below the class's end level
+          return await db.select().from(grammarCompetencies)
+            .where(and(
+              eq(grammarCompetencies.language, language),
+              lte(grammarCompetencies.actflLevelNumeric, maxLevelNumeric)
+            ))
+            .orderBy(grammarCompetencies.actflLevelNumeric, grammarCompetencies.name);
+        }
+      }
+    }
+    
+    // Default: return all competencies for the language
     return await db.select().from(grammarCompetencies)
       .where(eq(grammarCompetencies.language, language))
       .orderBy(grammarCompetencies.actflLevelNumeric, grammarCompetencies.name);

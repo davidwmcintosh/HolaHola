@@ -9,6 +9,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { LearningContextFilter } from "@/components/LearningContextFilter";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useLearningFilter } from "@/contexts/LearningFilterContext";
 import { 
   BookOpen, 
   CheckCircle, 
@@ -388,13 +389,27 @@ function PracticeMode({
 
 export default function Grammar() {
   const { language } = useLanguage();
+  const { learningContext } = useLearningFilter();
   const [selectedCompetency, setSelectedCompetency] = useState<GrammarCompetency | null>(null);
   const [practiceMode, setPracticeMode] = useState(false);
   const [practiceCompetencyId, setPracticeCompetencyId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("browse");
   
+  // Build query with optional classId filter
+  const classId = learningContext !== 'self-directed' && learningContext !== 'founder-mode' && learningContext !== 'honesty-mode' && learningContext !== 'all-learning'
+    ? learningContext
+    : undefined;
+  const queryUrl = classId 
+    ? `/api/grammar/competencies?language=${language}&classId=${classId}`
+    : `/api/grammar/competencies?language=${language}`;
+  
   const { data: competencies = [], isLoading: competenciesLoading } = useQuery<GrammarCompetency[]>({
-    queryKey: [`/api/grammar/competencies?language=${language}`],
+    queryKey: ['/api/grammar/competencies', language, classId],
+    queryFn: async () => {
+      const res = await fetch(queryUrl);
+      if (!res.ok) throw new Error('Failed to fetch grammar competencies');
+      return res.json();
+    },
   });
   
   const groupedByLevel = ACTFL_LEVELS.map(level => ({
