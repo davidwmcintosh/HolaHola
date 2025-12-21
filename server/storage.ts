@@ -695,6 +695,7 @@ export interface IStorage {
         lessons: Array<{
           id: string;
           name: string;
+          description: string | null;
           orderIndex: number;
           lessonType: string;
           status: 'not_started' | 'in_progress' | 'completed';
@@ -4775,6 +4776,7 @@ export class DatabaseStorage implements IStorage {
         lessons: Array<{
           id: string;
           name: string;
+          description: string | null;
           orderIndex: number;
           lessonType: string;
           status: 'not_started' | 'in_progress' | 'completed';
@@ -5150,6 +5152,7 @@ export class DatabaseStorage implements IStorage {
         lessons: Array<{
           id: string;
           name: string;
+          description: string | null;
           orderIndex: number;
           lessonType: string;
           status: 'not_started' | 'in_progress' | 'completed';
@@ -5192,6 +5195,7 @@ export class DatabaseStorage implements IStorage {
                 return {
                   id: lesson.id,
                   name: lesson.name,
+                  description: lesson.description,
                   orderIndex: lesson.orderIndex,
                   lessonType: lesson.lessonType,
                   status,

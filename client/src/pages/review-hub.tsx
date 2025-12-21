@@ -80,6 +80,7 @@ interface UpcomingAssignment {
 interface SyllabusLesson {
   id: string;
   name: string;
+  description: string | null;
   orderIndex: number;
   lessonType: string;
   status: 'not_started' | 'in_progress' | 'completed';
@@ -165,10 +166,82 @@ const lessonTypeConfig = {
     color: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
     borderColor: "border-amber-200 dark:border-amber-800",
   },
+  drill: {
+    icon: Target,
+    label: "Practice",
+    color: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
+    borderColor: "border-orange-200 dark:border-orange-800",
+  },
 };
 
 function LessonTypeBadge({ lessonType, size = "sm" }: { lessonType: string; size?: "sm" | "xs" }) {
   const config = lessonTypeConfig[lessonType as keyof typeof lessonTypeConfig] || lessonTypeConfig.conversation;
+  const Icon = config.icon;
+  
+  return (
+    <Badge 
+      variant="outline" 
+      className={`${config.color} ${config.borderColor} gap-1 ${size === "xs" ? "text-[10px] px-1.5 py-0" : "text-xs"}`}
+    >
+      <Icon className={size === "xs" ? "h-2.5 w-2.5" : "h-3 w-3"} />
+      {config.label}
+    </Badge>
+  );
+}
+
+// Template-based lesson name prefix configuration
+// Matches prefixes like "New Words:", "Let's Chat:", "Practice Time:", etc.
+const templatePrefixConfig: Record<string, { label: string; color: string; borderColor: string; icon: typeof Languages }> = {
+  "New Words": {
+    label: "New Words",
+    color: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+    borderColor: "border-blue-200 dark:border-blue-800",
+    icon: Languages,
+  },
+  "Let's Chat": {
+    label: "Let's Chat",
+    color: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
+    borderColor: "border-green-200 dark:border-green-800",
+    icon: MessageSquare,
+  },
+  "Grammar Spotlight": {
+    label: "Grammar",
+    color: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
+    borderColor: "border-purple-200 dark:border-purple-800",
+    icon: PencilLine,
+  },
+  "Culture Corner": {
+    label: "Culture",
+    color: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+    borderColor: "border-amber-200 dark:border-amber-800",
+    icon: Globe,
+  },
+  "Practice Time": {
+    label: "Practice",
+    color: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
+    borderColor: "border-orange-200 dark:border-orange-800",
+    icon: Target,
+  },
+};
+
+// Helper to parse lesson name and extract template prefix
+function parseTemplatePrefix(lessonName: string): { prefix: string | null; content: string } {
+  for (const prefix of Object.keys(templatePrefixConfig)) {
+    if (lessonName.startsWith(`${prefix}:`)) {
+      return { 
+        prefix, 
+        content: lessonName.slice(prefix.length + 1).trim() 
+      };
+    }
+  }
+  return { prefix: null, content: lessonName };
+}
+
+// Template prefix badge component
+function TemplatePrefixBadge({ prefix, size = "xs" }: { prefix: string; size?: "sm" | "xs" }) {
+  const config = templatePrefixConfig[prefix];
+  if (!config) return null;
+  
   const Icon = config.icon;
   
   return (
@@ -198,6 +271,12 @@ function getLanguageDisplayName(code: string): string {
 }
 
 function LinearSyllabusView({ syllabus }: { syllabus: SyllabusOverview }) {
+  const [expandedLessonId, setExpandedLessonId] = useState<string | null>(null);
+  
+  const toggleLesson = (lessonId: string) => {
+    setExpandedLessonId(prev => prev === lessonId ? null : lessonId);
+  };
+  
   return (
     <>
       <div className="md:hidden">
@@ -232,6 +311,9 @@ function LinearSyllabusView({ syllabus }: { syllabus: SyllabusOverview }) {
           
           if (!nextLesson) return null;
           
+          // Parse template prefix from lesson name
+          const { prefix, content } = parseTemplatePrefix(nextLesson.name);
+          
           return (
             <Link href={`/chat?lesson=${nextLesson.id}&class=${syllabus.classId}`}>
               <div className="flex items-center justify-between p-3 rounded-lg border hover-elevate cursor-pointer">
@@ -241,7 +323,8 @@ function LinearSyllabusView({ syllabus }: { syllabus: SyllabusOverview }) {
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <p className="font-medium text-sm">Continue: {nextLesson.name}</p>
+                      <p className="font-medium text-sm">Continue: {content}</p>
+                      {prefix && <TemplatePrefixBadge prefix={prefix} size="xs" />}
                       <LessonTypeBadge lessonType={nextLesson.lessonType} size="xs" />
                     </div>
                     <p className="text-xs text-muted-foreground">{nextLesson.unitName}</p>
@@ -291,7 +374,7 @@ function LinearSyllabusView({ syllabus }: { syllabus: SyllabusOverview }) {
                 </div>
               </CollapsibleTrigger>
               <CollapsibleContent>
-                <div className="pl-12 pr-3 py-2 space-y-1">
+                <div className="pl-12 pr-3 py-2 space-y-2">
                   {unit.lessons.map((lesson) => {
                     const LessonStatusIcon = lesson.status === 'completed' 
                       ? CheckCircle2 
@@ -304,31 +387,51 @@ function LinearSyllabusView({ syllabus }: { syllabus: SyllabusOverview }) {
                         ? 'text-blue-600 dark:text-blue-400' 
                         : 'text-muted-foreground';
                     
+                    // Parse template prefix from lesson name
+                    const { prefix, content } = parseTemplatePrefix(lesson.name);
+                    const isExpanded = expandedLessonId === lesson.id;
+                    
                     return (
-                      <Link 
-                        key={lesson.id} 
-                        href={`/chat?lesson=${lesson.id}&class=${syllabus.classId}`}
-                      >
-                        <div 
-                          className="flex items-center gap-3 p-2 rounded hover-elevate cursor-pointer" 
+                      <div key={lesson.id} className="rounded border overflow-hidden">
+                        <button 
+                          type="button"
+                          onClick={() => toggleLesson(lesson.id)}
+                          className="flex items-center gap-3 p-2 w-full hover-elevate cursor-pointer text-left" 
                           data-testid={`lesson-${lesson.id}`}
                         >
                           <LessonStatusIcon className={`h-4 w-4 flex-shrink-0 ${statusColor}`} />
                           <div className="flex-1 min-w-0">
                             <p className={`text-sm truncate ${lesson.status === 'completed' ? 'text-muted-foreground' : ''}`}>
-                              {lesson.name}
+                              {content}
                             </p>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
+                            {prefix && <TemplatePrefixBadge prefix={prefix} size="xs" />}
                             <LessonTypeBadge lessonType={lesson.lessonType} size="xs" />
                             {lesson.estimatedMinutes && (
                               <span className="text-xs text-muted-foreground">
                                 ~{lesson.estimatedMinutes}m
                               </span>
                             )}
+                            <ChevronRight className={`h-3 w-3 text-muted-foreground transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
                           </div>
-                        </div>
-                      </Link>
+                        </button>
+                        {isExpanded && (
+                          <div className="pl-9 pr-2 py-2 space-y-2 bg-muted/30 border-t">
+                            {lesson.description && (
+                              <p className="text-sm text-muted-foreground">
+                                {lesson.description}
+                              </p>
+                            )}
+                            <Link href={`/chat?lesson=${lesson.id}&class=${syllabus.classId}`}>
+                              <Button size="sm" className="gap-1" data-testid={`start-lesson-${lesson.id}`}>
+                                <Play className="h-3 w-3" />
+                                {lesson.status === 'completed' ? 'Review Lesson' : lesson.status === 'in_progress' ? 'Continue' : 'Start Lesson'}
+                              </Button>
+                            </Link>
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
