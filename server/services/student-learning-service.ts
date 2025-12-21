@@ -656,15 +656,25 @@ export class StudentLearningService {
       return null;
     }
     
-    // Update struggle status
+    // Calculate time to mastery in days for velocity tracking
+    const now = new Date();
+    const createdAt = struggle.createdAt;
+    const timeToMasteryDays = Math.ceil((now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Update struggle status with velocity metrics
     const [resolved] = await db
       .update(recurringStruggles)
       .set({
         status: 'resolved',
-        updatedAt: new Date(),
+        resolvedAt: now,
+        resolutionNotes: resolutionNotes || null,
+        timeToMasteryDays,
+        updatedAt: now,
       })
       .where(eq(recurringStruggles.id, struggleId))
       .returning();
+    
+    console.log(`[StudentLearning] Velocity: ${struggle.struggleArea} mastered in ${timeToMasteryDays} days`);
     
     // Record breakthrough in hiveSnapshots for Wren awareness
     await this.recordBreakthrough({
@@ -2433,6 +2443,296 @@ export class StudentLearningService {
     
     return lines.join('\n');
   }
+  
+  // ============================================================
+  // LEARNING VELOCITY TRACKING
+  // Track time-to-mastery and calculate velocity scores
+  // ============================================================
+  
+  /**
+   * Get learning velocity metrics for a student
+   * Calculates how quickly they master concepts compared to average
+   */
+  async getStudentVelocity(studentId: string, language?: string): Promise<StudentVelocityMetrics> {
+    // Get all resolved struggles for this student
+    const whereClause = language 
+      ? and(
+          eq(recurringStruggles.studentId, studentId),
+          eq(recurringStruggles.language, language),
+          eq(recurringStruggles.status, 'resolved')
+        )
+      : and(
+          eq(recurringStruggles.studentId, studentId),
+          eq(recurringStruggles.status, 'resolved')
+        );
+    
+    const resolved = await db
+      .select()
+      .from(recurringStruggles)
+      .where(whereClause)
+      .orderBy(desc(recurringStruggles.resolvedAt));
+    
+    // Get active struggles for context
+    const activeWhereClause = language
+      ? and(
+          eq(recurringStruggles.studentId, studentId),
+          eq(recurringStruggles.language, language),
+          eq(recurringStruggles.status, 'active')
+        )
+      : and(
+          eq(recurringStruggles.studentId, studentId),
+          eq(recurringStruggles.status, 'active')
+        );
+    
+    const active = await db
+      .select()
+      .from(recurringStruggles)
+      .where(activeWhereClause);
+    
+    // Calculate velocity metrics
+    const masteredConcepts = resolved.length;
+    const activeStruggles = active.length;
+    
+    // Average time to mastery (only for struggles with timeToMasteryDays set)
+    const timesToMastery = resolved
+      .filter(s => s.timeToMasteryDays !== null)
+      .map(s => s.timeToMasteryDays!);
+    
+    const avgTimeToMastery = timesToMastery.length > 0
+      ? Math.round(timesToMastery.reduce((a, b) => a + b, 0) / timesToMastery.length)
+      : null;
+    
+    // Get cross-student average for comparison
+    const systemAverage = await this.getSystemAverageVelocity(language);
+    
+    // Calculate velocity score (1.0 = average, >1.0 = faster, <1.0 = slower)
+    let velocityScore = 1.0;
+    if (avgTimeToMastery !== null && systemAverage !== null && systemAverage > 0) {
+      velocityScore = Math.round((systemAverage / avgTimeToMastery) * 100) / 100;
+    }
+    
+    // Break down by struggle area
+    const byArea: Record<string, AreaVelocity> = {};
+    for (const struggle of resolved) {
+      const area = struggle.struggleArea;
+      if (!byArea[area]) {
+        byArea[area] = { mastered: 0, avgDays: 0, totalDays: 0 };
+      }
+      byArea[area].mastered++;
+      if (struggle.timeToMasteryDays !== null) {
+        byArea[area].totalDays += struggle.timeToMasteryDays;
+      }
+    }
+    
+    // Calculate averages per area
+    for (const area of Object.keys(byArea)) {
+      if (byArea[area].mastered > 0) {
+        byArea[area].avgDays = Math.round(byArea[area].totalDays / byArea[area].mastered);
+      }
+    }
+    
+    // Recent breakthroughs (last 30 days)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const recentBreakthroughs = resolved.filter(s => 
+      s.resolvedAt && new Date(s.resolvedAt) > thirtyDaysAgo
+    ).length;
+    
+    return {
+      studentId,
+      language: language || 'all',
+      masteredConcepts,
+      activeStruggles,
+      avgTimeToMasteryDays: avgTimeToMastery,
+      systemAvgDays: systemAverage,
+      velocityScore,
+      velocityLabel: this.getVelocityLabel(velocityScore),
+      byArea,
+      recentBreakthroughs,
+      fastestMastery: timesToMastery.length > 0 ? Math.min(...timesToMastery) : null,
+      slowestMastery: timesToMastery.length > 0 ? Math.max(...timesToMastery) : null,
+    };
+  }
+  
+  /**
+   * Get system-wide average time to mastery
+   * Used as baseline for velocity comparisons
+   */
+  async getSystemAverageVelocity(language?: string): Promise<number | null> {
+    const whereClause = language
+      ? and(
+          eq(recurringStruggles.status, 'resolved'),
+          eq(recurringStruggles.language, language),
+          sql`${recurringStruggles.timeToMasteryDays} IS NOT NULL`
+        )
+      : and(
+          eq(recurringStruggles.status, 'resolved'),
+          sql`${recurringStruggles.timeToMasteryDays} IS NOT NULL`
+        );
+    
+    const result = await db
+      .select({
+        avgDays: sql<number>`AVG(${recurringStruggles.timeToMasteryDays})::integer`,
+      })
+      .from(recurringStruggles)
+      .where(whereClause);
+    
+    return result[0]?.avgDays || null;
+  }
+  
+  /**
+   * Get velocity leaderboard (top learners by velocity score)
+   */
+  async getVelocityLeaderboard(language?: string, limit: number = 10): Promise<VelocityLeaderboardEntry[]> {
+    // Get all students with resolved struggles
+    const whereClause = language
+      ? and(
+          eq(recurringStruggles.status, 'resolved'),
+          eq(recurringStruggles.language, language),
+          sql`${recurringStruggles.timeToMasteryDays} IS NOT NULL`
+        )
+      : and(
+          eq(recurringStruggles.status, 'resolved'),
+          sql`${recurringStruggles.timeToMasteryDays} IS NOT NULL`
+        );
+    
+    const result = await db
+      .select({
+        studentId: recurringStruggles.studentId,
+        avgDays: sql<number>`AVG(${recurringStruggles.timeToMasteryDays})::integer`,
+        masteredCount: sql<number>`COUNT(*)::integer`,
+      })
+      .from(recurringStruggles)
+      .where(whereClause)
+      .groupBy(recurringStruggles.studentId)
+      .having(sql`COUNT(*) >= 3`) // At least 3 mastered concepts
+      .orderBy(sql`AVG(${recurringStruggles.timeToMasteryDays})`)
+      .limit(limit);
+    
+    const systemAvg = await this.getSystemAverageVelocity(language);
+    
+    return result.map((r, idx) => ({
+      rank: idx + 1,
+      studentId: r.studentId,
+      avgTimeToMasteryDays: r.avgDays,
+      masteredConcepts: r.masteredCount,
+      velocityScore: systemAvg && systemAvg > 0 ? Math.round((systemAvg / r.avgDays) * 100) / 100 : 1.0,
+    }));
+  }
+  
+  /**
+   * Get velocity analytics summary for admin dashboard
+   */
+  async getVelocityAnalytics(): Promise<VelocityAnalytics> {
+    // Total resolved struggles
+    const [totalResolved] = await db
+      .select({ count: sql<number>`COUNT(*)::integer` })
+      .from(recurringStruggles)
+      .where(eq(recurringStruggles.status, 'resolved'));
+    
+    // Total active struggles
+    const [totalActive] = await db
+      .select({ count: sql<number>`COUNT(*)::integer` })
+      .from(recurringStruggles)
+      .where(eq(recurringStruggles.status, 'active'));
+    
+    // Average time to mastery
+    const [avgMastery] = await db
+      .select({ avg: sql<number>`AVG(${recurringStruggles.timeToMasteryDays})::integer` })
+      .from(recurringStruggles)
+      .where(and(
+        eq(recurringStruggles.status, 'resolved'),
+        sql`${recurringStruggles.timeToMasteryDays} IS NOT NULL`
+      ));
+    
+    // Breakthroughs by struggle area
+    const byArea = await db
+      .select({
+        area: recurringStruggles.struggleArea,
+        count: sql<number>`COUNT(*)::integer`,
+        avgDays: sql<number>`AVG(${recurringStruggles.timeToMasteryDays})::integer`,
+      })
+      .from(recurringStruggles)
+      .where(eq(recurringStruggles.status, 'resolved'))
+      .groupBy(recurringStruggles.struggleArea)
+      .orderBy(desc(sql`COUNT(*)`));
+    
+    // Recent breakthroughs (last 7 days)
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const [recentBreakthroughs] = await db
+      .select({ count: sql<number>`COUNT(*)::integer` })
+      .from(recurringStruggles)
+      .where(and(
+        eq(recurringStruggles.status, 'resolved'),
+        gte(recurringStruggles.resolvedAt, sevenDaysAgo)
+      ));
+    
+    // Top learners
+    const leaderboard = await this.getVelocityLeaderboard(undefined, 5);
+    
+    return {
+      totalMasteredConcepts: totalResolved.count || 0,
+      totalActiveStruggles: totalActive.count || 0,
+      systemAvgTimeToMasteryDays: avgMastery.avg || null,
+      recentBreakthroughs7Days: recentBreakthroughs.count || 0,
+      byStruggleArea: byArea.map(a => ({
+        area: a.area,
+        masteredCount: a.count,
+        avgTimeToMasteryDays: a.avgDays,
+      })),
+      topLearners: leaderboard,
+    };
+  }
+  
+  private getVelocityLabel(score: number): string {
+    if (score >= 2.0) return 'exceptional';
+    if (score >= 1.5) return 'fast';
+    if (score >= 1.0) return 'average';
+    if (score >= 0.7) return 'steady';
+    return 'developing';
+  }
+}
+
+// Velocity tracking types
+export interface StudentVelocityMetrics {
+  studentId: string;
+  language: string;
+  masteredConcepts: number;
+  activeStruggles: number;
+  avgTimeToMasteryDays: number | null;
+  systemAvgDays: number | null;
+  velocityScore: number;
+  velocityLabel: string;
+  byArea: Record<string, AreaVelocity>;
+  recentBreakthroughs: number;
+  fastestMastery: number | null;
+  slowestMastery: number | null;
+}
+
+interface AreaVelocity {
+  mastered: number;
+  avgDays: number;
+  totalDays: number;
+}
+
+export interface VelocityLeaderboardEntry {
+  rank: number;
+  studentId: string;
+  avgTimeToMasteryDays: number;
+  masteredConcepts: number;
+  velocityScore: number;
+}
+
+export interface VelocityAnalytics {
+  totalMasteredConcepts: number;
+  totalActiveStruggles: number;
+  systemAvgTimeToMasteryDays: number | null;
+  recentBreakthroughs7Days: number;
+  byStruggleArea: Array<{
+    area: string;
+    masteredCount: number;
+    avgTimeToMasteryDays: number | null;
+  }>;
+  topLearners: VelocityLeaderboardEntry[];
 }
 
 export const studentLearningService = new StudentLearningService();

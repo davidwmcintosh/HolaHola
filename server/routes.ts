@@ -9962,6 +9962,45 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  // Learning Velocity Analytics - time-to-mastery metrics for admin dashboard
+  app.get("/api/admin/velocity-analytics", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const analytics = await studentLearningService.getVelocityAnalytics();
+      res.json(analytics);
+    } catch (error: any) {
+      console.error('[Velocity Analytics] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Student velocity metrics - individual student's learning velocity
+  app.get("/api/admin/velocity/:studentId", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { studentId } = req.params;
+      const { language } = req.query;
+      const velocity = await studentLearningService.getStudentVelocity(studentId, language as string | undefined);
+      res.json(velocity);
+    } catch (error: any) {
+      console.error('[Student Velocity] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Velocity leaderboard - top learners by mastery speed
+  app.get("/api/admin/velocity-leaderboard", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { language, limit } = req.query;
+      const leaderboard = await studentLearningService.getVelocityLeaderboard(
+        language as string | undefined, 
+        parseInt(limit as string) || 10
+      );
+      res.json(leaderboard);
+    } catch (error: any) {
+      console.error('[Velocity Leaderboard] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // ===== Historical Memory Migration (Founder Only) =====
   // One-time migration of founder voice conversations to Daniela's neural network
   

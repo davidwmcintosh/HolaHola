@@ -1098,6 +1098,7 @@ export default function CommandCenter() {
     { id: "images", label: "Images", icon: Image, roles: ['admin', 'developer'] },
     { id: "voice-lab", label: "Voice Lab", icon: Volume2, roles: ['admin', 'developer'] },
     { id: "voice-analytics", label: "Voice Metrics", icon: Mic, roles: ['admin', 'developer'] },
+    { id: "velocity", label: "Learning Velocity", icon: TrendingUp, roles: ['admin', 'developer'] },
     { id: "neural-network", label: "Neural Network", icon: Zap, roles: ['developer', 'admin'] },
     { id: "brain-surgery", label: "Brain Surgery", icon: Brain, roles: ['developer', 'admin'] },
     { id: "north-star", label: "North Star", icon: Compass, roles: ['developer', 'admin'] },
@@ -1202,6 +1203,10 @@ export default function CommandCenter() {
 
           <TabsContent value="voice-analytics" className="space-y-4">
             <VoiceAnalyticsTab />
+          </TabsContent>
+
+          <TabsContent value="velocity" className="space-y-4">
+            <VelocityTab />
           </TabsContent>
 
           <TabsContent value="neural-network" className="space-y-4">
@@ -3010,6 +3015,214 @@ function VoiceAnalyticsTab() {
 
           <div className="flex justify-end">
             <Button variant="outline" size="sm" onClick={() => refetch()} data-testid="button-refresh-analytics">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
+        </div>
+      </CollapsibleSection>
+    </div>
+  );
+}
+
+// ============================================================
+// LEARNING VELOCITY TAB
+// Track time-to-mastery metrics and student learning velocity
+// ============================================================
+
+interface VelocityAnalyticsData {
+  totalMasteredConcepts: number;
+  totalActiveStruggles: number;
+  systemAvgTimeToMasteryDays: number | null;
+  recentBreakthroughs7Days: number;
+  byStruggleArea: Array<{
+    area: string;
+    masteredCount: number;
+    avgTimeToMasteryDays: number | null;
+  }>;
+  topLearners: Array<{
+    rank: number;
+    studentId: string;
+    avgTimeToMasteryDays: number;
+    masteredConcepts: number;
+    velocityScore: number;
+  }>;
+}
+
+function VelocityTab() {
+  const { data: analytics, isLoading, refetch } = useQuery<VelocityAnalyticsData>({
+    queryKey: ["/api/admin/velocity-analytics"],
+    refetchInterval: 60000,
+  });
+
+  const getVelocityColor = (score: number) => {
+    if (score >= 2.0) return "text-purple-600 dark:text-purple-400";
+    if (score >= 1.5) return "text-green-600 dark:text-green-400";
+    if (score >= 1.0) return "text-blue-600 dark:text-blue-400";
+    if (score >= 0.7) return "text-yellow-600 dark:text-yellow-400";
+    return "text-red-600 dark:text-red-400";
+  };
+
+  const getVelocityLabel = (score: number) => {
+    if (score >= 2.0) return "Exceptional";
+    if (score >= 1.5) return "Fast";
+    if (score >= 1.0) return "Average";
+    if (score >= 0.7) return "Steady";
+    return "Developing";
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-32" />
+        <Skeleton className="h-64" />
+        <Skeleton className="h-48" />
+      </div>
+    );
+  }
+
+  if (!analytics) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        Velocity analytics not available. Students need to master concepts first.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <CollapsibleSection
+        title="Learning Velocity Metrics"
+        icon={<TrendingUp className="h-5 w-5 text-primary" />}
+        defaultOpen={true}
+      >
+        <div className="space-y-4 mt-4">
+          <p className="text-sm text-muted-foreground">
+            Track how quickly students master concepts. Velocity scores compare individual learning speed to system averages.
+          </p>
+          
+          <div className="grid gap-4 md:grid-cols-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Mastered Concepts</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600" data-testid="text-mastered-concepts">
+                  {analytics.totalMasteredConcepts}
+                </div>
+                <p className="text-xs text-muted-foreground">Total breakthroughs</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Active Struggles</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-orange-600" data-testid="text-active-struggles">
+                  {analytics.totalActiveStruggles}
+                </div>
+                <p className="text-xs text-muted-foreground">Currently working on</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Avg. Time to Mastery</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold" data-testid="text-avg-mastery-time">
+                  {analytics.systemAvgTimeToMasteryDays ?? 'N/A'} 
+                  {analytics.systemAvgTimeToMasteryDays && <span className="text-sm font-normal"> days</span>}
+                </div>
+                <p className="text-xs text-muted-foreground">System average</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Recent Breakthroughs</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-600" data-testid="text-recent-breakthroughs">
+                  {analytics.recentBreakthroughs7Days}
+                </div>
+                <p className="text-xs text-muted-foreground">Last 7 days</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {analytics.byStruggleArea.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Mastery by Struggle Area</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {analytics.byStruggleArea.map((area) => (
+                    <div key={area.area} className="flex items-center justify-between py-2 border-b last:border-0">
+                      <div className="flex items-center gap-3">
+                        <Badge variant="outline" className="capitalize">
+                          {area.area}
+                        </Badge>
+                        <span className="text-sm text-muted-foreground">
+                          {area.masteredCount} mastered
+                        </span>
+                      </div>
+                      <div className="text-sm">
+                        {area.avgTimeToMasteryDays !== null ? (
+                          <span className="font-medium">{area.avgTimeToMasteryDays} days avg</span>
+                        ) : (
+                          <span className="text-muted-foreground">No data</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {analytics.topLearners.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Velocity Leaderboard</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Students who master concepts fastest (minimum 3 breakthroughs)
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {analytics.topLearners.map((learner) => (
+                    <div key={learner.studentId} className="flex items-center justify-between py-2 border-b last:border-0">
+                      <div className="flex items-center gap-3">
+                        <Badge 
+                          variant={learner.rank === 1 ? "default" : "secondary"}
+                          className={learner.rank === 1 ? "bg-yellow-500/20 text-yellow-700 dark:text-yellow-300" : ""}
+                        >
+                          #{learner.rank}
+                        </Badge>
+                        <span className="font-mono text-sm">
+                          {learner.studentId.substring(0, 8)}...
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          {learner.masteredConcepts} concepts
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm">
+                          {learner.avgTimeToMasteryDays} days avg
+                        </span>
+                        <Badge className={getVelocityColor(learner.velocityScore)}>
+                          {learner.velocityScore}x - {getVelocityLabel(learner.velocityScore)}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={() => refetch()} data-testid="button-refresh-velocity">
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh
             </Button>

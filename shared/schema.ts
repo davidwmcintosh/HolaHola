@@ -2965,6 +2965,11 @@ export const recurringStruggles = pgTable("recurring_struggles", {
   // Root cause analysis (triggered at 5+ occurrences)
   rootCauseAnalysis: jsonb("root_cause_analysis"), // {rootCause, confidence, explanation, teachingImplication}
   
+  // Learning velocity tracking - time to mastery metrics
+  resolvedAt: timestamp("resolved_at"), // When mastery was achieved
+  resolutionNotes: text("resolution_notes"), // How student mastered this
+  timeToMasteryDays: integer("time_to_mastery_days"), // Computed: (resolvedAt - createdAt) in days
+  
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => [
