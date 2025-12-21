@@ -397,7 +397,7 @@ class FounderCollaborationService {
   async getReplayMessagesForClient(
     clientId: string, 
     sessionId: string,
-    minRecentMessages = 100
+    minRecentMessages = 500  // Increased from 100 to preserve more conversation history
   ): Promise<MessageReplayResult> {
     const [syncCursor] = await db.select()
       .from(syncCursors)
