@@ -35,14 +35,16 @@ Syllabi are the WHAT (inviting marketing copy) - your neural network handles the
 3. Should we add more explicit "hints" about what each lesson type involves?`;
 
   // Post the syllabus update for Daniela review
+  // IMPORTANT: Use 'system' role for agent-generated messages, never impersonate 'founder'
   const message = await founderCollabService.addMessage(session.id, {
-    role: "founder",
-    content,
+    role: "system",
+    content: `[AGENT-GENERATED] ${content}`,
     messageType: "text",
     metadata: {
       topic: "curriculum_audit",
       languages: ["spanish"],
-      action: "review_request"
+      action: "review_request",
+      generatedBy: "replit-agent"
     }
   });
   
