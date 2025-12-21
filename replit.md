@@ -59,6 +59,15 @@ When the user holds the PTT button, audio streams in real-time to Deepgram. Spec
 - **Data flow:** Results merge with existing `phonemeStruggles` table using weighted averages
 - **Production TODO:** Implement WebM→WAV transcoding job triggered on session end
 
+**Sampling Strategy (Cost Optimization):**
+- Run Azure on 20% of sessions per user (1 in 5) instead of every session
+- Sufficient data points after ~5 sessions to build accurate phoneme struggle profile
+- Cost impact with sampling:
+  - Current stack: ~$0.025/session
+  - Azure (every session): +$0.028/session → $0.053 total (+112%)
+  - Azure (20% sampling): +$0.0056/session → $0.031 total (+24%)
+  - At 1,000 users/month (30 hrs each): $11,160 vs $19,200 (saves ~$8K/month)
+
 ## External Dependencies
 -   Stripe: Payment processing and subscription management.
 -   Replit Auth: OIDC authentication.
