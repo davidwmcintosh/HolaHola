@@ -18229,10 +18229,15 @@ ${memoryContext}
   });
 
   // STUDENT LEARNING: Get learning context for a student
+  // Allows both: 1) editor secret auth (backend calls) OR 2) session auth (user's own data)
   app.get("/api/student-learning/context/:studentId/:language", async (req, res) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
-      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+      const hasEditorAuth = authHeader && validateEditorSecret(authHeader as string);
+      const userId = req.user?.claims?.sub;
+      const hasSessionAuth = req.isAuthenticated?.() && userId === req.params.studentId;
+      
+      if (!hasEditorAuth && !hasSessionAuth) {
         return res.status(401).json({ error: 'Invalid authentication' });
       }
 
