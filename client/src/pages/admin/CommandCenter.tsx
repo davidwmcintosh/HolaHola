@@ -6822,7 +6822,8 @@ function EditorChatTab() {
   // Create new EXPRESS session mutation
   const createExpressSessionMutation = useMutation({
     mutationFn: async (title?: string) => {
-      return apiRequest("POST", "/api/express-lane/ui/sessions", { title }) as Promise<{
+      const response = await apiRequest("POST", "/api/express-lane/ui/sessions", { title });
+      return response.json() as Promise<{
         success: boolean;
         session: SessionHistoryItem;
       }>;
@@ -6850,12 +6851,12 @@ function EditorChatTab() {
   // Search EXPRESS messages mutation
   const searchExpressMutation = useMutation({
     mutationFn: async (query: string) => {
-      const result = await apiRequest("GET", `/api/express-lane/ui/search?q=${encodeURIComponent(query)}${expressSession?.id ? `&sessionId=${expressSession.id}` : ''}`) as {
+      const response = await apiRequest("GET", `/api/express-lane/ui/search?q=${encodeURIComponent(query)}${expressSession?.id ? `&sessionId=${expressSession.id}` : ''}`);
+      return response.json() as Promise<{
         query: string;
         resultCount: number;
         results: SearchResult[];
-      };
-      return result;
+      }>;
     },
     onSuccess: (data) => {
       setSearchResults(data.results);
