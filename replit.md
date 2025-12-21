@@ -68,6 +68,14 @@ When the user holds the PTT button, audio streams in real-time to Deepgram. Spec
   - Azure (20% sampling): +$0.0056/session → $0.031 total (+24%)
   - At 1,000 users/month (30 hrs each): $11,160 vs $19,200 (saves ~$8K/month)
 
+**Tiered Pronunciation Assessment (Build vs Buy Decision):**
+- Building our own would require forced alignment models (Kaldi, Montreal Forced Aligner, wav2vec2) + phoneme dictionaries per language + GPU compute + ongoing maintenance
+- Open source tools only cover 3-4 languages well; HolaHola needs 9
+- Recommendation: Use tiered approach based on subscription level:
+  - **Free tier:** Deepgram word-confidence heuristics (PhonemeAnalyticsService, already built, $0 extra)
+  - **Paid tier:** Azure phoneme-level scoring with 20% sampling (~$0.006/session extra)
+- This creates a premium differentiator while avoiding 3-6 months of ML infrastructure work
+
 ## External Dependencies
 -   Stripe: Payment processing and subscription management.
 -   Replit Auth: OIDC authentication.
