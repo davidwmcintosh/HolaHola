@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { forceNewConversation } from "@/lib/queryClient";
+import { useUser } from "@/lib/auth";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useLearningFilter } from "@/contexts/LearningFilterContext";
 import { LearningContextFilter } from "@/components/LearningContextFilter";
@@ -45,6 +46,7 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { SyllabusTimeProgress } from "@/components/SyllabusTimeProgress";
 import { SyllabusMindMap } from "@/components/SyllabusMindMap";
+import { DanielaLearningInsights } from "@/components/DanielaLearningInsights";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { VocabularyWord, Conversation, CulturalTip, UserLesson, Topic } from "@shared/schema";
@@ -340,6 +342,7 @@ function LinearSyllabusView({ syllabus }: { syllabus: SyllabusOverview }) {
 }
 
 export default function ReviewHub() {
+  const { user } = useUser();
   const { language, tutorGender } = useLanguage();
   const { learningContext } = useLearningFilter();
   const { setOpen, isMobile, setOpenMobile } = useSidebar();
@@ -779,6 +782,9 @@ export default function ReviewHub() {
           </CardContent>
         </Card>
       )}
+
+      {/* Daniela's Learning Insights - Personalized recommendations */}
+      <DanielaLearningInsights language={language} userId={user?.id} />
 
       {/* Learning Journey - Mind Map or Linear View for all learners */}
       {(() => {
