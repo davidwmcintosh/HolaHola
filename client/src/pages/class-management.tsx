@@ -81,12 +81,14 @@ interface Assignment {
 
 interface PronunciationPattern {
   phoneme: string;
-  description: string;
+  displayLabel: string;
+  category: string;
   studentCount: number;
   totalOccurrences: number;
   prevalencePercent: number;
-  averageSeverity: number;
-  severityCounts: { mild: number; moderate: number; severe: number };
+  averageConfidence: number;
+  severity: string;
+  severityCounts: { severe: number; moderate: number; mild: number };
 }
 
 interface PatternsData {
@@ -130,16 +132,27 @@ function PronunciationPatterns({ classId }: { classId: string }) {
     );
   }
 
-  const getSeverityColor = (severity: number) => {
-    if (severity <= 2) return 'bg-green-500/20 text-green-700 dark:text-green-300';
-    if (severity <= 3.5) return 'bg-amber-500/20 text-amber-700 dark:text-amber-300';
+  const getSeverityColor = (severity: string) => {
+    if (severity === 'mild') return 'bg-green-500/20 text-green-700 dark:text-green-300';
+    if (severity === 'moderate') return 'bg-amber-500/20 text-amber-700 dark:text-amber-300';
     return 'bg-red-500/20 text-red-700 dark:text-red-300';
   };
 
-  const getSeverityLabel = (severity: number) => {
-    if (severity <= 2) return 'Mild';
-    if (severity <= 3.5) return 'Moderate';
+  const getSeverityLabel = (severity: string) => {
+    if (severity === 'mild') return 'Mild';
+    if (severity === 'moderate') return 'Moderate';
     return 'Severe';
+  };
+
+  const getCategoryIcon = (category: string) => {
+    switch (category) {
+      case 'consonant': return 'C';
+      case 'vowel': return 'V';
+      case 'nasal': return 'N';
+      case 'fricative': return 'F';
+      case 'diphthong': return 'D';
+      default: return 'P';
+    }
   };
 
   return (
@@ -160,19 +173,27 @@ function PronunciationPatterns({ classId }: { classId: string }) {
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <div className="p-3 rounded-lg bg-violet-100 dark:bg-violet-800">
-                    <span className="text-2xl font-bold text-violet-700 dark:text-violet-300">
-                      {pattern.phoneme.charAt(0).toUpperCase()}
-                    </span>
+                    <div className="text-center">
+                      <span className="text-2xl font-bold text-violet-700 dark:text-violet-300">
+                        /{pattern.phoneme}/
+                      </span>
+                      <div className="text-xs text-violet-600 dark:text-violet-400">
+                        {getCategoryIcon(pattern.category)}
+                      </div>
+                    </div>
                   </div>
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-medium text-lg">{pattern.phoneme}</p>
-                      <Badge className={getSeverityColor(pattern.averageSeverity)}>
-                        {getSeverityLabel(pattern.averageSeverity)} difficulty
+                      <p className="font-medium text-lg">{pattern.displayLabel}</p>
+                      <Badge className={getSeverityColor(pattern.severity)}>
+                        {getSeverityLabel(pattern.severity)} difficulty
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground mt-1">
-                      {pattern.studentCount} student{pattern.studentCount !== 1 ? 's' : ''} ({pattern.prevalencePercent}% of class) • {pattern.totalOccurrences} total occurrences
+                      {pattern.studentCount} student{pattern.studentCount !== 1 ? 's' : ''} ({pattern.prevalencePercent}% of class) • {pattern.totalOccurrences} occurrences
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Avg confidence: {Math.round(pattern.averageConfidence * 100)}%
                     </p>
                   </div>
                 </div>
@@ -184,16 +205,16 @@ function PronunciationPatterns({ classId }: { classId: string }) {
 
               <div className="mt-4 flex gap-3">
                 <div className="flex items-center gap-1.5 text-xs">
-                  <div className="w-2 h-2 rounded-full bg-green-500" />
-                  <span>{pattern.severityCounts.mild} mild</span>
+                  <div className="w-2 h-2 rounded-full bg-red-500" />
+                  <span>{pattern.severityCounts.severe} severe</span>
                 </div>
                 <div className="flex items-center gap-1.5 text-xs">
                   <div className="w-2 h-2 rounded-full bg-amber-500" />
                   <span>{pattern.severityCounts.moderate} moderate</span>
                 </div>
                 <div className="flex items-center gap-1.5 text-xs">
-                  <div className="w-2 h-2 rounded-full bg-red-500" />
-                  <span>{pattern.severityCounts.severe} severe</span>
+                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                  <span>{pattern.severityCounts.mild} mild</span>
                 </div>
               </div>
             </CardContent>

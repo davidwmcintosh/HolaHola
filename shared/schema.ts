@@ -2978,6 +2978,53 @@ export const recurringStruggles = pgTable("recurring_struggles", {
   index("idx_recurring_struggles_status").on(table.status),
 ]);
 
+// Phoneme Struggles - Pronunciation-specific analytics with confidence-based severity
+// Tracks individual phoneme performance from Deepgram word-level confidence scores
+// Used for cross-student pattern synthesis and personalized pronunciation coaching
+export const phonemeStruggles = pgTable("phoneme_struggles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  studentId: varchar("student_id").notNull().references(() => users.id),
+  language: varchar("language").notNull(),
+  
+  // Canonical phoneme identifier (IPA notation when possible)
+  phoneme: varchar("phoneme").notNull(), // e.g., "r", "ɲ", "θ", "ð", "ʁ"
+  phonemeCategory: varchar("phoneme_category"), // consonant, vowel, diphthong, nasal, fricative
+  displayLabel: varchar("display_label"), // Human-readable: "Rolling R", "Nasal Vowels", "TH Sound"
+  
+  // Confidence-based severity metrics (from Deepgram word-level analysis)
+  averageConfidence: real("average_confidence").default(0.5), // 0-1, average across all occurrences
+  lowestConfidence: real("lowest_confidence").default(0.5), // 0-1, worst performance
+  highestConfidence: real("highest_confidence").default(0.5), // 0-1, best performance
+  
+  // Severity derived from confidence (updated on each occurrence)
+  // severe: avg < 0.70, moderate: 0.70-0.85, mild: > 0.85
+  severity: varchar("severity").default("moderate"), // severe, moderate, mild
+  
+  // Occurrence tracking
+  occurrenceCount: integer("occurrence_count").default(1),
+  lastOccurredAt: timestamp("last_occurred_at").defaultNow(),
+  
+  // Example words where this phoneme was detected as difficult
+  exampleWords: text("example_words").array(), // ["perro", "arroz", "carro"]
+  
+  // Session tracking for trend analysis
+  sessionIds: text("session_ids").array(), // Voice session IDs where this was detected
+  
+  // Mastery tracking
+  status: varchar("status").default("active"), // active, improving, mastered
+  masteredAt: timestamp("mastered_at"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_phoneme_struggles_student").on(table.studentId),
+  index("idx_phoneme_struggles_student_lang").on(table.studentId, table.language),
+  index("idx_phoneme_struggles_phoneme").on(table.phoneme),
+  index("idx_phoneme_struggles_severity").on(table.severity),
+  index("idx_phoneme_struggles_status").on(table.status),
+]);
+
 // Learner Personal Facts - Permanent personal details Daniela remembers about students
 // "Your trip to Madrid in June", "Your dog is named Max", "You work as a nurse"
 // Unlike hiveSnapshots (which decay after 30 days), these persist forever
@@ -3142,6 +3189,12 @@ export const insertRecurringStruggleSchema = createInsertSchema(recurringStruggl
   updatedAt: true,
 });
 
+export const insertPhonemeStruggleSchema = createInsertSchema(phonemeStruggles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertLearnerPersonalFactSchema = createInsertSchema(learnerPersonalFacts).omit({
   id: true,
   createdAt: true,
@@ -3195,6 +3248,9 @@ export type LearningMotivation = typeof learningMotivations.$inferSelect;
 
 export type InsertRecurringStruggle = z.infer<typeof insertRecurringStruggleSchema>;
 export type RecurringStruggle = typeof recurringStruggles.$inferSelect;
+
+export type InsertPhonemeStruggle = z.infer<typeof insertPhonemeStruggleSchema>;
+export type PhonemeStruggle = typeof phonemeStruggles.$inferSelect;
 
 export type InsertLearnerPersonalFact = z.infer<typeof insertLearnerPersonalFactSchema>;
 export type LearnerPersonalFact = typeof learnerPersonalFacts.$inferSelect;

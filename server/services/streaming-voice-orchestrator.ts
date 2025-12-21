@@ -78,6 +78,7 @@ import { phaseTransitionService } from "./phase-transition-service";
 import { voiceDiagnostics } from "./voice-diagnostics-service";
 import { learnerMemoryExtractionService } from "./learner-memory-extraction-service";
 import { studentLearningService } from "./student-learning-service";
+import { phonemeAnalyticsService } from "./phoneme-analytics-service";
 import { db } from "../db";
 import { 
   tutorProcedures, 
@@ -568,6 +569,8 @@ export interface StreamingSession {
   recentSttConfidences: number[];     // Rolling window of last N STT confidence scores
   sessionStruggleCount: number;       // Count of struggles detected this session
   adaptiveSpeedEnabled: boolean;      // Whether adaptive speed is active (auto-enabled on low confidence)
+  // Phoneme analytics tracking (accumulated word-level data for session)
+  sessionWordAnalyses: Array<{ word: string; confidence: number }>;  // Words with confidence < 0.95 for phoneme analysis
 }
 
 /**
@@ -865,6 +868,8 @@ export class StreamingVoiceOrchestrator {
       recentSttConfidences: [],     // Rolling window of STT confidence scores
       sessionStruggleCount: 0,       // Count of struggles detected this session
       adaptiveSpeedEnabled: false,   // Auto-enabled when low confidence/struggles detected
+      // Phoneme analytics tracking
+      sessionWordAnalyses: [],       // Accumulated word-level data for phoneme analysis on session end
     };
     
     // PARALLEL WARMUP: Pre-warm both Cartesia and Gemini connections concurrently
@@ -1040,6 +1045,17 @@ export class StreamingVoiceOrchestrator {
       // Only send for non-founder modes when there's word-level data available
       if (words && words.length > 0 && !session.isFounderMode) {
         const coaching = analyzePronunciation(words, session.targetLanguage, transcript);
+        
+        // PHONEME ANALYTICS: Accumulate word-level data for session-end phoneme analysis
+        // Only track words with confidence below excellence threshold (< 0.95)
+        for (const word of words) {
+          if (word.confidence < 0.95 && word.word && word.word.length > 1) {
+            session.sessionWordAnalyses.push({
+              word: word.word,
+              confidence: word.confidence,
+            });
+          }
+        }
         
         // Only send coaching if there are pronunciation issues to address
         if (coaching.needsAttention || coaching.overallScore < 85) {
@@ -5382,12 +5398,14 @@ Using this context, speak first to the student with a natural opening message. O
   endSession(sessionId: string): void {
     const session = this.sessions.get(sessionId);
     if (session) {
-      // Capture session data for async memory extraction before deletion
+      // Capture session data for async memory extraction and phoneme analytics before deletion
       const sessionData = {
         userId: String(session.userId),
         language: session.targetLanguage,
         conversationId: session.conversationId,
         history: [...session.conversationHistory], // Clone before deletion
+        wordAnalyses: [...session.sessionWordAnalyses], // Clone word-level data for phoneme analysis
+        dbSessionId: session.dbSessionId,
       };
       
       // Clear any pending idle timeout
@@ -5423,6 +5441,23 @@ Using this context, speak first to the student with a natural opening message. O
           }
         }).catch((err: Error) => {
           console.warn(`[Streaming Orchestrator] Memory extraction failed:`, err.message);
+        });
+      }
+      
+      // PHONEME ANALYTICS: Async analysis of word-level pronunciation data
+      // Stores phoneme struggles with confidence-based severity for pattern synthesis
+      if (sessionData.wordAnalyses.length > 0) {
+        phonemeAnalyticsService.analyzeAndStorePhonemes(
+          sessionData.userId,
+          sessionData.language,
+          sessionData.wordAnalyses,
+          sessionData.dbSessionId
+        ).then(results => {
+          if (results.length > 0) {
+            console.log(`[Streaming Orchestrator] Stored ${results.length} phoneme struggles from session`);
+          }
+        }).catch((err: Error) => {
+          console.warn(`[Streaming Orchestrator] Phoneme analytics failed:`, err.message);
         });
       }
       

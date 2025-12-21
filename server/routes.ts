@@ -10338,83 +10338,9 @@ Return ONLY the ${targetLanguage} phrase:`;
         });
       }
       
-      // Get pronunciation-specific struggles for all students in the class
-      const struggles = await db.select({
-        struggleArea: recurringStruggles.struggleArea,
-        description: recurringStruggles.description,
-        studentId: recurringStruggles.studentId,
-        occurrenceCount: recurringStruggles.occurrenceCount,
-        status: recurringStruggles.status,
-        specificExamples: recurringStruggles.specificExamples,
-      })
-      .from(recurringStruggles)
-      .where(and(
-        inArray(recurringStruggles.studentId, studentIds),
-        eq(recurringStruggles.language, teacherClass.language),
-        eq(recurringStruggles.status, 'active'),
-        eq(recurringStruggles.struggleArea, 'pronunciation') // Only pronunciation struggles
-      ));
-      
-      // Aggregate patterns by phoneme/description - extract phoneme from description
-      const patternMap = new Map<string, {
-        phoneme: string;
-        description: string;
-        studentCount: number;
-        totalOccurrences: number;
-        studentIds: Set<string>;
-        severityCounts: { mild: number; moderate: number; severe: number };
-      }>();
-      
-      for (const struggle of struggles) {
-        // Extract phoneme from description (e.g., "rolling R" -> "R", "nasal sounds" -> "nasal")
-        const descParts = struggle.description?.split(':') || ['Unknown'];
-        const phoneme = descParts[0].trim();
-        const key = phoneme.toLowerCase();
-        
-        const existing = patternMap.get(key);
-        // Determine severity based on occurrence count
-        const occCount = struggle.occurrenceCount || 1;
-        const severity = occCount <= 2 ? 'mild' : occCount <= 5 ? 'moderate' : 'severe';
-        
-        if (existing) {
-          existing.studentIds.add(struggle.studentId);
-          existing.studentCount = existing.studentIds.size;
-          existing.totalOccurrences += occCount;
-          existing.severityCounts[severity]++;
-        } else {
-          patternMap.set(key, {
-            phoneme,
-            description: struggle.description || 'Unknown',
-            studentCount: 1,
-            totalOccurrences: occCount,
-            studentIds: new Set([struggle.studentId]),
-            severityCounts: {
-              mild: severity === 'mild' ? 1 : 0,
-              moderate: severity === 'moderate' ? 1 : 0,
-              severe: severity === 'severe' ? 1 : 0,
-            },
-          });
-        }
-      }
-      
-      // Convert to sorted array (most common patterns first)
-      const patterns = Array.from(patternMap.values())
-        .map(p => {
-          const totalSev = p.severityCounts.mild + p.severityCounts.moderate + p.severityCounts.severe;
-          const avgSeverity = totalSev > 0 
-            ? (p.severityCounts.mild * 1 + p.severityCounts.moderate * 3 + p.severityCounts.severe * 5) / totalSev 
-            : 3;
-          return {
-            phoneme: p.phoneme,
-            description: p.description,
-            studentCount: p.studentCount,
-            totalOccurrences: p.totalOccurrences,
-            prevalencePercent: Math.round((p.studentCount / studentIds.length) * 100),
-            averageSeverity: Math.round(avgSeverity * 10) / 10,
-            severityCounts: p.severityCounts,
-          };
-        })
-        .sort((a, b) => b.studentCount - a.studentCount);
+      // Use PhonemeAnalyticsService for confidence-based severity metrics
+      const { phonemeAnalyticsService } = await import("./services/phoneme-analytics-service");
+      const patterns = await phonemeAnalyticsService.getClassPhonemePatterns(studentIds, teacherClass.language);
       
       res.json({
         patterns,
