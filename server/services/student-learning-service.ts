@@ -2734,6 +2734,276 @@ export class StudentLearningService {
     if (score >= 0.7) return 'steady';
     return 'developing';
   }
+
+  // ============================================================
+  // ADAPTIVE DRILL RECOMMENDATIONS
+  // Uses velocity analytics and struggle patterns to suggest personalized drills
+  // ============================================================
+
+  /**
+   * Get personalized drill recommendations for a student
+   * Prioritizes based on:
+   * 1. Active pronunciation struggles (highest priority)
+   * 2. High occurrence count (more practice needed)
+   * 3. Recent struggles (not stale)
+   * 4. Cross-student pattern commonality (known difficult areas)
+   */
+  async getDrillRecommendations(
+    studentId: string,
+    language: string,
+    limit: number = 5
+  ): Promise<DrillRecommendation[]> {
+    const recommendations: DrillRecommendation[] = [];
+    
+    // Get active pronunciation struggles for this student
+    const pronunciationStruggles = await db
+      .select()
+      .from(recurringStruggles)
+      .where(
+        and(
+          eq(recurringStruggles.studentId, studentId),
+          eq(recurringStruggles.language, language),
+          eq(recurringStruggles.struggleArea, 'pronunciation'),
+          eq(recurringStruggles.status, 'active')
+        )
+      )
+      .orderBy(desc(recurringStruggles.occurrenceCount), desc(recurringStruggles.lastOccurredAt))
+      .limit(limit);
+    
+    // Get common struggles across all students for this language (cross-student patterns)
+    const commonStruggles = await db
+      .select({
+        description: recurringStruggles.description,
+        struggleArea: recurringStruggles.struggleArea,
+        totalOccurrences: sql<number>`SUM(${recurringStruggles.occurrenceCount})::int`.as('totalOccurrences'),
+        studentCount: sql<number>`COUNT(DISTINCT ${recurringStruggles.studentId})::int`.as('studentCount'),
+      })
+      .from(recurringStruggles)
+      .where(
+        and(
+          eq(recurringStruggles.language, language),
+          eq(recurringStruggles.struggleArea, 'pronunciation'),
+          eq(recurringStruggles.status, 'active')
+        )
+      )
+      .groupBy(recurringStruggles.description, recurringStruggles.struggleArea)
+      .orderBy(sql`SUM(${recurringStruggles.occurrenceCount}) DESC`)
+      .limit(10);
+    
+    // Create a map of common struggles for priority boosting
+    const commonPatterns = new Map(
+      commonStruggles.map(s => [s.description, s.studentCount])
+    );
+    
+    // Build recommendations from personal struggles
+    for (const struggle of pronunciationStruggles) {
+      const phoneme = this.extractPhonemeFromDescription(struggle.description || '');
+      if (!phoneme) continue;
+      
+      // Calculate priority score
+      const occurrenceWeight = Math.min((struggle.occurrenceCount || 1) * 0.3, 3);
+      const recencyWeight = this.getRecencyWeight(struggle.lastOccurredAt);
+      const commonalityWeight = (commonPatterns.get(struggle.description || '') || 0) * 0.2;
+      const priorityScore = occurrenceWeight + recencyWeight + commonalityWeight;
+      
+      recommendations.push({
+        phoneme,
+        language,
+        priorityScore: Math.round(priorityScore * 100) / 100,
+        reason: this.getRecommendationReason(struggle.occurrenceCount || 1, struggle.lastOccurredAt),
+        struggleId: struggle.id,
+        occurrenceCount: struggle.occurrenceCount || 1,
+        lastPracticed: struggle.lastOccurredAt,
+        difficulty: this.inferDifficultyFromOccurrences(struggle.occurrenceCount || 1),
+        estimatedMinutes: this.estimateDrillDuration(phoneme, struggle.occurrenceCount || 1),
+        crossStudentCommonality: commonPatterns.get(struggle.description || '') || 0,
+      });
+    }
+    
+    // If not enough personal struggles, add from common patterns
+    if (recommendations.length < limit) {
+      const existingPhonemes = new Set(recommendations.map(r => r.phoneme));
+      
+      for (const common of commonStruggles) {
+        if (recommendations.length >= limit) break;
+        
+        const phoneme = this.extractPhonemeFromDescription(common.description || '');
+        if (!phoneme || existingPhonemes.has(phoneme)) continue;
+        
+        recommendations.push({
+          phoneme,
+          language,
+          priorityScore: (common.studentCount || 1) * 0.5,
+          reason: `${common.studentCount} students struggle with this sound`,
+          occurenceCount: 0,
+          difficulty: 'intermediate',
+          estimatedMinutes: 5,
+          crossStudentCommonality: common.studentCount || 1,
+          isProactive: true,
+        });
+        
+        existingPhonemes.add(phoneme);
+      }
+    }
+    
+    // Sort by priority score and return
+    return recommendations
+      .sort((a, b) => b.priorityScore - a.priorityScore)
+      .slice(0, limit);
+  }
+  
+  /**
+   * Get drill progress timeline for a student
+   * Shows pronunciation improvement over time for specific phonemes
+   */
+  async getDrillProgressTimeline(
+    studentId: string,
+    language: string,
+    phoneme?: string
+  ): Promise<DrillProgressEntry[]> {
+    // Get resolved struggles (breakthroughs) with time to mastery
+    const breakthroughs = await db
+      .select()
+      .from(recurringStruggles)
+      .where(
+        and(
+          eq(recurringStruggles.studentId, studentId),
+          eq(recurringStruggles.language, language),
+          eq(recurringStruggles.struggleArea, 'pronunciation'),
+          eq(recurringStruggles.status, 'resolved'),
+          sql`${recurringStruggles.timeToMasteryDays} IS NOT NULL`
+        )
+      )
+      .orderBy(desc(recurringStruggles.resolvedAt));
+    
+    // Get active struggles for current state
+    const activeStruggles = await db
+      .select()
+      .from(recurringStruggles)
+      .where(
+        and(
+          eq(recurringStruggles.studentId, studentId),
+          eq(recurringStruggles.language, language),
+          eq(recurringStruggles.struggleArea, 'pronunciation'),
+          eq(recurringStruggles.status, 'active')
+        )
+      )
+      .orderBy(desc(recurringStruggles.lastOccurredAt));
+    
+    const timeline: DrillProgressEntry[] = [];
+    
+    // Add breakthrough entries
+    for (const b of breakthroughs) {
+      const extractedPhoneme = this.extractPhonemeFromDescription(b.description || '');
+      if (phoneme && extractedPhoneme !== phoneme) continue;
+      
+      timeline.push({
+        phoneme: extractedPhoneme || 'unknown',
+        status: 'mastered',
+        date: b.resolvedAt || b.updatedAt || new Date(),
+        daysToMastery: b.timeToMasteryDays || 0,
+        occurrenceCount: b.occurrenceCount || 1,
+        milestone: this.getMilestoneLabel(b.timeToMasteryDays || 0),
+      });
+    }
+    
+    // Add active struggle entries
+    for (const a of activeStruggles) {
+      const extractedPhoneme = this.extractPhonemeFromDescription(a.description || '');
+      if (phoneme && extractedPhoneme !== phoneme) continue;
+      
+      const daysSinceStart = a.createdAt 
+        ? Math.round((Date.now() - new Date(a.createdAt).getTime()) / (1000 * 60 * 60 * 24))
+        : 0;
+      
+      timeline.push({
+        phoneme: extractedPhoneme || 'unknown',
+        status: 'in_progress',
+        date: a.lastOccurredAt || a.createdAt || new Date(),
+        daysInProgress: daysSinceStart,
+        occurrenceCount: a.occurrenceCount || 1,
+        progressEstimate: this.estimateProgressPercent(a.occurrenceCount || 1, daysSinceStart),
+      });
+    }
+    
+    return timeline.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }
+  
+  // Helper methods for drill recommendations
+  
+  private extractPhonemeFromDescription(description: string): string | null {
+    // Pattern: "Struggling with X pronunciation" or "pronunciation:X"
+    const patterns = [
+      /Struggling with (\w+) pronunciation/i,
+      /pronunciation:(\w+)/i,
+      /(\w+) sound/i,
+      /phoneme[:\s]+(\w+)/i,
+    ];
+    
+    for (const pattern of patterns) {
+      const match = description.match(pattern);
+      if (match && match[1]) {
+        return match[1].toLowerCase();
+      }
+    }
+    
+    return null;
+  }
+  
+  private getRecencyWeight(lastOccurred: Date | null): number {
+    if (!lastOccurred) return 0.5;
+    const daysSince = (Date.now() - new Date(lastOccurred).getTime()) / (1000 * 60 * 60 * 24);
+    if (daysSince < 1) return 2;
+    if (daysSince < 3) return 1.5;
+    if (daysSince < 7) return 1;
+    if (daysSince < 14) return 0.5;
+    return 0.2;
+  }
+  
+  private getRecommendationReason(occurrenceCount: number, lastOccurred: Date | null): string {
+    const daysSince = lastOccurred 
+      ? Math.round((Date.now() - new Date(lastOccurred).getTime()) / (1000 * 60 * 60 * 24))
+      : null;
+    
+    if (occurrenceCount >= 5) {
+      return `High priority: struggled ${occurrenceCount} times`;
+    } else if (daysSince !== null && daysSince < 2) {
+      return 'Recent struggle - reinforce now for best retention';
+    } else if (occurrenceCount >= 3) {
+      return `Recurring challenge (${occurrenceCount} times)`;
+    }
+    return 'Targeted practice recommended';
+  }
+  
+  private inferDifficultyFromOccurrences(occurrenceCount: number): 'beginner' | 'intermediate' | 'advanced' {
+    if (occurrenceCount >= 5) return 'advanced';
+    if (occurrenceCount >= 3) return 'intermediate';
+    return 'beginner';
+  }
+  
+  private estimateDrillDuration(phoneme: string, occurrenceCount: number): number {
+    // Base duration + extra time for higher occurrence counts
+    const base = 3;
+    const extra = Math.min(occurrenceCount * 0.5, 5);
+    return Math.round(base + extra);
+  }
+  
+  private getMilestoneLabel(daysToMastery: number): string {
+    if (daysToMastery <= 1) return 'Quick Mastery!';
+    if (daysToMastery <= 3) return 'Fast Learner';
+    if (daysToMastery <= 7) return 'Steady Progress';
+    if (daysToMastery <= 14) return 'Determined';
+    return 'Persistent Champion';
+  }
+  
+  private estimateProgressPercent(occurrenceCount: number, daysInProgress: number): number {
+    // Rough estimate - more occurrences = closer to breakthrough
+    // Based on typical 3-5 occurrences before mastery
+    const avgToMastery = 4;
+    const progressFromOccurrences = Math.min(occurrenceCount / avgToMastery, 0.8);
+    const progressFromTime = Math.min(daysInProgress / 7, 0.2);
+    return Math.round((progressFromOccurrences + progressFromTime) * 100);
+  }
 }
 
 // Velocity tracking types
@@ -2782,6 +3052,33 @@ export interface VelocityAnalytics {
     breakthroughs: number;
     avgMasteryDays: number;
   }>;
+}
+
+// Drill recommendation types
+export interface DrillRecommendation {
+  phoneme: string;
+  language: string;
+  priorityScore: number;
+  reason: string;
+  struggleId?: string;
+  occurrenceCount?: number;
+  occurenceCount?: number; // Typo variant for backwards compat
+  lastPracticed?: Date | null;
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  estimatedMinutes: number;
+  crossStudentCommonality?: number;
+  isProactive?: boolean;
+}
+
+export interface DrillProgressEntry {
+  phoneme: string;
+  status: 'mastered' | 'in_progress' | 'not_started';
+  date: Date;
+  daysToMastery?: number;
+  daysInProgress?: number;
+  occurrenceCount: number;
+  milestone?: string;
+  progressEstimate?: number;
 }
 
 export const studentLearningService = new StudentLearningService();

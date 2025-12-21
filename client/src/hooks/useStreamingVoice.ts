@@ -74,6 +74,29 @@ export interface StreamingSessionConfig {
    * Supports both intra-language (gender only) and cross-language (gender + language) handoffs
    */
   onTutorHandoff?: (handoff: TutorHandoffInfo) => void;
+  /** Called when pronunciation coaching feedback is received from Deepgram word-level analysis */
+  onPronunciationCoaching?: (coaching: PronunciationCoachingData) => void;
+}
+
+/**
+ * Pronunciation coaching data from word-level confidence analysis
+ */
+export interface PronunciationCoachingData {
+  overallScore: number;
+  wordFeedback: Array<{
+    word: string;
+    confidence: number;
+    status: 'excellent' | 'good' | 'needs_work' | 'difficult';
+    suggestion?: string;
+  }>;
+  coachingTips: string[];
+  encouragement: string;
+  lowConfidenceWords: string[];
+  phonemeHints: Array<{
+    phoneme: string;
+    word: string;
+    tip: string;
+  }>;
 }
 
 /**
@@ -654,6 +677,39 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   }, []);
   
   /**
+   * Handle pronunciation coaching feedback from server
+   * Provides real-time feedback based on Deepgram word-level confidence scores
+   */
+  const handlePronunciationCoaching = useCallback((message: {
+    type: string;
+    timestamp: number;
+    turnId: string;
+    coaching: {
+      overallScore: number;
+      wordFeedback: Array<{
+        word: string;
+        confidence: number;
+        status: 'excellent' | 'good' | 'needs_work' | 'difficult';
+        suggestion?: string;
+      }>;
+      coachingTips: string[];
+      encouragement: string;
+      lowConfidenceWords: string[];
+      phonemeHints: Array<{
+        phoneme: string;
+        word: string;
+        tip: string;
+      }>;
+    };
+  }) => {
+    console.log(`[StreamingVoice] Pronunciation coaching: ${message.coaching.overallScore}% score, ${message.coaching.lowConfidenceWords.length} words need attention`);
+    
+    if (sessionConfigRef.current?.onPronunciationCoaching) {
+      sessionConfigRef.current.onPronunciationCoaching(message.coaching);
+    }
+  }, []);
+  
+  /**
    * Handle VAD speech started event (open mic mode)
    */
   const handleVadSpeechStarted = useCallback((message: { type: string }) => {
@@ -782,6 +838,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('wordTimingFinal', handleWordTimingFinal);  // Progressive streaming
       clientRef.current.on('responseComplete', handleResponseComplete);
       clientRef.current.on('whiteboardUpdate', handleWhiteboardUpdate);  // Enriched whiteboard items
+      clientRef.current.on('pronunciationCoaching', handlePronunciationCoaching);  // Live pronunciation feedback
       clientRef.current.on('error', handleError);
       clientRef.current.on('vadSpeechStarted', handleVadSpeechStarted);  // Open mic VAD
       clientRef.current.on('vadUtteranceEnd', handleVadUtteranceEnd);  // Open mic VAD
@@ -819,7 +876,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       setError(err.message);
       throw err;
     }
-  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript]);
+  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript]);
   
   /**
    * Disconnect from streaming voice service
@@ -840,6 +897,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.off('wordTimingFinal', handleWordTimingFinal);  // Progressive streaming
       clientRef.current.off('responseComplete', handleResponseComplete);
       clientRef.current.off('whiteboardUpdate', handleWhiteboardUpdate);  // Enriched whiteboard items
+      clientRef.current.off('pronunciationCoaching', handlePronunciationCoaching);  // Live pronunciation feedback
       clientRef.current.off('error', handleError);
       clientRef.current.off('vadSpeechStarted', handleVadSpeechStarted);  // Open mic VAD
       clientRef.current.off('vadUtteranceEnd', handleVadUtteranceEnd);  // Open mic VAD
@@ -864,7 +922,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       tutorSwitchTimeoutRef.current = null;
     }
     setIsSwitchingTutor(false);
-  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, subtitles]);
+  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, subtitles]);
   
   /**
    * Send audio for processing

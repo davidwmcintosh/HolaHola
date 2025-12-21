@@ -85,6 +85,17 @@ interface SubmitResult {
   sessionSummary?: SessionSummary;
 }
 
+interface DrillProgressEntry {
+  phoneme: string;
+  status: 'mastered' | 'in_progress' | 'not_started';
+  date: string;
+  daysToMastery?: number;
+  daysInProgress?: number;
+  occurrenceCount: number;
+  milestone?: string;
+  progressEstimate?: number;
+}
+
 const LANGUAGE_OPTIONS = [
   { value: 'spanish', label: 'Spanish' },
   { value: 'french', label: 'French' },
@@ -127,6 +138,13 @@ export default function PronunciationDrill() {
   const { data: struggles } = useQuery<{ struggles: PhonemeChallenge[] }>({
     queryKey: ['/api/pronunciation-drills/struggles', selectedLanguage],
     queryFn: () => fetch(`/api/pronunciation-drills/struggles?language=${selectedLanguage}`).then(r => r.json()),
+    enabled: !!selectedLanguage,
+  });
+
+  // Query for pronunciation progress timeline
+  const { data: progressTimeline } = useQuery<DrillProgressEntry[]>({
+    queryKey: ['/api/pronunciation-drills/progress-timeline', selectedLanguage],
+    queryFn: () => fetch(`/api/pronunciation-drills/progress-timeline?language=${selectedLanguage}`).then(r => r.json()),
     enabled: !!selectedLanguage,
   });
 
@@ -611,6 +629,94 @@ export default function PronunciationDrill() {
                   )}
                 </Badge>
               ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Pronunciation Progress Timeline */}
+      {progressTimeline && progressTimeline.length > 0 && (
+        <Card data-testid="section-progress-timeline">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-amber-500" />
+              Your Progress Journey
+            </CardTitle>
+            <CardDescription>
+              Track your pronunciation improvement over time
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="relative">
+              {/* Timeline line */}
+              <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-muted" />
+              
+              <div className="space-y-4">
+                {progressTimeline.map((entry, index) => (
+                  <div 
+                    key={`${entry.phoneme}-${index}`} 
+                    className="relative flex items-start gap-4 pl-10"
+                    data-testid={`timeline-entry-${entry.phoneme}`}
+                  >
+                    {/* Timeline dot */}
+                    <div className={`absolute left-2.5 w-3 h-3 rounded-full border-2 ${
+                      entry.status === 'mastered' 
+                        ? 'bg-green-500 border-green-600' 
+                        : entry.status === 'in_progress'
+                          ? 'bg-amber-500 border-amber-600'
+                          : 'bg-muted border-muted-foreground'
+                    }`} />
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="outline" className="font-mono">
+                          {entry.phoneme}
+                        </Badge>
+                        <Badge className={
+                          entry.status === 'mastered' 
+                            ? 'bg-green-500/20 text-green-700 dark:text-green-300' 
+                            : entry.status === 'in_progress'
+                              ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                              : 'bg-muted text-muted-foreground'
+                        }>
+                          {entry.status === 'mastered' ? 'Mastered' : entry.status === 'in_progress' ? 'In Progress' : 'Not Started'}
+                        </Badge>
+                        {entry.milestone && (
+                          <Badge variant="secondary" className="text-xs">
+                            {entry.milestone}
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      <div className="mt-1 text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
+                        {entry.status === 'mastered' && entry.daysToMastery !== undefined && (
+                          <span>Mastered in {entry.daysToMastery} day{entry.daysToMastery !== 1 ? 's' : ''}</span>
+                        )}
+                        {entry.status === 'in_progress' && (
+                          <>
+                            {entry.daysInProgress !== undefined && (
+                              <span>Practicing for {entry.daysInProgress} day{entry.daysInProgress !== 1 ? 's' : ''}</span>
+                            )}
+                            {entry.progressEstimate !== undefined && (
+                              <span className="text-xs">({entry.progressEstimate}% progress)</span>
+                            )}
+                          </>
+                        )}
+                        <span className="text-xs opacity-75">
+                          {new Date(entry.date).toLocaleDateString()}
+                        </span>
+                      </div>
+
+                      {/* Progress bar for in-progress items */}
+                      {entry.status === 'in_progress' && entry.progressEstimate !== undefined && (
+                        <div className="mt-2 w-full max-w-xs">
+                          <Progress value={entry.progressEstimate} className="h-1.5" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </CardContent>
         </Card>

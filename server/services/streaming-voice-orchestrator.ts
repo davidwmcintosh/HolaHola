@@ -22,7 +22,8 @@
  */
 
 import { createClient } from "@deepgram/sdk";
-import { getDeepgramLanguageCode, DeepgramIntelligence, DeepgramSentiment, DeepgramIntent, DeepgramEntity, DeepgramTopic, transcribeWithLiveAPI } from "./deepgram-live-stt";
+import { getDeepgramLanguageCode, DeepgramIntelligence, DeepgramSentiment, DeepgramIntent, DeepgramEntity, DeepgramTopic, transcribeWithLiveAPI, TranscriptionResult } from "./deepgram-live-stt";
+import { analyzePronunciation, generateQuickCoaching, PronunciationCoaching } from "./live-pronunciation-coach";
 import { getGeminiStreamingService, SentenceChunk } from "./gemini-streaming";
 import { getCartesiaStreamingService } from "./cartesia-streaming";
 import { WebSocket as WS } from "ws";
@@ -1016,8 +1017,8 @@ export class StreamingVoiceOrchestrator {
         }),
       ]);
       
-      // Extract transcript, pronunciation confidence, and intelligence data (per-session, no race conditions)
-      const { transcript, confidence: pronunciationConfidence, intelligence } = transcriptionResult;
+      // Extract transcript, pronunciation confidence, intelligence data, and word-level data (per-session, no race conditions)
+      const { transcript, confidence: pronunciationConfidence, intelligence, words } = transcriptionResult;
       
       metrics.sttLatencyMs = Date.now() - sttStart;
       
@@ -1034,6 +1035,31 @@ export class StreamingVoiceOrchestrator {
       
       // Track STT confidence for adaptive speech rate
       trackSttConfidence(session, pronunciationConfidence);
+      
+      // LIVE PRONUNCIATION COACHING: Analyze word-level confidence and send coaching feedback
+      // Only send for non-founder modes when there's word-level data available
+      if (words && words.length > 0 && !session.isFounderMode) {
+        const coaching = analyzePronunciation(words, session.targetLanguage, transcript);
+        
+        // Only send coaching if there are pronunciation issues to address
+        if (coaching.needsAttention || coaching.overallScore < 85) {
+          console.log(`[Pronunciation Coach] Score: ${coaching.overallScore}%, Attention: ${coaching.lowConfidenceWords.join(', ')}`);
+          
+          this.sendMessage(session.ws, {
+            type: 'pronunciation_coaching',
+            timestamp: Date.now(),
+            turnId,
+            coaching: {
+              overallScore: coaching.overallScore,
+              wordFeedback: coaching.wordFeedback,
+              coachingTips: coaching.coachingTips,
+              encouragement: coaching.encouragement,
+              lowConfidenceWords: coaching.lowConfidenceWords,
+              phonemeHints: coaching.phonemeHints,
+            },
+          });
+        }
+      }
       
       if (!transcript.trim()) {
         // Empty transcript - gracefully notify client and return
@@ -2530,7 +2556,7 @@ Remember: David may reference things discussed in these recent text chats.
     targetLanguage: string,
     nativeLanguage: string = 'english',
     isFounderMode: boolean = false
-  ): Promise<{ transcript: string; confidence: number; intelligence?: DeepgramIntelligence }> {
+  ): Promise<{ transcript: string; confidence: number; intelligence?: DeepgramIntelligence; words?: TranscriptionResult['words'] }> {
     // MULTI-LANGUAGE: Always use multi-language detection
     // Students naturally mix native + target language during lessons
     const languageCode = 'multi';
@@ -2552,13 +2578,14 @@ Remember: David may reference things discussed in these recent text chats.
       if (!result.transcript) {
         console.log('[Deepgram Live] Empty transcript returned');
       } else {
-        console.log(`[Deepgram Live] Result: "${result.transcript.substring(0, 50)}..." (${(result.confidence * 100).toFixed(0)}%, ${result.durationMs}ms)`);
+        console.log(`[Deepgram Live] Result: "${result.transcript.substring(0, 50)}..." (${(result.confidence * 100).toFixed(0)}%, ${result.durationMs}ms, ${result.words?.length || 0} words)`);
       }
       
       return { 
         transcript: result.transcript, 
         confidence: result.confidence, 
-        intelligence: result.intelligence 
+        intelligence: result.intelligence,
+        words: result.words,
       };
     } catch (error: any) {
       console.error(`[Deepgram Live] Error: ${error.message}`);

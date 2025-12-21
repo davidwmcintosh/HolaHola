@@ -32,6 +32,7 @@ import {
   danielaGrowthMemories,
   learnerPersonalFacts,
   hiveSnapshots,
+  recurringStruggles,
 } from "@shared/schema";
 import { hasTeacherAccess, hasDeveloperAccess } from "@shared/permissions";
 import OpenAI, { toFile } from "openai";
@@ -10134,6 +10135,294 @@ Return ONLY the ${targetLanguage} phrase:`;
       res.json({ summary });
     } catch (error: any) {
       console.error('[Pronunciation Drill] End session error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // ===== Adaptive Drill Recommendations =====
+  
+  // Get personalized drill recommendations for a student
+  app.get("/api/pronunciation-drills/recommendations", isAuthenticated, async (req: any, res) => {
+    try {
+      const { studentLearningService } = await import("./services/student-learning-service");
+      const userId = req.user?.claims?.sub;
+      const language = (req.query.language as string) || 'spanish';
+      const limit = parseInt(req.query.limit as string) || 5;
+      
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+      
+      const recommendations = await studentLearningService.getDrillRecommendations(userId, language, limit);
+      res.json(recommendations);
+    } catch (error: any) {
+      console.error('[Drill Recommendations] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get pronunciation progress timeline for a student
+  app.get("/api/pronunciation-drills/progress-timeline", isAuthenticated, async (req: any, res) => {
+    try {
+      const { studentLearningService } = await import("./services/student-learning-service");
+      const userId = req.user?.claims?.sub;
+      const language = (req.query.language as string) || 'spanish';
+      const phoneme = req.query.phoneme as string | undefined;
+      
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+      
+      const timeline = await studentLearningService.getDrillProgressTimeline(userId, language, phoneme);
+      res.json(timeline);
+    } catch (error: any) {
+      console.error('[Drill Progress Timeline] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // ===== Session Replay System =====
+  // Get past voice sessions for a student
+  app.get("/api/session-replay/sessions", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const language = req.query.language as string | undefined;
+      const limit = parseInt(req.query.limit as string) || 20;
+      
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+      
+      // Get voice sessions with conversation details
+      let query = db.select({
+        id: voiceSessions.id,
+        conversationId: voiceSessions.conversationId,
+        startedAt: voiceSessions.startedAt,
+        endedAt: voiceSessions.endedAt,
+        durationSeconds: voiceSessions.durationSeconds,
+        exchangeCount: voiceSessions.exchangeCount,
+        language: voiceSessions.language,
+        status: voiceSessions.status,
+        conversationTitle: conversations.title,
+        conversationTopic: conversations.topic,
+        actflLevel: conversations.actflLevel,
+        messageCount: conversations.messageCount,
+      })
+      .from(voiceSessions)
+      .leftJoin(conversations, eq(voiceSessions.conversationId, conversations.id))
+      .where(eq(voiceSessions.userId, userId))
+      .orderBy(desc(voiceSessions.startedAt))
+      .limit(limit);
+      
+      // Filter by language if specified
+      if (language) {
+        query = db.select({
+          id: voiceSessions.id,
+          conversationId: voiceSessions.conversationId,
+          startedAt: voiceSessions.startedAt,
+          endedAt: voiceSessions.endedAt,
+          durationSeconds: voiceSessions.durationSeconds,
+          exchangeCount: voiceSessions.exchangeCount,
+          language: voiceSessions.language,
+          status: voiceSessions.status,
+          conversationTitle: conversations.title,
+          conversationTopic: conversations.topic,
+          actflLevel: conversations.actflLevel,
+          messageCount: conversations.messageCount,
+        })
+        .from(voiceSessions)
+        .leftJoin(conversations, eq(voiceSessions.conversationId, conversations.id))
+        .where(and(
+          eq(voiceSessions.userId, userId),
+          eq(voiceSessions.language, language)
+        ))
+        .orderBy(desc(voiceSessions.startedAt))
+        .limit(limit);
+      }
+      
+      const sessions = await query;
+      res.json({ sessions });
+    } catch (error: any) {
+      console.error('[Session Replay] Error fetching sessions:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get session details with messages for replay
+  app.get("/api/session-replay/sessions/:sessionId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const { sessionId } = req.params;
+      
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+      
+      // Get session
+      const [session] = await db.select()
+        .from(voiceSessions)
+        .where(and(
+          eq(voiceSessions.id, sessionId),
+          eq(voiceSessions.userId, userId)
+        ))
+        .limit(1);
+      
+      if (!session) {
+        return res.status(404).json({ error: 'Session not found' });
+      }
+      
+      // Get conversation messages if available
+      let sessionMessages: any[] = [];
+      if (session.conversationId) {
+        sessionMessages = await db.select({
+          id: messages.id,
+          role: messages.role,
+          content: messages.content,
+          targetLanguageText: messages.targetLanguageText,
+          wordTimingsJson: messages.wordTimingsJson,
+          performanceScore: messages.performanceScore,
+          actflLevel: messages.actflLevel,
+          createdAt: messages.createdAt,
+        })
+        .from(messages)
+        .where(eq(messages.conversationId, session.conversationId))
+        .orderBy(asc(messages.createdAt));
+      }
+      
+      res.json({
+        session,
+        messages: sessionMessages,
+      });
+    } catch (error: any) {
+      console.error('[Session Replay] Error fetching session details:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // ===== Cross-Student Pattern Synthesis (Teachers) =====
+  // Get pronunciation patterns across students in a class
+  app.get("/api/teacher/classes/:classId/pronunciation-patterns", isAuthenticated, async (req: any, res) => {
+    try {
+      const teacherId = req.user?.claims?.sub;
+      const { classId } = req.params;
+      const user = await storage.getUser(teacherId);
+      
+      if (!hasTeacherAccess(user?.role)) {
+        return res.status(403).json({ error: "Teacher access required" });
+      }
+      
+      // Verify teacher owns this class (or is admin)
+      const teacherClass = await storage.getTeacherClass(classId);
+      if (!teacherClass) {
+        return res.status(404).json({ error: "Class not found" });
+      }
+      
+      if (user?.role !== 'admin' && teacherClass.teacherId !== teacherId) {
+        return res.status(403).json({ error: "Not authorized for this class" });
+      }
+      
+      // Get all students in the class
+      const enrollments = await db.select({
+        userId: classEnrollments.studentId,
+      })
+      .from(classEnrollments)
+      .where(eq(classEnrollments.classId, classId));
+      
+      const studentIds = enrollments.map(e => e.userId);
+      
+      if (studentIds.length === 0) {
+        return res.json({
+          patterns: [],
+          studentCount: 0,
+          language: teacherClass.language,
+        });
+      }
+      
+      // Get pronunciation-specific struggles for all students in the class
+      const struggles = await db.select({
+        struggleArea: recurringStruggles.struggleArea,
+        description: recurringStruggles.description,
+        studentId: recurringStruggles.studentId,
+        occurrenceCount: recurringStruggles.occurrenceCount,
+        status: recurringStruggles.status,
+        specificExamples: recurringStruggles.specificExamples,
+      })
+      .from(recurringStruggles)
+      .where(and(
+        inArray(recurringStruggles.studentId, studentIds),
+        eq(recurringStruggles.language, teacherClass.language),
+        eq(recurringStruggles.status, 'active'),
+        eq(recurringStruggles.struggleArea, 'pronunciation') // Only pronunciation struggles
+      ));
+      
+      // Aggregate patterns by phoneme/description - extract phoneme from description
+      const patternMap = new Map<string, {
+        phoneme: string;
+        description: string;
+        studentCount: number;
+        totalOccurrences: number;
+        studentIds: Set<string>;
+        severityCounts: { mild: number; moderate: number; severe: number };
+      }>();
+      
+      for (const struggle of struggles) {
+        // Extract phoneme from description (e.g., "rolling R" -> "R", "nasal sounds" -> "nasal")
+        const descParts = struggle.description?.split(':') || ['Unknown'];
+        const phoneme = descParts[0].trim();
+        const key = phoneme.toLowerCase();
+        
+        const existing = patternMap.get(key);
+        // Determine severity based on occurrence count
+        const occCount = struggle.occurrenceCount || 1;
+        const severity = occCount <= 2 ? 'mild' : occCount <= 5 ? 'moderate' : 'severe';
+        
+        if (existing) {
+          existing.studentIds.add(struggle.studentId);
+          existing.studentCount = existing.studentIds.size;
+          existing.totalOccurrences += occCount;
+          existing.severityCounts[severity]++;
+        } else {
+          patternMap.set(key, {
+            phoneme,
+            description: struggle.description || 'Unknown',
+            studentCount: 1,
+            totalOccurrences: occCount,
+            studentIds: new Set([struggle.studentId]),
+            severityCounts: {
+              mild: severity === 'mild' ? 1 : 0,
+              moderate: severity === 'moderate' ? 1 : 0,
+              severe: severity === 'severe' ? 1 : 0,
+            },
+          });
+        }
+      }
+      
+      // Convert to sorted array (most common patterns first)
+      const patterns = Array.from(patternMap.values())
+        .map(p => {
+          const totalSev = p.severityCounts.mild + p.severityCounts.moderate + p.severityCounts.severe;
+          const avgSeverity = totalSev > 0 
+            ? (p.severityCounts.mild * 1 + p.severityCounts.moderate * 3 + p.severityCounts.severe * 5) / totalSev 
+            : 3;
+          return {
+            phoneme: p.phoneme,
+            description: p.description,
+            studentCount: p.studentCount,
+            totalOccurrences: p.totalOccurrences,
+            prevalencePercent: Math.round((p.studentCount / studentIds.length) * 100),
+            averageSeverity: Math.round(avgSeverity * 10) / 10,
+            severityCounts: p.severityCounts,
+          };
+        })
+        .sort((a, b) => b.studentCount - a.studentCount);
+      
+      res.json({
+        patterns,
+        studentCount: studentIds.length,
+        language: teacherClass.language,
+      });
+    } catch (error: any) {
+      console.error('[Pattern Synthesis] Error:', error);
       res.status(500).json({ error: error.message });
     }
   });

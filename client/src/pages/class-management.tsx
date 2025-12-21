@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Copy, Plus, Trash2, Users, ClipboardList, BookOpen, UserMinus, Sparkles, AlertCircle, CheckCircle, TrendingDown, TrendingUp, Layers, Pencil, RotateCcw } from "lucide-react";
+import { Copy, Plus, Trash2, Users, ClipboardList, BookOpen, UserMinus, Sparkles, AlertCircle, CheckCircle, TrendingDown, TrendingUp, Layers, Pencil, RotateCcw, Mic, Loader2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useParams, Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -77,6 +77,131 @@ interface Assignment {
   dueDate: Date | null;
   isPublished: boolean;
   createdAt: Date;
+}
+
+interface PronunciationPattern {
+  phoneme: string;
+  description: string;
+  studentCount: number;
+  totalOccurrences: number;
+  prevalencePercent: number;
+  averageSeverity: number;
+  severityCounts: { mild: number; moderate: number; severe: number };
+}
+
+interface PatternsData {
+  patterns: PronunciationPattern[];
+  studentCount: number;
+  language: string;
+}
+
+function PronunciationPatterns({ classId }: { classId: string }) {
+  const { data, isLoading } = useQuery<PatternsData>({
+    queryKey: ['/api/teacher/classes', classId, 'pronunciation-patterns'],
+    queryFn: () => fetch(`/api/teacher/classes/${classId}/pronunciation-patterns`).then(r => r.json()),
+    enabled: !!classId,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-8">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!data || data.patterns.length === 0) {
+    return (
+      <Card className="p-12">
+        <div className="text-center space-y-4">
+          <div className="flex justify-center">
+            <div className="p-4 bg-muted rounded-full">
+              <Mic className="w-12 h-12 text-muted-foreground" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-xl font-semibold">No Pronunciation Patterns Yet</h3>
+            <p className="text-muted-foreground max-w-md mx-auto">
+              As students practice with voice chat, common pronunciation patterns will appear here to help you identify class-wide areas for improvement.
+            </p>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
+  const getSeverityColor = (severity: number) => {
+    if (severity <= 2) return 'bg-green-500/20 text-green-700 dark:text-green-300';
+    if (severity <= 3.5) return 'bg-amber-500/20 text-amber-700 dark:text-amber-300';
+    return 'bg-red-500/20 text-red-700 dark:text-red-300';
+  };
+
+  const getSeverityLabel = (severity: number) => {
+    if (severity <= 2) return 'Mild';
+    if (severity <= 3.5) return 'Moderate';
+    return 'Severe';
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-semibold">Cross-Student Pronunciation Patterns</h2>
+          <p className="text-muted-foreground">
+            Common pronunciation challenges across {data.studentCount} student{data.studentCount !== 1 ? 's' : ''} learning {data.language}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-4">
+        {data.patterns.map((pattern, index) => (
+          <Card key={`${pattern.phoneme}-${index}`} data-testid={`card-pattern-${index}`}>
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-lg bg-violet-100 dark:bg-violet-800">
+                    <span className="text-2xl font-bold text-violet-700 dark:text-violet-300">
+                      {pattern.phoneme.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-medium text-lg">{pattern.phoneme}</p>
+                      <Badge className={getSeverityColor(pattern.averageSeverity)}>
+                        {getSeverityLabel(pattern.averageSeverity)} difficulty
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {pattern.studentCount} student{pattern.studentCount !== 1 ? 's' : ''} ({pattern.prevalencePercent}% of class) • {pattern.totalOccurrences} total occurrences
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-3xl font-bold text-primary">{pattern.prevalencePercent}%</div>
+                  <div className="text-xs text-muted-foreground">prevalence</div>
+                </div>
+              </div>
+
+              <div className="mt-4 flex gap-3">
+                <div className="flex items-center gap-1.5 text-xs">
+                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                  <span>{pattern.severityCounts.mild} mild</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs">
+                  <div className="w-2 h-2 rounded-full bg-amber-500" />
+                  <span>{pattern.severityCounts.moderate} moderate</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs">
+                  <div className="w-2 h-2 rounded-full bg-red-500" />
+                  <span>{pattern.severityCounts.severe} severe</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function ClassManagement() {
@@ -449,6 +574,10 @@ export default function ClassManagement() {
             <Sparkles className="h-4 w-4" />
             Organic Progress
           </TabsTrigger>
+          <TabsTrigger value="patterns" data-testid="tab-patterns" className="gap-1">
+            <Mic className="h-4 w-4" />
+            Pronunciation Patterns
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="students" className="space-y-4">
@@ -729,6 +858,10 @@ export default function ClassManagement() {
 
         <TabsContent value="progress">
           <TeacherEarlyCompletions classId={classId || ''} />
+        </TabsContent>
+
+        <TabsContent value="patterns" className="space-y-4">
+          <PronunciationPatterns classId={classId || ''} />
         </TabsContent>
       </Tabs>
 

@@ -684,6 +684,32 @@ export class StreamingVoiceClient {
           this.emit('feedback', message as { type: string; feedbackType: string; message: string });
           break;
           
+        case 'pronunciation_coaching':
+          // Live pronunciation coaching feedback with word-level analysis
+          this.emit('pronunciationCoaching', message as {
+            type: string;
+            timestamp: number;
+            turnId: string;
+            coaching: {
+              overallScore: number;
+              wordFeedback: Array<{
+                word: string;
+                confidence: number;
+                status: 'excellent' | 'good' | 'needs_work' | 'difficult';
+                suggestion?: string;
+              }>;
+              coachingTips: string[];
+              encouragement: string;
+              lowConfidenceWords: string[];
+              phonemeHints: Array<{
+                phoneme: string;
+                word: string;
+                tip: string;
+              }>;
+            };
+          });
+          break;
+          
         case 'voice_updated':
           // Voice switch confirmation
           this.emit('voiceUpdated', message as { type: string; gender: string; voiceName: string; timestamp: number });

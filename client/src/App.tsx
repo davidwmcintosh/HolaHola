@@ -52,6 +52,7 @@ const Lessons = lazy(() => import("@/pages/lessons"));
 const ReviewHub = lazy(() => import("@/pages/review-hub"));
 const ArisPractice = lazy(() => import("@/pages/aris-practice"));
 const PronunciationDrill = lazy(() => import("@/pages/pronunciation-drill"));
+const SessionReplay = lazy(() => import("@/pages/session-replay"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 
 // Auth pages
@@ -150,6 +151,7 @@ function Router() {
         <Route path="/aris" component={ArisPractice} />
         <Route path="/pronunciation" component={PronunciationDrill} />
         <Route path="/pronunciation-drill" component={PronunciationDrill} />
+        <Route path="/session-replay" component={SessionReplay} />
         
         {/* Teacher Routes - Protected */}
         <Route path="/teacher/dashboard" component={TeacherDashboard} />
