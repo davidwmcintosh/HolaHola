@@ -5999,7 +5999,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   app.get("/api/vocabulary/filtered", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { language, timeFilter, topicId, sourceConversationId } = req.query;
+      const { language, timeFilter, topicId, sourceConversationId, classId } = req.query;
       
       if (!language) {
         return res.status(400).json({ error: "Language parameter is required" });
@@ -6008,7 +6008,8 @@ Return ONLY the ${targetLanguage} phrase:`;
       const vocabulary = await storage.getFilteredVocabulary(userId, language as string, {
         timeFilter: timeFilter as 'today' | 'week' | 'month' | 'older' | undefined,
         topicId: topicId as string | undefined,
-        sourceConversationId: sourceConversationId as string | undefined
+        sourceConversationId: sourceConversationId as string | undefined,
+        classId: classId as string | undefined
       });
       
       res.json(vocabulary);

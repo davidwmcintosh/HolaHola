@@ -613,6 +613,7 @@ export interface IStorage {
     timeFilter?: 'today' | 'week' | 'month' | 'older';
     topicId?: string;
     sourceConversationId?: string;
+    classId?: string;
   }): Promise<VocabularyWord[]>;
 
   // Phase 2: Conversation topic tagging
@@ -2013,7 +2014,8 @@ export class DatabaseStorage implements IStorage {
           .limit(1);
         
         if (pathResult.length > 0 && pathResult[0].endLevel) {
-          const maxLevelNumeric = actflLevelToNumeric[pathResult[0].endLevel] || 11;
+          // Normalize to lowercase for lookup (stored values may be UPPERCASE)
+          const maxLevelNumeric = actflLevelToNumeric[pathResult[0].endLevel.toLowerCase()] || 11;
           
           // Filter competencies to only those at or below the class's end level
           return await db.select().from(grammarCompetencies)
@@ -4387,11 +4389,61 @@ export class DatabaseStorage implements IStorage {
     timeFilter?: 'today' | 'week' | 'month' | 'older';
     topicId?: string;
     sourceConversationId?: string;
+    classId?: string;
   }): Promise<VocabularyWord[]> {
+    // ACTFL level to numeric mapping
+    const actflLevelToNumeric: Record<string, number> = {
+      'novice_low': 1,
+      'novice_mid': 2,
+      'novice_high': 3,
+      'intermediate_low': 4,
+      'intermediate_mid': 5,
+      'intermediate_high': 6,
+      'advanced_low': 7,
+      'advanced_mid': 8,
+      'advanced_high': 9,
+      'superior': 10,
+      'distinguished': 11,
+    };
+    
     const conditions: any[] = [
       eq(vocabularyWords.userId, userId),
       eq(vocabularyWords.language, language)
     ];
+    
+    // Class-based ACTFL level filtering
+    if (filter.classId) {
+      const classResult = await db.select({
+        curriculumPathId: teacherClasses.curriculumPathId,
+      })
+        .from(teacherClasses)
+        .where(eq(teacherClasses.id, filter.classId))
+        .limit(1);
+      
+      if (classResult.length > 0 && classResult[0].curriculumPathId) {
+        const pathResult = await db.select({
+          endLevel: curriculumPaths.endLevel,
+        })
+          .from(curriculumPaths)
+          .where(eq(curriculumPaths.id, classResult[0].curriculumPathId))
+          .limit(1);
+        
+        if (pathResult.length > 0 && pathResult[0].endLevel) {
+          // Normalize to lowercase for lookup (stored values may be UPPERCASE)
+          const maxLevel = pathResult[0].endLevel.toLowerCase();
+          // Filter vocabulary to only words at or below the class's end level
+          // Words with no actflLevel are included (legacy data)
+          const allowedLevels = Object.entries(actflLevelToNumeric)
+            .filter(([_, num]) => num <= (actflLevelToNumeric[maxLevel] || 11))
+            .map(([level]) => level);
+          
+          conditions.push(or(
+            isNull(vocabularyWords.actflLevel),
+            sql`LOWER(${vocabularyWords.actflLevel}) IN (${sql.join(allowedLevels.map(l => sql`${l}`), sql`, `)})`
+          ));
+        }
+      }
+    }
     
     // Time-based filtering
     if (filter.timeFilter) {

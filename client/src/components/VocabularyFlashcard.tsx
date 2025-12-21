@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight, RotateCw, Loader2, Check, X, Filter, Calendar, MessageSquare } from "lucide-react";
 import { Link } from "wouter";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useLearningFilter } from "@/contexts/LearningFilterContext";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -35,17 +36,25 @@ interface VocabularyFlashcardProps {
 
 export function VocabularyFlashcard({ timeFilter = 'all' }: VocabularyFlashcardProps) {
   const { language, difficulty } = useLanguage();
+  const { learningContext } = useLearningFilter();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [showDueOnly, setShowDueOnly] = useState(false);
   const { toast } = useToast();
 
+  // Get classId from learning context when filtering by class
+  // When learningContext is not a special value, it IS the classId
+  const classId = learningContext !== 'self-directed' && learningContext !== 'founder-mode' && learningContext !== 'honesty-mode' && learningContext !== 'all-learning'
+    ? learningContext
+    : undefined;
+
   const { data: allWords = [], isLoading } = useQuery<VocabularyWord[]>({
-    queryKey: ["/api/vocabulary/filtered", { language, timeFilter }],
+    queryKey: ["/api/vocabulary/filtered", { language, timeFilter, classId }],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.append('language', language);
       if (timeFilter !== 'all') params.append('timeFilter', timeFilter);
+      if (classId) params.append('classId', classId);
       const url = `/api/vocabulary/filtered?${params.toString()}`;
       const response = await fetch(url, { credentials: 'include' });
       if (!response.ok) throw new Error('Failed to fetch vocabulary');
