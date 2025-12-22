@@ -56,6 +56,18 @@ Tutor names are stored in `tutor_voices.voice_name` and are NOT hardcoded. Main 
 **Speculative PTT Streaming (Performance Optimization):**
 When the user holds the PTT button, audio streams in real-time to Deepgram. Speculative AI Pre-Trigger starts AI generation when 3+ confident words are detected during PTT hold, potentially saving 200-300ms by pre-processing the AI response.
 
+**Syllabus Template Automation (Teacher Workflow):**
+Teachers creating lessons get automatic label prefilling based on lesson type:
+- Conversation → "Let's Chat:", Vocabulary → "New Words:", Grammar → "Grammar Spotlight:", Cultural → "Culture Corner:", Drill → "Practice Time:"
+
+The **Bundle Creation** feature allows one-click creation of linked lesson pairs:
+- Toggle "Create Practice Bundle" when creating a conversation lesson
+- API creates both conversation + drill lessons with proper linkage
+- `linkedDrillLessonId` on conversation points to the drill lesson
+- Both lessons share a `bundleId` for grouping
+- Drill time auto-set to 50% of conversation time
+- API: `POST /api/teacher/classes/:classId/curriculum/units/:unitId/lessons` with `createBundle: true`
+
 ## Azure Pronunciation Assessment (POC - Post-Session Analysis)
 **Architecture:** Post-session batch analysis for drill assignment (not real-time)
 - **Flow:** Voice session ends → Background transcodes audio (WebM→WAV) → Azure analyzes → Stores phoneme struggles → Informs drill recommendations
