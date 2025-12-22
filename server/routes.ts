@@ -13249,6 +13249,103 @@ Current conversation context:
       res.status(500).json({ error: error.message });
     }
   });
+  
+  // Admin: Get available Google TTS voices for assistant tutors
+  app.get("/api/admin/google-voices/:language?/:gender?", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const language = req.params.language?.toLowerCase() || req.query.language?.toLowerCase();
+      const gender = req.params.gender?.toLowerCase() || req.query.gender?.toLowerCase();
+      
+      // Available Google TTS voices per language and gender
+      // Using Neural2 for most languages, Wavenet for those without Neural2
+      const googleVoices = [
+        // English
+        { id: 'en-US-Neural2-F', name: 'Neural2 F (Female)', language: 'english', gender: 'female', languageCode: 'en-US' },
+        { id: 'en-US-Neural2-C', name: 'Neural2 C (Female)', language: 'english', gender: 'female', languageCode: 'en-US' },
+        { id: 'en-US-Neural2-D', name: 'Neural2 D (Male)', language: 'english', gender: 'male', languageCode: 'en-US' },
+        { id: 'en-US-Neural2-A', name: 'Neural2 A (Male)', language: 'english', gender: 'male', languageCode: 'en-US' },
+        // Spanish
+        { id: 'es-US-Neural2-A', name: 'Neural2 A (Female)', language: 'spanish', gender: 'female', languageCode: 'es-US' },
+        { id: 'es-ES-Neural2-A', name: 'Neural2 A Spain (Female)', language: 'spanish', gender: 'female', languageCode: 'es-ES' },
+        { id: 'es-US-Neural2-C', name: 'Neural2 C (Male)', language: 'spanish', gender: 'male', languageCode: 'es-US' },
+        { id: 'es-ES-Neural2-B', name: 'Neural2 B Spain (Male)', language: 'spanish', gender: 'male', languageCode: 'es-ES' },
+        // French
+        { id: 'fr-FR-Neural2-A', name: 'Neural2 A (Female)', language: 'french', gender: 'female', languageCode: 'fr-FR' },
+        { id: 'fr-FR-Neural2-C', name: 'Neural2 C (Female)', language: 'french', gender: 'female', languageCode: 'fr-FR' },
+        { id: 'fr-FR-Neural2-D', name: 'Neural2 D (Male)', language: 'french', gender: 'male', languageCode: 'fr-FR' },
+        { id: 'fr-FR-Neural2-B', name: 'Neural2 B (Male)', language: 'french', gender: 'male', languageCode: 'fr-FR' },
+        // German
+        { id: 'de-DE-Neural2-A', name: 'Neural2 A (Female)', language: 'german', gender: 'female', languageCode: 'de-DE' },
+        { id: 'de-DE-Neural2-C', name: 'Neural2 C (Female)', language: 'german', gender: 'female', languageCode: 'de-DE' },
+        { id: 'de-DE-Neural2-B', name: 'Neural2 B (Male)', language: 'german', gender: 'male', languageCode: 'de-DE' },
+        { id: 'de-DE-Neural2-D', name: 'Neural2 D (Male)', language: 'german', gender: 'male', languageCode: 'de-DE' },
+        // Italian
+        { id: 'it-IT-Neural2-A', name: 'Neural2 A (Female)', language: 'italian', gender: 'female', languageCode: 'it-IT' },
+        { id: 'it-IT-Neural2-B', name: 'Neural2 B (Female)', language: 'italian', gender: 'female', languageCode: 'it-IT' },
+        { id: 'it-IT-Neural2-C', name: 'Neural2 C (Male)', language: 'italian', gender: 'male', languageCode: 'it-IT' },
+        { id: 'it-IT-Neural2-D', name: 'Neural2 D (Male)', language: 'italian', gender: 'male', languageCode: 'it-IT' },
+        // Portuguese
+        { id: 'pt-BR-Neural2-A', name: 'Neural2 A (Female)', language: 'portuguese', gender: 'female', languageCode: 'pt-BR' },
+        { id: 'pt-BR-Neural2-C', name: 'Neural2 C (Female)', language: 'portuguese', gender: 'female', languageCode: 'pt-BR' },
+        { id: 'pt-BR-Neural2-B', name: 'Neural2 B (Male)', language: 'portuguese', gender: 'male', languageCode: 'pt-BR' },
+        // Japanese
+        { id: 'ja-JP-Neural2-B', name: 'Neural2 B (Female)', language: 'japanese', gender: 'female', languageCode: 'ja-JP' },
+        { id: 'ja-JP-Neural2-C', name: 'Neural2 C (Male)', language: 'japanese', gender: 'male', languageCode: 'ja-JP' },
+        { id: 'ja-JP-Neural2-D', name: 'Neural2 D (Male)', language: 'japanese', gender: 'male', languageCode: 'ja-JP' },
+        // Mandarin Chinese (Wavenet - no Neural2 available)
+        { id: 'cmn-CN-Wavenet-A', name: 'Wavenet A (Female)', language: 'mandarin chinese', gender: 'female', languageCode: 'cmn-CN' },
+        { id: 'cmn-CN-Wavenet-D', name: 'Wavenet D (Female)', language: 'mandarin chinese', gender: 'female', languageCode: 'cmn-CN' },
+        { id: 'cmn-CN-Wavenet-B', name: 'Wavenet B (Male)', language: 'mandarin chinese', gender: 'male', languageCode: 'cmn-CN' },
+        { id: 'cmn-CN-Wavenet-C', name: 'Wavenet C (Male)', language: 'mandarin chinese', gender: 'male', languageCode: 'cmn-CN' },
+        // Korean
+        { id: 'ko-KR-Neural2-A', name: 'Neural2 A (Female)', language: 'korean', gender: 'female', languageCode: 'ko-KR' },
+        { id: 'ko-KR-Neural2-B', name: 'Neural2 B (Female)', language: 'korean', gender: 'female', languageCode: 'ko-KR' },
+        { id: 'ko-KR-Neural2-C', name: 'Neural2 C (Male)', language: 'korean', gender: 'male', languageCode: 'ko-KR' },
+      ];
+      
+      // Filter by language and gender if provided
+      let filtered = googleVoices;
+      if (language) {
+        filtered = filtered.filter(v => v.language === language);
+      }
+      if (gender) {
+        filtered = filtered.filter(v => v.gender === gender);
+      }
+      
+      res.json({ voices: filtered, total: filtered.length });
+    } catch (error: any) {
+      console.error('[API] Error fetching Google voices:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Admin: Preview assistant tutor voice (Google TTS)
+  app.post("/api/admin/assistant-voice-preview", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { voiceId, text, language, speakingRate = 1.0 } = req.body;
+      
+      if (!voiceId || !text) {
+        return res.status(400).json({ error: 'voiceId and text are required' });
+      }
+      
+      const { TTSService } = await import('./services/tts-service');
+      const tts = new TTSService();
+      
+      const result = await tts.synthesize({
+        text,
+        language: language || 'en',
+        forceProvider: 'google',
+        speakingRate: Math.max(0.5, Math.min(2.0, speakingRate)),
+        voice: voiceId,
+      });
+      
+      res.set('Content-Type', result.contentType);
+      res.send(result.audioBuffer);
+    } catch (error: any) {
+      console.error('[API] Error previewing assistant voice:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   // ===== AGENT COLLABORATION API =====
   // Cross-agent communication for the Hive Mind (Claude ↔ Gemini ↔ Support)

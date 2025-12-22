@@ -38,6 +38,7 @@ interface TutorVoice {
   id: string;
   language: string;
   gender: 'male' | 'female';
+  role: 'tutor' | 'assistant';
   provider: string;
   voiceId: string;
   voiceName: string;
@@ -831,66 +832,145 @@ export default function VoiceConsole() {
 }
 
 /**
- * Support Agent Voice Entry from API
+ * Google Voice Entry from API
  */
-interface SupportAgentVoice {
+interface GoogleVoice {
+  id: string;
+  name: string;
   language: string;
   gender: 'male' | 'female';
-  voiceId: string;
-  voiceName: string;
   languageCode: string;
 }
 
 /**
- * Support Agent Voice Configuration Section
- * Displays 18 separate voice cards (2 per language: 1 male, 1 female)
- * Uses Google Cloud TTS Chirp 3 HD for cost-effective, professional support voice
+ * Assistant Tutor Voice Configuration Section
+ * Displays assistant tutors from the database with full editing capabilities
+ * Uses Google Cloud TTS (Neural2/Wavenet) for drill practice
  */
 function SupportAgentVoiceCard() {
   const { toast } = useToast();
-  const [playingVoiceKey, setPlayingVoiceKey] = useState<string | null>(null);
+  const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingVoice, setEditingVoice] = useState<TutorVoice | null>(null);
   
-  // Fetch support voice metadata (flat array of 18 voices)
-  const { data: supportVoiceMeta, isLoading } = useQuery<{
-    provider: string;
-    model: string;
-    voices: SupportAgentVoice[];
-    audioConfig: {
-      speakingRateRange: { min: number; max: number; default: number };
-      pitchRange: { min: number; max: number; default: number };
-    };
-    description: string;
-  }>({
-    queryKey: ["/api/admin/support-voice-meta"],
+  // Form state for editing
+  const [formData, setFormData] = useState({
+    language: '',
+    gender: 'female' as 'male' | 'female',
+    voiceId: '',
+    voiceName: '',
+    languageCode: '',
+    speakingRate: 1.0,
   });
   
-  const handleAudition = async (voice: SupportAgentVoice) => {
-    const voiceKey = `${voice.language}-${voice.gender}`;
-    
-    if (playingVoiceKey === voiceKey && audioElement) {
+  // Fetch all tutor voices and filter for assistants
+  const { data: allVoices, isLoading } = useQuery<TutorVoice[]>({
+    queryKey: ["/api/admin/tutor-voices"],
+  });
+  
+  // Filter for assistant voices only
+  const assistantVoices = allVoices?.filter(v => v.role === 'assistant') || [];
+  
+  // Fetch available Google voices for voice selection
+  const { data: googleVoicesData, isLoading: isLoadingGoogleVoices } = useQuery<{ voices: GoogleVoice[]; total: number }>({
+    queryKey: ["/api/admin/google-voices", formData.language, formData.gender],
+    enabled: isEditDialogOpen && !!formData.language,
+  });
+  
+  const googleVoices = googleVoicesData?.voices || [];
+  
+  // Mutation to update assistant voice
+  const updateMutation = useMutation({
+    mutationFn: async (data: { 
+      language: string; 
+      gender: string; 
+      provider: string; 
+      voiceId: string; 
+      voiceName: string; 
+      languageCode: string; 
+      speakingRate: number;
+      role: string;
+    }) => {
+      return apiRequest("POST", "/api/admin/tutor-voices", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/tutor-voices"] });
+      toast({ title: "Success", description: "Assistant voice configuration saved" });
+      setIsEditDialogOpen(false);
+      setEditingVoice(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+  
+  const handleEdit = (voice: TutorVoice) => {
+    setEditingVoice(voice);
+    setFormData({
+      language: voice.language,
+      gender: voice.gender,
+      voiceId: voice.voiceId,
+      voiceName: voice.voiceName,
+      languageCode: voice.languageCode,
+      speakingRate: voice.speakingRate || 1.0,
+    });
+    setIsEditDialogOpen(true);
+  };
+  
+  const handleVoiceSelect = (voiceId: string) => {
+    const selected = googleVoices.find(v => v.id === voiceId);
+    if (selected) {
+      setFormData(prev => ({
+        ...prev,
+        voiceId: selected.id,
+        voiceName: selected.name,
+        languageCode: selected.languageCode,
+      }));
+    }
+  };
+  
+  const handleSave = () => {
+    if (!formData.voiceId || !formData.voiceName) {
+      toast({ title: "Error", description: "Please select a voice", variant: "destructive" });
+      return;
+    }
+    updateMutation.mutate({
+      language: formData.language,
+      gender: formData.gender,
+      provider: 'google',
+      voiceId: formData.voiceId,
+      voiceName: formData.voiceName,
+      languageCode: formData.languageCode,
+      speakingRate: formData.speakingRate,
+      role: 'assistant',
+    });
+  };
+  
+  const handleAudition = async (voice: TutorVoice) => {
+    if (playingVoiceId === voice.id && audioElement) {
       audioElement.pause();
-      setPlayingVoiceKey(null);
+      setPlayingVoiceId(null);
       return;
     }
     
-    // Stop any currently playing audio
     if (audioElement) {
       audioElement.pause();
     }
     
-    setPlayingVoiceKey(voiceKey);
+    setPlayingVoiceId(voice.id);
     
     try {
-      const response = await fetch('/api/admin/support-voice-audition', {
+      const sampleText = SAMPLE_PHRASES[voice.language]?.target || "Hello! Let's practice together.";
+      const response = await fetch('/api/admin/assistant-voice-preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          language: voice.language,
-          gender: voice.gender,
-          speakingRate: 1.0,
-          pitch: 0,
+          voiceId: voice.voiceId,
+          text: sampleText,
+          language: voice.languageCode,
+          speakingRate: voice.speakingRate || 1.0,
         }),
       });
       
@@ -905,35 +985,69 @@ function SupportAgentVoiceCard() {
       setAudioElement(audio);
       
       audio.onended = () => {
-        setPlayingVoiceKey(null);
+        setPlayingVoiceId(null);
         URL.revokeObjectURL(audioUrl);
       };
       
       audio.onerror = () => {
-        setPlayingVoiceKey(null);
+        setPlayingVoiceId(null);
         URL.revokeObjectURL(audioUrl);
         toast({ title: "Error", description: "Failed to play audio", variant: "destructive" });
       };
       
       await audio.play();
     } catch (error: any) {
-      console.error('[VoiceConsole] Support voice audition error:', error);
+      console.error('[VoiceConsole] Assistant voice audition error:', error);
       toast({ title: "Error", description: error.message, variant: "destructive" });
-      setPlayingVoiceKey(null);
+      setPlayingVoiceId(null);
+    }
+  };
+  
+  const handlePreviewInDialog = async () => {
+    if (!formData.voiceId) {
+      toast({ title: "Error", description: "Please select a voice first", variant: "destructive" });
+      return;
+    }
+    
+    try {
+      const sampleText = SAMPLE_PHRASES[formData.language]?.target || "Hello! Let's practice together.";
+      const response = await fetch('/api/admin/assistant-voice-preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          voiceId: formData.voiceId,
+          text: sampleText,
+          language: formData.languageCode,
+          speakingRate: formData.speakingRate,
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate audio');
+      }
+      
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      audio.onended = () => URL.revokeObjectURL(audioUrl);
+      await audio.play();
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     }
   };
   
   // Group voices by language for display
-  const voicesByLanguage = supportVoiceMeta?.voices?.reduce((acc, voice) => {
+  const voicesByLanguage = assistantVoices.reduce((acc, voice) => {
     if (!acc[voice.language]) {
       acc[voice.language] = [];
     }
     acc[voice.language].push(voice);
     return acc;
-  }, {} as Record<string, SupportAgentVoice[]>) || {};
+  }, {} as Record<string, TutorVoice[]>);
   
   return (
-    <Card className="mt-6" data-testid="card-support-agent-voice">
+    <Card className="mt-6" data-testid="card-assistant-tutor-voice">
       <CardHeader>
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
@@ -942,11 +1056,11 @@ function SupportAgentVoiceCard() {
               Assistant Tutor Voices
             </CardTitle>
             <CardDescription>
-              {supportVoiceMeta?.description || '18 assistant tutors for drill practice (2 per language)'}
+              {assistantVoices.length} assistant tutors for drill practice (2 per language)
             </CardDescription>
           </div>
           <Badge variant="outline" className="bg-green-500/10 text-green-700 dark:text-green-300 border-green-500/30">
-            Google Cloud Chirp 3 HD
+            Google Cloud TTS
           </Badge>
         </div>
       </CardHeader>
@@ -957,6 +1071,10 @@ function SupportAgentVoiceCard() {
               <Skeleton key={i} className="h-20 w-full" />
             ))}
           </div>
+        ) : assistantVoices.length === 0 ? (
+          <p className="text-center text-muted-foreground py-4">
+            No assistant tutors configured. Run seed to populate default voices.
+          </p>
         ) : (
           <div className="space-y-4">
             {Object.entries(voicesByLanguage).map(([language, voices]) => (
@@ -967,14 +1085,13 @@ function SupportAgentVoiceCard() {
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   {voices.map((voice) => {
-                    const voiceKey = `${voice.language}-${voice.gender}`;
-                    const isPlaying = playingVoiceKey === voiceKey;
+                    const isPlaying = playingVoiceId === voice.id;
                     
                     return (
                       <div
-                        key={voiceKey}
+                        key={voice.id}
                         className="flex items-center justify-between p-3 rounded-lg border bg-card hover-elevate"
-                        data-testid={`card-support-voice-${voice.language}-${voice.gender}`}
+                        data-testid={`card-assistant-voice-${voice.id}`}
                       >
                         <div className="flex items-center gap-3">
                           <div className={`p-2 rounded-full ${voice.gender === 'female' ? 'bg-pink-500/10 text-pink-600' : 'bg-blue-500/10 text-blue-600'}`}>
@@ -983,22 +1100,32 @@ function SupportAgentVoiceCard() {
                           <div>
                             <div className="font-medium text-sm">{voice.voiceName}</div>
                             <div className="text-xs text-muted-foreground capitalize">
-                              {voice.gender} · {voice.languageCode}
+                              {voice.gender} · {voice.languageCode} · {voice.speakingRate}x
                             </div>
                           </div>
                         </div>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => handleAudition(voice)}
-                          data-testid={`button-audition-${voice.language}-${voice.gender}`}
-                        >
-                          {isPlaying ? (
-                            <Pause className="h-4 w-4" />
-                          ) : (
-                            <Play className="h-4 w-4" />
-                          )}
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleAudition(voice)}
+                            data-testid={`button-play-assistant-${voice.id}`}
+                          >
+                            {isPlaying ? (
+                              <Pause className="h-4 w-4" />
+                            ) : (
+                              <Play className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleEdit(voice)}
+                            data-testid={`button-edit-assistant-${voice.id}`}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     );
                   })}
@@ -1009,9 +1136,102 @@ function SupportAgentVoiceCard() {
         )}
         
         <p className="text-xs text-muted-foreground text-center pt-2">
-          Assistant tutors handle drill practice sessions. Each language has both a male and female voice option.
+          Assistant tutors handle drill practice sessions. Click edit to change voice or speaking rate.
         </p>
       </CardContent>
+      
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Assistant Voice</DialogTitle>
+            <DialogDescription>
+              Configure the voice for {editingVoice?.language} ({editingVoice?.gender}) assistant tutor.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* Voice Selection */}
+            <div className="space-y-2">
+              <Label>Voice</Label>
+              {isLoadingGoogleVoices ? (
+                <div className="flex items-center gap-2 p-3 border rounded-md">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm text-muted-foreground">Loading voices...</span>
+                </div>
+              ) : (
+                <Select value={formData.voiceId} onValueChange={handleVoiceSelect}>
+                  <SelectTrigger data-testid="select-assistant-voice">
+                    <SelectValue placeholder="Select a voice" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {googleVoices.map(voice => (
+                      <SelectItem key={voice.id} value={voice.id}>
+                        <div className="flex flex-col">
+                          <span>{voice.name}</span>
+                          <span className="text-xs text-muted-foreground">{voice.id}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+            
+            {/* Speaking Rate */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Speaking Rate</Label>
+                <span className="text-sm text-muted-foreground">{formData.speakingRate.toFixed(1)}x</span>
+              </div>
+              <Slider
+                value={[formData.speakingRate]}
+                onValueChange={([value]) => setFormData(prev => ({ ...prev, speakingRate: value }))}
+                min={0.5}
+                max={2.0}
+                step={0.1}
+                data-testid="slider-assistant-speed"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Slow (0.5)</span>
+                <span>Normal (1.0)</span>
+                <span>Fast (2.0)</span>
+              </div>
+            </div>
+            
+            {/* Preview Button */}
+            {formData.voiceId && (
+              <Button
+                variant="outline"
+                onClick={handlePreviewInDialog}
+                className="w-full"
+                data-testid="button-preview-assistant"
+              >
+                <Play className="h-4 w-4 mr-2" />
+                Preview Voice
+              </Button>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSave} 
+              disabled={updateMutation.isPending || !formData.voiceId}
+              data-testid="button-save-assistant"
+            >
+              {updateMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Changes'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
