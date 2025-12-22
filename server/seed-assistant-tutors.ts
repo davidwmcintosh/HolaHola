@@ -4,8 +4,12 @@
  * Populates the tutor_voices table with practice partner assistants for all languages.
  * These are stored alongside main tutors but with role='assistant' to distinguish them.
  * 
- * Assistant tutors use Google Cloud TTS (Neural2/WaveNet voices) for consistent drill practice.
- * Main tutors use Cartesia Sonic-3 for natural conversation.
+ * IMPORTANT: This seeder only creates NEW assistants if they don't exist.
+ * It does NOT overwrite existing assistants, allowing admin customizations
+ * (like switching to Chirp 3 HD voices) to persist across server restarts.
+ * 
+ * Default: Google Cloud TTS Neural2/WaveNet voices
+ * Admin-customizable: Switch to Chirp 3 HD via Voice Console
  */
 
 import { db } from "./db";
@@ -72,17 +76,8 @@ export async function seedAssistantTutors(): Promise<void> {
         .limit(1);
       
       if (existing.length > 0) {
-        // Update name if different (allows admin to customize)
-        if (existing[0].voiceName !== `${seed.name} - Practice Partner`) {
-          await db
-            .update(tutorVoices)
-            .set({ 
-              voiceName: `${seed.name} - Practice Partner`,
-              voiceId: seed.voiceId,
-              languageCode: seed.languageCode,
-            })
-            .where(eq(tutorVoices.id, existing[0].id));
-        }
+        // Assistant already exists - DO NOT overwrite admin customizations!
+        // Voice changes via admin console should persist
         skipped++;
         continue;
       }
