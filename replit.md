@@ -48,7 +48,10 @@ Daniela's Voice Pipeline (LOCKED): `User Audio → Deepgram Nova-3 (LIVE API) �
 Support/Assistant Tutors use Google Cloud Text-to-Speech with language-specific and gender-matched voices (Chirp 3 HD - 8 personalities per language). A Tutor Handoff System allows seamless transitions between the main tutor (Daniela) and assistant tutors using a `[SWITCH_TUTOR]` command.
 
 **Language-Specific Tutor Avatars:**
-Each of the 9 languages has unique male and female tutor avatars with 3 states (listening, thinking, talking). Avatars are stored in `/attached_assets/Tutor_Images/` and managed by `client/src/lib/tutor-avatars.ts`. The avatar automatically switches based on the user's target language from LanguageContext. Tutor names by language: Spanish (Daniela/Diego), French (Sophie/Pierre), German (Anna/Hans), Italian (Giulia/Marco), Portuguese (Maria/João), Chinese (Mei/Wei), Japanese (Yuki/Kenji), Korean (Soo-Yeon/Min-Jun), English (Emma/James).
+Each of the 9 languages has unique male and female tutor avatars with 3 states (listening, thinking, talking). Avatars are stored in `/attached_assets/Tutor_Images/` and managed by `client/src/lib/tutor-avatars.ts`. The avatar automatically switches based on the user's target language from LanguageContext.
+
+**Tutor Names (Dynamic from Database):**
+Tutor names are stored in `tutor_voices.voice_name` and are NOT hardcoded. Main tutors (Cartesia) use names from the Cartesia voice catalog (e.g., Daniela, Agustin, Juliette, Vincent). Assistant tutors (Google Chirp 3 HD) use custom names since Google TTS doesn't include character names. The [SWITCH_TUTOR] command uses the tutor directory built from `tutor_voices` table for seamless handoffs.
 
 **Speculative PTT Streaming (Performance Optimization):**
 When the user holds the PTT button, audio streams in real-time to Deepgram. Speculative AI Pre-Trigger starts AI generation when 3+ confident words are detected during PTT hold, potentially saving 200-300ms by pre-processing the AI response.

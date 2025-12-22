@@ -184,21 +184,8 @@ export function getTutorAvatarSet(
   return gender === 'male' ? maleAvatars[normalizedLanguage] : femaleAvatars[normalizedLanguage];
 }
 
-// Get tutor name by language and gender
-export function getTutorName(language: string | null | undefined, gender: TutorGender): string {
-  const normalizedLanguage = normalizeLanguage(language);
-  
-  const tutorNames: Record<SupportedLanguage, { male: string; female: string }> = {
-    spanish: { female: 'Daniela', male: 'Diego' },
-    french: { female: 'Sophie', male: 'Pierre' },
-    german: { female: 'Anna', male: 'Hans' },
-    italian: { female: 'Giulia', male: 'Marco' },
-    portuguese: { female: 'Maria', male: 'João' },
-    chinese: { female: 'Mei', male: 'Wei' },
-    japanese: { female: 'Yuki', male: 'Kenji' },
-    korean: { female: 'Soo-Yeon', male: 'Min-Jun' },
-    english: { female: 'Emma', male: 'James' },
-  };
-  
-  return tutorNames[normalizedLanguage][gender];
-}
+// NOTE: Tutor names are stored dynamically in the database (tutor_voices.voice_name)
+// Main tutors (Cartesia): Names like "Daniela", "Agustin", "Juliette", "Vincent" come from Cartesia voice catalog
+// Assistant tutors (Google): Names like "Aris", "Marco", "Amélie" are custom names since Google TTS doesn't include names
+// Use the /api/tutor-voice endpoint to fetch the current tutor's name for display
+// The [SWITCH_TUTOR] command uses the tutor directory from the database for handoffs
