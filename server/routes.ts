@@ -13198,18 +13198,18 @@ Current conversation context:
   // Admin: Get Support Agent voice configuration metadata
   app.get("/api/admin/support-voice-meta", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const { SUPPORT_AGENT_VOICE_CONFIG } = await import('./services/support-agent-config');
+      const { SUPPORT_AGENT_VOICE_CONFIG, SUPPORT_AGENT_VOICES } = await import('./services/support-agent-config');
       
-      // Return available Google Cloud TTS Chirp 3 HD voices with male/female options
+      // Return 18 voice records (2 per language: 1 male, 1 female)
       const supportVoiceMeta = {
         provider: SUPPORT_AGENT_VOICE_CONFIG.provider,
         model: SUPPORT_AGENT_VOICE_CONFIG.model,
-        voices: SUPPORT_AGENT_VOICE_CONFIG.voices,
+        voices: SUPPORT_AGENT_VOICES,
         audioConfig: {
           speakingRateRange: { min: 0.5, max: 2.0, default: SUPPORT_AGENT_VOICE_CONFIG.audioConfig.speakingRate },
           pitchRange: { min: -10, max: 10, default: SUPPORT_AGENT_VOICE_CONFIG.audioConfig.pitch },
         },
-        description: 'Support Agent uses Google Cloud Chirp 3 HD for cost-effective, professional TTS with male and female voice options',
+        description: 'Support Agent uses Google Cloud Chirp 3 HD for cost-effective, professional TTS',
       };
       
       res.json(supportVoiceMeta);

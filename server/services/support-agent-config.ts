@@ -16,69 +16,59 @@ export type SupportPriority = 'low' | 'normal' | 'high' | 'critical';
 export type SupportStatus = 'open' | 'in_progress' | 'waiting_on_user' | 'resolved' | 'closed' | 'escalated';
 
 /**
+ * Support Agent Voice Entry
+ * Matches structure of assistant tutors for consistency
+ */
+export interface SupportAgentVoice {
+  language: string;
+  gender: 'male' | 'female';
+  voiceId: string;
+  voiceName: string;
+  languageCode: string;
+}
+
+/**
  * Google Cloud TTS Voice Configuration for Support Agent
  * Uses Chirp 3 HD voices for high-quality, professional sound
  * Always speaks in the student's interface language (not target language)
  * 
- * Provides 1 male and 1 female voice per language for admin configuration
+ * 18 voice records: 2 per language (1 male, 1 female)
+ * Matches assistant tutor pattern for admin UI consistency
  */
+export const SUPPORT_AGENT_VOICES: SupportAgentVoice[] = [
+  // English
+  { language: 'english', gender: 'female', voiceId: 'en-US-Chirp3-HD-Aoede', voiceName: 'Aoede', languageCode: 'en-US' },
+  { language: 'english', gender: 'male', voiceId: 'en-US-Chirp3-HD-Charon', voiceName: 'Charon', languageCode: 'en-US' },
+  // Spanish
+  { language: 'spanish', gender: 'female', voiceId: 'es-US-Chirp3-HD-Kore', voiceName: 'Kore', languageCode: 'es-US' },
+  { language: 'spanish', gender: 'male', voiceId: 'es-US-Chirp3-HD-Fenrir', voiceName: 'Fenrir', languageCode: 'es-US' },
+  // French
+  { language: 'french', gender: 'female', voiceId: 'fr-FR-Chirp3-HD-Leda', voiceName: 'Leda', languageCode: 'fr-FR' },
+  { language: 'french', gender: 'male', voiceId: 'fr-FR-Chirp3-HD-Orus', voiceName: 'Orus', languageCode: 'fr-FR' },
+  // German
+  { language: 'german', gender: 'female', voiceId: 'de-DE-Chirp3-HD-Zephyr', voiceName: 'Zephyr', languageCode: 'de-DE' },
+  { language: 'german', gender: 'male', voiceId: 'de-DE-Chirp3-HD-Puck', voiceName: 'Puck', languageCode: 'de-DE' },
+  // Italian
+  { language: 'italian', gender: 'female', voiceId: 'it-IT-Chirp3-HD-Erinome', voiceName: 'Erinome', languageCode: 'it-IT' },
+  { language: 'italian', gender: 'male', voiceId: 'it-IT-Chirp3-HD-Iapetus', voiceName: 'Iapetus', languageCode: 'it-IT' },
+  // Portuguese
+  { language: 'portuguese', gender: 'female', voiceId: 'pt-BR-Chirp3-HD-Despina', voiceName: 'Despina', languageCode: 'pt-BR' },
+  { language: 'portuguese', gender: 'male', voiceId: 'pt-BR-Chirp3-HD-Enceladus', voiceName: 'Enceladus', languageCode: 'pt-BR' },
+  // Japanese
+  { language: 'japanese', gender: 'female', voiceId: 'ja-JP-Chirp3-HD-Achernar', voiceName: 'Achernar', languageCode: 'ja-JP' },
+  { language: 'japanese', gender: 'male', voiceId: 'ja-JP-Chirp3-HD-Achird', voiceName: 'Achird', languageCode: 'ja-JP' },
+  // Mandarin Chinese
+  { language: 'mandarin chinese', gender: 'female', voiceId: 'cmn-CN-Chirp3-HD-Gacrux', voiceName: 'Gacrux', languageCode: 'cmn-CN' },
+  { language: 'mandarin chinese', gender: 'male', voiceId: 'cmn-CN-Chirp3-HD-Algenib', voiceName: 'Algenib', languageCode: 'cmn-CN' },
+  // Korean
+  { language: 'korean', gender: 'female', voiceId: 'ko-KR-Chirp3-HD-Sulafat', voiceName: 'Sulafat', languageCode: 'ko-KR' },
+  { language: 'korean', gender: 'male', voiceId: 'ko-KR-Chirp3-HD-Schedar', voiceName: 'Schedar', languageCode: 'ko-KR' },
+];
+
 export const SUPPORT_AGENT_VOICE_CONFIG = {
   provider: 'google' as const,
   model: 'chirp3-hd',
-  
-  // Voices organized by language with male/female options
-  voices: {
-    'english': { 
-      languageCode: 'en-US',
-      female: { name: 'en-US-Chirp3-HD-Aoede', displayName: 'Aoede' },
-      male: { name: 'en-US-Chirp3-HD-Charon', displayName: 'Charon' },
-    },
-    'spanish': { 
-      languageCode: 'es-US',
-      female: { name: 'es-US-Chirp3-HD-Kore', displayName: 'Kore' },
-      male: { name: 'es-US-Chirp3-HD-Fenrir', displayName: 'Fenrir' },
-    },
-    'french': { 
-      languageCode: 'fr-FR',
-      female: { name: 'fr-FR-Chirp3-HD-Leda', displayName: 'Leda' },
-      male: { name: 'fr-FR-Chirp3-HD-Orus', displayName: 'Orus' },
-    },
-    'german': { 
-      languageCode: 'de-DE',
-      female: { name: 'de-DE-Chirp3-HD-Zephyr', displayName: 'Zephyr' },
-      male: { name: 'de-DE-Chirp3-HD-Puck', displayName: 'Puck' },
-    },
-    'italian': { 
-      languageCode: 'it-IT',
-      female: { name: 'it-IT-Chirp3-HD-Erinome', displayName: 'Erinome' },
-      male: { name: 'it-IT-Chirp3-HD-Iapetus', displayName: 'Iapetus' },
-    },
-    'portuguese': { 
-      languageCode: 'pt-BR',
-      female: { name: 'pt-BR-Chirp3-HD-Despina', displayName: 'Despina' },
-      male: { name: 'pt-BR-Chirp3-HD-Enceladus', displayName: 'Enceladus' },
-    },
-    'japanese': { 
-      languageCode: 'ja-JP',
-      female: { name: 'ja-JP-Chirp3-HD-Achernar', displayName: 'Achernar' },
-      male: { name: 'ja-JP-Chirp3-HD-Achird', displayName: 'Achird' },
-    },
-    'mandarin chinese': { 
-      languageCode: 'cmn-CN',
-      female: { name: 'cmn-CN-Chirp3-HD-Gacrux', displayName: 'Gacrux' },
-      male: { name: 'cmn-CN-Chirp3-HD-Algenib', displayName: 'Algenib' },
-    },
-    'korean': { 
-      languageCode: 'ko-KR',
-      female: { name: 'ko-KR-Chirp3-HD-Sulafat', displayName: 'Sulafat' },
-      male: { name: 'ko-KR-Chirp3-HD-Schedar', displayName: 'Schedar' },
-    },
-  } as Record<string, { 
-    languageCode: string; 
-    female: { name: string; displayName: string };
-    male: { name: string; displayName: string };
-  }>,
-  
+  voices: SUPPORT_AGENT_VOICES,
   audioConfig: {
     audioEncoding: 'MP3' as const,
     sampleRateHertz: 24000,
@@ -257,11 +247,17 @@ export function getSupportAgentVoice(
   gender: 'male' | 'female' = 'female'
 ): { name: string; languageCode: string } {
   const normalizedLang = interfaceLanguage.toLowerCase();
-  const langConfig = SUPPORT_AGENT_VOICE_CONFIG.voices[normalizedLang] || SUPPORT_AGENT_VOICE_CONFIG.voices['english'];
-  const voiceConfig = langConfig[gender];
+  
+  // Find matching voice from flat array
+  const voice = SUPPORT_AGENT_VOICES.find(
+    v => v.language === normalizedLang && v.gender === gender
+  ) || SUPPORT_AGENT_VOICES.find(
+    v => v.language === 'english' && v.gender === gender
+  ) || SUPPORT_AGENT_VOICES[0];
+  
   return {
-    name: voiceConfig.name,
-    languageCode: langConfig.languageCode,
+    name: voice.voiceId,
+    languageCode: voice.languageCode,
   };
 }
 

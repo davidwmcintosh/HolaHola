@@ -831,28 +831,31 @@ export default function VoiceConsole() {
 }
 
 /**
- * Support Agent Voice Configuration Card
+ * Support Agent Voice Entry from API
+ */
+interface SupportAgentVoice {
+  language: string;
+  gender: 'male' | 'female';
+  voiceId: string;
+  voiceName: string;
+  languageCode: string;
+}
+
+/**
+ * Support Agent Voice Configuration Section
+ * Displays 18 separate voice cards (2 per language: 1 male, 1 female)
  * Uses Google Cloud TTS Chirp 3 HD for cost-effective, professional support voice
- * Supports male and female voice options for each language
  */
 function SupportAgentVoiceCard() {
   const { toast } = useToast();
-  const [selectedLanguage, setSelectedLanguage] = useState('english');
-  const [selectedGender, setSelectedGender] = useState<'male' | 'female'>('female');
-  const [speakingRate, setSpeakingRate] = useState(1.0);
-  const [pitch, setPitch] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [playingVoiceKey, setPlayingVoiceKey] = useState<string | null>(null);
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
   
-  // Fetch support voice metadata with male/female options
+  // Fetch support voice metadata (flat array of 18 voices)
   const { data: supportVoiceMeta, isLoading } = useQuery<{
     provider: string;
     model: string;
-    voices: Record<string, { 
-      languageCode: string;
-      female: { name: string; displayName: string };
-      male: { name: string; displayName: string };
-    }>;
+    voices: SupportAgentVoice[];
     audioConfig: {
       speakingRateRange: { min: number; max: number; default: number };
       pitchRange: { min: number; max: number; default: number };
@@ -862,14 +865,21 @@ function SupportAgentVoiceCard() {
     queryKey: ["/api/admin/support-voice-meta"],
   });
   
-  const handleAudition = async () => {
-    if (isPlaying && audioElement) {
+  const handleAudition = async (voice: SupportAgentVoice) => {
+    const voiceKey = `${voice.language}-${voice.gender}`;
+    
+    if (playingVoiceKey === voiceKey && audioElement) {
       audioElement.pause();
-      setIsPlaying(false);
+      setPlayingVoiceKey(null);
       return;
     }
     
-    setIsPlaying(true);
+    // Stop any currently playing audio
+    if (audioElement) {
+      audioElement.pause();
+    }
+    
+    setPlayingVoiceKey(voiceKey);
     
     try {
       const response = await fetch('/api/admin/support-voice-audition', {
@@ -877,10 +887,10 @@ function SupportAgentVoiceCard() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          language: selectedLanguage,
-          gender: selectedGender,
-          speakingRate,
-          pitch,
+          language: voice.language,
+          gender: voice.gender,
+          speakingRate: 1.0,
+          pitch: 0,
         }),
       });
       
@@ -895,12 +905,12 @@ function SupportAgentVoiceCard() {
       setAudioElement(audio);
       
       audio.onended = () => {
-        setIsPlaying(false);
+        setPlayingVoiceKey(null);
         URL.revokeObjectURL(audioUrl);
       };
       
       audio.onerror = () => {
-        setIsPlaying(false);
+        setPlayingVoiceKey(null);
         URL.revokeObjectURL(audioUrl);
         toast({ title: "Error", description: "Failed to play audio", variant: "destructive" });
       };
@@ -909,21 +919,30 @@ function SupportAgentVoiceCard() {
     } catch (error: any) {
       console.error('[VoiceConsole] Support voice audition error:', error);
       toast({ title: "Error", description: error.message, variant: "destructive" });
-      setIsPlaying(false);
+      setPlayingVoiceKey(null);
     }
   };
+  
+  // Group voices by language for display
+  const voicesByLanguage = supportVoiceMeta?.voices?.reduce((acc, voice) => {
+    if (!acc[voice.language]) {
+      acc[voice.language] = [];
+    }
+    acc[voice.language].push(voice);
+    return acc;
+  }, {} as Record<string, SupportAgentVoice[]>) || {};
   
   return (
     <Card className="mt-6" data-testid="card-support-agent-voice">
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
             <CardTitle className="flex items-center gap-2">
               <Headphones className="h-5 w-5" />
-              Support Agent Voice
+              Assistant Tutor Voices
             </CardTitle>
             <CardDescription>
-              {supportVoiceMeta?.description || 'Configure the Support Agent TTS voice settings'}
+              {supportVoiceMeta?.description || '18 assistant tutors for drill practice (2 per language)'}
             </CardDescription>
           </div>
           <Badge variant="outline" className="bg-green-500/10 text-green-700 dark:text-green-300 border-green-500/30">
@@ -933,122 +952,65 @@ function SupportAgentVoiceCard() {
       </CardHeader>
       <CardContent className="space-y-4">
         {isLoading ? (
-          <div className="space-y-2">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-20 w-full" />
+            ))}
           </div>
         ) : (
-          <>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>Language</Label>
-                <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-                  <SelectTrigger data-testid="select-support-language">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {supportVoiceMeta?.voices && Object.entries(supportVoiceMeta.voices).map(([lang, config]) => (
-                      <SelectItem key={lang} value={lang}>
-                        <div className="flex items-center gap-2">
-                          <span className="capitalize">{lang}</span>
-                          <span className="text-xs text-muted-foreground">({config.languageCode})</span>
+          <div className="space-y-4">
+            {Object.entries(voicesByLanguage).map(([language, voices]) => (
+              <div key={language} className="space-y-2">
+                <h4 className="text-sm font-medium capitalize flex items-center gap-2">
+                  <Languages className="h-4 w-4" />
+                  {language}
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {voices.map((voice) => {
+                    const voiceKey = `${voice.language}-${voice.gender}`;
+                    const isPlaying = playingVoiceKey === voiceKey;
+                    
+                    return (
+                      <div
+                        key={voiceKey}
+                        className="flex items-center justify-between p-3 rounded-lg border bg-card hover-elevate"
+                        data-testid={`card-support-voice-${voice.language}-${voice.gender}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-full ${voice.gender === 'female' ? 'bg-pink-500/10 text-pink-600' : 'bg-blue-500/10 text-blue-600'}`}>
+                            <User className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <div className="font-medium text-sm">{voice.voiceName}</div>
+                            <div className="text-xs text-muted-foreground capitalize">
+                              {voice.gender} · {voice.languageCode}
+                            </div>
+                          </div>
                         </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Gender</Label>
-                <Select value={selectedGender} onValueChange={(v) => setSelectedGender(v as 'male' | 'female')}>
-                  <SelectTrigger data-testid="select-support-gender">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="female">
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4" />
-                        <span>Female</span>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleAudition(voice)}
+                          data-testid={`button-audition-${voice.language}-${voice.gender}`}
+                        >
+                          {isPlaying ? (
+                            <Pause className="h-4 w-4" />
+                          ) : (
+                            <Play className="h-4 w-4" />
+                          )}
+                        </Button>
                       </div>
-                    </SelectItem>
-                    <SelectItem value="male">
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4" />
-                        <span>Male</span>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Voice Name</Label>
-                <div className="px-3 py-2 border rounded-md bg-muted/30 text-sm">
-                  {supportVoiceMeta?.voices?.[selectedLanguage]?.[selectedGender]?.displayName || 'N/A'}
+                    );
+                  })}
                 </div>
               </div>
-            </div>
-            
-            <div className="space-y-3">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <Label>Speaking Rate</Label>
-                  <span className="text-sm text-muted-foreground">{speakingRate.toFixed(1)}x</span>
-                </div>
-                <Slider
-                  value={[speakingRate]}
-                  min={0.5}
-                  max={2.0}
-                  step={0.1}
-                  onValueChange={([v]) => setSpeakingRate(v)}
-                  data-testid="slider-support-speaking-rate"
-                />
-              </div>
-              
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <Label>Pitch</Label>
-                  <span className="text-sm text-muted-foreground">{pitch > 0 ? '+' : ''}{pitch.toFixed(0)}</span>
-                </div>
-                <Slider
-                  value={[pitch]}
-                  min={-10}
-                  max={10}
-                  step={1}
-                  onValueChange={([v]) => setPitch(v)}
-                  data-testid="slider-support-pitch"
-                />
-              </div>
-            </div>
-            
-            <div className="flex justify-center pt-2">
-              <Button
-                onClick={handleAudition}
-                variant={isPlaying ? "secondary" : "default"}
-                className="w-full max-w-xs"
-                data-testid="button-audition-support"
-              >
-                {isPlaying ? (
-                  <>
-                    <Pause className="h-4 w-4 mr-2" />
-                    Stop
-                  </>
-                ) : (
-                  <>
-                    <Play className="h-4 w-4 mr-2" />
-                    Audition Support Voice
-                  </>
-                )}
-              </Button>
-            </div>
-            
-            <p className="text-xs text-muted-foreground text-center pt-2">
-              The Support Agent handles technical issues, billing questions, and offline exercises.
-              It uses Google Cloud TTS for cost-effective voice responses.
-            </p>
-          </>
+            ))}
+          </div>
         )}
+        
+        <p className="text-xs text-muted-foreground text-center pt-2">
+          Assistant tutors handle drill practice sessions. Each language has both a male and female voice option.
+        </p>
       </CardContent>
     </Card>
   );
