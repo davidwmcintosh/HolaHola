@@ -13198,26 +13198,18 @@ Current conversation context:
   // Admin: Get Support Agent voice configuration metadata
   app.get("/api/admin/support-voice-meta", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      // Return available Google Cloud TTS Chirp HD voices and settings
+      const { SUPPORT_AGENT_VOICE_CONFIG } = await import('./services/support-agent-config');
+      
+      // Return available Google Cloud TTS Chirp 3 HD voices with male/female options
       const supportVoiceMeta = {
-        provider: 'google',
-        model: 'chirp-hd',
-        voices: {
-          'english': { name: 'en-US-Chirp-HD-O', languageCode: 'en-US' },
-          'spanish': { name: 'es-US-Chirp-HD-O', languageCode: 'es-US' },
-          'french': { name: 'fr-FR-Chirp-HD-O', languageCode: 'fr-FR' },
-          'german': { name: 'de-DE-Chirp-HD-O', languageCode: 'de-DE' },
-          'italian': { name: 'it-IT-Chirp-HD-O', languageCode: 'it-IT' },
-          'portuguese': { name: 'pt-BR-Chirp-HD-O', languageCode: 'pt-BR' },
-          'japanese': { name: 'ja-JP-Chirp-HD-O', languageCode: 'ja-JP' },
-          'mandarin chinese': { name: 'cmn-CN-Chirp-HD-O', languageCode: 'cmn-CN' },
-          'korean': { name: 'ko-KR-Chirp-HD-O', languageCode: 'ko-KR' },
-        },
+        provider: SUPPORT_AGENT_VOICE_CONFIG.provider,
+        model: SUPPORT_AGENT_VOICE_CONFIG.model,
+        voices: SUPPORT_AGENT_VOICE_CONFIG.voices,
         audioConfig: {
-          speakingRateRange: { min: 0.5, max: 2.0, default: 1.0 },
-          pitchRange: { min: -10, max: 10, default: 0 },
+          speakingRateRange: { min: 0.5, max: 2.0, default: SUPPORT_AGENT_VOICE_CONFIG.audioConfig.speakingRate },
+          pitchRange: { min: -10, max: 10, default: SUPPORT_AGENT_VOICE_CONFIG.audioConfig.pitch },
         },
-        description: 'Support Agent uses Google Cloud Chirp HD for cost-effective, professional TTS',
+        description: 'Support Agent uses Google Cloud Chirp 3 HD for cost-effective, professional TTS with male and female voice options',
       };
       
       res.json(supportVoiceMeta);
@@ -13230,9 +13222,13 @@ Current conversation context:
   // Admin: Audition Support Agent voice
   app.post("/api/admin/support-voice-audition", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const { text, language = 'english', speakingRate = 1.0, pitch = 0 } = req.body;
+      const { text, language = 'english', gender = 'female', speakingRate = 1.0, pitch = 0 } = req.body;
       
       const sampleText = text || "Hello! I'm the HolaHola Support Assistant. I'm here to help you with any questions or issues you might have.";
+      
+      // Get the specific voice for language and gender
+      const { getSupportAgentVoice } = await import('./services/support-agent-config');
+      const voiceConfig = getSupportAgentVoice(language, gender);
       
       // Import TTS service
       const { TTSService } = await import('./services/tts-service');
@@ -13241,8 +13237,9 @@ Current conversation context:
       const result = await tts.synthesize({
         text: sampleText,
         language,
-        provider: 'google',
+        forceProvider: 'google',
         speakingRate,
+        voice: voiceConfig.name,
       });
       
       res.set('Content-Type', result.contentType);

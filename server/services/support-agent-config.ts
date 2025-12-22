@@ -17,24 +17,67 @@ export type SupportStatus = 'open' | 'in_progress' | 'waiting_on_user' | 'resolv
 
 /**
  * Google Cloud TTS Voice Configuration for Support Agent
- * Uses Chirp HD voices for high-quality, professional sound
+ * Uses Chirp 3 HD voices for high-quality, professional sound
  * Always speaks in the student's interface language (not target language)
+ * 
+ * Provides 1 male and 1 female voice per language for admin configuration
  */
 export const SUPPORT_AGENT_VOICE_CONFIG = {
   provider: 'google' as const,
-  model: 'chirp-hd',
+  model: 'chirp3-hd',
   
+  // Voices organized by language with male/female options
   voices: {
-    'english': { name: 'en-US-Chirp-HD-O', languageCode: 'en-US' },
-    'spanish': { name: 'es-US-Chirp-HD-O', languageCode: 'es-US' },
-    'french': { name: 'fr-FR-Chirp-HD-O', languageCode: 'fr-FR' },
-    'german': { name: 'de-DE-Chirp-HD-O', languageCode: 'de-DE' },
-    'italian': { name: 'it-IT-Chirp-HD-O', languageCode: 'it-IT' },
-    'portuguese': { name: 'pt-BR-Chirp-HD-O', languageCode: 'pt-BR' },
-    'japanese': { name: 'ja-JP-Chirp-HD-O', languageCode: 'ja-JP' },
-    'mandarin chinese': { name: 'cmn-CN-Chirp-HD-O', languageCode: 'cmn-CN' },
-    'korean': { name: 'ko-KR-Chirp-HD-O', languageCode: 'ko-KR' },
-  } as Record<string, { name: string; languageCode: string }>,
+    'english': { 
+      languageCode: 'en-US',
+      female: { name: 'en-US-Chirp3-HD-Aoede', displayName: 'Aoede' },
+      male: { name: 'en-US-Chirp3-HD-Charon', displayName: 'Charon' },
+    },
+    'spanish': { 
+      languageCode: 'es-US',
+      female: { name: 'es-US-Chirp3-HD-Kore', displayName: 'Kore' },
+      male: { name: 'es-US-Chirp3-HD-Fenrir', displayName: 'Fenrir' },
+    },
+    'french': { 
+      languageCode: 'fr-FR',
+      female: { name: 'fr-FR-Chirp3-HD-Leda', displayName: 'Leda' },
+      male: { name: 'fr-FR-Chirp3-HD-Orus', displayName: 'Orus' },
+    },
+    'german': { 
+      languageCode: 'de-DE',
+      female: { name: 'de-DE-Chirp3-HD-Zephyr', displayName: 'Zephyr' },
+      male: { name: 'de-DE-Chirp3-HD-Puck', displayName: 'Puck' },
+    },
+    'italian': { 
+      languageCode: 'it-IT',
+      female: { name: 'it-IT-Chirp3-HD-Erinome', displayName: 'Erinome' },
+      male: { name: 'it-IT-Chirp3-HD-Iapetus', displayName: 'Iapetus' },
+    },
+    'portuguese': { 
+      languageCode: 'pt-BR',
+      female: { name: 'pt-BR-Chirp3-HD-Despina', displayName: 'Despina' },
+      male: { name: 'pt-BR-Chirp3-HD-Enceladus', displayName: 'Enceladus' },
+    },
+    'japanese': { 
+      languageCode: 'ja-JP',
+      female: { name: 'ja-JP-Chirp3-HD-Achernar', displayName: 'Achernar' },
+      male: { name: 'ja-JP-Chirp3-HD-Achird', displayName: 'Achird' },
+    },
+    'mandarin chinese': { 
+      languageCode: 'cmn-CN',
+      female: { name: 'cmn-CN-Chirp3-HD-Gacrux', displayName: 'Gacrux' },
+      male: { name: 'cmn-CN-Chirp3-HD-Algenib', displayName: 'Algenib' },
+    },
+    'korean': { 
+      languageCode: 'ko-KR',
+      female: { name: 'ko-KR-Chirp3-HD-Sulafat', displayName: 'Sulafat' },
+      male: { name: 'ko-KR-Chirp3-HD-Schedar', displayName: 'Schedar' },
+    },
+  } as Record<string, { 
+    languageCode: string; 
+    female: { name: string; displayName: string };
+    male: { name: string; displayName: string };
+  }>,
   
   audioConfig: {
     audioEncoding: 'MP3' as const,
@@ -204,11 +247,22 @@ function getPriorityGuidance(priority: SupportPriority): string {
 }
 
 /**
- * Get the appropriate TTS voice for Support Agent based on interface language
+ * Get the appropriate TTS voice for Support Agent based on interface language and gender
+ * @param interfaceLanguage - The student's interface language
+ * @param gender - 'male' or 'female' (defaults to 'female')
+ * @returns Voice configuration with name and language code
  */
-export function getSupportAgentVoice(interfaceLanguage: string): { name: string; languageCode: string } {
+export function getSupportAgentVoice(
+  interfaceLanguage: string, 
+  gender: 'male' | 'female' = 'female'
+): { name: string; languageCode: string } {
   const normalizedLang = interfaceLanguage.toLowerCase();
-  return SUPPORT_AGENT_VOICE_CONFIG.voices[normalizedLang] || SUPPORT_AGENT_VOICE_CONFIG.voices['english'];
+  const langConfig = SUPPORT_AGENT_VOICE_CONFIG.voices[normalizedLang] || SUPPORT_AGENT_VOICE_CONFIG.voices['english'];
+  const voiceConfig = langConfig[gender];
+  return {
+    name: voiceConfig.name,
+    languageCode: langConfig.languageCode,
+  };
 }
 
 /**

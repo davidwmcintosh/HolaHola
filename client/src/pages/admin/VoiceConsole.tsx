@@ -832,21 +832,27 @@ export default function VoiceConsole() {
 
 /**
  * Support Agent Voice Configuration Card
- * Uses Google Cloud TTS Chirp HD for cost-effective, professional support voice
+ * Uses Google Cloud TTS Chirp 3 HD for cost-effective, professional support voice
+ * Supports male and female voice options for each language
  */
 function SupportAgentVoiceCard() {
   const { toast } = useToast();
   const [selectedLanguage, setSelectedLanguage] = useState('english');
+  const [selectedGender, setSelectedGender] = useState<'male' | 'female'>('female');
   const [speakingRate, setSpeakingRate] = useState(1.0);
   const [pitch, setPitch] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
   
-  // Fetch support voice metadata
+  // Fetch support voice metadata with male/female options
   const { data: supportVoiceMeta, isLoading } = useQuery<{
     provider: string;
     model: string;
-    voices: Record<string, { name: string; languageCode: string }>;
+    voices: Record<string, { 
+      languageCode: string;
+      female: { name: string; displayName: string };
+      male: { name: string; displayName: string };
+    }>;
     audioConfig: {
       speakingRateRange: { min: number; max: number; default: number };
       pitchRange: { min: number; max: number; default: number };
@@ -872,6 +878,7 @@ function SupportAgentVoiceCard() {
         credentials: 'include',
         body: JSON.stringify({
           language: selectedLanguage,
+          gender: selectedGender,
           speakingRate,
           pitch,
         }),
@@ -920,7 +927,7 @@ function SupportAgentVoiceCard() {
             </CardDescription>
           </div>
           <Badge variant="outline" className="bg-green-500/10 text-green-700 dark:text-green-300 border-green-500/30">
-            Google Cloud Chirp HD
+            Google Cloud Chirp 3 HD
           </Badge>
         </div>
       </CardHeader>
@@ -932,7 +939,7 @@ function SupportAgentVoiceCard() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Language</Label>
                 <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
@@ -953,9 +960,32 @@ function SupportAgentVoiceCard() {
               </div>
               
               <div className="space-y-2">
+                <Label>Gender</Label>
+                <Select value={selectedGender} onValueChange={(v) => setSelectedGender(v as 'male' | 'female')}>
+                  <SelectTrigger data-testid="select-support-gender">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="female">
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        <span>Female</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="male">
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        <span>Male</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
                 <Label>Voice Name</Label>
                 <div className="px-3 py-2 border rounded-md bg-muted/30 text-sm">
-                  {supportVoiceMeta?.voices?.[selectedLanguage]?.name || 'N/A'}
+                  {supportVoiceMeta?.voices?.[selectedLanguage]?.[selectedGender]?.displayName || 'N/A'}
                 </div>
               </div>
             </div>
