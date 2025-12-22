@@ -411,7 +411,10 @@ export default function VoiceConsole() {
     upsertMutation.mutate(formData);
   };
 
-  const groupedVoices = voices?.reduce((acc, voice) => {
+  // Filter to only show main tutors (role='tutor'), not assistants
+  const mainTutorVoices = voices?.filter(v => v.role === 'tutor' || !v.role) || [];
+  
+  const groupedVoices = mainTutorVoices.reduce((acc, voice) => {
     if (!acc[voice.language]) {
       acc[voice.language] = { male: null, female: null };
     }
@@ -872,10 +875,16 @@ function SupportAgentVoiceCard() {
   // Filter for assistant voices only
   const assistantVoices = allVoices?.filter(v => v.role === 'assistant') || [];
   
-  // Fetch available Google voices for voice selection
+  // Fetch available Google voices for voice selection - use custom queryFn to build URL with params
   const { data: googleVoicesData, isLoading: isLoadingGoogleVoices } = useQuery<{ voices: GoogleVoice[]; total: number }>({
     queryKey: ["/api/admin/google-voices", formData.language, formData.gender],
-    enabled: isEditDialogOpen && !!formData.language,
+    queryFn: async () => {
+      const url = `/api/admin/google-voices/${encodeURIComponent(formData.language)}/${encodeURIComponent(formData.gender)}`;
+      const response = await fetch(url, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch Google voices');
+      return response.json();
+    },
+    enabled: isEditDialogOpen && !!formData.language && !!formData.gender,
   });
   
   const googleVoices = googleVoicesData?.voices || [];

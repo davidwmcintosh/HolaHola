@@ -5334,24 +5334,28 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertTutorVoice(data: InsertTutorVoice): Promise<TutorVoice> {
-    // Check if voice already exists for this language and gender
+    // Default to 'tutor' role if not specified
+    const role = data.role || 'tutor';
+    
+    // Check if voice already exists for this language, gender, AND role
     const existing = await db.select().from(tutorVoices).where(
       and(
         eq(tutorVoices.language, data.language),
-        eq(tutorVoices.gender, data.gender)
+        eq(tutorVoices.gender, data.gender),
+        eq(tutorVoices.role, role)
       )
     ).limit(1);
 
     if (existing[0]) {
       // Update existing
       const updated = await db.update(tutorVoices)
-        .set({ ...data, updatedAt: new Date() })
+        .set({ ...data, role, updatedAt: new Date() })
         .where(eq(tutorVoices.id, existing[0].id))
         .returning();
       return updated[0];
     } else {
       // Create new
-      const created = await db.insert(tutorVoices).values(data).returning();
+      const created = await db.insert(tutorVoices).values({ ...data, role }).returning();
       return created[0];
     }
   }
