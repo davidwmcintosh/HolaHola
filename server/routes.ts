@@ -12195,15 +12195,21 @@ Current conversation context:
   // Only super admins can modify voice settings including personality, expressiveness, and emotion
   app.post("/api/admin/tutor-voices", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const { language, gender, provider, voiceId, voiceName, languageCode, speakingRate, personality, expressiveness, emotion, isActive } = req.body;
+      const { language, gender, provider, voiceId, voiceName, languageCode, speakingRate, personality, expressiveness, emotion, isActive, role } = req.body;
       
       if (!language || !gender || !provider || !voiceId || !voiceName || !languageCode) {
         return res.status(400).json({ error: "Missing required fields" });
       }
       
-      // Validate speakingRate if provided (0.7 to 1.3 range)
+      // Validate role (tutor or assistant, default to tutor)
+      const validRoles = ['tutor', 'assistant'];
+      const validatedRole = validRoles.includes(role) ? role : 'tutor';
+      
+      // Validate speakingRate if provided (0.5 to 2.0 range for assistants, 0.7 to 1.3 for tutors)
+      const rateMin = validatedRole === 'assistant' ? 0.5 : 0.7;
+      const rateMax = validatedRole === 'assistant' ? 2.0 : 1.3;
       const validatedSpeakingRate = speakingRate !== undefined 
-        ? Math.max(0.7, Math.min(1.3, parseFloat(speakingRate))) 
+        ? Math.max(rateMin, Math.min(rateMax, parseFloat(speakingRate))) 
         : 0.9; // Default to natural speed
       
       // Validate personality (warm, calm, energetic, professional)
@@ -12230,6 +12236,7 @@ Current conversation context:
         expressiveness: validatedExpressiveness,
         emotion: validatedEmotion,
         isActive: isActive !== false, // default to true
+        role: validatedRole,
       });
       
       // Log the action
