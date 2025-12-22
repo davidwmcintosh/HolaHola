@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { type Message } from "@shared/schema";
-import { type VoiceSpeed } from "@/contexts/LanguageContext";
+import { type VoiceSpeed, useLanguage } from "@/contexts/LanguageContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,16 +31,7 @@ import { CollaborationIndicator } from "./CollaborationIndicator";
 import type { WhiteboardItem, SubtitleMode } from "@shared/whiteboard-types";
 import type { StreamingSubtitleState } from "../hooks/useStreamingSubtitles";
 import type { VoiceInputMode, OpenMicState } from "@shared/streaming-voice-types";
-
-// Female tutor avatars (default)
-import femaleTutorSpeakingUrl from "@assets/tutor-speaking-No-Background_1764099971093.png";
-import femaleTutorListeningUrl from "@assets/tutor-listening-no-background_1764099971094.png";
-import femaleTutorThinkingUrl from "@assets/daniela_thinking_No_Background_1766161816613.jpg";
-
-// Male tutor avatars
-import maleTutorSpeakingUrl from "@assets/Boy-tutor-speaking-No-Background_1764186322050.png";
-import maleTutorListeningUrl from "@assets/Boy-tutor-waiting-No-Background_1764186322051.png";
-import maleTutorThinkingUrl from "@assets/Boy_Tutor_Thinking_No_Background_1766162338594.jpg";
+import { getTutorAvatar, type TutorState } from "@/lib/tutor-avatars";
 
 // Types for hive channel collaboration
 interface HiveSnapshot {
@@ -174,6 +165,7 @@ export function ImmersiveTutor({
   // Collaboration panel only has Hive Mind tab now (Brain Surgery and Surgery Theater retired)
   
   const { toast } = useToast();
+  const { language: targetLanguage } = useLanguage();
 
   // Hive channel data - fetch active channel for current conversation when panel is open
   // NOTE: Always fetch when panel is open (regardless of tab) so the badge counter works
@@ -223,19 +215,16 @@ export function ImmersiveTutor({
     vocabulary_intro: { label: 'New Vocabulary', Icon: BookMarked },
   };
 
-  // Determine which tutor image to show based on state and gender preference
+  // Determine which tutor image to show based on state, gender, and language
   const getTutorImage = () => {
-    // Select avatar set based on gender preference
-    const speakingUrl = tutorGender === 'male' ? maleTutorSpeakingUrl : femaleTutorSpeakingUrl;
-    const listeningUrl = tutorGender === 'male' ? maleTutorListeningUrl : femaleTutorListeningUrl;
-    const thinkingUrl = tutorGender === 'male' ? maleTutorThinkingUrl : femaleTutorThinkingUrl;
-    const idleUrl = listeningUrl; // Idle uses listening pose
+    // Map tutor state to avatar state
+    let avatarState: TutorState = 'idle';
+    if (isPlaying) avatarState = 'talking';
+    else if (isProcessing) avatarState = 'thinking';
+    else if (isRecording) avatarState = 'listening';
     
-    // Show speaking avatar when playing, dedicated thinking pose when processing
-    if (isPlaying) return speakingUrl;
-    if (isProcessing) return thinkingUrl;  // Hand on chin, contemplative look
-    if (isRecording) return listeningUrl;
-    return idleUrl;
+    // Get language-specific avatar for current state
+    return getTutorAvatar(targetLanguage, tutorGender, avatarState);
   };
   const tutorImageUrl = getTutorImage();
   

@@ -45,7 +45,10 @@ The `streaming-voice-orchestrator.ts` enables Daniela to push messages directly 
 
 **Voice Architecture (CRITICAL - DO NOT USE OpenAI FOR DANIELA):**
 Daniela's Voice Pipeline (LOCKED): `User Audio → Deepgram Nova-3 (LIVE API) → Gemini Streaming → Cartesia Sonic-3 → Audio Output`.
-Support/Assistant Tutors use Google Cloud Text-to-Speech with language-specific and gender-matched voices. A Tutor Handoff System allows seamless transitions between the main tutor (Daniela) and assistant tutors using a `[SWITCH_TUTOR]` command.
+Support/Assistant Tutors use Google Cloud Text-to-Speech with language-specific and gender-matched voices (Chirp 3 HD - 8 personalities per language). A Tutor Handoff System allows seamless transitions between the main tutor (Daniela) and assistant tutors using a `[SWITCH_TUTOR]` command.
+
+**Language-Specific Tutor Avatars:**
+Each of the 9 languages has unique male and female tutor avatars with 3 states (listening, thinking, talking). Avatars are stored in `/attached_assets/Tutor_Images/` and managed by `client/src/lib/tutor-avatars.ts`. The avatar automatically switches based on the user's target language from LanguageContext. Tutor names by language: Spanish (Daniela/Diego), French (Sophie/Pierre), German (Anna/Hans), Italian (Giulia/Marco), Portuguese (Maria/João), Chinese (Mei/Wei), Japanese (Yuki/Kenji), Korean (Soo-Yeon/Min-Jun), English (Emma/James).
 
 **Speculative PTT Streaming (Performance Optimization):**
 When the user holds the PTT button, audio streams in real-time to Deepgram. Speculative AI Pre-Trigger starts AI generation when 3+ confident words are detected during PTT hold, potentially saving 200-300ms by pre-processing the AI response.
