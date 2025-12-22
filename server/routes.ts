@@ -16654,6 +16654,33 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
       res.status(500).json({ error: error.message });
     }
   });
+  
+  // Peer-accessible: Get sync runs for cross-environment debugging
+  // Allows dev to query production's sync history and see errors
+  app.post("/api/sync/peer-sync-runs", validateSyncRequest, async (req: any, res) => {
+    try {
+      const { limit = 10 } = req.body;
+      console.log(`[SYNC API] Peer sync runs request received, limit: ${limit}`);
+      const result = await syncBridge.getLocalSyncRuns(Math.min(limit, 50)); // Cap at 50
+      res.json(result);
+    } catch (error: any) {
+      console.error('[SYNC API] Peer sync runs error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Admin: Fetch sync runs from peer environment (for debugging)
+  app.get("/api/sync/peer-sync-runs", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+      console.log(`[SYNC API] Admin requesting peer sync runs, limit: ${limit}`);
+      const result = await syncBridge.fetchPeerSyncRuns(Math.min(limit, 50));
+      res.json(result);
+    } catch (error: any) {
+      console.error('[SYNC API] Fetch peer sync runs error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   // ============================================================================
   // REAL-TIME EXPRESS LANE BRIDGE (Cross-Environment)

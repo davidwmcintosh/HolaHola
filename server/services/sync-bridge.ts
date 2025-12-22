@@ -290,9 +290,9 @@ class SyncBridgeService {
           emotionalPatterns: bundle.emotionalPatterns || [],
           creativityTemplates: bundle.creativityTemplates || [],
         }, 'sync-bridge');
-        counts['subtletyCues'] = result.subtletyCuesImported;
-        counts['emotionalPatterns'] = result.emotionalPatternsImported;
-        counts['creativityTemplates'] = result.creativityTemplatesImported;
+        counts['subtletyCues'] = result.counts.cues.imported;
+        counts['emotionalPatterns'] = result.counts.emotions.imported;
+        counts['creativityTemplates'] = result.counts.creativity.imported;
       } catch (err: any) {
         errors.push(`advancedIntelligence: ${err.message}`);
       }
@@ -1209,6 +1209,69 @@ class SyncBridgeService {
       }
       
       return await response.json();
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+  
+  /**
+   * Get local sync runs for cross-environment querying
+   * Returns recent sync runs with error details for debugging
+   */
+  async getLocalSyncRuns(limit: number = 10): Promise<{
+    environment: string;
+    syncRuns: SyncRun[];
+    queriedAt: string;
+  }> {
+    const runs = await db.select()
+      .from(syncRuns)
+      .orderBy(desc(syncRuns.startedAt))
+      .limit(limit);
+    
+    return {
+      environment: CURRENT_ENVIRONMENT,
+      syncRuns: runs,
+      queriedAt: new Date().toISOString(),
+    };
+  }
+  
+  /**
+   * Fetch sync runs from the peer environment
+   * This allows dev to query production's sync history and see errors
+   */
+  async fetchPeerSyncRuns(limit: number = 10): Promise<{
+    environment: string;
+    syncRuns: SyncRun[];
+    queriedAt: string;
+  }> {
+    const peerUrl = getSyncPeerUrl();
+    if (!peerUrl || !isSyncConfigured()) {
+      throw new Error('Sync not configured - set SYNC_PEER_URL and SYNC_SHARED_SECRET');
+    }
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+    
+    try {
+      const requestPayload = { limit, requestedAt: new Date().toISOString() };
+      const response = await fetch(`${peerUrl}/api/sync/peer-sync-runs`, {
+        method: 'POST',
+        headers: createSyncHeaders(requestPayload),
+        body: JSON.stringify(requestPayload),
+        signal: controller.signal,
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Peer returned ${response.status}: ${errorText.substring(0, 200)}`);
+      }
+      
+      return await response.json();
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        throw new Error('Request to peer timed out after 15s');
+      }
+      throw err;
     } finally {
       clearTimeout(timeoutId);
     }
