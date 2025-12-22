@@ -79,64 +79,129 @@ class SyncBridgeService {
       sourceEnvironment: CURRENT_ENVIRONMENT,
     };
     
+    const batchErrors: string[] = [];
+    
     // BATCH: neural-core - Best practices, expansion, procedural
     if (!batchType || batchType === 'neural-core') {
-      const bestPractices = await neuralNetworkSync.getBestPracticesForExport();
-      const expansion = await neuralNetworkSync.exportNeuralNetworkExpansion();
-      const procedural = await neuralNetworkSync.exportProceduralMemory();
-      
-      bundle.bestPractices = bestPractices || [];
-      bundle.idioms = expansion?.idioms || [];
-      bundle.nuances = expansion?.nuances || [];
-      bundle.errorPatterns = expansion?.errorPatterns || [];
-      bundle.dialects = expansion?.dialects || [];
-      bundle.bridges = expansion?.bridges || [];
-      bundle.tools = procedural?.tools || [];
-      bundle.procedures = procedural?.procedures || [];
-      bundle.principles = procedural?.principles || [];
-      bundle.patterns = procedural?.patterns || [];
+      try {
+        const bestPractices = await neuralNetworkSync.getBestPracticesForExport();
+        const expansion = await neuralNetworkSync.exportNeuralNetworkExpansion();
+        const procedural = await neuralNetworkSync.exportProceduralMemory();
+        
+        bundle.bestPractices = bestPractices || [];
+        bundle.idioms = expansion?.idioms || [];
+        bundle.nuances = expansion?.nuances || [];
+        bundle.errorPatterns = expansion?.errorPatterns || [];
+        bundle.dialects = expansion?.dialects || [];
+        bundle.bridges = expansion?.bridges || [];
+        bundle.tools = procedural?.tools || [];
+        bundle.procedures = procedural?.procedures || [];
+        bundle.principles = procedural?.principles || [];
+        bundle.patterns = procedural?.patterns || [];
+      } catch (err: any) {
+        const errMsg = `neural-core export failed: ${err.message}`;
+        console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
+        batchErrors.push(errMsg);
+        // Return empty arrays for this batch so export can continue
+        bundle.bestPractices = [];
+        bundle.idioms = [];
+        bundle.nuances = [];
+        bundle.errorPatterns = [];
+        bundle.dialects = [];
+        bundle.bridges = [];
+        bundle.tools = [];
+        bundle.procedures = [];
+        bundle.principles = [];
+        bundle.patterns = [];
+      }
     }
     
     // BATCH: advanced-intel - Advanced intelligence, Daniela suggestions, tri-lane, North Star
     if (!batchType || batchType === 'advanced-intel') {
-      const advanced = await neuralNetworkSync.exportAdvancedIntelligence();
-      const daniela = await neuralNetworkSync.exportDanielaSuggestions();
-      const triLane = await neuralNetworkSync.exportTriLaneObservations();
-      const northStar = await neuralNetworkSync.exportNorthStar();
-      
-      bundle.subtletyCues = advanced?.subtletyCues || [];
-      bundle.emotionalPatterns = advanced?.emotionalPatterns || [];
-      bundle.creativityTemplates = advanced?.creativityTemplates || [];
-      bundle.suggestions = daniela?.suggestions || [];
-      bundle.triggers = daniela?.triggers || [];
-      bundle.actions = daniela?.actions || [];
-      bundle.observations = [...(triLane?.agentObservations || []), ...(triLane?.supportObservations || [])];
-      bundle.alerts = triLane?.systemAlerts || [];
-      bundle.northStarPrinciples = northStar?.principles || [];
-      bundle.northStarUnderstanding = northStar?.understanding || [];
-      bundle.northStarExamples = northStar?.examples || [];
+      try {
+        const advanced = await neuralNetworkSync.exportAdvancedIntelligence();
+        const daniela = await neuralNetworkSync.exportDanielaSuggestions();
+        const triLane = await neuralNetworkSync.exportTriLaneObservations();
+        const northStar = await neuralNetworkSync.exportNorthStar();
+        
+        bundle.subtletyCues = advanced?.subtletyCues || [];
+        bundle.emotionalPatterns = advanced?.emotionalPatterns || [];
+        bundle.creativityTemplates = advanced?.creativityTemplates || [];
+        bundle.suggestions = daniela?.suggestions || [];
+        bundle.triggers = daniela?.triggers || [];
+        bundle.actions = daniela?.actions || [];
+        bundle.observations = [...(triLane?.agentObservations || []), ...(triLane?.supportObservations || [])];
+        bundle.alerts = triLane?.systemAlerts || [];
+        bundle.northStarPrinciples = northStar?.principles || [];
+        bundle.northStarUnderstanding = northStar?.understanding || [];
+        bundle.northStarExamples = northStar?.examples || [];
+      } catch (err: any) {
+        const errMsg = `advanced-intel export failed: ${err.message}`;
+        console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
+        batchErrors.push(errMsg);
+        // Return empty arrays for this batch
+        bundle.subtletyCues = [];
+        bundle.emotionalPatterns = [];
+        bundle.creativityTemplates = [];
+        bundle.suggestions = [];
+        bundle.triggers = [];
+        bundle.actions = [];
+        bundle.observations = [];
+        bundle.alerts = [];
+        bundle.northStarPrinciples = [];
+        bundle.northStarUnderstanding = [];
+        bundle.northStarExamples = [];
+      }
     }
     
     // BATCH: express-lane - Founder user, sessions, messages
     if (!batchType || batchType === 'express-lane') {
-      const founderUser = await this.exportFounderUser();
-      const expressLaneData = await this.exportExpressLaneData(incrementalSince);
-      
-      bundle.founderUser = founderUser;
-      bundle.expressLaneSessions = expressLaneData.sessions;
-      bundle.expressLaneMessages = expressLaneData.messages;
+      try {
+        const founderUser = await this.exportFounderUser();
+        const expressLaneData = await this.exportExpressLaneData(incrementalSince);
+        
+        bundle.founderUser = founderUser;
+        bundle.expressLaneSessions = expressLaneData.sessions;
+        bundle.expressLaneMessages = expressLaneData.messages;
+      } catch (err: any) {
+        const errMsg = `express-lane export failed: ${err.message}`;
+        console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
+        batchErrors.push(errMsg);
+        bundle.founderUser = null;
+        bundle.expressLaneSessions = [];
+        bundle.expressLaneMessages = [];
+      }
     }
     
     // BATCH: hive-snapshots - Hive snapshots only
     if (!batchType || batchType === 'hive-snapshots' || batchType === 'hive-memories') {
-      const hiveSnapshotData = await this.exportHiveSnapshots(incrementalSince);
-      bundle.hiveSnapshots = hiveSnapshotData;
+      try {
+        const hiveSnapshotData = await this.exportHiveSnapshots(incrementalSince);
+        bundle.hiveSnapshots = hiveSnapshotData;
+      } catch (err: any) {
+        const errMsg = `hive-snapshots export failed: ${err.message}`;
+        console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
+        batchErrors.push(errMsg);
+        bundle.hiveSnapshots = [];
+      }
     }
     
     // BATCH: daniela-memories - Daniela growth memories only
     if (!batchType || batchType === 'daniela-memories' || batchType === 'hive-memories') {
-      const danielaMemories = await this.exportDanielaGrowthMemories(incrementalSince);
-      bundle.danielaGrowthMemories = danielaMemories;
+      try {
+        const danielaMemories = await this.exportDanielaGrowthMemories(incrementalSince);
+        bundle.danielaGrowthMemories = danielaMemories;
+      } catch (err: any) {
+        const errMsg = `daniela-memories export failed: ${err.message}`;
+        console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
+        batchErrors.push(errMsg);
+        bundle.danielaGrowthMemories = [];
+      }
+    }
+    
+    // Add batch errors to bundle for debugging (moved to end)
+    if (batchErrors.length > 0) {
+      (bundle as any).exportErrors = batchErrors;
     }
     
     bundle.checksum = this.computeChecksum(bundle);
