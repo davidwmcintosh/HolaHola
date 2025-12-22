@@ -82,7 +82,7 @@ const SEGMENT_CONFIG: Record<BrainSegment, {
 }> = {
   frontal: {
     name: 'Communication',
-    shortName: 'TALK!',
+    shortName: 'Chat!',
     color: '#60A5FA', // light blue matching brain
     glowColor: 'rgba(96, 165, 250, 0.6)',
     icon: MessageSquare,
@@ -93,7 +93,7 @@ const SEGMENT_CONFIG: Record<BrainSegment, {
   },
   parietal: {
     name: 'Practical Skills',
-    shortName: 'DO!',
+    shortName: 'Practice!',
     color: '#4ADE80', // green matching brain
     glowColor: 'rgba(74, 222, 128, 0.6)',
     icon: Compass,
@@ -104,7 +104,7 @@ const SEGMENT_CONFIG: Record<BrainSegment, {
   },
   temporal: {
     name: 'Vocabulary',
-    shortName: 'WORDS!',
+    shortName: 'Words!',
     color: '#FBBF24', // yellow matching brain
     glowColor: 'rgba(251, 191, 36, 0.6)',
     icon: BookOpen,
@@ -115,7 +115,7 @@ const SEGMENT_CONFIG: Record<BrainSegment, {
   },
   occipital: {
     name: 'Culture',
-    shortName: 'FEEL!',
+    shortName: 'Culture!',
     color: '#F87171', // red matching brain
     glowColor: 'rgba(248, 113, 113, 0.6)',
     icon: Palette,
@@ -126,7 +126,7 @@ const SEGMENT_CONFIG: Record<BrainSegment, {
   },
   cerebellum: {
     name: 'Grammar',
-    shortName: 'BUILD!',
+    shortName: 'Grammar!',
     color: '#C084FC', // purple matching brain
     glowColor: 'rgba(192, 132, 252, 0.6)',
     icon: Settings2,
@@ -1029,10 +1029,10 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
         {/* Activity pills - teal/cyan theme (unused color) */}
         <div className="flex justify-center gap-2" data-testid="activity-inputs">
           {[
-            { name: 'Drills', Icon: Target },
-            { name: 'Voice', Icon: Mic },
-            { name: 'Cards', Icon: Layers },
-            { name: 'Lessons', Icon: GraduationCap },
+            { name: 'Practice', Icon: Target },
+            { name: 'Talk', Icon: Mic },
+            { name: 'Memorize', Icon: Layers },
+            { name: 'Study', Icon: GraduationCap },
             { name: 'Culture', Icon: Globe },
             { name: 'Chat', Icon: MessageSquare },
           ].map((activity) => (
