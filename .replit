@@ -56,3 +56,6 @@ DEEPGRAM_INTELLIGENCE_ENABLED = "true"
 
 [userenv.development]
 SYNC_PEER_URL = "https://getholahola.com"
+
+[userenv.production]
+SYNC_PEER_URL = "https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev"
