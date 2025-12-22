@@ -8,6 +8,88 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: December 22, 2025 - Automated Class Creation Workflow with Bundle Support
+
+**Status**: COMPLETED - Template automation and bundle creation live
+
+**Overview**: Streamlined the teacher workflow for creating syllabus lessons with automatic label prefilling and one-click practice bundle creation.
+
+#### What Was Implemented
+
+| Feature | Description |
+|---------|-------------|
+| Auto-Prefill Labels | When selecting lesson type, name field auto-populates with engaging prefix |
+| Label Preservation | Changing lesson type updates prefix while preserving topic text |
+| Bundle Creation Toggle | "Create Practice Bundle" switch appears for conversation lessons |
+| Bundle API | Single endpoint creates linked conversation + drill pair |
+| Proper Linkage | Uses `linkedDrillLessonId` and shared `bundleId` for lesson grouping |
+
+#### Label Prefix Mappings
+
+| Lesson Type | Auto-Prefilled Label |
+|-------------|---------------------|
+| Conversation | `Let's Chat:` |
+| Vocabulary | `New Words:` |
+| Grammar | `Grammar Spotlight:` |
+| Cultural | `Culture Corner:` |
+| Drill | `Practice Time:` |
+
+#### Bundle Creation Flow
+
+```
+Teacher selects "Conversation" type
+    ↓
+Toggle "Create Practice Bundle" ON
+    ↓
+Click "Create Bundle"
+    ↓
+API creates:
+  1. Drill lesson first (to get ID)
+  2. Conversation lesson with linkedDrillLessonId → drill.id
+  3. Both share same bundleId
+    ↓
+Returns both lessons to UI
+```
+
+#### Key Files Modified
+
+| File | Changes |
+|------|---------|
+| `client/src/components/SyllabusBuilder.tsx` | Added LESSON_TYPE_PREFIXES, handleLessonTypeChange(), bundle toggle UI |
+| `server/routes.ts` | Extended createCustomLessonSchema with createBundle, bundle creation logic |
+| `docs/syllabus-template-kit.md` | Added Automated Label Prefilling and Bundle Creation sections |
+
+#### API Endpoint
+
+```
+POST /api/teacher/classes/:classId/curriculum/units/:unitId/lessons
+{
+  "name": "Ordering at a Restaurant",
+  "description": "Learn to order food",
+  "lessonType": "conversation",
+  "estimatedMinutes": 30,
+  "createBundle": true
+}
+
+Response:
+{
+  "bundle": true,
+  "bundleId": "bundle_1734889234_abc123xyz",
+  "conversationLesson": { linkedDrillLessonId: "drill-uuid" },
+  "drillLesson": { id: "drill-uuid" },
+  "lessonsCreated": 2
+}
+```
+
+#### Architecture Pattern
+
+1. Frontend detects lesson type change → applies prefix via `applyLessonTypePrefix()`
+2. Topic extraction uses `extractTopicFromLessonName()` to strip existing prefix
+3. Bundle toggle only visible when `lessonType === "conversation"`
+4. API creates drill first, then conversation with link, sharing bundleId
+
+---
+
 ### Session: December 20, 2025 - Learner Personal Facts System Sprint #2.1 (10 Enhancements)
 
 **Status**: COMPLETED - All 10 tasks implemented and tested
