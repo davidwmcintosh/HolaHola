@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1096,6 +1097,16 @@ export default function CommandCenter() {
   const hasFullAdmin = hasAdminAccess(user?.role);
 
   const [activeTab, setActiveTab] = useState("overview");
+  const [, setLocation] = useLocation();
+  
+  // Handle tab changes - redirect to /admin/voices for voice-lab
+  const handleTabChange = (value: string) => {
+    if (value === 'voice-lab') {
+      setLocation('/admin/voices');
+      return;
+    }
+    setActiveTab(value);
+  };
 
   // Query pending self-surgery proposals for notification badge
   const { data: pendingProposalsData } = useQuery<{ proposals: Array<{ status: string }> }>({
@@ -1164,7 +1175,7 @@ export default function CommandCenter() {
           </p>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
           <TabsList className="flex flex-wrap h-auto gap-1 p-1">
             {availableTabs.map(tab => {
               const Icon = tab.icon;
@@ -1210,10 +1221,6 @@ export default function CommandCenter() {
 
           <TabsContent value="images" className="space-y-4">
             <ImageLibraryTab />
-          </TabsContent>
-
-          <TabsContent value="voice-lab" className="space-y-4">
-            <VoiceLabTab />
           </TabsContent>
 
           <TabsContent value="voice-analytics" className="space-y-4">
@@ -2695,30 +2702,6 @@ function AnalyticsTab() {
   );
 }
 
-function VoiceLabTab() {
-  return (
-    <div className="space-y-4">
-      <CollapsibleSection 
-        title="Voice Configuration" 
-        icon={<Volume2 className="h-5 w-5 text-primary" />}
-        defaultOpen={true}
-      >
-        <div className="mt-4">
-          <Card>
-            <CardContent className="pt-6">
-              <p className="text-muted-foreground mb-4">
-                Configure tutor voices for each language and gender. The Voice Console provides full TTS testing capabilities.
-              </p>
-              <Button asChild>
-                <a href="/admin/voices">Open Voice Console</a>
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </CollapsibleSection>
-    </div>
-  );
-}
 
 interface VoiceAnalyticsData {
   summary: {
