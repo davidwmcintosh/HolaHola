@@ -319,6 +319,7 @@ export interface IStorage {
   createVocabularyWord(data: InsertVocabularyWord): Promise<VocabularyWord>;
   getVocabularyWord(id: string): Promise<VocabularyWord | undefined>;
   getVocabularyWords(language: string, userId: string, difficulty?: string): Promise<VocabularyWord[]>;
+  updateVocabularyWord(id: string, data: Partial<VocabularyWord>): Promise<VocabularyWord | undefined>;
   updateVocabularyReview(id: string, isCorrect: boolean): Promise<VocabularyWord | undefined>;
   getDueVocabulary(language: string, userId: string, difficulty?: string, limit?: number): Promise<VocabularyWord[]>;
 
@@ -1916,6 +1917,27 @@ export class DatabaseStorage implements IStorage {
     }
     return await db.select().from(vocabularyWords)
       .where(and(eq(vocabularyWords.language, language), eq(vocabularyWords.userId, userId)));
+  }
+
+  async updateVocabularyWord(id: string, data: Partial<VocabularyWord>): Promise<VocabularyWord | undefined> {
+    // Constrain to only safe fields for vocabulary mastery updates
+    const safeFields: Partial<VocabularyWord> = {};
+    if (data.correctCount !== undefined) safeFields.correctCount = data.correctCount;
+    if (data.incorrectCount !== undefined) safeFields.incorrectCount = data.incorrectCount;
+    if (data.repetition !== undefined) safeFields.repetition = data.repetition;
+    if (data.nextReviewDate !== undefined) safeFields.nextReviewDate = data.nextReviewDate;
+    if (data.easeFactor !== undefined) safeFields.easeFactor = data.easeFactor;
+    if (data.interval !== undefined) safeFields.interval = data.interval;
+    
+    if (Object.keys(safeFields).length === 0) {
+      return this.getVocabularyWord(id);
+    }
+    
+    const [updated] = await db.update(vocabularyWords)
+      .set(safeFields)
+      .where(eq(vocabularyWords.id, id))
+      .returning();
+    return updated;
   }
 
   async updateVocabularyReview(id: string, isCorrect: boolean): Promise<VocabularyWord | undefined> {

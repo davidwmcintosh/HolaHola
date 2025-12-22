@@ -7168,6 +7168,426 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // ===== Student Progress Completion API =====
+  // Multi-item completion endpoint - handles out-of-order learning credits
+  // Daniela calls this to mark lessons/vocabulary complete from any syllabus topic
+  
+  // Validation schemas for completion endpoint
+  const lessonCompletionSchema = z.object({
+    lessonId: z.string().min(1),
+    evidenceType: z.enum(['organic_conversation', 'assigned_practice', 'quick_review']).optional(),
+    conversationId: z.string().optional(),
+    scores: z.object({
+      grammar: z.number().min(0).max(1).optional(),
+      pronunciation: z.number().min(0).max(1).optional(),
+      vocabularyCount: z.number().int().min(0).optional(),
+      topicsCount: z.number().int().min(0).optional()
+    }).optional()
+  });
+
+  const vocabularyCompletionSchema = z.object({
+    vocabularyId: z.string().min(1),
+    masteryLevel: z.number().min(0).max(100),
+    sourceLessonId: z.string().optional()
+  });
+
+  const completionRequestSchema = z.object({
+    classId: z.string().min(1),
+    lessonCompletions: z.array(lessonCompletionSchema).optional(),
+    vocabularyCompletions: z.array(vocabularyCompletionSchema).optional(),
+    language: z.string().optional(),
+    tutorNotes: z.string().optional()
+  }).refine(
+    data => (data.lessonCompletions && data.lessonCompletions.length > 0) || 
+            (data.vocabularyCompletions && data.vocabularyCompletions.length > 0),
+    { message: "At least one lessonCompletion or vocabularyCompletion is required" }
+  );
+  
+  app.post("/api/student/progress/complete", isAuthenticated, async (req: any, res) => {
+    try {
+      const studentId = req.user.claims.sub;
+      
+      // Validate request body with Zod
+      const parseResult = completionRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ 
+          error: "Invalid request body", 
+          details: parseResult.error.flatten() 
+        });
+      }
+      
+      const { classId, lessonCompletions, vocabularyCompletions, language, tutorNotes } = parseResult.data;
+
+      // Verify student is enrolled in this class
+      const isEnrolled = await storage.isStudentEnrolled(classId, studentId);
+      if (!isEnrolled) {
+        return res.status(403).json({ error: "Not enrolled in this class" });
+      }
+
+      const results: {
+        lessonsUpdated: number;
+        vocabularyUpdated: number;
+        newCompletions: string[];
+        outOfOrderCredits: string[];
+      } = {
+        lessonsUpdated: 0,
+        vocabularyUpdated: 0,
+        newCompletions: [],
+        outOfOrderCredits: []
+      };
+
+      // Process lesson completions (can be from any unit in the syllabus)
+      if (lessonCompletions && Array.isArray(lessonCompletions)) {
+        for (const completion of lessonCompletions) {
+          const { lessonId, evidenceType, conversationId, scores } = completion;
+          
+          // Check if progress record exists
+          const existing = await storage.getSyllabusProgressByLesson(studentId, classId, lessonId);
+          
+          if (existing) {
+            // Skip if already completed to avoid duplicate overwrites
+            const isAlreadyCompleted = existing.status === 'completed_early' || 
+                                       existing.status === 'completed_assigned';
+            if (isAlreadyCompleted) {
+              // Already completed - skip but don't count as error
+              continue;
+            }
+            
+            // Update existing progress
+            const updatedStatus = evidenceType === 'organic_conversation' ? 'completed_early' : 'completed_assigned';
+            await storage.updateSyllabusProgress(existing.id, {
+              status: updatedStatus,
+              evidenceConversationId: conversationId,
+              evidenceType: evidenceType || 'organic_conversation',
+              tutorVerified: true,
+              tutorNotes: tutorNotes,
+              completedAt: new Date(),
+              grammarScore: scores?.grammar,
+              pronunciationScore: scores?.pronunciation,
+              vocabularyMastered: scores?.vocabularyCount,
+              topicsCoveredCount: scores?.topicsCount
+            });
+            results.lessonsUpdated++;
+            
+            // Track if this was out-of-order (completed before scheduled)
+            if (existing.scheduledDate && new Date() < existing.scheduledDate) {
+              results.outOfOrderCredits.push(lessonId);
+            }
+          } else {
+            // Create new progress record
+            await storage.createSyllabusProgress({
+              studentId,
+              classId,
+              lessonId,
+              status: evidenceType === 'organic_conversation' ? 'completed_early' : 'completed_assigned',
+              evidenceConversationId: conversationId,
+              evidenceType: evidenceType || 'organic_conversation',
+              tutorVerified: true,
+              tutorNotes: tutorNotes,
+              completedAt: new Date(),
+              grammarScore: scores?.grammar,
+              pronunciationScore: scores?.pronunciation,
+              vocabularyMastered: scores?.vocabularyCount,
+              topicsCoveredCount: scores?.topicsCount
+            });
+            results.lessonsUpdated++;
+            results.newCompletions.push(lessonId);
+          }
+        }
+      }
+
+      // Process vocabulary completions (can credit words from any lesson)
+      if (vocabularyCompletions && Array.isArray(vocabularyCompletions)) {
+        for (const vocabCompletion of vocabularyCompletions) {
+          const { vocabularyId, masteryLevel, sourceLessonId } = vocabCompletion;
+          
+          // Get the vocabulary word
+          const vocab = await storage.getVocabularyWord(vocabularyId);
+          if (vocab && vocab.userId === studentId) {
+            // Update mastery metrics
+            const newCorrectCount = (vocab.correctCount || 0) + (masteryLevel >= 80 ? 1 : 0);
+            await storage.updateVocabularyWord(vocabularyId, {
+              correctCount: newCorrectCount,
+              repetition: masteryLevel >= 80 ? (vocab.repetition || 0) + 1 : 0,
+              nextReviewDate: new Date(Date.now() + (masteryLevel >= 80 ? 7 : 1) * 24 * 60 * 60 * 1000)
+            });
+            results.vocabularyUpdated++;
+            
+            // Track out-of-order vocabulary credits (word from different lesson)
+            if (sourceLessonId && vocab.sourceConversationId) {
+              results.outOfOrderCredits.push(`vocab:${vocabularyId}`);
+            }
+          }
+        }
+      }
+
+      // Update user progress counters
+      if (language && (results.lessonsUpdated > 0 || results.vocabularyUpdated > 0)) {
+        const userProgress = await storage.getOrCreateUserProgress(language, studentId);
+        if (userProgress) {
+          await storage.updateUserProgress(userProgress.id, {
+            wordsLearned: (userProgress.wordsLearned || 0) + results.vocabularyUpdated,
+            lastPracticeDate: new Date()
+          });
+        }
+      }
+
+      res.json({
+        success: true,
+        ...results,
+        message: `Updated ${results.lessonsUpdated} lessons and ${results.vocabularyUpdated} vocabulary items`
+      });
+    } catch (error: any) {
+      console.error('Error completing student progress:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get student's syllabus progress for a class (with completion counts)
+  app.get("/api/student/progress/:classId", isAuthenticated, async (req: any, res) => {
+    try {
+      const studentId = req.user.claims.sub;
+      const { classId } = req.params;
+
+      // Verify student is enrolled
+      const isEnrolled = await storage.isStudentEnrolled(classId, studentId);
+      if (!isEnrolled) {
+        return res.status(403).json({ error: "Not enrolled in this class" });
+      }
+
+      // Get all syllabus progress for this student/class
+      const progress = await storage.getSyllabusProgress(studentId, classId);
+      
+      // Calculate aggregates
+      const completed = progress.filter(p => 
+        p.status === 'completed_early' || p.status === 'completed_assigned'
+      ).length;
+      const inProgress = progress.filter(p => p.status === 'in_progress').length;
+      const notStarted = progress.filter(p => p.status === 'not_started').length;
+      const earlyCompletions = progress.filter(p => p.status === 'completed_early').length;
+
+      res.json({
+        progress,
+        aggregates: {
+          total: progress.length,
+          completed,
+          inProgress,
+          notStarted,
+          earlyCompletions,
+          completionRate: progress.length > 0 ? (completed / progress.length) * 100 : 0
+        }
+      });
+    } catch (error: any) {
+      console.error('Error fetching student progress:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===== Daniela Recommendations API =====
+  // Drill recommendation bridge - connects struggle patterns to drill assignments
+  
+  // Create a recommendation (Daniela or system can call this)
+  app.post("/api/recommendations", isAuthenticated, async (req: any, res) => {
+    try {
+      const creatorId = req.user.claims.sub;
+      const { 
+        userId, // Target student
+        language,
+        classId,
+        recommendationType, // lesson, drill, vocabulary, conversation_topic
+        rationale, // remediate, reinforce, accelerate
+        lessonId,
+        drillId,
+        topicSlug,
+        vocabularyWords,
+        title,
+        description,
+        priority,
+        sourceConversationId,
+        createdBy // daniela or system
+      } = req.body;
+
+      if (!userId || !language || !recommendationType || !rationale || !title) {
+        return res.status(400).json({ 
+          error: "Required fields: userId, language, recommendationType, rationale, title" 
+        });
+      }
+
+      const recommendation = await storage.createDanielaRecommendation({
+        userId,
+        language,
+        classId,
+        recommendationType,
+        rationale,
+        lessonId,
+        drillId,
+        topicSlug,
+        vocabularyWords,
+        title,
+        description,
+        priority: priority || 1,
+        sourceConversationId,
+        createdBy: createdBy || 'daniela'
+      });
+
+      res.json(recommendation);
+    } catch (error: any) {
+      console.error('Error creating recommendation:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get recommendations for a student
+  app.get("/api/recommendations", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { language, classId, includeSnoozed, includeCompleted } = req.query;
+
+      const recommendations = await storage.getDanielaRecommendations(userId, {
+        language: language as string,
+        classId: classId as string,
+        includeSnoozed: includeSnoozed === 'true',
+        includeCompleted: includeCompleted === 'true'
+      });
+
+      res.json(recommendations);
+    } catch (error: any) {
+      console.error('Error fetching recommendations:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Complete a recommendation
+  app.post("/api/recommendations/:id/complete", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { evidenceConversationId } = req.body;
+
+      const recommendation = await storage.completeRecommendation(id, evidenceConversationId);
+      if (!recommendation) {
+        return res.status(404).json({ error: "Recommendation not found" });
+      }
+
+      res.json(recommendation);
+    } catch (error: any) {
+      console.error('Error completing recommendation:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Snooze a recommendation
+  app.post("/api/recommendations/:id/snooze", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { untilDate } = req.body;
+
+      if (!untilDate) {
+        return res.status(400).json({ error: "untilDate is required" });
+      }
+
+      const recommendation = await storage.snoozeRecommendation(id, new Date(untilDate));
+      if (!recommendation) {
+        return res.status(404).json({ error: "Recommendation not found" });
+      }
+
+      res.json(recommendation);
+    } catch (error: any) {
+      console.error('Error snoozing recommendation:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Dismiss a recommendation
+  app.post("/api/recommendations/:id/dismiss", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+
+      const recommendation = await storage.dismissRecommendation(id);
+      if (!recommendation) {
+        return res.status(404).json({ error: "Recommendation not found" });
+      }
+
+      res.json(recommendation);
+    } catch (error: any) {
+      console.error('Error dismissing recommendation:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create drill recommendation from struggle pattern (bridge endpoint)
+  // This connects StudentLearningService struggles to drill assignments
+  
+  // Validation schema for struggle patterns
+  const struggleSchema = z.object({
+    errorCategory: z.string().min(1),
+    errorType: z.string().optional(),
+    frequency: z.number().min(0).max(100).default(1),
+    severity: z.number().min(0).max(5).default(1)
+  });
+
+  const strugglesRequestSchema = z.object({
+    userId: z.string().min(1),
+    language: z.string().min(1),
+    classId: z.string().optional(),
+    struggles: z.array(struggleSchema).min(1).max(50), // Limit to 50 per request
+    sourceConversationId: z.string().optional()
+  });
+  
+  app.post("/api/recommendations/from-struggles", isAuthenticated, async (req: any, res) => {
+    try {
+      // Validate request body with Zod
+      const parseResult = strugglesRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ 
+          error: "Invalid request body",
+          details: parseResult.error.flatten()
+        });
+      }
+
+      const { userId, language, classId, struggles, sourceConversationId } = parseResult.data;
+
+      const createdRecommendations = [];
+
+      for (const struggle of struggles) {
+        const { errorCategory, errorType, frequency, severity } = struggle;
+        
+        // Determine priority based on frequency and severity (validated 0-100 and 0-5)
+        const priority = Math.min(5, Math.max(1, Math.ceil(frequency * severity / 20)));
+        
+        // Determine rationale based on the struggle pattern
+        let rationale: 'remediate' | 'reinforce' | 'accelerate' = 'remediate';
+        if (severity && severity < 0.3) {
+          rationale = 'reinforce'; // Minor issues, just reinforce
+        }
+
+        const recommendation = await storage.createDanielaRecommendation({
+          userId,
+          language,
+          classId,
+          recommendationType: 'drill',
+          rationale,
+          title: `Practice: ${errorType || errorCategory}`,
+          description: `Daniela noticed you're struggling with ${errorType || errorCategory}. Let's practice this together!`,
+          priority,
+          topicSlug: errorCategory,
+          sourceConversationId,
+          createdBy: 'daniela'
+        });
+
+        createdRecommendations.push(recommendation);
+      }
+
+      res.json({
+        success: true,
+        recommendationsCreated: createdRecommendations.length,
+        recommendations: createdRecommendations
+      });
+    } catch (error: any) {
+      console.error('Error creating recommendations from struggles:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ===== Class Types API =====
 
   // Get all active class types (public)
