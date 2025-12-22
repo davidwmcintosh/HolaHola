@@ -8825,13 +8825,15 @@ Return ONLY the ${targetLanguage} phrase:`;
   const createCustomLessonSchema = z.object({
     name: z.string().min(1, "Lesson name is required").max(200, "Lesson name must be less than 200 characters").trim(),
     description: z.string().max(2000, "Description must be less than 2000 characters").default(""),
-    lessonType: z.enum(["conversation", "vocabulary", "grammar", "cultural_exploration"]).default("conversation"),
+    lessonType: z.enum(["conversation", "vocabulary", "grammar", "cultural_exploration", "drill"]).default("conversation"),
     actflLevel: z.enum([
       "novice_low", "novice_mid", "novice_high",
       "intermediate_low", "intermediate_mid", "intermediate_high",
       "advanced_low", "advanced_mid", "advanced_high"
     ]).optional().nullable(),
     estimatedMinutes: z.number().int().min(5).max(180).default(30),
+    // Bundle creation: if true, creates a conversation lesson + linked drill lesson
+    createBundle: z.boolean().default(false),
   });
 
   app.post("/api/teacher/classes/:classId/curriculum/units/:unitId/lessons", mutationLimiter, isAuthenticated, async (req: any, res) => {
@@ -8868,6 +8870,84 @@ Return ONLY the ${targetLanguage} phrase:`;
       const existingLessons = await storage.getClassCurriculumLessons(unitId);
       const maxOrderIndex = existingLessons.reduce((max, lesson) => Math.max(max, lesson.orderIndex), -1);
 
+      // Label prefix mappings for bundle creation
+      const labelPrefixes: Record<string, string> = {
+        conversation: "Let's Chat:",
+        vocabulary: "New Words:",
+        grammar: "Grammar Spotlight:",
+        cultural_exploration: "Culture Corner:",
+        drill: "Practice Time:",
+      };
+
+      // If createBundle is true and lessonType is conversation, create both lessons
+      if (validatedData.createBundle && validatedData.lessonType === "conversation") {
+        // Extract topic from name (remove prefix if present)
+        let topic = validatedData.name;
+        for (const prefix of Object.values(labelPrefixes)) {
+          if (topic.startsWith(prefix)) {
+            topic = topic.slice(prefix.length).trim();
+            break;
+          }
+        }
+
+        // Generate a unique bundleId to group these lessons
+        const bundleId = `bundle_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+        // Create drill lesson first (so we have its ID for linking)
+        const drillLessonData = {
+          classUnitId: unitId,
+          name: `${labelPrefixes.drill} ${topic}`,
+          description: `Practice exercises for: ${topic}`,
+          lessonType: "drill" as const,
+          actflLevel: validatedData.actflLevel || null,
+          orderIndex: maxOrderIndex + 2, // Drill comes after conversation in order
+          isCustom: true,
+          isRemoved: false,
+          objectives: [],
+          estimatedMinutes: Math.round(validatedData.estimatedMinutes * 0.5), // Drills are shorter
+          bundleId, // Link via bundle
+        };
+
+        const drillLesson = await storage.createClassCurriculumLesson(drillLessonData);
+        
+        if (!drillLesson) {
+          return res.status(500).json({ error: "Failed to create drill lesson" });
+        }
+
+        // Create conversation lesson with link to drill
+        const conversationLessonData = {
+          classUnitId: unitId,
+          name: `${labelPrefixes.conversation} ${topic}`,
+          description: validatedData.description,
+          lessonType: "conversation" as const,
+          actflLevel: validatedData.actflLevel || null,
+          orderIndex: maxOrderIndex + 1, // Conversation comes first
+          isCustom: true,
+          isRemoved: false,
+          objectives: [],
+          estimatedMinutes: validatedData.estimatedMinutes,
+          conversationTopic: topic,
+          linkedDrillLessonId: drillLesson.id, // Link to the drill lesson
+          bundleId, // Link via bundle
+        };
+
+        const conversationLesson = await storage.createClassCurriculumLesson(conversationLessonData);
+
+        if (!conversationLesson) {
+          return res.status(500).json({ error: "Failed to create conversation lesson" });
+        }
+
+        // Return both lessons as a bundle response
+        return res.json({
+          bundle: true,
+          bundleId,
+          conversationLesson,
+          drillLesson,
+          lessonsCreated: 2,
+        });
+      }
+
+      // Standard single lesson creation
       const lessonData = {
         classUnitId: unitId,
         name: validatedData.name,

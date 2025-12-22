@@ -2,7 +2,84 @@
 
 **Purpose:** Transform dry, academic syllabus content into inviting, student-friendly experiences. Drills remain conversational tools for Daniela - these templates just hint at interactivity without prescribing when/how activities happen.
 
-**Last Updated:** December 21, 2025
+**Last Updated:** December 22, 2025
+
+---
+
+## Automated Label Prefilling (NEW - Dec 22, 2025)
+
+When teachers create new lessons in the Syllabus Builder, the system now **automatically prefills engaging labels** based on the lesson type selected:
+
+| Lesson Type | Auto-Prefilled Label |
+|-------------|---------------------|
+| Conversation | `Let's Chat:` |
+| Vocabulary | `New Words:` |
+| Grammar | `Grammar Spotlight:` |
+| Cultural | `Culture Corner:` |
+| Drill | `Practice Time:` |
+
+**How it works:**
+1. Teacher opens "Create Lesson" dialog
+2. Teacher selects lesson type (e.g., "Conversation")
+3. System automatically prefills name field with `Let's Chat: ` 
+4. Teacher just types the topic (e.g., "Ordering at a Restaurant")
+5. Final name: `Let's Chat: Ordering at a Restaurant`
+
+If the teacher changes the lesson type, the prefix automatically updates while preserving the topic.
+
+---
+
+## Bundle Creation (NEW - Dec 22, 2025)
+
+Teachers can now create **practice bundles** - a conversation lesson paired with a linked drill - in one action:
+
+**When creating a conversation lesson:**
+1. Toggle "Create Practice Bundle" ON
+2. Click "Create Bundle"
+3. System creates TWO lessons:
+   - `Let's Chat: [Topic]` (conversation)
+   - `Practice Time: [Topic]` (linked drill)
+
+The drill lesson is automatically linked to the conversation and set to 50% of the conversation's time estimate.
+
+**API Support:**
+```json
+POST /api/teacher/classes/:classId/curriculum/units/:unitId/lessons
+{
+  "name": "Ordering at a Restaurant",
+  "description": "Learn to order food and drinks",
+  "lessonType": "conversation",
+  "estimatedMinutes": 30,
+  "createBundle": true
+}
+```
+
+Returns:
+```json
+{
+  "bundle": true,
+  "bundleId": "bundle_1734889234_abc123xyz",
+  "conversationLesson": {
+    "id": "uuid-1",
+    "name": "Let's Chat: Ordering at a Restaurant",
+    "lessonType": "conversation",
+    "linkedDrillLessonId": "uuid-2",
+    "bundleId": "bundle_1734889234_abc123xyz"
+  },
+  "drillLesson": {
+    "id": "uuid-2", 
+    "name": "Practice Time: Ordering at a Restaurant",
+    "lessonType": "drill",
+    "bundleId": "bundle_1734889234_abc123xyz"
+  },
+  "lessonsCreated": 2
+}
+```
+
+**Linkage:**
+- `conversationLesson.linkedDrillLessonId` points to the drill lesson
+- Both lessons share the same `bundleId` for grouping
+- Drill time is automatically set to 50% of conversation time
 
 ---
 

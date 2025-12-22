@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -81,6 +82,7 @@ interface CreateLessonData {
   lessonType: string;
   actflLevel?: string;
   estimatedMinutes?: number;
+  createBundle?: boolean;
 }
 
 const ACTFL_LABELS: Record<string, string> = {
@@ -110,6 +112,34 @@ const LESSON_TYPE_LABELS: Record<string, string> = {
   cultural_exploration: "Cultural",
   drill: "Drill",
 };
+
+// Unified label prefixes for engaging lesson names (matches syllabus-template-kit.md)
+const LESSON_TYPE_PREFIXES: Record<string, string> = {
+  conversation: "Let's Chat:",
+  vocabulary: "New Words:",
+  grammar: "Grammar Spotlight:",
+  cultural_exploration: "Culture Corner:",
+  drill: "Practice Time:",
+};
+
+// Helper to get the topic portion (after the prefix) from a lesson name
+function extractTopicFromLessonName(name: string): string {
+  for (const prefix of Object.values(LESSON_TYPE_PREFIXES)) {
+    if (name.startsWith(prefix)) {
+      return name.slice(prefix.length).trim();
+    }
+  }
+  return name;
+}
+
+// Helper to apply the appropriate prefix based on lesson type
+function applyLessonTypePrefix(topic: string, lessonType: string): string {
+  const prefix = LESSON_TYPE_PREFIXES[lessonType];
+  if (prefix && topic.trim()) {
+    return `${prefix} ${topic.trim()}`;
+  }
+  return prefix ? `${prefix} ` : topic;
+}
 
 export function SyllabusBuilder({ classId }: SyllabusBuilderProps) {
   const { toast } = useToast();
@@ -624,6 +654,19 @@ function UnitCard({
   const [newLessonDescription, setNewLessonDescription] = useState("");
   const [newLessonType, setNewLessonType] = useState("conversation");
   const [newLessonActflLevel, setNewLessonActflLevel] = useState("");
+  const [createBundle, setCreateBundle] = useState(false);
+
+  // Auto-prefill lesson name when type changes
+  const handleLessonTypeChange = (newType: string) => {
+    const currentTopic = extractTopicFromLessonName(newLessonName);
+    const newName = applyLessonTypePrefix(currentTopic, newType);
+    setNewLessonName(newName);
+    setNewLessonType(newType);
+    // Only allow bundle creation for conversation type
+    if (newType !== "conversation") {
+      setCreateBundle(false);
+    }
+  };
   
   const [editingLesson, setEditingLesson] = useState<ClassCurriculumLesson | null>(null);
   const [editLessonName, setEditLessonName] = useState("");
@@ -666,6 +709,7 @@ function UnitCard({
       setNewLessonDescription("");
       setNewLessonType("conversation");
       setNewLessonActflLevel("");
+      setCreateBundle(false);
       setAddLessonDialogOpen(false);
     };
     
@@ -675,6 +719,7 @@ function UnitCard({
       lessonType: newLessonType,
       actflLevel: newLessonActflLevel || undefined,
       estimatedMinutes: 30,
+      createBundle: createBundle && newLessonType === "conversation",
     }, resetForm);
   };
 
@@ -829,7 +874,7 @@ function UnitCard({
                           id={`lesson-name-${unit.id}`}
                           value={newLessonName}
                           onChange={(e) => setNewLessonName(e.target.value)}
-                          placeholder="e.g., Ordering at a Restaurant"
+                          placeholder="e.g., Let's Chat: Ordering at a Restaurant"
                           data-testid={`input-lesson-name-${unit.id}`}
                         />
                       </div>
@@ -848,16 +893,16 @@ function UnitCard({
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>Lesson Type</Label>
-                          <Select value={newLessonType} onValueChange={setNewLessonType}>
+                          <Select value={newLessonType} onValueChange={handleLessonTypeChange}>
                             <SelectTrigger data-testid={`select-lesson-type-${unit.id}`}>
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="conversation">Conversation</SelectItem>
-                              <SelectItem value="vocabulary">Vocabulary</SelectItem>
-                              <SelectItem value="grammar">Grammar</SelectItem>
-                              <SelectItem value="cultural_exploration">Cultural</SelectItem>
-                              <SelectItem value="drill">Drill</SelectItem>
+                              <SelectItem value="conversation">Let's Chat (Conversation)</SelectItem>
+                              <SelectItem value="vocabulary">New Words (Vocabulary)</SelectItem>
+                              <SelectItem value="grammar">Grammar Spotlight</SelectItem>
+                              <SelectItem value="cultural_exploration">Culture Corner</SelectItem>
+                              <SelectItem value="drill">Practice Time (Drill)</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -882,6 +927,24 @@ function UnitCard({
                           </Select>
                         </div>
                       </div>
+                      {newLessonType === "conversation" && (
+                        <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                          <div className="space-y-0.5">
+                            <Label htmlFor={`bundle-toggle-${unit.id}`} className="text-sm font-medium">
+                              Create Practice Bundle
+                            </Label>
+                            <p className="text-xs text-muted-foreground">
+                              Also creates a linked drill lesson for practice
+                            </p>
+                          </div>
+                          <Switch
+                            id={`bundle-toggle-${unit.id}`}
+                            checked={createBundle}
+                            onCheckedChange={setCreateBundle}
+                            data-testid={`switch-create-bundle-${unit.id}`}
+                          />
+                        </div>
+                      )}
                     </div>
                     <DialogFooter>
                       <Button
@@ -896,7 +959,7 @@ function UnitCard({
                         disabled={!newLessonName.trim() || isCreatingLesson}
                         data-testid={`button-confirm-add-lesson-${unit.id}`}
                       >
-                        {isCreatingLesson ? "Creating..." : "Create Lesson"}
+                        {isCreatingLesson ? "Creating..." : (createBundle ? "Create Bundle" : "Create Lesson")}
                       </Button>
                     </DialogFooter>
                   </DialogContent>
@@ -1015,7 +1078,7 @@ function UnitCard({
                           id={`new-lesson-name-${unit.id}`}
                           value={newLessonName}
                           onChange={(e) => setNewLessonName(e.target.value)}
-                          placeholder="e.g., Ordering at a Restaurant"
+                          placeholder="e.g., Let's Chat: Ordering at a Restaurant"
                           data-testid={`input-new-lesson-name-${unit.id}`}
                         />
                       </div>
@@ -1034,16 +1097,16 @@ function UnitCard({
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>Lesson Type</Label>
-                          <Select value={newLessonType} onValueChange={setNewLessonType}>
+                          <Select value={newLessonType} onValueChange={handleLessonTypeChange}>
                             <SelectTrigger data-testid={`select-new-lesson-type-${unit.id}`}>
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="conversation">Conversation</SelectItem>
-                              <SelectItem value="vocabulary">Vocabulary</SelectItem>
-                              <SelectItem value="grammar">Grammar</SelectItem>
-                              <SelectItem value="cultural_exploration">Cultural</SelectItem>
-                              <SelectItem value="drill">Drill</SelectItem>
+                              <SelectItem value="conversation">Let's Chat (Conversation)</SelectItem>
+                              <SelectItem value="vocabulary">New Words (Vocabulary)</SelectItem>
+                              <SelectItem value="grammar">Grammar Spotlight</SelectItem>
+                              <SelectItem value="cultural_exploration">Culture Corner</SelectItem>
+                              <SelectItem value="drill">Practice Time (Drill)</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -1068,6 +1131,24 @@ function UnitCard({
                           </Select>
                         </div>
                       </div>
+                      {newLessonType === "conversation" && (
+                        <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                          <div className="space-y-0.5">
+                            <Label htmlFor={`bundle-toggle-new-${unit.id}`} className="text-sm font-medium">
+                              Create Practice Bundle
+                            </Label>
+                            <p className="text-xs text-muted-foreground">
+                              Also creates a linked drill lesson for practice
+                            </p>
+                          </div>
+                          <Switch
+                            id={`bundle-toggle-new-${unit.id}`}
+                            checked={createBundle}
+                            onCheckedChange={setCreateBundle}
+                            data-testid={`switch-create-bundle-new-${unit.id}`}
+                          />
+                        </div>
+                      )}
                     </div>
                     <DialogFooter>
                       <Button
@@ -1082,7 +1163,7 @@ function UnitCard({
                         disabled={!newLessonName.trim() || isCreatingLesson}
                         data-testid={`button-confirm-new-lesson-${unit.id}`}
                       >
-                        {isCreatingLesson ? "Creating..." : "Create Lesson"}
+                        {isCreatingLesson ? "Creating..." : (createBundle ? "Create Bundle" : "Create Lesson")}
                       </Button>
                     </DialogFooter>
                   </DialogContent>
