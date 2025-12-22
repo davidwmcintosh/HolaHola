@@ -22,6 +22,7 @@ import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { SystemAlertBanner } from "@/components/SystemAlertBanner";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { PendingJoinCodeHandler } from "@/components/PendingJoinCodeHandler";
 import { BUILD_TIME } from "./buildtime";
 
 // Lazy load all page components for code splitting
@@ -57,6 +58,7 @@ const NotFound = lazy(() => import("@/pages/not-found"));
 
 // Auth pages
 const Login = lazy(() => import("@/pages/auth/Login"));
+const GetStarted = lazy(() => import("@/pages/auth/GetStarted"));
 const CompleteRegistration = lazy(() => import("@/pages/auth/CompleteRegistration"));
 const ForgotPassword = lazy(() => import("@/pages/auth/ForgotPassword"));
 const ResetPassword = lazy(() => import("@/pages/auth/ResetPassword"));
@@ -116,6 +118,7 @@ function Router() {
       <PageWrapper>
         <Switch>
           <Route path="/" component={Landing} />
+          <Route path="/get-started" component={GetStarted} />
           <Route path="/login" component={Login} />
           <Route path="/complete-registration" component={CompleteRegistration} />
           <Route path="/forgot-password" component={ForgotPassword} />
@@ -215,6 +218,7 @@ function AuthenticatedApp({ style }: { style: { [key: string]: string } }) {
     <LanguageProvider>
       <UsageProvider>
         <LearningFilterProvider>
+          <PendingJoinCodeHandler />
           <SidebarProvider defaultOpen={true} style={style as React.CSSProperties}>
             <div className="flex h-screen w-full">
               {/* Sidebar renders as Sheet overlay on mobile, regular sidebar on desktop */}

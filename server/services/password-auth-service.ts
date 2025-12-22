@@ -118,7 +118,7 @@ export class PasswordAuthService {
     
     if (user.authProvider !== 'password') {
       if (user.authProvider === 'replit') {
-        return { success: false, error: 'This account uses Replit login. Please use the Replit login button.' };
+        return { success: false, error: 'This account uses Google Sign-In. Please use the "Continue with Google" button.' };
       }
       if (user.authProvider === 'pending') {
         return { success: false, error: 'Please complete your registration using the invitation link sent to your email.' };

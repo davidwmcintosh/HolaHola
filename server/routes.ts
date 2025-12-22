@@ -7679,6 +7679,35 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // Verify class code without authentication (for signup flow)
+  // Returns class name only - no sensitive data
+  app.get("/api/classes/verify-code", async (req, res) => {
+    try {
+      const { code } = req.query;
+      
+      if (!code || typeof code !== 'string') {
+        return res.status(400).json({ error: "Class code is required" });
+      }
+      
+      // Find class by join code
+      const cls = await storage.getClassByJoinCode(code.toUpperCase());
+      
+      if (!cls || !cls.isActive) {
+        return res.status(404).json({ error: "Invalid class code. Please check and try again." });
+      }
+      
+      // Return only non-sensitive info
+      res.json({ 
+        valid: true,
+        className: cls.name,
+        language: cls.language
+      });
+    } catch (error: any) {
+      console.error('Error verifying class code:', error);
+      res.status(500).json({ error: "Failed to verify class code" });
+    }
+  });
+
   // Get featured classes for marketing showcase
   app.get("/api/classes/featured", async (req, res) => {
     try {

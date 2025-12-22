@@ -14,13 +14,21 @@ export default function Landing() {
           <p className="text-xl text-muted-foreground">
             Practice conversations, build vocabulary, and track your progress with your personal AI language tutor
           </p>
-          <div className="pt-4">
+          <div className="pt-4 flex flex-col sm:flex-row gap-3 justify-center">
             <Button
               size="lg"
-              onClick={() => window.location.href = '/api/login'}
-              data-testid="button-login"
+              onClick={() => window.location.href = '/get-started'}
+              data-testid="button-get-started"
             >
               Get Started
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={() => window.location.href = '/login'}
+              data-testid="button-login"
+            >
+              I Have an Account
             </Button>
           </div>
         </div>
@@ -116,13 +124,23 @@ export default function Landing() {
         <div className="text-center mt-16 space-y-4">
           <h2 className="text-3xl font-bold">Ready to start your language journey?</h2>
           <p className="text-muted-foreground">Join thousands of learners improving their language skills with AI</p>
-          <Button
-            size="lg"
-            onClick={() => window.location.href = '/api/login'}
-            data-testid="button-login-cta"
-          >
-            Sign In to Get Started
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button
+              size="lg"
+              onClick={() => window.location.href = '/get-started'}
+              data-testid="button-get-started-cta"
+            >
+              Get Started Free
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={() => window.location.href = '/login'}
+              data-testid="button-login-cta"
+            >
+              Sign In
+            </Button>
+          </div>
         </div>
       </div>
     </div>
