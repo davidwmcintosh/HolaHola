@@ -85,16 +85,16 @@ class SyncBridgeService {
       const expansion = await neuralNetworkSync.exportNeuralNetworkExpansion();
       const procedural = await neuralNetworkSync.exportProceduralMemory();
       
-      bundle.bestPractices = bestPractices;
-      bundle.idioms = expansion.idioms;
-      bundle.nuances = expansion.nuances;
-      bundle.errorPatterns = expansion.errorPatterns;
-      bundle.dialects = expansion.dialects;
-      bundle.bridges = expansion.bridges;
-      bundle.tools = procedural.tools;
-      bundle.procedures = procedural.procedures;
-      bundle.principles = procedural.principles;
-      bundle.patterns = procedural.patterns;
+      bundle.bestPractices = bestPractices || [];
+      bundle.idioms = expansion?.idioms || [];
+      bundle.nuances = expansion?.nuances || [];
+      bundle.errorPatterns = expansion?.errorPatterns || [];
+      bundle.dialects = expansion?.dialects || [];
+      bundle.bridges = expansion?.bridges || [];
+      bundle.tools = procedural?.tools || [];
+      bundle.procedures = procedural?.procedures || [];
+      bundle.principles = procedural?.principles || [];
+      bundle.patterns = procedural?.patterns || [];
     }
     
     // BATCH: advanced-intel - Advanced intelligence, Daniela suggestions, tri-lane, North Star
@@ -104,17 +104,17 @@ class SyncBridgeService {
       const triLane = await neuralNetworkSync.exportTriLaneObservations();
       const northStar = await neuralNetworkSync.exportNorthStar();
       
-      bundle.subtletyCues = advanced.subtletyCues;
-      bundle.emotionalPatterns = advanced.emotionalPatterns;
-      bundle.creativityTemplates = advanced.creativityTemplates;
-      bundle.suggestions = daniela.suggestions;
-      bundle.triggers = daniela.triggers;
-      bundle.actions = daniela.actions;
-      bundle.observations = [...triLane.agentObservations, ...triLane.supportObservations];
-      bundle.alerts = triLane.systemAlerts;
-      bundle.northStarPrinciples = northStar.principles;
-      bundle.northStarUnderstanding = northStar.understanding;
-      bundle.northStarExamples = northStar.examples;
+      bundle.subtletyCues = advanced?.subtletyCues || [];
+      bundle.emotionalPatterns = advanced?.emotionalPatterns || [];
+      bundle.creativityTemplates = advanced?.creativityTemplates || [];
+      bundle.suggestions = daniela?.suggestions || [];
+      bundle.triggers = daniela?.triggers || [];
+      bundle.actions = daniela?.actions || [];
+      bundle.observations = [...(triLane?.agentObservations || []), ...(triLane?.supportObservations || [])];
+      bundle.alerts = triLane?.systemAlerts || [];
+      bundle.northStarPrinciples = northStar?.principles || [];
+      bundle.northStarUnderstanding = northStar?.understanding || [];
+      bundle.northStarExamples = northStar?.examples || [];
     }
     
     // BATCH: express-lane - Founder user, sessions, messages
