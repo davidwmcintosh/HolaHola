@@ -4915,12 +4915,36 @@ function CrossEnvSyncSection() {
     },
   });
 
+  const [peerSyncRuns, setPeerSyncRuns] = useState<any[] | null>(null);
+  const [peerEnvironment, setPeerEnvironment] = useState<string | null>(null);
+  
+  const peerQueryMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("GET", "/api/sync/peer-sync-runs?limit=10");
+    },
+    onSuccess: (data: any) => {
+      setPeerSyncRuns(data.syncRuns || []);
+      setPeerEnvironment(data.environment || null);
+      toast({
+        title: "Peer Query Successful",
+        description: `Retrieved ${data.syncRuns?.length || 0} sync runs from ${data.environment || "peer"}`,
+      });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Peer Query Failed", 
+        description: error.message || "Could not connect to peer environment",
+        variant: "destructive" 
+      });
+    },
+  });
+
   const formatDate = (date: string | Date | null) => {
     if (!date) return "Never";
     return new Date(date).toLocaleString();
   };
 
-  const isAnySyncRunning = pushMutation.isPending || pullMutation.isPending || fullSyncMutation.isPending;
+  const isAnySyncRunning = pushMutation.isPending || pullMutation.isPending || fullSyncMutation.isPending || peerQueryMutation.isPending;
 
   return (
     <CollapsibleSection 
@@ -5048,6 +5072,20 @@ function CrossEnvSyncSection() {
                     )}
                     Full Sync
                   </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => peerQueryMutation.mutate()}
+                    disabled={isAnySyncRunning}
+                    data-testid="button-peer-query"
+                  >
+                    {peerQueryMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <Search className="h-4 w-4 mr-1" />
+                    )}
+                    Query Peer
+                  </Button>
                 </div>
               </>
             )}
@@ -5057,7 +5095,7 @@ function CrossEnvSyncSection() {
         {syncStatus?.recentRuns && syncStatus.recentRuns.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Recent Sync Runs</CardTitle>
+              <CardTitle className="text-base">Recent Sync Runs (Local)</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
@@ -5080,6 +5118,47 @@ function CrossEnvSyncSection() {
                     <span className="text-muted-foreground text-xs">
                       {formatDate(run.startedAt)}
                     </span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {peerSyncRuns && peerSyncRuns.length > 0 && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-2">
+              <CardTitle className="text-base">Peer Sync Runs ({peerEnvironment || "Unknown"})</CardTitle>
+              <Badge variant="outline">{peerSyncRuns.length} runs</Badge>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {peerSyncRuns.slice(0, 10).map((run: any) => (
+                  <div key={run.id} className="text-sm p-2 rounded border space-y-1">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {run.direction === "push" ? (
+                          <ArrowUp className="h-3 w-3 text-blue-500" />
+                        ) : (
+                          <ArrowDown className="h-3 w-3 text-green-500" />
+                        )}
+                        <span className="capitalize">{run.direction}</span>
+                      </div>
+                      <Badge variant={run.status === "success" ? "default" : run.status === "partial" ? "secondary" : run.status === "failed" ? "destructive" : "outline"}>
+                        {run.status}
+                      </Badge>
+                      <span className="text-muted-foreground text-xs">
+                        {run.durationMs ? `${Math.round(run.durationMs / 1000)}s` : "-"}
+                      </span>
+                      <span className="text-muted-foreground text-xs">
+                        {formatDate(run.startedAt)}
+                      </span>
+                    </div>
+                    {run.errorMessage && (
+                      <div className="text-xs text-destructive bg-destructive/10 p-2 rounded font-mono break-all">
+                        {run.errorMessage.length > 200 ? run.errorMessage.substring(0, 200) + "..." : run.errorMessage}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
