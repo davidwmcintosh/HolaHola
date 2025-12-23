@@ -35,7 +35,30 @@ Syllabus Template Automation pre-fills labels for teachers creating lessons base
 
 Azure Pronunciation Assessment is implemented for post-session batch analysis to inform drill recommendations. This involves background transcoding of audio and analysis by Azure, with results merging into the `phonemeStruggles` table. A sampling strategy (20% of sessions per user) is used for cost optimization. A tiered pronunciation assessment approach is recommended based on subscription level (Deepgram heuristics for free, Azure for paid).
 
-A Dev-Prod Sync System is in place, synchronizing data in batches (neural-core, advanced-intel, express-lane, hive-snapshots, daniela-memories) using HMAC signatures for authentication.
+A Dev-Prod Sync System is in place, synchronizing data in batches (neural-core, advanced-intel, express-lane, hive-snapshots, daniela-memories) using HMAC signatures for authentication. The v15 paginated architecture handles large datasets (500 observations/page) within Replit's 60s gateway timeout.
+
+## Voice Intelligence System (December 2024)
+Commercial-grade voice analytics service (`server/services/voice-intelligence-service.ts`) providing:
+- **Latency Trend Detection**: Day-over-day comparison (today vs yesterday vs week ago) with improving/stable/degrading/critical classifications
+- **Time-of-Day Patterns**: Peak vs quiet hour performance analysis with automatic peak hour detection
+- **Per-Language Metrics**: Failure rates by language with worst-stage identification across all 9 supported languages
+- **Student Correlation**: Device/network issue detection per user based on failure patterns and latency
+- **Dynamic Thresholds**: Auto-tuned from historical baselines using mean + 2*stdDev formula
+- **Cross-Environment Comparison**: Dev vs prod latency/failure comparison with differential alerting
+- **Production-Priority Alerting**: Critical severity for production issues, warning for dev
+- **Historical Baselines**: Persisted to `hiveSnapshots` (type: `voice_baselines`) with 1-hour in-memory caching
+- **Wren Integration**: Critical alerts converted to Wren insights for architectural awareness
+
+**Dashboard**: Founder-only UI at `/admin/voice-intelligence` (`client/src/pages/admin/VoiceIntelligence.tsx`)
+
+**Scheduling**: 
+- Nightly full analysis: 4 AM MST / 11 AM UTC (heavy analytics + baseline updates)
+- Incremental sync: Every 4 hours (lightweight cross-env only)
+
+**Next Steps** (after sync stress test completes):
+1. Trigger baseline regeneration to populate `voice_baselines` snapshot type
+2. Monitor first nightly sync for alerts posting to Wren insights
+3. Verify cross-environment comparison with real prod data
 
 ## External Dependencies
 -   Stripe: Payment processing and subscription management.
