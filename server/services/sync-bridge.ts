@@ -1011,8 +1011,10 @@ class SyncBridgeService {
         return { success: false, bundle: {}, error: `${batchType}: ${response.status} - ${errorMsg}` };
       }
       
-      const bundle = await response.json() as Partial<SyncBundle>;
-      console.log(`[SYNC-BRIDGE] Pull batch ${batchType} complete`);
+      const bundle = await response.json() as Partial<SyncBundle> & { _syncVersion?: number; exportErrors?: string[] };
+      const versionInfo = bundle._syncVersion ? ` (remote v${bundle._syncVersion})` : ' (remote pre-v2)';
+      const exportErrorInfo = bundle.exportErrors?.length ? ` [remote errors: ${bundle.exportErrors.join(', ')}]` : '';
+      console.log(`[SYNC-BRIDGE] Pull batch ${batchType} complete${versionInfo}${exportErrorInfo}`);
       return { success: true, bundle };
     } catch (err: any) {
       const errorMsg = err.name === 'AbortError' ? `${batchType} timeout after ${timeoutMs/1000}s` : err.message;
