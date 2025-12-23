@@ -94,6 +94,30 @@ The **Bundle Creation** feature allows one-click creation of linked lesson pairs
   - **Paid tier:** Azure phoneme-level scoring with 20% sampling (~$0.006/session extra)
 - This creates a premium differentiator while avoiding 3-6 months of ML infrastructure work
 
+## Dev-Prod Sync System (ACTIVE DEBUGGING - Dec 23, 2024)
+**Status:** Partial syncs occurring - advanced-intel batch failing on production
+
+**Root Cause Identified:**
+- Production database missing `schema_migrations` table
+- `assertTriLaneReady()` fails when checking migration status
+- Error occurs BEFORE try-catch handlers can catch it
+
+**Next Steps (Priority Order):**
+1. Hit production `/api/health/migrations` endpoint with sync headers to auto-create `schema_migrations` table
+2. This will run migration 001_tri-lane-tables on production
+3. Re-run sync from Command Center - should complete successfully
+
+**Sync Architecture:**
+- Batches: neural-core → advanced-intel → express-lane → hive-snapshots → daniela-memories
+- Auth: HMAC signatures with X-Sync-Signature, X-Sync-Timestamp, X-Sync-Nonce headers
+- Tables: `sync_runs` tracks sync history with snake_case columns (error_message, duration_ms)
+
+**Key Files:**
+- `server/migrations/migration-orchestrator.ts` - Versioned migration system
+- `server/services/sync-bridge.ts` - Export/import logic with try-catch error handling
+- `server/services/neural-network-sync.ts` - Neural network data sync
+- `client/src/pages/admin/CommandCenter.tsx` - UI for triggering syncs
+
 ## External Dependencies
 -   Stripe: Payment processing and subscription management.
 -   Replit Auth: OIDC authentication.
