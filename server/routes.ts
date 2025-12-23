@@ -16560,7 +16560,8 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   // Supports optional batchType parameter for batched sync
   app.post("/api/sync/export", validateSyncRequest, async (req: any, res) => {
     const batchType = req.body?.batchType || 'full';
-    console.log(`[SYNC API v12] Export handler entered for batch: ${batchType}`);
+    const startTime = Date.now();
+    console.log(`[SYNC API v12] Export handler entered for batch: ${batchType} at ${new Date().toISOString()}`);
     
     // Track if we've sent a response
     let responseSent = false;
@@ -16570,9 +16571,30 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
       console.error(`[SYNC API v12] Response error for batch ${batchType}:`, err.message);
     });
     
+    // Add close handler to detect premature connection close
+    res.on('close', () => {
+      if (!responseSent) {
+        console.error(`[SYNC API v12] Connection closed BEFORE response sent for batch: ${batchType} after ${Date.now() - startTime}ms`);
+      }
+    });
+    
+    // Add timeout handler - if no response in 40s, send error
+    const timeoutId = setTimeout(() => {
+      if (!responseSent) {
+        console.error(`[SYNC API v12] TIMEOUT for batch: ${batchType} after ${Date.now() - startTime}ms`);
+        responseSent = true;
+        res.status(504).json({ 
+          error: `Export timeout for batch ${batchType} after 40s`, 
+          batch: batchType,
+          _syncVersion: 12 
+        });
+      }
+    }, 40000);
+    
     try {
-      console.log(`[SYNC API v12] Step 1: Calling collectExportBundle`);
+      console.log(`[SYNC API v12] Step 1: Calling collectExportBundle for ${batchType}`);
       const bundle = await syncBridge.collectExportBundle(null, batchType);
+      console.log(`[SYNC API v12] Step 1.5: collectExportBundle returned for ${batchType} after ${Date.now() - startTime}ms`);
       
       console.log(`[SYNC API v12] Step 2: Bundle collected, serializing to JSON string first`);
       const response = Object.assign({}, bundle, { _syncVersion: 12 });
@@ -16592,16 +16614,19 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
         });
       }
       
-      console.log(`[SYNC API v12] Step 4: Sending response for batch: ${batchType}`);
+      console.log(`[SYNC API v12] Step 4: Sending response for batch: ${batchType} after ${Date.now() - startTime}ms`);
+      clearTimeout(timeoutId);
       res.setHeader('Content-Type', 'application/json');
       responseSent = true;
       res.send(jsonString);
-      console.log(`[SYNC API v12] Step 5: Response sent for batch: ${batchType}`);
+      console.log(`[SYNC API v12] Step 5: Response sent for batch: ${batchType} after ${Date.now() - startTime}ms`);
     } catch (error: any) {
+      clearTimeout(timeoutId);
       const errorMsg = error?.message || error?.toString() || 'Unknown export error';
-      console.error(`[SYNC API v12] Export error for batch ${batchType}:`, errorMsg);
+      console.error(`[SYNC API v12] Export error for batch ${batchType} after ${Date.now() - startTime}ms:`, errorMsg);
       console.error(`[SYNC API v12] Stack:`, error?.stack || 'no stack');
       if (!responseSent) {
+        responseSent = true;
         res.status(500).json({ 
           error: errorMsg, 
           batch: batchType,

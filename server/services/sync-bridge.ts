@@ -9,7 +9,7 @@ const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production'
 
 // Version identifier to verify which code is running on production
 // Increment this when making sync-related changes to verify deployment
-const SYNC_BRIDGE_CODE_VERSION = "2024-12-23-v2-defensive-try-catch";
+const SYNC_BRIDGE_CODE_VERSION = "2024-12-23-v3-timeout-and-close-handlers";
 
 export interface SyncBundle {
   generatedAt: string;
