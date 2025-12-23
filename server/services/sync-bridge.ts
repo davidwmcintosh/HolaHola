@@ -117,36 +117,42 @@ class SyncBridgeService {
     }
     
     // BATCH: advanced-intel - Advanced intelligence, Daniela suggestions, tri-lane, North Star
-    // v10: Testing 3 exports (adding exportTriLaneObservations)
+    // v11: Testing exportNorthStar (skipping exportTriLaneObservations which causes crash)
     if (!batchType || batchType === 'advanced-intel') {
-      console.log('[SYNC-BRIDGE v10] advanced-intel batch - testing 3 exports');
+      console.log('[SYNC-BRIDGE v11] advanced-intel batch - testing 3 exports (skip triLane)');
       
       // Test 1: exportAdvancedIntelligence (PASSED in v8)
       let advanced: any = { subtletyCues: [], emotionalPatterns: [], creativityTemplates: [] };
       try {
         advanced = await neuralNetworkSync.exportAdvancedIntelligence();
-        console.log(`[SYNC-BRIDGE v10] exportAdvancedIntelligence: ${advanced?.subtletyCues?.length || 0} cues`);
+        console.log(`[SYNC-BRIDGE v11] exportAdvancedIntelligence: ${advanced?.subtletyCues?.length || 0} cues`);
       } catch (e: any) {
-        console.error('[SYNC-BRIDGE v10] exportAdvancedIntelligence FAILED:', e.message);
+        console.error('[SYNC-BRIDGE v11] exportAdvancedIntelligence FAILED:', e.message);
       }
       
       // Test 2: exportDanielaSuggestions (PASSED in v9)
       let daniela: any = { suggestions: [], triggers: [], actions: [] };
       try {
         daniela = await neuralNetworkSync.exportDanielaSuggestions();
-        console.log(`[SYNC-BRIDGE v10] exportDanielaSuggestions: ${daniela?.suggestions?.length || 0} suggestions`);
+        console.log(`[SYNC-BRIDGE v11] exportDanielaSuggestions: ${daniela?.suggestions?.length || 0} suggestions`);
       } catch (e: any) {
-        console.error('[SYNC-BRIDGE v10] exportDanielaSuggestions FAILED:', e.message);
+        console.error('[SYNC-BRIDGE v11] exportDanielaSuggestions FAILED:', e.message);
       }
       
-      // Test 3: exportTriLaneObservations
-      let triLane: any = { agentObservations: [], supportObservations: [], systemAlerts: [] };
+      // Test 3: exportTriLaneObservations - SKIP (causes prod crash)
+      // Tables may not exist in production database
+      bundle.observations = [];
+      bundle.alerts = [];
+      console.log('[SYNC-BRIDGE v11] Skipping exportTriLaneObservations (tables may not exist in prod)');
+      
+      // Test 4: exportNorthStar
+      let northStar: any = { principles: [], understanding: [], examples: [] };
       try {
-        console.log('[SYNC-BRIDGE v10] Calling exportTriLaneObservations...');
-        triLane = await neuralNetworkSync.exportTriLaneObservations();
-        console.log(`[SYNC-BRIDGE v10] exportTriLaneObservations: ${triLane?.agentObservations?.length || 0} observations`);
+        console.log('[SYNC-BRIDGE v11] Calling exportNorthStar...');
+        northStar = await neuralNetworkSync.exportNorthStar();
+        console.log(`[SYNC-BRIDGE v11] exportNorthStar: ${northStar?.principles?.length || 0} principles`);
       } catch (e: any) {
-        console.error('[SYNC-BRIDGE v10] exportTriLaneObservations FAILED:', e.message);
+        console.error('[SYNC-BRIDGE v11] exportNorthStar FAILED:', e.message);
       }
       
       bundle.subtletyCues = advanced?.subtletyCues || [];
@@ -155,14 +161,10 @@ class SyncBridgeService {
       bundle.suggestions = daniela?.suggestions || [];
       bundle.triggers = daniela?.triggers || [];
       bundle.actions = daniela?.actions || [];
-      bundle.observations = [...(triLane?.agentObservations || []), ...(triLane?.supportObservations || [])];
-      bundle.alerts = triLane?.systemAlerts || [];
-      
-      // Skip North Star for now (return empty)
-      bundle.northStarPrinciples = [];
-      bundle.northStarUnderstanding = [];
-      bundle.northStarExamples = [];
-      console.log('[SYNC-BRIDGE v10] advanced-intel batch complete');
+      bundle.northStarPrinciples = northStar?.principles || [];
+      bundle.northStarUnderstanding = northStar?.understanding || [];
+      bundle.northStarExamples = northStar?.examples || [];
+      console.log('[SYNC-BRIDGE v11] advanced-intel batch complete');
     }
     
     // BATCH: express-lane - Founder user, sessions, messages
