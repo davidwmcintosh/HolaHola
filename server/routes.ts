@@ -16534,9 +16534,9 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   app.post("/api/sync/export", validateSyncRequest, async (req: any, res) => {
     try {
       const { batchType } = req.body;
-      console.log(`[SYNC API] Export request received from peer${batchType ? ` (batch: ${batchType})` : ''}`);
+      console.log(`[SYNC API v2] Export request received from peer${batchType ? ` (batch: ${batchType})` : ''}`);
       const bundle = await syncBridge.collectExportBundle(null, batchType);
-      res.json(bundle);
+      res.json({ ...bundle, _syncVersion: 2 });
     } catch (error: any) {
       const errorMsg = error?.message || error?.toString() || 'Unknown export error';
       console.error(`[SYNC API] Export error for batch ${req.body?.batchType || 'full'}:`, errorMsg, error?.stack || '');
