@@ -42,13 +42,24 @@ hiveConsciousnessService.startListening();
 // Note: This handles legacy ws connections and realtime API
 setupUnifiedWebSocketHandler(server);
 
-// Initialize Stripe before starting server
+// Initialize Stripe before starting server (non-blocking if credentials missing)
 let stripeReady = false;
 const stripeInitPromise = (async function initStripe() {
   const databaseUrl = process.env.DATABASE_URL;
   
   if (!databaseUrl) {
     console.error('DATABASE_URL environment variable is required for Stripe integration');
+    return;
+  }
+
+  // Check credentials FIRST before attempting schema migration
+  console.log('Checking Stripe credentials...');
+  const secretKey = await getStripeSecretKey();
+  const webhookSecret = await getStripeWebhookSecret();
+  
+  if (!secretKey || !webhookSecret) {
+    console.log('Stripe credentials not available - skipping Stripe schema and sync');
+    stripeReady = false;
     return;
   }
 
@@ -59,16 +70,6 @@ const stripeInitPromise = (async function initStripe() {
       schema: 'stripe'
     });
     console.log('Stripe schema ready');
-
-    console.log('Checking Stripe credentials...');
-    const secretKey = await getStripeSecretKey();
-    const webhookSecret = await getStripeWebhookSecret();
-    
-    if (!secretKey || !webhookSecret) {
-      console.log('Stripe credentials not available - skipping Stripe sync');
-      stripeReady = false;
-      return;
-    }
     
     console.log('Syncing Stripe data...');
     const stripeSync = new StripeSync({
