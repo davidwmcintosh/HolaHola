@@ -279,6 +279,42 @@ class SyncBridgeService {
     }
     
     bundle.checksum = this.computeChecksum(bundle);
+    
+    // GROWTH MONITORING: Log batch sizes to detect when pagination may be needed
+    // Alert threshold: 2MB payload or 2000+ records
+    const PAYLOAD_WARN_THRESHOLD = 2 * 1024 * 1024; // 2MB
+    const RECORD_WARN_THRESHOLD = 2000;
+    
+    const recordCounts: Record<string, number> = {
+      bestPractices: bundle.bestPractices?.length || 0,
+      idioms: bundle.idioms?.length || 0,
+      nuances: bundle.nuances?.length || 0,
+      tools: bundle.tools?.length || 0,
+      procedures: bundle.procedures?.length || 0,
+      principles: bundle.principles?.length || 0,
+      patterns: bundle.patterns?.length || 0,
+      subtletyCues: bundle.subtletyCues?.length || 0,
+      emotionalPatterns: bundle.emotionalPatterns?.length || 0,
+      creativityTemplates: bundle.creativityTemplates?.length || 0,
+      suggestions: bundle.suggestions?.length || 0,
+      triggers: bundle.triggers?.length || 0,
+      observations: bundle.observations?.length || 0,
+      alerts: bundle.alerts?.length || 0,
+      expressLaneSessions: bundle.expressLaneSessions?.length || 0,
+      expressLaneMessages: bundle.expressLaneMessages?.length || 0,
+      hiveSnapshots: bundle.hiveSnapshots?.length || 0,
+      danielaGrowthMemories: bundle.danielaGrowthMemories?.length || 0,
+    };
+    
+    // Check for high record counts that may need pagination soon
+    const highGrowthTables = Object.entries(recordCounts)
+      .filter(([_, count]) => count >= RECORD_WARN_THRESHOLD)
+      .map(([table, count]) => `${table}=${count}`);
+    
+    if (highGrowthTables.length > 0 && batchType) {
+      console.warn(`[SYNC-GROWTH] ⚠️ Batch ${batchType} has high record counts: ${highGrowthTables.join(', ')} - consider pagination`);
+    }
+    
     return bundle;
   }
   
