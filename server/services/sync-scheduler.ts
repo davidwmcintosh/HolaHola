@@ -10,6 +10,11 @@ import { users, recurringStruggles, hiveSnapshots, wrenInsights } from '@shared/
 import { sql, and, gte, isNotNull, eq, desc } from 'drizzle-orm';
 
 let scheduledTimer: NodeJS.Timeout | null = null;
+let incrementalSyncTimer: NodeJS.Timeout | null = null;
+
+// INCREMENTAL SYNC: Run every 4 hours to keep dev-prod closely aligned
+// This is a lightweight sync that only does cross-environment push/pull
+const INCREMENTAL_SYNC_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours
 let lastSyncResult: { 
   timestamp: Date; 
   success: boolean; 
@@ -464,13 +469,56 @@ function scheduleNextSync(): void {
   const hours = Math.floor(msUntilSync / (1000 * 60 * 60));
   const minutes = Math.floor((msUntilSync % (1000 * 60 * 60)) / (1000 * 60));
   
-  console.log(`[SYNC-SCHEDULER] Next sync scheduled in ${hours}h ${minutes}m (3 AM MST / 10 AM UTC)`);
+  console.log(`[SYNC-SCHEDULER] Next nightly sync in ${hours}h ${minutes}m (4 AM MST / 11 AM UTC)`);
   
   if (scheduledTimer) {
     clearTimeout(scheduledTimer);
   }
   
   scheduledTimer = setTimeout(runNightlySync, msUntilSync);
+}
+
+/**
+ * Lightweight incremental sync - runs every 4 hours
+ * Only does cross-environment push/pull, skipping heavy analytics jobs
+ * This keeps dev-prod closely aligned and reduces payload sizes
+ */
+async function runIncrementalSync(): Promise<void> {
+  console.log('[SYNC-SCHEDULER] Running incremental sync at', new Date().toISOString());
+  
+  try {
+    if (!isSyncConfigured()) {
+      console.log('[SYNC-SCHEDULER] Incremental sync skipped - sync not configured');
+      scheduleNextIncrementalSync();
+      return;
+    }
+    
+    // Only do the cross-environment sync (no heavy analytics)
+    const crossEnvResult = await syncBridge.performFullSync('incremental');
+    
+    console.log(`[SYNC-SCHEDULER] Incremental sync complete:`);
+    console.log(`  - Push: ${crossEnvResult.push.success ? 'success' : 'failed'} (${crossEnvResult.push.durationMs}ms)`);
+    console.log(`  - Pull: ${crossEnvResult.pull.success ? 'success' : 'failed'} (${crossEnvResult.pull.durationMs}ms)`);
+    
+    // Update last sync result with incremental info
+    if (lastSyncResult) {
+      lastSyncResult.crossEnvSync = crossEnvResult;
+    }
+    
+  } catch (error: any) {
+    console.error('[SYNC-SCHEDULER] Incremental sync error:', error.message);
+  }
+  
+  scheduleNextIncrementalSync();
+}
+
+function scheduleNextIncrementalSync(): void {
+  if (incrementalSyncTimer) {
+    clearInterval(incrementalSyncTimer);
+  }
+  
+  console.log(`[SYNC-SCHEDULER] Next incremental sync in 4 hours`);
+  incrementalSyncTimer = setTimeout(runIncrementalSync, INCREMENTAL_SYNC_INTERVAL_MS);
 }
 
 export function getNextSyncTime(): Date {
@@ -486,14 +534,22 @@ export function getNextSyncTime(): Date {
 }
 
 export function startSyncScheduler(): void {
-  console.log('[SYNC-SCHEDULER] Starting nightly sync scheduler (3 AM MST / 10 AM UTC daily)');
+  console.log('[SYNC-SCHEDULER] Starting sync scheduler:');
+  console.log('[SYNC-SCHEDULER]   - Nightly full sync: 4 AM MST / 11 AM UTC (heavy analytics + cross-env sync)');
+  console.log('[SYNC-SCHEDULER]   - Incremental sync: every 4 hours (lightweight cross-env only)');
+  
   scheduleNextSync();
+  scheduleNextIncrementalSync();
 }
 
 export function stopSyncScheduler(): void {
   if (scheduledTimer) {
     clearTimeout(scheduledTimer);
     scheduledTimer = null;
-    console.log('[SYNC-SCHEDULER] Scheduler stopped');
   }
+  if (incrementalSyncTimer) {
+    clearTimeout(incrementalSyncTimer);
+    incrementalSyncTimer = null;
+  }
+  console.log('[SYNC-SCHEDULER] All schedulers stopped');
 }
