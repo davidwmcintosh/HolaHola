@@ -12,6 +12,7 @@ import { generalLimiter } from "./middleware/rate-limiter";
 import { setupUnifiedWebSocketHandler, setupSocketIOHandler } from "./unified-ws-handler";
 import { founderCollabWSBroker } from "./services/founder-collab-ws-broker";
 import { hiveConsciousnessService } from "./services/hive-consciousness-service";
+import { ensureTriLaneTables } from "./migrations/tri-lane-tables";
 
 const app = express();
 
@@ -70,6 +71,9 @@ const stripeInitPromise = (async function initStripe() {
       schema: 'stripe'
     });
     console.log('Stripe schema ready');
+    
+    // Ensure tri-lane tables exist (for cross-env sync)
+    await ensureTriLaneTables();
     
     console.log('Syncing Stripe data...');
     const stripeSync = new StripeSync({
