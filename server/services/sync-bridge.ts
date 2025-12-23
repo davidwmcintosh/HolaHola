@@ -117,34 +117,44 @@ class SyncBridgeService {
     }
     
     // BATCH: advanced-intel - Advanced intelligence, Daniela suggestions, tri-lane, North Star
-    // v8: Re-enable exports one at a time to identify crash source
+    // v9: Testing exportAdvancedIntelligence + exportDanielaSuggestions
     if (!batchType || batchType === 'advanced-intel') {
-      console.log('[SYNC-BRIDGE v8] advanced-intel batch - testing exportAdvancedIntelligence only');
+      console.log('[SYNC-BRIDGE v9] advanced-intel batch - testing 2 exports');
       
-      // Test 1: exportAdvancedIntelligence
+      // Test 1: exportAdvancedIntelligence (PASSED in v8)
       let advanced: any = { subtletyCues: [], emotionalPatterns: [], creativityTemplates: [] };
       try {
-        console.log('[SYNC-BRIDGE v8] Calling exportAdvancedIntelligence...');
+        console.log('[SYNC-BRIDGE v9] Calling exportAdvancedIntelligence...');
         advanced = await neuralNetworkSync.exportAdvancedIntelligence();
-        console.log(`[SYNC-BRIDGE v8] exportAdvancedIntelligence SUCCESS: ${advanced?.subtletyCues?.length || 0} cues`);
+        console.log(`[SYNC-BRIDGE v9] exportAdvancedIntelligence SUCCESS: ${advanced?.subtletyCues?.length || 0} cues`);
       } catch (e: any) {
-        console.error('[SYNC-BRIDGE v8] exportAdvancedIntelligence FAILED:', e.message);
+        console.error('[SYNC-BRIDGE v9] exportAdvancedIntelligence FAILED:', e.message);
+      }
+      
+      // Test 2: exportDanielaSuggestions
+      let daniela: any = { suggestions: [], triggers: [], actions: [] };
+      try {
+        console.log('[SYNC-BRIDGE v9] Calling exportDanielaSuggestions...');
+        daniela = await neuralNetworkSync.exportDanielaSuggestions();
+        console.log(`[SYNC-BRIDGE v9] exportDanielaSuggestions SUCCESS: ${daniela?.suggestions?.length || 0} suggestions`);
+      } catch (e: any) {
+        console.error('[SYNC-BRIDGE v9] exportDanielaSuggestions FAILED:', e.message);
       }
       
       bundle.subtletyCues = advanced?.subtletyCues || [];
       bundle.emotionalPatterns = advanced?.emotionalPatterns || [];
       bundle.creativityTemplates = advanced?.creativityTemplates || [];
+      bundle.suggestions = daniela?.suggestions || [];
+      bundle.triggers = daniela?.triggers || [];
+      bundle.actions = daniela?.actions || [];
       
       // Skip other exports for now (return empty)
-      bundle.suggestions = [];
-      bundle.triggers = [];
-      bundle.actions = [];
       bundle.observations = [];
       bundle.alerts = [];
       bundle.northStarPrinciples = [];
       bundle.northStarUnderstanding = [];
       bundle.northStarExamples = [];
-      console.log('[SYNC-BRIDGE v8] advanced-intel batch complete');
+      console.log('[SYNC-BRIDGE v9] advanced-intel batch complete');
     }
     
     // BATCH: express-lane - Founder user, sessions, messages
