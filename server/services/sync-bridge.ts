@@ -117,78 +117,22 @@ class SyncBridgeService {
     }
     
     // BATCH: advanced-intel - Advanced intelligence, Daniela suggestions, tri-lane, North Star
+    // v7: Temporarily skip actual exports due to undiagnosed 500 on production
+    // Returns empty arrays to unblock sync while we investigate
     if (!batchType || batchType === 'advanced-intel') {
-      console.log('[SYNC-BRIDGE v6] Starting advanced-intel batch export');
-      try {
-        // Wrap each export in its own try/catch to isolate failures
-        let advanced: any = { subtletyCues: [], emotionalPatterns: [], creativityTemplates: [] };
-        let daniela: any = { suggestions: [], triggers: [], actions: [] };
-        let triLane: any = { agentObservations: [], supportObservations: [], systemAlerts: [] };
-        let northStar: any = { principles: [], understanding: [], examples: [] };
-        
-        try {
-          console.log('[SYNC-BRIDGE v6] Step A: Calling exportAdvancedIntelligence');
-          advanced = await neuralNetworkSync.exportAdvancedIntelligence();
-          console.log(`[SYNC-BRIDGE v6] Step A complete: ${advanced?.subtletyCues?.length || 0} cues`);
-        } catch (e: any) {
-          console.error('[SYNC-BRIDGE v6] Step A failed:', e.message);
-        }
-        
-        try {
-          console.log('[SYNC-BRIDGE v6] Step B: Calling exportDanielaSuggestions');
-          daniela = await neuralNetworkSync.exportDanielaSuggestions();
-          console.log(`[SYNC-BRIDGE v6] Step B complete: ${daniela?.suggestions?.length || 0} suggestions`);
-        } catch (e: any) {
-          console.error('[SYNC-BRIDGE v6] Step B failed:', e.message);
-        }
-        
-        try {
-          console.log('[SYNC-BRIDGE v6] Step C: Calling exportTriLaneObservations');
-          triLane = await neuralNetworkSync.exportTriLaneObservations();
-          console.log(`[SYNC-BRIDGE v6] Step C complete: ${triLane?.agentObservations?.length || 0} observations`);
-        } catch (e: any) {
-          console.error('[SYNC-BRIDGE v6] Step C failed:', e.message);
-        }
-        
-        try {
-          console.log('[SYNC-BRIDGE v6] Step D: Calling exportNorthStar');
-          northStar = await neuralNetworkSync.exportNorthStar();
-          console.log(`[SYNC-BRIDGE v6] Step D complete: ${northStar?.principles?.length || 0} principles`);
-        } catch (e: any) {
-          console.error('[SYNC-BRIDGE v6] Step D failed:', e.message);
-        }
-        
-        console.log('[SYNC-BRIDGE v6] Step E: All exports complete, building bundle');
-        
-        bundle.subtletyCues = advanced?.subtletyCues || [];
-        bundle.emotionalPatterns = advanced?.emotionalPatterns || [];
-        bundle.creativityTemplates = advanced?.creativityTemplates || [];
-        bundle.suggestions = daniela?.suggestions || [];
-        bundle.triggers = daniela?.triggers || [];
-        bundle.actions = daniela?.actions || [];
-        bundle.observations = [...(triLane?.agentObservations || []), ...(triLane?.supportObservations || [])];
-        bundle.alerts = triLane?.systemAlerts || [];
-        bundle.northStarPrinciples = northStar?.principles || [];
-        bundle.northStarUnderstanding = northStar?.understanding || [];
-        bundle.northStarExamples = northStar?.examples || [];
-        console.log('[SYNC-BRIDGE v6] Step F: advanced-intel bundle complete');
-      } catch (err: any) {
-        const errMsg = `advanced-intel export failed: ${err.message}`;
-        console.error(`[SYNC-BRIDGE v6] ${errMsg}`, err);
-        batchErrors.push(errMsg);
-        // Return empty arrays for this batch
-        bundle.subtletyCues = [];
-        bundle.emotionalPatterns = [];
-        bundle.creativityTemplates = [];
-        bundle.suggestions = [];
-        bundle.triggers = [];
-        bundle.actions = [];
-        bundle.observations = [];
-        bundle.alerts = [];
-        bundle.northStarPrinciples = [];
-        bundle.northStarUnderstanding = [];
-        bundle.northStarExamples = [];
-      }
+      console.log('[SYNC-BRIDGE v7] advanced-intel batch - returning empty arrays (skip mode)');
+      bundle.subtletyCues = [];
+      bundle.emotionalPatterns = [];
+      bundle.creativityTemplates = [];
+      bundle.suggestions = [];
+      bundle.triggers = [];
+      bundle.actions = [];
+      bundle.observations = [];
+      bundle.alerts = [];
+      bundle.northStarPrinciples = [];
+      bundle.northStarUnderstanding = [];
+      bundle.northStarExamples = [];
+      console.log('[SYNC-BRIDGE v7] advanced-intel batch complete (skip mode)');
     }
     
     // BATCH: express-lane - Founder user, sessions, messages
