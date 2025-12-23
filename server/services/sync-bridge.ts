@@ -117,13 +117,25 @@ class SyncBridgeService {
     }
     
     // BATCH: advanced-intel - Advanced intelligence, Daniela suggestions, tri-lane, North Star
-    // v7: Temporarily skip actual exports due to undiagnosed 500 on production
-    // Returns empty arrays to unblock sync while we investigate
+    // v8: Re-enable exports one at a time to identify crash source
     if (!batchType || batchType === 'advanced-intel') {
-      console.log('[SYNC-BRIDGE v7] advanced-intel batch - returning empty arrays (skip mode)');
-      bundle.subtletyCues = [];
-      bundle.emotionalPatterns = [];
-      bundle.creativityTemplates = [];
+      console.log('[SYNC-BRIDGE v8] advanced-intel batch - testing exportAdvancedIntelligence only');
+      
+      // Test 1: exportAdvancedIntelligence
+      let advanced: any = { subtletyCues: [], emotionalPatterns: [], creativityTemplates: [] };
+      try {
+        console.log('[SYNC-BRIDGE v8] Calling exportAdvancedIntelligence...');
+        advanced = await neuralNetworkSync.exportAdvancedIntelligence();
+        console.log(`[SYNC-BRIDGE v8] exportAdvancedIntelligence SUCCESS: ${advanced?.subtletyCues?.length || 0} cues`);
+      } catch (e: any) {
+        console.error('[SYNC-BRIDGE v8] exportAdvancedIntelligence FAILED:', e.message);
+      }
+      
+      bundle.subtletyCues = advanced?.subtletyCues || [];
+      bundle.emotionalPatterns = advanced?.emotionalPatterns || [];
+      bundle.creativityTemplates = advanced?.creativityTemplates || [];
+      
+      // Skip other exports for now (return empty)
       bundle.suggestions = [];
       bundle.triggers = [];
       bundle.actions = [];
@@ -132,7 +144,7 @@ class SyncBridgeService {
       bundle.northStarPrinciples = [];
       bundle.northStarUnderstanding = [];
       bundle.northStarExamples = [];
-      console.log('[SYNC-BRIDGE v7] advanced-intel batch complete (skip mode)');
+      console.log('[SYNC-BRIDGE v8] advanced-intel batch complete');
     }
     
     // BATCH: express-lane - Founder user, sessions, messages
