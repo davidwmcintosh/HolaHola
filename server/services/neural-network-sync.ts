@@ -2360,21 +2360,35 @@ export class NeuralNetworkSyncService {
   
   // ===== Tri-Lane Hive Sync Methods =====
   
-  // Export all observations for sync to production (Tri-Lane Hive collaboration)
+  // Export observations for sync to production (Tri-Lane Hive collaboration)
+  // LIMIT to top 500 by priority to avoid timeout with large datasets (6MB+ payloads)
   async exportTriLaneObservations(): Promise<{
     agentObservations: AgentObservation[];
     supportObservations: SupportObservation[];
     systemAlerts: SystemAlert[];
+    truncated?: { agent: boolean; support: boolean; alerts: boolean };
   }> {
+    const OBSERVATION_LIMIT = 500; // Limit to prevent timeout with large payloads
+    const ALERT_LIMIT = 100;
+    
     // Query each table separately with error handling - tables may not exist in all environments
     let agentObs: AgentObservation[] = [];
     let supportObs: SupportObservation[] = [];
     let alerts: SystemAlert[] = [];
+    let agentTruncated = false;
+    let supportTruncated = false;
+    let alertsTruncated = false;
     
     try {
       agentObs = await db.select().from(agentObservations)
         .where(eq(agentObservations.status, 'active'))
-        .orderBy(desc(agentObservations.priority));
+        .orderBy(desc(agentObservations.priority))
+        .limit(OBSERVATION_LIMIT + 1); // Query 1 extra to detect truncation
+      
+      if (agentObs.length > OBSERVATION_LIMIT) {
+        agentTruncated = true;
+        agentObs = agentObs.slice(0, OBSERVATION_LIMIT);
+      }
     } catch (err: any) {
       console.warn('[NEURAL-SYNC] agent_observations table query failed (may not exist):', err.message);
     }
@@ -2382,7 +2396,13 @@ export class NeuralNetworkSyncService {
     try {
       supportObs = await db.select().from(supportObservations)
         .where(eq(supportObservations.status, 'active'))
-        .orderBy(desc(supportObservations.priority));
+        .orderBy(desc(supportObservations.priority))
+        .limit(OBSERVATION_LIMIT + 1);
+      
+      if (supportObs.length > OBSERVATION_LIMIT) {
+        supportTruncated = true;
+        supportObs = supportObs.slice(0, OBSERVATION_LIMIT);
+      }
     } catch (err: any) {
       console.warn('[NEURAL-SYNC] support_observations table query failed (may not exist):', err.message);
     }
@@ -2390,15 +2410,26 @@ export class NeuralNetworkSyncService {
     try {
       alerts = await db.select().from(systemAlerts)
         .where(eq(systemAlerts.isActive, true))
-        .orderBy(desc(systemAlerts.createdAt));
+        .orderBy(desc(systemAlerts.createdAt))
+        .limit(ALERT_LIMIT + 1);
+      
+      if (alerts.length > ALERT_LIMIT) {
+        alertsTruncated = true;
+        alerts = alerts.slice(0, ALERT_LIMIT);
+      }
     } catch (err: any) {
       console.warn('[NEURAL-SYNC] system_alerts table query failed (may not exist):', err.message);
     }
+    
+    console.log(`[NEURAL-SYNC] TriLane export: ${agentObs.length} agent${agentTruncated ? ' (truncated)' : ''}, ${supportObs.length} support${supportTruncated ? ' (truncated)' : ''}, ${alerts.length} alerts${alertsTruncated ? ' (truncated)' : ''}`);
     
     return {
       agentObservations: agentObs,
       supportObservations: supportObs,
       systemAlerts: alerts,
+      truncated: (agentTruncated || supportTruncated || alertsTruncated) 
+        ? { agent: agentTruncated, support: supportTruncated, alerts: alertsTruncated }
+        : undefined,
     };
   }
   
