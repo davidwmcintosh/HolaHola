@@ -4,6 +4,7 @@ import { isSyncConfigured } from '../middleware/sync-auth';
 import { studentLearningService } from './student-learning-service';
 import { wrenIntelligenceService } from './wren-intelligence-service';
 import { voiceDiagnostics } from './voice-diagnostics-service';
+import { voiceIntelligenceService } from './voice-intelligence-service';
 import { memoryConsolidationService } from './memory-consolidation-service';
 import { observationsConsolidationService } from './observations-consolidation-service';
 import { db } from '../db';
@@ -401,6 +402,23 @@ async function runNightlySync(): Promise<void> {
     // 7d. Voice pattern analysis for service health monitoring (daily)
     const voiceResult = await runVoicePatternAnalysis();
     console.log(`[SYNC-SCHEDULER] Voice analysis: ${voiceResult.patternsDetected} patterns from ${voiceResult.snapshotsAnalyzed} snapshots, ${voiceResult.triggersCreated} triggers created`);
+    
+    // 7d.5 Voice Intelligence - comprehensive analytics and baseline updates (daily)
+    try {
+      console.log(`[SYNC-SCHEDULER] Running voice intelligence analysis...`);
+      const report = await voiceIntelligenceService.runAnalysis(7);
+      console.log(`[SYNC-SCHEDULER] Voice intelligence: ${report.alerts.length} alerts generated`);
+      
+      // Update baselines with this analysis
+      await voiceIntelligenceService.updateBaselines(report);
+      console.log(`[SYNC-SCHEDULER] Voice baselines updated`);
+      
+      // Create Wren insights from critical alerts
+      const alertInsights = await voiceIntelligenceService.createAlertInsights(report.alerts);
+      console.log(`[SYNC-SCHEDULER] Voice alert insights: ${alertInsights} created`);
+    } catch (voiceIntErr: any) {
+      console.warn(`[SYNC-SCHEDULER] Voice intelligence failed: ${voiceIntErr.message}`);
+    }
     
     // 7e. Memory consolidation - merge semantically similar Daniela growth memories (daily)
     try {

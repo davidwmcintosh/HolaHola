@@ -8,6 +8,7 @@ import { stripeService } from "./stripeService";
 import { aiLimiter, voiceLimiter, authLimiter, mutationLimiter, hiveExternalLimiter } from "./middleware/rate-limiter";
 import { requireRole, allowRoles, loadAuthenticatedUser, requireFounder, requireAgentToken, logAgentAction, getAgentAuditLog, isAgentTokenConfigured } from "./middleware/rbac";
 import { voiceDiagnostics } from "./services/voice-diagnostics-service";
+import { voiceIntelligenceService } from "./services/voice-intelligence-service";
 import {
   insertConversationSchema,
   insertMessageSchema,
@@ -10572,6 +10573,91 @@ Return ONLY the ${targetLanguage} phrase:`;
       res.json(analytics);
     } catch (error: any) {
       console.error('[Voice Analytics] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Voice Intelligence Analytics - comprehensive cross-environment analysis
+  app.get("/api/admin/voice-intelligence", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { daysBack, environment } = req.query;
+      const days = daysBack ? parseInt(daysBack as string) : 7;
+      const env = environment as string | undefined;
+      
+      const report = await voiceIntelligenceService.generateComprehensiveReport(days, env);
+      res.json(report);
+    } catch (error: any) {
+      console.error('[Voice Intelligence] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Latency trend analysis
+  app.get("/api/admin/voice-intelligence/latency-trends", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { environment } = req.query;
+      const trends = await voiceIntelligenceService.analyzeLatencyTrends(environment as string | undefined);
+      res.json(trends);
+    } catch (error: any) {
+      console.error('[Voice Intelligence Latency] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Time-of-day patterns
+  app.get("/api/admin/voice-intelligence/time-patterns", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { environment } = req.query;
+      const patterns = await voiceIntelligenceService.analyzeTimeOfDayPatterns(environment as string | undefined);
+      res.json(patterns);
+    } catch (error: any) {
+      console.error('[Voice Intelligence Time] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Per-language metrics
+  app.get("/api/admin/voice-intelligence/language-metrics", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { environment } = req.query;
+      const metrics = await voiceIntelligenceService.analyzePerLanguageMetrics(environment as string | undefined);
+      res.json(metrics);
+    } catch (error: any) {
+      console.error('[Voice Intelligence Language] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Student issues
+  app.get("/api/admin/voice-intelligence/student-issues", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { environment } = req.query;
+      const issues = await voiceIntelligenceService.analyzeStudentCorrelations(environment as string | undefined);
+      res.json(issues);
+    } catch (error: any) {
+      console.error('[Voice Intelligence Students] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Cross-environment comparison
+  app.get("/api/admin/voice-intelligence/env-comparison", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const comparison = await voiceIntelligenceService.compareCrossEnvironment();
+      res.json(comparison);
+    } catch (error: any) {
+      console.error('[Voice Intelligence Comparison] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update historical baselines
+  app.post("/api/admin/voice-intelligence/update-baselines", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      await voiceIntelligenceService.updateHistoricalBaselines();
+      res.json({ message: 'Baselines updated successfully' });
+    } catch (error: any) {
+      console.error('[Voice Intelligence Baselines] Error:', error);
       res.status(500).json({ error: error.message });
     }
   });
