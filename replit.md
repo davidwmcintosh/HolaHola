@@ -95,17 +95,36 @@ The **Bundle Creation** feature allows one-click creation of linked lesson pairs
 - This creates a premium differentiator while avoiding 3-6 months of ML infrastructure work
 
 ## Dev-Prod Sync System (ACTIVE DEBUGGING - Dec 23, 2024)
-**Status:** Partial syncs occurring - advanced-intel batch failing on production
+**Status:** Partial syncs - `advanced-intel` batch returns 500 from production
 
-**Root Cause Identified:**
-- Production database missing `schema_migrations` table
-- `assertTriLaneReady()` fails when checking migration status
-- Error occurs BEFORE try-catch handlers can catch it
+**Current Situation (as of Dec 23, 6:02 AM UTC):**
+- All 4 of 5 batches complete successfully: neural-core, express-lane, hive-snapshots, daniela-memories
+- `advanced-intel` batch consistently fails with: `500 - No error message returned`
+- Production migrations ARE healthy (confirmed: appliedCount: 1, isUpToDate: true)
+- Production URL: https://getholahola.com
+
+**Error Evidence (sync_runs table):**
+```
+794516d9... | pull | partial | advanced-intel: 500 - No error message returned | 65020ms | 2025-12-23 06:02
+de6af3ce... | pull | partial | advanced-intel: 500 - No error message returned | 64107ms | 2025-12-23 05:55
+bfd41f1e... | pull | partial | advanced-intel: 500 - No error message returned | 62365ms | 2025-12-23 05:24
+```
+
+**Root Cause Hypothesis:**
+- Production's `exportAdvancedIntel()` in `neural-network-sync.ts` throws an uncaught error
+- Dev has enhanced try-catch wrappers BUT production may be running old code
+- The 500 returns empty body because Express error handler doesn't have the error text
 
 **Next Steps (Priority Order):**
-1. Hit production `/api/health/migrations` endpoint with sync headers to auto-create `schema_migrations` table
-2. This will run migration 001_tri-lane-tables on production
-3. Re-run sync from Command Center - should complete successfully
+1. **Verify production code version** - Check if production was redeployed with latest error handling
+2. **Check production logs** - Look for actual error in production's startup/export logs
+3. **Direct production test** - Hit `https://getholahola.com/api/sync/export` with advanced-intel batchType and check response
+4. If production code IS current: investigate what specifically in `exportAdvancedIntel()` throws
+
+**Dev-Side Fixes Already Made:**
+- Added bulletproof nested try-catch to `exportAdvancedIntel()` 
+- Added outer catch-all to export route
+- Added explicit logging of each sub-export step
 
 **Sync Architecture:**
 - Batches: neural-core → advanced-intel → express-lane → hive-snapshots → daniela-memories
@@ -115,7 +134,7 @@ The **Bundle Creation** feature allows one-click creation of linked lesson pairs
 **Key Files:**
 - `server/migrations/migration-orchestrator.ts` - Versioned migration system
 - `server/services/sync-bridge.ts` - Export/import logic with try-catch error handling
-- `server/services/neural-network-sync.ts` - Neural network data sync
+- `server/services/neural-network-sync.ts` - Neural network data sync (advanced-intel export lives here)
 - `client/src/pages/admin/CommandCenter.tsx` - UI for triggering syncs
 
 ## External Dependencies
