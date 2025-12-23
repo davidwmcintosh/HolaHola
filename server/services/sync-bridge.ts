@@ -121,48 +121,61 @@ class SyncBridgeService {
     if (!batchType || batchType === 'advanced-intel') {
       console.log('[SYNC-BRIDGE v12] advanced-intel batch - all 4 exports enabled');
       
-      // CRITICAL: Ensure tri-lane tables exist BEFORE any queries
-      // This is the belt-and-suspenders guard that auto-creates tables if missing
-      const { assertTriLaneReady } = await import('../migrations/migration-orchestrator');
-      const tablesReady = await assertTriLaneReady();
-      if (!tablesReady) {
-        console.error('[SYNC-BRIDGE v12] WARNING: Tri-lane tables not ready, continuing with empty data');
-      }
-      
-      // Export 1: exportAdvancedIntelligence
+      // Initialize all defaults BEFORE any operations that might fail
       let advanced: any = { subtletyCues: [], emotionalPatterns: [], creativityTemplates: [] };
-      try {
-        advanced = await neuralNetworkSync.exportAdvancedIntelligence();
-        console.log(`[SYNC-BRIDGE v12] exportAdvancedIntelligence: ${advanced?.subtletyCues?.length || 0} cues`);
-      } catch (e: any) {
-        console.error('[SYNC-BRIDGE v12] exportAdvancedIntelligence FAILED:', e.message);
-      }
-      
-      // Export 2: exportDanielaSuggestions
       let daniela: any = { suggestions: [], triggers: [], actions: [] };
-      try {
-        daniela = await neuralNetworkSync.exportDanielaSuggestions();
-        console.log(`[SYNC-BRIDGE v12] exportDanielaSuggestions: ${daniela?.suggestions?.length || 0} suggestions`);
-      } catch (e: any) {
-        console.error('[SYNC-BRIDGE v12] exportDanielaSuggestions FAILED:', e.message);
-      }
-      
-      // Export 3: exportTriLaneObservations (tables auto-created on startup)
       let triLane: any = { agentObservations: [], supportObservations: [], systemAlerts: [] };
-      try {
-        triLane = await neuralNetworkSync.exportTriLaneObservations();
-        console.log(`[SYNC-BRIDGE v12] exportTriLaneObservations: ${triLane?.agentObservations?.length || 0} agent, ${triLane?.supportObservations?.length || 0} support, ${triLane?.systemAlerts?.length || 0} alerts`);
-      } catch (e: any) {
-        console.error('[SYNC-BRIDGE v12] exportTriLaneObservations FAILED:', e.message);
-      }
-      
-      // Export 4: exportNorthStar
       let northStar: any = { principles: [], understanding: [], examples: [] };
+      
       try {
-        northStar = await neuralNetworkSync.exportNorthStar();
-        console.log(`[SYNC-BRIDGE v12] exportNorthStar: ${northStar?.principles?.length || 0} principles`);
-      } catch (e: any) {
-        console.error('[SYNC-BRIDGE v12] exportNorthStar FAILED:', e.message);
+        // CRITICAL: Ensure tri-lane tables exist BEFORE any queries
+        // Wrap in try-catch to ensure we never crash the export
+        try {
+          const { assertTriLaneReady } = await import('../migrations/migration-orchestrator');
+          const tablesReady = await assertTriLaneReady();
+          if (!tablesReady) {
+            console.error('[SYNC-BRIDGE v12] WARNING: Tri-lane tables not ready, continuing with empty data');
+          }
+        } catch (triLaneErr: any) {
+          console.error('[SYNC-BRIDGE v12] assertTriLaneReady FAILED:', triLaneErr.message);
+          // Continue with empty data rather than crashing
+        }
+        
+        // Export 1: exportAdvancedIntelligence
+        try {
+          advanced = await neuralNetworkSync.exportAdvancedIntelligence();
+          console.log(`[SYNC-BRIDGE v12] exportAdvancedIntelligence: ${advanced?.subtletyCues?.length || 0} cues`);
+        } catch (e: any) {
+          console.error('[SYNC-BRIDGE v12] exportAdvancedIntelligence FAILED:', e.message);
+        }
+        
+        // Export 2: exportDanielaSuggestions
+        try {
+          daniela = await neuralNetworkSync.exportDanielaSuggestions();
+          console.log(`[SYNC-BRIDGE v12] exportDanielaSuggestions: ${daniela?.suggestions?.length || 0} suggestions`);
+        } catch (e: any) {
+          console.error('[SYNC-BRIDGE v12] exportDanielaSuggestions FAILED:', e.message);
+        }
+        
+        // Export 3: exportTriLaneObservations (tables auto-created on startup)
+        try {
+          triLane = await neuralNetworkSync.exportTriLaneObservations();
+          console.log(`[SYNC-BRIDGE v12] exportTriLaneObservations: ${triLane?.agentObservations?.length || 0} agent, ${triLane?.supportObservations?.length || 0} support, ${triLane?.systemAlerts?.length || 0} alerts`);
+        } catch (e: any) {
+          console.error('[SYNC-BRIDGE v12] exportTriLaneObservations FAILED:', e.message);
+        }
+        
+        // Export 4: exportNorthStar
+        try {
+          northStar = await neuralNetworkSync.exportNorthStar();
+          console.log(`[SYNC-BRIDGE v12] exportNorthStar: ${northStar?.principles?.length || 0} principles`);
+        } catch (e: any) {
+          console.error('[SYNC-BRIDGE v12] exportNorthStar FAILED:', e.message);
+        }
+      } catch (outerErr: any) {
+        // Catch-all for any unexpected errors in the advanced-intel block
+        console.error('[SYNC-BRIDGE v12] advanced-intel OUTER CATCH:', outerErr.message);
+        batchErrors.push(`advanced-intel: ${outerErr.message}`);
       }
       
       bundle.subtletyCues = advanced?.subtletyCues || [];
