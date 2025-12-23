@@ -9,7 +9,7 @@ const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production'
 
 // Version identifier to verify which code is running on production
 // Increment this when making sync-related changes to verify deployment
-const SYNC_BRIDGE_CODE_VERSION = "2024-12-23-v15-observation-limit";
+const SYNC_BRIDGE_CODE_VERSION = "2024-12-23-v15-paginated-observations";
 
 export interface SyncBundle {
   generatedAt: string;
@@ -34,6 +34,14 @@ export interface SyncBundle {
   actions: any[];
   observations: any[];
   alerts: any[];
+  observationsPagination?: {
+    offset: number;
+    limit: number;
+    agentTotal: number;
+    supportTotal: number;
+    alertsTotal: number;
+    hasMore: boolean;
+  } | null;
   northStarPrinciples: any[];
   northStarUnderstanding: any[];
   northStarExamples: any[];
@@ -162,32 +170,44 @@ class SyncBridgeService {
       console.log(`[SYNC-BRIDGE v14] advanced-intel-a batch COMPLETE in ${Date.now() - batchStart}ms`);
     }
     
-    // BATCH: advanced-intel-b - TriLane observations + North Star (SPLIT from advanced-intel for timeout fix)
-    if (!batchType || batchType === 'advanced-intel-b' || batchType === 'advanced-intel') {
+    // BATCH: advanced-intel-b - TriLane observations + North Star
+    // Supports pagination: advanced-intel-b (page 0), advanced-intel-b-p1, advanced-intel-b-p2, etc.
+    const isIntelBBatch = !batchType || batchType === 'advanced-intel-b' || batchType === 'advanced-intel' || batchType.startsWith('advanced-intel-b-p');
+    if (isIntelBBatch) {
       const batchStart = Date.now();
-      console.log(`[SYNC-BRIDGE v14] advanced-intel-b batch START at ${new Date().toISOString()}`);
       
-      let triLane: any = { agentObservations: [], supportObservations: [], systemAlerts: [] };
+      // Parse page number from batchType (e.g., "advanced-intel-b-p2" → page 2)
+      let page = 0;
+      if (batchType?.startsWith('advanced-intel-b-p')) {
+        page = parseInt(batchType.replace('advanced-intel-b-p', ''), 10) || 0;
+      }
+      
+      console.log(`[SYNC-BRIDGE v15] advanced-intel-b batch START (page=${page}) at ${new Date().toISOString()}`);
+      
+      let triLane: any = { agentObservations: [], supportObservations: [], systemAlerts: [], pagination: null };
       let northStar: any = { principles: [], understanding: [], examples: [] };
       
-      // Export 1: exportTriLaneObservations
-      console.log(`[SYNC-BRIDGE v14] Step 1/2: exportTriLaneObservations...`);
+      // Export 1: exportTriLaneObservations with pagination
+      console.log(`[SYNC-BRIDGE v15] Step 1/2: exportTriLaneObservations (page=${page})...`);
       try {
-        triLane = await neuralNetworkSync.exportTriLaneObservations();
-        console.log(`[SYNC-BRIDGE v14] Step 1 OK: ${triLane?.agentObservations?.length || 0} agent, ${triLane?.supportObservations?.length || 0} support, ${triLane?.systemAlerts?.length || 0} alerts (+${Date.now() - batchStart}ms)`);
+        triLane = await neuralNetworkSync.exportTriLaneObservations({ page });
+        const pag = triLane?.pagination;
+        console.log(`[SYNC-BRIDGE v15] Step 1 OK: ${triLane?.agentObservations?.length || 0}/${pag?.agentTotal || '?'} agent, ${triLane?.supportObservations?.length || 0}/${pag?.supportTotal || '?'} support, ${triLane?.systemAlerts?.length || 0}/${pag?.alertsTotal || '?'} alerts, hasMore=${pag?.hasMore} (+${Date.now() - batchStart}ms)`);
       } catch (e: any) {
-        console.error(`[SYNC-BRIDGE v14] Step 1 FAILED after ${Date.now() - batchStart}ms:`, e?.message || String(e));
+        console.error(`[SYNC-BRIDGE v15] Step 1 FAILED after ${Date.now() - batchStart}ms:`, e?.message || String(e));
         batchErrors.push(`advanced-intel-b step1: ${e?.message || 'unknown'}`);
       }
       
-      // Export 2: exportNorthStar
-      console.log(`[SYNC-BRIDGE v14] Step 2/2: exportNorthStar...`);
-      try {
-        northStar = await neuralNetworkSync.exportNorthStar();
-        console.log(`[SYNC-BRIDGE v14] Step 2 OK: ${northStar?.principles?.length || 0} principles, ${northStar?.understanding?.length || 0} understanding, ${northStar?.examples?.length || 0} examples (+${Date.now() - batchStart}ms)`);
-      } catch (e: any) {
-        console.error(`[SYNC-BRIDGE v14] Step 2 FAILED after ${Date.now() - batchStart}ms:`, e?.message || String(e));
-        batchErrors.push(`advanced-intel-b step2: ${e?.message || 'unknown'}`);
+      // Export 2: exportNorthStar (only on first page to avoid duplication)
+      if (page === 0) {
+        console.log(`[SYNC-BRIDGE v15] Step 2/2: exportNorthStar...`);
+        try {
+          northStar = await neuralNetworkSync.exportNorthStar();
+          console.log(`[SYNC-BRIDGE v15] Step 2 OK: ${northStar?.principles?.length || 0} principles, ${northStar?.understanding?.length || 0} understanding, ${northStar?.examples?.length || 0} examples (+${Date.now() - batchStart}ms)`);
+        } catch (e: any) {
+          console.error(`[SYNC-BRIDGE v15] Step 2 FAILED after ${Date.now() - batchStart}ms:`, e?.message || String(e));
+          batchErrors.push(`advanced-intel-b step2: ${e?.message || 'unknown'}`);
+        }
       }
       
       // Assign to bundle
@@ -196,11 +216,16 @@ class SyncBridgeService {
         ...(Array.isArray(triLane?.supportObservations) ? triLane.supportObservations : [])
       ];
       bundle.alerts = Array.isArray(triLane?.systemAlerts) ? triLane.systemAlerts : [];
-      bundle.northStarPrinciples = Array.isArray(northStar?.principles) ? northStar.principles : [];
-      bundle.northStarUnderstanding = Array.isArray(northStar?.understanding) ? northStar.understanding : [];
-      bundle.northStarExamples = Array.isArray(northStar?.examples) ? northStar.examples : [];
+      bundle.observationsPagination = triLane?.pagination || null;
       
-      console.log(`[SYNC-BRIDGE v14] advanced-intel-b batch COMPLETE in ${Date.now() - batchStart}ms`);
+      // Only include North Star on first page
+      if (page === 0) {
+        bundle.northStarPrinciples = Array.isArray(northStar?.principles) ? northStar.principles : [];
+        bundle.northStarUnderstanding = Array.isArray(northStar?.understanding) ? northStar.understanding : [];
+        bundle.northStarExamples = Array.isArray(northStar?.examples) ? northStar.examples : [];
+      }
+      
+      console.log(`[SYNC-BRIDGE v15] advanced-intel-b batch (page=${page}) COMPLETE in ${Date.now() - batchStart}ms`);
     }
     
     // BATCH: express-lane - Founder user, sessions, messages
@@ -1114,7 +1139,7 @@ class SyncBridgeService {
       let overallSuccess = true;
       
       // Batched pull - fetch each batch type separately to avoid timeout
-      // v14: Split advanced-intel into two smaller batches (a+b) to stay under 60s gateway timeout
+      // v15: advanced-intel-b now supports pagination for large observation datasets
       const batchTypes = ['neural-core', 'advanced-intel-a', 'advanced-intel-b', 'express-lane', 'hive-snapshots', 'daniela-memories'];
       
       for (let i = 0; i < batchTypes.length; i++) {
@@ -1123,19 +1148,59 @@ class SyncBridgeService {
         
         // 45s timeout for smaller batches, 60s for larger data batches
         const timeout = ['express-lane', 'hive-snapshots', 'daniela-memories'].includes(batchType) ? 60000 : 45000;
-        const result = await this.fetchBatch(peerUrl, batchType, timeout);
         
-        if (!result.success) {
-          allErrors.push(result.error || `${batchType} failed`);
-          overallSuccess = false;
-          continue;
+        // Special handling for advanced-intel-b: paginated fetching
+        if (batchType === 'advanced-intel-b') {
+          let page = 0;
+          let hasMore = true;
+          const MAX_PAGES = 50; // Safety limit
+          
+          while (hasMore && page < MAX_PAGES) {
+            const pageBatchType = page === 0 ? 'advanced-intel-b' : `advanced-intel-b-p${page}`;
+            console.log(`[SYNC-BRIDGE] Fetching observations page ${page}...`);
+            
+            const result = await this.fetchBatch(peerUrl, pageBatchType, timeout);
+            
+            if (!result.success) {
+              allErrors.push(result.error || `${pageBatchType} failed`);
+              overallSuccess = false;
+              hasMore = false; // Stop pagination on error
+              break;
+            }
+            
+            // Apply the partial bundle
+            const importResult = await this.applyImportBundle(result.bundle as SyncBundle);
+            Object.assign(allCounts, importResult.counts);
+            allErrors.push(...importResult.errors);
+            if (!importResult.success) overallSuccess = false;
+            
+            // Check if there are more pages
+            const pagination = (result.bundle as SyncBundle).observationsPagination;
+            hasMore = pagination?.hasMore ?? false;
+            page++;
+            
+            console.log(`[SYNC-BRIDGE] Page ${page - 1} complete. hasMore=${hasMore}, nextPage=${page}`);
+          }
+          
+          if (page >= MAX_PAGES) {
+            console.warn(`[SYNC-BRIDGE] Hit MAX_PAGES limit (${MAX_PAGES}) for observations`);
+          }
+        } else {
+          // Standard single-fetch for other batches
+          const result = await this.fetchBatch(peerUrl, batchType, timeout);
+          
+          if (!result.success) {
+            allErrors.push(result.error || `${batchType} failed`);
+            overallSuccess = false;
+            continue;
+          }
+          
+          // Apply the partial bundle
+          const importResult = await this.applyImportBundle(result.bundle as SyncBundle);
+          Object.assign(allCounts, importResult.counts);
+          allErrors.push(...importResult.errors);
+          if (!importResult.success) overallSuccess = false;
         }
-        
-        // Apply the partial bundle
-        const importResult = await this.applyImportBundle(result.bundle as SyncBundle);
-        Object.assign(allCounts, importResult.counts);
-        allErrors.push(...importResult.errors);
-        if (!importResult.success) overallSuccess = false;
       }
       
       console.log(`[SYNC-BRIDGE] All ${batchTypes.length} pull batches complete. Overall success: ${overallSuccess}`);

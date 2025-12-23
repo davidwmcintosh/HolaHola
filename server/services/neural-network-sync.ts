@@ -2361,75 +2361,98 @@ export class NeuralNetworkSyncService {
   // ===== Tri-Lane Hive Sync Methods =====
   
   // Export observations for sync to production (Tri-Lane Hive collaboration)
-  // LIMIT to top 500 by priority to avoid timeout with large datasets (6MB+ payloads)
-  async exportTriLaneObservations(): Promise<{
+  // Supports pagination via offset/limit to handle large datasets without timeouts
+  async exportTriLaneObservations(options?: { 
+    offset?: number; 
+    limit?: number;
+    page?: number; // 0-indexed page number
+  }): Promise<{
     agentObservations: AgentObservation[];
     supportObservations: SupportObservation[];
     systemAlerts: SystemAlert[];
-    truncated?: { agent: boolean; support: boolean; alerts: boolean };
+    pagination?: {
+      offset: number;
+      limit: number;
+      agentTotal: number;
+      supportTotal: number;
+      alertsTotal: number;
+      hasMore: boolean;
+    };
   }> {
-    const OBSERVATION_LIMIT = 500; // Limit to prevent timeout with large payloads
-    const ALERT_LIMIT = 100;
+    const PAGE_SIZE = options?.limit || 500; // Default page size
+    // Support both direct offset and 0-indexed page number
+    const offset = options?.offset ?? (options?.page !== undefined ? options.page * PAGE_SIZE : 0);
     
     // Query each table separately with error handling - tables may not exist in all environments
     let agentObs: AgentObservation[] = [];
     let supportObs: SupportObservation[] = [];
     let alerts: SystemAlert[] = [];
-    let agentTruncated = false;
-    let supportTruncated = false;
-    let alertsTruncated = false;
+    let agentTotal = 0;
+    let supportTotal = 0;
+    let alertsTotal = 0;
     
     try {
+      // Get total count for pagination info
+      const countResult = await db.select({ count: sql<number>`count(*)::int` })
+        .from(agentObservations)
+        .where(eq(agentObservations.status, 'active'));
+      agentTotal = countResult[0]?.count || 0;
+      
       agentObs = await db.select().from(agentObservations)
         .where(eq(agentObservations.status, 'active'))
-        .orderBy(desc(agentObservations.priority))
-        .limit(OBSERVATION_LIMIT + 1); // Query 1 extra to detect truncation
-      
-      if (agentObs.length > OBSERVATION_LIMIT) {
-        agentTruncated = true;
-        agentObs = agentObs.slice(0, OBSERVATION_LIMIT);
-      }
+        .orderBy(desc(agentObservations.priority), agentObservations.id)
+        .limit(PAGE_SIZE)
+        .offset(offset);
     } catch (err: any) {
       console.warn('[NEURAL-SYNC] agent_observations table query failed (may not exist):', err.message);
     }
     
     try {
+      const countResult = await db.select({ count: sql<number>`count(*)::int` })
+        .from(supportObservations)
+        .where(eq(supportObservations.status, 'active'));
+      supportTotal = countResult[0]?.count || 0;
+      
       supportObs = await db.select().from(supportObservations)
         .where(eq(supportObservations.status, 'active'))
-        .orderBy(desc(supportObservations.priority))
-        .limit(OBSERVATION_LIMIT + 1);
-      
-      if (supportObs.length > OBSERVATION_LIMIT) {
-        supportTruncated = true;
-        supportObs = supportObs.slice(0, OBSERVATION_LIMIT);
-      }
+        .orderBy(desc(supportObservations.priority), supportObservations.id)
+        .limit(PAGE_SIZE)
+        .offset(offset);
     } catch (err: any) {
       console.warn('[NEURAL-SYNC] support_observations table query failed (may not exist):', err.message);
     }
     
     try {
+      const countResult = await db.select({ count: sql<number>`count(*)::int` })
+        .from(systemAlerts)
+        .where(eq(systemAlerts.isActive, true));
+      alertsTotal = countResult[0]?.count || 0;
+      
       alerts = await db.select().from(systemAlerts)
         .where(eq(systemAlerts.isActive, true))
-        .orderBy(desc(systemAlerts.createdAt))
-        .limit(ALERT_LIMIT + 1);
-      
-      if (alerts.length > ALERT_LIMIT) {
-        alertsTruncated = true;
-        alerts = alerts.slice(0, ALERT_LIMIT);
-      }
+        .orderBy(desc(systemAlerts.createdAt), systemAlerts.id)
+        .limit(PAGE_SIZE)
+        .offset(offset);
     } catch (err: any) {
       console.warn('[NEURAL-SYNC] system_alerts table query failed (may not exist):', err.message);
     }
     
-    console.log(`[NEURAL-SYNC] TriLane export: ${agentObs.length} agent${agentTruncated ? ' (truncated)' : ''}, ${supportObs.length} support${supportTruncated ? ' (truncated)' : ''}, ${alerts.length} alerts${alertsTruncated ? ' (truncated)' : ''}`);
+    const hasMore = (offset + PAGE_SIZE) < Math.max(agentTotal, supportTotal, alertsTotal);
+    
+    console.log(`[NEURAL-SYNC] TriLane export page: ${agentObs.length}/${agentTotal} agent, ${supportObs.length}/${supportTotal} support, ${alerts.length}/${alertsTotal} alerts (offset=${offset}, hasMore=${hasMore})`);
     
     return {
       agentObservations: agentObs,
       supportObservations: supportObs,
       systemAlerts: alerts,
-      truncated: (agentTruncated || supportTruncated || alertsTruncated) 
-        ? { agent: agentTruncated, support: supportTruncated, alerts: alertsTruncated }
-        : undefined,
+      pagination: {
+        offset,
+        limit: PAGE_SIZE,
+        agentTotal,
+        supportTotal,
+        alertsTotal,
+        hasMore,
+      },
     };
   }
   
