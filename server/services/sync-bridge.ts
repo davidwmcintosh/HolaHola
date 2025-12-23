@@ -121,6 +121,14 @@ class SyncBridgeService {
     if (!batchType || batchType === 'advanced-intel') {
       console.log('[SYNC-BRIDGE v12] advanced-intel batch - all 4 exports enabled');
       
+      // CRITICAL: Ensure tri-lane tables exist BEFORE any queries
+      // This is the belt-and-suspenders guard that auto-creates tables if missing
+      const { assertTriLaneReady } = await import('../migrations/migration-orchestrator');
+      const tablesReady = await assertTriLaneReady();
+      if (!tablesReady) {
+        console.error('[SYNC-BRIDGE v12] WARNING: Tri-lane tables not ready, continuing with empty data');
+      }
+      
       // Export 1: exportAdvancedIntelligence
       let advanced: any = { subtletyCues: [], emotionalPatterns: [], creativityTemplates: [] };
       try {

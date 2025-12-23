@@ -16529,6 +16529,33 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   const { validateSyncRequest } = await import('./middleware/sync-auth');
   const { syncBridge } = await import('./services/sync-bridge');
   
+  // Health check: Migration status (for verifying schema parity across dev/prod)
+  app.get('/api/health/migrations', async (req: any, res) => {
+    try {
+      const { migrationOrchestrator } = await import('./migrations/migration-orchestrator');
+      const status = await migrationOrchestrator.getStatus();
+      
+      // If pending migrations exist, also run them (auto-heal)
+      if (status.pendingCount > 0) {
+        console.log(`[HEALTH] ${status.pendingCount} pending migrations, auto-running...`);
+        const result = await migrationOrchestrator.runMigrations();
+        
+        return res.json({
+          ...status,
+          autoHealed: true,
+          applied: result.applied,
+          errors: result.errors,
+          isUpToDate: result.success
+        });
+      }
+      
+      res.json(status);
+    } catch (error: any) {
+      console.error('[HEALTH] Migration status check failed:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // Peer-to-peer: Export bundle (called by remote peer pulling from us)
   // Supports optional batchType parameter for batched sync
   app.post("/api/sync/export", validateSyncRequest, async (req: any, res) => {

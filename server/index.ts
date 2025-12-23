@@ -12,7 +12,7 @@ import { generalLimiter } from "./middleware/rate-limiter";
 import { setupUnifiedWebSocketHandler, setupSocketIOHandler } from "./unified-ws-handler";
 import { founderCollabWSBroker } from "./services/founder-collab-ws-broker";
 import { hiveConsciousnessService } from "./services/hive-consciousness-service";
-import { ensureTriLaneTables } from "./migrations/tri-lane-tables";
+import { migrationOrchestrator } from "./migrations/migration-orchestrator";
 
 const app = express();
 
@@ -72,8 +72,15 @@ const stripeInitPromise = (async function initStripe() {
     });
     console.log('Stripe schema ready');
     
-    // Ensure tri-lane tables exist (for cross-env sync)
-    await ensureTriLaneTables();
+    // Run versioned migrations (for cross-env sync)
+    console.log('Running database migrations...');
+    const migrationResult = await migrationOrchestrator.runMigrations();
+    if (migrationResult.applied.length > 0) {
+      console.log(`Applied migrations: ${migrationResult.applied.join(', ')}`);
+    }
+    if (migrationResult.errors.length > 0) {
+      console.error('Migration errors:', migrationResult.errors);
+    }
     
     console.log('Syncing Stripe data...');
     const stripeSync = new StripeSync({
