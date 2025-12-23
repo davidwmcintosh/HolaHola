@@ -1315,6 +1315,9 @@ class SyncBridgeService {
       environment: string;
     };
   }> {
+    // Clean up any orphaned sync runs (stuck in "running" for >10 min)
+    await this.cleanupOrphanedSyncRuns();
+    
     const [lastPush] = await db.select()
       .from(syncRuns)
       .where(eq(syncRuns.direction, 'push'))
@@ -1526,6 +1529,36 @@ class SyncBridgeService {
       checksum: undefined,
     });
     return crypto.createHash('sha256').update(content).digest('hex').substring(0, 16);
+  }
+  
+  /**
+   * Clean up orphaned sync runs that are stuck in "running" status
+   * This can happen if the server crashes during a sync operation
+   * Runs older than 10 minutes in "running" status are marked as failed
+   */
+  async cleanupOrphanedSyncRuns(): Promise<number> {
+    const orphanedRuns = await db.select()
+      .from(syncRuns)
+      .where(eq(syncRuns.status, 'running'));
+    
+    let cleaned = 0;
+    for (const run of orphanedRuns) {
+      const runAge = Date.now() - new Date(run.startedAt).getTime();
+      if (runAge > 10 * 60 * 1000) { // Older than 10 minutes = orphaned
+        await db.update(syncRuns)
+          .set({
+            status: 'failed',
+            errorMessage: 'Orphaned sync run - stuck in running state for >10min, auto-cleaned',
+            completedAt: new Date(),
+            durationMs: runAge,
+          })
+          .where(eq(syncRuns.id, run.id));
+        cleaned++;
+        console.log(`[SYNC-BRIDGE] Cleaned up orphaned sync run ${run.id} (age: ${Math.round(runAge/1000)}s)`);
+      }
+    }
+    
+    return cleaned;
   }
 }
 
