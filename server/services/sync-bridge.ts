@@ -9,7 +9,7 @@ const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production'
 
 // Version identifier to verify which code is running on production
 // Increment this when making sync-related changes to verify deployment
-const SYNC_BRIDGE_CODE_VERSION = "2024-12-23-v13-ultra-defensive-adv-intel";
+const SYNC_BRIDGE_CODE_VERSION = "2024-12-23-v14-batch-split";
 
 export interface SyncBundle {
   generatedAt: string;
@@ -122,66 +122,75 @@ class SyncBridgeService {
       }
     }
     
-    // BATCH: advanced-intel - Advanced intelligence, Daniela suggestions, tri-lane, North Star
-    // v13: Ultra-defensive with step-by-step logging and no dynamic imports
-    if (!batchType || batchType === 'advanced-intel') {
+    // BATCH: advanced-intel-a - Advanced intelligence + Daniela suggestions (SPLIT from advanced-intel for timeout fix)
+    // v14: Split into smaller batches to stay under Replit's 60s gateway timeout
+    if (!batchType || batchType === 'advanced-intel-a' || batchType === 'advanced-intel') {
       const batchStart = Date.now();
-      console.log(`[SYNC-BRIDGE v13] advanced-intel batch START at ${new Date().toISOString()}`);
+      console.log(`[SYNC-BRIDGE v14] advanced-intel-a batch START at ${new Date().toISOString()}`);
       
-      // Initialize all defaults BEFORE any operations that might fail
       let advanced: any = { subtletyCues: [], emotionalPatterns: [], creativityTemplates: [] };
       let daniela: any = { suggestions: [], triggers: [], actions: [] };
-      let triLane: any = { agentObservations: [], supportObservations: [], systemAlerts: [] };
-      let northStar: any = { principles: [], understanding: [], examples: [] };
       
-      // Export 1: exportAdvancedIntelligence (subtlety cues, emotional patterns, creativity templates)
-      console.log(`[SYNC-BRIDGE v13] Step 1/4: exportAdvancedIntelligence...`);
+      // Export 1: exportAdvancedIntelligence
+      console.log(`[SYNC-BRIDGE v14] Step 1/2: exportAdvancedIntelligence...`);
       try {
         advanced = await neuralNetworkSync.exportAdvancedIntelligence();
-        console.log(`[SYNC-BRIDGE v13] Step 1 OK: ${advanced?.subtletyCues?.length || 0} cues, ${advanced?.emotionalPatterns?.length || 0} emotions, ${advanced?.creativityTemplates?.length || 0} templates (+${Date.now() - batchStart}ms)`);
+        console.log(`[SYNC-BRIDGE v14] Step 1 OK: ${advanced?.subtletyCues?.length || 0} cues, ${advanced?.emotionalPatterns?.length || 0} emotions, ${advanced?.creativityTemplates?.length || 0} templates (+${Date.now() - batchStart}ms)`);
       } catch (e: any) {
-        console.error(`[SYNC-BRIDGE v13] Step 1 FAILED after ${Date.now() - batchStart}ms:`, e?.message || String(e));
-        batchErrors.push(`advanced-intel step1: ${e?.message || 'unknown'}`);
+        console.error(`[SYNC-BRIDGE v14] Step 1 FAILED after ${Date.now() - batchStart}ms:`, e?.message || String(e));
+        batchErrors.push(`advanced-intel-a step1: ${e?.message || 'unknown'}`);
       }
       
       // Export 2: exportDanielaSuggestions
-      console.log(`[SYNC-BRIDGE v13] Step 2/4: exportDanielaSuggestions...`);
+      console.log(`[SYNC-BRIDGE v14] Step 2/2: exportDanielaSuggestions...`);
       try {
         daniela = await neuralNetworkSync.exportDanielaSuggestions();
-        console.log(`[SYNC-BRIDGE v13] Step 2 OK: ${daniela?.suggestions?.length || 0} suggestions, ${daniela?.triggers?.length || 0} triggers, ${daniela?.actions?.length || 0} actions (+${Date.now() - batchStart}ms)`);
+        console.log(`[SYNC-BRIDGE v14] Step 2 OK: ${daniela?.suggestions?.length || 0} suggestions, ${daniela?.triggers?.length || 0} triggers, ${daniela?.actions?.length || 0} actions (+${Date.now() - batchStart}ms)`);
       } catch (e: any) {
-        console.error(`[SYNC-BRIDGE v13] Step 2 FAILED after ${Date.now() - batchStart}ms:`, e?.message || String(e));
-        batchErrors.push(`advanced-intel step2: ${e?.message || 'unknown'}`);
+        console.error(`[SYNC-BRIDGE v14] Step 2 FAILED after ${Date.now() - batchStart}ms:`, e?.message || String(e));
+        batchErrors.push(`advanced-intel-a step2: ${e?.message || 'unknown'}`);
       }
       
-      // Export 3: exportTriLaneObservations (tables should exist from migrations)
-      console.log(`[SYNC-BRIDGE v13] Step 3/4: exportTriLaneObservations...`);
-      try {
-        triLane = await neuralNetworkSync.exportTriLaneObservations();
-        console.log(`[SYNC-BRIDGE v13] Step 3 OK: ${triLane?.agentObservations?.length || 0} agent, ${triLane?.supportObservations?.length || 0} support, ${triLane?.systemAlerts?.length || 0} alerts (+${Date.now() - batchStart}ms)`);
-      } catch (e: any) {
-        console.error(`[SYNC-BRIDGE v13] Step 3 FAILED after ${Date.now() - batchStart}ms:`, e?.message || String(e));
-        batchErrors.push(`advanced-intel step3: ${e?.message || 'unknown'}`);
-        // This is expected if tri-lane tables don't exist in production yet
-      }
-      
-      // Export 4: exportNorthStar
-      console.log(`[SYNC-BRIDGE v13] Step 4/4: exportNorthStar...`);
-      try {
-        northStar = await neuralNetworkSync.exportNorthStar();
-        console.log(`[SYNC-BRIDGE v13] Step 4 OK: ${northStar?.principles?.length || 0} principles, ${northStar?.understanding?.length || 0} understanding, ${northStar?.examples?.length || 0} examples (+${Date.now() - batchStart}ms)`);
-      } catch (e: any) {
-        console.error(`[SYNC-BRIDGE v13] Step 4 FAILED after ${Date.now() - batchStart}ms:`, e?.message || String(e));
-        batchErrors.push(`advanced-intel step4: ${e?.message || 'unknown'}`);
-      }
-      
-      // Assign to bundle with ultra-defensive null checks
+      // Assign to bundle
       bundle.subtletyCues = Array.isArray(advanced?.subtletyCues) ? advanced.subtletyCues : [];
       bundle.emotionalPatterns = Array.isArray(advanced?.emotionalPatterns) ? advanced.emotionalPatterns : [];
       bundle.creativityTemplates = Array.isArray(advanced?.creativityTemplates) ? advanced.creativityTemplates : [];
       bundle.suggestions = Array.isArray(daniela?.suggestions) ? daniela.suggestions : [];
       bundle.triggers = Array.isArray(daniela?.triggers) ? daniela.triggers : [];
       bundle.actions = Array.isArray(daniela?.actions) ? daniela.actions : [];
+      
+      console.log(`[SYNC-BRIDGE v14] advanced-intel-a batch COMPLETE in ${Date.now() - batchStart}ms`);
+    }
+    
+    // BATCH: advanced-intel-b - TriLane observations + North Star (SPLIT from advanced-intel for timeout fix)
+    if (!batchType || batchType === 'advanced-intel-b' || batchType === 'advanced-intel') {
+      const batchStart = Date.now();
+      console.log(`[SYNC-BRIDGE v14] advanced-intel-b batch START at ${new Date().toISOString()}`);
+      
+      let triLane: any = { agentObservations: [], supportObservations: [], systemAlerts: [] };
+      let northStar: any = { principles: [], understanding: [], examples: [] };
+      
+      // Export 1: exportTriLaneObservations
+      console.log(`[SYNC-BRIDGE v14] Step 1/2: exportTriLaneObservations...`);
+      try {
+        triLane = await neuralNetworkSync.exportTriLaneObservations();
+        console.log(`[SYNC-BRIDGE v14] Step 1 OK: ${triLane?.agentObservations?.length || 0} agent, ${triLane?.supportObservations?.length || 0} support, ${triLane?.systemAlerts?.length || 0} alerts (+${Date.now() - batchStart}ms)`);
+      } catch (e: any) {
+        console.error(`[SYNC-BRIDGE v14] Step 1 FAILED after ${Date.now() - batchStart}ms:`, e?.message || String(e));
+        batchErrors.push(`advanced-intel-b step1: ${e?.message || 'unknown'}`);
+      }
+      
+      // Export 2: exportNorthStar
+      console.log(`[SYNC-BRIDGE v14] Step 2/2: exportNorthStar...`);
+      try {
+        northStar = await neuralNetworkSync.exportNorthStar();
+        console.log(`[SYNC-BRIDGE v14] Step 2 OK: ${northStar?.principles?.length || 0} principles, ${northStar?.understanding?.length || 0} understanding, ${northStar?.examples?.length || 0} examples (+${Date.now() - batchStart}ms)`);
+      } catch (e: any) {
+        console.error(`[SYNC-BRIDGE v14] Step 2 FAILED after ${Date.now() - batchStart}ms:`, e?.message || String(e));
+        batchErrors.push(`advanced-intel-b step2: ${e?.message || 'unknown'}`);
+      }
+      
+      // Assign to bundle
       bundle.observations = [
         ...(Array.isArray(triLane?.agentObservations) ? triLane.agentObservations : []),
         ...(Array.isArray(triLane?.supportObservations) ? triLane.supportObservations : [])
@@ -191,7 +200,7 @@ class SyncBridgeService {
       bundle.northStarUnderstanding = Array.isArray(northStar?.understanding) ? northStar.understanding : [];
       bundle.northStarExamples = Array.isArray(northStar?.examples) ? northStar.examples : [];
       
-      console.log(`[SYNC-BRIDGE v13] advanced-intel batch COMPLETE in ${Date.now() - batchStart}ms (${batchErrors.length} errors)`);
+      console.log(`[SYNC-BRIDGE v14] advanced-intel-b batch COMPLETE in ${Date.now() - batchStart}ms`);
     }
     
     // BATCH: express-lane - Founder user, sessions, messages
@@ -879,7 +888,7 @@ class SyncBridgeService {
       let overallSuccess = true;
       
       // BATCH 1: Neural network core (small, fast)
-      console.log('[SYNC-BRIDGE] Batch 1/4: Neural network core...');
+      console.log('[SYNC-BRIDGE] Batch 1/6: Neural network core...');
       const coreBundle: Partial<SyncBundle> = {
         generatedAt: new Date().toISOString(),
         sourceEnvironment: CURRENT_ENVIRONMENT,
@@ -892,23 +901,34 @@ class SyncBridgeService {
       allErrors.push(...batch1.errors);
       if (!batch1.success) overallSuccess = false;
       
-      // BATCH 2: Advanced intelligence (medium)
-      console.log('[SYNC-BRIDGE] Batch 2/4: Advanced intelligence...');
-      const advancedBundle: Partial<SyncBundle> = {
+      // BATCH 2a: Advanced intelligence + Daniela suggestions (split for timeout fix)
+      console.log('[SYNC-BRIDGE] Batch 2a/6: Advanced intelligence (part A)...');
+      const advancedBundleA: Partial<SyncBundle> = {
         generatedAt: new Date().toISOString(),
         sourceEnvironment: CURRENT_ENVIRONMENT,
         ...await neuralNetworkSync.exportAdvancedIntelligence(),
         ...await neuralNetworkSync.exportDanielaSuggestions(),
+      };
+      const batch2a = await this.sendBatch(peerUrl, 'advanced-intel-a', advancedBundleA);
+      Object.assign(allCounts, batch2a.counts);
+      allErrors.push(...batch2a.errors);
+      if (!batch2a.success) overallSuccess = false;
+      
+      // BATCH 2b: TriLane + North Star (split for timeout fix)
+      console.log('[SYNC-BRIDGE] Batch 2b/6: Advanced intelligence (part B)...');
+      const advancedBundleB: Partial<SyncBundle> = {
+        generatedAt: new Date().toISOString(),
+        sourceEnvironment: CURRENT_ENVIRONMENT,
         ...await neuralNetworkSync.exportTriLaneObservations(),
         ...await neuralNetworkSync.exportNorthStar(),
       };
-      const batch2 = await this.sendBatch(peerUrl, 'advanced-intel', advancedBundle);
-      Object.assign(allCounts, batch2.counts);
-      allErrors.push(...batch2.errors);
-      if (!batch2.success) overallSuccess = false;
+      const batch2b = await this.sendBatch(peerUrl, 'advanced-intel-b', advancedBundleB);
+      Object.assign(allCounts, batch2b.counts);
+      allErrors.push(...batch2b.errors);
+      if (!batch2b.success) overallSuccess = false;
       
       // BATCH 3: Express Lane data (can be large)
-      console.log('[SYNC-BRIDGE] Batch 3/4: Express Lane...');
+      console.log('[SYNC-BRIDGE] Batch 3/6: Express Lane...');
       const expressLaneData = await this.exportExpressLaneData(lastSuccessfulPush);
       const expressBundle: Partial<SyncBundle> = {
         generatedAt: new Date().toISOString(),
@@ -923,7 +943,7 @@ class SyncBridgeService {
       if (!batch3.success) overallSuccess = false;
       
       // BATCH 4: Hive snapshots only
-      console.log('[SYNC-BRIDGE] Batch 4/5: Hive Snapshots...');
+      console.log('[SYNC-BRIDGE] Batch 4/6: Hive Snapshots...');
       const hiveSnapshots = await this.exportHiveSnapshots(lastSuccessfulPush);
       const hiveBundle: Partial<SyncBundle> = {
         generatedAt: new Date().toISOString(),
@@ -936,7 +956,7 @@ class SyncBridgeService {
       if (!batch4.success) overallSuccess = false;
       
       // BATCH 5: Daniela growth memories only
-      console.log('[SYNC-BRIDGE] Batch 5/5: Daniela Memories...');
+      console.log('[SYNC-BRIDGE] Batch 5/6: Daniela Memories...');
       const danielaMemories = await this.exportDanielaGrowthMemories(lastSuccessfulPush);
       const memoriesBundle: Partial<SyncBundle> = {
         generatedAt: new Date().toISOString(),
@@ -948,7 +968,7 @@ class SyncBridgeService {
       allErrors.push(...batch5.errors);
       if (!batch5.success) overallSuccess = false;
       
-      console.log(`[SYNC-BRIDGE] All 5 batches complete. Overall success: ${overallSuccess}`);
+      console.log(`[SYNC-BRIDGE] All 6 batches complete. Overall success: ${overallSuccess}`);
       
       await db.update(syncRuns)
         .set({
@@ -1094,12 +1114,14 @@ class SyncBridgeService {
       let overallSuccess = true;
       
       // Batched pull - fetch each batch type separately to avoid timeout
-      const batchTypes = ['neural-core', 'advanced-intel', 'express-lane', 'hive-snapshots', 'daniela-memories'];
+      // v14: Split advanced-intel into two smaller batches (a+b) to stay under 60s gateway timeout
+      const batchTypes = ['neural-core', 'advanced-intel-a', 'advanced-intel-b', 'express-lane', 'hive-snapshots', 'daniela-memories'];
       
       for (let i = 0; i < batchTypes.length; i++) {
         const batchType = batchTypes[i];
         console.log(`[SYNC-BRIDGE] Pull batch ${i + 1}/${batchTypes.length}: ${batchType}...`);
         
+        // 45s timeout for smaller batches, 60s for larger data batches
         const timeout = ['express-lane', 'hive-snapshots', 'daniela-memories'].includes(batchType) ? 60000 : 45000;
         const result = await this.fetchBatch(peerUrl, batchType, timeout);
         
