@@ -4839,11 +4839,12 @@ function CrossEnvSyncSection() {
         console.groupEnd();
       }
       const counts = data.counts ? Object.entries(data.counts).map(([k, v]) => `${k}: ${v}`).join(', ') : '';
+      const duration = data.durationMs ? `${data.durationMs}ms` : '';
       toast({
         title: data.success ? "Push Successful" : "Push Completed with Errors",
         description: errors.length > 0
           ? `${errors.length} errors. Check console (F12) for details.`
-          : `Synced in ${data.durationMs}ms (${counts || "0 items"})`,
+          : `Synced${duration ? ` in ${duration}` : ''} (${counts || "0 items"})`,
         variant: data.success ? "default" : "destructive",
       });
     },
@@ -4865,11 +4866,12 @@ function CrossEnvSyncSection() {
         console.groupEnd();
       }
       const counts = data.counts ? Object.entries(data.counts).map(([k, v]) => `${k}: ${v}`).join(', ') : '';
+      const duration = data.durationMs ? `${data.durationMs}ms` : '';
       toast({
         title: data.success ? "Pull Successful" : "Pull Completed with Errors",
         description: errors.length > 0
           ? `${errors.length} errors. Check console (F12) for details.`
-          : `Synced in ${data.durationMs}ms (${counts || "0 items"})`,
+          : `Synced${duration ? ` in ${duration}` : ''} (${counts || "0 items"})`,
         variant: data.success ? "default" : "destructive",
       });
     },
