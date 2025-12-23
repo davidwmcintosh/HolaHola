@@ -16532,15 +16532,29 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   // Peer-to-peer: Export bundle (called by remote peer pulling from us)
   // Supports optional batchType parameter for batched sync
   app.post("/api/sync/export", validateSyncRequest, async (req: any, res) => {
+    const batchType = req.body?.batchType || 'full';
+    console.log(`[SYNC API v3] Export handler entered for batch: ${batchType}`);
+    
     try {
-      const { batchType } = req.body;
-      console.log(`[SYNC API v2] Export request received from peer${batchType ? ` (batch: ${batchType})` : ''}`);
+      console.log(`[SYNC API v3] Calling collectExportBundle for batch: ${batchType}`);
       const bundle = await syncBridge.collectExportBundle(null, batchType);
-      res.json({ ...bundle, _syncVersion: 2 });
+      
+      // Build response carefully to avoid spread operator issues
+      console.log(`[SYNC API v3] Bundle collected successfully, preparing response`);
+      const response = Object.assign({}, bundle, { _syncVersion: 3 });
+      
+      console.log(`[SYNC API v3] Sending response for batch: ${batchType}`);
+      res.json(response);
     } catch (error: any) {
       const errorMsg = error?.message || error?.toString() || 'Unknown export error';
-      console.error(`[SYNC API] Export error for batch ${req.body?.batchType || 'full'}:`, errorMsg, error?.stack || '');
-      res.status(500).json({ error: errorMsg, stack: process.env.NODE_ENV === 'development' ? error?.stack : undefined });
+      console.error(`[SYNC API v3] Export error for batch ${batchType}:`, errorMsg);
+      console.error(`[SYNC API v3] Stack:`, error?.stack || 'no stack');
+      res.status(500).json({ 
+        error: errorMsg, 
+        batch: batchType,
+        _syncVersion: 3,
+        stack: process.env.NODE_ENV === 'development' ? error?.stack : undefined 
+      });
     }
   });
   

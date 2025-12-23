@@ -41,7 +41,17 @@ export function validateSyncRequest(req: Request, res: Response, next: NextFunct
     .update(`${timestamp}:${nonce}:${payload}`)
     .digest('hex');
   
-  if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
+  // Use try/catch because timingSafeEqual throws if buffer lengths differ
+  try {
+    const sigBuffer = Buffer.from(signature);
+    const expectedBuffer = Buffer.from(expectedSignature);
+    
+    if (sigBuffer.length !== expectedBuffer.length || 
+        !crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {
+      return res.status(401).json({ error: 'Invalid signature' });
+    }
+  } catch (err: any) {
+    console.error('[SYNC-AUTH] Signature comparison error:', err.message);
     return res.status(401).json({ error: 'Invalid signature' });
   }
   
