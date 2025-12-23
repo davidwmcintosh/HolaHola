@@ -118,11 +118,47 @@ class SyncBridgeService {
     
     // BATCH: advanced-intel - Advanced intelligence, Daniela suggestions, tri-lane, North Star
     if (!batchType || batchType === 'advanced-intel') {
+      console.log('[SYNC-BRIDGE v6] Starting advanced-intel batch export');
       try {
-        const advanced = await neuralNetworkSync.exportAdvancedIntelligence();
-        const daniela = await neuralNetworkSync.exportDanielaSuggestions();
-        const triLane = await neuralNetworkSync.exportTriLaneObservations();
-        const northStar = await neuralNetworkSync.exportNorthStar();
+        // Wrap each export in its own try/catch to isolate failures
+        let advanced: any = { subtletyCues: [], emotionalPatterns: [], creativityTemplates: [] };
+        let daniela: any = { suggestions: [], triggers: [], actions: [] };
+        let triLane: any = { agentObservations: [], supportObservations: [], systemAlerts: [] };
+        let northStar: any = { principles: [], understanding: [], examples: [] };
+        
+        try {
+          console.log('[SYNC-BRIDGE v6] Step A: Calling exportAdvancedIntelligence');
+          advanced = await neuralNetworkSync.exportAdvancedIntelligence();
+          console.log(`[SYNC-BRIDGE v6] Step A complete: ${advanced?.subtletyCues?.length || 0} cues`);
+        } catch (e: any) {
+          console.error('[SYNC-BRIDGE v6] Step A failed:', e.message);
+        }
+        
+        try {
+          console.log('[SYNC-BRIDGE v6] Step B: Calling exportDanielaSuggestions');
+          daniela = await neuralNetworkSync.exportDanielaSuggestions();
+          console.log(`[SYNC-BRIDGE v6] Step B complete: ${daniela?.suggestions?.length || 0} suggestions`);
+        } catch (e: any) {
+          console.error('[SYNC-BRIDGE v6] Step B failed:', e.message);
+        }
+        
+        try {
+          console.log('[SYNC-BRIDGE v6] Step C: Calling exportTriLaneObservations');
+          triLane = await neuralNetworkSync.exportTriLaneObservations();
+          console.log(`[SYNC-BRIDGE v6] Step C complete: ${triLane?.agentObservations?.length || 0} observations`);
+        } catch (e: any) {
+          console.error('[SYNC-BRIDGE v6] Step C failed:', e.message);
+        }
+        
+        try {
+          console.log('[SYNC-BRIDGE v6] Step D: Calling exportNorthStar');
+          northStar = await neuralNetworkSync.exportNorthStar();
+          console.log(`[SYNC-BRIDGE v6] Step D complete: ${northStar?.principles?.length || 0} principles`);
+        } catch (e: any) {
+          console.error('[SYNC-BRIDGE v6] Step D failed:', e.message);
+        }
+        
+        console.log('[SYNC-BRIDGE v6] Step E: All exports complete, building bundle');
         
         bundle.subtletyCues = advanced?.subtletyCues || [];
         bundle.emotionalPatterns = advanced?.emotionalPatterns || [];
@@ -135,9 +171,10 @@ class SyncBridgeService {
         bundle.northStarPrinciples = northStar?.principles || [];
         bundle.northStarUnderstanding = northStar?.understanding || [];
         bundle.northStarExamples = northStar?.examples || [];
+        console.log('[SYNC-BRIDGE v6] Step F: advanced-intel bundle complete');
       } catch (err: any) {
         const errMsg = `advanced-intel export failed: ${err.message}`;
-        console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
+        console.error(`[SYNC-BRIDGE v6] ${errMsg}`, err);
         batchErrors.push(errMsg);
         // Return empty arrays for this batch
         bundle.subtletyCues = [];
