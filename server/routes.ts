@@ -16538,8 +16538,9 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
       const bundle = await syncBridge.collectExportBundle(null, batchType);
       res.json(bundle);
     } catch (error: any) {
-      console.error('[SYNC API] Export error:', error);
-      res.status(500).json({ error: error.message });
+      const errorMsg = error?.message || error?.toString() || 'Unknown export error';
+      console.error(`[SYNC API] Export error for batch ${req.body?.batchType || 'full'}:`, errorMsg, error?.stack || '');
+      res.status(500).json({ error: errorMsg, stack: process.env.NODE_ENV === 'development' ? error?.stack : undefined });
     }
   });
   

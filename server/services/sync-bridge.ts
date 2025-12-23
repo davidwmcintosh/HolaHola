@@ -994,9 +994,21 @@ class SyncBridgeService {
       });
       
       if (!response.ok) {
-        const error = await response.text();
-        console.error(`[SYNC-BRIDGE] Pull batch ${batchType} rejected: ${response.status} - ${error.substring(0, 200)}`);
-        return { success: false, bundle: {}, error: `${batchType}: ${response.status} - ${error}` };
+        let errorMsg = '';
+        try {
+          const errorText = await response.text();
+          // Try to parse as JSON to get structured error
+          try {
+            const errorJson = JSON.parse(errorText);
+            errorMsg = errorJson.error || errorJson.message || errorText;
+          } catch {
+            errorMsg = errorText || 'No error message returned';
+          }
+        } catch {
+          errorMsg = 'Failed to read error response';
+        }
+        console.error(`[SYNC-BRIDGE] Pull batch ${batchType} rejected: ${response.status} - ${errorMsg.substring(0, 500)}`);
+        return { success: false, bundle: {}, error: `${batchType}: ${response.status} - ${errorMsg}` };
       }
       
       const bundle = await response.json() as Partial<SyncBundle>;
