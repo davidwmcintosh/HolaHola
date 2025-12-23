@@ -5,6 +5,7 @@ import { studentLearningService } from './student-learning-service';
 import { wrenIntelligenceService } from './wren-intelligence-service';
 import { voiceDiagnostics } from './voice-diagnostics-service';
 import { memoryConsolidationService } from './memory-consolidation-service';
+import { observationsConsolidationService } from './observations-consolidation-service';
 import { db } from '../db';
 import { users, recurringStruggles, hiveSnapshots, wrenInsights } from '@shared/schema';
 import { sql, and, gte, isNotNull, eq, desc } from 'drizzle-orm';
@@ -410,7 +411,16 @@ async function runNightlySync(): Promise<void> {
       console.warn(`[SYNC-SCHEDULER] Memory consolidation failed: ${consolidationErr.message}`);
     }
     
-    // 7f. Wren cross-student analytics - mine anonymized patterns for syllabus recommendations (daily)
+    // 7f. Observations consolidation - merge semantically similar agent/support observations (daily)
+    try {
+      console.log(`[SYNC-SCHEDULER] Running observations consolidation...`);
+      const obsResult = await observationsConsolidationService.runConsolidation();
+      console.log(`[SYNC-SCHEDULER] Observations consolidation: ${obsResult.agentClustersFound + obsResult.supportClustersFound} clusters, ${obsResult.agentObservationsArchived + obsResult.supportObservationsArchived} archived`);
+    } catch (obsErr: any) {
+      console.warn(`[SYNC-SCHEDULER] Observations consolidation failed: ${obsErr.message}`);
+    }
+    
+    // 7g. Wren cross-student analytics - mine anonymized patterns for syllabus recommendations (daily)
     try {
       console.log(`[SYNC-SCHEDULER] Running Wren cross-student analytics...`);
       const { wrenIntelligenceService } = await import('./wren-intelligence-service');
