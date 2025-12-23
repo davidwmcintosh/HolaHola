@@ -834,10 +834,8 @@ async function analyzeStudentCorrelationsExternal(environment?: string): Promise
   return analyzeStudentIssues(snapshots);
 }
 
-async function compareCrossEnvironmentExternal(): Promise<EnvComparison[]> {
-  const devSnapshots = await fetchVoiceDiagnostics(7, 'development');
-  const prodSnapshots = await fetchVoiceDiagnostics(7, 'production');
-  return compareCrossEnvironment(devSnapshots, prodSnapshots);
+async function compareCrossEnvironmentExternal(): Promise<EnvironmentComparison[]> {
+  return compareEnvironments(7);
 }
 
 async function updateHistoricalBaselinesExternal(): Promise<void> {
