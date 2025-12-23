@@ -7,9 +7,14 @@ import crypto from 'crypto';
 
 const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production' : 'development';
 
+// Version identifier to verify which code is running on production
+// Increment this when making sync-related changes to verify deployment
+const SYNC_BRIDGE_CODE_VERSION = "2024-12-23-v2-defensive-try-catch";
+
 export interface SyncBundle {
   generatedAt: string;
   sourceEnvironment: string;
+  codeVersion?: string;  // Added to verify which code version is deployed
   checksum: string;
   bestPractices: any[];
   idioms: any[];
@@ -77,6 +82,7 @@ class SyncBridgeService {
     const bundle: Partial<SyncBundle> = {
       generatedAt: new Date().toISOString(),
       sourceEnvironment: CURRENT_ENVIRONMENT,
+      codeVersion: SYNC_BRIDGE_CODE_VERSION,
     };
     
     const batchErrors: string[] = [];
@@ -1051,8 +1057,9 @@ class SyncBridgeService {
       
       const bundle = await response.json() as Partial<SyncBundle> & { _syncVersion?: number; exportErrors?: string[] };
       const versionInfo = bundle._syncVersion ? ` (remote v${bundle._syncVersion})` : ' (remote pre-v2)';
+      const codeVersionInfo = bundle.codeVersion ? ` [code: ${bundle.codeVersion}]` : ' [code: unknown/old]';
       const exportErrorInfo = bundle.exportErrors?.length ? ` [remote errors: ${bundle.exportErrors.join(', ')}]` : '';
-      console.log(`[SYNC-BRIDGE] Pull batch ${batchType} complete${versionInfo}${exportErrorInfo}`);
+      console.log(`[SYNC-BRIDGE] Pull batch ${batchType} complete${versionInfo}${codeVersionInfo}${exportErrorInfo}`);
       return { success: true, bundle };
     } catch (err: any) {
       const errorMsg = err.name === 'AbortError' ? `${batchType} timeout after ${timeoutMs/1000}s` : err.message;
