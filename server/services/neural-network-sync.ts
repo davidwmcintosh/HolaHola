@@ -1765,11 +1765,28 @@ export class NeuralNetworkSyncService {
     emotionalPatterns: EmotionalPattern[];
     creativityTemplates: CreativityTemplate[];
   }> {
-    const [cues, emotions, creativity] = await Promise.all([
-      db.select().from(subtletyCues).where(eq(subtletyCues.syncStatus, 'approved')),
-      db.select().from(emotionalPatterns).where(eq(emotionalPatterns.syncStatus, 'approved')),
-      db.select().from(creativityTemplates).where(eq(creativityTemplates.syncStatus, 'approved')),
-    ]);
+    // Query each table separately with error handling - tables may not exist in all environments
+    let cues: SubtletyCue[] = [];
+    let emotions: EmotionalPattern[] = [];
+    let creativity: CreativityTemplate[] = [];
+    
+    try {
+      cues = await db.select().from(subtletyCues).where(eq(subtletyCues.syncStatus, 'approved'));
+    } catch (err: any) {
+      console.warn('[NEURAL-SYNC] subtlety_cues table query failed (may not exist):', err.message);
+    }
+    
+    try {
+      emotions = await db.select().from(emotionalPatterns).where(eq(emotionalPatterns.syncStatus, 'approved'));
+    } catch (err: any) {
+      console.warn('[NEURAL-SYNC] emotional_patterns table query failed (may not exist):', err.message);
+    }
+    
+    try {
+      creativity = await db.select().from(creativityTemplates).where(eq(creativityTemplates.syncStatus, 'approved'));
+    } catch (err: any) {
+      console.warn('[NEURAL-SYNC] creativity_templates table query failed (may not exist):', err.message);
+    }
     
     return {
       subtletyCues: cues,
@@ -2143,20 +2160,36 @@ export class NeuralNetworkSyncService {
     triggers: ReflectionTrigger[];
     actions: DanielaSuggestionAction[];
   }> {
-    const suggestions = await db.select()
-      .from(danielaSuggestions)
-      .where(or(
-        eq(danielaSuggestions.syncStatus, 'approved'),
-        eq(danielaSuggestions.status, 'implemented')
-      ));
+    // Query each table separately with error handling - tables may not exist in all environments
+    let suggestions: DanielaSuggestion[] = [];
+    let triggers: ReflectionTrigger[] = [];
+    let actions: DanielaSuggestionAction[] = [];
     
-    const triggers = await db.select()
-      .from(reflectionTriggers)
-      .where(eq(reflectionTriggers.syncStatus, 'approved'));
+    try {
+      suggestions = await db.select()
+        .from(danielaSuggestions)
+        .where(or(
+          eq(danielaSuggestions.syncStatus, 'approved'),
+          eq(danielaSuggestions.status, 'implemented')
+        ));
+    } catch (err: any) {
+      console.warn('[NEURAL-SYNC] daniela_suggestions table query failed (may not exist):', err.message);
+    }
     
-    // Export all actions (team responses to suggestions)
-    const actions = await db.select()
-      .from(danielaSuggestionActions);
+    try {
+      triggers = await db.select()
+        .from(reflectionTriggers)
+        .where(eq(reflectionTriggers.syncStatus, 'approved'));
+    } catch (err: any) {
+      console.warn('[NEURAL-SYNC] reflection_triggers table query failed (may not exist):', err.message);
+    }
+    
+    try {
+      actions = await db.select()
+        .from(danielaSuggestionActions);
+    } catch (err: any) {
+      console.warn('[NEURAL-SYNC] daniela_suggestion_actions table query failed (may not exist):', err.message);
+    }
     
     return { suggestions, triggers, actions };
   }
@@ -2333,17 +2366,34 @@ export class NeuralNetworkSyncService {
     supportObservations: SupportObservation[];
     systemAlerts: SystemAlert[];
   }> {
-    const [agentObs, supportObs, alerts] = await Promise.all([
-      db.select().from(agentObservations)
+    // Query each table separately with error handling - tables may not exist in all environments
+    let agentObs: AgentObservation[] = [];
+    let supportObs: SupportObservation[] = [];
+    let alerts: SystemAlert[] = [];
+    
+    try {
+      agentObs = await db.select().from(agentObservations)
         .where(eq(agentObservations.status, 'active'))
-        .orderBy(desc(agentObservations.priority)),
-      db.select().from(supportObservations)
+        .orderBy(desc(agentObservations.priority));
+    } catch (err: any) {
+      console.warn('[NEURAL-SYNC] agent_observations table query failed (may not exist):', err.message);
+    }
+    
+    try {
+      supportObs = await db.select().from(supportObservations)
         .where(eq(supportObservations.status, 'active'))
-        .orderBy(desc(supportObservations.priority)),
-      db.select().from(systemAlerts)
+        .orderBy(desc(supportObservations.priority));
+    } catch (err: any) {
+      console.warn('[NEURAL-SYNC] support_observations table query failed (may not exist):', err.message);
+    }
+    
+    try {
+      alerts = await db.select().from(systemAlerts)
         .where(eq(systemAlerts.isActive, true))
-        .orderBy(desc(systemAlerts.createdAt)),
-    ]);
+        .orderBy(desc(systemAlerts.createdAt));
+    } catch (err: any) {
+      console.warn('[NEURAL-SYNC] system_alerts table query failed (may not exist):', err.message);
+    }
     
     return {
       agentObservations: agentObs,
@@ -2739,11 +2789,28 @@ export class NeuralNetworkSyncService {
     understanding: NorthStarUnderstanding[];
     examples: NorthStarExample[];
   }> {
-    const [principles, understanding, examples] = await Promise.all([
-      db.select().from(northStarPrinciples).where(eq(northStarPrinciples.isActive, true)),
-      db.select().from(northStarUnderstanding),
-      db.select().from(northStarExamples),
-    ]);
+    // Query each table separately with error handling - tables may not exist in all environments
+    let principles: NorthStarPrinciple[] = [];
+    let understanding: NorthStarUnderstanding[] = [];
+    let examples: NorthStarExample[] = [];
+    
+    try {
+      principles = await db.select().from(northStarPrinciples).where(eq(northStarPrinciples.isActive, true));
+    } catch (err: any) {
+      console.warn('[NEURAL-SYNC] north_star_principles table query failed (may not exist):', err.message);
+    }
+    
+    try {
+      understanding = await db.select().from(northStarUnderstanding);
+    } catch (err: any) {
+      console.warn('[NEURAL-SYNC] north_star_understanding table query failed (may not exist):', err.message);
+    }
+    
+    try {
+      examples = await db.select().from(northStarExamples);
+    } catch (err: any) {
+      console.warn('[NEURAL-SYNC] north_star_examples table query failed (may not exist):', err.message);
+    }
     
     return {
       exportedAt: new Date().toISOString(),
