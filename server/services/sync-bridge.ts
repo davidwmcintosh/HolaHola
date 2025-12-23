@@ -1534,9 +1534,12 @@ class SyncBridgeService {
   /**
    * Clean up orphaned sync runs that are stuck in "running" status
    * This can happen if the server crashes during a sync operation
-   * Runs older than 10 minutes in "running" status are marked as failed
+   * Runs older than 2 HOURS in "running" status are marked as failed
+   * (Extended from 10min to support large paginated syncs - 97 pages × ~1min each)
    */
   async cleanupOrphanedSyncRuns(): Promise<number> {
+    const ORPHAN_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours for large paginated syncs
+    
     const orphanedRuns = await db.select()
       .from(syncRuns)
       .where(eq(syncRuns.status, 'running'));
@@ -1544,11 +1547,11 @@ class SyncBridgeService {
     let cleaned = 0;
     for (const run of orphanedRuns) {
       const runAge = Date.now() - new Date(run.startedAt).getTime();
-      if (runAge > 10 * 60 * 1000) { // Older than 10 minutes = orphaned
+      if (runAge > ORPHAN_TIMEOUT_MS) { // Older than 2 hours = orphaned
         await db.update(syncRuns)
           .set({
             status: 'failed',
-            errorMessage: 'Orphaned sync run - stuck in running state for >10min, auto-cleaned',
+            errorMessage: 'Orphaned sync run - stuck in running state for >2 hours, auto-cleaned',
             completedAt: new Date(),
             durationMs: runAge,
           })
