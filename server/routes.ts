@@ -16533,52 +16533,52 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   // Supports optional batchType parameter for batched sync
   app.post("/api/sync/export", validateSyncRequest, async (req: any, res) => {
     const batchType = req.body?.batchType || 'full';
-    console.log(`[SYNC API v9] Export handler entered for batch: ${batchType}`);
+    console.log(`[SYNC API v10] Export handler entered for batch: ${batchType}`);
     
     // Track if we've sent a response
     let responseSent = false;
     
     // Add error handler for unexpected response issues
     res.on('error', (err: any) => {
-      console.error(`[SYNC API v9] Response error for batch ${batchType}:`, err.message);
+      console.error(`[SYNC API v10] Response error for batch ${batchType}:`, err.message);
     });
     
     try {
-      console.log(`[SYNC API v9] Step 1: Calling collectExportBundle`);
+      console.log(`[SYNC API v10] Step 1: Calling collectExportBundle`);
       const bundle = await syncBridge.collectExportBundle(null, batchType);
       
-      console.log(`[SYNC API v9] Step 2: Bundle collected, serializing to JSON string first`);
-      const response = Object.assign({}, bundle, { _syncVersion: 9 });
+      console.log(`[SYNC API v10] Step 2: Bundle collected, serializing to JSON string first`);
+      const response = Object.assign({}, bundle, { _syncVersion: 10 });
       
       // Serialize to string first to catch any serialization errors
       let jsonString: string;
       try {
         jsonString = JSON.stringify(response);
-        console.log(`[SYNC API v9] Step 3: JSON serialized, size: ${jsonString.length} bytes for batch: ${batchType}`);
+        console.log(`[SYNC API v10] Step 3: JSON serialized, size: ${jsonString.length} bytes for batch: ${batchType}`);
       } catch (serializeErr: any) {
-        console.error(`[SYNC API v9] JSON serialization failed for batch ${batchType}:`, serializeErr.message);
+        console.error(`[SYNC API v10] JSON serialization failed for batch ${batchType}:`, serializeErr.message);
         responseSent = true;
         return res.status(500).json({ 
           error: `Serialization failed: ${serializeErr.message}`, 
           batch: batchType,
-          _syncVersion: 9 
+          _syncVersion: 10 
         });
       }
       
-      console.log(`[SYNC API v9] Step 4: Sending response for batch: ${batchType}`);
+      console.log(`[SYNC API v10] Step 4: Sending response for batch: ${batchType}`);
       res.setHeader('Content-Type', 'application/json');
       responseSent = true;
       res.send(jsonString);
-      console.log(`[SYNC API v9] Step 5: Response sent for batch: ${batchType}`);
+      console.log(`[SYNC API v10] Step 5: Response sent for batch: ${batchType}`);
     } catch (error: any) {
       const errorMsg = error?.message || error?.toString() || 'Unknown export error';
-      console.error(`[SYNC API v9] Export error for batch ${batchType}:`, errorMsg);
-      console.error(`[SYNC API v9] Stack:`, error?.stack || 'no stack');
+      console.error(`[SYNC API v10] Export error for batch ${batchType}:`, errorMsg);
+      console.error(`[SYNC API v10] Stack:`, error?.stack || 'no stack');
       if (!responseSent) {
         res.status(500).json({ 
           error: errorMsg, 
           batch: batchType,
-          _syncVersion: 9,
+          _syncVersion: 10,
           stack: process.env.NODE_ENV === 'development' ? error?.stack : undefined 
         });
       }

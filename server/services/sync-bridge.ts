@@ -117,28 +117,36 @@ class SyncBridgeService {
     }
     
     // BATCH: advanced-intel - Advanced intelligence, Daniela suggestions, tri-lane, North Star
-    // v9: Testing exportAdvancedIntelligence + exportDanielaSuggestions
+    // v10: Testing 3 exports (adding exportTriLaneObservations)
     if (!batchType || batchType === 'advanced-intel') {
-      console.log('[SYNC-BRIDGE v9] advanced-intel batch - testing 2 exports');
+      console.log('[SYNC-BRIDGE v10] advanced-intel batch - testing 3 exports');
       
       // Test 1: exportAdvancedIntelligence (PASSED in v8)
       let advanced: any = { subtletyCues: [], emotionalPatterns: [], creativityTemplates: [] };
       try {
-        console.log('[SYNC-BRIDGE v9] Calling exportAdvancedIntelligence...');
         advanced = await neuralNetworkSync.exportAdvancedIntelligence();
-        console.log(`[SYNC-BRIDGE v9] exportAdvancedIntelligence SUCCESS: ${advanced?.subtletyCues?.length || 0} cues`);
+        console.log(`[SYNC-BRIDGE v10] exportAdvancedIntelligence: ${advanced?.subtletyCues?.length || 0} cues`);
       } catch (e: any) {
-        console.error('[SYNC-BRIDGE v9] exportAdvancedIntelligence FAILED:', e.message);
+        console.error('[SYNC-BRIDGE v10] exportAdvancedIntelligence FAILED:', e.message);
       }
       
-      // Test 2: exportDanielaSuggestions
+      // Test 2: exportDanielaSuggestions (PASSED in v9)
       let daniela: any = { suggestions: [], triggers: [], actions: [] };
       try {
-        console.log('[SYNC-BRIDGE v9] Calling exportDanielaSuggestions...');
         daniela = await neuralNetworkSync.exportDanielaSuggestions();
-        console.log(`[SYNC-BRIDGE v9] exportDanielaSuggestions SUCCESS: ${daniela?.suggestions?.length || 0} suggestions`);
+        console.log(`[SYNC-BRIDGE v10] exportDanielaSuggestions: ${daniela?.suggestions?.length || 0} suggestions`);
       } catch (e: any) {
-        console.error('[SYNC-BRIDGE v9] exportDanielaSuggestions FAILED:', e.message);
+        console.error('[SYNC-BRIDGE v10] exportDanielaSuggestions FAILED:', e.message);
+      }
+      
+      // Test 3: exportTriLaneObservations
+      let triLane: any = { agentObservations: [], supportObservations: [], systemAlerts: [] };
+      try {
+        console.log('[SYNC-BRIDGE v10] Calling exportTriLaneObservations...');
+        triLane = await neuralNetworkSync.exportTriLaneObservations();
+        console.log(`[SYNC-BRIDGE v10] exportTriLaneObservations: ${triLane?.agentObservations?.length || 0} observations`);
+      } catch (e: any) {
+        console.error('[SYNC-BRIDGE v10] exportTriLaneObservations FAILED:', e.message);
       }
       
       bundle.subtletyCues = advanced?.subtletyCues || [];
@@ -147,14 +155,14 @@ class SyncBridgeService {
       bundle.suggestions = daniela?.suggestions || [];
       bundle.triggers = daniela?.triggers || [];
       bundle.actions = daniela?.actions || [];
+      bundle.observations = [...(triLane?.agentObservations || []), ...(triLane?.supportObservations || [])];
+      bundle.alerts = triLane?.systemAlerts || [];
       
-      // Skip other exports for now (return empty)
-      bundle.observations = [];
-      bundle.alerts = [];
+      // Skip North Star for now (return empty)
       bundle.northStarPrinciples = [];
       bundle.northStarUnderstanding = [];
       bundle.northStarExamples = [];
-      console.log('[SYNC-BRIDGE v9] advanced-intel batch complete');
+      console.log('[SYNC-BRIDGE v10] advanced-intel batch complete');
     }
     
     // BATCH: express-lane - Founder user, sessions, messages
