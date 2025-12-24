@@ -1913,6 +1913,8 @@ export function StreamingVoiceChat({
 
   const stopPushToTalkRecording = () => {
     console.log('[PUSH-TO-TALK] Releasing button, stopping recording...');
+    // DEBUG: Log stack trace to understand what's calling this
+    console.log('[PTT DEBUG] stopPushToTalkRecording called - stack:', new Error().stack?.split('\n').slice(1, 5).join(' | '));
     
     // Track that button is released (for stable instruction text)
     setIsPttButtonHeld(false);

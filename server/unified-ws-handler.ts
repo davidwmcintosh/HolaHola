@@ -1522,19 +1522,40 @@ Reference past discussions when relevant, but don't force it.
             return;
           }
           
-          console.log(`[SpeculativePTT] PTT released - final transcript: "${speculativePttTranscript}" (${speculativePttWordCount} words)`);
+          const interimTranscript = speculativePttTranscript.trim();
+          console.log(`[SpeculativePTT] PTT released - interim transcript: "${interimTranscript}" (${speculativePttWordCount} words)`);
           
-          // Close the speculative session
+          // DON'T close immediately - wait for Deepgram final transcript
+          // Deepgram often sends the true final transcript 100-300ms after we stop sending audio
+          const FINAL_WAIT_MS = 250;
+          
+          await new Promise<void>((resolve) => {
+            const waitStartTime = Date.now();
+            const checkInterval = setInterval(() => {
+              const elapsed = Date.now() - waitStartTime;
+              // Check if we got more transcript or timeout
+              if (elapsed >= FINAL_WAIT_MS) {
+                clearInterval(checkInterval);
+                resolve();
+              }
+            }, 50);
+          });
+          
+          // NOW get the final transcript (which may have been updated during the wait)
+          const finalTranscript = speculativePttTranscript.trim();
+          const transcriptGrew = finalTranscript.length > interimTranscript.length;
+          
+          if (transcriptGrew) {
+            console.log(`[SpeculativePTT] Final transcript grew: "${interimTranscript}" → "${finalTranscript}"`);
+          }
+          
+          // Close the speculative session now that we have final transcript
           if (speculativePttSession) {
             speculativePttSession.close();
             speculativePttSession = null;
           }
           speculativePttPendingChunks = [];
           speculativePttSessionStarting = false;
-          
-          // The final transcript from interim results - this is our best guess
-          // Since we're using real-time streaming, the final interim is usually accurate
-          const finalTranscript = speculativePttTranscript.trim();
           
           // PHASE 2: SPECULATIVE AI HANDLING
           // If we already triggered speculative AI, check if the transcript changed significantly
@@ -2793,18 +2814,40 @@ This is a voice conversation. Speak naturally, as you would.`;
             return;
           }
           
-          console.log(`[SpeculativePTT] PTT released - final transcript: "${speculativePttTranscript}" (${speculativePttWordCount} words)`);
+          const interimTranscript = speculativePttTranscript.trim();
+          console.log(`[SpeculativePTT] PTT released - interim transcript: "${interimTranscript}" (${speculativePttWordCount} words)`);
           
-          // Close the speculative session
+          // DON'T close immediately - wait for Deepgram final transcript
+          // Deepgram often sends the true final transcript 100-300ms after we stop sending audio
+          const FINAL_WAIT_MS = 250;
+          
+          await new Promise<void>((resolve) => {
+            const waitStartTime = Date.now();
+            const checkInterval = setInterval(() => {
+              const elapsed = Date.now() - waitStartTime;
+              // Check if we got more transcript or timeout
+              if (elapsed >= FINAL_WAIT_MS) {
+                clearInterval(checkInterval);
+                resolve();
+              }
+            }, 50);
+          });
+          
+          // NOW get the final transcript (which may have been updated during the wait)
+          const finalTranscript = speculativePttTranscript.trim();
+          const transcriptGrew = finalTranscript.length > interimTranscript.length;
+          
+          if (transcriptGrew) {
+            console.log(`[SpeculativePTT] Final transcript grew: "${interimTranscript}" → "${finalTranscript}"`);
+          }
+          
+          // Close the speculative session now that we have final transcript
           if (speculativePttSession) {
             speculativePttSession.close();
             speculativePttSession = null;
           }
           speculativePttPendingChunks = [];
           speculativePttSessionStarting = false;
-          
-          // The final transcript from interim results - this is our best guess
-          const finalTranscript = speculativePttTranscript.trim();
           
           // PHASE 2: SPECULATIVE AI HANDLING
           // If we already triggered speculative AI, check if the transcript changed significantly
