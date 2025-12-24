@@ -1666,6 +1666,108 @@ class SyncBridgeService {
   }
   
   /**
+   * Trigger the PEER environment to pull from us (full bidirectional sync)
+   * This calls prod's /api/sync/trigger-pull endpoint to initiate a pull on their side
+   */
+  async triggerPeerPull(triggeredBy: string = 'agent'): Promise<{ success: boolean; message: string; peerResult?: any }> {
+    const peerUrl = getSyncPeerUrl();
+    if (!peerUrl || !isSyncConfigured()) {
+      return {
+        success: false,
+        message: 'Sync not configured - set SYNC_PEER_URL and SYNC_SHARED_SECRET',
+      };
+    }
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120000); // 2min timeout for full sync
+    
+    try {
+      console.log(`[SYNC-BRIDGE] Triggering peer pull on ${peerUrl}...`);
+      const requestPayload = { triggeredBy, requestedAt: new Date().toISOString() };
+      const response = await fetch(`${peerUrl}/api/sync/trigger-pull`, {
+        method: 'POST',
+        headers: createSyncHeaders(requestPayload),
+        body: JSON.stringify(requestPayload),
+        signal: controller.signal,
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        return {
+          success: false,
+          message: `Peer returned ${response.status}: ${errorText.substring(0, 200)}`,
+        };
+      }
+      
+      const peerResult = await response.json();
+      console.log(`[SYNC-BRIDGE] Peer pull triggered successfully:`, JSON.stringify(peerResult).substring(0, 200));
+      return {
+        success: true,
+        message: `Successfully triggered peer to pull from us`,
+        peerResult,
+      };
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        return { success: false, message: 'Request to peer timed out after 2min' };
+      }
+      return { success: false, message: err.message };
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+  
+  /**
+   * Force-reset stuck syncs on the PEER environment
+   * This calls prod's /api/sync/trigger-force-reset to clear their stuck runs
+   */
+  async triggerPeerForceReset(triggeredBy: string = 'agent'): Promise<{ success: boolean; message: string; peerResult?: any }> {
+    const peerUrl = getSyncPeerUrl();
+    if (!peerUrl || !isSyncConfigured()) {
+      return {
+        success: false,
+        message: 'Sync not configured - set SYNC_PEER_URL and SYNC_SHARED_SECRET',
+      };
+    }
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+    
+    try {
+      console.log(`[SYNC-BRIDGE] Triggering peer force-reset on ${peerUrl}...`);
+      const requestPayload = { triggeredBy, requestedAt: new Date().toISOString() };
+      const response = await fetch(`${peerUrl}/api/sync/trigger-force-reset`, {
+        method: 'POST',
+        headers: createSyncHeaders(requestPayload),
+        body: JSON.stringify(requestPayload),
+        signal: controller.signal,
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        return {
+          success: false,
+          message: `Peer returned ${response.status}: ${errorText.substring(0, 200)}`,
+        };
+      }
+      
+      const peerResult = await response.json();
+      console.log(`[SYNC-BRIDGE] Peer force-reset completed:`, peerResult);
+      return {
+        success: true,
+        message: `Successfully reset stuck syncs on peer`,
+        peerResult,
+      };
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        return { success: false, message: 'Request to peer timed out after 15s' };
+      }
+      return { success: false, message: err.message };
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+  
+  /**
    * Clean up orphaned sync runs that are stuck in "running" status
    * This can happen if the server crashes during a sync operation
    * Runs older than 2 HOURS in "running" status are marked as failed

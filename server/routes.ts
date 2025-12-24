@@ -16907,6 +16907,56 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
     }
   });
   
+  // Peer-accessible: Trigger local pull from peer (called by remote to initiate sync)
+  // This enables full bidirectional: dev can tell prod "pull from me now"
+  app.post("/api/sync/trigger-pull", validateSyncRequest, async (req: any, res) => {
+    try {
+      const triggeredBy = req.body.triggeredBy || 'remote-peer';
+      console.log(`[SYNC API] Remote trigger-pull received from peer (triggered by: ${triggeredBy})`);
+      const result = await syncBridge.pullFromPeer(`remote-trigger:${triggeredBy}`);
+      res.json(result);
+    } catch (error: any) {
+      console.error('[SYNC API] Trigger-pull error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Peer-accessible: Trigger local force-reset (called by remote to clear stuck syncs)
+  app.post("/api/sync/trigger-force-reset", validateSyncRequest, async (req: any, res) => {
+    try {
+      const triggeredBy = req.body.triggeredBy || 'remote-peer';
+      console.log(`[SYNC API] Remote trigger-force-reset received (triggered by: ${triggeredBy})`);
+      
+      const { syncRuns } = await import('@shared/schema');
+      
+      const runningRuns = await db.select()
+        .from(syncRuns)
+        .where(eq(syncRuns.status, 'running'));
+      
+      let resetCount = 0;
+      for (const run of runningRuns) {
+        await db.update(syncRuns)
+          .set({
+            status: 'failed',
+            errorMessage: `Force-reset by remote peer ${triggeredBy}`,
+            completedAt: new Date(),
+            durationMs: Date.now() - new Date(run.startedAt).getTime(),
+          })
+          .where(eq(syncRuns.id, run.id));
+        resetCount++;
+      }
+      
+      res.json({ 
+        success: true, 
+        resetCount,
+        message: `Force-reset ${resetCount} running sync run(s).`
+      });
+    } catch (error: any) {
+      console.error('[SYNC API] Trigger-force-reset error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // Peer-accessible: Get local nightly sync status (for cross-env status display)
   // This endpoint is called by the peer environment to check production's nightly sync status
   app.get("/api/sync/nightly-status", validateSyncRequest, async (req: any, res) => {
@@ -16967,6 +17017,141 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
       res.json(result);
     } catch (error: any) {
       console.error('[SYNC API] Fetch peer sync runs error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================================================
+  // AGENT-AUTHENTICATED SYNC ENDPOINTS (for Replit Agent bidirectional control)
+  // ============================================================================
+  // These endpoints allow the Replit Agent (running in dev) to trigger sync 
+  // operations on both dev and production environments programmatically.
+  
+  // Agent: Trigger push to peer environment
+  app.post("/api/agent/sync/push", requireAgentToken, async (req: any, res) => {
+    try {
+      const agentId = req.agentId || 'replit-agent';
+      console.log(`[AGENT-SYNC] Push triggered by agent: ${agentId}`);
+      logAgentAction('sync_push', '/api/agent/sync/push', true, `Triggered by ${agentId}`);
+      const result = await syncBridge.pushToPeer(agentId);
+      res.json(result);
+    } catch (error: any) {
+      console.error('[AGENT-SYNC] Push error:', error);
+      logAgentAction('sync_push', '/api/agent/sync/push', false, error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Agent: Trigger pull from peer environment
+  app.post("/api/agent/sync/pull", requireAgentToken, async (req: any, res) => {
+    try {
+      const agentId = req.agentId || 'replit-agent';
+      const forceResume = req.query.forceResume === 'true' || req.body.forceResume === true;
+      console.log(`[AGENT-SYNC] Pull triggered by agent: ${agentId}${forceResume ? ' (FORCE RESUME)' : ''}`);
+      logAgentAction('sync_pull', '/api/agent/sync/pull', true, `Triggered by ${agentId}`);
+      const result = await syncBridge.pullFromPeer(agentId, { forceResume });
+      res.json(result);
+    } catch (error: any) {
+      console.error('[AGENT-SYNC] Pull error:', error);
+      logAgentAction('sync_pull', '/api/agent/sync/pull', false, error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Agent: Trigger full bidirectional sync
+  app.post("/api/agent/sync/full", requireAgentToken, async (req: any, res) => {
+    try {
+      const agentId = req.agentId || 'replit-agent';
+      console.log(`[AGENT-SYNC] Full sync triggered by agent: ${agentId}`);
+      logAgentAction('sync_full', '/api/agent/sync/full', true, `Triggered by ${agentId}`);
+      const result = await syncBridge.performFullSync(agentId);
+      res.json(result);
+    } catch (error: any) {
+      console.error('[AGENT-SYNC] Full sync error:', error);
+      logAgentAction('sync_full', '/api/agent/sync/full', false, error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Agent: Get sync status
+  app.get("/api/agent/sync/status", requireAgentToken, async (req: any, res) => {
+    try {
+      const status = await syncBridge.getSyncStatus();
+      res.json(status);
+    } catch (error: any) {
+      console.error('[AGENT-SYNC] Status error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Agent: Force-reset stuck sync runs (LOCAL)
+  app.post("/api/agent/sync/force-reset", requireAgentToken, async (req: any, res) => {
+    try {
+      const agentId = req.agentId || 'replit-agent';
+      console.log(`[AGENT-SYNC] Force-reset triggered by agent: ${agentId}`);
+      logAgentAction('sync_force_reset', '/api/agent/sync/force-reset', true, `Triggered by ${agentId}`);
+      
+      const { syncRuns } = await import('@shared/schema');
+      
+      const runningRuns = await db.select()
+        .from(syncRuns)
+        .where(eq(syncRuns.status, 'running'));
+      
+      let resetCount = 0;
+      for (const run of runningRuns) {
+        await db.update(syncRuns)
+          .set({
+            status: 'failed',
+            errorMessage: `Force-reset by agent ${agentId} - cleared to allow fresh sync`,
+            completedAt: new Date(),
+            durationMs: Date.now() - new Date(run.startedAt).getTime(),
+          })
+          .where(eq(syncRuns.id, run.id));
+        resetCount++;
+        console.log(`[AGENT-SYNC] Force-reset sync run ${run.id} (direction: ${run.direction})`);
+      }
+      
+      res.json({ 
+        success: true, 
+        resetCount,
+        message: `Force-reset ${resetCount} running sync run(s). Ready for fresh sync.`
+      });
+    } catch (error: any) {
+      console.error('[AGENT-SYNC] Force-reset error:', error);
+      logAgentAction('sync_force_reset', '/api/agent/sync/force-reset', false, error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Agent: Trigger PEER to pull from us (full bidirectional)
+  // This calls prod's /api/sync/trigger-pull which makes prod pull from dev
+  app.post("/api/agent/sync/trigger-peer-pull", requireAgentToken, async (req: any, res) => {
+    try {
+      const agentId = req.agentId || 'replit-agent';
+      console.log(`[AGENT-SYNC] Triggering peer pull by agent: ${agentId}`);
+      logAgentAction('trigger_peer_pull', '/api/agent/sync/trigger-peer-pull', true, `Triggered by ${agentId}`);
+      
+      const result = await syncBridge.triggerPeerPull(agentId);
+      res.json(result);
+    } catch (error: any) {
+      console.error('[AGENT-SYNC] Trigger peer pull error:', error);
+      logAgentAction('trigger_peer_pull', '/api/agent/sync/trigger-peer-pull', false, error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Agent: Force-reset PEER's stuck syncs (full bidirectional)
+  app.post("/api/agent/sync/trigger-peer-reset", requireAgentToken, async (req: any, res) => {
+    try {
+      const agentId = req.agentId || 'replit-agent';
+      console.log(`[AGENT-SYNC] Triggering peer reset by agent: ${agentId}`);
+      logAgentAction('trigger_peer_reset', '/api/agent/sync/trigger-peer-reset', true, `Triggered by ${agentId}`);
+      
+      const result = await syncBridge.triggerPeerForceReset(agentId);
+      res.json(result);
+    } catch (error: any) {
+      console.error('[AGENT-SYNC] Trigger peer reset error:', error);
+      logAgentAction('trigger_peer_reset', '/api/agent/sync/trigger-peer-reset', false, error.message);
       res.status(500).json({ error: error.message });
     }
   });
