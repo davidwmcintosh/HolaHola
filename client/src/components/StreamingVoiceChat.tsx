@@ -1338,7 +1338,10 @@ export function StreamingVoiceChat({
   // Track playbackState for guards - 'buffering' happens before 'playing'
   // This catches speculative PTT audio earlier than avatarState
   const playbackStateRef = useRef<string>('idle');
-  useEffect(() => { playbackStateRef.current = streamingVoice.state.playbackState; }, [streamingVoice.state.playbackState]);
+  useEffect(() => { 
+    console.log('[STREAMING VOICE CHAT DEBUG] playbackState changed:', streamingVoice.state.playbackState);
+    playbackStateRef.current = streamingVoice.state.playbackState; 
+  }, [streamingVoice.state.playbackState]);
   
   // Stable keyboard handlers that use refs instead of state (no dependency churn)
   useEffect(() => {

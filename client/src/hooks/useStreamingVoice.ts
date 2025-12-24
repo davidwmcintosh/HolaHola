@@ -225,10 +225,25 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     // IMPORTANT: Use refs to get latest values (avoids stale closure)
     player.subscribe(subscriberId, {
       onStateChange: (state) => {
-        // ALWAYS log state changes for debugging (not gated by verbose)
-        console.log(`[PLAYBACK CALLBACK ${subscriberId}] onStateChange: ${state}`);
+        // CRITICAL DEBUG: Log and trace every callback invocation
+        // Also store in window for DevTools inspection
+        (window as any).__lastPlaybackCallback = {
+          timestamp: Date.now(),
+          state,
+          subscriberId,
+          setPlaybackStateRefType: typeof setPlaybackStateRef.current
+        };
+        console.log(`[PLAYBACK CALLBACK ${subscriberId}] onStateChange: ${state}`, (window as any).__lastPlaybackCallback);
+        
+        // Verify the ref is valid before calling
+        if (typeof setPlaybackStateRef.current !== 'function') {
+          console.error('[PLAYBACK CALLBACK] setPlaybackStateRef.current is NOT a function!', setPlaybackStateRef.current);
+          return;
+        }
+        
         // Use ref to ensure we always call the current setPlaybackState
         setPlaybackStateRef.current(state);
+        (window as any).__playbackStateSetCount = ((window as any).__playbackStateSetCount || 0) + 1;
       },
       onProgress: (currentTime, duration) => {
         // Update subtitle highlighting with actual duration for rescaling
