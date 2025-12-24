@@ -1161,14 +1161,16 @@ class SyncBridgeService {
     }
     
     // v16: Check for interrupted sync runs to resume
-    // Look for 'running' pulls that started more than 5 minutes ago (likely crashed/timed out)
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    // Look for 'running' pulls that started more than 3 HOURS ago (likely crashed/timed out)
+    // We use 3 hours because the Replit timeout is 2 hours - if it's still 'running' after 3 hours,
+    // it was definitely killed by the gateway timeout and is safe to resume
+    const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000);
     const [interruptedRun] = await db.select()
       .from(syncRuns)
       .where(and(
         eq(syncRuns.direction, 'pull'),
         eq(syncRuns.status, 'running'),
-        lt(syncRuns.startedAt, fiveMinutesAgo)
+        lt(syncRuns.startedAt, threeHoursAgo)
       ))
       .orderBy(desc(syncRuns.startedAt))
       .limit(1);
@@ -1304,11 +1306,17 @@ class SyncBridgeService {
             console.warn(`[SYNC-BRIDGE] Hit MAX_PAGES limit (${MAX_PAGES}) for observations`);
           }
           
-          // v16: Mark advanced-intel-b as completed
-          completedBatches.push('advanced-intel-b');
-          await db.update(syncRuns)
-            .set({ completedBatches })
-            .where(eq(syncRuns.id, syncRun.id));
+          // v16: Only mark advanced-intel-b as completed when all pages are done successfully
+          // hasMore=false means we've fetched all pages, no errors means no fetch failures
+          if (!hasMore && overallSuccess) {
+            completedBatches.push('advanced-intel-b');
+            await db.update(syncRuns)
+              .set({ completedBatches })
+              .where(eq(syncRuns.id, syncRun.id));
+            console.log(`[SYNC-BRIDGE v16] advanced-intel-b marked complete (${page} pages)`);
+          } else {
+            console.log(`[SYNC-BRIDGE v16] advanced-intel-b NOT marked complete (hasMore=${hasMore}, success=${overallSuccess})`);
+          }
             
         } else {
           // Standard single-fetch for other batches
