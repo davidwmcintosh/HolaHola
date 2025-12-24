@@ -868,17 +868,30 @@ export function StreamingVoiceChat({
     // NOTE: Don't override avatar state if greeting is currently playing (via REST)
     const isStreamingPlaying = playbackState === 'playing' || playbackState === 'buffering';
     
+    // Debug: Log every time this effect runs with playback state changes
+    console.log('[AVATAR SYNC DEBUG]', {
+      playbackState,
+      isStreamingPlaying,
+      avatarState,
+      streamProcessing,
+      isProcessingRef: isProcessingRef.current,
+      currentPlayingMessageId,
+      inputMode: inputModeRef.current,
+    });
+    
     // Check if we're in the middle of greeting playback (non-streaming)
     // If currentPlayingMessageId is set but we're not streaming, a greeting is playing
     const isGreetingPlaying = currentPlayingMessageId && !isStreamingPlaying && avatarState === 'speaking';
     
     if (isGreetingPlaying) {
       // Don't override greeting playback state
+      console.log('[AVATAR SYNC DEBUG] Greeting guard triggered - returning early');
       return;
     }
     
     if (isStreamingPlaying) {
       // Audio is actually playing - show speaking state
+      console.log('[AVATAR SYNC DEBUG] Setting avatarState to speaking');
       setAvatarState('speaking');
       
       // CRITICAL: Clear currentPlayingMessageId when streaming starts
