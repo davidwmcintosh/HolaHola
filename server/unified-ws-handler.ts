@@ -2207,32 +2207,12 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
   
   setImmediate(sendConnected);
 
-  // Heartbeat (Socket.io handles this internally, but we track for compatibility)
-  // Allow 4 missed pongs (~2 min tolerance for background tabs)
-  let missedPongs = 0;
-  const MAX_MISSED_PONGS = 4;
-  const heartbeatInterval = setInterval(() => {
-    missedPongs++;
-    if (missedPongs > MAX_MISSED_PONGS) {
-      console.log(`[Streaming Voice] Heartbeat: ${missedPongs} pongs missed, terminating connection`);
-      clearInterval(heartbeatInterval);
-      ws.terminate();
-      return;
-    }
-    if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
-      ws.ping();
-    }
-  }, 30000);
-
-  ws.on('pong', () => {
-    missedPongs = 0;
-  });
+  // NOTE: Socket.io handles keepalive internally via Engine.IO ping/pong
+  // We do NOT run a custom heartbeat here - that was causing premature disconnects
+  // during large TTS audio transmission (no inbound messages to reset counter)
 
   // Message handler - delegate to shared logic
   ws.on('message', async (data: Buffer | string) => {
-    // Reset heartbeat counter on ANY message - critical for Socket.io which doesn't use ws-style pong
-    missedPongs = 0;
-    
     console.log('[Streaming Voice] Message received via Socket.io');
     
     try {
@@ -3030,7 +3010,6 @@ This is a voice conversation. Speak naturally, as you would.`;
 
   ws.on('close', () => {
     console.log('[Streaming Voice] Socket.io connection closed');
-    clearInterval(heartbeatInterval);
     
     if (openMicSession) {
       openMicSession.close();
@@ -3060,7 +3039,6 @@ This is a voice conversation. Speak naturally, as you would.`;
 
   ws.on('error', (error) => {
     console.error('[Streaming Voice] Socket.io connection error:', error);
-    clearInterval(heartbeatInterval);
     
     if (openMicSession) {
       openMicSession.close();
