@@ -75,7 +75,7 @@ import portugueseMaleThinking from "@assets/Tutor_Images/Male/Portuguese_Male_Th
 // Spanish male uses original boy tutor assets
 import spanishMaleListening from "@assets/Boy-tutor-waiting-No-Background_1764186322051.png";
 import spanishMaleThinking from "@assets/Boy_Tutor_Thinking_No_Background_1766162338594.jpg";
-const spanishMaleTalking = spanishMaleListening; // Use listening as talking fallback
+import spanishMaleTalking from "@assets/Boy-tutor-speaking-No-Background_1764186322050.png";
 
 export type TutorState = 'listening' | 'thinking' | 'talking' | 'idle';
 export type TutorGender = 'male' | 'female';
