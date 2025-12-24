@@ -226,6 +226,7 @@ export function StreamingVoiceChat({
     return dashIndex > 0 ? fullName.substring(0, dashIndex) : fullName;
   };
   const [isRecording, setIsRecording] = useState(false);
+  const [isPttButtonHeld, setIsPttButtonHeld] = useState(false); // Track if PTT button is physically held (separate from MediaRecorder state)
   const [isMicPreparing, setIsMicPreparing] = useState(false); // Show "Preparing mic..." before actual recording starts
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStage, setProcessingStage] = useState<string | null>(null);
@@ -1613,6 +1614,9 @@ export function StreamingVoiceChat({
     try {
       setError(null);
       
+      // Track that button is being held (for stable instruction text)
+      setIsPttButtonHeld(true);
+      
       // Mark that recording was requested - for race condition prevention
       recordingRequestedRef.current = true;
       
@@ -1887,6 +1891,9 @@ export function StreamingVoiceChat({
 
   const stopPushToTalkRecording = () => {
     console.log('[PUSH-TO-TALK] Releasing button, stopping recording...');
+    
+    // Track that button is released (for stable instruction text)
+    setIsPttButtonHeld(false);
     
     // Cancel any pending recording start (for race condition prevention)
     recordingRequestedRef.current = false;
@@ -2789,6 +2796,7 @@ export function StreamingVoiceChat({
           inputMode={inputMode}
           setInputMode={setInputMode}
           openMicState={openMicState}
+          isPttButtonHeld={isPttButtonHeld}
         />
       </div>
     </div>

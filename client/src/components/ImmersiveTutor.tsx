@@ -114,6 +114,8 @@ interface ImmersiveTutorProps {
   inputMode?: VoiceInputMode;
   setInputMode?: (mode: VoiceInputMode) => void;
   openMicState?: OpenMicState;
+  // Track if PTT button is being held (for stable instruction text during speculative processing)
+  isPttButtonHeld?: boolean;
 }
 
 export function ImmersiveTutor({
@@ -152,6 +154,7 @@ export function ImmersiveTutor({
   inputMode = 'push-to-talk',
   setInputMode,
   openMicState = 'idle',
+  isPttButtonHeld = false,
 }: ImmersiveTutorProps) {
   // Local ref to track if WE started recording via pointer down
   // This ensures pointer up always stops recording regardless of React state timing
@@ -678,8 +681,8 @@ export function ImmersiveTutor({
                 : isRecording || openMicState === 'processing' || openMicState === 'ready' || openMicState === 'listening'
                   ? ""  // No instruction when listening - indicator shows state
                   : "Tap to connect"  // Mic off
-              : isRecording 
-                ? "Release to send" 
+              : isRecording || isPttButtonHeld
+                ? "Release to send"  // Button held takes priority - stable UI during speculative processing
                 : isMicPreparing 
                   ? "Preparing mic..." 
                   : isProcessing 

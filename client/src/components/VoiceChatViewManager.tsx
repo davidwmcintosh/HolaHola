@@ -49,6 +49,8 @@ interface VoiceChatViewManagerProps {
   inputMode?: VoiceInputMode;
   setInputMode?: (mode: VoiceInputMode) => void;
   openMicState?: OpenMicState;
+  // Track if PTT button is being held (for stable instruction text during speculative processing)
+  isPttButtonHeld?: boolean;
 }
 
 export function VoiceChatViewManager({
@@ -86,6 +88,7 @@ export function VoiceChatViewManager({
   inputMode = 'push-to-talk',
   setInputMode,
   openMicState = 'idle',
+  isPttButtonHeld = false,
 }: VoiceChatViewManagerProps) {
   const [view, setView] = useState<"live" | "history">("live");
   const touchStartX = useRef<number>(0);
@@ -205,6 +208,7 @@ export function VoiceChatViewManager({
                 inputMode={inputMode}
                 setInputMode={setInputMode}
                 openMicState={openMicState}
+                isPttButtonHeld={isPttButtonHeld}
               />
             </div>
           ) : (
