@@ -248,11 +248,11 @@ export class StreamingVoiceClient {
       console.log('[StreamingVoice] Creating Socket.io connection to /voice namespace...');
       
       // Connect to the /voice namespace with conversationId in query
-      // Use polling first - works more reliably through Replit's proxy
+      // Use WebSocket directly - polling has issues with large audio messages
       this.socket = io('/voice', {
         query: { conversationId },
-        transports: ['polling', 'websocket'],  // Polling first, then upgrade to WebSocket
-        upgrade: true,  // Allow upgrade to websocket after polling connects
+        transports: ['websocket'],  // WebSocket only - large audio messages fail over polling
+        upgrade: false,  // No upgrade needed, already on WebSocket
         reconnection: false,  // We handle reconnection manually
       });
       
