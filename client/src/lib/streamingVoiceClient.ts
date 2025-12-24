@@ -208,6 +208,7 @@ type StreamingEventType =
   | 'inputModeChanged'   // Input mode switched
   | 'responseComplete'
   | 'feedback'
+  | 'pronunciationCoaching' // Live pronunciation coaching feedback
   | 'voiceUpdated'
   | 'whiteboardUpdate'   // Visual teaching aids from tutor
   | 'tutorHandoff'       // Voice-initiated tutor switch
