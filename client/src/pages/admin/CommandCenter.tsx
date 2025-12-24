@@ -1087,6 +1087,8 @@ function PersonalFactsBrowserTab() {
   );
 }
 
+const FOUNDER_USER_ID = '49847136';
+
 export default function CommandCenter() {
   const { user } = useAuth();
   const { user: fullUser } = useUser();
@@ -1096,6 +1098,7 @@ export default function CommandCenter() {
   const isDeveloper = user?.role === 'developer' || isAdmin;
   const isTeacher = hasTeacherAccess(user?.role);
   const hasFullAdmin = hasAdminAccess(user?.role);
+  const isFounder = user?.id === FOUNDER_USER_ID;
 
   const [activeTab, setActiveTab] = useState("overview");
   const [, setLocation] = useLocation();
@@ -1152,7 +1155,9 @@ export default function CommandCenter() {
     { id: "memory-metrics", label: "Memory Metrics", icon: Activity, roles: ['admin', 'developer'] },
     { id: "sync-control", label: "Sync Control", icon: Database, roles: ['founder'] },
   ].filter(tab => {
-    if (user?.role === 'founder') return tab.roles.includes('founder') || tab.roles.includes('admin') || tab.roles.includes('developer');
+    if (tab.roles.includes('founder')) {
+      return isFounder;
+    }
     if (user?.role === 'admin') return true;
     if (user?.role === 'developer') return tab.roles.includes('developer');
     if (isTeacher) return tab.roles.includes('teacher');

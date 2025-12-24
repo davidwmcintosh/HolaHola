@@ -1,6 +1,8 @@
 import { useUser } from "@/lib/auth";
 import { useLocation } from "wouter";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
+
+const FOUNDER_USER_ID = '49847136';
 
 interface RoleGuardProps {
   children: React.ReactNode;
@@ -12,11 +14,21 @@ export function RoleGuard({ children, allowedRoles, redirectTo = "/" }: RoleGuar
   const { user, isLoading } = useUser();
   const [, setLocation] = useLocation();
 
+  const hasAccess = useMemo(() => {
+    if (!user) return false;
+    
+    if (allowedRoles.includes('founder')) {
+      if (user.id === FOUNDER_USER_ID) return true;
+    }
+    
+    return allowedRoles.includes(user.role as any);
+  }, [user, allowedRoles]);
+
   useEffect(() => {
-    if (!isLoading && user && !allowedRoles.includes(user.role as any)) {
+    if (!isLoading && user && !hasAccess) {
       setLocation(redirectTo);
     }
-  }, [user, isLoading, allowedRoles, redirectTo, setLocation]);
+  }, [user, isLoading, hasAccess, redirectTo, setLocation]);
 
   if (isLoading) {
     return (
@@ -26,7 +38,7 @@ export function RoleGuard({ children, allowedRoles, redirectTo = "/" }: RoleGuar
     );
   }
 
-  if (!user || !allowedRoles.includes(user.role as any)) {
+  if (!user || !hasAccess) {
     return null;
   }
 
