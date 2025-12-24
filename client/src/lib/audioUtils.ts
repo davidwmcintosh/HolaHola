@@ -1,18 +1,15 @@
 import { resetDebugTimingState, logEmptyChunkProcessed, logSentenceTransition, logScheduleEvent, updateDebugTimingState, getDebugTimingState, registerPlayerInstance, type SentenceScheduleEntry, type SentenceMatchInfo } from './debugTimingState';
 import type { ClientTelemetryEventType } from '../../../shared/streaming-voice-types';
+import { getClientTelemetryEmitter } from './streamingVoiceClient';
 
-// Lazy getter for telemetry emitter to avoid circular dependencies
-let cachedTelemetryEmitter: any = null;
+// Wrapper for telemetry emitter
 function getTelemetryEmitter() {
-  if (!cachedTelemetryEmitter) {
-    try {
-      const mod = require('./streamingVoiceClient');
-      cachedTelemetryEmitter = mod.getClientTelemetryEmitter?.() ?? null;
-    } catch {
-      cachedTelemetryEmitter = null;
-    }
+  try {
+    return getClientTelemetryEmitter();
+  } catch (e) {
+    console.warn('[AUDIO UTILS] Failed to get telemetry emitter:', e);
+    return null;
   }
-  return cachedTelemetryEmitter;
 }
 
 /**
