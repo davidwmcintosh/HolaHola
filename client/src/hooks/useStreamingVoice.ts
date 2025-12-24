@@ -340,6 +340,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    * as they arrive. This eliminates the ~2s sentence buffering delay.
    */
   const handleAudioChunk = useCallback((msg: StreamingAudioChunkMessage) => {
+    console.log('[HOOK handleAudioChunk] CALLED! sentence=', msg.sentenceIndex, 'chunk=', msg.chunkIndex, 'audioLen=', msg.audio?.length || 0);
+    
     // CRITICAL DEBUG: Track chunks via debug panel state (reliable visibility)
     logAudioChunkReceived(msg.sentenceIndex);
     

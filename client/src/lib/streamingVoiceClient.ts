@@ -652,6 +652,7 @@ export class StreamingVoiceClient {
           break;
           
         case 'audio_chunk':
+          console.log('[WS CLIENT] Received audio_chunk message, dispatching to handleAudioChunk');
           this.handleAudioChunk(message as StreamingAudioChunkMessage);
           break;
           
