@@ -829,13 +829,15 @@ export function StreamingVoiceChat({
   
   // DEBUG: Log mic lockout state changes
   useEffect(() => {
-    const isUsersTurn = streamingVoice.state.connectionState === 'ready' &&
+    const connValid = streamingVoice.state.connectionState === 'ready' || streamingVoice.state.connectionState === 'connected';
+    const isUsersTurn = connValid &&
       !streamingVoice.state.isSwitchingTutor &&
       ((!isProcessing && !streamingVoice.state.isProcessing && avatarState !== 'speaking') ||
        (!!streamingVoice.state.error && !streamingVoice.state.isProcessing && streamingVoice.state.playbackState === 'idle'));
     
     console.log(`[MIC LOCKOUT DEBUG] isUsersTurn=${isUsersTurn}`, {
       connectionState: streamingVoice.state.connectionState,
+      connValid,
       isSwitchingTutor: streamingVoice.state.isSwitchingTutor,
       isProcessing,
       streamIsProcessing: streamingVoice.state.isProcessing,
@@ -2756,7 +2758,9 @@ export function StreamingVoiceChat({
           isConnecting={useStreamingMode && (streamingVoice.state.connectionState === 'connecting' || streamingVoice.state.connectionState === 'reconnecting')}
           isUsersTurn={
             // Mic is ONLY unlocked when ALL of these are true:
-            // 1. Connection is 'ready' (established and greeting complete)
+            // 1. Connection is 'ready' OR 'connected' (both are valid working states)
+            //    - 'connected' = WebSocket connected (after reconnection)
+            //    - 'ready' = initial greeting complete
             // 2. Not processing (not waiting for AI response)
             // 3. Not playing/speaking (AI not talking)
             // 4. Not connecting/reconnecting
@@ -2766,9 +2770,9 @@ export function StreamingVoiceChat({
             // Visual styling (button staying red while recording) is handled separately
             // in ImmersiveTutor via the className condition
             // 
-            // ALSO unlock if there's an error but connection is ready (recoverable state)
+            // ALSO unlock if there's an error but connection is valid (recoverable state)
             // This handles cases like empty transcript where user should try again
-            streamingVoice.state.connectionState === 'ready' &&
+            (streamingVoice.state.connectionState === 'ready' || streamingVoice.state.connectionState === 'connected') &&
             !streamingVoice.state.isSwitchingTutor &&  // Mic locked during tutor handoff
             (
               // Normal case: not processing and not speaking
