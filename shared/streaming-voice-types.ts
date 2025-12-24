@@ -549,6 +549,96 @@ export const LATENCY_TARGETS = {
   TTS_FIRST_CHUNK_MS: 100,
 } as const;
 
+// ============================================================================
+// CLIENT TELEMETRY TYPES (End-to-End Voice Diagnostics)
+// ============================================================================
+
+/**
+ * Client-side telemetry event types for end-to-end voice diagnostics
+ * These are sent from client → server via Socket.io for correlation
+ */
+export type ClientTelemetryEventType =
+  | 'audio_chunk_received'     // Client received an audio_chunk or audio_chunk_part
+  | 'audio_chunk_reassembled'  // Client reassembled chunked audio
+  | 'playback_state_change'    // Audio player state changed (idle → playing → idle)
+  | 'playback_started'         // First audio byte played
+  | 'playback_ended'           // Audio playback completed
+  | 'callback_registered'      // Audio player callbacks were set
+  | 'socket_message_received'  // Any Socket.io message received (for delivery confirmation)
+  | 'speculative_ptt_trigger'  // Speculative PTT started AI generation
+  | 'speculative_ptt_confirm'  // Speculative transcript matched final transcript
+  | 'speculative_ptt_abort'    // Speculative transcript didn't match, re-triggering
+  | 'error';                   // Client-side error occurred
+
+/**
+ * Client telemetry event payload
+ */
+export interface ClientTelemetryEvent {
+  type: ClientTelemetryEventType;
+  timestamp: number;          // performance.now() or Date.now()
+  sessionId: string;          // Streaming session ID
+  
+  // Correlation keys
+  sentenceIndex?: number;     // For audio events
+  chunkIndex?: number;        // For chunked audio events
+  
+  // Event-specific data
+  data?: {
+    // For audio_chunk_received
+    audioLength?: number;
+    isChunked?: boolean;
+    partIndex?: number;
+    totalParts?: number;
+    
+    // For playback_state_change
+    fromState?: string;
+    toState?: string;
+    hasCallback?: boolean;
+    
+    // For speculative_ptt events
+    transcript?: string;
+    wordCount?: number;
+    overlapPercent?: number;
+    
+    // For errors
+    error?: string;
+    
+    // Latency measurements
+    serverEmitTime?: number;  // Server timestamp when emitted
+    deliveryLatencyMs?: number; // Time from server emit to client receive
+    
+    // Generic metadata
+    [key: string]: any;
+  };
+}
+
+/**
+ * Server-side correlated event (merges server + client telemetry)
+ */
+export interface CorrelatedVoiceEvent {
+  eventId: string;
+  sessionId: string;
+  sentenceIndex: number;
+  
+  // Server-side timestamps
+  serverEmitTime: number;
+  serverStage: 'stt' | 'llm' | 'tts' | 'emit';
+  
+  // Client-side timestamps
+  clientReceiveTime?: number;
+  clientPlaybackTime?: number;
+  
+  // Calculated metrics
+  deliveryLatencyMs?: number;   // serverEmit → clientReceive
+  playbackDelayMs?: number;     // clientReceive → playbackStart
+  endToEndLatencyMs?: number;   // serverEmit → playbackStart
+  
+  // Status
+  delivered: boolean;
+  played: boolean;
+  error?: string;
+}
+
 /**
  * Feature flags for gradual rollout
  */
