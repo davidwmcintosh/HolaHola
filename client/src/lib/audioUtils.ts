@@ -247,6 +247,7 @@ export interface StreamingAudioChunk {
   isLast: boolean;
   audioFormat?: 'mp3' | 'pcm_f32le';  // Audio format (default: 'mp3')
   sampleRate?: number;  // Sample rate for PCM (default: 24000)
+  chunkIndex?: number;  // For progressive PCM chunks (hold/release playback)
 }
 
 export type StreamingPlaybackState = 'idle' | 'buffering' | 'playing' | 'paused';
@@ -356,7 +357,7 @@ export class StreamingAudioPlayer {
         // PCM chunks need progressive enqueue
         await this.enqueueProgressivePcmChunk(
           chunk.sentenceIndex,
-          0,  // chunkIndex - not tracked in held chunks
+          chunk.chunkIndex ?? 0,
           chunk.audio,
           chunk.durationMs,
           chunk.isLast,
@@ -565,6 +566,7 @@ export class StreamingAudioPlayer {
     if (this.playbackHeld) {
       this.heldChunks.push({
         sentenceIndex,
+        chunkIndex,
         audio,
         durationMs,
         isLast,
