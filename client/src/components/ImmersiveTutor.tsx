@@ -204,6 +204,23 @@ export function ImmersiveTutor({
     }
   }, [isCollabOpen, collabEvents.length]);
 
+  // Global mouse-up listener for PTT - fixes trackpad issues where cursor leaves button while holding
+  // This ensures releasing the mouse ANYWHERE stops recording
+  useEffect(() => {
+    if (!isPointerRecordingRef.current && !isMicPreparing) return;
+    
+    const handleGlobalMouseUp = () => {
+      if (isPointerRecordingRef.current || isMicPreparing) {
+        console.log('[MIC BUTTON] Global mouse up - stopping recording');
+        isPointerRecordingRef.current = false;
+        onRecordingStop();
+      }
+    };
+    
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+  }, [isRecording, isMicPreparing, onRecordingStop]);
+
   // Beacon type labels for display (using lucide-react icons, no emojis)
   const beaconTypeIcons: Record<string, { label: string; Icon: typeof BookOpen }> = {
     teaching_moment: { label: 'Teaching Moment', Icon: BookOpen },
@@ -773,10 +790,11 @@ export function ImmersiveTutor({
                 }
               }}
               onMouseLeave={(e) => {
+                // NOTE: We intentionally do NOT stop recording on mouse leave
+                // This fixes trackpad issues where slight finger movement triggers leave
+                // The global mouseup listener handles stopping when user releases anywhere
                 if (isPointerRecordingRef.current || isMicPreparing) {
-                  console.log('[MIC BUTTON] Mouse leave while recording/preparing');
-                  isPointerRecordingRef.current = false;
-                  onRecordingStop();
+                  console.log('[MIC BUTTON] Mouse leave - continuing recording (global mouseup will handle stop)');
                 }
               }}
               disabled={!isUsersTurn}
