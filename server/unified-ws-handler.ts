@@ -1539,16 +1539,24 @@ Reference past discussions when relevant, but don't force it.
           // PHASE 2: SPECULATIVE AI HANDLING
           // If we already triggered speculative AI, check if the transcript changed significantly
           if (speculativePttTriggered && speculativePttTranscriptUsed) {
-            const speculativeWords = speculativePttTranscriptUsed.toLowerCase().split(/\s+/);
-            const finalWords = finalTranscript.toLowerCase().split(/\s+/);
+            const speculativeWords = speculativePttTranscriptUsed.toLowerCase().split(/\s+/).filter(w => w.length > 0);
+            const finalWords = finalTranscript.toLowerCase().split(/\s+/).filter(w => w.length > 0);
             
-            // Calculate word overlap (simple similarity check)
+            // Calculate SYMMETRIC overlap - both directions must match
+            // If user said more words after speculative trigger, we need to re-trigger
             const intersection = speculativeWords.filter(w => finalWords.includes(w));
-            const overlap = speculativeWords.length > 0 ? intersection.length / speculativeWords.length : 0;
+            const forwardOverlap = speculativeWords.length > 0 ? intersection.length / speculativeWords.length : 0;
             
-            console.log(`[SpeculativePTT] PHASE 2: Comparing transcripts - speculative: "${speculativePttTranscriptUsed}", final: "${finalTranscript}", overlap: ${(overlap * 100).toFixed(0)}%`);
+            // Check how many EXTRA words the user said after speculative was triggered
+            const extraWords = finalWords.length - speculativeWords.length;
+            const isTruncatedPrefix = extraWords > 1; // User added 2+ more words
             
-            if (overlap >= 0.8 || finalTranscript.startsWith(speculativePttTranscriptUsed)) {
+            // Symmetric overlap: speculative must match final AND final shouldn't have too many extra words
+            const overlap = isTruncatedPrefix ? 0 : forwardOverlap;
+            
+            console.log(`[SpeculativePTT] PHASE 2: Comparing transcripts - speculative: "${speculativePttTranscriptUsed}", final: "${finalTranscript}", overlap: ${(overlap * 100).toFixed(0)}%, extraWords: ${extraWords}`);
+            
+            if (overlap >= 0.8 && !isTruncatedPrefix) {
               // Transcript is similar enough - speculative AI result is valid!
               // No need to re-trigger, response is already streaming
               console.log(`[SpeculativePTT] PHASE 2: ✓ Using speculative AI result (${(overlap * 100).toFixed(0)}% overlap)`);
@@ -2801,16 +2809,24 @@ This is a voice conversation. Speak naturally, as you would.`;
           // PHASE 2: SPECULATIVE AI HANDLING
           // If we already triggered speculative AI, check if the transcript changed significantly
           if (speculativePttTriggered && speculativePttTranscriptUsed) {
-            const speculativeWords = speculativePttTranscriptUsed.toLowerCase().split(/\s+/);
-            const finalWords = finalTranscript.toLowerCase().split(/\s+/);
+            const speculativeWords = speculativePttTranscriptUsed.toLowerCase().split(/\s+/).filter(w => w.length > 0);
+            const finalWords = finalTranscript.toLowerCase().split(/\s+/).filter(w => w.length > 0);
             
-            // Calculate word overlap (simple similarity check)
+            // Calculate SYMMETRIC overlap - both directions must match
+            // If user said more words after speculative trigger, we need to re-trigger
             const intersection = speculativeWords.filter(w => finalWords.includes(w));
-            const overlap = speculativeWords.length > 0 ? intersection.length / speculativeWords.length : 0;
+            const forwardOverlap = speculativeWords.length > 0 ? intersection.length / speculativeWords.length : 0;
             
-            console.log(`[SpeculativePTT] PHASE 2: Comparing transcripts - speculative: "${speculativePttTranscriptUsed}", final: "${finalTranscript}", overlap: ${(overlap * 100).toFixed(0)}%`);
+            // Check how many EXTRA words the user said after speculative was triggered
+            const extraWords = finalWords.length - speculativeWords.length;
+            const isTruncatedPrefix = extraWords > 1; // User added 2+ more words
             
-            if (overlap >= 0.8 || finalTranscript.startsWith(speculativePttTranscriptUsed)) {
+            // Symmetric overlap: speculative must match final AND final shouldn't have too many extra words
+            const overlap = isTruncatedPrefix ? 0 : forwardOverlap;
+            
+            console.log(`[SpeculativePTT] PHASE 2: Comparing transcripts - speculative: "${speculativePttTranscriptUsed}", final: "${finalTranscript}", overlap: ${(overlap * 100).toFixed(0)}%, extraWords: ${extraWords}`);
+            
+            if (overlap >= 0.8 && !isTruncatedPrefix) {
               // Transcript is similar enough - speculative AI result is valid!
               // No need to re-trigger, response is already streaming
               console.log(`[SpeculativePTT] PHASE 2: ✓ Using speculative AI result (${(overlap * 100).toFixed(0)}% overlap)`);
