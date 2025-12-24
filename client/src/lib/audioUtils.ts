@@ -561,11 +561,13 @@ export class StreamingAudioPlayer {
   
   /**
    * Notify all subscribers of a state change
+   * ALSO dispatches a DOM CustomEvent as a reliable fallback for HMR scenarios
    */
   private notifyStateChange(state: StreamingPlaybackState): void {
     const subscriberIds = Array.from(this.subscribers.keys());
     console.log(`[AUDIO PLAYER] notifyStateChange: ${state} to ${this.subscribers.size} subscribers: [${subscriberIds.join(', ')}]`);
     
+    // Primary path: subscriber callbacks
     Array.from(this.subscribers.entries()).forEach(([id, callbacks]) => {
       try {
         callbacks.onStateChange?.(state);
@@ -573,6 +575,17 @@ export class StreamingAudioPlayer {
         console.error(`[AUDIO PLAYER] Error in subscriber ${id} onStateChange:`, err);
       }
     });
+    
+    // PARALLEL PATH: DOM event bridge for HMR reliability
+    // This guarantees React components can receive state changes even if
+    // callback closures become stale during Vite HMR
+    try {
+      window.dispatchEvent(new CustomEvent('streaming-playback-state', {
+        detail: { state, timestamp: Date.now(), subscriberCount: this.subscribers.size }
+      }));
+    } catch (err) {
+      console.error('[AUDIO PLAYER] DOM event dispatch failed:', err);
+    }
   }
   
   /**

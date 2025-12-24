@@ -8,6 +8,75 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: December 24, 2025 - Avatar Animation Debugging (HMR Callback Staleness)
+
+**Status**: IN PROGRESS - DOM Event Bridge implemented, awaiting test
+
+**Overview**: Avatar stopped animating during voice chat despite audio playing correctly. Root cause identified as Vite HMR preserving window singleton but callbacks referencing orphaned React component tree.
+
+#### Problem Statement
+
+After ~20 audio-related commits, the tutor avatar stays on 'idle' during voice playback. Server telemetry shows:
+- `subscriberCount: 1` (subscription IS working)
+- State transitions: `idle → buffering → playing → idle` (audio IS playing)
+- But browser console shows NO callback logs (callbacks are stale)
+
+#### Debugging Approaches Tried
+
+| Approach | Result |
+|----------|--------|
+| Multi-subscriber pattern with Map | Server shows registration, but callbacks not firing in browser |
+| Ref pattern for setPlaybackState | No change - closures still stale |
+| Window-level debug variables | Added for DevTools inspection |
+| Enhanced console logging | Logs NOT appearing in browser |
+
+#### Solution Implemented: DOM Event Bridge
+
+Parallel path using DOM CustomEvent to bypass callback staleness:
+
+```typescript
+// In audioUtils.ts - notifyStateChange
+window.dispatchEvent(new CustomEvent('streaming-playback-state', {
+  detail: { state, timestamp: Date.now(), subscriberCount: this.subscribers.size }
+}));
+
+// In useStreamingVoice.ts - new useEffect
+useEffect(() => {
+  const handlePlaybackStateEvent = (e: Event) => {
+    const customEvent = e as CustomEvent<{...}>;
+    setPlaybackState(customEvent.detail.state);
+  };
+  window.addEventListener('streaming-playback-state', handlePlaybackStateEvent);
+  return () => window.removeEventListener('streaming-playback-state', handlePlaybackStateEvent);
+}, []);
+```
+
+#### Key Files Modified
+
+| File | Changes |
+|------|---------|
+| `client/src/lib/audioUtils.ts` | Added DOM event dispatch in notifyStateChange |
+| `client/src/hooks/useStreamingVoice.ts` | Added DOM event listener useEffect |
+| `docs/voice-streaming-debug.md` | Created consolidated debug doc |
+
+#### Debug Commands
+
+```javascript
+// Browser console
+window.__lastPlaybackCallback    // Last callback details
+window.__playbackStateSetCount   // State set count
+window.__streamingAudioPlayer?.subscribers.size  // Registered subscribers
+```
+
+#### Next Steps
+
+1. Test voice chat - verify `[DOM EVENT BRIDGE]` logs appear
+2. Confirm avatar animates during playback
+3. If working, consider removing callback system or keeping both paths
+4. Add architectural note about HMR-safe patterns
+
+---
+
 ### Session: December 22, 2025 - Automated Class Creation Workflow with Bundle Support
 
 **Status**: COMPLETED - Template automation and bundle creation live

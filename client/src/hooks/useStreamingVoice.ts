@@ -307,6 +307,30 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   }, []);
   
   /**
+   * DOM Event Bridge: Parallel path for receiving playback state changes
+   * This ensures state updates even if the callback closure becomes stale during HMR
+   */
+  useEffect(() => {
+    const handlePlaybackStateEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<{ state: StreamingPlaybackState; timestamp: number; subscriberCount: number }>;
+      const { state, timestamp, subscriberCount } = customEvent.detail;
+      
+      console.log(`[DOM EVENT BRIDGE] Received state: ${state}, subscribers: ${subscriberCount}, ts: ${timestamp}`);
+      
+      // Update state via direct setter (fresh closure, not the ref)
+      setPlaybackState(state);
+    };
+    
+    window.addEventListener('streaming-playback-state', handlePlaybackStateEvent);
+    console.log('[DOM EVENT BRIDGE] Listener registered');
+    
+    return () => {
+      window.removeEventListener('streaming-playback-state', handlePlaybackStateEvent);
+      console.log('[DOM EVENT BRIDGE] Listener removed');
+    };
+  }, []);
+  
+  /**
    * Handle processing message (new turn started)
    * This sets the turnId for subtitle packet ordering, preventing phantom subtitles
    * 
