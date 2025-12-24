@@ -2379,7 +2379,7 @@ export class NeuralNetworkSyncService {
       hasMore: boolean;
     };
   }> {
-    const PAGE_SIZE = options?.limit || 500; // Default page size
+    const PAGE_SIZE = options?.limit || 250; // Reduced from 500 to avoid production import timeouts
     // Support both direct offset and 0-indexed page number
     const offset = options?.offset ?? (options?.page !== undefined ? options.page * PAGE_SIZE : 0);
     

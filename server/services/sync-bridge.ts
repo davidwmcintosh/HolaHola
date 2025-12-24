@@ -1181,14 +1181,14 @@ class SyncBridgeService {
         console.log(`[SYNC-BRIDGE v16] Force resuming from run ${interruptedRun.id} (page ${interruptedRun.lastCompletedPage ?? -1})`);
       }
     } else {
-      // Normal mode: only resume if 3+ hours old
-      const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000);
+      // Normal mode: auto-resume if 5+ minutes old (gateway timeout is 60s, so 5min means definitely timed out)
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
       const [staleRun] = await db.select()
         .from(syncRuns)
         .where(and(
           eq(syncRuns.direction, 'pull'),
           eq(syncRuns.status, 'running'),
-          lt(syncRuns.startedAt, threeHoursAgo)
+          lt(syncRuns.startedAt, fiveMinutesAgo)
         ))
         .orderBy(desc(syncRuns.startedAt))
         .limit(1);
@@ -1308,7 +1308,7 @@ class SyncBridgeService {
             
             // v16: Update progress after each successful page + check for more pages
             const pagination = (result.bundle as SyncBundle).observationsPagination;
-            const estimatedTotalPages = pagination?.agentTotal ? Math.ceil(pagination.agentTotal / 500) : undefined;
+            const estimatedTotalPages = pagination?.agentTotal ? Math.ceil(pagination.agentTotal / 250) : undefined;
             await db.update(syncRuns)
               .set({
                 lastCompletedPage: page,
