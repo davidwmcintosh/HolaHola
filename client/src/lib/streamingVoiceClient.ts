@@ -625,10 +625,16 @@ export class StreamingVoiceClient {
     // Clear pending metadata
     this.pendingAudioMeta = null;
     
-    // Emit audio chunk event with binary data
     // Convert ArrayBuffer to base64 for compatibility with existing audio player
+    // Use chunked approach to avoid call stack overflow with large buffers
     const uint8Array = new Uint8Array(data);
-    const base64 = btoa(String.fromCharCode.apply(null, Array.from(uint8Array)));
+    let base64 = '';
+    const chunkSize = 32768; // 32KB chunks to stay within call stack limits
+    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+      const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
+      base64 += String.fromCharCode.apply(null, Array.from(chunk));
+    }
+    base64 = btoa(base64);
     
     // Create audio chunk message format expected by existing handlers
     const audioMessage: StreamingAudioChunkMessage = {
