@@ -998,16 +998,23 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    * Send user activity signal to prevent idle timeout
    * Called when user starts recording (push-to-talk button pressed)
    * This prevents session timeout while user is actively recording
+   * Also holds audio playback to prevent AI speaking while user records
    */
   const sendUserActivity = useCallback(() => {
+    // Hold audio playback while user is recording
+    // This prevents AI from speaking while user is still holding PTT
+    playerRef.current?.holdPlayback();
     clientRef.current?.sendUserActivity();
   }, []);
   
   /**
    * Send PTT release signal to finalize speculative transcript
    * Called when user releases the push-to-talk button
+   * Also releases audio playback to start playing buffered audio
    */
   const sendPttRelease = useCallback(() => {
+    // Release audio playback - any buffered audio will now play
+    playerRef.current?.releasePlayback();
     clientRef.current?.sendPttRelease();
   }, []);
   

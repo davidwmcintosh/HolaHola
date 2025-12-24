@@ -324,8 +324,56 @@ export class StreamingAudioPlayer {
   // Prevents premature loop termination when not all sentences have arrived yet
   private expectedSentenceCount: number | null = null;
   
+  // HOLD PLAYBACK: When true, audio is buffered but playback is deferred until released
+  // Used during PTT recording to prevent AI speaking while user is still holding the button
+  private playbackHeld = false;
+  private heldChunks: StreamingAudioChunk[] = [];
+  
   constructor() {
     // Initialization - no logging needed
+  }
+  
+  /**
+   * Hold playback - audio will be buffered but not played
+   * Call this when PTT recording starts
+   */
+  holdPlayback(): void {
+    this.playbackHeld = true;
+    console.log('[StreamingAudioPlayer] Playback held - buffering audio');
+  }
+  
+  /**
+   * Release playback - start playing any buffered audio
+   * Call this when PTT recording stops
+   */
+  async releasePlayback(): Promise<void> {
+    this.playbackHeld = false;
+    console.log(`[StreamingAudioPlayer] Playback released - processing ${this.heldChunks.length} buffered chunks`);
+    
+    // Process all held chunks
+    for (const chunk of this.heldChunks) {
+      if (chunk.audioFormat === 'pcm_f32le') {
+        // PCM chunks need progressive enqueue
+        await this.enqueueProgressivePcmChunk(
+          chunk.sentenceIndex,
+          0,  // chunkIndex - not tracked in held chunks
+          chunk.audio,
+          chunk.durationMs,
+          chunk.isLast,
+          chunk.sampleRate || 24000
+        );
+      } else {
+        this.enqueue(chunk);
+      }
+    }
+    this.heldChunks = [];
+  }
+  
+  /**
+   * Check if playback is currently held
+   */
+  isPlaybackHeld(): boolean {
+    return this.playbackHeld;
   }
   
   /**
@@ -468,6 +516,12 @@ export class StreamingAudioPlayer {
    * Will start playing immediately if not already playing
    */
   enqueue(chunk: StreamingAudioChunk): void {
+    // HOLD PLAYBACK: If held, buffer the chunk for later
+    if (this.playbackHeld) {
+      this.heldChunks.push(chunk);
+      return;
+    }
+    
     // Store chunk for replay functionality
     this.allAudioChunks.push(chunk.audio);
     // Invalidate combined blob so it will be regenerated on next getCombinedAudioBlob()
@@ -507,6 +561,19 @@ export class StreamingAudioPlayer {
     isLast: boolean,
     sampleRate: number = 24000
   ): Promise<void> {
+    // HOLD PLAYBACK: If held, buffer the chunk for later as a StreamingAudioChunk
+    if (this.playbackHeld) {
+      this.heldChunks.push({
+        sentenceIndex,
+        audio,
+        durationMs,
+        isLast,
+        audioFormat: 'pcm_f32le',
+        sampleRate,
+      });
+      return;
+    }
+    
     // Handle empty audio chunks (isLast=true marker chunks)
     // These chunks have 0 audio data but signal sentence completion
     if (audio.byteLength === 0) {
