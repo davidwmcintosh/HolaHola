@@ -1295,16 +1295,23 @@ export function StreamingVoiceChat({
   }, [useStreamingMode, messages, conversationId, language, isProcessing, isRecording, subtitleMode]);
 
   // Enter key keyboard shortcut for mic button (hold to talk)
+  // Using refs to avoid cleanup-triggered premature stops during React re-renders
   const recordingStartTimeRef = useRef<number | null>(null);
+  const isKeyboardHeldRef = useRef(false); // Track if Enter key is physically held
   const MIN_RECORDING_DURATION_MS = 500; // Minimum 500ms to avoid empty recordings
   
+  // Keep existing refs in sync with state for stable keyboard handlers
+  // (refs are already declared earlier in the component)
+  useEffect(() => { isRecordingRef.current = isRecording; }, [isRecording]);
+  useEffect(() => { isProcessingRef.current = isProcessing; }, [isProcessing]);
+  useEffect(() => { inputModeRef.current = inputMode; }, [inputMode]);
+  
+  // Stable keyboard handlers that use refs instead of state (no dependency churn)
   useEffect(() => {
-    // Only enable ENTER key shortcut in push-to-talk mode
-    if (inputMode !== 'push-to-talk') {
-      return;
-    }
-    
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Only enable in push-to-talk mode
+      if (inputModeRef.current !== 'push-to-talk') return;
+      
       // Only trigger if Enter is pressed
       if (event.code !== 'Enter') return;
       
@@ -1315,7 +1322,6 @@ export function StreamingVoiceChat({
       const target = event.target as HTMLElement;
       const activeElement = document.activeElement as HTMLElement;
       
-      // Check both target and activeElement for text input contexts
       const isTextInput = (el: HTMLElement | null) => {
         if (!el) return false;
         const tagName = el.tagName?.toUpperCase();
@@ -1332,14 +1338,17 @@ export function StreamingVoiceChat({
       if (isTextInput(target) || isTextInput(activeElement)) return;
       
       // Don't trigger if no conversation or processing
-      if (!conversationId || isProcessing) return;
+      if (!currentConversationRef.current || isProcessingRef.current) return;
       
       // Prevent default behavior
       event.preventDefault();
       
+      // Mark keyboard as held BEFORE starting recording
+      isKeyboardHeldRef.current = true;
+      
       // Start recording on keydown (if not already recording)
-      if (!isRecording) {
-        console.log('[KEYBOARD] Enter pressed - starting recording');
+      if (!isRecordingRef.current) {
+        console.log('[KEYBOARD] Enter pressed - starting recording, isKeyboardHeld=true');
         recordingStartTimeRef.current = Date.now();
         startPushToTalkRecording('keyboard');
       }
@@ -1349,11 +1358,16 @@ export function StreamingVoiceChat({
       // Only trigger if Enter is released
       if (event.code !== 'Enter') return;
       
+      // CRITICAL: Only process if keyboard was actually being held by us
+      if (!isKeyboardHeldRef.current) {
+        console.log('[KEYBOARD] Enter keyup ignored - keyboard was not held by PTT');
+        return;
+      }
+      
       // Don't trigger if user is typing in any text input element
       const target = event.target as HTMLElement;
       const activeElement = document.activeElement as HTMLElement;
       
-      // Reuse the same text input check
       const isTextInput = (el: HTMLElement | null) => {
         if (!el) return false;
         const tagName = el.tagName?.toUpperCase();
@@ -1369,8 +1383,11 @@ export function StreamingVoiceChat({
       
       if (isTextInput(target) || isTextInput(activeElement)) return;
       
+      // Mark keyboard as released
+      isKeyboardHeldRef.current = false;
+      
       // Stop recording on keyup (if recording)
-      if (isRecording) {
+      if (isRecordingRef.current || isPttButtonHeldRef.current) {
         const recordingDuration = recordingStartTimeRef.current 
           ? Date.now() - recordingStartTimeRef.current 
           : 0;
@@ -1392,16 +1409,16 @@ export function StreamingVoiceChat({
       }
     };
 
-    // Add event listeners
+    // Add stable event listeners (empty dependency array - never re-attached)
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     
-    // Cleanup
+    // Cleanup only on unmount
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [conversationId, isRecording, isProcessing, inputMode]);
+  }, []); // Empty deps - handlers use refs, not state
 
   const cleanupRecording = () => {
     console.log('[CLEANUP] Cleaning up recording resources...');
