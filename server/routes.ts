@@ -10731,6 +10731,146 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  // ===== SYNC CONTROL CENTER =====
+  // Founder-only UI for managing dev-prod synchronization
+  
+  // Get sync status for control center
+  app.get("/api/admin/sync/status", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const status = await syncBridge.getSyncStatus();
+      res.json(status);
+    } catch (error: any) {
+      console.error('[Admin Sync Status] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Trigger push to peer (dev→prod or prod→dev depending on current env)
+  app.post("/api/admin/sync/push", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const triggeredBy = req.authenticatedUser?.email || 'founder';
+      console.log(`[Admin Sync] Push triggered by ${triggeredBy}`);
+      const result = await syncBridge.pushToPeer(triggeredBy);
+      res.json(result);
+    } catch (error: any) {
+      console.error('[Admin Sync Push] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Trigger pull from peer
+  app.post("/api/admin/sync/pull", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const triggeredBy = req.authenticatedUser?.email || 'founder';
+      const forceResume = req.body.forceResume === true;
+      console.log(`[Admin Sync] Pull triggered by ${triggeredBy}${forceResume ? ' (FORCE RESUME)' : ''}`);
+      const result = await syncBridge.pullFromPeer(triggeredBy, { forceResume });
+      res.json(result);
+    } catch (error: any) {
+      console.error('[Admin Sync Pull] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Trigger full bidirectional sync
+  app.post("/api/admin/sync/full", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const triggeredBy = req.authenticatedUser?.email || 'founder';
+      console.log(`[Admin Sync] Full sync triggered by ${triggeredBy}`);
+      const result = await syncBridge.performFullSync(triggeredBy);
+      res.json(result);
+    } catch (error: any) {
+      console.error('[Admin Sync Full] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Force-reset stuck sync runs (LOCAL)
+  app.post("/api/admin/sync/force-reset", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const triggeredBy = req.authenticatedUser?.email || 'founder';
+      console.log(`[Admin Sync] Force-reset triggered by ${triggeredBy}`);
+      
+      const runningRuns = await db.select()
+        .from(syncRuns)
+        .where(eq(syncRuns.status, 'running'));
+      
+      let resetCount = 0;
+      for (const run of runningRuns) {
+        await db.update(syncRuns)
+          .set({
+            status: 'failed',
+            errorMessage: `Force-reset by ${triggeredBy} via Control Center`,
+            completedAt: new Date(),
+            durationMs: Date.now() - new Date(run.startedAt).getTime(),
+          })
+          .where(eq(syncRuns.id, run.id));
+        resetCount++;
+      }
+      
+      res.json({ 
+        success: true, 
+        resetCount,
+        message: `Force-reset ${resetCount} running sync run(s).`
+      });
+    } catch (error: any) {
+      console.error('[Admin Sync Force-Reset] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Trigger PEER to pull from us (bidirectional remote trigger)
+  app.post("/api/admin/sync/trigger-peer-pull", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const triggeredBy = req.authenticatedUser?.email || 'founder';
+      console.log(`[Admin Sync] Trigger peer pull by ${triggeredBy}`);
+      const result = await syncBridge.triggerPeerPull(triggeredBy);
+      res.json(result);
+    } catch (error: any) {
+      console.error('[Admin Sync Trigger Peer Pull] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Force-reset PEER's stuck syncs
+  app.post("/api/admin/sync/trigger-peer-reset", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const triggeredBy = req.authenticatedUser?.email || 'founder';
+      console.log(`[Admin Sync] Trigger peer reset by ${triggeredBy}`);
+      const result = await syncBridge.triggerPeerForceReset(triggeredBy);
+      res.json(result);
+    } catch (error: any) {
+      console.error('[Admin Sync Trigger Peer Reset] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get peer sync stats
+  app.get("/api/admin/sync/peer-stats", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const stats = await syncBridge.fetchPeerStats();
+      res.json(stats);
+    } catch (error: any) {
+      console.error('[Admin Sync Peer Stats] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get sync run history
+  app.get("/api/admin/sync/history", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 20;
+      const runs = await db.select()
+        .from(syncRuns)
+        .orderBy(desc(syncRuns.startedAt))
+        .limit(limit);
+      res.json({ syncRuns: runs });
+    } catch (error: any) {
+      console.error('[Admin Sync History] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // Learning Velocity Analytics - time-to-mastery metrics for admin dashboard
   app.get("/api/admin/velocity-analytics", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {
