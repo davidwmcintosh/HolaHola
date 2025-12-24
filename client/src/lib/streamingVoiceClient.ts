@@ -591,15 +591,6 @@ export class StreamingVoiceClient {
   }
   
   /**
-   * Send interrupt signal (user started speaking)
-   */
-  interrupt(): void {
-    if (this.isReady()) {
-      this.socket!.emit('message', { type: 'interrupt' });
-    }
-  }
-  
-  /**
    * Send drill result for pedagogical tracking
    * @param drillId - Unique identifier for the drill
    * @param drillType - Type of drill (repeat, translate, match, fill_blank, sentence_order)
