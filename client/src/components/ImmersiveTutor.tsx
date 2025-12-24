@@ -160,9 +160,12 @@ export function ImmersiveTutor({
   // This ensures pointer up always stops recording regardless of React state timing
   const isPointerRecordingRef = useRef<boolean>(false);
   
-  // Refs for callbacks to keep event listeners stable (avoid stale closures)
+  // Refs for callbacks and state to keep event listeners stable (avoid stale closures)
   const onRecordingStopRef = useRef(onRecordingStop);
   onRecordingStopRef.current = onRecordingStop; // Always sync with latest prop
+  
+  const isPlayingRef = useRef(isPlaying);
+  isPlayingRef.current = isPlaying; // Always sync with latest prop
   
   // Debounce voice switching to prevent rapid clicks
   const voiceSwitchInProgressRef = useRef<boolean>(false);
@@ -236,10 +239,16 @@ export function ImmersiveTutor({
   // Uses refs to keep listener stable (no re-attachment on re-renders)
   useEffect(() => {
     const handleGlobalTouchEnd = (e: TouchEvent) => {
-      console.log('[PTT-TOUCH-DEBUG] Global touchend fired, touches.length:', e.touches.length, 'isTouchRecordingRef:', isTouchRecordingRef.current);
+      console.log('[PTT-TOUCH-DEBUG] Global touchend fired, touches.length:', e.touches.length, 'isTouchRecordingRef:', isTouchRecordingRef.current, 'isPlaying:', isPlayingRef.current);
       // Only stop if ALL touches are released (no fingers left on screen)
       if (e.touches.length === 0) {
         if (isTouchRecordingRef.current) {
+          // GUARD: If AI audio is already playing (speculative PTT), this might be a phantom touchend
+          // from the trackpad. Don't stop recording in this case - let the user actually release.
+          if (isPlayingRef.current) {
+            console.log('[PTT-TOUCH-DEBUG] Ignoring touchend - AI audio is playing (likely phantom event from speculative PTT)');
+            return;
+          }
           console.log('[MIC BUTTON] Global touch end - stopping recording');
           isTouchRecordingRef.current = false;
           onRecordingStopRef.current('touch');

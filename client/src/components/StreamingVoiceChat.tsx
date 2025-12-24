@@ -278,6 +278,7 @@ export function StreamingVoiceChat({
   const hasDanielaSpokeOnceRef = useRef<boolean>(false); // Track if Daniela has spoken at least once this session
   const isRecordingRef = useRef<boolean>(false);
   const isProcessingRef = useRef<boolean>(false);
+  const isPlayingRef = useRef<boolean>(false); // For stable keyboard handlers
   const recordingRequestedRef = useRef<boolean>(false); // Track if recording was requested (for race condition prevention)
   
   // Silence detection refs (only for auto-stop mode)
@@ -1305,6 +1306,7 @@ export function StreamingVoiceChat({
   useEffect(() => { isRecordingRef.current = isRecording; }, [isRecording]);
   useEffect(() => { isProcessingRef.current = isProcessing; }, [isProcessing]);
   useEffect(() => { inputModeRef.current = inputMode; }, [inputMode]);
+  useEffect(() => { isPlayingRef.current = avatarState === 'speaking'; }, [avatarState]);
   
   // Stable keyboard handlers that use refs instead of state (no dependency churn)
   useEffect(() => {
@@ -1382,6 +1384,13 @@ export function StreamingVoiceChat({
       };
       
       if (isTextInput(target) || isTextInput(activeElement)) return;
+      
+      // GUARD: If AI audio is already playing (speculative PTT), this might be a phantom keyup
+      // Don't stop recording in this case - wait for the user to actually release.
+      if (isPlayingRef.current) {
+        console.log('[KEYBOARD] Ignoring keyup - AI audio is playing (likely phantom event from speculative PTT)');
+        return;
+      }
       
       // Mark keyboard as released
       isKeyboardHeldRef.current = false;
