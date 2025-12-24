@@ -279,6 +279,12 @@ export class StreamingAudioPlayer {
   private currentAudio: HTMLAudioElement | null = null;
   private currentSentenceIndex = -1;
   private state: StreamingPlaybackState = 'idle';
+  
+  // MULTI-SUBSCRIBER PATTERN: Registry of all active callback subscribers
+  // This survives Vite HMR by allowing multiple component instances to register/unregister
+  private subscribers: Map<string, StreamingPlaybackCallbacks> = new Map();
+  
+  // Legacy single callback (deprecated - kept for compatibility during transition)
   private callbacks: StreamingPlaybackCallbacks = {};
   private objectUrls: string[] = [];
   private isPlaying = false;
@@ -511,13 +517,116 @@ export class StreamingAudioPlayer {
   }
   
   /**
-   * Set playback callbacks
+   * Subscribe to playback callbacks with a unique ID
+   * CRITICAL: This multi-subscriber pattern survives Vite HMR because each
+   * component instance registers with a unique ID and unregisters on cleanup.
+   * Unlike the single-callback pattern, stale closures are automatically cleaned up.
+   */
+  subscribe(subscriberId: string, callbacks: StreamingPlaybackCallbacks): void {
+    console.log(`[AUDIO PLAYER] subscribe: ${subscriberId} (total: ${this.subscribers.size + 1})`);
+    this.subscribers.set(subscriberId, callbacks);
+    
+    // Immediately notify new subscriber of current state (so they sync up)
+    callbacks.onStateChange?.(this.state);
+  }
+  
+  /**
+   * Unsubscribe from playback callbacks
+   * Called in useEffect cleanup to remove stale callbacks
+   */
+  unsubscribe(subscriberId: string): void {
+    console.log(`[AUDIO PLAYER] unsubscribe: ${subscriberId} (remaining: ${this.subscribers.size - 1})`);
+    this.subscribers.delete(subscriberId);
+    
+    // Warn if no subscribers remain (could indicate a bug)
+    if (this.subscribers.size === 0) {
+      console.warn('[AUDIO PLAYER] WARNING: No subscribers remaining - state changes will not reach UI');
+    }
+  }
+  
+  /**
+   * Set playback callbacks (LEGACY - use subscribe/unsubscribe instead)
+   * Kept for backward compatibility but also registers as a subscriber
    */
   setCallbacks(callbacks: StreamingPlaybackCallbacks): void {
     // CRITICAL: Fully replace callbacks to ensure fresh closures from remounted hooks
     // The singleton pattern means old closures can become stale when hooks remount
     console.log('[AUDIO PLAYER] setCallbacks called - replacing all callbacks');
     this.callbacks = { ...callbacks };
+    
+    // Also add to subscriber registry with a fixed ID
+    // This ensures the multi-subscriber system works even with legacy code
+    this.subscribers.set('legacy_setCallbacks', callbacks);
+  }
+  
+  /**
+   * Notify all subscribers of a state change
+   */
+  private notifyStateChange(state: StreamingPlaybackState): void {
+    const subscriberIds = Array.from(this.subscribers.keys());
+    console.log(`[AUDIO PLAYER] notifyStateChange: ${state} to ${this.subscribers.size} subscribers: [${subscriberIds.join(', ')}]`);
+    
+    Array.from(this.subscribers.entries()).forEach(([id, callbacks]) => {
+      try {
+        callbacks.onStateChange?.(state);
+      } catch (err) {
+        console.error(`[AUDIO PLAYER] Error in subscriber ${id} onStateChange:`, err);
+      }
+    });
+  }
+  
+  /**
+   * Notify all subscribers of pending audio count change
+   */
+  private notifyPendingAudioChange(count: number): void {
+    Array.from(this.subscribers.values()).forEach(callbacks => {
+      callbacks.onPendingAudioChange?.(count);
+    });
+  }
+  
+  /**
+   * Notify all subscribers of sentence start
+   */
+  private notifySentenceStart(sentenceIndex: number): void {
+    Array.from(this.subscribers.values()).forEach(callbacks => {
+      callbacks.onSentenceStart?.(sentenceIndex);
+    });
+  }
+  
+  /**
+   * Notify all subscribers of sentence end
+   */
+  private notifySentenceEnd(sentenceIndex: number): void {
+    Array.from(this.subscribers.values()).forEach(callbacks => {
+      callbacks.onSentenceEnd?.(sentenceIndex);
+    });
+  }
+  
+  /**
+   * Notify all subscribers of playback complete
+   */
+  private notifyComplete(): void {
+    Array.from(this.subscribers.values()).forEach(callbacks => {
+      callbacks.onComplete?.();
+    });
+  }
+  
+  /**
+   * Notify all subscribers of an error
+   */
+  private notifyError(error: Error): void {
+    Array.from(this.subscribers.values()).forEach(callbacks => {
+      callbacks.onError?.(error);
+    });
+  }
+  
+  /**
+   * Notify all subscribers of progress
+   */
+  private notifyProgress(currentTime: number, duration: number): void {
+    Array.from(this.subscribers.values()).forEach(callbacks => {
+      callbacks.onProgress?.(currentTime, duration);
+    });
   }
   
   /**
@@ -1032,14 +1141,14 @@ export class StreamingAudioPlayer {
           if (!entry.started && now >= entry.startCtxTime) {
             entry.started = true;
             this.currentSentenceIndex = index;
-            this.callbacks.onSentenceStart?.(index);
+            this.notifySentenceStart(index);
           }
           
           // Mark sentences as ended when their time passes
           // Note: endTime is already calculated with fallback, so no need to check endCtxTime
           if (entry.started && !entry.ended && now >= endTime) {
             entry.ended = true;
-            this.callbacks.onSentenceEnd?.(index);
+            this.notifySentenceEnd(index);
           }
           
           if (entry.started) anyStarted = true;
@@ -1050,7 +1159,7 @@ export class StreamingAudioPlayer {
         if (anyStarted && allEnded && entries.length > 0) {
           this.isPlaying = false;
           this.setState('idle');
-          this.callbacks.onComplete?.();
+          this.notifyComplete();
           return;
         }
         
@@ -1249,14 +1358,14 @@ export class StreamingAudioPlayer {
           const startedCount = Array.from(this.sentenceSchedule.values()).filter(e => e.started).length;
           updateDebugTimingState({ sentencesStarted: startedCount });
           
-          this.callbacks.onSentenceStart?.(effectiveSentenceIndex);
+          this.notifySentenceStart(effectiveSentenceIndex);
         }
         
         // Calculate elapsed time within THIS sentence
         const elapsedInSentence = now - effectiveEntry.startCtxTime;
         
         // Fire progress callback (drives subtitle word highlighting)
-        this.callbacks.onProgress?.(elapsedInSentence, effectiveEntry.totalDuration);
+        this.notifyProgress(elapsedInSentence, effectiveEntry.totalDuration);
       } else {
         // No active sentence - check for sentences that have ended but haven't fired onSentenceEnd
         const endCheckEntries = Array.from(this.sentenceSchedule.entries());
@@ -1275,7 +1384,7 @@ export class StreamingAudioPlayer {
               sentencesEnded: endedCount,
             });
             
-            this.callbacks.onSentenceEnd?.(index);
+            this.notifySentenceEnd(index);
           }
         }
         
@@ -1307,7 +1416,7 @@ export class StreamingAudioPlayer {
             this.isPlaying = false;
             this.setState('idle');
             this.stopPrecisionTiming();
-            this.callbacks.onComplete?.();
+            this.notifyComplete();
             return; // Exit the loop
           }
         }
@@ -1329,7 +1438,7 @@ export class StreamingAudioPlayer {
             this.isPlaying = false;
             this.setState('idle');
             this.stopPrecisionTiming();
-            this.callbacks.onComplete?.();
+            this.notifyComplete();
             return; // Force exit
           }
         }
@@ -1370,7 +1479,7 @@ export class StreamingAudioPlayer {
       }
       
       const currentTime = elapsedCtxTime;
-      this.callbacks.onProgress?.(currentTime, this.progressiveTotalDuration);
+      this.notifyProgress(currentTime, this.progressiveTotalDuration);
       
       // Verbose debug log only when enabled
       frameCount++;
@@ -1413,7 +1522,7 @@ export class StreamingAudioPlayer {
         sentencesEnded: endedCount,
       });
       
-      this.callbacks.onSentenceEnd?.(sentenceIndex);
+      this.notifySentenceEnd(sentenceIndex);
     } else {
       // Still update ended count in case timing loop set ended=true but didn't update counter
       const endedCount = Array.from(this.sentenceSchedule.values()).filter(e => e.ended).length;
@@ -1433,7 +1542,7 @@ export class StreamingAudioPlayer {
       this.isPlaying = false;
       this.setState('idle');
       this.stopPrecisionTiming();
-      this.callbacks.onComplete?.();
+      this.notifyComplete();
     }
     // If not all sentences ended, keep the timing loop running
   }
@@ -1609,7 +1718,7 @@ export class StreamingAudioPlayer {
       }
       
       // Fire progress callback with timing
-      this.callbacks.onProgress?.(currentTime, this.currentDuration);
+      this.notifyProgress(currentTime, this.currentDuration);
       
       frameCount++;
       
@@ -1657,7 +1766,7 @@ export class StreamingAudioPlayer {
     if (!chunk) {
       this.isPlaying = false;
       this.setState('idle');
-      this.callbacks.onComplete?.();
+      this.notifyComplete();
       return;
     }
     
@@ -1682,7 +1791,7 @@ export class StreamingAudioPlayer {
     } catch (error: any) {
       console.error('[StreamingAudioPlayer] Error playing chunk:', error);
       this.stopPrecisionTiming();
-      this.callbacks.onError?.(error);
+      this.notifyError(error);
       
       // Decrement pending count on error
       this.updatePendingCount(Math.max(0, this.pendingAudioCount - 1));
@@ -1718,7 +1827,7 @@ export class StreamingAudioPlayer {
       this.playbackStartTime = performance.now();
       
       // Fire onSentenceStart for precise sync with subtitle timing
-      this.callbacks.onSentenceStart?.(this.currentSentenceIndex);
+      this.notifySentenceStart(this.currentSentenceIndex);
       
       // Start high-precision timing loop
       this.startPrecisionTiming();
@@ -1726,7 +1835,7 @@ export class StreamingAudioPlayer {
     
     this.currentAudio.onended = () => {
       this.stopPrecisionTiming();
-      this.callbacks.onSentenceEnd?.(chunk.sentenceIndex);
+      this.notifySentenceEnd(chunk.sentenceIndex);
       
       // Decrement pending count after chunk finishes
       this.updatePendingCount(Math.max(0, this.pendingAudioCount - 1));
@@ -1739,7 +1848,7 @@ export class StreamingAudioPlayer {
       // Keep unguarded - essential operational error
       console.error('[StreamingAudioPlayer] MP3 audio error:', event);
       this.stopPrecisionTiming();
-      this.callbacks.onError?.(new Error('MP3 playback failed'));
+      this.notifyError(new Error('MP3 playback failed'));
       
       // Decrement pending count on error
       this.updatePendingCount(Math.max(0, this.pendingAudioCount - 1));
@@ -1788,7 +1897,7 @@ export class StreamingAudioPlayer {
     this.playbackStartTime = performance.now();
     
     // Fire onSentenceStart for precise sync with subtitle timing
-    this.callbacks.onSentenceStart?.(this.currentSentenceIndex);
+    this.notifySentenceStart(this.currentSentenceIndex);
     
     // Start high-precision timing loop
     this.startPrecisionTiming();
@@ -1797,7 +1906,7 @@ export class StreamingAudioPlayer {
     source.onended = () => {
       this.stopPrecisionTiming();
       this.currentPcmSource = null;
-      this.callbacks.onSentenceEnd?.(chunk.sentenceIndex);
+      this.notifySentenceEnd(chunk.sentenceIndex);
       
       // Decrement pending count after chunk finishes
       this.updatePendingCount(Math.max(0, this.pendingAudioCount - 1));
@@ -1811,13 +1920,13 @@ export class StreamingAudioPlayer {
   }
   
   /**
-   * Update state and notify callback
+   * Update state and notify all subscribers
    */
   private setState(state: StreamingPlaybackState): void {
     if (this.state !== state) {
       const prevState = this.state;
-      const hasCallback = !!this.callbacks.onStateChange;
-      console.log(`[AUDIO PLAYER] State change: ${prevState} -> ${state} (hasCallback: ${hasCallback})`);
+      const subscriberCount = this.subscribers.size;
+      console.log(`[AUDIO PLAYER] State change: ${prevState} -> ${state} (subscribers: ${subscriberCount})`);
       this.state = state;
       
       // Telemetry: emit playback state change
@@ -1825,7 +1934,7 @@ export class StreamingAudioPlayer {
       if (emitter) {
         emitter.emit(
           'playback_state_change' as ClientTelemetryEventType,
-          { fromState: prevState, toState: state, hasCallback },
+          { fromState: prevState, toState: state, subscriberCount },
           this.currentSentenceIndex
         );
         
@@ -1837,11 +1946,11 @@ export class StreamingAudioPlayer {
         }
       }
       
-      if (this.callbacks.onStateChange) {
-        console.log(`[AUDIO PLAYER] Calling onStateChange callback with: ${state}`);
-        this.callbacks.onStateChange(state);
+      // Use multi-subscriber notification
+      if (subscriberCount > 0) {
+        this.notifyStateChange(state);
       } else {
-        console.warn(`[AUDIO PLAYER] NO onStateChange callback registered!`);
+        console.warn(`[AUDIO PLAYER] NO subscribers registered! State change will not reach UI.`);
       }
     }
   }

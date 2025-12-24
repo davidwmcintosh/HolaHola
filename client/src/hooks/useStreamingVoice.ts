@@ -207,25 +207,26 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   setPlaybackStateRef.current = setPlaybackState;
   
   /**
-   * Initialize the audio player
-   * CRITICAL: Use getStreamingAudioPlayer() singleton to prevent Vite duplicate module issue
-   * Without this, one instance receives chunks while another runs timing loop
+   * Initialize the audio player and SUBSCRIBE to callbacks
+   * CRITICAL: Use subscribe/unsubscribe pattern to survive Vite HMR
+   * Each component instance gets a unique subscriber ID and properly cleans up
    */
   useEffect(() => {
-    playerRef.current = getStreamingAudioPlayer();
-    const cbId = callbackIdRef.current;
+    const player = getStreamingAudioPlayer();
+    playerRef.current = player;
+    const subscriberId = callbackIdRef.current;
     
-    console.log(`[CALLBACK SETUP] Registering callbacks with ID: ${cbId}`);
+    console.log(`[CALLBACK SETUP] Subscribing with ID: ${subscriberId}`);
     
-    // Set up player callbacks
+    // Subscribe to player callbacks with unique ID
     // NOTE: isProcessing is only cleared when BOTH:
     // 1. Server has sent response_complete (responseCompleteRef = true)
     // 2. No pending audio chunks (pendingAudioCountRef = 0)
     // IMPORTANT: Use refs to get latest values (avoids stale closure)
-    playerRef.current.setCallbacks({
+    player.subscribe(subscriberId, {
       onStateChange: (state) => {
         // ALWAYS log state changes for debugging (not gated by verbose)
-        console.log(`[PLAYBACK CALLBACK ${cbId}] onStateChange: ${state}`);
+        console.log(`[PLAYBACK CALLBACK ${subscriberId}] onStateChange: ${state}`);
         // Use ref to ensure we always call the current setPlaybackState
         setPlaybackStateRef.current(state);
       },
@@ -283,8 +284,10 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     });
     
     return () => {
-      console.log(`[CALLBACK CLEANUP] Removing callbacks with ID: ${cbId}`);
-      playerRef.current?.destroy();
+      // CRITICAL: Unsubscribe to remove stale callbacks
+      console.log(`[CALLBACK CLEANUP] Unsubscribing ID: ${subscriberId}`);
+      player.unsubscribe(subscriberId);
+      player.destroy();
     };
   }, []);
   
