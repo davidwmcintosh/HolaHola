@@ -720,6 +720,11 @@ export class StreamingVoiceClient {
           this.handleAudioChunk(message as StreamingAudioChunkMessage);
           break;
           
+        case 'audio_chunk_part':
+          // Chunked audio for large messages (proxy-safe)
+          this.handleAudioChunkPart(message);
+          break;
+          
         case 'audio_chunk_meta':
           // New binary path - metadata arrives first, then binary data follows
           console.log('[WS CLIENT] Received audio_chunk_meta, awaiting binary data:', message.byteLength, 'bytes, format:', message.audioFormat);
@@ -898,6 +903,76 @@ export class StreamingVoiceClient {
     this.currentSentenceIndex = message.sentenceIndex;
     // Emit audio chunk with embedded base64 data (no logging on hot path)
     this.emit('audioChunk', message);
+  }
+  
+  /**
+   * Handle chunked audio parts for large messages
+   * Server splits large audio_chunk messages into smaller parts (50KB each)
+   * to avoid Replit proxy dropping large Socket.io messages
+   */
+  private handleAudioChunkPart(message: any): void {
+    const { sentenceIndex, chunkIndex, partIndex, totalParts, audio, isFinalPart } = message;
+    const key = `${sentenceIndex}-${chunkIndex}`;
+    
+    console.log(`[AUDIO CHUNK PART] sentence=${sentenceIndex}, chunk=${chunkIndex}, part=${partIndex}/${totalParts}`);
+    
+    // Get or create reassembly buffer
+    let buffer = this.pendingSubChunks.get(key);
+    if (!buffer) {
+      buffer = {
+        chunks: new Array(totalParts).fill(''),
+        totalSubChunks: totalParts,
+        baseMessage: partIndex === 0 ? {
+          timestamp: message.timestamp,
+          turnId: message.turnId,
+          durationMs: message.durationMs,
+          audioFormat: message.audioFormat,
+          sampleRate: message.sampleRate,
+          isLast: message.isLast,
+        } : null,
+      };
+      this.pendingSubChunks.set(key, buffer);
+    }
+    
+    // Store this part
+    buffer.chunks[partIndex] = audio;
+    
+    // If first chunk has metadata, save it
+    if (partIndex === 0 && message.timestamp) {
+      buffer.baseMessage = {
+        timestamp: message.timestamp,
+        turnId: message.turnId,
+        durationMs: message.durationMs,
+        audioFormat: message.audioFormat,
+        sampleRate: message.sampleRate,
+        isLast: message.isLast,
+      };
+    }
+    
+    // Check if all parts received
+    const receivedCount = buffer.chunks.filter(c => c !== '').length;
+    if (receivedCount === totalParts) {
+      // Reassemble and emit as full audio_chunk
+      const fullAudio = buffer.chunks.join('');
+      console.log(`[AUDIO CHUNK PART] REASSEMBLED: ${fullAudio.length} bytes from ${totalParts} parts`);
+      
+      const fullMessage: StreamingAudioChunkMessage = {
+        type: 'audio_chunk',
+        timestamp: buffer.baseMessage?.timestamp ?? Date.now(),
+        turnId: buffer.baseMessage?.turnId ?? 0,
+        sentenceIndex,
+        chunkIndex,
+        audio: fullAudio,
+        durationMs: buffer.baseMessage?.durationMs ?? 0,
+        audioFormat: (buffer.baseMessage?.audioFormat as 'mp3' | 'pcm_f32le') ?? 'pcm_f32le',
+        sampleRate: buffer.baseMessage?.sampleRate ?? 24000,
+        isLast: buffer.baseMessage?.isLast ?? true,
+      };
+      
+      // Clean up and process
+      this.pendingSubChunks.delete(key);
+      this.handleAudioChunk(fullMessage);
+    }
   }
   
   private handleWordTiming(message: StreamingWordTimingMessage): void {

@@ -126,11 +126,48 @@ class SocketIOWebSocketAdapter {
         // This prevents double-stringification where client receives a string instead of object
         try {
           const parsed = JSON.parse(data);
-          if (parsed.type === 'audio_chunk' || parsed.type === 'word_timing') {
-            console.log(`[SOCKET EMIT] ${parsed.type}: connected=${this.socket.connected}, dataLen=${data.length}`);
+          
+          // CHUNKING: Large audio_chunk messages get dropped by Replit proxy
+          // Split into smaller chunks (64KB base64 = ~48KB raw) for reliable delivery
+          if (parsed.type === 'audio_chunk' && parsed.audio && parsed.audio.length > 50000) {
+            const CHUNK_SIZE = 50000; // 50KB chunks of base64
+            const totalChunks = Math.ceil(parsed.audio.length / CHUNK_SIZE);
+            console.log(`[SOCKET EMIT] audio_chunk: CHUNKING ${parsed.audio.length} bytes into ${totalChunks} chunks`);
+            
+            for (let i = 0; i < totalChunks; i++) {
+              const start = i * CHUNK_SIZE;
+              const end = Math.min(start + CHUNK_SIZE, parsed.audio.length);
+              const chunkData = parsed.audio.slice(start, end);
+              
+              const chunkMsg = {
+                type: 'audio_chunk_part',
+                sentenceIndex: parsed.sentenceIndex,
+                chunkIndex: parsed.chunkIndex,
+                partIndex: i,
+                totalParts: totalChunks,
+                audio: chunkData,
+                // Include full metadata only in first chunk
+                ...(i === 0 ? {
+                  timestamp: parsed.timestamp,
+                  turnId: parsed.turnId,
+                  durationMs: parsed.durationMs,
+                  audioFormat: parsed.audioFormat,
+                  sampleRate: parsed.sampleRate,
+                  isLast: parsed.isLast,
+                } : {}),
+                // Mark final part
+                isFinalPart: i === totalChunks - 1,
+              };
+              
+              this.socket.emit('message', chunkMsg);
+            }
+          } else {
+            if (parsed.type === 'audio_chunk' || parsed.type === 'word_timing') {
+              console.log(`[SOCKET EMIT] ${parsed.type}: connected=${this.socket.connected}, dataLen=${data.length}`);
+            }
+            // Emit parsed object, not string - Socket.io handles serialization
+            this.socket.emit('message', parsed);
           }
-          // Emit parsed object, not string - Socket.io handles serialization
-          this.socket.emit('message', parsed);
         } catch (e) {
           // Fallback: emit as-is if not valid JSON
           this.socket.emit('message', data);
