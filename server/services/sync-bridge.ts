@@ -412,6 +412,9 @@ class SyncBridgeService {
     const counts: Record<string, number> = {};
     const errors: string[] = [];
     
+    // Process items in parallel batches for speed (25 concurrent, prevents DB connection exhaustion)
+    const BATCH_CONCURRENCY = 25;
+    
     const importWithCount = async (
       name: string,
       items: any[] | undefined,
@@ -422,12 +425,20 @@ class SyncBridgeService {
         return;
       }
       let successCount = 0;
-      for (const item of items) {
-        try {
-          const result = await importFn(item);
-          if (result?.success) successCount++;
-        } catch (err: any) {
-          errors.push(`${name}: ${err.message}`);
+      
+      // Process in parallel batches of BATCH_CONCURRENCY
+      for (let i = 0; i < items.length; i += BATCH_CONCURRENCY) {
+        const batch = items.slice(i, i + BATCH_CONCURRENCY);
+        const results = await Promise.allSettled(
+          batch.map(item => importFn(item))
+        );
+        
+        for (const result of results) {
+          if (result.status === 'fulfilled' && result.value?.success) {
+            successCount++;
+          } else if (result.status === 'rejected') {
+            errors.push(`${name}: ${result.reason?.message || 'Unknown error'}`);
+          }
         }
       }
       counts[name] = successCount;
