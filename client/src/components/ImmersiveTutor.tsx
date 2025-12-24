@@ -174,6 +174,11 @@ export function ImmersiveTutor({
   const playbackStateRef = useRef(playbackState);
   playbackStateRef.current = playbackState; // Always sync with latest prop
   
+  // DEBUG: Log every time playbackState prop changes
+  useEffect(() => {
+    console.log('[IMMERSIVE TUTOR PROP] playbackState changed to:', playbackState);
+  }, [playbackState]);
+  
   // Debounce voice switching to prevent rapid clicks
   const voiceSwitchInProgressRef = useRef<boolean>(false);
 

@@ -214,9 +214,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     // IMPORTANT: Use subtitlesRef.current to get latest subtitles (avoids stale closure)
     playerRef.current.setCallbacks({
       onStateChange: (state) => {
-        if (isVerboseLoggingEnabled()) {
-          console.log(`[StreamingVoice] Playback state: ${state}`);
-        }
+        // ALWAYS log state changes for debugging (not gated by verbose)
+        console.log(`[PLAYBACK CALLBACK] onStateChange called with: ${state}`);
         setPlaybackState(state);
       },
       onProgress: (currentTime, duration) => {
