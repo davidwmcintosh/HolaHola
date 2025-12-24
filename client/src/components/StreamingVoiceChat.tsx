@@ -1657,6 +1657,7 @@ export function StreamingVoiceChat({
       
       // Track that button is being held (for stable instruction text)
       // Use both state (for UI) and ref (for synchronous guards)
+      console.log('[PTT-STATE-DEBUG] Setting isPttButtonHeld=TRUE at', new Date().toISOString());
       setIsPttButtonHeld(true);
       isPttButtonHeldRef.current = true;
       activeInputTypeRef.current = inputType;
@@ -1955,6 +1956,7 @@ export function StreamingVoiceChat({
     
     // Track that button is released (for stable instruction text)
     // Update both state and ref
+    console.log('[PTT-STATE-DEBUG] Setting isPttButtonHeld=FALSE at', new Date().toISOString(), 'call stack:', new Error().stack);
     setIsPttButtonHeld(false);
     isPttButtonHeldRef.current = false;
     activeInputTypeRef.current = null;

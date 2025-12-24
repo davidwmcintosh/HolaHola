@@ -219,6 +219,7 @@ export function ImmersiveTutor({
   // Uses refs to keep listener stable (no re-attachment on re-renders)
   useEffect(() => {
     const handleGlobalMouseUp = () => {
+      console.log('[PTT-GLOBAL-DEBUG] Global mouseup fired, isPointerRecordingRef=', isPointerRecordingRef.current);
       if (isPointerRecordingRef.current) {
         console.log('[MIC BUTTON] Global mouse up - stopping recording');
         isPointerRecordingRef.current = false;
