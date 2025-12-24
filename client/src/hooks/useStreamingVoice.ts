@@ -199,6 +199,13 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   const subtitlesRef = useRef(subtitles);
   subtitlesRef.current = subtitles;
   
+  // Generate a unique callback ID for this component instance
+  const callbackIdRef = useRef(`cb_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`);
+  
+  // Track the setPlaybackState function in a ref for stable reference
+  const setPlaybackStateRef = useRef(setPlaybackState);
+  setPlaybackStateRef.current = setPlaybackState;
+  
   /**
    * Initialize the audio player
    * CRITICAL: Use getStreamingAudioPlayer() singleton to prevent Vite duplicate module issue
@@ -206,17 +213,21 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    */
   useEffect(() => {
     playerRef.current = getStreamingAudioPlayer();
+    const cbId = callbackIdRef.current;
+    
+    console.log(`[CALLBACK SETUP] Registering callbacks with ID: ${cbId}`);
     
     // Set up player callbacks
     // NOTE: isProcessing is only cleared when BOTH:
     // 1. Server has sent response_complete (responseCompleteRef = true)
     // 2. No pending audio chunks (pendingAudioCountRef = 0)
-    // IMPORTANT: Use subtitlesRef.current to get latest subtitles (avoids stale closure)
+    // IMPORTANT: Use refs to get latest values (avoids stale closure)
     playerRef.current.setCallbacks({
       onStateChange: (state) => {
         // ALWAYS log state changes for debugging (not gated by verbose)
-        console.log(`[PLAYBACK CALLBACK] onStateChange called with: ${state}`);
-        setPlaybackState(state);
+        console.log(`[PLAYBACK CALLBACK ${cbId}] onStateChange: ${state}`);
+        // Use ref to ensure we always call the current setPlaybackState
+        setPlaybackStateRef.current(state);
       },
       onProgress: (currentTime, duration) => {
         // Update subtitle highlighting with actual duration for rescaling
@@ -272,6 +283,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     });
     
     return () => {
+      console.log(`[CALLBACK CLEANUP] Removing callbacks with ID: ${cbId}`);
       playerRef.current?.destroy();
     };
   }, []);
