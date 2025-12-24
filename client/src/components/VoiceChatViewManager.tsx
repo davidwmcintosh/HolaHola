@@ -53,6 +53,8 @@ interface VoiceChatViewManagerProps {
   isPttButtonHeld?: boolean;
   // Playback state for guards - 'buffering' happens before 'playing'
   playbackState?: 'idle' | 'buffering' | 'playing' | 'paused';
+  // Interrupt handler - called when user presses mic during audio playback (barge-in)
+  onInterrupt?: () => void;
 }
 
 export function VoiceChatViewManager({
@@ -92,6 +94,7 @@ export function VoiceChatViewManager({
   openMicState = 'idle',
   isPttButtonHeld = false,
   playbackState = 'idle',
+  onInterrupt,
 }: VoiceChatViewManagerProps) {
   const [view, setView] = useState<"live" | "history">("live");
   const touchStartX = useRef<number>(0);
@@ -213,6 +216,7 @@ export function VoiceChatViewManager({
                 openMicState={openMicState}
                 isPttButtonHeld={isPttButtonHeld}
                 playbackState={playbackState}
+                onInterrupt={onInterrupt}
               />
             </div>
           ) : (

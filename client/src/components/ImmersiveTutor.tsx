@@ -119,6 +119,8 @@ interface ImmersiveTutorProps {
   isPttButtonHeld?: boolean;
   // Playback state for guards - 'buffering' happens before 'playing'
   playbackState?: 'idle' | 'buffering' | 'playing' | 'paused';
+  // Interrupt handler - called when user presses mic during audio playback (barge-in)
+  onInterrupt?: () => void;
 }
 
 export function ImmersiveTutor({
@@ -159,6 +161,7 @@ export function ImmersiveTutor({
   openMicState = 'idle',
   isPttButtonHeld = false,
   playbackState: propPlaybackState = 'idle',
+  onInterrupt,
 }: ImmersiveTutorProps) {
   // CRITICAL: Use global playback state store instead of prop
   // This bypasses React prop drilling which becomes stale during HMR
@@ -848,9 +851,11 @@ export function ImmersiveTutor({
                 e.preventDefault();
                 e.stopPropagation();
                 console.log('[PTT-TOUCH-DEBUG] Touch start, isUsersTurn:', isUsersTurn, 'playbackState:', playbackState, 'isPointerRecordingRef:', isPointerRecordingRef.current, 'isTouchRecordingRef:', isTouchRecordingRef.current);
-                // GUARD: Block phantom touchstart during speculative PTT (playbackState is 'buffering' before 'playing')
-                if (playbackState !== 'idle') {
-                  console.log(`[PTT-TOUCH-DEBUG] Ignoring touchstart - playbackState='${playbackState}' (speculative PTT audio in progress)`);
+                // INTERRUPT: If audio is playing, send interrupt signal first
+                if (playbackState !== 'idle' && onInterrupt) {
+                  console.log(`[PTT-TOUCH-DEBUG] Sending interrupt - playbackState='${playbackState}' (user barge-in)`);
+                  onInterrupt();
+                  // Don't start recording immediately - let interrupt handler reset state
                   return;
                 }
                 if (isUsersTurn && !isRecording && !isMicPreparing && !isTouchRecordingRef.current) {
@@ -873,9 +878,11 @@ export function ImmersiveTutor({
               onMouseDown={(e) => {
                 e.preventDefault();
                 console.log('[MIC BUTTON] Mouse down, isUsersTurn:', isUsersTurn, 'playbackState:', playbackState);
-                // GUARD: Block phantom mousedown during speculative PTT (playbackState is 'buffering' before 'playing')
-                if (playbackState !== 'idle') {
-                  console.log(`[MIC BUTTON] Ignoring mousedown - playbackState='${playbackState}' (speculative PTT audio in progress)`);
+                // INTERRUPT: If audio is playing, send interrupt signal first
+                if (playbackState !== 'idle' && onInterrupt) {
+                  console.log(`[MIC BUTTON] Sending interrupt - playbackState='${playbackState}' (user barge-in)`);
+                  onInterrupt();
+                  // Don't start recording immediately - let interrupt handler reset state
                   return;
                 }
                 if (isUsersTurn && !isRecording && !isMicPreparing && !isPointerRecordingRef.current) {
@@ -896,8 +903,8 @@ export function ImmersiveTutor({
                   console.log('[MIC BUTTON] Mouse leave - continuing recording (global mouseup will handle stop)');
                 }
               }}
-              disabled={!isUsersTurn && !isRecording}
-              className={`h-14 w-14 md:h-16 md:w-16 rounded-full shadow-lg select-none focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 ${isMicPreparing ? 'animate-pulse' : ''} ${!isUsersTurn && !isRecording ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={!isUsersTurn && !isRecording && playbackState === 'idle'}
+              className={`h-14 w-14 md:h-16 md:w-16 rounded-full shadow-lg select-none focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 ${isMicPreparing ? 'animate-pulse' : ''} ${!isUsersTurn && !isRecording && playbackState === 'idle' ? 'opacity-50 cursor-not-allowed' : ''}`}
               style={{ touchAction: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
               data-testid={isRecording ? "button-stop-recording" : isMicPreparing ? "button-preparing" : "button-start-recording"}
               aria-pressed={isRecording || isMicPreparing}
@@ -916,9 +923,11 @@ export function ImmersiveTutor({
             <span className="text-[10px] text-muted-foreground">
               {isRecording || isPttButtonHeld 
                 ? "Release to send" 
-                : !isUsersTurn 
-                  ? "Please wait" 
-                  : "Hold to speak"}
+                : playbackState !== 'idle'
+                  ? "Tap to interrupt"
+                  : !isUsersTurn 
+                    ? "Please wait" 
+                    : "Hold to speak"}
             </span>
           )}
         </div>

@@ -1377,10 +1377,13 @@ export function StreamingVoiceChat({
       // Don't trigger if no conversation or processing
       if (!currentConversationRef.current || isProcessingRef.current) return;
       
-      // GUARD: Block phantom keydown during speculative PTT (playbackState is 'buffering' before 'playing')
-      // This prevents starting a new recording when AI audio is already being processed
+      // INTERRUPT: If audio is playing, send interrupt signal instead of blocking
+      // This allows user to barge-in and stop Daniela mid-speech
       if (playbackStateRef.current !== 'idle') {
-        console.log(`[KEYBOARD] Ignoring keydown - playbackState='${playbackStateRef.current}' (speculative PTT in progress)`);
+        console.log(`[KEYBOARD] Sending interrupt - playbackState='${playbackStateRef.current}' (user barge-in via Enter key)`);
+        streamingVoice.sendInterrupt();
+        // Don't start recording immediately - let interrupt handler reset state
+        event.preventDefault();
         return;
       }
       
@@ -2917,6 +2920,7 @@ export function StreamingVoiceChat({
           openMicState={openMicState}
           isPttButtonHeld={isPttButtonHeld}
           playbackState={streamingVoice.state.playbackState}
+          onInterrupt={streamingVoice.sendInterrupt}
         />
       </div>
     </div>
