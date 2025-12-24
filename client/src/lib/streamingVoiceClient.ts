@@ -299,6 +299,8 @@ export class StreamingVoiceClient {
         
         // Handle JSON messages from server
         socket.on('message', (data: any) => {
+          console.log('[WS SOCKET ON MESSAGE] Received:', data?.type || 'unknown', 'data:', JSON.stringify(data).slice(0, 100));
+          
           // First message = connection confirmed (even if connect didn't fire)
           if (!resolved) {
             console.log('[StreamingVoice] First message received (connection confirmed)');
