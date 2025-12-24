@@ -227,6 +227,8 @@ export function StreamingVoiceChat({
   };
   const [isRecording, setIsRecording] = useState(false);
   const [isPttButtonHeld, setIsPttButtonHeld] = useState(false); // Track if PTT button is physically held (separate from MediaRecorder state)
+  const isPttButtonHeldRef = useRef(false); // Synchronous ref for guards (state is async)
+  const activeInputTypeRef = useRef<'mouse' | 'touch' | 'keyboard' | null>(null); // Track which input started recording
   const [isMicPreparing, setIsMicPreparing] = useState(false); // Show "Preparing mic..." before actual recording starts
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStage, setProcessingStage] = useState<string | null>(null);
@@ -1339,7 +1341,7 @@ export function StreamingVoiceChat({
       if (!isRecording) {
         console.log('[KEYBOARD] Enter pressed - starting recording');
         recordingStartTimeRef.current = Date.now();
-        startPushToTalkRecording();
+        startPushToTalkRecording('keyboard');
       }
     };
     
@@ -1380,12 +1382,12 @@ export function StreamingVoiceChat({
           setTimeout(() => {
             console.log('[KEYBOARD] Enter released - stopping recording (delayed)');
             recordingStartTimeRef.current = null;
-            stopPushToTalkRecording();
+            stopPushToTalkRecording('keyboard');
           }, remainingTime);
         } else {
           console.log('[KEYBOARD] Enter released - stopping recording');
           recordingStartTimeRef.current = null;
-          stopPushToTalkRecording();
+          stopPushToTalkRecording('keyboard');
         }
       }
     };
@@ -1624,9 +1626,9 @@ export function StreamingVoiceChat({
   };
 
   // Push-to-talk mode: Hold down to record, release to stop
-  const startPushToTalkRecording = async () => {
+  const startPushToTalkRecording = async (inputType: 'mouse' | 'touch' | 'keyboard' = 'mouse') => {
     const startTime = performance.now();
-    console.log('[PUSH-TO-TALK] Button pressed at', startTime.toFixed(0), 'ms');
+    console.log('[PUSH-TO-TALK] Button pressed at', startTime.toFixed(0), 'ms, inputType:', inputType);
     
     if (isRecording || isMicPreparing) {
       console.log('[PUSH-TO-TALK] Already recording or preparing, ignoring');
@@ -1637,7 +1639,10 @@ export function StreamingVoiceChat({
       setError(null);
       
       // Track that button is being held (for stable instruction text)
+      // Use both state (for UI) and ref (for synchronous guards)
       setIsPttButtonHeld(true);
+      isPttButtonHeldRef.current = true;
+      activeInputTypeRef.current = inputType;
       
       // Mark that recording was requested - for race condition prevention
       recordingRequestedRef.current = true;
@@ -1911,13 +1916,31 @@ export function StreamingVoiceChat({
     }
   };
 
-  const stopPushToTalkRecording = () => {
+  const stopPushToTalkRecording = (inputType?: 'mouse' | 'touch' | 'keyboard' | 'force') => {
+    console.log('[PUSH-TO-TALK] Stop requested, inputType:', inputType, 'activeInputType:', activeInputTypeRef.current, 'isHeld:', isPttButtonHeldRef.current);
+    
+    // Guard: If an input type is specified, it must match the active input type
+    // This prevents mouse events from stopping touch recording, etc.
+    // 'force' bypasses the guard for cleanup scenarios
+    if (inputType && inputType !== 'force' && activeInputTypeRef.current !== inputType) {
+      console.log('[PUSH-TO-TALK] Ignoring stop - input type mismatch (expected:', activeInputTypeRef.current, 'got:', inputType, ')');
+      return;
+    }
+    
+    // Guard: Don't stop if the button is still held (prevents speculative AI from clearing state)
+    // This check uses the ref for synchronous access
+    if (inputType !== 'force' && !isPttButtonHeldRef.current && !isMicPreparing) {
+      console.log('[PUSH-TO-TALK] Ignoring stop - button not held and not preparing');
+      return;
+    }
+    
     console.log('[PUSH-TO-TALK] Releasing button, stopping recording...');
-    // DEBUG: Log stack trace to understand what's calling this
-    console.log('[PTT DEBUG] stopPushToTalkRecording called - stack:', new Error().stack?.split('\n').slice(1, 5).join(' | '));
     
     // Track that button is released (for stable instruction text)
+    // Update both state and ref
     setIsPttButtonHeld(false);
+    isPttButtonHeldRef.current = false;
+    activeInputTypeRef.current = null;
     
     // Cancel any pending recording start (for race condition prevention)
     recordingRequestedRef.current = false;

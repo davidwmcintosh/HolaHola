@@ -74,8 +74,8 @@ interface CollaborationEvent {
 
 interface ImmersiveTutorProps {
   messages: Message[];
-  onRecordingStart: () => void;
-  onRecordingStop: () => void;
+  onRecordingStart: (inputType?: 'mouse' | 'touch' | 'keyboard') => void;
+  onRecordingStop: (inputType?: 'mouse' | 'touch' | 'keyboard' | 'force') => void;
   isRecording: boolean;
   isMicPreparing?: boolean;
   isProcessing?: boolean;
@@ -219,7 +219,7 @@ export function ImmersiveTutor({
       if (isPointerRecordingRef.current || isMicPreparing) {
         console.log('[MIC BUTTON] Global mouse up - stopping recording');
         isPointerRecordingRef.current = false;
-        onRecordingStop();
+        onRecordingStop('mouse');
       }
     };
     
@@ -238,7 +238,7 @@ export function ImmersiveTutor({
         if (isTouchRecordingRef.current || isMicPreparing) {
           console.log('[MIC BUTTON] Global touch end - stopping recording');
           isTouchRecordingRef.current = false;
-          onRecordingStop();
+          onRecordingStop('touch');
         }
       }
     };
@@ -805,7 +805,7 @@ export function ImmersiveTutor({
                 console.log('[MIC BUTTON] Touch start, isUsersTurn:', isUsersTurn);
                 if (isUsersTurn && !isRecording && !isMicPreparing && !isTouchRecordingRef.current) {
                   isTouchRecordingRef.current = true;
-                  onRecordingStart();
+                  onRecordingStart('touch');
                 }
               }}
               onTouchEnd={(e) => {
@@ -825,16 +825,13 @@ export function ImmersiveTutor({
                 console.log('[MIC BUTTON] Mouse down, isUsersTurn:', isUsersTurn);
                 if (isUsersTurn && !isRecording && !isMicPreparing && !isPointerRecordingRef.current) {
                   isPointerRecordingRef.current = true;
-                  onRecordingStart();
+                  onRecordingStart('mouse');
                 }
               }}
               onMouseUp={(e) => {
+                // Let global mouseup handler manage this - prevents double-calls
                 e.preventDefault();
-                console.log('[MIC BUTTON] Mouse up');
-                if (isPointerRecordingRef.current || isMicPreparing) {
-                  isPointerRecordingRef.current = false;
-                  onRecordingStop();
-                }
+                console.log('[MIC BUTTON] Mouse up on button (global handler will process)');
               }}
               onMouseLeave={(e) => {
                 // NOTE: We intentionally do NOT stop recording on mouse leave
