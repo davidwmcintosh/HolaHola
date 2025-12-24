@@ -1192,14 +1192,14 @@ class SyncBridgeService {
         console.log(`[SYNC-BRIDGE v16] Force resuming from run ${interruptedRun.id} (page ${interruptedRun.lastCompletedPage ?? -1})`);
       }
     } else {
-      // Normal mode: auto-resume if 5+ minutes old (gateway timeout is 60s, so 5min means definitely timed out)
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      // Normal mode: auto-resume if 90+ seconds old (gateway timeout is 60s, so 90s means definitely timed out)
+      const resumeThreshold = new Date(Date.now() - 90 * 1000);
       const [staleRun] = await db.select()
         .from(syncRuns)
         .where(and(
           eq(syncRuns.direction, 'pull'),
           eq(syncRuns.status, 'running'),
-          lt(syncRuns.startedAt, fiveMinutesAgo)
+          lt(syncRuns.startedAt, resumeThreshold)
         ))
         .orderBy(desc(syncRuns.startedAt))
         .limit(1);
