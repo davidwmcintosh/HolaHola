@@ -122,8 +122,23 @@ class SocketIOWebSocketAdapter {
       if (Buffer.isBuffer(data)) {
         this.socket.emit('binary', data);
       } else {
+        // Debug: log what we're sending
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.type === 'audio_chunk' || parsed.type === 'word_timing') {
+            console.log(`[SOCKET EMIT] ${parsed.type}: connected=${this.socket.connected}, dataLen=${data.length}`);
+          }
+        } catch (e) {}
         this.socket.emit('message', data);
       }
+    } else {
+      // Debug: log when socket is not connected
+      try {
+        const parsed = JSON.parse(data);
+        if (parsed.type === 'audio_chunk' || parsed.type === 'word_timing') {
+          console.log(`[SOCKET EMIT] SKIPPED ${parsed.type}: socket not connected`);
+        }
+      } catch (e) {}
     }
   }
   
