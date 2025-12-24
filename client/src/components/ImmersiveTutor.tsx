@@ -160,6 +160,10 @@ export function ImmersiveTutor({
   // This ensures pointer up always stops recording regardless of React state timing
   const isPointerRecordingRef = useRef<boolean>(false);
   
+  // Refs for callbacks to keep event listeners stable (avoid stale closures)
+  const onRecordingStopRef = useRef(onRecordingStop);
+  onRecordingStopRef.current = onRecordingStop; // Always sync with latest prop
+  
   // Debounce voice switching to prevent rapid clicks
   const voiceSwitchInProgressRef = useRef<boolean>(false);
 
@@ -212,33 +216,31 @@ export function ImmersiveTutor({
   
   // Global mouse-up listener for PTT - fixes trackpad issues where cursor leaves button while holding
   // This ensures releasing the mouse ANYWHERE stops recording
+  // Uses refs to keep listener stable (no re-attachment on re-renders)
   useEffect(() => {
-    if (!isPointerRecordingRef.current && !isMicPreparing) return;
-    
     const handleGlobalMouseUp = () => {
-      if (isPointerRecordingRef.current || isMicPreparing) {
+      if (isPointerRecordingRef.current) {
         console.log('[MIC BUTTON] Global mouse up - stopping recording');
         isPointerRecordingRef.current = false;
-        onRecordingStop('mouse');
+        onRecordingStopRef.current('mouse');
       }
     };
     
     window.addEventListener('mouseup', handleGlobalMouseUp);
     return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
-  }, [isRecording, isMicPreparing, onRecordingStop]);
+  }, []); // Empty deps - listener is stable, uses refs for current values
   
   // Global touch-end listener for PTT - fixes issue where finger moves off button bounds
   // while still pressing down, causing premature touchend on the button element
+  // Uses refs to keep listener stable (no re-attachment on re-renders)
   useEffect(() => {
-    if (!isTouchRecordingRef.current && !isMicPreparing) return;
-    
     const handleGlobalTouchEnd = (e: TouchEvent) => {
       // Only stop if ALL touches are released (no fingers left on screen)
       if (e.touches.length === 0) {
-        if (isTouchRecordingRef.current || isMicPreparing) {
+        if (isTouchRecordingRef.current) {
           console.log('[MIC BUTTON] Global touch end - stopping recording');
           isTouchRecordingRef.current = false;
-          onRecordingStop('touch');
+          onRecordingStopRef.current('touch');
         }
       }
     };
@@ -249,7 +251,7 @@ export function ImmersiveTutor({
       window.removeEventListener('touchend', handleGlobalTouchEnd);
       window.removeEventListener('touchcancel', handleGlobalTouchEnd);
     };
-  }, [isRecording, isMicPreparing, onRecordingStop]);
+  }, []); // Empty deps - listener is stable, uses refs for current values
 
   // Beacon type labels for display (using lucide-react icons, no emojis)
   const beaconTypeIcons: Record<string, { label: string; Icon: typeof BookOpen }> = {
