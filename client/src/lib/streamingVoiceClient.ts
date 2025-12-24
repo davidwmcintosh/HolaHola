@@ -286,6 +286,16 @@ export class StreamingVoiceClient {
           completeConnection('connect');
         });
         
+        // Debug: catch-all to see what events are being received
+        socket.onAny((eventName: string, ...args: any[]) => {
+          if (eventName === 'message') {
+            const data = args[0];
+            console.log('[SOCKET.IO onAny] EVENT:', eventName, 'TYPE:', data?.type, 'HAS AUDIO:', !!data?.audio);
+          } else {
+            console.log('[SOCKET.IO onAny] EVENT:', eventName);
+          }
+        });
+        
         socket.on('connect_error', (err) => {
           console.log('[StreamingVoice] Socket.io connect_error:', err.message);
           if (!resolved) {
