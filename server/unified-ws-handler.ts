@@ -122,14 +122,19 @@ class SocketIOWebSocketAdapter {
       if (Buffer.isBuffer(data)) {
         this.socket.emit('binary', data);
       } else {
-        // Debug: log what we're sending
+        // Parse JSON string to object - Socket.io will serialize it properly
+        // This prevents double-stringification where client receives a string instead of object
         try {
           const parsed = JSON.parse(data);
           if (parsed.type === 'audio_chunk' || parsed.type === 'word_timing') {
             console.log(`[SOCKET EMIT] ${parsed.type}: connected=${this.socket.connected}, dataLen=${data.length}`);
           }
-        } catch (e) {}
-        this.socket.emit('message', data);
+          // Emit parsed object, not string - Socket.io handles serialization
+          this.socket.emit('message', parsed);
+        } catch (e) {
+          // Fallback: emit as-is if not valid JSON
+          this.socket.emit('message', data);
+        }
       }
     } else {
       // Debug: log when socket is not connected
