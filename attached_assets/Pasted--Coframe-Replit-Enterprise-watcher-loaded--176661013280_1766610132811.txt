@@ -1,0 +1,812 @@
+ [Coframe] Replit Enterprise watcher loaded
+ 
+      /////////////////////
+   ///////////////////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////        Curious and driven?
+  ///////////////@@@@@@@///////        Work with us!
+  ///////////////@@@@@@@///////
+  ///////////////@@@@@@@///////        https://join.replit.com/hack.with.us
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@#//////////////
+   ///////////////////////////
+      /////////////////////
+      
+ Download the Apollo DevTools for a better development experience: https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+ [LaunchDarkly] LaunchDarkly client initialized
+ Cache data may be lost when replacing the dealContext field of a Org object.
+
+This could cause additional (usually avoidable) network requests to fetch data that were otherwise cached.
+
+To address this problem (which is not a bug in Apollo Client), either ensure all objects of type OrgDealContext have an ID or a custom merge function, or define a custom merge function for the Org.dealContext field, so InMemoryCache can safely merge these objects:
+
+  existing: {"__typename":"OrgDealContext","dealType":"default","salesContactEmail":null}
+  incoming: {"__typename":"OrgDealContext","dealType":"default"}
+
+For more information about these options, please refer to the documentation:
+
+  * Ensuring entity objects have IDs: https://go.apollo.dev/c/generating-unique-identifiers
+  * Defining custom merge functions: https://go.apollo.dev/c/merging-non-normalized-objects
+
+(anonymous) @ 5c2d3f9183060747.js:2
+stallwart.build.js:1 stallwart: failed ping 1
+stallwart.build.js:1 stallwart: failed ping 2
+3stallwart.build.js:1 stallwart: failed ping 1
+4HolaHola:1 Uncaught (in promise) 
+stallwart.build.js:1 stallwart: failed ping 1
+stallwart.build.js:1 stallwart: failed ping 2
+ [Coframe] Mutation callback infinite loop protection triggered, disconnecting mutation observer Object
+(anonymous) @ 5c2d3f9183060747.js:2
+3stallwart.build.js:1 stallwart: failed ping 1
+stallwart.build.js:1 stallwart: failed ping 2
+stallwart.build.js:1 stallwart: failed ping 3
+stallwart.build.js:1 stallwart: failed ping 4
+stallwart.build.js:1 stallwart: failed ping 1
+stallwart.build.js:1 stallwart: failed ping 2
+ task queue exceeded allotted deadline by 165ms
+(anonymous) @ 5c2d3f9183060747.js:2
+stallwart.build.js:1 stallwart: failed ping 1
+stallwart.build.js:1 stallwart: failed ping 2
+2stallwart.build.js:1 stallwart: failed ping 1
+stallwart.build.js:1 stallwart: failed ping 2
+stallwart.build.js:1 stallwart: failed ping 3
+stallwart.build.js:1 stallwart: failed ping 4
+stallwart.build.js:1 stallwart: failed ping 5
+970Third-party cookie will be blocked. Learn more in the Issues tab.
+7Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+ The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+e @ ed1e693c96a75807.js:2
+ The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+e @ ed1e693c96a75807.js:2
+ The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+e @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'ambient-light-sensor'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'battery'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'execution-while-not-rendered'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'execution-while-out-of-viewport'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'layout-animations'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'legacy-image-formats'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'navigation-override'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'oversized-images'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'publickey-credentials'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'speaker-selection'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'unoptimized-images'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'unsized-media'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'pointer-lock'.
+z @ ed1e693c96a75807.js:2
+ Allow attribute will take precedence over 'allowfullscreen'.
+z @ ed1e693c96a75807.js:2
+ Allow attribute will take precedence over 'allowpaymentrequest'.
+z @ ed1e693c96a75807.js:2
+ The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+e @ ed1e693c96a75807.js:2
+ The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+e @ ed1e693c96a75807.js:2
+ The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+e @ ed1e693c96a75807.js:2
+ The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+e @ ed1e693c96a75807.js:2
+ The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+e @ ed1e693c96a75807.js:2
+ The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+e @ ed1e693c96a75807.js:2
+ Failed when connecting: Connection closed (code: 1006)
+(anonymous) @ 5c2d3f9183060747.js:2
+ The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+e @ ed1e693c96a75807.js:2
+ The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+e @ ed1e693c96a75807.js:2
+ The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+e @ ed1e693c96a75807.js:2
+workspace_iframe.html:32 Unrecognized feature: 'ambient-light-sensor'.
+workspace_iframe.html:32 Unrecognized feature: 'battery'.
+workspace_iframe.html:32 Unrecognized feature: 'execution-while-not-rendered'.
+workspace_iframe.html:32 Unrecognized feature: 'execution-while-out-of-viewport'.
+workspace_iframe.html:32 Unrecognized feature: 'layout-animations'.
+workspace_iframe.html:32 Unrecognized feature: 'legacy-image-formats'.
+workspace_iframe.html:32 Unrecognized feature: 'navigation-override'.
+workspace_iframe.html:32 Unrecognized feature: 'oversized-images'.
+workspace_iframe.html:32 Unrecognized feature: 'publickey-credentials'.
+workspace_iframe.html:32 Unrecognized feature: 'speaker-selection'.
+workspace_iframe.html:32 Unrecognized feature: 'unoptimized-images'.
+workspace_iframe.html:32 Unrecognized feature: 'unsized-media'.
+workspace_iframe.html:32 Allow attribute will take precedence over 'allowfullscreen'.
+workspace_iframe.html:32 Allow attribute will take precedence over 'allowpaymentrequest'.
+50 Failed when connecting: Connection closed (code: 1006)
+(anonymous) @ 5c2d3f9183060747.js:2
+3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/:1 
+        
+        
+       Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+socket__io-client.js?v=40615109:1035 WebSocket connection to 'wss://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/socket.io/?EIO=4&transport=websocket' failed: WebSocket is closed before the connection is established.
+doClose @ socket__io-client.js?v=40615109:1035
+Show 1 more frame
+Show less
+socket__io-client.js?v=40615109:1059 WebSocket connection to 'wss://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/socket.io/?EIO=4&transport=websocket' failed: 
+createSocket @ socket__io-client.js?v=40615109:1059
+Show 1 more frame
+Show less
+chat:1 
+        
+        
+       Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+ WebSocket connection to 'wss://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev:5900/' failed: WebSocket is closed before the connection is established.
+value @ e093fd8aa1ccade0.js:2
+3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev:3002/:1 
+        
+        
+       Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+injected.js:37 [APP] Screen orientation lock not available
+injected.js:37 [BUILD] App version: 1763747293
+injected.js:37 [LanguageContext] Initializing with language: spanish (from localStorage)
+injected.js:37 [LanguageContext] Initializing with difficulty: beginner (from localStorage)
+injected.js:37 [LanguageContext] Initializing with userName: David (from localStorage)
+injected.js:37 [LanguageContext] Initializing with subtitleMode: all (from localStorage)
+injected.js:37 [LanguageContext] Initializing with tutorGender: female (from localStorage)
+injected.js:37 [LanguageContext] Initializing with voiceSpeed: normal (from localStorage)
+injected.js:37 [LanguageContext] Hydrating from user preferences: Object
+injected.js:37 [PWA] Service Worker registered: https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/
+injected.js:37 Warning: Function components cannot be given refs. Attempts to access this ref will fail. Did you mean to use React.forwardRef()?
+
+Check the render method of `Primitive.button.SlotClone`.
+    at Badge (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/ui/badge.tsx:36:18)
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=40615109:79:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=40615109:56:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=40615109:42:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=40615109:79:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=40615109:56:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=40615109:42:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-ST77IHW6.js?v=40615109:1931:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=40615109:200:13
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=40615109:38:15)
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=40615109:38:15)
+    at Popper (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-ST77IHW6.js?v=40615109:1923:11)
+    at Tooltip (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=40615109:109:5)
+    at div
+    at div
+    at div
+    at Chat (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/pages/chat.tsx:40:18)
+    at Route (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=40615109:323:16)
+    at Switch (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=40615109:379:17)
+    at Suspense
+    at div
+    at PageWrapper (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/App.tsx?v=yiN56ehuHPcem-2zD8tD1:135:24)
+    at Router (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/App.tsx?v=yiN56ehuHPcem-2zD8tD1:172:48)
+    at main
+    at div
+    at div
+    at div
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=40615109:38:15)
+    at TooltipProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=40615109:65:5)
+    at SidebarProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/ui/sidebar.tsx:59:3)
+    at LearningFilterProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/contexts/LearningFilterContext.tsx:23:42)
+    at UsageProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/contexts/UsageContext.tsx:46:33)
+    at LanguageProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/contexts/LanguageContext.tsx:22:36)
+    at AuthenticatedApp (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/App.tsx?v=yiN56ehuHPcem-2zD8tD1:471:29)
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=40615109:38:15)
+    at TooltipProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=40615109:65:5)
+    at QueryClientProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=40615109:2805:3)
+    at ErrorBoundary (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/ErrorBoundary.tsx:10:5)
+    at App
+(anonymous) @ injected.js:37
+injected.js:37 Warning: Function components cannot be given refs. Attempts to access this ref will fail. Did you mean to use React.forwardRef()?
+
+Check the render method of `Primitive.button.SlotClone`.
+    at Badge (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/ui/badge.tsx:36:18)
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=40615109:79:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=40615109:56:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=40615109:42:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=40615109:79:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=40615109:56:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=40615109:42:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-ST77IHW6.js?v=40615109:1931:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=40615109:200:13
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=40615109:38:15)
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=40615109:38:15)
+    at Popper (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-ST77IHW6.js?v=40615109:1923:11)
+    at Tooltip (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=40615109:109:5)
+    at CreditBalance (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/CreditBalance.tsx:24:3)
+    at div
+    at div
+    at div
+    at Chat (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/pages/chat.tsx:40:18)
+    at Route (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=40615109:323:16)
+    at Switch (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=40615109:379:17)
+    at Suspense
+    at div
+    at PageWrapper (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/App.tsx?v=yiN56ehuHPcem-2zD8tD1:135:24)
+    at Router (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/App.tsx?v=yiN56ehuHPcem-2zD8tD1:172:48)
+    at main
+    at div
+    at div
+    at div
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=40615109:38:15)
+    at TooltipProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=40615109:65:5)
+    at SidebarProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/ui/sidebar.tsx:59:3)
+    at LearningFilterProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/contexts/LearningFilterContext.tsx:23:42)
+    at UsageProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/contexts/UsageContext.tsx:46:33)
+    at LanguageProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/contexts/LanguageContext.tsx:22:36)
+    at AuthenticatedApp (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/App.tsx?v=yiN56ehuHPcem-2zD8tD1:471:29)
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=40615109:38:15)
+    at TooltipProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=40615109:65:5)
+    at QueryClientProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=40615109:2805:3)
+    at ErrorBoundary (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/ErrorBoundary.tsx:10:5)
+    at App
+(anonymous) @ injected.js:37
+injected.js:37 [CALLBACK SETUP] Subscribing with ID: cb_1766610079681_9qeh
+injected.js:37 [AUDIO PLAYER] subscribe: cb_1766610079681_9qeh (total: 1)
+injected.js:37 [PLAYBACK CALLBACK cb_1766610079681_9qeh] onStateChange: idle Object
+injected.js:37 [DOM EVENT BRIDGE] Listener registered
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [WHITEBOARD] Manually cleared
+injected.js:37 [STREAMING VOICE CHAT DEBUG] playbackState changed: idle
+injected.js:37 [SHARED CHAT] Founder Mode active - connecting to collaboration channel
+injected.js:37 [FounderCollab] Creating socket connection to namespace: /founder-collab
+injected.js:37 [FounderCollab] Socket created, socket.id: undefined connected: false
+injected.js:37 [SHARED CHAT] Auto-create check - waiting for active session check
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: false mode: voice
+injected.js:37 [SHARED CHAT] Creating shared conversation... (post-onboarding) forceNew: true mode: voice classId: undefined founderMode: true
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [SHARED CHAT] Auto-create check - skipped (already in progress or session locked)
+injected.js:37 [VOICE] TTS pre-warmed in 0ms
+injected.js:37 [FounderCollab] Transport opened, socket.connected: false
+injected.js:37 [FounderCollab] CONNECT EVENT FIRED! Socket.id: q-LZ8rzSvdfGwwyvAAAB
+injected.js:37 [MIC WARMUP] Pre-warming microphone (500ms after mount)...
+injected.js:37 [VOICE] Deepgram pre-warmed in 276ms
+injected.js:37 [SHARED CHAT] Shared conversation created: 7facf273-0bb7-4b6b-9720-8c9f17a87b57 classId: null mode: voice
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=false
+injected.js:37 [CLEANUP] Cleaning up voice recording resources...
+injected.js:37 [CLEANUP] Cleaning up recording resources...
+injected.js:37 [IMMERSIVE TUTOR PROP] playbackState changed to: idle
+injected.js:37 [STREAMING] Connecting to streaming voice...
+injected.js:37 [StreamingVoice] Creating Socket.io connection to /voice namespace...
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [WHITEBOARD] Manually cleared
+injected.js:37 [SHARED CHAT] Auto-create check - skipped (already in progress or session locked)
+injected.js:37 [FounderCollab] Server ready, emitting join_session
+injected.js:37 [FounderCollab] Emitting join_session with clientId: fc-1765663366153-bpeugfk
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Calling Daniela..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=false
+injected.js:37 [RINGING] Started telephone ring sound
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Calling Daniela..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [FounderCollab] Joined session 2295b52a-e13a-4b37-996d-7c3bd3ccb587
+injected.js:37 [FounderCollab] Replayed 3 messages, hasMore: false
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Calling Daniela..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [StreamingVoice] Socket.io connect event fired!
+injected.js:37 [StreamingVoice] Connection complete via: connect
+injected.js:37 [STREAMING] Connected successfully
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Calling Daniela..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=false
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Calling Daniela..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=false
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Calling Daniela..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Hold to speak" isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=false
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: connected HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: connected data: {"type":"connected","timestamp":1766610081446}
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Hold to speak" isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [SHARED CHAT] Auto-create check - skipped (already in progress or session locked)
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: connected HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: connected data: {"type":"connected","timestamp":1766610081766,"sessionId":"stream_1766610081764_e2cvulkgq"}
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: session_started HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: session_started data: {"type":"session_started","sessionId":"stream_1766610081764_e2cvulkgq","timestamp":1766610081768}
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Hold to speak" isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=false
+injected.js:37 [MIC WARMUP] SUCCESS! Microphone ready for instant recording (took 1560 ms)
+injected.js:37 [RINGING] Stopped telephone ring sound
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [VOICE GREETING] Lock acquired for message: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [STREAMING GREETING] Requesting NEW conversation AI-generated personalized greeting...
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=false
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: processing HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: processing data: {"type":"processing","timestamp":1766610082513,"turnId":1,"userTranscript":"[Greeting]"}
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=false
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: sentence_start HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: sentence_start data: {"type":"sentence_start","timestamp":1766610084046,"turnId":1,"sentenceIndex":0,"text":"Hey David! G
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=false
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: word_timing HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: word_timing data: {"type":"word_timing","timestamp":1766610085098,"turnId":1,"sentenceIndex":0,"words":[{"word":"Hey",
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":0,"chunkIndex":0,"partIndex":0,"totalParts":9,"audio":"3A
+injected.js:37 [AUDIO CHUNK PART] sentence=0, chunk=0, part=0/9
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":0,"chunkIndex":0,"partIndex":1,"totalParts":9,"audio":"zL
+injected.js:37 [AUDIO CHUNK PART] sentence=0, chunk=0, part=1/9
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":0,"chunkIndex":0,"partIndex":2,"totalParts":9,"audio":"6U
+injected.js:37 [AUDIO CHUNK PART] sentence=0, chunk=0, part=2/9
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":0,"chunkIndex":0,"partIndex":3,"totalParts":9,"audio":"ST
+injected.js:37 [AUDIO CHUNK PART] sentence=0, chunk=0, part=3/9
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":0,"chunkIndex":0,"partIndex":4,"totalParts":9,"audio":"t/
+injected.js:37 [AUDIO CHUNK PART] sentence=0, chunk=0, part=4/9
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":0,"chunkIndex":0,"partIndex":5,"totalParts":9,"audio":"By
+injected.js:37 [AUDIO CHUNK PART] sentence=0, chunk=0, part=5/9
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":0,"chunkIndex":0,"partIndex":6,"totalParts":9,"audio":"k9
+injected.js:37 [AUDIO CHUNK PART] sentence=0, chunk=0, part=6/9
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":0,"chunkIndex":0,"partIndex":7,"totalParts":9,"audio":"MR
+injected.js:37 [AUDIO CHUNK PART] sentence=0, chunk=0, part=7/9
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":0,"chunkIndex":0,"partIndex":8,"totalParts":9,"audio":"xU
+injected.js:37 [AUDIO CHUNK PART] sentence=0, chunk=0, part=8/9
+injected.js:37 [AUDIO CHUNK PART] REASSEMBLED: 416096 bytes from 9 parts
+injected.js:37 [TELEMETRY] audio_chunk_reassembled Object
+injected.js:37 [TELEMETRY] audio_chunk_received Object
+injected.js:37 [HOOK handleAudioChunk] CALLED! sentence= 0 chunk= 0 audioLen= 416096
+injected.js:37 [AUDIO PLAYER] enqueueProgressivePcmChunk: sentence=0, chunk=0, size=312072, held=false
+injected.js:37 [AUDIO PLAYER] State change: idle -> buffering (subscribers: 1)
+injected.js:37 [TELEMETRY] playback_state_change Object
+injected.js:37 [AUDIO PLAYER] notifyStateChange: buffering to 1 subscribers: [cb_1766610079681_9qeh]
+injected.js:37 [PLAYBACK CALLBACK cb_1766610079681_9qeh] onStateChange: buffering Object
+injected.js:37 [DOM EVENT BRIDGE] Received state: buffering, subscribers: 1, ts: 1766610085178
+injected.js:37 [AUDIO PLAYER] State change: buffering -> playing (subscribers: 1)
+injected.js:37 [TELEMETRY] playback_state_change Object
+injected.js:37 [AUDIO PLAYER] notifyStateChange: playing to 1 subscribers: [cb_1766610079681_9qeh]
+injected.js:37 [PLAYBACK CALLBACK cb_1766610079681_9qeh] onStateChange: playing Object
+injected.js:37 [DOM EVENT BRIDGE] Received state: playing, subscribers: 1, ts: 1766610085193
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: sentence_end HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: sentence_end data: {"type":"sentence_end","timestamp":1766610085103,"turnId":1,"sentenceIndex":0,"totalDurationMs":3250
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: sentence_start HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: sentence_start data: {"type":"sentence_start","timestamp":1766610085104,"turnId":1,"sentenceIndex":1,"text":"What are we 
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [IMMERSIVE TUTOR PROP] playbackState changed to: playing
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [STREAMING VOICE CHAT DEBUG] playbackState changed: playing
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: word_timing HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: word_timing data: {"type":"word_timing","timestamp":1766610086090,"turnId":1,"sentenceIndex":1,"words":[{"word":"What"
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":1,"chunkIndex":0,"partIndex":0,"totalParts":9,"audio":"hR
+injected.js:37 [AUDIO CHUNK PART] sentence=1, chunk=0, part=0/9
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":1,"chunkIndex":0,"partIndex":1,"totalParts":9,"audio":"no
+injected.js:37 [AUDIO CHUNK PART] sentence=1, chunk=0, part=1/9
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":1,"chunkIndex":0,"partIndex":2,"totalParts":9,"audio":"YO
+injected.js:37 [AUDIO CHUNK PART] sentence=1, chunk=0, part=2/9
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":1,"chunkIndex":0,"partIndex":3,"totalParts":9,"audio":"q9
+injected.js:37 [AUDIO CHUNK PART] sentence=1, chunk=0, part=3/9
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":1,"chunkIndex":0,"partIndex":4,"totalParts":9,"audio":"cz
+injected.js:37 [AUDIO CHUNK PART] sentence=1, chunk=0, part=4/9
+injected.js:37 [LOOP] Frame 10: entries=[S0(end=3.45)] now=0.78
+(anonymous) @ injected.js:37
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":1,"chunkIndex":0,"partIndex":5,"totalParts":9,"audio":"qD
+injected.js:37 [AUDIO CHUNK PART] sentence=1, chunk=0, part=5/9
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":1,"chunkIndex":0,"partIndex":6,"totalParts":9,"audio":"xv
+injected.js:37 [AUDIO CHUNK PART] sentence=1, chunk=0, part=6/9
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":1,"chunkIndex":0,"partIndex":7,"totalParts":9,"audio":"Wm
+injected.js:37 [AUDIO CHUNK PART] sentence=1, chunk=0, part=7/9
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":1,"chunkIndex":0,"partIndex":8,"totalParts":9,"audio":"wG
+injected.js:37 [AUDIO CHUNK PART] sentence=1, chunk=0, part=8/9
+injected.js:37 [AUDIO CHUNK PART] REASSEMBLED: 427992 bytes from 9 parts
+injected.js:37 [TELEMETRY] audio_chunk_reassembled Object
+injected.js:37 [TELEMETRY] audio_chunk_received Object
+injected.js:37 [HOOK handleAudioChunk] CALLED! sentence= 1 chunk= 0 audioLen= 427992
+injected.js:37 [AUDIO PLAYER] enqueueProgressivePcmChunk: sentence=1, chunk=0, size=320992, held=false
+injected.js:37 [AUDIO PLAYER] State change: playing -> buffering (subscribers: 1)
+injected.js:37 [TELEMETRY] playback_state_change Object
+injected.js:37 [AUDIO PLAYER] notifyStateChange: buffering to 1 subscribers: [cb_1766610079681_9qeh]
+injected.js:37 [PLAYBACK CALLBACK cb_1766610079681_9qeh] onStateChange: buffering Object
+injected.js:37 [DOM EVENT BRIDGE] Received state: buffering, subscribers: 1, ts: 1766610086258
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: sentence_end HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: sentence_end data: {"type":"sentence_end","timestamp":1766610086096,"turnId":1,"sentenceIndex":1,"totalDurationMs":3343
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: response_complete HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: response_complete data: {"type":"response_complete","timestamp":1766610086096,"turnId":1,"totalSentences":2,"totalDurationMs
+injected.js:37 [STREAMING] Response complete - refreshing messages for 7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [STREAMING] Storing combined audio for replay: 633064 bytes
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [IMMERSIVE TUTOR PROP] playbackState changed to: buffering
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [STREAMING VOICE CHAT DEBUG] playbackState changed: buffering
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [LOOP] Frame 20: entries=[S0(end=3.45), S1(end=6.79)] now=1.71
+(anonymous) @ injected.js:37
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [STREAMING] Setting lastMessageId for replay: a63f7176-4d89-44c4-a6be-4777bab8d8e6
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [LOOP] Frame 30: entries=[S0(end=3.45), S1(end=6.79)] now=2.09
+(anonymous) @ injected.js:37
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [LOOP] Frame 40: entries=[S0(end=3.45), S1(end=6.79)] now=2.29
+(anonymous) @ injected.js:37
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [LOOP] Frame 50: entries=[S0(end=3.45), S1(end=6.79)] now=2.52
+(anonymous) @ injected.js:37
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [LOOP] Frame 60: entries=[S0(end=3.45), S1(end=6.79)] now=2.70
+(anonymous) @ injected.js:37
+injected.js:37 [LOOP] Frame 70: entries=[S0(end=3.45), S1(end=6.79)] now=2.87
+(anonymous) @ injected.js:37
+injected.js:37 [LOOP] Frame 80: entries=[S0(end=3.45), S1(end=6.79)] now=3.03
+(anonymous) @ injected.js:37
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [LOOP] Frame 90: entries=[S0(end=3.45), S1(end=6.79)] now=3.23
+(anonymous) @ injected.js:37
+injected.js:37 [LOOP] Frame 100: entries=[S0(end=3.45), S1(end=6.79)] now=3.40
+(anonymous) @ injected.js:37
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [PTT-GLOBAL-DEBUG] Global mouseup fired, isPointerRecordingRef= false
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [LOOP] Frame 110: entries=[S0(end=3.45), S1(end=6.79)] now=3.73
+(anonymous) @ injected.js:37
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [LOOP] Frame 120: entries=[S0(end=3.45), S1(end=6.79)] now=4.02
+(anonymous) @ injected.js:37
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [LOOP] Frame 130: entries=[S0(end=3.45), S1(end=6.79)] now=4.18
+(anonymous) @ injected.js:37
+injected.js:37 [LOOP] Frame 140: entries=[S0(end=3.45), S1(end=6.79)] now=4.36
+(anonymous) @ injected.js:37
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [LOOP] Frame 150: entries=[S0(end=3.45), S1(end=6.79)] now=4.59
+(anonymous) @ injected.js:37
+injected.js:37 [LOOP] Frame 160: entries=[S0(end=3.45), S1(end=6.79)] now=4.75
+(anonymous) @ injected.js:37
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [LOOP] Frame 170: entries=[S0(end=3.45), S1(end=6.79)] now=4.93
+(anonymous) @ injected.js:37
+injected.js:37 [LOOP] Frame 180: entries=[S0(end=3.45), S1(end=6.79)] now=5.10
+(anonymous) @ injected.js:37
+injected.js:37 [LOOP] Frame 190: entries=[S0(end=3.45), S1(end=6.79)] now=5.27
+(anonymous) @ injected.js:37
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [LOOP] Frame 200: entries=[S0(end=3.45), S1(end=6.79)] now=5.57
+(anonymous) @ injected.js:37
+injected.js:37 [LOOP] Frame 210: entries=[S0(end=3.45), S1(end=6.79)] now=5.73
+(anonymous) @ injected.js:37
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [LOOP] Frame 220: entries=[S0(end=3.45), S1(end=6.79)] now=5.93
+(anonymous) @ injected.js:37
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [LOOP] Frame 230: entries=[S0(end=3.45), S1(end=6.79)] now=6.13
+(anonymous) @ injected.js:37
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [LOOP] Frame 240: entries=[S0(end=3.45), S1(end=6.79)] now=6.38
+(anonymous) @ injected.js:37
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [LOOP] Frame 250: entries=[S0(end=3.45), S1(end=6.79)] now=6.53
+(anonymous) @ injected.js:37
+injected.js:37 [LOOP] Frame 260: entries=[S0(end=3.45), S1(end=6.79)] now=6.70
+(anonymous) @ injected.js:37
+injected.js:37 [AUDIO PLAYER] State change: buffering -> idle (subscribers: 1)
+injected.js:37 [TELEMETRY] playback_state_change Object
+injected.js:37 [AUDIO PLAYER] notifyStateChange: idle to 1 subscribers: [cb_1766610079681_9qeh]
+injected.js:37 [PLAYBACK CALLBACK cb_1766610079681_9qeh] onStateChange: idle Object
+injected.js:37 [DOM EVENT BRIDGE] Received state: idle, subscribers: 1, ts: 1766610092009
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Hold to speak" isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=false
+injected.js:37 [IMMERSIVE TUTOR PROP] playbackState changed to: idle
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [STREAMING VOICE CHAT DEBUG] playbackState changed: idle
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Hold to speak" isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [KEYBOARD] Enter pressed - starting recording, isKeyboardHeld=true
+injected.js:37 [PUSH-TO-TALK] Button pressed at 41511 ms, inputType: keyboard
+injected.js:37 [PTT-STATE-DEBUG] Setting isPttButtonHeld=TRUE at 2025-12-24T21:01:32.710Z
+injected.js:37 [PUSH-TO-TALK] Cached stream status: Object
+injected.js:37 [PUSH-TO-TALK] Using cached stream - INSTANT start! (+6ms)
+injected.js:37 [PTT DIAGNOSTIC] Audio tracks: 1
+injected.js:37 [PTT DIAGNOSTIC] Track 0 settings: Object
+injected.js:37 [PTT DIAGNOSTIC] Track 0 constraints: Object
+injected.js:37 [PTT DIAGNOSTIC] Track 0 capabilities: Object
+injected.js:37 [PTT DIAGNOSTIC] Track 0 state: Object
+injected.js:37 [RECORDING] Using audio codec: audio/webm;codecs=opus
+injected.js:37 [PTT DIAGNOSTIC] MediaRecorder created: Object
+injected.js:37 [StreamingAudioPlayer] Playback held - buffering audio
+injected.js:37 [SpeculativePTT] AudioContext sample rate: 16000Hz (target: 16000Hz, resampling: false)
+StreamingVoiceChat.tsx:1932 [Deprecation] The ScriptProcessorNode is deprecated. Use AudioWorkletNode instead. (https://bit.ly/audio-worklet)
+startPushToTalkRecording @ StreamingVoiceChat.tsx:1932
+injected.js:37 [SpeculativePTT] Real-time streaming started
+injected.js:37 [PUSH-TO-TALK] Recording started - release to stop
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=true isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=true isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: ptt_speech_started HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: ptt_speech_started data: {"type":"ptt_speech_started","timestamp":1766610094328}
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: ptt_speech_started HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: ptt_speech_started data: {"type":"ptt_speech_started","timestamp":1766610094662}
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1766610095293,"text":"Sorry. Still deep","wordCount":3}
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: processing HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: processing data: {"type":"processing","timestamp":1766610095294,"turnId":2,"userTranscript":"Sorry. Still deep"}
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=true isRecording=true isPlaying=false isUsersTurn=false isProcessing=false
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: ptt_speculative_ai_started HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: ptt_speculative_ai_started data: {"type":"ptt_speculative_ai_started","timestamp":1766610095295,"transcript":"Sorry. Still deep"}
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1766610096126,"text":"Sorry. Still debugging my end.","
+injected.js:37 [KEYBOARD] Enter released - stopping recording
+injected.js:37 [PTT-STOP-DEBUG] Stop requested, inputType: keyboard activeInputType: keyboard isHeld: true
+injected.js:37 [PTT-STOP-DEBUG] Guard passed, proceeding...
+injected.js:37 [PUSH-TO-TALK] Releasing button, stopping recording...
+injected.js:37 [PTT-STATE-DEBUG] Setting isPttButtonHeld=FALSE at 2025-12-24T21:01:36.509Z call stack: Error
+    at stopPushToTalkRecording (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/StreamingVoiceChat.tsx:1331:130)
+    at handleKeyUp (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/StreamingVoiceChat.tsx:954:11)
+injected.js:37 [StreamingAudioPlayer] Playback released - processing 0 buffered chunks
+injected.js:37 [SpeculativePTT] Stopped streaming and sent ptt_release
+injected.js:37 [PUSH-TO-TALK] Resetting subtitles immediately on button release
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=false isRecording=true isPlaying=false isUsersTurn=false isProcessing=false
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: sentence_start HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: sentence_start data: {"type":"sentence_start","timestamp":1766610096872,"turnId":2,"sentenceIndex":0,"text":"No worries a
+injected.js:37 [PTT DIAGNOSTIC] ondataavailable #1: size=60598 bytes, type=audio/webm;codecs=opus
+injected.js:37 [PTT DIAGNOSTIC] Recording stopped: Object
+injected.js:37 [PUSH-TO-TALK] Stopped, processing audio...
+injected.js:37 [PUSH-TO-TALK] Resetting subtitles immediately
+injected.js:37 [PTT DIAGNOSTIC] Final blob: Object
+injected.js:37 [PUSH-TO-TALK] Discarding audio - conversation changed or session superseded
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=true
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1766610096969,"text":"Sorry. Still debugging my end, so
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: response_complete HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: response_complete data: {"type":"response_complete","timestamp":1766610097209,"turnId":2,"totalSentences":0,"wasInterrupted"
+injected.js:37 [StreamingVoice] Response interrupted by user - stopping audio immediately
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: ptt_speculative_ai_rejected HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: ptt_speculative_ai_rejected data: {"type":"ptt_speculative_ai_rejected","timestamp":1766610097209,"reason":"transcript_changed","overl
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: ptt_final_transcript HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: ptt_final_transcript data: {"type":"ptt_final_transcript","timestamp":1766610097209,"text":"Sorry. Still debugging my end, so p
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: word_timing HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: word_timing data: {"type":"word_timing","timestamp":1766610097383,"turnId":2,"sentenceIndex":0,"words":[{"word":"No","
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=true
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":0,"chunkIndex":0,"partIndex":0,"totalParts":4,"audio":"GA
+injected.js:37 [AUDIO CHUNK PART] sentence=0, chunk=0, part=0/4
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":0,"chunkIndex":0,"partIndex":1,"totalParts":4,"audio":"Rn
+injected.js:37 [AUDIO CHUNK PART] sentence=0, chunk=0, part=1/4
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":0,"chunkIndex":0,"partIndex":2,"totalParts":4,"audio":"y1
+injected.js:37 [AUDIO CHUNK PART] sentence=0, chunk=0, part=2/4
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":0,"chunkIndex":0,"partIndex":3,"totalParts":4,"audio":"IW
+injected.js:37 [AUDIO CHUNK PART] sentence=0, chunk=0, part=3/4
+injected.js:37 [AUDIO CHUNK PART] REASSEMBLED: 178328 bytes from 4 parts
+injected.js:37 [TELEMETRY] audio_chunk_reassembled Object
+injected.js:37 [TELEMETRY] audio_chunk_received Object
+injected.js:37 [HOOK handleAudioChunk] CALLED! sentence= 0 chunk= 0 audioLen= 178328
+injected.js:37 [AUDIO PLAYER] enqueueProgressivePcmChunk: sentence=0, chunk=0, size=133744, held=false
+injected.js:37 [AUDIO PLAYER] State change: idle -> buffering (subscribers: 1)
+injected.js:37 [TELEMETRY] playback_state_change Object
+injected.js:37 [AUDIO PLAYER] notifyStateChange: buffering to 1 subscribers: [cb_1766610079681_9qeh]
+injected.js:37 [PLAYBACK CALLBACK cb_1766610079681_9qeh] onStateChange: buffering Object
+injected.js:37 [DOM EVENT BRIDGE] Received state: buffering, subscribers: 1, ts: 1766610098659
+injected.js:37 [AUDIO PLAYER] State change: buffering -> playing (subscribers: 1)
+injected.js:37 [TELEMETRY] playback_state_change Object
+injected.js:37 [AUDIO PLAYER] notifyStateChange: playing to 1 subscribers: [cb_1766610079681_9qeh]
+injected.js:37 [PLAYBACK CALLBACK cb_1766610079681_9qeh] onStateChange: playing Object
+injected.js:37 [DOM EVENT BRIDGE] Received state: playing, subscribers: 1, ts: 1766610098669
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: sentence_end HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: sentence_end data: {"type":"sentence_end","timestamp":1766610097386,"turnId":2,"sentenceIndex":0,"totalDurationMs":1393
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: response_complete HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: response_complete data: {"type":"response_complete","timestamp":1766610097387,"turnId":2,"totalSentences":1,"totalDurationMs
+injected.js:37 [STREAMING] Response complete - refreshing messages for 7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [STREAMING] Storing combined audio for replay: 133744 bytes
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [IMMERSIVE TUTOR PROP] playbackState changed to: playing
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [STREAMING VOICE CHAT DEBUG] playbackState changed: playing
+injected.js:37 [LOOP] Frame 10: entries=[S0(end=14.59)] now=14.18
+(anonymous) @ injected.js:37
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [AUDIO PLAYER] State change: playing -> idle (subscribers: 1)
+injected.js:37 [TELEMETRY] playback_state_change Object
+injected.js:37 [TELEMETRY] playback_ended Object
+injected.js:37 [AUDIO PLAYER] notifyStateChange: idle to 1 subscribers: [cb_1766610079681_9qeh]
+injected.js:37 [PLAYBACK CALLBACK cb_1766610079681_9qeh] onStateChange: idle Object
+injected.js:37 [DOM EVENT BRIDGE] Received state: idle, subscribers: 1, ts: 1766610100566
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Hold to speak" isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=false
+injected.js:37 [IMMERSIVE TUTOR PROP] playbackState changed to: idle
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [STREAMING VOICE CHAT DEBUG] playbackState changed: idle
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Hold to speak" isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-7facf273-0bb7-4b6b-9720-8c9f17a87b57
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Hold to speak" isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [MIC WARMUP] Re-warmed for next recording
+injected.js:37 [IMMERSIVE AVATAR DEBUG] {playbackState: 'idle', isAudioActive: false, isProcessing: false, isRecording: false, derivedAvatarState: 'idle', …}
+injected.js:37 [INSTRUCTION DEBUG] text="Hold to speak" isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] {playbackState: 'idle', isStreamingPlaying: false, avatarState: 'idle', streamProcessing: false, isProcessingRef: false, …}
+17770 log entries are not shown.

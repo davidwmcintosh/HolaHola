@@ -560,14 +560,29 @@ export class StreamingAudioPlayer {
   }
   
   /**
-   * Notify all subscribers of a state change
-   * ALSO dispatches a DOM CustomEvent as a reliable fallback for HMR scenarios
+   * Dispatch DOM CustomEvent for playback state changes
+   * This is the RELIABLE fallback that always works, even during HMR when callbacks become stale
+   */
+  private dispatchDomEvent(state: StreamingPlaybackState, subscriberCount: number): void {
+    try {
+      window.dispatchEvent(new CustomEvent('streaming-playback-state', {
+        detail: { state, timestamp: Date.now(), subscriberCount }
+      }));
+      console.log(`[DOM EVENT DISPATCH] ${state} (subscribers: ${subscriberCount})`);
+    } catch (err) {
+      console.error('[AUDIO PLAYER] DOM event dispatch failed:', err);
+    }
+  }
+  
+  /**
+   * Notify all subscribers of a state change via callbacks
+   * NOTE: DOM event is dispatched separately via dispatchDomEvent()
    */
   private notifyStateChange(state: StreamingPlaybackState): void {
     const subscriberIds = Array.from(this.subscribers.keys());
     console.log(`[AUDIO PLAYER] notifyStateChange: ${state} to ${this.subscribers.size} subscribers: [${subscriberIds.join(', ')}]`);
     
-    // Primary path: subscriber callbacks
+    // Subscriber callbacks (may have stale closures during HMR)
     Array.from(this.subscribers.entries()).forEach(([id, callbacks]) => {
       try {
         callbacks.onStateChange?.(state);
@@ -575,17 +590,6 @@ export class StreamingAudioPlayer {
         console.error(`[AUDIO PLAYER] Error in subscriber ${id} onStateChange:`, err);
       }
     });
-    
-    // PARALLEL PATH: DOM event bridge for HMR reliability
-    // This guarantees React components can receive state changes even if
-    // callback closures become stale during Vite HMR
-    try {
-      window.dispatchEvent(new CustomEvent('streaming-playback-state', {
-        detail: { state, timestamp: Date.now(), subscriberCount: this.subscribers.size }
-      }));
-    } catch (err) {
-      console.error('[AUDIO PLAYER] DOM event dispatch failed:', err);
-    }
   }
   
   /**
@@ -1959,11 +1963,16 @@ export class StreamingAudioPlayer {
         }
       }
       
-      // Use multi-subscriber notification
+      // Always dispatch DOM event as reliable fallback (even with 0 subscribers)
+      // DOM event bridge ensures React components receive state changes during HMR
+      // when callback closures become stale
+      this.dispatchDomEvent(state, subscriberCount);
+      
+      // Also notify any remaining subscribers
       if (subscriberCount > 0) {
         this.notifyStateChange(state);
       } else {
-        console.warn(`[AUDIO PLAYER] NO subscribers registered! State change will not reach UI.`);
+        console.warn(`[AUDIO PLAYER] NO subscribers registered! DOM event bridge is only fallback.`);
       }
     }
   }
