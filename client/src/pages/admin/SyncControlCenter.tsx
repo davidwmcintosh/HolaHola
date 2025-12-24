@@ -42,12 +42,17 @@ interface SyncRun {
 }
 
 interface SyncStatus {
-  environment: string;
+  currentEnvironment: string;
   configured: boolean;
   peerUrl?: string;
-  lastSync?: SyncRun;
+  lastPush?: SyncRun;
+  lastPull?: SyncRun;
   recentRuns: SyncRun[];
-  activeSyncRun?: SyncRun;
+  peerNightlyStatus?: {
+    lastNightlySync: SyncRun | null;
+    nextSyncTime: string | null;
+    environment: string;
+  };
 }
 
 interface PeerStats {
@@ -202,10 +207,13 @@ export default function SyncControlCenter() {
     setIsRefreshing(false);
   };
 
-  const isAnySyncRunning = status?.activeSyncRun?.status === 'running' || 
+  // Find active sync run from recent runs
+  const activeSyncRun = status?.recentRuns?.find(r => r.status === 'running');
+  
+  const isAnySyncRunning = activeSyncRun?.status === 'running' || 
     pushMutation.isPending || pullMutation.isPending || fullSyncMutation.isPending;
 
-  const currentEnv = status?.environment || 'unknown';
+  const currentEnv = status?.currentEnvironment || 'unknown';
   const peerEnv = currentEnv === 'production' ? 'development' : 'production';
 
   return (
@@ -268,15 +276,15 @@ export default function SyncControlCenter() {
                       <Badge variant="outline" className="text-lg px-3 py-1">
                         {currentEnv.toUpperCase()}
                       </Badge>
-                      {status?.activeSyncRun && (
-                        <StatusBadge status={status.activeSyncRun.status} />
+                      {activeSyncRun && (
+                        <StatusBadge status={activeSyncRun.status} />
                       )}
                     </div>
-                    {status?.activeSyncRun?.status === 'running' && (
+                    {activeSyncRun?.status === 'running' && (
                       <div className="mt-3 text-sm text-muted-foreground">
-                        <p>Active: {status.activeSyncRun.direction} sync</p>
-                        {status.activeSyncRun.lastCompletedPage !== undefined && (
-                          <p>Progress: Page {status.activeSyncRun.lastCompletedPage + 1} / {status.activeSyncRun.totalPages || '?'}</p>
+                        <p>Active: {activeSyncRun.direction} sync</p>
+                        {activeSyncRun.lastCompletedPage !== undefined && (
+                          <p>Progress: Page {activeSyncRun.lastCompletedPage + 1} / {activeSyncRun.totalPages || '?'}</p>
                         )}
                       </div>
                     )}
@@ -389,7 +397,7 @@ export default function SyncControlCenter() {
                       <RotateCcw className="h-4 w-4 mr-2" />
                       Reset Stuck Syncs (Peer)
                     </Button>
-                    {status?.activeSyncRun?.status === 'running' && (
+                    {activeSyncRun?.status === 'running' && (
                       <Button
                         onClick={() => pullMutation.mutate(true)}
                         disabled={pullMutation.isPending}
