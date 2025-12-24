@@ -600,6 +600,9 @@ export class StreamingVoiceClient {
     byteLength: number;
     timestamp: number;
     turnId: number;
+    durationMs: number;
+    audioFormat: string;
+    sampleRate: number;
   } | null = null;
   
   /**
@@ -644,7 +647,9 @@ export class StreamingVoiceClient {
       sentenceIndex,
       chunkIndex: meta?.chunkIndex ?? 0,
       audio: base64,
-      durationMs: 0, // Will be calculated from audio length
+      durationMs: meta?.durationMs ?? 0,
+      audioFormat: (meta?.audioFormat as 'mp3' | 'pcm_f32le') ?? 'pcm_f32le',
+      sampleRate: meta?.sampleRate ?? 24000,
       isLast,
     };
     
@@ -701,7 +706,7 @@ export class StreamingVoiceClient {
           
         case 'audio_chunk_meta':
           // New binary path - metadata arrives first, then binary data follows
-          console.log('[WS CLIENT] Received audio_chunk_meta, awaiting binary data:', message.byteLength, 'bytes');
+          console.log('[WS CLIENT] Received audio_chunk_meta, awaiting binary data:', message.byteLength, 'bytes, format:', message.audioFormat);
           this.pendingAudioMeta = {
             sentenceIndex: message.sentenceIndex,
             chunkIndex: message.chunkIndex,
@@ -709,6 +714,9 @@ export class StreamingVoiceClient {
             byteLength: message.byteLength,
             timestamp: message.timestamp,
             turnId: message.turnId,
+            durationMs: message.durationMs || 0,
+            audioFormat: message.audioFormat || 'pcm_f32le',
+            sampleRate: message.sampleRate || 24000,
           };
           break;
           

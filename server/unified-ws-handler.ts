@@ -142,6 +142,9 @@ class SocketIOWebSocketAdapter {
               byteLength: audioBuffer.length,
               timestamp: parsed.timestamp,
               turnId: parsed.turnId,
+              durationMs: parsed.durationMs,
+              audioFormat: parsed.audioFormat || 'pcm_f32le',
+              sampleRate: parsed.sampleRate || 24000,
             };
             this.socket.emit('message', metadata);
             
