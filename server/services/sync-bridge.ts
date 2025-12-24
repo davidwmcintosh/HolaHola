@@ -1,6 +1,6 @@
 import { db } from '../db';
 import { syncRuns, founderSessions, collaborationMessages, hiveSnapshots, danielaGrowthMemories, users, type SyncRun } from '@shared/schema';
-import { eq, desc, gte, and, isNull, or, inArray } from 'drizzle-orm';
+import { eq, desc, gte, and, isNull, or, inArray, lt } from 'drizzle-orm';
 import { neuralNetworkSync } from './neural-network-sync';
 import { createSyncHeaders, isSyncConfigured, getSyncPeerUrl } from '../middleware/sync-auth';
 import crypto from 'crypto';
@@ -9,7 +9,7 @@ const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production'
 
 // Version identifier to verify which code is running on production
 // Increment this when making sync-related changes to verify deployment
-const SYNC_BRIDGE_CODE_VERSION = "2024-12-23-v15-paginated-observations";
+const SYNC_BRIDGE_CODE_VERSION = "2024-12-24-v16-resumable-sync";
 
 export interface SyncBundle {
   generatedAt: string;
@@ -1160,14 +1160,75 @@ class SyncBridgeService {
       };
     }
     
-    const [syncRun] = await db.insert(syncRuns).values({
-      direction: 'pull',
-      peerUrl,
-      sourceEnvironment: CURRENT_ENVIRONMENT === 'production' ? 'development' : 'production',
-      targetEnvironment: CURRENT_ENVIRONMENT as 'development' | 'production',
-      status: 'running',
-      triggeredBy,
-    }).returning();
+    // v16: Check for interrupted sync runs to resume
+    // Look for 'running' pulls that started more than 5 minutes ago (likely crashed/timed out)
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const [interruptedRun] = await db.select()
+      .from(syncRuns)
+      .where(and(
+        eq(syncRuns.direction, 'pull'),
+        eq(syncRuns.status, 'running'),
+        lt(syncRuns.startedAt, fiveMinutesAgo)
+      ))
+      .orderBy(desc(syncRuns.startedAt))
+      .limit(1);
+    
+    let syncRun: SyncRun;
+    let resumeFromBatch = 0;
+    let resumeFromPage = 0;
+    const completedBatches: string[] = [];
+    
+    if (interruptedRun) {
+      console.log(`[SYNC-BRIDGE v16] Found interrupted run ${interruptedRun.id} from ${interruptedRun.startedAt}`);
+      console.log(`[SYNC-BRIDGE v16] Completed batches: ${interruptedRun.completedBatches?.join(', ') || 'none'}`);
+      console.log(`[SYNC-BRIDGE v16] Last completed page: ${interruptedRun.lastCompletedPage ?? -1}`);
+      
+      // Mark the old run as failed and create a new resume run
+      await db.update(syncRuns)
+        .set({
+          status: 'failed',
+          errorMessage: 'Interrupted - timeout or crash. Resuming in new run.',
+          completedAt: new Date(),
+          durationMs: Date.now() - new Date(interruptedRun.startedAt).getTime(),
+        })
+        .where(eq(syncRuns.id, interruptedRun.id));
+      
+      // Create new run that resumes from interrupted point
+      const [newRun] = await db.insert(syncRuns).values({
+        direction: 'pull',
+        peerUrl,
+        sourceEnvironment: CURRENT_ENVIRONMENT === 'production' ? 'development' : 'production',
+        targetEnvironment: CURRENT_ENVIRONMENT as 'development' | 'production',
+        status: 'running',
+        triggeredBy: `resume:${triggeredBy}`,
+        resumedFromRunId: interruptedRun.id,
+        completedBatches: interruptedRun.completedBatches || [],
+        lastCompletedPage: interruptedRun.lastCompletedPage ?? -1,
+      }).returning();
+      syncRun = newRun;
+      
+      // Set resume points
+      if (interruptedRun.completedBatches) {
+        completedBatches.push(...interruptedRun.completedBatches);
+      }
+      resumeFromPage = (interruptedRun.lastCompletedPage ?? -1) + 1;
+      
+      console.log(`[SYNC-BRIDGE v16] Created resume run ${syncRun.id}, resuming from page ${resumeFromPage}`);
+    } else {
+      // Fresh sync run
+      const [newRun] = await db.insert(syncRuns).values({
+        direction: 'pull',
+        peerUrl,
+        sourceEnvironment: CURRENT_ENVIRONMENT === 'production' ? 'development' : 'production',
+        targetEnvironment: CURRENT_ENVIRONMENT as 'development' | 'production',
+        status: 'running',
+        triggeredBy,
+        completedBatches: [],
+        lastCompletedPage: -1,
+      }).returning();
+      syncRun = newRun;
+      console.log(`[SYNC-BRIDGE v16] Starting fresh sync run ${syncRun.id}`);
+    }
     
     try {
       const allCounts: Record<string, number> = {};
@@ -1176,10 +1237,18 @@ class SyncBridgeService {
       
       // Batched pull - fetch each batch type separately to avoid timeout
       // v15: advanced-intel-b now supports pagination for large observation datasets
+      // v16: Skip already-completed batches on resume
       const batchTypes = ['neural-core', 'advanced-intel-a', 'advanced-intel-b', 'express-lane', 'hive-snapshots', 'daniela-memories'];
       
       for (let i = 0; i < batchTypes.length; i++) {
         const batchType = batchTypes[i];
+        
+        // v16: Skip completed batches (except advanced-intel-b which needs page tracking)
+        if (batchType !== 'advanced-intel-b' && completedBatches.includes(batchType)) {
+          console.log(`[SYNC-BRIDGE v16] Skipping already-completed batch: ${batchType}`);
+          continue;
+        }
+        
         console.log(`[SYNC-BRIDGE] Pull batch ${i + 1}/${batchTypes.length}: ${batchType}...`);
         
         // 45s timeout for smaller batches, 60s for larger data batches
@@ -1187,9 +1256,14 @@ class SyncBridgeService {
         
         // Special handling for advanced-intel-b: paginated fetching
         if (batchType === 'advanced-intel-b') {
-          let page = 0;
+          // v16: Resume from last completed page
+          let page = resumeFromPage > 0 ? resumeFromPage : 0;
           let hasMore = true;
-          const MAX_PAGES = 50; // Safety limit
+          const MAX_PAGES = 150; // Increased from 50 to handle 97+ pages
+          
+          if (page > 0) {
+            console.log(`[SYNC-BRIDGE v16] Resuming observations from page ${page}`);
+          }
           
           while (hasMore && page < MAX_PAGES) {
             const pageBatchType = page === 0 ? 'advanced-intel-b' : `advanced-intel-b-p${page}`;
@@ -1210,8 +1284,16 @@ class SyncBridgeService {
             allErrors.push(...importResult.errors);
             if (!importResult.success) overallSuccess = false;
             
-            // Check if there are more pages
+            // v16: Update progress after each successful page + check for more pages
             const pagination = (result.bundle as SyncBundle).observationsPagination;
+            const estimatedTotalPages = pagination?.agentTotal ? Math.ceil(pagination.agentTotal / 500) : undefined;
+            await db.update(syncRuns)
+              .set({
+                lastCompletedPage: page,
+                totalPagesExpected: estimatedTotalPages,
+              })
+              .where(eq(syncRuns.id, syncRun.id));
+            
             hasMore = pagination?.hasMore ?? false;
             page++;
             
@@ -1221,6 +1303,13 @@ class SyncBridgeService {
           if (page >= MAX_PAGES) {
             console.warn(`[SYNC-BRIDGE] Hit MAX_PAGES limit (${MAX_PAGES}) for observations`);
           }
+          
+          // v16: Mark advanced-intel-b as completed
+          completedBatches.push('advanced-intel-b');
+          await db.update(syncRuns)
+            .set({ completedBatches })
+            .where(eq(syncRuns.id, syncRun.id));
+            
         } else {
           // Standard single-fetch for other batches
           const result = await this.fetchBatch(peerUrl, batchType, timeout);
@@ -1236,6 +1325,12 @@ class SyncBridgeService {
           Object.assign(allCounts, importResult.counts);
           allErrors.push(...importResult.errors);
           if (!importResult.success) overallSuccess = false;
+          
+          // v16: Track completed batches
+          completedBatches.push(batchType);
+          await db.update(syncRuns)
+            .set({ completedBatches })
+            .where(eq(syncRuns.id, syncRun.id));
         }
       }
       

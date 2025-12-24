@@ -2518,6 +2518,12 @@ export const syncRuns = pgTable("sync_runs", {
   durationMs: integer("duration_ms"),
   payloadChecksum: varchar("payload_checksum"),
   
+  // Resumable sync tracking (v16)
+  completedBatches: text("completed_batches").array(), // ['neural-core', 'advanced-intel-a', ...]
+  lastCompletedPage: integer("last_completed_page").default(-1), // -1 = not started, 0 = page 0 done, etc.
+  totalPagesExpected: integer("total_pages_expected"), // Total pages for observations
+  resumedFromRunId: varchar("resumed_from_run_id"), // If this run resumed from a failed run
+  
   startedAt: timestamp("started_at").notNull().defaultNow(),
   completedAt: timestamp("completed_at"),
 }, (table) => [
