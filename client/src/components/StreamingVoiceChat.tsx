@@ -1308,6 +1308,11 @@ export function StreamingVoiceChat({
   useEffect(() => { inputModeRef.current = inputMode; }, [inputMode]);
   useEffect(() => { isPlayingRef.current = avatarState === 'speaking'; }, [avatarState]);
   
+  // Track playbackState for guards - 'buffering' happens before 'playing'
+  // This catches speculative PTT audio earlier than avatarState
+  const playbackStateRef = useRef<string>('idle');
+  useEffect(() => { playbackStateRef.current = streamingVoice.state.playbackState; }, [streamingVoice.state.playbackState]);
+  
   // Stable keyboard handlers that use refs instead of state (no dependency churn)
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -1385,10 +1390,11 @@ export function StreamingVoiceChat({
       
       if (isTextInput(target) || isTextInput(activeElement)) return;
       
-      // GUARD: If AI audio is already playing (speculative PTT), this might be a phantom keyup
+      // GUARD: If AI audio is buffering or playing (speculative PTT), this might be a phantom keyup
+      // Check playbackState !== 'idle' which catches 'buffering' BEFORE 'playing'
       // Don't stop recording in this case - wait for the user to actually release.
-      if (isPlayingRef.current) {
-        console.log('[KEYBOARD] Ignoring keyup - AI audio is playing (likely phantom event from speculative PTT)');
+      if (playbackStateRef.current !== 'idle') {
+        console.log(`[KEYBOARD] Ignoring keyup - playbackState='${playbackStateRef.current}' (speculative PTT in progress)`);
         return;
       }
       
@@ -2875,6 +2881,7 @@ export function StreamingVoiceChat({
           setInputMode={setInputMode}
           openMicState={openMicState}
           isPttButtonHeld={isPttButtonHeld}
+          playbackState={streamingVoice.state.playbackState}
         />
       </div>
     </div>
