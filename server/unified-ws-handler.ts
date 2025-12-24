@@ -126,39 +126,7 @@ class SocketIOWebSocketAdapter {
         // This prevents double-stringification where client receives a string instead of object
         try {
           const parsed = JSON.parse(data);
-          
-          // For audio_chunk messages, chunk large payloads to avoid Chrome's ~1MB frame limit
-          // Keep the original JSON format - just split into smaller pieces
-          if (parsed.type === 'audio_chunk' && parsed.audio) {
-            const base64Audio = parsed.audio as string;
-            const MAX_CHUNK_SIZE = 400000; // ~400KB base64 = ~300KB binary, well under 1MB limit
-            
-            if (base64Audio.length > MAX_CHUNK_SIZE) {
-              // Split large audio into multiple chunks
-              const numChunks = Math.ceil(base64Audio.length / MAX_CHUNK_SIZE);
-              console.log(`[SOCKET EMIT] audio_chunk: splitting ${base64Audio.length} bytes into ${numChunks} sub-chunks`);
-              
-              for (let i = 0; i < numChunks; i++) {
-                const start = i * MAX_CHUNK_SIZE;
-                const end = Math.min(start + MAX_CHUNK_SIZE, base64Audio.length);
-                const chunkAudio = base64Audio.slice(start, end);
-                
-                const subChunk = {
-                  ...parsed,
-                  audio: chunkAudio,
-                  subChunkIndex: i,
-                  totalSubChunks: numChunks,
-                  isLast: parsed.isLast && (i === numChunks - 1),
-                };
-                this.socket.emit('message', subChunk);
-              }
-              return;
-            }
-            
-            console.log(`[SOCKET EMIT] audio_chunk: connected=${this.socket.connected}, audioLen=${base64Audio.length}`);
-          }
-          
-          if (parsed.type === 'word_timing') {
+          if (parsed.type === 'audio_chunk' || parsed.type === 'word_timing') {
             console.log(`[SOCKET EMIT] ${parsed.type}: connected=${this.socket.connected}, dataLen=${data.length}`);
           }
           // Emit parsed object, not string - Socket.io handles serialization

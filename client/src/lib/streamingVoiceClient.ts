@@ -706,44 +706,8 @@ export class StreamingVoiceClient {
           break;
           
         case 'audio_chunk':
-          // Check if this is a sub-chunk that needs reassembly
-          if (message.totalSubChunks && message.totalSubChunks > 1) {
-            // Large audio split into multiple sub-chunks - reassemble before playing
-            const chunkKey = `${message.sentenceIndex}-${message.chunkIndex}`;
-            
-            if (!this.pendingSubChunks.has(chunkKey)) {
-              this.pendingSubChunks.set(chunkKey, {
-                chunks: new Array(message.totalSubChunks).fill(''),
-                totalSubChunks: message.totalSubChunks,
-                baseMessage: { ...message, audio: '' },
-              });
-            }
-            
-            const pending = this.pendingSubChunks.get(chunkKey)!;
-            pending.chunks[message.subChunkIndex] = message.audio;
-            
-            // Check if all sub-chunks received
-            const allReceived = pending.chunks.every((chunk: string) => chunk !== '');
-            if (allReceived) {
-              // Reassemble audio
-              const fullAudio = pending.chunks.join('');
-              const fullMessage = {
-                ...pending.baseMessage,
-                audio: fullAudio,
-                isLast: message.isLast,
-              };
-              console.log('[WS CLIENT] Reassembled', pending.totalSubChunks, 'sub-chunks, total audio:', fullAudio.length, 'chars');
-              this.pendingSubChunks.delete(chunkKey);
-              this.handleAudioChunk(fullMessage as StreamingAudioChunkMessage);
-            } else {
-              const received = pending.chunks.filter((c: string) => c !== '').length;
-              console.log('[WS CLIENT] Sub-chunk', message.subChunkIndex + 1, '/', message.totalSubChunks, 'received');
-            }
-          } else {
-            // Normal-sized chunk, play directly
-            console.log('[WS CLIENT] Received audio_chunk message, dispatching to handleAudioChunk');
-            this.handleAudioChunk(message as StreamingAudioChunkMessage);
-          }
+          // Direct playback - no logging on hot path
+          this.handleAudioChunk(message as StreamingAudioChunkMessage);
           break;
           
         case 'audio_chunk_meta':
