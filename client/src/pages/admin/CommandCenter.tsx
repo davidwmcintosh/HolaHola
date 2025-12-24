@@ -1099,10 +1099,14 @@ export default function CommandCenter() {
   const [activeTab, setActiveTab] = useState("overview");
   const [, setLocation] = useLocation();
   
-  // Handle tab changes - redirect to /admin/voices for voice-lab
+  // Handle tab changes - redirect to dedicated pages for some tabs
   const handleTabChange = (value: string) => {
     if (value === 'voice-lab') {
       setLocation('/admin/voices');
+      return;
+    }
+    if (value === 'voice-intelligence') {
+      setLocation('/admin/voice-intelligence');
       return;
     }
     setActiveTab(value);
@@ -1123,6 +1127,7 @@ export default function CommandCenter() {
     { id: "reports", label: "Reports", icon: DollarSign, roles: ['admin', 'developer'] },
     { id: "images", label: "Images", icon: Image, roles: ['admin', 'developer'] },
     { id: "voice-lab", label: "Voice Lab", icon: Volume2, roles: ['admin', 'developer'] },
+    { id: "voice-intelligence", label: "Voice Diagnostics", icon: Activity, roles: ['admin', 'developer'] },
     { id: "voice-analytics", label: "Voice Metrics", icon: Mic, roles: ['admin', 'developer'] },
     { id: "velocity", label: "Learning Velocity", icon: TrendingUp, roles: ['admin', 'developer'] },
     { id: "neural-network", label: "Neural Network", icon: Zap, roles: ['developer', 'admin'] },
