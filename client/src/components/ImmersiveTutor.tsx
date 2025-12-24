@@ -236,6 +236,7 @@ export function ImmersiveTutor({
   // Uses refs to keep listener stable (no re-attachment on re-renders)
   useEffect(() => {
     const handleGlobalTouchEnd = (e: TouchEvent) => {
+      console.log('[PTT-TOUCH-DEBUG] Global touchend fired, touches.length:', e.touches.length, 'isTouchRecordingRef:', isTouchRecordingRef.current);
       // Only stop if ALL touches are released (no fingers left on screen)
       if (e.touches.length === 0) {
         if (isTouchRecordingRef.current) {
@@ -805,7 +806,7 @@ export function ImmersiveTutor({
               onTouchStart={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('[MIC BUTTON] Touch start, isUsersTurn:', isUsersTurn);
+                console.log('[PTT-TOUCH-DEBUG] Touch start, isUsersTurn:', isUsersTurn, 'isPointerRecordingRef:', isPointerRecordingRef.current, 'isTouchRecordingRef:', isTouchRecordingRef.current);
                 if (isUsersTurn && !isRecording && !isMicPreparing && !isTouchRecordingRef.current) {
                   isTouchRecordingRef.current = true;
                   onRecordingStart('touch');

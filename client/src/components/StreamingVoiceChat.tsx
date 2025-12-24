@@ -1935,15 +1935,16 @@ export function StreamingVoiceChat({
   };
 
   const stopPushToTalkRecording = (inputType?: 'mouse' | 'touch' | 'keyboard' | 'force') => {
-    console.log('[PUSH-TO-TALK] Stop requested, inputType:', inputType, 'activeInputType:', activeInputTypeRef.current, 'isHeld:', isPttButtonHeldRef.current);
+    console.log('[PTT-STOP-DEBUG] Stop requested, inputType:', inputType, 'activeInputType:', activeInputTypeRef.current, 'isHeld:', isPttButtonHeldRef.current);
     
     // Guard: If an input type is specified, it must match the active input type
     // This prevents mouse events from stopping touch recording, etc.
     // 'force' bypasses the guard for cleanup scenarios
     if (inputType && inputType !== 'force' && activeInputTypeRef.current !== inputType) {
-      console.log('[PUSH-TO-TALK] Ignoring stop - input type mismatch (expected:', activeInputTypeRef.current, 'got:', inputType, ')');
+      console.log('[PTT-STOP-DEBUG] BLOCKED - input type mismatch (expected:', activeInputTypeRef.current, 'got:', inputType, ')');
       return;
     }
+    console.log('[PTT-STOP-DEBUG] Guard passed, proceeding...');
     
     // Guard: Don't stop if the button is still held (prevents speculative AI from clearing state)
     // This check uses the ref for synchronous access
