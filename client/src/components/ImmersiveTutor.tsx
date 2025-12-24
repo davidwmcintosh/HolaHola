@@ -207,6 +207,9 @@ export function ImmersiveTutor({
     }
   }, [isCollabOpen, collabEvents.length]);
 
+  // Track touch-based PTT separately from pointer (mouse)
+  const isTouchRecordingRef = useRef(false);
+  
   // Global mouse-up listener for PTT - fixes trackpad issues where cursor leaves button while holding
   // This ensures releasing the mouse ANYWHERE stops recording
   useEffect(() => {
@@ -222,6 +225,30 @@ export function ImmersiveTutor({
     
     window.addEventListener('mouseup', handleGlobalMouseUp);
     return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+  }, [isRecording, isMicPreparing, onRecordingStop]);
+  
+  // Global touch-end listener for PTT - fixes issue where finger moves off button bounds
+  // while still pressing down, causing premature touchend on the button element
+  useEffect(() => {
+    if (!isTouchRecordingRef.current && !isMicPreparing) return;
+    
+    const handleGlobalTouchEnd = (e: TouchEvent) => {
+      // Only stop if ALL touches are released (no fingers left on screen)
+      if (e.touches.length === 0) {
+        if (isTouchRecordingRef.current || isMicPreparing) {
+          console.log('[MIC BUTTON] Global touch end - stopping recording');
+          isTouchRecordingRef.current = false;
+          onRecordingStop();
+        }
+      }
+    };
+    
+    window.addEventListener('touchend', handleGlobalTouchEnd);
+    window.addEventListener('touchcancel', handleGlobalTouchEnd);
+    return () => {
+      window.removeEventListener('touchend', handleGlobalTouchEnd);
+      window.removeEventListener('touchcancel', handleGlobalTouchEnd);
+    };
   }, [isRecording, isMicPreparing, onRecordingStop]);
 
   // Beacon type labels for display (using lucide-react icons, no emojis)
@@ -776,27 +803,22 @@ export function ImmersiveTutor({
                 e.preventDefault();
                 e.stopPropagation();
                 console.log('[MIC BUTTON] Touch start, isUsersTurn:', isUsersTurn);
-                if (isUsersTurn && !isRecording && !isMicPreparing && !isPointerRecordingRef.current) {
-                  isPointerRecordingRef.current = true;
+                if (isUsersTurn && !isRecording && !isMicPreparing && !isTouchRecordingRef.current) {
+                  isTouchRecordingRef.current = true;
                   onRecordingStart();
                 }
               }}
               onTouchEnd={(e) => {
+                // Prevent default but DON'T stop recording here - let global handler do it
+                // This fixes premature touchend when finger moves off button bounds
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('[MIC BUTTON] Touch end');
-                if (isPointerRecordingRef.current || isMicPreparing) {
-                  isPointerRecordingRef.current = false;
-                  onRecordingStop();
-                }
+                console.log('[MIC BUTTON] Touch end on button (global handler will process)');
               }}
               onTouchCancel={(e) => {
+                // Prevent default but DON'T stop recording here - let global handler do it
                 e.preventDefault();
-                console.log('[MIC BUTTON] Touch cancel');
-                if (isPointerRecordingRef.current || isMicPreparing) {
-                  isPointerRecordingRef.current = false;
-                  onRecordingStop();
-                }
+                console.log('[MIC BUTTON] Touch cancel on button (global handler will process)');
               }}
               onMouseDown={(e) => {
                 e.preventDefault();
