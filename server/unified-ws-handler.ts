@@ -126,7 +126,33 @@ class SocketIOWebSocketAdapter {
         // This prevents double-stringification where client receives a string instead of object
         try {
           const parsed = JSON.parse(data);
-          if (parsed.type === 'audio_chunk' || parsed.type === 'word_timing') {
+          
+          // CRITICAL: audio_chunk messages are too large for JSON (Chrome drops >1MB frames)
+          // Send audio as binary and metadata separately
+          if (parsed.type === 'audio_chunk' && parsed.audioData) {
+            // Convert base64 audio to binary buffer
+            const audioBuffer = Buffer.from(parsed.audioData, 'base64');
+            
+            // Send small metadata marker first (JSON)
+            const metadata = {
+              type: 'audio_chunk_meta',
+              sentenceIndex: parsed.sentenceIndex,
+              chunkIndex: parsed.chunkIndex,
+              isLast: parsed.isLast,
+              byteLength: audioBuffer.length,
+              timestamp: parsed.timestamp,
+              turnId: parsed.turnId,
+            };
+            this.socket.emit('message', metadata);
+            
+            // Then send audio as binary (no base64 overhead, no JSON size limit)
+            this.socket.emit('binary', audioBuffer);
+            
+            console.log(`[SOCKET EMIT] audio_chunk: connected=${this.socket.connected}, binaryLen=${audioBuffer.length}`);
+            return;
+          }
+          
+          if (parsed.type === 'word_timing') {
             console.log(`[SOCKET EMIT] ${parsed.type}: connected=${this.socket.connected}, dataLen=${data.length}`);
           }
           // Emit parsed object, not string - Socket.io handles serialization

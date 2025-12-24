@@ -592,8 +592,19 @@ export class StreamingVoiceClient {
     this.setState('disconnected');
   }
   
+  // Pending audio metadata for binary message association
+  private pendingAudioMeta: {
+    sentenceIndex: number;
+    chunkIndex: number;
+    isLast: boolean;
+    byteLength: number;
+    timestamp: number;
+    turnId: number;
+  } | null = null;
+  
   /**
    * Handle binary data from Socket.io 'binary' event
+   * This receives raw PCM audio data that follows an audio_chunk_meta message
    */
   private handleBinaryData(data: ArrayBuffer): void {
     // GLOBAL DEBUG: Track binary messages
@@ -604,11 +615,33 @@ export class StreamingVoiceClient {
       win._wsDebug.byType['binary'] = (win._wsDebug.byType['binary'] || 0) + 1;
     }
     
-    this.callbacks.onAudioReady?.(
-      this.currentSentenceIndex,
-      data,
-      0 // Duration will be in the preceding metadata message
-    );
+    console.log('[WS CLIENT] Received binary audio data:', data.byteLength, 'bytes');
+    
+    // Use pending metadata if available, otherwise fall back to current sentence index
+    const meta = this.pendingAudioMeta;
+    const sentenceIndex = meta?.sentenceIndex ?? this.currentSentenceIndex;
+    const isLast = meta?.isLast ?? true;
+    
+    // Clear pending metadata
+    this.pendingAudioMeta = null;
+    
+    // Emit audio chunk event with binary data
+    // Convert ArrayBuffer to base64 for compatibility with existing audio player
+    const uint8Array = new Uint8Array(data);
+    const base64 = btoa(String.fromCharCode.apply(null, Array.from(uint8Array)));
+    
+    // Create audio chunk message format expected by existing handlers
+    const audioMessage: StreamingAudioChunkMessage = {
+      type: 'audio_chunk',
+      timestamp: meta?.timestamp ?? Date.now(),
+      turnId: meta?.turnId ?? 0,
+      sentenceIndex,
+      chunkIndex: meta?.chunkIndex ?? 0,
+      audioData: base64,
+      isLast,
+    };
+    
+    this.handleAudioChunk(audioMessage);
   }
   
   /**
@@ -654,8 +687,22 @@ export class StreamingVoiceClient {
           break;
           
         case 'audio_chunk':
+          // Legacy path - direct JSON audio (may be dropped if too large)
           console.log('[WS CLIENT] Received audio_chunk message, dispatching to handleAudioChunk');
           this.handleAudioChunk(message as StreamingAudioChunkMessage);
+          break;
+          
+        case 'audio_chunk_meta':
+          // New binary path - metadata arrives first, then binary data follows
+          console.log('[WS CLIENT] Received audio_chunk_meta, awaiting binary data:', message.byteLength, 'bytes');
+          this.pendingAudioMeta = {
+            sentenceIndex: message.sentenceIndex,
+            chunkIndex: message.chunkIndex,
+            isLast: message.isLast,
+            byteLength: message.byteLength,
+            timestamp: message.timestamp,
+            turnId: message.turnId,
+          };
           break;
           
         case 'word_timing':
