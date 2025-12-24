@@ -1,4 +1,19 @@
 import { resetDebugTimingState, logEmptyChunkProcessed, logSentenceTransition, logScheduleEvent, updateDebugTimingState, getDebugTimingState, registerPlayerInstance, type SentenceScheduleEntry, type SentenceMatchInfo } from './debugTimingState';
+import type { ClientTelemetryEventType } from '../../../shared/streaming-voice-types';
+
+// Lazy getter for telemetry emitter to avoid circular dependencies
+let cachedTelemetryEmitter: any = null;
+function getTelemetryEmitter() {
+  if (!cachedTelemetryEmitter) {
+    try {
+      const mod = require('./streamingVoiceClient');
+      cachedTelemetryEmitter = mod.getClientTelemetryEmitter?.() ?? null;
+    } catch {
+      cachedTelemetryEmitter = null;
+    }
+  }
+  return cachedTelemetryEmitter;
+}
 
 /**
  * WORD TIMING DIAGNOSTICS FEATURE FLAGS
@@ -1803,9 +1818,28 @@ export class StreamingAudioPlayer {
    */
   private setState(state: StreamingPlaybackState): void {
     if (this.state !== state) {
+      const prevState = this.state;
       const hasCallback = !!this.callbacks.onStateChange;
-      console.log(`[AUDIO PLAYER] State change: ${this.state} -> ${state} (hasCallback: ${hasCallback})`);
+      console.log(`[AUDIO PLAYER] State change: ${prevState} -> ${state} (hasCallback: ${hasCallback})`);
       this.state = state;
+      
+      // Telemetry: emit playback state change
+      const emitter = getTelemetryEmitter();
+      if (emitter) {
+        emitter.emit(
+          'playback_state_change' as ClientTelemetryEventType,
+          { fromState: prevState, toState: state, hasCallback },
+          this.currentSentenceIndex
+        );
+        
+        // Emit specific events for key transitions
+        if (state === 'playing' && prevState === 'idle') {
+          emitter.emit('playback_started' as ClientTelemetryEventType, {}, this.currentSentenceIndex);
+        } else if (state === 'idle' && prevState === 'playing') {
+          emitter.emit('playback_ended' as ClientTelemetryEventType, {}, this.currentSentenceIndex);
+        }
+      }
+      
       if (this.callbacks.onStateChange) {
         console.log(`[AUDIO PLAYER] Calling onStateChange callback with: ${state}`);
         this.callbacks.onStateChange(state);

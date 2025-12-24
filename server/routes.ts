@@ -37,7 +37,7 @@ import {
 } from "@shared/schema";
 import { hasTeacherAccess, hasDeveloperAccess } from "@shared/permissions";
 import OpenAI, { toFile } from "openai";
-import { setupUnifiedWebSocketHandler } from "./unified-ws-handler";
+import { setupUnifiedWebSocketHandler, getRecentTelemetryEvents, getPendingServerEmits } from "./unified-ws-handler";
 import {
   extractNameFromMessage,
   extractLanguageFromMessage,
@@ -10469,6 +10469,75 @@ Return ONLY the ${targetLanguage} phrase:`;
       res.json(healthCheck);
     } catch (error: any) {
       console.error('[Voice Diagnostics] Health check error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get client telemetry for end-to-end voice diagnostics
+  app.get("/api/admin/voice-telemetry", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const telemetryEvents = getRecentTelemetryEvents();
+      const pendingEmits = getPendingServerEmits();
+      
+      // Calculate events by type
+      const eventsByType: Record<string, number> = {};
+      for (const event of telemetryEvents) {
+        eventsByType[event.type] = (eventsByType[event.type] || 0) + 1;
+      }
+      
+      // Calculate delivery latency from correlated events
+      const correlatedEvents = telemetryEvents.filter((e: any) => e.deliveryLatencyMs != null);
+      const avgDeliveryLatency = correlatedEvents.length > 0
+        ? correlatedEvents.reduce((sum: number, e: any) => sum + e.deliveryLatencyMs, 0) / correlatedEvents.length
+        : 0;
+      
+      // Calculate correlation rate
+      const correlationRate = pendingEmits.length > 0
+        ? correlatedEvents.length / (correlatedEvents.length + pendingEmits.length)
+        : telemetryEvents.length > 0 ? 1 : 0;
+      
+      // Group by session
+      const sessionMap = new Map<string, { eventCount: number; lastActive: string }>();
+      for (const event of telemetryEvents) {
+        const sessionId = event.sessionId || 'unknown';
+        const existing = sessionMap.get(sessionId);
+        if (!existing || new Date(event.timestamp) > new Date(existing.lastActive)) {
+          sessionMap.set(sessionId, {
+            eventCount: (existing?.eventCount || 0) + 1,
+            lastActive: event.timestamp,
+          });
+        } else if (existing) {
+          existing.eventCount++;
+        }
+      }
+      const sessions = Array.from(sessionMap.entries()).map(([sessionId, data]) => ({
+        sessionId,
+        ...data,
+      })).sort((a, b) => new Date(b.lastActive).getTime() - new Date(a.lastActive).getTime());
+      
+      // Format recent events for dashboard
+      const recentEvents = telemetryEvents.slice(-50).reverse().map((e: any) => ({
+        timestamp: e.timestamp,
+        sessionId: e.sessionId || 'unknown',
+        eventType: e.type,
+        playbackState: e.data?.newState || e.data?.state,
+        chunkIndex: e.data?.chunkIndex,
+        sentenceIndex: e.data?.sentenceIndex,
+        latencyMs: e.deliveryLatencyMs,
+        isCorrelated: e.deliveryLatencyMs != null,
+      }));
+      
+      res.json({
+        totalEvents: telemetryEvents.length,
+        avgDeliveryLatency,
+        correlationRate,
+        eventsByType,
+        recentEvents,
+        sessions,
+        environment: process.env.NODE_ENV || 'development',
+      });
+    } catch (error: any) {
+      console.error('[Voice Telemetry] Error:', error);
       res.status(500).json({ error: error.message });
     }
   });

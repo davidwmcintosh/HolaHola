@@ -35,6 +35,7 @@ import {
   ClientTextInputMessage,
   StreamingErrorMessage,
   VoiceInputMode,
+  ClientTelemetryEvent,
 } from '@shared/streaming-voice-types';
 import { OpenMicSession, getDeepgramLanguageCode } from './services/deepgram-live-stt';
 import { generateCongratulatoryPromptAddition } from './services/competency-verifier';
@@ -2137,6 +2138,125 @@ export function setupUnifiedWebSocketHandler(server: Server) {
   return wss;
 }
 
+// ============================================================================
+// CLIENT TELEMETRY HANDLER (End-to-End Voice Diagnostics)
+// ============================================================================
+
+/**
+ * In-memory store for correlating server-side events with client telemetry
+ * Key: sessionId-sentenceIndex-chunkIndex
+ */
+interface ServerEmitRecord {
+  sessionId: string;
+  sentenceIndex: number;
+  chunkIndex: number;
+  emitTime: number;
+  delivered: boolean;
+  playedBack: boolean;
+  clientReceiveTime?: number;
+  clientPlaybackTime?: number;
+}
+
+const pendingServerEmits = new Map<string, ServerEmitRecord>();
+const clientTelemetryEvents: ClientTelemetryEvent[] = [];
+const MAX_TELEMETRY_EVENTS = 1000;
+
+/**
+ * Record a server-side audio emission for later correlation
+ */
+export function recordServerEmit(sessionId: string, sentenceIndex: number, chunkIndex: number) {
+  const key = `${sessionId}-${sentenceIndex}-${chunkIndex}`;
+  pendingServerEmits.set(key, {
+    sessionId,
+    sentenceIndex,
+    chunkIndex,
+    emitTime: Date.now(),
+    delivered: false,
+    playedBack: false,
+  });
+  
+  // Clean up old records (older than 60 seconds)
+  const cutoff = Date.now() - 60000;
+  for (const [k, v] of pendingServerEmits.entries()) {
+    if (v.emitTime < cutoff) {
+      pendingServerEmits.delete(k);
+    }
+  }
+}
+
+/**
+ * Handle incoming client telemetry event
+ */
+function handleClientTelemetry(socketId: string, event: ClientTelemetryEvent) {
+  console.log(`[CLIENT TELEMETRY] ${event.type} from ${socketId}`, {
+    sessionId: event.sessionId,
+    sentenceIndex: event.sentenceIndex,
+    chunkIndex: event.chunkIndex,
+    data: event.data,
+  });
+  
+  // Store event for analysis
+  clientTelemetryEvents.push(event);
+  if (clientTelemetryEvents.length > MAX_TELEMETRY_EVENTS) {
+    clientTelemetryEvents.shift();
+  }
+  
+  // Correlate with server-side events
+  if (event.sentenceIndex !== undefined && event.chunkIndex !== undefined) {
+    const key = `${event.sessionId}-${event.sentenceIndex}-${event.chunkIndex}`;
+    const serverRecord = pendingServerEmits.get(key);
+    
+    if (serverRecord) {
+      if (event.type === 'audio_chunk_received' || event.type === 'audio_chunk_reassembled') {
+        serverRecord.delivered = true;
+        serverRecord.clientReceiveTime = event.timestamp;
+        const deliveryLatency = serverRecord.clientReceiveTime - serverRecord.emitTime;
+        console.log(`[TELEMETRY CORRELATION] Audio delivered in ${deliveryLatency}ms (sentence=${event.sentenceIndex}, chunk=${event.chunkIndex})`);
+      }
+      
+      if (event.type === 'playback_started') {
+        serverRecord.playedBack = true;
+        serverRecord.clientPlaybackTime = event.timestamp;
+        const e2eLatency = serverRecord.clientPlaybackTime - serverRecord.emitTime;
+        console.log(`[TELEMETRY CORRELATION] End-to-end latency: ${e2eLatency}ms (sentence=${event.sentenceIndex})`);
+      }
+    }
+  }
+  
+  // Log state changes for debugging avatar issues
+  if (event.type === 'playback_state_change') {
+    console.log(`[TELEMETRY STATE] Player: ${event.data?.fromState} -> ${event.data?.toState} (hasCallback: ${event.data?.hasCallback})`);
+  }
+}
+
+/**
+ * Get recent telemetry events for diagnostics dashboard
+ * Enriches events with server-side correlation data
+ */
+export function getRecentTelemetryEvents(): (ClientTelemetryEvent & { deliveryLatencyMs?: number })[] {
+  return clientTelemetryEvents.slice(-100).map(event => {
+    const result: ClientTelemetryEvent & { deliveryLatencyMs?: number } = { ...event };
+    
+    // Try to correlate with server emit records
+    if (event.sentenceIndex !== undefined && event.chunkIndex !== undefined) {
+      const key = `${event.sessionId}-${event.sentenceIndex}-${event.chunkIndex}`;
+      const serverRecord = pendingServerEmits.get(key);
+      if (serverRecord && serverRecord.clientReceiveTime) {
+        result.deliveryLatencyMs = serverRecord.clientReceiveTime - serverRecord.emitTime;
+      }
+    }
+    
+    return result;
+  });
+}
+
+/**
+ * Get pending server emits for correlation analysis
+ */
+export function getPendingServerEmits(): ServerEmitRecord[] {
+  return Array.from(pendingServerEmits.values());
+}
+
 /**
  * Setup Socket.io handler for voice streaming
  * 
@@ -2155,6 +2275,15 @@ export function setupSocketIOHandler(io: SocketIOServer) {
     // Extract conversationId from handshake query
     const conversationId = socket.handshake.query.conversationId as string || null;
     console.log('[Socket.io Voice] ConversationId:', conversationId);
+    
+    // Client telemetry handler for end-to-end voice diagnostics
+    socket.on('client_telemetry', (event: any) => {
+      handleClientTelemetry(socket.id, event);
+    });
+    
+    socket.on('client_telemetry_batch', (events: any[]) => {
+      events.forEach(event => handleClientTelemetry(socket.id, event));
+    });
     
     // Create adapter that makes Socket.io look like ws
     const adapter = new SocketIOWebSocketAdapter(socket, conversationId);

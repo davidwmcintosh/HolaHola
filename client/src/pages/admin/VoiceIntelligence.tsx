@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { ArrowLeft, RefreshCw, TrendingUp, TrendingDown, Activity, AlertTriangle, Clock, Globe, Users, Zap, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowLeft, RefreshCw, TrendingUp, TrendingDown, Activity, AlertTriangle, Clock, Globe, Users, Zap, ChevronDown, ChevronUp, Radio, Play, Pause } from "lucide-react";
 import { RoleGuard } from "@/components/admin/RoleGuard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -78,6 +78,209 @@ interface ComprehensiveReport {
   studentIssues: StudentIssue[];
   envComparison: EnvComparison[];
   alerts: VoiceAlert[];
+}
+
+interface TelemetryEvent {
+  timestamp: string;
+  sessionId: string;
+  eventType: string;
+  playbackState?: string;
+  chunkIndex?: number;
+  sentenceIndex?: number;
+  latencyMs?: number;
+  isCorrelated?: boolean;
+}
+
+interface TelemetrySummary {
+  totalEvents: number;
+  avgDeliveryLatency: number;
+  correlationRate: number;
+  eventsByType: Record<string, number>;
+  recentEvents: TelemetryEvent[];
+  sessions: Array<{ sessionId: string; eventCount: number; lastActive: string }>;
+}
+
+function ClientTelemetryPanel() {
+  const { data: telemetry, isLoading, refetch, isFetching } = useQuery<TelemetrySummary>({
+    queryKey: ["/api/admin/voice-telemetry"],
+    refetchInterval: 5000,
+  });
+
+  const getStateColor = (state: string) => {
+    switch (state) {
+      case 'playing': return 'bg-green-500';
+      case 'buffering': return 'bg-yellow-500';
+      case 'idle': return 'bg-gray-400';
+      default: return 'bg-blue-500';
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="grid gap-4 md:grid-cols-3">
+        {[...Array(3)].map((_, i) => (
+          <Skeleton key={i} className="h-32" />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold flex items-center gap-2">
+          <Radio className="h-5 w-5 text-blue-500" />
+          End-to-End Telemetry
+        </h2>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => refetch()}
+          disabled={isFetching}
+          data-testid="button-refresh-telemetry"
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Activity className="h-4 w-4" />
+              Client Events
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold" data-testid="text-telemetry-total">
+              {telemetry?.totalEvents?.toLocaleString() || 0}
+            </div>
+            <p className="text-xs text-muted-foreground">Last 24h</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              Avg Delivery Latency
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold" data-testid="text-delivery-latency">
+              {telemetry?.avgDeliveryLatency ? `${Math.round(telemetry.avgDeliveryLatency)}ms` : 'N/A'}
+            </div>
+            <p className="text-xs text-muted-foreground">Server → Client</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Zap className="h-4 w-4" />
+              Correlation Rate
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold" data-testid="text-correlation-rate">
+              {telemetry?.correlationRate ? `${(telemetry.correlationRate * 100).toFixed(1)}%` : 'N/A'}
+            </div>
+            <p className="text-xs text-muted-foreground">Events matched</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Active Sessions
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold" data-testid="text-active-sessions">
+              {telemetry?.sessions?.length || 0}
+            </div>
+            <p className="text-xs text-muted-foreground">With telemetry</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Events by Type</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {Object.entries(telemetry?.eventsByType || {}).map(([type, count]) => (
+                <div key={type} className="flex items-center justify-between p-2 rounded bg-muted/50">
+                  <span className="text-sm font-medium capitalize">{type.replace(/_/g, ' ')}</span>
+                  <Badge variant="outline">{count as number}</Badge>
+                </div>
+              ))}
+              {Object.keys(telemetry?.eventsByType || {}).length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">No events recorded</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Recent Playback States</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 max-h-64 overflow-auto">
+              {telemetry?.recentEvents?.filter(e => e.eventType === 'playback_state_change').slice(0, 10).map((event, i) => (
+                <div key={i} className="flex items-center gap-3 p-2 rounded bg-muted/50">
+                  <div className={`w-2 h-2 rounded-full ${getStateColor(event.playbackState || 'unknown')}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium capitalize">{event.playbackState || 'unknown'}</p>
+                    <p className="text-xs text-muted-foreground truncate">{event.sessionId.slice(0, 8)}...</p>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(event.timestamp).toLocaleTimeString()}
+                  </span>
+                </div>
+              ))}
+              {(!telemetry?.recentEvents?.length || !telemetry.recentEvents.some(e => e.eventType === 'playback_state_change')) && (
+                <p className="text-sm text-muted-foreground text-center py-4">No playback events</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Session Telemetry</CardTitle>
+          <CardDescription>Sessions with recent client-side reporting</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {telemetry?.sessions?.slice(0, 10).map((session) => (
+              <div key={session.sessionId} className="flex items-center justify-between p-2 rounded bg-muted/50">
+                <div className="flex items-center gap-2">
+                  <Radio className="h-4 w-4 text-blue-500" />
+                  <span className="text-sm font-mono">{session.sessionId.slice(0, 12)}...</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <Badge variant="outline">{session.eventCount} events</Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(session.lastActive).toLocaleTimeString()}
+                  </span>
+                </div>
+              </div>
+            ))}
+            {(!telemetry?.sessions?.length) && (
+              <p className="text-sm text-muted-foreground text-center py-4">No active sessions with telemetry</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
 }
 
 export default function VoiceIntelligence() {
@@ -239,6 +442,7 @@ export default function VoiceIntelligence() {
                 <TabsTrigger value="languages" data-testid="tab-languages">Languages</TabsTrigger>
                 <TabsTrigger value="students" data-testid="tab-students">Student Issues</TabsTrigger>
                 <TabsTrigger value="environments" data-testid="tab-environments">Env Comparison</TabsTrigger>
+                <TabsTrigger value="telemetry" data-testid="tab-telemetry">Client Telemetry</TabsTrigger>
               </TabsList>
 
               <TabsContent value="overview" className="space-y-4">
@@ -576,6 +780,10 @@ export default function VoiceIntelligence() {
                     </div>
                   </CardContent>
                 </Card>
+              </TabsContent>
+
+              <TabsContent value="telemetry" className="space-y-4">
+                <ClientTelemetryPanel />
               </TabsContent>
             </Tabs>
           )}

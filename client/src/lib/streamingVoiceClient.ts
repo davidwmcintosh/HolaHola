@@ -51,8 +51,92 @@ import {
   ClientStartSessionMessage,
   WordTiming,
   AUDIO_STREAMING_CONFIG,
+  ClientTelemetryEvent,
+  ClientTelemetryEventType,
 } from '../../../shared/streaming-voice-types';
 import { isVerboseLoggingEnabled } from './audioUtils';
+
+// ============================================================================
+// CLIENT TELEMETRY EMITTER (End-to-End Voice Diagnostics)
+// ============================================================================
+
+/**
+ * Client-side telemetry emitter for voice diagnostics
+ * Sends events to server via Socket.io for end-to-end correlation
+ */
+class ClientTelemetryEmitter {
+  private socket: Socket | null = null;
+  private sessionId: string = '';
+  private enabled: boolean = true;
+  private eventBuffer: ClientTelemetryEvent[] = [];
+  private bufferSize: number = 50;
+  
+  setSocket(socket: Socket | null): void {
+    this.socket = socket;
+    // Flush any buffered events when socket becomes available
+    if (socket && socket.connected && this.eventBuffer.length > 0) {
+      this.flush();
+    }
+  }
+  
+  setSessionId(sessionId: string): void {
+    this.sessionId = sessionId;
+  }
+  
+  setEnabled(enabled: boolean): void {
+    this.enabled = enabled;
+  }
+  
+  emit(
+    type: ClientTelemetryEventType,
+    data?: ClientTelemetryEvent['data'],
+    sentenceIndex?: number,
+    chunkIndex?: number
+  ): void {
+    if (!this.enabled) return;
+    
+    const event: ClientTelemetryEvent = {
+      type,
+      timestamp: Date.now(),
+      sessionId: this.sessionId,
+      sentenceIndex,
+      chunkIndex,
+      data,
+    };
+    
+    // Log locally for debugging
+    console.log(`[TELEMETRY] ${type}`, data);
+    
+    // Send to server if socket is available and connected
+    if (this.socket?.connected) {
+      this.socket.emit('client_telemetry', event);
+    } else {
+      // Buffer for later sending
+      this.eventBuffer.push(event);
+      if (this.eventBuffer.length > this.bufferSize) {
+        this.eventBuffer.shift(); // Remove oldest
+      }
+    }
+  }
+  
+  private flush(): void {
+    if (!this.socket?.connected || this.eventBuffer.length === 0) return;
+    
+    // Send buffered events in batch
+    this.socket.emit('client_telemetry_batch', this.eventBuffer);
+    this.eventBuffer = [];
+  }
+}
+
+// Global singleton telemetry emitter
+const telemetryEmitter = new ClientTelemetryEmitter();
+
+/**
+ * Get the global telemetry emitter for use in other modules (e.g., audioUtils.ts)
+ */
+export function getClientTelemetryEmitter(): ClientTelemetryEmitter {
+  return telemetryEmitter;
+}
 
 /**
  * Connection states
@@ -255,6 +339,9 @@ export class StreamingVoiceClient {
         upgrade: false,  // No upgrade needed, already on WebSocket
         reconnection: false,  // We handle reconnection manually
       });
+      
+      // Wire up telemetry emitter to socket
+      telemetryEmitter.setSocket(this.socket);
       
       // Create a promise that resolves when connection is ready
       const connectionPromise = new Promise<void>((resolve, reject) => {
@@ -858,6 +945,10 @@ export class StreamingVoiceClient {
   
   private handleSessionStarted(message: { type: string; sessionId: string; timestamp: number }): void {
     this.sessionId = message.sessionId;
+    
+    // Wire up telemetry emitter with session ID
+    telemetryEmitter.setSessionId(message.sessionId);
+    
     this.setState('ready');
     this.callbacks.onSessionStart?.(message.sessionId);
     this.emit('sessionStart', message.sessionId);
@@ -901,6 +992,19 @@ export class StreamingVoiceClient {
   private handleAudioChunk(message: StreamingAudioChunkMessage): void {
     // Store metadata for the upcoming binary frame
     this.currentSentenceIndex = message.sentenceIndex;
+    
+    // Telemetry: track audio chunk received
+    telemetryEmitter.emit(
+      'audio_chunk_received',
+      {
+        audioLength: message.audio?.length ?? 0,
+        isChunked: false,
+        serverEmitTime: message.timestamp,
+      },
+      message.sentenceIndex,
+      message.chunkIndex
+    );
+    
     // Emit audio chunk with embedded base64 data (no logging on hot path)
     this.emit('audioChunk', message);
   }
@@ -955,6 +1059,18 @@ export class StreamingVoiceClient {
       // Reassemble and emit as full audio_chunk
       const fullAudio = buffer.chunks.join('');
       console.log(`[AUDIO CHUNK PART] REASSEMBLED: ${fullAudio.length} bytes from ${totalParts} parts`);
+      
+      // Telemetry: track reassembly completion
+      telemetryEmitter.emit(
+        'audio_chunk_reassembled',
+        {
+          audioLength: fullAudio.length,
+          totalParts,
+          serverEmitTime: buffer.baseMessage?.timestamp,
+        },
+        sentenceIndex,
+        chunkIndex
+      );
       
       const fullMessage: StreamingAudioChunkMessage = {
         type: 'audio_chunk',
