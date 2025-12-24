@@ -29,6 +29,8 @@ const io = new SocketIOServer(server, {
   },
   // Allow both websocket and polling transports
   transports: ['websocket', 'polling'],
+  // Increase max buffer size for audio chunks (default 1MB may be too small)
+  maxHttpBufferSize: 5e6, // 5MB
 });
 setupSocketIOHandler(io);
 
