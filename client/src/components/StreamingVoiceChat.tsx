@@ -827,6 +827,26 @@ export function StreamingVoiceChat({
     };
   }, [conversationId, useStreamingMode, user, language, difficulty, subtitleMode, onLanguageHandoffComplete]);
   
+  // DEBUG: Log mic lockout state changes
+  useEffect(() => {
+    const isUsersTurn = streamingVoice.state.connectionState === 'ready' &&
+      !streamingVoice.state.isSwitchingTutor &&
+      ((!isProcessing && !streamingVoice.state.isProcessing && avatarState !== 'speaking') ||
+       (!!streamingVoice.state.error && !streamingVoice.state.isProcessing && streamingVoice.state.playbackState === 'idle'));
+    
+    console.log(`[MIC LOCKOUT DEBUG] isUsersTurn=${isUsersTurn}`, {
+      connectionState: streamingVoice.state.connectionState,
+      isSwitchingTutor: streamingVoice.state.isSwitchingTutor,
+      isProcessing,
+      streamIsProcessing: streamingVoice.state.isProcessing,
+      avatarState,
+      playbackState: streamingVoice.state.playbackState,
+      error: !!streamingVoice.state.error,
+      isPttButtonHeld,
+    });
+  }, [isProcessing, avatarState, streamingVoice.state.connectionState, streamingVoice.state.isProcessing, 
+      streamingVoice.state.playbackState, streamingVoice.state.isSwitchingTutor, streamingVoice.state.error, isPttButtonHeld]);
+  
   // Sync streaming voice state with component state
   useEffect(() => {
     if (!useStreamingMode) return;

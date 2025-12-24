@@ -672,6 +672,28 @@ export function ImmersiveTutor({
         )}
         
         {/* Instruction text - simple two-state model */}
+        {/* Debug: Log instruction text state changes */}
+        {(() => {
+          const instructionText = isConnecting 
+            ? `Calling ${tutorGender === 'male' ? maleVoiceName : femaleVoiceName}...` 
+            : inputMode === 'open-mic'
+              ? isPlaying
+                ? ""
+                : isRecording || openMicState === 'processing' || openMicState === 'ready' || openMicState === 'listening'
+                  ? ""
+                  : "Tap to connect"
+              : isRecording || isPttButtonHeld
+                ? "Release to send"
+                : isMicPreparing 
+                  ? "Preparing mic..." 
+                  : isProcessing 
+                    ? "Processing..." 
+                    : isPlaying || !isUsersTurn
+                      ? "Please wait..."
+                      : "Hold to speak";
+          console.log(`[INSTRUCTION DEBUG] text="${instructionText}" isPttButtonHeld=${isPttButtonHeld} isRecording=${isRecording} isPlaying=${isPlaying} isUsersTurn=${isUsersTurn} isProcessing=${isProcessing}`);
+          return null;
+        })()}
         <p className="text-xs text-muted-foreground" data-testid="text-mic-instruction">
           {isConnecting 
             ? `Calling ${tutorGender === 'male' ? maleVoiceName : femaleVoiceName}...` 
