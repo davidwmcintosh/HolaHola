@@ -1,7 +1,7 @@
 # Voice Streaming Debug Consolidated
 
 **Last Updated:** December 24, 2025  
-**Status:** ACTIVE DEBUGGING - Avatar animation broken despite audio playing
+**Status:** ✅ RESOLVED - Avatar animation working, interrupt feature added
 
 ---
 
@@ -22,6 +22,57 @@
 ---
 
 ## Current Issue
+
+**Summary:** ✅ RESOLVED - All issues fixed on December 24, 2025.
+
+### Resolution Summary
+
+**Root Causes Identified & Fixed:**
+
+1. **Avatar asset missing** - Spanish female tutor "talking" image was using same file as "listening" (no visual change). Fixed by adding new speaking image asset.
+
+2. **React prop drilling failures during HMR** - Callback closures became stale after hot module reload. Fixed by implementing **Global Playback State Store** using `useSyncExternalStore` pattern that bypasses prop drilling entirely.
+
+3. **Mic lockout catch-22** - When audio stuck playing, user couldn't press PTT button to send interrupt (button was disabled). Fixed by allowing button press during playback to trigger interrupt.
+
+### Key Changes Made
+
+| File | Change |
+|------|--------|
+| `client/src/lib/playbackStateStore.ts` | NEW - Global state store with useSyncExternalStore |
+| `client/src/lib/audioUtils.ts` | Calls `setGlobalPlaybackState()` on every state change |
+| `client/src/components/ImmersiveTutor.tsx` | Uses `usePlaybackState()` hook, added `onInterrupt` prop, button shows "Tap to interrupt" during playback |
+| `client/src/components/StreamingVoiceChat.tsx` | Keyboard handler sends interrupt during playback |
+| `client/src/components/VoiceChatViewManager.tsx` | Passes `onInterrupt` through to ImmersiveTutor |
+| `client/src/lib/tutor-avatars.ts` | Spanish female talking image now uses dedicated speaking asset |
+
+### Interrupt Feature (PTT Mode)
+
+When Daniela is speaking, users can now:
+- **Tap mic button** - Shows "Tap to interrupt" label, stops audio immediately
+- **Press Enter key** - Keyboard shortcut also triggers interrupt
+
+**Note:** Open-mic mode already has automatic barge-in via server-side VAD detection.
+
+### Architecture Pattern
+
+```
+Audio Player (singleton)
+    │
+    ├── setGlobalPlaybackState(state)  ← Updates global store
+    │
+    └── notifyStateChange(state)        ← Legacy subscriber callbacks
+    
+Global Playback Store (playbackStateStore.ts)
+    │
+    ├── useSyncExternalStore             ← React 18 pattern
+    │
+    └── Components subscribe directly    ← HMR-resilient
+```
+
+---
+
+## Previous Issue (Historical)
 
 **Summary:** Avatar stuck on 'idle' despite audio playing correctly. Multi-subscriber callback pattern implemented to survive Vite HMR, but React state updates not reaching component tree.
 
