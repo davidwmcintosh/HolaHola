@@ -286,6 +286,16 @@ export function ImmersiveTutor({
     else if (isProcessing) avatarState = 'thinking';
     else if (isRecording) avatarState = 'listening';
     
+    // DEBUG: Log avatar state derivation
+    console.log('[IMMERSIVE AVATAR DEBUG]', {
+      isPlaying,
+      isProcessing,
+      isRecording,
+      derivedAvatarState: avatarState,
+      targetLanguage,
+      tutorGender,
+    });
+    
     // Get language-specific avatar for current state
     return getTutorAvatar(targetLanguage, tutorGender, avatarState);
   };
