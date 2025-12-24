@@ -1803,9 +1803,15 @@ export class StreamingAudioPlayer {
    */
   private setState(state: StreamingPlaybackState): void {
     if (this.state !== state) {
-      console.log(`[AUDIO PLAYER] State change: ${this.state} -> ${state}`);
+      const hasCallback = !!this.callbacks.onStateChange;
+      console.log(`[AUDIO PLAYER] State change: ${this.state} -> ${state} (hasCallback: ${hasCallback})`);
       this.state = state;
-      this.callbacks.onStateChange?.(state);
+      if (this.callbacks.onStateChange) {
+        console.log(`[AUDIO PLAYER] Calling onStateChange callback with: ${state}`);
+        this.callbacks.onStateChange(state);
+      } else {
+        console.warn(`[AUDIO PLAYER] NO onStateChange callback registered!`);
+      }
     }
   }
   
