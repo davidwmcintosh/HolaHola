@@ -831,14 +831,17 @@ export function StreamingVoiceChat({
   }, [conversationId, useStreamingMode, user, language, difficulty, subtitleMode, onLanguageHandoffComplete]);
   
   // DEBUG: Log mic lockout state changes
+  // CRITICAL: Use playbackState directly for accurate mic lock timing
   useEffect(() => {
     const connValid = streamingVoice.state.connectionState === 'ready' || streamingVoice.state.connectionState === 'connected';
+    const isAudioActive = streamingVoice.state.playbackState === 'playing' || streamingVoice.state.playbackState === 'buffering';
     const isUsersTurn = connValid &&
       !streamingVoice.state.isSwitchingTutor &&
       (
         // PTT ACTIVE: If user is holding PTT button, keep mic active regardless of audio state
         isPttButtonHeld ||
-        (!isProcessing && !streamingVoice.state.isProcessing && avatarState !== 'speaking') ||
+        // Normal case: not processing and playback is idle (using playbackState for immediate response)
+        (!isProcessing && !streamingVoice.state.isProcessing && !isAudioActive) ||
         (!!streamingVoice.state.error && !streamingVoice.state.isProcessing && streamingVoice.state.playbackState === 'idle')
       );
     
@@ -848,12 +851,12 @@ export function StreamingVoiceChat({
       isSwitchingTutor: streamingVoice.state.isSwitchingTutor,
       isProcessing,
       streamIsProcessing: streamingVoice.state.isProcessing,
-      avatarState,
       playbackState: streamingVoice.state.playbackState,
+      isAudioActive,
       error: !!streamingVoice.state.error,
       isPttButtonHeld,
     });
-  }, [isProcessing, avatarState, streamingVoice.state.connectionState, streamingVoice.state.isProcessing, 
+  }, [isProcessing, streamingVoice.state.connectionState, streamingVoice.state.isProcessing, 
       streamingVoice.state.playbackState, streamingVoice.state.isSwitchingTutor, streamingVoice.state.error, isPttButtonHeld]);
   
   // Sync streaming voice state with component state
@@ -2840,36 +2843,32 @@ export function StreamingVoiceChat({
           isRecording={isRecording}
           isMicPreparing={isMicPreparing}
           isProcessing={isProcessing}
-          isPlaying={avatarState === 'speaking'}
+          isPlaying={streamingVoice.state.playbackState === 'playing' || streamingVoice.state.playbackState === 'buffering'}
           isConnecting={useStreamingMode && (streamingVoice.state.connectionState === 'connecting' || streamingVoice.state.connectionState === 'reconnecting')}
           isUsersTurn={
             // Mic is ONLY unlocked when ALL of these are true:
             // 1. Connection is 'ready' OR 'connected' (both are valid working states)
-            //    - 'connected' = WebSocket connected (after reconnection)
-            //    - 'ready' = initial greeting complete
             // 2. Not processing (not waiting for AI response)
-            // 3. Not playing/speaking (AI not talking)
+            // 3. Not playing/speaking (AI not talking) - use playbackState directly for immediate response
             // 4. Not connecting/reconnecting
             // 5. NOT switching tutors (mic stays locked during handoff)
             // 
+            // CRITICAL: Use playbackState directly instead of avatarState to avoid React state lag
+            // playbackState updates immediately from audio player callback
+            // avatarState updates one render cycle later via useEffect
+            // 
             // SPECIAL CASE: If user is HOLDING PTT (isPttButtonHeld), keep mic active!
             // This allows speculative PTT to play audio while user still has control.
-            // The user can release PTT to stop, or keep holding to add more words.
-            // 
-            // NOTE: Do NOT add isRecording here - that breaks lockout logic
-            // Visual styling (button staying red while recording) is handled separately
-            // in ImmersiveTutor via the className condition
             // 
             // ALSO unlock if there's an error but connection is valid (recoverable state)
-            // This handles cases like empty transcript where user should try again
             (streamingVoice.state.connectionState === 'ready' || streamingVoice.state.connectionState === 'connected') &&
             !streamingVoice.state.isSwitchingTutor &&  // Mic locked during tutor handoff
             (
               // PTT ACTIVE: If user is holding PTT button, keep mic active regardless of audio state
               // This is critical for speculative PTT - user maintains control while holding
               isPttButtonHeld ||
-              // Normal case: not processing and not speaking
-              (!isProcessing && !streamingVoice.state.isProcessing && avatarState !== 'speaking') ||
+              // Normal case: not processing and playback is idle (using playbackState for immediate response)
+              (!isProcessing && !streamingVoice.state.isProcessing && streamingVoice.state.playbackState === 'idle') ||
               // Error recovery: server says not processing even if local state got stuck
               (!!streamingVoice.state.error && !streamingVoice.state.isProcessing && streamingVoice.state.playbackState === 'idle')
             )

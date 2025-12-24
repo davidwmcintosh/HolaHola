@@ -281,14 +281,19 @@ export function ImmersiveTutor({
   // Determine which tutor image to show based on state, gender, and language
   const getTutorImage = () => {
     // Map tutor state to avatar state
+    // CRITICAL: Use playbackState directly for immediate avatar response
+    // - 'playing' or 'buffering' = audio is active = show talking avatar
+    // - Don't rely on isPlaying prop which goes through extra React state cycle
     let avatarState: TutorState = 'idle';
-    if (isPlaying) avatarState = 'talking';
+    const isAudioActive = playbackState === 'playing' || playbackState === 'buffering';
+    if (isAudioActive) avatarState = 'talking';
     else if (isProcessing) avatarState = 'thinking';
     else if (isRecording) avatarState = 'listening';
     
     // DEBUG: Log avatar state derivation
     console.log('[IMMERSIVE AVATAR DEBUG]', {
-      isPlaying,
+      playbackState,
+      isAudioActive,
       isProcessing,
       isRecording,
       derivedAvatarState: avatarState,
@@ -303,8 +308,10 @@ export function ImmersiveTutor({
   
   // Get the current avatar state for test IDs and animation
   const getAvatarState = (): "idle" | "listening" | "speaking" | "thinking" => {
-    // Speaking = audio actively playing
-    if (isPlaying) return "speaking";
+    // Speaking = audio actively playing or buffering
+    // CRITICAL: Use playbackState directly for immediate response
+    const isAudioActive = playbackState === 'playing' || playbackState === 'buffering';
+    if (isAudioActive) return "speaking";
     // Thinking = processing user input, preparing response (instant visual feedback)
     if (isProcessing) return "thinking";
     // Listening = user is recording/speaking
