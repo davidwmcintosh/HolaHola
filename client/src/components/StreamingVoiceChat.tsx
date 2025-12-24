@@ -2735,21 +2735,19 @@ export function StreamingVoiceChat({
             // 4. Not connecting/reconnecting
             // 5. NOT switching tutors (mic stays locked during handoff)
             // 
-            // SPECIAL CASE: If user is ACTIVELY RECORDING, always show as their turn
-            // This prevents the button greying out during speculative PTT processing
+            // NOTE: Do NOT add isRecording here - that breaks lockout logic
+            // Visual styling (button staying red while recording) is handled separately
+            // in ImmersiveTutor via the className condition
             // 
             // ALSO unlock if there's an error but connection is ready (recoverable state)
             // This handles cases like empty transcript where user should try again
-            isRecording ||  // User is actively recording - always their turn
+            streamingVoice.state.connectionState === 'ready' &&
+            !streamingVoice.state.isSwitchingTutor &&  // Mic locked during tutor handoff
             (
-              streamingVoice.state.connectionState === 'ready' &&
-              !streamingVoice.state.isSwitchingTutor &&  // Mic locked during tutor handoff
-              (
-                // Normal case: not processing and not speaking
-                (!isProcessing && !streamingVoice.state.isProcessing && avatarState !== 'speaking') ||
-                // Error recovery: server says not processing even if local state got stuck
-                (!!streamingVoice.state.error && !streamingVoice.state.isProcessing && streamingVoice.state.playbackState === 'idle')
-              )
+              // Normal case: not processing and not speaking
+              (!isProcessing && !streamingVoice.state.isProcessing && avatarState !== 'speaking') ||
+              // Error recovery: server says not processing even if local state got stuck
+              (!!streamingVoice.state.error && !streamingVoice.state.isProcessing && streamingVoice.state.playbackState === 'idle')
             )
           }
           onEndCall={handleEndCall}

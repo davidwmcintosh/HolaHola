@@ -797,8 +797,8 @@ export function ImmersiveTutor({
                   console.log('[MIC BUTTON] Mouse leave - continuing recording (global mouseup will handle stop)');
                 }
               }}
-              disabled={!isUsersTurn}
-              className={`h-14 w-14 md:h-16 md:w-16 rounded-full shadow-lg select-none focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 ${isMicPreparing ? 'animate-pulse' : ''} ${!isUsersTurn ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={!isUsersTurn && !isRecording}
+              className={`h-14 w-14 md:h-16 md:w-16 rounded-full shadow-lg select-none focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 ${isMicPreparing ? 'animate-pulse' : ''} ${!isUsersTurn && !isRecording ? 'opacity-50 cursor-not-allowed' : ''}`}
               style={{ touchAction: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
               data-testid={isRecording ? "button-stop-recording" : isMicPreparing ? "button-preparing" : "button-start-recording"}
               aria-pressed={isRecording || isMicPreparing}
