@@ -37,7 +37,7 @@ import portugueseFemaleThinking from "@assets/Tutor_Images/Female/Portuguese_Fem
 // Spanish female uses original Daniela assets
 import spanishFemaleListening from "@assets/tutor-listening-no-background_1764099971094.png";
 import spanishFemaleThinking from "@assets/daniela_thinking_No_Background_1766161816613.jpg";
-const spanishFemaleTalking = spanishFemaleListening; // Use listening as talking fallback
+import spanishFemaleTalking from "@assets/daniela-speaking-No-Background_1766611262497.png";
 
 // Male avatars by language
 import chineseMaleListening from "@assets/Tutor_Images/Male/Chinese_Male_Listening.jpg";
