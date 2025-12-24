@@ -605,6 +605,13 @@ export class StreamingVoiceClient {
     sampleRate: number;
   } | null = null;
   
+  // Sub-chunk reassembly buffer for large audio messages split by server
+  private pendingSubChunks: Map<string, {
+    chunks: string[];
+    totalSubChunks: number;
+    baseMessage: any;
+  }> = new Map();
+  
   /**
    * Handle binary data from Socket.io 'binary' event
    * This receives raw PCM audio data that follows an audio_chunk_meta message
@@ -699,9 +706,44 @@ export class StreamingVoiceClient {
           break;
           
         case 'audio_chunk':
-          // Legacy path - direct JSON audio (may be dropped if too large)
-          console.log('[WS CLIENT] Received audio_chunk message, dispatching to handleAudioChunk');
-          this.handleAudioChunk(message as StreamingAudioChunkMessage);
+          // Check if this is a sub-chunk that needs reassembly
+          if (message.totalSubChunks && message.totalSubChunks > 1) {
+            // Large audio split into multiple sub-chunks - reassemble before playing
+            const chunkKey = `${message.sentenceIndex}-${message.chunkIndex}`;
+            
+            if (!this.pendingSubChunks.has(chunkKey)) {
+              this.pendingSubChunks.set(chunkKey, {
+                chunks: new Array(message.totalSubChunks).fill(''),
+                totalSubChunks: message.totalSubChunks,
+                baseMessage: { ...message, audio: '' },
+              });
+            }
+            
+            const pending = this.pendingSubChunks.get(chunkKey)!;
+            pending.chunks[message.subChunkIndex] = message.audio;
+            
+            // Check if all sub-chunks received
+            const allReceived = pending.chunks.every((chunk: string) => chunk !== '');
+            if (allReceived) {
+              // Reassemble audio
+              const fullAudio = pending.chunks.join('');
+              const fullMessage = {
+                ...pending.baseMessage,
+                audio: fullAudio,
+                isLast: message.isLast,
+              };
+              console.log('[WS CLIENT] Reassembled', pending.totalSubChunks, 'sub-chunks, total audio:', fullAudio.length, 'chars');
+              this.pendingSubChunks.delete(chunkKey);
+              this.handleAudioChunk(fullMessage as StreamingAudioChunkMessage);
+            } else {
+              const received = pending.chunks.filter((c: string) => c !== '').length;
+              console.log('[WS CLIENT] Sub-chunk', message.subChunkIndex + 1, '/', message.totalSubChunks, 'received');
+            }
+          } else {
+            // Normal-sized chunk, play directly
+            console.log('[WS CLIENT] Received audio_chunk message, dispatching to handleAudioChunk');
+            this.handleAudioChunk(message as StreamingAudioChunkMessage);
+          }
           break;
           
         case 'audio_chunk_meta':

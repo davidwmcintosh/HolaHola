@@ -127,32 +127,35 @@ class SocketIOWebSocketAdapter {
         try {
           const parsed = JSON.parse(data);
           
-          // CRITICAL: audio_chunk messages are too large for JSON (Chrome drops >1MB frames)
-          // Send audio as binary and metadata separately
+          // For audio_chunk messages, chunk large payloads to avoid Chrome's ~1MB frame limit
+          // Keep the original JSON format - just split into smaller pieces
           if (parsed.type === 'audio_chunk' && parsed.audio) {
-            // Convert base64 audio to binary buffer
-            const audioBuffer = Buffer.from(parsed.audio, 'base64');
+            const base64Audio = parsed.audio as string;
+            const MAX_CHUNK_SIZE = 400000; // ~400KB base64 = ~300KB binary, well under 1MB limit
             
-            // Send small metadata marker first (JSON)
-            const metadata = {
-              type: 'audio_chunk_meta',
-              sentenceIndex: parsed.sentenceIndex,
-              chunkIndex: parsed.chunkIndex,
-              isLast: parsed.isLast,
-              byteLength: audioBuffer.length,
-              timestamp: parsed.timestamp,
-              turnId: parsed.turnId,
-              durationMs: parsed.durationMs,
-              audioFormat: parsed.audioFormat || 'pcm_f32le',
-              sampleRate: parsed.sampleRate || 24000,
-            };
-            this.socket.emit('message', metadata);
+            if (base64Audio.length > MAX_CHUNK_SIZE) {
+              // Split large audio into multiple chunks
+              const numChunks = Math.ceil(base64Audio.length / MAX_CHUNK_SIZE);
+              console.log(`[SOCKET EMIT] audio_chunk: splitting ${base64Audio.length} bytes into ${numChunks} sub-chunks`);
+              
+              for (let i = 0; i < numChunks; i++) {
+                const start = i * MAX_CHUNK_SIZE;
+                const end = Math.min(start + MAX_CHUNK_SIZE, base64Audio.length);
+                const chunkAudio = base64Audio.slice(start, end);
+                
+                const subChunk = {
+                  ...parsed,
+                  audio: chunkAudio,
+                  subChunkIndex: i,
+                  totalSubChunks: numChunks,
+                  isLast: parsed.isLast && (i === numChunks - 1),
+                };
+                this.socket.emit('message', subChunk);
+              }
+              return;
+            }
             
-            // Then send audio as binary (no base64 overhead, no JSON size limit)
-            this.socket.emit('binary', audioBuffer);
-            
-            console.log(`[SOCKET EMIT] audio_chunk: connected=${this.socket.connected}, binaryLen=${audioBuffer.length}`);
-            return;
+            console.log(`[SOCKET EMIT] audio_chunk: connected=${this.socket.connected}, audioLen=${base64Audio.length}`);
           }
           
           if (parsed.type === 'word_timing') {
