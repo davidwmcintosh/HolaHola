@@ -637,7 +637,8 @@ export class StreamingVoiceClient {
       turnId: meta?.turnId ?? 0,
       sentenceIndex,
       chunkIndex: meta?.chunkIndex ?? 0,
-      audioData: base64,
+      audio: base64,
+      durationMs: 0, // Will be calculated from audio length
       isLast,
     };
     

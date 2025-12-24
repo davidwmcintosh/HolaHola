@@ -129,9 +129,9 @@ class SocketIOWebSocketAdapter {
           
           // CRITICAL: audio_chunk messages are too large for JSON (Chrome drops >1MB frames)
           // Send audio as binary and metadata separately
-          if (parsed.type === 'audio_chunk' && parsed.audioData) {
+          if (parsed.type === 'audio_chunk' && parsed.audio) {
             // Convert base64 audio to binary buffer
-            const audioBuffer = Buffer.from(parsed.audioData, 'base64');
+            const audioBuffer = Buffer.from(parsed.audio, 'base64');
             
             // Send small metadata marker first (JSON)
             const metadata = {
