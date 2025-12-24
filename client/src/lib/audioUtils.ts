@@ -1,6 +1,7 @@
 import { resetDebugTimingState, logEmptyChunkProcessed, logSentenceTransition, logScheduleEvent, updateDebugTimingState, getDebugTimingState, registerPlayerInstance, type SentenceScheduleEntry, type SentenceMatchInfo } from './debugTimingState';
 import type { ClientTelemetryEventType } from '../../../shared/streaming-voice-types';
 import { getClientTelemetryEmitter } from './streamingVoiceClient';
+import { setGlobalPlaybackState } from './playbackStateStore';
 
 // Wrapper for telemetry emitter
 function getTelemetryEmitter() {
@@ -1945,6 +1946,10 @@ export class StreamingAudioPlayer {
       const subscriberCount = this.subscribers.size;
       console.log(`[AUDIO PLAYER] State change: ${prevState} -> ${state} (subscribers: ${subscriberCount})`);
       this.state = state;
+      
+      // CRITICAL: Update global store for React components to subscribe to
+      // This is the most reliable path - components use useSyncExternalStore
+      setGlobalPlaybackState(state);
       
       // Telemetry: emit playback state change
       const emitter = getTelemetryEmitter();

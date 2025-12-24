@@ -32,6 +32,7 @@ import type { WhiteboardItem, SubtitleMode } from "@shared/whiteboard-types";
 import type { StreamingSubtitleState } from "../hooks/useStreamingSubtitles";
 import type { VoiceInputMode, OpenMicState } from "@shared/streaming-voice-types";
 import { getTutorAvatar, type TutorState } from "@/lib/tutor-avatars";
+import { usePlaybackState } from "@/lib/playbackStateStore";
 
 // Types for hive channel collaboration
 interface HiveSnapshot {
@@ -157,8 +158,14 @@ export function ImmersiveTutor({
   setInputMode,
   openMicState = 'idle',
   isPttButtonHeld = false,
-  playbackState = 'idle',
+  playbackState: propPlaybackState = 'idle',
 }: ImmersiveTutorProps) {
+  // CRITICAL: Use global playback state store instead of prop
+  // This bypasses React prop drilling which becomes stale during HMR
+  const globalPlaybackState = usePlaybackState();
+  // Use global store as primary, fallback to prop only if global is idle and prop differs
+  const playbackState = globalPlaybackState !== 'idle' ? globalPlaybackState : propPlaybackState;
+  
   // Local ref to track if WE started recording via pointer down
   // This ensures pointer up always stops recording regardless of React state timing
   const isPointerRecordingRef = useRef<boolean>(false);
@@ -174,10 +181,10 @@ export function ImmersiveTutor({
   const playbackStateRef = useRef(playbackState);
   playbackStateRef.current = playbackState; // Always sync with latest prop
   
-  // DEBUG: Log every time playbackState prop changes
+  // DEBUG: Log every time playbackState changes (now from global store)
   useEffect(() => {
-    console.log('[IMMERSIVE TUTOR PROP] playbackState changed to:', playbackState);
-  }, [playbackState]);
+    console.log('[IMMERSIVE TUTOR STATE] playbackState:', playbackState, '(global:', globalPlaybackState, ', prop:', propPlaybackState, ')');
+  }, [playbackState, globalPlaybackState, propPlaybackState]);
   
   // Debounce voice switching to prevent rapid clicks
   const voiceSwitchInProgressRef = useRef<boolean>(false);
