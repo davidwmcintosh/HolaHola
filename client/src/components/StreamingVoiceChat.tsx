@@ -881,6 +881,13 @@ export function StreamingVoiceChat({
       // Audio is actually playing - show speaking state
       setAvatarState('speaking');
       
+      // CRITICAL: Clear currentPlayingMessageId when streaming starts
+      // This prevents stale greeting ID from blocking avatar state reset when streaming ends
+      if (currentPlayingMessageId) {
+        console.log('[AVATAR STATE] Streaming playing - clearing stale currentPlayingMessageId');
+        setCurrentPlayingMessageId(null);
+      }
+      
       // CRITICAL: Clear isProcessing when audio starts playing
       // This prevents "thinking" avatar from showing during "speaking" state
       if (isProcessingRef.current) {
