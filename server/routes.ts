@@ -16857,6 +16857,44 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
     }
   });
   
+  // Admin: Force-reset all running sync runs to 'failed' status
+  // Use this to clear stuck sync runs and start fresh
+  app.post("/api/sync/force-reset", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      console.log('[SYNC API] Force-resetting all running sync runs...');
+      const { syncRuns } = await import('@shared/schema');
+      
+      // Find all running sync runs
+      const runningRuns = await db.select()
+        .from(syncRuns)
+        .where(eq(syncRuns.status, 'running'));
+      
+      // Mark them all as failed
+      let resetCount = 0;
+      for (const run of runningRuns) {
+        await db.update(syncRuns)
+          .set({
+            status: 'failed',
+            errorMessage: 'Force-reset by admin - cleared to allow fresh sync',
+            completedAt: new Date(),
+            durationMs: Date.now() - new Date(run.startedAt).getTime(),
+          })
+          .where(eq(syncRuns.id, run.id));
+        resetCount++;
+        console.log(`[SYNC API] Force-reset sync run ${run.id} (direction: ${run.direction}, started: ${run.startedAt})`);
+      }
+      
+      res.json({ 
+        success: true, 
+        resetCount,
+        message: `Force-reset ${resetCount} running sync run(s). You can now start a fresh sync.`
+      });
+    } catch (error: any) {
+      console.error('[SYNC API] Force-reset error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // Admin: Query peer environment's database stats
   app.get("/api/sync/peer-stats", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
