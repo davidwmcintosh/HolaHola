@@ -1147,9 +1147,10 @@ class SyncBridgeService {
     }
   }
   
-  async pullFromPeer(triggeredBy: string = 'manual'): Promise<SyncResult> {
+  async pullFromPeer(triggeredBy: string = 'manual', options?: { forceResume?: boolean }): Promise<SyncResult> {
     const startTime = Date.now();
     const peerUrl = getSyncPeerUrl();
+    const forceResume = options?.forceResume ?? false;
     
     if (!peerUrl || !isSyncConfigured()) {
       return {
@@ -1161,19 +1162,38 @@ class SyncBridgeService {
     }
     
     // v16: Check for interrupted sync runs to resume
-    // Look for 'running' pulls that started more than 3 HOURS ago (likely crashed/timed out)
-    // We use 3 hours because the Replit timeout is 2 hours - if it's still 'running' after 3 hours,
-    // it was definitely killed by the gateway timeout and is safe to resume
-    const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000);
-    const [interruptedRun] = await db.select()
-      .from(syncRuns)
-      .where(and(
-        eq(syncRuns.direction, 'pull'),
-        eq(syncRuns.status, 'running'),
-        lt(syncRuns.startedAt, threeHoursAgo)
-      ))
-      .orderBy(desc(syncRuns.startedAt))
-      .limit(1);
+    // Normal mode: Look for 'running' pulls that started more than 3 HOURS ago
+    // Force mode: Find ANY 'running' pull to resume immediately (use after confirmed timeout)
+    let interruptedRun: SyncRun | undefined;
+    
+    if (forceResume) {
+      console.log(`[SYNC-BRIDGE v16] FORCE RESUME requested by ${triggeredBy}`);
+      const [staleRun] = await db.select()
+        .from(syncRuns)
+        .where(and(
+          eq(syncRuns.direction, 'pull'),
+          eq(syncRuns.status, 'running')
+        ))
+        .orderBy(desc(syncRuns.startedAt))
+        .limit(1);
+      interruptedRun = staleRun;
+      if (interruptedRun) {
+        console.log(`[SYNC-BRIDGE v16] Force resuming from run ${interruptedRun.id} (page ${interruptedRun.lastCompletedPage ?? -1})`);
+      }
+    } else {
+      // Normal mode: only resume if 3+ hours old
+      const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000);
+      const [staleRun] = await db.select()
+        .from(syncRuns)
+        .where(and(
+          eq(syncRuns.direction, 'pull'),
+          eq(syncRuns.status, 'running'),
+          lt(syncRuns.startedAt, threeHoursAgo)
+        ))
+        .orderBy(desc(syncRuns.startedAt))
+        .limit(1);
+      interruptedRun = staleRun;
+    }
     
     let syncRun: SyncRun;
     let resumeFromBatch = 0;

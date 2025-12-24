@@ -16750,11 +16750,13 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Admin: Trigger pull from peer environment
+  // Query params: ?forceResume=true - immediately resume from last interrupted run (use after confirmed timeout)
   app.post("/api/sync/pull", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const triggeredBy = req.user?.claims?.sub || 'admin';
-      console.log('[SYNC API] Manual pull triggered by', triggeredBy);
-      const result = await syncBridge.pullFromPeer(triggeredBy);
+      const forceResume = req.query.forceResume === 'true';
+      console.log(`[SYNC API] Manual pull triggered by ${triggeredBy}${forceResume ? ' (FORCE RESUME)' : ''}`);
+      const result = await syncBridge.pullFromPeer(triggeredBy, { forceResume });
       res.json(result);
     } catch (error: any) {
       console.error('[SYNC API] Pull error:', error);
