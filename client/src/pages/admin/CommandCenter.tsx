@@ -97,7 +97,8 @@ import {
   Heart,
   HelpCircle,
   Save,
-  Archive
+  Archive,
+  Database,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -1109,6 +1110,10 @@ export default function CommandCenter() {
       setLocation('/admin/voice-intelligence');
       return;
     }
+    if (value === 'sync-control') {
+      setLocation('/admin/sync');
+      return;
+    }
     setActiveTab(value);
   };
 
@@ -1145,7 +1150,9 @@ export default function CommandCenter() {
     { id: "memory-migration", label: "Memory Migration", icon: Brain, roles: ['developer'] },
     { id: "personal-facts", label: "Student Memories", icon: BookOpen, roles: ['admin', 'developer'] },
     { id: "memory-metrics", label: "Memory Metrics", icon: Activity, roles: ['admin', 'developer'] },
+    { id: "sync-control", label: "Sync Control", icon: Database, roles: ['founder'] },
   ].filter(tab => {
+    if (user?.role === 'founder') return tab.roles.includes('founder') || tab.roles.includes('admin') || tab.roles.includes('developer');
     if (user?.role === 'admin') return true;
     if (user?.role === 'developer') return tab.roles.includes('developer');
     if (isTeacher) return tab.roles.includes('teacher');
