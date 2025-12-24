@@ -885,7 +885,11 @@ export function ImmersiveTutor({
           )}
           {inputMode !== 'open-mic' && (
             <span className="text-[10px] text-muted-foreground">
-              {!isUsersTurn ? "Please wait" : "Hold to speak"}
+              {isRecording || isPttButtonHeld 
+                ? "Release to send" 
+                : !isUsersTurn 
+                  ? "Please wait" 
+                  : "Hold to speak"}
             </span>
           )}
         </div>
