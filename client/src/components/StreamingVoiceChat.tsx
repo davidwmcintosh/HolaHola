@@ -835,8 +835,12 @@ export function StreamingVoiceChat({
     const connValid = streamingVoice.state.connectionState === 'ready' || streamingVoice.state.connectionState === 'connected';
     const isUsersTurn = connValid &&
       !streamingVoice.state.isSwitchingTutor &&
-      ((!isProcessing && !streamingVoice.state.isProcessing && avatarState !== 'speaking') ||
-       (!!streamingVoice.state.error && !streamingVoice.state.isProcessing && streamingVoice.state.playbackState === 'idle'));
+      (
+        // PTT ACTIVE: If user is holding PTT button, keep mic active regardless of audio state
+        isPttButtonHeld ||
+        (!isProcessing && !streamingVoice.state.isProcessing && avatarState !== 'speaking') ||
+        (!!streamingVoice.state.error && !streamingVoice.state.isProcessing && streamingVoice.state.playbackState === 'idle')
+      );
     
     console.log(`[MIC LOCKOUT DEBUG] isUsersTurn=${isUsersTurn}`, {
       connectionState: streamingVoice.state.connectionState,
@@ -2828,6 +2832,10 @@ export function StreamingVoiceChat({
             // 4. Not connecting/reconnecting
             // 5. NOT switching tutors (mic stays locked during handoff)
             // 
+            // SPECIAL CASE: If user is HOLDING PTT (isPttButtonHeld), keep mic active!
+            // This allows speculative PTT to play audio while user still has control.
+            // The user can release PTT to stop, or keep holding to add more words.
+            // 
             // NOTE: Do NOT add isRecording here - that breaks lockout logic
             // Visual styling (button staying red while recording) is handled separately
             // in ImmersiveTutor via the className condition
@@ -2837,6 +2845,9 @@ export function StreamingVoiceChat({
             (streamingVoice.state.connectionState === 'ready' || streamingVoice.state.connectionState === 'connected') &&
             !streamingVoice.state.isSwitchingTutor &&  // Mic locked during tutor handoff
             (
+              // PTT ACTIVE: If user is holding PTT button, keep mic active regardless of audio state
+              // This is critical for speculative PTT - user maintains control while holding
+              isPttButtonHeld ||
               // Normal case: not processing and not speaking
               (!isProcessing && !streamingVoice.state.isProcessing && avatarState !== 'speaking') ||
               // Error recovery: server says not processing even if local state got stuck
