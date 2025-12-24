@@ -517,8 +517,11 @@ export class StreamingAudioPlayer {
    * Will start playing immediately if not already playing
    */
   enqueue(chunk: StreamingAudioChunk): void {
+    console.log(`[AUDIO PLAYER] enqueue: sentence=${chunk.sentenceIndex}, isPlaying=${this.isPlaying}, held=${this.playbackHeld}`);
+    
     // HOLD PLAYBACK: If held, buffer the chunk for later
     if (this.playbackHeld) {
+      console.log(`[AUDIO PLAYER] Chunk held for later playback`);
       this.heldChunks.push(chunk);
       return;
     }
@@ -533,6 +536,7 @@ export class StreamingAudioPlayer {
     
     // Start playback if not already playing
     if (!this.isPlaying) {
+      console.log(`[AUDIO PLAYER] Not playing, calling playNext()`);
       this.playNext();
     }
   }
@@ -562,8 +566,11 @@ export class StreamingAudioPlayer {
     isLast: boolean,
     sampleRate: number = 24000
   ): Promise<void> {
+    console.log(`[AUDIO PLAYER] enqueueProgressivePcmChunk: sentence=${sentenceIndex}, chunk=${chunkIndex}, size=${audio.byteLength}, held=${this.playbackHeld}`);
+    
     // HOLD PLAYBACK: If held, buffer the chunk for later as a StreamingAudioChunk
     if (this.playbackHeld) {
+      console.log(`[AUDIO PLAYER] Progressive chunk held for later playback`);
       this.heldChunks.push({
         sentenceIndex,
         chunkIndex,
@@ -1793,6 +1800,7 @@ export class StreamingAudioPlayer {
    */
   private setState(state: StreamingPlaybackState): void {
     if (this.state !== state) {
+      console.log(`[AUDIO PLAYER] State change: ${this.state} -> ${state}`);
       this.state = state;
       this.callbacks.onStateChange?.(state);
     }
