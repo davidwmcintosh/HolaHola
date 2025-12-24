@@ -250,13 +250,8 @@ export function ImmersiveTutor({
       // Only stop if ALL touches are released (no fingers left on screen)
       if (e.touches.length === 0) {
         if (isTouchRecordingRef.current) {
-          // GUARD: If AI audio is buffering or playing (speculative PTT), this might be a phantom touchend
-          // from the trackpad. Check playbackState !== 'idle' which catches 'buffering' BEFORE 'playing'
-          // Don't stop recording in this case - let the user actually release.
-          if (playbackStateRef.current !== 'idle') {
-            console.log(`[PTT-TOUCH-DEBUG] Ignoring touchend - playbackState='${playbackStateRef.current}' (speculative PTT in progress)`);
-            return;
-          }
+          // ALWAYS stop recording on release - the guard should be on START not STOP
+          // We want to let the user release normally even during speculative PTT
           console.log('[MIC BUTTON] Global touch end - stopping recording');
           isTouchRecordingRef.current = false;
           onRecordingStopRef.current('touch');
@@ -823,7 +818,12 @@ export function ImmersiveTutor({
               onTouchStart={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('[PTT-TOUCH-DEBUG] Touch start, isUsersTurn:', isUsersTurn, 'isPointerRecordingRef:', isPointerRecordingRef.current, 'isTouchRecordingRef:', isTouchRecordingRef.current);
+                console.log('[PTT-TOUCH-DEBUG] Touch start, isUsersTurn:', isUsersTurn, 'playbackState:', playbackState, 'isPointerRecordingRef:', isPointerRecordingRef.current, 'isTouchRecordingRef:', isTouchRecordingRef.current);
+                // GUARD: Block phantom touchstart during speculative PTT (playbackState is 'buffering' before 'playing')
+                if (playbackState !== 'idle') {
+                  console.log(`[PTT-TOUCH-DEBUG] Ignoring touchstart - playbackState='${playbackState}' (speculative PTT audio in progress)`);
+                  return;
+                }
                 if (isUsersTurn && !isRecording && !isMicPreparing && !isTouchRecordingRef.current) {
                   isTouchRecordingRef.current = true;
                   onRecordingStart('touch');
@@ -843,7 +843,12 @@ export function ImmersiveTutor({
               }}
               onMouseDown={(e) => {
                 e.preventDefault();
-                console.log('[MIC BUTTON] Mouse down, isUsersTurn:', isUsersTurn);
+                console.log('[MIC BUTTON] Mouse down, isUsersTurn:', isUsersTurn, 'playbackState:', playbackState);
+                // GUARD: Block phantom mousedown during speculative PTT (playbackState is 'buffering' before 'playing')
+                if (playbackState !== 'idle') {
+                  console.log(`[MIC BUTTON] Ignoring mousedown - playbackState='${playbackState}' (speculative PTT audio in progress)`);
+                  return;
+                }
                 if (isUsersTurn && !isRecording && !isMicPreparing && !isPointerRecordingRef.current) {
                   isPointerRecordingRef.current = true;
                   onRecordingStart('mouse');

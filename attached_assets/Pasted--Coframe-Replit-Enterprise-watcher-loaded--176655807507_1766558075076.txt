@@ -1,0 +1,4718 @@
+ [Coframe] Replit Enterprise watcher loaded
+ 
+      /////////////////////
+   ///////////////////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////        Curious and driven?
+  ///////////////@@@@@@@///////        Work with us!
+  ///////////////@@@@@@@///////
+  ///////////////@@@@@@@///////        https://join.replit.com/hack.with.us
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@#//////////////
+   ///////////////////////////
+      /////////////////////
+      
+ Download the Apollo DevTools for a better development experience: https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+ [LaunchDarkly] LaunchDarkly client initialized
+ Cache data may be lost when replacing the dealContext field of a Org object.
+
+This could cause additional (usually avoidable) network requests to fetch data that were otherwise cached.
+
+To address this problem (which is not a bug in Apollo Client), either ensure all objects of type OrgDealContext have an ID or a custom merge function, or define a custom merge function for the Org.dealContext field, so InMemoryCache can safely merge these objects:
+
+  existing: {"__typename":"OrgDealContext","dealType":"default","salesContactEmail":null}
+  incoming: {"__typename":"OrgDealContext","dealType":"default"}
+
+For more information about these options, please refer to the documentation:
+
+  * Ensuring entity objects have IDs: https://go.apollo.dev/c/generating-unique-identifiers
+  * Defining custom merge functions: https://go.apollo.dev/c/merging-non-normalized-objects
+
+(anonymous) @ 1396e7446e8d2273.js:2
+4HolaHola:1 Uncaught (in promise) 
+stallwart.build.js:1 stallwart: failed ping 1
+stallwart.build.js:1 stallwart: failed ping 2
+stallwart.build.js:1 stallwart: failed ping 1
+stallwart.build.js:1 stallwart: failed ping 2
+stallwart.build.js:1 stallwart: failed ping 1
+ [Coframe] Mutation callback infinite loop protection triggered, disconnecting mutation observer Object
+(anonymous) @ 1396e7446e8d2273.js:2
+ stallwart: failed ping 1
+stallwart.build.js:1 stallwart: failed ping 2
+stallwart.build.js:1 stallwart: failed ping 1
+stallwart.build.js:1 stallwart: failed ping 2
+stallwart.build.js:1 stallwart: failed ping 3
+stallwart.build.js:1 stallwart: failed ping 4
+stallwart.build.js:1 stallwart: failed ping 5
+976Third-party cookie will be blocked. Learn more in the Issues tab.
+ Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+z @ ed1e693c96a75807.js:2
+8The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+8The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+8The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+ Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+z @ ed1e693c96a75807.js:2
+ Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'ambient-light-sensor'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'battery'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'execution-while-not-rendered'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'execution-while-out-of-viewport'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'layout-animations'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'legacy-image-formats'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'navigation-override'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'oversized-images'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'publickey-credentials'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'speaker-selection'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'unoptimized-images'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'unsized-media'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'pointer-lock'.
+z @ ed1e693c96a75807.js:2
+ Allow attribute will take precedence over 'allowfullscreen'.
+z @ ed1e693c96a75807.js:2
+ Allow attribute will take precedence over 'allowpaymentrequest'.
+z @ ed1e693c96a75807.js:2
+workspace_iframe.html:32 Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+workspace_iframe.html:32 Unrecognized feature: 'ambient-light-sensor'.
+workspace_iframe.html:32 Unrecognized feature: 'battery'.
+workspace_iframe.html:32 Unrecognized feature: 'execution-while-not-rendered'.
+workspace_iframe.html:32 Unrecognized feature: 'execution-while-out-of-viewport'.
+workspace_iframe.html:32 Unrecognized feature: 'layout-animations'.
+workspace_iframe.html:32 Unrecognized feature: 'legacy-image-formats'.
+workspace_iframe.html:32 Unrecognized feature: 'navigation-override'.
+workspace_iframe.html:32 Unrecognized feature: 'oversized-images'.
+workspace_iframe.html:32 Unrecognized feature: 'publickey-credentials'.
+workspace_iframe.html:32 Unrecognized feature: 'speaker-selection'.
+workspace_iframe.html:32 Unrecognized feature: 'unoptimized-images'.
+workspace_iframe.html:32 Unrecognized feature: 'unsized-media'.
+workspace_iframe.html:32 Allow attribute will take precedence over 'allowfullscreen'.
+workspace_iframe.html:32 Allow attribute will take precedence over 'allowpaymentrequest'.
+ [APP] Screen orientation lock not available
+ [BUILD] App version: 1763747293
+ [LanguageContext] Initializing with language: spanish (from localStorage)
+ [LanguageContext] Initializing with difficulty: beginner (from localStorage)
+ [LanguageContext] Initializing with userName: David (from localStorage)
+ [LanguageContext] Initializing with subtitleMode: all (from localStorage)
+ [LanguageContext] Initializing with tutorGender: female (from localStorage)
+ [LanguageContext] Initializing with voiceSpeed: normal (from localStorage)
+ [LanguageContext] Hydrating from user preferences: Object
+ [PWA] Service Worker registered: https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/
+ Warning: Function components cannot be given refs. Attempts to access this ref will fail. Did you mean to use React.forwardRef()?
+
+Check the render method of `Primitive.button.SlotClone`.
+    at Badge (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/ui/badge.tsx:36:18)
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=40615109:79:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=40615109:56:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=40615109:42:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=40615109:79:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=40615109:56:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=40615109:42:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-ST77IHW6.js?v=40615109:1931:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=40615109:200:13
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=40615109:38:15)
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=40615109:38:15)
+    at Popper (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-ST77IHW6.js?v=40615109:1923:11)
+    at Tooltip (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=40615109:109:5)
+    at div
+    at div
+    at div
+    at Chat (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/pages/chat.tsx:40:18)
+    at Route (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=40615109:323:16)
+    at Switch (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=40615109:379:17)
+    at Suspense
+    at div
+    at PageWrapper (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/App.tsx?v=QD3cpAhtLn9IaRpQEwyKP:135:24)
+    at Router (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/App.tsx?v=QD3cpAhtLn9IaRpQEwyKP:172:48)
+    at main
+    at div
+    at div
+    at div
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=40615109:38:15)
+    at TooltipProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=40615109:65:5)
+    at SidebarProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/ui/sidebar.tsx:59:3)
+    at LearningFilterProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/contexts/LearningFilterContext.tsx:23:42)
+    at UsageProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/contexts/UsageContext.tsx:46:33)
+    at LanguageProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/contexts/LanguageContext.tsx:22:36)
+    at AuthenticatedApp (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/App.tsx?v=QD3cpAhtLn9IaRpQEwyKP:471:29)
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=40615109:38:15)
+    at TooltipProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=40615109:65:5)
+    at QueryClientProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=40615109:2805:3)
+    at ErrorBoundary (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/ErrorBoundary.tsx:10:5)
+    at App
+(anonymous) @ injected.js:37
+ Warning: Function components cannot be given refs. Attempts to access this ref will fail. Did you mean to use React.forwardRef()?
+
+Check the render method of `Primitive.button.SlotClone`.
+    at Badge (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/ui/badge.tsx:36:18)
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=40615109:79:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=40615109:56:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=40615109:42:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=40615109:79:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=40615109:56:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=40615109:42:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-ST77IHW6.js?v=40615109:1931:13
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=40615109:200:13
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=40615109:38:15)
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=40615109:38:15)
+    at Popper (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-ST77IHW6.js?v=40615109:1923:11)
+    at Tooltip (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=40615109:109:5)
+    at CreditBalance (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/CreditBalance.tsx:24:3)
+    at div
+    at div
+    at div
+    at Chat (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/pages/chat.tsx:40:18)
+    at Route (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=40615109:323:16)
+    at Switch (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=40615109:379:17)
+    at Suspense
+    at div
+    at PageWrapper (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/App.tsx?v=QD3cpAhtLn9IaRpQEwyKP:135:24)
+    at Router (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/App.tsx?v=QD3cpAhtLn9IaRpQEwyKP:172:48)
+    at main
+    at div
+    at div
+    at div
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=40615109:38:15)
+    at TooltipProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=40615109:65:5)
+    at SidebarProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/ui/sidebar.tsx:59:3)
+    at LearningFilterProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/contexts/LearningFilterContext.tsx:23:42)
+    at UsageProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/contexts/UsageContext.tsx:46:33)
+    at LanguageProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/contexts/LanguageContext.tsx:22:36)
+    at AuthenticatedApp (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/App.tsx?v=QD3cpAhtLn9IaRpQEwyKP:471:29)
+    at Provider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=40615109:38:15)
+    at TooltipProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=40615109:65:5)
+    at QueryClientProvider (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=40615109:2805:3)
+    at ErrorBoundary (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/ErrorBoundary.tsx:10:5)
+    at App
+(anonymous) @ injected.js:37
+ [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+ [WHITEBOARD] Manually cleared
+ [SHARED CHAT] Founder Mode active - connecting to collaboration channel
+ [FounderCollab] Creating socket connection to namespace: /founder-collab
+ [FounderCollab] Socket created, socket.id: undefined connected: false
+ [SHARED CHAT] Auto-create check - waiting for active session check
+ [SHARED CHAT] Auto-create check - userName: David conversationId: null isCreating: false mode: voice
+ [SHARED CHAT] Creating shared conversation... (post-onboarding) forceNew: true mode: voice classId: undefined founderMode: true
+ [SHARED CHAT] Auto-create check - skipped (already in progress or session locked)
+ [VOICE] TTS pre-warmed in 0ms
+ [FounderCollab] Transport opened, socket.connected: false
+ [FounderCollab] CONNECT EVENT FIRED! Socket.id: kCHremZq8Z_eX2QaAAAB
+ [MIC WARMUP] Pre-warming microphone (500ms after mount)...
+ [SHARED CHAT] Shared conversation created: eb642715-2e92-47a7-80c8-67b84ef51fba classId: null mode: voice
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=false
+ [CLEANUP] Cleaning up voice recording resources...
+ [CLEANUP] Cleaning up recording resources...
+ [STREAMING] Connecting to streaming voice...
+ [StreamingVoice] Creating Socket.io connection to /voice namespace...
+ [WHITEBOARD] Manually cleared
+ [SHARED CHAT] Auto-create check - skipped (already in progress or session locked)
+ [INSTRUCTION DEBUG] text="Calling Daniela..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=false
+ [RINGING] Started telephone ring sound
+ [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+ [FounderCollab] Server ready, emitting join_session
+ [FounderCollab] Emitting join_session with clientId: fc-1765663366153-bpeugfk
+ [VOICE] Deepgram pre-warmed in 467ms
+2 [INSTRUCTION DEBUG] text="Calling Daniela..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=false
+ [FounderCollab] Joined session 2295b52a-e13a-4b37-996d-7c3bd3ccb587
+ [INSTRUCTION DEBUG] text="Calling Daniela..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=false
+ [FounderCollab] Replayed 3 messages, hasMore: false
+ [INSTRUCTION DEBUG] text="Calling Daniela..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=false
+ [StreamingVoice] Socket.io connect event fired!
+ [StreamingVoice] Connection complete via: connect
+ [STREAMING] Connected successfully
+ [INSTRUCTION DEBUG] text="Hold to speak" isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=false
+ [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+2 [INSTRUCTION DEBUG] text="Hold to speak" isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=false
+ [SHARED CHAT] Auto-create check - skipped (already in progress or session locked)
+ [INSTRUCTION DEBUG] text="Hold to speak" isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=false
+ [RINGING] Stopped telephone ring sound
+ [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+ [VOICE GREETING] Lock acquired for message: streaming-greeting-eb642715-2e92-47a7-80c8-67b84ef51fba
+ [STREAMING GREETING] Requesting NEW conversation AI-generated personalized greeting...
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=false
+ [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+ [STREAMING GREETING] Already requested for this lock key: streaming-greeting-eb642715-2e92-47a7-80c8-67b84ef51fba
+ [MIC WARMUP] SUCCESS! Microphone ready for instant recording (took 1310 ms)
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=false
+ [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=false
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+2injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=false
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+injected.js:37 [LOOP] Frame 10: entries=[S0(end=2.80)] now=0.04
+(anonymous) @ injected.js:37
+2injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+injected.js:37 [STREAMING] Response complete - refreshing messages for eb642715-2e92-47a7-80c8-67b84ef51fba
+injected.js:37 [STREAMING] Storing combined audio for replay: 427988 bytes
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-eb642715-2e92-47a7-80c8-67b84ef51fba
+injected.js:37 [LOOP] Frame 20: entries=[S0(end=2.80), S1(end=4.66)] now=0.33
+(anonymous) @ injected.js:37
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [STREAMING] Setting lastMessageId for replay: 0209d98e-3cdb-4aa8-98a7-9eb6c35bc955
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-eb642715-2e92-47a7-80c8-67b84ef51fba
+injected.js:37 [LOOP] Frame 30: entries=[S0(end=2.80), S1(end=4.66)] now=0.57
+(anonymous) @ injected.js:37
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-eb642715-2e92-47a7-80c8-67b84ef51fba
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-eb642715-2e92-47a7-80c8-67b84ef51fba
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-eb642715-2e92-47a7-80c8-67b84ef51fba
+injected.js:37 [LOOP] Frame 40: entries=[S0(end=2.80), S1(end=4.66)] now=0.86
+(anonymous) @ injected.js:37
+injected.js:37 [LOOP] Frame 50: entries=[S0(end=2.80), S1(end=4.66)] now=1.03
+(anonymous) @ injected.js:37
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-eb642715-2e92-47a7-80c8-67b84ef51fba
+injected.js:37 [LOOP] Frame 60: entries=[S0(end=2.80), S1(end=4.66)] now=1.19
+(anonymous) @ injected.js:37
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-eb642715-2e92-47a7-80c8-67b84ef51fba
+injected.js:37 [LOOP] Frame 70: entries=[S0(end=2.80), S1(end=4.66)] now=1.37
+(anonymous) @ injected.js:37
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-eb642715-2e92-47a7-80c8-67b84ef51fba
+injected.js:37 [LOOP] Frame 80: entries=[S0(end=2.80), S1(end=4.66)] now=1.54
+(anonymous) @ injected.js:37
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-eb642715-2e92-47a7-80c8-67b84ef51fba
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-eb642715-2e92-47a7-80c8-67b84ef51fba
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-eb642715-2e92-47a7-80c8-67b84ef51fba
+injected.js:37 [LOOP] Frame 90: entries=[S0(end=2.80), S1(end=4.66)] now=2.21
+(anonymous) @ injected.js:37
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-eb642715-2e92-47a7-80c8-67b84ef51fba
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-eb642715-2e92-47a7-80c8-67b84ef51fba
+injected.js:37 [LOOP] Frame 100: entries=[S0(end=2.80), S1(end=4.66)] now=2.61
+(anonymous) @ injected.js:37
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-eb642715-2e92-47a7-80c8-67b84ef51fba
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-eb642715-2e92-47a7-80c8-67b84ef51fba
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-eb642715-2e92-47a7-80c8-67b84ef51fba
+injected.js:37 [LOOP] Frame 110: entries=[S0(end=2.80), S1(end=4.66)] now=3.58
+(anonymous) @ injected.js:37
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-eb642715-2e92-47a7-80c8-67b84ef51fba
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-eb642715-2e92-47a7-80c8-67b84ef51fba
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false {connectionState: 'ready', connValid: true, isSwitchingTutor: false, isProcessing: false, streamIsProcessing: false, …}
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-eb642715-2e92-47a7-80c8-67b84ef51fba
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-eb642715-2e92-47a7-80c8-67b84ef51fba
+injected.js:37 [INSTRUCTION DEBUG] text="Hold to speak" isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=false
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=true {connectionState: 'ready', connValid: true, isSwitchingTutor: false, isProcessing: false, streamIsProcessing: false, …}
+injected.js:37 [STREAMING GREETING] Already requested for this lock key: streaming-greeting-eb642715-2e92-47a7-80c8-67b84ef51fba
+8450 log entries are not shown.
+injected.js:37 [INSTRUCTION DEBUG] text="Hold to speak" isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=false
+ImmersiveTutor.tsx:824 Unable to preventDefault inside passive event listener invocation.
+preventDefault @ chunk-RPCDYKBN.js?v=40615109:5760
+onTouchStart @ ImmersiveTutor.tsx:824
+callCallback2 @ chunk-RPCDYKBN.js?v=40615109:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=40615109:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=40615109:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=40615109:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=40615109:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=40615109:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=40615109:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=40615109:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=40615109:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=40615109:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=40615109:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=40615109:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=40615109:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=40615109:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=40615109:5449
+Show 16 more frames
+Show less
+injected.js:37 [PTT-TOUCH-DEBUG] Touch start, isUsersTurn: true isPointerRecordingRef: false isTouchRecordingRef: false
+injected.js:37 [PUSH-TO-TALK] Button pressed at 1055977 ms, inputType: touch
+injected.js:37 [PTT-STATE-DEBUG] Setting isPttButtonHeld=TRUE at 2025-12-24T06:33:21.548Z
+injected.js:37 [PUSH-TO-TALK] Cached stream status: {exists: true, active: true, trackCount: 1, trackStates: Array(1), hasLiveTrack: true}
+injected.js:37 [PUSH-TO-TALK] Using cached stream - INSTANT start! (+20ms)
+injected.js:37 [PTT DIAGNOSTIC] Audio tracks: 1
+injected.js:37 [PTT DIAGNOSTIC] Track 0 settings: {autoGainControl: true, channelCount: 1, deviceId: 'default', echoCancellation: true, groupId: '659ee850e689685d8e417d30c949e37ce6997efdf3878ee62aefbaf7b3d226f4', …}
+injected.js:37 [PTT DIAGNOSTIC] Track 0 constraints: {}
+injected.js:37 [PTT DIAGNOSTIC] Track 0 capabilities: {autoGainControl: Array(2), channelCount: {…}, deviceId: 'default', echoCancellation: Array(2), groupId: '659ee850e689685d8e417d30c949e37ce6997efdf3878ee62aefbaf7b3d226f4', …}
+injected.js:37 [PTT DIAGNOSTIC] Track 0 state: {readyState: 'live', enabled: true, muted: false, label: 'Default - Microphone (Intel® Smart Sound Technology)', id: '5d4229d2-ba81-4b6f-96ad-2229d13af9a1'}
+injected.js:37 [RECORDING] Using audio codec: audio/webm;codecs=opus
+injected.js:37 [PTT DIAGNOSTIC] MediaRecorder created: {mimeType: 'audio/webm;codecs=opus', state: 'inactive', audioBitsPerSecond: 128000}
+injected.js:37 [StreamingAudioPlayer] Playback held - buffering audio
+injected.js:37 [SpeculativePTT] AudioContext sample rate: 16000Hz (target: 16000Hz, resampling: false)
+StreamingVoiceChat.tsx:1900 [Deprecation] The ScriptProcessorNode is deprecated. Use AudioWorkletNode instead. (https://bit.ly/audio-worklet)
+startPushToTalkRecording @ StreamingVoiceChat.tsx:1900
+onTouchStart @ ImmersiveTutor.tsx:829
+callCallback2 @ chunk-RPCDYKBN.js?v=40615109:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=40615109:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=40615109:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=40615109:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=40615109:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=40615109:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=40615109:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=40615109:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=40615109:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=40615109:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=40615109:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=40615109:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=40615109:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=40615109:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=40615109:5449
+Show 15 more frames
+Show less
+injected.js:37 [SpeculativePTT] Real-time streaming started
+injected.js:37 [PUSH-TO-TALK] Recording started - release to stop
+injected.js:37 [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=true isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=true {connectionState: 'ready', connValid: true, isSwitchingTutor: false, isProcessing: false, streamIsProcessing: false, …}
+injected.js:37 [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=true isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=true {connectionState: 'ready', connValid: true, isSwitchingTutor: false, isProcessing: false, streamIsProcessing: false, …}
+injected.js:37 [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=true isRecording=true isPlaying=false isUsersTurn=false isProcessing=false
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false {connectionState: 'processing', connValid: false, isSwitchingTutor: false, isProcessing: false, streamIsProcessing: false, …}
+injected.js:37 [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=true isRecording=true isPlaying=false isUsersTurn=false isProcessing=false
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false {connectionState: 'streaming', connValid: false, isSwitchingTutor: false, isProcessing: false, streamIsProcessing: false, …}
+3injected.js:37 [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=true isRecording=true isPlaying=false isUsersTurn=false isProcessing=false
+injected.js:37 [STREAMING] Response complete - refreshing messages for eb642715-2e92-47a7-80c8-67b84ef51fba
+injected.js:37 [MIC BUTTON] Touch end on button (global handler will process)
+injected.js:37 [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=true isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=true {connectionState: 'ready', connValid: true, isSwitchingTutor: false, isProcessing: false, streamIsProcessing: false, …}
+injected.js:37 [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=true isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+injected.js:37 [PTT-TOUCH-DEBUG] Global touchend fired, touches.length: 0 isTouchRecordingRef: true playbackState: idle
+injected.js:37 [MIC BUTTON] Global touch end - stopping recording
+injected.js:37 [PTT-STOP-DEBUG] Stop requested, inputType: touch activeInputType: touch isHeld: true
+injected.js:37 [PTT-STOP-DEBUG] Guard passed, proceeding...
+injected.js:37 [PUSH-TO-TALK] Releasing button, stopping recording...
+injected.js:37 [PTT-STATE-DEBUG] Setting isPttButtonHeld=FALSE at 2025-12-24T06:33:40.800Z call stack: Error
+    at Object.stopPushToTalkRecording [as current] (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/StreamingVoiceChat.tsx:1313:130)
+    at handleGlobalTouchEnd (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/ImmersiveTutor.tsx:146:30)
+injected.js:37 [StreamingAudioPlayer] Playback released - processing 2 buffered chunks
+injected.js:37 [SpeculativePTT] Stopped streaming and sent ptt_release
+injected.js:37 [PUSH-TO-TALK] Resetting subtitles immediately on button release
+injected.js:37 [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=false isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=true {connectionState: 'ready', connValid: true, isSwitchingTutor: false, isProcessing: false, streamIsProcessing: false, …}
+injected.js:37 [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=false isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=true {connectionState: 'ready', connValid: true, isSwitchingTutor: false, isProcessing: false, streamIsProcessing: false, …}
+injected.js:37 [PTT-GLOBAL-DEBUG] Global mouseup fired, isPointerRecordingRef= false
+injected.js:37 [LOOP] Frame 10: entries=[S0(end=46.67), S1(end=48.71)] now=43.61
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+startUnifiedTimingLoop @ audioUtils.ts:1320
+enqueueProgressivePcmChunk @ audioUtils.ts:733
+releasePlayback @ audioUtils.ts:358
+(anonymous) @ useStreamingVoice.ts:1017
+stopPushToTalkRecording @ StreamingVoiceChat.tsx:1998
+handleGlobalTouchEnd @ ImmersiveTutor.tsx:262
+injected.js:37 [PTT DIAGNOSTIC] ondataavailable #1: size=308801 bytes, type=audio/webm;codecs=opus
+injected.js:37 [PTT DIAGNOSTIC] Recording stopped: {chunkCount: 1, totalChunkBytes: 308801, trackStatesOnStop: Array(1), recorderState: 'inactive'}
+injected.js:37 [PUSH-TO-TALK] Stopped, processing audio...
+injected.js:37 [PUSH-TO-TALK] Resetting subtitles immediately
+injected.js:37 [PTT DIAGNOSTIC] Final blob: {size: 308801, type: 'audio/webm', chunksUsed: 1}
+injected.js:37 [PUSH-TO-TALK] Processing audio for conversation: eb642715-2e92-47a7-80c8-67b84ef51fba
+injected.js:37 [STREAMING CHECK] {streamingConnectedRef: true, isReady: true, isStreamingReady: true}
+injected.js:37 [STREAMING] Using streaming mode for low-latency response
+injected.js:37 [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=true
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false {connectionState: 'ready', connValid: true, isSwitchingTutor: false, isProcessing: true, streamIsProcessing: false, …}
+injected.js:37 [AVATAR STATE] Audio playing - clearing isProcessing to prevent thinking/speaking overlap
+injected.js:37 [STREAMING] Setting lastMessageId for replay: 6e7b47e7-78f6-4604-a577-2ac4425020a1
+injected.js:37 [StreamingVoice] Response interrupted by user - stopping audio immediately
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false {connectionState: 'ready', connValid: true, isSwitchingTutor: false, isProcessing: false, streamIsProcessing: false, …}
+injected.js:37 [STREAMING] Audio sent, awaiting progressive response...
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=false
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false {connectionState: 'processing', connValid: false, isSwitchingTutor: false, isProcessing: false, streamIsProcessing: true, …}
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=false
+injected.js:37 [MIC WARMUP] Re-warmed for next recording
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=false
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=false
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false {connectionState: 'streaming', connValid: false, isSwitchingTutor: false, isProcessing: false, streamIsProcessing: true, …}
+2injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=false
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false {connectionState: 'streaming', connValid: false, isSwitchingTutor: false, isProcessing: false, streamIsProcessing: true, …}
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false {connectionState: 'streaming', connValid: false, isSwitchingTutor: false, isProcessing: false, streamIsProcessing: true, …}
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [LOOP] Frame 10: entries=[S0(end=57.41)] now=49.32
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+startUnifiedTimingLoop @ audioUtils.ts:1320
+enqueueProgressivePcmChunk @ audioUtils.ts:733
+(anonymous) @ useStreamingVoice.ts:393
+(anonymous) @ streamingVoiceClient.ts:188
+emit @ streamingVoiceClient.ts:186
+handleAudioChunk @ streamingVoiceClient.ts:819
+handleSocketMessage @ streamingVoiceClient.ts:655
+(anonymous) @ streamingVoiceClient.ts:309
+Emitter.emit @ socket__io-client.js?v=40615109:354
+emitEvent @ socket__io-client.js?v=40615109:2655
+onevent @ socket__io-client.js?v=40615109:2643
+onpacket @ socket__io-client.js?v=40615109:2614
+Emitter.emit @ socket__io-client.js?v=40615109:354
+(anonymous) @ socket__io-client.js?v=40615109:3218
+Promise.then (async)
+(anonymous) @ socket__io-client.js?v=40615109:372
+ondecoded @ socket__io-client.js?v=40615109:3217
+Emitter.emit @ socket__io-client.js?v=40615109:354
+add @ socket__io-client.js?v=40615109:2069
+ondata @ socket__io-client.js?v=40615109:3206
+Emitter.emit @ socket__io-client.js?v=40615109:354
+_onPacket @ socket__io-client.js?v=40615109:1379
+Emitter.emit @ socket__io-client.js?v=40615109:354
+onPacket @ socket__io-client.js?v=40615109:553
+onData @ socket__io-client.js?v=40615109:545
+ws.onmessage @ socket__io-client.js?v=40615109:1009
+Show 17 more frames
+Show less
+injected.js:37 [LOOP] Frame 20: entries=[S0(end=57.41)] now=49.48
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+startUnifiedTimingLoop @ audioUtils.ts:1320
+enqueueProgressivePcmChunk @ audioUtils.ts:733
+(anonymous) @ useStreamingVoice.ts:393
+(anonymous) @ streamingVoiceClient.ts:188
+emit @ streamingVoiceClient.ts:186
+handleAudioChunk @ streamingVoiceClient.ts:819
+handleSocketMessage @ streamingVoiceClient.ts:655
+(anonymous) @ streamingVoiceClient.ts:309
+Emitter.emit @ socket__io-client.js?v=40615109:354
+emitEvent @ socket__io-client.js?v=40615109:2655
+onevent @ socket__io-client.js?v=40615109:2643
+onpacket @ socket__io-client.js?v=40615109:2614
+Emitter.emit @ socket__io-client.js?v=40615109:354
+(anonymous) @ socket__io-client.js?v=40615109:3218
+Promise.then (async)
+(anonymous) @ socket__io-client.js?v=40615109:372
+ondecoded @ socket__io-client.js?v=40615109:3217
+Emitter.emit @ socket__io-client.js?v=40615109:354
+add @ socket__io-client.js?v=40615109:2069
+ondata @ socket__io-client.js?v=40615109:3206
+Emitter.emit @ socket__io-client.js?v=40615109:354
+_onPacket @ socket__io-client.js?v=40615109:1379
+Emitter.emit @ socket__io-client.js?v=40615109:354
+onPacket @ socket__io-client.js?v=40615109:553
+onData @ socket__io-client.js?v=40615109:545
+ws.onmessage @ socket__io-client.js?v=40615109:1009
+Show 17 more frames
+Show less
+injected.js:37 [LOOP] Frame 30: entries=[S0(end=57.41)] now=49.65
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+startUnifiedTimingLoop @ audioUtils.ts:1320
+enqueueProgressivePcmChunk @ audioUtils.ts:733
+(anonymous) @ useStreamingVoice.ts:393
+(anonymous) @ streamingVoiceClient.ts:188
+emit @ streamingVoiceClient.ts:186
+handleAudioChunk @ streamingVoiceClient.ts:819
+handleSocketMessage @ streamingVoiceClient.ts:655
+(anonymous) @ streamingVoiceClient.ts:309
+Emitter.emit @ socket__io-client.js?v=40615109:354
+emitEvent @ socket__io-client.js?v=40615109:2655
+onevent @ socket__io-client.js?v=40615109:2643
+onpacket @ socket__io-client.js?v=40615109:2614
+Emitter.emit @ socket__io-client.js?v=40615109:354
+(anonymous) @ socket__io-client.js?v=40615109:3218
+Promise.then (async)
+(anonymous) @ socket__io-client.js?v=40615109:372
+ondecoded @ socket__io-client.js?v=40615109:3217
+Emitter.emit @ socket__io-client.js?v=40615109:354
+add @ socket__io-client.js?v=40615109:2069
+ondata @ socket__io-client.js?v=40615109:3206
+Emitter.emit @ socket__io-client.js?v=40615109:354
+_onPacket @ socket__io-client.js?v=40615109:1379
+Emitter.emit @ socket__io-client.js?v=40615109:354
+onPacket @ socket__io-client.js?v=40615109:553
+onData @ socket__io-client.js?v=40615109:545
+ws.onmessage @ socket__io-client.js?v=40615109:1009
+Show 17 more frames
+Show less
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [LOOP] Frame 40: entries=[S0(end=57.41)] now=49.83
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+injected.js:37 [LOOP] Frame 50: entries=[S0(end=57.41)] now=50.02
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [LOOP] Frame 60: entries=[S0(end=57.41)] now=50.23
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+injected.js:37 [STREAMING] Response complete - refreshing messages for eb642715-2e92-47a7-80c8-67b84ef51fba
+injected.js:37 [STREAMING] Storing combined audio for replay: 1275044 bytes
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false {connectionState: 'ready', connValid: true, isSwitchingTutor: false, isProcessing: false, streamIsProcessing: false, …}
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [LOOP] Frame 70: entries=[S0(end=57.41), S1(end=62.52)] now=50.76
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [LOOP] Frame 80: entries=[S0(end=57.41), S1(end=62.52)] now=50.94
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [LOOP] Frame 90: entries=[S0(end=57.41), S1(end=62.52)] now=51.31
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+injected.js:37 [LOOP] Frame 100: entries=[S0(end=57.41), S1(end=62.52)] now=51.53
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [LOOP] Frame 110: entries=[S0(end=57.41), S1(end=62.52)] now=51.87
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [LOOP] Frame 120: entries=[S0(end=57.41), S1(end=62.52)] now=52.03
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [LOOP] Frame 130: entries=[S0(end=57.41), S1(end=62.52)] now=52.28
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+injected.js:37 [LOOP] Frame 140: entries=[S0(end=57.41), S1(end=62.52)] now=52.51
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+2injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [LOOP] Frame 150: entries=[S0(end=57.41), S1(end=62.52)] now=52.85
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+injected.js:37 [LOOP] Frame 160: entries=[S0(end=57.41), S1(end=62.52)] now=53.10
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+2injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [LOOP] Frame 170: entries=[S0(end=57.41), S1(end=62.52)] now=53.39
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+injected.js:37 [LOOP] Frame 180: entries=[S0(end=57.41), S1(end=62.52)] now=53.59
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+5injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [LOOP] Frame 190: entries=[S0(end=57.41), S1(end=62.52)] now=54.83
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [LOOP] Frame 200: entries=[S0(end=57.41), S1(end=62.52)] now=55.15
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+2injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [LOOP] Frame 210: entries=[S0(end=57.41), S1(end=62.52)] now=55.95
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+injected.js:37 [LOOP] Frame 220: entries=[S0(end=57.41), S1(end=62.52)] now=56.12
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+2injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [LOOP] Frame 230: entries=[S0(end=57.41), S1(end=62.52)] now=56.38
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [LOOP] Frame 240: entries=[S0(end=57.41), S1(end=62.52)] now=56.59
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [LOOP] Frame 250: entries=[S0(end=57.41), S1(end=62.52)] now=56.83
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [LOOP] Frame 260: entries=[S0(end=57.41), S1(end=62.52)] now=57.03
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [LOOP] Frame 270: entries=[S0(end=57.41), S1(end=62.52)] now=57.33
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [LOOP] Frame 280: entries=[S0(end=57.41), S1(end=62.52)] now=57.61
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+injected.js:37 [LOOP] Frame 290: entries=[S0(end=57.41), S1(end=62.52)] now=57.75
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+injected.js:37 [LOOP] Frame 300: entries=[S0(end=57.41), S1(end=62.52)] now=57.93
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [LOOP] Frame 310: entries=[S0(end=57.41), S1(end=62.52)] now=58.11
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [LOOP] Frame 320: entries=[S0(end=57.41), S1(end=62.52)] now=58.33
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [LOOP] Frame 330: entries=[S0(end=57.41), S1(end=62.52)] now=58.51
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+2injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [LOOP] Frame 340: entries=[S0(end=57.41), S1(end=62.52)] now=58.87
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [LOOP] Frame 350: entries=[S0(end=57.41), S1(end=62.52)] now=59.15
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+injected.js:37 [LOOP] Frame 360: entries=[S0(end=57.41), S1(end=62.52)] now=59.40
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+2injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [LOOP] Frame 370: entries=[S0(end=57.41), S1(end=62.52)] now=59.90
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+2injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [LOOP] Frame 380: entries=[S0(end=57.41), S1(end=62.52)] now=60.22
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+injected.js:37 [LOOP] Frame 390: entries=[S0(end=57.41), S1(end=62.52)] now=60.39
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [LOOP] Frame 400: entries=[S0(end=57.41), S1(end=62.52)] now=60.73
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+injected.js:37 [LOOP] Frame 410: entries=[S0(end=57.41), S1(end=62.52)] now=60.92
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+5injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [LOOP] Frame 420: entries=[S0(end=57.41), S1(end=62.52)] now=61.85
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+2injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [LOOP] Frame 430: entries=[S0(end=57.41), S1(end=62.52)] now=62.38
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+(anonymous) @ injected.js:37
+tick @ audioUtils.ts:1106
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+requestAnimationFrame (async)
+tick @ audioUtils.ts:1317
+3injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false {connectionState: 'ready', connValid: true, isSwitchingTutor: false, isProcessing: false, streamIsProcessing: false, …}
+injected.js:37 [INSTRUCTION DEBUG] text="Hold to speak" isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=false
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=true {connectionState: 'ready', connValid: true, isSwitchingTutor: false, isProcessing: false, streamIsProcessing: false, …}
+injected.js:37 [KEYBOARD] Enter pressed - starting recording, isKeyboardHeld=true
+injected.js:37 [PUSH-TO-TALK] Button pressed at 1098181 ms, inputType: keyboard
+injected.js:37 [PTT-STATE-DEBUG] Setting isPttButtonHeld=TRUE at 2025-12-24T06:34:03.752Z
+injected.js:37 [PUSH-TO-TALK] Cached stream status: {exists: true, active: true, trackCount: 1, trackStates: Array(1), hasLiveTrack: true}
+injected.js:37 [PUSH-TO-TALK] Using cached stream - INSTANT start! (+18ms)
+injected.js:37 [PTT DIAGNOSTIC] Audio tracks: 1
+injected.js:37 [PTT DIAGNOSTIC] Track 0 settings: {autoGainControl: true, channelCount: 1, deviceId: 'default', echoCancellation: true, groupId: '659ee850e689685d8e417d30c949e37ce6997efdf3878ee62aefbaf7b3d226f4', …}
+injected.js:37 [PTT DIAGNOSTIC] Track 0 constraints: {}
+injected.js:37 [PTT DIAGNOSTIC] Track 0 capabilities: {autoGainControl: Array(2), channelCount: {…}, deviceId: 'default', echoCancellation: Array(2), groupId: '659ee850e689685d8e417d30c949e37ce6997efdf3878ee62aefbaf7b3d226f4', …}
+injected.js:37 [PTT DIAGNOSTIC] Track 0 state: {readyState: 'live', enabled: true, muted: false, label: 'Default - Microphone (Intel® Smart Sound Technology)', id: 'a9795622-89a5-40e1-bfe2-532af14dbee2'}
+injected.js:37 [RECORDING] Using audio codec: audio/webm;codecs=opus
+injected.js:37 [PTT DIAGNOSTIC] MediaRecorder created: {mimeType: 'audio/webm;codecs=opus', state: 'inactive', audioBitsPerSecond: 128000}
+injected.js:37 [StreamingAudioPlayer] Playback held - buffering audio
+injected.js:37 [SpeculativePTT] AudioContext sample rate: 16000Hz (target: 16000Hz, resampling: false)
+StreamingVoiceChat.tsx:1900 [Deprecation] The ScriptProcessorNode is deprecated. Use AudioWorkletNode instead. (https://bit.ly/audio-worklet)
+startPushToTalkRecording @ StreamingVoiceChat.tsx:1900
+handleKeyDown @ StreamingVoiceChat.tsx:1360
+injected.js:37 [SpeculativePTT] Real-time streaming started
+injected.js:37 [PUSH-TO-TALK] Recording started - release to stop
+injected.js:37 [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=true isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=true {connectionState: 'ready', connValid: true, isSwitchingTutor: false, isProcessing: false, streamIsProcessing: false, …}
+injected.js:37 [KEYBOARD] Recording too short (414ms), waiting 86ms
+injected.js:37 [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=true isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=true {connectionState: 'ready', connValid: true, isSwitchingTutor: false, isProcessing: false, streamIsProcessing: false, …}
+injected.js:37 [KEYBOARD] Enter released - stopping recording (delayed)
+injected.js:37 [PTT-STOP-DEBUG] Stop requested, inputType: keyboard activeInputType: keyboard isHeld: true
+injected.js:37 [PTT-STOP-DEBUG] Guard passed, proceeding...
+injected.js:37 [PUSH-TO-TALK] Releasing button, stopping recording...
+injected.js:37 [PTT-STATE-DEBUG] Setting isPttButtonHeld=FALSE at 2025-12-24T06:34:05.512Z call stack: Error
+    at stopPushToTalkRecording (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/StreamingVoiceChat.tsx:1313:130)
+    at https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/StreamingVoiceChat.tsx:931:13
+injected.js:37 [StreamingAudioPlayer] Playback released - processing 0 buffered chunks
+injected.js:37 [SpeculativePTT] Stopped streaming and sent ptt_release
+injected.js:37 [PUSH-TO-TALK] Resetting subtitles immediately on button release
+injected.js:37 [PTT DIAGNOSTIC] ondataavailable #1: size=5987 bytes, type=audio/webm;codecs=opus
+injected.js:37 [PTT DIAGNOSTIC] Recording stopped: {chunkCount: 1, totalChunkBytes: 5987, trackStatesOnStop: Array(1), recorderState: 'inactive'}
+injected.js:37 [PUSH-TO-TALK] Stopped, processing audio...
+injected.js:37 [PUSH-TO-TALK] Resetting subtitles immediately
+injected.js:37 [PTT DIAGNOSTIC] Final blob: {size: 5987, type: 'audio/webm', chunksUsed: 1}
+injected.js:37 [PUSH-TO-TALK] Discarding audio - conversation changed or session superseded
+injected.js:37 [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=true
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false {connectionState: 'ready', connValid: true, isSwitchingTutor: false, isProcessing: true, streamIsProcessing: false, …}
+injected.js:37 [MIC WARMUP] Re-warmed for next recording

@@ -1347,6 +1347,13 @@ export function StreamingVoiceChat({
       // Don't trigger if no conversation or processing
       if (!currentConversationRef.current || isProcessingRef.current) return;
       
+      // GUARD: Block phantom keydown during speculative PTT (playbackState is 'buffering' before 'playing')
+      // This prevents starting a new recording when AI audio is already being processed
+      if (playbackStateRef.current !== 'idle') {
+        console.log(`[KEYBOARD] Ignoring keydown - playbackState='${playbackStateRef.current}' (speculative PTT in progress)`);
+        return;
+      }
+      
       // Prevent default behavior
       event.preventDefault();
       
@@ -1390,13 +1397,8 @@ export function StreamingVoiceChat({
       
       if (isTextInput(target) || isTextInput(activeElement)) return;
       
-      // GUARD: If AI audio is buffering or playing (speculative PTT), this might be a phantom keyup
-      // Check playbackState !== 'idle' which catches 'buffering' BEFORE 'playing'
-      // Don't stop recording in this case - wait for the user to actually release.
-      if (playbackStateRef.current !== 'idle') {
-        console.log(`[KEYBOARD] Ignoring keyup - playbackState='${playbackStateRef.current}' (speculative PTT in progress)`);
-        return;
-      }
+      // ALWAYS stop recording on keyup - the guard is on keydown not keyup
+      // We want to let the user release normally even during speculative PTT
       
       // Mark keyboard as released
       isKeyboardHeldRef.current = false;
