@@ -502,7 +502,10 @@ export class StreamingAudioPlayer {
    * Set playback callbacks
    */
   setCallbacks(callbacks: StreamingPlaybackCallbacks): void {
-    this.callbacks = { ...this.callbacks, ...callbacks };
+    // CRITICAL: Fully replace callbacks to ensure fresh closures from remounted hooks
+    // The singleton pattern means old closures can become stale when hooks remount
+    console.log('[AUDIO PLAYER] setCallbacks called - replacing all callbacks');
+    this.callbacks = { ...callbacks };
   }
   
   /**
