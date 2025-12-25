@@ -1,6 +1,19 @@
 import { db } from '../db';
-import { syncRuns, founderSessions, collaborationMessages, hiveSnapshots, danielaGrowthMemories, users, tutorVoices, type SyncRun } from '@shared/schema';
-import { eq, desc, gte, and, isNull, or, inArray, lt } from 'drizzle-orm';
+import { 
+  syncRuns, founderSessions, collaborationMessages, hiveSnapshots, danielaGrowthMemories, 
+  users, tutorVoices, type SyncRun,
+  // Curriculum tables
+  curriculumPaths, curriculumUnits, curriculumLessons, topics,
+  curriculumDrillItems, grammarExercises, canDoStatements, culturalTips,
+  // Wren intelligence tables
+  wrenInsights, wrenProactiveTriggers, architecturalDecisionRecords,
+  wrenMistakes, wrenLessons, wrenCommitments,
+  // Daniela intelligence tables
+  danielaRecommendations, danielaFeatureFeedback,
+  // Credits
+  usageLedger
+} from '@shared/schema';
+import { eq, desc, gte, and, isNull, or, inArray, lt, sql } from 'drizzle-orm';
 import { neuralNetworkSync } from './neural-network-sync';
 import { createSyncHeaders, isSyncConfigured, getSyncPeerUrl } from '../middleware/sync-auth';
 import crypto from 'crypto';
@@ -9,7 +22,7 @@ const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production'
 
 // Version identifier to verify which code is running on production
 // Increment this when making sync-related changes to verify deployment
-const SYNC_BRIDGE_CODE_VERSION = "2024-12-25-v17-capability-negotiation";
+const SYNC_BRIDGE_CODE_VERSION = "2024-12-25-v18-expanded-sync";
 
 // Capability negotiation: List all batch types this version can import/export
 // When adding new batches, add them here so peers can gracefully handle version mismatches
@@ -21,6 +34,11 @@ const SUPPORTED_BATCHES = [
   'hive-snapshots',
   'daniela-memories',
   'product-config',
+  'curriculum-core',
+  'curriculum-drills',
+  'wren-intel',
+  'daniela-intel',
+  'beta-testers',
 ] as const;
 
 // Capability map for fine-grained feature support
@@ -82,6 +100,28 @@ export interface SyncBundle {
   danielaGrowthMemories: any[];
   // Product configuration (voices, tutors)
   tutorVoices: any[];
+  // Curriculum content (templates/syllabi)
+  curriculumPaths: any[];
+  curriculumUnits: any[];
+  curriculumLessons: any[];
+  topics: any[];
+  curriculumDrillItems: any[];
+  grammarExercises: any[];
+  canDoStatements: any[];
+  culturalTips: any[];
+  // Wren intelligence
+  wrenInsights: any[];
+  wrenProactiveTriggers: any[];
+  architecturalDecisionRecords: any[];
+  wrenMistakes: any[];
+  wrenLessons: any[];
+  wrenCommitments: any[];
+  // Daniela intelligence (beyond North Star already included)
+  danielaRecommendations: any[];
+  danielaFeatureFeedback: any[];
+  // Beta testers
+  betaTesters: any[];
+  betaTesterCredits: any[];
 }
 
 export interface SyncResult {
@@ -339,6 +379,126 @@ class SyncBridgeService {
       }
     }
     
+    // BATCH: curriculum-core - Syllabi paths, units, lessons, topics
+    if (!batchType || batchType === 'curriculum-core') {
+      try {
+        const paths = await db.select().from(curriculumPaths);
+        const units = await db.select().from(curriculumUnits);
+        const lessons = await db.select().from(curriculumLessons);
+        const topicsData = await db.select().from(topics);
+        
+        bundle.curriculumPaths = paths;
+        bundle.curriculumUnits = units;
+        bundle.curriculumLessons = lessons;
+        bundle.topics = topicsData;
+        console.log(`[SYNC-BRIDGE] curriculum-core: ${paths.length} paths, ${units.length} units, ${lessons.length} lessons, ${topicsData.length} topics`);
+      } catch (err: any) {
+        const errMsg = `curriculum-core export failed: ${err.message}`;
+        console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
+        batchErrors.push(errMsg);
+        bundle.curriculumPaths = [];
+        bundle.curriculumUnits = [];
+        bundle.curriculumLessons = [];
+        bundle.topics = [];
+      }
+    }
+    
+    // BATCH: curriculum-drills - Drill items, grammar exercises, can-do statements, cultural tips
+    if (!batchType || batchType === 'curriculum-drills') {
+      try {
+        const drills = await db.select().from(curriculumDrillItems);
+        const grammar = await db.select().from(grammarExercises);
+        const canDo = await db.select().from(canDoStatements);
+        const cultural = await db.select().from(culturalTips);
+        
+        bundle.curriculumDrillItems = drills;
+        bundle.grammarExercises = grammar;
+        bundle.canDoStatements = canDo;
+        bundle.culturalTips = cultural;
+        console.log(`[SYNC-BRIDGE] curriculum-drills: ${drills.length} drills, ${grammar.length} grammar, ${canDo.length} can-do, ${cultural.length} cultural`);
+      } catch (err: any) {
+        const errMsg = `curriculum-drills export failed: ${err.message}`;
+        console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
+        batchErrors.push(errMsg);
+        bundle.curriculumDrillItems = [];
+        bundle.grammarExercises = [];
+        bundle.canDoStatements = [];
+        bundle.culturalTips = [];
+      }
+    }
+    
+    // BATCH: wren-intel - All Wren intelligence tables
+    if (!batchType || batchType === 'wren-intel') {
+      try {
+        const insights = await db.select().from(wrenInsights);
+        const triggers = await db.select().from(wrenProactiveTriggers);
+        const adrs = await db.select().from(architecturalDecisionRecords);
+        const mistakes = await db.select().from(wrenMistakes);
+        const lessons = await db.select().from(wrenLessons);
+        const commitments = await db.select().from(wrenCommitments);
+        
+        bundle.wrenInsights = insights;
+        bundle.wrenProactiveTriggers = triggers;
+        bundle.architecturalDecisionRecords = adrs;
+        bundle.wrenMistakes = mistakes;
+        bundle.wrenLessons = lessons;
+        bundle.wrenCommitments = commitments;
+        console.log(`[SYNC-BRIDGE] wren-intel: ${insights.length} insights, ${triggers.length} triggers, ${adrs.length} ADRs, ${mistakes.length} mistakes, ${lessons.length} lessons, ${commitments.length} commitments`);
+      } catch (err: any) {
+        const errMsg = `wren-intel export failed: ${err.message}`;
+        console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
+        batchErrors.push(errMsg);
+        bundle.wrenInsights = [];
+        bundle.wrenProactiveTriggers = [];
+        bundle.architecturalDecisionRecords = [];
+        bundle.wrenMistakes = [];
+        bundle.wrenLessons = [];
+        bundle.wrenCommitments = [];
+      }
+    }
+    
+    // BATCH: daniela-intel - Daniela recommendations and feature feedback
+    if (!batchType || batchType === 'daniela-intel') {
+      try {
+        const recommendations = await db.select().from(danielaRecommendations);
+        const feedback = await db.select().from(danielaFeatureFeedback);
+        
+        bundle.danielaRecommendations = recommendations;
+        bundle.danielaFeatureFeedback = feedback;
+        console.log(`[SYNC-BRIDGE] daniela-intel: ${recommendations.length} recommendations, ${feedback.length} feedback`);
+      } catch (err: any) {
+        const errMsg = `daniela-intel export failed: ${err.message}`;
+        console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
+        batchErrors.push(errMsg);
+        bundle.danielaRecommendations = [];
+        bundle.danielaFeatureFeedback = [];
+      }
+    }
+    
+    // BATCH: beta-testers - Users with isBetaTester flag and their credits
+    if (!batchType || batchType === 'beta-testers') {
+      try {
+        const testers = await db.select().from(users).where(eq(users.isBetaTester, true));
+        const testerIds = testers.map(t => t.id);
+        
+        // Get credits for beta testers from usage ledger
+        let credits: any[] = [];
+        if (testerIds.length > 0) {
+          credits = await db.select().from(usageLedger).where(inArray(usageLedger.userId, testerIds));
+        }
+        
+        bundle.betaTesters = testers;
+        bundle.betaTesterCredits = credits;
+        console.log(`[SYNC-BRIDGE] beta-testers: ${testers.length} testers, ${credits.length} credit entries`);
+      } catch (err: any) {
+        const errMsg = `beta-testers export failed: ${err.message}`;
+        console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
+        batchErrors.push(errMsg);
+        bundle.betaTesters = [];
+        bundle.betaTesterCredits = [];
+      }
+    }
+    
     // Add batch errors to bundle for debugging (moved to end)
     if (batchErrors.length > 0) {
       (bundle as any).exportErrors = batchErrors;
@@ -554,6 +714,13 @@ class SyncBridgeService {
       'observationsPagination', 'northStarPrinciples', 'northStarUnderstanding', 'northStarExamples',
       'founderUser', 'expressLaneSessions', 'expressLaneMessages', 'hiveSnapshots',
       'danielaGrowthMemories', 'tutorVoices',
+      // v18: New sync batches
+      'curriculumPaths', 'curriculumUnits', 'curriculumLessons', 'topics',
+      'curriculumDrillItems', 'grammarExercises', 'canDoStatements', 'culturalTips',
+      'wrenInsights', 'wrenProactiveTriggers', 'architecturalDecisionRecords',
+      'wrenMistakes', 'wrenLessons', 'wrenCommitments',
+      'danielaRecommendations', 'danielaFeatureFeedback',
+      'betaTesters', 'betaTesterCredits',
     ]);
     
     const bundleKeys = Object.keys(bundle);
@@ -766,6 +933,105 @@ class SyncBridgeService {
       console.log(`[SYNC-BRIDGE] Importing ${bundle.tutorVoices.length} Tutor Voices...`);
       await importWithCount('tutorVoices', bundle.tutorVoices,
         (voice) => this.importTutorVoice(voice));
+    }
+    
+    // v18: Curriculum Core (paths, units, lessons, topics)
+    if (bundle.curriculumPaths?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.curriculumPaths.length} Curriculum Paths...`);
+      await importWithCount('curriculumPaths', bundle.curriculumPaths,
+        (path) => this.importCurriculumPath(path));
+    }
+    if (bundle.curriculumUnits?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.curriculumUnits.length} Curriculum Units...`);
+      await importWithCount('curriculumUnits', bundle.curriculumUnits,
+        (unit) => this.importCurriculumUnit(unit));
+    }
+    if (bundle.curriculumLessons?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.curriculumLessons.length} Curriculum Lessons...`);
+      await importWithCount('curriculumLessons', bundle.curriculumLessons,
+        (lesson) => this.importCurriculumLesson(lesson));
+    }
+    if (bundle.topics?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.topics.length} Topics...`);
+      await importWithCount('topics', bundle.topics,
+        (topic) => this.importTopic(topic));
+    }
+    
+    // v18: Curriculum Drills (drill items, grammar, can-do, cultural tips)
+    if (bundle.curriculumDrillItems?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.curriculumDrillItems.length} Drill Items...`);
+      await importWithCount('curriculumDrillItems', bundle.curriculumDrillItems,
+        (drill) => this.importCurriculumDrillItem(drill));
+    }
+    if (bundle.grammarExercises?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.grammarExercises.length} Grammar Exercises...`);
+      await importWithCount('grammarExercises', bundle.grammarExercises,
+        (grammar) => this.importGrammarExercise(grammar));
+    }
+    if (bundle.canDoStatements?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.canDoStatements.length} Can-Do Statements...`);
+      await importWithCount('canDoStatements', bundle.canDoStatements,
+        (canDo) => this.importCanDoStatement(canDo));
+    }
+    if (bundle.culturalTips?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.culturalTips.length} Cultural Tips...`);
+      await importWithCount('culturalTips', bundle.culturalTips,
+        (tip) => this.importCulturalTip(tip));
+    }
+    
+    // v18: Wren Intelligence
+    if (bundle.wrenInsights?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.wrenInsights.length} Wren Insights...`);
+      await importWithCount('wrenInsights', bundle.wrenInsights,
+        (insight) => this.importWrenInsight(insight));
+    }
+    if (bundle.wrenProactiveTriggers?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.wrenProactiveTriggers.length} Wren Proactive Triggers...`);
+      await importWithCount('wrenProactiveTriggers', bundle.wrenProactiveTriggers,
+        (trigger) => this.importWrenProactiveTrigger(trigger));
+    }
+    if (bundle.architecturalDecisionRecords?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.architecturalDecisionRecords.length} ADRs...`);
+      await importWithCount('architecturalDecisionRecords', bundle.architecturalDecisionRecords,
+        (adr) => this.importArchitecturalDecisionRecord(adr));
+    }
+    if (bundle.wrenMistakes?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.wrenMistakes.length} Wren Mistakes...`);
+      await importWithCount('wrenMistakes', bundle.wrenMistakes,
+        (mistake) => this.importWrenMistake(mistake));
+    }
+    if (bundle.wrenLessons?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.wrenLessons.length} Wren Lessons...`);
+      await importWithCount('wrenLessons', bundle.wrenLessons,
+        (lesson) => this.importWrenLesson(lesson));
+    }
+    if (bundle.wrenCommitments?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.wrenCommitments.length} Wren Commitments...`);
+      await importWithCount('wrenCommitments', bundle.wrenCommitments,
+        (commitment) => this.importWrenCommitment(commitment));
+    }
+    
+    // v18: Daniela Intelligence
+    if (bundle.danielaRecommendations?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.danielaRecommendations.length} Daniela Recommendations...`);
+      await importWithCount('danielaRecommendations', bundle.danielaRecommendations,
+        (rec) => this.importDanielaRecommendation(rec));
+    }
+    if (bundle.danielaFeatureFeedback?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.danielaFeatureFeedback.length} Daniela Feature Feedback...`);
+      await importWithCount('danielaFeatureFeedback', bundle.danielaFeatureFeedback,
+        (feedback) => this.importDanielaFeatureFeedback(feedback));
+    }
+    
+    // v18: Beta Testers (merge by email)
+    if (bundle.betaTesters?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.betaTesters.length} Beta Testers...`);
+      const betaResult = await this.importBetaTesters(bundle.betaTesters, bundle.betaTesterCredits || []);
+      counts['betaTesters'] = betaResult.usersImported;
+      counts['betaTesterCredits'] = betaResult.creditsImported;
+      if (betaResult.errors.length) {
+        errors.push(...betaResult.errors);
+      }
     }
     
     // Log final sync result summary
@@ -1801,7 +2067,7 @@ class SyncBridgeService {
     const localBatchSet = new Set(localBatches);
     
     const localOnly = localBatches.filter(b => !peerBatchSet.has(b));
-    const peerOnly = peerBatches.filter(b => !localBatchSet.has(b));
+    const peerOnly = peerBatches.filter(b => !localBatchSet.has(b as typeof SUPPORTED_BATCHES[number]));
     
     return {
       local,
@@ -2056,6 +2322,419 @@ class SyncBridgeService {
     }
     
     return cleaned;
+  }
+  
+  // ===== v18: New Import Helper Methods =====
+  
+  async importCurriculumPath(path: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const existing = await db.select().from(curriculumPaths).where(eq(curriculumPaths.id, path.id)).limit(1);
+      if (existing.length > 0) {
+        await db.update(curriculumPaths).set({
+          name: path.name,
+          description: path.description,
+          language: path.language,
+          targetAudience: path.targetAudience,
+          startLevel: path.startLevel,
+          endLevel: path.endLevel,
+          estimatedHours: path.estimatedHours,
+          isPublished: path.isPublished,
+          updatedAt: new Date(),
+        }).where(eq(curriculumPaths.id, path.id));
+      } else {
+        await db.insert(curriculumPaths).values({
+          ...path,
+          createdAt: new Date(path.createdAt),
+          updatedAt: new Date(),
+        });
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  }
+  
+  async importCurriculumUnit(unit: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const existing = await db.select().from(curriculumUnits).where(eq(curriculumUnits.id, unit.id)).limit(1);
+      if (existing.length > 0) {
+        await db.update(curriculumUnits).set({
+          curriculumPathId: unit.curriculumPathId,
+          name: unit.name,
+          description: unit.description,
+          orderIndex: unit.orderIndex,
+          actflLevel: unit.actflLevel,
+          culturalTheme: unit.culturalTheme,
+          estimatedHours: unit.estimatedHours,
+          commitments: unit.commitments,
+        }).where(eq(curriculumUnits.id, unit.id));
+      } else {
+        await db.insert(curriculumUnits).values(unit);
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  }
+  
+  async importCurriculumLesson(lesson: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const existing = await db.select().from(curriculumLessons).where(eq(curriculumLessons.id, lesson.id)).limit(1);
+      if (existing.length > 0) {
+        await db.update(curriculumLessons).set({
+          curriculumUnitId: lesson.curriculumUnitId,
+          name: lesson.name,
+          description: lesson.description,
+          orderIndex: lesson.orderIndex,
+          lessonType: lesson.lessonType,
+          actflLevel: lesson.actflLevel,
+          prerequisiteLessonId: lesson.prerequisiteLessonId,
+          conversationTopic: lesson.conversationTopic,
+          conversationPrompt: lesson.conversationPrompt,
+          objectives: lesson.objectives,
+          estimatedMinutes: lesson.estimatedMinutes,
+          requiredTopics: lesson.requiredTopics,
+          requiredVocabulary: lesson.requiredVocabulary,
+          requiredGrammar: lesson.requiredGrammar,
+          minPronunciationScore: lesson.minPronunciationScore,
+          requirementTier: lesson.requirementTier,
+          bundleId: lesson.bundleId,
+        }).where(eq(curriculumLessons.id, lesson.id));
+      } else {
+        await db.insert(curriculumLessons).values(lesson);
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  }
+  
+  async importTopic(topic: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const existing = await db.select().from(topics).where(eq(topics.id, topic.id)).limit(1);
+      if (existing.length > 0) {
+        await db.update(topics).set({
+          name: topic.name,
+          description: topic.description,
+          topicType: topic.topicType,
+          category: topic.category,
+          icon: topic.icon,
+          samplePhrases: topic.samplePhrases,
+          difficulty: topic.difficulty,
+          grammarConcept: topic.grammarConcept,
+          applicableLanguages: topic.applicableLanguages,
+          actflLevelRange: topic.actflLevelRange,
+        }).where(eq(topics.id, topic.id));
+      } else {
+        await db.insert(topics).values(topic);
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  }
+  
+  async importCurriculumDrillItem(drill: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const existing = await db.select().from(curriculumDrillItems).where(eq(curriculumDrillItems.id, drill.id)).limit(1);
+      if (existing.length > 0) {
+        await db.update(curriculumDrillItems).set({
+          lessonId: drill.lessonId,
+          itemType: drill.itemType,
+          orderIndex: drill.orderIndex,
+          prompt: drill.prompt,
+          targetText: drill.targetText,
+          targetLanguage: drill.targetLanguage,
+          audioUrl: drill.audioUrl,
+          audioDurationMs: drill.audioDurationMs,
+          audioUrlFemale: drill.audioUrlFemale,
+          audioUrlMale: drill.audioUrlMale,
+          hints: drill.hints,
+          acceptableAlternatives: drill.acceptableAlternatives,
+          difficulty: drill.difficulty,
+          tags: drill.tags,
+          updatedAt: new Date(),
+        }).where(eq(curriculumDrillItems.id, drill.id));
+      } else {
+        await db.insert(curriculumDrillItems).values({
+          ...drill,
+          createdAt: new Date(drill.createdAt || new Date()),
+          updatedAt: new Date(),
+        });
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  }
+  
+  async importGrammarExercise(grammar: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const existing = await db.select().from(grammarExercises).where(eq(grammarExercises.id, grammar.id)).limit(1);
+      if (existing.length > 0) {
+        await db.update(grammarExercises).set({
+          language: grammar.language,
+          difficulty: grammar.difficulty,
+          actflLevel: grammar.actflLevel,
+          competencyId: grammar.competencyId,
+          question: grammar.question,
+          options: grammar.options,
+          correctAnswer: grammar.correctAnswer,
+          explanation: grammar.explanation,
+          exerciseType: grammar.exerciseType,
+          hint: grammar.hint,
+        }).where(eq(grammarExercises.id, grammar.id));
+      } else {
+        await db.insert(grammarExercises).values({
+          ...grammar,
+          createdAt: new Date(grammar.createdAt || new Date()),
+        });
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  }
+  
+  async importCanDoStatement(canDo: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const existing = await db.select().from(canDoStatements).where(eq(canDoStatements.id, canDo.id)).limit(1);
+      if (existing.length > 0) {
+        await db.update(canDoStatements).set({
+          language: canDo.language,
+          actflLevel: canDo.actflLevel,
+          category: canDo.category,
+          mode: canDo.mode,
+          statement: canDo.statement,
+          description: canDo.description,
+        }).where(eq(canDoStatements.id, canDo.id));
+      } else {
+        await db.insert(canDoStatements).values(canDo);
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  }
+  
+  async importCulturalTip(tip: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const existing = await db.select().from(culturalTips).where(eq(culturalTips.id, tip.id)).limit(1);
+      if (existing.length > 0) {
+        await db.update(culturalTips).set({
+          language: tip.language,
+          category: tip.category,
+          title: tip.title,
+          content: tip.content,
+          context: tip.context,
+          relatedTopics: tip.relatedTopics,
+        }).where(eq(culturalTips.id, tip.id));
+      } else {
+        await db.insert(culturalTips).values(tip);
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  }
+  
+  async importWrenInsight(insight: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const existing = await db.select().from(wrenInsights).where(eq(wrenInsights.id, insight.id)).limit(1);
+      if (existing.length === 0) {
+        await db.insert(wrenInsights).values({
+          ...insight,
+          createdAt: new Date(insight.createdAt),
+        });
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  }
+  
+  async importWrenProactiveTrigger(trigger: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const existing = await db.select().from(wrenProactiveTriggers).where(eq(wrenProactiveTriggers.id, trigger.id)).limit(1);
+      if (existing.length === 0) {
+        await db.insert(wrenProactiveTriggers).values({
+          ...trigger,
+          createdAt: new Date(trigger.createdAt),
+        });
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  }
+  
+  async importArchitecturalDecisionRecord(adr: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const existing = await db.select().from(architecturalDecisionRecords).where(eq(architecturalDecisionRecords.id, adr.id)).limit(1);
+      if (existing.length === 0) {
+        await db.insert(architecturalDecisionRecords).values({
+          ...adr,
+          createdAt: new Date(adr.createdAt),
+          updatedAt: adr.updatedAt ? new Date(adr.updatedAt) : null,
+        });
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  }
+  
+  async importWrenMistake(mistake: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const existing = await db.select().from(wrenMistakes).where(eq(wrenMistakes.id, mistake.id)).limit(1);
+      if (existing.length === 0) {
+        await db.insert(wrenMistakes).values({
+          ...mistake,
+          createdAt: new Date(mistake.createdAt),
+        });
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  }
+  
+  async importWrenLesson(lesson: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const existing = await db.select().from(wrenLessons).where(eq(wrenLessons.id, lesson.id)).limit(1);
+      if (existing.length === 0) {
+        await db.insert(wrenLessons).values({
+          ...lesson,
+          createdAt: new Date(lesson.createdAt),
+        });
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  }
+  
+  async importWrenCommitment(commitment: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const existing = await db.select().from(wrenCommitments).where(eq(wrenCommitments.id, commitment.id)).limit(1);
+      if (existing.length === 0) {
+        await db.insert(wrenCommitments).values({
+          ...commitment,
+          createdAt: new Date(commitment.createdAt),
+          completedAt: commitment.completedAt ? new Date(commitment.completedAt) : null,
+        });
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  }
+  
+  async importDanielaRecommendation(rec: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const existing = await db.select().from(danielaRecommendations).where(eq(danielaRecommendations.id, rec.id)).limit(1);
+      if (existing.length === 0) {
+        await db.insert(danielaRecommendations).values({
+          ...rec,
+          createdAt: new Date(rec.createdAt),
+        });
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  }
+  
+  async importDanielaFeatureFeedback(feedback: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const existing = await db.select().from(danielaFeatureFeedback).where(eq(danielaFeatureFeedback.id, feedback.id)).limit(1);
+      if (existing.length === 0) {
+        await db.insert(danielaFeatureFeedback).values({
+          ...feedback,
+          createdAt: new Date(feedback.createdAt),
+        });
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  }
+  
+  /**
+   * Import beta testers with merge-by-email logic
+   * If user exists in production (same email), merge credits
+   * If user doesn't exist, create user and add credits
+   */
+  async importBetaTesters(testers: any[], credits: any[]): Promise<{ usersImported: number; creditsImported: number; errors: string[] }> {
+    let usersImported = 0;
+    let creditsImported = 0;
+    const errors: string[] = [];
+    
+    // Build credits map by userId for quick lookup
+    const creditsByUserId = new Map<string, any[]>();
+    for (const credit of credits) {
+      const userCredits = creditsByUserId.get(credit.userId) || [];
+      userCredits.push(credit);
+      creditsByUserId.set(credit.userId, userCredits);
+    }
+    
+    for (const tester of testers) {
+      try {
+        // Check if user exists by email (merge logic)
+        const existing = await db.select().from(users).where(eq(users.email, tester.email)).limit(1);
+        
+        let targetUserId: string;
+        
+        if (existing.length > 0) {
+          // User exists - update beta tester flag
+          targetUserId = existing[0].id;
+          await db.update(users)
+            .set({ isBetaTester: true })
+            .where(eq(users.id, targetUserId));
+          console.log(`[SYNC-BRIDGE] Marked existing user as beta tester: ${tester.email}`);
+        } else {
+          // Create new user with new ID
+          targetUserId = tester.id;
+          await db.insert(users).values({
+            id: targetUserId,
+            email: tester.email,
+            firstName: tester.firstName,
+            lastName: tester.lastName,
+            profileImageUrl: tester.profileImageUrl,
+            isBetaTester: true,
+            createdAt: new Date(tester.createdAt),
+            updatedAt: new Date(),
+          });
+          console.log(`[SYNC-BRIDGE] Created beta tester: ${tester.email}`);
+        }
+        usersImported++;
+        
+        // Import credits for this user
+        const userCredits = creditsByUserId.get(tester.id) || [];
+        for (const credit of userCredits) {
+          try {
+            // Check if this exact credit already exists
+            const existingCredit = await db.select().from(usageLedger).where(eq(usageLedger.id, credit.id)).limit(1);
+            if (existingCredit.length === 0) {
+              await db.insert(usageLedger).values({
+                ...credit,
+                userId: targetUserId, // Use target user ID (may be different if merged)
+                createdAt: new Date(credit.createdAt),
+                expiresAt: credit.expiresAt ? new Date(credit.expiresAt) : null,
+              });
+              creditsImported++;
+            }
+          } catch (creditErr: any) {
+            errors.push(`credit for ${tester.email}: ${creditErr.message}`);
+          }
+        }
+      } catch (err: any) {
+        errors.push(`beta tester ${tester.email}: ${err.message}`);
+      }
+    }
+    
+    console.log(`[SYNC-BRIDGE] Beta testers: ${usersImported} users, ${creditsImported} credits imported`);
+    return { usersImported, creditsImported, errors };
   }
 }
 
