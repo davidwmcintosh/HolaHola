@@ -175,6 +175,22 @@ Daniela can write DIRECTLY to her neural network during teaching using the `[SEL
 |---------------|---------|
 | `[SELF_LEARN category="..." insight="..." context="..."]` | Writes directly to `self_best_practices` table (autonomous, no approval) |
 
+**Content Growth (Daniela → Neural Network Expansion):**
+| Signal Format | Purpose |
+|---------------|---------|
+| `[SAVE_IDIOM language="..." idiom="..." meaning="..." context="..."]` | Saves idiom to `language_idioms` table |
+| `[SAVE_NUANCE language="..." category="..." situation="..." nuance="..."]` | Saves cultural nuance to `cultural_nuances` table |
+| `[SAVE_ERROR_PATTERN target="..." error="..." category="..." why="..."]` | Saves learner error pattern to `learner_error_patterns` table |
+| `[SAVE_DIALECT language="..." region="..." category="..." standard="..." regional="..."]` | Saves dialect variation to `dialect_variations` table |
+| `[SAVE_BRIDGE from="..." to="..." source="..." target="..." type="..." relationship="..."]` | Saves linguistic bridge to `linguistic_bridges` table |
+
+**Content Growth Guidelines:**
+- Use SAVE_* tags when discovering genuinely novel pedagogical content during teaching
+- These are invisible to students (stripped before TTS)
+- Content syncs from prod → dev via `prod-content-growth` batch for founder review
+- Don't overuse - save only substantive discoveries worth institutionalizing
+- Examples: A new idiom not in the database, a regional dialect difference, a common error pattern
+
 **Support Beacons (Sofia → Hive):**
 | Beacon Type | Purpose |
 |-------------|---------|
