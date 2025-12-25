@@ -1292,7 +1292,7 @@ class SyncBridgeService {
           // v16: Resume from last completed page
           let page = resumeFromPage > 0 ? resumeFromPage : 0;
           let hasMore = true;
-          const MAX_PAGES = 150; // Increased from 50 to handle 97+ pages
+          const MAX_PAGES = 250; // Increased to handle 48K+ observations (need ~194 pages)
           
           if (page > 0) {
             console.log(`[SYNC-BRIDGE v16] Resuming observations from page ${page}`);
