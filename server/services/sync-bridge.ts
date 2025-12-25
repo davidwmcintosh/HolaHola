@@ -1,5 +1,5 @@
 import { db } from '../db';
-import { syncRuns, founderSessions, collaborationMessages, hiveSnapshots, danielaGrowthMemories, users, type SyncRun } from '@shared/schema';
+import { syncRuns, founderSessions, collaborationMessages, hiveSnapshots, danielaGrowthMemories, users, tutorVoices, type SyncRun } from '@shared/schema';
 import { eq, desc, gte, and, isNull, or, inArray, lt } from 'drizzle-orm';
 import { neuralNetworkSync } from './neural-network-sync';
 import { createSyncHeaders, isSyncConfigured, getSyncPeerUrl } from '../middleware/sync-auth';
@@ -51,6 +51,8 @@ export interface SyncBundle {
   expressLaneMessages: any[];
   hiveSnapshots: any[];
   danielaGrowthMemories: any[];
+  // Product configuration (voices, tutors)
+  tutorVoices: any[];
 }
 
 export interface SyncResult {
@@ -273,6 +275,19 @@ class SyncBridgeService {
       }
     }
     
+    // BATCH: product-config - Tutor voices (includes both main tutors and assistant tutors)
+    if (!batchType || batchType === 'product-config') {
+      try {
+        const voices = await this.exportTutorVoices();
+        bundle.tutorVoices = voices;
+      } catch (err: any) {
+        const errMsg = `product-config export failed: ${err.message}`;
+        console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
+        batchErrors.push(errMsg);
+        bundle.tutorVoices = [];
+      }
+    }
+    
     // Add batch errors to bundle for debugging (moved to end)
     if (batchErrors.length > 0) {
       (bundle as any).exportErrors = batchErrors;
@@ -304,6 +319,7 @@ class SyncBridgeService {
       expressLaneMessages: bundle.expressLaneMessages?.length || 0,
       hiveSnapshots: bundle.hiveSnapshots?.length || 0,
       danielaGrowthMemories: bundle.danielaGrowthMemories?.length || 0,
+      tutorVoices: bundle.tutorVoices?.length || 0,
     };
     
     // Check for high record counts that may need pagination soon
@@ -405,6 +421,71 @@ class SyncBridgeService {
     
     console.log(`[SYNC-BRIDGE] Exporting ${memories.length} Daniela Growth Memories (since ${sinceDate.toISOString()})`);
     return memories;
+  }
+  
+  /**
+   * Export Tutor Voices for cross-environment sync
+   * Includes both main tutors (role=tutor) and assistant tutors (role=assistant)
+   * This is product configuration, not incremental - export all active voices
+   */
+  async exportTutorVoices(): Promise<any[]> {
+    const voices = await db
+      .select()
+      .from(tutorVoices)
+      .where(eq(tutorVoices.isActive, true))
+      .orderBy(tutorVoices.language, tutorVoices.role, tutorVoices.gender);
+    
+    console.log(`[SYNC-BRIDGE] Exporting ${voices.length} Tutor Voices (tutors + assistants)`);
+    return voices;
+  }
+  
+  /**
+   * Import a single tutor voice with upsert logic
+   */
+  async importTutorVoice(voice: any): Promise<{ success: boolean }> {
+    try {
+      // Upsert by id - if voice exists, update it; otherwise insert
+      await db
+        .insert(tutorVoices)
+        .values({
+          id: voice.id,
+          language: voice.language,
+          gender: voice.gender,
+          role: voice.role || 'tutor',
+          provider: voice.provider || 'cartesia',
+          voiceId: voice.voiceId,
+          voiceName: voice.voiceName,
+          languageCode: voice.languageCode,
+          speakingRate: voice.speakingRate ?? 0.9,
+          personality: voice.personality || 'warm',
+          expressiveness: voice.expressiveness ?? 3,
+          emotion: voice.emotion || 'friendly',
+          isActive: voice.isActive ?? true,
+        })
+        .onConflictDoUpdate({
+          target: tutorVoices.id,
+          set: {
+            language: voice.language,
+            gender: voice.gender,
+            role: voice.role || 'tutor',
+            provider: voice.provider || 'cartesia',
+            voiceId: voice.voiceId,
+            voiceName: voice.voiceName,
+            languageCode: voice.languageCode,
+            speakingRate: voice.speakingRate ?? 0.9,
+            personality: voice.personality || 'warm',
+            expressiveness: voice.expressiveness ?? 3,
+            emotion: voice.emotion || 'friendly',
+            isActive: voice.isActive ?? true,
+            updatedAt: new Date(),
+          },
+        });
+      
+      return { success: true };
+    } catch (err: any) {
+      console.error(`[SYNC-BRIDGE] Failed to import tutor voice ${voice.id}:`, err.message);
+      return { success: false };
+    }
   }
   
   async applyImportBundle(bundle: SyncBundle): Promise<SyncResult> {
@@ -600,6 +681,13 @@ class SyncBridgeService {
         console.error(`[SYNC-BRIDGE] Daniela Growth Memory errors:`, memoryResult.errors);
         errors.push(...memoryResult.errors);
       }
+    }
+    
+    // Product Configuration: Tutor Voices (includes both main tutors and assistants)
+    if (bundle.tutorVoices?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.tutorVoices.length} Tutor Voices...`);
+      await importWithCount('tutorVoices', bundle.tutorVoices,
+        (voice) => this.importTutorVoice(voice));
     }
     
     // Log final sync result summary
@@ -1271,7 +1359,7 @@ class SyncBridgeService {
       // Batched pull - fetch each batch type separately to avoid timeout
       // v15: advanced-intel-b now supports pagination for large observation datasets
       // v16: Skip already-completed batches on resume
-      const batchTypes = ['neural-core', 'advanced-intel-a', 'advanced-intel-b', 'express-lane', 'hive-snapshots', 'daniela-memories'];
+      const batchTypes = ['neural-core', 'advanced-intel-a', 'advanced-intel-b', 'express-lane', 'hive-snapshots', 'daniela-memories', 'product-config'];
       
       for (let i = 0; i < batchTypes.length; i++) {
         const batchType = batchTypes[i];
