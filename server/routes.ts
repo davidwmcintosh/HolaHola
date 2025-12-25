@@ -5632,6 +5632,7 @@ ${memoryContext}
         const matchingVoice = tutorVoices.find(
           v => v.language.toLowerCase() === effectiveLanguage.toLowerCase() && 
                v.gender === tutorGender &&
+               v.role === 'tutor' &&  // Only main Cartesia tutors, not Google assistants
                v.isActive
         );
         if (matchingVoice?.voiceId) {
@@ -5851,6 +5852,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         const matchingVoice = tutorVoices.find(
           v => v.language.toLowerCase() === targetLanguage.toLowerCase() && 
                v.gender === tutorGender &&
+               v.role === 'tutor' &&  // Only main Cartesia tutors, not Google assistants
                v.isActive
         );
         if (matchingVoice?.voiceId) {

@@ -2089,6 +2089,7 @@ Remember: David may reference things discussed in these recent text chats.
             const matchingVoice = allVoices.find(
               (v: any) => v.language?.toLowerCase() === effectiveLanguage &&
                           v.gender?.toLowerCase() === effectiveGender &&
+                          v.role === 'tutor' &&  // Only main Cartesia tutors, not Google assistants
                           v.isActive
             );
           

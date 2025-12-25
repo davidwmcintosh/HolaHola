@@ -185,6 +185,7 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
             const matchingVoice = allVoices.find(
               (v: any) => v.language?.toLowerCase() === effectiveLanguage &&
                           v.gender?.toLowerCase() === tutorGender &&
+                          v.role === 'tutor' &&  // Only main Cartesia tutors, not Google assistants
                           v.isActive
             );
             

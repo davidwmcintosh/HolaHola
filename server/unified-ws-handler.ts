@@ -784,6 +784,7 @@ Reference past discussions when relevant, but don't force it.
             const matchingVoice = allVoices.find(
               (v: any) => v.language?.toLowerCase() === effectiveLanguage &&
                           v.gender?.toLowerCase() === tutorGenderForPrompt &&
+                          v.role === 'tutor' &&  // Only main Cartesia tutors, not Google assistants
                           v.isActive
             );
             
@@ -1046,6 +1047,7 @@ Reference past discussions when relevant, but don't force it.
               const matchingVoice = allVoices.find(
                 (v: any) => v.language?.toLowerCase() === effectiveLanguage &&
                             v.gender?.toLowerCase() === pendingGender &&
+                            v.role === 'tutor' &&  // Only main Cartesia tutors, not Google assistants
                             v.isActive
               );
               
@@ -1776,6 +1778,7 @@ Reference past discussions when relevant, but don't force it.
             const matchingVoice = allVoices.find(
               (v: any) => v.language?.toLowerCase() === effectiveLanguage &&
                           v.gender?.toLowerCase() === newGender &&
+                          v.role === 'tutor' &&  // Only main Cartesia tutors, not Google assistants
                           v.isActive
             );
             

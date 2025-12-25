@@ -5341,10 +5341,12 @@ export class DatabaseStorage implements IStorage {
   // ===== Tutor Voice Management =====
 
   async getTutorVoice(language: string, gender: 'male' | 'female'): Promise<TutorVoice | undefined> {
+    // IMPORTANT: Filter by role='tutor' to get main Cartesia tutor, not Google assistant
     const result = await db.select().from(tutorVoices).where(
       and(
         eq(tutorVoices.language, language),
         eq(tutorVoices.gender, gender),
+        eq(tutorVoices.role, 'tutor'),  // Only main tutors, not assistants
         eq(tutorVoices.isActive, true)
       )
     ).limit(1);
