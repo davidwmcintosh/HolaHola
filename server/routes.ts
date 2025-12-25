@@ -17112,11 +17112,12 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   // Peer-accessible: Get database stats for cross-environment verification
   app.post("/api/sync/peer-stats", validateSyncRequest, async (req: any, res) => {
     try {
-      const { danielaGrowthMemories, hiveSnapshots, collaborationMessages, users } = await import('@shared/schema');
+      const { danielaGrowthMemories, hiveSnapshots, collaborationMessages, users, tutorVoices } = await import('@shared/schema');
       const [memoryStats] = await db.select({ count: sql<number>`count(*)` }).from(danielaGrowthMemories);
       const [snapshotStats] = await db.select({ count: sql<number>`count(*)` }).from(hiveSnapshots);
       const [messageStats] = await db.select({ count: sql<number>`count(*)` }).from(collaborationMessages);
       const [userStats] = await db.select({ count: sql<number>`count(*)` }).from(users);
+      const [voiceStats] = await db.select({ count: sql<number>`count(*)` }).from(tutorVoices);
       
       res.json({
         environment: process.env.NODE_ENV === 'production' ? 'production' : 'development',
@@ -17125,6 +17126,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
           hiveSnapshots: Number(snapshotStats.count),
           collaborationMessages: Number(messageStats.count),
           users: Number(userStats.count),
+          tutorVoices: Number(voiceStats.count),
         },
         queriedAt: new Date().toISOString(),
       });

@@ -307,6 +307,7 @@ export default function SyncControlCenter() {
                     ) : peerStats ? (
                       <div className="text-sm text-muted-foreground">
                         <p>{peerStats.counts.users} users, {peerStats.counts.hiveSnapshots} snapshots</p>
+                        <p>{peerStats.counts.tutorVoices || 0} voices</p>
                         <p className="text-xs">Last checked: {formatDate(peerStats.queriedAt)}</p>
                       </div>
                     ) : (

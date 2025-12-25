@@ -1652,6 +1652,7 @@ class SyncBridgeService {
       hiveSnapshots: number;
       collaborationMessages: number;
       users: number;
+      tutorVoices: number;
     };
     queriedAt: string;
   }> {
