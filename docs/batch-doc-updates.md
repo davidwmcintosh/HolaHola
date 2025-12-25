@@ -8,6 +8,77 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: December 25, 2025 - v18 Sync System: Selective Batches & Beta Tester Workflow
+
+**Status**: COMPLETED - Deployed to production
+
+**Overview**: Expanded the dev-prod sync system from 7 to 12 batch types with selective sync UI, enabling targeted data pushes like beta testers with credits.
+
+#### New Batch Types (v18)
+
+| Batch ID | Label | Contents |
+|----------|-------|----------|
+| `neural-core` | Neural Core | Best practices, idioms, nuances |
+| `advanced-intel-a` | Advanced Intel A | Learning insights, Daniela suggestions |
+| `advanced-intel-b` | Advanced Intel B | TriLane observations, North Star |
+| `express-lane` | Express Lane | Founder collaboration sessions/messages |
+| `hive-snapshots` | Hive Snapshots | Context snapshots for AI injection |
+| `daniela-memories` | Daniela Memories | Daniela growth memories |
+| `product-config` | Product Config | Tutor voices, feature flags |
+| `beta-testers` | **Beta Testers** | Beta users + usage credits (NEW) |
+
+#### Beta Tester Workflow
+
+```
+1. Create user in dev (via invitation or direct DB)
+2. Mark as beta tester: isBetaTester: true
+3. Add credits to user's account
+4. Go to Sync Control Center (/admin/sync)
+5. Select "Beta Testers" checkbox only
+6. Click "Push to Production"
+7. Send invitation email (links to production)
+8. User completes registration → credits waiting
+```
+
+#### Merge-by-Email Logic
+
+When syncing beta testers, the system uses email as the merge key:
+- **Email exists in prod**: Mark as beta tester, add credits
+- **Email doesn't exist**: Create new user with credits
+
+#### Selective Sync UI
+
+New batch selector in Sync Control Center:
+- Checkboxes for each batch type
+- "X selected" badge with clear button
+- Push button shows "N batches" or "All batches"
+- Empty selection = all batches (default behavior)
+
+#### Key Files Modified
+
+| File | Changes |
+|------|---------|
+| `server/services/sync-bridge.ts` | Added `shouldRun()` filter, `exportBetaTesters()`, all batch if-guards |
+| `server/routes.ts` | Push endpoint accepts `selectedBatches` array |
+| `client/src/pages/admin/SyncControlCenter.tsx` | Batch selector UI, updated push mutation |
+
+#### API Changes
+
+```typescript
+POST /api/admin/sync/push
+{
+  "selectedBatches": ["beta-testers"]  // optional, empty = all
+}
+```
+
+#### Email Workflow Confirmation
+
+- `APP_URL=https://getholahola.com` ensures links point to production
+- `MAILJET_API_KEY` + `MAILJET_SECRET_KEY` configured
+- Emails from dev create invitations with production links
+
+---
+
 ### Session: December 24, 2025 - Avatar Animation Debugging (HMR Callback Staleness)
 
 **Status**: IN PROGRESS - DOM Event Bridge implemented, awaiting test
