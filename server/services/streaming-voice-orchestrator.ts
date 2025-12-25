@@ -199,6 +199,14 @@ function cleanTextForDisplay(text: string): string {
   // Pattern: [SELF_LEARN category="..." insight="..." context="..."]
   text = text.replace(/\[SELF_LEARN[^\]]*\]/gi, '');
   
+  // Strip content growth tags (Daniela's pedagogical content creation - invisible to students)
+  text = text.replace(/\[SAVE_IDIOM[^\]]*\]/gi, '');
+  text = text.replace(/\[SAVE_NUANCE[^\]]*\]/gi, '');
+  text = text.replace(/\[SAVE_ERROR_PATTERN[^\]]*\]/gi, '');
+  text = text.replace(/\[SAVE_BRIDGE[^\]]*\]/gi, '');
+  text = text.replace(/\[SAVE_DIALECT[^\]]*\]/gi, '');
+  // Note: SAVE_CULTURAL_TIP not stripped - culturalTips table lacks sync fields
+  
   // Strip KNOWLEDGE_PING tags
   text = text.replace(/\[KNOWLEDGE_PING[^\]]*\]/gi, '');
   
@@ -3630,6 +3638,151 @@ Remember: David may reference things discussed in these recent text chats.
         }
       } catch (err: any) {
         console.error(`[SELF_LEARN] Failed to write to neural network:`, err.message);
+      }
+    }
+    
+    // Environment for content origin tracking
+    const currentEnv = process.env.NODE_ENV === 'production' ? 'production' : 'development';
+    
+    // SAVE_IDIOM tags: [SAVE_IDIOM language="..." idiom="..." meaning="..." context="..."]
+    // Daniela discovers an idiom worth saving during teaching
+    const saveIdiomPattern = /\[SAVE_IDIOM\s+language="([^"]+)"\s+idiom="([^"]+)"\s+meaning="([^"]+)"(?:\s+context="([^"]+)")?\]/gi;
+    let idiomMatch;
+    while ((idiomMatch = saveIdiomPattern.exec(rawText)) !== null) {
+      const language = idiomMatch[1];
+      const idiom = idiomMatch[2];
+      const meaning = idiomMatch[3];
+      const culturalContext = idiomMatch[4] || '';
+      
+      try {
+        await db.insert(languageIdioms).values({
+          language,
+          idiom,
+          meaning,
+          culturalContext,
+          usageExamples: [],
+          registerLevel: 'casual',
+          commonMistakes: [],
+          syncStatus: 'local',
+          originEnvironment: currentEnv,
+          isActive: true,
+        });
+        console.log(`[SAVE_IDIOM] ✅ Saved idiom: "${idiom}" (${language})`);
+      } catch (err: any) {
+        console.error(`[SAVE_IDIOM] Failed:`, err.message);
+      }
+    }
+    
+    // SAVE_NUANCE tags: [SAVE_NUANCE language="..." category="..." situation="..." nuance="..."]
+    // Daniela discovers a cultural nuance worth saving
+    const saveNuancePattern = /\[SAVE_NUANCE\s+language="([^"]+)"\s+category="([^"]+)"\s+situation="([^"]+)"\s+nuance="([^"]+)"\]/gi;
+    let nuanceMatch;
+    while ((nuanceMatch = saveNuancePattern.exec(rawText)) !== null) {
+      const language = nuanceMatch[1];
+      const category = nuanceMatch[2];
+      const situation = nuanceMatch[3];
+      const nuance = nuanceMatch[4];
+      
+      try {
+        await db.insert(culturalNuances).values({
+          language,
+          category,
+          situation,
+          nuance,
+          formalityLevel: 'casual',
+          syncStatus: 'local',
+          originEnvironment: currentEnv,
+          isActive: true,
+        });
+        console.log(`[SAVE_NUANCE] ✅ Saved nuance: "${situation}" (${language})`);
+      } catch (err: any) {
+        console.error(`[SAVE_NUANCE] Failed:`, err.message);
+      }
+    }
+    
+    // SAVE_ERROR_PATTERN tags: [SAVE_ERROR_PATTERN target="..." error="..." category="..." why="..."]
+    // Daniela identifies a common learner error pattern
+    const saveErrorPattern = /\[SAVE_ERROR_PATTERN\s+target="([^"]+)"\s+error="([^"]+)"\s+category="([^"]+)"(?:\s+why="([^"]+)")?\]/gi;
+    let errorMatch;
+    while ((errorMatch = saveErrorPattern.exec(rawText)) !== null) {
+      const targetLanguage = errorMatch[1];
+      const specificError = errorMatch[2];
+      const errorCategory = errorMatch[3];
+      const whyItHappens = errorMatch[4] || '';
+      
+      try {
+        await db.insert(learnerErrorPatterns).values({
+          targetLanguage,
+          specificError,
+          errorCategory,
+          whyItHappens,
+          exampleSentences: [],
+          correctionStrategies: [],
+          syncStatus: 'local',
+          originEnvironment: currentEnv,
+          isActive: true,
+        });
+        console.log(`[SAVE_ERROR_PATTERN] ✅ Saved error pattern: "${specificError}" (${targetLanguage})`);
+      } catch (err: any) {
+        console.error(`[SAVE_ERROR_PATTERN] Failed:`, err.message);
+      }
+    }
+    
+    // SAVE_BRIDGE tags: [SAVE_BRIDGE from="..." to="..." source="..." target="..." type="..." relationship="..."]
+    // Daniela discovers a useful cross-language connection
+    const saveBridgePattern = /\[SAVE_BRIDGE\s+from="([^"]+)"\s+to="([^"]+)"\s+source="([^"]+)"\s+target="([^"]+)"\s+type="([^"]+)"\s+relationship="([^"]+)"\]/gi;
+    let bridgeMatch;
+    while ((bridgeMatch = saveBridgePattern.exec(rawText)) !== null) {
+      const sourceLanguage = bridgeMatch[1];
+      const targetLanguage = bridgeMatch[2];
+      const sourceWord = bridgeMatch[3];
+      const targetWord = bridgeMatch[4];
+      const bridgeType = bridgeMatch[5];
+      const relationship = bridgeMatch[6];
+      
+      try {
+        await db.insert(linguisticBridges).values({
+          sourceLanguage,
+          targetLanguage,
+          sourceWord,
+          targetWord,
+          bridgeType,
+          relationship,
+          syncStatus: 'local',
+          originEnvironment: currentEnv,
+          isActive: true,
+        });
+        console.log(`[SAVE_BRIDGE] ✅ Saved bridge: "${sourceWord}" ↔ "${targetWord}"`);
+      } catch (err: any) {
+        console.error(`[SAVE_BRIDGE] Failed:`, err.message);
+      }
+    }
+    
+    // SAVE_DIALECT tags: [SAVE_DIALECT language="..." region="..." category="..." standard="..." regional="..."]
+    // Daniela discovers a regional dialect variation
+    const saveDialectPattern = /\[SAVE_DIALECT\s+language="([^"]+)"\s+region="([^"]+)"\s+category="([^"]+)"\s+standard="([^"]+)"\s+regional="([^"]+)"\]/gi;
+    let dialectMatch;
+    while ((dialectMatch = saveDialectPattern.exec(rawText)) !== null) {
+      const language = dialectMatch[1];
+      const region = dialectMatch[2];
+      const category = dialectMatch[3];
+      const standardForm = dialectMatch[4];
+      const regionalForm = dialectMatch[5];
+      
+      try {
+        await db.insert(dialectVariations).values({
+          language,
+          region,
+          category,
+          standardForm,
+          regionalForm,
+          syncStatus: 'local',
+          originEnvironment: currentEnv,
+          isActive: true,
+        });
+        console.log(`[SAVE_DIALECT] ✅ Saved dialect: "${standardForm}" → "${regionalForm}" (${region})`);
+      } catch (err: any) {
+        console.error(`[SAVE_DIALECT] Failed:`, err.message);
       }
     }
     

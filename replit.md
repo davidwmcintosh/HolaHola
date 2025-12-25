@@ -39,11 +39,23 @@ A Dev-Prod Sync System is in place, synchronizing data in batches (neural-core, 
 
 **v19 Bidirectional Sync** adds prod→dev pull capability for beta testing analytics:
 - **Push Batches**: neural-core, advanced-intel-a/b, express-lane, hive-snapshots, daniela-memories, product-config (dev→prod)
-- **Pull Batches**: beta-usage (voice sessions, usage ledger, cost summaries), aggregate-analytics (anonymized usage stats)
+- **Pull Batches**: beta-usage (voice sessions, usage ledger, cost summaries), aggregate-analytics (anonymized usage stats), prod-content-growth (Daniela-authored content)
 - The Sync Control Center UI now has separate sections for push and pull batch selection
 - Pull batches are highlighted in blue and can be selectively pulled from production for analysis
 - Aggregate analytics are stored in hiveSnapshots (type: `aggregate_analytics`) for 90-day historical tracking
 - **Expansion Guide**: See `docs/sync-expansion-guide.md` for the complete checklist when adding new sync data types
+
+**Daniela Content Growth System** enables Daniela to autonomously grow pedagogical content during teaching:
+- **Supported Content Types**: language idioms, cultural nuances, learner error patterns, dialect variations, linguistic bridges
+- **Tag Patterns** (parsed from Daniela's output during voice chat):
+  - `[SAVE_IDIOM language="..." idiom="..." meaning="..." context="..."]`
+  - `[SAVE_NUANCE language="..." category="..." situation="..." nuance="..."]`
+  - `[SAVE_ERROR_PATTERN target="..." error="..." category="..." why="..."]`
+  - `[SAVE_BRIDGE from="..." to="..." source="..." target="..." type="..." relationship="..."]`
+  - `[SAVE_DIALECT language="..." region="..." category="..." standard="..." regional="..."]`
+- **API Endpoints**: `/api/daniela/content/{idiom|nuance|error-pattern|dialect|bridge|cultural-tip}` (POST)
+- **Sync Flow**: Content created in prod with `syncStatus: 'local'` → pulled to dev via `prod-content-growth` batch → imported with `syncStatus: 'pending_review'` for founder approval
+- **Stats Endpoint**: `/api/daniela/content/stats` (founder-only) shows content growth counts per type
 
 ## Voice Intelligence System (December 2024)
 Commercial-grade voice analytics service (`server/services/voice-intelligence-service.ts`) providing:

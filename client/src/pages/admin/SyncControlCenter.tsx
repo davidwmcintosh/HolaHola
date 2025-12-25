@@ -158,6 +158,7 @@ const PUSH_BATCHES = [
 const PULL_BATCHES = [
   { id: 'beta-usage', label: 'Beta Usage', description: 'Voice sessions, credits consumed' },
   { id: 'aggregate-analytics', label: 'Analytics', description: 'Anonymized usage stats' },
+  { id: 'prod-content-growth', label: 'Daniela Content', description: 'Idioms, nuances, error patterns' },
 ];
 
 export default function SyncControlCenter() {

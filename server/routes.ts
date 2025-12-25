@@ -34,6 +34,12 @@ import {
   learnerPersonalFacts,
   hiveSnapshots,
   recurringStruggles,
+  languageIdioms,
+  culturalNuances,
+  learnerErrorPatterns,
+  dialectVariations,
+  linguisticBridges,
+  culturalTips,
 } from "@shared/schema";
 import { hasTeacherAccess, hasDeveloperAccess } from "@shared/permissions";
 import OpenAI, { toFile } from "openai";
@@ -6554,6 +6560,264 @@ Return ONLY the ${targetLanguage} phrase:`;
       }
       res.json(tip);
     } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================================================
+  // DANIELA CONTENT GROWTH API
+  // These endpoints allow Daniela to autonomously grow pedagogical content
+  // during production teaching sessions. Content syncs back to dev for review.
+  // ============================================================================
+  
+  const CURRENT_ENV = process.env.NODE_ENV === 'production' ? 'production' : 'development';
+  
+  // Create Cultural Tip (Daniela-authored)
+  app.post("/api/daniela/content/cultural-tip", isAuthenticated, async (req: any, res) => {
+    try {
+      const { language, title, content, examples, region } = req.body;
+      
+      if (!language || !title || !content) {
+        return res.status(400).json({ error: "Missing required fields: language, title, content" });
+      }
+      
+      const [created] = await db.insert(culturalTips).values({
+        language,
+        title,
+        content,
+        examples: examples || [],
+        region,
+        isActive: true,
+      }).returning();
+      
+      console.log(`[DANIELA-CONTENT] Cultural tip created: "${title}" (${language})`);
+      res.json({ success: true, tip: created });
+    } catch (error: any) {
+      console.error('[DANIELA-CONTENT] Failed to create cultural tip:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Create Language Idiom (Daniela-authored)
+  app.post("/api/daniela/content/idiom", isAuthenticated, async (req: any, res) => {
+    try {
+      const { 
+        language, idiom, literalTranslation, meaning, culturalContext,
+        usageExamples, registerLevel, region, commonMistakes 
+      } = req.body;
+      
+      if (!language || !idiom || !meaning) {
+        return res.status(400).json({ error: "Missing required fields: language, idiom, meaning" });
+      }
+      
+      const [created] = await db.insert(languageIdioms).values({
+        language,
+        idiom,
+        literalTranslation,
+        meaning,
+        culturalContext,
+        usageExamples: usageExamples || [],
+        registerLevel: registerLevel || 'casual',
+        region,
+        commonMistakes: commonMistakes || [],
+        syncStatus: 'local',
+        originEnvironment: CURRENT_ENV,
+        isActive: true,
+      }).returning();
+      
+      console.log(`[DANIELA-CONTENT] Idiom created: "${idiom}" (${language})`);
+      res.json({ success: true, idiom: created });
+    } catch (error: any) {
+      console.error('[DANIELA-CONTENT] Failed to create idiom:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Create Cultural Nuance (Daniela-authored)
+  app.post("/api/daniela/content/nuance", isAuthenticated, async (req: any, res) => {
+    try {
+      const { 
+        language, category, situation, nuance, explanation,
+        commonMistakes, region, formalityLevel 
+      } = req.body;
+      
+      if (!language || !category || !situation || !nuance) {
+        return res.status(400).json({ error: "Missing required fields: language, category, situation, nuance" });
+      }
+      
+      const [created] = await db.insert(culturalNuances).values({
+        language,
+        category,
+        situation,
+        nuance,
+        explanation,
+        commonMistakes: commonMistakes || [],
+        region,
+        formalityLevel: formalityLevel || 'casual',
+        syncStatus: 'local',
+        originEnvironment: CURRENT_ENV,
+        isActive: true,
+      }).returning();
+      
+      console.log(`[DANIELA-CONTENT] Cultural nuance created: "${situation}" (${language})`);
+      res.json({ success: true, nuance: created });
+    } catch (error: any) {
+      console.error('[DANIELA-CONTENT] Failed to create cultural nuance:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Create Learner Error Pattern (Daniela-authored)
+  app.post("/api/daniela/content/error-pattern", isAuthenticated, async (req: any, res) => {
+    try {
+      const { 
+        targetLanguage, sourceLanguage, errorCategory, specificError,
+        whyItHappens, teachingStrategies, exampleMistakes, correctForms, actflLevel, priority
+      } = req.body;
+      
+      if (!targetLanguage || !errorCategory || !specificError) {
+        return res.status(400).json({ error: "Missing required fields: targetLanguage, errorCategory, specificError" });
+      }
+      
+      const [created] = await db.insert(learnerErrorPatterns).values({
+        targetLanguage,
+        sourceLanguage: sourceLanguage || 'english',
+        errorCategory,
+        specificError,
+        whyItHappens,
+        teachingStrategies: teachingStrategies || [],
+        exampleMistakes: exampleMistakes || [],
+        correctForms: correctForms || [],
+        actflLevel,
+        priority: priority || 'common',
+        syncStatus: 'local',
+        originEnvironment: CURRENT_ENV,
+        isActive: true,
+      }).returning();
+      
+      console.log(`[DANIELA-CONTENT] Error pattern created: "${specificError}" (${targetLanguage})`);
+      res.json({ success: true, errorPattern: created });
+    } catch (error: any) {
+      console.error('[DANIELA-CONTENT] Failed to create error pattern:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Create Dialect Variation (Daniela-authored)
+  app.post("/api/daniela/content/dialect", isAuthenticated, async (req: any, res) => {
+    try {
+      const { 
+        language, region, category, standardForm, regionalForm,
+        explanation, usageNotes 
+      } = req.body;
+      
+      if (!language || !region || !category || !standardForm || !regionalForm) {
+        return res.status(400).json({ error: "Missing required fields: language, region, category, standardForm, regionalForm" });
+      }
+      
+      const [created] = await db.insert(dialectVariations).values({
+        language,
+        region,
+        category,
+        standardForm,
+        regionalForm,
+        explanation,
+        usageNotes,
+        syncStatus: 'local',
+        originEnvironment: CURRENT_ENV,
+        isActive: true,
+      }).returning();
+      
+      console.log(`[DANIELA-CONTENT] Dialect variation created: "${standardForm}" → "${regionalForm}" (${language}/${region})`);
+      res.json({ success: true, dialect: created });
+    } catch (error: any) {
+      console.error('[DANIELA-CONTENT] Failed to create dialect variation:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Create Linguistic Bridge (Daniela-authored)
+  app.post("/api/daniela/content/bridge", isAuthenticated, async (req: any, res) => {
+    try {
+      const { 
+        sourceLanguage, targetLanguage, bridgeType, sourceWord, targetWord,
+        relationship, explanation, teachingNote 
+      } = req.body;
+      
+      if (!sourceLanguage || !targetLanguage || !bridgeType || !sourceWord || !targetWord || !relationship) {
+        return res.status(400).json({ error: "Missing required fields: sourceLanguage, targetLanguage, bridgeType, sourceWord, targetWord, relationship" });
+      }
+      
+      const [created] = await db.insert(linguisticBridges).values({
+        sourceLanguage,
+        targetLanguage,
+        bridgeType,
+        sourceWord,
+        targetWord,
+        relationship,
+        explanation,
+        teachingNote,
+        syncStatus: 'local',
+        originEnvironment: CURRENT_ENV,
+        isActive: true,
+      }).returning();
+      
+      console.log(`[DANIELA-CONTENT] Linguistic bridge created: "${sourceWord}" (${sourceLanguage}) ↔ "${targetWord}" (${targetLanguage})`);
+      res.json({ success: true, bridge: created });
+    } catch (error: any) {
+      console.error('[DANIELA-CONTENT] Failed to create linguistic bridge:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get content growth stats (for admin monitoring)
+  app.get("/api/daniela/content/stats", isAuthenticated, requireFounder, async (req: any, res) => {
+    try {
+      const [idiomStats] = await db.select({ 
+        total: sql<number>`count(*)`,
+        local: sql<number>`count(*) filter (where sync_status = 'local')`,
+        approved: sql<number>`count(*) filter (where sync_status = 'approved')`,
+        prodCreated: sql<number>`count(*) filter (where origin_environment = 'production')`
+      }).from(languageIdioms);
+      
+      const [nuanceStats] = await db.select({ 
+        total: sql<number>`count(*)`,
+        local: sql<number>`count(*) filter (where sync_status = 'local')`,
+        approved: sql<number>`count(*) filter (where sync_status = 'approved')`,
+        prodCreated: sql<number>`count(*) filter (where origin_environment = 'production')`
+      }).from(culturalNuances);
+      
+      const [errorStats] = await db.select({ 
+        total: sql<number>`count(*)`,
+        local: sql<number>`count(*) filter (where sync_status = 'local')`,
+        approved: sql<number>`count(*) filter (where sync_status = 'approved')`,
+        prodCreated: sql<number>`count(*) filter (where origin_environment = 'production')`
+      }).from(learnerErrorPatterns);
+      
+      const [dialectStats] = await db.select({ 
+        total: sql<number>`count(*)`,
+        local: sql<number>`count(*) filter (where sync_status = 'local')`,
+        approved: sql<number>`count(*) filter (where sync_status = 'approved')`,
+        prodCreated: sql<number>`count(*) filter (where origin_environment = 'production')`
+      }).from(dialectVariations);
+      
+      const [bridgeStats] = await db.select({ 
+        total: sql<number>`count(*)`,
+        local: sql<number>`count(*) filter (where sync_status = 'local')`,
+        approved: sql<number>`count(*) filter (where sync_status = 'approved')`,
+        prodCreated: sql<number>`count(*) filter (where origin_environment = 'production')`
+      }).from(linguisticBridges);
+      
+      res.json({
+        idioms: idiomStats,
+        nuances: nuanceStats,
+        errorPatterns: errorStats,
+        dialects: dialectStats,
+        bridges: bridgeStats,
+        environment: CURRENT_ENV,
+      });
+    } catch (error: any) {
+      console.error('[DANIELA-CONTENT] Failed to get stats:', error);
       res.status(500).json({ error: error.message });
     }
   });

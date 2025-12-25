@@ -5,6 +5,8 @@ import {
   // Curriculum tables
   curriculumPaths, curriculumUnits, curriculumLessons, topics,
   curriculumDrillItems, grammarExercises, canDoStatements, culturalTips,
+  // Neural network expansion tables (for prod-content-growth pull)
+  languageIdioms, culturalNuances, learnerErrorPatterns, dialectVariations, linguisticBridges,
   // Wren intelligence tables
   wrenInsights, wrenProactiveTriggers, architecturalDecisionRecords,
   wrenMistakes, wrenLessons, wrenCommitments,
@@ -43,6 +45,7 @@ const SUPPORTED_BATCHES = [
   'beta-testers',
   'beta-usage',        // Pull beta tester usage data from prod
   'aggregate-analytics', // Pull anonymized usage stats from prod
+  'prod-content-growth', // Pull Daniela-authored content from prod (idioms, nuances, etc.)
 ] as const;
 
 // Capability map for fine-grained feature support
@@ -144,6 +147,16 @@ export interface SyncBundle {
     sessionsByLanguage: Record<string, number>;
     sessionsByDay: Array<{ date: string; count: number; minutes: number }>;
     averageSessionDuration: number;
+    exportedAt: string;
+  };
+  // Daniela-authored content from production (prod → dev pull)
+  prodContentGrowth?: {
+    idioms: any[];
+    nuances: any[];
+    errorPatterns: any[];
+    dialects: any[];
+    bridges: any[];
+    culturalTips: any[];
     exportedAt: string;
   };
 }
@@ -551,6 +564,24 @@ class SyncBridgeService {
       }
     }
     
+    // BATCH: prod-content-growth - Daniela-authored pedagogical content from production (v19)
+    // This pulls content she created during teaching sessions back to dev for review
+    if (batchType === 'prod-content-growth') {
+      try {
+        const contentData = await this.exportProdContentGrowth();
+        bundle.prodContentGrowth = contentData;
+        const totalItems = (contentData.idioms?.length || 0) + (contentData.nuances?.length || 0) + 
+          (contentData.errorPatterns?.length || 0) + (contentData.dialects?.length || 0) + 
+          (contentData.bridges?.length || 0) + (contentData.culturalTips?.length || 0);
+        console.log(`[SYNC-BRIDGE v19] prod-content-growth: ${totalItems} total items exported`);
+      } catch (err: any) {
+        const errMsg = `prod-content-growth export failed: ${err.message}`;
+        console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
+        batchErrors.push(errMsg);
+        bundle.prodContentGrowth = undefined;
+      }
+    }
+    
     // Add batch errors to bundle for debugging (moved to end)
     if (batchErrors.length > 0) {
       (bundle as any).exportErrors = batchErrors;
@@ -936,6 +967,262 @@ class SyncBridgeService {
       averageSessionDuration: Number(sessionStats[0]?.avgDuration || 0),
       exportedAt: new Date().toISOString()
     };
+  }
+  
+  /**
+   * Export Daniela-authored content created in this environment
+   * For prod→dev pull: exports content with syncStatus='local' and originEnvironment='production'
+   * This allows Daniela to grow pedagogical content during teaching sessions
+   */
+  async exportProdContentGrowth(): Promise<{
+    idioms: any[];
+    nuances: any[];
+    errorPatterns: any[];
+    dialects: any[];
+    bridges: any[];
+    culturalTips: any[];
+    exportedAt: string;
+  }> {
+    // Export entries created in this environment with local syncStatus
+    // These are new entries that haven't been synced yet
+    const [idioms, nuances, errorPatterns, dialects, bridges, tips] = await Promise.all([
+      db.select().from(languageIdioms).where(
+        and(
+          eq(languageIdioms.syncStatus, 'local'),
+          eq(languageIdioms.originEnvironment, CURRENT_ENVIRONMENT),
+          eq(languageIdioms.isActive, true)
+        )
+      ),
+      db.select().from(culturalNuances).where(
+        and(
+          eq(culturalNuances.syncStatus, 'local'),
+          eq(culturalNuances.originEnvironment, CURRENT_ENVIRONMENT),
+          eq(culturalNuances.isActive, true)
+        )
+      ),
+      db.select().from(learnerErrorPatterns).where(
+        and(
+          eq(learnerErrorPatterns.syncStatus, 'local'),
+          eq(learnerErrorPatterns.originEnvironment, CURRENT_ENVIRONMENT),
+          eq(learnerErrorPatterns.isActive, true)
+        )
+      ),
+      db.select().from(dialectVariations).where(
+        and(
+          eq(dialectVariations.syncStatus, 'local'),
+          eq(dialectVariations.originEnvironment, CURRENT_ENVIRONMENT),
+          eq(dialectVariations.isActive, true)
+        )
+      ),
+      db.select().from(linguisticBridges).where(
+        and(
+          eq(linguisticBridges.syncStatus, 'local'),
+          eq(linguisticBridges.originEnvironment, CURRENT_ENVIRONMENT),
+          eq(linguisticBridges.isActive, true)
+        )
+      ),
+      db.select().from(culturalTips).where(eq(culturalTips.isActive, true)),
+    ]);
+    
+    console.log(`[SYNC-BRIDGE] Exporting prod-content-growth: ${idioms.length} idioms, ${nuances.length} nuances, ${errorPatterns.length} errors, ${dialects.length} dialects, ${bridges.length} bridges, ${tips.length} cultural tips`);
+    
+    return {
+      idioms,
+      nuances,
+      errorPatterns,
+      dialects,
+      bridges,
+      culturalTips: tips,
+      exportedAt: new Date().toISOString()
+    };
+  }
+  
+  /**
+   * Import Daniela-authored content from production
+   * Merges content into dev database with 'pending_review' status
+   */
+  async importProdContentGrowth(data: {
+    idioms: any[];
+    nuances: any[];
+    errorPatterns: any[];
+    dialects: any[];
+    bridges: any[];
+    culturalTips: any[];
+  }): Promise<{ imported: number; errors: string[] }> {
+    let imported = 0;
+    const errors: string[] = [];
+    
+    // Import idioms (upsert by originId or natural key)
+    for (const idiom of data.idioms || []) {
+      try {
+        const originId = idiom.id; // Use source ID as originId
+        const existing = await db.select().from(languageIdioms)
+          .where(or(
+            eq(languageIdioms.originId, originId),
+            and(eq(languageIdioms.language, idiom.language), eq(languageIdioms.idiom, idiom.idiom))
+          ))
+          .limit(1);
+        
+        if (existing.length === 0) {
+          await db.insert(languageIdioms).values({
+            ...idiom,
+            id: undefined, // Generate new ID
+            originId,
+            originEnvironment: idiom.originEnvironment || 'production',
+            syncStatus: 'pending_review', // Needs founder review
+          });
+          imported++;
+        }
+      } catch (err: any) {
+        errors.push(`Idiom "${idiom.idiom}": ${err.message}`);
+      }
+    }
+    
+    // Import cultural nuances
+    for (const nuance of data.nuances || []) {
+      try {
+        const originId = nuance.id;
+        const existing = await db.select().from(culturalNuances)
+          .where(or(
+            eq(culturalNuances.originId, originId),
+            and(
+              eq(culturalNuances.language, nuance.language),
+              eq(culturalNuances.category, nuance.category),
+              eq(culturalNuances.situation, nuance.situation)
+            )
+          ))
+          .limit(1);
+        
+        if (existing.length === 0) {
+          await db.insert(culturalNuances).values({
+            ...nuance,
+            id: undefined,
+            originId,
+            originEnvironment: nuance.originEnvironment || 'production',
+            syncStatus: 'pending_review',
+          });
+          imported++;
+        }
+      } catch (err: any) {
+        errors.push(`Nuance "${nuance.situation}": ${err.message}`);
+      }
+    }
+    
+    // Import error patterns
+    for (const pattern of data.errorPatterns || []) {
+      try {
+        const originId = pattern.id;
+        const existing = await db.select().from(learnerErrorPatterns)
+          .where(or(
+            eq(learnerErrorPatterns.originId, originId),
+            and(
+              eq(learnerErrorPatterns.targetLanguage, pattern.targetLanguage),
+              eq(learnerErrorPatterns.specificError, pattern.specificError)
+            )
+          ))
+          .limit(1);
+        
+        if (existing.length === 0) {
+          await db.insert(learnerErrorPatterns).values({
+            ...pattern,
+            id: undefined,
+            originId,
+            originEnvironment: pattern.originEnvironment || 'production',
+            syncStatus: 'pending_review',
+          });
+          imported++;
+        }
+      } catch (err: any) {
+        errors.push(`Error pattern "${pattern.specificError}": ${err.message}`);
+      }
+    }
+    
+    // Import dialect variations
+    for (const dialect of data.dialects || []) {
+      try {
+        const originId = dialect.id;
+        const existing = await db.select().from(dialectVariations)
+          .where(or(
+            eq(dialectVariations.originId, originId),
+            and(
+              eq(dialectVariations.language, dialect.language),
+              eq(dialectVariations.region, dialect.region),
+              eq(dialectVariations.standardForm, dialect.standardForm)
+            )
+          ))
+          .limit(1);
+        
+        if (existing.length === 0) {
+          await db.insert(dialectVariations).values({
+            ...dialect,
+            id: undefined,
+            originId,
+            originEnvironment: dialect.originEnvironment || 'production',
+            syncStatus: 'pending_review',
+          });
+          imported++;
+        }
+      } catch (err: any) {
+        errors.push(`Dialect "${dialect.standardForm}": ${err.message}`);
+      }
+    }
+    
+    // Import linguistic bridges
+    for (const bridge of data.bridges || []) {
+      try {
+        const originId = bridge.id;
+        const existing = await db.select().from(linguisticBridges)
+          .where(or(
+            eq(linguisticBridges.originId, originId),
+            and(
+              eq(linguisticBridges.sourceLanguage, bridge.sourceLanguage),
+              eq(linguisticBridges.targetLanguage, bridge.targetLanguage),
+              eq(linguisticBridges.sourceWord, bridge.sourceWord),
+              eq(linguisticBridges.targetWord, bridge.targetWord)
+            )
+          ))
+          .limit(1);
+        
+        if (existing.length === 0) {
+          await db.insert(linguisticBridges).values({
+            ...bridge,
+            id: undefined,
+            originId,
+            originEnvironment: bridge.originEnvironment || 'production',
+            syncStatus: 'pending_review',
+          });
+          imported++;
+        }
+      } catch (err: any) {
+        errors.push(`Bridge "${bridge.sourceWord}->${bridge.targetWord}": ${err.message}`);
+      }
+    }
+    
+    // Import cultural tips (simpler - just upsert by title/language)
+    for (const tip of data.culturalTips || []) {
+      try {
+        const existing = await db.select().from(culturalTips)
+          .where(and(
+            eq(culturalTips.language, tip.language),
+            eq(culturalTips.title, tip.title)
+          ))
+          .limit(1);
+        
+        if (existing.length === 0) {
+          await db.insert(culturalTips).values({
+            ...tip,
+            id: undefined,
+            isActive: true,
+          });
+          imported++;
+        }
+      } catch (err: any) {
+        errors.push(`Cultural tip "${tip.title}": ${err.message}`);
+      }
+    }
+    
+    console.log(`[SYNC-BRIDGE] Imported ${imported} prod-content-growth items, ${errors.length} errors`);
+    return { imported, errors };
   }
   
   /**
@@ -1444,6 +1731,16 @@ class SyncBridgeService {
         counts['aggregateAnalytics'] = 1;
       } catch (err: any) {
         errors.push(`Aggregate analytics snapshot: ${err.message}`);
+      }
+    }
+    
+    // v19: Prod Content Growth (prod → dev pull, Daniela-authored pedagogical content)
+    if (bundle.prodContentGrowth) {
+      console.log(`[SYNC-BRIDGE] Importing Daniela-authored content from production...`);
+      const contentResult = await this.importProdContentGrowth(bundle.prodContentGrowth);
+      counts['prodContentGrowth'] = contentResult.imported;
+      if (contentResult.errors.length) {
+        errors.push(...contentResult.errors);
       }
     }
     
