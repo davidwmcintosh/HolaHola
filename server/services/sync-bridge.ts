@@ -651,6 +651,42 @@ class SyncBridgeService {
   }
   
   /**
+   * Export Feature Flags for cross-environment sync
+   * Currently a placeholder - feature flags table doesn't exist yet
+   */
+  async exportFeatureFlags(): Promise<any[]> {
+    // Feature flags table doesn't exist yet
+    return [];
+  }
+  
+  /**
+   * Export Beta Testers for cross-environment sync
+   * Exports users with isBetaTester=true along with their credits
+   */
+  async exportBetaTesters(): Promise<{ users: any[]; credits: any[] }> {
+    // Get all beta testers
+    const betaUsers = await db
+      .select()
+      .from(users)
+      .where(eq(users.isBetaTester, true));
+    
+    if (betaUsers.length === 0) {
+      console.log(`[SYNC-BRIDGE] No beta testers to export`);
+      return { users: [], credits: [] };
+    }
+    
+    // Get credits for all beta testers
+    const userIds = betaUsers.map(u => u.id);
+    const credits = await db
+      .select()
+      .from(usageLedger)
+      .where(inArray(usageLedger.userId, userIds));
+    
+    console.log(`[SYNC-BRIDGE] Exporting ${betaUsers.length} Beta Testers with ${credits.length} credits`);
+    return { users: betaUsers, credits };
+  }
+  
+  /**
    * Import a single tutor voice with upsert logic
    */
   async importTutorVoice(voice: any): Promise<{ success: boolean }> {
@@ -1360,7 +1396,7 @@ class SyncBridgeService {
     }
   }
   
-  async pushToPeer(triggeredBy: string = 'manual'): Promise<SyncResult> {
+  async pushToPeer(triggeredBy: string = 'manual', selectedBatches?: string[]): Promise<SyncResult> {
     const startTime = Date.now();
     const peerUrl = getSyncPeerUrl();
     
@@ -1372,6 +1408,9 @@ class SyncBridgeService {
         durationMs: Date.now() - startTime,
       };
     }
+    
+    // Helper to check if a batch should run
+    const shouldRun = (batch: string) => !selectedBatches || selectedBatches.includes(batch);
     
     const [syncRun] = await db.insert(syncRuns).values({
       direction: 'push',
@@ -1385,94 +1424,138 @@ class SyncBridgeService {
     try {
       // Use incremental sync - only export items newer than last successful push
       const lastSuccessfulPush = await this.getLastSuccessfulPushTime();
-      console.log(`[SYNC-BRIDGE] Batched incremental sync since: ${lastSuccessfulPush?.toISOString() || 'never (full sync)'}`);
+      const batchInfo = selectedBatches ? `selected batches: ${selectedBatches.join(', ')}` : 'all batches';
+      console.log(`[SYNC-BRIDGE] Batched incremental sync since: ${lastSuccessfulPush?.toISOString() || 'never (full sync)'} (${batchInfo})`);
       
       const allCounts: Record<string, number> = {};
       const allErrors: string[] = [];
       let overallSuccess = true;
       
       // BATCH 1: Neural network core (small, fast)
-      console.log('[SYNC-BRIDGE] Batch 1/6: Neural network core...');
-      const coreBundle: Partial<SyncBundle> = {
-        generatedAt: new Date().toISOString(),
-        sourceEnvironment: CURRENT_ENVIRONMENT,
-        bestPractices: await neuralNetworkSync.getBestPracticesForExport(),
-        ...await neuralNetworkSync.exportNeuralNetworkExpansion(),
-        ...await neuralNetworkSync.exportProceduralMemory(),
-      };
-      const batch1 = await this.sendBatch(peerUrl, 'neural-core', coreBundle);
-      Object.assign(allCounts, batch1.counts);
-      allErrors.push(...batch1.errors);
-      if (!batch1.success) overallSuccess = false;
+      if (shouldRun('neural-core')) {
+        console.log('[SYNC-BRIDGE] Batch 1: Neural network core...');
+        const coreBundle: Partial<SyncBundle> = {
+          generatedAt: new Date().toISOString(),
+          sourceEnvironment: CURRENT_ENVIRONMENT,
+          bestPractices: await neuralNetworkSync.getBestPracticesForExport(),
+          ...await neuralNetworkSync.exportNeuralNetworkExpansion(),
+          ...await neuralNetworkSync.exportProceduralMemory(),
+        };
+        const batch1 = await this.sendBatch(peerUrl, 'neural-core', coreBundle);
+        Object.assign(allCounts, batch1.counts);
+        allErrors.push(...batch1.errors);
+        if (!batch1.success) overallSuccess = false;
+      }
       
       // BATCH 2a: Advanced intelligence + Daniela suggestions (split for timeout fix)
-      console.log('[SYNC-BRIDGE] Batch 2a/6: Advanced intelligence (part A)...');
-      const advancedBundleA: Partial<SyncBundle> = {
-        generatedAt: new Date().toISOString(),
-        sourceEnvironment: CURRENT_ENVIRONMENT,
-        ...await neuralNetworkSync.exportAdvancedIntelligence(),
-        ...await neuralNetworkSync.exportDanielaSuggestions(),
-      };
-      const batch2a = await this.sendBatch(peerUrl, 'advanced-intel-a', advancedBundleA);
-      Object.assign(allCounts, batch2a.counts);
-      allErrors.push(...batch2a.errors);
-      if (!batch2a.success) overallSuccess = false;
+      if (shouldRun('advanced-intel-a')) {
+        console.log('[SYNC-BRIDGE] Batch 2a: Advanced intelligence (part A)...');
+        const advancedBundleA: Partial<SyncBundle> = {
+          generatedAt: new Date().toISOString(),
+          sourceEnvironment: CURRENT_ENVIRONMENT,
+          ...await neuralNetworkSync.exportAdvancedIntelligence(),
+          ...await neuralNetworkSync.exportDanielaSuggestions(),
+        };
+        const batch2a = await this.sendBatch(peerUrl, 'advanced-intel-a', advancedBundleA);
+        Object.assign(allCounts, batch2a.counts);
+        allErrors.push(...batch2a.errors);
+        if (!batch2a.success) overallSuccess = false;
+      }
       
       // BATCH 2b: TriLane + North Star (split for timeout fix)
-      console.log('[SYNC-BRIDGE] Batch 2b/6: Advanced intelligence (part B)...');
-      const advancedBundleB: Partial<SyncBundle> = {
-        generatedAt: new Date().toISOString(),
-        sourceEnvironment: CURRENT_ENVIRONMENT,
-        ...await neuralNetworkSync.exportTriLaneObservations(),
-        ...await neuralNetworkSync.exportNorthStar(),
-      };
-      const batch2b = await this.sendBatch(peerUrl, 'advanced-intel-b', advancedBundleB);
-      Object.assign(allCounts, batch2b.counts);
-      allErrors.push(...batch2b.errors);
-      if (!batch2b.success) overallSuccess = false;
+      if (shouldRun('advanced-intel-b')) {
+        console.log('[SYNC-BRIDGE] Batch 2b: Advanced intelligence (part B)...');
+        const advancedBundleB: Partial<SyncBundle> = {
+          generatedAt: new Date().toISOString(),
+          sourceEnvironment: CURRENT_ENVIRONMENT,
+          ...await neuralNetworkSync.exportTriLaneObservations(),
+          ...await neuralNetworkSync.exportNorthStar(),
+        };
+        const batch2b = await this.sendBatch(peerUrl, 'advanced-intel-b', advancedBundleB);
+        Object.assign(allCounts, batch2b.counts);
+        allErrors.push(...batch2b.errors);
+        if (!batch2b.success) overallSuccess = false;
+      }
       
       // BATCH 3: Express Lane data (can be large)
-      console.log('[SYNC-BRIDGE] Batch 3/6: Express Lane...');
-      const expressLaneData = await this.exportExpressLaneData(lastSuccessfulPush);
-      const expressBundle: Partial<SyncBundle> = {
-        generatedAt: new Date().toISOString(),
-        sourceEnvironment: CURRENT_ENVIRONMENT,
-        founderUser: await this.exportFounderUser(),
-        expressLaneSessions: expressLaneData.sessions,
-        expressLaneMessages: expressLaneData.messages,
-      };
-      const batch3 = await this.sendBatch(peerUrl, 'express-lane', expressBundle, 60000); // 60s for larger batch
-      Object.assign(allCounts, batch3.counts);
-      allErrors.push(...batch3.errors);
-      if (!batch3.success) overallSuccess = false;
+      if (shouldRun('express-lane')) {
+        console.log('[SYNC-BRIDGE] Batch 3: Express Lane...');
+        const expressLaneData = await this.exportExpressLaneData(lastSuccessfulPush);
+        const expressBundle: Partial<SyncBundle> = {
+          generatedAt: new Date().toISOString(),
+          sourceEnvironment: CURRENT_ENVIRONMENT,
+          founderUser: await this.exportFounderUser(),
+          expressLaneSessions: expressLaneData.sessions,
+          expressLaneMessages: expressLaneData.messages,
+        };
+        const batch3 = await this.sendBatch(peerUrl, 'express-lane', expressBundle, 60000);
+        Object.assign(allCounts, batch3.counts);
+        allErrors.push(...batch3.errors);
+        if (!batch3.success) overallSuccess = false;
+      }
       
       // BATCH 4: Hive snapshots only
-      console.log('[SYNC-BRIDGE] Batch 4/6: Hive Snapshots...');
-      const hiveSnapshots = await this.exportHiveSnapshots(lastSuccessfulPush);
-      const hiveBundle: Partial<SyncBundle> = {
-        generatedAt: new Date().toISOString(),
-        sourceEnvironment: CURRENT_ENVIRONMENT,
-        hiveSnapshots,
-      };
-      const batch4 = await this.sendBatch(peerUrl, 'hive-snapshots', hiveBundle, 60000); // 60s
-      Object.assign(allCounts, batch4.counts);
-      allErrors.push(...batch4.errors);
-      if (!batch4.success) overallSuccess = false;
+      if (shouldRun('hive-snapshots')) {
+        console.log('[SYNC-BRIDGE] Batch 4: Hive Snapshots...');
+        const hiveSnapshots = await this.exportHiveSnapshots(lastSuccessfulPush);
+        const hiveBundle: Partial<SyncBundle> = {
+          generatedAt: new Date().toISOString(),
+          sourceEnvironment: CURRENT_ENVIRONMENT,
+          hiveSnapshots,
+        };
+        const batch4 = await this.sendBatch(peerUrl, 'hive-snapshots', hiveBundle, 60000);
+        Object.assign(allCounts, batch4.counts);
+        allErrors.push(...batch4.errors);
+        if (!batch4.success) overallSuccess = false;
+      }
       
       // BATCH 5: Daniela growth memories only
-      console.log('[SYNC-BRIDGE] Batch 5/6: Daniela Memories...');
-      const danielaMemories = await this.exportDanielaGrowthMemories(lastSuccessfulPush);
-      const memoriesBundle: Partial<SyncBundle> = {
-        generatedAt: new Date().toISOString(),
-        sourceEnvironment: CURRENT_ENVIRONMENT,
-        danielaGrowthMemories: danielaMemories,
-      };
-      const batch5 = await this.sendBatch(peerUrl, 'daniela-memories', memoriesBundle, 60000); // 60s
-      Object.assign(allCounts, batch5.counts);
-      allErrors.push(...batch5.errors);
-      if (!batch5.success) overallSuccess = false;
+      if (shouldRun('daniela-memories')) {
+        console.log('[SYNC-BRIDGE] Batch 5: Daniela Memories...');
+        const danielaMemories = await this.exportDanielaGrowthMemories(lastSuccessfulPush);
+        const memoriesBundle: Partial<SyncBundle> = {
+          generatedAt: new Date().toISOString(),
+          sourceEnvironment: CURRENT_ENVIRONMENT,
+          danielaGrowthMemories: danielaMemories,
+        };
+        const batch5 = await this.sendBatch(peerUrl, 'daniela-memories', memoriesBundle, 60000);
+        Object.assign(allCounts, batch5.counts);
+        allErrors.push(...batch5.errors);
+        if (!batch5.success) overallSuccess = false;
+      }
       
-      console.log(`[SYNC-BRIDGE] All 6 batches complete. Overall success: ${overallSuccess}`);
+      // BATCH 6: Product config (tutor voices, feature flags)
+      if (shouldRun('product-config')) {
+        console.log('[SYNC-BRIDGE] Batch 6: Product config...');
+        const configBundle: Partial<SyncBundle> = {
+          generatedAt: new Date().toISOString(),
+          sourceEnvironment: CURRENT_ENVIRONMENT,
+          tutorVoices: await this.exportTutorVoices(),
+          featureFlags: await this.exportFeatureFlags(),
+        };
+        const batch6 = await this.sendBatch(peerUrl, 'product-config', configBundle);
+        Object.assign(allCounts, batch6.counts);
+        allErrors.push(...batch6.errors);
+        if (!batch6.success) overallSuccess = false;
+      }
+      
+      // BATCH 7: Beta testers (users + credits)
+      if (shouldRun('beta-testers')) {
+        console.log('[SYNC-BRIDGE] Batch 7: Beta testers...');
+        const betaTesters = await this.exportBetaTesters();
+        const betaBundle: Partial<SyncBundle> = {
+          generatedAt: new Date().toISOString(),
+          sourceEnvironment: CURRENT_ENVIRONMENT,
+          betaTesters: betaTesters.users,
+          betaTesterCredits: betaTesters.credits,
+        };
+        const batch7 = await this.sendBatch(peerUrl, 'beta-testers', betaBundle);
+        Object.assign(allCounts, batch7.counts);
+        allErrors.push(...batch7.errors);
+        if (!batch7.success) overallSuccess = false;
+      }
+      
+      console.log(`[SYNC-BRIDGE] Batch sync complete. Overall success: ${overallSuccess}`);
       
       await db.update(syncRuns)
         .set({

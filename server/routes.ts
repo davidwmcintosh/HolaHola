@@ -10749,8 +10749,9 @@ Return ONLY the ${targetLanguage} phrase:`;
   app.post("/api/admin/sync/push", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {
       const triggeredBy = req.authenticatedUser?.email || 'founder';
-      console.log(`[Admin Sync] Push triggered by ${triggeredBy}`);
-      const result = await syncBridge.pushToPeer(triggeredBy);
+      const selectedBatches = req.body?.selectedBatches as string[] | undefined;
+      console.log(`[Admin Sync] Push triggered by ${triggeredBy}`, selectedBatches ? `batches: ${selectedBatches.join(', ')}` : '(all batches)');
+      const result = await syncBridge.pushToPeer(triggeredBy, selectedBatches);
       res.json(result);
     } catch (error: any) {
       console.error('[Admin Sync Push] Error:', error);

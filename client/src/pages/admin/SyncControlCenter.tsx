@@ -142,9 +142,30 @@ function DirectionBadge({ direction }: { direction: string }) {
   );
 }
 
+// Available sync batch types for selective sync
+const SYNC_BATCHES = [
+  { id: 'neural-core', label: 'Neural Core', description: 'Best practices, idioms, nuances' },
+  { id: 'advanced-intel-a', label: 'Advanced Intel A', description: 'Learning insights, Daniela suggestions' },
+  { id: 'advanced-intel-b', label: 'Advanced Intel B', description: 'TriLane, North Star' },
+  { id: 'express-lane', label: 'Express Lane', description: 'Founder collaboration' },
+  { id: 'hive-snapshots', label: 'Hive Snapshots', description: 'Context snapshots' },
+  { id: 'daniela-memories', label: 'Daniela Memories', description: 'Daniela growth memories' },
+  { id: 'product-config', label: 'Product Config', description: 'Tutor voices, flags' },
+  { id: 'beta-testers', label: 'Beta Testers', description: 'Beta users + credits' },
+];
+
 export default function SyncControlCenter() {
   const { toast } = useToast();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedBatches, setSelectedBatches] = useState<string[]>([]);
+
+  const toggleBatch = (batchId: string) => {
+    setSelectedBatches(prev => 
+      prev.includes(batchId) 
+        ? prev.filter(b => b !== batchId)
+        : [...prev, batchId]
+    );
+  };
 
   const { data: status, isLoading: statusLoading, refetch: refetchStatus } = useQuery<SyncStatus>({
     queryKey: ["/api/admin/sync/status"],
@@ -170,11 +191,15 @@ export default function SyncControlCenter() {
   });
 
   const pushMutation = useMutation({
-    mutationFn: () => apiRequest("POST", "/api/admin/sync/push"),
+    mutationFn: (batches?: string[]) => 
+      apiRequest("POST", "/api/admin/sync/push", { 
+        selectedBatches: batches && batches.length > 0 ? batches : undefined 
+      }),
     onSuccess: () => {
       toast({ title: "Push Started", description: "Pushing data to peer environment..." });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/sync/status"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/sync/history"] });
+      setSelectedBatches([]); // Clear selection after push
     },
     onError: (err: any) => {
       toast({ title: "Push Failed", description: err.message, variant: "destructive" });
@@ -420,16 +445,63 @@ export default function SyncControlCenter() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
+                  <div className="mb-4 p-3 bg-muted/50 rounded-lg">
+                    <p className="text-sm font-medium mb-2">Selective Batch Push (optional)</p>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Select specific batches to push, or leave all unchecked to push everything
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                      {SYNC_BATCHES.map(batch => (
+                        <label
+                          key={batch.id}
+                          className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-colors ${
+                            selectedBatches.includes(batch.id)
+                              ? 'bg-primary/10 border-primary'
+                              : 'hover:bg-muted'
+                          }`}
+                          data-testid={`checkbox-batch-${batch.id}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedBatches.includes(batch.id)}
+                            onChange={() => toggleBatch(batch.id)}
+                            className="rounded"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{batch.label}</p>
+                            <p className="text-xs text-muted-foreground truncate">{batch.description}</p>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                    {selectedBatches.length > 0 && (
+                      <div className="mt-2 flex items-center gap-2">
+                        <Badge variant="secondary">{selectedBatches.length} selected</Badge>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => setSelectedBatches([])}
+                        >
+                          Clear
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <Button
-                      onClick={() => pushMutation.mutate()}
+                      onClick={() => pushMutation.mutate(selectedBatches)}
                       disabled={isAnySyncRunning}
                       className="h-auto py-4 flex-col gap-2"
                       data-testid="button-push"
                     >
                       <ArrowUpRight className="h-6 w-6" />
                       <span>Push to {peerEnv}</span>
-                      <span className="text-xs opacity-70">Send local data</span>
+                      <span className="text-xs opacity-70">
+                        {selectedBatches.length > 0 
+                          ? `${selectedBatches.length} batch${selectedBatches.length > 1 ? 'es' : ''}`
+                          : 'All batches'}
+                      </span>
                     </Button>
 
                     <Button
