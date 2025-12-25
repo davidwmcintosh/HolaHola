@@ -47,6 +47,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { SyllabusTimeProgress } from "@/components/SyllabusTimeProgress";
 import { SyllabusMindMap } from "@/components/SyllabusMindMap";
 import { DanielaLearningInsights } from "@/components/DanielaLearningInsights";
+import { getTutorName } from "@/lib/tutor-avatars";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { VocabularyWord, Conversation, CulturalTip, UserLesson, Topic } from "@shared/schema";
@@ -476,27 +477,8 @@ export default function ReviewHub() {
     }
   }, []); // Only run on mount
 
-  // Query voice names for the current language (to show tutor name on button)
-  const { data: tutorVoices } = useQuery<{ 
-    language: string; 
-    female: { name: string; voiceId: string; speakingRate: number } | null; 
-    male: { name: string; voiceId: string; speakingRate: number } | null 
-  }>({
-    queryKey: ['/api/tutor-voices', language?.toLowerCase()],
-    enabled: !!language,
-  });
-  
-  // Helper to extract just the first name from voice name (e.g., "Daniela - Relaxed Woman" -> "Daniela")
-  const getVoiceFirstName = (fullName: string | undefined, fallback: string): string => {
-    if (!fullName) return fallback;
-    const dashIndex = fullName.indexOf(' - ');
-    return dashIndex > 0 ? fullName.substring(0, dashIndex) : fullName;
-  };
-  
-  // Get the current tutor's name based on gender preference
-  const currentTutorName = tutorGender === 'male' 
-    ? getVoiceFirstName(tutorVoices?.male?.name, "Your Tutor")
-    : getVoiceFirstName(tutorVoices?.female?.name, "Your Tutor");
+  // Get the current tutor's name from the tutor directory (not DB voice_name field)
+  const currentTutorName = getTutorName(language, tutorGender);
 
   const { data, isLoading } = useQuery<ReviewHubData>({
     queryKey: ["/api/review-hub", { language, learningContext }],

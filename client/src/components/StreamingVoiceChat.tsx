@@ -31,6 +31,7 @@ import { useUser } from "@/lib/auth";
 import { useLearningFilter } from "@/contexts/LearningFilterContext";
 import { useToast } from "@/hooks/use-toast";
 import { useWhiteboard } from "@/hooks/useWhiteboard";
+import { getTutorNames } from "@/lib/tutor-avatars";
 import type { VoiceInputMode, OpenMicState } from "@shared/streaming-voice-types";
 
 // ============================================================================
@@ -209,7 +210,7 @@ export function StreamingVoiceChat({
     },
   });
   
-  // Query voice names for the current language
+  // Query voice config for speaking rate only (names come from tutor directory)
   const { data: tutorVoices } = useQuery<{ 
     language: string; 
     female: { name: string; voiceId: string; speakingRate: number } | null; 
@@ -219,12 +220,8 @@ export function StreamingVoiceChat({
     enabled: !!language,
   });
   
-  // Helper to extract just the first name from voice name (e.g., "Daniela - Relaxed Woman" -> "Daniela")
-  const getVoiceFirstName = (fullName: string | undefined, fallback: string): string => {
-    if (!fullName) return fallback;
-    const dashIndex = fullName.indexOf(' - ');
-    return dashIndex > 0 ? fullName.substring(0, dashIndex) : fullName;
-  };
+  // Get tutor names from directory (not database voice_name field)
+  const tutorNames = getTutorNames(language);
   const [isRecording, setIsRecording] = useState(false);
   const [isPttButtonHeld, setIsPttButtonHeld] = useState(false); // Track if PTT button is physically held (separate from MediaRecorder state)
   const isPttButtonHeldRef = useRef(false); // Synchronous ref for guards (state is async)
@@ -2889,8 +2886,8 @@ export function StreamingVoiceChat({
             }
           }}
           setVoiceSpeed={setVoiceSpeed}
-          femaleVoiceName={getVoiceFirstName(tutorVoices?.female?.name, "Female")}
-          maleVoiceName={getVoiceFirstName(tutorVoices?.male?.name, "Male")}
+          femaleVoiceName={tutorNames.female}
+          maleVoiceName={tutorNames.male}
           baseSpeakingRate={tutorGender === 'male' 
             ? (tutorVoices?.male?.speakingRate ?? 1.0) 
             : (tutorVoices?.female?.speakingRate ?? 1.0)}
