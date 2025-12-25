@@ -8,6 +8,22 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### TODO: Teacher/Institution Pricing Model
+
+**Status**: PLANNING - Needs specification
+
+**Document**: `docs/teacher-institution-pricing.md`
+
+**Key items to define**:
+1. **Class creation limits** - How many classes can each tier create?
+2. **Student enrollment limits** - How many students per teacher across all classes?
+3. **Tier structure** - Free, Starter, Professional, Institution tiers
+4. **Enforcement** - API blocking, upgrade prompts, dashboard indicators
+
+**Next steps**: Flesh out pricing tiers and implement limit tracking in schema/routes.
+
+---
+
 ### Session: December 25, 2025 - v18 Sync System: Selective Batches & Beta Tester Workflow
 
 **Status**: COMPLETED - Deployed to production

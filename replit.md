@@ -60,6 +60,9 @@ Commercial-grade voice analytics service (`server/services/voice-intelligence-se
 2. Monitor first nightly sync for alerts posting to Wren insights
 3. Verify cross-environment comparison with real prod data
 
+## TODO / Upcoming Work
+- **Teacher/Institution Pricing**: Define class creation limits and student enrollment limits per subscription tier. See `docs/teacher-institution-pricing.md` for planning notes.
+
 ## External Dependencies
 -   Stripe: Payment processing and subscription management.
 -   Replit Auth: OIDC authentication.
