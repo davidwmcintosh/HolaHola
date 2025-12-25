@@ -152,6 +152,7 @@ const PUSH_BATCHES = [
   { id: 'daniela-memories', label: 'Daniela Memories', description: 'Daniela growth memories' },
   { id: 'product-config', label: 'Product Config', description: 'Tutor voices' },
   { id: 'beta-testers', label: 'Beta Testers', description: 'Beta users + credits' },
+  { id: 'founder-context', label: 'Founder Context', description: 'Your personal facts (same Daniela)' },
 ];
 
 // Available sync batch types for pulling from prod (prod → dev)
@@ -159,6 +160,7 @@ const PULL_BATCHES = [
   { id: 'beta-usage', label: 'Beta Usage', description: 'Voice sessions, credits consumed' },
   { id: 'aggregate-analytics', label: 'Analytics', description: 'Anonymized usage stats' },
   { id: 'prod-content-growth', label: 'Daniela Content', description: 'Idioms, nuances, error patterns' },
+  { id: 'founder-context', label: 'Founder Context', description: 'Your personal facts (same Daniela)' },
 ];
 
 export default function SyncControlCenter() {
@@ -634,7 +636,7 @@ export default function SyncControlCenter() {
                     </Button>
                     {activeSyncRun?.status === 'running' && (
                       <Button
-                        onClick={() => pullMutation.mutate(true)}
+                        onClick={() => pullMutation.mutate({ forceResume: true })}
                         disabled={pullMutation.isPending}
                         variant="outline"
                         size="sm"

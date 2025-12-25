@@ -38,11 +38,13 @@ Azure Pronunciation Assessment is implemented for post-session batch analysis to
 A Dev-Prod Sync System is in place, synchronizing data in batches (neural-core, advanced-intel-a, advanced-intel-b, express-lane, hive-snapshots, daniela-memories, product-config) using HMAC signatures for authentication. The v17 capability negotiation architecture enables graceful version mismatch handling: environments exchange version/batch support info before sync, unknown data types are logged but don't break sync (soft-fail), and the Sync Control Center UI displays version compatibility status with deploy+sync workflow guidance. The paginated architecture handles large datasets (500 observations/page) within Replit's 60s gateway timeout.
 
 **v19 Bidirectional Sync** adds prod→dev pull capability for beta testing analytics:
-- **Push Batches**: neural-core, advanced-intel-a/b, express-lane, hive-snapshots, daniela-memories, product-config (dev→prod)
-- **Pull Batches**: beta-usage (voice sessions, usage ledger, cost summaries), aggregate-analytics (anonymized usage stats), prod-content-growth (Daniela-authored content)
+- **Push Batches**: neural-core, advanced-intel-a/b, express-lane, hive-snapshots, daniela-memories, product-config, founder-context (dev→prod)
+- **Pull Batches**: beta-usage (voice sessions, usage ledger, cost summaries), aggregate-analytics (anonymized usage stats), prod-content-growth (Daniela-authored content), founder-context
+- **Founder Context**: Syncs founder's personal facts bidirectionally (same Daniela in dev and prod). Only founder's data (ID `49847136`) is synced; all other student data remains local.
 - The Sync Control Center UI now has separate sections for push and pull batch selection
 - Pull batches are highlighted in blue and can be selectively pulled from production for analysis
 - Aggregate analytics are stored in hiveSnapshots (type: `aggregate_analytics`) for 90-day historical tracking
+- **Automated Scheduling**: Only runs in production (NODE_ENV=production). Dev uses manual triggers via Sync Control Center.
 - **Expansion Guide**: See `docs/sync-expansion-guide.md` for the complete checklist when adding new sync data types
 
 **Daniela Content Growth System** enables Daniela to autonomously grow pedagogical content during teaching:

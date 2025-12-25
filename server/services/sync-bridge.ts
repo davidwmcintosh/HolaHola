@@ -15,7 +15,9 @@ import {
   // Credits and usage tracking
   usageLedger, voiceSessions, sessionCostSummary,
   // Classes for beta tester auto-enrollment
-  teacherClasses, classEnrollments
+  teacherClasses, classEnrollments,
+  // Founder-specific tables
+  learnerPersonalFacts
 } from '@shared/schema';
 import { eq, desc, gte, and, isNull, or, inArray, lt, sql } from 'drizzle-orm';
 import { neuralNetworkSync } from './neural-network-sync';
@@ -46,6 +48,7 @@ const SUPPORTED_BATCHES = [
   'beta-usage',        // Pull beta tester usage data from prod
   'aggregate-analytics', // Pull anonymized usage stats from prod
   'prod-content-growth', // Pull Daniela-authored content from prod (idioms, nuances, etc.)
+  'founder-context',   // Bidirectional sync of founder's personal facts (same Daniela in dev/prod)
 ] as const;
 
 // Capability map for fine-grained feature support
@@ -157,6 +160,11 @@ export interface SyncBundle {
     dialects: any[];
     bridges: any[];
     culturalTips: any[];
+    exportedAt: string;
+  };
+  // Founder-specific context (bidirectional - same Daniela in dev/prod)
+  founderContext?: {
+    personalFacts: any[];
     exportedAt: string;
   };
 }
@@ -579,6 +587,20 @@ class SyncBridgeService {
         console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
         batchErrors.push(errMsg);
         bundle.prodContentGrowth = undefined;
+      }
+    }
+    
+    // BATCH: founder-context - Founder's personal facts for same Daniela in dev/prod (bidirectional)
+    if (batchType === 'founder-context') {
+      try {
+        const contextData = await this.exportFounderContext();
+        bundle.founderContext = contextData;
+        console.log(`[SYNC-BRIDGE v19] founder-context: ${contextData.personalFacts?.length || 0} personal facts exported`);
+      } catch (err: any) {
+        const errMsg = `founder-context export failed: ${err.message}`;
+        console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
+        batchErrors.push(errMsg);
+        bundle.founderContext = undefined;
       }
     }
     
@@ -1021,7 +1043,7 @@ class SyncBridgeService {
           eq(linguisticBridges.isActive, true)
         )
       ),
-      db.select().from(culturalTips).where(eq(culturalTips.isActive, true)),
+      db.select().from(culturalTips),  // culturalTips doesn't have isActive column
     ]);
     
     console.log(`[SYNC-BRIDGE] Exporting prod-content-growth: ${idioms.length} idioms, ${nuances.length} nuances, ${errorPatterns.length} errors, ${dialects.length} dialects, ${bridges.length} bridges, ${tips.length} cultural tips`);
@@ -1223,6 +1245,120 @@ class SyncBridgeService {
     
     console.log(`[SYNC-BRIDGE] Imported ${imported} prod-content-growth items, ${errors.length} errors`);
     return { imported, errors };
+  }
+  
+  /**
+   * Export founder's personal facts for bidirectional sync
+   * Ensures same Daniela knowledge in dev and prod for founder
+   */
+  async exportFounderContext(): Promise<{
+    personalFacts: any[];
+    exportedAt: string;
+  }> {
+    const FOUNDER_ID = '49847136';
+    
+    const facts = await db
+      .select()
+      .from(learnerPersonalFacts)
+      .where(
+        and(
+          eq(learnerPersonalFacts.studentId, FOUNDER_ID),
+          eq(learnerPersonalFacts.isActive, true)
+        )
+      )
+      .orderBy(desc(learnerPersonalFacts.updatedAt));
+    
+    console.log(`[SYNC-BRIDGE] Exporting founder-context: ${facts.length} personal facts`);
+    
+    return {
+      personalFacts: facts,
+      exportedAt: new Date().toISOString()
+    };
+  }
+  
+  /**
+   * Import founder's personal facts (bidirectional sync)
+   * Merges facts using upsert - newer timestamps win
+   */
+  async importFounderContext(data: {
+    personalFacts: any[];
+  }): Promise<{ imported: number; updated: number; errors: string[] }> {
+    const FOUNDER_ID = '49847136';
+    let imported = 0;
+    let updated = 0;
+    const errors: string[] = [];
+    
+    for (const fact of data.personalFacts || []) {
+      try {
+        // Ensure we're only importing founder's facts
+        if (fact.studentId !== FOUNDER_ID) {
+          continue;
+        }
+        
+        // Check for existing by ID or by natural key (studentId + factType + fact)
+        const existing = await db
+          .select()
+          .from(learnerPersonalFacts)
+          .where(
+            or(
+              eq(learnerPersonalFacts.id, fact.id),
+              and(
+                eq(learnerPersonalFacts.studentId, FOUNDER_ID),
+                eq(learnerPersonalFacts.factType, fact.factType),
+                eq(learnerPersonalFacts.fact, fact.fact)
+              )
+            )
+          )
+          .limit(1);
+        
+        if (existing.length > 0) {
+          // Update if source is newer
+          const sourceUpdated = new Date(fact.updatedAt || fact.createdAt);
+          const localUpdated = new Date(existing[0].updatedAt || existing[0].createdAt);
+          
+          if (sourceUpdated > localUpdated) {
+            await db
+              .update(learnerPersonalFacts)
+              .set({
+                fact: fact.fact,
+                context: fact.context,
+                relevantDate: fact.relevantDate ? new Date(fact.relevantDate) : null,
+                confidenceScore: fact.confidenceScore,
+                lastMentionedAt: fact.lastMentionedAt ? new Date(fact.lastMentionedAt) : new Date(),
+                mentionCount: Math.max(Number(existing[0].mentionCount) || 1, Number(fact.mentionCount) || 1),
+                isActive: fact.isActive ?? true,
+                updatedAt: new Date(),
+              })
+              .where(eq(learnerPersonalFacts.id, existing[0].id));
+            updated++;
+          }
+        } else {
+          // Insert new fact
+          await db.insert(learnerPersonalFacts).values({
+            id: fact.id, // Preserve original ID for consistency
+            studentId: FOUNDER_ID,
+            language: fact.language,
+            factType: fact.factType,
+            fact: fact.fact,
+            context: fact.context,
+            relevantDate: fact.relevantDate ? new Date(fact.relevantDate) : null,
+            confidenceScore: fact.confidenceScore || 0.8,
+            sourceConversationId: null, // Don't try to FK across environments
+            isActive: fact.isActive ?? true,
+            lastMentionedAt: fact.lastMentionedAt ? new Date(fact.lastMentionedAt) : new Date(),
+            mentionCount: fact.mentionCount || 1,
+            createdAt: fact.createdAt ? new Date(fact.createdAt) : new Date(),
+            updatedAt: new Date(),
+          });
+          imported++;
+        }
+      } catch (err: any) {
+        errors.push(`Personal fact "${fact.factType}": ${err.message}`);
+      }
+    }
+    
+    console.log(`[SYNC-BRIDGE] Imported ${imported} new, updated ${updated} existing founder personal facts, ${errors.length} errors`);
+    return { imported, updated, errors };
   }
   
   /**
@@ -1741,6 +1877,16 @@ class SyncBridgeService {
       counts['prodContentGrowth'] = contentResult.imported;
       if (contentResult.errors.length) {
         errors.push(...contentResult.errors);
+      }
+    }
+    
+    // v19: Founder Context (bidirectional - same Daniela in dev/prod)
+    if (bundle.founderContext) {
+      console.log(`[SYNC-BRIDGE] Importing founder personal facts...`);
+      const contextResult = await this.importFounderContext(bundle.founderContext);
+      counts['founderPersonalFacts'] = contextResult.imported + contextResult.updated;
+      if (contextResult.errors.length) {
+        errors.push(...contextResult.errors);
       }
     }
     

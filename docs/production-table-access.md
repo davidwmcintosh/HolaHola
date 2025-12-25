@@ -114,6 +114,16 @@ These tables contain user-specific data and stay local to each environment:
 
 ---
 
+## Founder Context Tables (Bidirectional)
+
+| Table | Sync Batch | Notes |
+|-------|------------|-------|
+| `learner_personal_facts` | founder-context | Founder's personal facts only (same Daniela in dev/prod) |
+
+**Note:** Only syncs the founder's (user ID `49847136`) personal facts. Other students' data remains local to each environment.
+
+---
+
 ## How Daniela Writes to Production
 
 During voice chat in production, Daniela can:
