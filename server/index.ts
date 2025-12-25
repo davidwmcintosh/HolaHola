@@ -176,6 +176,15 @@ const stripeInitPromise = (async function initStripe() {
       console.error('Failed to seed assistant tutors:', error);
     }
     
+    // Validate tutor names match expected canonical values
+    // See replit.md "Tutor Naming Architecture" section
+    try {
+      const { validateTutorNames } = await import('./validation/tutor-names-validation');
+      await validateTutorNames();
+    } catch (error) {
+      console.error('Failed to validate tutor names:', error);
+    }
+    
     // Seed Daniela's Advanced Intelligence Layer (subtlety, emotions, creativity)
     try {
       console.log('Seeding advanced intelligence layer...');

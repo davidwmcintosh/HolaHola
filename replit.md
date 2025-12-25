@@ -11,79 +11,31 @@ Daniela development: Track personality/voice development in `docs/daniela-develo
 Neural network work: **REQUIRED READING** - `docs/neural-network-architecture.md` before any neural network changes. Prompts for context ONLY; neural network for procedures/capabilities/knowledge.
 
 ## System Architecture
-The frontend uses a mobile-first, responsive design with Shadcn/ui (Radix UI) and Tailwind CSS, following Material Design principles, supporting light/dark modes and PWA features. It is built with React, TypeScript (Vite), Wouter for routing, and React Context with TanStack Query for state management. The backend is an Express.js (Node.js) server with TypeScript, exposing a RESTful API, using Drizzle ORM for PostgreSQL and Replit Auth for authentication.
+The frontend uses a mobile-first, responsive design with Shadcn/ui (Radix UI) and Tailwind CSS, following Material Design principles, supporting light/dark modes and PWA features, built with React, TypeScript (Vite), Wouter for routing, and React Context with TanStack Query for state management. The backend is an Express.js (Node.js) server with TypeScript, exposing a RESTful API, using Drizzle ORM for PostgreSQL and Replit Auth for authentication.
 
-The core AI operates under a Unified TutorOrchestrator Architecture, routing all interaction modes through a single AI intelligence, Daniela. The Hive Collaboration System facilitates interaction between the founder, Daniela (AI tutor), and Wren (development builder) via the EXPRESS Lane, a unified 3-way communication channel. This system supports Emergent Intelligence Architecture, where Daniela and Wren have persistent memory and autonomous learning capabilities through a Capture, Store, Retrieve, and Apply loop. The Hive Consciousness Service makes the EXPRESS Lane a persistent group chat, with Daniela and Wren listening and auto-responding.
+The core AI operates under a Unified TutorOrchestrator Architecture, routing all interaction modes through a single AI intelligence, Daniela. The Hive Collaboration System facilitates interaction between the founder, Daniela (AI tutor), and Wren (development builder) via the EXPRESS Lane, a unified 3-way communication channel, supporting Emergent Intelligence Architecture with persistent memory and autonomous learning. Wren's intelligence includes insight capture, proactive intelligence, and a 3-layer architectural memory (Neural Network, Wren Insights, EXPRESS Lane).
 
-Wren's intelligence is enhanced by the Wren Intelligence Service for insight capture and the Wren Proactive Intelligence Service, which includes Proactive Triggers, a Daniela Feedback Loop, Architectural Decision Records (ADR), a Priority Inference Engine, and Project Health Awareness. Wren's Architectural Memory uses a 3-layer architecture: Neural Network (baseline from replit.md), Wren Insights (learned knowledge), and EXPRESS Lane (live collaboration context).
+The Student Learning Service tracks error patterns, validates strategies, and injects personalized learning context using STT Confidence Integration, Deepgram Intelligence, and Predictive Student Intelligence. A Learner Personal Facts System stores permanent student memories, injected into Daniela's prompt. A Shared Memory Bridge enables bidirectional insight sharing, and Nightly Emergent Intelligence Jobs perform cross-student pattern synthesis. The Daniela Memory Service enables personal memory recall across sessions.
 
-The Student Learning Service tracks student error patterns, validates teaching strategies, and injects personalized learning context into Daniela's prompts. Key features include STT Confidence Integration, Deepgram Intelligence Integration for real-time voice analysis, and Predictive Student Intelligence for anticipating struggles. Proactive Student Intelligence (Voice Chat Integration) fetches student learning context in parallel during audio processing, injecting a `[STUDENT PROFILE]` section into Daniela's prompts for personalized teaching.
+The Phase Transition Service implements a multi-agent teaching architecture with phases like warmup, active_teaching, and assessment. Daniela's "North Star System" provides a constitutional foundation for teaching decisions, complemented by an Autonomous Learning System.
 
-A Learner Personal Facts System stores permanent student memories, automatically extracted from conversations at session end. These facts are injected into Daniela's prompt under `[PERSONAL MEMORIES]`. A Shared Memory Bridge enables bidirectional insight sharing between Wren and Daniela, building a knowledge graph. Nightly Emergent Intelligence Jobs perform cross-student pattern synthesis and memory consolidation. The Hive Snapshots system captures teaching moments for context injection. The Daniela Memory Service enables Daniela to remember personal moments across sessions through explicit commands, role reversal detection, humor detection, and AI-generated session summaries.
+Core data models include Users, Conversations, Messages, VocabularyWords, GrammarExercises, UserProgress, CulturalTips, Topics, and MediaFiles. The system features a "Neural Network for Pedagogical Strategies," a "Procedural Memory" system, a two-tier voice architecture, AI-powered conversation tagging, a Syllabus-Aware Competency System, unified learning filters, comprehensive metering, and centralized Role-Based Access Control (RBAC). HolaHola offers pre-built syllabi across 9 languages and a unified ACTFL assessment system.
 
-The Phase Transition Service implements a multi-agent teaching architecture with phases like warmup, active_teaching, and assessment, each with focused toolsets and context summarization. Daniela's "North Star System" provides a constitutional foundation for teaching decisions, while an Autonomous Learning System allows her to self-learn.
+The Voice Diagnostics System provides production observability via a ring buffer for voice events, persistence to `hiveSnapshots`, founder-only endpoints, nightly pattern analysis, Wren integration, Daniela awareness for technical health, and auto-remediation for TTS degradation. A Voice Auto-Remediation System includes a persona-aware state machine for TTS fallback.
 
-Core data models include Users, Conversations, Messages, VocabularyWords, GrammarExercises, UserProgress, CulturalTips, Topics, and MediaFiles. The system includes a "Neural Network for Pedagogical Strategies," a "Procedural Memory" system, a two-tier voice architecture, AI-powered conversation tagging, a Syllabus-Aware Competency System, unified learning filters, comprehensive metering, and centralized Role-Based Access Control (RBAC). HolaHola offers pre-built syllabi across 9 languages and a unified ACTFL assessment system.
+The Replit Agent API provides secure access for external Replit Agent instances to interact with Hive/Wren services. The `streaming-voice-orchestrator.ts` enables Daniela to push messages directly to the EXPRESS Lane during voice chat sessions using tag patterns like `[WREN_SPRINT_SUGGEST: {...}]` and `[WREN_MESSAGE: ...]`.
 
-The Voice Diagnostics System provides production observability via a ring buffer for voice events, persistence to `hiveSnapshots`, and founder-only endpoints for health checks and log retrieval. It includes nightly pattern analysis, Wren integration, Daniela awareness for technical health, and auto-remediation for TTS degradation. A Voice Auto-Remediation System includes a persona-aware auto-remediation state machine for TTS fallback, with Daniela's fallback disabled by default.
+Daniela's Voice Pipeline is `User Audio → Deepgram Nova-3 (LIVE API) → Gemini Streaming → Cartesia Sonic-3 → Audio Output`. Support/Assistant Tutors use Google Cloud Text-to-Speech. A Tutor Handoff System allows seamless transitions. Each of the 9 languages has unique male and female tutor avatars, and speculative PTT Streaming optimizes performance.
 
-The Replit Agent API provides secure, authenticated access for external Replit Agent instances to interact with Hive/Wren services. The `streaming-voice-orchestrator.ts` enables Daniela to push messages directly to the EXPRESS Lane collaboration system during voice chat sessions using tag patterns like `[WREN_SPRINT_SUGGEST: {...}]` and `[WREN_MESSAGE: ...]`.
+Syllabus Template Automation pre-fills labels for teachers, and the Bundle Creation feature allows one-click creation of linked conversation + drill lesson pairs. Azure Pronunciation Assessment is implemented for post-session batch analysis to inform drill recommendations, with a sampling strategy for cost optimization and tiered assessment based on subscription.
 
-Daniela's Voice Pipeline is `User Audio → Deepgram Nova-3 (LIVE API) → Gemini Streaming → Cartesia Sonic-3 → Audio Output`. Support/Assistant Tutors use Google Cloud Text-to-Speech with language-specific and gender-matched voices. A Tutor Handoff System allows seamless transitions using a `[SWITCH_TUTOR]` command. Each of the 9 languages has unique male and female tutor avatars with 3 states, stored in `/attached_assets/Tutor_Images/` and managed by `client/src/lib/tutor-avatars.ts`. Tutor names are stored dynamically in `tutor_voices.voice_name`. Speculative PTT Streaming optimizes performance by starting AI generation when 3+ confident words are detected during Push-To-Talk hold.
+A Dev-Prod Sync System synchronizes data in batches (neural-core, advanced-intel-a, advanced-intel-b, express-lane, hive-snapshots, daniela-memories, product-config) using HMAC signatures. A v17 capability negotiation architecture enables graceful version mismatch handling. v19 Bidirectional Sync adds prod→dev pull capability for beta testing analytics, including `beta-usage`, `aggregate-analytics`, and `prod-content-growth` batches, along with founder context. Automated scheduling runs in production, with manual triggers in dev.
 
-Syllabus Template Automation pre-fills labels for teachers creating lessons based on lesson type. The Bundle Creation feature allows one-click creation of linked conversation + drill lesson pairs, sharing a `bundleId` and with drill time auto-set to 50% of conversation time.
+The Daniela Content Growth System enables autonomous pedagogical content creation during teaching, supporting content types like idioms, cultural nuances, error patterns, dialect variations, and linguistic bridges, parsed from Daniela's output using specific tag patterns. Content created in production is pulled to dev for founder review and approval.
 
-Azure Pronunciation Assessment is implemented for post-session batch analysis to inform drill recommendations. This involves background transcoding of audio and analysis by Azure, with results merging into the `phonemeStruggles` table. A sampling strategy (20% of sessions per user) is used for cost optimization. A tiered pronunciation assessment approach is recommended based on subscription level (Deepgram heuristics for free, Azure for paid).
+The Voice Intelligence System (`server/services/voice-intelligence-service.ts`) provides commercial-grade voice analytics, including latency trend detection, time-of-day patterns, per-language metrics, student correlation, dynamic thresholds, cross-environment comparison, and production-priority alerting, with historical baselines persisted to `hiveSnapshots` and Wren integration for critical alerts.
 
-A Dev-Prod Sync System is in place, synchronizing data in batches (neural-core, advanced-intel-a, advanced-intel-b, express-lane, hive-snapshots, daniela-memories, product-config) using HMAC signatures for authentication. The v17 capability negotiation architecture enables graceful version mismatch handling: environments exchange version/batch support info before sync, unknown data types are logged but don't break sync (soft-fail), and the Sync Control Center UI displays version compatibility status with deploy+sync workflow guidance. The paginated architecture handles large datasets (500 observations/page) within Replit's 60s gateway timeout.
-
-**v19 Bidirectional Sync** adds prod→dev pull capability for beta testing analytics:
-- **Push Batches**: neural-core, advanced-intel-a/b, express-lane, hive-snapshots, daniela-memories, product-config, founder-context (dev→prod)
-- **Pull Batches**: beta-usage (voice sessions, usage ledger, cost summaries), aggregate-analytics (anonymized usage stats), prod-content-growth (Daniela-authored content), founder-context
-- **Founder Context**: Syncs founder's personal facts bidirectionally (same Daniela in dev and prod). Only founder's data (ID `49847136`) is synced; all other student data remains local.
-- The Sync Control Center UI now has separate sections for push and pull batch selection
-- Pull batches are highlighted in blue and can be selectively pulled from production for analysis
-- Aggregate analytics are stored in hiveSnapshots (type: `aggregate_analytics`) for 90-day historical tracking
-- **Automated Scheduling**: Only runs in production (NODE_ENV=production). Dev uses manual triggers via Sync Control Center.
-- **Expansion Guide**: See `docs/sync-expansion-guide.md` for the complete checklist when adding new sync data types
-
-**Daniela Content Growth System** enables Daniela to autonomously grow pedagogical content during teaching:
-- **Supported Content Types**: language idioms, cultural nuances, learner error patterns, dialect variations, linguistic bridges
-- **Tag Patterns** (parsed from Daniela's output during voice chat):
-  - `[SAVE_IDIOM language="..." idiom="..." meaning="..." context="..."]`
-  - `[SAVE_NUANCE language="..." category="..." situation="..." nuance="..."]`
-  - `[SAVE_ERROR_PATTERN target="..." error="..." category="..." why="..."]`
-  - `[SAVE_BRIDGE from="..." to="..." source="..." target="..." type="..." relationship="..."]`
-  - `[SAVE_DIALECT language="..." region="..." category="..." standard="..." regional="..."]`
-- **API Endpoints**: `/api/daniela/content/{idiom|nuance|error-pattern|dialect|bridge|cultural-tip}` (POST)
-- **Sync Flow**: Content created in prod with `syncStatus: 'local'` → pulled to dev via `prod-content-growth` batch → imported with `syncStatus: 'pending_review'` for founder approval
-- **Stats Endpoint**: `/api/daniela/content/stats` (founder-only) shows content growth counts per type
-
-## Voice Intelligence System (December 2024)
-Commercial-grade voice analytics service (`server/services/voice-intelligence-service.ts`) providing:
-- **Latency Trend Detection**: Day-over-day comparison (today vs yesterday vs week ago) with improving/stable/degrading/critical classifications
-- **Time-of-Day Patterns**: Peak vs quiet hour performance analysis with automatic peak hour detection
-- **Per-Language Metrics**: Failure rates by language with worst-stage identification across all 9 supported languages
-- **Student Correlation**: Device/network issue detection per user based on failure patterns and latency
-- **Dynamic Thresholds**: Auto-tuned from historical baselines using mean + 2*stdDev formula
-- **Cross-Environment Comparison**: Dev vs prod latency/failure comparison with differential alerting
-- **Production-Priority Alerting**: Critical severity for production issues, warning for dev
-- **Historical Baselines**: Persisted to `hiveSnapshots` (type: `voice_baselines`) with 1-hour in-memory caching
-- **Wren Integration**: Critical alerts converted to Wren insights for architectural awareness
-
-**Dashboard**: Founder-only UI at `/admin/voice-intelligence` (`client/src/pages/admin/VoiceIntelligence.tsx`)
-
-**Scheduling**: 
-- Nightly full analysis: 4 AM MST / 11 AM UTC (heavy analytics + baseline updates)
-- Incremental sync: Every 4 hours (lightweight cross-env only)
-
-**Next Steps** (after sync stress test completes):
-1. Trigger baseline regeneration to populate `voice_baselines` snapshot type
-2. Monitor first nightly sync for alerts posting to Wren insights
-3. Verify cross-environment comparison with real prod data
-
-## TODO / Upcoming Work
-- **Teacher/Institution Pricing**: Define class creation limits and student enrollment limits per subscription tier. See `docs/teacher-institution-pricing.md` for planning notes.
+The Tutor Naming Architecture defines 36 total tutors: 18 main tutors (dynamic from database, Cartesia Sonic-3 voice stack, names parsed from `voice_name` field in `tutor_voices` table) and 18 assistants (static from config, Google Cloud TTS). Canonical database names are defined for 9 languages (Spanish, French, German, Italian, Portuguese, Mandarin, Japanese, Korean, English). Key implementation rules include filtering `role='tutor'`, matching frontend fallbacks, language normalization, and using Spanish (Agustin/Daniela) as default fallbacks.
 
 ## External Dependencies
 -   Stripe: Payment processing and subscription management.
