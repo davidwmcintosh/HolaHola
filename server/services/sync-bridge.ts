@@ -547,7 +547,7 @@ class SyncBridgeService {
         const errMsg = `aggregate-analytics export failed: ${err.message}`;
         console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
         batchErrors.push(errMsg);
-        bundle.aggregateAnalytics = null;
+        bundle.aggregateAnalytics = undefined;
       }
     }
     
@@ -741,6 +741,54 @@ class SyncBridgeService {
     
     console.log(`[SYNC-BRIDGE] Exporting ${betaUsers.length} Beta Testers with ${credits.length} credits`);
     return { users: betaUsers, credits };
+  }
+  
+  /**
+   * Sync a single user to production immediately
+   * Used when creating test accounts so they exist in prod when tester receives email
+   * This is a lightweight, targeted sync - much faster than full beta-testers batch
+   */
+  async syncSingleUserToProd(userId: string): Promise<{ success: boolean; error?: string }> {
+    const peerUrl = getSyncPeerUrl();
+    if (!peerUrl) {
+      return { success: false, error: 'Sync not configured (no peer URL)' };
+    }
+    
+    try {
+      // Get the user
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user) {
+        return { success: false, error: 'User not found' };
+      }
+      
+      // Get any credits for this user
+      const userCredits = await db.select().from(usageLedger).where(eq(usageLedger.userId, userId));
+      
+      console.log(`[SYNC-BRIDGE] Syncing single user ${user.email} to production...`);
+      
+      // Create a minimal bundle with just this user
+      const bundle: Partial<SyncBundle> = {
+        generatedAt: new Date().toISOString(),
+        sourceEnvironment: CURRENT_ENVIRONMENT,
+        codeVersion: SYNC_BRIDGE_CODE_VERSION,
+        betaTesters: [user],
+        betaTesterCredits: userCredits,
+      };
+      
+      // Send to peer
+      const result = await this.sendBatch(peerUrl, 'beta-testers', bundle);
+      
+      if (result.success) {
+        console.log(`[SYNC-BRIDGE] Single user sync SUCCESS: ${user.email}`);
+        return { success: true };
+      } else {
+        console.error(`[SYNC-BRIDGE] Single user sync FAILED: ${result.errors.join(', ')}`);
+        return { success: false, error: result.errors.join(', ') };
+      }
+    } catch (err: any) {
+      console.error(`[SYNC-BRIDGE] Single user sync error:`, err);
+      return { success: false, error: err.message };
+    }
   }
   
   /**

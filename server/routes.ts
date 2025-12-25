@@ -10063,7 +10063,24 @@ Return ONLY the ${targetLanguage} phrase:`;
         console.log(`[Quick Enroll] Granted ${creditHours} hours to ${email}`);
       }
       
-      // 4. Send invitation email
+      // 4. Sync user to production BEFORE sending email
+      // This ensures the account exists in prod when tester clicks the invitation link
+      let syncedToProd = false;
+      let syncError = null;
+      try {
+        const { syncBridge } = await import('./services/sync-bridge');
+        const syncResult = await syncBridge.syncSingleUserToProd(newUser.id);
+        syncedToProd = syncResult.success;
+        if (!syncResult.success) {
+          syncError = syncResult.error;
+          console.warn(`[Quick Enroll] Failed to sync user to prod: ${syncError}`);
+        }
+      } catch (err: any) {
+        syncError = err.message;
+        console.warn(`[Quick Enroll] Sync error (non-fatal): ${err.message}`);
+      }
+      
+      // 5. Send invitation email
       if (sendEmail) {
         try {
           const inviteResult = await passwordAuthService.createInvitation({
@@ -10107,6 +10124,7 @@ Return ONLY the ${targetLanguage} phrase:`;
           creditHours,
           emailSent,
           enrolled: !!enrollmentResult,
+          syncedToProd,
         },
         ipAddress: req.ip,
         userAgent: req.get('user-agent'),
@@ -10119,7 +10137,9 @@ Return ONLY the ${targetLanguage} phrase:`;
         creditsGranted,
         emailSent,
         emailError,
-        message: `Created test user ${email}${enrollmentResult ? ' and enrolled in class' : ''}${creditsGranted ? ` with ${creditHours} hours` : ''}${emailSent ? ' - invitation sent' : emailError ? ` (email failed: ${emailError})` : ''}`,
+        syncedToProd,
+        syncError,
+        message: `Created test user ${email}${enrollmentResult ? ' and enrolled in class' : ''}${creditsGranted ? ` with ${creditHours} hours` : ''}${syncedToProd ? ' (synced to prod)' : syncError ? ` (sync failed: ${syncError})` : ''}${emailSent ? ' - invitation sent' : emailError ? ` (email failed: ${emailError})` : ''}`,
       });
     } catch (error: any) {
       console.error('Error in quick enroll:', error);
