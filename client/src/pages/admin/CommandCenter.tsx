@@ -1528,6 +1528,7 @@ function UsersTab() {
     classId: "",
     creditHours: 0,
     sendEmail: true,
+    enrollInAllPublic: true,
   });
 
   const queryUrl = roleFilter === "all" 
@@ -1644,11 +1645,12 @@ function UsersTab() {
   });
 
   const quickEnrollMutation = useMutation({
-    mutationFn: async (data: { email: string; firstName: string; lastName: string; classId?: string; creditHours?: number; sendEmail?: boolean }) => {
+    mutationFn: async (data: { email: string; firstName: string; lastName: string; classId?: string; creditHours?: number; sendEmail?: boolean; enrollInAllPublic?: boolean }) => {
       return apiRequest("POST", "/api/admin/quick-enroll", {
         ...data,
-        classId: data.classId || undefined,
+        classId: data.enrollInAllPublic ? undefined : (data.classId || undefined),
         creditHours: data.creditHours || undefined,
+        enrollInAllPublic: data.enrollInAllPublic || false,
       });
     },
     onSuccess: (result: any) => {
@@ -1660,7 +1662,7 @@ function UsersTab() {
         description: result.message || "Quick enroll completed successfully" 
       });
       setShowQuickEnroll(false);
-      setQuickEnrollForm({ email: "", firstName: "", lastName: "", classId: "", creditHours: 0, sendEmail: true });
+      setQuickEnrollForm({ email: "", firstName: "", lastName: "", classId: "", creditHours: 0, sendEmail: true, enrollInAllPublic: true });
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to quick enroll", variant: "destructive" });
@@ -1679,6 +1681,7 @@ function UsersTab() {
       classId: quickEnrollForm.classId || undefined,
       creditHours: quickEnrollForm.creditHours || undefined,
       sendEmail: quickEnrollForm.sendEmail,
+      enrollInAllPublic: quickEnrollForm.enrollInAllPublic,
     });
   };
 
@@ -2202,26 +2205,40 @@ function UsersTab() {
                 />
               </div>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Enroll in Class (optional)</label>
-              <Select 
-                value={quickEnrollForm.classId} 
-                onValueChange={(value) => setQuickEnrollForm({ ...quickEnrollForm, classId: value })}
-              >
-                <SelectTrigger data-testid="select-quick-enroll-class">
-                  <SelectValue placeholder="Self-directed (no class)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Self-directed (no class)</SelectItem>
-                  {classesData?.classes?.map((cls) => (
-                    <SelectItem key={cls.id} value={cls.id}>
-                      {cls.name} ({cls.language})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={quickEnrollForm.enrollInAllPublic}
+                  onCheckedChange={(checked) => setQuickEnrollForm({ ...quickEnrollForm, enrollInAllPublic: checked, classId: "" })}
+                  data-testid="switch-quick-enroll-all-public"
+                />
+                <label className="text-sm font-medium">Enroll in All Public Classes</label>
+              </div>
+              {!quickEnrollForm.enrollInAllPublic && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Or select a specific class</label>
+                  <Select 
+                    value={quickEnrollForm.classId} 
+                    onValueChange={(value) => setQuickEnrollForm({ ...quickEnrollForm, classId: value })}
+                  >
+                    <SelectTrigger data-testid="select-quick-enroll-class">
+                      <SelectValue placeholder="Self-directed (no class)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Self-directed (no class)</SelectItem>
+                      {classesData?.classes?.map((cls) => (
+                        <SelectItem key={cls.id} value={cls.id}>
+                          {cls.name} ({cls.language})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">
-                Without a class, credits allow self-directed learning in any language
+                {quickEnrollForm.enrollInAllPublic 
+                  ? "User will be enrolled in all HolaHola public classes" 
+                  : "Without a class, credits allow self-directed learning in any language"}
               </p>
             </div>
             <div className="space-y-2">
@@ -2248,7 +2265,7 @@ function UsersTab() {
             </div>
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setQuickEnrollForm({ email: "", firstName: "", lastName: "", classId: "", creditHours: 0, sendEmail: true })}>
+            <AlertDialogCancel onClick={() => setQuickEnrollForm({ email: "", firstName: "", lastName: "", classId: "", creditHours: 0, sendEmail: true, enrollInAllPublic: true })}>
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction

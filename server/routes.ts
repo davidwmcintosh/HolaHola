@@ -10273,7 +10273,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         return res.status(403).json({ error: "Admin or developer access required" });
       }
       
-      const { email, firstName, lastName, classId, creditHours, sendEmail = true } = req.body;
+      const { email, firstName, lastName, classId, creditHours, sendEmail = true, enrollInAllPublic = false } = req.body;
       
       // Validate required fields
       if (!email) {
@@ -10286,13 +10286,23 @@ Return ONLY the ${targetLanguage} phrase:`;
         return res.status(400).json({ error: "A user with this email already exists" });
       }
       
-      // Validate classId if provided
+      // Validate classId if provided (only used if not enrolling in all public)
       let teacherClass = null;
-      if (classId) {
+      if (classId && !enrollInAllPublic) {
         teacherClass = await storage.getClass(classId);
         if (!teacherClass) {
           return res.status(400).json({ error: "Class not found" });
         }
+      }
+      
+      // Get all public classes if enrollInAllPublic is true
+      let publicClasses: any[] = [];
+      if (enrollInAllPublic) {
+        const allClasses = await db.select()
+          .from(teacherClasses)
+          .where(eq(teacherClasses.isPublicCatalogue, true));
+        publicClasses = allClasses;
+        console.log(`[Quick Enroll] Found ${publicClasses.length} public classes for auto-enrollment`);
       }
       
       // 1. Create user as test account with pending auth
@@ -10306,13 +10316,27 @@ Return ONLY the ${targetLanguage} phrase:`;
       });
       
       let enrollmentResult = null;
+      let enrolledClassCount = 0;
       let creditsGranted = false;
       let emailSent = false;
       let emailError = null;
       
-      // 2. Optionally enroll in class (already validated above)
-      if (teacherClass) {
+      // 2. Enroll in classes
+      if (enrollInAllPublic && publicClasses.length > 0) {
+        // Enroll in all public classes
+        for (const cls of publicClasses) {
+          try {
+            await storage.enrollStudent(cls.id, newUser.id);
+            enrolledClassCount++;
+          } catch (err: any) {
+            console.warn(`[Quick Enroll] Failed to enroll in class ${cls.name}: ${err.message}`);
+          }
+        }
+        console.log(`[Quick Enroll] Enrolled ${email} in ${enrolledClassCount}/${publicClasses.length} public classes`);
+      } else if (teacherClass) {
+        // Enroll in single selected class
         enrollmentResult = await storage.enrollStudent(classId, newUser.id);
+        enrolledClassCount = 1;
         console.log(`[Quick Enroll] Enrolled ${email} in class ${teacherClass.name}`);
       }
       
@@ -10387,23 +10411,33 @@ Return ONLY the ${targetLanguage} phrase:`;
           classId, 
           creditHours,
           emailSent,
-          enrolled: !!enrollmentResult,
+          enrolledClassCount,
+          enrollInAllPublic,
           syncedToProd,
         },
         ipAddress: req.ip,
         userAgent: req.get('user-agent'),
       });
       
+      // Build enrollment message
+      let enrollmentMessage = '';
+      if (enrollInAllPublic && enrolledClassCount > 0) {
+        enrollmentMessage = ` and enrolled in ${enrolledClassCount} public classes`;
+      } else if (enrollmentResult) {
+        enrollmentMessage = ' and enrolled in class';
+      }
+      
       res.status(201).json({
         success: true,
         user: newUser,
         enrollment: enrollmentResult,
+        enrolledClassCount,
         creditsGranted,
         emailSent,
         emailError,
         syncedToProd,
         syncError,
-        message: `Created test user ${email}${enrollmentResult ? ' and enrolled in class' : ''}${creditsGranted ? ` with ${creditHours} hours` : ''}${syncedToProd ? ' (synced to prod)' : syncError ? ` (sync failed: ${syncError})` : ''}${emailSent ? ' - invitation sent' : emailError ? ` (email failed: ${emailError})` : ''}`,
+        message: `Created test user ${email}${enrollmentMessage}${creditsGranted ? ` with ${creditHours} hours` : ''}${syncedToProd ? ' (synced to prod)' : syncError ? ` (sync failed: ${syncError})` : ''}${emailSent ? ' - invitation sent' : emailError ? ` (email failed: ${emailError})` : ''}`,
       });
     } catch (error: any) {
       console.error('Error in quick enroll:', error);
