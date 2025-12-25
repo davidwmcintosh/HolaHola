@@ -10856,6 +10856,23 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  // Get local stats for comparison
+  app.get("/api/admin/sync/local-stats", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const [userStats] = await db.select({ count: sql<number>`count(*)` }).from(users);
+      const [snapshotStats] = await db.select({ count: sql<number>`count(*)` }).from(hiveSnapshots);
+      const [voiceStats] = await db.select({ count: sql<number>`count(*)` }).from(tutorVoices);
+      res.json({
+        users: Number(userStats.count),
+        hiveSnapshots: Number(snapshotStats.count),
+        tutorVoices: Number(voiceStats.count),
+      });
+    } catch (error: any) {
+      console.error('[Admin Sync Local Stats] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // Get sync run history
   app.get("/api/admin/sync/history", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {

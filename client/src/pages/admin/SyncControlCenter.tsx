@@ -62,8 +62,15 @@ interface PeerStats {
     hiveSnapshots: number;
     collaborationMessages: number;
     users: number;
+    tutorVoices: number;
   };
   queriedAt: string;
+}
+
+interface LocalStats {
+  users: number;
+  hiveSnapshots: number;
+  tutorVoices: number;
 }
 
 function formatDuration(ms?: number): string {
@@ -129,6 +136,10 @@ export default function SyncControlCenter() {
   const { data: peerStats, isLoading: peerStatsLoading, refetch: refetchPeerStats } = useQuery<PeerStats>({
     queryKey: ["/api/admin/sync/peer-stats"],
     retry: false,
+  });
+
+  const { data: localStats, isLoading: localStatsLoading, refetch: refetchLocalStats } = useQuery<LocalStats>({
+    queryKey: ["/api/admin/sync/local-stats"],
   });
 
   const pushMutation = useMutation({
@@ -203,7 +214,7 @@ export default function SyncControlCenter() {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await Promise.all([refetchStatus(), refetchHistory(), refetchPeerStats()]);
+    await Promise.all([refetchStatus(), refetchHistory(), refetchPeerStats(), refetchLocalStats()]);
     setIsRefreshing(false);
   };
 
@@ -272,7 +283,7 @@ export default function SyncControlCenter() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between mb-3">
                       <Badge variant="outline" className="text-lg px-3 py-1">
                         {currentEnv.toUpperCase()}
                       </Badge>
@@ -280,6 +291,14 @@ export default function SyncControlCenter() {
                         <StatusBadge status={activeSyncRun.status} />
                       )}
                     </div>
+                    {localStatsLoading ? (
+                      <Skeleton className="h-4 w-32" />
+                    ) : localStats ? (
+                      <div className="text-sm text-muted-foreground">
+                        <p>{localStats.users} users, {localStats.hiveSnapshots} snapshots</p>
+                        <p>{localStats.tutorVoices} voices</p>
+                      </div>
+                    ) : null}
                     {activeSyncRun?.status === 'running' && (
                       <div className="mt-3 text-sm text-muted-foreground">
                         <p>Active: {activeSyncRun.direction} sync</p>
