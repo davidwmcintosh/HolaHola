@@ -423,9 +423,9 @@ export default function SyncControlCenter() {
                         </span>
                       </div>
                       <div className="flex gap-4 text-xs text-muted-foreground">
-                        <span>Local: <code className="bg-muted px-1 rounded">{capabilities.local.version.split('-').slice(-2).join('-')}</code></span>
+                        <span>Local: <code className="bg-muted px-1 rounded">{capabilities.local.version?.match(/v\d+/)?.[0] || capabilities.local.version?.split('-').slice(-2).join('-') || 'unknown'}</code></span>
                         {capabilities.peer && (
-                          <span>Peer: <code className="bg-muted px-1 rounded">{capabilities.peer.version.split('-').slice(-2).join('-')}</code></span>
+                          <span>Peer: <code className="bg-muted px-1 rounded">{capabilities.peer.version?.match(/v\d+/)?.[0] || capabilities.peer.version?.split('-').slice(-2).join('-') || 'unknown'}</code></span>
                         )}
                       </div>
                     </div>
