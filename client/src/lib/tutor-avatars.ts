@@ -184,19 +184,20 @@ export function getTutorAvatarSet(
   return gender === 'male' ? maleAvatars[normalizedLanguage] : femaleAvatars[normalizedLanguage];
 }
 
-// Tutor Name Directory - The official names for our tutor characters
-// These are the actual tutor personalities, independent of which TTS voice is used
-// Use getTutorName() to get the proper display name for UI elements like "Call Daniela"
+// Tutor Name Directory - Fallback names for UI elements when database isn't available
+// These MUST match the first part of voice_name entries in the tutor_voices database table
+// The primary source of truth for tutor names is the database (dynamic)
+// Use getTutorName() for frontend display when backend data isn't yet loaded
 const tutorNames: Record<SupportedLanguage, { male: string; female: string }> = {
-  spanish: { male: 'Marco', female: 'Daniela' },
+  spanish: { male: 'Agustin', female: 'Daniela' },
   french: { male: 'Vincent', female: 'Juliette' },
-  german: { male: 'Lukas', female: 'Sophia' },
-  italian: { male: 'Luca', female: 'Sofia' },
-  portuguese: { male: 'Miguel', female: 'Camila' },
-  chinese: { male: 'Wei', female: 'Mei' },
-  japanese: { male: 'Kenji', female: 'Sakura' },
-  korean: { male: 'Minho', female: 'Yuna' },
-  english: { male: 'James', female: 'Emma' },
+  german: { male: 'Lukas', female: 'Alina' },
+  italian: { male: 'Luca', female: 'Liv' },
+  portuguese: { male: 'Camilo', female: 'Isabel' },
+  chinese: { male: 'Tao', female: 'Hua' },
+  japanese: { male: 'Daisuke', female: 'Sayuri' },
+  korean: { male: 'Minho', female: 'Jihyun' },
+  english: { male: 'Blake', female: 'Cindy' },
 };
 
 // Get the tutor's display name for a given language and gender

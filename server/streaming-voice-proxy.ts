@@ -249,7 +249,7 @@ export function setupStreamingVoiceProxy(server: Server) {
               
               if (matchingVoice?.voiceId) {
                 voiceId = matchingVoice.voiceId;
-                // Extract tutor name from voice name (e.g., "Sayuri - Peppy Colleague" -> "Sayuri")
+                // Extract tutor name from voice name (e.g., "Agustin - Clear Storyteller" -> "Agustin")
                 const voiceNameParts = matchingVoice.voiceName?.split(/\s*[-–]\s*/) || [];
                 if (voiceNameParts[0]?.trim()) {
                   tutorName = voiceNameParts[0].trim();

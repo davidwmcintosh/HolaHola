@@ -2094,7 +2094,7 @@ Remember: David may reference things discussed in these recent text chats.
             );
           
             if (matchingVoice) {
-              // Extract tutor name from voice_name (e.g., "Sayuri - Peppy Colleague" → "Sayuri")
+              // Extract tutor name from voice_name (e.g., "Agustin - Clear Storyteller" → "Agustin")
               const voiceNameParts = matchingVoice.voiceName?.split(/\s*[-–]\s*/) || [];
               tutorName = voiceNameParts[0]?.trim();
               

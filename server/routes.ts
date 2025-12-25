@@ -3818,6 +3818,7 @@ Return a JSON array of suggestions with this format:
           const matchingVoice = allVoices.find(
             (v: any) => v.language?.toLowerCase() === voiceLanguage &&
                         v.gender?.toLowerCase() === tutorGenderForPrompt &&
+                        v.role === 'tutor' &&
                         v.isActive
           );
           if (matchingVoice?.voiceName) {
@@ -4601,6 +4602,7 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
         const matchingVoice = allVoices.find(
           (v: any) => v.language?.toLowerCase() === textVoiceLanguage &&
                       v.gender?.toLowerCase() === textTutorGender &&
+                      v.role === 'tutor' &&
                       v.isActive
         );
         if (matchingVoice?.voiceName) {
