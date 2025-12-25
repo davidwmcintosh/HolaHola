@@ -11174,11 +11174,62 @@ Return ONLY the ${targetLanguage} phrase:`;
   app.get("/api/admin/sync/history", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 20;
-      const runs = await db.select()
-        .from(syncRuns)
-        .orderBy(desc(syncRuns.startedAt))
-        .limit(limit);
-      res.json({ syncRuns: runs });
+      
+      // Try full query first, fall back to minimal query if columns missing
+      let runs;
+      try {
+        runs = await db.execute(sql`
+          SELECT 
+            id, direction, peer_url, source_environment, target_environment,
+            status, error_message, triggered_by, duration_ms,
+            started_at, completed_at,
+            COALESCE(best_practices_count, 0) + COALESCE(idiom_count, 0) + 
+            COALESCE(nuance_count, 0) + COALESCE(error_pattern_count, 0) + 
+            COALESCE(dialect_count, 0) + COALESCE(bridge_count, 0) + 
+            COALESCE(tool_count, 0) + COALESCE(procedure_count, 0) + 
+            COALESCE(principle_count, 0) + COALESCE(pattern_count, 0) + 
+            COALESCE(subtlety_count, 0) + COALESCE(emotional_count, 0) + 
+            COALESCE(creativity_count, 0) + COALESCE(suggestion_count, 0) + 
+            COALESCE(trigger_count, 0) + COALESCE(action_count, 0) + 
+            COALESCE(observation_count, 0) + COALESCE(alert_count, 0) +
+            COALESCE(north_star_principle_count, 0) + COALESCE(north_star_understanding_count, 0) +
+            COALESCE(north_star_example_count, 0) as records_synced
+          FROM sync_runs
+          ORDER BY started_at DESC
+          LIMIT ${limit}
+        `);
+      } catch (fullQueryError) {
+        // Fallback to minimal query if some columns don't exist
+        console.warn('[Admin Sync History] Full query failed, using minimal query:', fullQueryError);
+        runs = await db.execute(sql`
+          SELECT 
+            id, direction, peer_url, source_environment, target_environment,
+            status, error_message, triggered_by, duration_ms,
+            started_at, completed_at,
+            0 as records_synced
+          FROM sync_runs
+          ORDER BY started_at DESC
+          LIMIT ${limit}
+        `);
+      }
+      
+      // Transform snake_case to camelCase for frontend
+      const syncRuns = runs.rows.map((row: any) => ({
+        id: row.id,
+        direction: row.direction,
+        peerUrl: row.peer_url,
+        sourceEnvironment: row.source_environment,
+        targetEnvironment: row.target_environment,
+        status: row.status,
+        errorMessage: row.error_message,
+        triggeredBy: row.triggered_by,
+        durationMs: row.duration_ms,
+        startedAt: row.started_at,
+        completedAt: row.completed_at,
+        recordsSynced: Number(row.records_synced) || 0
+      }));
+      
+      res.json({ syncRuns });
     } catch (error: any) {
       console.error('[Admin Sync History] Error:', error);
       res.status(500).json({ error: error.message });
