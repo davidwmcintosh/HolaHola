@@ -37,6 +37,13 @@ Azure Pronunciation Assessment is implemented for post-session batch analysis to
 
 A Dev-Prod Sync System is in place, synchronizing data in batches (neural-core, advanced-intel-a, advanced-intel-b, express-lane, hive-snapshots, daniela-memories, product-config) using HMAC signatures for authentication. The v17 capability negotiation architecture enables graceful version mismatch handling: environments exchange version/batch support info before sync, unknown data types are logged but don't break sync (soft-fail), and the Sync Control Center UI displays version compatibility status with deploy+sync workflow guidance. The paginated architecture handles large datasets (500 observations/page) within Replit's 60s gateway timeout.
 
+**v19 Bidirectional Sync** adds prod→dev pull capability for beta testing analytics:
+- **Push Batches**: neural-core, advanced-intel-a/b, express-lane, hive-snapshots, daniela-memories, product-config (dev→prod)
+- **Pull Batches**: beta-usage (voice sessions, usage ledger, cost summaries), aggregate-analytics (anonymized usage stats)
+- The Sync Control Center UI now has separate sections for push and pull batch selection
+- Pull batches are highlighted in blue and can be selectively pulled from production for analysis
+- Aggregate analytics are stored in hiveSnapshots (type: `aggregate_analytics`) for 90-day historical tracking
+
 ## Voice Intelligence System (December 2024)
 Commercial-grade voice analytics service (`server/services/voice-intelligence-service.ts`) providing:
 - **Latency Trend Detection**: Day-over-day comparison (today vs yesterday vs week ago) with improving/stable/degrading/critical classifications

@@ -10764,8 +10764,9 @@ Return ONLY the ${targetLanguage} phrase:`;
     try {
       const triggeredBy = req.authenticatedUser?.email || 'founder';
       const forceResume = req.body.forceResume === true;
-      console.log(`[Admin Sync] Pull triggered by ${triggeredBy}${forceResume ? ' (FORCE RESUME)' : ''}`);
-      const result = await syncBridge.pullFromPeer(triggeredBy, { forceResume });
+      const selectedBatches = Array.isArray(req.body.selectedBatches) ? req.body.selectedBatches : undefined;
+      console.log(`[Admin Sync] Pull triggered by ${triggeredBy}${forceResume ? ' (FORCE RESUME)' : ''}${selectedBatches ? ` (batches: ${selectedBatches.join(', ')})` : ''}`);
+      const result = await syncBridge.pullFromPeer(triggeredBy, { forceResume, selectedBatches });
       res.json(result);
     } catch (error: any) {
       console.error('[Admin Sync Pull] Error:', error);

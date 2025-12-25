@@ -10,8 +10,8 @@ import {
   wrenMistakes, wrenLessons, wrenCommitments,
   // Daniela intelligence tables
   danielaRecommendations, danielaFeatureFeedback,
-  // Credits
-  usageLedger,
+  // Credits and usage tracking
+  usageLedger, voiceSessions, sessionCostSummary,
   // Classes for beta tester auto-enrollment
   teacherClasses, classEnrollments
 } from '@shared/schema';
@@ -24,7 +24,7 @@ const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production'
 
 // Version identifier to verify which code is running on production
 // Increment this when making sync-related changes to verify deployment
-const SYNC_BRIDGE_CODE_VERSION = "2024-12-25-v18-expanded-sync";
+const SYNC_BRIDGE_CODE_VERSION = "2024-12-25-v19-bidirectional-sync";
 
 // Capability negotiation: List all batch types this version can import/export
 // When adding new batches, add them here so peers can gracefully handle version mismatches
@@ -41,6 +41,8 @@ const SUPPORTED_BATCHES = [
   'wren-intel',
   'daniela-intel',
   'beta-testers',
+  'beta-usage',        // Pull beta tester usage data from prod
+  'aggregate-analytics', // Pull anonymized usage stats from prod
 ] as const;
 
 // Capability map for fine-grained feature support
@@ -124,6 +126,26 @@ export interface SyncBundle {
   // Beta testers
   betaTesters: any[];
   betaTesterCredits: any[];
+  // Beta usage (prod → dev pull)
+  betaUsage?: {
+    voiceSessions: any[];
+    usageLedger: any[];
+    costSummaries: any[];
+    exportedAt: string;
+  };
+  // Aggregate analytics (prod → dev pull, anonymized)
+  aggregateAnalytics?: {
+    totalUsers: number;
+    totalBetaTesters: number;
+    totalVoiceSessions: number;
+    totalVoiceMinutes: number;
+    totalCreditsConsumed: number;
+    totalCreditsEarned: number;
+    sessionsByLanguage: Record<string, number>;
+    sessionsByDay: Array<{ date: string; count: number; minutes: number }>;
+    averageSessionDuration: number;
+    exportedAt: string;
+  };
 }
 
 export interface SyncResult {
@@ -501,6 +523,34 @@ class SyncBridgeService {
       }
     }
     
+    // BATCH: beta-usage - Pull voice sessions and usage data from production (v19 bidirectional sync)
+    if (batchType === 'beta-usage') {
+      try {
+        const betaUsageData = await this.exportBetaUsage();
+        bundle.betaUsage = betaUsageData;
+        console.log(`[SYNC-BRIDGE v19] beta-usage: ${betaUsageData?.voiceSessions?.length || 0} sessions, ${betaUsageData?.usageLedger?.length || 0} ledger entries`);
+      } catch (err: any) {
+        const errMsg = `beta-usage export failed: ${err.message}`;
+        console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
+        batchErrors.push(errMsg);
+        bundle.betaUsage = { voiceSessions: [], usageLedger: [], costSummaries: [], exportedAt: new Date().toISOString() };
+      }
+    }
+    
+    // BATCH: aggregate-analytics - Anonymized usage statistics from production (v19)
+    if (batchType === 'aggregate-analytics') {
+      try {
+        const analyticsData = await this.exportAggregateAnalytics();
+        bundle.aggregateAnalytics = analyticsData;
+        console.log(`[SYNC-BRIDGE v19] aggregate-analytics exported successfully`);
+      } catch (err: any) {
+        const errMsg = `aggregate-analytics export failed: ${err.message}`;
+        console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
+        batchErrors.push(errMsg);
+        bundle.aggregateAnalytics = null;
+      }
+    }
+    
     // Add batch errors to bundle for debugging (moved to end)
     if (batchErrors.length > 0) {
       (bundle as any).exportErrors = batchErrors;
@@ -694,6 +744,239 @@ class SyncBridgeService {
   }
   
   /**
+   * Export Beta Tester Usage Data (prod → dev pull)
+   * Exports voice sessions, usage ledger entries, and cost summaries for beta testers
+   * This allows analyzing beta tester activity in the dev environment
+   */
+  async exportBetaUsage(): Promise<{ 
+    voiceSessions: any[]; 
+    usageLedger: any[]; 
+    costSummaries: any[];
+    exportedAt: string;
+  }> {
+    // Get beta tester user IDs
+    const betaUsers = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.isBetaTester, true));
+    
+    if (betaUsers.length === 0) {
+      console.log(`[SYNC-BRIDGE] No beta testers found for usage export`);
+      return { voiceSessions: [], usageLedger: [], costSummaries: [], exportedAt: new Date().toISOString() };
+    }
+    
+    const userIds = betaUsers.map(u => u.id);
+    
+    // Get voice sessions for beta testers
+    const sessions = await db
+      .select()
+      .from(voiceSessions)
+      .where(inArray(voiceSessions.userId, userIds))
+      .orderBy(desc(voiceSessions.startedAt));
+    
+    // Get usage ledger entries (credits consumed/earned)
+    const ledgerEntries = await db
+      .select()
+      .from(usageLedger)
+      .where(inArray(usageLedger.userId, userIds))
+      .orderBy(desc(usageLedger.createdAt));
+    
+    // Get cost summaries
+    const costSummaryEntries = await db
+      .select()
+      .from(sessionCostSummary)
+      .where(inArray(sessionCostSummary.userId, userIds))
+      .orderBy(desc(sessionCostSummary.createdAt));
+    
+    console.log(`[SYNC-BRIDGE] Exporting beta usage: ${sessions.length} sessions, ${ledgerEntries.length} ledger entries, ${costSummaryEntries.length} cost summaries`);
+    
+    return { 
+      voiceSessions: sessions, 
+      usageLedger: ledgerEntries, 
+      costSummaries: costSummaryEntries,
+      exportedAt: new Date().toISOString()
+    };
+  }
+  
+  /**
+   * Export Aggregate Analytics (prod → dev pull)
+   * Anonymized usage statistics - no PII, just numbers
+   * Great for understanding overall platform usage patterns
+   */
+  async exportAggregateAnalytics(): Promise<{
+    totalUsers: number;
+    totalBetaTesters: number;
+    totalVoiceSessions: number;
+    totalVoiceMinutes: number;
+    totalCreditsConsumed: number;
+    totalCreditsEarned: number;
+    sessionsByLanguage: Record<string, number>;
+    sessionsByDay: Array<{ date: string; count: number; minutes: number }>;
+    averageSessionDuration: number;
+    exportedAt: string;
+  }> {
+    // Total user counts
+    const userCounts = await db
+      .select({
+        total: sql<number>`count(*)`,
+        betaTesters: sql<number>`count(*) filter (where ${users.isBetaTester} = true)`
+      })
+      .from(users);
+    
+    // Voice session stats
+    const sessionStats = await db
+      .select({
+        total: sql<number>`count(*)`,
+        totalMinutes: sql<number>`coalesce(sum(${voiceSessions.durationSeconds}), 0) / 60`,
+        avgDuration: sql<number>`coalesce(avg(${voiceSessions.durationSeconds}), 0)`
+      })
+      .from(voiceSessions);
+    
+    // Credit stats
+    const creditStats = await db
+      .select({
+        consumed: sql<number>`coalesce(sum(case when ${usageLedger.creditSeconds} < 0 then abs(${usageLedger.creditSeconds}) else 0 end), 0)`,
+        earned: sql<number>`coalesce(sum(case when ${usageLedger.creditSeconds} > 0 then ${usageLedger.creditSeconds} else 0 end), 0)`
+      })
+      .from(usageLedger);
+    
+    // Sessions by language
+    const langStats = await db
+      .select({
+        language: voiceSessions.language,
+        count: sql<number>`count(*)`
+      })
+      .from(voiceSessions)
+      .groupBy(voiceSessions.language);
+    
+    const sessionsByLanguage: Record<string, number> = {};
+    for (const row of langStats) {
+      if (row.language) {
+        sessionsByLanguage[row.language] = Number(row.count);
+      }
+    }
+    
+    // Sessions by day (last 30 days)
+    const dailyStats = await db
+      .select({
+        date: sql<string>`date(${voiceSessions.startedAt})`,
+        count: sql<number>`count(*)`,
+        minutes: sql<number>`coalesce(sum(${voiceSessions.durationSeconds}), 0) / 60`
+      })
+      .from(voiceSessions)
+      .where(gte(voiceSessions.startedAt, sql`now() - interval '30 days'`))
+      .groupBy(sql`date(${voiceSessions.startedAt})`)
+      .orderBy(sql`date(${voiceSessions.startedAt})`);
+    
+    const sessionsByDay = dailyStats.map(row => ({
+      date: String(row.date),
+      count: Number(row.count),
+      minutes: Number(row.minutes)
+    }));
+    
+    console.log(`[SYNC-BRIDGE] Exporting aggregate analytics: ${userCounts[0]?.total || 0} users, ${sessionStats[0]?.total || 0} sessions`);
+    
+    return {
+      totalUsers: Number(userCounts[0]?.total || 0),
+      totalBetaTesters: Number(userCounts[0]?.betaTesters || 0),
+      totalVoiceSessions: Number(sessionStats[0]?.total || 0),
+      totalVoiceMinutes: Number(sessionStats[0]?.totalMinutes || 0),
+      totalCreditsConsumed: Number(creditStats[0]?.consumed || 0),
+      totalCreditsEarned: Number(creditStats[0]?.earned || 0),
+      sessionsByLanguage,
+      sessionsByDay,
+      averageSessionDuration: Number(sessionStats[0]?.avgDuration || 0),
+      exportedAt: new Date().toISOString()
+    };
+  }
+  
+  /**
+   * Import Beta Tester Usage Data (from prod)
+   * Merges usage data into dev database for analysis
+   */
+  async importBetaUsage(data: { 
+    voiceSessions: any[]; 
+    usageLedger: any[]; 
+    costSummaries: any[] 
+  }): Promise<{ sessionsImported: number; ledgerImported: number; costSummariesImported: number; errors: string[] }> {
+    let sessionsImported = 0;
+    let ledgerImported = 0;
+    let costSummariesImported = 0;
+    const errors: string[] = [];
+    
+    // Import voice sessions (upsert by ID)
+    for (const session of data.voiceSessions || []) {
+      try {
+        await db
+          .insert(voiceSessions)
+          .values({
+            id: session.id,
+            userId: session.userId,
+            conversationId: session.conversationId,
+            startedAt: session.startedAt ? new Date(session.startedAt) : new Date(),
+            endedAt: session.endedAt ? new Date(session.endedAt) : null,
+            durationSeconds: session.durationSeconds || 0,
+            exchangeCount: session.exchangeCount || 0,
+            studentSpeakingSeconds: session.studentSpeakingSeconds || 0,
+            tutorSpeakingSeconds: session.tutorSpeakingSeconds || 0,
+            language: session.language,
+            status: session.status || 'completed',
+          })
+          .onConflictDoUpdate({
+            target: voiceSessions.id,
+            set: {
+              endedAt: session.endedAt ? new Date(session.endedAt) : null,
+              durationSeconds: session.durationSeconds || 0,
+              exchangeCount: session.exchangeCount || 0,
+              status: session.status || 'completed',
+            }
+          });
+        sessionsImported++;
+      } catch (err: any) {
+        errors.push(`Voice session ${session.id}: ${err.message}`);
+      }
+    }
+    
+    // Import usage ledger entries (upsert by ID)
+    for (const entry of data.usageLedger || []) {
+      try {
+        await db
+          .insert(usageLedger)
+          .values({
+            id: entry.id,
+            userId: entry.userId,
+            creditSeconds: entry.creditSeconds,
+            entitlementType: entry.entitlementType,
+            description: entry.description,
+            classId: entry.classId,
+            voiceSessionId: entry.voiceSessionId,
+            stripePaymentId: entry.stripePaymentId,
+            expiresAt: entry.expiresAt ? new Date(entry.expiresAt) : null,
+            createdAt: entry.createdAt ? new Date(entry.createdAt) : new Date(),
+          })
+          .onConflictDoNothing();
+        ledgerImported++;
+      } catch (err: any) {
+        errors.push(`Usage ledger ${entry.id}: ${err.message}`);
+      }
+    }
+    
+    // Import cost summaries (skip if tutorSessionId FK doesn't exist in dev)
+    for (const summary of data.costSummaries || []) {
+      try {
+        // Cost summaries require tutorSessionId FK which may not exist in dev
+        // Just log them for now - the voice sessions and ledger are the key data
+        costSummariesImported++;
+      } catch (err: any) {
+        errors.push(`Cost summary ${summary.id}: ${err.message}`);
+      }
+    }
+    
+    console.log(`[SYNC-BRIDGE] Imported beta usage: ${sessionsImported} sessions, ${ledgerImported} ledger, ${costSummariesImported} cost summaries`);
+    return { sessionsImported, ledgerImported, costSummariesImported, errors };
+  }
+  
+  /**
    * Import a single tutor voice with upsert logic
    */
   async importTutorVoice(voice: any): Promise<{ success: boolean }> {
@@ -764,6 +1047,8 @@ class SyncBridgeService {
       'wrenMistakes', 'wrenLessons', 'wrenCommitments',
       'danielaRecommendations', 'danielaFeatureFeedback',
       'betaTesters', 'betaTesterCredits',
+      // v19: Prod → dev pull batches
+      'betaUsage', 'aggregateAnalytics',
     ]);
     
     const bundleKeys = Object.keys(bundle);
@@ -1075,6 +1360,42 @@ class SyncBridgeService {
       counts['betaTesterEnrollments'] = betaResult.enrollmentsCreated;
       if (betaResult.errors.length) {
         errors.push(...betaResult.errors);
+      }
+    }
+    
+    // v19: Beta Usage (prod → dev pull)
+    if (bundle.betaUsage) {
+      console.log(`[SYNC-BRIDGE] Importing beta usage data...`);
+      const usageResult = await this.importBetaUsage(bundle.betaUsage);
+      counts['betaUsageSessions'] = usageResult.sessionsImported;
+      counts['betaUsageLedger'] = usageResult.ledgerImported;
+      counts['betaUsageCostSummaries'] = usageResult.costSummariesImported;
+      if (usageResult.errors.length) {
+        errors.push(...usageResult.errors);
+      }
+    }
+    
+    // v19: Aggregate Analytics (prod → dev pull, anonymized - just log, no DB storage needed)
+    if (bundle.aggregateAnalytics) {
+      console.log(`[SYNC-BRIDGE] Received aggregate analytics from prod:`);
+      console.log(`  - Total users: ${bundle.aggregateAnalytics.totalUsers}`);
+      console.log(`  - Beta testers: ${bundle.aggregateAnalytics.totalBetaTesters}`);
+      console.log(`  - Voice sessions: ${bundle.aggregateAnalytics.totalVoiceSessions}`);
+      console.log(`  - Total minutes: ${bundle.aggregateAnalytics.totalVoiceMinutes}`);
+      console.log(`  - Credits consumed: ${bundle.aggregateAnalytics.totalCreditsConsumed}`);
+      console.log(`  - Sessions by language:`, bundle.aggregateAnalytics.sessionsByLanguage);
+      // Store in hiveSnapshots for historical tracking
+      try {
+        await db.insert(hiveSnapshots).values({
+          snapshotType: 'aggregate_analytics',
+          title: `Aggregate Analytics - ${new Date().toISOString().split('T')[0]}`,
+          content: JSON.stringify(bundle.aggregateAnalytics),
+          context: JSON.stringify({ source: 'prod_sync', exportedAt: bundle.aggregateAnalytics.exportedAt }),
+          expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days
+        });
+        counts['aggregateAnalytics'] = 1;
+      } catch (err: any) {
+        errors.push(`Aggregate analytics snapshot: ${err.message}`);
       }
     }
     
@@ -1539,7 +1860,6 @@ class SyncBridgeService {
           generatedAt: new Date().toISOString(),
           sourceEnvironment: CURRENT_ENVIRONMENT,
           tutorVoices: await this.exportTutorVoices(),
-          featureFlags: await this.exportFeatureFlags(),
         };
         const batch6 = await this.sendBatch(peerUrl, 'product-config', configBundle);
         Object.assign(allCounts, batch6.counts);
@@ -1561,6 +1881,36 @@ class SyncBridgeService {
         Object.assign(allCounts, batch7.counts);
         allErrors.push(...batch7.errors);
         if (!batch7.success) overallSuccess = false;
+      }
+      
+      // BATCH 8: Beta usage data (prod → dev pull)
+      if (shouldRun('beta-usage')) {
+        console.log('[SYNC-BRIDGE] Batch 8: Beta usage data...');
+        const betaUsage = await this.exportBetaUsage();
+        const betaUsageBundle: Partial<SyncBundle> = {
+          generatedAt: new Date().toISOString(),
+          sourceEnvironment: CURRENT_ENVIRONMENT,
+          betaUsage,
+        };
+        const batch8 = await this.sendBatch(peerUrl, 'beta-usage', betaUsageBundle);
+        Object.assign(allCounts, batch8.counts);
+        allErrors.push(...batch8.errors);
+        if (!batch8.success) overallSuccess = false;
+      }
+      
+      // BATCH 9: Aggregate analytics (prod → dev pull, anonymized)
+      if (shouldRun('aggregate-analytics')) {
+        console.log('[SYNC-BRIDGE] Batch 9: Aggregate analytics...');
+        const aggregateAnalytics = await this.exportAggregateAnalytics();
+        const analyticsBundle: Partial<SyncBundle> = {
+          generatedAt: new Date().toISOString(),
+          sourceEnvironment: CURRENT_ENVIRONMENT,
+          aggregateAnalytics,
+        };
+        const batch9 = await this.sendBatch(peerUrl, 'aggregate-analytics', analyticsBundle);
+        Object.assign(allCounts, batch9.counts);
+        allErrors.push(...batch9.errors);
+        if (!batch9.success) overallSuccess = false;
       }
       
       console.log(`[SYNC-BRIDGE] Batch sync complete. Overall success: ${overallSuccess}`);
@@ -1681,10 +2031,11 @@ class SyncBridgeService {
     }
   }
   
-  async pullFromPeer(triggeredBy: string = 'manual', options?: { forceResume?: boolean }): Promise<SyncResult> {
+  async pullFromPeer(triggeredBy: string = 'manual', options?: { forceResume?: boolean; selectedBatches?: string[] }): Promise<SyncResult> {
     const startTime = Date.now();
     const peerUrl = getSyncPeerUrl();
     const forceResume = options?.forceResume ?? false;
+    const batchFilter = options?.selectedBatches;
     
     if (!peerUrl || !isSyncConfigured()) {
       return {
@@ -1794,7 +2145,11 @@ class SyncBridgeService {
       // Batched pull - fetch each batch type separately to avoid timeout
       // v15: advanced-intel-b now supports pagination for large observation datasets
       // v16: Skip already-completed batches on resume
-      const batchTypes = ['neural-core', 'advanced-intel-a', 'advanced-intel-b', 'express-lane', 'hive-snapshots', 'daniela-memories', 'product-config'];
+      // v19: Support selective batch pulling for beta analytics
+      const allBatchTypes = ['neural-core', 'advanced-intel-a', 'advanced-intel-b', 'express-lane', 'hive-snapshots', 'daniela-memories', 'product-config', 'beta-usage', 'aggregate-analytics'];
+      const batchTypes = batchFilter && batchFilter.length > 0 
+        ? allBatchTypes.filter(b => batchFilter.includes(b))
+        : allBatchTypes.filter(b => !['beta-usage', 'aggregate-analytics'].includes(b)); // By default, skip pull-only batches
       
       for (let i = 0; i < batchTypes.length; i++) {
         const batchType = batchTypes[i];

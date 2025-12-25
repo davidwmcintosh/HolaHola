@@ -142,25 +142,40 @@ function DirectionBadge({ direction }: { direction: string }) {
   );
 }
 
-// Available sync batch types for selective sync
-const SYNC_BATCHES = [
+// Available sync batch types for selective sync (dev → prod push)
+const PUSH_BATCHES = [
   { id: 'neural-core', label: 'Neural Core', description: 'Best practices, idioms, nuances' },
   { id: 'advanced-intel-a', label: 'Advanced Intel A', description: 'Learning insights, Daniela suggestions' },
   { id: 'advanced-intel-b', label: 'Advanced Intel B', description: 'TriLane, North Star' },
   { id: 'express-lane', label: 'Express Lane', description: 'Founder collaboration' },
   { id: 'hive-snapshots', label: 'Hive Snapshots', description: 'Context snapshots' },
   { id: 'daniela-memories', label: 'Daniela Memories', description: 'Daniela growth memories' },
-  { id: 'product-config', label: 'Product Config', description: 'Tutor voices, flags' },
+  { id: 'product-config', label: 'Product Config', description: 'Tutor voices' },
   { id: 'beta-testers', label: 'Beta Testers', description: 'Beta users + credits' },
+];
+
+// Available sync batch types for pulling from prod (prod → dev)
+const PULL_BATCHES = [
+  { id: 'beta-usage', label: 'Beta Usage', description: 'Voice sessions, credits consumed' },
+  { id: 'aggregate-analytics', label: 'Analytics', description: 'Anonymized usage stats' },
 ];
 
 export default function SyncControlCenter() {
   const { toast } = useToast();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedBatches, setSelectedBatches] = useState<string[]>([]);
+  const [selectedPullBatches, setSelectedPullBatches] = useState<string[]>([]);
 
   const toggleBatch = (batchId: string) => {
     setSelectedBatches(prev => 
+      prev.includes(batchId) 
+        ? prev.filter(b => b !== batchId)
+        : [...prev, batchId]
+    );
+  };
+
+  const togglePullBatch = (batchId: string) => {
+    setSelectedPullBatches(prev => 
       prev.includes(batchId) 
         ? prev.filter(b => b !== batchId)
         : [...prev, batchId]
@@ -207,12 +222,16 @@ export default function SyncControlCenter() {
   });
 
   const pullMutation = useMutation({
-    mutationFn: (forceResume: boolean = false) => 
-      apiRequest("POST", "/api/admin/sync/pull", { forceResume }),
+    mutationFn: ({ forceResume = false, batches }: { forceResume?: boolean; batches?: string[] }) => 
+      apiRequest("POST", "/api/admin/sync/pull", { 
+        forceResume,
+        selectedBatches: batches && batches.length > 0 ? batches : undefined 
+      }),
     onSuccess: () => {
       toast({ title: "Pull Started", description: "Pulling data from peer environment..." });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/sync/status"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/sync/history"] });
+      setSelectedPullBatches([]); // Clear selection after pull
     },
     onError: (err: any) => {
       toast({ title: "Pull Failed", description: err.message, variant: "destructive" });
@@ -451,7 +470,7 @@ export default function SyncControlCenter() {
                       Select specific batches to push, or leave all unchecked to push everything
                     </p>
                     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                      {SYNC_BATCHES.map(batch => (
+                      {PUSH_BATCHES.map(batch => (
                         <label
                           key={batch.id}
                           className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-colors ${
@@ -487,6 +506,52 @@ export default function SyncControlCenter() {
                       </div>
                     )}
                   </div>
+
+                  <div className="mb-4 p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                    <p className="text-sm font-medium mb-2 flex items-center gap-2">
+                      <ArrowDownLeft className="h-4 w-4" />
+                      Pull from Production (Beta Analytics)
+                    </p>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Pull usage data and analytics from production back to dev for analysis
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {PULL_BATCHES.map(batch => (
+                        <label
+                          key={batch.id}
+                          className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-colors ${
+                            selectedPullBatches.includes(batch.id)
+                              ? 'bg-blue-500/20 border-blue-500'
+                              : 'hover:bg-muted'
+                          }`}
+                          data-testid={`checkbox-pull-${batch.id}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedPullBatches.includes(batch.id)}
+                            onChange={() => togglePullBatch(batch.id)}
+                            className="rounded"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{batch.label}</p>
+                            <p className="text-xs text-muted-foreground truncate">{batch.description}</p>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                    {selectedPullBatches.length > 0 && (
+                      <div className="mt-2 flex items-center gap-2">
+                        <Badge className="bg-blue-500">{selectedPullBatches.length} selected</Badge>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => setSelectedPullBatches([])}
+                        >
+                          Clear
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                   
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <Button
@@ -505,7 +570,7 @@ export default function SyncControlCenter() {
                     </Button>
 
                     <Button
-                      onClick={() => pullMutation.mutate(false)}
+                      onClick={() => pullMutation.mutate({ batches: selectedPullBatches })}
                       disabled={isAnySyncRunning}
                       variant="secondary"
                       className="h-auto py-4 flex-col gap-2"
@@ -513,7 +578,11 @@ export default function SyncControlCenter() {
                     >
                       <ArrowDownLeft className="h-6 w-6" />
                       <span>Pull from {peerEnv}</span>
-                      <span className="text-xs opacity-70">Get remote data</span>
+                      <span className="text-xs opacity-70">
+                        {selectedPullBatches.length > 0 
+                          ? `${selectedPullBatches.length} batch${selectedPullBatches.length > 1 ? 'es' : ''}`
+                          : 'All data'}
+                      </span>
                     </Button>
 
                     <Button

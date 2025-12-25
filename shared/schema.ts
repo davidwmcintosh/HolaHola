@@ -2636,7 +2636,8 @@ export const hiveSnapshotTypeEnum = pgEnum("hive_snapshot_type", [
   'humor_shared',         // Jokes, funny moments, lighthearted exchanges
   'voice_diagnostic',     // Voice pipeline diagnostic events for pattern analysis
   'life_context',         // Personal facts about student's life (synced from learner_personal_facts)
-  'voice_baselines'       // Voice intelligence historical baselines for threshold tuning
+  'voice_baselines',      // Voice intelligence historical baselines for threshold tuning
+  'aggregate_analytics'   // Anonymized usage analytics from production
 ]);
 
 // Hive Snapshots - Captures moments of teaching context for Daniela's awareness
@@ -2677,7 +2678,7 @@ export const insertHiveSnapshotSchema = createInsertSchema(hiveSnapshots).omit({
 });
 export type InsertHiveSnapshot = z.infer<typeof insertHiveSnapshotSchema>;
 export type HiveSnapshot = typeof hiveSnapshots.$inferSelect;
-export type HiveSnapshotType = 'teaching_moment' | 'breakthrough' | 'struggle_pattern' | 'beacon_context' | 'session_summary' | 'plateau_alert' | 'relationship_moment' | 'role_reversal' | 'humor_shared' | 'voice_diagnostic' | 'life_context' | 'voice_baselines';
+export type HiveSnapshotType = 'teaching_moment' | 'breakthrough' | 'struggle_pattern' | 'beacon_context' | 'session_summary' | 'plateau_alert' | 'relationship_moment' | 'role_reversal' | 'humor_shared' | 'voice_diagnostic' | 'life_context' | 'voice_baselines' | 'aggregate_analytics';
 
 // ===== Daniela's Growth Memory System =====
 // Two-tier memory architecture:
