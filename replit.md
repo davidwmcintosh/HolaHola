@@ -35,7 +35,7 @@ The Daniela Content Growth System enables autonomous pedagogical content creatio
 
 The Voice Intelligence System (`server/services/voice-intelligence-service.ts`) provides commercial-grade voice analytics, including latency trend detection, time-of-day patterns, per-language metrics, student correlation, dynamic thresholds, cross-environment comparison, and production-priority alerting, with historical baselines persisted to `hiveSnapshots` and Wren integration for critical alerts.
 
-The Tutor Naming Architecture defines 36 total tutors: 18 main tutors (dynamic from database, Cartesia Sonic-3 voice stack, names parsed from `voice_name` field in `tutor_voices` table) and 18 assistants (static from config, Google Cloud TTS). Canonical database names are defined for 9 languages (Spanish, French, German, Italian, Portuguese, Mandarin, Japanese, Korean, English). Key implementation rules include filtering `role='tutor'`, matching frontend fallbacks, language normalization, and using Spanish (Agustin/Daniela) as default fallbacks.
+The Tutor Naming Architecture defines 36 total tutors: 18 main tutors (dynamic from database, Cartesia Sonic-3) and 18 assistants (seeded from config, Google Cloud TTS). **Main tutor names are fully flexible** - change them in the database `voice_name` field and they propagate automatically. **CRITICAL SAFEGUARD**: The `role` field separates voice stacks - all voice lookups MUST filter `role='tutor'` to prevent Google assistant voices from appearing as main tutors. This filtering is enforced in `unified-ws-handler.ts` and `routes.ts`.
 
 ## External Dependencies
 -   Stripe: Payment processing and subscription management.
