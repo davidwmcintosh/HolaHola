@@ -3569,6 +3569,45 @@ class SyncBridgeService {
     console.log(`[SYNC-BRIDGE] Beta testers: ${usersImported} users, ${creditsImported} credits, ${enrollmentsCreated} enrollments`);
     return { usersImported, creditsImported, enrollmentsCreated, errors };
   }
+
+  /**
+   * Clean up orphaned sync runs immediately on server startup.
+   * Unlike cleanupOrphanedSyncRuns (which waits 2 hours), this marks
+   * ALL "running" syncs as failed since a server restart means they're dead.
+   */
+  async cleanupOnStartup(): Promise<number> {
+    const orphanedRuns = await db.select()
+      .from(syncRuns)
+      .where(eq(syncRuns.status, 'running'));
+    
+    if (orphanedRuns.length === 0) {
+      console.log(`[SYNC-BRIDGE] Startup cleanup: no orphaned sync runs found`);
+      return 0;
+    }
+    
+    let cleaned = 0;
+    for (const run of orphanedRuns) {
+      const runAge = Date.now() - new Date(run.startedAt).getTime();
+      await db.update(syncRuns)
+        .set({
+          status: 'failed',
+          errorMessage: 'Interrupted by server restart - sync was still running when server restarted',
+          completedAt: new Date(),
+          durationMs: runAge,
+        })
+        .where(eq(syncRuns.id, run.id));
+      cleaned++;
+      console.log(`[SYNC-BRIDGE] Startup cleanup: marked orphaned sync ${run.id} (${run.direction}) as failed`);
+    }
+    
+    console.log(`[SYNC-BRIDGE] Startup cleanup complete: ${cleaned} orphaned sync runs cleaned`);
+    return cleaned;
+  }
 }
 
 export const syncBridge = new SyncBridgeService();
+
+// Run startup cleanup immediately
+syncBridge.cleanupOnStartup().catch(err => {
+  console.error(`[SYNC-BRIDGE] Startup cleanup failed:`, err.message);
+});
