@@ -562,6 +562,14 @@ export function getNextSyncTime(): Date {
 }
 
 export function startSyncScheduler(): void {
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  if (!isProduction) {
+    console.log('[SYNC-SCHEDULER] Automated sync scheduler DISABLED in development');
+    console.log('[SYNC-SCHEDULER] Use the Sync Control Center for manual syncs in dev');
+    return;
+  }
+  
   console.log('[SYNC-SCHEDULER] Starting sync scheduler:');
   console.log('[SYNC-SCHEDULER]   - Nightly full sync: 4 AM MST / 11 AM UTC (heavy analytics + cross-env sync)');
   console.log('[SYNC-SCHEDULER]   - Incremental sync: every 4 hours (lightweight cross-env only)');
