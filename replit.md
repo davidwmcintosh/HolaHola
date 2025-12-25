@@ -43,6 +43,7 @@ A Dev-Prod Sync System is in place, synchronizing data in batches (neural-core, 
 - The Sync Control Center UI now has separate sections for push and pull batch selection
 - Pull batches are highlighted in blue and can be selectively pulled from production for analysis
 - Aggregate analytics are stored in hiveSnapshots (type: `aggregate_analytics`) for 90-day historical tracking
+- **Expansion Guide**: See `docs/sync-expansion-guide.md` for the complete checklist when adding new sync data types
 
 ## Voice Intelligence System (December 2024)
 Commercial-grade voice analytics service (`server/services/voice-intelligence-service.ts`) providing:
