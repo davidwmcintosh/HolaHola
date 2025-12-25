@@ -73,6 +73,28 @@ interface LocalStats {
   tutorVoices: number;
 }
 
+interface CapabilityComparison {
+  local: {
+    version: string;
+    supportedBatches: string[];
+    features: Record<string, boolean>;
+    environment: string;
+    queriedAt: string;
+  };
+  peer: {
+    version: string;
+    supportedBatches: string[];
+    features: Record<string, boolean>;
+    environment: string;
+    queriedAt: string;
+  } | null;
+  mismatches: {
+    localOnly: string[];
+    peerOnly: string[];
+    versionMatch: boolean;
+  };
+}
+
 function formatDuration(ms?: number): string {
   if (!ms) return '-';
   if (ms < 1000) return `${ms}ms`;
@@ -140,6 +162,11 @@ export default function SyncControlCenter() {
 
   const { data: localStats, isLoading: localStatsLoading, refetch: refetchLocalStats } = useQuery<LocalStats>({
     queryKey: ["/api/admin/sync/local-stats"],
+  });
+
+  const { data: capabilities, isLoading: capabilitiesLoading, refetch: refetchCapabilities } = useQuery<CapabilityComparison>({
+    queryKey: ["/api/admin/sync/capabilities"],
+    retry: false,
   });
 
   const pushMutation = useMutation({
@@ -214,7 +241,7 @@ export default function SyncControlCenter() {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await Promise.all([refetchStatus(), refetchHistory(), refetchPeerStats(), refetchLocalStats()]);
+    await Promise.all([refetchStatus(), refetchHistory(), refetchPeerStats(), refetchLocalStats(), refetchCapabilities()]);
     setIsRefreshing(false);
   };
 
@@ -335,6 +362,52 @@ export default function SyncControlCenter() {
                   </CardContent>
                 </Card>
               </div>
+
+              {/* Version Compatibility Status */}
+              {capabilities && (
+                <Card className={capabilities.mismatches.versionMatch ? "border-green-500/50" : "border-yellow-500/50"}>
+                  <CardContent className="py-3">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        {capabilities.mismatches.versionMatch ? (
+                          <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                        )}
+                        <span className="text-sm font-medium">
+                          {capabilities.mismatches.versionMatch ? "Versions Match" : "Version Mismatch"}
+                        </span>
+                      </div>
+                      <div className="flex gap-4 text-xs text-muted-foreground">
+                        <span>Local: <code className="bg-muted px-1 rounded">{capabilities.local.version.split('-').slice(-2).join('-')}</code></span>
+                        {capabilities.peer && (
+                          <span>Peer: <code className="bg-muted px-1 rounded">{capabilities.peer.version.split('-').slice(-2).join('-')}</code></span>
+                        )}
+                      </div>
+                    </div>
+                    {(capabilities.mismatches.localOnly.length > 0 || capabilities.mismatches.peerOnly.length > 0) && (
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        {capabilities.mismatches.localOnly.length > 0 && (
+                          <p className="text-yellow-600">Local-only batches: {capabilities.mismatches.localOnly.join(', ')}</p>
+                        )}
+                        {capabilities.mismatches.peerOnly.length > 0 && (
+                          <p className="text-blue-600">Peer-only batches: {capabilities.mismatches.peerOnly.join(', ')}</p>
+                        )}
+                      </div>
+                    )}
+                    {!capabilities.mismatches.versionMatch && (
+                      <div className="mt-3 p-2 bg-yellow-500/10 rounded text-xs">
+                        <p className="font-medium text-yellow-700 dark:text-yellow-400">Deploy + Sync Workflow:</p>
+                        <ol className="list-decimal list-inside mt-1 text-muted-foreground space-y-1">
+                          <li>Deploy code changes to peer environment first</li>
+                          <li>Refresh this page to verify versions match</li>
+                          <li>Run sync - both environments will handle all data types</li>
+                        </ol>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
 
               <Card>
                 <CardHeader>

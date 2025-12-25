@@ -10873,6 +10873,17 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  // Get capability comparison between local and peer
+  app.get("/api/admin/sync/capabilities", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const comparison = await syncBridge.compareCapabilities();
+      res.json(comparison);
+    } catch (error: any) {
+      console.error('[Admin Sync Capabilities] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // Get sync run history
   app.get("/api/admin/sync/history", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {
@@ -17122,6 +17133,18 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
       res.json(status);
     } catch (error: any) {
       console.error('[SYNC API] Nightly status error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Peer-accessible: Get sync capabilities for version negotiation
+  // This enables graceful handling of version mismatches between environments
+  app.post("/api/sync/capabilities", validateSyncRequest, async (req: any, res) => {
+    try {
+      const capabilities = syncBridge.getCapabilities();
+      res.json(capabilities);
+    } catch (error: any) {
+      console.error('[SYNC API] Capabilities error:', error);
       res.status(500).json({ error: error.message });
     }
   });

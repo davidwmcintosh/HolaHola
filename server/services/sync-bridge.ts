@@ -9,12 +9,41 @@ const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production'
 
 // Version identifier to verify which code is running on production
 // Increment this when making sync-related changes to verify deployment
-const SYNC_BRIDGE_CODE_VERSION = "2024-12-24-v16-resumable-sync";
+const SYNC_BRIDGE_CODE_VERSION = "2024-12-25-v17-capability-negotiation";
+
+// Capability negotiation: List all batch types this version can import/export
+// When adding new batches, add them here so peers can gracefully handle version mismatches
+const SUPPORTED_BATCHES = [
+  'neural-core',
+  'advanced-intel-a', 
+  'advanced-intel-b',
+  'express-lane',
+  'hive-snapshots',
+  'daniela-memories',
+  'product-config',
+] as const;
+
+// Capability map for fine-grained feature support
+const SYNC_CAPABILITIES = {
+  version: SYNC_BRIDGE_CODE_VERSION,
+  supportedBatches: SUPPORTED_BATCHES,
+  features: {
+    paginatedSync: true,
+    resumableSync: true,
+    tutorVoiceSync: true,
+    softFailUnknownBatches: true,
+  },
+  maxPageSize: 250,
+  maxPages: 250,
+} as const;
+
+export type SyncCapabilities = typeof SYNC_CAPABILITIES;
 
 export interface SyncBundle {
   generatedAt: string;
   sourceEnvironment: string;
   codeVersion?: string;  // Added to verify which code version is deployed
+  capabilities?: typeof SYNC_CAPABILITIES;  // Capability negotiation info
   checksum: string;
   bestPractices: any[];
   idioms: any[];
@@ -66,6 +95,27 @@ export interface SyncResult {
 class SyncBridgeService {
   
   /**
+   * Get current sync capabilities for capability negotiation
+   * Peers can use this to determine what features are supported
+   */
+  getCapabilities() {
+    return {
+      ...SYNC_CAPABILITIES,
+      environment: CURRENT_ENVIRONMENT,
+      queriedAt: new Date().toISOString(),
+    };
+  }
+  
+  /**
+   * Check if a batch type is supported by this version
+   */
+  isBatchSupported(batchType: string): boolean {
+    // Handle paginated batch types like 'advanced-intel-b-p42'
+    const baseBatch = batchType.replace(/-p\d+$/, '');
+    return SUPPORTED_BATCHES.includes(baseBatch as any);
+  }
+  
+  /**
    * Get the timestamp of the last successful push sync
    * Used for incremental sync to only export newer items
    */
@@ -93,6 +143,7 @@ class SyncBridgeService {
       generatedAt: new Date().toISOString(),
       sourceEnvironment: CURRENT_ENVIRONMENT,
       codeVersion: SYNC_BRIDGE_CODE_VERSION,
+      capabilities: SYNC_CAPABILITIES,
     };
     
     const batchErrors: string[] = [];
@@ -492,6 +543,33 @@ class SyncBridgeService {
     const startTime = Date.now();
     const counts: Record<string, number> = {};
     const errors: string[] = [];
+    
+    // Soft-fail handling: Detect and log unknown bundle keys
+    // This enables graceful handling when peer sends data types we don't recognize
+    const knownBundleKeys = new Set([
+      'generatedAt', 'sourceEnvironment', 'codeVersion', 'capabilities', 'checksum',
+      'bestPractices', 'idioms', 'nuances', 'errorPatterns', 'dialects', 'bridges',
+      'tools', 'procedures', 'principles', 'patterns', 'subtletyCues', 'emotionalPatterns',
+      'creativityTemplates', 'suggestions', 'triggers', 'actions', 'observations', 'alerts',
+      'observationsPagination', 'northStarPrinciples', 'northStarUnderstanding', 'northStarExamples',
+      'founderUser', 'expressLaneSessions', 'expressLaneMessages', 'hiveSnapshots',
+      'danielaGrowthMemories', 'tutorVoices',
+    ]);
+    
+    const bundleKeys = Object.keys(bundle);
+    const unknownKeys = bundleKeys.filter(k => !knownBundleKeys.has(k));
+    
+    if (unknownKeys.length > 0) {
+      const peerVersion = bundle.codeVersion || 'unknown';
+      console.warn(`[SYNC-BRIDGE SOFT-FAIL] Received ${unknownKeys.length} unknown data types from peer (version: ${peerVersion}): ${unknownKeys.join(', ')}`);
+      console.warn(`[SYNC-BRIDGE SOFT-FAIL] These will be skipped. Update local code to handle new types.`);
+      counts['_unknownKeysSkipped'] = unknownKeys.length;
+    }
+    
+    // Log version mismatch for visibility
+    if (bundle.codeVersion && bundle.codeVersion !== SYNC_BRIDGE_CODE_VERSION) {
+      console.log(`[SYNC-BRIDGE] Version mismatch: local=${SYNC_BRIDGE_CODE_VERSION}, peer=${bundle.codeVersion}`);
+    }
     
     // Process items in parallel batches for speed (25 concurrent, prevents DB connection exhaustion)
     const BATCH_CONCURRENCY = 25;
@@ -1643,6 +1721,97 @@ class SyncBridgeService {
     const push = await this.pushToPeer(triggeredBy);
     const pull = await this.pullFromPeer(triggeredBy);
     return { push, pull };
+  }
+  
+  /**
+   * Fetch capabilities from peer environment for version negotiation
+   * Returns peer's supported batches, features, and version info
+   */
+  async fetchPeerCapabilities(): Promise<{
+    version: string;
+    supportedBatches: readonly string[];
+    features: Record<string, boolean>;
+    environment: string;
+    queriedAt: string;
+  } | null> {
+    const peerUrl = getSyncPeerUrl();
+    if (!peerUrl || !isSyncConfigured()) {
+      return null;
+    }
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    
+    try {
+      const requestPayload = { requestedAt: new Date().toISOString() };
+      const response = await fetch(`${peerUrl}/api/sync/capabilities`, {
+        method: 'POST',
+        headers: createSyncHeaders(requestPayload),
+        body: JSON.stringify(requestPayload),
+        signal: controller.signal,
+      });
+      
+      if (!response.ok) {
+        // Peer may not have capabilities endpoint yet - return null
+        console.log(`[SYNC-BRIDGE] Peer capabilities not available (${response.status}) - older version?`);
+        return null;
+      }
+      
+      return await response.json();
+    } catch (err: any) {
+      console.log(`[SYNC-BRIDGE] Failed to fetch peer capabilities: ${err.message}`);
+      return null;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+  
+  /**
+   * Compare local and peer capabilities to identify mismatches
+   * Returns batches that are supported locally but not by peer (and vice versa)
+   */
+  async compareCapabilities(): Promise<{
+    local: {
+      version: string;
+      supportedBatches: readonly string[];
+      features: Record<string, boolean>;
+      environment: string;
+      queriedAt: string;
+    };
+    peer: {
+      version: string;
+      supportedBatches: readonly string[];
+      features: Record<string, boolean>;
+      environment: string;
+      queriedAt: string;
+    } | null;
+    mismatches: {
+      localOnly: string[];
+      peerOnly: string[];
+      versionMatch: boolean;
+    };
+  }> {
+    const local = this.getCapabilities();
+    const peer = await this.fetchPeerCapabilities();
+    
+    const localBatches = Array.from(SUPPORTED_BATCHES);
+    const peerBatches = peer?.supportedBatches ? Array.from(peer.supportedBatches) : [];
+    
+    const peerBatchSet = new Set(peerBatches);
+    const localBatchSet = new Set(localBatches);
+    
+    const localOnly = localBatches.filter(b => !peerBatchSet.has(b));
+    const peerOnly = peerBatches.filter(b => !localBatchSet.has(b));
+    
+    return {
+      local,
+      peer,
+      mismatches: {
+        localOnly,
+        peerOnly,
+        versionMatch: local.version === peer?.version,
+      },
+    };
   }
   
   async fetchPeerStats(): Promise<{

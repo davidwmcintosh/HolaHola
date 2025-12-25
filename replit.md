@@ -35,7 +35,7 @@ Syllabus Template Automation pre-fills labels for teachers creating lessons base
 
 Azure Pronunciation Assessment is implemented for post-session batch analysis to inform drill recommendations. This involves background transcoding of audio and analysis by Azure, with results merging into the `phonemeStruggles` table. A sampling strategy (20% of sessions per user) is used for cost optimization. A tiered pronunciation assessment approach is recommended based on subscription level (Deepgram heuristics for free, Azure for paid).
 
-A Dev-Prod Sync System is in place, synchronizing data in batches (neural-core, advanced-intel, express-lane, hive-snapshots, daniela-memories) using HMAC signatures for authentication. The v15 paginated architecture handles large datasets (500 observations/page) within Replit's 60s gateway timeout.
+A Dev-Prod Sync System is in place, synchronizing data in batches (neural-core, advanced-intel-a, advanced-intel-b, express-lane, hive-snapshots, daniela-memories, product-config) using HMAC signatures for authentication. The v17 capability negotiation architecture enables graceful version mismatch handling: environments exchange version/batch support info before sync, unknown data types are logged but don't break sync (soft-fail), and the Sync Control Center UI displays version compatibility status with deploy+sync workflow guidance. The paginated architecture handles large datasets (500 observations/page) within Replit's 60s gateway timeout.
 
 ## Voice Intelligence System (December 2024)
 Commercial-grade voice analytics service (`server/services/voice-intelligence-service.ts`) providing:
