@@ -1720,6 +1720,10 @@ Reference past discussions when relevant, but don't force it.
             if (finalTranscript && speculativePttWordCount >= SPECULATIVE_TRANSCRIPT_MIN_WORDS) {
               console.log(`[SpeculativePTT] No speculative AI - triggering directly with transcript (${speculativePttWordCount} words)`);
               
+              // CRITICAL: Set speculativeAiAccepted so audio_data handler knows to skip
+              // The client may still send audio_data after ptt_release, but we've already triggered AI
+              speculativeAiAccepted = true;
+              
               // Trigger AI generation directly
               try {
                 orchestrator.processOpenMicTranscript(session.id, finalTranscript, 1.0)
@@ -1746,7 +1750,7 @@ Reference past discussions when relevant, but don't force it.
               timestamp: Date.now(),
               text: finalTranscript,
               wordCount: speculativePttWordCount,
-              speculativeAiUsed: speculativePttTriggered,
+              speculativeAiUsed: speculativePttTriggered || speculativeAiAccepted,
             }));
           }
           
@@ -3152,6 +3156,10 @@ This is a voice conversation. Speak naturally, as you would.`;
             if (finalTranscript && speculativePttWordCount >= SPECULATIVE_TRANSCRIPT_MIN_WORDS) {
               console.log(`[SpeculativePTT] No speculative AI - triggering directly with transcript (${speculativePttWordCount} words)`);
               
+              // CRITICAL: Set speculativeAiAccepted so audio_data handler knows to skip
+              // The client may still send audio_data after ptt_release, but we've already triggered AI
+              speculativeAiAccepted = true;
+              
               // Trigger AI generation directly
               try {
                 orchestrator.processOpenMicTranscript(session.id, finalTranscript, 1.0)
@@ -3178,7 +3186,7 @@ This is a voice conversation. Speak naturally, as you would.`;
               timestamp: Date.now(),
               text: finalTranscript,
               wordCount: speculativePttWordCount,
-              speculativeAiUsed: speculativePttTriggered,
+              speculativeAiUsed: speculativePttTriggered || speculativeAiAccepted,
             }));
           }
           
