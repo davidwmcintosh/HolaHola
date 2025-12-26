@@ -33,6 +33,7 @@ import {
 import { eq, and, desc, sql, gte, ilike, or, count, ne } from 'drizzle-orm';
 import { storage } from '../storage';
 import { neuralNetworkSync } from './neural-network-sync';
+import crypto from 'crypto';
 
 // Error categories with granular subcategories
 const ERROR_TAXONOMY: Record<string, string[]> = {
@@ -2227,6 +2228,18 @@ export class StudentLearningService {
   // ============================================================
   
   /**
+   * Generate a hash for fact deduplication
+   * Used for idempotent upserts by the memory recovery worker
+   */
+  generateFactHash(studentId: string, factType: string, fact: string): string {
+    const normalized = fact.toLowerCase().trim().replace(/\s+/g, ' ');
+    return crypto.createHash('sha256')
+      .update(`${studentId}:${factType}:${normalized}`)
+      .digest('hex')
+      .substring(0, 32);
+  }
+  
+  /**
    * Save or update a personal fact about a student
    * Uses semantic similarity (trigram cosine) for robust deduplication
    */
@@ -2282,6 +2295,10 @@ export class StudentLearningService {
     
     // Create new fact - use passed confidence or default to 0.8
     const confidence = input.confidenceScore ?? 0.8;
+    
+    // Generate fact hash for deduplication (used by recovery worker for idempotent upserts)
+    const factHash = this.generateFactHash(input.studentId, input.factType, input.fact);
+    
     const [created] = await db
       .insert(learnerPersonalFacts)
       .values({
@@ -2293,6 +2310,7 @@ export class StudentLearningService {
         relevantDate: input.relevantDate,
         sourceConversationId: input.sourceConversationId,
         confidenceScore: confidence,
+        factHash,
         mentionCount: 1,
         lastMentionedAt: new Date(),
         isActive: true,

@@ -78,6 +78,7 @@ import { phaseTransitionService } from "./phase-transition-service";
 import { voiceDiagnostics } from "./voice-diagnostics-service";
 import { learnerMemoryExtractionService } from "./learner-memory-extraction-service";
 import { studentLearningService } from "./student-learning-service";
+import { memoryCheckpointService } from "./memory-checkpoint-service";
 import { phonemeAnalyticsService } from "./phoneme-analytics-service";
 import { db } from "../db";
 import { 
@@ -1905,6 +1906,21 @@ Remember: David may reference things discussed in these recent text chats.
       session.conversationHistory.push({ role: 'user', content: transcript });
       session.conversationHistory.push({ role: 'model', content: fullText.trim() });
       
+      // INCREMENTAL MEMORY CHECKPOINT: Persist student utterance immediately for crash recovery
+      // This ensures memories aren't lost if session ends abruptly (network loss, navigation, etc)
+      if (transcript.trim() && session.userId) {
+        memoryCheckpointService.checkpointUtterance(
+          String(session.userId),
+          sessionId,
+          session.dbSessionId || null,
+          session.targetLanguage,
+          transcript,
+          session.conversationHistory.length - 2 // Index of user message in history
+        ).catch((err: Error) => {
+          console.warn(`[Memory Checkpoint] Failed to checkpoint utterance:`, err.message);
+        });
+      }
+      
       // Store transcript and response in metrics for message saving
       metrics.userTranscript = transcript;
       metrics.aiResponse = fullText.trim();
@@ -2518,6 +2534,21 @@ Remember: David may reference things discussed in these recent text chats.
       // Update conversation history
       if (transcript.trim()) {
         session.conversationHistory.push({ role: 'user', content: transcript });
+        
+        // INCREMENTAL MEMORY CHECKPOINT: Persist student utterance immediately for crash recovery
+        // This ensures memories aren't lost if session ends abruptly (network loss, navigation, etc)
+        if (session.userId) {
+          memoryCheckpointService.checkpointUtterance(
+            String(session.userId),
+            sessionId,
+            session.dbSessionId || null,
+            session.targetLanguage,
+            transcript,
+            session.conversationHistory.length - 1 // Index of user message in history
+          ).catch((err: Error) => {
+            console.warn(`[Memory Checkpoint] Failed to checkpoint utterance (open mic):`, err.message);
+          });
+        }
       }
       if (fullText.trim()) {
         session.conversationHistory.push({ role: 'model', content: fullText.trim() });
