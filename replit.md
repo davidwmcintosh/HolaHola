@@ -46,6 +46,13 @@ The Tutor Naming Architecture defines 36 total tutors: 18 main tutors (dynamic f
 - Uses Google Cloud TTS (cost-optimized for support)
 - Key files: `server/services/support-persona-service.ts`, `server/support-system-prompt.ts`, `client/src/components/SupportAssistModal.tsx`
 
+**Memory Recovery System**: Ensures personal facts learned about students survive session interruptions (network loss, crashes, navigation, battery death):
+- **Immediate Checkpointing**: Every student utterance is persisted to `learner_memory_candidates` table as fire-and-forget (non-blocking via `.catch()`)
+- **Background Recovery Worker**: Runs every 5 minutes, processes sessions >30 min old with pending candidates via Gemini memory extraction
+- **Hash-Based Deduplication**: Uses `fact_hash` field to prevent duplicate facts even with repeated extraction attempts
+- **Session Cleanup**: Clean session endings mark candidates as `extracted`, orphaned sessions are caught by recovery worker
+- Key files: `server/services/memory-checkpoint-service.ts`, `server/services/memory-recovery-worker.ts`
+
 ## External Dependencies
 -   Stripe: Payment processing and subscription management.
 -   Replit Auth: OIDC authentication.
