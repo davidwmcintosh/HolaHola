@@ -2574,6 +2574,24 @@ This is a voice conversation. Speak naturally, as you would.`;
               content: m.content,
             }));
             
+            // IMPORTANT: Start usage tracking session BEFORE orchestrator session
+            // This enables memory extraction, usage analytics, and dbSessionId for FK references
+            let dbSessionId: string | undefined;
+            try {
+              const classId = conversation?.classId || undefined;
+              usageSession = await usageService.startSession(
+                userId!,
+                conversationId || undefined,
+                config.targetLanguage,
+                classId
+              );
+              dbSessionId = usageSession.id;
+              console.log(`[Streaming Voice] Usage session started: ${usageSession.id}${isDeveloper ? ' (developer)' : ''}`);
+            } catch (usageErr: any) {
+              console.warn('[Streaming Voice] Could not start usage session:', usageErr.message);
+              // Continue without usage session - dbSessionId will be undefined
+            }
+            
             // Create session with correct parameters
             session = await orchestrator.createSession(
               ws as any,
@@ -2587,11 +2605,12 @@ This is a voice conversation. Speak naturally, as you would.`;
               {
                 conversationTopic: conversation?.topic || undefined,
                 conversationTitle: conversation?.title || undefined,
-              }
+              },
+              dbSessionId // Database voice_sessions.id for usage tracking and memory extraction
             );
             
             pendingVoiceUpdate = tutorGender;
-            console.log('[Streaming Voice] Session created:', session.id);
+            console.log(`[Streaming Voice] Session created: ${session.id}${dbSessionId ? ` (db: ${dbSessionId.substring(0, 8)}...)` : ' (no db session)'}`);
             
             // ECHO SUPPRESSION: Set callback to control OpenMic suppression during TTS
             orchestrator.setTtsStateCallback(session.id, (isTtsPlaying: boolean) => {
@@ -3244,6 +3263,27 @@ This is a voice conversation. Speak naturally, as you would.`;
                 })
                 .catch(err => console.warn('[Streaming Voice] Post-session analysis failed:', err.message));
             }
+            
+            // End usage session for usage tracking and memory extraction
+            if (usageSession) {
+              try {
+                usageService.updateSessionMetrics(usageSession.id, {
+                  exchangeCount,
+                  studentSpeakingSeconds,
+                  tutorSpeakingSeconds,
+                  ttsCharacters,
+                  sttSeconds,
+                }).then(() => usageService.endSession(usageSession!.id))
+                  .then((endedSession) => {
+                    console.log(`[Streaming Voice] Usage session ended: ${endedSession.durationSeconds}s, ${exchangeCount} exchanges`);
+                  })
+                  .catch(err => console.error('[Streaming Voice] Failed to end usage session:', err.message));
+              } catch (err: any) {
+                console.error('[Streaming Voice] Usage session cleanup error:', err.message);
+              }
+              usageSession = null;
+            }
+            
             orchestrator.endSession(session.id);
           }
           ws.close();
@@ -3284,6 +3324,22 @@ This is a voice conversation. Speak naturally, as you would.`;
     pendingSpeculativeTranscript = null;
     pendingSpeculativeWordCount = 0;
     
+    // End usage session on disconnect for usage tracking and memory extraction
+    if (usageSession) {
+      usageService.updateSessionMetrics(usageSession.id, {
+        exchangeCount,
+        studentSpeakingSeconds,
+        tutorSpeakingSeconds,
+        ttsCharacters,
+        sttSeconds,
+      }).then(() => usageService.endSession(usageSession!.id))
+        .then((endedSession) => {
+          console.log(`[Streaming Voice] Usage session ended on disconnect: ${endedSession.durationSeconds}s, ${exchangeCount} exchanges`);
+        })
+        .catch(err => console.error('[Streaming Voice] Failed to end usage session on disconnect:', err.message));
+      usageSession = null;
+    }
+    
     if (session) orchestrator.endSession(session.id);
   });
 
@@ -3312,6 +3368,22 @@ This is a voice conversation. Speak naturally, as you would.`;
     speculativeAiAccepted = false;
     pendingSpeculativeTranscript = null;
     pendingSpeculativeWordCount = 0;
+    
+    // End usage session on error for usage tracking
+    if (usageSession) {
+      usageService.updateSessionMetrics(usageSession.id, {
+        exchangeCount,
+        studentSpeakingSeconds,
+        tutorSpeakingSeconds,
+        ttsCharacters,
+        sttSeconds,
+      }).then(() => usageService.endSession(usageSession!.id))
+        .then((endedSession) => {
+          console.log(`[Streaming Voice] Usage session ended on error: ${endedSession.durationSeconds}s, ${exchangeCount} exchanges`);
+        })
+        .catch(err => console.error('[Streaming Voice] Failed to end usage session on error:', err.message));
+      usageSession = null;
+    }
     
     if (session) orchestrator.endSession(session.id);
   });
