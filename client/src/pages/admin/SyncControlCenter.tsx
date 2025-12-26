@@ -39,6 +39,13 @@ interface SyncRun {
   errorMessage?: string;
   lastCompletedPage?: number;
   totalPages?: number;
+  _fromEnvironment?: string;
+}
+
+interface PeerSyncRunsResponse {
+  environment: string;
+  syncRuns: SyncRun[];
+  queriedAt: string;
 }
 
 interface SyncStatus {
@@ -142,6 +149,22 @@ function DirectionBadge({ direction }: { direction: string }) {
   );
 }
 
+function EnvironmentSourceBadge({ environment }: { environment?: string }) {
+  if (!environment) return null;
+  
+  const isProd = environment === 'production';
+  
+  return (
+    <Badge 
+      variant="outline" 
+      className={`gap-1 text-xs ${isProd ? 'border-orange-500 text-orange-600 dark:text-orange-400' : 'border-blue-500 text-blue-600 dark:text-blue-400'}`}
+    >
+      <Server className="h-2.5 w-2.5" />
+      {isProd ? 'prod' : 'dev'}
+    </Badge>
+  );
+}
+
 // Available sync batch types for selective sync (dev → prod push)
 const PUSH_BATCHES = [
   { id: 'neural-core', label: 'Neural Core', description: 'Best practices, idioms, nuances' },
@@ -208,6 +231,36 @@ export default function SyncControlCenter() {
     retry: false,
   });
 
+  const { data: peerSyncRuns, isLoading: peerSyncRunsLoading } = useQuery<PeerSyncRunsResponse>({
+    queryKey: ["/api/sync/peer-sync-runs"],
+    retry: false,
+  });
+
+  const combinedHistory = (() => {
+    const localRuns = (history?.syncRuns || []).map(run => ({
+      ...run,
+      _fromEnvironment: status?.currentEnvironment || 'local'
+    }));
+    
+    const peerRuns = (peerSyncRuns?.syncRuns || []).map(run => ({
+      ...run,
+      _fromEnvironment: peerSyncRuns?.environment || 'peer'
+    }));
+    
+    const allRuns = [...localRuns, ...peerRuns];
+    
+    const uniqueRuns = allRuns.reduce((acc, run) => {
+      if (!acc.find(r => r.id === run.id)) {
+        acc.push(run);
+      }
+      return acc;
+    }, [] as typeof allRuns);
+    
+    return uniqueRuns.sort((a, b) => 
+      new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
+    );
+  })();
+
   const pushMutation = useMutation({
     mutationFn: (batches?: string[]) => 
       apiRequest("POST", "/api/admin/sync/push", { 
@@ -217,6 +270,7 @@ export default function SyncControlCenter() {
       toast({ title: "Push Started", description: "Pushing data to peer environment..." });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/sync/status"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/sync/history"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sync/peer-sync-runs"] });
       setSelectedBatches([]); // Clear selection after push
     },
     onError: (err: any) => {
@@ -234,6 +288,7 @@ export default function SyncControlCenter() {
       toast({ title: "Pull Started", description: "Pulling data from peer environment..." });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/sync/status"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/sync/history"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sync/peer-sync-runs"] });
       setSelectedPullBatches([]); // Clear selection after pull
     },
     onError: (err: any) => {
@@ -247,6 +302,7 @@ export default function SyncControlCenter() {
       toast({ title: "Full Sync Started", description: "Running bidirectional sync..." });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/sync/status"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/sync/history"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sync/peer-sync-runs"] });
     },
     onError: (err: any) => {
       toast({ title: "Full Sync Failed", description: err.message, variant: "destructive" });
@@ -259,6 +315,7 @@ export default function SyncControlCenter() {
       toast({ title: "Reset Complete", description: data.message });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/sync/status"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/sync/history"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sync/peer-sync-runs"] });
     },
     onError: (err: any) => {
       toast({ title: "Reset Failed", description: err.message, variant: "destructive" });
@@ -655,24 +712,28 @@ export default function SyncControlCenter() {
                     <Clock className="h-5 w-5" />
                     Sync History
                   </CardTitle>
-                  <CardDescription>Recent synchronization runs</CardDescription>
+                  <CardDescription>
+                    Recent synchronization runs from both environments
+                    {peerSyncRunsLoading && <span className="ml-2 text-muted-foreground">(loading peer history...)</span>}
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {historyLoading ? (
+                  {historyLoading && peerSyncRunsLoading ? (
                     <div className="space-y-2">
                       {[...Array(5)].map((_, i) => (
                         <Skeleton key={i} className="h-12" />
                       ))}
                     </div>
-                  ) : !history?.syncRuns?.length ? (
+                  ) : !combinedHistory.length ? (
                     <p className="text-center text-muted-foreground py-4">No sync history yet</p>
                   ) : (
                     <div className="space-y-2">
-                      {history.syncRuns.slice(0, 10).map((run) => (
+                      {combinedHistory.slice(0, 15).map((run) => (
                         <div 
-                          key={run.id} 
+                          key={`${run._fromEnvironment}-${run.id}`} 
                           className="flex items-center gap-3 p-3 rounded-lg bg-muted/50"
                         >
+                          <EnvironmentSourceBadge environment={run._fromEnvironment} />
                           <StatusBadge status={run.status} />
                           <DirectionBadge direction={run.direction} />
                           <div className="flex-1 min-w-0">
