@@ -3038,6 +3038,36 @@ export const phonemeStruggles = pgTable("phoneme_struggles", {
   index("idx_phoneme_struggles_status").on(table.status),
 ]);
 
+// Learner Memory Candidates - Checkpoints of student utterances during voice sessions
+// Persisted incrementally so memory extraction survives interruptions (crashes, network loss, navigation)
+export const learnerMemoryCandidates = pgTable("learner_memory_candidates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  studentId: varchar("student_id").notNull().references(() => users.id),
+  sessionId: varchar("session_id").notNull(), // Voice session ID (orchestrator session, not DB)
+  dbSessionId: varchar("db_session_id").references(() => voiceSessions.id), // Links to voice_sessions table
+  language: varchar("language").notNull(),
+  
+  // Utterance content
+  utterance: text("utterance").notNull(), // The student's speech (may contain personal facts)
+  messageIndex: integer("message_index").notNull(), // Position in conversation for ordering
+  
+  // Processing status
+  status: varchar("status").notNull().default("pending"), // pending, processing, extracted, skipped
+  extractedFactIds: text("extracted_fact_ids").array(), // IDs of facts extracted from this candidate
+  
+  // Metadata
+  contentHash: varchar("content_hash"), // SHA256 of utterance for dedup
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  processedAt: timestamp("processed_at"),
+}, (table) => [
+  index("idx_memory_candidates_student").on(table.studentId),
+  index("idx_memory_candidates_session").on(table.sessionId),
+  index("idx_memory_candidates_status").on(table.status),
+  index("idx_memory_candidates_pending").on(table.studentId, table.status),
+]);
+
 // Learner Personal Facts - Permanent personal details Daniela remembers about students
 // "Your trip to Madrid in June", "Your dog is named Max", "You work as a nurse"
 // Unlike hiveSnapshots (which decay after 30 days), these persist forever
@@ -3058,6 +3088,9 @@ export const learnerPersonalFacts = pgTable("learner_personal_facts", {
   confidenceScore: real("confidence_score").default(0.8), // 0-1
   sourceConversationId: varchar("source_conversation_id").references(() => conversations.id),
   
+  // Deduplication - hash of studentId + factType + normalized fact text
+  factHash: varchar("fact_hash"), // For idempotent upserts
+  
   // Lifecycle and dedup tracking
   isActive: boolean("is_active").default(true),
   lastMentionedAt: timestamp("last_mentioned_at").defaultNow(),
@@ -3070,6 +3103,7 @@ export const learnerPersonalFacts = pgTable("learner_personal_facts", {
   index("idx_learner_personal_facts_student_type").on(table.studentId, table.factType),
   index("idx_learner_personal_facts_relevant_date").on(table.relevantDate),
   index("idx_learner_personal_facts_active").on(table.isActive),
+  index("idx_learner_personal_facts_hash").on(table.factHash),
 ]);
 
 // Predicted Struggles - Pre-session predictions of what student may struggle with
