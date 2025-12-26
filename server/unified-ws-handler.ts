@@ -1715,13 +1715,23 @@ Reference past discussions when relevant, but don't force it.
               }
             }
           } else {
-            // No speculative AI was triggered - use normal flow
-            // Save the speculative transcript for the upcoming audio_data message
-            // This allows us to bypass redundant STT and go straight to AI generation
+            // No speculative AI was triggered - we have the transcript, trigger AI directly!
+            // In streaming PTT mode, there's no audio_data blob - we already have the transcript
             if (finalTranscript && speculativePttWordCount >= SPECULATIVE_TRANSCRIPT_MIN_WORDS) {
-              pendingSpeculativeTranscript = finalTranscript;
-              pendingSpeculativeWordCount = speculativePttWordCount;
-              console.log(`[SpeculativePTT] Saved pending transcript for bypass (${pendingSpeculativeWordCount} words)`);
+              console.log(`[SpeculativePTT] No speculative AI - triggering directly with transcript (${speculativePttWordCount} words)`);
+              
+              // Trigger AI generation directly
+              try {
+                orchestrator.processOpenMicTranscript(session.id, finalTranscript, 1.0)
+                  .then(() => console.log(`[SpeculativePTT] Direct AI processing complete`))
+                  .catch(err => console.error(`[SpeculativePTT] Direct AI processing failed:`, err));
+              } catch (err) {
+                console.error(`[SpeculativePTT] Failed to start direct AI processing:`, err);
+              }
+              
+              // Clear pending transcript - we're processing directly
+              pendingSpeculativeTranscript = null;
+              pendingSpeculativeWordCount = 0;
             } else {
               // Not enough words - fallback to blob STT
               pendingSpeculativeTranscript = null;
@@ -1736,7 +1746,7 @@ Reference past discussions when relevant, but don't force it.
               timestamp: Date.now(),
               text: finalTranscript,
               wordCount: speculativePttWordCount,
-              speculativeAiUsed: speculativePttTriggered && pendingSpeculativeTranscript === null,
+              speculativeAiUsed: speculativePttTriggered,
             }));
           }
           
@@ -3137,13 +3147,23 @@ This is a voice conversation. Speak naturally, as you would.`;
               }
             }
           } else {
-            // No speculative AI was triggered - use normal flow
-            // Save the speculative transcript for the upcoming audio_data message
-            // This allows us to bypass redundant STT and go straight to AI generation
+            // No speculative AI was triggered - we have the transcript, trigger AI directly!
+            // In streaming PTT mode, there's no audio_data blob - we already have the transcript
             if (finalTranscript && speculativePttWordCount >= SPECULATIVE_TRANSCRIPT_MIN_WORDS) {
-              pendingSpeculativeTranscript = finalTranscript;
-              pendingSpeculativeWordCount = speculativePttWordCount;
-              console.log(`[SpeculativePTT] Saved pending transcript for bypass (${pendingSpeculativeWordCount} words)`);
+              console.log(`[SpeculativePTT] No speculative AI - triggering directly with transcript (${speculativePttWordCount} words)`);
+              
+              // Trigger AI generation directly
+              try {
+                orchestrator.processOpenMicTranscript(session.id, finalTranscript, 1.0)
+                  .then(() => console.log(`[SpeculativePTT] Direct AI processing complete`))
+                  .catch(err => console.error(`[SpeculativePTT] Direct AI processing failed:`, err));
+              } catch (err) {
+                console.error(`[SpeculativePTT] Failed to start direct AI processing:`, err);
+              }
+              
+              // Clear pending transcript - we're processing directly
+              pendingSpeculativeTranscript = null;
+              pendingSpeculativeWordCount = 0;
             } else {
               // Not enough words - fallback to blob STT
               pendingSpeculativeTranscript = null;
@@ -3158,7 +3178,7 @@ This is a voice conversation. Speak naturally, as you would.`;
               timestamp: Date.now(),
               text: finalTranscript,
               wordCount: speculativePttWordCount,
-              speculativeAiUsed: speculativePttTriggered && pendingSpeculativeTranscript === null,
+              speculativeAiUsed: speculativePttTriggered,
             }));
           }
           
