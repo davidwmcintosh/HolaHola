@@ -13428,13 +13428,13 @@ Current conversation context:
         return res.status(400).json({ error: "Missing required fields" });
       }
       
-      // Validate role (tutor or assistant, default to tutor)
-      const validRoles = ['tutor', 'assistant'];
+      // Validate role (tutor, assistant, or support - default to tutor)
+      const validRoles = ['tutor', 'assistant', 'support'];
       const validatedRole = validRoles.includes(role) ? role : 'tutor';
       
-      // Validate speakingRate if provided (0.5 to 2.0 range for assistants, 0.7 to 1.3 for tutors)
-      const rateMin = validatedRole === 'assistant' ? 0.5 : 0.7;
-      const rateMax = validatedRole === 'assistant' ? 2.0 : 1.3;
+      // Validate speakingRate if provided (0.5 to 2.0 range for assistants/support, 0.7 to 1.3 for tutors)
+      const rateMin = (validatedRole === 'assistant' || validatedRole === 'support') ? 0.5 : 0.7;
+      const rateMax = (validatedRole === 'assistant' || validatedRole === 'support') ? 2.0 : 1.3;
       const validatedSpeakingRate = speakingRate !== undefined 
         ? Math.max(rateMin, Math.min(rateMax, parseFloat(speakingRate))) 
         : 0.9; // Default to natural speed
