@@ -117,10 +117,11 @@ function formatDate(dateStr?: string): string {
 
 function StatusBadge({ status }: { status: string }) {
   const variants: Record<string, { color: string; icon: any }> = {
-    running: { color: 'bg-blue-500', icon: RefreshCw },
-    completed: { color: 'bg-green-500', icon: CheckCircle2 },
+    running: { color: 'bg-yellow-500', icon: RefreshCw },
+    success: { color: 'bg-blue-500', icon: CheckCircle2 },
+    completed: { color: 'bg-blue-500', icon: CheckCircle2 },
     failed: { color: 'bg-red-500', icon: XCircle },
-    partial: { color: 'bg-yellow-500', icon: AlertTriangle },
+    partial: { color: 'bg-orange-500', icon: AlertTriangle },
   };
   
   const { color, icon: Icon } = variants[status] || variants.failed;
