@@ -640,9 +640,16 @@ export class OpenMicSession {
               this.currentTranscript += (this.currentTranscript ? ' ' : '') + transcript;
               this.currentConfidence = confidence;
               console.log(`[OpenMic] Final segment accumulated: "${this.currentTranscript}"`);
+              // CRITICAL: Also notify PTT handler of accumulated transcript
+              // This ensures PTT mode sees the full accumulated text, not just interim fragments
+              this.events.onInterimTranscript?.(this.currentTranscript);
             } else {
-              // For interim results, update UI but also track for fallback
-              this.events.onInterimTranscript?.(transcript);
+              // For interim results, send accumulated finals + current interim
+              // This ensures PTT handler always has the complete picture
+              const fullTranscript = this.currentTranscript 
+                ? this.currentTranscript + ' ' + transcript 
+                : transcript;
+              this.events.onInterimTranscript?.(fullTranscript);
               // Store interim as potential fallback if no final comes
               if (!this.currentTranscript) {
                 this.lastInterimTranscript = transcript;
