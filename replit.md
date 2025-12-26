@@ -37,6 +37,15 @@ The Voice Intelligence System (`server/services/voice-intelligence-service.ts`) 
 
 The Tutor Naming Architecture defines 36 total tutors: 18 main tutors (dynamic from database, Cartesia Sonic-3) and 18 assistants (seeded from config, Google Cloud TTS). **Main tutor names are fully flexible** - change them in the database `voice_name` field and they propagate automatically. **CRITICAL SAFEGUARD**: The `role` field separates voice stacks - all voice lookups MUST filter `role='tutor'` to prevent Google assistant voices from appearing as main tutors. This filtering is enforced in `unified-ws-handler.ts` and `routes.ts`.
 
+**Sofia Support Agent System**: Sofia is the technical support specialist with dual-mode operation:
+- **Dev Mode**: For founder, developers, admins, and support agents - provides technical debugging, voice diagnostics context, sprint suggestions, and system status
+- **User Mode**: For end users - provides friendly, non-technical troubleshooting guidance
+- Access via sidebar "Need Help?" button or floating help button across all pages
+- Daniela can hand off to Sofia using `[CALL_SOFIA]` or `[CALL_SUPPORT]` tags during voice chat
+- Backend auto-detects user role to route to appropriate support mode
+- Uses Google Cloud TTS (cost-optimized for support)
+- Key files: `server/services/support-persona-service.ts`, `server/support-system-prompt.ts`, `client/src/components/SupportAssistModal.tsx`
+
 ## External Dependencies
 -   Stripe: Payment processing and subscription management.
 -   Replit Auth: OIDC authentication.

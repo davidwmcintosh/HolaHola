@@ -786,8 +786,9 @@ export const WHITEBOARD_PATTERNS = {
   // Switch tutor mid-session: [SWITCH_TUTOR target="male|female" language="optional" role="optional"]
   // Supports intra-language (gender only), cross-language (gender + language), and assistant handoffs
   SWITCH_TUTOR: /\[SWITCH_TUTOR\s+target="(male|female)"(?:\s+language="([^"]+)")?(?:\s+role="(tutor|assistant)")?\]/gi,
-  // Call support - hand off to Support Agent: [CALL_SUPPORT category="technical" reason="description"]
-  CALL_SUPPORT: /\[CALL_SUPPORT\s+category="(technical|account|billing|content|feedback|other)"\s+reason="([^"]+)"(?:\s+priority="(low|normal|high|critical)")?(?:\s+context="([^"]+)")?\]/gi,
+  // Call support - hand off to Support Agent (Sofia): [CALL_SUPPORT category="technical" reason="description"]
+  // Also accepts [CALL_SOFIA ...] as an alias
+  CALL_SUPPORT: /\[(?:CALL_SUPPORT|CALL_SOFIA)\s+category="(technical|account|billing|content|feedback|other)"\s+reason="([^"]+)"(?:\s+priority="(low|normal|high|critical)")?(?:\s+context="([^"]+)")?\]/gi,
   // ACTFL Neural Network Commands (internal - processed server-side)
   // [ACTFL_UPDATE level="intermediate_low" confidence=0.85 reason="Demonstrated present tense mastery"]
   ACTFL_UPDATE: /\[ACTFL_UPDATE\s+level="([^"]+)"\s+confidence=([0-9.]+)\s+reason="([^"]+)"(?:\s+direction="(up|down|confirm)")?\]/gi,
@@ -812,7 +813,7 @@ export const WHITEBOARD_PATTERNS = {
  * Includes ACTFL Neural Network commands: ACTFL_UPDATE, SYLLABUS_PROGRESS, PHASE_SHIFT
  */
 export const ALL_WHITEBOARD_MARKUP_PATTERN = 
-  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|TONE|WORD_MAP|CULTURE|SCENARIO|SUMMARY|ERROR_PATTERNS|VOCABULARY_TIMELINE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[PLAY(?:\s+speed="[^"]*")?\]([\s\S]*?)\[\/PLAY\]|\[SUBTITLE\s*(?:off|on|target)\s*\]|\[SHOW:\s*[\s\S]*?\s*\]|\[HIDE\]|\[SUBTITLE_TEXT:\s*[\s\S]*?\s*\]|\[TEXT_INPUT:[\s\S]*?\]|\[SWITCH_TUTOR\s+target="(?:male|female)"(?:\s+language="[^"]+")?(?:\s+role="(?:tutor|assistant)")?\]|\[CALL_SUPPORT\s+category="(?:technical|account|billing|content|feedback|other)"\s+reason="[^"]+"(?:\s+priority="(?:low|normal|high|critical)")?(?:\s+context="[^"]+")?\]|\[ACTFL_UPDATE\s+level="[^"]+"\s+confidence=[0-9.]+\s+reason="[^"]+"(?:\s+direction="(?:up|down|confirm)")?\]|\[SYLLABUS_PROGRESS\s+topic="[^"]+"\s+status="(?:demonstrated|needs_review|struggling)"\s+evidence="[^"]+"\]|\[PHASE_SHIFT\s+to="(?:warmup|active_teaching|challenge|reflection|drill|assessment)"\s+reason="[^"]+"\]|\[HIVE\s+category="(?:self_improvement|content_gap|ux_observation|teaching_insight|product_feature|technical_issue|student_pattern|tool_enhancement)"\s+title="[^"]+"\s+description="[^"]+"(?:\s+reasoning="[^"]+")?(?:\s+priority=\d+)?\]|\[(CLEAR|HOLD)\]/gi;
+  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|TONE|WORD_MAP|CULTURE|SCENARIO|SUMMARY|ERROR_PATTERNS|VOCABULARY_TIMELINE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[PLAY(?:\s+speed="[^"]*")?\]([\s\S]*?)\[\/PLAY\]|\[SUBTITLE\s*(?:off|on|target)\s*\]|\[SHOW:\s*[\s\S]*?\s*\]|\[HIDE\]|\[SUBTITLE_TEXT:\s*[\s\S]*?\s*\]|\[TEXT_INPUT:[\s\S]*?\]|\[SWITCH_TUTOR\s+target="(?:male|female)"(?:\s+language="[^"]+")?(?:\s+role="(?:tutor|assistant)")?\]|\[(?:CALL_SUPPORT|CALL_SOFIA)\s+category="(?:technical|account|billing|content|feedback|other)"\s+reason="[^"]+"(?:\s+priority="(?:low|normal|high|critical)")?(?:\s+context="[^"]+")?\]|\[ACTFL_UPDATE\s+level="[^"]+"\s+confidence=[0-9.]+\s+reason="[^"]+"(?:\s+direction="(?:up|down|confirm)")?\]|\[SYLLABUS_PROGRESS\s+topic="[^"]+"\s+status="(?:demonstrated|needs_review|struggling)"\s+evidence="[^"]+"\]|\[PHASE_SHIFT\s+to="(?:warmup|active_teaching|challenge|reflection|drill|assessment)"\s+reason="[^"]+"\]|\[HIVE\s+category="(?:self_improvement|content_gap|ux_observation|teaching_insight|product_feature|technical_issue|student_pattern|tool_enhancement)"\s+title="[^"]+"\s+description="[^"]+"(?:\s+reasoning="[^"]+")?(?:\s+priority=\d+)?\]|\[(CLEAR|HOLD)\]/gi;
 
 /**
  * Generate unique ID for whiteboard items

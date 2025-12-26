@@ -14141,6 +14141,13 @@ Current conversation context:
       
       // Get AI-powered support reply from Sofia
       const user = await storage.getUser(userId);
+      
+      // Detect dev mode - developers, admins, founder, and support agents get technical support
+      const devRoles = ['developer', 'admin', 'super_admin', 'founder', 'support_agent'];
+      const isDevUser = (user?.role && devRoles.includes(user.role)) ||
+        user?.email === (process.env.FOUNDER_EMAIL || 'davidwmcintosh@gmail.com');
+      const supportMode = isDevUser ? 'dev' : 'user';
+      
       const result = await supportPersonaService.generateResponse({
         ticketId,
         userMessage: message,
@@ -14150,6 +14157,7 @@ Current conversation context:
           fromDaniela: ticket.handoffReason.includes('Daniela'),
           learningTopic: ticket.handoffReason,
         } : undefined,
+        mode: supportMode,
       });
       
       // Store the support response using storage (reliable persistence)
@@ -14297,6 +14305,13 @@ Current conversation context:
         reply = `Great job working on this ${drillContext.exerciseType || 'exercise'}! Keep practicing.`;
       } else {
         const user = await storage.getUser(userId);
+        
+        // Detect dev mode - developers, admins, founder, and support agents get technical support
+        const devRoles = ['developer', 'admin', 'super_admin', 'founder', 'support_agent'];
+        const isDevUser = (user?.role && devRoles.includes(user.role)) ||
+          user?.email === (process.env.FOUNDER_EMAIL || 'davidwmcintosh@gmail.com');
+        const supportMode = isDevUser ? 'dev' : 'user';
+        
         const result = await supportPersonaService.generateResponse({
           ticketId,
           userMessage: transcript,
@@ -14306,6 +14321,7 @@ Current conversation context:
             fromDaniela: ticket.handoffReason.includes('Daniela'),
             learningTopic: ticket.handoffReason,
           } : undefined,
+          mode: supportMode,
         });
         
         reply = result.response;

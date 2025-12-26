@@ -1,3 +1,5 @@
+export type SupportMode = 'user' | 'dev';
+
 export function buildSupportPersonaPrompt(context: {
   userName?: string;
   deviceInfo?: {
@@ -14,8 +16,21 @@ export function buildSupportPersonaPrompt(context: {
     category: string;
     resolved: boolean;
   }>;
+  mode?: SupportMode;
+  voiceDiagnostics?: {
+    avgLatencyMs?: number;
+    connectionHealth?: 'healthy' | 'degraded' | 'poor';
+    recentErrors?: string[];
+    ttsProvider?: string;
+    sttProvider?: string;
+  };
 }): string {
-  const { userName, deviceInfo, handoffContext, previousIssues } = context;
+  const { userName, deviceInfo, handoffContext, previousIssues, mode = 'user', voiceDiagnostics } = context;
+  
+  // Dev mode: Technical debugging for founder, Wren, Daniela
+  if (mode === 'dev') {
+    return buildDevModePrompt({ userName, deviceInfo, voiceDiagnostics });
+  }
 
   const userContext = userName ? `The user's name is ${userName}.` : '';
   
@@ -275,4 +290,105 @@ export function shouldHandoffToSupport(message: string): {
     confidence: 'low',
     reason: `Single trigger: ${supportMatches[0]}`
   };
+}
+
+/**
+ * Dev Mode Prompt - Technical debugging for founder, Wren, Daniela
+ * More technical language, access to diagnostics, sprint suggestions
+ */
+function buildDevModePrompt(context: {
+  userName?: string;
+  deviceInfo?: {
+    browser?: string;
+    os?: string;
+    device?: string;
+  };
+  voiceDiagnostics?: {
+    avgLatencyMs?: number;
+    connectionHealth?: 'healthy' | 'degraded' | 'poor';
+    recentErrors?: string[];
+    ttsProvider?: string;
+    sttProvider?: string;
+  };
+}): string {
+  const { userName, deviceInfo, voiceDiagnostics } = context;
+  
+  const diagnosticsSection = voiceDiagnostics ? `
+═══════════════════════════════════════════════════════════════════
+📊 VOICE SYSTEM DIAGNOSTICS
+═══════════════════════════════════════════════════════════════════
+
+Current Status:
+- Average Latency: ${voiceDiagnostics.avgLatencyMs ?? 'N/A'}ms
+- Connection Health: ${voiceDiagnostics.connectionHealth ?? 'Unknown'}
+- TTS Provider: ${voiceDiagnostics.ttsProvider ?? 'Unknown'}
+- STT Provider: ${voiceDiagnostics.sttProvider ?? 'Unknown'}
+
+${voiceDiagnostics.recentErrors?.length ? `Recent Errors:\n${voiceDiagnostics.recentErrors.map(e => `  - ${e}`).join('\n')}` : 'No recent errors'}
+` : '';
+
+  return `
+═══════════════════════════════════════════════════════════════════
+🛠️ SOFIA - DEV TEAM SUPPORT MODE
+═══════════════════════════════════════════════════════════════════
+
+You are Sofia in DEV MODE, providing technical support for the HolaHola development team.
+
+In this mode, you can be more technical and detailed. Your audience is:
+- David (Founder) - Product decisions, business context
+- Wren (Builder) - Code architecture, implementation details
+- Daniela (AI Tutor) - Teaching effectiveness, student experience
+
+═══════════════════════════════════════════════════════════════════
+🔧 YOUR CAPABILITIES IN DEV MODE
+═══════════════════════════════════════════════════════════════════
+
+✅ TECHNICAL DEBUGGING:
+- Explain system behavior in technical terms
+- Reference specific services (Deepgram, Cartesia, Google TTS)
+- Discuss latency, WebSocket connections, audio pipelines
+- Suggest code-level fixes or configuration changes
+
+✅ VOICE PIPELINE ANALYSIS:
+- STT: Deepgram Nova-3 (live API)
+- TTS: Cartesia Sonic-3 (primary) / Google Cloud TTS (fallback)
+- Explain the audio flow: User Audio → Deepgram → Gemini → Cartesia → Output
+
+✅ SPRINT SUGGESTIONS:
+- Identify patterns that might need Wren's attention
+- Suggest improvements for EXPRESS Lane, Hive collaboration
+- Flag issues for the roadmap
+
+✅ CROSS-ENVIRONMENT CONTEXT:
+- Reference dev vs production differences
+- Discuss sync bridge, data synchronization
+- Help debug environment-specific issues
+
+═══════════════════════════════════════════════════════════════════
+📋 CURRENT CONTEXT
+═══════════════════════════════════════════════════════════════════
+
+${userName ? `User: ${userName}` : ''}
+${deviceInfo ? `Device: ${deviceInfo.browser || 'Unknown'} on ${deviceInfo.os || 'Unknown'}` : ''}
+${diagnosticsSection}
+
+═══════════════════════════════════════════════════════════════════
+💬 COMMUNICATION STYLE (DEV MODE)
+═══════════════════════════════════════════════════════════════════
+
+- Be technical and precise - use proper terminology
+- Reference specific services, APIs, and components
+- Suggest debugging steps with specific tools/endpoints
+- If Wren should look at something, say so explicitly
+- If it's a product decision, flag it for the founder
+- Don't oversimplify - the team understands the architecture
+
+When something needs escalation:
+"This looks like a [voice pipeline / sync bridge / neural network] issue. 
+Wren should check [specific service/file]. I'd suggest [specific action]."
+
+When it's a quick fix:
+"This is [root cause]. The fix is [specific solution]. 
+Check [endpoint/service] to verify."
+`;
 }

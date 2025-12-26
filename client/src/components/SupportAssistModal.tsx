@@ -31,7 +31,9 @@ import {
   Volume2,
   VolumeX,
   Keyboard,
+  HeartHandshake,
 } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -127,7 +129,7 @@ export function SupportAssistModal({
       if (isDrillModeDisabled) {
         initialMessage = "Drill mode voice/text chat is not yet available. Please use the standard drill exercises in the Lessons section. This feature is coming soon!";
       } else {
-        initialMessage = `Hi! I'm the HolaHola Support Assistant. I understand you need help with: "${reason}"\n\nI'm here to help you resolve this. What can I do for you?`;
+        initialMessage = `Hi, I'm Sofia! I'm here to help with any questions or issues you're having.\n\nI see you need help with: "${reason}"\n\nTell me more about what's going on, and I'll do my best to get you sorted out quickly.`;
       }
       
       setMessages([{
@@ -443,13 +445,16 @@ export function SupportAssistModal({
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Headphones className="h-5 w-5 text-primary" />
-                </div>
+                <Avatar className="h-10 w-10 border-2 border-primary/20">
+                  <AvatarFallback className="bg-gradient-to-br from-teal-500 to-emerald-600 text-white font-semibold">
+                    S
+                  </AvatarFallback>
+                </Avatar>
                 <div>
                   <h2 className="font-semibold text-foreground" data-testid="text-support-title">
-                    {mode === 'drill' ? 'Exercise Assistant' : 'Support Assistant'}
+                    {mode === 'drill' ? 'Exercise Assistant' : 'Sofia'}
                   </h2>
+                  <p className="text-xs text-muted-foreground">Support Specialist</p>
                   <div className="flex items-center gap-2">
                     {mode === 'support' && (
                       <>
@@ -512,11 +517,18 @@ export function SupportAssistModal({
                 {messages.map((message) => (
                   <div
                     key={message.id}
-                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    className={`flex gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                     data-testid={`message-${message.role}-${message.id}`}
                   >
+                    {message.role === 'support' && (
+                      <Avatar className="h-8 w-8 flex-shrink-0">
+                        <AvatarFallback className="bg-gradient-to-br from-teal-500 to-emerald-600 text-white text-xs font-semibold">
+                          S
+                        </AvatarFallback>
+                      </Avatar>
+                    )}
                     <div
-                      className={`max-w-[85%] rounded-2xl px-4 py-2.5 ${
+                      className={`max-w-[80%] rounded-2xl px-4 py-2.5 ${
                         message.role === 'user'
                           ? 'bg-primary text-primary-foreground rounded-br-md'
                           : 'bg-muted text-foreground rounded-bl-md'
@@ -531,12 +543,17 @@ export function SupportAssistModal({
                 ))}
                 
                 {isLoading && (
-                  <div className="flex justify-start" data-testid="loading-indicator">
+                  <div className="flex gap-2 justify-start" data-testid="loading-indicator">
+                    <Avatar className="h-8 w-8 flex-shrink-0">
+                      <AvatarFallback className="bg-gradient-to-br from-teal-500 to-emerald-600 text-white text-xs font-semibold">
+                        S
+                      </AvatarFallback>
+                    </Avatar>
                     <div className="bg-muted rounded-2xl px-4 py-3 rounded-bl-md">
                       <div className="flex items-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         <span className="text-sm text-muted-foreground">
-                          {isRecording ? 'Processing...' : 'Thinking...'}
+                          {isRecording ? 'Processing...' : 'Sofia is thinking...'}
                         </span>
                       </div>
                     </div>
@@ -544,11 +561,16 @@ export function SupportAssistModal({
                 )}
                 
                 {isPlaying && (
-                  <div className="flex justify-start" data-testid="playing-indicator">
+                  <div className="flex gap-2 justify-start" data-testid="playing-indicator">
+                    <Avatar className="h-8 w-8 flex-shrink-0">
+                      <AvatarFallback className="bg-gradient-to-br from-teal-500 to-emerald-600 text-white text-xs font-semibold">
+                        S
+                      </AvatarFallback>
+                    </Avatar>
                     <div className="bg-primary/10 rounded-2xl px-4 py-2 rounded-bl-md">
                       <div className="flex items-center gap-2">
                         <Volume2 className="h-4 w-4 animate-pulse text-primary" />
-                        <span className="text-sm text-primary">Speaking...</span>
+                        <span className="text-sm text-primary">Sofia is speaking...</span>
                       </div>
                     </div>
                   </div>

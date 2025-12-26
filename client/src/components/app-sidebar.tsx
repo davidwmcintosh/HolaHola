@@ -1,4 +1,5 @@
-import { BookOpen, Languages, History, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Shield, X, Target, Search, Sparkles, Dumbbell } from "lucide-react";
+import { useState } from "react";
+import { BookOpen, Languages, History, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Shield, X, Target, Search, Sparkles, Dumbbell, HelpCircle } from "lucide-react";
 import holaholaLogo from "@assets/holaholamainlogoBackgroundRemoved_1765308837223.png";
 import { Link, useLocation } from "wouter";
 import {
@@ -17,10 +18,12 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StreakIndicator } from "@/components/StreakIndicator";
+import { SupportAssistModal } from "@/components/SupportAssistModal";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/hooks/useAuth";
 import { hasTeacherAccess, hasAdminAccess } from "@shared/permissions";
 import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 const dashboardItem = { title: "Language Hub", url: "/", icon: Target };
 
@@ -53,6 +56,51 @@ export function AppSidebar() {
   const { userName } = useLanguage();
   const { user } = useAuth();
   const { setOpenMobile, setOpen, isMobile } = useSidebar();
+  
+  // Sofia support modal state
+  const [isSupportOpen, setIsSupportOpen] = useState(false);
+  const [supportTicketId, setSupportTicketId] = useState<string | null>(null);
+  const [isLoadingSupport, setIsLoadingSupport] = useState(false);
+  
+  // Open Sofia support modal
+  const handleOpenSupport = async () => {
+    setIsLoadingSupport(true);
+    try {
+      // Check for existing active ticket first
+      const existingResponse = await apiRequest('GET', '/api/support/tickets?status=active');
+      if (existingResponse.ok) {
+        const existingTickets = await existingResponse.json();
+        if (Array.isArray(existingTickets) && existingTickets.length > 0) {
+          setSupportTicketId(existingTickets[0].id);
+          setIsSupportOpen(true);
+          closeSidebar();
+          setIsLoadingSupport(false);
+          return;
+        }
+      }
+      
+      // Create new ticket
+      const response = await apiRequest('POST', '/api/support/tickets', {
+        category: 'other',
+        subject: 'Help request from sidebar',
+        description: 'User clicked Need Help from sidebar',
+        handoffFrom: 'direct',
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setSupportTicketId(data.id || null);
+      }
+      setIsSupportOpen(true);
+      closeSidebar();
+    } catch (err) {
+      console.error('[Sidebar] Failed to open support:', err);
+      setIsSupportOpen(true);
+      closeSidebar();
+    } finally {
+      setIsLoadingSupport(false);
+    }
+  };
   
   // Fetch assistant name for the user's current language
   const { data: assistantData } = useQuery<{ name: string; language: string; gender: string }>({
@@ -253,6 +301,16 @@ export function AppSidebar() {
         </div>
         <SidebarMenu>
           <SidebarMenuItem>
+            <SidebarMenuButton 
+              onClick={handleOpenSupport}
+              disabled={isLoadingSupport}
+              data-testid="button-need-help"
+            >
+              <HelpCircle className="h-4 w-4" />
+              <span>{isLoadingSupport ? 'Opening...' : 'Need Help?'}</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
             <SidebarMenuButton asChild data-testid="link-settings">
               <Link href="/settings" onClick={closeSidebar}>
                 <Settings className="h-4 w-4" />
@@ -274,6 +332,21 @@ export function AppSidebar() {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
+      
+      {/* Sofia Support Modal */}
+      <SupportAssistModal
+        isOpen={isSupportOpen}
+        onClose={() => setIsSupportOpen(false)}
+        onResolved={() => {
+          setIsSupportOpen(false);
+          setSupportTicketId(null);
+        }}
+        ticketId={supportTicketId}
+        category="other"
+        reason="General help request"
+        priority="normal"
+        mode="support"
+      />
     </Sidebar>
   );
 }

@@ -265,6 +265,14 @@ class SupportPersonaService {
       learningTopic?: string;
       lastDanielaMessage?: string;
     };
+    mode?: 'user' | 'dev';
+    voiceDiagnostics?: {
+      avgLatencyMs?: number;
+      connectionHealth?: 'healthy' | 'degraded' | 'poor';
+      recentErrors?: string[];
+      ttsProvider?: string;
+      sttProvider?: string;
+    };
   }): Promise<{ response: string; shouldReturnToDaniela: boolean; knowledgeUsed?: string }> {
     // Rate limiting
     const now = Date.now();
@@ -317,6 +325,8 @@ class SupportPersonaService {
         category: t.category,
         resolved: t.status === 'resolved',
       })),
+      mode: params.mode,
+      voiceDiagnostics: params.voiceDiagnostics,
     }) + knowledgeContext;
 
     // Build Gemini conversation history
