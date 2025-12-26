@@ -231,7 +231,7 @@ export default function SyncControlCenter() {
     retry: false,
   });
 
-  const { data: peerSyncRuns, isLoading: peerSyncRunsLoading } = useQuery<PeerSyncRunsResponse>({
+  const { data: peerSyncRuns, isLoading: peerSyncRunsLoading, refetch: refetchPeerSyncRuns } = useQuery<PeerSyncRunsResponse>({
     queryKey: ["/api/sync/peer-sync-runs"],
     retry: false,
   });
@@ -345,7 +345,7 @@ export default function SyncControlCenter() {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await Promise.all([refetchStatus(), refetchHistory(), refetchPeerStats(), refetchLocalStats(), refetchCapabilities()]);
+    await Promise.all([refetchStatus(), refetchHistory(), refetchPeerStats(), refetchLocalStats(), refetchCapabilities(), refetchPeerSyncRuns()]);
     setIsRefreshing(false);
   };
 
