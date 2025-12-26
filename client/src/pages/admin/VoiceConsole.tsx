@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Play, Pause, Plus, Edit2, Trash2, Volume2, User, Languages, Loader2, Sparkles, Heart, Headphones } from "lucide-react";
+import { Play, Pause, Plus, Edit2, Trash2, Volume2, User, Languages, Loader2, Sparkles, Heart, Headphones, MessageSquare } from "lucide-react";
 
 // Personality preset types matching backend
 type PersonalityType = 'warm' | 'calm' | 'energetic' | 'professional';
@@ -826,8 +826,11 @@ export default function VoiceConsole() {
             </div>
           )}
           
-          {/* Support Agent Voice Configuration */}
-          <SupportAgentVoiceCard />
+          {/* Assistant Tutor Voices (for drill practice) */}
+          <AssistantVoiceCard />
+          
+          {/* Sofia Support Agent Voice */}
+          <SofiaVoiceCard />
         </div>
       </div>
     </RoleGuard>
@@ -850,7 +853,7 @@ interface GoogleVoice {
  * Displays assistant tutors from the database with full editing capabilities
  * Uses Google Cloud TTS (Neural2/Wavenet) for drill practice
  */
-function SupportAgentVoiceCard() {
+function AssistantVoiceCard() {
   const { toast } = useToast();
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
@@ -1241,6 +1244,175 @@ function SupportAgentVoiceCard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </Card>
+  );
+}
+
+/**
+ * Sofia Support Agent Voice Configuration
+ * Sofia uses Google Cloud TTS for cost-effective support conversations
+ * Speaks in the student's interface language (not target language)
+ */
+function SofiaVoiceCard() {
+  const { toast } = useToast();
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('english');
+  const [selectedGender, setSelectedGender] = useState<'female' | 'male'>('female');
+  
+  // Sofia's default voices from config (matching SUPPORT_AGENT_VOICES pattern)
+  const sofiaVoices = [
+    { language: 'english', gender: 'female', voiceId: 'en-US-Chirp3-HD-Aoede', voiceName: 'Aoede', languageCode: 'en-US' },
+    { language: 'english', gender: 'male', voiceId: 'en-US-Chirp3-HD-Charon', voiceName: 'Charon', languageCode: 'en-US' },
+    { language: 'spanish', gender: 'female', voiceId: 'es-US-Chirp3-HD-Kore', voiceName: 'Kore', languageCode: 'es-US' },
+    { language: 'spanish', gender: 'male', voiceId: 'es-US-Chirp3-HD-Fenrir', voiceName: 'Fenrir', languageCode: 'es-US' },
+    { language: 'french', gender: 'female', voiceId: 'fr-FR-Chirp3-HD-Leda', voiceName: 'Leda', languageCode: 'fr-FR' },
+    { language: 'french', gender: 'male', voiceId: 'fr-FR-Chirp3-HD-Orus', voiceName: 'Orus', languageCode: 'fr-FR' },
+    { language: 'german', gender: 'female', voiceId: 'de-DE-Chirp3-HD-Zephyr', voiceName: 'Zephyr', languageCode: 'de-DE' },
+    { language: 'german', gender: 'male', voiceId: 'de-DE-Chirp3-HD-Puck', voiceName: 'Puck', languageCode: 'de-DE' },
+    { language: 'italian', gender: 'female', voiceId: 'it-IT-Chirp3-HD-Erinome', voiceName: 'Erinome', languageCode: 'it-IT' },
+    { language: 'italian', gender: 'male', voiceId: 'it-IT-Chirp3-HD-Iapetus', voiceName: 'Iapetus', languageCode: 'it-IT' },
+    { language: 'portuguese', gender: 'female', voiceId: 'pt-BR-Chirp3-HD-Despina', voiceName: 'Despina', languageCode: 'pt-BR' },
+    { language: 'portuguese', gender: 'male', voiceId: 'pt-BR-Chirp3-HD-Enceladus', voiceName: 'Enceladus', languageCode: 'pt-BR' },
+    { language: 'japanese', gender: 'female', voiceId: 'ja-JP-Chirp3-HD-Achernar', voiceName: 'Achernar', languageCode: 'ja-JP' },
+    { language: 'japanese', gender: 'male', voiceId: 'ja-JP-Chirp3-HD-Achird', voiceName: 'Achird', languageCode: 'ja-JP' },
+    { language: 'mandarin chinese', gender: 'female', voiceId: 'cmn-CN-Chirp3-HD-Gacrux', voiceName: 'Gacrux', languageCode: 'cmn-CN' },
+    { language: 'mandarin chinese', gender: 'male', voiceId: 'cmn-CN-Chirp3-HD-Algenib', voiceName: 'Algenib', languageCode: 'cmn-CN' },
+    { language: 'korean', gender: 'female', voiceId: 'ko-KR-Chirp3-HD-Sulafat', voiceName: 'Sulafat', languageCode: 'ko-KR' },
+    { language: 'korean', gender: 'male', voiceId: 'ko-KR-Chirp3-HD-Schedar', voiceName: 'Schedar', languageCode: 'ko-KR' },
+  ] as const;
+  
+  // Get unique languages for the filter
+  const languages = [...new Set(sofiaVoices.map(v => v.language))];
+  
+  // Filter voices by selected language and gender
+  const displayedVoice = sofiaVoices.find(
+    v => v.language === selectedLanguage && v.gender === selectedGender
+  );
+  
+  const handleAudition = async () => {
+    if (!displayedVoice) return;
+    
+    setIsPlaying(true);
+    try {
+      const response = await fetch('/api/admin/audition-google-voice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          voiceId: displayedVoice.voiceId,
+          text: "Hello! I'm Sofia, your technical support specialist. How can I help you today?",
+          language: displayedVoice.languageCode,
+          speakingRate: 1.0,
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate audio');
+      }
+      
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+        setIsPlaying(false);
+      };
+      await audio.play();
+    } catch (error: any) {
+      setIsPlaying(false);
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+  
+  return (
+    <Card className="mt-6" data-testid="card-sofia-voice">
+      <CardHeader>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              Sofia - Support Agent
+            </CardTitle>
+            <CardDescription>
+              Technical support specialist voice (speaks in student's interface language)
+            </CardDescription>
+          </div>
+          <Badge variant="outline" className="bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30">
+            Google Chirp3 HD
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-wrap gap-4">
+          <div className="space-y-2">
+            <Label>Interface Language</Label>
+            <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+              <SelectTrigger className="w-[180px]" data-testid="select-sofia-language">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {languages.map(lang => (
+                  <SelectItem key={lang} value={lang}>
+                    <span className="capitalize">{lang}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="space-y-2">
+            <Label>Voice Gender</Label>
+            <Select value={selectedGender} onValueChange={(v) => setSelectedGender(v as 'female' | 'male')}>
+              <SelectTrigger className="w-[120px]" data-testid="select-sofia-gender">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="female">Female</SelectItem>
+                <SelectItem value="male">Male</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        
+        {displayedVoice && (
+          <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-full ${displayedVoice.gender === 'female' ? 'bg-purple-500/10 text-purple-600' : 'bg-blue-500/10 text-blue-600'}`}>
+                <User className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="font-medium">{displayedVoice.voiceName}</div>
+                <div className="text-sm text-muted-foreground">
+                  {displayedVoice.voiceId}
+                </div>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              onClick={handleAudition}
+              disabled={isPlaying}
+              data-testid="button-audition-sofia"
+            >
+              {isPlaying ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Playing...
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4 mr-2" />
+                  Audition
+                </>
+              )}
+            </Button>
+          </div>
+        )}
+        
+        <p className="text-xs text-muted-foreground text-center pt-2">
+          Sofia speaks in the student's interface language for support conversations. 
+          The voice is automatically selected based on user settings.
+        </p>
+      </CardContent>
     </Card>
   );
 }

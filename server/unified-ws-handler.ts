@@ -860,9 +860,20 @@ Reference past discussions when relevant, but don't force it.
               console.warn('[Streaming Voice] Could not load assistant tutors from database:', asstErr.message);
             }
             
-            tutorDirectory = [...mainTutorEntries, ...assistantEntries];
+            // Add Sofia - support specialist (hardcoded like original assistants)
+            // Sofia handles technical issues, billing questions, account problems
+            const sofiaEntry: TutorDirectoryEntry = {
+              language: 'all', // Sofia helps with any language
+              gender: 'female',
+              name: 'Sofia',
+              isPreferred: false,
+              isCurrent: false,
+              role: 'support' as const,
+            };
+            
+            tutorDirectory = [...mainTutorEntries, ...assistantEntries, sofiaEntry];
               
-            console.log(`[Streaming Voice] Built tutor directory with ${mainTutorEntries.length} tutors + ${assistantEntries.length} assistants`);
+            console.log(`[Streaming Voice] Built tutor directory with ${mainTutorEntries.length} tutors + ${assistantEntries.length} assistants + Sofia (support)`);
           } catch (err: any) {
             console.warn(`[Streaming Voice] Voice config error: ${err.message}`);
           }
@@ -917,7 +928,7 @@ Reference past discussions when relevant, but don't force it.
             undefined,
             undefined,
             user.actflLevel,
-            false,
+            messages.length > 0, // isResuming - detect from existing conversation history
             messages.length,
             (user.tutorPersonality || 'warm') as any,
             user.tutorExpressiveness || 3,

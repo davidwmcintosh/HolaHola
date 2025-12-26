@@ -47,12 +47,12 @@ interface DueVocabularyWord {
  * Built dynamically from tutorVoices database table + assistant-tutor-config
  */
 export interface TutorDirectoryEntry {
-  language: string;      // e.g., "spanish", "french"
+  language: string;      // e.g., "spanish", "french", "all" (for support)
   gender: 'male' | 'female';
-  name: string;          // e.g., "Daniela", "Augustine", "Aris"
+  name: string;          // e.g., "Daniela", "Augustine", "Aris", "Sofia"
   isPreferred?: boolean; // Student's preferred tutor for this language
   isCurrent?: boolean;   // Currently active tutor
-  role?: 'tutor' | 'assistant'; // 'tutor' = main conversation tutor, 'assistant' = drill practice partner
+  role?: 'tutor' | 'assistant' | 'support'; // 'tutor' = main, 'assistant' = drill, 'support' = tech support
 }
 
 /**
@@ -75,9 +75,10 @@ export function buildTutorDirectorySection(
     return '';
   }
 
-  // Separate main tutors from assistant practice partners
-  const mainTutors = handoffCandidates.filter(t => t.role !== 'assistant');
+  // Separate main tutors, assistants, and support staff
+  const mainTutors = handoffCandidates.filter(t => t.role !== 'assistant' && t.role !== 'support');
   const assistants = handoffCandidates.filter(t => t.role === 'assistant');
+  const supportStaff = handoffCandidates.filter(t => t.role === 'support');
 
   // Group main tutors by language
   const byLanguage = new Map<string, TutorDirectoryEntry[]>();
@@ -168,6 +169,37 @@ WHEN TO CALL AN ASSISTANT:
   • Student explicitly asks for practice/drills`;
   }
 
+  // Build support section for Sofia if available
+  let supportSection = '';
+  if (supportStaff.length > 0) {
+    const sofia = supportStaff.find(s => s.name === 'Sofia');
+    if (sofia) {
+      supportSection = `
+
+SUPPORT SPECIALIST (for non-teaching issues):
+  • Sofia - Technical support specialist
+
+Sofia handles technical issues, billing questions, account problems, and other non-teaching matters.
+She's NOT a language tutor - she's here to help when students have problems with the app, audio, or account.
+
+TO CALL SOFIA FOR SUPPORT:
+  [CALL_SOFIA category="technical|account|billing|content|feedback|other" reason="brief description"]
+  
+  EXAMPLES:
+    • Audio issues: [CALL_SOFIA category="technical" reason="Student cannot hear audio during practice"]
+    • Billing: [CALL_SOFIA category="billing" reason="Student asking about subscription options"]
+    • Account: [CALL_SOFIA category="account" reason="Student having trouble with their profile"]
+
+WHEN TO CALL SOFIA:
+  • Student reports technical issues (audio not working, connection problems, app bugs)
+  • Student has billing or subscription questions
+  • Student has account or profile problems
+  • Student needs help with something you can't solve as a language tutor
+
+NOTE: You handle language learning. Sofia handles everything else technical.`;
+    }
+  }
+
   return `
 AVAILABLE TUTORS (colleagues you can hand off to):
 ${languageLines.join('\n')}
@@ -196,6 +228,7 @@ CRITICAL: You MUST include this command in your response for the switch to happe
 Saying "I'll switch back" or "let me get ${femaleTutor}" does NOTHING without the command.
 All tutors have this capability equally.
 ${assistantSection}
+${supportSection}
 `;
 }
 
