@@ -1601,19 +1601,36 @@ Reference past discussions when relevant, but don't force it.
           console.log(`[SpeculativePTT] PTT released - interim transcript: "${interimTranscript}" (${speculativePttWordCount} words)`);
           
           // DON'T close immediately - wait for Deepgram final transcript
-          // Deepgram often sends the true final transcript 100-300ms after we stop sending audio
-          const FINAL_WAIT_MS = 250;
+          // Deepgram often sends the true final transcript 200-400ms after we stop sending audio
+          // Use longer wait and early-exit when transcript stabilizes
+          const FINAL_WAIT_MS = 400;
+          const STABLE_CHECK_MS = 50;
+          
+          let lastTranscript = speculativePttTranscript;
+          let stableCount = 0;
           
           await new Promise<void>((resolve) => {
             const waitStartTime = Date.now();
             const checkInterval = setInterval(() => {
               const elapsed = Date.now() - waitStartTime;
-              // Check if we got more transcript or timeout
-              if (elapsed >= FINAL_WAIT_MS) {
+              const currentTranscript = speculativePttTranscript;
+              
+              // If transcript changed, reset stability counter
+              if (currentTranscript !== lastTranscript) {
+                lastTranscript = currentTranscript;
+                stableCount = 0;
+              } else {
+                stableCount++;
+              }
+              
+              // Exit early if transcript has been stable for 150ms (3 checks) AND at least 200ms elapsed
+              // OR timeout after FINAL_WAIT_MS
+              if ((stableCount >= 3 && elapsed >= 200) || elapsed >= FINAL_WAIT_MS) {
                 clearInterval(checkInterval);
+                console.log(`[SpeculativePTT] Wait complete: elapsed=${elapsed}ms, stable=${stableCount * STABLE_CHECK_MS}ms`);
                 resolve();
               }
-            }, 50);
+            }, STABLE_CHECK_MS);
           });
           
           // NOW get the final transcript (which may have been updated during the wait)
@@ -3006,19 +3023,36 @@ This is a voice conversation. Speak naturally, as you would.`;
           console.log(`[SpeculativePTT] PTT released - interim transcript: "${interimTranscript}" (${speculativePttWordCount} words)`);
           
           // DON'T close immediately - wait for Deepgram final transcript
-          // Deepgram often sends the true final transcript 100-300ms after we stop sending audio
-          const FINAL_WAIT_MS = 250;
+          // Deepgram often sends the true final transcript 200-400ms after we stop sending audio
+          // Use longer wait and early-exit when transcript stabilizes
+          const FINAL_WAIT_MS = 400;
+          const STABLE_CHECK_MS = 50;
+          
+          let lastTranscript = speculativePttTranscript;
+          let stableCount = 0;
           
           await new Promise<void>((resolve) => {
             const waitStartTime = Date.now();
             const checkInterval = setInterval(() => {
               const elapsed = Date.now() - waitStartTime;
-              // Check if we got more transcript or timeout
-              if (elapsed >= FINAL_WAIT_MS) {
+              const currentTranscript = speculativePttTranscript;
+              
+              // If transcript changed, reset stability counter
+              if (currentTranscript !== lastTranscript) {
+                lastTranscript = currentTranscript;
+                stableCount = 0;
+              } else {
+                stableCount++;
+              }
+              
+              // Exit early if transcript has been stable for 150ms (3 checks) AND at least 200ms elapsed
+              // OR timeout after FINAL_WAIT_MS
+              if ((stableCount >= 3 && elapsed >= 200) || elapsed >= FINAL_WAIT_MS) {
                 clearInterval(checkInterval);
+                console.log(`[SpeculativePTT] Wait complete: elapsed=${elapsed}ms, stable=${stableCount * STABLE_CHECK_MS}ms`);
                 resolve();
               }
-            }, 50);
+            }, STABLE_CHECK_MS);
           });
           
           // NOW get the final transcript (which may have been updated during the wait)
