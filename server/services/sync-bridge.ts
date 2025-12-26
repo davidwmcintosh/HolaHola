@@ -785,7 +785,7 @@ class SyncBridgeService {
   
   /**
    * Export Tutor Voices for cross-environment sync
-   * Includes both main tutors (role=tutor) and assistant tutors (role=assistant)
+   * Includes main tutors (role=tutor), assistant tutors (role=assistant), and support voices (role=support)
    * This is product configuration, not incremental - export all active voices
    */
   async exportTutorVoices(): Promise<any[]> {
@@ -795,7 +795,7 @@ class SyncBridgeService {
       .where(eq(tutorVoices.isActive, true))
       .orderBy(tutorVoices.language, tutorVoices.role, tutorVoices.gender);
     
-    console.log(`[SYNC-BRIDGE] Exporting ${voices.length} Tutor Voices (tutors + assistants)`);
+    console.log(`[SYNC-BRIDGE] Exporting ${voices.length} Tutor Voices (tutors + assistants + support)`);
     return voices;
   }
   
