@@ -1355,6 +1355,23 @@ function SofiaVoiceCard() {
     });
   };
   
+  // Sofia speaks in the student's native language - sample phrases per language
+  const SOFIA_SAMPLE_PHRASES: Record<string, string> = {
+    'english': "Hello! I'm Sofia, your technical support specialist. How can I help you today?",
+    'spanish': "¡Hola! Soy Sofia, tu especialista en soporte técnico. ¿Cómo puedo ayudarte hoy?",
+    'french': "Bonjour! Je suis Sofia, votre spécialiste du support technique. Comment puis-je vous aider aujourd'hui?",
+    'german': "Hallo! Ich bin Sofia, Ihre technische Support-Spezialistin. Wie kann ich Ihnen heute helfen?",
+    'italian': "Ciao! Sono Sofia, la tua specialista del supporto tecnico. Come posso aiutarti oggi?",
+    'portuguese': "Olá! Eu sou Sofia, sua especialista em suporte técnico. Como posso ajudá-lo hoje?",
+    'japanese': "こんにちは！私はソフィア、テクニカルサポートの専門家です。今日はどのようにお手伝いできますか？",
+    'mandarin chinese': "你好！我是索菲亚，您的技术支持专家。今天我能帮您什么忙？",
+    'korean': "안녕하세요! 저는 소피아입니다, 기술 지원 전문가예요. 오늘 어떻게 도와드릴까요?",
+  };
+  
+  const getSofiaSamplePhrase = (language: string) => {
+    return SOFIA_SAMPLE_PHRASES[language.toLowerCase()] || SOFIA_SAMPLE_PHRASES['english'];
+  };
+  
   const handleAudition = async (voice: TutorVoice) => {
     setPlayingVoiceId(voice.id);
     try {
@@ -1364,7 +1381,7 @@ function SofiaVoiceCard() {
         credentials: 'include',
         body: JSON.stringify({
           voiceId: voice.voiceId,
-          text: "Hello! I'm Sofia, your technical support specialist. How can I help you today?",
+          text: getSofiaSamplePhrase(voice.language),
           language: voice.language,
           languageCode: voice.languageCode,
           speakingRate: voice.speakingRate || 1.0,
@@ -1397,7 +1414,7 @@ function SofiaVoiceCard() {
         credentials: 'include',
         body: JSON.stringify({
           voiceId: formData.voiceId,
-          text: "Hello! I'm Sofia, your technical support specialist. How can I help you today?",
+          text: getSofiaSamplePhrase(formData.language),
           language: formData.language,
           languageCode: formData.languageCode,
           speakingRate: formData.speakingRate,
