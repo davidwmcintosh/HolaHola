@@ -1358,14 +1358,15 @@ function SofiaVoiceCard() {
   const handleAudition = async (voice: TutorVoice) => {
     setPlayingVoiceId(voice.id);
     try {
-      const response = await fetch('/api/admin/audition-google-voice', {
+      const response = await fetch('/api/admin/assistant-voice-preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
           voiceId: voice.voiceId,
           text: "Hello! I'm Sofia, your technical support specialist. How can I help you today?",
-          language: voice.languageCode,
+          language: voice.language,
+          languageCode: voice.languageCode,
           speakingRate: voice.speakingRate || 1.0,
         }),
       });
@@ -1390,14 +1391,15 @@ function SofiaVoiceCard() {
     if (!formData.voiceId) return;
     
     try {
-      const response = await fetch('/api/admin/audition-google-voice', {
+      const response = await fetch('/api/admin/assistant-voice-preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
           voiceId: formData.voiceId,
           text: "Hello! I'm Sofia, your technical support specialist. How can I help you today?",
-          language: formData.languageCode,
+          language: formData.language,
+          languageCode: formData.languageCode,
           speakingRate: formData.speakingRate,
         }),
       });
