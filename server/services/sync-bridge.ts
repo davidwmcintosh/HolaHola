@@ -17,7 +17,9 @@ import {
   // Classes for beta tester auto-enrollment
   teacherClasses, classEnrollments,
   // Founder-specific tables
-  learnerPersonalFacts
+  learnerPersonalFacts,
+  // Student conversations (for prod troubleshooting)
+  conversations, messages
 } from '@shared/schema';
 import { eq, desc, gte, and, isNull, or, inArray, lt, sql } from 'drizzle-orm';
 import { neuralNetworkSync } from './neural-network-sync';
@@ -49,6 +51,7 @@ const SUPPORTED_BATCHES = [
   'aggregate-analytics', // Pull anonymized usage stats from prod
   'prod-content-growth', // Pull Daniela-authored content from prod (idioms, nuances, etc.)
   'founder-context',   // Bidirectional sync of founder's personal facts (same Daniela in dev/prod)
+  'prod-conversations', // Pull recent conversation transcripts from prod for troubleshooting
 ] as const;
 
 // Capability map for fine-grained feature support
@@ -165,6 +168,12 @@ export interface SyncBundle {
   // Founder-specific context (bidirectional - same Daniela in dev/prod)
   founderContext?: {
     personalFacts: any[];
+    exportedAt: string;
+  };
+  // Production conversations for troubleshooting (prod → dev pull)
+  prodConversations?: {
+    conversations: any[];
+    messages: any[];
     exportedAt: string;
   };
 }
@@ -601,6 +610,20 @@ class SyncBridgeService {
         console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
         batchErrors.push(errMsg);
         bundle.founderContext = undefined;
+      }
+    }
+    
+    // BATCH: prod-conversations - Recent conversation transcripts for troubleshooting (prod → dev pull)
+    if (batchType === 'prod-conversations') {
+      try {
+        const convData = await this.exportProdConversations();
+        bundle.prodConversations = convData;
+        console.log(`[SYNC-BRIDGE v19] prod-conversations: ${convData.conversations?.length || 0} conversations, ${convData.messages?.length || 0} messages exported`);
+      } catch (err: any) {
+        const errMsg = `prod-conversations export failed: ${err.message}`;
+        console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
+        batchErrors.push(errMsg);
+        bundle.prodConversations = undefined;
       }
     }
     
@@ -1055,6 +1078,95 @@ class SyncBridgeService {
       dialects,
       bridges,
       culturalTips: tips,
+      exportedAt: new Date().toISOString()
+    };
+  }
+  
+  /**
+   * Export recent production conversations for troubleshooting
+   * Pulls conversations and messages from the last 7 days for debugging voice timing issues etc.
+   * Only exports founder/beta tester conversations for privacy
+   */
+  async exportProdConversations(): Promise<{
+    conversations: any[];
+    messages: any[];
+    exportedAt: string;
+  }> {
+    // Get beta tester user IDs for privacy (only export their conversations)
+    // Include founder email as fallback to ensure we always have data for troubleshooting
+    const FOUNDER_EMAIL = process.env.FOUNDER_EMAIL || 'davidwmcintosh@gmail.com';
+    
+    const allowedUsers = await db
+      .select({ id: users.id, email: users.email })
+      .from(users)
+      .where(or(
+        eq(users.isBetaTester, true),
+        eq(users.email, FOUNDER_EMAIL)
+      ));
+    
+    if (allowedUsers.length === 0) {
+      console.log('[SYNC-BRIDGE] No beta testers/founders found for prod-conversations export');
+      return { conversations: [], messages: [], exportedAt: new Date().toISOString() };
+    }
+    
+    const allowedUserIds = allowedUsers.map(u => u.id);
+    console.log(`[SYNC-BRIDGE] Found ${allowedUsers.length} users for prod-conversations export`);
+    
+    // Get conversations from last 7 days
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    // Use explicit column selection for Drizzle compatibility
+    const recentConversations = await db
+      .select({
+        id: conversations.id,
+        userId: conversations.userId,
+        language: conversations.language,
+        mode: conversations.mode,
+        topic: conversations.topic,
+        actflLevel: conversations.actflLevel,
+        summary: conversations.summary,
+        endedAt: conversations.endedAt,
+        createdAt: conversations.createdAt,
+      })
+      .from(conversations)
+      .where(
+        and(
+          inArray(conversations.userId, allowedUserIds),
+          gte(conversations.createdAt, sevenDaysAgo)
+        )
+      )
+      .orderBy(desc(conversations.createdAt))
+      .limit(50);  // Limit to 50 most recent conversations
+    
+    if (recentConversations.length === 0) {
+      console.log('[SYNC-BRIDGE] No recent conversations found for prod-conversations export');
+      return { conversations: [], messages: [], exportedAt: new Date().toISOString() };
+    }
+    
+    const conversationIds = recentConversations.map(c => c.id);
+    
+    // Get all messages for these conversations with explicit column selection
+    const conversationMessages = await db
+      .select({
+        id: messages.id,
+        conversationId: messages.conversationId,
+        role: messages.role,
+        content: messages.content,
+        audioUrl: messages.audioUrl,
+        correctedText: messages.correctedText,
+        feedback: messages.feedback,
+        createdAt: messages.createdAt,
+      })
+      .from(messages)
+      .where(inArray(messages.conversationId, conversationIds))
+      .orderBy(messages.createdAt);
+    
+    console.log(`[SYNC-BRIDGE] Exporting prod-conversations: ${recentConversations.length} conversations, ${conversationMessages.length} messages (last 7 days)`);
+    
+    return {
+      conversations: recentConversations,
+      messages: conversationMessages,
       exportedAt: new Date().toISOString()
     };
   }

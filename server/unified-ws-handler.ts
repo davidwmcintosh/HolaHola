@@ -324,7 +324,11 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
   let pendingSpeculativeTranscript: string | null = null;
   let pendingSpeculativeWordCount = 0;
   const SPECULATIVE_TRANSCRIPT_MIN_WORDS = 2;  // Minimum words to use speculative transcript
-  const SPECULATIVE_AI_TRIGGER_WORDS = 3;  // Minimum words to trigger speculative AI generation
+  // DISABLED: Speculative AI triggering during PTT causes Daniela to respond to incomplete sentences
+  // When user pauses mid-thought while holding button, AI would trigger on partial transcript
+  // Set to 999 to effectively disable - user's complete utterance is processed on button release
+  const PTT_SPECULATIVE_AI_ENABLED = process.env.PTT_SPECULATIVE_AI_ENABLED === 'true';
+  const SPECULATIVE_AI_TRIGGER_WORDS = PTT_SPECULATIVE_AI_ENABLED ? 3 : 999;
   let speculativeAiInProgress = false;  // Whether speculative AI is currently generating
   let speculativeAiAccepted = false;  // Whether speculative AI result was accepted (skip audio_data)
   
@@ -2336,7 +2340,11 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
   let pendingSpeculativeTranscript: string | null = null;
   let pendingSpeculativeWordCount = 0;
   const SPECULATIVE_TRANSCRIPT_MIN_WORDS = 2;  // Minimum words to use speculative transcript
-  const SPECULATIVE_AI_TRIGGER_WORDS = 3;  // Minimum words to trigger speculative AI generation
+  // DISABLED: Speculative AI triggering during PTT causes Daniela to respond to incomplete sentences
+  // When user pauses mid-thought while holding button, AI would trigger on partial transcript
+  // Set to 999 to effectively disable - user's complete utterance is processed on button release
+  const PTT_SPECULATIVE_AI_ENABLED = process.env.PTT_SPECULATIVE_AI_ENABLED === 'true';
+  const SPECULATIVE_AI_TRIGGER_WORDS = PTT_SPECULATIVE_AI_ENABLED ? 3 : 999;
   let speculativeAiInProgress = false;  // Whether speculative AI is currently generating
   let speculativeAiAccepted = false;  // Whether speculative AI result was accepted (skip audio_data)
   
