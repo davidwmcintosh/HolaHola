@@ -971,43 +971,83 @@ function AssistantVoiceCard() {
     }
     
     setPlayingVoiceId(voice.id);
+    const phrases = SAMPLE_PHRASES[voice.language] || SAMPLE_PHRASES.english;
     
     try {
-      const sampleText = SAMPLE_PHRASES[voice.language]?.target || "Hello! Let's practice together.";
-      const response = await fetch('/api/admin/assistant-voice-preview', {
+      // First play in target language
+      const targetResponse = await fetch('/api/admin/assistant-voice-preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
           voiceId: voice.voiceId,
-          text: sampleText,
+          text: phrases.target,
           language: voice.languageCode,
           speakingRate: voice.speakingRate || 1.0,
         }),
       });
       
-      if (!response.ok) {
+      if (!targetResponse.ok) {
         throw new Error('Failed to generate audio');
       }
       
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
+      const targetBlob = await targetResponse.blob();
+      const targetUrl = URL.createObjectURL(targetBlob);
       
-      const audio = new Audio(audioUrl);
-      setAudioElement(audio);
+      const targetAudio = new Audio(targetUrl);
+      setAudioElement(targetAudio);
       
-      audio.onended = () => {
-        setPlayingVoiceId(null);
-        URL.revokeObjectURL(audioUrl);
+      targetAudio.onended = async () => {
+        URL.revokeObjectURL(targetUrl);
+        
+        // If not English, also play the English phrase
+        if (voice.language !== 'english') {
+          try {
+            const nativeResponse = await fetch('/api/admin/assistant-voice-preview', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({
+                voiceId: voice.voiceId,
+                text: phrases.native,
+                language: 'en-US',
+                speakingRate: voice.speakingRate || 1.0,
+              }),
+            });
+            
+            if (nativeResponse.ok) {
+              const nativeBlob = await nativeResponse.blob();
+              const nativeUrl = URL.createObjectURL(nativeBlob);
+              const nativeAudio = new Audio(nativeUrl);
+              setAudioElement(nativeAudio);
+              
+              nativeAudio.onended = () => {
+                setPlayingVoiceId(null);
+                URL.revokeObjectURL(nativeUrl);
+              };
+              nativeAudio.onerror = () => {
+                setPlayingVoiceId(null);
+                URL.revokeObjectURL(nativeUrl);
+              };
+              await nativeAudio.play();
+            } else {
+              setPlayingVoiceId(null);
+            }
+          } catch {
+            setPlayingVoiceId(null);
+          }
+        } else {
+          setPlayingVoiceId(null);
+        }
       };
       
-      audio.onerror = () => {
+      targetAudio.onerror = () => {
         setPlayingVoiceId(null);
-        URL.revokeObjectURL(audioUrl);
+        URL.revokeObjectURL(targetUrl);
         toast({ title: "Error", description: "Failed to play audio", variant: "destructive" });
       };
       
-      await audio.play();
+      await targetAudio.play();
     } catch (error: any) {
       console.error('[VoiceConsole] Assistant voice audition error:', error);
       toast({ title: "Error", description: error.message, variant: "destructive" });
