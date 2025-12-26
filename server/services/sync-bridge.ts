@@ -41,6 +41,7 @@ const SUPPORTED_BATCHES = [
   'express-lane',
   'hive-snapshots',
   'daniela-memories',
+  'founder-conversations', // Push founder's dev conversations to prod for Daniela continuity
   'product-config',
   'curriculum-core',
   'curriculum-drills',
@@ -168,6 +169,12 @@ export interface SyncBundle {
   // Founder-specific context (bidirectional - same Daniela in dev/prod)
   founderContext?: {
     personalFacts: any[];
+    exportedAt: string;
+  };
+  // Founder conversations (dev → prod push for Daniela continuity)
+  founderConversations?: {
+    conversations: any[];
+    messages: any[];
     exportedAt: string;
   };
   // Production conversations for troubleshooting (prod → dev pull)
@@ -417,6 +424,20 @@ class SyncBridgeService {
         console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
         batchErrors.push(errMsg);
         bundle.danielaGrowthMemories = [];
+      }
+    }
+    
+    // BATCH: founder-conversations - Push founder's dev conversations to prod for Daniela continuity
+    if (!batchType || batchType === 'founder-conversations') {
+      try {
+        const convData = await this.exportFounderConversations();
+        bundle.founderConversations = convData;
+        console.log(`[SYNC-BRIDGE] founder-conversations: ${convData.conversations?.length || 0} conversations, ${convData.messages?.length || 0} messages`);
+      } catch (err: any) {
+        const errMsg = `founder-conversations export failed: ${err.message}`;
+        console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
+        batchErrors.push(errMsg);
+        bundle.founderConversations = undefined;
       }
     }
     
@@ -1172,6 +1193,92 @@ class SyncBridgeService {
   }
   
   /**
+   * Export founder's conversations for dev→prod sync
+   * Enables Daniela in production to have access to dev conversation history
+   * for continuity and restarting previous conversations
+   */
+  async exportFounderConversations(): Promise<{
+    conversations: any[];
+    messages: any[];
+    exportedAt: string;
+  }> {
+    // Get founder user ID
+    const FOUNDER_EMAIL = process.env.FOUNDER_EMAIL || 'davidwmcintosh@gmail.com';
+    
+    const founderUser = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, FOUNDER_EMAIL))
+      .limit(1);
+    
+    if (founderUser.length === 0) {
+      console.log('[SYNC-BRIDGE] Founder not found for founder-conversations export');
+      return { conversations: [], messages: [], exportedAt: new Date().toISOString() };
+    }
+    
+    const founderId = founderUser[0].id;
+    
+    // Get all founder conversations (no time limit - full history for Daniela continuity)
+    const founderConversations = await db
+      .select({
+        id: conversations.id,
+        uniqueId: conversations.uniqueId,
+        userId: conversations.userId,
+        language: conversations.language,
+        mode: conversations.mode,
+        topic: conversations.topic,
+        actflLevel: conversations.actflLevel,
+        summary: conversations.summary,
+        endedAt: conversations.endedAt,
+        messageCount: conversations.messageCount,
+        durationSeconds: conversations.durationSeconds,
+        classId: conversations.classId,
+        lessonId: conversations.lessonId,
+        createdAt: conversations.createdAt,
+      })
+      .from(conversations)
+      .where(eq(conversations.userId, founderId))
+      .orderBy(desc(conversations.createdAt))
+      .limit(200);  // Limit to 200 most recent conversations for manageable sync
+    
+    if (founderConversations.length === 0) {
+      console.log('[SYNC-BRIDGE] No founder conversations found for export');
+      return { conversations: [], messages: [], exportedAt: new Date().toISOString() };
+    }
+    
+    const conversationIds = founderConversations.map(c => c.id);
+    
+    // Get all messages for these conversations
+    const founderMessages = await db
+      .select({
+        id: messages.id,
+        conversationId: messages.conversationId,
+        role: messages.role,
+        content: messages.content,
+        audioUrl: messages.audioUrl,
+        correctedText: messages.correctedText,
+        feedback: messages.feedback,
+        pronunciationScore: messages.pronunciationScore,
+        fluencyScore: messages.fluencyScore,
+        completenessScore: messages.completenessScore,
+        prosodyScore: messages.prosodyScore,
+        wordScores: messages.wordScores,
+        createdAt: messages.createdAt,
+      })
+      .from(messages)
+      .where(inArray(messages.conversationId, conversationIds))
+      .orderBy(messages.createdAt);
+    
+    console.log(`[SYNC-BRIDGE] Exporting founder-conversations: ${founderConversations.length} conversations, ${founderMessages.length} messages`);
+    
+    return {
+      conversations: founderConversations,
+      messages: founderMessages,
+      exportedAt: new Date().toISOString()
+    };
+  }
+  
+  /**
    * Import Daniela-authored content from production
    * Merges content into dev database with 'pending_review' status
    */
@@ -1471,6 +1578,125 @@ class SyncBridgeService {
     
     console.log(`[SYNC-BRIDGE] Imported ${imported} new, updated ${updated} existing founder personal facts, ${errors.length} errors`);
     return { imported, updated, errors };
+  }
+  
+  /**
+   * Import founder conversations for Daniela continuity (dev → prod)
+   * Uses upsert logic to merge conversations and messages
+   * Preserves original IDs for cross-environment reference
+   */
+  async importFounderConversations(data: {
+    conversations: any[];
+    messages: any[];
+  }): Promise<{ conversations: number; messages: number; errors: string[] }> {
+    let conversationsImported = 0;
+    let messagesImported = 0;
+    const errors: string[] = [];
+    
+    // Get founder user in this environment
+    const FOUNDER_EMAIL = process.env.FOUNDER_EMAIL || 'davidwmcintosh@gmail.com';
+    const founderUser = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, FOUNDER_EMAIL))
+      .limit(1);
+    
+    if (founderUser.length === 0) {
+      errors.push('Founder user not found in target environment');
+      return { conversations: 0, messages: 0, errors };
+    }
+    
+    const founderId = founderUser[0].id;
+    
+    // Import conversations (upsert by uniqueId or id)
+    for (const conv of data.conversations || []) {
+      try {
+        // Check if conversation exists by uniqueId (preferred) or id
+        // Build condition based on whether uniqueId exists
+        const whereCondition = conv.uniqueId 
+          ? or(eq(conversations.uniqueId, conv.uniqueId), eq(conversations.id, conv.id))
+          : eq(conversations.id, conv.id);
+        
+        const existing = await db
+          .select({ id: conversations.id })
+          .from(conversations)
+          .where(whereCondition)
+          .limit(1);
+        
+        if (existing.length === 0) {
+          // Insert new conversation, mapping userId to local founder
+          await db.insert(conversations).values({
+            id: conv.id,
+            uniqueId: conv.uniqueId,
+            userId: founderId, // Map to local founder
+            language: conv.language,
+            mode: conv.mode,
+            topic: conv.topic,
+            actflLevel: conv.actflLevel,
+            summary: conv.summary,
+            endedAt: conv.endedAt ? new Date(conv.endedAt) : null,
+            messageCount: conv.messageCount || 0,
+            durationSeconds: conv.durationSeconds || 0,
+            classId: conv.classId,
+            lessonId: conv.lessonId,
+            createdAt: conv.createdAt ? new Date(conv.createdAt) : new Date(),
+          });
+          conversationsImported++;
+        } else {
+          // Update summary if newer
+          if (conv.summary && conv.endedAt) {
+            await db
+              .update(conversations)
+              .set({
+                summary: conv.summary,
+                endedAt: conv.endedAt ? new Date(conv.endedAt) : null,
+                messageCount: conv.messageCount || 0,
+              })
+              .where(eq(conversations.id, existing[0].id));
+          }
+        }
+      } catch (err: any) {
+        errors.push(`Conversation ${conv.id}: ${err.message}`);
+      }
+    }
+    
+    // Import messages (upsert by id)
+    for (const msg of data.messages || []) {
+      try {
+        const existing = await db
+          .select({ id: messages.id })
+          .from(messages)
+          .where(eq(messages.id, msg.id))
+          .limit(1);
+        
+        if (existing.length === 0) {
+          await db.insert(messages).values({
+            id: msg.id,
+            conversationId: msg.conversationId,
+            role: msg.role,
+            content: msg.content,
+            audioUrl: msg.audioUrl,
+            correctedText: msg.correctedText,
+            feedback: msg.feedback,
+            pronunciationScore: msg.pronunciationScore,
+            fluencyScore: msg.fluencyScore,
+            completenessScore: msg.completenessScore,
+            prosodyScore: msg.prosodyScore,
+            wordScores: msg.wordScores,
+            createdAt: msg.createdAt ? new Date(msg.createdAt) : new Date(),
+          });
+          messagesImported++;
+        }
+      } catch (err: any) {
+        // Silently skip duplicate key errors (already exists)
+        if (!err.message?.includes('duplicate key')) {
+          errors.push(`Message ${msg.id}: ${err.message}`);
+        }
+      }
+    }
+    
+    console.log(`[SYNC-BRIDGE] Imported ${conversationsImported} conversations, ${messagesImported} messages for founder continuity (${errors.length} errors)`);
+    return { conversations: conversationsImported, messages: messagesImported, errors };
   }
   
   /**
@@ -1999,6 +2225,17 @@ class SyncBridgeService {
       counts['founderPersonalFacts'] = contextResult.imported + contextResult.updated;
       if (contextResult.errors.length) {
         errors.push(...contextResult.errors);
+      }
+    }
+    
+    // Founder Conversations (dev → prod push for Daniela continuity)
+    if (bundle.founderConversations) {
+      console.log(`[SYNC-BRIDGE] Importing founder conversations for Daniela continuity...`);
+      const convResult = await this.importFounderConversations(bundle.founderConversations);
+      counts['founderConversations'] = convResult.conversations;
+      counts['founderMessages'] = convResult.messages;
+      if (convResult.errors.length) {
+        errors.push(...convResult.errors);
       }
     }
     
