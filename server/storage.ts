@@ -729,6 +729,9 @@ export interface IStorage {
   
   // Seed default voices (for initial setup)
   seedDefaultTutorVoices(): Promise<void>;
+  
+  // Seed Sofia support voices
+  seedSupportVoices(): Promise<void>;
 
   // ===== Admin: Reset User Learning Data =====
   resetUserLearningData(userId: string, options?: {
@@ -5435,6 +5438,61 @@ export class DatabaseStorage implements IStorage {
     }
 
     console.log(`[Voice Seed] ✓ Seeded ${defaultVoices.length} default tutor voices`);
+    
+    // Also seed Sofia's support voices if they don't exist
+    await this.seedSupportVoices();
+  }
+  
+  /**
+   * Seed Sofia's support agent voices (Google Chirp3 HD)
+   * These voices are used for technical support conversations
+   */
+  async seedSupportVoices(): Promise<void> {
+    // Check if support voices already exist
+    const existing = await db.select().from(tutorVoices).where(eq(tutorVoices.role, 'support')).limit(1);
+    if (existing.length > 0) {
+      console.log('[Voice Seed] Support voices already exist, skipping seed');
+      return;
+    }
+
+    console.log('[Voice Seed] Seeding Sofia support voices...');
+
+    // Sofia's support voices - Google Chirp3 HD for each language
+    const supportVoices: InsertTutorVoice[] = [
+      // English
+      { language: 'english', gender: 'female', role: 'support', provider: 'google', voiceId: 'en-US-Chirp3-HD-Aoede', voiceName: 'Aoede', languageCode: 'en-US', speakingRate: 1.0 },
+      { language: 'english', gender: 'male', role: 'support', provider: 'google', voiceId: 'en-US-Chirp3-HD-Charon', voiceName: 'Charon', languageCode: 'en-US', speakingRate: 1.0 },
+      // Spanish
+      { language: 'spanish', gender: 'female', role: 'support', provider: 'google', voiceId: 'es-US-Chirp3-HD-Kore', voiceName: 'Kore', languageCode: 'es-US', speakingRate: 1.0 },
+      { language: 'spanish', gender: 'male', role: 'support', provider: 'google', voiceId: 'es-US-Chirp3-HD-Fenrir', voiceName: 'Fenrir', languageCode: 'es-US', speakingRate: 1.0 },
+      // French
+      { language: 'french', gender: 'female', role: 'support', provider: 'google', voiceId: 'fr-FR-Chirp3-HD-Leda', voiceName: 'Leda', languageCode: 'fr-FR', speakingRate: 1.0 },
+      { language: 'french', gender: 'male', role: 'support', provider: 'google', voiceId: 'fr-FR-Chirp3-HD-Orus', voiceName: 'Orus', languageCode: 'fr-FR', speakingRate: 1.0 },
+      // German
+      { language: 'german', gender: 'female', role: 'support', provider: 'google', voiceId: 'de-DE-Chirp3-HD-Zephyr', voiceName: 'Zephyr', languageCode: 'de-DE', speakingRate: 1.0 },
+      { language: 'german', gender: 'male', role: 'support', provider: 'google', voiceId: 'de-DE-Chirp3-HD-Puck', voiceName: 'Puck', languageCode: 'de-DE', speakingRate: 1.0 },
+      // Italian
+      { language: 'italian', gender: 'female', role: 'support', provider: 'google', voiceId: 'it-IT-Chirp3-HD-Erinome', voiceName: 'Erinome', languageCode: 'it-IT', speakingRate: 1.0 },
+      { language: 'italian', gender: 'male', role: 'support', provider: 'google', voiceId: 'it-IT-Chirp3-HD-Iapetus', voiceName: 'Iapetus', languageCode: 'it-IT', speakingRate: 1.0 },
+      // Portuguese
+      { language: 'portuguese', gender: 'female', role: 'support', provider: 'google', voiceId: 'pt-BR-Chirp3-HD-Despina', voiceName: 'Despina', languageCode: 'pt-BR', speakingRate: 1.0 },
+      { language: 'portuguese', gender: 'male', role: 'support', provider: 'google', voiceId: 'pt-BR-Chirp3-HD-Enceladus', voiceName: 'Enceladus', languageCode: 'pt-BR', speakingRate: 1.0 },
+      // Japanese
+      { language: 'japanese', gender: 'female', role: 'support', provider: 'google', voiceId: 'ja-JP-Chirp3-HD-Achernar', voiceName: 'Achernar', languageCode: 'ja-JP', speakingRate: 1.0 },
+      { language: 'japanese', gender: 'male', role: 'support', provider: 'google', voiceId: 'ja-JP-Chirp3-HD-Achird', voiceName: 'Achird', languageCode: 'ja-JP', speakingRate: 1.0 },
+      // Mandarin Chinese
+      { language: 'mandarin chinese', gender: 'female', role: 'support', provider: 'google', voiceId: 'cmn-CN-Chirp3-HD-Gacrux', voiceName: 'Gacrux', languageCode: 'cmn-CN', speakingRate: 1.0 },
+      { language: 'mandarin chinese', gender: 'male', role: 'support', provider: 'google', voiceId: 'cmn-CN-Chirp3-HD-Algenib', voiceName: 'Algenib', languageCode: 'cmn-CN', speakingRate: 1.0 },
+      // Korean
+      { language: 'korean', gender: 'female', role: 'support', provider: 'google', voiceId: 'ko-KR-Chirp3-HD-Sulafat', voiceName: 'Sulafat', languageCode: 'ko-KR', speakingRate: 1.0 },
+      { language: 'korean', gender: 'male', role: 'support', provider: 'google', voiceId: 'ko-KR-Chirp3-HD-Schedar', voiceName: 'Schedar', languageCode: 'ko-KR', speakingRate: 1.0 },
+    ];
+
+    for (const voice of supportVoices) {
+      await db.insert(tutorVoices).values(voice);
+    }
+
+    console.log(`[Voice Seed] ✓ Seeded ${supportVoices.length} Sofia support voices`);
   }
 
   // ===== Admin: Reset User Learning Data =====

@@ -322,8 +322,8 @@ export const updateLanguagePreferencesSchema = z.object({
 });
 export type UpdateLanguagePreferences = z.infer<typeof updateLanguagePreferencesSchema>;
 
-// Tutor role enum - distinguishes main tutors from practice partner assistants
-export const tutorRoleEnum = pgEnum("tutor_role", ["tutor", "assistant"]);
+// Tutor role enum - distinguishes main tutors from practice partner assistants and support agents
+export const tutorRoleEnum = pgEnum("tutor_role", ["tutor", "assistant", "support"]);
 
 // Tutor Voices - Admin-configurable voices per language with male/female options
 // This replaces hardcoded voice mappings and allows admin voice audition/assignment

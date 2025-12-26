@@ -1252,77 +1252,176 @@ function AssistantVoiceCard() {
  * Sofia Support Agent Voice Configuration
  * Sofia uses Google Cloud TTS for cost-effective support conversations
  * Speaks in the student's interface language (not target language)
+ * Fetches from database with role='support' and allows editing
  */
 function SofiaVoiceCard() {
   const { toast } = useToast();
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState<string>('english');
-  const [selectedGender, setSelectedGender] = useState<'female' | 'male'>('female');
+  const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingVoice, setEditingVoice] = useState<TutorVoice | null>(null);
   
-  // Sofia's default voices from config (matching SUPPORT_AGENT_VOICES pattern)
-  const sofiaVoices = [
-    { language: 'english', gender: 'female', voiceId: 'en-US-Chirp3-HD-Aoede', voiceName: 'Aoede', languageCode: 'en-US' },
-    { language: 'english', gender: 'male', voiceId: 'en-US-Chirp3-HD-Charon', voiceName: 'Charon', languageCode: 'en-US' },
-    { language: 'spanish', gender: 'female', voiceId: 'es-US-Chirp3-HD-Kore', voiceName: 'Kore', languageCode: 'es-US' },
-    { language: 'spanish', gender: 'male', voiceId: 'es-US-Chirp3-HD-Fenrir', voiceName: 'Fenrir', languageCode: 'es-US' },
-    { language: 'french', gender: 'female', voiceId: 'fr-FR-Chirp3-HD-Leda', voiceName: 'Leda', languageCode: 'fr-FR' },
-    { language: 'french', gender: 'male', voiceId: 'fr-FR-Chirp3-HD-Orus', voiceName: 'Orus', languageCode: 'fr-FR' },
-    { language: 'german', gender: 'female', voiceId: 'de-DE-Chirp3-HD-Zephyr', voiceName: 'Zephyr', languageCode: 'de-DE' },
-    { language: 'german', gender: 'male', voiceId: 'de-DE-Chirp3-HD-Puck', voiceName: 'Puck', languageCode: 'de-DE' },
-    { language: 'italian', gender: 'female', voiceId: 'it-IT-Chirp3-HD-Erinome', voiceName: 'Erinome', languageCode: 'it-IT' },
-    { language: 'italian', gender: 'male', voiceId: 'it-IT-Chirp3-HD-Iapetus', voiceName: 'Iapetus', languageCode: 'it-IT' },
-    { language: 'portuguese', gender: 'female', voiceId: 'pt-BR-Chirp3-HD-Despina', voiceName: 'Despina', languageCode: 'pt-BR' },
-    { language: 'portuguese', gender: 'male', voiceId: 'pt-BR-Chirp3-HD-Enceladus', voiceName: 'Enceladus', languageCode: 'pt-BR' },
-    { language: 'japanese', gender: 'female', voiceId: 'ja-JP-Chirp3-HD-Achernar', voiceName: 'Achernar', languageCode: 'ja-JP' },
-    { language: 'japanese', gender: 'male', voiceId: 'ja-JP-Chirp3-HD-Achird', voiceName: 'Achird', languageCode: 'ja-JP' },
-    { language: 'mandarin chinese', gender: 'female', voiceId: 'cmn-CN-Chirp3-HD-Gacrux', voiceName: 'Gacrux', languageCode: 'cmn-CN' },
-    { language: 'mandarin chinese', gender: 'male', voiceId: 'cmn-CN-Chirp3-HD-Algenib', voiceName: 'Algenib', languageCode: 'cmn-CN' },
-    { language: 'korean', gender: 'female', voiceId: 'ko-KR-Chirp3-HD-Sulafat', voiceName: 'Sulafat', languageCode: 'ko-KR' },
-    { language: 'korean', gender: 'male', voiceId: 'ko-KR-Chirp3-HD-Schedar', voiceName: 'Schedar', languageCode: 'ko-KR' },
-  ] as const;
+  // Form state for editing
+  const [formData, setFormData] = useState({
+    language: '',
+    gender: 'female' as 'male' | 'female',
+    voiceId: '',
+    voiceName: '',
+    languageCode: '',
+    speakingRate: 1.0,
+  });
   
-  // Get unique languages for the filter
-  const languages = [...new Set(sofiaVoices.map(v => v.language))];
+  // Fetch all tutor voices and filter for support role
+  const { data: allVoices, isLoading } = useQuery<TutorVoice[]>({
+    queryKey: ["/api/admin/tutor-voices"],
+  });
   
-  // Filter voices by selected language and gender
-  const displayedVoice = sofiaVoices.find(
-    v => v.language === selectedLanguage && v.gender === selectedGender
-  );
+  // Filter for support voices only (Sofia)
+  const supportVoices = allVoices?.filter(v => v.role === 'support') || [];
   
-  const handleAudition = async () => {
-    if (!displayedVoice) return;
-    
-    setIsPlaying(true);
+  // Fetch available Google voices for voice selection
+  const { data: googleVoicesData, isLoading: isLoadingGoogleVoices } = useQuery<{ voices: GoogleVoice[]; total: number }>({
+    queryKey: ["/api/admin/google-voices", formData.language, formData.gender],
+    queryFn: async () => {
+      const url = `/api/admin/google-voices/${encodeURIComponent(formData.language)}/${encodeURIComponent(formData.gender)}`;
+      const response = await fetch(url, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch Google voices');
+      return response.json();
+    },
+    enabled: isEditDialogOpen && !!formData.language && !!formData.gender,
+  });
+  
+  const googleVoices = googleVoicesData?.voices || [];
+  
+  // Mutation to update support voice
+  const updateMutation = useMutation({
+    mutationFn: async (data: { 
+      language: string; 
+      gender: string; 
+      provider: string; 
+      voiceId: string; 
+      voiceName: string; 
+      languageCode: string; 
+      speakingRate: number;
+      role: string;
+    }) => {
+      return apiRequest("POST", "/api/admin/tutor-voices", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/tutor-voices"] });
+      toast({ title: "Success", description: "Sofia voice configuration saved" });
+      setIsEditDialogOpen(false);
+      setEditingVoice(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+  
+  const handleEdit = (voice: TutorVoice) => {
+    setEditingVoice(voice);
+    setFormData({
+      language: voice.language,
+      gender: voice.gender,
+      voiceId: voice.voiceId,
+      voiceName: voice.voiceName,
+      languageCode: voice.languageCode,
+      speakingRate: voice.speakingRate || 1.0,
+    });
+    setIsEditDialogOpen(true);
+  };
+  
+  const handleVoiceSelect = (voiceId: string) => {
+    const selected = googleVoices.find(v => v.id === voiceId);
+    if (selected) {
+      setFormData(prev => ({
+        ...prev,
+        voiceId: selected.id,
+        voiceName: selected.name,
+        languageCode: selected.languageCode,
+      }));
+    }
+  };
+  
+  const handleSave = () => {
+    updateMutation.mutate({
+      language: formData.language,
+      gender: formData.gender,
+      provider: 'google',
+      voiceId: formData.voiceId,
+      voiceName: formData.voiceName,
+      languageCode: formData.languageCode,
+      speakingRate: formData.speakingRate,
+      role: 'support',
+    });
+  };
+  
+  const handleAudition = async (voice: TutorVoice) => {
+    setPlayingVoiceId(voice.id);
     try {
       const response = await fetch('/api/admin/audition-google-voice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          voiceId: displayedVoice.voiceId,
+          voiceId: voice.voiceId,
           text: "Hello! I'm Sofia, your technical support specialist. How can I help you today?",
-          language: displayedVoice.languageCode,
-          speakingRate: 1.0,
+          language: voice.languageCode,
+          speakingRate: voice.speakingRate || 1.0,
         }),
       });
       
-      if (!response.ok) {
-        throw new Error('Failed to generate audio');
-      }
+      if (!response.ok) throw new Error('Failed to generate audio');
       
       const audioBlob = await response.blob();
       const audioUrl = URL.createObjectURL(audioBlob);
       const audio = new Audio(audioUrl);
       audio.onended = () => {
         URL.revokeObjectURL(audioUrl);
-        setIsPlaying(false);
+        setPlayingVoiceId(null);
       };
       await audio.play();
     } catch (error: any) {
-      setIsPlaying(false);
+      setPlayingVoiceId(null);
       toast({ title: "Error", description: error.message, variant: "destructive" });
     }
   };
+  
+  const handlePreviewInDialog = async () => {
+    if (!formData.voiceId) return;
+    
+    try {
+      const response = await fetch('/api/admin/audition-google-voice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          voiceId: formData.voiceId,
+          text: "Hello! I'm Sofia, your technical support specialist. How can I help you today?",
+          language: formData.languageCode,
+          speakingRate: formData.speakingRate,
+        }),
+      });
+      
+      if (!response.ok) throw new Error('Failed to generate audio');
+      
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      audio.onended = () => URL.revokeObjectURL(audioUrl);
+      await audio.play();
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+  
+  // Group voices by language for display
+  const voicesByLanguage = supportVoices.reduce((acc, voice) => {
+    if (!acc[voice.language]) {
+      acc[voice.language] = [];
+    }
+    acc[voice.language].push(voice);
+    return acc;
+  }, {} as Record<string, TutorVoice[]>);
   
   return (
     <Card className="mt-6" data-testid="card-sofia-voice">
@@ -1334,7 +1433,7 @@ function SofiaVoiceCard() {
               Sofia - Support Agent
             </CardTitle>
             <CardDescription>
-              Technical support specialist voice (speaks in student's interface language)
+              {supportVoices.length} support voices (speaks in student's interface language)
             </CardDescription>
           </div>
           <Badge variant="outline" className="bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30">
@@ -1343,76 +1442,174 @@ function SofiaVoiceCard() {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex flex-wrap gap-4">
-          <div className="space-y-2">
-            <Label>Interface Language</Label>
-            <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-              <SelectTrigger className="w-[180px]" data-testid="select-sofia-language">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {languages.map(lang => (
-                  <SelectItem key={lang} value={lang}>
-                    <span className="capitalize">{lang}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-20 w-full" />
+            ))}
           </div>
-          
-          <div className="space-y-2">
-            <Label>Voice Gender</Label>
-            <Select value={selectedGender} onValueChange={(v) => setSelectedGender(v as 'female' | 'male')}>
-              <SelectTrigger className="w-[120px]" data-testid="select-sofia-gender">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="female">Female</SelectItem>
-                <SelectItem value="male">Male</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        
-        {displayedVoice && (
-          <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
-            <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-full ${displayedVoice.gender === 'female' ? 'bg-purple-500/10 text-purple-600' : 'bg-blue-500/10 text-blue-600'}`}>
-                <User className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="font-medium">{displayedVoice.voiceName}</div>
-                <div className="text-sm text-muted-foreground">
-                  {displayedVoice.voiceId}
+        ) : supportVoices.length === 0 ? (
+          <p className="text-center text-muted-foreground py-4">
+            No Sofia support voices configured. Run seed to populate default voices.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {Object.entries(voicesByLanguage).map(([language, voices]) => (
+              <div key={language} className="space-y-2">
+                <h4 className="text-sm font-medium capitalize flex items-center gap-2">
+                  <Languages className="h-4 w-4" />
+                  {language}
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {voices.map((voice) => {
+                    const isPlaying = playingVoiceId === voice.id;
+                    
+                    return (
+                      <div
+                        key={voice.id}
+                        className="flex items-center justify-between p-3 rounded-lg border bg-card hover-elevate"
+                        data-testid={`card-sofia-voice-${voice.id}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-full ${voice.gender === 'female' ? 'bg-purple-500/10 text-purple-600' : 'bg-blue-500/10 text-blue-600'}`}>
+                            <User className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <div className="font-medium text-sm">{voice.voiceName}</div>
+                            <div className="text-xs text-muted-foreground capitalize">
+                              {voice.gender} · {voice.languageCode} · {voice.speakingRate}x
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleAudition(voice)}
+                            data-testid={`button-play-sofia-${voice.id}`}
+                          >
+                            {isPlaying ? (
+                              <Pause className="h-4 w-4" />
+                            ) : (
+                              <Play className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleEdit(voice)}
+                            data-testid={`button-edit-sofia-${voice.id}`}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-            </div>
-            <Button
-              variant="outline"
-              onClick={handleAudition}
-              disabled={isPlaying}
-              data-testid="button-audition-sofia"
-            >
-              {isPlaying ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Playing...
-                </>
-              ) : (
-                <>
-                  <Play className="h-4 w-4 mr-2" />
-                  Audition
-                </>
-              )}
-            </Button>
+            ))}
           </div>
         )}
         
         <p className="text-xs text-muted-foreground text-center pt-2">
           Sofia speaks in the student's interface language for support conversations. 
-          The voice is automatically selected based on user settings.
+          Click edit to change voice or speaking rate.
         </p>
       </CardContent>
+      
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Sofia Voice</DialogTitle>
+            <DialogDescription>
+              Configure the voice for {editingVoice?.language} ({editingVoice?.gender}) support.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* Voice Selection */}
+            <div className="space-y-2">
+              <Label>Voice</Label>
+              {isLoadingGoogleVoices ? (
+                <div className="flex items-center gap-2 p-3 border rounded-md">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm text-muted-foreground">Loading voices...</span>
+                </div>
+              ) : (
+                <Select value={formData.voiceId} onValueChange={handleVoiceSelect}>
+                  <SelectTrigger data-testid="select-sofia-voice">
+                    <SelectValue placeholder="Select a voice" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {googleVoices.map(voice => (
+                      <SelectItem key={voice.id} value={voice.id}>
+                        <div className="flex flex-col">
+                          <span>{voice.name}</span>
+                          <span className="text-xs text-muted-foreground">{voice.id}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+            
+            {/* Speaking Rate */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Speaking Rate</Label>
+                <span className="text-sm text-muted-foreground">{formData.speakingRate.toFixed(1)}x</span>
+              </div>
+              <Slider
+                value={[formData.speakingRate]}
+                onValueChange={([value]) => setFormData(prev => ({ ...prev, speakingRate: value }))}
+                min={0.5}
+                max={2.0}
+                step={0.1}
+                data-testid="slider-sofia-speed"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Slow (0.5)</span>
+                <span>Normal (1.0)</span>
+                <span>Fast (2.0)</span>
+              </div>
+            </div>
+            
+            {/* Preview Button */}
+            {formData.voiceId && (
+              <Button
+                variant="outline"
+                onClick={handlePreviewInDialog}
+                className="w-full"
+                data-testid="button-preview-sofia"
+              >
+                <Play className="h-4 w-4 mr-2" />
+                Preview Voice
+              </Button>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSave} 
+              disabled={updateMutation.isPending || !formData.voiceId}
+              data-testid="button-save-sofia"
+            >
+              {updateMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Changes'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
