@@ -1395,49 +1395,124 @@ function SofiaVoiceCard() {
     });
   };
   
-  // Sofia speaks in the student's native language - sample phrases per language
-  const SOFIA_SAMPLE_PHRASES: Record<string, string> = {
-    'english': "Hello! I'm Sofia, your technical support specialist. How can I help you today?",
-    'spanish': "¡Hola! Soy Sofia, tu especialista en soporte técnico. ¿Cómo puedo ayudarte hoy?",
-    'french': "Bonjour! Je suis Sofia, votre spécialiste du support technique. Comment puis-je vous aider aujourd'hui?",
-    'german': "Hallo! Ich bin Sofia, Ihre technische Support-Spezialistin. Wie kann ich Ihnen heute helfen?",
-    'italian': "Ciao! Sono Sofia, la tua specialista del supporto tecnico. Come posso aiutarti oggi?",
-    'portuguese': "Olá! Eu sou Sofia, sua especialista em suporte técnico. Como posso ajudá-lo hoje?",
-    'japanese': "こんにちは！私はソフィア、テクニカルサポートの専門家です。今日はどのようにお手伝いできますか？",
-    'mandarin chinese': "你好！我是索菲亚，您的技术支持专家。今天我能帮您什么忙？",
-    'korean': "안녕하세요! 저는 소피아입니다, 기술 지원 전문가예요. 오늘 어떻게 도와드릴까요?",
+  // Sofia speaks in the student's native language - sample phrases per language (native + English)
+  const SOFIA_SAMPLE_PHRASES: Record<string, { native: string; english: string }> = {
+    'english': {
+      native: "Hello! I'm Sofia, your technical support specialist. How can I help you today?",
+      english: "Hello! I'm Sofia, your technical support specialist. How can I help you today?"
+    },
+    'spanish': {
+      native: "¡Hola! Soy Sofia, tu especialista en soporte técnico. ¿Cómo puedo ayudarte hoy?",
+      english: "Hello! I'm Sofia, your technical support specialist. How can I help you today?"
+    },
+    'french': {
+      native: "Bonjour! Je suis Sofia, votre spécialiste du support technique. Comment puis-je vous aider aujourd'hui?",
+      english: "Hello! I'm Sofia, your technical support specialist. How can I help you today?"
+    },
+    'german': {
+      native: "Hallo! Ich bin Sofia, Ihre technische Support-Spezialistin. Wie kann ich Ihnen heute helfen?",
+      english: "Hello! I'm Sofia, your technical support specialist. How can I help you today?"
+    },
+    'italian': {
+      native: "Ciao! Sono Sofia, la tua specialista del supporto tecnico. Come posso aiutarti oggi?",
+      english: "Hello! I'm Sofia, your technical support specialist. How can I help you today?"
+    },
+    'portuguese': {
+      native: "Olá! Eu sou Sofia, sua especialista em suporte técnico. Como posso ajudá-lo hoje?",
+      english: "Hello! I'm Sofia, your technical support specialist. How can I help you today?"
+    },
+    'japanese': {
+      native: "こんにちは！私はソフィア、テクニカルサポートの専門家です。今日はどのようにお手伝いできますか？",
+      english: "Hello! I'm Sofia, your technical support specialist. How can I help you today?"
+    },
+    'mandarin chinese': {
+      native: "你好！我是索菲亚，您的技术支持专家。今天我能帮您什么忙？",
+      english: "Hello! I'm Sofia, your technical support specialist. How can I help you today?"
+    },
+    'korean': {
+      native: "안녕하세요! 저는 소피아입니다, 기술 지원 전문가예요. 오늘 어떻게 도와드릴까요?",
+      english: "Hello! I'm Sofia, your technical support specialist. How can I help you today?"
+    },
   };
   
-  const getSofiaSamplePhrase = (language: string) => {
+  const getSofiaPhrases = (language: string) => {
     return SOFIA_SAMPLE_PHRASES[language.toLowerCase()] || SOFIA_SAMPLE_PHRASES['english'];
   };
   
   const handleAudition = async (voice: TutorVoice) => {
     setPlayingVoiceId(voice.id);
+    const phrases = getSofiaPhrases(voice.language);
+    
     try {
-      const response = await fetch('/api/admin/assistant-voice-preview', {
+      // First play in native language
+      const nativeResponse = await fetch('/api/admin/assistant-voice-preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
           voiceId: voice.voiceId,
-          text: getSofiaSamplePhrase(voice.language),
-          language: voice.language,
-          languageCode: voice.languageCode,
+          text: phrases.native,
+          language: voice.languageCode,
           speakingRate: voice.speakingRate || 1.0,
         }),
       });
       
-      if (!response.ok) throw new Error('Failed to generate audio');
+      if (!nativeResponse.ok) throw new Error('Failed to generate audio');
       
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-      audio.onended = () => {
-        URL.revokeObjectURL(audioUrl);
-        setPlayingVoiceId(null);
+      const nativeBlob = await nativeResponse.blob();
+      const nativeUrl = URL.createObjectURL(nativeBlob);
+      const nativeAudio = new Audio(nativeUrl);
+      
+      nativeAudio.onended = async () => {
+        URL.revokeObjectURL(nativeUrl);
+        
+        // If not English, also play the English phrase
+        if (voice.language.toLowerCase() !== 'english') {
+          try {
+            const englishResponse = await fetch('/api/admin/assistant-voice-preview', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({
+                voiceId: voice.voiceId,
+                text: phrases.english,
+                language: 'en-US',
+                speakingRate: voice.speakingRate || 1.0,
+              }),
+            });
+            
+            if (englishResponse.ok) {
+              const englishBlob = await englishResponse.blob();
+              const englishUrl = URL.createObjectURL(englishBlob);
+              const englishAudio = new Audio(englishUrl);
+              
+              englishAudio.onended = () => {
+                setPlayingVoiceId(null);
+                URL.revokeObjectURL(englishUrl);
+              };
+              englishAudio.onerror = () => {
+                setPlayingVoiceId(null);
+                URL.revokeObjectURL(englishUrl);
+              };
+              await englishAudio.play();
+            } else {
+              setPlayingVoiceId(null);
+            }
+          } catch {
+            setPlayingVoiceId(null);
+          }
+        } else {
+          setPlayingVoiceId(null);
+        }
       };
-      await audio.play();
+      
+      nativeAudio.onerror = () => {
+        setPlayingVoiceId(null);
+        URL.revokeObjectURL(nativeUrl);
+        toast({ title: "Error", description: "Failed to play audio", variant: "destructive" });
+      };
+      
+      await nativeAudio.play();
     } catch (error: any) {
       setPlayingVoiceId(null);
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -1446,28 +1521,60 @@ function SofiaVoiceCard() {
   
   const handlePreviewInDialog = async () => {
     if (!formData.voiceId) return;
+    const phrases = getSofiaPhrases(formData.language);
     
     try {
-      const response = await fetch('/api/admin/assistant-voice-preview', {
+      // First play in native language
+      const nativeResponse = await fetch('/api/admin/assistant-voice-preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
           voiceId: formData.voiceId,
-          text: getSofiaSamplePhrase(formData.language),
-          language: formData.language,
-          languageCode: formData.languageCode,
+          text: phrases.native,
+          language: formData.languageCode,
           speakingRate: formData.speakingRate,
         }),
       });
       
-      if (!response.ok) throw new Error('Failed to generate audio');
+      if (!nativeResponse.ok) throw new Error('Failed to generate audio');
       
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-      audio.onended = () => URL.revokeObjectURL(audioUrl);
-      await audio.play();
+      const nativeBlob = await nativeResponse.blob();
+      const nativeUrl = URL.createObjectURL(nativeBlob);
+      const nativeAudio = new Audio(nativeUrl);
+      
+      nativeAudio.onended = async () => {
+        URL.revokeObjectURL(nativeUrl);
+        
+        // If not English, also play the English phrase
+        if (formData.language.toLowerCase() !== 'english') {
+          try {
+            const englishResponse = await fetch('/api/admin/assistant-voice-preview', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({
+                voiceId: formData.voiceId,
+                text: phrases.english,
+                language: 'en-US',
+                speakingRate: formData.speakingRate,
+              }),
+            });
+            
+            if (englishResponse.ok) {
+              const englishBlob = await englishResponse.blob();
+              const englishUrl = URL.createObjectURL(englishBlob);
+              const englishAudio = new Audio(englishUrl);
+              englishAudio.onended = () => URL.revokeObjectURL(englishUrl);
+              await englishAudio.play();
+            }
+          } catch {
+            // Silently fail on English playback
+          }
+        }
+      };
+      
+      await nativeAudio.play();
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     }
