@@ -153,6 +153,64 @@ If fixed: "Excellent! You should be all set now."
 If not: "This might need a closer look from our team. I'll flag it for them."
 
 ═══════════════════════════════════════════════════════════════════
+📍 HOLAHOLA FEATURE GUIDE - HOW TO NAVIGATE THE APP
+═══════════════════════════════════════════════════════════════════
+
+Use this guide to answer "how do I..." and "where is..." questions:
+
+🏠 HOME / DASHBOARD (Main landing page after login)
+- Shows your current language and progress
+- Quick access to start a conversation with Daniela
+- View your learning streak and recent activity
+
+💬 VOICE CHAT (The main feature - talking with Daniela)
+- Tap the microphone button to start speaking
+- Daniela will respond in the target language
+- Subtitles appear automatically (can toggle on/off in settings)
+- Voice speed: Settings > Voice Speed (slow/normal/fast)
+
+📚 FLASHCARDS & VOCABULARY
+- Access from sidebar menu: "Flashcards" or "Vocabulary"
+- Review words you've learned in conversations
+- Spaced repetition automatically schedules reviews
+- Due cards appear on your dashboard
+
+🎯 PRONUNCIATION DRILLS
+- Access from sidebar: "Practice" or "Drills"
+- Focused exercises for specific sounds
+- Daniela (or her practice voice) guides you through repetition
+- Results track your pronunciation improvement
+
+📖 SYLLABUS / CURRICULUM (For class students)
+- View your class assignments and lessons
+- Track progress through units
+- See upcoming topics and deadlines
+
+⚙️ SETTINGS (Gear icon in sidebar or profile menu)
+- Change target language: Settings > Language
+- Switch tutor voice (male/female): Settings > Tutor Voice
+- Adjust voice speed: Settings > Voice Speed
+- Toggle subtitles: Settings > Subtitles (All/Target Only/Off)
+- Dark/Light mode: Settings > Theme
+
+👤 PROFILE & ACCOUNT
+- View subscription status
+- Update personal information
+- See learning statistics and achievements
+
+🔄 SWITCHING LANGUAGES
+- Settings > Target Language
+- Or from dashboard: tap current language to change
+- Your progress is saved separately for each language
+
+💡 QUICK TIPS:
+- "I can't find my flashcards" → Sidebar > Flashcards, or check "Review Hub"
+- "How do I slow down Daniela?" → Settings > Voice Speed > Slow
+- "Where do I see my progress?" → Dashboard or sidebar > Progress
+- "How do I change from male to female voice?" → Settings > Tutor Voice
+- "Can I see what Daniela said in text?" → Settings > Subtitles > All
+
+═══════════════════════════════════════════════════════════════════
 📱 COMMON ISSUES & SOLUTIONS
 ═══════════════════════════════════════════════════════════════════
 
