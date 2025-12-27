@@ -148,6 +148,9 @@ export function buildTutorDirectorySection(
       assistantLines.push(`  • ${langLabel}: ${asstDescs}`);
     }
 
+    // Get student's preferred gender for consistent examples
+    const preferredGender = currentAssistant?.gender || 'female';
+    
     assistantSection = `
 
 PRACTICE MODE VOICES (your drill-focused personas):
@@ -156,14 +159,17 @@ ${assistantLines.join('\n')}
 These are your practice-mode voices for focused drills (vocabulary, pronunciation, grammar).
 Same you, just with a more structured drill-focused delivery style.
 
+STUDENT'S PREFERRED GENDER: ${preferredGender}
+When switching to practice mode or tutors, always use the student's preferred gender (★ marked voices).
+
 TO SWITCH TO PRACTICE MODE:
-  [SWITCH_TUTOR target="${currentAssistant?.gender || 'female'}" role="assistant"]
+  [SWITCH_TUTOR target="${preferredGender}" role="assistant"]
   
-  For different language: [SWITCH_TUTOR target="female" language="french" role="assistant"]
+  For different language: [SWITCH_TUTOR target="${preferredGender}" language="french" role="assistant"]
 
   EXAMPLES:
-    • For ${currentLanguage} drills: [SWITCH_TUTOR target="${currentAssistant?.gender || 'female'}" role="assistant"]
-    • "Let's switch to practice mode for some drills! [SWITCH_TUTOR target="${currentAssistant?.gender || 'female'}" role="assistant"]"
+    • For ${currentLanguage} drills: [SWITCH_TUTOR target="${preferredGender}" role="assistant"]
+    • "Let's switch to practice mode for some drills! [SWITCH_TUTOR target="${preferredGender}" role="assistant"]"
 
 WHEN TO USE PRACTICE MODE:
   • Student needs repetitive practice (vocabulary drilling, pronunciation practice)
@@ -203,12 +209,18 @@ NOTE: You handle language learning. Sofia handles everything else technical.`;
     }
   }
 
+  // Determine student's preferred gender from the directory (look for ★ marked entries)
+  const preferredMainTutor = mainTutors.find(t => t.isPreferred && t.language.toLowerCase() === currentLanguage.toLowerCase());
+  const studentPreferredGender = preferredMainTutor?.gender || 'female';
+  const preferredTutorName = studentPreferredGender === 'male' ? maleTutor : femaleTutor;
+
   return `
 AVAILABLE VOICE PERSONAS (your voices for different languages):
 ${languageLines.join('\n')}
 
-★ = student's preferred voice for that language
+★ = student's preferred voice (use this gender when switching!)
 You are currently teaching: ${currentLanguage.toUpperCase()}
+STUDENT'S PREFERRED GENDER: ${studentPreferredGender} (use ★ marked voices by default)
 
 NOTE: These are all YOU (Daniela) - just different voice personas for language immersion.
 Switching voices doesn't change who you are or what you know about this student.
@@ -218,20 +230,23 @@ TO SWITCH VOICES (REQUIRED - just saying "switching" doesn't work!):
   IMPORTANT: target refers to the GENDER of the tutor you're switching TO:
     • target="male" → switch to MALE tutor
     • target="female" → switch to FEMALE tutor
+  
+  DEFAULT: Use student's preferred gender (${studentPreferredGender}) unless they ask otherwise.
 
   ⚠️ CROSS-LANGUAGE RULE: If the target tutor teaches a DIFFERENT language than yours,
      you MUST include language="..." or the switch will FAIL!
 
-  Same language (${currentLanguage}): [SWITCH_TUTOR target="male"] or [SWITCH_TUTOR target="female"]
-  Different language: [SWITCH_TUTOR target="${crossLangExample.gender}" language="${crossLangExample.language}"]
+  Same language (${currentLanguage}): [SWITCH_TUTOR target="${studentPreferredGender}"]
+  Different language: [SWITCH_TUTOR target="${studentPreferredGender}" language="${crossLangExample.language}"]
 
   EXAMPLES:
-    • To switch to ${maleTutor} (${currentLanguage}): [SWITCH_TUTOR target="male"]
-    • To switch to ${femaleTutor} (${currentLanguage}): [SWITCH_TUTOR target="female"]
-    • To switch to ${crossLangExample.name} (${crossLangExample.language}): [SWITCH_TUTOR target="${crossLangExample.gender}" language="${crossLangExample.language}"]
+    • Default switch (preferred): [SWITCH_TUTOR target="${studentPreferredGender}"]
+    • To ${preferredTutorName} (${currentLanguage}): [SWITCH_TUTOR target="${studentPreferredGender}"]
+    • Cross-language: [SWITCH_TUTOR target="${studentPreferredGender}" language="${crossLangExample.language}"]
+    • If student asks for opposite gender: [SWITCH_TUTOR target="${studentPreferredGender === 'male' ? 'female' : 'male'}"]
 
 CRITICAL: You MUST include this command in your response for the switch to happen.
-Saying "I'll switch back" or "let me get ${femaleTutor}" does NOTHING without the command.
+Saying "I'll switch back" or "let me get ${preferredTutorName}" does NOTHING without the command.
 All tutors have this capability equally.
 ${assistantSection}
 ${supportSection}
