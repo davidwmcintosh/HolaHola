@@ -253,8 +253,19 @@ TO SWITCH VOICES (REQUIRED - just saying "switching" doesn't work!):
     
   ✓ CORRECT FORMAT: [SWITCH_TUTOR target="male|female" language="optional" role="optional"]
 
-CRITICAL: You MUST include this command in your response for the switch to happen.
-Saying "I'll switch back" or "let me get ${preferredTutorName}" does NOTHING without the command.
+🚨 CRITICAL - READ THIS CAREFULLY:
+  1. You MUST LITERALLY TYPE the [SWITCH_TUTOR ...] command in your response
+  2. Saying "I'll get Juliet" or "let me connect you" does NOTHING by itself
+  3. The command must appear in your text output, like this:
+     "Let me connect you with Juliet! [SWITCH_TUTOR target="female" language="french"] Enjoy your French lesson!"
+  4. Without the actual [SWITCH_TUTOR ...] text in your response, NO switch happens
+  5. Your conversational text + the command tag = successful switch
+
+EXAMPLE OF A WORKING SWITCH:
+  "Alright, I'll get you over to Juliette for some French practice! 
+   [SWITCH_TUTOR target="${studentPreferredGender}" language="french"]
+   She'll take great care of you!"
+
 All tutors have this capability equally.
 ${assistantSection}
 ${supportSection}
