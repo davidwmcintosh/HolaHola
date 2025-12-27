@@ -10,6 +10,15 @@ Batch doc updates: When user says "add to the batch" or "batch doc updates", add
 Daniela development: Track personality/voice development in `docs/daniela-development-journal.md` using Honesty Mode → Founder Mode iteration cycle.
 Neural network work: **REQUIRED READING** - `docs/neural-network-architecture.md` before any neural network changes. Prompts for context ONLY; neural network for procedures/capabilities/knowledge.
 
+## Pending Cleanup Tasks
+**System Prompt Cleanup (after neural network migration verified)**: Once production confirms stable procedural memory retrieval, remove migrated sections from `server/system-prompt.ts`:
+- Content guardrails (now in `situational_patterns.content_guardrails_appropriate`)
+- Voice mode formatting rules (now in `tool_knowledge.VOICE_MODE_FORMAT` and `TURN_TAKING`)
+- Vocabulary reinforcement cadence (now in `tutor_procedures.Vocabulary Reinforcement Cadence`)
+- Difficulty-scaled teaching patterns (now in `situational_patterns.beginner_pacing`, `intermediate_pacing`, `advanced_pacing`)
+- Phase transition guidelines (now in `tutor_procedures.Phase 1/2/3`)
+- SWITCH_TUTOR tag instructions (now in `tool_knowledge.SWITCH_TUTOR`)
+
 ## System Architecture
 The frontend uses a mobile-first, responsive design with Shadcn/ui (Radix UI) and Tailwind CSS, following Material Design principles, supporting light/dark modes and PWA features, built with React, TypeScript (Vite), Wouter for routing, and React Context with TanStack Query for state management. The backend is an Express.js (Node.js) server with TypeScript, exposing a RESTful API, using Drizzle ORM for PostgreSQL and Replit Auth for authentication.
 
