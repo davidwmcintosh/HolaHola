@@ -1571,6 +1571,8 @@ Remember: David may reference things discussed in these recent text chats.
             // 2. STOP synthesizing further sentences (don't let current tutor speak as new tutor)
             // Supports intra-language (gender only), cross-language (gender + language), and assistant handoffs
             const switchItem = whiteboardParsed.whiteboardItems.find(item => item.type === 'switch_tutor');
+            console.log(`[Tutor Switch DEBUG] Looking for switch_tutor in ${whiteboardParsed.whiteboardItems.length} items:`, 
+              whiteboardParsed.whiteboardItems.map(i => ({ type: i.type, content: i.content, hasData: 'data' in i })));
             if (switchItem && 'data' in switchItem && switchItem.data) {
               const data = switchItem.data as { 
                 targetGender: 'male' | 'female'; 
