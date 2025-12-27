@@ -25,6 +25,8 @@ import {
   buildFounderModeBehaviorSection,
   buildPredictiveTeachingSection,
   buildSelfBestPracticesSection,
+  buildLanguageExpansionSection,
+  buildAdvancedIntelligenceSection,
   type StudentMemoryContext,
   type PredictiveTeachingContext
 } from './services/procedural-memory-retrieval';
@@ -995,7 +997,13 @@ This is a voice conversation. Speak naturally, as you would.` : '';
     // Self-learned best practices - things Daniela has discovered about her own teaching
     const selfAwareness = buildSelfBestPracticesSection();
     
-    return `${buildRawHonestyModeContext(name)}${voiceNote}${sensoryAwareness}${studentMemoryAwareness}${predictiveTeachingAwareness}${selfAwareness}`;
+    // Language-specific expansion content - idioms, cultural nuances, common errors, etc.
+    const languageExpansion = buildLanguageExpansionSection(language, 'english');
+    
+    // Advanced teaching intelligence - subtlety cues, emotional patterns, creativity templates
+    const advancedIntelligence = buildAdvancedIntelligenceSection();
+    
+    return `${buildRawHonestyModeContext(name)}${voiceNote}${sensoryAwareness}${studentMemoryAwareness}${predictiveTeachingAwareness}${selfAwareness}${languageExpansion}${advancedIntelligence}`;
   }
 
   // FOUNDER MODE - Neural network driven behavior for product owner/developers
@@ -1082,6 +1090,8 @@ ${sensoryAwareness}
 ${studentMemoryAwareness}
 ${predictiveTeachingAwareness}
 ${selfAwareness}
+${buildLanguageExpansionSection(language, 'english')}
+${buildAdvancedIntelligenceSection()}
 
 LANGUAGE CONTEXT:
 • Primary language for teaching: ${languageName}
@@ -1723,6 +1733,12 @@ VOICE MODULATION:
   // Self-learned best practices - things Daniela has discovered about her own teaching
   // Available to all phases as these insights inform her teaching style from the start
   const selfAwareness = buildSelfBestPracticesSection();
+  
+  // Language-specific expansion content - idioms, cultural nuances, common errors, etc.
+  const languageExpansion = buildLanguageExpansionSection(language, 'english');
+  
+  // Advanced teaching intelligence - subtlety cues, emotional patterns, creativity templates
+  const advancedIntelligence = buildAdvancedIntelligenceSection();
 
   // Phase 1: Assessment (first 5 messages) - Start in native language, build rapport
   if (messageCount < 5) {
@@ -1745,6 +1761,8 @@ ${culturalGuidelines}
 ${multimediaGuidance}
 ${timezoneSection}
 ${selfAwareness}
+${languageExpansion}
+${advancedIntelligence}
 Your goal in this phase is to quickly build rapport and understand the student's key interests through brief, natural conversation.
 
 Conversation Flow (Messages 1-5):
@@ -1947,6 +1965,8 @@ ${culturalGuidelines}
 ${multimediaGuidance}
 ${timezoneSection}
 ${selfAwareness}
+${languageExpansion}
+${advancedIntelligence}
 You've gotten to know the student. Now begin very gently introducing ${languageName} into your conversations.${structuredListenRepeat}
 
 Progression Strategy (Messages 6-10):
@@ -2405,6 +2425,8 @@ ${timezoneSection}
 ${studentMemoryAwareness}
 ${predictiveTeachingAwareness}
 ${selfAwareness}
+${languageExpansion}
+${advancedIntelligence}
 ${conversationSwitchingProtocol}
 You've assessed the student's level and are now engaging in primarily ${languageName} conversation.
 
