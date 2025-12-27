@@ -575,7 +575,14 @@ export function startSyncScheduler(): void {
   console.log('[SYNC-SCHEDULER]   - Incremental sync: every 4 hours (lightweight cross-env only)');
   
   scheduleNextSync();
-  scheduleNextIncrementalSync();
+  
+  // Run an immediate incremental sync on startup (after 30 second delay for server warm-up)
+  // This ensures syncs happen even if server restarts frequently (e.g., daily publishes)
+  console.log('[SYNC-SCHEDULER] Scheduling startup incremental sync in 30 seconds...');
+  setTimeout(async () => {
+    console.log('[SYNC-SCHEDULER] Running startup incremental sync...');
+    await runIncrementalSync();
+  }, 30 * 1000);
 }
 
 export function stopSyncScheduler(): void {
