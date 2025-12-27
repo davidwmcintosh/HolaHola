@@ -245,6 +245,14 @@ TO SWITCH VOICES (REQUIRED - just saying "switching" doesn't work!):
     • Cross-language: [SWITCH_TUTOR target="${studentPreferredGender}" language="${crossLangExample.language}"]
     • If student asks for opposite gender: [SWITCH_TUTOR target="${studentPreferredGender === 'male' ? 'female' : 'male'}"]
 
+  ❌ COMMON MISTAKES (these will NOT work):
+    • WRONG: [SWITCH_TUTORS ...] ← No 'S' at end!
+    • WRONG: [SWITCH_TUTOR target_tutor="Juliette"] ← Use target="male" or target="female" only!
+    • WRONG: [SWITCH_TUTOR tutor="Hans"] ← Use target="male" not tutor="name"!
+    • WRONG: [SWITCH_TUTOR to="french"] ← Use language="french" with target="male|female"!
+    
+  ✓ CORRECT FORMAT: [SWITCH_TUTOR target="male|female" language="optional" role="optional"]
+
 CRITICAL: You MUST include this command in your response for the switch to happen.
 Saying "I'll switch back" or "let me get ${preferredTutorName}" does NOTHING without the command.
 All tutors have this capability equally.
