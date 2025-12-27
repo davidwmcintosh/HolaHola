@@ -402,6 +402,10 @@ export class GeminiStreamingService {
   /**
    * Extract complete sentences from buffer
    * Returns complete sentences and remaining buffer
+   * 
+   * IMPORTANT: Protects bracket-enclosed tags from fragmentation.
+   * Tags like [HIVE description="Something. More."] should NOT be split
+   * on internal punctuation - we track bracket depth to ensure this.
    */
   private extractCompleteSentences(text: string): { complete: string[]; remaining: string } {
     const sentences: string[] = [];
@@ -413,10 +417,50 @@ export class GeminiStreamingService {
     while (remaining.length >= SENTENCE_CHUNKING_CONFIG.MIN_SENTENCE_LENGTH) {
       let breakIndex = -1;
       
-      // Find the earliest sentence ending
+      // Build a map of which positions are inside brackets (depth > 0)
+      // This protects tags like [HIVE ...] from being split on internal punctuation
+      const bracketDepth = new Array(remaining.length).fill(0);
+      let depth = 0;
+      let inString = false;
+      let stringChar = '';
+      
+      for (let i = 0; i < remaining.length; i++) {
+        const char = remaining[i];
+        const prevChar = i > 0 ? remaining[i - 1] : '';
+        
+        if (inString) {
+          // Handle string escapes and closing
+          if (char === stringChar && prevChar !== '\\') {
+            inString = false;
+          }
+        } else {
+          if (char === '"' || char === "'") {
+            inString = true;
+            stringChar = char;
+          } else if (char === '[') {
+            depth++;
+          } else if (char === ']') {
+            depth = Math.max(0, depth - 1);
+          }
+        }
+        bracketDepth[i] = depth;
+      }
+      
+      // Find the earliest sentence ending that is OUTSIDE brackets (depth = 0)
       for (const ending of endings) {
-        const idx = remaining.indexOf(ending);
-        if (idx !== -1 && idx >= SENTENCE_CHUNKING_CONFIG.MIN_SENTENCE_LENGTH - 1) {
+        let searchFrom = 0;
+        while (true) {
+          const idx = remaining.indexOf(ending, searchFrom);
+          if (idx === -1 || idx < SENTENCE_CHUNKING_CONFIG.MIN_SENTENCE_LENGTH - 1) {
+            break;
+          }
+          
+          // Skip if inside brackets - this protects tags from fragmentation
+          if (bracketDepth[idx] > 0) {
+            searchFrom = idx + 1;
+            continue;
+          }
+          
           // Check if there's a space or end after the punctuation (avoid "3.5" breaking)
           const afterPunct = remaining.substring(idx + 1, idx + 3);
           const isRealEnd = afterPunct.length === 0 || 
@@ -428,6 +472,7 @@ export class GeminiStreamingService {
           if (isRealEnd && (breakIndex === -1 || idx < breakIndex)) {
             breakIndex = idx + 1; // Include the punctuation
           }
+          break; // Found a valid position for this ending type
         }
       }
       
@@ -448,18 +493,51 @@ export class GeminiStreamingService {
   /**
    * Find a clause break point for forced chunking
    * Returns the break position (after the punctuation)
+   * 
+   * IMPORTANT: Protects bracket-enclosed tags from fragmentation.
+   * Won't break inside [HIVE ...] or similar tags.
    */
   private findClauseBreak(text: string): number {
     const breaks = SENTENCE_CHUNKING_CONFIG.CLAUSE_BREAKS;
     let bestBreak = -1;
     
-    // Find the last clause break before MAX_SENTENCE_LENGTH
+    // Build bracket depth map to protect tags from fragmentation
+    const bracketDepth = new Array(text.length).fill(0);
+    let depth = 0;
+    let inString = false;
+    let stringChar = '';
+    
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      const prevChar = i > 0 ? text[i - 1] : '';
+      
+      if (inString) {
+        if (char === stringChar && prevChar !== '\\') {
+          inString = false;
+        }
+      } else {
+        if (char === '"' || char === "'") {
+          inString = true;
+          stringChar = char;
+        } else if (char === '[') {
+          depth++;
+        } else if (char === ']') {
+          depth = Math.max(0, depth - 1);
+        }
+      }
+      bracketDepth[i] = depth;
+    }
+    
+    // Find the last clause break before MAX_SENTENCE_LENGTH that's OUTSIDE brackets
     for (const breakChar of breaks) {
       let lastIdx = text.lastIndexOf(breakChar);
       // Look for break in the safe range (after MIN, before MAX)
       while (lastIdx > SENTENCE_CHUNKING_CONFIG.MIN_SENTENCE_LENGTH && 
              lastIdx < SENTENCE_CHUNKING_CONFIG.MAX_SENTENCE_LENGTH) {
-        bestBreak = Math.max(bestBreak, lastIdx + 1);
+        // Only use this break if outside brackets
+        if (bracketDepth[lastIdx] === 0) {
+          bestBreak = Math.max(bestBreak, lastIdx + 1);
+        }
         lastIdx = text.lastIndexOf(breakChar, lastIdx - 1);
       }
     }

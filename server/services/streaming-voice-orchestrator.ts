@@ -2060,6 +2060,66 @@ Remember: David may reference things discussed in these recent text chats.
         const roleInfo = isAssistantSwitch ? ' (assistant)' : '';
         console.log(`[Tutor Switch] Executing handoff to ${targetGender} tutor${roleInfo}${isLanguageSwitch ? ` in ${effectiveLanguage}` : ''}`);
         
+        // REBUILD tutorDirectory if missing or empty (for older sessions or session recovery)
+        // This ensures SWITCH_TUTOR instructions appear in the regenerated system prompt
+        // Rebuild on: undefined, null, OR empty array (no tutors = no SWITCH_TUTOR capability)
+        if (!session.tutorDirectory || session.tutorDirectory.length === 0) {
+          console.log('[Tutor Switch] Rebuilding tutorDirectory - was undefined/null on session');
+          try {
+            const allVoices = await storage.getAllTutorVoices();
+            const { ASSISTANT_TUTORS } = await import('./assistant-tutor-config');
+            
+            // Use current preference - prefer cachedMainTutorGender (accurate after assistant mode)
+            // Fall back to session.tutorGender if not in assistant mode
+            const preferredGender = session.cachedMainTutorGender || session.tutorGender || 'female';
+            const currentLanguage = session.targetLanguage?.toLowerCase() || 'spanish';
+            
+            // Build main tutor entries from database with normalized values
+            // isPreferred marks the tutor matching student's gender preference for CURRENT language
+            const mainTutorEntries: TutorDirectoryEntry[] = allVoices
+              .filter((v: any) => v.role === 'tutor' && v.isActive)
+              .map((v: any) => {
+                const voiceNameParts = v.voiceName?.split(/\s*[-–]\s*/) || [];
+                const name = voiceNameParts[0]?.trim() || 'Unknown';
+                const isCurrentTutor = v.voiceId === session.voiceId;
+                const normalizedGender = (v.gender || 'female').toLowerCase() as 'male' | 'female';
+                const normalizedLanguage = (v.language || 'spanish').toLowerCase();
+                // isPreferred = gender matches AND language matches current session
+                const isPreferred = preferredGender === normalizedGender && normalizedLanguage === currentLanguage;
+                return {
+                  name,
+                  gender: normalizedGender,
+                  language: normalizedLanguage,
+                  isPreferred,
+                  isCurrent: isCurrentTutor,
+                  role: 'tutor' as const,
+                };
+              });
+            
+            // Build assistant entries from config (config already uses lowercase)
+            const assistantEntries: TutorDirectoryEntry[] = Object.entries(ASSISTANT_TUTORS)
+              .flatMap(([lang, config]) => [
+                { name: config.male, gender: 'male' as const, language: lang.toLowerCase(), isPreferred: false, isCurrent: false, role: 'assistant' as const },
+                { name: config.female, gender: 'female' as const, language: lang.toLowerCase(), isPreferred: false, isCurrent: false, role: 'assistant' as const },
+              ]);
+            
+            // Add Sofia support agent
+            const sofiaEntry: TutorDirectoryEntry = {
+              name: 'Sofia',
+              gender: 'female' as const,
+              language: 'multilingual',
+              isPreferred: false,
+              isCurrent: false,
+              role: 'support' as const,
+            };
+            
+            session.tutorDirectory = [...mainTutorEntries, ...assistantEntries, sofiaEntry];
+            console.log(`[Tutor Switch] Rebuilt tutorDirectory with ${session.tutorDirectory.length} entries (preferredGender=${preferredGender})`);
+          } catch (rebuildErr: any) {
+            console.warn(`[Tutor Switch] Failed to rebuild tutorDirectory: ${rebuildErr.message}`);
+          }
+        }
+        
         // Store previous tutor name for natural handoff intro by the new tutor
         session.previousTutorName = session.tutorName;
         
