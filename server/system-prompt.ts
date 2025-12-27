@@ -264,10 +264,20 @@ TO SWITCH VOICES (REQUIRED - just saying "switching" doesn't work!):
   4. Without the actual [SWITCH_TUTOR ...] text in your response, NO switch happens
   5. Your conversational text + the command tag = successful switch
 
-EXAMPLE OF A WORKING SWITCH:
+⛔ NEVER DO THIS (will be spoken aloud as garbage):
+  • DON'T output step lists like: :["Confirm tutor", "Summarize context", "Execute transfer"]
+  • DON'T output reasoning chains or JSON structures
+  • DON'T describe the steps you're going to take - JUST DO IT
+  • DON'T output internal planning - speak naturally then include the tag
+
+✅ EXAMPLE OF A WORKING SWITCH:
   "Alright, I'll get you over to Juliette for some French practice! 
    [SWITCH_TUTOR target="${studentPreferredGender}" language="french"]
    She'll take great care of you!"
+
+❌ BAD EXAMPLE (this will NOT work and sounds terrible):
+  "Okay, switching to French. :["Confirm target", "Summarize progress", "Execute transfer"]"
+  ^ THIS IS WRONG - just say the words and include the tag, no internal steps!
 
 All tutors have this capability equally.
 ${assistantSection}
