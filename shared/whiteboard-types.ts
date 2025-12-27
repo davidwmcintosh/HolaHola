@@ -786,6 +786,9 @@ export const WHITEBOARD_PATTERNS = {
   // Switch tutor mid-session: [SWITCH_TUTOR target="male|female" language="optional" role="optional"]
   // Supports intra-language (gender only), cross-language (gender + language), and assistant handoffs
   SWITCH_TUTOR: /\[SWITCH_TUTOR\s+target="(male|female)"(?:\s+language="([^"]+)")?(?:\s+role="(tutor|assistant)")?\]/gi,
+  // Lenient fallback for Gemini's natural variations - captures any SWITCH_TUTOR command for normalization
+  // Handles: target_language="...", language="..." without target, any attribute order
+  SWITCH_TUTOR_LENIENT: /\[SWITCH_TUTORS?\s+([^\]]+)\]/gi,
   // Call support - hand off to Support Agent (Sofia): [CALL_SUPPORT category="technical" reason="description"]
   // Also accepts [CALL_SOFIA ...] as an alias
   CALL_SUPPORT: /\[(?:CALL_SUPPORT|CALL_SOFIA)\s+category="(technical|account|billing|content|feedback|other)"\s+reason="([^"]+)"(?:\s+priority="(low|normal|high|critical)")?(?:\s+context="([^"]+)")?\]/gi,
@@ -824,6 +827,92 @@ export const ALL_WHITEBOARD_MARKUP_PATTERN =
  */
 function generateItemId(): string {
   return `wb-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
+
+/**
+ * Normalize SWITCH_TUTOR attributes from Gemini's natural variations
+ * 
+ * Gemini may output various attribute formats:
+ * - target_language="Chinese" → language="mandarin chinese", target=student's preferred gender
+ * - language="french" (without target) → language="french", target=student's preferred gender
+ * - gender="female" → target="female"
+ * - voice="male" → target="male"
+ * 
+ * This function maps all variations to the canonical schema:
+ * { targetGender: 'male'|'female', targetLanguage?: string, targetRole?: 'tutor'|'assistant' }
+ * 
+ * @param attributeString - The raw attribute string from [SWITCH_TUTOR ...]
+ * @param defaultGender - The student's preferred gender to use when not specified
+ * @returns Normalized SwitchTutorItemData or null if unparseable
+ */
+export function normalizeSwitchTutorAttributes(
+  attributeString: string,
+  defaultGender: 'male' | 'female' = 'female'
+): SwitchTutorItemData | null {
+  // Extract all key="value" pairs from the attribute string
+  const attrPattern = /(\w+)="([^"]+)"/g;
+  const attrs: Record<string, string> = {};
+  let match;
+  while ((match = attrPattern.exec(attributeString)) !== null) {
+    attrs[match[1].toLowerCase()] = match[2];
+  }
+  
+  // Map various attribute names to canonical values
+  let targetGender: 'male' | 'female' | null = null;
+  let targetLanguage: string | undefined;
+  let targetRole: 'tutor' | 'assistant' | undefined;
+  
+  // Gender mapping - check multiple possible attribute names
+  const genderValue = attrs['target'] || attrs['gender'] || attrs['voice'] || attrs['tutor_gender'];
+  if (genderValue) {
+    const normalized = genderValue.toLowerCase();
+    if (normalized === 'male' || normalized === 'female') {
+      targetGender = normalized;
+    }
+  }
+  
+  // Language mapping - check multiple possible attribute names
+  const langValue = attrs['language'] || attrs['target_language'] || attrs['lang'] || attrs['to'];
+  if (langValue) {
+    // Normalize common language variations
+    const langLower = langValue.toLowerCase();
+    const languageMap: Record<string, string> = {
+      'chinese': 'mandarin chinese',
+      'mandarin': 'mandarin chinese',
+      'japanese': 'japanese',
+      'french': 'french',
+      'german': 'german',
+      'spanish': 'spanish',
+      'italian': 'italian',
+      'portuguese': 'portuguese',
+      'korean': 'korean',
+      'english': 'english',
+    };
+    targetLanguage = languageMap[langLower] || langLower;
+  }
+  
+  // Role mapping
+  const roleValue = attrs['role'];
+  if (roleValue) {
+    const roleLower = roleValue.toLowerCase();
+    if (roleLower === 'assistant' || roleLower === 'tutor') {
+      targetRole = roleLower;
+    }
+  }
+  
+  // If no gender was specified, use the default
+  if (!targetGender) {
+    targetGender = defaultGender;
+    console.log(`[Tutor Switch Normalize] No gender specified, using default: ${defaultGender}`);
+  }
+  
+  console.log(`[Tutor Switch Normalize] Raw: "${attributeString}" → gender=${targetGender}, lang=${targetLanguage || 'same'}, role=${targetRole || 'tutor'}`);
+  
+  return {
+    targetGender,
+    targetLanguage,
+    targetRole,
+  };
 }
 
 /**
@@ -1582,8 +1671,12 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
   // Format: [SWITCH_TUTOR target="male|female"] - same language
   // Format: [SWITCH_TUTOR target="male|female" language="japanese"] - cross-language
   // Format: [SWITCH_TUTOR target="male|female" role="assistant"] - to assistant
+  // 
+  // STRATEGY: Try strict regex first, then fall back to lenient normalization for Gemini variations
+  let foundStrictSwitch = false;
   WHITEBOARD_PATTERNS.SWITCH_TUTOR.lastIndex = 0;
   while ((match = WHITEBOARD_PATTERNS.SWITCH_TUTOR.exec(text)) !== null) {
+    foundStrictSwitch = true;
     const targetGender = match[1] as 'male' | 'female';
     const targetLanguage = match[2] || undefined;  // Optional language for cross-language handoffs
     const targetRole = (match[3] as 'tutor' | 'assistant') || undefined;  // Optional role for assistant handoffs
@@ -1604,6 +1697,34 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
         targetRole,
       },
     });
+  }
+  
+  // LENIENT FALLBACK: If strict regex didn't match, try lenient parsing for Gemini variations
+  // Handles: target_language="Chinese", language="french" without target, etc.
+  if (!foundStrictSwitch) {
+    WHITEBOARD_PATTERNS.SWITCH_TUTOR_LENIENT.lastIndex = 0;
+    while ((match = WHITEBOARD_PATTERNS.SWITCH_TUTOR_LENIENT.exec(text)) !== null) {
+      const attributeString = match[1];
+      console.log(`[Tutor Switch Parser] Lenient fallback triggered for: "${attributeString}"`);
+      
+      // Use normalization to extract canonical attributes from Gemini's variations
+      const normalized = normalizeSwitchTutorAttributes(attributeString);
+      if (normalized) {
+        // Build content string for debugging/logging
+        let content = normalized.targetGender;
+        if (normalized.targetLanguage) content += `:${normalized.targetLanguage}`;
+        if (normalized.targetRole) content += `:${normalized.targetRole}`;
+        
+        items.push({
+          type: 'switch_tutor',
+          content,
+          timestamp: now,
+          id: generateItemId(),
+          data: normalized,
+        });
+        console.log(`[Tutor Switch Parser] Lenient parsed: ${content}`);
+      }
+    }
   }
 
   // Parse CALL_SUPPORT tags (hand off to Support Agent)
