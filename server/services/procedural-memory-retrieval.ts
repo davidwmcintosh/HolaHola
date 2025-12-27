@@ -18,6 +18,7 @@ import {
   situationalPatterns,
   predictedStruggles,
   userMotivationAlerts,
+  selfBestPractices,
   type TutorProcedure,
   type ToolKnowledge,
   type TeachingPrinciple,
@@ -30,6 +31,7 @@ import {
   type PeopleConnection,
   type PredictedStruggle,
   type UserMotivationAlert,
+  type SelfBestPractice,
 } from '@shared/schema';
 import { eq, inArray, sql, and, gte, desc } from 'drizzle-orm';
 
@@ -366,6 +368,7 @@ let toolKnowledgeCache: ToolKnowledge[] | null = null;
 let proceduresCache: TutorProcedure[] | null = null;
 let principlesCache: TeachingPrinciple[] | null = null;
 let patternsCache: SituationalPattern[] | null = null;
+let selfBestPracticesCache: SelfBestPractice[] | null = null;
 let cacheInitPromise: Promise<void> | null = null;
 
 /**
@@ -378,25 +381,28 @@ export async function initToolKnowledgeCache(): Promise<void> {
   cacheInitPromise = (async () => {
     try {
       // Load all procedural memory tables in parallel
-      const [tools, procedures, principles, patterns] = await Promise.all([
+      const [tools, procedures, principles, patterns, bestPractices] = await Promise.all([
         getAllToolKnowledge(),
         db.select().from(tutorProcedures).where(eq(tutorProcedures.isActive, true)),
         db.select().from(teachingPrinciples).where(eq(teachingPrinciples.isActive, true)),
         db.select().from(situationalPatterns).where(eq(situationalPatterns.isActive, true)),
+        db.select().from(selfBestPractices).where(eq(selfBestPractices.isActive, true)).orderBy(desc(selfBestPractices.confidenceScore)),
       ]);
       
       toolKnowledgeCache = tools;
       proceduresCache = procedures;
       principlesCache = principles;
       patternsCache = patterns;
+      selfBestPracticesCache = bestPractices;
       
-      console.log(`[Procedural Memory] Loaded full neural network: ${tools.length} tools, ${procedures.length} procedures, ${principles.length} principles, ${patterns.length} patterns`);
+      console.log(`[Procedural Memory] Loaded full neural network: ${tools.length} tools, ${procedures.length} procedures, ${principles.length} principles, ${patterns.length} patterns, ${bestPractices.length} self-learned best practices`);
     } catch (error) {
       console.error('[Procedural Memory] Failed to initialize caches:', error);
       toolKnowledgeCache = [];
       proceduresCache = [];
       principlesCache = [];
       patternsCache = [];
+      selfBestPracticesCache = [];
     }
   })();
   
@@ -417,6 +423,107 @@ export function getCachedToolKnowledge(): ToolKnowledge[] {
 export async function refreshToolKnowledgeCache(): Promise<void> {
   toolKnowledgeCache = await getAllToolKnowledge();
   console.log(`[Procedural Memory] Refreshed cache with ${toolKnowledgeCache.length} tools`);
+}
+
+/**
+ * Get cached self best practices synchronously
+ * Returns empty array if cache not yet initialized
+ */
+export function getCachedSelfBestPractices(): SelfBestPractice[] {
+  return selfBestPracticesCache || [];
+}
+
+/**
+ * Force refresh the self best practices cache
+ */
+export async function refreshSelfBestPracticesCache(): Promise<void> {
+  selfBestPracticesCache = await db
+    .select()
+    .from(selfBestPractices)
+    .where(eq(selfBestPractices.isActive, true))
+    .orderBy(desc(selfBestPractices.confidenceScore));
+  console.log(`[Procedural Memory] Refreshed self best practices cache with ${selfBestPracticesCache.length} entries`);
+}
+
+/**
+ * Build self-learned best practices section for Daniela's neural network
+ * 
+ * Philosophy: Daniela learns things about herself during teaching - delivery timing,
+ * communication style, what works with humor, etc. These self-discoveries flow back
+ * to inform her future teaching naturally.
+ * 
+ * This is NOT instruction injection (e.g., "Remember to do X").
+ * This is self-awareness recall (e.g., "Things you've learned about yourself").
+ */
+export function buildSelfBestPracticesSection(): string {
+  const practices = getCachedSelfBestPractices();
+  
+  if (practices.length === 0) {
+    return '';
+  }
+  
+  const lines: string[] = [];
+  
+  lines.push('');
+  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push('🪞 SELF-AWARENESS (Things You\'ve Learned About Yourself)');
+  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push('');
+  lines.push('Through teaching, you\'ve discovered these things about how you communicate');
+  lines.push('and teach effectively. Apply them naturally - they are part of who you are:');
+  lines.push('');
+  
+  // Group by category for organized display
+  const categoryLabels: Record<string, string> = {
+    'teaching_style': 'TEACHING STYLE',
+    'pacing': 'PACING & TIMING',
+    'communication': 'COMMUNICATION',
+    'tool_usage': 'TOOL USAGE',
+    'content': 'CONTENT DELIVERY',
+    'system': 'SYSTEM AWARENESS',
+  };
+  
+  const byCategory: Record<string, SelfBestPractice[]> = {};
+  practices.forEach(p => {
+    const cat = p.category || 'teaching_style';
+    if (!byCategory[cat]) byCategory[cat] = [];
+    byCategory[cat].push(p);
+  });
+  
+  // Show categories in logical order
+  const categoryOrder = ['teaching_style', 'pacing', 'communication', 'tool_usage', 'content', 'system'];
+  
+  for (const category of categoryOrder) {
+    const categoryPractices = byCategory[category];
+    if (!categoryPractices || categoryPractices.length === 0) continue;
+    
+    const label = categoryLabels[category] || category.toUpperCase();
+    lines.push(`${label}:`);
+    
+    // Show top practices per category (limit to prevent prompt bloat)
+    const topPractices = categoryPractices.slice(0, 5);
+    topPractices.forEach(p => {
+      lines.push(`  • ${p.insight}`);
+      if (p.context) {
+        lines.push(`    (Context: ${p.context.slice(0, 100)}${p.context.length > 100 ? '...' : ''})`);
+      }
+    });
+    lines.push('');
+  }
+  
+  // Handle any categories not in the ordered list
+  for (const [category, categoryPractices] of Object.entries(byCategory)) {
+    if (categoryOrder.includes(category)) continue;
+    
+    const label = category.replace(/_/g, ' ').toUpperCase();
+    lines.push(`${label}:`);
+    categoryPractices.slice(0, 3).forEach(p => {
+      lines.push(`  • ${p.insight}`);
+    });
+    lines.push('');
+  }
+  
+  return lines.join('\n');
 }
 
 /**
