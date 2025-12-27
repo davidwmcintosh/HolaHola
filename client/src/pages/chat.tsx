@@ -93,7 +93,7 @@ export default function Chat() {
   const isHonestyMode = learningContext === "honesty-mode";
 
   // Founder Collaboration EXPRESS Lane state
-  const [syncPanelOpen, setSyncPanelOpen] = useState(true);
+  const [syncPanelOpen, setSyncPanelOpen] = useState(false);
   const [syncMessage, setSyncMessage] = useState("");
   const syncMessagesEndRef = useRef<HTMLDivElement>(null);
 
