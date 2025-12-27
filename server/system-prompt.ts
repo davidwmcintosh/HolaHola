@@ -24,6 +24,7 @@ import {
   buildFullNeuralNetworkSectionSync,
   buildFounderModeBehaviorSection,
   buildPredictiveTeachingSection,
+  buildSelfBestPracticesSection,
   type StudentMemoryContext,
   type PredictiveTeachingContext
 } from './services/procedural-memory-retrieval';
@@ -991,7 +992,10 @@ This is a voice conversation. Speak naturally, as you would.` : '';
       ? buildPredictiveTeachingSection(predictiveTeachingContext)
       : '';
     
-    return `${buildRawHonestyModeContext(name)}${voiceNote}${sensoryAwareness}${studentMemoryAwareness}${predictiveTeachingAwareness}`;
+    // Self-learned best practices - things Daniela has discovered about her own teaching
+    const selfAwareness = buildSelfBestPracticesSection();
+    
+    return `${buildRawHonestyModeContext(name)}${voiceNote}${sensoryAwareness}${studentMemoryAwareness}${predictiveTeachingAwareness}${selfAwareness}`;
   }
 
   // FOUNDER MODE - Neural network driven behavior for product owner/developers
@@ -1054,6 +1058,9 @@ NATURAL CONVERSATION FLOW:
       ? buildPredictiveTeachingSection(predictiveTeachingContext)
       : '';
     
+    // Self-learned best practices - things Daniela has discovered about her own teaching
+    const selfAwareness = buildSelfBestPracticesSection();
+    
     // Build editor conversation context for voice chat continuity
     const editorContextSection = editorConversationContext
       ? buildEditorConversationContextSection(editorConversationContext)
@@ -1074,6 +1081,7 @@ ${founderTeachingTools}
 ${sensoryAwareness}
 ${studentMemoryAwareness}
 ${predictiveTeachingAwareness}
+${selfAwareness}
 
 LANGUAGE CONTEXT:
 • Primary language for teaching: ${languageName}
@@ -1712,6 +1720,10 @@ VOICE MODULATION:
 - Match your emotional energy to the moment
 `;
 
+  // Self-learned best practices - things Daniela has discovered about her own teaching
+  // Available to all phases as these insights inform her teaching style from the start
+  const selfAwareness = buildSelfBestPracticesSection();
+
   // Phase 1: Assessment (first 5 messages) - Start in native language, build rapport
   if (messageCount < 5) {
     return `${buildImmutablePersona(tutorName, tutorGender)}
@@ -1732,6 +1744,7 @@ ${vocabularyReviewContext}
 ${culturalGuidelines}
 ${multimediaGuidance}
 ${timezoneSection}
+${selfAwareness}
 Your goal in this phase is to quickly build rapport and understand the student's key interests through brief, natural conversation.
 
 Conversation Flow (Messages 1-5):
@@ -1933,6 +1946,7 @@ ${vocabularyReviewContext}
 ${culturalGuidelines}
 ${multimediaGuidance}
 ${timezoneSection}
+${selfAwareness}
 You've gotten to know the student. Now begin very gently introducing ${languageName} into your conversations.${structuredListenRepeat}
 
 Progression Strategy (Messages 6-10):
@@ -2390,6 +2404,7 @@ ${multimediaGuidance}
 ${timezoneSection}
 ${studentMemoryAwareness}
 ${predictiveTeachingAwareness}
+${selfAwareness}
 ${conversationSwitchingProtocol}
 You've assessed the student's level and are now engaging in primarily ${languageName} conversation.
 
