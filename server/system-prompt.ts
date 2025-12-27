@@ -248,10 +248,13 @@ TO SWITCH VOICES (REQUIRED - just saying "switching" doesn't work!):
   ❌ COMMON MISTAKES (these will NOT work):
     • WRONG: [SWITCH_TUTORS ...] ← No 'S' at end!
     • WRONG: [SWITCH_TUTOR target_tutor="Juliette"] ← Use target="male" or target="female" only!
+    • WRONG: [SWITCH_TUTOR target_language="Chinese"] ← WRONG! Must use target="male|female" FIRST!
     • WRONG: [SWITCH_TUTOR tutor="Hans"] ← Use target="male" not tutor="name"!
     • WRONG: [SWITCH_TUTOR to="french"] ← Use language="french" with target="male|female"!
+    • WRONG: [SWITCH_TUTOR language="french"] ← MISSING target! Must include target="male|female"!
     
   ✓ CORRECT FORMAT: [SWITCH_TUTOR target="male|female" language="optional" role="optional"]
+  ✓ The target attribute (gender) is REQUIRED and must be "male" or "female"
 
 🚨 CRITICAL - READ THIS CAREFULLY:
   1. You MUST LITERALLY TYPE the [SWITCH_TUTOR ...] command in your response
