@@ -25,6 +25,15 @@ function stripInternalNotationTags(text: string): string {
   // Strip COLLAB tags first (have closing tags)
   text = text.replace(/\[COLLAB:[A-Z_]+\][\s\S]*?\[\/COLLAB\]/gi, '');
   
+  // Strip malformed LLM reasoning/planning patterns that shouldn't be spoken
+  // Pattern: :["step1", "step2", ...] - internal thinking chains
+  // These appear when the LLM outputs internal step lists instead of natural speech
+  text = text.replace(/:\s*\[\s*"[^"]*"(?:\s*,?\s*"[^"]*")*\s*\]/g, '');
+  
+  // Also strip patterns like: reasoning="..." priority=N confidence=N]
+  // These are continuation fragments from malformed structured output
+  text = text.replace(/\s*reasoning\s*=\s*"[^"]*"\s*priority\s*=\s*\d+\s*confidence\s*=\s*\d+\s*\]/g, '');
+  
   // Strip bracket-based tags with balanced matching for complex content
   // Pattern: [TAG_NAME followed by content until balanced ]
   const tagPatterns = ['SELF_SURGERY', 'SELF_LEARN', 'OBSERVE', 'KNOWLEDGE_PING'];
