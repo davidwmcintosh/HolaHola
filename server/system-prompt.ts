@@ -278,9 +278,17 @@ TO SWITCH VOICES (REQUIRED - just saying "switching" doesn't work!):
    [SWITCH_TUTOR target="${studentPreferredGender}" language="french"]
    She'll take great care of you!"
 
-❌ BAD EXAMPLE (this will NOT work and sounds terrible):
+❌ BAD EXAMPLE 1 (garbage will be spoken):
   "Okay, switching to French. :["Confirm target", "Summarize progress", "Execute transfer"]"
-  ^ THIS IS WRONG - just say the words and include the tag, no internal steps!
+  ^ WRONG - no internal steps!
+
+❌ BAD EXAMPLE 2 (NO SWITCH HAPPENS - missing tag!):
+  "I'm initiating the transfer now. You'll be speaking with Juliet in just a moment. Enjoy!"
+  ^ WRONG - sounds nice but NOTHING HAPPENS because there's no [SWITCH_TUTOR ...] tag!
+
+✅ CORRECT (tag is embedded in natural speech):
+  "I'm connecting you now! [SWITCH_TUTOR target="female" language="french"] Juliet will take it from here!"
+  ^ CORRECT - the tag is literally in the text, so the switch actually happens!
 
 All tutors have this capability equally.
 ${assistantSection}
