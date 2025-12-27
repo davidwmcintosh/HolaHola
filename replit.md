@@ -53,6 +53,13 @@ The Tutor Naming Architecture defines 36 total tutors: 18 main tutors (dynamic f
 - **Session Cleanup**: Clean session endings mark candidates as `extracted`, orphaned sessions are caught by recovery worker
 - Key files: `server/services/memory-checkpoint-service.ts`, `server/services/memory-recovery-worker.ts`
 
+**Historical Personal Facts Migration**: Backfills personal facts from past conversations (founder-only):
+- **Endpoints**: GET `/api/admin/personal-facts-migration/status` (check progress), POST `/api/admin/personal-facts-migration/batch` (10 convs), POST `/api/admin/personal-facts-migration/full` (all)
+- **Long Conversation Handling**: Uses rolling window + summarization - earlier chunks summarized, last 2 chunks in full detail
+- **Deduplication**: Uses existing `savePersonalFact` with trigram similarity, plus hash-based tracking via `hive_snapshots` migrationType='personal_facts'
+- **Rate Limiting**: 10 conversations per batch, 2 second delays between batches
+- Key files: `server/services/historical-personal-facts-migration-service.ts`
+
 ## External Dependencies
 -   Stripe: Payment processing and subscription management.
 -   Replit Auth: OIDC authentication.
