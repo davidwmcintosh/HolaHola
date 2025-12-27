@@ -183,7 +183,8 @@ export class GeminiStreamingService {
         baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '',
       },
     });
-    this.defaultModel = 'gemini-2.5-flash';
+    // Using Pro for better instruction following (especially SWITCH_TUTOR tags)
+    this.defaultModel = 'gemini-2.5-pro';
   }
   
   /**
