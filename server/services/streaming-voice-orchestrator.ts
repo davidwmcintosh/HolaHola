@@ -67,7 +67,7 @@ import { assessAdvancementReadiness, formatLevel } from "../actfl-advancement";
 import { tagConversation } from "./conversation-tagger";
 import { architectVoiceService } from "./architect-voice-service";
 import { trackToolEvent, mapWhiteboardTypeToToolType } from "./pedagogical-insights-service";
-import { createSystemPrompt } from "../system-prompt";
+import { createSystemPrompt, TutorDirectoryEntry } from "../system-prompt";
 import { hiveCollaborationService, BeaconType } from "./hive-collaboration-service";
 import { hiveContextService } from "./hive-context-service";
 import { getExpressLaneHistoryForVoice, hiveConsciousnessService } from "./hive-consciousness-service";
@@ -583,6 +583,7 @@ export interface StreamingSession {
   // Azure Pronunciation Assessment: accumulated audio and text for post-session analysis
   sessionAudioChunks: Buffer[];             // Raw PCM audio chunks from user speech
   sessionTranscripts: Array<{ text: string; timestamp: number }>;  // Transcribed text with timing
+  tutorDirectory?: TutorDirectoryEntry[];    // Full tutor directory for prompt regeneration after handoffs
 }
 
 /**
@@ -2161,7 +2162,6 @@ Remember: David may reference things discussed in these recent text chats.
               
               // Regenerate system prompt for new language context
               // Uses session's existing settings + new language/tutor
-              // Note: tutorDirectory not passed here - the initial session already has it
               session.systemPrompt = createSystemPrompt(
                 effectiveLanguage,                           // language
                 session.difficultyLevel,                     // difficulty
@@ -2187,7 +2187,7 @@ Remember: David may reference things discussed in these recent text chats.
                 session.isRawHonestyMode,                    // isRawHonestyMode
                 tutorName || 'your tutor',                   // tutorName
                 targetGender,                                // tutorGender
-                undefined                                    // tutorDirectory (session already has it)
+                session.tutorDirectory                       // tutorDirectory - CRITICAL for switch instructions
               );
               
               console.log(`[Tutor Switch] Language switched to ${effectiveLanguage}, voice: ${matchingVoice.voiceName}, system prompt regenerated`);
@@ -2219,7 +2219,7 @@ Remember: David may reference things discussed in these recent text chats.
                 session.isRawHonestyMode,                      // isRawHonestyMode
                 tutorName || 'your tutor',                     // tutorName - NEW TUTOR!
                 targetGender,                                  // tutorGender - NEW GENDER!
-                undefined                                      // tutorDirectory (session already has it)
+                session.tutorDirectory                         // tutorDirectory - CRITICAL for switch instructions
               );
               console.log(`[Tutor Switch] Same-language switch, new voice: ${matchingVoice.voiceName}, system prompt regenerated for ${tutorName}`);
             }

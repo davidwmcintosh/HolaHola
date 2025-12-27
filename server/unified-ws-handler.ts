@@ -1036,6 +1036,10 @@ Reference past discussions when relevant, but don't force it.
             additionalGreetingContext,  // Additional context for personalized greetings
             dbSessionId  // Database voice_sessions.id - set BEFORE session starts to avoid FK errors
           );
+          
+          // Store tutorDirectory on session for prompt regeneration after tutor handoffs
+          // This is CRITICAL for Daniela to know all available tutors when switching
+          session.tutorDirectory = tutorDirectory;
 
           console.log(`[Streaming Voice] Session created: ${session.id}${dbSessionId ? ` (db: ${dbSessionId.substring(0, 8)}...)` : ' (no db session)'}`);
           
@@ -2626,6 +2630,12 @@ This is a voice conversation. Speak naturally, as you would.`;
               },
               dbSessionId // Database voice_sessions.id for usage tracking and memory extraction
             );
+            
+            // Store tutorDirectory on session for prompt regeneration after tutor handoffs
+            // Note: This HTTP-based path may need to fetch tutorDirectory if switching is supported
+            if (typeof tutorDirectory !== 'undefined') {
+              session.tutorDirectory = tutorDirectory;
+            }
             
             pendingVoiceUpdate = tutorGender;
             console.log(`[Streaming Voice] Session created: ${session.id}${dbSessionId ? ` (db: ${dbSessionId.substring(0, 8)}...)` : ' (no db session)'}`);
