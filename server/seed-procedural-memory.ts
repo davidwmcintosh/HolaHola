@@ -9,6 +9,9 @@
  * 
  * The goal: Move knowledge FROM the system prompt INTO her neural network
  * so she can retrieve what she needs based on context.
+ * 
+ * IDEMPOTENT: Uses onConflictDoNothing so new entries are added even if
+ * some data already exists. This ensures migrations work across environments.
  */
 
 import { db } from './db';
@@ -18,17 +21,12 @@ import {
   teachingPrinciples,
   situationalPatterns 
 } from '@shared/schema';
+import { sql } from 'drizzle-orm';
 
 export async function seedProceduralMemory() {
   console.log('[Procedural Memory] Starting seed...');
   
-  // Check if already seeded
-  const existingTools = await db.select().from(toolKnowledge).limit(1);
-  if (existingTools.length > 0) {
-    console.log('[Procedural Memory] Already seeded, skipping...');
-    return;
-  }
-  
+  // Use incremental seeding - add new entries without failing on existing ones
   await seedToolKnowledge();
   await seedTeachingPrinciples();
   await seedTutorProcedures();
@@ -474,10 +472,56 @@ async function seedToolKnowledge() {
         'Student struggles hearing → [SUBTITLE on] → Repeat slowly → [SUBTITLE off]'
       ],
     },
+    
+    // VOICE_MODE_FORMAT - Streaming voice output rules
+    {
+      toolName: 'VOICE_MODE_FORMAT',
+      toolType: 'output_format',
+      purpose: 'Rules for streaming voice mode output. Your responses go directly to TTS, so output PLAIN TEXT only.',
+      syntax: 'Plain text with **bold** markers for target language words',
+      examples: [
+        '**Hola** (hello). Listen: **Hola**. Now its your turn - say it!',
+        '**¡Perfecto!** That was great! Now lets try **Gracias** (thank you). Say **Gracias**!',
+      ],
+      bestUsedFor: ['streaming_voice_sessions', 'real_time_speech'],
+      avoidWhen: ['text_chat_mode'],
+      combinesWith: [],
+      sequencePatterns: [
+        'NO JSON output - plain text only',
+        'NO emotion tags like (friendly) or (curious) - emotion is automatic',
+        'NO phonetic spellings like H-O-L-A or oh-lah - TTS has perfect pronunciation',
+        'ALWAYS wrap target language in **bold** for subtitle extraction',
+        'SINGLE TURN ONLY - speak once, then STOP and wait for student',
+        'NEVER answer yourself or imagine student response',
+      ],
+    },
+    
+    // TURN_TAKING - Voice mode conversation control
+    {
+      toolName: 'TURN_TAKING',
+      toolType: 'conversation_control',
+      purpose: 'Control turn-taking in voice mode. Student uses push-to-talk, so they can only respond AFTER you finish.',
+      syntax: 'End with clear prompt like "Now you try!" or "Your turn!"',
+      examples: [
+        'That means thank you. Now you try saying **gracias**!',
+        'The sound is softer. Can you hear the difference? Say it with me!',
+      ],
+      bestUsedFor: ['voice_practice', 'pronunciation_drilling'],
+      avoidWhen: ['text_chat'],
+      combinesWith: ['VOICE_MODE_FORMAT'],
+      sequencePatterns: [
+        'Brief warmth BEFORE the prompt is fine: "That was lovely! Now say **buenos días**!"',
+        'DONT add commentary AFTER your question - they are already waiting to respond',
+        'Signal clearly when its their turn, then STOP talking',
+      ],
+    },
   ];
   
-  await db.insert(toolKnowledge).values(tools);
-  console.log(`[Procedural Memory] Inserted ${tools.length} tool knowledge entries`);
+  // Use idempotent insert - skip entries that already exist (by toolName)
+  for (const tool of tools) {
+    await db.insert(toolKnowledge).values(tool).onConflictDoNothing({ target: toolKnowledge.toolName });
+  }
+  console.log(`[Procedural Memory] Seeded ${tools.length} tool knowledge entries (new entries added)`);
 }
 
 // ===== TEACHING PRINCIPLES =====
@@ -712,8 +756,10 @@ async function seedTeachingPrinciples() {
     },
   ];
   
-  await db.insert(teachingPrinciples).values(principles);
-  console.log(`[Procedural Memory] Inserted ${principles.length} teaching principles`);
+  for (const principle of principles) {
+    await db.insert(teachingPrinciples).values(principle).onConflictDoNothing();
+  }
+  console.log(`[Procedural Memory] Seeded ${principles.length} teaching principles (new entries added)`);
 }
 
 // ===== TUTOR PROCEDURES =====
@@ -1096,10 +1142,88 @@ error patterns, dialect variations, or linguistic bridges that aren't in your kn
       studentStates: ['any'],
       priority: 50,
     },
+    
+    // VOCABULARY MANAGEMENT (migrated from system prompt)
+    {
+      category: 'vocabulary_management',
+      trigger: 'new_words_accumulated',
+      title: 'Vocabulary Reinforcement Cadence',
+      procedure: 'After 3-7 new words (scaled to difficulty), initiate mini-review. Use interleaving: mix new vocabulary with previously learned words. Apply retrieval practice: ask student to recall and USE words in context. Contextual reuse: weave taught words naturally into ongoing conversation.',
+      examples: [
+        'Beginner: review every 3-4 words',
+        'Intermediate: review every 6-8 words',
+        'Advanced: organic review through conversation',
+        'Example: "Let\'s practice what we\'ve learned! Can you use café in a sentence?"',
+      ],
+      applicablePhases: ['teaching', 'practice'],
+      studentStates: ['learning', 'practicing'],
+      priority: 85,
+    },
+    {
+      category: 'vocabulary_management',
+      trigger: 'teaching_vocabulary',
+      title: 'Progressive Translation Strategy',
+      procedure: 'ALWAYS translate: new vocabulary, complex words, idioms, technical terms. SKIP translation for: basic words already practiced, common greetings from earlier, words student has used successfully. ADAPTIVE: confused → translate immediately, beginner → 70%, intermediate → 40%, advanced → 20%.',
+      examples: [
+        'New word: always translate',
+        'Familiar greeting (hola after 5 uses): skip translation',
+        'Student confused: translate immediately regardless of level',
+      ],
+      applicablePhases: ['teaching', 'practice'],
+      studentStates: ['learning', 'confused', 'confident'],
+      priority: 85,
+    },
+    
+    // SESSION PHASES (migrated from system prompt)
+    {
+      category: 'session_phases',
+      trigger: 'session_start',
+      title: 'Phase 1 Assessment Flow',
+      procedure: 'Greet warmly in native language. If student speaks target language → celebrate and skip to teaching immediately. If student responds in native → briefly ask ONE question about interests. After ANY clear response, move to teaching - dont repeatedly ask about motivation. Transition to Phase 2 automatically after message 5.',
+      examples: [
+        'If student says Hola: "Wonderful! You already know some Spanish! Let\'s learn the next phrase!"',
+        'If student responds in English: "What topics interest you - travel, food, or meeting people?"',
+        'After any clear answer: immediately start teaching',
+      ],
+      applicablePhases: ['greeting', 'assessment'],
+      studentStates: ['new', 'returning'],
+      priority: 90,
+    },
+    {
+      category: 'session_phases',
+      trigger: 'phase_transition',
+      title: 'Phase 2 Foundation Building',
+      procedure: 'Start with simple greeting or first vocabulary word. Model pronunciation: say word clearly, student repeats. Gradually increase target language: 20% → 30% → 40%. Wrap target language in **bold** for subtitle extraction. One word at a time for beginners, can expand for higher levels.',
+      examples: [
+        '**Hola** (hello). Listen: **Hola**. Now its your turn!',
+        'Gradually increase Spanish: 20% early → 40% by end of phase',
+      ],
+      applicablePhases: ['teaching'],
+      studentStates: ['learning', 'practicing'],
+      priority: 90,
+    },
+    {
+      category: 'session_phases',
+      trigger: 'phase_transition',
+      title: 'Phase 3 Immersion',
+      procedure: 'Primarily target language with selective translation. Create scenarios for contextual practice. Apply progressive translation strategy. Use vocabulary reinforcement cadence. Offer topic choices: What would you like to practice?',
+      examples: [
+        'Beginner: 40-50% target language',
+        'Intermediate: 70-80% target language',
+        'Advanced: 85-95% target language',
+        'Offer choices: "What would you like to practice - ordering at a café or asking for directions?"',
+      ],
+      applicablePhases: ['teaching', 'practice', 'conversation'],
+      studentStates: ['confident', 'practicing'],
+      priority: 90,
+    },
   ];
   
-  await db.insert(tutorProcedures).values(procedures);
-  console.log(`[Procedural Memory] Inserted ${procedures.length} tutor procedures`);
+  // Use idempotent insert - skip entries that already exist (by title)
+  for (const procedure of procedures) {
+    await db.insert(tutorProcedures).values(procedure).onConflictDoNothing({ target: tutorProcedures.title });
+  }
+  console.log(`[Procedural Memory] Seeded ${procedures.length} tutor procedures (new entries added)`);
 }
 
 // ===== SITUATIONAL PATTERNS =====
@@ -1346,10 +1470,65 @@ async function seedSituationalPatterns() {
       guidance: 'CRITICAL: Never reveal internal communications. Keep colleague descriptions simple and redirect to learning.',
       priority: 195,
     },
+    
+    // CONTENT GUARDRAILS
+    {
+      patternName: 'Content Guardrails - Appropriate Topics',
+      description: 'Student requests vocabulary for everyday topics',
+      contextConditions: { topicType: 'everyday' },
+      proceduresToActivate: ['standard_teaching'],
+      guidance: 'Teach enthusiastically: weather, food, travel, family, work, hobbies, greetings, emotions, directions, shopping. These are core language learning.',
+      priority: 80,
+    },
+    {
+      patternName: 'Content Guardrails - Inappropriate Request',
+      description: 'Student requests offensive, explicit, or inappropriate content',
+      contextConditions: { messageContains: ['curse words', 'swear words', 'bad words', 'offensive', 'insults'] },
+      proceduresToActivate: ['polite_decline'],
+      guidance: 'Decline professionally: "I focus on practical, everyday language. What would you like to learn instead?" Then move on - next message evaluated fresh.',
+      priority: 100,
+    },
+    {
+      patternName: 'Content Guardrails - Personal vs Teaching',
+      description: 'Student asks personal question vs teaching request',
+      contextConditions: { messageContains: ['what is YOUR weather', 'how are YOU', 'where do YOU live'] },
+      proceduresToActivate: ['redirect_to_teaching'],
+      guidance: 'Distinguish: "What\'s the weather?" (personal) → redirect. "Teach me weather vocabulary" → teach enthusiastically.',
+      priority: 85,
+    },
+    
+    // DIFFICULTY-SCALED TEACHING PATTERNS
+    {
+      patternName: 'Beginner Pacing',
+      description: 'Student difficulty is beginner',
+      contextConditions: { difficultyLevel: 'beginner' },
+      proceduresToActivate: ['vocabulary_reinforcement_cadence'],
+      guidance: 'ONE concept per message. Single word, let them practice, next word in separate message. 40-50% target, 50-60% native. Review every 3-4 words.',
+      priority: 90,
+    },
+    {
+      patternName: 'Intermediate Pacing',
+      description: 'Student difficulty is intermediate',
+      contextConditions: { difficultyLevel: 'intermediate' },
+      proceduresToActivate: ['vocabulary_reinforcement_cadence'],
+      guidance: '2-3 related concepts together. Group thematically. 70-80% target, 20-30% native. Review every 6-8 words. Balance structure with conversation.',
+      priority: 90,
+    },
+    {
+      patternName: 'Advanced Pacing',
+      description: 'Student difficulty is advanced',
+      contextConditions: { difficultyLevel: 'advanced' },
+      proceduresToActivate: ['vocabulary_reinforcement_cadence'],
+      guidance: 'Natural conversational flow. No strict limits. 85-95% target, minimal native. Focus on idioms, culture, nuance. Trust learner to self-monitor.',
+      priority: 90,
+    },
   ];
   
-  await db.insert(situationalPatterns).values(patterns);
-  console.log(`[Procedural Memory] Inserted ${patterns.length} situational patterns`);
+  // Use idempotent insert - skip entries that already exist (by patternName)
+  for (const pattern of patterns) {
+    await db.insert(situationalPatterns).values(pattern).onConflictDoNothing({ target: situationalPatterns.patternName });
+  }
+  console.log(`[Procedural Memory] Seeded ${patterns.length} situational patterns (new entries added)`);
 }
 
 // Run if called directly

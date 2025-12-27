@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, boolean, real, index, jsonb, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, real, index, uniqueIndex, jsonb, pgEnum } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -3532,6 +3532,7 @@ export const tutorProcedures = pgTable("tutor_procedures", {
   // Surgery origin tracking (if this came from a surgery proposal)
   originProposalId: varchar("origin_proposal_id"), // Links to selfSurgeryProposals.id
 }, (table) => [
+  uniqueIndex("uq_tutor_procedures_title").on(table.title),
   index("idx_tutor_procedures_category").on(table.category),
   index("idx_tutor_procedures_trigger").on(table.trigger),
   index("idx_tutor_procedures_origin_proposal").on(table.originProposalId),
@@ -3569,7 +3570,7 @@ export const toolKnowledge = pgTable("tool_knowledge", {
   // Surgery origin tracking (if this came from a surgery proposal)
   originProposalId: varchar("origin_proposal_id"), // Links to selfSurgeryProposals.id
 }, (table) => [
-  index("idx_tool_knowledge_name").on(table.toolName),
+  uniqueIndex("uq_tool_knowledge_name").on(table.toolName),
   index("idx_tool_knowledge_type").on(table.toolType),
   index("idx_tool_knowledge_origin_proposal").on(table.originProposalId),
 ]);
@@ -3610,7 +3611,7 @@ export const situationalPatterns = pgTable("situational_patterns", {
   // Surgery origin tracking (if this came from a surgery proposal)
   originProposalId: varchar("origin_proposal_id"), // Links to selfSurgeryProposals.id
 }, (table) => [
-  index("idx_situational_patterns_name").on(table.patternName),
+  uniqueIndex("uq_situational_patterns_name").on(table.patternName),
   index("idx_situational_patterns_origin_proposal").on(table.originProposalId),
 ]);
 
