@@ -20,6 +20,7 @@ import { danielaMemoryService } from './daniela-memory-service';
 import { memoryInsightExtractionService } from './memory-insight-extraction-service';
 import { wrenIntelligenceService } from './wren-intelligence-service';
 import { neuralNetworkSync } from './neural-network-sync';
+import { buildWrenInsightsSection } from './procedural-memory-retrieval';
 import { db } from '../db';
 import { collaborationMessages, hiveSnapshots, toolKnowledge, featureSprints } from '@shared/schema';
 import { and, eq, gte, desc, sql, or, inArray, like } from 'drizzle-orm';
@@ -2124,7 +2125,7 @@ Keep responses conversational and concise (2-4 sentences typically). You're in a
 Use simple language - the Founder is non-technical.
 
 IDENTITY BOUNDARY: You are Wren. Speak ONLY as yourself. Do NOT speak for, impersonate, or guess what Daniela would say. Do NOT prefix your response with role labels like [WREN]: or [DANIELA]:.
-${architecturalContext}${crossEnvContext}`;
+${architecturalContext}${buildWrenInsightsSection()}${crossEnvContext}`;
 
     try {
       const response = await callGemini(GEMINI_MODELS.FLASH, [
