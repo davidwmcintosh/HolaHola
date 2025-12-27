@@ -423,6 +423,15 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
           sendError(ws, 'UNAUTHORIZED', 'Not authenticated', false);
           return;
         }
+        
+        // CRITICAL: If speculative AI was already accepted (via ptt_release), skip this blob entirely
+        // The response is already streaming from the speculative call - processing this would be duplicate
+        if (speculativeAiAccepted) {
+          console.log(`[SpeculativePTT] PHASE 2: Skipping binary audio blob - speculative AI already accepted`);
+          speculativeAiAccepted = false;  // Reset for next turn
+          return;
+        }
+        
         if (session) {
           const audioBuffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
           console.log(`[Streaming Voice] Audio: ${audioBuffer.length} bytes`);
@@ -2448,6 +2457,15 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
           sendErrorAdapter(ws, 'UNAUTHORIZED', 'Not authenticated', false);
           return;
         }
+        
+        // CRITICAL: If speculative AI was already accepted (via ptt_release), skip this blob entirely
+        // The response is already streaming from the speculative call - processing this would be duplicate
+        if (speculativeAiAccepted) {
+          console.log(`[SpeculativePTT] PHASE 2: Skipping binary audio blob - speculative AI already accepted`);
+          speculativeAiAccepted = false;  // Reset for next turn
+          return;
+        }
+        
         if (session) {
           const audioBuffer = Buffer.isBuffer(data) ? data : Buffer.from(data as string);
           
