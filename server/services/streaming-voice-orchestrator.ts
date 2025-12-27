@@ -219,6 +219,21 @@ function cleanTextForDisplay(text: string): string {
   // Pattern: [WREN_MESSAGE: content here] or [WREN_MESSAGE content="..."]
   text = text.replace(/\[WREN_MESSAGE[:\s][^\]]*\]/gi, '');
   
+  // Strip internal notes/reasoning fragments that Gemini sometimes leaks
+  // These are fragments of structured output that shouldn't be spoken
+  // Patterns: reasoning="...", priority=\d+, confidence=\d+
+  text = text.replace(/\breasoning\s*=\s*"[^"]*"/gi, '');
+  text = text.replace(/\bpriority\s*=\s*\d+/gi, '');
+  text = text.replace(/\bconfidence\s*=\s*[\d.]+/gi, '');
+  // Strip JSON-like artifacts (closing brackets from malformed structures)
+  text = text.replace(/^\s*\]\s*\}?\s*'?\s*/g, '');
+  text = text.replace(/\s*\]\s*\}?\s*'?\s*$/g, '');
+  // Strip lines that are clearly internal instructions (imperative verbs for AI)
+  text = text.replace(/^Simulate\s+internal\b[^.]*\./gi, '');
+  text = text.replace(/^Optionally,?\s+(?:offer|provide|include|add)\b[^.]*\./gi, '');
+  text = text.replace(/^Internally,?\s+(?:process|handle|execute|trigger)\b[^.]*\./gi, '');
+  text = text.replace(/^user\s+of\s+the\s+transition\b[^.]*\./gi, '');
+  
   // First strip all whiteboard markup (WRITE, DRILL, SWITCH_TUTOR, etc.)
   // This must happen before other cleaning to ensure markup doesn't appear in TTS
   let cleaned = stripWhiteboardMarkup(text)
