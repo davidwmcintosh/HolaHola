@@ -11709,6 +11709,56 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  // ============================================================
+  // PERSONAL FACTS MIGRATION (Founder Only)
+  // Extracts personal facts from historical conversations
+  // ============================================================
+  
+  // Get personal facts migration status
+  app.get("/api/admin/personal-facts-migration/status", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { historicalPersonalFactsMigrationService } = await import("./services/historical-personal-facts-migration-service");
+      const userId = req.user.id;
+      const status = await historicalPersonalFactsMigrationService.getConversationCount(userId);
+      res.json(status);
+    } catch (error: any) {
+      console.error('[PersonalFacts Migration] Status error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Run a single batch of personal facts migration (10 conversations)
+  app.post("/api/admin/personal-facts-migration/batch", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { historicalPersonalFactsMigrationService } = await import("./services/historical-personal-facts-migration-service");
+      const userId = req.user.id;
+      const result = await historicalPersonalFactsMigrationService.runBatch(userId);
+      res.json(result);
+    } catch (error: any) {
+      console.error('[PersonalFacts Migration] Batch error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Run full personal facts migration (all conversations - background job)
+  app.post("/api/admin/personal-facts-migration/full", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { historicalPersonalFactsMigrationService } = await import("./services/historical-personal-facts-migration-service");
+      const userId = req.user.id;
+      
+      // Start migration in background, respond immediately
+      res.json({ status: 'started', message: 'Personal facts migration started in background. Check status endpoint for progress.' });
+      
+      // Run in background (don't await)
+      historicalPersonalFactsMigrationService.runFullMigration(userId)
+        .then(result => console.log('[PersonalFacts Migration] Full migration completed:', result))
+        .catch(err => console.error('[PersonalFacts Migration] Full migration failed:', err.message));
+    } catch (error: any) {
+      console.error('[PersonalFacts Migration] Full migration start error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // Get growth memories for review (Founder Only)
   app.get("/api/admin/growth-memories", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {
