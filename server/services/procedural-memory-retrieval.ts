@@ -512,6 +512,14 @@ export async function refreshToolKnowledgeCache(): Promise<void> {
 }
 
 /**
+ * Get cached tutor procedures synchronously
+ * Returns empty array if cache not yet initialized
+ */
+export function getCachedProcedures(): TutorProcedure[] {
+  return proceduresCache || [];
+}
+
+/**
  * Get cached self best practices synchronously
  * Returns empty array if cache not yet initialized
  */
@@ -1160,6 +1168,12 @@ Your teaching knowledge is being loaded from the database.
       lines.push(`When: ${trigger.replace(/_/g, ' ').toUpperCase()}`);
       triggerProcs.slice(0, 5).forEach(p => {
         lines.push(`  → ${p.title}: ${p.procedure}`);
+        // CRITICAL: Include examples - these contain the actual syntax like [SWITCH_TUTOR target="male"]
+        if (p.examples && p.examples.length > 0) {
+          p.examples.slice(0, 2).forEach(ex => {
+            lines.push(`      Example: ${ex}`);
+          });
+        }
       });
       lines.push('');
     }
