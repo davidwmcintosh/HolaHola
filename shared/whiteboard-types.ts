@@ -868,6 +868,21 @@ export function normalizeSwitchTutorAttributes(
     const normalized = genderValue.toLowerCase();
     if (normalized === 'male' || normalized === 'female') {
       targetGender = normalized;
+    } else {
+      // Gemini sometimes uses tutor names instead of gender - map known names
+      const nameToGender: Record<string, 'male' | 'female'> = {
+        // Female tutors
+        'daniela': 'female', 'juliette': 'female', 'juliet': 'female', 'greta': 'female',
+        'liv': 'female', 'isabel': 'female', 'sayuri': 'female', 'hua': 'female',
+        'jihyun': 'female', 'cindy': 'female',
+        // Male tutors  
+        'agustin': 'male', 'vincent': 'male', 'lukas': 'male', 'luca': 'male',
+        'camilo': 'male', 'daisuke': 'male', 'tao': 'male', 'minho': 'male', 'blake': 'male',
+      };
+      if (nameToGender[normalized]) {
+        targetGender = nameToGender[normalized];
+        console.log(`[Tutor Switch Normalize] Mapped tutor name "${genderValue}" → ${targetGender}`);
+      }
     }
   }
   

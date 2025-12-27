@@ -2490,12 +2490,18 @@ Remember: David may reference things discussed in these recent text chats.
           
           // Parse whiteboard markup
           const whiteboardParsed = parseWhiteboardMarkup(chunk.text);
-          if (whiteboardParsed.whiteboardItems.length > 0) {
+          
+          // Filter out internal commands (switch_tutor, actfl_update, syllabus_progress, phase_shift, call_support, call_assistant, hive, self_surgery) - only send visual items
+          const visualWhiteboardItems = whiteboardParsed.whiteboardItems.filter(
+            item => !['switch_tutor', 'actfl_update', 'syllabus_progress', 'phase_shift', 'call_support', 'call_assistant', 'hive', 'self_surgery'].includes(item.type)
+          );
+          
+          if (visualWhiteboardItems.length > 0) {
             this.sendMessage(session.ws, {
               type: 'whiteboard_update',
               timestamp: Date.now(),
               turnId,
-              items: whiteboardParsed.whiteboardItems,
+              items: visualWhiteboardItems,
               shouldClear: whiteboardParsed.shouldClear,
             } as StreamingWhiteboardMessage);
           }
