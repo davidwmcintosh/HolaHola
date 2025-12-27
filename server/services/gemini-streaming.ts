@@ -27,16 +27,37 @@ function stripInternalNotationTags(text: string): string {
   
   // Strip malformed LLM reasoning/planning patterns that shouldn't be spoken
   // Pattern: :["step1", "step2", ...] - internal thinking chains
-  // These appear when the LLM outputs internal step lists instead of natural speech
   text = text.replace(/:\s*\[\s*"[^"]*"(?:\s*,?\s*"[^"]*")*\s*\]/g, '');
   
-  // Also strip patterns like: reasoning="..." priority=N confidence=N]
-  // These are continuation fragments from malformed structured output
+  // Strip JSON-like key-value fragments: "key":"value" or "key": "value"
+  text = text.replace(/"[a-z_]+"\s*:\s*"[^"]*"/gi, '');
+  
+  // Strip parenthetical notes that look like internal metadata: (progress, notes, last topic)
+  text = text.replace(/\([a-z,\s]+\)/gi, '');
+  
+  // Strip patterns like: reasoning="..." priority=N confidence=N]
   text = text.replace(/\s*reasoning\s*=\s*"[^"]*"\s*priority\s*=\s*\d+\s*confidence\s*=\s*\d+\s*\]/g, '');
+  
+  // Strip instruction-like sentences that shouldn't be spoken (internal LLM planning)
+  // These start with imperative verbs followed by user/student references
+  text = text.replace(/,?\s*"?(Inform|Emphasize|Confirm|Execute|Summarize|Transfer|Initiate|Ensure)\s+(user|student|the\s+user|the\s+student|about|seamless|context)[^.!?\n]*[.!?]?"?/gi, '');
+  
+  // Strip trailing/leading JSON fragments: }' or ,' or ,"
+  text = text.replace(/[,}]'?\s*$/g, '');
+  text = text.replace(/^[,'"}\]]+\s*/g, '');
+  
+  // Strip invented system command formats that LLM sometimes uses instead of SWITCH_TUTOR
+  // e.g., [SYSTEM_MESSAGE: TRANSFER_TO_TUTOR tutor="..." language="..."]
+  text = text.replace(/\[SYSTEM_MESSAGE[^\]]*\]/gi, '');
+  text = text.replace(/\[TRANSFER_TO_TUTOR[^\]]*\]/gi, '');
+  text = text.replace(/\[SYSTEM[^\]]*\]/gi, '');
+  
+  // Clean up multiple spaces and leading/trailing whitespace
+  text = text.replace(/\s{2,}/g, ' ').trim();
   
   // Strip bracket-based tags with balanced matching for complex content
   // Pattern: [TAG_NAME followed by content until balanced ]
-  const tagPatterns = ['SELF_SURGERY', 'SELF_LEARN', 'OBSERVE', 'KNOWLEDGE_PING'];
+  const tagPatterns = ['SELF_SURGERY', 'SELF_LEARN', 'OBSERVE', 'KNOWLEDGE_PING', 'HIVE'];
   
   for (const tagName of tagPatterns) {
     let result = '';
