@@ -883,6 +883,7 @@ Reference past discussions when relevant, but don't force it.
             tutorDirectory = [...mainTutorEntries, ...assistantEntries, sofiaEntry];
               
             console.log(`[Streaming Voice] Built tutor directory with ${mainTutorEntries.length} tutors + ${assistantEntries.length} assistants + Sofia (support)`);
+            console.log(`[Streaming Voice] Tutor directory entries: ${JSON.stringify(tutorDirectory.slice(0, 5))}...`);
           } catch (err: any) {
             console.warn(`[Streaming Voice] Voice config error: ${err.message}`);
           }
