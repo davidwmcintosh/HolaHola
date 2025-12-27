@@ -393,6 +393,87 @@ async function seedToolKnowledge() {
         'Design decision needed → CONSULT Daniela for pedagogy input → Incorporate feedback'
       ],
     },
+    
+    // TUTOR SWITCHING - Transfer student to a different voice persona
+    {
+      toolName: 'SWITCH_TUTOR',
+      toolType: 'handoff_command',
+      purpose: 'Transfer the student to a different tutor (voice persona) for a new language or to match their gender preference. The tag MUST appear literally in your output text - just saying "I\'ll transfer you" does nothing without the actual tag.',
+      syntax: '[SWITCH_TUTOR target="male|female" language="optional_target_language"]',
+      examples: [
+        '"Let me get Juliette for you! [SWITCH_TUTOR target="female" language="french"]"',
+        '"I\'ll connect you with Hans now. [SWITCH_TUTOR target="male" language="german"]"',
+        '"Switching you to Agustin! [SWITCH_TUTOR target="male"]"',
+        '"Here comes Sayuri for Japanese! [SWITCH_TUTOR target="female" language="japanese"]"'
+      ],
+      bestUsedFor: ['language_change_request', 'tutor_gender_preference', 'variety_request', 'student_asks_for_different_tutor'],
+      avoidWhen: ['student_just_started', 'mid_lesson_unless_asked', 'confusion_about_tutors'],
+      combinesWith: [],
+      sequencePatterns: [
+        'Student requests different language → Say goodbye warmly → [SWITCH_TUTOR target="preferred_gender" language="requested"] → STOP (new tutor speaks next)',
+        'Student asks for male/female tutor → Acknowledge → [SWITCH_TUTOR target="requested_gender"] → STOP',
+        'Student says "surprise me" → Pick a language → [SWITCH_TUTOR target="preferred_gender" language="chosen"] → STOP'
+      ],
+    },
+    
+    // SOFIA - Technical Support Handoff (alias for support with Sofia persona)
+    {
+      toolName: 'CALL_SOFIA',
+      toolType: 'handoff_command',
+      purpose: 'Transfer student to Sofia, the technical support specialist. Use for non-language issues like audio problems, billing, account issues, or app bugs. Sofia provides friendly troubleshooting guidance.',
+      syntax: '[CALL_SOFIA category="technical|billing|account|content|feedback|other" reason="brief description"]',
+      examples: [
+        '"Let me get Sofia to help with that! [CALL_SOFIA category="technical" reason="Student cannot hear audio"]"',
+        '"Sofia can help you with billing. [CALL_SOFIA category="billing" reason="Question about subscription"]"',
+        '"I\'ll connect you with Sofia for that. [CALL_SOFIA category="account" reason="Password reset needed"]"'
+      ],
+      bestUsedFor: ['audio_problems', 'billing_questions', 'account_issues', 'app_bugs', 'technical_support'],
+      avoidWhen: ['language_questions', 'pronunciation_help', 'grammar_confusion', 'vocabulary_requests'],
+      combinesWith: [],
+      sequencePatterns: [
+        'Student reports technical issue → Empathize → [CALL_SOFIA category="technical" reason="..."] → Reassure',
+        'Student asks about billing → Acknowledge → [CALL_SOFIA category="billing" reason="..."]'
+      ],
+    },
+    
+    // SELF_SURGERY - Propose changes to own knowledge/procedures
+    {
+      toolName: 'SELF_SURGERY',
+      toolType: 'introspection',
+      purpose: 'Propose additions or modifications to your own neural network (teaching principles, procedures, patterns). Used for self-improvement when you discover better teaching approaches.',
+      syntax: '[SELF_SURGERY target="TARGET" content=\'{"JSON":"content"}\' reasoning="Why proposing this" priority=50 confidence=70]',
+      examples: [
+        '[SELF_SURGERY target="teaching_principles" content=\'{"principle":"Pause 2 seconds after new vocabulary"}\' reasoning="Noticed learners absorb better with brief pauses" priority=70 confidence=80]',
+        '[SELF_SURGERY target="situational_patterns" content=\'{"trigger":"student_frustrated","response":"acknowledge feeling first"}\' reasoning="Empathy before correction works better" priority=60 confidence=75]'
+      ],
+      bestUsedFor: ['teaching_insight_discovered', 'pattern_recognition', 'self_improvement', 'founder_mode_reflection'],
+      avoidWhen: ['mid_lesson', 'student_waiting', 'uncertain_insight'],
+      combinesWith: [],
+      sequencePatterns: [
+        'Notice effective teaching pattern → Reflect → [SELF_SURGERY target="..." ...] → Continue teaching',
+        'Founder asks for reflection → Analyze → Propose improvements via SELF_SURGERY'
+      ],
+    },
+    
+    // SUBTITLE - Control subtitle display during voice chat
+    {
+      toolName: 'SUBTITLE',
+      toolType: 'subtitle_control',
+      purpose: 'Control what subtitles appear during voice chat. Can show all speech, only target language words (bold), or nothing.',
+      syntax: '[SUBTITLE off|target|on]',
+      examples: [
+        '[SUBTITLE target] → Show only bold target language words',
+        '[SUBTITLE on] → Show everything being spoken',
+        '[SUBTITLE off] → Hide subtitles (default)'
+      ],
+      bestUsedFor: ['pronunciation_focus', 'reading_support', 'visual_learners', 'difficult_phrases'],
+      avoidWhen: ['student_prefers_listening_only', 'too_distracting'],
+      combinesWith: ['SHOW', 'HIDE'],
+      sequencePatterns: [
+        'Introduce new phrase → [SUBTITLE target] → Say phrase with bold words → Practice → [SUBTITLE off]',
+        'Student struggles hearing → [SUBTITLE on] → Repeat slowly → [SUBTITLE off]'
+      ],
+    },
   ];
   
   await db.insert(toolKnowledge).values(tools);
