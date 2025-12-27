@@ -10434,9 +10434,11 @@ function NorthStarTab() {
   });
   const [filterCategory, setFilterCategory] = useState<NorthStarCategory | 'all'>('all');
 
-  const { data: principles, isLoading, error } = useQuery<NorthStarPrinciple[]>({
+  const { data: principlesResponse, isLoading, error } = useQuery<{ success: boolean; principles: NorthStarPrinciple[] }>({
     queryKey: ['/api/north-star/principles'],
   });
+  
+  const principles = principlesResponse?.principles;
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<NorthStarPrinciple> }) => {
