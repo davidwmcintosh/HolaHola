@@ -396,8 +396,8 @@ async function seedToolKnowledge() {
     {
       toolName: 'SWITCH_TUTOR',
       toolType: 'handoff_command',
-      purpose: 'Transfer the student to a different tutor (voice persona) for a new language or to match their gender preference. The tag MUST appear literally in your output text - just saying "I\'ll transfer you" does nothing without the actual tag.',
-      syntax: '[SWITCH_TUTOR target="male|female" language="optional_target_language"]',
+      purpose: 'OUTPUT THE LITERAL TAG [SWITCH_TUTOR target="male" language="french"] IN YOUR TEXT RESPONSE. Do NOT just say "switching" - you MUST include the exact tag with brackets. The backend parses your text for this tag pattern. Without the literal brackets and text, nothing happens.',
+      syntax: '[SWITCH_TUTOR target="male" language="french"] or [SWITCH_TUTOR target="female"]',
       examples: [
         '"Let me get Juliette for you! [SWITCH_TUTOR target="female" language="french"]"',
         '"I\'ll connect you with Hans now. [SWITCH_TUTOR target="male" language="german"]"',
