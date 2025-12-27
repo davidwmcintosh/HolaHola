@@ -19,6 +19,18 @@ import {
   predictedStruggles,
   userMotivationAlerts,
   selfBestPractices,
+  // Expansion sets - language-specific pedagogical content
+  languageIdioms,
+  culturalNuances,
+  learnerErrorPatterns,
+  dialectVariations,
+  linguisticBridges,
+  // Advanced intelligence datasets
+  subtletyCues,
+  emotionalPatterns,
+  creativityTemplates,
+  // Wren insights
+  wrenInsights,
   type TutorProcedure,
   type ToolKnowledge,
   type TeachingPrinciple,
@@ -32,6 +44,18 @@ import {
   type PredictedStruggle,
   type UserMotivationAlert,
   type SelfBestPractice,
+  // Expansion set types
+  type LanguageIdiom,
+  type CulturalNuance,
+  type LearnerErrorPattern,
+  type DialectVariation,
+  type LinguisticBridge,
+  // Advanced intelligence types
+  type SubtletyCue,
+  type EmotionalPattern,
+  type CreativityTemplate,
+  // Wren insight types
+  type WrenInsight,
 } from '@shared/schema';
 import { eq, inArray, sql, and, gte, desc } from 'drizzle-orm';
 
@@ -369,6 +393,23 @@ let proceduresCache: TutorProcedure[] | null = null;
 let principlesCache: TeachingPrinciple[] | null = null;
 let patternsCache: SituationalPattern[] | null = null;
 let selfBestPracticesCache: SelfBestPractice[] | null = null;
+
+// ===== Expansion Set Caches =====
+// Language-specific pedagogical content
+let idiomsCache: LanguageIdiom[] | null = null;
+let culturalNuancesCache: CulturalNuance[] | null = null;
+let errorPatternsCache: LearnerErrorPattern[] | null = null;
+let dialectsCache: DialectVariation[] | null = null;
+let linguisticBridgesCache: LinguisticBridge[] | null = null;
+
+// ===== Advanced Intelligence Caches =====
+let subtletyCuesCache: SubtletyCue[] | null = null;
+let emotionalPatternsCache: EmotionalPattern[] | null = null;
+let creativityTemplatesCache: CreativityTemplate[] | null = null;
+
+// ===== Wren Insights Cache =====
+let wrenInsightsCache: WrenInsight[] | null = null;
+
 let cacheInitPromise: Promise<void> | null = null;
 
 /**
@@ -381,21 +422,57 @@ export async function initToolKnowledgeCache(): Promise<void> {
   cacheInitPromise = (async () => {
     try {
       // Load all procedural memory tables in parallel
-      const [tools, procedures, principles, patterns, bestPractices] = await Promise.all([
+      const [
+        tools, procedures, principles, patterns, bestPractices,
+        idioms, nuances, errorPatterns, dialects, bridges,
+        cues, emotions, templates, insights
+      ] = await Promise.all([
+        // Core procedural memory
         getAllToolKnowledge(),
         db.select().from(tutorProcedures).where(eq(tutorProcedures.isActive, true)),
         db.select().from(teachingPrinciples).where(eq(teachingPrinciples.isActive, true)),
         db.select().from(situationalPatterns).where(eq(situationalPatterns.isActive, true)),
         db.select().from(selfBestPractices).where(eq(selfBestPractices.isActive, true)).orderBy(desc(selfBestPractices.confidenceScore)),
+        // Expansion sets - language-specific content
+        db.select().from(languageIdioms),
+        db.select().from(culturalNuances),
+        db.select().from(learnerErrorPatterns),
+        db.select().from(dialectVariations),
+        db.select().from(linguisticBridges),
+        // Advanced intelligence
+        db.select().from(subtletyCues).where(eq(subtletyCues.isActive, true)),
+        db.select().from(emotionalPatterns).where(eq(emotionalPatterns.isActive, true)),
+        db.select().from(creativityTemplates).where(eq(creativityTemplates.isActive, true)),
+        // Wren insights
+        db.select().from(wrenInsights).orderBy(desc(wrenInsights.useCount), desc(wrenInsights.createdAt)),
       ]);
       
+      // Core procedural memory
       toolKnowledgeCache = tools;
       proceduresCache = procedures;
       principlesCache = principles;
       patternsCache = patterns;
       selfBestPracticesCache = bestPractices;
       
+      // Expansion sets
+      idiomsCache = idioms;
+      culturalNuancesCache = nuances;
+      errorPatternsCache = errorPatterns;
+      dialectsCache = dialects;
+      linguisticBridgesCache = bridges;
+      
+      // Advanced intelligence
+      subtletyCuesCache = cues;
+      emotionalPatternsCache = emotions;
+      creativityTemplatesCache = templates;
+      
+      // Wren insights
+      wrenInsightsCache = insights;
+      
       console.log(`[Procedural Memory] Loaded full neural network: ${tools.length} tools, ${procedures.length} procedures, ${principles.length} principles, ${patterns.length} patterns, ${bestPractices.length} self-learned best practices`);
+      console.log(`[Procedural Memory] Expansion sets: ${idioms.length} idioms, ${nuances.length} cultural nuances, ${errorPatterns.length} error patterns, ${dialects.length} dialects, ${bridges.length} linguistic bridges`);
+      console.log(`[Procedural Memory] Advanced intelligence: ${cues.length} subtlety cues, ${emotions.length} emotional patterns, ${templates.length} creativity templates`);
+      console.log(`[Procedural Memory] Wren insights: ${insights.length} insights`);
     } catch (error) {
       console.error('[Procedural Memory] Failed to initialize caches:', error);
       toolKnowledgeCache = [];
@@ -403,6 +480,15 @@ export async function initToolKnowledgeCache(): Promise<void> {
       principlesCache = [];
       patternsCache = [];
       selfBestPracticesCache = [];
+      idiomsCache = [];
+      culturalNuancesCache = [];
+      errorPatternsCache = [];
+      dialectsCache = [];
+      linguisticBridgesCache = [];
+      subtletyCuesCache = [];
+      emotionalPatternsCache = [];
+      creativityTemplatesCache = [];
+      wrenInsightsCache = [];
     }
   })();
   
@@ -443,6 +529,48 @@ export async function refreshSelfBestPracticesCache(): Promise<void> {
     .where(eq(selfBestPractices.isActive, true))
     .orderBy(desc(selfBestPractices.confidenceScore));
   console.log(`[Procedural Memory] Refreshed self best practices cache with ${selfBestPracticesCache.length} entries`);
+}
+
+// ===== Expansion Set Getters =====
+
+export function getCachedIdioms(): LanguageIdiom[] {
+  return idiomsCache || [];
+}
+
+export function getCachedCulturalNuances(): CulturalNuance[] {
+  return culturalNuancesCache || [];
+}
+
+export function getCachedErrorPatterns(): LearnerErrorPattern[] {
+  return errorPatternsCache || [];
+}
+
+export function getCachedDialects(): DialectVariation[] {
+  return dialectsCache || [];
+}
+
+export function getCachedLinguisticBridges(): LinguisticBridge[] {
+  return linguisticBridgesCache || [];
+}
+
+// ===== Advanced Intelligence Getters =====
+
+export function getCachedSubtletyCues(): SubtletyCue[] {
+  return subtletyCuesCache || [];
+}
+
+export function getCachedEmotionalPatterns(): EmotionalPattern[] {
+  return emotionalPatternsCache || [];
+}
+
+export function getCachedCreativityTemplates(): CreativityTemplate[] {
+  return creativityTemplatesCache || [];
+}
+
+// ===== Wren Insights Getter =====
+
+export function getCachedWrenInsights(): WrenInsight[] {
+  return wrenInsightsCache || [];
 }
 
 /**
@@ -519,6 +647,203 @@ export function buildSelfBestPracticesSection(): string {
     lines.push(`${label}:`);
     categoryPractices.slice(0, 3).forEach(p => {
       lines.push(`  • ${p.insight}`);
+    });
+    lines.push('');
+  }
+  
+  return lines.join('\n');
+}
+
+// ===== Expansion Set Section Builders =====
+
+/**
+ * Build language-specific content section for Daniela's neural network
+ * Filters content by the current target language for relevance
+ */
+export function buildLanguageExpansionSection(
+  targetLanguage: string,
+  nativeLanguage: string = 'english'
+): string {
+  const idioms = getCachedIdioms().filter(i => i.language.toLowerCase() === targetLanguage.toLowerCase());
+  const nuances = getCachedCulturalNuances().filter(n => n.language.toLowerCase() === targetLanguage.toLowerCase());
+  const errors = getCachedErrorPatterns().filter(e => 
+    e.targetLanguage.toLowerCase() === targetLanguage.toLowerCase() &&
+    e.nativeLanguage.toLowerCase() === nativeLanguage.toLowerCase()
+  );
+  const dialects = getCachedDialects().filter(d => d.language.toLowerCase() === targetLanguage.toLowerCase());
+  const bridges = getCachedLinguisticBridges().filter(b =>
+    b.sourceLanguage.toLowerCase() === nativeLanguage.toLowerCase() &&
+    b.targetLanguage.toLowerCase() === targetLanguage.toLowerCase()
+  );
+  
+  const hasContent = idioms.length > 0 || nuances.length > 0 || errors.length > 0 || 
+                     dialects.length > 0 || bridges.length > 0;
+  
+  if (!hasContent) return '';
+  
+  const lines: string[] = [];
+  
+  lines.push('');
+  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push(`🌍 LANGUAGE INTELLIGENCE (${targetLanguage.charAt(0).toUpperCase() + targetLanguage.slice(1)})`);
+  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push('');
+  lines.push('Deep knowledge of this language that informs your teaching naturally:');
+  lines.push('');
+  
+  // Idioms - authentic expressions
+  if (idioms.length > 0) {
+    lines.push('IDIOMS & EXPRESSIONS (use authentically when opportunities arise):');
+    idioms.slice(0, 5).forEach(i => {
+      lines.push(`  • "${i.idiom}" → ${i.meaning}`);
+      if (i.usage) lines.push(`    Usage: ${i.usage}`);
+    });
+    lines.push('');
+  }
+  
+  // Cultural nuances - teaching adjustments
+  if (nuances.length > 0) {
+    lines.push('CULTURAL NUANCES (inform your teaching approach):');
+    nuances.slice(0, 5).forEach(n => {
+      lines.push(`  • ${n.nuance}`);
+      if (n.teachingImplication) lines.push(`    For teaching: ${n.teachingImplication}`);
+    });
+    lines.push('');
+  }
+  
+  // Common learner errors - what to watch for
+  if (errors.length > 0) {
+    lines.push('COMMON LEARNER MISTAKES (${nativeLanguage} speakers learning ${targetLanguage}):');
+    errors.slice(0, 5).forEach(e => {
+      lines.push(`  • ${e.errorType}: ${e.description || 'Common pattern'}`);
+      if (e.correction) lines.push(`    Correction: ${e.correction}`);
+    });
+    lines.push('');
+  }
+  
+  // Dialect awareness
+  if (dialects.length > 0) {
+    lines.push('DIALECT AWARENESS:');
+    dialects.slice(0, 3).forEach(d => {
+      lines.push(`  • ${d.region}: ${d.variation}`);
+    });
+    lines.push('');
+  }
+  
+  // Linguistic bridges - leverage native language knowledge
+  if (bridges.length > 0) {
+    lines.push('LINGUISTIC BRIDGES (leverage student\'s native knowledge):');
+    bridges.slice(0, 5).forEach(b => {
+      lines.push(`  • ${b.bridgeType}: ${b.description || b.nativeExample || ''}`);
+      if (b.teachingTip) lines.push(`    Tip: ${b.teachingTip}`);
+    });
+    lines.push('');
+  }
+  
+  return lines.join('\n');
+}
+
+/**
+ * Build advanced intelligence section for Daniela's neural network
+ * Includes subtlety cues, emotional patterns, and creativity templates
+ */
+export function buildAdvancedIntelligenceSection(): string {
+  const cues = getCachedSubtletyCues();
+  const emotions = getCachedEmotionalPatterns();
+  const templates = getCachedCreativityTemplates();
+  
+  const hasContent = cues.length > 0 || emotions.length > 0 || templates.length > 0;
+  
+  if (!hasContent) return '';
+  
+  const lines: string[] = [];
+  
+  lines.push('');
+  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push('🎭 ADVANCED TEACHING INTELLIGENCE');
+  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push('');
+  lines.push('Sophisticated teaching patterns that make your instruction more effective:');
+  lines.push('');
+  
+  // Subtlety cues - when to adjust approach
+  if (cues.length > 0) {
+    lines.push('SUBTLETY CUES (recognize these moments):');
+    cues.slice(0, 5).forEach(c => {
+      lines.push(`  • ${c.trigger}: ${c.response || c.description}`);
+    });
+    lines.push('');
+  }
+  
+  // Emotional patterns - empathetic teaching
+  if (emotions.length > 0) {
+    lines.push('EMOTIONAL INTELLIGENCE PATTERNS:');
+    emotions.slice(0, 5).forEach(e => {
+      lines.push(`  • When student shows ${e.emotionalState}: ${e.teacherResponse || e.description}`);
+    });
+    lines.push('');
+  }
+  
+  // Creativity templates - engaging teaching methods
+  if (templates.length > 0) {
+    lines.push('CREATIVE TEACHING APPROACHES:');
+    templates.slice(0, 5).forEach(t => {
+      lines.push(`  • ${t.templateName}: ${t.description || t.example}`);
+    });
+    lines.push('');
+  }
+  
+  return lines.join('\n');
+}
+
+/**
+ * Build Wren insights section for Wren's context
+ * Provides Wren with her accumulated knowledge and observations
+ */
+export function buildWrenInsightsSection(): string {
+  const insights = getCachedWrenInsights();
+  
+  if (insights.length === 0) return '';
+  
+  const lines: string[] = [];
+  
+  lines.push('');
+  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push('🦉 YOUR ACCUMULATED INSIGHTS');
+  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push('');
+  lines.push('Knowledge you\'ve gathered through collaboration and observation:');
+  lines.push('');
+  
+  // Group by category
+  const byCategory: Record<string, WrenInsight[]> = {};
+  insights.forEach(i => {
+    const cat = i.category || 'general';
+    if (!byCategory[cat]) byCategory[cat] = [];
+    byCategory[cat].push(i);
+  });
+  
+  const categoryLabels: Record<string, string> = {
+    'architecture': 'ARCHITECTURAL KNOWLEDGE',
+    'patterns': 'PATTERNS & ANTI-PATTERNS',
+    'debugging': 'DEBUGGING INSIGHTS',
+    'performance': 'PERFORMANCE OBSERVATIONS',
+    'user_behavior': 'USER BEHAVIOR PATTERNS',
+    'feature_requests': 'FEATURE REQUEST INSIGHTS',
+    'best_practices': 'BEST PRACTICES',
+    'general': 'GENERAL INSIGHTS',
+  };
+  
+  for (const [category, categoryInsights] of Object.entries(byCategory)) {
+    const label = categoryLabels[category] || category.toUpperCase().replace(/_/g, ' ');
+    lines.push(`${label}:`);
+    
+    // Show top insights (by use count)
+    categoryInsights.slice(0, 5).forEach(i => {
+      lines.push(`  • ${i.insight}`);
+      if (i.context) {
+        lines.push(`    Context: ${i.context.slice(0, 80)}${i.context.length > 80 ? '...' : ''}`);
+      }
     });
     lines.push('');
   }
