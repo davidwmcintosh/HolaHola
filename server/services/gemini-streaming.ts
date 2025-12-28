@@ -183,9 +183,9 @@ export class GeminiStreamingService {
         baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '',
       },
     });
-    // Using Gemini 3 Flash for fast responses + strong instruction following
-    // 3x faster than 2.5 Pro, better at coding/tool-use than 2.5 Flash
-    this.defaultModel = 'gemini-3-flash';
+    // Using Gemini 2.5 Flash for fast responses
+    // Switch to gemini-3-flash-preview when available in Replit AI Integrations
+    this.defaultModel = 'gemini-2.5-flash';
   }
   
   /**
