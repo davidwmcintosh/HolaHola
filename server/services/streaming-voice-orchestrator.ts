@@ -298,6 +298,58 @@ function cleanTextForDisplay(text: string): string {
 }
 
 /**
+ * Infer target language from tutor name mentions in AI response text
+ * 
+ * When the AI says "Let me get Juliet for you" but emits [SWITCH_TUTOR target="female"]
+ * WITHOUT a language parameter, we can auto-infer the language from the tutor directory.
+ * 
+ * This makes cross-language handoffs more robust when the AI forgets to include the language.
+ * 
+ * @param responseText - The AI's full response text (may contain tutor names)
+ * @param targetGender - The gender from the SWITCH_TUTOR command
+ * @param currentLanguage - The current session language
+ * @param tutorDirectory - Array of tutor directory entries with names and languages
+ * @returns The inferred language if a cross-language tutor name is detected, undefined otherwise
+ */
+function inferLanguageFromTutorName(
+  responseText: string,
+  targetGender: 'male' | 'female',
+  currentLanguage: string,
+  tutorDirectory: TutorDirectoryEntry[]
+): string | undefined {
+  if (!tutorDirectory || tutorDirectory.length === 0) {
+    return undefined;
+  }
+  
+  // Normalize for comparison
+  const normalizedText = responseText.toLowerCase();
+  const normalizedCurrentLang = currentLanguage.toLowerCase();
+  
+  // Find tutors from OTHER languages matching the target gender
+  // (If they're from the current language, no language inference is needed)
+  const otherLanguageTutors = tutorDirectory.filter(t => 
+    t.language.toLowerCase() !== normalizedCurrentLang &&
+    t.language.toLowerCase() !== 'all' && // Exclude Sofia/support
+    t.gender === targetGender &&
+    t.role !== 'support'
+  );
+  
+  // Check if any other-language tutor name appears in the response text
+  for (const tutor of otherLanguageTutors) {
+    // Create a regex that matches the tutor name as a word (case-insensitive)
+    // Handles variants like "Juliet", "Juliette", "Julieta" by matching the name directly
+    const namePattern = new RegExp(`\\b${tutor.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+    
+    if (namePattern.test(responseText)) {
+      console.log(`[Tutor Switch] Auto-inferred language="${tutor.language}" from tutor name "${tutor.name}" mentioned in response`);
+      return tutor.language.toLowerCase();
+    }
+  }
+  
+  return undefined;
+}
+
+/**
  * Architect Message Types for bidirectional communication
  * Daniela can send different types of messages to the Architect/Claude
  */
@@ -1719,21 +1771,45 @@ Remember: David may reference things discussed in these recent text chats.
               targetLanguage?: string;
               targetRole?: 'tutor' | 'assistant';
             };
+            
+            // AUTO-INFER LANGUAGE: If no language specified but AI mentioned a tutor from another language,
+            // infer the language from the tutor name to fix cross-language handoffs
+            let resolvedLanguage = data.targetLanguage;
+            if (!resolvedLanguage && session.tutorDirectory && session.targetLanguage) {
+              resolvedLanguage = inferLanguageFromTutorName(
+                chunk.text,
+                data.targetGender,
+                session.targetLanguage,
+                session.tutorDirectory
+              );
+            }
+            
             session.pendingTutorSwitch = { 
               targetGender: data.targetGender,
-              targetLanguage: data.targetLanguage,
+              targetLanguage: resolvedLanguage,
               targetRole: data.targetRole,
             };
             session.switchTutorTriggered = true;
-            console.log(`[Tutor Switch] PTT (parsed): Queued handoff to ${data.targetGender} tutor`);
+            console.log(`[Tutor Switch] PTT (parsed): Queued handoff to ${data.targetGender} tutor${resolvedLanguage ? ` (${resolvedLanguage})` : ''}`);
           } else if (!session.pendingTutorSwitch && chunk.text.includes('[SWITCH_TUTOR')) {
             // FALLBACK: Direct regex detection when parser misses the tag
             // Patterns: [SWITCH_TUTOR target="male"] or [SWITCH_TUTOR target="female" language="french"]
             const switchMatch = chunk.text.match(/\[SWITCH_TUTOR\s+target\s*=\s*["']?(male|female)["']?(?:\s+language\s*=\s*["']?(\w+)["']?)?(?:\s+role\s*=\s*["']?(tutor|assistant)["']?)?\s*\]/i);
             if (switchMatch) {
               const targetGender = switchMatch[1].toLowerCase() as 'male' | 'female';
-              const targetLanguage = switchMatch[2]?.toLowerCase();
+              let targetLanguage = switchMatch[2]?.toLowerCase();
               const targetRole = switchMatch[3]?.toLowerCase() as 'tutor' | 'assistant' | undefined;
+              
+              // AUTO-INFER LANGUAGE: If no language specified but AI mentioned a tutor from another language
+              if (!targetLanguage && session.tutorDirectory && session.targetLanguage) {
+                targetLanguage = inferLanguageFromTutorName(
+                  chunk.text,
+                  targetGender,
+                  session.targetLanguage,
+                  session.tutorDirectory
+                );
+              }
+              
               session.pendingTutorSwitch = { 
                 targetGender,
                 targetLanguage,
@@ -2798,23 +2874,47 @@ Remember: David may reference things discussed in these recent text chats.
               targetLanguage?: string;
               targetRole?: 'tutor' | 'assistant';
             };
+            
+            // AUTO-INFER LANGUAGE: If no language specified but AI mentioned a tutor from another language,
+            // infer the language from the tutor name to fix cross-language handoffs
+            let resolvedLanguage = data.targetLanguage;
+            if (!resolvedLanguage && session.tutorDirectory && session.targetLanguage) {
+              resolvedLanguage = inferLanguageFromTutorName(
+                chunk.text,
+                data.targetGender,
+                session.targetLanguage,
+                session.tutorDirectory
+              );
+            }
+            
             session.pendingTutorSwitch = { 
               targetGender: data.targetGender,
-              targetLanguage: data.targetLanguage,
+              targetLanguage: resolvedLanguage,
               targetRole: data.targetRole,
             };
             session.switchTutorTriggered = true;
-            console.log(`[Tutor Switch] Open-mic (parsed): Queued handoff to ${data.targetGender} tutor`);
+            console.log(`[Tutor Switch] Open-mic (parsed): Queued handoff to ${data.targetGender} tutor${resolvedLanguage ? ` (${resolvedLanguage})` : ''}`);
           } else if (!session.pendingTutorSwitch && chunk.text.includes('[SWITCH_TUTOR')) {
             // FALLBACK: Direct regex detection when parser misses the tag
             const switchMatch = chunk.text.match(/\[SWITCH_TUTOR\s+target\s*=\s*["']?(male|female)["']?(?:\s+language\s*=\s*["']?(\w+)["']?)?(?:\s+role\s*=\s*["']?(tutor|assistant)["']?)?\s*\]/i);
             if (switchMatch) {
               const targetGender = switchMatch[1].toLowerCase() as 'male' | 'female';
-              const targetLanguage = switchMatch[2]?.toLowerCase();
+              let targetLanguage = switchMatch[2]?.toLowerCase();
               const targetRole = switchMatch[3]?.toLowerCase() as 'tutor' | 'assistant' | undefined;
+              
+              // AUTO-INFER LANGUAGE: If no language specified but AI mentioned a tutor from another language
+              if (!targetLanguage && session.tutorDirectory && session.targetLanguage) {
+                targetLanguage = inferLanguageFromTutorName(
+                  chunk.text,
+                  targetGender,
+                  session.targetLanguage,
+                  session.tutorDirectory
+                );
+              }
+              
               session.pendingTutorSwitch = { targetGender, targetLanguage, targetRole };
               session.switchTutorTriggered = true;
-              console.log(`[Tutor Switch] Open-mic (regex fallback): Queued handoff to ${targetGender} tutor`);
+              console.log(`[Tutor Switch] Open-mic (regex fallback): Queued handoff to ${targetGender} tutor${targetLanguage ? ` (${targetLanguage})` : ''}`);
             }
           }
           
