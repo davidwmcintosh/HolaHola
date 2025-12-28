@@ -11252,6 +11252,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       }
       
       // Transform snake_case to camelCase for frontend
+      // Ensure timestamps are properly formatted as ISO strings
       const syncRuns = runs.rows.map((row: any) => ({
         id: row.id,
         direction: row.direction,
@@ -11262,8 +11263,8 @@ Return ONLY the ${targetLanguage} phrase:`;
         errorMessage: row.error_message,
         triggeredBy: row.triggered_by,
         durationMs: row.duration_ms,
-        startedAt: row.started_at,
-        completedAt: row.completed_at,
+        startedAt: row.started_at ? new Date(row.started_at).toISOString() : null,
+        completedAt: row.completed_at ? new Date(row.completed_at).toISOString() : null,
         recordsSynced: Number(row.records_synced) || 0
       }));
       
