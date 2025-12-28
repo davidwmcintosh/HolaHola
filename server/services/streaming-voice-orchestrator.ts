@@ -2660,6 +2660,7 @@ Remember: David may reference things discussed in these recent text chats.
       // NEW TURN: Increment turnId for this response
       session.currentTurnId++;
       session.isInterrupted = false;  // Reset interrupt flag for new turn
+      session.switchTutorTriggered = false;  // Reset switch flag for new turn
       const turnId = session.currentTurnId;
       
       // Notify client that processing has started
@@ -3019,6 +3020,85 @@ Remember: David may reference things discussed in these recent text chats.
       this.persistMessages(session.conversationId, transcript, fullText.trim(), session, confidence).catch((err: Error) => {
         console.error('[Streaming Orchestrator] Failed to persist messages:', err.message);
       });
+      
+      // TUTOR SWITCH: Execute pending handoff after response completes (Open-mic path)
+      if (session.pendingTutorSwitch) {
+        const { targetGender, targetLanguage, targetRole } = session.pendingTutorSwitch;
+        session.pendingTutorSwitch = undefined; // Clear the pending switch
+        
+        const isAssistantSwitch = targetRole === 'assistant';
+        const isLanguageSwitch = !!targetLanguage && targetLanguage.toLowerCase() !== session.targetLanguage.toLowerCase();
+        const effectiveLanguage = targetLanguage?.toLowerCase() || session.targetLanguage.toLowerCase();
+        
+        console.log(`[Tutor Switch] Open-mic: Executing handoff to ${targetGender} tutor${isLanguageSwitch ? ` (${effectiveLanguage})` : ''}`);
+        
+        // Store previous tutor name for natural handoff intro
+        session.previousTutorName = session.tutorName;
+        
+        try {
+          let tutorName: string | undefined;
+          
+          if (isAssistantSwitch) {
+            // Assistant switch: Use Google Cloud TTS
+            const { ASSISTANT_TUTORS } = await import('./assistant-tutor-config');
+            const assistantConfig = ASSISTANT_TUTORS[effectiveLanguage] || ASSISTANT_TUTORS.spanish;
+            if (assistantConfig) {
+              tutorName = targetGender === 'male' ? assistantConfig.male : assistantConfig.female;
+              if (!session.isAssistantActive) {
+                session.cachedMainTutorVoiceId = session.voiceId;
+                session.cachedMainTutorGender = session.tutorGender as 'male' | 'female';
+              }
+              session.isAssistantActive = true;
+              session.voiceId = undefined;
+              session.tutorGender = targetGender;
+              session.tutorName = tutorName;
+            }
+          } else {
+            // Main tutor switch: Use Cartesia
+            const allVoices = await storage.getAllTutorVoices();
+            const matchingVoice = allVoices.find(
+              (v: any) => v.language?.toLowerCase() === effectiveLanguage &&
+                          v.gender?.toLowerCase() === targetGender &&
+                          v.role === 'tutor' && v.isActive
+            );
+            
+            if (matchingVoice) {
+              const voiceNameParts = matchingVoice.voiceName?.split(/\s*[-–]\s*/) || [];
+              tutorName = voiceNameParts[0]?.trim();
+              session.isAssistantActive = false;
+              session.voiceId = matchingVoice.voiceId;
+              session.tutorGender = targetGender;
+              session.tutorName = tutorName || 'your tutor';
+              
+              if (isLanguageSwitch) {
+                session.previousLanguage = session.targetLanguage;
+                session.isLanguageSwitchHandoff = true;
+                session.targetLanguage = effectiveLanguage;
+              }
+            }
+          }
+          
+          // Notify client to trigger new tutor greeting
+          this.sendMessage(session.ws, {
+            type: 'tutor_handoff',
+            timestamp: Date.now(),
+            targetGender,
+            targetLanguage: isLanguageSwitch ? effectiveLanguage : undefined,
+            tutorName,
+            isLanguageSwitch,
+            requiresGreeting: true,
+          });
+          
+        } catch (err: any) {
+          console.error(`[Tutor Switch] Open-mic error:`, err.message);
+          this.sendMessage(session.ws, {
+            type: 'tutor_handoff',
+            timestamp: Date.now(),
+            targetGender,
+            isLanguageSwitch: false,
+          });
+        }
+      }
       
       return metrics;
       
