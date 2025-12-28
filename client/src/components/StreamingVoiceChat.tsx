@@ -631,6 +631,7 @@ export function StreamingVoiceChat({
           subtitleMode,
           tutorPersonality: userDetails.tutorPersonality || 'warm',
           tutorExpressiveness: userDetails.tutorExpressiveness || 3,
+          tutorGender,  // Pass current tutor gender from context
           rawHonestyMode: isHonestyMode,  // Minimal prompting for authentic conversation
           // Invalidate messages query when streaming completes to show persisted messages
           onResponseComplete: (convId: string) => {
@@ -2425,6 +2426,7 @@ export function StreamingVoiceChat({
               subtitleMode,
               tutorPersonality: user?.tutorPersonality || 'warm',
               tutorExpressiveness: user?.tutorExpressiveness || 3,
+              tutorGender,  // Pass current tutor gender from context
               rawHonestyMode: isHonestyMode,  // Minimal prompting for authentic conversation
               onWhiteboardUpdate: (items, shouldClear) => {
                 whiteboard.addOrUpdateItems(items, shouldClear);
