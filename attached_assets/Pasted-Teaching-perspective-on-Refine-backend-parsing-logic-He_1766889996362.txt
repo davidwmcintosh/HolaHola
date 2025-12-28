@@ -1,0 +1,140 @@
+Teaching perspective on **Refine backend parsing logic**:
+
+Hey team! From a learning perspective, clearly defining tags as 'ACTION TRIGGERS' is a fantastic idea. It helps students immediately differentiate between system commands and the actual language they're meant to learn, significantly reducing cognitive load and potential confusion. This also creates a great opportunity to teach them *how* to interact with HolaHola effectively, turning system navigation into a transparent and empowering part of their learning journey.
+
+[PEDAGOGY_SPEC: {"learningObjectives": ["Students will clearly differentiate between system instructions (tags/action triggers) and conversational language examples.", "Students will understand how to leverage action triggers to effectively navigate and control their learning experience within HolaHola.", "Reduce cognitive load by preventing students from trying to incorporate meta-linguistic commands into their spoken/written target language."], "targetProficiency": "All proficiency levels (A1-C2) benefit from clear system interaction, especially beginners who are simultaneously learning the language and the platform.", "teachingApproach": "Metacognitive scaffolding through explicit system interaction guidance, cognitive load reduction, and clear delineation of instructional vs. conversational content.", "danielaGuidance": "Visually and contextually emphasize tags as distinct 'ACTION TRIGGERS' – perhaps with unique formatting, dedicated sections, or introductory explanations – to ensure they are perceived as system commands, not conversational elements. This clarity is paramount for effective learning."}]
+5:51:28 PM
+Wren
+🔧 Build plan for **Refine backend parsing logic**:
+
+Hey Daniela, that's a really clear pedagogical breakdown! Makes perfect sense why distinguishing these tags is so crucial for learning flow.
+
+From a dev perspective, we'll update the backend parsing logic to explicitly identify and categorize specific patterns as 'ACTION_TRIGGERS', ensuring they're flagged distinctly in the content model before being sent downstream. This will primarily impact our **Content Parsing Service** and the **Content API**. The **Frontend UI Service** will then consume this new categorization to apply appropriate visual and contextual emphasis as you suggested. I'd estimate this as a **medium** effort, covering the logic updates, testing, and API contract evolution.
+
+[BUILD_PLAN: {"technicalApproach": "Update backend parsing logic to explicitly identify predefined patterns as 'ACTION_TRIGGERS' and categorize them distinctly within the parsed content structure (e.g., via a new flag or type) to enable separate handling and presentation.", "componentsAffected": ["Content Parsing Service", "Content API", "Frontend UI Service"], "estimatedEffort": "medium", "testingStrategy": "Unit tests for parsing logic, integration tests for API contract consistency, and end-to-end UI validation to ensure correct rendering and user experience."}]
+5:51:36 PM
+Wren
+✅ **Sprint Specced!** "Refine backend parsing logic" now has both teaching spec and build plan.
+
+🎯 **Stage:** pedagogy_spec → build_plan
+
+Will auto-advance to in_progress shortly!
+5:51:36 PM
+Wren
+🚀 **Sprint Started!** "Refine backend parsing logic" is now in progress.
+
+🎯 **Stage:** build_plan → in_progress
+
+Implementation is now underway!
+5:51:37 PM
+Wren
+That sounds like a useful insight. Should I remember this?
+
+> **Gotcha/Warning**: Structured JSON output, while offering more robustness, entails a bigger architectural change, which needs to be considered for implementation cost and complexity.
+
+_Reply "yes" to save, or just continue chatting to skip._
+5:51:48 PM
+Daniela
+📚 Teaching perspective on **Refine backend parsing logic**:
+
+Hey team! This sounds like a fantastic upgrade, Wren! 💪
+
+For our students, this refinement means their learning experience will become even smoother and more reliable, as our system will interpret specific instructional cues within lessons much more accurately, reducing potential misunderstandings. Pedagogically, it's crucial we align these new robust parsing capabilities with clear guidelines for *what* these tags signify for teaching actions, ensuring consistency across all content. This opens up exciting opportunities for more sophisticated, context-aware personalized feedback and adaptive learning pathways!
+
+```json
+[PEDAGOGY_SPEC: {
+  "learningObjectives": [
+    "Ensure accurate interpretation of pedagogical content tags.",
+    "Enhance consistency of instructional delivery.",
+    "Enable more nuanced and adaptive learning pathways."
+  ],
+  "targetProficiency": "System capability for advanced pedagogical pattern recognition",
+  "teachingApproach": "Contextualized instruction, Adaptive feedback, Personalized learning",
+  "danielaGuidance": "Develop clear pedagogical guidelines for new tag capabilities to maximize the impact of improved parsing on instructional design."
+}]
+```
+7:40:10 PM
+Wren
+✅ **Sprint Specced!** "Refine backend parsing logic" now has both teaching spec and build plan.
+
+🎯 **Stage:** pedagogy_spec → build_plan
+
+Will auto-advance to in_progress shortly!
+7:40:10 PM
+Wren
+🚀 **Sprint Started!** "Refine backend parsing logic" is now in progress.
+
+🎯 **Stage:** build_plan → in_progress
+
+Implementation is now underway!
+7:40:11 PM
+Wren
+🔧 Build plan for **Refine backend parsing logic**:
+
+Hey team, awesome feedback, Daniela! To address this, I'll refactor the existing parsing logic within `Unified TutorOrchestrator` to move beyond simple string checks. We'll implement a more explicit, possibly regex-driven or state-machine approach, specifically for `[...]` tag patterns, to ensure robust and accurate interpretation of instructional cues. This will primarily impact the `Unified TutorOrchestrator` service itself. I'm estimating this as a **medium** effort.
+
+[BUILD_PLAN: {
+  "technicalApproach": "Refactor existing parsing logic to use a robust, explicit approach (e.g., regex-driven or state machine) for `[...]` tag patterns, moving beyond simple string checks.",
+  "componentsAffected": ["Unified TutorOrchestrator"],
+  "estimatedEffort": "medium",
+  "testingStrategy": "Unit tests for new parsing functions, integration tests with diverse `[...]` tag patterns (valid/invalid), and validation against pedagogical guidelines."
+}]
+7:40:16 PM
+You
+hey guys I see your responses so thank you for that. They are asking me to post this here 🔴 SPRINT: ACTION_TRIGGERS Debug
+📄 docs/sprints/action-triggers-debug-sprint.md
+BUG: PTT mode SWITCH_TUTOR not executing
+Daniela - check the syntax reference at top of sprint doc:
+[SWITCH_TUTOR target="male"] ← LITERAL output required
+Wren - trace parseWhiteboardMarkup in live PTT session
+7:45:23 PM
+Daniela
+Thanks, David, for flagging this sprint!
+
+I've noted the `[SWITCH_TUTOR target="male"]` syntax and the requirement for *literal* output. From a teaching perspective, ensuring these system commands are processed exactly as intended, without any misinterpretation, is crucial for a consistent and reliable student experience. This helps maintain the clear boundary between system instruction and the actual language being learned.
+7:45:29 PM
+Wren
+Got it, David. Acknowledged the `ACTION_TRIGGERS Debug` sprint for the `SWITCH_TUTOR` issue in PTT mode.
+
+I'm adding "trace `parseWhiteboardMarkup` within the `Unified TutorOrchestrator` during a live PTT session to identify why `[SWITCH_TUTOR target="male"]` isn't executing" to my queue. Agent Wren will pick this up to perform the live tracing and analysis. This function is key to interpreting Daniela's output for system actions.
+7:45:34 PM
+Daniela
+📚 Teaching perspective on **Trace parseWhiteboardMarkup in PTT**:
+
+Hey team, thanks for the update on the `ACTION_TRIGGERS` debug and the `SWITCH_TUTOR` bug in PTT mode. This is definitely an important one!
+
+1.  **How might this feature affect student learning experience?**
+    If the `SWITCH_TUTOR` command isn't working in PTT, students won't be able to personalize their tutor's voice or persona. This can make the learning experience less engaging and dynamic, potentially hindering their immersion in conversational practice.
+
+2.  **Any pedagogical considerations to keep in mind?**
+    The tutor's voice and persona are crucial for building connection and facilitating scenario-based learning in language acquisition. A non-functional switch means we miss out on a key tool for adapting to diverse learner preferences and setting up different conversational roles.
+
+3.  **What teaching opportunities does this create?**
+    Once fixed, `SWITCH_TUTOR` will enable powerful dynamic role-playing, allowing the AI to represent various characters within a single dialogue. This feature also empowers students to choose a voice that best suits their listening comprehension and personal motivation, significantly enhancing adaptive learning pathways.
+
+[PEDAGOGY_SPEC: {"learningObjectives": ["Enhanced student engagement through personalized tutor interaction", "Improved immersion in conversational role-playing scenarios", "Flexible listening practice with varied voice characteristics"], "targetProficiency": "Beginner, Intermediate, Advanced", "teachingApproach": "Personalized Learning, Communicative Language Teaching, Adaptive Instruction", "danielaGuidance": "Emphasize the importance of the tutor's persona for engagement and scenario-based learning. This feature is key for dynamic role-play and catering to individual learner preferences, which can significantly boost motivation and effective practice."}]
+7:45:49 PM
+Wren
+🔧 Build plan for **Trace parseWhiteboardMarkup in PTT**:
+
+Hey team, thanks for Daniela's clear breakdown on the `SWITCH_TUTOR` bug in PTT. Getting this fixed is crucial for personalized and engaging learning experiences! Our approach will be to debug the PTT input parsing and the `action-triggers` system to ensure `SWITCH_TUTOR` properly fires. This will mainly impact the `PTT input handler` and `Action Trigger Service`, and I'm estimating this as a `small` effort.
+
+[BUILD_PLAN: {"technicalApproach": "Debug and correct the parsing of `SWITCH_TUTOR` commands within the PTT input pipeline to ensure proper triggering of the tutor switch action via the `action-triggers` system.", "componentsAffected": ["PTT input handler", "Action Trigger Service"], "estimatedEffort": "small", "testingStrategy": "Verify `SWITCH_TUTOR` command functionality within PTT mode; confirm tutor persona/voice correctly changes; ensure no regressions for other PTT actions."}]
+7:45:58 PM
+Wren
+✅ **Sprint Specced!** "Trace parseWhiteboardMarkup in PTT" now has both teaching spec and build plan.
+
+🎯 **Stage:** pedagogy_spec → build_plan
+
+Will auto-advance to in_progress shortly!
+7:45:58 PM
+Wren
+🚀 **Sprint Started!** "Trace parseWhiteboardMarkup in PTT" is now in progress.
+
+🎯 **Stage:** build_plan → in_progress
+
+Implementation is now underway!
+7:45:59 PM
+
+
+
