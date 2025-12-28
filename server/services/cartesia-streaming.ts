@@ -356,6 +356,12 @@ export class CartesiaStreamingService extends EventEmitter {
     // These should NOT be sent to TTS - audio should sound natural
     const textWithoutMarkup = stripWhiteboardMarkup(text);
     
+    // DEBUG: Log stripping effectiveness for command tags
+    if (text.includes('[SWITCH_TUTOR') || text.includes('[CALL_SUPPORT') || text.includes('[PHASE_SHIFT')) {
+      console.log(`[Cartesia Strip DEBUG] Input: "${text.substring(0, 80)}..."`);
+      console.log(`[Cartesia Strip DEBUG] After strip: "${textWithoutMarkup.substring(0, 80)}..."`);
+    }
+    
     let processedText: string;
     if (pronunciationDictId) {
       // Use server-side dictionary - no need for inline phoneme markers

@@ -1923,6 +1923,11 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
     .replace(/\s{2,}/g, ' ')
     .trim();
 
+  // DEBUG: Log items before return for ACTION_TRIGGERS tracing
+  if (items.some(i => ['switch_tutor', 'phase_shift', 'call_support', 'actfl_update'].includes(i.type))) {
+    console.log(`[Whiteboard Parse RETURN] Returning ${items.length} items: ${items.map(i => i.type).join(', ')}`);
+  }
+  
   return {
     cleanText,
     whiteboardItems: items,
@@ -1942,11 +1947,26 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
  */
 export function stripWhiteboardMarkup(text: string): string {
   ALL_WHITEBOARD_MARKUP_PATTERN.lastIndex = 0;
+  
+  // DEBUG: Check if text contains SWITCH_TUTOR before stripping
+  const hasSwitchTag = text.includes('[SWITCH_TUTOR');
+  
   const result = text
     .replace(ALL_WHITEBOARD_MARKUP_PATTERN, '')
     .replace(/\s{2,}/g, ' ')
     .trim();
   ALL_WHITEBOARD_MARKUP_PATTERN.lastIndex = 0;
+  
+  // DEBUG: Log if SWITCH_TUTOR tag wasn't stripped
+  if (hasSwitchTag && result.includes('[SWITCH_TUTOR')) {
+    console.log(`[Strip Whiteboard BUG] SWITCH_TUTOR not stripped!`);
+    console.log(`[Strip Whiteboard BUG] Input: "${text.substring(0, 100)}..."`);
+    console.log(`[Strip Whiteboard BUG] Output: "${result.substring(0, 100)}..."`);
+    console.log(`[Strip Whiteboard BUG] Pattern test result: ${ALL_WHITEBOARD_MARKUP_PATTERN.test(text)}`);
+  } else if (hasSwitchTag) {
+    console.log(`[Strip Whiteboard OK] SWITCH_TUTOR stripped successfully`);
+  }
+  
   return result;
 }
 

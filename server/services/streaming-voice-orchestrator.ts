@@ -1533,6 +1533,13 @@ Remember: David may reference things discussed in these recent text chats.
           // This ensures SWITCH_TUTOR and other commands are processed even if no speakable text
           const whiteboardParsed = parseWhiteboardMarkup(chunk.text);
           
+          // DEBUG: Trace whiteboard parsing for command tags
+          if (chunk.text.includes('[SWITCH_TUTOR') || chunk.text.includes('[CALL_SUPPORT') || chunk.text.includes('[PHASE_SHIFT')) {
+            console.log(`[Whiteboard Parse DEBUG] Chunk ${chunk.index} text: "${chunk.text.substring(0, 100)}..."`);
+            console.log(`[Whiteboard Parse DEBUG] Items found: ${whiteboardParsed.whiteboardItems.length}`);
+            console.log(`[Whiteboard Parse DEBUG] Item types: ${whiteboardParsed.whiteboardItems.map(i => i.type).join(', ') || 'none'}`);
+          }
+          
           // COMMAND PARSER: Robust parsing for ACTION_TRIGGERS JSON format
           // Purpose: Adds JSON format support that whiteboard parser doesn't have
           // Whiteboard parser handles bracketed commands; CommandParser handles JSON commands
@@ -1692,6 +1699,12 @@ Remember: David may reference things discussed in these recent text chats.
           
           // Clean text for display (remove markdown, emotion tags)
           const displayText = cleanTextForDisplay(chunk.text);
+          
+          // DEBUG: Trace display text cleaning for command tags
+          if (chunk.text.includes('[SWITCH_TUTOR') || chunk.text.includes('[CALL_SUPPORT') || chunk.text.includes('[PHASE_SHIFT')) {
+            console.log(`[Display Clean DEBUG] Chunk ${chunk.index} raw: "${chunk.text.substring(0, 80)}..."`);
+            console.log(`[Display Clean DEBUG] Chunk ${chunk.index} display: "${displayText.substring(0, 80)}..." (len=${displayText.length})`);
+          }
           
           // Process whiteboard items even if displayText is empty
           // This allows SWITCH_TUTOR to work as a standalone command
@@ -2711,7 +2724,114 @@ Remember: David may reference things discussed in these recent text chats.
             session.onTtsStateChange?.(true);
           }
           
+          // PARSE WHITEBOARD FIRST (before early returns) to ensure commands are always processed
+          // This is critical for SWITCH_TUTOR and other commands that may have no speakable text
+          const whiteboardParsed = parseWhiteboardMarkup(chunk.text);
+          
+          // DEBUG: Trace whiteboard parsing for command tags in open-mic mode
+          if (chunk.text.includes('[SWITCH_TUTOR') || chunk.text.includes('[CALL_SUPPORT') || chunk.text.includes('[PHASE_SHIFT')) {
+            console.log(`[Whiteboard Parse DEBUG - OpenMic] Chunk ${chunk.index} text: "${chunk.text.substring(0, 100)}..."`);
+            console.log(`[Whiteboard Parse DEBUG - OpenMic] Items found: ${whiteboardParsed.whiteboardItems.length}`);
+            console.log(`[Whiteboard Parse DEBUG - OpenMic] Item types: ${whiteboardParsed.whiteboardItems.map(i => i.type).join(', ') || 'none'}`);
+          }
+          
           const displayText = cleanTextForDisplay(chunk.text);
+          
+          // DEBUG: Trace display text cleaning for command tags in open-mic mode
+          if (chunk.text.includes('[SWITCH_TUTOR') || chunk.text.includes('[CALL_SUPPORT') || chunk.text.includes('[PHASE_SHIFT')) {
+            console.log(`[Display Clean DEBUG - OpenMic] Chunk ${chunk.index} raw: "${chunk.text.substring(0, 80)}..."`);
+            console.log(`[Display Clean DEBUG - OpenMic] Chunk ${chunk.index} display: "${displayText.substring(0, 80)}..." (len=${displayText.length})`);
+          }
+          
+          // Process internal commands BEFORE any early returns - commands must always execute
+          // This ensures SWITCH_TUTOR works even if displayText is empty
+          
+          // SWITCH_TUTOR: Queue tutor handoff
+          const switchItem = whiteboardParsed.whiteboardItems.find(item => item.type === 'switch_tutor');
+          if (switchItem && 'data' in switchItem && switchItem.data && !session.pendingTutorSwitch) {
+            const data = switchItem.data as { 
+              targetGender: 'male' | 'female'; 
+              targetLanguage?: string;
+              targetRole?: 'tutor' | 'assistant';
+            };
+            session.pendingTutorSwitch = { 
+              targetGender: data.targetGender,
+              targetLanguage: data.targetLanguage,
+              targetRole: data.targetRole,
+            };
+            session.switchTutorTriggered = true;
+            console.log(`[Tutor Switch] Open-mic: Queued handoff to ${data.targetGender} tutor`);
+          }
+          
+          // ACTFL_UPDATE: Process proficiency updates
+          const actflItems = whiteboardParsed.whiteboardItems.filter(item => item.type === 'actfl_update');
+          for (const item of actflItems) {
+            if ('data' in item && item.data) {
+              const actflData = item.data as { level: string; confidence: number; reason: string; direction?: 'up' | 'down' | 'confirm' };
+              this.processActflUpdate(session, actflData).catch(err => {
+                console.error(`[ACTFL Update] Open-mic error:`, err);
+              });
+              console.log(`[ACTFL Update] Open-mic: ${actflData.level} (confidence: ${actflData.confidence})`);
+            }
+          }
+          
+          // PHASE_SHIFT: Process phase transitions
+          const phaseShiftItems = whiteboardParsed.whiteboardItems.filter(item => item.type === 'phase_shift');
+          for (const item of phaseShiftItems) {
+            if ('data' in item && item.data) {
+              const phaseData = item.data as { to: 'warmup' | 'active_teaching' | 'challenge' | 'reflection' | 'drill' | 'assessment'; reason: string };
+              this.processPhaseShift(session, phaseData).catch(err => {
+                console.error(`[Phase Shift] Open-mic error:`, err);
+              });
+              console.log(`[Phase Shift] Open-mic: ${phaseData.to} - ${phaseData.reason}`);
+            }
+          }
+          
+          // CALL_SUPPORT: Process support handoffs
+          const supportItem = whiteboardParsed.whiteboardItems.find(item => item.type === 'call_support');
+          if (supportItem && 'data' in supportItem && supportItem.data) {
+            const supportData = supportItem.data as { 
+              category: 'technical' | 'account' | 'billing' | 'content' | 'feedback' | 'other';
+              reason: string;
+              priority: 'low' | 'normal' | 'high' | 'critical';
+              context?: string;
+            };
+            this.processSupportHandoff(session, supportData, turnId).catch(err => {
+              console.error(`[Support Handoff] Open-mic error:`, err);
+            });
+            session.pendingSupportHandoff = {
+              category: supportData.category,
+              reason: supportData.reason,
+              priority: supportData.priority,
+              context: supportData.context,
+            };
+            console.log(`[Support Handoff] Open-mic: ${supportData.category} (${supportData.priority})`);
+          }
+          
+          // Send whiteboard updates BEFORE early returns (including CLEAR/HOLD handling)
+          // This ensures visual feedback is always sent, even for command-only chunks
+          const visualWhiteboardItems = whiteboardParsed.whiteboardItems.filter(
+            item => !['switch_tutor', 'actfl_update', 'syllabus_progress', 'phase_shift', 'call_support', 'call_assistant', 'hive', 'self_surgery'].includes(item.type)
+          );
+          
+          if (visualWhiteboardItems.length > 0 || whiteboardParsed.shouldClear || whiteboardParsed.shouldHold) {
+            this.sendMessage(session.ws, {
+              type: 'whiteboard_update',
+              timestamp: Date.now(),
+              turnId,
+              items: visualWhiteboardItems,
+              shouldClear: whiteboardParsed.shouldClear,
+              shouldHold: whiteboardParsed.shouldHold,
+            } as StreamingWhiteboardMessage);
+          }
+          
+          // EARLY EXIT: If SWITCH_TUTOR was triggered, stop synthesizing further sentences
+          if (session.switchTutorTriggered) {
+            console.log(`[Tutor Switch] Open-mic: Skipping sentence ${chunk.index} - new tutor will speak`);
+            return;
+          }
+          
+          // Now handle early returns for deduplication/limits (after commands and whiteboard are processed)
           if (!displayText) return;
           
           const normalizedText = displayText.toLowerCase().trim();
@@ -2720,24 +2840,6 @@ Remember: David may reference things discussed in these recent text chats.
           
           if (actualSentenceCount >= MAX_SENTENCES) return;
           actualSentenceCount++;
-          
-          // Parse whiteboard markup
-          const whiteboardParsed = parseWhiteboardMarkup(chunk.text);
-          
-          // Filter out internal commands (switch_tutor, actfl_update, syllabus_progress, phase_shift, call_support, call_assistant, hive, self_surgery) - only send visual items
-          const visualWhiteboardItems = whiteboardParsed.whiteboardItems.filter(
-            item => !['switch_tutor', 'actfl_update', 'syllabus_progress', 'phase_shift', 'call_support', 'call_assistant', 'hive', 'self_surgery'].includes(item.type)
-          );
-          
-          if (visualWhiteboardItems.length > 0) {
-            this.sendMessage(session.ws, {
-              type: 'whiteboard_update',
-              timestamp: Date.now(),
-              turnId,
-              items: visualWhiteboardItems,
-              shouldClear: whiteboardParsed.shouldClear,
-            } as StreamingWhiteboardMessage);
-          }
           
           // Extract target language with word mapping
           const extraction = extractTargetLanguageWithMapping(displayText, chunk.text);
