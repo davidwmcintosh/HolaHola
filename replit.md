@@ -10,15 +10,6 @@ Batch doc updates: When user says "add to the batch" or "batch doc updates", add
 Daniela development: Track personality/voice development in `docs/daniela-development-journal.md` using Honesty Mode → Founder Mode iteration cycle.
 Neural network work: **REQUIRED READING** - `docs/neural-network-architecture.md` before any neural network changes. Prompts for context ONLY; neural network for procedures/capabilities/knowledge.
 
-## Pending Cleanup Tasks
-**System Prompt Cleanup (after neural network migration verified)**: Once production confirms stable procedural memory retrieval, remove migrated sections from `server/system-prompt.ts`:
-- Content guardrails (now in `situational_patterns.content_guardrails_appropriate`)
-- Voice mode formatting rules (now in `tool_knowledge.VOICE_MODE_FORMAT` and `TURN_TAKING`)
-- Vocabulary reinforcement cadence (now in `tutor_procedures.Vocabulary Reinforcement Cadence`)
-- Difficulty-scaled teaching patterns (now in `situational_patterns.beginner_pacing`, `intermediate_pacing`, `advanced_pacing`)
-- Phase transition guidelines (now in `tutor_procedures.Phase 1/2/3`)
-- SWITCH_TUTOR tag instructions (now in `tool_knowledge.SWITCH_TUTOR`)
-
 ## System Architecture
 The frontend uses a mobile-first, responsive design with Shadcn/ui (Radix UI) and Tailwind CSS, following Material Design principles, supporting light/dark modes and PWA features, built with React, TypeScript (Vite), Wouter for routing, and React Context with TanStack Query for state management. The backend is an Express.js (Node.js) server with TypeScript, exposing a RESTful API, using Drizzle ORM for PostgreSQL and Replit Auth for authentication.
 
@@ -46,6 +37,14 @@ The Voice Intelligence System (`server/services/voice-intelligence-service.ts`) 
 
 The Tutor Naming Architecture defines 36 total tutors: 18 main tutors (dynamic from database, Cartesia Sonic-3) and 18 assistants (seeded from config, Google Cloud TTS). **Main tutor names are fully flexible** - change them in the database `voice_name` field and they propagate automatically. **CRITICAL SAFEGUARD**: The `role` field separates voice stacks - all voice lookups MUST filter `role='tutor'` to prevent Google assistant voices from appearing as main tutors. This filtering is enforced in `unified-ws-handler.ts` and `routes.ts`.
 
+**Voice Lab System**: Real-time voice tuning panel for admin users during active voice chat sessions:
+- **Access**: Admin/founder/developer only - purple button appears between End Call and Mic buttons during voice sessions
+- **Session-Level Overrides**: Changes apply immediately to next TTS call without persisting to database until explicit save
+- **Controls**: speakingRate slider (0.7-1.3), personality selector (warm/calm/energetic/professional), expressiveness slider (1-5), emotion selector
+- **Voice Audition**: Preview settings with sample phrase before applying to live session
+- **Data Flow**: VoiceLabPanel → onOverrideChange → StreamingVoiceChat.voiceOverride → WebSocket voice_override → unified-ws-handler → orchestrator.setVoiceOverride → TTS synthesis applies effectiveRate/emotion/personality/expressiveness
+- **Permanent Save**: Optional "Save" button persists settings to database via PATCH /api/admin/voices/:id
+
 **Sofia Support Agent System**: Sofia is the technical support specialist with dual-mode operation:
 - **Dev Mode**: For founder, developers, admins, and support agents - provides technical debugging, voice diagnostics context, sprint suggestions, and system status
 - **User Mode**: For end users - provides friendly, non-technical troubleshooting guidance
@@ -53,51 +52,35 @@ The Tutor Naming Architecture defines 36 total tutors: 18 main tutors (dynamic f
 - Daniela can hand off to Sofia using `[CALL_SOFIA]` or `[CALL_SUPPORT]` tags during voice chat
 - Backend auto-detects user role to route to appropriate support mode
 - Uses Google Cloud TTS (cost-optimized for support)
-- Key files: `server/services/support-persona-service.ts`, `server/support-system-prompt.ts`, `client/src/components/SupportAssistModal.tsx`
 
 **Memory Recovery System**: Ensures personal facts learned about students survive session interruptions (network loss, crashes, navigation, battery death):
 - **Immediate Checkpointing**: Every student utterance is persisted to `learner_memory_candidates` table as fire-and-forget (non-blocking via `.catch()`)
 - **Background Recovery Worker**: Runs every 5 minutes, processes sessions >30 min old with pending candidates via Gemini memory extraction
 - **Hash-Based Deduplication**: Uses `fact_hash` field to prevent duplicate facts even with repeated extraction attempts
 - **Session Cleanup**: Clean session endings mark candidates as `extracted`, orphaned sessions are caught by recovery worker
-- Key files: `server/services/memory-checkpoint-service.ts`, `server/services/memory-recovery-worker.ts`
 
 **Historical Personal Facts Migration**: Backfills personal facts from past conversations (founder-only):
 - **Endpoints**: GET `/api/admin/personal-facts-migration/status` (check progress), POST `/api/admin/personal-facts-migration/batch` (10 convs), POST `/api/admin/personal-facts-migration/full` (all)
 - **Long Conversation Handling**: Uses rolling window + summarization - earlier chunks summarized, last 2 chunks in full detail
 - **Deduplication**: Uses existing `savePersonalFact` with trigram similarity, plus hash-based tracking via `hive_snapshots` migrationType='personal_facts'
 - **Rate Limiting**: 10 conversations per batch, 2 second delays between batches
-- Key files: `server/services/historical-personal-facts-migration-service.ts`
 
 **ACTION_TRIGGERS Command Parsing System**: Hybrid command parsing ensuring Daniela emits literal tags that backend can parse:
 - **Problem Solved**: AI understands commands conceptually but must emit literal tag syntax for backend parsing
-- **Dual Format Support**: 
+- **Dual Format Support**:
   - Bracketed syntax: `[SWITCH_TUTOR target="female"]`, `[PHASE_SHIFT to="challenge" reason="..."]`
   - JSON syntax: `<ACTION_TRIGGERS>{"commands":[{"type":"SWITCH_TUTOR","target":"female"}]}</ACTION_TRIGGERS>`
 - **Deduplication Strategy**: Whiteboard parser handles bracketed commands; CommandParser handles JSON commands. No duplicate execution.
 - **Supported Commands**: SWITCH_TUTOR, PHASE_SHIFT, ACTFL_UPDATE, SYLLABUS_PROGRESS, CALL_SUPPORT/CALL_SOFIA, HIVE, SELF_SURGERY
 - **Observability**: All detected commands logged with source (json/bracketed) for debugging
-- Key files: `server/services/command-parser.ts`, `server/services/procedural-memory-retrieval.ts` (buildActionTriggersSection), `server/services/streaming-voice-orchestrator.ts`
-
-**Future Enhancements (ACTION_TRIGGERS)**:
-1. **Extended Dedupe Keys**: Include distinguishing fields (tutor role, support reason, evidence) in dedupe key to handle rapid-fire commands with different parameters
-2. **Command Priority Queue**: Implement priority-based command execution (e.g., SWITCH_TUTOR before PHASE_SHIFT before SYLLABUS_PROGRESS)
-3. **Command Batching**: Allow Daniela to emit multiple commands in a single ACTION_TRIGGERS block with guaranteed execution order
-4. **Validation Feedback Loop**: Surface validation errors back to Daniela's context so she can self-correct malformed commands
-5. **Command Analytics**: Track command emission patterns per student/session to identify teaching effectiveness correlations
-6. **Retry Logic**: Auto-retry failed commands (e.g., network hiccup during phase shift) with exponential backoff
-7. **Command Confirmation**: Emit confirmation tags back to Daniela so she knows commands executed successfully
-8. **Schema Validation in Parser**: Move target/content validation from orchestrator to command-parser.ts for earlier failure detection
-9. **Beacon Context Parity**: Include transcript context in JSON-triggered SELF_SURGERY beacons to match whiteboard path visibility
-10. **Structured Failure Responses**: Return explicit failure objects instead of silent console.error for command validation failures
 
 ## External Dependencies
--   Stripe: Payment processing and subscription management.
--   Replit Auth: OIDC authentication.
--   Gemini API: Text chat completions and voice chat LLM.
--   Deepgram API: Voice STT (Nova-3 model).
--   Cartesia API: Primary TTS (Sonic-3 model).
--   Google Cloud Text-to-Speech: For support/assistant tutors.
--   Azure Speech Services: Pronunciation assessment for drill assignment (post-session).
--   Unsplash: Stock educational images.
--   Gemini Flash-Image: AI-generated contextual images.
+- Stripe: Payment processing and subscription management.
+- Replit Auth: OIDC authentication.
+- Gemini API: Text chat completions and voice chat LLM.
+- Deepgram API: Voice STT (Nova-3 model).
+- Cartesia API: Primary TTS (Sonic-3 model).
+- Google Cloud Text-to-Speech: For support/assistant tutors.
+- Azure Speech Services: Pronunciation assessment for drill assignment (post-session).
+- Unsplash: Stock educational images.
+- Gemini Flash-Image: AI-generated contextual images.

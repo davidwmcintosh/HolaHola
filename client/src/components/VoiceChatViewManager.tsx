@@ -9,6 +9,7 @@ import { type VoiceSpeed } from "@/contexts/LanguageContext";
 import type { WhiteboardItem, SubtitleMode } from "@shared/whiteboard-types";
 import type { StreamingSubtitleState } from "../hooks/useStreamingSubtitles";
 import type { VoiceInputMode, OpenMicState } from "@shared/streaming-voice-types";
+import type { VoiceOverride } from "./VoiceLabPanel";
 
 interface VoiceChatViewManagerProps {
   conversationId: string | null;
@@ -55,6 +56,9 @@ interface VoiceChatViewManagerProps {
   playbackState?: 'idle' | 'buffering' | 'playing' | 'paused';
   // Interrupt handler - called when user presses mic during audio playback (barge-in)
   onInterrupt?: () => void;
+  // Voice Lab: Session-level voice overrides (admin only)
+  voiceOverride?: VoiceOverride | null;
+  onVoiceOverrideChange?: (override: VoiceOverride | null) => void;
 }
 
 export function VoiceChatViewManager({
@@ -95,6 +99,8 @@ export function VoiceChatViewManager({
   isPttButtonHeld = false,
   playbackState = 'idle',
   onInterrupt,
+  voiceOverride,
+  onVoiceOverrideChange,
 }: VoiceChatViewManagerProps) {
   const [view, setView] = useState<"live" | "history">("live");
   const touchStartX = useRef<number>(0);
@@ -217,6 +223,8 @@ export function VoiceChatViewManager({
                 isPttButtonHeld={isPttButtonHeld}
                 playbackState={playbackState}
                 onInterrupt={onInterrupt}
+                voiceOverride={voiceOverride}
+                onVoiceOverrideChange={onVoiceOverrideChange}
               />
             </div>
           ) : (

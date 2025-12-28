@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, MessageSquare, RefreshCw, Trash2, Loader2, PhoneOff, Radio, Handshake, BookOpen, AlertTriangle, Wrench, Sparkles, Pencil, Globe, BookMarked, Lightbulb } from "lucide-react";
+import { Mic, MicOff, MessageSquare, RefreshCw, Trash2, Loader2, PhoneOff, Radio, Handshake, BookOpen, AlertTriangle, Wrench, Sparkles, Pencil, Globe, BookMarked, Lightbulb, Volume2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Sheet,
@@ -28,6 +28,7 @@ import { DebugTimingPanel } from "./DebugTimingPanel";
 import { Whiteboard } from "./Whiteboard";
 import { FloatingSubtitleOverlay } from "./FloatingSubtitleOverlay";
 import { CollaborationIndicator } from "./CollaborationIndicator";
+import { VoiceLabPanel, type VoiceOverride } from "./VoiceLabPanel";
 import type { WhiteboardItem, SubtitleMode } from "@shared/whiteboard-types";
 import type { StreamingSubtitleState } from "../hooks/useStreamingSubtitles";
 import type { VoiceInputMode, OpenMicState } from "@shared/streaming-voice-types";
@@ -121,6 +122,9 @@ interface ImmersiveTutorProps {
   playbackState?: 'idle' | 'buffering' | 'playing' | 'paused';
   // Interrupt handler - called when user presses mic during audio playback (barge-in)
   onInterrupt?: () => void;
+  // Voice Lab: Session-level voice overrides (admin only)
+  voiceOverride?: VoiceOverride | null;
+  onVoiceOverrideChange?: (override: VoiceOverride | null) => void;
 }
 
 export function ImmersiveTutor({
@@ -162,6 +166,8 @@ export function ImmersiveTutor({
   isPttButtonHeld = false,
   playbackState: propPlaybackState = 'idle',
   onInterrupt,
+  voiceOverride,
+  onVoiceOverrideChange,
 }: ImmersiveTutorProps) {
   // CRITICAL: Use global playback state store instead of prop
   // This bypasses React prop drilling which becomes stale during HMR
@@ -195,6 +201,9 @@ export function ImmersiveTutor({
   // Collaboration panel state
   const [isCollabOpen, setIsCollabOpen] = useState(false);
   // Collaboration panel only has Hive Mind tab now (Brain Surgery and Surgery Theater retired)
+  
+  // Voice Lab panel state (admin only)
+  const [isVoiceLabOpen, setIsVoiceLabOpen] = useState(false);
   
   const { toast } = useToast();
   const { language: targetLanguage } = useLanguage();
@@ -808,6 +817,23 @@ export function ImmersiveTutor({
           </div>
         )}
 
+        {/* Voice Lab Button - Admin only, for real-time voice experimentation */}
+        {isDeveloper && onVoiceOverrideChange && (
+          <div className="flex flex-col items-center gap-1">
+            <Button
+              variant={voiceOverride ? "default" : "outline"}
+              size="icon"
+              onClick={() => setIsVoiceLabOpen(true)}
+              className={`h-10 w-10 md:h-12 md:w-12 rounded-full ${voiceOverride ? 'bg-purple-500 hover:bg-purple-600 text-white' : ''}`}
+              data-testid="button-voice-lab"
+              aria-label="Open Voice Lab"
+            >
+              <Volume2 className="h-5 w-5" />
+            </Button>
+            <span className="text-[10px] text-muted-foreground">Voice Lab</span>
+          </div>
+        )}
+
         {/* Main Recording Button - behavior depends on input mode */}
         {/* Push-to-talk: Hold to record, release to submit */}
         {/* Open-mic: Tap to toggle listening, VAD auto-submits */}
@@ -1000,6 +1026,18 @@ export function ImmersiveTutor({
       
       {/* Debug timing panel - disabled for production */}
       {/* <DebugTimingPanel /> */}
+      
+      {/* Voice Lab Panel - Admin only */}
+      {isDeveloper && onVoiceOverrideChange && (
+        <VoiceLabPanel
+          isOpen={isVoiceLabOpen}
+          onClose={() => setIsVoiceLabOpen(false)}
+          language={targetLanguage || 'spanish'}
+          tutorGender={tutorGender}
+          onOverrideChange={onVoiceOverrideChange}
+          currentOverride={voiceOverride || null}
+        />
+      )}
     </div>
   );
 }

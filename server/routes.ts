@@ -13630,6 +13630,228 @@ Current conversation context:
     }
   });
   
+  // ===== Voice Lab API Endpoints (Admin Console) =====
+  
+  // Get current voice configuration by language and gender (for Voice Lab)
+  app.get("/api/admin/voices/current", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { language, gender } = req.query;
+      if (!language || !gender) {
+        return res.status(400).json({ error: "Language and gender are required" });
+      }
+      
+      const voice = await storage.getTutorVoice(language.toLowerCase(), gender.toLowerCase());
+      if (!voice) {
+        return res.status(404).json({ error: `No voice configured for ${language} ${gender}` });
+      }
+      
+      res.json(voice);
+    } catch (error: any) {
+      console.error('[Voice Lab] Error fetching current voice:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Update a specific voice configuration (for Voice Lab save functionality)
+  app.patch("/api/admin/voices/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { speakingRate, personality, expressiveness, emotion } = req.body;
+      
+      // Get existing voice first
+      const voices = await storage.getAllTutorVoices();
+      const existingVoice = voices.find((v: any) => v.id === id);
+      if (!existingVoice) {
+        return res.status(404).json({ error: "Voice not found" });
+      }
+      
+      // Validate and merge updates
+      const updates: any = {};
+      if (speakingRate !== undefined) {
+        updates.speakingRate = Math.max(0.7, Math.min(1.3, parseFloat(speakingRate)));
+      }
+      if (personality !== undefined) {
+        const validPersonalities = ['warm', 'calm', 'energetic', 'professional'];
+        if (validPersonalities.includes(personality)) {
+          updates.personality = personality;
+        }
+      }
+      if (expressiveness !== undefined) {
+        updates.expressiveness = Math.max(1, Math.min(5, parseInt(expressiveness)));
+      }
+      if (emotion !== undefined) {
+        updates.emotion = emotion;
+      }
+      
+      // Use upsert with existing voice data plus updates
+      const updatedVoice = await storage.upsertTutorVoice({
+        ...existingVoice,
+        ...updates,
+      });
+      
+      // Log the action
+      await storage.logAdminAction({
+        actorId: req.user.claims.sub,
+        action: 'update_tutor_voice',
+        targetType: 'tutor_voice',
+        targetId: id,
+        metadata: updates,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+      
+      res.json(updatedVoice);
+    } catch (error: any) {
+      console.error('[Voice Lab] Error updating voice:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Audition a voice with specific settings (preview voice changes before saving)
+  app.post("/api/admin/voice-audition", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { voiceId, text, languageCode, speakingRate, emotion } = req.body;
+      
+      if (!voiceId || !text) {
+        return res.status(400).json({ error: "voiceId and text are required" });
+      }
+      
+      const apiKey = process.env.CARTESIA_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({ error: "Cartesia API key not configured" });
+      }
+      
+      // Build voice controls with emotion if provided
+      const voiceControls: any = {};
+      if (speakingRate && speakingRate !== 1.0) {
+        voiceControls.speed = speakingRate < 0.9 ? 'slowest' : speakingRate > 1.1 ? 'fast' : 'normal';
+      }
+      if (emotion) {
+        voiceControls.emotion = [emotion];
+      }
+      
+      const response = await fetch('https://api.cartesia.ai/tts/bytes', {
+        method: 'POST',
+        headers: {
+          'X-API-Key': apiKey,
+          'Content-Type': 'application/json',
+          'Cartesia-Version': '2024-06-10',
+        },
+        body: JSON.stringify({
+          model_id: 'sonic-2',
+          transcript: text,
+          voice: {
+            mode: 'id',
+            id: voiceId,
+            __experimental_controls: Object.keys(voiceControls).length > 0 ? voiceControls : undefined,
+          },
+          language: languageCode || 'en',
+          output_format: {
+            container: 'mp3',
+            bit_rate: 128000,
+            sample_rate: 44100,
+          },
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[Voice Audition] Cartesia error:', errorText);
+        return res.status(500).json({ error: 'Voice synthesis failed' });
+      }
+      
+      const audioBuffer = await response.arrayBuffer();
+      res.setHeader('Content-Type', 'audio/mpeg');
+      res.send(Buffer.from(audioBuffer));
+    } catch (error: any) {
+      console.error('[Voice Lab] Audition error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get TTS metadata (personalities, expressiveness levels, emotion maps)
+  app.get("/api/admin/tts-metadata", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      // TTS personality and emotion configuration - matches neural network knowledge
+      const ttsMetadata = {
+        personalities: {
+          warm: {
+            name: 'Warm',
+            description: 'Friendly and nurturing',
+            baseline: 'curiosity:medium',
+            emotions: ['friendly', 'happy', 'curious', 'encouraging'],
+          },
+          calm: {
+            name: 'Calm',
+            description: 'Relaxed and patient',
+            baseline: 'calm',
+            emotions: ['calm', 'gentle', 'reassuring', 'patient'],
+          },
+          energetic: {
+            name: 'Energetic',
+            description: 'Enthusiastic and dynamic',
+            baseline: 'positivity:high',
+            emotions: ['excited', 'enthusiastic', 'playful', 'celebratory'],
+          },
+          professional: {
+            name: 'Professional',
+            description: 'Clear and authoritative',
+            baseline: 'confidence',
+            emotions: ['confident', 'clear', 'focused', 'measured'],
+          },
+        },
+        expressivenessLevels: {
+          1: { label: 'Subtle', description: 'Very understated' },
+          2: { label: 'Mild', description: 'Gently expressive' },
+          3: { label: 'Balanced', description: 'Natural variation' },
+          4: { label: 'Expressive', description: 'Clearly emotional' },
+          5: { label: 'Dramatic', description: 'Maximum expressiveness' },
+        },
+        emotionsMap: {
+          warm: {
+            1: ['friendly', 'curious'],
+            2: ['friendly', 'curious', 'encouraging'],
+            3: ['friendly', 'happy', 'curious', 'encouraging'],
+            4: ['friendly', 'happy', 'curious', 'encouraging', 'excited'],
+            5: ['friendly', 'happy', 'curious', 'encouraging', 'excited', 'celebratory'],
+          },
+          calm: {
+            1: ['calm', 'gentle'],
+            2: ['calm', 'gentle', 'patient'],
+            3: ['calm', 'gentle', 'reassuring', 'patient'],
+            4: ['calm', 'gentle', 'reassuring', 'patient', 'warm'],
+            5: ['calm', 'gentle', 'reassuring', 'patient', 'warm', 'soothing'],
+          },
+          energetic: {
+            1: ['curious', 'positive'],
+            2: ['curious', 'positive', 'playful'],
+            3: ['excited', 'enthusiastic', 'playful'],
+            4: ['excited', 'enthusiastic', 'playful', 'celebratory'],
+            5: ['excited', 'enthusiastic', 'playful', 'celebratory', 'joyful'],
+          },
+          professional: {
+            1: ['clear', 'measured'],
+            2: ['clear', 'measured', 'confident'],
+            3: ['confident', 'focused', 'clear'],
+            4: ['confident', 'focused', 'clear', 'authoritative'],
+            5: ['confident', 'focused', 'clear', 'authoritative', 'commanding'],
+          },
+        },
+        getDefaultEmotion: {
+          warm: 'friendly',
+          calm: 'calm',
+          energetic: 'excited',
+          professional: 'confident',
+        },
+      };
+      
+      res.json(ttsMetadata);
+    } catch (error: any) {
+      console.error('[Voice Lab] Error fetching TTS metadata:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // Fetch available Cartesia voices from their API (admin/developer only)
   // Route accepts optional path params: /api/admin/cartesia-voices/:language?/:gender?
   app.get("/api/admin/cartesia-voices/:language?/:gender?", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {

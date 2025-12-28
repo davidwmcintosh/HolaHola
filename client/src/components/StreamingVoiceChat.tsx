@@ -33,6 +33,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useWhiteboard } from "@/hooks/useWhiteboard";
 import { getTutorNames } from "@/lib/tutor-avatars";
 import type { VoiceInputMode, OpenMicState } from "@shared/streaming-voice-types";
+import type { VoiceOverride } from "./VoiceLabPanel";
 
 // ============================================================================
 // STREAMING MODE CONFIGURATION
@@ -224,6 +225,9 @@ export function StreamingVoiceChat({
   const tutorNames = getTutorNames(language);
   const [isRecording, setIsRecording] = useState(false);
   const [isPttButtonHeld, setIsPttButtonHeld] = useState(false); // Track if PTT button is physically held (separate from MediaRecorder state)
+  
+  // Voice Lab: Session-level voice overrides (admin only - applies to next TTS call)
+  const [voiceOverride, setVoiceOverride] = useState<VoiceOverride | null>(null);
   const isPttButtonHeldRef = useRef(false); // Synchronous ref for guards (state is async)
   const activeInputTypeRef = useRef<'mouse' | 'touch' | 'keyboard' | null>(null); // Track which input started recording
   const [isMicPreparing, setIsMicPreparing] = useState(false); // Show "Preparing mic..." before actual recording starts
@@ -317,6 +321,15 @@ export function StreamingVoiceChat({
   useEffect(() => {
     hasDanielaSpokeOnceRef.current = false;
   }, [conversationId]);
+  
+  // Voice Lab: Send voice override to server when it changes
+  useEffect(() => {
+    if (streamingVoice.state.connectionState === 'ready' || 
+        streamingVoice.state.connectionState === 'processing') {
+      streamingVoice.sendVoiceOverride(voiceOverride);
+      console.log('[Voice Lab] Sent voice override to server:', voiceOverride);
+    }
+  }, [voiceOverride, streamingVoice.state.connectionState]);
   
   // Handle input mode changes - cleanup when switching modes
   // Note: Uses a ref-based approach since stopOpenMicRecording is defined later in the file
@@ -2920,6 +2933,8 @@ export function StreamingVoiceChat({
           isPttButtonHeld={isPttButtonHeld}
           playbackState={streamingVoice.state.playbackState}
           onInterrupt={streamingVoice.sendInterrupt}
+          voiceOverride={voiceOverride}
+          onVoiceOverrideChange={setVoiceOverride}
         />
       </div>
     </div>

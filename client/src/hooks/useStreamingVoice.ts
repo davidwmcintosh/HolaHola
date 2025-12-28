@@ -134,6 +134,12 @@ export interface UseStreamingVoiceReturn {
   sendPttRelease: () => void;
   sendDrillResult: (drillId: string, drillType: string, isCorrect: boolean, responseTimeMs: number, toolContent?: string) => void;
   sendTextInput: (itemId: string, response: string) => void;
+  sendVoiceOverride: (override: {
+    speakingRate?: number;
+    personality?: string;
+    expressiveness?: number;
+    emotion?: string;
+  } | null) => void;
 }
 
 /**
@@ -1165,6 +1171,21 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     }
   }, []);
   
+  /**
+   * Send voice override settings (Voice Lab - admin only)
+   * These session-level overrides apply to the next TTS call
+   */
+  const sendVoiceOverride = useCallback((override: {
+    speakingRate?: number;
+    personality?: string;
+    expressiveness?: number;
+    emotion?: string;
+  } | null) => {
+    if (clientRef.current) {
+      clientRef.current.sendVoiceOverride(override);
+    }
+  }, []);
+  
   // Store disconnect in a ref so cleanup can use latest version without dependency
   const disconnectRef = useRef(disconnect);
   disconnectRef.current = disconnect;
@@ -1209,5 +1230,6 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     sendPttRelease,
     sendDrillResult,
     sendTextInput,
+    sendVoiceOverride,
   };
 }

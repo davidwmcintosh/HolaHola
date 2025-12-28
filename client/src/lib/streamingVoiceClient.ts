@@ -641,6 +641,24 @@ export class StreamingVoiceClient {
   }
   
   /**
+   * Send voice override settings (Voice Lab)
+   * These session-level overrides apply to the next TTS call
+   */
+  sendVoiceOverride(override: {
+    speakingRate?: number;
+    personality?: string;
+    expressiveness?: number;
+    emotion?: string;
+  } | null): void {
+    if (this.isReady()) {
+      this.socket!.emit('message', { 
+        type: 'voice_override',
+        override,
+      });
+    }
+  }
+  
+  /**
    * Request a voice handoff - current tutor says goodbye, then new tutor introduces themselves
    * This provides a natural transition between tutors
    */

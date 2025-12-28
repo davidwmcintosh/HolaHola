@@ -3488,6 +3488,13 @@ Remember: David may reference things discussed in these recent text chats.
     // Determine emotion based on original text (which may have emotion tags)
     const emotion = this.selectEmotionForContext(originalText, session);
     
+    // Apply Voice Lab overrides if present (admin experimentation)
+    const voiceOverride = (session as any).voiceOverride;
+    const effectiveSpeakingRate = voiceOverride?.speakingRate ?? getAdaptiveSpeakingRate(session);
+    const effectiveEmotion = voiceOverride?.emotion ?? emotion;
+    const effectivePersonality = voiceOverride?.personality ?? session.tutorPersonality;
+    const effectiveExpressiveness = voiceOverride?.expressiveness ?? session.tutorExpressiveness;
+    
     let totalDurationMs = 0;
     const audioChunks: Buffer[] = [];
     let audioFormat: 'mp3' | 'pcm_f32le' = 'mp3';  // Track format from first chunk
@@ -3503,10 +3510,10 @@ Remember: David may reference things discussed in these recent text chats.
         language: session.targetLanguage,
         targetLanguage: session.targetLanguage, // For phoneme pronunciation
         voiceId: session.voiceId,
-        speakingRate: getAdaptiveSpeakingRate(session),
-        emotion,
-        personality: session.tutorPersonality,
-        expressiveness: session.tutorExpressiveness,
+        speakingRate: effectiveSpeakingRate,
+        emotion: effectiveEmotion,
+        personality: effectivePersonality,
+        expressiveness: effectiveExpressiveness,
       })) {
         if (audioChunk.audio.length > 0) {
           // Track TTS first byte timing only on non-empty audio (actual TTS output)
@@ -3753,6 +3760,13 @@ Remember: David may reference things discussed in these recent text chats.
     const emotion = this.selectEmotionForContext(originalText, session);
     const effectiveTurnId = turnId ?? session.currentTurnId;
     
+    // Apply Voice Lab overrides if present (admin experimentation)
+    const voiceOverride = (session as any).voiceOverride;
+    const effectiveSpeakingRate = voiceOverride?.speakingRate ?? getAdaptiveSpeakingRate(session);
+    const effectiveEmotion = voiceOverride?.emotion ?? emotion;
+    const effectivePersonality = voiceOverride?.personality ?? session.tutorPersonality;
+    const effectiveExpressiveness = voiceOverride?.expressiveness ?? session.tutorExpressiveness;
+    
     // === TIMING RACE FIX: Server-side buffering ===
     // Buffer audio chunks until we have at least the first word timing.
     // Once both are available, send atomic 'sentence_ready' message.
@@ -3838,10 +3852,10 @@ Remember: David may reference things discussed in these recent text chats.
           language: session.targetLanguage,
           targetLanguage: session.targetLanguage,
           voiceId: session.voiceId,
-          speakingRate: getAdaptiveSpeakingRate(session),
-          emotion,
-          personality: session.tutorPersonality,
-          expressiveness: session.tutorExpressiveness,
+          speakingRate: effectiveSpeakingRate,
+          emotion: effectiveEmotion,
+          personality: effectivePersonality,
+          expressiveness: effectiveExpressiveness,
         },
         {
           // Audio chunk callback - buffer until timing arrives, then stream directly
@@ -6472,6 +6486,28 @@ Using this context, speak first to the student with a natural opening message. O
     
     session.voiceId = voiceId;
     console.log(`[Streaming Orchestrator] Updated voice for session ${sessionId}: ${voiceId.substring(0, 8)}...`);
+    return true;
+  }
+  
+  /**
+   * Set voice override for Voice Lab experimentation (admin only)
+   * These session-level settings override database voice config for TTS
+   */
+  setVoiceOverride(sessionId: string, override: {
+    speakingRate?: number;
+    personality?: string;
+    expressiveness?: number;
+    emotion?: string;
+  } | null): boolean {
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      console.warn(`[Streaming Orchestrator] Cannot set voice override - session ${sessionId} not found`);
+      return false;
+    }
+    
+    // Store override in session
+    (session as any).voiceOverride = override;
+    console.log(`[Streaming Orchestrator] Voice override ${override ? 'applied' : 'cleared'} for session ${sessionId}:`, override);
     return true;
   }
   
