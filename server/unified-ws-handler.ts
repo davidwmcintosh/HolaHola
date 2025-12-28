@@ -2802,7 +2802,7 @@ This is a voice conversation. Speak naturally, as you would.`;
               const tutorVoice = await storage.getTutorVoice(targetLanguage, voiceMsg.tutorGender);
               
               if (tutorVoice?.voiceId) {
-                await orchestrator.updateVoice(session.id, tutorVoice.voiceId);
+                orchestrator.updateSessionVoice(session.id, tutorVoice.voiceId);
                 ws.send(JSON.stringify({
                   type: 'voice_updated',
                   timestamp: Date.now(),

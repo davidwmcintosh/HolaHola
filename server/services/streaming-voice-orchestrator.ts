@@ -3078,7 +3078,7 @@ Remember: David may reference things discussed in these recent text chats.
             }
           }
           
-          // Notify client to trigger new tutor greeting
+          // Notify client of handoff
           this.sendMessage(session.ws, {
             type: 'tutor_handoff',
             timestamp: Date.now(),
@@ -3088,6 +3088,14 @@ Remember: David may reference things discussed in these recent text chats.
             isLanguageSwitch,
             requiresGreeting: true,
           });
+          
+          // Trigger new tutor's greeting automatically
+          if (tutorName) {
+            console.log(`[Tutor Switch] Open-mic: Triggering ${tutorName}'s greeting`);
+            this.processVoiceSwitchIntro(sessionId, tutorName, targetGender).catch((err: Error) => {
+              console.error(`[Tutor Switch] Failed to generate greeting:`, err.message);
+            });
+          }
           
         } catch (err: any) {
           console.error(`[Tutor Switch] Open-mic error:`, err.message);
