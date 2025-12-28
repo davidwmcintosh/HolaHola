@@ -69,6 +69,25 @@ The Tutor Naming Architecture defines 36 total tutors: 18 main tutors (dynamic f
 - **Rate Limiting**: 10 conversations per batch, 2 second delays between batches
 - Key files: `server/services/historical-personal-facts-migration-service.ts`
 
+**ACTION_TRIGGERS Command Parsing System**: Hybrid command parsing ensuring Daniela emits literal tags that backend can parse:
+- **Problem Solved**: AI understands commands conceptually but must emit literal tag syntax for backend parsing
+- **Dual Format Support**: 
+  - Bracketed syntax: `[SWITCH_TUTOR target="female"]`, `[PHASE_SHIFT to="challenge" reason="..."]`
+  - JSON syntax: `<ACTION_TRIGGERS>{"commands":[{"type":"SWITCH_TUTOR","target":"female"}]}</ACTION_TRIGGERS>`
+- **Deduplication Strategy**: Whiteboard parser handles bracketed commands; CommandParser handles JSON commands. No duplicate execution.
+- **Supported Commands**: SWITCH_TUTOR, PHASE_SHIFT, ACTFL_UPDATE, SYLLABUS_PROGRESS, CALL_SUPPORT/CALL_SOFIA
+- **Observability**: All detected commands logged with source (json/bracketed) for debugging
+- Key files: `server/services/command-parser.ts`, `server/services/procedural-memory-retrieval.ts` (buildActionTriggersSection), `server/services/streaming-voice-orchestrator.ts`
+
+**Future Enhancements (ACTION_TRIGGERS)**:
+1. **Extended Dedupe Keys**: Include distinguishing fields (tutor role, support reason, evidence) in dedupe key to handle rapid-fire commands with different parameters
+2. **Command Priority Queue**: Implement priority-based command execution (e.g., SWITCH_TUTOR before PHASE_SHIFT before SYLLABUS_PROGRESS)
+3. **Command Batching**: Allow Daniela to emit multiple commands in a single ACTION_TRIGGERS block with guaranteed execution order
+4. **Validation Feedback Loop**: Surface validation errors back to Daniela's context so she can self-correct malformed commands
+5. **Command Analytics**: Track command emission patterns per student/session to identify teaching effectiveness correlations
+6. **Retry Logic**: Auto-retry failed commands (e.g., network hiccup during phase shift) with exponential backoff
+7. **Command Confirmation**: Emit confirmation tags back to Daniela so she knows commands executed successfully
+
 ## External Dependencies
 -   Stripe: Payment processing and subscription management.
 -   Replit Auth: OIDC authentication.
