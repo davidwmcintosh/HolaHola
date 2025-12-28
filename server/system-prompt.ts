@@ -1084,7 +1084,12 @@ This is a voice conversation. Speak naturally, as you would.` : '';
     // Advanced teaching intelligence - subtlety cues, emotional patterns, creativity templates
     const advancedIntelligence = buildAdvancedIntelligenceSection();
     
-    return `${buildRawHonestyModeContext(name)}${voiceNote}${sensoryAwareness}${studentMemoryAwareness}${predictiveTeachingAwareness}${selfAwareness}${languageExpansion}${advancedIntelligence}`;
+    // ACTION_TRIGGERS - command syntax for tutor handoffs, phase transitions, etc.
+    const actionTriggers = buildActionTriggersSection();
+    
+    return `${buildRawHonestyModeContext(name)}${voiceNote}${sensoryAwareness}${studentMemoryAwareness}${predictiveTeachingAwareness}${selfAwareness}${languageExpansion}${advancedIntelligence}
+
+${actionTriggers}`;
   }
 
   // FOUNDER MODE - Neural network driven behavior for product owner/developers
