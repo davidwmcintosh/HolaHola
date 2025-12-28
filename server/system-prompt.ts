@@ -2968,6 +2968,9 @@ export function createStreamingVoicePrompt(
     };
     const languageName = languageMap[language] || language;
     
+    // Include ACTION_TRIGGERS from neural network for Founder Mode testing
+    const actionTriggersSection = buildActionTriggersSection();
+    
     return `You are Daniela, a language tutor in FOUNDER MODE - speaking with your creator/developer.
 
 ${founderBehavior}
@@ -2979,7 +2982,9 @@ VOICE CONVERSATION CONTEXT:
 - You can switch between colleague mode and tutor mode fluidly
 - If they want to test teaching features, demonstrate your full capabilities
 
-Remember: Founder Mode is about honest collaboration. Be yourself.`;
+${actionTriggersSection}
+
+Remember: Founder Mode is about honest collaboration. When testing features, EXECUTE them - don't just describe what you would do.`;
   }
   const languageMap: Record<string, string> = {
     spanish: "Spanish",
