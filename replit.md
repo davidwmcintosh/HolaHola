@@ -75,7 +75,7 @@ The Tutor Naming Architecture defines 36 total tutors: 18 main tutors (dynamic f
   - Bracketed syntax: `[SWITCH_TUTOR target="female"]`, `[PHASE_SHIFT to="challenge" reason="..."]`
   - JSON syntax: `<ACTION_TRIGGERS>{"commands":[{"type":"SWITCH_TUTOR","target":"female"}]}</ACTION_TRIGGERS>`
 - **Deduplication Strategy**: Whiteboard parser handles bracketed commands; CommandParser handles JSON commands. No duplicate execution.
-- **Supported Commands**: SWITCH_TUTOR, PHASE_SHIFT, ACTFL_UPDATE, SYLLABUS_PROGRESS, CALL_SUPPORT/CALL_SOFIA
+- **Supported Commands**: SWITCH_TUTOR, PHASE_SHIFT, ACTFL_UPDATE, SYLLABUS_PROGRESS, CALL_SUPPORT/CALL_SOFIA, HIVE, SELF_SURGERY
 - **Observability**: All detected commands logged with source (json/bracketed) for debugging
 - Key files: `server/services/command-parser.ts`, `server/services/procedural-memory-retrieval.ts` (buildActionTriggersSection), `server/services/streaming-voice-orchestrator.ts`
 
@@ -87,6 +87,9 @@ The Tutor Naming Architecture defines 36 total tutors: 18 main tutors (dynamic f
 5. **Command Analytics**: Track command emission patterns per student/session to identify teaching effectiveness correlations
 6. **Retry Logic**: Auto-retry failed commands (e.g., network hiccup during phase shift) with exponential backoff
 7. **Command Confirmation**: Emit confirmation tags back to Daniela so she knows commands executed successfully
+8. **Schema Validation in Parser**: Move target/content validation from orchestrator to command-parser.ts for earlier failure detection
+9. **Beacon Context Parity**: Include transcript context in JSON-triggered SELF_SURGERY beacons to match whiteboard path visibility
+10. **Structured Failure Responses**: Return explicit failure objects instead of silent console.error for command validation failures
 
 ## External Dependencies
 -   Stripe: Payment processing and subscription management.

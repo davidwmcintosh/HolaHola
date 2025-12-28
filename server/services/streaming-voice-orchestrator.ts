@@ -1620,6 +1620,82 @@ Remember: David may reference things discussed in these recent text chats.
                   }
                   break;
                 }
+                case 'HIVE': {
+                  // Daniela's active contribution to the hive mind
+                  const category = cmd.params.category as string;
+                  const title = cmd.params.title as string;
+                  const description = cmd.params.description as string;
+                  if (category && title && description) {
+                    // Call the same processing function as whiteboard parser
+                    this.processHiveSuggestion(session, {
+                      category,
+                      title,
+                      description,
+                      reasoning: cmd.params.reasoning as string | undefined,
+                      priority: cmd.params.priority as number | undefined,
+                    }).catch(err => console.error(`[CommandParser→Hive] Error:`, err));
+                    console.log(`[CommandParser→Hive] Posted: "${title}" (${category}) via ${cmd.source} format`);
+                  }
+                  break;
+                }
+                case 'SELF_SURGERY': {
+                  // Daniela's direct neural network modifications (Founder Mode only)
+                  const target = cmd.params.target as string;
+                  const content = cmd.params.content;
+                  const reasoning = cmd.params.reasoning as string;
+                  
+                  // Valid SelfSurgeryTarget values (from whiteboard-types.ts)
+                  const validTargets = [
+                    'tutor_procedures', 'teaching_principles', 'tool_knowledge',
+                    'situational_patterns', 'language_idioms', 'cultural_nuances',
+                    'learner_error_patterns', 'dialect_variations', 'linguistic_bridges',
+                    'creativity_templates'
+                  ];
+                  
+                  if (!validTargets.includes(target)) {
+                    console.error(`[CommandParser→SelfSurgery] Invalid target "${target}". Valid: ${validTargets.join(', ')}`);
+                    break;
+                  }
+                  
+                  if (target && content && reasoning && session.isFounderMode) {
+                    // Safely parse content - may be string or object
+                    let parsedContent: Record<string, unknown>;
+                    try {
+                      parsedContent = typeof content === 'string' ? JSON.parse(content) : content as Record<string, unknown>;
+                    } catch (parseErr) {
+                      console.error(`[CommandParser→SelfSurgery] Invalid JSON content for ${target}:`, parseErr);
+                      break;
+                    }
+                    
+                    const priority = (cmd.params.priority as number) || 50;
+                    const confidence = (cmd.params.confidence as number) || 70;
+                    
+                    // Emit Hive beacon for founder visibility (same as whiteboard path)
+                    if (session.hiveChannelId) {
+                      const contentPreview = JSON.stringify(parsedContent).substring(0, 300);
+                      hiveCollaborationService.emitBeacon({
+                        channelId: session.hiveChannelId,
+                        tutorTurn: `[SELF_SURGERY PROPOSAL via JSON]\nTarget: ${target}\nPriority: ${priority}, Confidence: ${confidence}\nReasoning: ${reasoning}\n\nContent: ${contentPreview}...`,
+                        studentTurn: '',
+                        beaconType: 'self_surgery_proposal',
+                        beaconReason: `Daniela proposed neural network modification: ${target}`,
+                      }).catch(err => console.error(`[CommandParser→SelfSurgery] Beacon error:`, err));
+                    }
+                    
+                    // Call processSelfSurgery with exact SelfSurgeryItemData shape
+                    this.processSelfSurgery(session, {
+                      targetTable: target as import('@shared/whiteboard-types').SelfSurgeryTarget,
+                      content: parsedContent,
+                      reasoning,
+                      priority,
+                      confidence,
+                    }).catch(err => console.error(`[CommandParser→SelfSurgery] Error:`, err));
+                    console.log(`[CommandParser→SelfSurgery] Proposal for ${target} via ${cmd.source} format`);
+                  } else if (!session.isFounderMode) {
+                    console.log(`[CommandParser→SelfSurgery] Ignored (not Founder Mode): ${target}`);
+                  }
+                  break;
+                }
               }
           }
           
