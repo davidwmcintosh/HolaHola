@@ -51,40 +51,64 @@ export interface CommandParseResult {
 }
 
 /**
+ * Valid enum values for command parameters (early validation)
+ * Exported for use in orchestrator validation if needed
+ */
+export const VALID_ENUM_VALUES = {
+  SWITCH_TUTOR_TARGET: ['male', 'female'],
+  SWITCH_TUTOR_ROLE: ['tutor', 'assistant'],
+  PHASE_SHIFT_TO: ['warmup', 'active_teaching', 'challenge', 'reflection', 'drill', 'assessment'],
+  SYLLABUS_PROGRESS_STATUS: ['demonstrated', 'needs_review', 'struggling'],
+  ACTFL_UPDATE_DIRECTION: ['up', 'down', 'confirm'],
+  CALL_SUPPORT_CATEGORY: ['technical', 'account', 'billing', 'content', 'feedback', 'other'],
+  CALL_SUPPORT_PRIORITY: ['low', 'normal', 'high', 'critical'],
+  HIVE_CATEGORY: ['self_improvement', 'content_gap', 'ux_observation', 'teaching_insight', 'product_feature', 'technical_issue', 'student_pattern', 'tool_enhancement'],
+  SELF_SURGERY_TARGET: ['tutor_procedures', 'teaching_principles', 'tool_knowledge', 'situational_patterns', 'language_idioms', 'cultural_nuances', 'learner_error_patterns', 'dialect_variations', 'linguistic_bridges', 'creativity_templates'],
+};
+
+/**
  * Schema definitions for command validation
  */
-const COMMAND_SCHEMAS: Record<ActionCommandType, { required: string[]; optional: string[] }> = {
+const COMMAND_SCHEMAS: Record<ActionCommandType, { required: string[]; optional: string[]; enums?: Record<string, string[]> }> = {
   SWITCH_TUTOR: {
     required: ['target'],
     optional: ['language', 'role'],
+    enums: { target: VALID_ENUM_VALUES.SWITCH_TUTOR_TARGET, role: VALID_ENUM_VALUES.SWITCH_TUTOR_ROLE },
   },
   PHASE_SHIFT: {
     required: ['to', 'reason'],
     optional: [],
+    enums: { to: VALID_ENUM_VALUES.PHASE_SHIFT_TO },
   },
   ACTFL_UPDATE: {
     required: ['level'],
     optional: ['confidence', 'reason', 'direction'],
+    enums: { direction: VALID_ENUM_VALUES.ACTFL_UPDATE_DIRECTION },
   },
   SYLLABUS_PROGRESS: {
     required: ['topic', 'status'],
     optional: ['evidence'],
+    enums: { status: VALID_ENUM_VALUES.SYLLABUS_PROGRESS_STATUS },
   },
   CALL_SUPPORT: {
     required: ['category'],
     optional: ['reason', 'priority', 'context'],
+    enums: { category: VALID_ENUM_VALUES.CALL_SUPPORT_CATEGORY, priority: VALID_ENUM_VALUES.CALL_SUPPORT_PRIORITY },
   },
   CALL_SOFIA: {
     required: ['category'],
     optional: ['reason', 'priority', 'context'],
+    enums: { category: VALID_ENUM_VALUES.CALL_SUPPORT_CATEGORY, priority: VALID_ENUM_VALUES.CALL_SUPPORT_PRIORITY },
   },
   HIVE: {
     required: ['category', 'title', 'description'],
     optional: ['reasoning', 'priority'],
+    enums: { category: VALID_ENUM_VALUES.HIVE_CATEGORY },
   },
   SELF_SURGERY: {
     required: ['target', 'content', 'reasoning'],
-    optional: ['type', 'expectedBehavior', 'verificationMethod'],
+    optional: ['priority', 'confidence'],
+    enums: { target: VALID_ENUM_VALUES.SELF_SURGERY_TARGET },
   },
 };
 
@@ -135,22 +159,38 @@ function parseAttributes(attrString: string): Record<string, string | number> {
 
 /**
  * Validate a command against its schema
+ * Returns: { errors: string[], warnings: string[] }
+ * - errors: Missing required fields (blocks execution)
+ * - warnings: Unexpected enum values (logged but command still executes)
  */
-function validateCommand(type: ActionCommandType, params: Record<string, any>): string[] {
+function validateCommand(type: ActionCommandType, params: Record<string, any>): { errors: string[]; warnings: string[] } {
   const schema = COMMAND_SCHEMAS[type];
   if (!schema) {
-    return [`Unknown command type: ${type}`];
+    return { errors: [`Unknown command type: ${type}`], warnings: [] };
   }
   
   const errors: string[] = [];
+  const warnings: string[] = [];
   
+  // Check required parameters (blocking errors)
   for (const required of schema.required) {
     if (!(required in params) || params[required] === undefined || params[required] === '') {
       errors.push(`${type}: Missing required parameter "${required}"`);
     }
   }
   
-  return errors;
+  // Check enum values (non-blocking warnings for observability)
+  // Commands still execute even with unexpected values to support production flexibility
+  if (schema.enums) {
+    for (const [param, validValues] of Object.entries(schema.enums)) {
+      const value = params[param];
+      if (value !== undefined && value !== '' && !validValues.includes(String(value).toLowerCase())) {
+        warnings.push(`${type}: Unexpected value "${value}" for "${param}" (known: ${validValues.join(', ')})`);
+      }
+    }
+  }
+  
+  return { errors, warnings };
 }
 
 /**
@@ -206,10 +246,14 @@ function parseActionTriggersJSON(text: string): { commands: ParsedCommand[]; err
         continue;
       }
       
-      const validationErrors = validateCommand(type, params);
-      if (validationErrors.length > 0) {
-        errors.push(...validationErrors);
+      const validation = validateCommand(type, params);
+      if (validation.errors.length > 0) {
+        errors.push(...validation.errors);
         continue;
+      }
+      // Log warnings but don't block command execution
+      if (validation.warnings.length > 0) {
+        console.log(`[CommandParser] Validation warnings: ${validation.warnings.join('; ')}`);
       }
       
       commands.push({
@@ -242,11 +286,17 @@ function parseBracketedCommands(text: string): { commands: ParsedCommand[]; erro
       const params = parseAttributes(attrString);
       
       const commandType = type as ActionCommandType;
-      const validationErrors = validateCommand(commandType, params);
+      const validation = validateCommand(commandType, params);
       
-      if (validationErrors.length > 0) {
-        errors.push(...validationErrors);
-        // Still include the command but note it has validation issues
+      // Only block on missing required fields
+      if (validation.errors.length > 0) {
+        errors.push(...validation.errors);
+        // Don't include commands with missing required fields
+        continue;
+      }
+      // Log warnings but don't block command execution
+      if (validation.warnings.length > 0) {
+        console.log(`[CommandParser] Validation warnings: ${validation.warnings.join('; ')}`);
       }
       
       commands.push({

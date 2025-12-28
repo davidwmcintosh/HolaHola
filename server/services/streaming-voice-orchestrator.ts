@@ -1640,24 +1640,17 @@ Remember: David may reference things discussed in these recent text chats.
                 }
                 case 'SELF_SURGERY': {
                   // Daniela's direct neural network modifications (Founder Mode only)
+                  // Note: Target validation now happens in command-parser.ts via enum validation
                   const target = cmd.params.target as string;
                   const content = cmd.params.content;
                   const reasoning = cmd.params.reasoning as string;
                   
-                  // Valid SelfSurgeryTarget values (from whiteboard-types.ts)
-                  const validTargets = [
-                    'tutor_procedures', 'teaching_principles', 'tool_knowledge',
-                    'situational_patterns', 'language_idioms', 'cultural_nuances',
-                    'learner_error_patterns', 'dialect_variations', 'linguistic_bridges',
-                    'creativity_templates'
-                  ];
-                  
-                  if (!validTargets.includes(target)) {
-                    console.error(`[CommandParser→SelfSurgery] Invalid target "${target}". Valid: ${validTargets.join(', ')}`);
+                  if (!session.isFounderMode) {
+                    console.log(`[CommandParser→SelfSurgery] Ignored (not Founder Mode): ${target}`);
                     break;
                   }
                   
-                  if (target && content && reasoning && session.isFounderMode) {
+                  if (target && content && reasoning) {
                     // Safely parse content - may be string or object
                     let parsedContent: Record<string, unknown>;
                     try {
@@ -1670,13 +1663,13 @@ Remember: David may reference things discussed in these recent text chats.
                     const priority = (cmd.params.priority as number) || 50;
                     const confidence = (cmd.params.confidence as number) || 70;
                     
-                    // Emit Hive beacon for founder visibility (same as whiteboard path)
+                    // Emit Hive beacon for founder visibility (matches whiteboard path)
                     if (session.hiveChannelId) {
                       const contentPreview = JSON.stringify(parsedContent).substring(0, 300);
                       hiveCollaborationService.emitBeacon({
                         channelId: session.hiveChannelId,
-                        tutorTurn: `[SELF_SURGERY PROPOSAL via JSON]\nTarget: ${target}\nPriority: ${priority}, Confidence: ${confidence}\nReasoning: ${reasoning}\n\nContent: ${contentPreview}...`,
-                        studentTurn: '',
+                        tutorTurn: `[SELF_SURGERY PROPOSAL]\nTarget: ${target}\nPriority: ${priority}, Confidence: ${confidence}\nReasoning: ${reasoning}\n\nContent: ${contentPreview}...`,
+                        studentTurn: transcript || '',  // Include transcript context for parity
                         beaconType: 'self_surgery_proposal',
                         beaconReason: `Daniela proposed neural network modification: ${target}`,
                       }).catch(err => console.error(`[CommandParser→SelfSurgery] Beacon error:`, err));
@@ -1691,8 +1684,6 @@ Remember: David may reference things discussed in these recent text chats.
                       confidence,
                     }).catch(err => console.error(`[CommandParser→SelfSurgery] Error:`, err));
                     console.log(`[CommandParser→SelfSurgery] Proposal for ${target} via ${cmd.source} format`);
-                  } else if (!session.isFounderMode) {
-                    console.log(`[CommandParser→SelfSurgery] Ignored (not Founder Mode): ${target}`);
                   }
                   break;
                 }
