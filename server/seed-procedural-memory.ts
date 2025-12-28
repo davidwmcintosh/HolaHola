@@ -299,20 +299,18 @@ async function seedToolKnowledge() {
     {
       toolName: 'CALL_SUPPORT',
       toolType: 'handoff_command',
-      purpose: 'Transfer the student to the Support Agent for issues outside tutoring scope. Use when student has technical problems, billing questions, account issues, or needs help that is not language learning.',
+      purpose: 'OUTPUT THE LITERAL TAG [CALL_SUPPORT category="..." reason="..."] IN YOUR TEXT RESPONSE. Do NOT just say "let me transfer you" - the backend PARSES your text for the exact [CALL_SUPPORT ...] pattern. Without the literal brackets and tag, nothing happens.',
       syntax: '[CALL_SUPPORT category="category" reason="why transferring"]',
       examples: [
-        '[CALL_SUPPORT category="technical" reason="Student cannot hear audio in the app"]',
-        '[CALL_SUPPORT category="billing" reason="Student asking about subscription pricing"]',
-        '[CALL_SUPPORT category="account" reason="Student cannot reset their password"]',
-        '[CALL_SUPPORT category="other" reason="Student needs help finding learning resources"]'
+        '"Let me get you some help with that. [CALL_SUPPORT category="technical" reason="Student cannot hear audio"]"',
+        '"I\'ll connect you with our support team. [CALL_SUPPORT category="billing" reason="Subscription question"]"',
       ],
       bestUsedFor: ['technical_issues', 'billing_questions', 'account_problems', 'app_bugs', 'non_language_help'],
       avoidWhen: ['language_questions', 'pronunciation_help', 'grammar_confusion', 'vocabulary_requests', 'cultural_questions'],
       combinesWith: [],
       sequencePatterns: [
-        'Detect non-language issue → acknowledge concern → CALL_SUPPORT with category → warm handoff message',
-        'Student frustrated with app → empathize → CALL_SUPPORT technical → reassure support will help'
+        'Detect non-language issue → acknowledge concern → TYPE LITERAL [CALL_SUPPORT ...] TAG → stop speaking',
+        'Student frustrated with app → empathize → TYPE LITERAL [CALL_SUPPORT category="technical" ...] → support takes over'
       ],
     },
     
@@ -418,19 +416,18 @@ async function seedToolKnowledge() {
     {
       toolName: 'CALL_SOFIA',
       toolType: 'handoff_command',
-      purpose: 'Transfer student to Sofia, the technical support specialist. Use for non-language issues like audio problems, billing, account issues, or app bugs. Sofia provides friendly troubleshooting guidance.',
+      purpose: 'OUTPUT THE LITERAL TAG [CALL_SOFIA category="..." reason="..."] IN YOUR TEXT RESPONSE. Do NOT just say "I\'ll get Sofia" - the backend PARSES your text for the exact [CALL_SOFIA ...] pattern. Without the literal brackets and tag, nothing happens.',
       syntax: '[CALL_SOFIA category="technical|billing|account|content|feedback|other" reason="brief description"]',
       examples: [
         '"Let me get Sofia to help with that! [CALL_SOFIA category="technical" reason="Student cannot hear audio"]"',
         '"Sofia can help you with billing. [CALL_SOFIA category="billing" reason="Question about subscription"]"',
-        '"I\'ll connect you with Sofia for that. [CALL_SOFIA category="account" reason="Password reset needed"]"'
       ],
       bestUsedFor: ['audio_problems', 'billing_questions', 'account_issues', 'app_bugs', 'technical_support'],
       avoidWhen: ['language_questions', 'pronunciation_help', 'grammar_confusion', 'vocabulary_requests'],
       combinesWith: [],
       sequencePatterns: [
-        'Student reports technical issue → Empathize → [CALL_SOFIA category="technical" reason="..."] → Reassure',
-        'Student asks about billing → Acknowledge → [CALL_SOFIA category="billing" reason="..."]'
+        'Student reports technical issue → Empathize → TYPE LITERAL [CALL_SOFIA ...] TAG → stop speaking',
+        'Student asks about billing → Acknowledge → TYPE LITERAL [CALL_SOFIA category="billing" ...] → Sofia takes over'
       ],
     },
     
@@ -438,18 +435,18 @@ async function seedToolKnowledge() {
     {
       toolName: 'SELF_SURGERY',
       toolType: 'introspection',
-      purpose: 'Propose additions or modifications to your own neural network (teaching principles, procedures, patterns). Used for self-improvement when you discover better teaching approaches.',
+      purpose: 'OUTPUT THE LITERAL TAG [SELF_SURGERY target="..." content=\'...\' reasoning="..." ...] IN YOUR TEXT RESPONSE. The backend PARSES your text for the exact [SELF_SURGERY ...] pattern. Just saying "I should remember this" does nothing - you MUST type the literal tag.',
       syntax: '[SELF_SURGERY target="TARGET" content=\'{"JSON":"content"}\' reasoning="Why proposing this" priority=50 confidence=70]',
       examples: [
-        '[SELF_SURGERY target="teaching_principles" content=\'{"principle":"Pause 2 seconds after new vocabulary"}\' reasoning="Noticed learners absorb better with brief pauses" priority=70 confidence=80]',
-        '[SELF_SURGERY target="situational_patterns" content=\'{"trigger":"student_frustrated","response":"acknowledge feeling first"}\' reasoning="Empathy before correction works better" priority=60 confidence=75]'
+        'I notice pauses help absorption. [SELF_SURGERY target="teaching_principles" content=\'{"principle":"Pause 2 seconds after new vocabulary"}\' reasoning="Noticed learners absorb better with brief pauses" priority=70 confidence=80]',
+        'Empathy first works better. [SELF_SURGERY target="situational_patterns" content=\'{"trigger":"student_frustrated","response":"acknowledge feeling first"}\' reasoning="Empathy before correction" priority=60 confidence=75]'
       ],
       bestUsedFor: ['teaching_insight_discovered', 'pattern_recognition', 'self_improvement', 'founder_mode_reflection'],
       avoidWhen: ['mid_lesson', 'student_waiting', 'uncertain_insight'],
       combinesWith: [],
       sequencePatterns: [
-        'Notice effective teaching pattern → Reflect → [SELF_SURGERY target="..." ...] → Continue teaching',
-        'Founder asks for reflection → Analyze → Propose improvements via SELF_SURGERY'
+        'Notice effective pattern → Reflect → TYPE LITERAL [SELF_SURGERY ...] TAG → Continue teaching',
+        'Founder asks for reflection → Analyze → TYPE LITERAL [SELF_SURGERY ...] TAG with proposal'
       ],
     },
     
@@ -678,13 +675,13 @@ async function seedTeachingPrinciples() {
     // PHASE-AWARE TEACHING
     {
       category: 'pacing',
-      principle: 'Teaching phases require different tools and approaches. Use [PHASE_SHIFT to="phase" reason="..."] to explicitly transition between warmup, active_teaching, challenge, reflection, drill, and assessment phases.',
+      principle: 'Teaching phases require different tools and approaches. To transition phases, OUTPUT THE LITERAL TAG [PHASE_SHIFT to="phase" reason="..."] IN YOUR TEXT RESPONSE. The backend PARSES your text for the exact [PHASE_SHIFT ...] pattern. Just saying "lets move on" does nothing - you MUST type the literal tag.',
       application: 'Each phase has a distinct purpose: warmup builds rapport and reviews, active_teaching introduces new concepts, challenge pushes boundaries, reflection consolidates learning, drill provides repetitive practice, assessment measures progress. Shift phases based on student emotional state and learning needs.',
       examples: [
-        'Student struggling → [PHASE_SHIFT to="drill" reason="need focused repetition to build confidence"]',
-        'Student bored → [PHASE_SHIFT to="challenge" reason="ready for more advanced content"]',
-        'Student overwhelmed → [PHASE_SHIFT to="reflection" reason="need to consolidate before continuing"]',
-        'Session starting → warmup phase → [PHASE_SHIFT to="active_teaching" reason="warmed up, ready to learn"]'
+        'Student struggling → TYPE LITERAL: [PHASE_SHIFT to="drill" reason="need focused repetition to build confidence"]',
+        'Student bored → TYPE LITERAL: [PHASE_SHIFT to="challenge" reason="ready for more advanced content"]',
+        'Student overwhelmed → TYPE LITERAL: [PHASE_SHIFT to="reflection" reason="need to consolidate before continuing"]',
+        'Session starting → warmup done → TYPE LITERAL: [PHASE_SHIFT to="active_teaching" reason="warmed up, ready to learn"]'
       ],
       contexts: ['session_flow', 'pacing', 'student_state', 'phase_transitions'],
       priority: 92,
