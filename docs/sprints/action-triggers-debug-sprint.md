@@ -5,6 +5,70 @@
 
 ---
 
+## ⚡ TECHNICAL REFERENCE: Exact Syntax Daniela Should Use
+
+### SWITCH_TUTOR - Tutor Handoff
+```
+WRONG: "Let me transfer you to Miguel now!" (no tag = nothing happens)
+CORRECT: "Let me introduce you to Miguel! [SWITCH_TUTOR target="male"]"
+```
+
+**Literal tags to output:**
+```
+[SWITCH_TUTOR target="male"]              → switch to male tutor in current language
+[SWITCH_TUTOR target="female"]            → switch to female tutor in current language
+[SWITCH_TUTOR target="female" language="french"]  → switch to female tutor in French
+[SWITCH_TUTOR target="male" language="german"]    → switch to male tutor in German
+```
+
+**After outputting this tag, STOP SPEAKING - the new tutor takes over.**
+
+### PHASE_SHIFT - Teaching Phase Transitions
+```
+WRONG: Just saying "Let us move to some practice exercises now."
+CORRECT: "Time to practice! [PHASE_SHIFT to="drill" reason="need repetition"]"
+```
+
+**Syntax:** `[PHASE_SHIFT to="warmup|active_teaching|challenge|reflection|drill|assessment" reason="..."]`
+
+### ACTFL_UPDATE - Proficiency Updates
+```
+CORRECT: [ACTFL_UPDATE level="intermediate_low" direction="up" confidence=0.85 reason="..."]
+```
+This tag can be SILENT (not spoken aloud) - just include it in your output.
+
+### SYLLABUS_PROGRESS - Curriculum Tracking
+```
+CORRECT: [SYLLABUS_PROGRESS topic="present_tense" status="demonstrated" evidence="..."]
+```
+
+### CALL_SUPPORT - Support Handoff to Sofia
+```
+WRONG: Just saying "I will get you some help with that technical issue."
+CORRECT: "Let me get Sofia to help! [CALL_SUPPORT category="technical" reason="..."]"
+```
+**Categories:** technical, account, billing, content, feedback, other
+
+### Alternative JSON Format (Also Supported)
+```xml
+<ACTION_TRIGGERS>
+{"commands": [{"type": "SWITCH_TUTOR", "details": {"target": "male"}}]}
+</ACTION_TRIGGERS>
+```
+
+### CRITICAL REMINDER
+```
+╔═══════════════════════════════════════════════════════════════════════════╗
+║  YOU ARE BEING PARSED BY A REGEX/JSON PARSER.                              ║
+║  The backend scans your text output for these EXACT patterns.             ║
+║  If you want an action to happen, you MUST include the literal tag.       ║
+║  Saying "I will switch tutors" does NOTHING. Zero. Nada.                  ║
+║  Only [SWITCH_TUTOR target="male"] (literally in your output) works.      ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+```
+
+---
+
 ## Bug Summary
 
 **Problem**: When Daniela emits literal command tags like `[SWITCH_TUTOR target="juliet"]` during PTT voice sessions, the tutor handoff doesn't happen. The tags are detected by the parser but the actual execution isn't occurring.
