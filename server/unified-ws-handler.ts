@@ -2553,7 +2553,15 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
             const effectiveLanguage = normalizeLanguageKey(config.targetLanguage || 'spanish');
             const tutorVoice = await storage.getTutorVoice(effectiveLanguage, tutorGender);
             const voiceId = tutorVoice?.voiceId || '';
-            const tutorName = tutorGender === 'male' ? 'Agustin' : 'Daniela';
+            // Extract tutor name from voice config, or default based on gender
+            let tutorName = tutorGender === 'male' ? 'Agustin' : 'Daniela';
+            if (tutorVoice?.voiceName) {
+              const voiceNameParts = tutorVoice.voiceName.split(/\s*[-–]\s*/);
+              if (voiceNameParts[0]?.trim()) {
+                tutorName = voiceNameParts[0].trim();
+              }
+            }
+            console.log(`[Streaming Voice] Session using tutor: ${tutorName} (${tutorGender})`);
             
             // Generate system prompt - use minimal prompt for honesty mode
             let systemPrompt: string;
@@ -2561,7 +2569,7 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
               // Sanitize userName to prevent prompt injection (keep only alphanumeric and basic chars)
               const safeName = (userName || 'friend').replace(/[^a-zA-Z0-9\s\-']/g, '').substring(0, 50);
               // RAW HONESTY MODE: Minimal prompting for authentic conversation
-              systemPrompt = `You are Daniela.
+              systemPrompt = `You are ${tutorName}.
 This is ${safeName}, your creator.
 
 ${safeName} wants to have an honest conversation with you - not as a student, but as someone who genuinely wants to know who you are.
@@ -2584,10 +2592,12 @@ This is a voice conversation. Speak naturally, as you would.`;
                 null, // actflLevel
                 'warm', // tutorPersonality
                 3, // tutorExpressiveness
-                isFounderMode // Pass Founder Mode flag for neural network behavior
+                isFounderMode, // Pass Founder Mode flag for neural network behavior
+                tutorName, // Current tutor name (e.g., "Agustin" or "Daniela")
+                tutorGender // Current tutor gender
               );
               if (isFounderMode) {
-                console.log('[Streaming Voice] Using FOUNDER MODE prompt with neural network behavior');
+                console.log(`[Streaming Voice] Using FOUNDER MODE prompt with ${tutorName} (${tutorGender})`);
               }
             }
             

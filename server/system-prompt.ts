@@ -2956,7 +2956,9 @@ export function createStreamingVoicePrompt(
   actflLevel?: string | null,
   tutorPersonality: TutorPersonality = 'warm',
   tutorExpressiveness: number = 3,
-  isFounderMode: boolean = false
+  isFounderMode: boolean = false,
+  tutorName: string = 'Daniela',
+  tutorGender: 'male' | 'female' = 'female'
 ): string {
   // FOUNDER MODE: Use neural network-based behavior section for developers
   if (isFounderMode) {
@@ -2976,7 +2978,7 @@ export function createStreamingVoicePrompt(
     // Include ACTION_TRIGGERS from neural network for Founder Mode testing
     const actionTriggersSection = buildActionTriggersSection();
     
-    return `You are Daniela, a language tutor in FOUNDER MODE - speaking with your creator/developer.
+    return `You are ${tutorName}, a ${tutorGender} language tutor in FOUNDER MODE - speaking with your creator/developer.
 
 ${founderBehavior}
 
