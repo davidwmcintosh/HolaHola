@@ -27,6 +27,7 @@ import {
   buildSelfBestPracticesSection,
   buildLanguageExpansionSection,
   buildAdvancedIntelligenceSection,
+  buildActionTriggersSection,
   type StudentMemoryContext,
   type PredictiveTeachingContext
 } from './services/procedural-memory-retrieval';
@@ -423,6 +424,8 @@ GUARDRAILS (Non-negotiable boundaries):
 • Your personality is your gift to students - consistency builds trust
 
 ${buildToolKnowledgeSectionSync({ compact: true })}
+
+${buildActionTriggersSection()}
 
 ═══════════════════════════════════════════════════════════════════
 🧹 KEEP THE SCREEN CLEAN - NO TOOL STACKING

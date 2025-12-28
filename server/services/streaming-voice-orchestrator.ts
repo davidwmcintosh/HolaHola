@@ -49,6 +49,7 @@ import {
   STREAMING_FEATURE_FLAGS,
 } from "@shared/streaming-voice-types";
 import { parseWhiteboardMarkup, WhiteboardItem, WordMapItem, isWordMapItem, stripWhiteboardMarkup, SelfSurgeryItemData } from "@shared/whiteboard-types";
+import { commandParserService, ParsedCommand } from "./command-parser";
 
 /**
  * Lightweight metrics logger for performance monitoring
@@ -1531,6 +1532,98 @@ Remember: David may reference things discussed in these recent text chats.
           // WHITEBOARD: Parse markup from the raw chunk text FIRST (before display cleaning)
           // This ensures SWITCH_TUTOR and other commands are processed even if no speakable text
           const whiteboardParsed = parseWhiteboardMarkup(chunk.text);
+          
+          // COMMAND PARSER: Additional robust parsing for ACTION_TRIGGERS and bracketed commands
+          // This catches commands that might be missed by the primary parser (especially JSON format)
+          const commandParseResult = commandParserService.parse(chunk.text);
+          if (commandParseResult.commands.length > 0) {
+            console.log(`[CommandParser] Found ${commandParseResult.commands.length} commands in chunk ${chunk.index}:`, 
+              commandParseResult.commands.map(c => commandParserService.formatCommand(c)));
+            
+            // Log any validation errors for debugging
+            if (commandParseResult.errors.length > 0) {
+              console.warn(`[CommandParser] Validation issues:`, commandParseResult.errors);
+            }
+            
+            // DEDUPLICATION: Only route JSON-sourced commands here, as bracketed commands 
+            // are already handled by the whiteboard parser below. This prevents duplicate execution.
+            const jsonCommands = commandParseResult.commands.filter(c => c.source === 'json');
+            
+            if (jsonCommands.length > 0) {
+              console.log(`[CommandParser] Routing ${jsonCommands.length} JSON-format commands (bracketed handled by whiteboard parser)`);
+            }
+            
+            // Route only JSON-format commands to their handlers
+            for (const cmd of jsonCommands) {
+              switch (cmd.type) {
+                case 'SWITCH_TUTOR': {
+                  // Only process if not already handled by whiteboard parser
+                  const target = cmd.params.target as string;
+                  if (!session.pendingTutorSwitch && target) {
+                    session.pendingTutorSwitch = {
+                      targetGender: target as 'male' | 'female',
+                      targetLanguage: cmd.params.language as string | undefined,
+                      targetRole: cmd.params.role as 'tutor' | 'assistant' | undefined,
+                    };
+                    session.switchTutorTriggered = true;
+                    console.log(`[CommandParser→TutorSwitch] Queued handoff to ${target} tutor via ${cmd.source} format`);
+                  }
+                  break;
+                }
+                case 'PHASE_SHIFT': {
+                  const to = cmd.params.to as string;
+                  const reason = cmd.params.reason as string;
+                  if (to && reason) {
+                    this.processPhaseShift(session, { 
+                      to: to as 'warmup' | 'active_teaching' | 'challenge' | 'reflection' | 'drill' | 'assessment', 
+                      reason 
+                    }).catch(err => console.error(`[CommandParser→PhaseShift] Error:`, err));
+                    console.log(`[CommandParser→PhaseShift] Triggered: ${to} - ${reason} via ${cmd.source} format`);
+                  }
+                  break;
+                }
+                case 'ACTFL_UPDATE': {
+                  const level = cmd.params.level as string;
+                  if (level) {
+                    this.processActflUpdate(session, {
+                      level,
+                      confidence: (cmd.params.confidence as number) || 0.8,
+                      reason: (cmd.params.reason as string) || 'Observed in conversation',
+                      direction: cmd.params.direction as 'up' | 'down' | 'confirm' | undefined,
+                    }).catch(err => console.error(`[CommandParser→ActflUpdate] Error:`, err));
+                    console.log(`[CommandParser→ActflUpdate] Level: ${level} via ${cmd.source} format`);
+                  }
+                  break;
+                }
+                case 'SYLLABUS_PROGRESS': {
+                  const topic = cmd.params.topic as string;
+                  const status = cmd.params.status as string;
+                  if (topic && status) {
+                    this.processSyllabusProgress(session, {
+                      topic,
+                      status: status as 'demonstrated' | 'needs_review' | 'struggling',
+                      evidence: (cmd.params.evidence as string) || 'Observed in conversation',
+                    }).catch(err => console.error(`[CommandParser→SyllabusProgress] Error:`, err));
+                    console.log(`[CommandParser→SyllabusProgress] Topic: ${topic} = ${status} via ${cmd.source} format`);
+                  }
+                  break;
+                }
+                case 'CALL_SUPPORT':
+                case 'CALL_SOFIA': {
+                  // Support handoff - queue for processing
+                  const category = cmd.params.category as string;
+                  if (category && !session.pendingSupportHandoff) {
+                    session.pendingSupportHandoff = {
+                      category,
+                      reason: cmd.params.reason as string | undefined,
+                    };
+                    console.log(`[CommandParser→Support] Queued support handoff: ${category} via ${cmd.source} format`);
+                  }
+                  break;
+                }
+              }
+            }
+          }
           
           // Clean text for display (remove markdown, emotion tags)
           const displayText = cleanTextForDisplay(chunk.text);

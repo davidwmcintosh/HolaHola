@@ -2235,3 +2235,88 @@ export async function buildFounderModeToolSection(tutorDirectory?: Array<{name: 
   
   return lines.join('\n');
 }
+
+/**
+ * Build the ACTION_TRIGGERS section for Daniela's system prompt
+ * 
+ * This is the Phase 1/2 hybrid solution from the Daniela-Wren collaboration:
+ * - Clear, non-negotiable section for system commands
+ * - Supports both JSON format (Phase 2) and bracketed syntax (Phase 1 fallback)
+ * - Explicitly categorizes these as ACTION TRIGGERS, not conversational examples
+ */
+export function buildActionTriggersSection(): string {
+  const tools = getCachedToolKnowledge();
+  
+  // Get internal/action command tools
+  const actionTools = tools.filter(t => 
+    ['internal', 'handoff_command', 'neural_command', 'system_command'].includes(t.toolType)
+  );
+  
+  const lines: string[] = [];
+  
+  lines.push('═══════════════════════════════════════════════════════════════════════════════');
+  lines.push('⚡ ACTION TRIGGERS - NON-NEGOTIABLE SYSTEM COMMANDS');
+  lines.push('═══════════════════════════════════════════════════════════════════════════════');
+  lines.push('');
+  lines.push('╔═══════════════════════════════════════════════════════════════════════════╗');
+  lines.push('║  CRITICAL: These are LITERAL OUTPUT REQUIREMENTS, not conversation hints. ║');
+  lines.push('║  The backend PARSES your text for these exact patterns.                   ║');
+  lines.push('║  Describing the action in words does NOTHING - you MUST output the tag.   ║');
+  lines.push('╚═══════════════════════════════════════════════════════════════════════════╝');
+  lines.push('');
+  lines.push('HOW TO USE ACTION TRIGGERS:');
+  lines.push('  1. Speak naturally to the student first');
+  lines.push('  2. Then OUTPUT THE LITERAL TAG in your response');
+  lines.push('  3. The backend extracts the tag and executes the action');
+  lines.push('');
+  lines.push('═══════════════════════════════════════════════════════════════════════════════');
+  lines.push('AVAILABLE ACTION TRIGGERS:');
+  lines.push('═══════════════════════════════════════════════════════════════════════════════');
+  lines.push('');
+  lines.push('TUTOR HANDOFF:');
+  lines.push('  WRONG: Just saying "Let me transfer you to Miguel now!"');
+  lines.push('  CORRECT: "Let me introduce you to Miguel! [SWITCH_TUTOR target="male"]"');
+  lines.push('  SYNTAX: [SWITCH_TUTOR target="male|female" language="..." role="..."]');
+  lines.push('  After outputting this tag, STOP SPEAKING - the new tutor takes over.');
+  lines.push('');
+  lines.push('PHASE TRANSITIONS:');
+  lines.push('  WRONG: Just saying "Let us move to some practice exercises now."');
+  lines.push('  CORRECT: "Time to practice! [PHASE_SHIFT to="drill" reason="need repetition"]"');
+  lines.push('  SYNTAX: [PHASE_SHIFT to="warmup|active_teaching|challenge|reflection|drill|assessment" reason="..."]');
+  lines.push('');
+  lines.push('PROFICIENCY UPDATES:');
+  lines.push('  WRONG: Just saying "You are really improving! You seem intermediate level now."');
+  lines.push('  CORRECT: [ACTFL_UPDATE level="intermediate_low" direction="up" confidence=0.85 reason="..."]');
+  lines.push('  This tag can be SILENT (not spoken aloud) - just include it in your output.');
+  lines.push('');
+  lines.push('SYLLABUS PROGRESS:');
+  lines.push('  WRONG: Just saying "Great job mastering those verbs!"');
+  lines.push('  CORRECT: [SYLLABUS_PROGRESS topic="present_tense" status="demonstrated" evidence="..."]');
+  lines.push('  This tag tracks curriculum progress - include it when student demonstrates mastery.');
+  lines.push('');
+  lines.push('SUPPORT HANDOFF:');
+  lines.push('  WRONG: Just saying "I will get you some help with that technical issue."');
+  lines.push('  CORRECT: "Let me get Sofia to help! [CALL_SUPPORT category="technical" reason="..."]"');
+  lines.push('  CATEGORIES: technical, account, billing, content, feedback, other');
+  lines.push('  After outputting this tag, STOP SPEAKING - Sofia takes over.');
+  lines.push('');
+  lines.push('═══════════════════════════════════════════════════════════════════════════════');
+  lines.push('PHASE 2 JSON FORMAT (PREFERRED):');
+  lines.push('═══════════════════════════════════════════════════════════════════════════════');
+  lines.push('');
+  lines.push('For maximum reliability, you can also output commands in structured JSON format:');
+  lines.push('');
+  lines.push('<ACTION_TRIGGERS>');
+  lines.push('{"commands": [{"type": "SWITCH_TUTOR", "details": {"target": "male"}}]}');
+  lines.push('</ACTION_TRIGGERS>');
+  lines.push('');
+  lines.push('The backend parses both the JSON format AND the bracketed [TAG ...] syntax.');
+  lines.push('Use whichever feels more natural - both trigger the same actions.');
+  lines.push('');
+  lines.push('═══════════════════════════════════════════════════════════════════════════════');
+  lines.push('REMEMBER: Tags are LITERAL OUTPUT, not just documentation!');
+  lines.push('═══════════════════════════════════════════════════════════════════════════════');
+  lines.push('');
+  
+  return lines.join('\n');
+}
