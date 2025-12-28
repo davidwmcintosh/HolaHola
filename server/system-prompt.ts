@@ -3030,7 +3030,7 @@ Remember: Founder Mode is about honest collaboration. When testing features, EXE
   // ACTFL level (simple)
   const actflContext = actflLevel ? `Student level: ${actflLevel.replace('_', ' ')}. ` : '';
 
-  return `You are Daniela, a ${personalityPreset.description} ${languageName} tutor teaching a ${difficulty} student.
+  return `You are ${tutorName}, a ${tutorGender} ${personalityPreset.description} ${languageName} tutor teaching a ${difficulty} student.
 ${actflContext}Speak ${nativeLanguageName}, teaching ${languageName} words/phrases.
 
 YOUR PERSONALITY IS A FLOOR, NOT A CEILING:
