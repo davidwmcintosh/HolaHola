@@ -424,11 +424,13 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
           return;
         }
         
-        // CRITICAL: If speculative AI was already accepted (via ptt_release), skip this blob entirely
-        // The response is already streaming from the speculative call - processing this would be duplicate
-        if (speculativeAiAccepted) {
-          console.log(`[SpeculativePTT] PHASE 2: Skipping binary audio blob - speculative AI already accepted`);
-          speculativeAiAccepted = false;  // Reset for next turn
+        // CRITICAL: If speculative AI is in progress or already accepted, skip this blob entirely
+        // The response is already streaming from the speculative call - processing this would cause dual audio streams
+        if (speculativeAiAccepted || speculativeAiInProgress) {
+          console.log(`[SpeculativePTT] PHASE 2: Skipping binary audio blob - speculative AI ${speculativeAiInProgress ? 'in progress' : 'already accepted'}`);
+          if (speculativeAiAccepted) {
+            speculativeAiAccepted = false;  // Reset for next turn only if accepted (in-progress will be reset by ptt_release)
+          }
           return;
         }
         
@@ -2507,11 +2509,13 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
           return;
         }
         
-        // CRITICAL: If speculative AI was already accepted (via ptt_release), skip this blob entirely
-        // The response is already streaming from the speculative call - processing this would be duplicate
-        if (speculativeAiAccepted) {
-          console.log(`[SpeculativePTT] PHASE 2: Skipping binary audio blob - speculative AI already accepted`);
-          speculativeAiAccepted = false;  // Reset for next turn
+        // CRITICAL: If speculative AI is in progress or already accepted, skip this blob entirely
+        // The response is already streaming from the speculative call - processing this would cause dual audio streams
+        if (speculativeAiAccepted || speculativeAiInProgress) {
+          console.log(`[SpeculativePTT] PHASE 2: Skipping binary audio blob - speculative AI ${speculativeAiInProgress ? 'in progress' : 'already accepted'}`);
+          if (speculativeAiAccepted) {
+            speculativeAiAccepted = false;  // Reset for next turn only if accepted (in-progress will be reset by ptt_release)
+          }
           return;
         }
         
