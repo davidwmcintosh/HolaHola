@@ -302,6 +302,7 @@ export class StreamingAudioPlayer {
   
   // Web Audio API for raw PCM playback
   private audioContext: AudioContext | null = null;
+  private masterGainNode: GainNode | null = null;
   private currentPcmSource: AudioBufferSourceNode | null = null;
   private currentAudioFormat: 'mp3' | 'pcm_f32le' = 'mp3';
   
@@ -420,8 +421,28 @@ export class StreamingAudioPlayer {
       this.audioContext = new AudioContext({ sampleRate: 24000 });
       // Assign unique ID for debugging
       (this.audioContext as any).__debugId = `ctx_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+      
+      // Create master gain node for consistent volume control
+      // Gain of 1.0 = no change (preserves dynamics), but provides a control point
+      this.masterGainNode = this.audioContext.createGain();
+      this.masterGainNode.gain.value = 1.0;
+      this.masterGainNode.connect(this.audioContext.destination);
     }
     return this.audioContext;
+  }
+  
+  /**
+   * Get the master gain node (audio output point)
+   * All audio sources should connect to this instead of directly to destination
+   */
+  private getMasterGain(): GainNode {
+    const ctx = this.getAudioContext();
+    if (!this.masterGainNode) {
+      this.masterGainNode = ctx.createGain();
+      this.masterGainNode.gain.value = 1.0;
+      this.masterGainNode.connect(ctx.destination);
+    }
+    return this.masterGainNode;
   }
   
   /**
@@ -835,7 +856,7 @@ export class StreamingAudioPlayer {
     // Create and schedule buffer source
     const source = ctx.createBufferSource();
     source.buffer = audioBuffer;
-    source.connect(ctx.destination);
+    source.connect(this.getMasterGain());
     this.progressiveSources.push(source);
     
     // Schedule at next available time for gapless playback
@@ -1907,7 +1928,7 @@ export class StreamingAudioPlayer {
     // Create buffer source node
     const source = ctx.createBufferSource();
     source.buffer = audioBuffer;
-    source.connect(ctx.destination);
+    source.connect(this.getMasterGain());
     this.currentPcmSource = source;
     
     // Set state and timing BEFORE starting playback
