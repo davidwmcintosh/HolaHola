@@ -8,6 +8,97 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: December 28, 2025 - ACTION_TRIGGERS Command System Cleanup
+
+**Status**: COMPLETED - Prompt deduplication and robust cross-language handoffs
+
+**Overview**: Cleaned up the ACTION_TRIGGERS command system to eliminate duplication between neural network procedural memory and system prompts, while adding smart language inference for cross-language tutor handoffs.
+
+#### What Was Implemented
+
+| Feature | Description |
+|---------|-------------|
+| Smart Language Inference | `inferLanguageFromTutorName()` auto-fills missing `language` parameter by detecting tutor names in AI response |
+| Dynamic Tutor Identity | All voice modes (Regular, Founder, Raw Honesty) now use `tutorName` parameter instead of hardcoded "Daniela" |
+| Prompt Deduplication | Reduced `buildTutorDirectorySection` from ~175 lines to ~17 lines |
+| Single Source of Truth | Neural network's `buildActionTriggersSection` is now the authoritative command syntax reference |
+
+#### Smart Language Inference Algorithm
+
+```typescript
+// server/services/streaming-voice-orchestrator.ts
+function inferLanguageFromTutorName(
+  responseText: string,
+  targetGender: 'male' | 'female',
+  currentLanguage: string,
+  tutorDirectory: TutorDirectoryEntry[]
+): string | undefined {
+  // 1. Find tutors matching target gender from OTHER languages
+  const crossLangTutors = tutorDirectory.filter(t => 
+    t.gender === targetGender && 
+    t.language.toLowerCase() !== currentLanguage.toLowerCase()
+  );
+  
+  // 2. Check if any tutor name is mentioned in the response
+  for (const tutor of crossLangTutors) {
+    if (responseText.toLowerCase().includes(tutor.name.toLowerCase())) {
+      return tutor.language.toLowerCase();
+    }
+  }
+  return undefined;
+}
+```
+
+#### Before/After: buildTutorDirectorySection
+
+**Before (175 lines)**:
+- Full command syntax for SWITCH_TUTOR
+- 10+ examples of correct/incorrect usage
+- Detailed error cases
+- CALL_SOFIA syntax and examples
+
+**After (17 lines)**:
+```
+AVAILABLE VOICE PERSONAS (your voices for different languages):
+  • Spanish: Daniela (female) ★, Agustin (male)
+  • French: Juliette (female), Pierre (male)
+
+Currently teaching: SPANISH
+Student's preferred gender: female
+
+QUICK REFERENCE (see ACTION_TRIGGERS for syntax):
+  Same language: [SWITCH_TUTOR target="female"]
+  Cross-language: [SWITCH_TUTOR target="female" language="french"]
+
+SUPPORT SPECIALIST: Sofia (technical issues, billing, account problems)
+Use [CALL_SOFIA category="..." reason="..."] for support handoff (see ACTION_TRIGGERS for syntax).
+```
+
+#### Key Files Modified
+
+| File | Changes |
+|------|---------|
+| `server/services/streaming-voice-orchestrator.ts` | Added `inferLanguageFromTutorName()`, applied to PTT and open-mic paths |
+| `server/system-prompt.ts` | Reduced `buildTutorDirectorySection`, fixed hardcoded "Daniela" in regular mode |
+| `server/services/procedural-memory-retrieval.ts` | `buildActionTriggersSection` remains the single source of truth |
+
+#### Parsing Pattern (All Commands)
+
+All commands now follow the same robust pattern:
+1. **Whiteboard parser** (structured detection via `whiteboardItems`)
+2. **Regex fallback** when parser misses the tag
+3. **Smart inference** (SWITCH_TUTOR only) for missing parameters
+
+#### Architecture Decision
+
+Neural network's `buildActionTriggersSection` is injected via procedural memory retrieval. System prompts only provide:
+- **Context**: Who the tutors are, current language, preferred gender
+- **Quick reference**: Minimal syntax example with "see ACTION_TRIGGERS" pointer
+
+This ensures command syntax is defined in ONE place, reducing prompt inconsistency.
+
+---
+
 ### TODO: Teacher/Institution Pricing Model
 
 **Status**: PLANNING - Needs specification
