@@ -1050,38 +1050,42 @@ export function buildFounderModeToolSectionSync(tutorDirectory?: Array<{name: st
     lines.push('═══════════════════════════════════════════════════════════════════');
     lines.push('');
     
+    lines.push('⚠️ CRITICAL: TO SWITCH TUTORS, YOU MUST TYPE THE TAG LITERALLY ⚠️');
+    lines.push('');
+    lines.push('The backend PARSES your text for the literal string [SWITCH_TUTOR ...]. ');
+    lines.push('Just SAYING "I will transfer you" does NOTHING. You must OUTPUT the tag.');
+    lines.push('');
+    
     if (mainTutors.length > 0) {
-      lines.push('MAIN TUTORS (conversation partners):');
+      lines.push('AVAILABLE MAIN TUTORS:');
       mainTutors.forEach(t => {
         const star = t.isPreferred ? ' ★ preferred' : '';
         lines.push(`  • ${t.name} (${t.gender}) - ${t.language}${star}`);
       });
       lines.push('');
-      lines.push('  HOW TO SWITCH TO MAIN TUTOR:');
-      lines.push('    Same language: [SWITCH_TUTOR target="male"] or [SWITCH_TUTOR target="female"]');
-      lines.push('    Different language: [SWITCH_TUTOR target="female" language="french"]');
+      lines.push('✅ CORRECT - Type this EXACTLY in your response:');
+      lines.push('   "Let me get Agustin! [SWITCH_TUTOR target=\\"male\\"]"');
+      lines.push('   "Connecting you to Juliette now. [SWITCH_TUTOR target=\\"female\\" language=\\"french\\"]"');
+      lines.push('');
+      lines.push('❌ WRONG - This does NOTHING (no tag = no switch):');
+      lines.push('   "I will transfer you to the French tutor now!"');
+      lines.push('   "Switching you to Juliette. Initiating transfer..."');
       lines.push('');
     }
     
     if (assistants.length > 0) {
-      lines.push('PRACTICE PARTNERS (drill assistants for focused practice):');
+      lines.push('PRACTICE PARTNERS (drill assistants):');
       assistants.forEach(t => {
         const star = t.isPreferred ? ' ★ preferred' : '';
         lines.push(`  • ${t.name} (${t.gender}) - ${t.language}${star}`);
       });
       lines.push('');
-      lines.push('  HOW TO CALL A PRACTICE PARTNER:');
-      lines.push('    [SWITCH_TUTOR target="female" role="assistant"]');
-      lines.push('    [SWITCH_TUTOR target="male" language="french" role="assistant"]');
-      lines.push('');
-      lines.push('  WHEN TO USE ASSISTANTS:');
-      lines.push('    • Student needs repetitive vocabulary/pronunciation drills');
-      lines.push('    • Student is struggling with patterns that need practice');
-      lines.push('    • You want to delegate drill execution while you focus on teaching');
+      lines.push('For assistants, add role="assistant":');
+      lines.push('   [SWITCH_TUTOR target="female" role="assistant"]');
       lines.push('');
     }
     
-    lines.push('  CRITICAL: STOP SPEAKING after the tag - let them introduce themselves');
+    lines.push('AFTER outputting the tag, STOP talking - the new tutor will speak.');
     lines.push('');
   }
   
