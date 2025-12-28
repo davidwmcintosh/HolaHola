@@ -220,12 +220,29 @@ function cleanTextForDisplay(text: string): string {
   // Pattern: [WREN_MESSAGE: content here] or [WREN_MESSAGE content="..."]
   text = text.replace(/\[WREN_MESSAGE[:\s][^\]]*\]/gi, '');
   
+  // Strip ACTION_TRIGGERS XML blocks (JSON command format - invisible to students)
+  // Pattern: <ACTION_TRIGGERS>{"commands":[...]}</ACTION_TRIGGERS>
+  text = text.replace(/<ACTION_TRIGGERS>[\s\S]*?<\/ACTION_TRIGGERS>/gi, '');
+  
   // Strip internal notes/reasoning fragments that Gemini sometimes leaks
   // These are fragments of structured output that shouldn't be spoken
-  // Patterns: reasoning="...", priority=\d+, confidence=\d+
+  // Patterns: reasoning="...", priority=\d+, confidence=\d+ (attribute format)
   text = text.replace(/\breasoning\s*=\s*"[^"]*"/gi, '');
   text = text.replace(/\bpriority\s*=\s*\d+/gi, '');
   text = text.replace(/\bconfidence\s*=\s*[\d.]+/gi, '');
+  // Also handle JSON format: "priority":90, "confidence":95, "reasoning":"..."
+  text = text.replace(/"priority"\s*:\s*\d+\s*,?/gi, '');
+  text = text.replace(/"confidence"\s*:\s*[\d.]+\s*,?/gi, '');
+  text = text.replace(/"reasoning"\s*:\s*"[^"]*"\s*,?/gi, '');
+  // Strip JSON command type fragments: "type":"SELF_SURGERY", "target":"..."
+  text = text.replace(/"type"\s*:\s*"[A-Z_]+"\s*,?/gi, '');
+  text = text.replace(/"target"\s*:\s*"[^"]*"\s*,?/gi, '');
+  text = text.replace(/"content"\s*:\s*'[^']*'\s*,?/gi, '');
+  text = text.replace(/"content"\s*:\s*"[^"]*"\s*,?/gi, '');
+  // Strip "commands": array wrappers and stray JSON structure
+  text = text.replace(/"commands"\s*:\s*\[\s*/gi, '');
+  text = text.replace(/\{\s*"commands"\s*:/gi, '');
+  text = text.replace(/^\s*\{\s*\}\s*$/g, '');  // Empty JSON objects
   // Strip JSON-like artifacts (closing brackets from malformed structures)
   text = text.replace(/^\s*\]\s*\}?\s*'?\s*/g, '');
   text = text.replace(/\s*\]\s*\}?\s*'?\s*$/g, '');
