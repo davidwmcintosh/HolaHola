@@ -271,7 +271,39 @@ function parseBracketedCommands(text: string): { commands: ParsedCommand[]; erro
 }
 
 /**
- * Main parsing function - tries JSON first, falls back to bracketed syntax
+ * Create a deduplication key for a command based on type and key parameters
+ */
+function getCommandDedupeKey(cmd: ParsedCommand): string {
+  // Build key from type + primary parameters that define uniqueness
+  const keyParams: string[] = [cmd.type];
+  
+  switch (cmd.type) {
+    case 'SWITCH_TUTOR':
+      keyParams.push(String(cmd.params.target || ''));
+      keyParams.push(String(cmd.params.language || ''));
+      break;
+    case 'PHASE_SHIFT':
+      keyParams.push(String(cmd.params.to || ''));
+      break;
+    case 'ACTFL_UPDATE':
+      keyParams.push(String(cmd.params.level || ''));
+      break;
+    case 'SYLLABUS_PROGRESS':
+      keyParams.push(String(cmd.params.topic || ''));
+      keyParams.push(String(cmd.params.status || ''));
+      break;
+    case 'CALL_SUPPORT':
+    case 'CALL_SOFIA':
+      keyParams.push(String(cmd.params.category || ''));
+      break;
+  }
+  
+  return keyParams.join(':').toLowerCase();
+}
+
+/**
+ * Main parsing function - parses BOTH JSON and bracketed syntax, deduplicates
+ * This ensures commands fire exactly once regardless of format used
  */
 export function parseActionCommands(text: string): CommandParseResult {
   const result: CommandParseResult = {
@@ -282,34 +314,54 @@ export function parseActionCommands(text: string): CommandParseResult {
     errors: [],
   };
   
-  // First try JSON parsing from <ACTION_TRIGGERS> section
+  const allCommands: ParsedCommand[] = [];
+  
+  // Parse JSON from <ACTION_TRIGGERS> section
   const jsonResult = parseActionTriggersJSON(text);
   
   if (jsonResult) {
     result.hasActionTriggers = true;
     
     if (jsonResult.commands.length > 0) {
-      result.commands = jsonResult.commands;
+      allCommands.push(...jsonResult.commands);
       result.jsonParseSuccess = true;
-      result.errors = jsonResult.errors;
-      
       console.log(`[CommandParser] Parsed ${jsonResult.commands.length} commands from ACTION_TRIGGERS JSON`);
-      return result;
     }
     
-    // JSON section exists but no valid commands - add errors and try fallback
     result.errors.push(...jsonResult.errors);
   }
   
-  // Fallback to bracketed syntax parsing
+  // ALWAYS parse bracketed syntax too for comprehensive detection
+  // This catches commands outside ACTION_TRIGGERS blocks
   const bracketResult = parseBracketedCommands(text);
   
   if (bracketResult.commands.length > 0) {
-    result.commands = bracketResult.commands;
-    result.fallbackUsed = true;
+    allCommands.push(...bracketResult.commands);
+    // Only mark as fallback if JSON parsing failed or wasn't present
+    if (!result.jsonParseSuccess) {
+      result.fallbackUsed = true;
+    }
     result.errors.push(...bracketResult.errors);
+    console.log(`[CommandParser] Parsed ${bracketResult.commands.length} commands from bracketed syntax`);
+  }
+  
+  // Deduplicate: prefer JSON over bracketed for same command
+  const seen = new Map<string, ParsedCommand>();
+  
+  for (const cmd of allCommands) {
+    const key = getCommandDedupeKey(cmd);
+    const existing = seen.get(key);
     
-    console.log(`[CommandParser] Parsed ${bracketResult.commands.length} commands from bracketed syntax (fallback)`);
+    // If no existing or this is JSON (preferred), use this command
+    if (!existing || (cmd.source === 'json' && existing.source === 'bracketed')) {
+      seen.set(key, cmd);
+    }
+  }
+  
+  result.commands = Array.from(seen.values());
+  
+  if (result.commands.length > 0) {
+    console.log(`[CommandParser] Total unique commands after dedup: ${result.commands.length}`);
   }
   
   return result;

@@ -1533,28 +1533,27 @@ Remember: David may reference things discussed in these recent text chats.
           // This ensures SWITCH_TUTOR and other commands are processed even if no speakable text
           const whiteboardParsed = parseWhiteboardMarkup(chunk.text);
           
-          // COMMAND PARSER: Additional robust parsing for ACTION_TRIGGERS and bracketed commands
-          // This catches commands that might be missed by the primary parser (especially JSON format)
+          // COMMAND PARSER: Robust parsing for ACTION_TRIGGERS JSON format
+          // Purpose: Adds JSON format support that whiteboard parser doesn't have
+          // Whiteboard parser handles bracketed commands; CommandParser handles JSON commands
           const commandParseResult = commandParserService.parse(chunk.text);
+          
+          // Log all detected commands for observability
           if (commandParseResult.commands.length > 0) {
-            console.log(`[CommandParser] Found ${commandParseResult.commands.length} commands in chunk ${chunk.index}:`, 
-              commandParseResult.commands.map(c => commandParserService.formatCommand(c)));
+            console.log(`[CommandParser] Detected ${commandParseResult.commands.length} commands in chunk ${chunk.index}:`, 
+              commandParseResult.commands.map(c => `${c.type}(${c.source})`));
             
-            // Log any validation errors for debugging
             if (commandParseResult.errors.length > 0) {
               console.warn(`[CommandParser] Validation issues:`, commandParseResult.errors);
             }
-            
-            // DEDUPLICATION: Only route JSON-sourced commands here, as bracketed commands 
-            // are already handled by the whiteboard parser below. This prevents duplicate execution.
-            const jsonCommands = commandParseResult.commands.filter(c => c.source === 'json');
-            
-            if (jsonCommands.length > 0) {
-              console.log(`[CommandParser] Routing ${jsonCommands.length} JSON-format commands (bracketed handled by whiteboard parser)`);
-            }
-            
-            // Route only JSON-format commands to their handlers
-            for (const cmd of jsonCommands) {
+          }
+          
+          // ROUTING: Only route JSON-sourced commands here
+          // Bracketed commands are already handled by the whiteboard parser above
+          // This prevents duplicate execution of the same command
+          const jsonCommands = commandParseResult.commands.filter(c => c.source === 'json');
+          
+          for (const cmd of jsonCommands) {
               switch (cmd.type) {
                 case 'SWITCH_TUTOR': {
                   // Only process if not already handled by whiteboard parser
@@ -1622,7 +1621,6 @@ Remember: David may reference things discussed in these recent text chats.
                   break;
                 }
               }
-            }
           }
           
           // Clean text for display (remove markdown, emotion tags)
