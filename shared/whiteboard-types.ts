@@ -1948,24 +1948,24 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
 export function stripWhiteboardMarkup(text: string): string {
   ALL_WHITEBOARD_MARKUP_PATTERN.lastIndex = 0;
   
-  // DEBUG: Check if text contains SWITCH_TUTOR before stripping
-  const hasSwitchTag = text.includes('[SWITCH_TUTOR');
-  
-  const result = text
+  let result = text
     .replace(ALL_WHITEBOARD_MARKUP_PATTERN, '')
     .replace(/\s{2,}/g, ' ')
     .trim();
   ALL_WHITEBOARD_MARKUP_PATTERN.lastIndex = 0;
   
-  // DEBUG: Log if SWITCH_TUTOR tag wasn't stripped
-  if (hasSwitchTag && result.includes('[SWITCH_TUTOR')) {
-    console.log(`[Strip Whiteboard BUG] SWITCH_TUTOR not stripped!`);
-    console.log(`[Strip Whiteboard BUG] Input: "${text.substring(0, 100)}..."`);
-    console.log(`[Strip Whiteboard BUG] Output: "${result.substring(0, 100)}..."`);
-    console.log(`[Strip Whiteboard BUG] Pattern test result: ${ALL_WHITEBOARD_MARKUP_PATTERN.test(text)}`);
-  } else if (hasSwitchTag) {
-    console.log(`[Strip Whiteboard OK] SWITCH_TUTOR stripped successfully`);
-  }
+  // FALLBACK: Aggressively strip any remaining command tags that the complex pattern may have missed
+  // This catches edge cases with global regex state, quote variations, or attribute order issues
+  result = result
+    .replace(/\[SWITCH_TUTORS?\s+[^\]]*\]/gi, '')
+    .replace(/\[PHASE_SHIFT\s+[^\]]*\]/gi, '')
+    .replace(/\[ACTFL_UPDATE\s+[^\]]*\]/gi, '')
+    .replace(/\[SYLLABUS_PROGRESS\s+[^\]]*\]/gi, '')
+    .replace(/\[(?:CALL_SUPPORT|CALL_SOFIA)\s+[^\]]*\]/gi, '')
+    .replace(/\[HIVE\s+[^\]]*\]/gi, '')
+    .replace(/\[SELF_SURGERY\s+[^\]]*\]/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
   
   return result;
 }
