@@ -176,11 +176,13 @@ const PUSH_BATCHES = [
   { id: 'daniela-memories', label: 'Daniela Memories', description: 'Daniela growth memories' },
   { id: 'product-config', label: 'Product Config', description: 'Tutor voices' },
   { id: 'beta-testers', label: 'Beta Testers', description: 'Beta users + credits' },
+  { id: 'beta-usage', label: 'Beta Usage', description: 'Voice sessions, usage data' },
   { id: 'founder-context', label: 'Founder Context', description: 'Your personal facts (same Daniela)' },
 ];
 
 // Available sync batch types for pulling from prod (prod → dev)
 const PULL_BATCHES = [
+  { id: 'hive-snapshots', label: 'Hive Snapshots', description: 'Voice diagnostics, context snapshots' },
   { id: 'beta-usage', label: 'Beta Usage', description: 'Voice sessions, credits consumed' },
   { id: 'aggregate-analytics', label: 'Analytics', description: 'Anonymized usage stats' },
   { id: 'prod-content-growth', label: 'Daniela Content', description: 'Idioms, nuances, error patterns' },
