@@ -1,7 +1,47 @@
 # Sprint: ACTION_TRIGGERS Command Debugging
 **Created**: December 28, 2025  
 **Priority**: HIGH - Core feature broken  
-**Status**: IN PROGRESS
+**Status**: ✅ RESOLVED (December 28, 2025)
+
+---
+
+## ✅ FIX SUMMARY
+
+### Root Cause Identified
+Command processing (SWITCH_TUTOR, ACTFL_UPDATE, PHASE_SHIFT, CALL_SUPPORT) was inside a conditional block that only executed if `parseWhiteboardMarkup` returned items. When the parser returned empty (due to streaming chunking or format mismatches), ALL commands were silently skipped.
+
+### Solution Implemented
+Added **parser-independent regex fallback detection** for all command types in both PTT and open-mic modes:
+
+1. **Two-layer detection**: First attempts structured parsing via `parseWhiteboardMarkup`, then falls back to direct regex matching on raw `chunk.text`
+2. **Regex patterns**: Case-insensitive, tolerant of spacing/quoting variations, handle optional attributes
+3. **Session guards**: `pendingTutorSwitch`/`pendingSupportHandoff` flags prevent duplicate command execution
+4. **Both modes fixed**: PTT (lines ~1712-1838) and open-mic (lines ~2792-2905) now have identical resilient command detection
+
+### Regex Patterns Added
+```regex
+SWITCH_TUTOR: /\[SWITCH_TUTOR\s+target\s*=\s*["']?(male|female)["']?(?:\s+language\s*=\s*["']?(\w+)["']?)?(?:\s+role\s*=\s*["']?(tutor|assistant)["']?)?\s*\]/i
+
+ACTFL_UPDATE: /\[ACTFL_UPDATE\s+level\s*=\s*["']?([^"'\]]+)["']?(?:\s+confidence\s*=\s*["']?(\d+(?:\.\d+)?)["']?)?(?:\s+reason\s*=\s*["']?([^"'\]]+)["']?)?\s*\]/i
+
+PHASE_SHIFT: /\[PHASE_SHIFT\s+to\s*=\s*["']?(warmup|active_teaching|challenge|reflection|drill|assessment)["']?(?:\s+reason\s*=\s*["']?([^"'\]]+)["']?)?\s*\]/i
+
+CALL_SUPPORT: /\[CALL_(?:SUPPORT|SOFIA)\s+category\s*=\s*["']?(technical|account|billing|content|feedback|other)["']?(?:\s+reason\s*=\s*["']?([^"'\]]+)["']?)?(?:\s+priority\s*=\s*["']?(low|normal|high|critical)["']?)?\s*\]/i
+```
+
+### Log Messages to Look For
+When fallbacks fire, logs will show:
+- `[Tutor Switch] PTT (regex fallback): Queued handoff to male tutor`
+- `[ACTFL Update] Open-mic (regex fallback): intermediate_low`
+- `[Phase Shift] PTT (regex fallback): drill`
+
+### Architect Review
+✅ **APPROVED** - "The fallback logic fires only when structured parsing yields no actionable items, preventing double-processing while ensuring commands still execute."
+
+### Future Recommendations
+1. Add automated regression tests simulating empty parser output
+2. Consider broadening regex attribute captures (e.g., hyphenated language codes)
+3. Monitor live traces for tag formats outside current patterns
 
 ---
 
