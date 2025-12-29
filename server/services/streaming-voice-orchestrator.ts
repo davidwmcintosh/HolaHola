@@ -1020,6 +1020,56 @@ export class StreamingVoiceOrchestrator {
       };
     }
     
+    // TUTOR DIRECTORY: Populate at session start for name-based language inference
+    // This enables inferLanguageFromTutorName to work during SWITCH_TUTOR parsing
+    // (If Daniela says "Let me get Juliette" but forgets language="french", we can infer it)
+    try {
+      const allVoices = await storage.getAllTutorVoices();
+      const { ASSISTANT_TUTORS } = await import('./assistant-tutor-config');
+      
+      // Build main tutor entries from database
+      const mainTutorEntries: TutorDirectoryEntry[] = allVoices
+        .filter((v: any) => v.role === 'tutor' && v.isActive)
+        .map((v: any) => {
+          const voiceNameParts = v.voiceName?.split(/\s*[-–]\s*/) || [];
+          const name = voiceNameParts[0]?.trim() || 'Unknown';
+          const isCurrentTutor = v.voiceId === voiceId;
+          const normalizedGender = (v.gender || 'female').toLowerCase() as 'male' | 'female';
+          const normalizedLanguage = (v.language || 'spanish').toLowerCase();
+          const isPreferred = initialGender === normalizedGender && normalizedLanguage === config.targetLanguage.toLowerCase();
+          return {
+            name,
+            gender: normalizedGender,
+            language: normalizedLanguage,
+            isPreferred,
+            isCurrent: isCurrentTutor,
+            role: 'tutor' as const,
+          };
+        });
+      
+      // Build assistant entries from config
+      const assistantEntries: TutorDirectoryEntry[] = Object.entries(ASSISTANT_TUTORS)
+        .flatMap(([lang, config]) => [
+          { name: config.male, gender: 'male' as const, language: lang.toLowerCase(), isPreferred: false, isCurrent: false, role: 'assistant' as const },
+          { name: config.female, gender: 'female' as const, language: lang.toLowerCase(), isPreferred: false, isCurrent: false, role: 'assistant' as const },
+        ]);
+      
+      // Add Sofia support agent
+      const sofiaEntry: TutorDirectoryEntry = {
+        name: 'Sofia',
+        gender: 'female' as const,
+        language: 'multilingual',
+        isPreferred: false,
+        isCurrent: false,
+        role: 'support' as const,
+      };
+      
+      session.tutorDirectory = [...mainTutorEntries, ...assistantEntries, sofiaEntry];
+      console.log(`[Session Init] tutorDirectory populated with ${session.tutorDirectory.length} entries`);
+    } catch (tdErr: any) {
+      console.warn(`[Session Init] Failed to populate tutorDirectory: ${tdErr.message}`);
+    }
+    
     // PARALLEL WARMUP: Pre-warm both Cartesia and Gemini connections concurrently
     // - Cartesia: Eliminates WebSocket handshake latency (~150-200ms)
     // - Gemini: Eliminates cold-start penalty (~3-4 seconds on first request)
