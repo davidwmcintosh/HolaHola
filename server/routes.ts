@@ -13657,7 +13657,7 @@ Current conversation context:
   app.patch("/api/admin/voices/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { id } = req.params;
-      const { speakingRate, personality, expressiveness, emotion } = req.body;
+      const { speakingRate, personality, expressiveness, emotion, pedagogicalFocus, teachingStyle, errorTolerance } = req.body;
       
       // Get existing voice first
       const voices = await storage.getAllTutorVoices();
@@ -13682,6 +13682,26 @@ Current conversation context:
       }
       if (emotion !== undefined) {
         updates.emotion = emotion;
+      }
+      
+      // Pedagogical Persona fields
+      if (pedagogicalFocus !== undefined) {
+        const validFocus = ['grammar', 'fluency', 'pronunciation', 'culture', 'vocabulary', 'mixed'];
+        if (validFocus.includes(pedagogicalFocus)) {
+          updates.pedagogicalFocus = pedagogicalFocus;
+        }
+      }
+      if (teachingStyle !== undefined) {
+        const validStyles = ['structured', 'conversational', 'drill_focused', 'adaptive', 'socratic'];
+        if (validStyles.includes(teachingStyle)) {
+          updates.teachingStyle = teachingStyle;
+        }
+      }
+      if (errorTolerance !== undefined) {
+        const validTolerance = ['high', 'medium', 'low'];
+        if (validTolerance.includes(errorTolerance)) {
+          updates.errorTolerance = errorTolerance;
+        }
       }
       
       // Use upsert with existing voice data plus updates

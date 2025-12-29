@@ -9,9 +9,12 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Loader2, Volume2, Save, RotateCcw, Play, Sparkles } from "lucide-react";
+import { Loader2, Volume2, Save, RotateCcw, Play, Sparkles, GraduationCap } from "lucide-react";
 
 type PersonalityType = 'warm' | 'calm' | 'energetic' | 'professional';
+type PedagogicalFocusType = 'grammar' | 'fluency' | 'pronunciation' | 'culture' | 'vocabulary' | 'mixed';
+type TeachingStyleType = 'structured' | 'conversational' | 'drill_focused' | 'adaptive' | 'socratic';
+type ErrorToleranceType = 'high' | 'medium' | 'low';
 
 interface TTSMetadata {
   personalities: Record<PersonalityType, {
@@ -42,6 +45,11 @@ interface TutorVoice {
   expressiveness: number;
   emotion: string;
   isActive: boolean;
+  pedagogicalFocus?: PedagogicalFocusType;
+  teachingStyle?: TeachingStyleType;
+  errorTolerance?: ErrorToleranceType;
+  personalityTraits?: string;
+  teachingPhilosophy?: string;
 }
 
 export interface VoiceOverride {
@@ -50,6 +58,9 @@ export interface VoiceOverride {
   expressiveness?: number;
   emotion?: string;
   voiceId?: string;
+  pedagogicalFocus?: PedagogicalFocusType;
+  teachingStyle?: TeachingStyleType;
+  errorTolerance?: ErrorToleranceType;
 }
 
 interface VoiceLabPanelProps {
@@ -91,6 +102,11 @@ export function VoiceLabPanel({
   const [expressiveness, setExpressiveness] = useState(3);
   const [emotion, setEmotion] = useState('friendly');
   const [hasChanges, setHasChanges] = useState(false);
+  
+  // Pedagogical persona state
+  const [pedagogicalFocus, setPedagogicalFocus] = useState<PedagogicalFocusType>('mixed');
+  const [teachingStyle, setTeachingStyle] = useState<TeachingStyleType>('conversational');
+  const [errorTolerance, setErrorTolerance] = useState<ErrorToleranceType>('medium');
 
   // Fetch current tutor voice
   const { data: currentVoice, isLoading: isLoadingVoice } = useQuery<TutorVoice>({
@@ -116,6 +132,9 @@ export function VoiceLabPanel({
       setPersonality((currentOverride?.personality ?? currentVoice.personality) as PersonalityType);
       setExpressiveness(currentOverride?.expressiveness ?? currentVoice.expressiveness);
       setEmotion(currentOverride?.emotion ?? currentVoice.emotion);
+      setPedagogicalFocus((currentOverride?.pedagogicalFocus ?? currentVoice.pedagogicalFocus ?? 'mixed') as PedagogicalFocusType);
+      setTeachingStyle((currentOverride?.teachingStyle ?? currentVoice.teachingStyle ?? 'conversational') as TeachingStyleType);
+      setErrorTolerance((currentOverride?.errorTolerance ?? currentVoice.errorTolerance ?? 'medium') as ErrorToleranceType);
       setHasChanges(!!currentOverride);
     }
   }, [currentVoice, currentOverride, isOpen]);
@@ -139,12 +158,15 @@ export function VoiceLabPanel({
       personality,
       expressiveness,
       emotion,
+      pedagogicalFocus,
+      teachingStyle,
+      errorTolerance,
     };
     onOverrideChange(override);
     setHasChanges(true);
     toast({
-      title: "Voice settings applied",
-      description: "Changes will take effect on Daniela's next response.",
+      title: "Voice & teaching style applied",
+      description: "Changes will take effect on the tutor's next response.",
     });
   };
 
@@ -155,12 +177,15 @@ export function VoiceLabPanel({
       setPersonality(currentVoice.personality as PersonalityType);
       setExpressiveness(currentVoice.expressiveness);
       setEmotion(currentVoice.emotion);
+      setPedagogicalFocus((currentVoice.pedagogicalFocus ?? 'mixed') as PedagogicalFocusType);
+      setTeachingStyle((currentVoice.teachingStyle ?? 'conversational') as TeachingStyleType);
+      setErrorTolerance((currentVoice.errorTolerance ?? 'medium') as ErrorToleranceType);
     }
     onOverrideChange(null);
     setHasChanges(false);
     toast({
-      title: "Voice settings reset",
-      description: "Reverted to saved voice configuration.",
+      title: "Settings reset",
+      description: "Reverted to saved voice and teaching configuration.",
     });
   };
 
@@ -173,6 +198,9 @@ export function VoiceLabPanel({
         personality,
         expressiveness,
         emotion,
+        pedagogicalFocus,
+        teachingStyle,
+        errorTolerance,
       });
       return res.json();
     },
@@ -367,6 +395,82 @@ export function VoiceLabPanel({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <Separator />
+
+            {/* Teaching Persona Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <GraduationCap className="h-4 w-4 text-primary" />
+                <Label className="text-sm font-medium">Teaching Persona</Label>
+              </div>
+              
+              {/* Pedagogical Focus */}
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">Teaching Focus</Label>
+                <Select 
+                  value={pedagogicalFocus} 
+                  onValueChange={(v) => setPedagogicalFocus(v as PedagogicalFocusType)}
+                >
+                  <SelectTrigger data-testid="select-voice-lab-pedagogical-focus">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="grammar">Grammar & Structure</SelectItem>
+                    <SelectItem value="fluency">Natural Fluency</SelectItem>
+                    <SelectItem value="pronunciation">Pronunciation</SelectItem>
+                    <SelectItem value="culture">Cultural Context</SelectItem>
+                    <SelectItem value="vocabulary">Vocabulary Building</SelectItem>
+                    <SelectItem value="mixed">Balanced Approach</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Teaching Style */}
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">Teaching Style</Label>
+                <Select 
+                  value={teachingStyle} 
+                  onValueChange={(v) => setTeachingStyle(v as TeachingStyleType)}
+                >
+                  <SelectTrigger data-testid="select-voice-lab-teaching-style">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="structured">Organized & Structured</SelectItem>
+                    <SelectItem value="conversational">Natural & Conversational</SelectItem>
+                    <SelectItem value="drill_focused">Practice-Heavy Drills</SelectItem>
+                    <SelectItem value="adaptive">Adaptive to Student</SelectItem>
+                    <SelectItem value="socratic">Question-Based Discovery</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Error Tolerance */}
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">Error Correction</Label>
+                <Select 
+                  value={errorTolerance} 
+                  onValueChange={(v) => setErrorTolerance(v as ErrorToleranceType)}
+                >
+                  <SelectTrigger data-testid="select-voice-lab-error-tolerance">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="high">Gentle (prioritize flow)</SelectItem>
+                    <SelectItem value="medium">Balanced</SelectItem>
+                    <SelectItem value="low">Thorough (immediate corrections)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Show current tutor's philosophy if available */}
+              {currentVoice?.teachingPhilosophy && (
+                <div className="p-3 rounded-lg bg-muted/50 text-sm">
+                  <p className="text-muted-foreground italic">"{currentVoice.teachingPhilosophy}"</p>
+                </div>
+              )}
             </div>
 
             <Separator />
