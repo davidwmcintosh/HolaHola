@@ -1763,6 +1763,64 @@ Remember: David may reference things discussed in these recent text chats.
                   }
                   break;
                 }
+                case 'VOICE_ADJUST': {
+                  // Daniela's real-time voice adjustment
+                  // Apply voice override for next TTS synthesis
+                  const speed = (cmd.params.speed as string | undefined)?.toLowerCase();
+                  const emotion = (cmd.params.emotion as string | undefined)?.toLowerCase();
+                  const reason = cmd.params.reason as string | undefined;
+                  
+                  // Map speed strings to numeric values for Cartesia speakingRate (0.7-1.3 range)
+                  // Lower values = slower speech, higher values = faster speech
+                  const speedMap: Record<string, number> = {
+                    'slowest': 0.7,
+                    'slow': 0.8,
+                    'normal': 0.9,  // Default speaking rate
+                    'fast': 1.05,
+                    'fastest': 1.2,
+                  };
+                  
+                  // Map Daniela's emotion names to CartesiaEmotion types
+                  // CartesiaEmotion: 'neutral' | 'happy' | 'excited' | 'friendly' | 'curious' | 
+                  //                  'thoughtful' | 'warm' | 'playful' | 'surprised' | 'proud' | 
+                  //                  'encouraging' | 'calm'
+                  const emotionMap: Record<string, string> = {
+                    'positivity': 'happy',      // Positive → happy
+                    'curiosity': 'curious',     // Direct match
+                    'surprise': 'surprised',    // Adjust tense
+                    'anger': 'neutral',         // No anger in Cartesia, fallback to neutral
+                    'sadness': 'thoughtful',    // Sad → thoughtful/reflective
+                    // Also accept direct Cartesia emotions
+                    'happy': 'happy',
+                    'excited': 'excited',
+                    'friendly': 'friendly',
+                    'curious': 'curious',
+                    'thoughtful': 'thoughtful',
+                    'warm': 'warm',
+                    'playful': 'playful',
+                    'surprised': 'surprised',
+                    'proud': 'proud',
+                    'encouraging': 'encouraging',
+                    'calm': 'calm',
+                    'neutral': 'neutral',
+                  };
+                  
+                  // Map the emotion to CartesiaEmotion
+                  const mappedEmotion = emotion ? emotionMap[emotion] : undefined;
+                  
+                  // Apply to session as voice override (same structure as Voice Lab panel)
+                  const currentOverride = (session as any).voiceOverride || {};
+                  const newOverride = {
+                    ...currentOverride,
+                    ...(speed && { speakingRate: speedMap[speed] || 0.9 }),
+                    ...(mappedEmotion && { emotion: mappedEmotion }),
+                  };
+                  
+                  (session as any).voiceOverride = newOverride;
+                  console.log(`[CommandParser→VoiceAdjust] Applied: speed=${speed || 'unchanged'} (rate=${speed ? speedMap[speed] : 'unchanged'}), emotion=${emotion || 'unchanged'} (mapped=${mappedEmotion || 'unchanged'}), reason=${reason || 'none'}`);
+                  console.log(`[CommandParser→VoiceAdjust] Session override now:`, newOverride);
+                  break;
+                }
               }
           }
           

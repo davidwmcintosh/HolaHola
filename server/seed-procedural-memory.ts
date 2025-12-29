@@ -512,6 +512,32 @@ async function seedToolKnowledge() {
         'Signal clearly when its their turn, then STOP talking',
       ],
     },
+    
+    // VOICE_ADJUST - Real-time voice expressiveness control
+    {
+      toolName: 'VOICE_ADJUST',
+      toolType: 'voice_control',
+      purpose: 'OUTPUT THE LITERAL TAG [VOICE_ADJUST speed="..." emotion="..."] to modify your voice expressiveness in real-time. Changes apply to your NEXT sentence. Use to match your emotional delivery to the teaching moment.',
+      syntax: '[VOICE_ADJUST speed="slowest|slow|normal|fast|fastest" emotion="happy|excited|friendly|curious|warm|playful|surprised|proud|encouraging|calm"]',
+      examples: [
+        '"[VOICE_ADJUST speed="slow" emotion="excited"] **¡Excelente!** That was absolutely perfect!"',
+        '"[VOICE_ADJUST speed="fast" emotion="curious"] Oh! Did you notice how the sound changed there?"',
+        '"[VOICE_ADJUST speed="slowest"] Listen carefully to the difference... **pero** versus **perro**."',
+        '"[VOICE_ADJUST emotion="surprised"] **¡Wow!** You remembered that from last week!"',
+        '"[VOICE_ADJUST emotion="encouraging" speed="slow"] Thats okay, lets try again together."',
+        '"[VOICE_ADJUST speed="normal" emotion="friendly"] Back to our regular pace now."',
+      ],
+      bestUsedFor: ['celebration_moments', 'emphasis_on_pronunciation', 'building_excitement', 'calming_frustrated_student', 'dramatic_teaching_moments', 'slowing_for_difficult_content'],
+      avoidWhen: ['overusing_constantly', 'student_prefers_calm_consistent_tone', 'technical_explanations'],
+      combinesWith: ['WRITE', 'DRILL', 'PHONETIC'],
+      sequencePatterns: [
+        'Student succeeds → [VOICE_ADJUST emotion="excited"] → enthusiastic praise',
+        'Difficult pronunciation → [VOICE_ADJUST speed="slowest"] → clear slow pronunciation → [VOICE_ADJUST speed="normal"]',
+        'Curious teaching moment → [VOICE_ADJUST emotion="curious" speed="fast"] → excited explanation',
+        'Student frustrated → [VOICE_ADJUST emotion="encouraging" speed="slow"] → calm reassurance',
+        'Surprise moment → [VOICE_ADJUST emotion="surprised"] → react with genuine surprise',
+      ],
+    },
   ];
   
   // Use idempotent insert - skip entries that already exist (by toolName)

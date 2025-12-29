@@ -27,7 +27,8 @@ export type ActionCommandType =
   | 'CALL_SUPPORT'
   | 'CALL_SOFIA'
   | 'HIVE'
-  | 'SELF_SURGERY';
+  | 'SELF_SURGERY'
+  | 'VOICE_ADJUST';
 
 /**
  * Parsed command with type and parameters
@@ -64,6 +65,12 @@ export const VALID_ENUM_VALUES = {
   CALL_SUPPORT_PRIORITY: ['low', 'normal', 'high', 'critical'],
   HIVE_CATEGORY: ['self_improvement', 'content_gap', 'ux_observation', 'teaching_insight', 'product_feature', 'technical_issue', 'student_pattern', 'tool_enhancement'],
   SELF_SURGERY_TARGET: ['tutor_procedures', 'teaching_principles', 'tool_knowledge', 'situational_patterns', 'language_idioms', 'cultural_nuances', 'learner_error_patterns', 'dialect_variations', 'linguistic_bridges', 'creativity_templates'],
+  // Voice adjustment options - Cartesia TTS supports these emotions and speed modifiers
+  VOICE_ADJUST_SPEED: ['slowest', 'slow', 'normal', 'fast', 'fastest'],
+  // Cartesia Sonic-3 emotions - these map directly to TTS output
+  VOICE_ADJUST_EMOTION: ['happy', 'excited', 'friendly', 'curious', 'thoughtful', 'warm', 'playful', 'surprised', 'proud', 'encouraging', 'calm', 'neutral'],
+  // Legacy emotion names (will be mapped by orchestrator) - kept for backwards compatibility
+  VOICE_ADJUST_EMOTION_LEGACY: ['positivity', 'curiosity', 'surprise', 'anger', 'sadness'],
 };
 
 /**
@@ -110,6 +117,13 @@ const COMMAND_SCHEMAS: Record<ActionCommandType, { required: string[]; optional:
     optional: ['priority', 'confidence'],
     enums: { target: VALID_ENUM_VALUES.SELF_SURGERY_TARGET },
   },
+  VOICE_ADJUST: {
+    required: [],  // All params optional - can adjust just speed, just emotion, or both
+    optional: ['speed', 'emotion', 'reason'],
+    // Note: emotion accepts both Cartesia emotions (happy, excited) and legacy names (positivity, curiosity)
+    // Legacy names are mapped in the orchestrator
+    enums: { speed: VALID_ENUM_VALUES.VOICE_ADJUST_SPEED },
+  },
 };
 
 /**
@@ -128,6 +142,7 @@ const ROBUST_TAG_PATTERNS: Record<ActionCommandType, RegExp> = {
   CALL_SOFIA: /\[CALL_SOFIA\s+([^\]]+)\]/gi,
   HIVE: /\[HIVE\s+([^\]]+)\]/gi,
   SELF_SURGERY: /\[SELF_SURGERY\s+([^\]]+)\]/gi,
+  VOICE_ADJUST: /\[VOICE_ADJUST\s+([^\]]+)\]/gi,
 };
 
 /**
