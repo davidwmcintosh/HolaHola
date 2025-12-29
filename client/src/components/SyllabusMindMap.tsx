@@ -591,15 +591,14 @@ function DanielaObservationsBubble({
         </defs>
         {!isExpanded && (
           <path
-            d={`M ${x + collapsedWidth + 5} ${y + 35} Q ${x + collapsedWidth + 100} ${y - 30} ${centerX - 70} ${centerY - 50}`}
+            d={`M ${x + collapsedWidth + 5} ${y + collapsedHeight / 2} Q ${x + collapsedWidth + 60} ${y + collapsedHeight / 2 + 30} ${centerX - 40} ${centerY - 40}`}
             stroke={accentColor}
-            strokeWidth="3"
+            strokeWidth="2.5"
             fill="none"
             strokeLinecap="round"
             markerEnd="url(#arrowhead-daniela)"
-            opacity="0.9"
+            opacity="0.7"
             className="transition-opacity duration-300"
-            style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))' }}
           />
         )}
       </svg>

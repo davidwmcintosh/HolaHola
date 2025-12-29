@@ -826,7 +826,7 @@ export default function ReviewHub() {
           : 0;
 
         return (
-          <Card data-testid="section-learning-journey">
+          <Card data-testid="section-learning-journey" className="overflow-visible">
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1">
@@ -874,7 +874,7 @@ export default function ReviewHub() {
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="overflow-visible">
               {syllabusView === 'mindmap' ? (
                 <SyllabusMindMap 
                   language={language} 
