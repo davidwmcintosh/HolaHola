@@ -2022,6 +2022,17 @@ Remember: David may reference things discussed in these recent text chats.
               };
               session.switchTutorTriggered = true;
               console.log(`[Tutor Switch] PTT (regex fallback): Queued handoff to ${targetGender} tutor${targetLanguage ? ` (${targetLanguage})` : ''}`);
+            } else {
+              // FALLBACK 2: Handle malformed combined formats like target="female_french" or target="male_german"
+              // Gemini sometimes concatenates gender and language with underscore
+              const combinedMatch = chunk.text.match(/\[SWITCH_TUTOR\s+target\s*=\s*["']?(male|female)[_-](\w+)["']?\s*\]/i);
+              if (combinedMatch) {
+                const targetGender = combinedMatch[1].toLowerCase() as 'male' | 'female';
+                const targetLanguage = combinedMatch[2].toLowerCase();
+                session.pendingTutorSwitch = { targetGender, targetLanguage };
+                session.switchTutorTriggered = true;
+                console.log(`[Tutor Switch] PTT (combined format): Queued handoff to ${targetGender} tutor (${targetLanguage}) - parsed from "${combinedMatch[0]}"`);
+              }
             }
           }
           
@@ -3135,6 +3146,17 @@ Remember: David may reference things discussed in these recent text chats.
               session.pendingTutorSwitch = { targetGender, targetLanguage, targetRole };
               session.switchTutorTriggered = true;
               console.log(`[Tutor Switch] Open-mic (regex fallback): Queued handoff to ${targetGender} tutor${targetLanguage ? ` (${targetLanguage})` : ''}`);
+            } else {
+              // FALLBACK 2: Handle malformed combined formats like target="female_french" or target="male_german"
+              // Gemini sometimes concatenates gender and language with underscore
+              const combinedMatch = chunk.text.match(/\[SWITCH_TUTOR\s+target\s*=\s*["']?(male|female)[_-](\w+)["']?\s*\]/i);
+              if (combinedMatch) {
+                const targetGender = combinedMatch[1].toLowerCase() as 'male' | 'female';
+                const targetLanguage = combinedMatch[2].toLowerCase();
+                session.pendingTutorSwitch = { targetGender, targetLanguage };
+                session.switchTutorTriggered = true;
+                console.log(`[Tutor Switch] Open-mic (combined format): Queued handoff to ${targetGender} tutor (${targetLanguage}) - parsed from "${combinedMatch[0]}"`);
+              }
             }
           }
           

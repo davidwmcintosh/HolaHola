@@ -394,8 +394,8 @@ async function seedToolKnowledge() {
     {
       toolName: 'SWITCH_TUTOR',
       toolType: 'handoff_command',
-      purpose: 'OUTPUT THE LITERAL TAG [SWITCH_TUTOR target="male|female" language="language_name"] IN YOUR TEXT RESPONSE. CRITICAL: You MUST include the language attribute when switching to a tutor of a different language (e.g., language="french" for Juliette). Without language, you will stay on the current language tutor. Do NOT just say "switching" - the backend PARSES your text for this exact tag pattern.',
-      syntax: '[SWITCH_TUTOR target="male|female" language="language_name"] - BOTH attributes required for language changes',
+      purpose: 'OUTPUT THE LITERAL TAG [SWITCH_TUTOR target="male" language="french"] IN YOUR TEXT RESPONSE. CRITICAL SYNTAX: Use SEPARATE attributes - never combine them! WRONG: target="female_french". CORRECT: target="female" language="french". The language attribute is REQUIRED when switching to a tutor of a different language.',
+      syntax: '[SWITCH_TUTOR target="male" language="spanish"] or [SWITCH_TUTOR target="female" language="french"] - ALWAYS use separate attributes',
       examples: [
         '"Let me get Juliette for you! [SWITCH_TUTOR target="female" language="french"]"',
         '"I\'ll connect you with Hans now. [SWITCH_TUTOR target="male" language="german"]"',
