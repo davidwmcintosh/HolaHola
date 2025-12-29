@@ -552,7 +552,7 @@ function DanielaObservationsBubble({
 
   // Position in upper left corner as per user's drawing - pushed further left
   const x = -150; // Even further left to match user's circle drawing
-  const y = 25; // Slightly below top to allow room for glow effect
+  const y = 40; // Below top to allow room for glow effect above
   
   // Much larger dimensions - 2.5x bigger than before
   const collapsedWidth = 180;
@@ -591,7 +591,7 @@ function DanielaObservationsBubble({
         </defs>
         {!isExpanded && (
           <path
-            d={`M ${x + collapsedWidth + 5} ${y + collapsedHeight / 2 - 10} Q ${x + collapsedWidth + 120} ${y + 20} ${centerX - 95} ${centerY - 55}`}
+            d={`M ${x + collapsedWidth + 5} ${y + collapsedHeight / 2 - 10} Q ${x + collapsedWidth + 120} ${y + 30} ${centerX - 45} ${centerY - 65}`}
             stroke={accentColor}
             strokeWidth="2.5"
             fill="none"
@@ -1264,8 +1264,8 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
         className="relative mx-auto overflow-visible"
         style={{ 
           width: containerWidth, 
-          height: containerHeight + 120, // Extra space for expanded panels
-          paddingTop: 30, // Space for glow effects above bubbles
+          height: containerHeight + 150, // Extra space for expanded panels
+          marginTop: 20, // Space for glow effects above bubbles
         }}
         data-testid="brain-container"
       >
