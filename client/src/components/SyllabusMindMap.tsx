@@ -550,7 +550,7 @@ function DanielaObservationsBubble({
   if (!isLoading && !hasContent) return null;
 
   // Position in upper left corner as per user's drawing - pushed further left
-  const x = -130; // Even further left to match user's circle drawing
+  const x = -150; // Even further left to match user's circle drawing
   const y = 0; // At top of container
   
   // Much larger dimensions - 2.5x bigger than before
