@@ -285,6 +285,8 @@ function LobeSatellite({
             height={collapsedHeight} 
             viewBox="0 0 100 80"
             className="w-full h-full"
+            overflow="visible"
+            style={{ overflow: 'visible' }}
           >
             <defs>
               {/* Cloud shape as clipPath to contain all effects */}
@@ -301,13 +303,24 @@ function LobeSatellite({
                 <stop offset="0%" stopColor={config.color} stopOpacity="1" />
                 <stop offset="100%" stopColor={config.color} stopOpacity="0.85" />
               </linearGradient>
+              {/* Glow filter with expanded bounds - base shadow only */}
+              <filter id={`glow-base-${segment}`} x="-50%" y="-50%" width="200%" height="200%" filterUnits="userSpaceOnUse">
+                <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="rgba(0,0,0,0.25)" />
+              </filter>
+              {/* Glow filter with expanded bounds - lit state with color glow */}
+              <filter id={`glow-lit-${segment}`} x="-50%" y="-50%" width="200%" height="200%" filterUnits="userSpaceOnUse">
+                <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="rgba(0,0,0,0.25)" />
+                <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor={config.glowColor} />
+              </filter>
             </defs>
             
-            {/* Main group with drop shadow on the shape only */}
-            <g style={{ 
-              filter: `drop-shadow(0 2px 4px rgba(0,0,0,0.25)) ${lightingState === 'lit' ? `drop-shadow(0 0 8px ${config.glowColor})` : ''}`,
-              opacity: lightingState === 'dim' ? 0.6 : lightingState === 'semi-lit' ? 0.85 : 1,
-            }}>
+            {/* Main group with filter for glow */}
+            <g 
+              filter={lightingState === 'lit' ? `url(#glow-lit-${segment})` : `url(#glow-base-${segment})`}
+              style={{
+                opacity: lightingState === 'dim' ? 0.6 : lightingState === 'semi-lit' ? 0.85 : 1,
+              }}
+            >
               {/* Background cloud shape (empty/unfilled base) */}
               <path
                 d={config.cloudPath}
@@ -551,7 +564,7 @@ function DanielaObservationsBubble({
   if (!isLoading && !hasContent) return null;
 
   // Position in upper left corner as per user's drawing - pushed further left
-  const x = -150; // Even further left to match user's circle drawing
+  const x = -170; // Even further left
   const y = -5; // Lifted up near top
   
   // Much larger dimensions - bigger bubble
