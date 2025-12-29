@@ -28,6 +28,7 @@ import { calculateContinuousScore } from "@/components/actfl/actfl-gauge-core";
 import brainImage from "@assets/transparent_colorful_cartoon_brain_Background_Removed_1765564186963.png";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
+import { getTutorName } from "@/lib/tutor-avatars";
 
 interface TopicNode {
   id: string;
@@ -522,10 +523,11 @@ const categoryLabels: Record<string, string> = {
   comprehension: "Listening",
 };
 
-// Daniela's Observations Bubble - Larger than lobe clouds, positioned on left
-function DanielaObservationsBubble({
+// Tutor's Observations Bubble - Larger than lobe clouds, positioned on left
+function TutorObservationsBubble({
   userId,
   language,
+  tutorName,
   isExpanded,
   onToggle,
   centerX,
@@ -533,6 +535,7 @@ function DanielaObservationsBubble({
 }: {
   userId?: string;
   language: string;
+  tutorName: string;
   isExpanded: boolean;
   onToggle: () => void;
   centerX: number;
@@ -696,7 +699,7 @@ function DanielaObservationsBubble({
                   fontFamily="system-ui, sans-serif"
                   style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.5)' }}
                 >
-                  Daniela's
+                  {tutorName}'s
                 </text>
                 <text
                   x="90"
@@ -744,7 +747,7 @@ function DanielaObservationsBubble({
                   <Sparkles className="h-4 w-4 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-sm">Daniela's Observations</h3>
+                  <h3 className="font-semibold text-sm">{tutorName}'s Observations</h3>
                   <p className="text-[10px] text-muted-foreground">
                     Your personalized insights
                   </p>
@@ -1151,7 +1154,7 @@ function unifiedProgressToTopics(progress: UnifiedProgressResponse): TopicNode[]
 }
 
 export function SyllabusMindMap({ classId, language: languageProp, className, syllabusOverview, mode = 'emergent' }: SyllabusMindMapProps) {
-  const { language: globalLanguage, difficulty } = useLanguage();
+  const { language: globalLanguage, difficulty, tutorGender } = useLanguage();
   const { user } = useUser();
   const language = languageProp ?? globalLanguage;
   const [expandedSegment, setExpandedSegment] = useState<BrainSegment | null>(null);
@@ -1406,10 +1409,11 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
           />
         ))}
         
-        {/* Daniela's Observations - Larger thought bubble on the left */}
-        <DanielaObservationsBubble
+        {/* Tutor's Observations - Larger thought bubble on the left */}
+        <TutorObservationsBubble
           userId={user?.id}
           language={language}
+          tutorName={getTutorName(language, tutorGender)}
           isExpanded={observationsExpanded}
           onToggle={toggleObservations}
           centerX={centerX}
