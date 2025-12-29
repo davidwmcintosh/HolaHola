@@ -265,9 +265,10 @@ function LobeSatellite({
         className="absolute inset-0 transition-all duration-300"
         style={{
           borderRadius: isExpanded ? '16px' : '0',
-          backgroundColor: isExpanded ? 'var(--card)' : 'transparent',
-          border: isExpanded ? '1px solid var(--border)' : 'none',
-          boxShadow: isExpanded ? '0 20px 40px rgba(0,0,0,0.3)' : 'none',
+          backgroundColor: isExpanded ? 'hsl(var(--card))' : 'transparent',
+          border: isExpanded ? '1px solid hsl(var(--border))' : 'none',
+          boxShadow: isExpanded ? '0 20px 40px rgba(0,0,0,0.4)' : 'none',
+          backdropFilter: isExpanded ? 'blur(8px)' : 'none',
         }}
       >
         {/* Collapsed: Show comic-book splat SVG with text - scales up on hover */}
@@ -590,13 +591,13 @@ function DanielaObservationsBubble({
         </defs>
         {!isExpanded && (
           <path
-            d={`M ${x + collapsedWidth - 5} ${y + collapsedHeight - 25} Q ${centerX - 40} ${y + collapsedHeight + 50} ${centerX - 55} ${centerY - 25}`}
+            d={`M ${x + collapsedWidth + 10} ${y + collapsedHeight / 2 + 20} Q ${x + collapsedWidth + 80} ${centerY - 20} ${centerX - 80} ${centerY - 35}`}
             stroke={accentColor}
             strokeWidth="3"
             fill="none"
             strokeLinecap="round"
             markerEnd="url(#arrowhead-daniela)"
-            opacity="0.8"
+            opacity="0.9"
             className="transition-opacity duration-300"
             style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))' }}
           />
@@ -620,11 +621,12 @@ function DanielaObservationsBubble({
           className="absolute inset-0 transition-all duration-300"
           style={{
             borderRadius: isExpanded ? '16px' : '0',
-            backgroundColor: isExpanded ? 'var(--card)' : 'transparent',
-            border: isExpanded ? '1px solid var(--border)' : 'none',
+            backgroundColor: isExpanded ? 'hsl(var(--card))' : 'transparent',
+            border: isExpanded ? '1px solid hsl(var(--border))' : 'none',
             boxShadow: isExpanded 
-              ? '0 20px 40px rgba(0,0,0,0.3)' 
+              ? '0 20px 40px rgba(0,0,0,0.4)' 
               : 'none', // No box shadow when collapsed - cloud SVG has its own glow
+            backdropFilter: isExpanded ? 'blur(8px)' : 'none',
           }}
         >
           {/* Collapsed: Show thought bubble SVG */}
@@ -1260,7 +1262,7 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
     <div className={className} data-testid="syllabus-mind-map">
       {/* Brain visualization container - floating without background for cleaner mobile experience */}
       <div 
-        className="relative mx-auto"
+        className="relative mx-auto overflow-visible"
         style={{ 
           width: containerWidth, 
           height: containerHeight + 120, // Extra space for expanded panels
