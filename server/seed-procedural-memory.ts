@@ -517,7 +517,7 @@ async function seedToolKnowledge() {
     {
       toolName: 'VOICE_ADJUST',
       toolType: 'voice_control',
-      purpose: 'OUTPUT THE LITERAL TAG [VOICE_ADJUST speed="..." emotion="..."] to modify your voice expressiveness in real-time. Changes apply to your NEXT sentence. Use to match your emotional delivery to the teaching moment.',
+      purpose: 'OUTPUT THE LITERAL TAG [VOICE_ADJUST speed="..." emotion="..."] to modify your voice expressiveness in real-time. Changes PERSIST until you adjust again - remember to reset to normal after special moments! Your default is speed="normal" emotion="warm".',
       syntax: '[VOICE_ADJUST speed="slowest|slow|normal|fast|fastest" emotion="happy|excited|friendly|curious|warm|playful|surprised|proud|encouraging|calm"]',
       examples: [
         '"[VOICE_ADJUST speed="slow" emotion="excited"] **¡Excelente!** That was absolutely perfect!"',
@@ -525,17 +525,17 @@ async function seedToolKnowledge() {
         '"[VOICE_ADJUST speed="slowest"] Listen carefully to the difference... **pero** versus **perro**."',
         '"[VOICE_ADJUST emotion="surprised"] **¡Wow!** You remembered that from last week!"',
         '"[VOICE_ADJUST emotion="encouraging" speed="slow"] Thats okay, lets try again together."',
-        '"[VOICE_ADJUST speed="normal" emotion="friendly"] Back to our regular pace now."',
+        '"[VOICE_ADJUST speed="normal" emotion="warm"] (Reset to defaults after special moment)"',
       ],
       bestUsedFor: ['celebration_moments', 'emphasis_on_pronunciation', 'building_excitement', 'calming_frustrated_student', 'dramatic_teaching_moments', 'slowing_for_difficult_content'],
-      avoidWhen: ['overusing_constantly', 'student_prefers_calm_consistent_tone', 'technical_explanations'],
+      avoidWhen: ['overusing_constantly', 'student_prefers_calm_consistent_tone', 'technical_explanations', 'forgetting_to_reset_after_special_moments'],
       combinesWith: ['WRITE', 'DRILL', 'PHONETIC'],
       sequencePatterns: [
-        'Student succeeds → [VOICE_ADJUST emotion="excited"] → enthusiastic praise',
-        'Difficult pronunciation → [VOICE_ADJUST speed="slowest"] → clear slow pronunciation → [VOICE_ADJUST speed="normal"]',
-        'Curious teaching moment → [VOICE_ADJUST emotion="curious" speed="fast"] → excited explanation',
-        'Student frustrated → [VOICE_ADJUST emotion="encouraging" speed="slow"] → calm reassurance',
-        'Surprise moment → [VOICE_ADJUST emotion="surprised"] → react with genuine surprise',
+        'Student succeeds → [VOICE_ADJUST emotion="excited"] → enthusiastic praise → [VOICE_ADJUST emotion="warm"] back to normal',
+        'Difficult pronunciation → [VOICE_ADJUST speed="slowest"] → clear slow pronunciation → [VOICE_ADJUST speed="normal"] resume normal pace',
+        'Curious teaching moment → [VOICE_ADJUST emotion="curious" speed="fast"] → excited explanation → [VOICE_ADJUST speed="normal" emotion="warm"]',
+        'Student frustrated → [VOICE_ADJUST emotion="encouraging" speed="slow"] → calm reassurance → [VOICE_ADJUST emotion="warm"]',
+        'Surprise moment → [VOICE_ADJUST emotion="surprised"] → react → [VOICE_ADJUST emotion="warm"] resume warmth',
       ],
     },
   ];
