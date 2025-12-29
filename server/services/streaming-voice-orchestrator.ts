@@ -59,7 +59,7 @@ import { commandParserService, ParsedCommand } from "./command-parser";
 function logMetric(type: string, data: Record<string, number | string | boolean>) {
   console.log(`[METRICS] ${JSON.stringify({ type, ...data, ts: Date.now() })}`);
 }
-import { constrainEmotion, TutorPersonality, CartesiaEmotion, getTTSService, getAssistantVoice } from "./tts-service";
+import { constrainEmotion, TutorPersonality, CartesiaEmotion, getTTSService, getAssistantVoice, getDefaultEmotion } from "./tts-service";
 import { extractTargetLanguageText, extractTargetLanguageWithMapping, hasSignificantTargetLanguageContent } from "../text-utils";
 import { storage } from "../storage";
 import { validateOneUnitRule, UnitValidationResult } from "../phrase-detection";
@@ -669,6 +669,13 @@ export interface StreamingSession {
   sessionAudioChunks: Buffer[];             // Raw PCM audio chunks from user speech
   sessionTranscripts: Array<{ text: string; timestamp: number }>;  // Transcribed text with timing
   tutorDirectory?: TutorDirectoryEntry[];    // Full tutor directory for prompt regeneration after handoffs
+  // Voice defaults for reset capability - stores tutor's baseline settings
+  voiceDefaults?: {
+    speakingRate: number;
+    personality: TutorPersonality;
+    emotion: string;
+    expressiveness: number;
+  };
 }
 
 /**
@@ -971,6 +978,14 @@ export class StreamingVoiceOrchestrator {
       // Azure Pronunciation Assessment tracking
       sessionAudioChunks: [],        // Accumulated audio chunks for post-session assessment
       sessionTranscripts: [],        // Accumulated transcripts with timing
+      // Voice defaults - store tutor's baseline settings for VOICE_RESET
+      // Uses getDefaultEmotion to get the correct baseline for the personality
+      voiceDefaults: {
+        speakingRate: voiceSpeedToRate((config.voiceSpeed as VoiceSpeedOption) || 'normal'),
+        personality: (config.tutorPersonality as TutorPersonality) || 'warm',
+        emotion: getDefaultEmotion((config.tutorPersonality as TutorPersonality) || 'warm'),  // Baseline from personality preset
+        expressiveness: config.tutorExpressiveness || 3,
+      },
     };
     
     // PARALLEL WARMUP: Pre-warm both Cartesia and Gemini connections concurrently
@@ -1768,6 +1783,7 @@ Remember: David may reference things discussed in these recent text chats.
                   // Apply voice override for next TTS synthesis
                   const speed = (cmd.params.speed as string | undefined)?.toLowerCase();
                   const emotion = (cmd.params.emotion as string | undefined)?.toLowerCase();
+                  const personality = (cmd.params.personality as string | undefined)?.toLowerCase();
                   const reason = cmd.params.reason as string | undefined;
                   
                   // Map speed strings to numeric values for Cartesia speakingRate (0.7-1.3 range)
@@ -1805,6 +1821,12 @@ Remember: David may reference things discussed in these recent text chats.
                     'neutral': 'neutral',
                   };
                   
+                  // Validate personality if provided
+                  const validPersonalities = ['warm', 'calm', 'energetic', 'professional'];
+                  const validatedPersonality = personality && validPersonalities.includes(personality) 
+                    ? personality as TutorPersonality 
+                    : undefined;
+                  
                   // Map the emotion to CartesiaEmotion
                   const mappedEmotion = emotion ? emotionMap[emotion] : undefined;
                   
@@ -1814,11 +1836,32 @@ Remember: David may reference things discussed in these recent text chats.
                     ...currentOverride,
                     ...(speed && { speakingRate: speedMap[speed] || 0.9 }),
                     ...(mappedEmotion && { emotion: mappedEmotion }),
+                    ...(validatedPersonality && { personality: validatedPersonality }),
                   };
                   
                   (session as any).voiceOverride = newOverride;
-                  console.log(`[CommandParser→VoiceAdjust] Applied: speed=${speed || 'unchanged'} (rate=${speed ? speedMap[speed] : 'unchanged'}), emotion=${emotion || 'unchanged'} (mapped=${mappedEmotion || 'unchanged'}), reason=${reason || 'none'}`);
+                  console.log(`[CommandParser→VoiceAdjust] Applied: speed=${speed || 'unchanged'} (rate=${speed ? speedMap[speed] : 'unchanged'}), emotion=${emotion || 'unchanged'} (mapped=${mappedEmotion || 'unchanged'}), personality=${validatedPersonality || 'unchanged'}, reason=${reason || 'none'}`);
                   console.log(`[CommandParser→VoiceAdjust] Session override now:`, newOverride);
+                  break;
+                }
+                case 'VOICE_RESET': {
+                  // Reset voice to tutor's baseline settings (stored on session creation)
+                  const reason = cmd.params.reason as string | undefined;
+                  
+                  if (session.voiceDefaults) {
+                    // Clear all overrides and restore defaults
+                    (session as any).voiceOverride = {
+                      speakingRate: session.voiceDefaults.speakingRate,
+                      emotion: session.voiceDefaults.emotion,
+                      personality: session.voiceDefaults.personality,
+                      expressiveness: session.voiceDefaults.expressiveness,
+                    };
+                    console.log(`[CommandParser→VoiceReset] Reset to tutor defaults:`, session.voiceDefaults, `reason: ${reason || 'none'}`);
+                  } else {
+                    // Fallback: clear override entirely
+                    (session as any).voiceOverride = undefined;
+                    console.log(`[CommandParser→VoiceReset] Cleared override (no defaults stored), reason: ${reason || 'none'}`);
+                  }
                   break;
                 }
               }

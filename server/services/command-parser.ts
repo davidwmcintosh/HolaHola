@@ -71,6 +71,8 @@ export const VALID_ENUM_VALUES = {
   VOICE_ADJUST_EMOTION: ['happy', 'excited', 'friendly', 'curious', 'thoughtful', 'warm', 'playful', 'surprised', 'proud', 'encouraging', 'calm', 'neutral'],
   // Legacy emotion names (will be mapped by orchestrator) - kept for backwards compatibility
   VOICE_ADJUST_EMOTION_LEGACY: ['positivity', 'curiosity', 'surprise', 'anger', 'sadness'],
+  // Personality presets that determine baseline emotion and allowed emotion range
+  VOICE_ADJUST_PERSONALITY: ['warm', 'calm', 'energetic', 'professional'],
 };
 
 /**
@@ -118,11 +120,19 @@ const COMMAND_SCHEMAS: Record<ActionCommandType, { required: string[]; optional:
     enums: { target: VALID_ENUM_VALUES.SELF_SURGERY_TARGET },
   },
   VOICE_ADJUST: {
-    required: [],  // All params optional - can adjust just speed, just emotion, or both
-    optional: ['speed', 'emotion', 'reason'],
+    required: [],  // All params optional - can adjust just speed, just emotion, personality, or any combination
+    optional: ['speed', 'emotion', 'personality', 'reason'],
     // Note: emotion accepts both Cartesia emotions (happy, excited) and legacy names (positivity, curiosity)
     // Legacy names are mapped in the orchestrator
-    enums: { speed: VALID_ENUM_VALUES.VOICE_ADJUST_SPEED },
+    enums: { 
+      speed: VALID_ENUM_VALUES.VOICE_ADJUST_SPEED,
+      personality: VALID_ENUM_VALUES.VOICE_ADJUST_PERSONALITY,
+    },
+  },
+  VOICE_RESET: {
+    required: [],  // No params needed - resets to tutor's baseline voice settings
+    optional: ['reason'],
+    enums: {},
   },
 };
 
@@ -143,6 +153,7 @@ const ROBUST_TAG_PATTERNS: Record<ActionCommandType, RegExp> = {
   HIVE: /\[HIVE\s+([^\]]+)\]/gi,
   SELF_SURGERY: /\[SELF_SURGERY\s+([^\]]+)\]/gi,
   VOICE_ADJUST: /\[VOICE_ADJUST\s+([^\]]+)\]/gi,
+  VOICE_RESET: /\[VOICE_RESET(?:\s+([^\]]*))?\]/gi,  // Optional params for reason
 };
 
 /**
