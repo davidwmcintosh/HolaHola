@@ -3331,14 +3331,14 @@ This is a voice conversation. Speak naturally, as you would.`;
         case 'voice_override': {
           // Voice Lab: Apply session-level voice overrides (admin only)
           // These override database settings for TTS calls in this session only
-          if (!isAuthenticated) {
-            sendErrorAdapter(ws, 'UNAUTHORIZED', 'Not authenticated', false);
+          if (!isAuthenticated || !session) {
+            console.warn('[Streaming Voice] voice_override rejected - not authenticated or no session');
             return;
           }
           
-          // Check admin privileges
-          if (!user?.role || !['admin', 'founder', 'developer'].includes(user.role)) {
-            console.warn('[Streaming Voice] voice_override rejected - not admin');
+          // Check admin privileges - session.isFounderMode is set during session creation for developers
+          if (!(session as any).isFounderMode) {
+            console.warn('[Streaming Voice] voice_override rejected - not in founder mode');
             return;
           }
           
@@ -3356,23 +3356,19 @@ This is a voice conversation. Speak naturally, as you would.`;
             } | null;
           };
           
-          if (session) {
-            // Store override in session for use by TTS
-            (session as any).voiceOverride = overrideMsg.override;
-            
-            // Also update orchestrator session
-            orchestrator.setVoiceOverride(session.id, overrideMsg.override);
-            
-            console.log('[Streaming Voice] Voice override applied:', overrideMsg.override);
-            
-            ws.send(JSON.stringify({
-              type: 'voice_override_applied',
-              timestamp: Date.now(),
-              override: overrideMsg.override,
-            }));
-          } else {
-            console.warn('[Streaming Voice] Cannot apply voice override - no active session');
-          }
+          // Store override in session for use by TTS
+          (session as any).voiceOverride = overrideMsg.override;
+          
+          // Also update orchestrator session
+          orchestrator.setVoiceOverride(session.id, overrideMsg.override);
+          
+          console.log('[Streaming Voice] Voice override applied:', overrideMsg.override);
+          
+          ws.send(JSON.stringify({
+            type: 'voice_override_applied',
+            timestamp: Date.now(),
+            override: overrideMsg.override,
+          }));
           break;
         }
         
