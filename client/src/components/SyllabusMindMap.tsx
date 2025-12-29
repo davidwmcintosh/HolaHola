@@ -549,16 +549,16 @@ function DanielaObservationsBubble({
   // Don't render if no content (student hasn't had enough conversations yet)
   if (!isLoading && !hasContent) return null;
 
-  // Position on the LEFT side of the brain - larger than lobe clouds
-  // Position ensures no overlap with brain (brain is ~115px from center, bubble needs to be further left)
-  const x = 15; // Fixed position on left side of container (not relative to center)
-  const y = centerY - 30;
+  // Position at 11 o'clock - upper left, farther from brain
+  // Brain center is at centerX, centerY - position bubble up and to the left
+  const x = centerX - 220; // Far left of brain
+  const y = centerY - 130; // High up (11 o'clock position)
   
-  // Larger dimensions than lobe satellites
-  const collapsedWidth = 110;
-  const collapsedHeight = 85;
-  const expandedWidth = 260;
-  const expandedHeight = 320;
+  // Much larger dimensions - 2.5x bigger than before
+  const collapsedWidth = 180;
+  const collapsedHeight = 140;
+  const expandedWidth = 340;
+  const expandedHeight = 400;
 
   // Colors - primary/accent theme for importance
   const accentColor = 'hsl(var(--primary))';
@@ -570,8 +570,8 @@ function DanielaObservationsBubble({
   const improvingStruggles = context?.struggles.filter(s => s.status === 'improving').slice(0, 3) || [];
   const strategyCount = context?.effectiveStrategies.length || 0;
 
-  // Cloud path for thought bubble (viewBox 0 0 110 85)
-  const cloudPath = "M25,40 C10,37 5,25 18,13 C28,2 50,5 60,13 C72,5 90,10 90,26 C100,30 97,48 83,52 C86,62 72,70 55,67 C43,75 22,70 20,58 C7,58 5,48 25,40 Z";
+  // Cloud path for thought bubble (viewBox 0 0 180 140) - scaled up
+  const cloudPath = "M40,65 C16,60 8,41 29,21 C45,3 82,8 98,21 C118,8 147,16 147,42 C164,49 159,79 136,85 C141,101 118,115 90,110 C70,123 36,115 33,95 C11,95 8,78 40,65 Z";
 
   return (
     <>
@@ -591,9 +591,9 @@ function DanielaObservationsBubble({
         </defs>
         {!isExpanded && (
           <path
-            d={`M ${x + collapsedWidth - 10} ${y + collapsedHeight / 2} Q ${x + collapsedWidth + 30} ${centerY} ${centerX - 110} ${centerY - 10}`}
+            d={`M ${x + collapsedWidth - 20} ${y + collapsedHeight - 30} Q ${x + collapsedWidth + 20} ${y + collapsedHeight + 40} ${centerX - 90} ${centerY - 40}`}
             stroke={accentColor}
-            strokeWidth="2.5"
+            strokeWidth="3"
             fill="none"
             strokeLinecap="round"
             markerEnd="url(#arrowhead-daniela)"
@@ -616,7 +616,7 @@ function DanielaObservationsBubble({
         onClick={() => !isExpanded && onToggle()}
         data-testid="satellite-daniela-observations"
       >
-        {/* Background shape - morphs from cloud to rounded card */}
+        {/* Background shape - only visible when expanded (no background square when collapsed) */}
         <div 
           className="absolute inset-0 transition-all duration-300"
           style={{
@@ -625,7 +625,7 @@ function DanielaObservationsBubble({
             border: isExpanded ? '1px solid var(--border)' : 'none',
             boxShadow: isExpanded 
               ? '0 20px 40px rgba(0,0,0,0.3)' 
-              : `0 0 20px ${glowColor}`,
+              : 'none', // No box shadow when collapsed - cloud SVG has its own glow
           }}
         >
           {/* Collapsed: Show thought bubble SVG */}
@@ -639,13 +639,13 @@ function DanielaObservationsBubble({
           >
             {isLoading ? (
               <div className="flex items-center justify-center w-full h-full">
-                <div className="animate-pulse bg-primary/20 rounded-full w-16 h-16" />
+                <div className="animate-pulse bg-primary/20 rounded-full w-24 h-24" />
               </div>
             ) : (
               <svg 
                 width={collapsedWidth} 
                 height={collapsedHeight} 
-                viewBox="0 0 110 85"
+                viewBox="0 0 180 140"
                 className="w-full h-full"
               >
                 <defs>
@@ -666,49 +666,49 @@ function DanielaObservationsBubble({
                     strokeLinejoin="round"
                   />
                   
-                  {/* Thought bubble dots */}
-                  <circle cx="15" cy="68" r="4" fill="hsl(var(--primary))" stroke="white" strokeWidth="1.5" opacity="0.9" />
-                  <circle cx="7" cy="77" r="3" fill="hsl(var(--primary))" stroke="white" strokeWidth="1.5" opacity="0.8" />
+                  {/* Thought bubble dots - repositioned for larger cloud */}
+                  <circle cx="24" cy="110" r="6" fill="hsl(var(--primary))" stroke="white" strokeWidth="2" opacity="0.9" />
+                  <circle cx="12" cy="125" r="4" fill="hsl(var(--primary))" stroke="white" strokeWidth="2" opacity="0.8" />
                 </g>
                 
-                {/* Text inside bubble */}
+                {/* Text inside bubble - centered and larger */}
                 <text
-                  x="55"
-                  y="32"
+                  x="90"
+                  y="52"
                   textAnchor="middle"
                   dominantBaseline="middle"
                   fill="white"
                   fontWeight="bold"
-                  fontSize="10"
+                  fontSize="16"
                   fontFamily="system-ui, sans-serif"
                   style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.5)' }}
                 >
                   Daniela's
                 </text>
                 <text
-                  x="55"
-                  y="45"
+                  x="90"
+                  y="72"
                   textAnchor="middle"
                   dominantBaseline="middle"
                   fill="white"
                   fontWeight="bold"
-                  fontSize="10"
+                  fontSize="16"
                   fontFamily="system-ui, sans-serif"
                   style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.5)' }}
                 >
                   Insights
                 </text>
                 
-                {/* Summary count badge */}
+                {/* Summary count badge - repositioned for larger cloud */}
                 {breakthroughCount + activeStruggles.length > 0 && (
-                  <g transform="translate(82, 17)">
-                    <circle r="10" fill="white" />
+                  <g transform="translate(135, 28)">
+                    <circle r="14" fill="white" />
                     <text
                       textAnchor="middle"
                       dominantBaseline="middle"
                       fill="hsl(var(--primary))"
                       fontWeight="bold"
-                      fontSize="10"
+                      fontSize="14"
                     >
                       {breakthroughCount + activeStruggles.length}
                     </text>
