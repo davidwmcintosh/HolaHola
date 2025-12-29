@@ -139,9 +139,14 @@ export function VoiceLabPanel({
     enabled: isOpen,
   });
   
-  // Fetch available Cartesia voices for audition
+  // Fetch available Cartesia voices for audition (filtered by language and gender)
   const { data: cartesiaVoicesData, isLoading: isLoadingCartesiaVoices } = useQuery<{ voices: CartesiaVoice[]; total: number }>({
-    queryKey: ['/api/admin/cartesia-voices', language],
+    queryKey: ['/api/admin/cartesia-voices', language, tutorGender],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/cartesia-voices/${language}/${tutorGender}`);
+      if (!res.ok) throw new Error('Failed to fetch voices');
+      return res.json();
+    },
     enabled: isOpen && !!language,
   });
   const cartesiaVoices = cartesiaVoicesData?.voices || [];
