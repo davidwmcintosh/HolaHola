@@ -554,11 +554,11 @@ function DanielaObservationsBubble({
   const x = -150; // Even further left to match user's circle drawing
   const y = 15; // Near top of container
   
-  // Much larger dimensions - 2.5x bigger than before
-  const collapsedWidth = 180;
-  const collapsedHeight = 140;
-  const expandedWidth = 340;
-  const expandedHeight = 400;
+  // Much larger dimensions - bigger bubble
+  const collapsedWidth = 210;
+  const collapsedHeight = 165;
+  const expandedWidth = 380;
+  const expandedHeight = 450;
 
   // Colors - primary/accent theme for importance
   const accentColor = 'hsl(var(--primary))';
@@ -647,17 +647,21 @@ function DanielaObservationsBubble({
                 height={collapsedHeight} 
                 viewBox="0 0 180 140"
                 className="w-full h-full"
+                overflow="visible"
+                style={{ overflow: 'visible' }}
               >
                 <defs>
                   <linearGradient id="grad-daniela" x1="0%" y1="100%" x2="0%" y2="0%">
                     <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.95" />
                     <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0.75" />
                   </linearGradient>
+                  <filter id="glow-daniela" x="-50%" y="-50%" width="200%" height="200%" filterUnits="userSpaceOnUse">
+                    <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="rgba(0,0,0,0.25)" />
+                    <feDropShadow dx="0" dy="0" stdDeviation="8" floodColor={glowColor} />
+                  </filter>
                 </defs>
                 
-                <g style={{ 
-                  filter: `drop-shadow(0 4px 8px rgba(0,0,0,0.25)) drop-shadow(0 0 10px ${glowColor})`,
-                }}>
+                <g filter="url(#glow-daniela)">
                   <path
                     d={cloudPath}
                     fill="url(#grad-daniela)"
@@ -665,8 +669,7 @@ function DanielaObservationsBubble({
                     strokeWidth="2.5"
                     strokeLinejoin="round"
                   />
-                  
-                  </g>
+                </g>
                 
                 {/* Text inside bubble - centered and larger */}
                 <text
