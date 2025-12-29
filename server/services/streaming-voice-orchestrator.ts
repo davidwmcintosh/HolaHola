@@ -1671,12 +1671,17 @@ Remember: David may reference things discussed in these recent text chats.
             }
           }
           
-          // ROUTING: Only route JSON-sourced commands here
-          // Bracketed commands are already handled by the whiteboard parser above
-          // This prevents duplicate execution of the same command
-          const jsonCommands = commandParseResult.commands.filter(c => c.source === 'json');
+          // ROUTING: Process commands based on their source and type
+          // - JSON-sourced commands: Process here (whiteboard parser doesn't handle JSON)
+          // - Bracketed VOICE_ADJUST/VOICE_RESET: Process here (whiteboard parser doesn't handle voice commands)
+          // - Other bracketed commands: Already handled by whiteboard parser above
+          const commandsToProcess = commandParseResult.commands.filter(c => 
+            c.source === 'json' || 
+            c.type === 'VOICE_ADJUST' || 
+            c.type === 'VOICE_RESET'
+          );
           
-          for (const cmd of jsonCommands) {
+          for (const cmd of commandsToProcess) {
               switch (cmd.type) {
                 case 'SWITCH_TUTOR': {
                   // Only process if not already handled by whiteboard parser
