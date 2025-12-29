@@ -549,10 +549,9 @@ function DanielaObservationsBubble({
   // Don't render if no content (student hasn't had enough conversations yet)
   if (!isLoading && !hasContent) return null;
 
-  // Position at 11 o'clock - upper left, farther from brain
-  // Brain center is at centerX, centerY - position bubble up and to the left
-  const x = centerX - 220; // Far left of brain
-  const y = centerY - 130; // High up (11 o'clock position)
+  // Position in upper left corner as per user's drawing
+  const x = 20; // Fixed to left edge of container
+  const y = 10; // Near top of container
   
   // Much larger dimensions - 2.5x bigger than before
   const collapsedWidth = 180;
@@ -591,7 +590,7 @@ function DanielaObservationsBubble({
         </defs>
         {!isExpanded && (
           <path
-            d={`M ${x + collapsedWidth - 20} ${y + collapsedHeight - 30} Q ${x + collapsedWidth + 20} ${y + collapsedHeight + 40} ${centerX - 90} ${centerY - 40}`}
+            d={`M ${x + collapsedWidth - 10} ${y + collapsedHeight - 20} Q ${x + collapsedWidth + 60} ${y + collapsedHeight + 60} ${centerX - 70} ${centerY - 50}`}
             stroke={accentColor}
             strokeWidth="3"
             fill="none"
@@ -666,10 +665,7 @@ function DanielaObservationsBubble({
                     strokeLinejoin="round"
                   />
                   
-                  {/* Thought bubble dots - repositioned for larger cloud */}
-                  <circle cx="24" cy="110" r="6" fill="hsl(var(--primary))" stroke="white" strokeWidth="2" opacity="0.9" />
-                  <circle cx="12" cy="125" r="4" fill="hsl(var(--primary))" stroke="white" strokeWidth="2" opacity="0.8" />
-                </g>
+                  </g>
                 
                 {/* Text inside bubble - centered and larger */}
                 <text
