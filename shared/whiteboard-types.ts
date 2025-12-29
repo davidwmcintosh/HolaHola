@@ -1957,6 +1957,7 @@ export function stripWhiteboardMarkup(text: string): string {
   // FALLBACK: Aggressively strip any remaining command tags that the complex pattern may have missed
   // This catches edge cases with global regex state, quote variations, or attribute order issues
   result = result
+    // Complete tags (with closing bracket)
     .replace(/\[SWITCH_TUTORS?\s+[^\]]*\]/gi, '')
     .replace(/\[PHASE_SHIFT\s+[^\]]*\]/gi, '')
     .replace(/\[ACTFL_UPDATE\s+[^\]]*\]/gi, '')
@@ -1970,6 +1971,19 @@ export function stripWhiteboardMarkup(text: string): string {
     .replace(/\[\/VOICE_ADJUST\]/gi, '')  // Closing tag for paired format
     .replace(/\[VOICE_RESET(?:\s+[^\]]*)??\]/gi, '')  // VOICE_RESET may have optional params
     .replace(/\[\/VOICE_RESET\]/gi, '')  // Closing tag for paired format
+    
+    // MALFORMED TAGS: Strip incomplete tags missing closing bracket (Gemini sometimes truncates)
+    // These match from [COMMAND to end of text since bracket is missing
+    .replace(/\[SWITCH_TUTORS?\s+[^\]]*$/gi, '')
+    .replace(/\[PHASE_SHIFT\s+[^\]]*$/gi, '')
+    .replace(/\[ACTFL_UPDATE\s+[^\]]*$/gi, '')
+    .replace(/\[SYLLABUS_PROGRESS\s+[^\]]*$/gi, '')
+    .replace(/\[(?:CALL_SUPPORT|CALL_SOFIA)\s+[^\]]*$/gi, '')
+    .replace(/\[HIVE\s+[^\]]*$/gi, '')
+    .replace(/\[SELF_SURGERY\s+[^\]]*$/gi, '')
+    .replace(/\[VOICE_ADJUST\s+[^\]]*$/gi, '')
+    .replace(/\[VOICE_RESET\s+[^\]]*$/gi, '')
+    
     .replace(/\s{2,}/g, ' ')
     .trim();
   
