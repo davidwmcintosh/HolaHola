@@ -228,7 +228,7 @@ function AuthenticatedApp({ style }: { style: { [key: string]: string } }) {
               {/* Sidebar renders as Sheet overlay on mobile, regular sidebar on desktop */}
               <AppSidebar />
               <div className="flex flex-col flex-1 relative">
-                <main className="flex-1 overflow-hidden">
+                <main className="flex-1 overflow-auto">
                   <Router />
                 </main>
                 {/* Floating menu button - works on all screen sizes */}
