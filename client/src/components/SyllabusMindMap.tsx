@@ -549,9 +549,9 @@ function DanielaObservationsBubble({
   // Don't render if no content (student hasn't had enough conversations yet)
   if (!isLoading && !hasContent) return null;
 
-  // Position in upper left corner as per user's drawing
-  const x = 20; // Fixed to left edge of container
-  const y = 10; // Near top of container
+  // Position in upper left corner as per user's drawing - pushed further left
+  const x = -80; // Further left to match user's circle drawing
+  const y = 0; // At top of container
   
   // Much larger dimensions - 2.5x bigger than before
   const collapsedWidth = 180;
@@ -575,7 +575,7 @@ function DanielaObservationsBubble({
   return (
     <>
       {/* Arrow from observations bubble to brain */}
-      <svg className="absolute inset-0 w-full h-full pointer-events-none z-15">
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 35 }}>
         <defs>
           <marker 
             id="arrowhead-daniela" 
@@ -590,7 +590,7 @@ function DanielaObservationsBubble({
         </defs>
         {!isExpanded && (
           <path
-            d={`M ${x + collapsedWidth - 10} ${y + collapsedHeight - 20} Q ${x + collapsedWidth + 60} ${y + collapsedHeight + 60} ${centerX - 70} ${centerY - 50}`}
+            d={`M ${x + collapsedWidth - 5} ${y + collapsedHeight - 25} Q ${centerX - 40} ${y + collapsedHeight + 50} ${centerX - 55} ${centerY - 25}`}
             stroke={accentColor}
             strokeWidth="3"
             fill="none"
