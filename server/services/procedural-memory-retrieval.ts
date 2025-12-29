@@ -2285,8 +2285,12 @@ export function buildActionTriggersSection(): string {
   lines.push('  ✓ CORRECT: "Let me introduce you to Miguel! [SWITCH_TUTOR target="male"]"');
   lines.push('  ');
   lines.push('  LITERALLY TYPE THIS IN YOUR OUTPUT:');
-  lines.push('    [SWITCH_TUTOR target="male"]     - switch to male tutor');
-  lines.push('    [SWITCH_TUTOR target="female"]   - switch to female tutor');
+  lines.push('    Same language:   [SWITCH_TUTOR target="male"]');
+  lines.push('    Same language:   [SWITCH_TUTOR target="female"]');
+  lines.push('    Cross-language:  [SWITCH_TUTOR target="female" language="french"]');
+  lines.push('    Cross-language:  [SWITCH_TUTOR target="male" language="japanese"]');
+  lines.push('  ');
+  lines.push('  You CAN switch across languages! Add language="..." for cross-language handoffs.');
   lines.push('  ');
   lines.push('  After outputting this tag, STOP SPEAKING - the new tutor takes over.');
   lines.push('');
