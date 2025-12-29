@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Play, Pause, Plus, Edit2, Trash2, Volume2, User, Languages, Loader2, Sparkles, Heart, Headphones, MessageSquare } from "lucide-react";
+import { Play, Pause, Plus, Edit2, Trash2, Volume2, User, Languages, Loader2, Sparkles, Heart, Headphones, MessageSquare, GraduationCap } from "lucide-react";
 
 // Personality preset types matching backend
 type PersonalityType = 'warm' | 'calm' | 'energetic' | 'professional';
@@ -34,6 +34,11 @@ interface TTSMetadata {
   getDefaultEmotion: Record<PersonalityType, string>;
 }
 
+// Pedagogical persona types
+type PedagogicalFocus = 'grammar' | 'fluency' | 'pronunciation' | 'culture' | 'vocabulary' | 'mixed';
+type TeachingStyle = 'structured' | 'conversational' | 'drill_focused' | 'adaptive' | 'socratic';
+type ErrorTolerance = 'high' | 'medium' | 'low';
+
 interface TutorVoice {
   id: string;
   language: string;
@@ -50,6 +55,13 @@ interface TutorVoice {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  // Pedagogical persona fields
+  pedagogicalFocus?: PedagogicalFocus;
+  teachingStyle?: TeachingStyle;
+  errorTolerance?: ErrorTolerance;
+  personalityTraits?: string;
+  scenarioStrengths?: string;
+  teachingPhilosophy?: string;
 }
 
 interface CartesiaVoice {
@@ -137,6 +149,10 @@ export default function VoiceConsole() {
     expressiveness: 3,
     emotion: 'friendly',
     isActive: true,
+    // Pedagogical persona fields
+    pedagogicalFocus: 'mixed' as PedagogicalFocus,
+    teachingStyle: 'adaptive' as TeachingStyle,
+    errorTolerance: 'medium' as ErrorTolerance,
   });
 
   // Fetch configured voices
@@ -199,6 +215,9 @@ export default function VoiceConsole() {
       expressiveness: 3,
       emotion: 'friendly',
       isActive: true,
+      pedagogicalFocus: 'mixed',
+      teachingStyle: 'adaptive',
+      errorTolerance: 'medium',
     });
     // Reset emotion audition to defaults (synced with form)
     setAuditionPersonality('warm');
@@ -364,6 +383,10 @@ export default function VoiceConsole() {
       expressiveness: savedExpressiveness,
       emotion: savedEmotion,
       isActive: voice.isActive,
+      // Load pedagogical persona fields
+      pedagogicalFocus: voice.pedagogicalFocus || 'mixed',
+      teachingStyle: voice.teachingStyle || 'adaptive',
+      errorTolerance: voice.errorTolerance || 'medium',
     });
     // Sync audition controls with saved values so preview uses saved emotion
     setAuditionPersonality(savedPersonality);
@@ -681,6 +704,72 @@ export default function VoiceConsole() {
                         </p>
                       </div>
                     )}
+
+                    {/* Teaching Persona Section */}
+                    <div className="pt-4 border-t space-y-4">
+                      <div className="flex items-center gap-2">
+                        <GraduationCap className="h-4 w-4 text-muted-foreground" />
+                        <Label className="font-medium">Teaching Persona</Label>
+                      </div>
+                      
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Teaching Focus</Label>
+                          <Select 
+                            value={formData.pedagogicalFocus} 
+                            onValueChange={(v) => setFormData(prev => ({ ...prev, pedagogicalFocus: v as PedagogicalFocus }))}
+                          >
+                            <SelectTrigger className="h-8" data-testid="select-pedagogical-focus">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="mixed">Balanced</SelectItem>
+                              <SelectItem value="grammar">Grammar</SelectItem>
+                              <SelectItem value="fluency">Fluency</SelectItem>
+                              <SelectItem value="pronunciation">Pronunciation</SelectItem>
+                              <SelectItem value="culture">Culture</SelectItem>
+                              <SelectItem value="vocabulary">Vocabulary</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Teaching Style</Label>
+                          <Select 
+                            value={formData.teachingStyle} 
+                            onValueChange={(v) => setFormData(prev => ({ ...prev, teachingStyle: v as TeachingStyle }))}
+                          >
+                            <SelectTrigger className="h-8" data-testid="select-teaching-style">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="adaptive">Adaptive</SelectItem>
+                              <SelectItem value="structured">Structured</SelectItem>
+                              <SelectItem value="conversational">Conversational</SelectItem>
+                              <SelectItem value="drill_focused">Practice-Heavy</SelectItem>
+                              <SelectItem value="socratic">Question-Based</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Error Correction</Label>
+                          <Select 
+                            value={formData.errorTolerance} 
+                            onValueChange={(v) => setFormData(prev => ({ ...prev, errorTolerance: v as ErrorTolerance }))}
+                          >
+                            <SelectTrigger className="h-8" data-testid="select-error-tolerance">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="high">Gentle (flow)</SelectItem>
+                              <SelectItem value="medium">Balanced</SelectItem>
+                              <SelectItem value="low">Thorough</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
 
                     <div className="flex items-center gap-2">
                       <Switch 
