@@ -926,8 +926,10 @@ export default function ReviewHub() {
         );
       })()}
 
-      {/* Daniela's Learning Insights - Personalized recommendations */}
-      <DanielaLearningInsights language={language} userId={user?.id} />
+      {/* Daniela's Learning Insights - Only show standalone card in linear view (mindmap has it built-in) */}
+      {syllabusView !== 'mindmap' && (
+        <DanielaLearningInsights language={language} userId={user?.id} />
+      )}
 
       {/* Recommended Pronunciation Drills */}
       {drillRecommendations && drillRecommendations.length > 0 && (

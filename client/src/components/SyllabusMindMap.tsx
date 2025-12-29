@@ -12,6 +12,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useUser } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,12 +20,14 @@ import {
   Sparkles, Lock, CheckCircle2, Circle, ChevronUp,
   MessageSquare, BookOpen, Compass, Palette, Settings2, X,
   Target, Layers, GraduationCap, Globe, Mic, Clock,
-  TrendingUp, TrendingDown, Minus
+  TrendingUp, TrendingDown, Minus, Trophy, AlertTriangle, Lightbulb, ChevronRight
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import type { ActflProgress, UnifiedProgressResponse, TimeVarianceSummary } from "@shared/schema";
 import { calculateContinuousScore } from "@/components/actfl/actfl-gauge-core";
 import brainImage from "@assets/transparent_colorful_cartoon_brain_Background_Removed_1765564186963.png";
+import { Link } from "wouter";
+import { Button } from "@/components/ui/button";
 
 interface TopicNode {
   id: string;
@@ -374,12 +377,13 @@ function LobeSatellite({
           </svg>
         </div>
 
-        {/* Expanded: Show content */}
+        {/* Expanded: Show content - only render when expanded to avoid accessibility tree pollution */}
+        {isExpanded && (
         <div 
           className="absolute inset-0 p-3 transition-all duration-300 overflow-hidden"
           style={{ 
-            opacity: isExpanded ? 1 : 0,
-            transform: isExpanded ? 'scale(1)' : 'scale(0.8)',
+            opacity: 1,
+            transform: 'scale(1)',
           }}
         >
           {/* Header with colored bar */}
@@ -430,8 +434,428 @@ function LobeSatellite({
             )}
           </div>
         </div>
+        )}
       </div>
     </div>
+  );
+}
+
+// Types for Daniela's learning insights
+interface RecurringStruggle {
+  id: string;
+  errorCategory: string;
+  specificError: string;
+  description: string;
+  occurrenceCount: number;
+  status: 'active' | 'improving' | 'resolved' | 'mastered';
+  successfulApproaches: string[];
+}
+
+interface StudentInsight {
+  id: string;
+  insightType: string;
+  content: string;
+  confidenceScore: number;
+}
+
+interface PersonalFact {
+  id: string;
+  factType: string;
+  fact: string;
+  confidenceScore: number;
+}
+
+interface BreakthroughInfo {
+  struggleArea: string;
+  description: string;
+  occurrenceCount: number;
+  successfulStrategies: string[];
+  createdAt: string;
+}
+
+interface StudentLearningContext {
+  struggles: RecurringStruggle[];
+  insights: StudentInsight[];
+  personalFacts: PersonalFact[];
+  effectiveStrategies: string[];
+  strugglingAreas: string[];
+  recentProgress: string[];
+  recentBreakthroughs: BreakthroughInfo[];
+}
+
+const strategyLabels: Record<string, string> = {
+  visual_timeline: "Visual timelines",
+  role_play: "Role playing",
+  repetition_drill: "Practice drills",
+  comparison_chart: "Comparison charts",
+  mnemonic: "Memory tricks",
+  real_world_context: "Real-world examples",
+  slow_pronunciation: "Slow pronunciation",
+  written_example: "Written examples",
+  chunking: "Breaking into chunks",
+  spaced_repetition: "Spaced practice",
+  error_correction_immediate: "Immediate feedback",
+  self_discovery: "Discovery learning",
+  explicit_rule: "Clear explanations",
+  storytelling: "Storytelling",
+};
+
+const categoryLabels: Record<string, string> = {
+  grammar: "Grammar",
+  pronunciation: "Pronunciation", 
+  vocabulary: "Vocabulary",
+  cultural: "Cultural nuances",
+  comprehension: "Listening",
+};
+
+// Daniela's Observations Bubble - Larger than lobe clouds, positioned on left
+function DanielaObservationsBubble({
+  userId,
+  language,
+  isExpanded,
+  onToggle,
+  centerX,
+  centerY,
+}: {
+  userId?: string;
+  language: string;
+  isExpanded: boolean;
+  onToggle: () => void;
+  centerX: number;
+  centerY: number;
+}) {
+  // Fetch learning context
+  const { data: context, isLoading } = useQuery<StudentLearningContext | null>({
+    queryKey: ["/api/student-learning/context", userId, language],
+    queryFn: async () => {
+      if (!userId || language === 'all') return null;
+      const response = await fetch(`/api/student-learning/context/${userId}/${language}`, { 
+        credentials: 'include' 
+      });
+      if (!response.ok) return null;
+      const data = await response.json();
+      return data.context as StudentLearningContext;
+    },
+    enabled: !!userId && language !== 'all',
+  });
+
+  const hasContent = context && (
+    context.recentBreakthroughs.length > 0 || 
+    context.struggles.length > 0 || 
+    context.effectiveStrategies.length > 0 ||
+    context.recentProgress.length > 0
+  );
+
+  // Don't render if no content (student hasn't had enough conversations yet)
+  if (!isLoading && !hasContent) return null;
+
+  // Position on the LEFT side of the brain - larger than lobe clouds
+  // Position ensures no overlap with brain (brain is ~115px from center, bubble needs to be further left)
+  const x = 15; // Fixed position on left side of container (not relative to center)
+  const y = centerY - 30;
+  
+  // Larger dimensions than lobe satellites
+  const collapsedWidth = 110;
+  const collapsedHeight = 85;
+  const expandedWidth = 260;
+  const expandedHeight = 320;
+
+  // Colors - primary/accent theme for importance
+  const accentColor = 'hsl(var(--primary))';
+  const glowColor = 'rgba(139, 92, 246, 0.5)';
+
+  // Summary counts
+  const breakthroughCount = context?.recentBreakthroughs.length || 0;
+  const activeStruggles = context?.struggles.filter(s => s.status === 'active').slice(0, 3) || [];
+  const improvingStruggles = context?.struggles.filter(s => s.status === 'improving').slice(0, 3) || [];
+  const strategyCount = context?.effectiveStrategies.length || 0;
+
+  // Cloud path for thought bubble (viewBox 0 0 110 85)
+  const cloudPath = "M25,40 C10,37 5,25 18,13 C28,2 50,5 60,13 C72,5 90,10 90,26 C100,30 97,48 83,52 C86,62 72,70 55,67 C43,75 22,70 20,58 C7,58 5,48 25,40 Z";
+
+  return (
+    <>
+      {/* Arrow from observations bubble to brain */}
+      <svg className="absolute inset-0 w-full h-full pointer-events-none z-15">
+        <defs>
+          <marker 
+            id="arrowhead-daniela" 
+            markerWidth="10" 
+            markerHeight="7" 
+            refX="9" 
+            refY="3.5" 
+            orient="auto"
+          >
+            <polygon points="0 0, 10 3.5, 0 7" fill={accentColor}/>
+          </marker>
+        </defs>
+        {!isExpanded && (
+          <path
+            d={`M ${x + collapsedWidth - 10} ${y + collapsedHeight / 2} Q ${x + collapsedWidth + 30} ${centerY} ${centerX - 110} ${centerY - 10}`}
+            stroke={accentColor}
+            strokeWidth="2.5"
+            fill="none"
+            strokeLinecap="round"
+            markerEnd="url(#arrowhead-daniela)"
+            opacity="0.8"
+            className="transition-opacity duration-300"
+            style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))' }}
+          />
+        )}
+      </svg>
+
+      <div
+        className="absolute cursor-pointer transition-all duration-300 ease-out group"
+        style={{
+          left: isExpanded ? x - (expandedWidth - collapsedWidth) / 2 : x,
+          top: isExpanded ? y - 40 : y,
+          width: isExpanded ? expandedWidth : collapsedWidth,
+          zIndex: isExpanded ? 50 : 25, // z-25 when collapsed to be above the click-outside overlay (z-20)
+          height: isExpanded ? expandedHeight : collapsedHeight,
+        }}
+        onClick={() => !isExpanded && onToggle()}
+        data-testid="satellite-daniela-observations"
+      >
+        {/* Background shape - morphs from cloud to rounded card */}
+        <div 
+          className="absolute inset-0 transition-all duration-300"
+          style={{
+            borderRadius: isExpanded ? '16px' : '0',
+            backgroundColor: isExpanded ? 'var(--card)' : 'transparent',
+            border: isExpanded ? '1px solid var(--border)' : 'none',
+            boxShadow: isExpanded 
+              ? '0 20px 40px rgba(0,0,0,0.3)' 
+              : `0 0 20px ${glowColor}`,
+          }}
+        >
+          {/* Collapsed: Show thought bubble SVG */}
+          <div 
+            className={`absolute inset-0 transition-transform duration-200 ${!isExpanded ? 'group-hover:scale-105' : ''}`}
+            style={{ 
+              opacity: isExpanded ? 0 : 1,
+              transform: isExpanded ? 'scale(0.5)' : undefined,
+              transformOrigin: 'center center',
+            }}
+          >
+            {isLoading ? (
+              <div className="flex items-center justify-center w-full h-full">
+                <div className="animate-pulse bg-primary/20 rounded-full w-16 h-16" />
+              </div>
+            ) : (
+              <svg 
+                width={collapsedWidth} 
+                height={collapsedHeight} 
+                viewBox="0 0 110 85"
+                className="w-full h-full"
+              >
+                <defs>
+                  <linearGradient id="grad-daniela" x1="0%" y1="100%" x2="0%" y2="0%">
+                    <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.95" />
+                    <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0.75" />
+                  </linearGradient>
+                </defs>
+                
+                <g style={{ 
+                  filter: `drop-shadow(0 4px 8px rgba(0,0,0,0.25)) drop-shadow(0 0 10px ${glowColor})`,
+                }}>
+                  <path
+                    d={cloudPath}
+                    fill="url(#grad-daniela)"
+                    stroke="white"
+                    strokeWidth="2.5"
+                    strokeLinejoin="round"
+                  />
+                  
+                  {/* Thought bubble dots */}
+                  <circle cx="15" cy="68" r="4" fill="hsl(var(--primary))" stroke="white" strokeWidth="1.5" opacity="0.9" />
+                  <circle cx="7" cy="77" r="3" fill="hsl(var(--primary))" stroke="white" strokeWidth="1.5" opacity="0.8" />
+                </g>
+                
+                {/* Text inside bubble */}
+                <text
+                  x="55"
+                  y="32"
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fill="white"
+                  fontWeight="bold"
+                  fontSize="10"
+                  fontFamily="system-ui, sans-serif"
+                  style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.5)' }}
+                >
+                  Daniela's
+                </text>
+                <text
+                  x="55"
+                  y="45"
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fill="white"
+                  fontWeight="bold"
+                  fontSize="10"
+                  fontFamily="system-ui, sans-serif"
+                  style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.5)' }}
+                >
+                  Insights
+                </text>
+                
+                {/* Summary count badge */}
+                {breakthroughCount + activeStruggles.length > 0 && (
+                  <g transform="translate(82, 17)">
+                    <circle r="10" fill="white" />
+                    <text
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      fill="hsl(var(--primary))"
+                      fontWeight="bold"
+                      fontSize="10"
+                    >
+                      {breakthroughCount + activeStruggles.length}
+                    </text>
+                  </g>
+                )}
+              </svg>
+            )}
+          </div>
+
+          {/* Expanded: Show full content - only render when expanded to avoid accessibility tree pollution */}
+          {isExpanded && (
+          <div 
+            className="absolute inset-0 p-4 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-full bg-primary/10">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-sm">Daniela's Observations</h3>
+                  <p className="text-[10px] text-muted-foreground">
+                    Your personalized insights
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); onToggle(); }}
+                className="p-1 rounded-md hover:bg-muted transition-colors"
+                data-testid="close-daniela-observations"
+              >
+                <X className="h-3 w-3 text-muted-foreground" />
+              </button>
+            </div>
+            
+            {/* Content - scrollable */}
+            <div className="space-y-3 max-h-[250px] overflow-y-auto pr-1">
+              {/* Breakthroughs */}
+              {breakthroughCount > 0 && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-400">
+                    <Trophy className="h-3.5 w-3.5" />
+                    <span>Recent Wins</span>
+                  </div>
+                  {context?.recentBreakthroughs.slice(0, 2).map((b, i) => (
+                    <div 
+                      key={i}
+                      className="p-2 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900"
+                    >
+                      <p className="text-xs text-green-800 dark:text-green-300">
+                        {b.description}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Improving */}
+              {improvingStruggles.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-blue-700 dark:text-blue-400">
+                    <TrendingUp className="h-3.5 w-3.5" />
+                    <span>Making Progress</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {improvingStruggles.map((s) => (
+                      <Badge 
+                        key={s.id}
+                        variant="outline"
+                        className="bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900 text-blue-700 dark:text-blue-300 text-[10px] py-0.5"
+                      >
+                        {s.description.length > 30 ? s.description.substring(0, 30) + '...' : s.description}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Focus Areas */}
+              {activeStruggles.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    <span>Let's Work On</span>
+                  </div>
+                  {activeStruggles.map((s) => (
+                    <div 
+                      key={s.id}
+                      className="flex items-start gap-2 p-2 rounded-lg bg-amber-50/50 dark:bg-amber-950/20"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-amber-800 dark:text-amber-300">
+                          {s.description}
+                        </p>
+                        <p className="text-[10px] text-amber-600 dark:text-amber-500">
+                          {categoryLabels[s.errorCategory] || s.errorCategory} · {s.occurrenceCount}x
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Effective Strategies */}
+              {strategyCount > 0 && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-purple-700 dark:text-purple-400">
+                    <Lightbulb className="h-3.5 w-3.5" />
+                    <span>What Works for You</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {context?.effectiveStrategies.slice(0, 4).map((s, i) => (
+                      <Badge 
+                        key={i}
+                        variant="outline"
+                        className="bg-purple-50 dark:bg-purple-950/30 border-purple-200 dark:border-purple-900 text-purple-700 dark:text-purple-300 text-[10px] py-0.5"
+                      >
+                        {strategyLabels[s] || s}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Practice button */}
+            <div className="mt-3 pt-2 border-t">
+              <Link href="/chat">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full text-xs h-8 gap-1"
+                  data-testid="button-practice-from-mindmap"
+                >
+                  <Sparkles className="h-3 w-3" />
+                  Practice with Daniela
+                  <ChevronRight className="h-3 w-3 ml-auto" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+          )}
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -715,8 +1139,10 @@ function unifiedProgressToTopics(progress: UnifiedProgressResponse): TopicNode[]
 
 export function SyllabusMindMap({ classId, language: languageProp, className, syllabusOverview, mode = 'emergent' }: SyllabusMindMapProps) {
   const { language: globalLanguage, difficulty } = useLanguage();
+  const { user } = useUser();
   const language = languageProp ?? globalLanguage;
   const [expandedSegment, setExpandedSegment] = useState<BrainSegment | null>(null);
+  const [observationsExpanded, setObservationsExpanded] = useState(false);
   
   // Container dimensions for positioning
   const containerWidth = 460;
@@ -803,7 +1229,13 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
   }, [topicsBySegment]);
   
   const toggleSegment = (segment: BrainSegment) => {
+    setObservationsExpanded(false); // Close observations when opening a lobe
     setExpandedSegment(prev => prev === segment ? null : segment);
+  };
+  
+  const toggleObservations = () => {
+    setExpandedSegment(null); // Close lobe when opening observations
+    setObservationsExpanded(prev => !prev);
   };
   
   // Loading state depends on context:
@@ -959,6 +1391,16 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
             centerY={centerY}
           />
         ))}
+        
+        {/* Daniela's Observations - Larger thought bubble on the left */}
+        <DanielaObservationsBubble
+          userId={user?.id}
+          language={language}
+          isExpanded={observationsExpanded}
+          onToggle={toggleObservations}
+          centerX={centerX}
+          centerY={centerY}
+        />
       </div>
       
       {/* Activity Inputs with Flow Lines - Learning activities that feed the brain */}
