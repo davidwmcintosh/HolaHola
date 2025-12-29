@@ -591,7 +591,7 @@ function DanielaObservationsBubble({
         </defs>
         {!isExpanded && (
           <path
-            d={`M ${x + collapsedWidth + 10} ${y + collapsedHeight / 2 + 20} Q ${x + collapsedWidth + 80} ${centerY - 20} ${centerX - 80} ${centerY - 35}`}
+            d={`M ${x + collapsedWidth + 5} ${y + 35} Q ${x + collapsedWidth + 100} ${y - 30} ${centerX - 70} ${centerY - 50}`}
             stroke={accentColor}
             strokeWidth="3"
             fill="none"
@@ -1259,13 +1259,14 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
   const avgProgress = Object.values(segmentProgress).reduce((a, b) => a + b, 0) / 5;
   
   return (
-    <div className={className} data-testid="syllabus-mind-map">
+    <div className={`${className} overflow-visible`} data-testid="syllabus-mind-map">
       {/* Brain visualization container - floating without background for cleaner mobile experience */}
       <div 
         className="relative mx-auto overflow-visible"
         style={{ 
           width: containerWidth, 
           height: containerHeight + 120, // Extra space for expanded panels
+          paddingTop: 30, // Space for glow effects above bubbles
         }}
         data-testid="brain-container"
       >
