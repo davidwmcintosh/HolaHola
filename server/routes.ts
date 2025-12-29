@@ -13483,6 +13483,20 @@ Current conversation context:
       const validRoles = ['tutor', 'assistant', 'support'];
       const validatedRole = validRoles.includes(role) ? role : 'tutor';
       
+      // CRITICAL SAFEGUARD: Enforce provider by role
+      // Main tutors MUST use Cartesia Sonic-3 voices
+      // Assistants and support MUST use Google Cloud TTS voices
+      if (validatedRole === 'tutor' && provider !== 'cartesia') {
+        return res.status(400).json({ 
+          error: "Main tutors must use Cartesia voices. Google voices are only for assistant tutors and support." 
+        });
+      }
+      if ((validatedRole === 'assistant' || validatedRole === 'support') && provider !== 'google') {
+        return res.status(400).json({ 
+          error: "Assistant tutors and support must use Google voices. Cartesia voices are only for main tutors." 
+        });
+      }
+      
       // Validate speakingRate if provided (0.5 to 2.0 range for assistants/support, 0.7 to 1.3 for tutors)
       const rateMin = (validatedRole === 'assistant' || validatedRole === 'support') ? 0.5 : 0.7;
       const rateMax = (validatedRole === 'assistant' || validatedRole === 'support') ? 2.0 : 1.3;

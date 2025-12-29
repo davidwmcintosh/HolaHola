@@ -5364,6 +5364,16 @@ export class DatabaseStorage implements IStorage {
     // Default to 'tutor' role if not specified
     const role = data.role || 'tutor';
     
+    // CRITICAL SAFEGUARD: Enforce provider by role at storage layer
+    // Main tutors MUST use Cartesia Sonic-3 voices
+    // Assistants and support MUST use Google Cloud TTS voices
+    if (role === 'tutor' && data.provider !== 'cartesia') {
+      throw new Error('[Voice Guard] Main tutors must use Cartesia voices. Google voices are only for assistant tutors and support.');
+    }
+    if ((role === 'assistant' || role === 'support') && data.provider !== 'google') {
+      throw new Error('[Voice Guard] Assistant tutors and support must use Google voices. Cartesia voices are only for main tutors.');
+    }
+    
     // Check if voice already exists for this language, gender, AND role
     const existing = await db.select().from(tutorVoices).where(
       and(
