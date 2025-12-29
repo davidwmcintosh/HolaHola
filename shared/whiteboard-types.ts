@@ -1964,6 +1964,9 @@ export function stripWhiteboardMarkup(text: string): string {
     .replace(/\[(?:CALL_SUPPORT|CALL_SOFIA)\s+[^\]]*\]/gi, '')
     .replace(/\[HIVE\s+[^\]]*\]/gi, '')
     .replace(/\[SELF_SURGERY\s+[^\]]*\]/gi, '')
+    // Voice control tags (Daniela's real-time voice adjustments - invisible to students)
+    .replace(/\[VOICE_ADJUST\s+[^\]]*\]/gi, '')
+    .replace(/\[VOICE_RESET(?:\s+[^\]]*)??\]/gi, '')  // VOICE_RESET may have optional params
     .replace(/\s{2,}/g, ' ')
     .trim();
   
