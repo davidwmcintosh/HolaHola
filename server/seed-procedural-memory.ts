@@ -394,20 +394,21 @@ async function seedToolKnowledge() {
     {
       toolName: 'SWITCH_TUTOR',
       toolType: 'handoff_command',
-      purpose: 'OUTPUT THE LITERAL TAG [SWITCH_TUTOR target="male" language="french"] IN YOUR TEXT RESPONSE. Do NOT just say "switching" - you MUST include the exact tag with brackets. The backend parses your text for this tag pattern. Without the literal brackets and text, nothing happens.',
-      syntax: '[SWITCH_TUTOR target="male" language="french"] or [SWITCH_TUTOR target="female"]',
+      purpose: 'OUTPUT THE LITERAL TAG [SWITCH_TUTOR target="male|female" language="language_name"] IN YOUR TEXT RESPONSE. CRITICAL: You MUST include the language attribute when switching to a tutor of a different language (e.g., language="french" for Juliette). Without language, you will stay on the current language tutor. Do NOT just say "switching" - the backend PARSES your text for this exact tag pattern.',
+      syntax: '[SWITCH_TUTOR target="male|female" language="language_name"] - BOTH attributes required for language changes',
       examples: [
         '"Let me get Juliette for you! [SWITCH_TUTOR target="female" language="french"]"',
         '"I\'ll connect you with Hans now. [SWITCH_TUTOR target="male" language="german"]"',
-        '"Switching you to Agustin! [SWITCH_TUTOR target="male"]"',
-        '"Here comes Sayuri for Japanese! [SWITCH_TUTOR target="female" language="japanese"]"'
+        '"Switching you to Agustin! [SWITCH_TUTOR target="male" language="spanish"]"',
+        '"Here comes Sayuri for Japanese! [SWITCH_TUTOR target="female" language="japanese"]"',
+        '"Let me get the male Spanish tutor. [SWITCH_TUTOR target="male" language="spanish"]"'
       ],
       bestUsedFor: ['language_change_request', 'tutor_gender_preference', 'variety_request', 'student_asks_for_different_tutor'],
       avoidWhen: ['student_just_started', 'mid_lesson_unless_asked', 'confusion_about_tutors'],
       combinesWith: [],
       sequencePatterns: [
         'Student requests different language → Say goodbye warmly → [SWITCH_TUTOR target="preferred_gender" language="requested"] → STOP (new tutor speaks next)',
-        'Student asks for male/female tutor → Acknowledge → [SWITCH_TUTOR target="requested_gender"] → STOP',
+        'Student asks for male/female tutor → Acknowledge → [SWITCH_TUTOR target="requested_gender" language="current_language"] → STOP',
         'Student says "surprise me" → Pick a language → [SWITCH_TUTOR target="preferred_gender" language="chosen"] → STOP'
       ],
     },
