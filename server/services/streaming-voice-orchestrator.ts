@@ -6795,11 +6795,22 @@ Using this context, speak first to the student with a natural opening message. O
     personality?: string;
     expressiveness?: number;
     emotion?: string;
+    voiceId?: string;
+    pedagogicalFocus?: string;
+    teachingStyle?: string;
+    errorTolerance?: string;
   } | null): boolean {
     const session = this.sessions.get(sessionId);
     if (!session) {
       console.warn(`[Streaming Orchestrator] Cannot set voice override - session ${sessionId} not found`);
       return false;
+    }
+    
+    // If voiceId override is provided, also update the session's voiceId directly
+    // This ensures TTS picks up the new voice immediately
+    if (override?.voiceId) {
+      session.voiceId = override.voiceId;
+      console.log(`[Streaming Orchestrator] Voice ID updated to: ${override.voiceId.substring(0, 8)}...`);
     }
     
     // Store override in session

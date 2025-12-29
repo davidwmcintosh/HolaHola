@@ -1931,6 +1931,10 @@ Reference past discussions when relevant, but don't force it.
               personality?: string;
               expressiveness?: number;
               emotion?: string;
+              voiceId?: string;
+              pedagogicalFocus?: string;
+              teachingStyle?: string;
+              errorTolerance?: string;
             } | null;
           };
           
@@ -3321,6 +3325,54 @@ This is a voice conversation. Speak naturally, as you would.`;
           speculativeAiInProgress = false;  // Always clear in-progress flag
           // NOTE: speculativeAiAccepted is intentionally NOT reset here - audio_data will reset it after checking
           
+          break;
+        }
+        
+        case 'voice_override': {
+          // Voice Lab: Apply session-level voice overrides (admin only)
+          // These override database settings for TTS calls in this session only
+          if (!isAuthenticated) {
+            sendErrorAdapter(ws, 'UNAUTHORIZED', 'Not authenticated', false);
+            return;
+          }
+          
+          // Check admin privileges
+          if (!user?.role || !['admin', 'founder', 'developer'].includes(user.role)) {
+            console.warn('[Streaming Voice] voice_override rejected - not admin');
+            return;
+          }
+          
+          const overrideMsg = message as { 
+            type: 'voice_override'; 
+            override: {
+              speakingRate?: number;
+              personality?: string;
+              expressiveness?: number;
+              emotion?: string;
+              voiceId?: string;
+              pedagogicalFocus?: string;
+              teachingStyle?: string;
+              errorTolerance?: string;
+            } | null;
+          };
+          
+          if (session) {
+            // Store override in session for use by TTS
+            (session as any).voiceOverride = overrideMsg.override;
+            
+            // Also update orchestrator session
+            orchestrator.setVoiceOverride(session.id, overrideMsg.override);
+            
+            console.log('[Streaming Voice] Voice override applied:', overrideMsg.override);
+            
+            ws.send(JSON.stringify({
+              type: 'voice_override_applied',
+              timestamp: Date.now(),
+              override: overrideMsg.override,
+            }));
+          } else {
+            console.warn('[Streaming Voice] Cannot apply voice override - no active session');
+          }
           break;
         }
         
