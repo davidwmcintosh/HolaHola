@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Loader2, Volume2, Save, RotateCcw, Play, Sparkles, GraduationCap } from "lucide-react";
+import { Loader2, Volume2, Save, RotateCcw, Play, Sparkles, GraduationCap, Users, ArrowRightLeft } from "lucide-react";
+import { getTutorNames } from "@/lib/tutor-avatars";
 
 type PersonalityType = 'warm' | 'calm' | 'energetic' | 'professional';
 type PedagogicalFocusType = 'grammar' | 'fluency' | 'pronunciation' | 'culture' | 'vocabulary' | 'mixed';
@@ -52,6 +53,14 @@ interface TutorVoice {
   teachingPhilosophy?: string;
 }
 
+interface CartesiaVoice {
+  id: string;
+  name: string;
+  description: string;
+  language: string;
+  gender?: string;
+}
+
 export interface VoiceOverride {
   speakingRate?: number;
   personality?: PersonalityType;
@@ -70,6 +79,7 @@ interface VoiceLabPanelProps {
   tutorGender: 'male' | 'female';
   onOverrideChange: (override: VoiceOverride | null) => void;
   currentOverride: VoiceOverride | null;
+  onTutorGenderChange?: (gender: 'male' | 'female') => void;
 }
 
 const SAMPLE_PHRASES: Record<string, string> = {
@@ -91,6 +101,7 @@ export function VoiceLabPanel({
   tutorGender,
   onOverrideChange,
   currentOverride,
+  onTutorGenderChange,
 }: VoiceLabPanelProps) {
   const { toast } = useToast();
   const [isAuditioning, setIsAuditioning] = useState(false);
@@ -107,6 +118,9 @@ export function VoiceLabPanel({
   const [pedagogicalFocus, setPedagogicalFocus] = useState<PedagogicalFocusType>('mixed');
   const [teachingStyle, setTeachingStyle] = useState<TeachingStyleType>('conversational');
   const [errorTolerance, setErrorTolerance] = useState<ErrorToleranceType>('medium');
+  
+  // Voice selection state (for audition)
+  const [selectedVoiceId, setSelectedVoiceId] = useState<string | null>(null);
 
   // Fetch current tutor voice
   const { data: currentVoice, isLoading: isLoadingVoice } = useQuery<TutorVoice>({
@@ -124,6 +138,13 @@ export function VoiceLabPanel({
     queryKey: ['/api/admin/tts-metadata'],
     enabled: isOpen,
   });
+  
+  // Fetch available Cartesia voices for audition
+  const { data: cartesiaVoicesData, isLoading: isLoadingCartesiaVoices } = useQuery<{ voices: CartesiaVoice[]; total: number }>({
+    queryKey: ['/api/admin/cartesia-voices', language],
+    enabled: isOpen && !!language,
+  });
+  const cartesiaVoices = cartesiaVoicesData?.voices || [];
 
   // Initialize local state from current voice or override
   useEffect(() => {
@@ -135,6 +156,7 @@ export function VoiceLabPanel({
       setPedagogicalFocus((currentOverride?.pedagogicalFocus ?? currentVoice.pedagogicalFocus ?? 'mixed') as PedagogicalFocusType);
       setTeachingStyle((currentOverride?.teachingStyle ?? currentVoice.teachingStyle ?? 'conversational') as TeachingStyleType);
       setErrorTolerance((currentOverride?.errorTolerance ?? currentVoice.errorTolerance ?? 'medium') as ErrorToleranceType);
+      setSelectedVoiceId(currentOverride?.voiceId ?? currentVoice.voiceId);
       setHasChanges(!!currentOverride);
     }
   }, [currentVoice, currentOverride, isOpen]);
@@ -161,11 +183,16 @@ export function VoiceLabPanel({
       pedagogicalFocus,
       teachingStyle,
       errorTolerance,
+      // Only include voiceId if it differs from the current tutor's voice
+      ...(selectedVoiceId && selectedVoiceId !== currentVoice?.voiceId ? { voiceId: selectedVoiceId } : {}),
     };
     onOverrideChange(override);
     setHasChanges(true);
+    
+    const voiceChanged = selectedVoiceId && selectedVoiceId !== currentVoice?.voiceId;
+    const selectedVoiceName = cartesiaVoices.find(v => v.id === selectedVoiceId)?.name;
     toast({
-      title: "Voice & teaching style applied",
+      title: voiceChanged ? `Switched to ${selectedVoiceName}` : "Voice & teaching style applied",
       description: "Changes will take effect on the tutor's next response.",
     });
   };
@@ -180,6 +207,7 @@ export function VoiceLabPanel({
       setPedagogicalFocus((currentVoice.pedagogicalFocus ?? 'mixed') as PedagogicalFocusType);
       setTeachingStyle((currentVoice.teachingStyle ?? 'conversational') as TeachingStyleType);
       setErrorTolerance((currentVoice.errorTolerance ?? 'medium') as ErrorToleranceType);
+      setSelectedVoiceId(currentVoice.voiceId);
     }
     onOverrideChange(null);
     setHasChanges(false);
@@ -201,6 +229,8 @@ export function VoiceLabPanel({
         pedagogicalFocus,
         teachingStyle,
         errorTolerance,
+        // Include voiceId if changed
+        ...(selectedVoiceId && selectedVoiceId !== currentVoice.voiceId ? { voiceId: selectedVoiceId } : {}),
       });
       return res.json();
     },
@@ -234,7 +264,7 @@ export function VoiceLabPanel({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          voiceId: currentVoice.voiceId,
+          voiceId: selectedVoiceId || currentVoice.voiceId,
           text: phrase,
           languageCode: currentVoice.languageCode,
           speakingRate,
@@ -291,12 +321,60 @@ export function VoiceLabPanel({
               <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                 <Volume2 className="h-5 w-5 text-primary" />
               </div>
-              <div>
+              <div className="flex-1">
                 <p className="font-medium">{currentVoice.voiceName}</p>
                 <p className="text-sm text-muted-foreground capitalize">
                   {currentVoice.language} · {currentVoice.gender}
                 </p>
               </div>
+              {selectedVoiceId && selectedVoiceId !== currentVoice.voiceId && (
+                <Badge variant="outline" className="text-xs">
+                  <ArrowRightLeft className="h-3 w-3 mr-1" />
+                  {cartesiaVoices.find(v => v.id === selectedVoiceId)?.name || 'Custom'}
+                </Badge>
+              )}
+            </div>
+
+            {/* Voice Selection for Audition */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <Label>Voice Selection</Label>
+              </div>
+              <Select 
+                value={selectedVoiceId || currentVoice.voiceId} 
+                onValueChange={(v) => setSelectedVoiceId(v)}
+              >
+                <SelectTrigger data-testid="select-voice-lab-voice">
+                  <SelectValue placeholder="Select a voice..." />
+                </SelectTrigger>
+                <SelectContent className="max-h-64">
+                  {isLoadingCartesiaVoices ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      <span className="text-sm text-muted-foreground">Loading voices...</span>
+                    </div>
+                  ) : cartesiaVoices.length === 0 ? (
+                    <div className="text-sm text-muted-foreground py-2 px-3">
+                      No voices available for {language}
+                    </div>
+                  ) : (
+                    cartesiaVoices.map(voice => (
+                      <SelectItem key={voice.id} value={voice.id}>
+                        <div className="flex items-center gap-2">
+                          <span>{voice.name}</span>
+                          {voice.id === currentVoice.voiceId && (
+                            <Badge variant="secondary" className="text-xs ml-1">Current</Badge>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Try different voices - click Audition to preview
+              </p>
             </div>
 
             <Separator />
