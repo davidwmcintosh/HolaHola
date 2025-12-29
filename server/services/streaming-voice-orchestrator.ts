@@ -978,15 +978,47 @@ export class StreamingVoiceOrchestrator {
       // Azure Pronunciation Assessment tracking
       sessionAudioChunks: [],        // Accumulated audio chunks for post-session assessment
       sessionTranscripts: [],        // Accumulated transcripts with timing
-      // Voice defaults - store tutor's baseline settings for VOICE_RESET
-      // Uses getDefaultEmotion to get the correct baseline for the personality
+      // Voice defaults will be populated from tutor voice config below
       voiceDefaults: {
-        speakingRate: voiceSpeedToRate((config.voiceSpeed as VoiceSpeedOption) || 'normal'),
-        personality: (config.tutorPersonality as TutorPersonality) || 'warm',
-        emotion: getDefaultEmotion((config.tutorPersonality as TutorPersonality) || 'warm'),  // Baseline from personality preset
-        expressiveness: config.tutorExpressiveness || 3,
+        speakingRate: 1.0,
+        personality: 'warm' as TutorPersonality,
+        emotion: 'friendly',
+        expressiveness: 3,
       },
     };
+    
+    // Look up tutor voice from database to get per-tutor baseline settings
+    // Each tutor (e.g., Daniela for Spanish, Marie for French) has their own personality/emotion defaults
+    try {
+      const tutorVoice = await storage.getTutorVoice(config.targetLanguage, initialGender);
+      if (tutorVoice) {
+        session.voiceDefaults = {
+          speakingRate: tutorVoice.speakingRate || voiceSpeedToRate((config.voiceSpeed as VoiceSpeedOption) || 'normal'),
+          personality: (tutorVoice.personality as TutorPersonality) || 'warm',
+          emotion: tutorVoice.emotion || getDefaultEmotion((tutorVoice.personality as TutorPersonality) || 'warm'),
+          expressiveness: tutorVoice.expressiveness || 3,
+        };
+        console.log(`[VoiceDefaults] Loaded tutor baseline from DB: ${config.targetLanguage}/${initialGender}`, session.voiceDefaults);
+      } else {
+        // Fallback to standard tutor defaults if voice not in database
+        // Use consistent tutor baseline (not user preferences) so reset is predictable
+        session.voiceDefaults = {
+          speakingRate: 0.9,  // Standard tutor speaking rate
+          personality: 'warm' as TutorPersonality,  // Default tutor personality
+          emotion: getDefaultEmotion('warm'),  // Derive from personality
+          expressiveness: 3,  // Standard baseline
+        };
+        console.log(`[VoiceDefaults] No tutor voice found, using standard baseline:`, session.voiceDefaults);
+      }
+    } catch (err) {
+      console.warn(`[VoiceDefaults] Error loading tutor voice, using standard baseline:`, err);
+      session.voiceDefaults = {
+        speakingRate: 0.9,  // Standard tutor speaking rate
+        personality: 'warm' as TutorPersonality,  // Default tutor personality
+        emotion: getDefaultEmotion('warm'),  // Derive from personality
+        expressiveness: 3,  // Standard baseline
+      };
+    }
     
     // PARALLEL WARMUP: Pre-warm both Cartesia and Gemini connections concurrently
     // - Cartesia: Eliminates WebSocket handshake latency (~150-200ms)
@@ -2615,6 +2647,21 @@ Remember: David may reference things discussed in these recent text chats.
               session.voiceId = matchingVoice.voiceId;
               session.tutorGender = effectiveGender;
               session.tutorName = tutorName;
+              
+              // Update voiceDefaults to reflect new tutor's baseline settings
+              // This ensures VOICE_RESET returns to this tutor's specific personality/emotion
+              // Use explicit defaults for missing fields (not previous session state)
+              const newPersonality = (matchingVoice.personality as TutorPersonality) || 'warm';
+              session.voiceDefaults = {
+                speakingRate: matchingVoice.speakingRate ?? 0.9,  // Standard tutor baseline
+                personality: newPersonality,
+                emotion: matchingVoice.emotion || getDefaultEmotion(newPersonality),  // Derive from personality
+                expressiveness: matchingVoice.expressiveness ?? 3,  // Standard baseline
+              };
+              console.log(`[Tutor Switch] Updated voiceDefaults for ${tutorName}:`, session.voiceDefaults);
+              
+              // Clear any active voice overrides to apply new tutor's baseline immediately
+              session.voiceOverride = undefined;
             
               // If cross-language switch, update target language and regenerate system prompt
               if (isLanguageSwitch) {
@@ -3287,6 +3334,18 @@ Remember: David may reference things discussed in these recent text chats.
               session.voiceId = matchingVoice.voiceId;
               session.tutorGender = targetGender;
               session.tutorName = tutorName || 'your tutor';
+              
+              // Update voiceDefaults to reflect new tutor's baseline settings
+              // Use explicit defaults for missing fields (not previous session state)
+              const newPersonality = (matchingVoice.personality as TutorPersonality) || 'warm';
+              session.voiceDefaults = {
+                speakingRate: matchingVoice.speakingRate ?? 0.9,  // Standard tutor baseline
+                personality: newPersonality,
+                emotion: matchingVoice.emotion || getDefaultEmotion(newPersonality),  // Derive from personality
+                expressiveness: matchingVoice.expressiveness ?? 3,  // Standard baseline
+              };
+              session.voiceOverride = undefined; // Clear overrides for new tutor baseline
+              console.log(`[Tutor Switch] Open-mic: Updated voiceDefaults for ${tutorName}:`, session.voiceDefaults);
               
               if (isLanguageSwitch) {
                 session.previousLanguage = session.targetLanguage;
