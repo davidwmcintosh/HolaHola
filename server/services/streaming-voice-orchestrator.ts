@@ -68,7 +68,7 @@ import { assessAdvancementReadiness, formatLevel } from "../actfl-advancement";
 import { tagConversation } from "./conversation-tagger";
 import { architectVoiceService } from "./architect-voice-service";
 import { trackToolEvent, mapWhiteboardTypeToToolType } from "./pedagogical-insights-service";
-import { createSystemPrompt, TutorDirectoryEntry } from "../system-prompt";
+import { createSystemPrompt, TutorDirectoryEntry, buildPedagogicalPersonaSection } from "../system-prompt";
 import { hiveCollaborationService, BeaconType } from "./hive-collaboration-service";
 import { hiveContextService } from "./hive-context-service";
 import { getExpressLaneHistoryForVoice, hiveConsciousnessService } from "./hive-consciousness-service";
@@ -676,6 +676,16 @@ export interface StreamingSession {
     emotion: string;
     expressiveness: number;
   };
+  // Pedagogical persona from the Persona Registry - shapes teaching style
+  tutorPersona?: {
+    pedagogicalFocus?: string;
+    teachingStyle?: string;
+    errorTolerance?: string;
+    vocabularyLevel?: string;
+    personalityTraits?: string;
+    scenarioStrengths?: string;
+    teachingPhilosophy?: string;
+  };
 }
 
 /**
@@ -988,7 +998,7 @@ export class StreamingVoiceOrchestrator {
     };
     
     // Look up tutor voice from database to get per-tutor baseline settings
-    // Each tutor (e.g., Daniela for Spanish, Marie for French) has their own personality/emotion defaults
+    // Each tutor has their own personality/emotion defaults and pedagogical persona
     try {
       const tutorVoice = await storage.getTutorVoice(config.targetLanguage, initialGender);
       if (tutorVoice) {
@@ -998,6 +1008,22 @@ export class StreamingVoiceOrchestrator {
           emotion: tutorVoice.emotion || getDefaultEmotion((tutorVoice.personality as TutorPersonality) || 'warm'),
           expressiveness: tutorVoice.expressiveness || 3,
         };
+        
+        // Load pedagogical persona from Persona Registry if available
+        // This shapes teaching style beyond just voice characteristics
+        if (tutorVoice.pedagogicalFocus || tutorVoice.teachingStyle || tutorVoice.personalityTraits) {
+          session.tutorPersona = {
+            pedagogicalFocus: tutorVoice.pedagogicalFocus || undefined,
+            teachingStyle: tutorVoice.teachingStyle || undefined,
+            errorTolerance: tutorVoice.errorTolerance || undefined,
+            vocabularyLevel: tutorVoice.vocabularyLevel || undefined,
+            personalityTraits: tutorVoice.personalityTraits || undefined,
+            scenarioStrengths: tutorVoice.scenarioStrengths || undefined,
+            teachingPhilosophy: tutorVoice.teachingPhilosophy || undefined,
+          };
+          console.log(`[PedagogicalPersona] Loaded for ${session.tutorName}: focus=${tutorVoice.pedagogicalFocus}, style=${tutorVoice.teachingStyle}`);
+        }
+        
         console.log(`[VoiceDefaults] Loaded tutor baseline from DB: ${config.targetLanguage}/${initialGender}`, session.voiceDefaults);
       } else {
         // Fallback to standard tutor defaults if voice not in database
@@ -2726,6 +2752,22 @@ Remember: David may reference things discussed in these recent text chats.
               };
               console.log(`[Tutor Switch] Updated voiceDefaults for ${tutorName}:`, session.voiceDefaults);
               
+              // Load pedagogical persona for the new tutor - shapes their teaching style
+              if (matchingVoice.pedagogicalFocus || matchingVoice.teachingStyle || matchingVoice.personalityTraits) {
+                session.tutorPersona = {
+                  pedagogicalFocus: matchingVoice.pedagogicalFocus || undefined,
+                  teachingStyle: matchingVoice.teachingStyle || undefined,
+                  errorTolerance: matchingVoice.errorTolerance || undefined,
+                  vocabularyLevel: matchingVoice.vocabularyLevel || undefined,
+                  personalityTraits: matchingVoice.personalityTraits || undefined,
+                  scenarioStrengths: matchingVoice.scenarioStrengths || undefined,
+                  teachingPhilosophy: matchingVoice.teachingPhilosophy || undefined,
+                };
+                console.log(`[Tutor Switch] Loaded persona for ${tutorName}: focus=${matchingVoice.pedagogicalFocus}, style=${matchingVoice.teachingStyle}`);
+              } else {
+                session.tutorPersona = undefined;  // Clear persona if new tutor doesn't have one
+              }
+              
               // Clear any active voice overrides to apply new tutor's baseline immediately
               session.voiceOverride = undefined;
             
@@ -2757,7 +2799,7 @@ Remember: David may reference things discussed in these recent text chats.
               session.conversationHistory = [];
               
               // Regenerate system prompt for new language context
-              // Uses session's existing settings + new language/tutor
+              // Uses session's existing settings + new language/tutor + new persona
               session.systemPrompt = createSystemPrompt(
                 effectiveLanguage,                           // language
                 session.difficultyLevel,                     // difficulty
@@ -2781,15 +2823,24 @@ Remember: David may reference things discussed in these recent text chats.
                 session.isFounderMode,                       // isFounderMode
                 undefined,                                    // founderName
                 session.isRawHonestyMode,                    // isRawHonestyMode
-                tutorName || 'your tutor',                   // tutorName
+                tutorName || 'your tutor',                   // tutorName (dynamic from database)
                 targetGender,                                // tutorGender
-                session.tutorDirectory                       // tutorDirectory - CRITICAL for switch instructions
+                session.tutorDirectory,                      // tutorDirectory - CRITICAL for switch instructions
+                undefined,                                    // studentTimezone
+                undefined,                                    // userRole
+                undefined,                                    // sessionIntent
+                undefined,                                    // editorConversationContext
+                undefined,                                    // surgeryContext
+                undefined,                                    // studentMemoryContext
+                undefined,                                    // studentDisplayName
+                undefined,                                    // predictiveTeachingContext
+                session.tutorPersona                         // tutorPersona - NEW TUTOR'S TEACHING STYLE
               );
               
               console.log(`[Tutor Switch] Language switched to ${effectiveLanguage}, voice: ${matchingVoice.voiceName}, system prompt regenerated`);
             } else {
               // SAME-LANGUAGE SWITCH: Regenerate system prompt with new tutor persona
-              // This ensures the new tutor (e.g., Agustin) doesn't still have Daniela's Spanish persona
+              // This ensures the new tutor has their own distinct teaching personality
               session.systemPrompt = createSystemPrompt(
                 session.targetLanguage,                        // language (unchanged)
                 session.difficultyLevel,                       // difficulty
@@ -2813,11 +2864,20 @@ Remember: David may reference things discussed in these recent text chats.
                 session.isFounderMode,                         // isFounderMode
                 undefined,                                      // founderName
                 session.isRawHonestyMode,                      // isRawHonestyMode
-                tutorName || 'your tutor',                     // tutorName - NEW TUTOR!
-                targetGender,                                  // tutorGender - NEW GENDER!
-                session.tutorDirectory                         // tutorDirectory - CRITICAL for switch instructions
+                tutorName || 'your tutor',                     // tutorName (dynamic from database)
+                targetGender,                                  // tutorGender
+                session.tutorDirectory,                        // tutorDirectory - CRITICAL for switch instructions
+                undefined,                                      // studentTimezone
+                undefined,                                      // userRole
+                undefined,                                      // sessionIntent
+                undefined,                                      // editorConversationContext
+                undefined,                                      // surgeryContext
+                undefined,                                      // studentMemoryContext
+                undefined,                                      // studentDisplayName
+                undefined,                                      // predictiveTeachingContext
+                session.tutorPersona                           // tutorPersona - NEW TUTOR'S TEACHING STYLE
               );
-              console.log(`[Tutor Switch] Same-language switch, new voice: ${matchingVoice.voiceName}, system prompt regenerated for ${tutorName}`);
+              console.log(`[Tutor Switch] Same-language switch, new voice: ${matchingVoice.voiceName}, persona updated for ${tutorName}`);
             }
           } else {
             console.warn(`[Tutor Switch] No matching voice found for ${targetGender} in ${effectiveLanguage}`);

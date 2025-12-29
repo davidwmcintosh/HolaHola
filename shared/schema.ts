@@ -325,9 +325,44 @@ export type UpdateLanguagePreferences = z.infer<typeof updateLanguagePreferences
 // Tutor role enum - distinguishes main tutors from practice partner assistants and support agents
 export const tutorRoleEnum = pgEnum("tutor_role", ["tutor", "assistant", "support"]);
 
+// Pedagogical focus options for tutor personas
+export const pedagogicalFocusEnum = pgEnum("pedagogical_focus", [
+  "grammar",          // Focus on grammar rules and structure
+  "fluency",          // Focus on natural conversation flow
+  "pronunciation",    // Focus on accent and pronunciation
+  "culture",          // Focus on cultural context and nuances
+  "vocabulary",       // Focus on vocabulary building
+  "mixed"             // Balanced approach
+]);
+
+// Teaching style options for tutor personas
+export const teachingStyleEnum = pgEnum("teaching_style", [
+  "structured",       // Formal, lesson-plan based
+  "conversational",   // Natural, chat-like teaching
+  "drill_focused",    // Repetition and practice heavy
+  "adaptive",         // Adjusts based on student response
+  "socratic"          // Question-based discovery learning
+]);
+
+// Error tolerance levels
+export const errorToleranceEnum = pgEnum("error_tolerance", [
+  "high",             // Gentle corrections, prioritizes flow
+  "medium",           // Balanced correction approach
+  "low"               // Immediate, thorough corrections
+]);
+
+// Vocabulary level for teaching
+export const vocabularyLevelEnum = pgEnum("vocabulary_level", [
+  "beginner_friendly", // Simple words, lots of context
+  "intermediate",      // Standard vocabulary
+  "advanced",          // Sophisticated vocabulary
+  "academic"           // Formal, technical vocabulary
+]);
+
 // Tutor Voices - Admin-configurable voices per language with male/female options
 // This replaces hardcoded voice mappings and allows admin voice audition/assignment
 // Now includes both main tutors (Cartesia) and practice partner assistants (Google TTS)
+// Extended with Pedagogical Persona Registry for teaching style metadata
 export const tutorVoices = pgTable("tutor_voices", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   language: varchar("language").notNull(), // spanish, french, german, etc.
@@ -342,6 +377,17 @@ export const tutorVoices = pgTable("tutor_voices", {
   expressiveness: integer("expressiveness").notNull().default(3), // 1-5 scale
   emotion: varchar("emotion").notNull().default("friendly"), // Default emotion for TTS
   isActive: boolean("is_active").notNull().default(true), // Enable/disable voice without deleting
+  
+  // ========== PEDAGOGICAL PERSONA REGISTRY ==========
+  // Teaching profile metadata for each tutor - shapes AI behavior beyond just voice
+  pedagogicalFocus: pedagogicalFocusEnum("pedagogical_focus").default("mixed"), // Primary teaching emphasis
+  teachingStyle: teachingStyleEnum("teaching_style").default("conversational"), // How lessons are delivered
+  errorTolerance: errorToleranceEnum("error_tolerance").default("medium"), // Correction approach
+  vocabularyLevel: vocabularyLevelEnum("vocabulary_level").default("intermediate"), // Language complexity
+  personalityTraits: text("personality_traits"), // Detailed personality description (e.g., "patient, encouraging, uses humor")
+  scenarioStrengths: text("scenario_strengths"), // Best use cases (e.g., "roleplay, casual conversation, grammar drills")
+  teachingPhilosophy: text("teaching_philosophy"), // Core teaching belief (e.g., "Learning should be fun and stress-free")
+  
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => [

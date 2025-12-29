@@ -15,6 +15,7 @@ import {
   type TopicCoverageStatus 
 } from '@shared/schema';
 import { COMPASS_ENABLED } from './services/session-compass-service';
+import { PedagogicalPersona } from '@shared/tutor-orchestration-types';
 import { 
   buildFounderModeToolSectionSync,
   buildToolKnowledgeSectionSync,
@@ -202,6 +203,105 @@ QUICK REFERENCE (see ACTION_TRIGGERS for full syntax):
 ${assistantSection}
 ${supportSection}
 `;
+}
+
+/**
+ * Build pedagogical persona section from the Persona Registry
+ * This shapes the tutor's teaching approach based on their unique profile
+ * Exported for use in streaming voice orchestrator
+ */
+export function buildPedagogicalPersonaSection(
+  tutorName: string,
+  persona?: PedagogicalPersona | null
+): string {
+  if (!persona) {
+    return ""; // No persona data available - use defaults
+  }
+  
+  // Map enum values to human-readable descriptions
+  const focusLabels: Record<string, string> = {
+    grammar: "Grammar and structure",
+    fluency: "Natural conversation flow",
+    pronunciation: "Pronunciation and accent",
+    culture: "Cultural context and nuances",
+    vocabulary: "Vocabulary building",
+    mixed: "Balanced approach across all areas"
+  };
+  
+  const styleLabels: Record<string, string> = {
+    structured: "Organized, lesson-plan based teaching",
+    conversational: "Natural, chat-like teaching",
+    drill_focused: "Repetition and practice heavy",
+    adaptive: "Adjusts approach based on student response",
+    socratic: "Question-based discovery learning"
+  };
+  
+  const toleranceLabels: Record<string, string> = {
+    high: "Gentle corrections, prioritize flow over perfection",
+    medium: "Balanced correction approach",
+    low: "Immediate, thorough corrections for accuracy"
+  };
+  
+  const vocabLabels: Record<string, string> = {
+    beginner_friendly: "Simple words with lots of context",
+    intermediate: "Standard vocabulary appropriate for level",
+    advanced: "Sophisticated vocabulary to challenge growth",
+    academic: "Formal, technical vocabulary"
+  };
+  
+  const focus = persona.pedagogicalFocus ? focusLabels[persona.pedagogicalFocus] || persona.pedagogicalFocus : "Balanced approach";
+  const style = persona.teachingStyle ? styleLabels[persona.teachingStyle] || persona.teachingStyle : "Adaptive";
+  const tolerance = persona.errorTolerance ? toleranceLabels[persona.errorTolerance] || persona.errorTolerance : "Balanced";
+  const vocab = persona.vocabularyLevel ? vocabLabels[persona.vocabularyLevel] || persona.vocabularyLevel : "Intermediate";
+  
+  let personaSection = `
+═══════════════════════════════════════════════════════════════════
+🎭 YOUR TEACHING PERSONA - ${tutorName.toUpperCase()}
+═══════════════════════════════════════════════════════════════════
+
+As ${tutorName}, you have a distinct teaching personality that shapes how you interact with students.
+
+TEACHING FOCUS: ${focus}
+Your primary emphasis when helping students learn.
+
+TEACHING STYLE: ${style}
+How you structure your lessons and interactions.
+
+ERROR TOLERANCE: ${tolerance}
+Your approach to correcting mistakes.
+
+VOCABULARY LEVEL: ${vocab}
+The complexity of language you naturally use.`;
+
+  if (persona.personalityTraits) {
+    personaSection += `
+
+PERSONALITY TRAITS: ${persona.personalityTraits}
+These traits color all your interactions - let them shine through naturally.`;
+  }
+
+  if (persona.scenarioStrengths) {
+    personaSection += `
+
+YOUR STRENGTHS: ${persona.scenarioStrengths}
+You excel in these situations - lean into them when appropriate.`;
+  }
+
+  if (persona.teachingPhilosophy) {
+    personaSection += `
+
+TEACHING PHILOSOPHY: "${persona.teachingPhilosophy}"
+This guides your approach to every lesson.`;
+  }
+
+  personaSection += `
+
+IMPORTANT: These traits make you unique. They complement Daniela's core intelligence
+with your own distinct teaching style. Students should experience a noticeably
+different teaching approach when working with you versus other tutors.
+`;
+
+  return personaSection;
 }
 
 // Tutor freedom level type - controls how strictly tutor follows curriculum (NOT personality)
@@ -916,7 +1016,8 @@ export function createSystemPrompt(
   surgeryContext?: string | null,
   studentMemoryContext?: StudentMemoryContext | null,
   studentDisplayName?: string,
-  predictiveTeachingContext?: PredictiveTeachingContext | null
+  predictiveTeachingContext?: PredictiveTeachingContext | null,
+  tutorPersona?: PedagogicalPersona | null
 ): string {
   const languageMap: Record<string, string> = {
     spanish: "Spanish",
@@ -950,6 +1051,11 @@ export function createSystemPrompt(
   // Build tutor directory section if available (dynamic from database)
   const tutorDirectorySection = tutorDirectory && tutorDirectory.length > 0
     ? buildTutorDirectorySection(tutorDirectory, tutorName, language)
+    : '';
+  
+  // Build pedagogical persona section if available (from Persona Registry)
+  const pedagogicalPersonaSection = tutorPersona
+    ? buildPedagogicalPersonaSection(tutorName, tutorPersona)
     : '';
     
   // Build timezone context for time-aware greetings
@@ -1736,6 +1842,7 @@ VOICE MODULATION:
   // Phase 1: Assessment (first 5 messages) - Start in native language, build rapport
   if (messageCount < 5) {
     return `${buildImmutablePersona(tutorName, tutorGender)}
+${pedagogicalPersonaSection}
 You are a friendly and encouraging ${languageName} language tutor starting a new conversation.
 ${tutorPersonalityContext}${streamingVoiceModeInstructions}
 CRITICAL: ${nativeLanguageName.toUpperCase()} IS THE STUDENT'S NATIVE LANGUAGE
@@ -1938,6 +2045,7 @@ Remember: You're a friendly tutor getting to know a new student, not conducting 
   // Phase 2: Gradual Transition (messages 5-9) - Gentle introduction to target language
   if (messageCount < 10) {
     return `${buildImmutablePersona(tutorName, tutorGender)}
+${pedagogicalPersonaSection}
 You are a friendly and encouraging ${languageName} language tutor.
 ${tutorPersonalityContext}${streamingVoiceModeInstructions}
 CRITICAL: ${nativeLanguageName.toUpperCase()} IS THE STUDENT'S NATIVE LANGUAGE
@@ -2396,6 +2504,7 @@ ${difficulty === "beginner" ? `BEGINNER: Use moderate Spanish (40-50%) with subs
     : '';
 
   return `${buildImmutablePersona(tutorName, tutorGender)}
+${pedagogicalPersonaSection}
 You are a friendly and encouraging ${languageName} language tutor.
 ${tutorPersonalityContext}${streamingVoiceModeInstructions}
 CRITICAL: ${nativeLanguageName.toUpperCase()} IS THE STUDENT'S NATIVE LANGUAGE

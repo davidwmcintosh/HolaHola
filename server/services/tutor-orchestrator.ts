@@ -124,6 +124,87 @@ so insights from teaching become part of your long-term memory.
 }
 
 /**
+ * Build pedagogical persona section from the Persona Registry
+ * This shapes the tutor's teaching approach based on their unique profile
+ */
+function buildPersonaSection(voice: VoicePresentation): string {
+  const persona = voice.persona;
+  if (!persona) {
+    return ""; // No persona data available - use defaults
+  }
+  
+  // Map enum values to human-readable descriptions
+  const focusLabels: Record<string, string> = {
+    grammar: "Grammar and structure",
+    fluency: "Natural conversation flow",
+    pronunciation: "Pronunciation and accent",
+    culture: "Cultural context and nuances",
+    vocabulary: "Vocabulary building",
+    mixed: "Balanced approach across all areas"
+  };
+  
+  const styleLabels: Record<string, string> = {
+    structured: "Organized, lesson-plan based teaching",
+    conversational: "Natural, chat-like teaching",
+    drill_focused: "Repetition and practice heavy",
+    adaptive: "Adjusts approach based on student response",
+    socratic: "Question-based discovery learning"
+  };
+  
+  const toleranceLabels: Record<string, string> = {
+    high: "Gentle corrections, prioritize flow over perfection",
+    medium: "Balanced correction approach",
+    low: "Immediate, thorough corrections for accuracy"
+  };
+  
+  const vocabLabels: Record<string, string> = {
+    beginner_friendly: "Simple words with lots of context",
+    intermediate: "Standard vocabulary appropriate for level",
+    advanced: "Sophisticated vocabulary to challenge growth",
+    academic: "Formal, technical vocabulary"
+  };
+  
+  const focus = persona.pedagogicalFocus ? focusLabels[persona.pedagogicalFocus] || persona.pedagogicalFocus : "Balanced approach";
+  const style = persona.teachingStyle ? styleLabels[persona.teachingStyle] || persona.teachingStyle : "Adaptive";
+  const tolerance = persona.errorTolerance ? toleranceLabels[persona.errorTolerance] || persona.errorTolerance : "Balanced";
+  const vocab = persona.vocabularyLevel ? vocabLabels[persona.vocabularyLevel] || persona.vocabularyLevel : "Intermediate";
+  
+  return `
+═══════════════════════════════════════════════════════════════════
+🎭 YOUR TEACHING PERSONA - ${voice.name.toUpperCase()}
+═══════════════════════════════════════════════════════════════════
+
+As ${voice.name}, you have a distinct teaching personality that shapes how you interact with students.
+
+TEACHING FOCUS: ${focus}
+Your primary emphasis when helping students learn.
+
+TEACHING STYLE: ${style}
+How you structure and deliver your lessons.
+
+ERROR APPROACH: ${tolerance}
+How you handle mistakes and corrections.
+
+VOCABULARY LEVEL: ${vocab}
+The complexity of language you naturally use.
+
+${persona.personalityTraits ? `
+PERSONALITY: ${persona.personalityTraits}
+These traits should come through in your responses.
+` : ''}
+${persona.scenarioStrengths ? `
+SCENARIO STRENGTHS: ${persona.scenarioStrengths}
+You excel at these types of learning situations.
+` : ''}
+${persona.teachingPhilosophy ? `
+YOUR PHILOSOPHY: "${persona.teachingPhilosophy}"
+This belief guides your teaching approach.
+` : ''}
+Embrace this persona naturally - it's who you are as ${voice.name}.
+`;
+}
+
+/**
  * Build mode-specific instructions
  */
 function buildModeInstructions(
@@ -440,6 +521,9 @@ async function buildSystemPrompt(
 
   // 1. Core persona (always Daniela underneath)
   const corePersona = buildCorePersona(voice);
+  
+  // 1.5 Pedagogical Persona (unique teaching profile for this tutor)
+  const personaSection = buildPersonaSection(voice);
 
   // 2. Mode-specific instructions
   const modeInstructions = buildModeInstructions(mode, context, voice);
@@ -670,6 +754,7 @@ ${request.additionalPromptContext}
   const prompt = [
     northStarSection,    // Constitutional foundation - always first
     corePersona,
+    personaSection,      // Pedagogical persona (teaching style/approach)
     modeInstructions,
     phaseSection,        // Teaching phase context with summarized history
     voiceStyle,

@@ -35,8 +35,23 @@ export type ResponseChannel =
   | 'batch_json';       // Structured JSON response
 
 /**
+ * Pedagogical persona metadata from the Persona Registry
+ * Shapes how the tutor teaches, not just how they sound
+ */
+export interface PedagogicalPersona {
+  pedagogicalFocus?: 'grammar' | 'fluency' | 'pronunciation' | 'culture' | 'vocabulary' | 'mixed';
+  teachingStyle?: 'structured' | 'conversational' | 'drill_focused' | 'adaptive' | 'socratic';
+  errorTolerance?: 'high' | 'medium' | 'low';
+  vocabularyLevel?: 'beginner_friendly' | 'intermediate' | 'advanced' | 'academic';
+  personalityTraits?: string;         // e.g., "warm, patient, uses humor"
+  scenarioStrengths?: string;         // e.g., "roleplay, casual conversation"
+  teachingPhilosophy?: string;        // Core teaching belief
+}
+
+/**
  * Voice presentation metadata - presentation layer only
  * This does NOT change intelligence, just how it's expressed
+ * Extended with Pedagogical Persona Registry for teaching style
  */
 export interface VoicePresentation {
   voiceId: string;                    // TTS voice ID (Cartesia)
@@ -46,6 +61,7 @@ export interface VoicePresentation {
   emotionStyle?: string;              // Cartesia emotion preset
   uiAvatar?: string;                  // Avatar image for UI
   styleDeltas?: VoiceStyleDeltas;     // Stylistic modifications
+  persona?: PedagogicalPersona;       // Teaching personality profile
 }
 
 /**

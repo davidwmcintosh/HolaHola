@@ -19,7 +19,8 @@ import { Server } from 'http';
 import type { IncomingMessage } from 'http';
 import { Duplex } from 'stream';
 import { storage } from './storage';
-import { createSystemPrompt, createStreamingVoicePrompt, TutorDirectoryEntry, UserRole, SessionIntent } from './system-prompt';
+import { createSystemPrompt, createStreamingVoicePrompt, TutorDirectoryEntry, UserRole, SessionIntent, buildPedagogicalPersonaSection } from './system-prompt';
+import { PedagogicalPersona } from '@shared/tutor-orchestration-types';
 import { parse as parseCookie } from 'cookie';
 import signature from 'cookie-signature';
 import {
@@ -793,6 +794,7 @@ Reference past discussions when relevant, but don't force it.
           let voiceId: string | undefined;
           let tutorNameForPrompt = tutorGenderForPrompt === 'male' ? 'Agustin' : 'Daniela'; // Default fallback
           let tutorDirectory: TutorDirectoryEntry[] = [];
+          let tutorPersona: PedagogicalPersona | undefined;
           
           try {
             const allVoices = await storage.getAllTutorVoices();
@@ -810,6 +812,20 @@ Reference past discussions when relevant, but don't force it.
               if (voiceNameParts[0]?.trim()) {
                 tutorNameForPrompt = voiceNameParts[0].trim();
                 console.log(`[Streaming Voice] Using language-specific tutor: ${tutorNameForPrompt} (${effectiveLanguage})`);
+              }
+              
+              // Construct pedagogical persona from database flat columns
+              if (matchingVoice.pedagogicalFocus || matchingVoice.teachingStyle) {
+                tutorPersona = {
+                  pedagogicalFocus: matchingVoice.pedagogicalFocus || undefined,
+                  teachingStyle: matchingVoice.teachingStyle || undefined,
+                  errorTolerance: matchingVoice.errorTolerance || undefined,
+                  vocabularyLevel: matchingVoice.vocabularyLevel || undefined,
+                  personalityTraits: matchingVoice.personalityTraits || undefined,
+                  scenarioStrengths: matchingVoice.scenarioStrengths || undefined,
+                  teachingPhilosophy: matchingVoice.teachingPhilosophy || undefined,
+                };
+                console.log(`[Streaming Voice] Loaded persona for ${tutorNameForPrompt}: focus=${tutorPersona.pedagogicalFocus}, style=${tutorPersona.teachingStyle}`);
               }
             }
             
@@ -962,7 +978,8 @@ Reference past discussions when relevant, but don't force it.
             undefined, // surgeryContext
             studentMemoryContext, // Student memory for neural network
             user.firstName || user.username || undefined, // Student display name for memory section
-            predictiveTeachingContext // Predictive teaching from neural network tables
+            predictiveTeachingContext, // Predictive teaching from neural network tables
+            tutorPersona // Pedagogical persona - each tutor's unique teaching style
           );
 
           // Add founder memory context if in Founder Mode (but NOT in Raw Honesty Mode - keep it minimal)

@@ -180,6 +180,16 @@ const stripeInitPromise = (async function initStripe() {
       console.error('Failed to seed assistant tutors:', error);
     }
     
+    // Seed Pedagogical Persona Registry (teaching profiles for each tutor)
+    try {
+      console.log('Seeding tutor personas...');
+      const { seedTutorPersonas } = await import('./seed-tutor-personas');
+      await seedTutorPersonas();
+      console.log('Tutor personas ready');
+    } catch (error) {
+      console.error('Failed to seed tutor personas:', error);
+    }
+    
     // Validate tutor names match expected canonical values
     // See replit.md "Tutor Naming Architecture" section
     try {
