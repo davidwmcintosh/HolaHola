@@ -1965,8 +1965,11 @@ export function stripWhiteboardMarkup(text: string): string {
     .replace(/\[HIVE\s+[^\]]*\]/gi, '')
     .replace(/\[SELF_SURGERY\s+[^\]]*\]/gi, '')
     // Voice control tags (Daniela's real-time voice adjustments - invisible to students)
+    // Handle both self-closing [VOICE_ADJUST ...] and paired [VOICE_ADJUST]...[/VOICE_ADJUST] formats
     .replace(/\[VOICE_ADJUST\s+[^\]]*\]/gi, '')
+    .replace(/\[\/VOICE_ADJUST\]/gi, '')  // Closing tag for paired format
     .replace(/\[VOICE_RESET(?:\s+[^\]]*)??\]/gi, '')  // VOICE_RESET may have optional params
+    .replace(/\[\/VOICE_RESET\]/gi, '')  // Closing tag for paired format
     .replace(/\s{2,}/g, ' ')
     .trim();
   
