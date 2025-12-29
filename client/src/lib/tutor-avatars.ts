@@ -191,7 +191,7 @@ export function getTutorAvatarSet(
 const tutorNames: Record<SupportedLanguage, { male: string; female: string }> = {
   spanish: { male: 'Agustin', female: 'Daniela' },
   french: { male: 'Vincent', female: 'Juliette' },
-  german: { male: 'Lukas', female: 'Alina' },
+  german: { male: 'Lukas', female: 'Greta' },
   italian: { male: 'Luca', female: 'Liv' },
   portuguese: { male: 'Camilo', female: 'Isabel' },
   chinese: { male: 'Tao', female: 'Hua' },
