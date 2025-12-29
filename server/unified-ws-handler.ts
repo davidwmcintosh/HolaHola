@@ -508,12 +508,26 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
           }
 
           const messages = await storage.getMessagesByConversation(conversationId!);
-          const conversationHistory = messages
-            .slice(-20)
-            .map((m: { role: string; content: string }) => ({
-              role: m.role as 'user' | 'model',
-              content: m.content,
-            }));
+          
+          // CRITICAL: Check if conversation language matches target language
+          // If user switched languages (e.g., reused French conversation but now wants Spanish),
+          // clear history to prevent language mixing (e.g., Juliette speaking Spanish)
+          const conversationLang = (conversation.language || '').toLowerCase();
+          const targetLang = (config.targetLanguage || '').toLowerCase();
+          const isLanguageMismatch = conversationLang && targetLang && conversationLang !== targetLang;
+          
+          let conversationHistory: Array<{ role: 'user' | 'model'; content: string }>;
+          if (isLanguageMismatch) {
+            console.log(`[Streaming Voice] Language mismatch detected: conversation=${conversationLang}, target=${targetLang} - clearing history`);
+            conversationHistory = [];
+          } else {
+            conversationHistory = messages
+              .slice(-20)
+              .map((m: { role: string; content: string }) => ({
+                role: m.role as 'user' | 'model',
+                content: m.content,
+              }));
+          }
 
           // Build curriculum context if user is enrolled in classes
           let curriculumContext = null;
@@ -2671,10 +2685,21 @@ This is a voice conversation. Speak naturally, as you would.`;
             }
             
             // Build conversation history for context
-            const conversationHistory = messages.map(m => ({
-              role: m.role === 'user' ? 'user' as const : 'model' as const,
-              content: m.content,
-            }));
+            // CRITICAL: Check for language mismatch to prevent tutors speaking wrong language
+            const conversationLang = (conversation?.language || '').toLowerCase();
+            const targetLang = (config.targetLanguage || '').toLowerCase();
+            const isLanguageMismatch = conversationLang && targetLang && conversationLang !== targetLang;
+            
+            let conversationHistory: Array<{ role: 'user' | 'model'; content: string }>;
+            if (isLanguageMismatch) {
+              console.log(`[Streaming Voice] Language mismatch detected: conversation=${conversationLang}, target=${targetLang} - clearing history`);
+              conversationHistory = [];
+            } else {
+              conversationHistory = messages.map(m => ({
+                role: m.role === 'user' ? 'user' as const : 'model' as const,
+                content: m.content,
+              }));
+            }
             
             // IMPORTANT: Start usage tracking session BEFORE orchestrator session
             // This enables memory extraction, usage analytics, and dbSessionId for FK references
