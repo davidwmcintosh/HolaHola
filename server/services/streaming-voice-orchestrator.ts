@@ -96,6 +96,61 @@ import {
 } from "@shared/schema";
 
 /**
+ * CROSS-LANGUAGE TRANSFER GATE
+ * 
+ * Feature flag to control whether tutors can hand off to tutors in different languages.
+ * 
+ * When FALSE (default): Transfers are restricted to same-language only
+ *   - Spanish female → Spanish male: ALLOWED
+ *   - Spanish female → French female: BLOCKED
+ * 
+ * When TRUE: Full cross-language transfers enabled (requires enrollment validation)
+ *   - Future implementation: Check if student is enrolled in target language class
+ *   - See: docs/enrollment-based-cross-language-transfers.md
+ * 
+ * This gate preserves all cross-language code paths - they remain intact but
+ * are simply blocked at execution time until the feature is properly built out.
+ */
+const CROSS_LANGUAGE_TRANSFERS_ENABLED = false;
+
+/**
+ * Validates if a tutor transfer should be allowed
+ * Returns { allowed: true } or { allowed: false, reason: string }
+ */
+function validateTutorTransfer(
+  currentLanguage: string,
+  targetLanguage: string | undefined,
+): { allowed: true } | { allowed: false; reason: string } {
+  // No target language specified = same-language transfer (always allowed)
+  if (!targetLanguage) {
+    return { allowed: true };
+  }
+  
+  // Normalize for comparison
+  const normalizedCurrent = currentLanguage.toLowerCase().trim();
+  const normalizedTarget = targetLanguage.toLowerCase().trim();
+  
+  // Same language = allowed
+  if (normalizedCurrent === normalizedTarget) {
+    return { allowed: true };
+  }
+  
+  // Cross-language transfer requested
+  if (CROSS_LANGUAGE_TRANSFERS_ENABLED) {
+    // Future: Add enrollment check here
+    // const isEnrolled = await checkEnrollment(userId, targetLanguage);
+    // if (!isEnrolled) return { allowed: false, reason: "..." };
+    return { allowed: true };
+  }
+  
+  // Cross-language transfers disabled
+  return {
+    allowed: false,
+    reason: `Cross-language transfers are not yet available. To practice ${normalizedTarget}, please start a new ${normalizedTarget} conversation from the language hub.`
+  };
+}
+
+/**
  * Parse sprint suggestion content with fallback
  * Handles both JSON format and free-form text
  */
@@ -633,6 +688,7 @@ export interface StreamingSession {
   isLanguageSwitchHandoff?: boolean; // True when current handoff is a cross-language switch
   previousLanguage?: string;        // Previous language before cross-language switch
   switchTutorTriggered?: boolean;   // True when SWITCH_TUTOR detected - stops further sentence synthesis
+  crossLanguageTransferBlocked?: boolean; // True when cross-language transfer was blocked this turn (prevents retries)
   pendingSupportHandoff?: {         // Queued support handoff when CALL_SUPPORT is detected
     category: 'technical' | 'account' | 'billing' | 'content' | 'feedback' | 'other';
     reason: string;
@@ -1210,8 +1266,9 @@ export class StreamingVoiceOrchestrator {
     // Mark that we're now generating a response
     session.isGenerating = true;
     
-    // Reset tutor switch flag for new response
+    // Reset tutor switch flags for new response
     session.switchTutorTriggered = false;
+    session.crossLanguageTransferBlocked = false;
     
     // Student activity detected - reset idle timeout
     this.resetIdleTimeout(session);
@@ -1761,15 +1818,30 @@ Remember: David may reference things discussed in these recent text chats.
               switch (cmd.type) {
                 case 'SWITCH_TUTOR': {
                   // Only process if not already handled by whiteboard parser
+                  // Also skip if cross-language transfer was already blocked this turn
                   const target = cmd.params.target as string;
-                  if (!session.pendingTutorSwitch && target) {
+                  if (!session.pendingTutorSwitch && !session.crossLanguageTransferBlocked && target) {
+                    const targetGender = target as 'male' | 'female';
+                    let resolvedLanguage = cmd.params.language as string | undefined;
+                    
+                    // AUTO-INFER LANGUAGE: If no language specified but AI mentioned a tutor from another language
+                    // This ensures cross-language transfers are detected even in JSON command format
+                    if (!resolvedLanguage && session.tutorDirectory && session.targetLanguage) {
+                      resolvedLanguage = inferLanguageFromTutorName(
+                        chunk.text,
+                        targetGender,
+                        session.targetLanguage,
+                        session.tutorDirectory
+                      );
+                    }
+                    
                     session.pendingTutorSwitch = {
-                      targetGender: target as 'male' | 'female',
-                      targetLanguage: cmd.params.language as string | undefined,
+                      targetGender,
+                      targetLanguage: resolvedLanguage,
                       targetRole: cmd.params.role as 'tutor' | 'assistant' | undefined,
                     };
                     session.switchTutorTriggered = true;
-                    console.log(`[CommandParser→TutorSwitch] Queued handoff to ${target} tutor via ${cmd.source} format`);
+                    console.log(`[CommandParser→TutorSwitch] Queued handoff to ${target} tutor${resolvedLanguage ? ` (${resolvedLanguage})` : ''} via ${cmd.source} format`);
                   }
                   break;
                 }
@@ -1995,8 +2067,9 @@ Remember: David may reference things discussed in these recent text chats.
           
           // SWITCH_TUTOR: Queue tutor handoff (PTT mode)
           // First try structured parsing, then fallback to regex if parser returned empty
+          // Skip if cross-language transfer was already blocked this turn (prevents retries)
           const pttSwitchItem = whiteboardParsed.whiteboardItems.find(item => item.type === 'switch_tutor');
-          if (pttSwitchItem && 'data' in pttSwitchItem && pttSwitchItem.data && !session.pendingTutorSwitch) {
+          if (pttSwitchItem && 'data' in pttSwitchItem && pttSwitchItem.data && !session.pendingTutorSwitch && !session.crossLanguageTransferBlocked) {
             const data = pttSwitchItem.data as { 
               targetGender: 'male' | 'female'; 
               targetLanguage?: string;
@@ -2022,7 +2095,7 @@ Remember: David may reference things discussed in these recent text chats.
             };
             session.switchTutorTriggered = true;
             console.log(`[Tutor Switch] PTT (parsed): Queued handoff to ${data.targetGender} tutor${resolvedLanguage ? ` (${resolvedLanguage})` : ''}`);
-          } else if (!session.pendingTutorSwitch && chunk.text.includes('[SWITCH_TUTOR')) {
+          } else if (!session.pendingTutorSwitch && !session.crossLanguageTransferBlocked && chunk.text.includes('[SWITCH_TUTOR')) {
             // FALLBACK: Direct regex detection when parser misses the tag
             // Patterns: [SWITCH_TUTOR target="male"] or [SWITCH_TUTOR target="female" language="french"]
             const switchMatch = chunk.text.match(/\[SWITCH_TUTOR\s+target\s*=\s*["']?(male|female)["']?(?:\s+language\s*=\s*["']?(\w+)["']?)?(?:\s+role\s*=\s*["']?(tutor|assistant)["']?)?\s*\]/i);
@@ -2583,14 +2656,52 @@ Remember: David may reference things discussed in these recent text chats.
       // Supports intra-language (gender only), cross-language (gender + language), and assistant handoffs
       if (session.pendingTutorSwitch) {
         const { targetGender, targetLanguage, targetRole } = session.pendingTutorSwitch;
-        session.pendingTutorSwitch = undefined; // Clear the pending switch
         
-        const isAssistantSwitch = targetRole === 'assistant';
-        const isLanguageSwitch = !!targetLanguage && targetLanguage.toLowerCase() !== session.targetLanguage.toLowerCase();
-        const effectiveLanguage = targetLanguage?.toLowerCase() || session.targetLanguage.toLowerCase();
+        // CROSS-LANGUAGE TRANSFER GATE: Validate before executing
+        // Assistant switches are always within same-language context, so no validation needed
+        const transferValidation = targetRole !== 'assistant' 
+          ? validateTutorTransfer(session.targetLanguage, targetLanguage)
+          : { allowed: true as const };
         
-        const roleInfo = isAssistantSwitch ? ' (assistant)' : '';
-        console.log(`[Tutor Switch] Executing handoff to ${targetGender} tutor${roleInfo}${isLanguageSwitch ? ` in ${effectiveLanguage}` : ''}`);
+        if (!transferValidation.allowed) {
+          console.log(`[Tutor Switch] BLOCKED: Cross-language transfer from ${session.targetLanguage} to ${targetLanguage}`);
+          console.log(`[Tutor Switch] Reason: ${transferValidation.reason}`);
+          session.pendingTutorSwitch = undefined; // Clear only after we've logged the blocked attempt
+          session.crossLanguageTransferBlocked = true; // Prevent retries within this turn
+          
+          // Notify client that the cross-language transfer was blocked
+          // This allows the UI to display a helpful message to the student
+          this.sendMessage(session.ws, {
+            type: 'tutor_transfer_blocked',
+            timestamp: Date.now(),
+            fromLanguage: session.targetLanguage,
+            toLanguage: targetLanguage,
+            reason: transferValidation.reason,
+          } as any);
+        } else {
+          // PROCEED WITH TRANSFER
+          session.pendingTutorSwitch = undefined; // Clear the pending switch now that we're executing
+          const isAssistantSwitch = targetRole === 'assistant';
+          const effectiveLanguage = targetLanguage?.toLowerCase() || session.targetLanguage.toLowerCase();
+          const isLanguageSwitch = effectiveLanguage !== session.targetLanguage.toLowerCase();
+          
+          // DEFENSE-IN-DEPTH: Secondary validation using final resolved language
+          // This catches any edge cases where effectiveLanguage differs from targetLanguage
+          if (!isAssistantSwitch && isLanguageSwitch && !CROSS_LANGUAGE_TRANSFERS_ENABLED) {
+            console.log(`[Tutor Switch] BLOCKED (defense): Resolved language ${effectiveLanguage} differs from session ${session.targetLanguage}`);
+            session.crossLanguageTransferBlocked = true;
+            this.sendMessage(session.ws, {
+              type: 'tutor_transfer_blocked',
+              timestamp: Date.now(),
+              fromLanguage: session.targetLanguage,
+              toLanguage: effectiveLanguage,
+              reason: 'Cross-language transfers are currently disabled.',
+            } as any);
+            return; // Exit the tutor switch block
+          }
+          
+          const roleInfo = isAssistantSwitch ? ' (assistant)' : '';
+          console.log(`[Tutor Switch] Executing handoff to ${targetGender} tutor${roleInfo}${isLanguageSwitch ? ` in ${effectiveLanguage}` : ''}`);
         
         // REBUILD tutorDirectory if missing or empty (for older sessions or session recovery)
         // This ensures SWITCH_TUTOR instructions appear in the regenerated system prompt
@@ -2906,6 +3017,7 @@ Remember: David may reference things discussed in these recent text chats.
             isLanguageSwitch: false,
           });
         }
+        } // End of transferValidation.allowed else block
       }
       
       // Log structured metrics for monitoring (non-blocking, just console.log)
@@ -3028,6 +3140,7 @@ Remember: David may reference things discussed in these recent text chats.
       session.currentTurnId++;
       session.isInterrupted = false;  // Reset interrupt flag for new turn
       session.switchTutorTriggered = false;  // Reset switch flag for new turn
+      session.crossLanguageTransferBlocked = false;  // Reset cross-language block for new turn
       const turnId = session.currentTurnId;
       
       // Notify client that processing has started
@@ -3158,8 +3271,9 @@ Remember: David may reference things discussed in these recent text chats.
           // This ensures SWITCH_TUTOR works even if displayText is empty
           
           // SWITCH_TUTOR: Queue tutor handoff (with regex fallback)
+          // Skip if cross-language transfer was already blocked this turn (prevents retries)
           const switchItem = whiteboardParsed.whiteboardItems.find(item => item.type === 'switch_tutor');
-          if (switchItem && 'data' in switchItem && switchItem.data && !session.pendingTutorSwitch) {
+          if (switchItem && 'data' in switchItem && switchItem.data && !session.pendingTutorSwitch && !session.crossLanguageTransferBlocked) {
             const data = switchItem.data as { 
               targetGender: 'male' | 'female'; 
               targetLanguage?: string;
@@ -3185,7 +3299,7 @@ Remember: David may reference things discussed in these recent text chats.
             };
             session.switchTutorTriggered = true;
             console.log(`[Tutor Switch] Open-mic (parsed): Queued handoff to ${data.targetGender} tutor${resolvedLanguage ? ` (${resolvedLanguage})` : ''}`);
-          } else if (!session.pendingTutorSwitch && chunk.text.includes('[SWITCH_TUTOR')) {
+          } else if (!session.pendingTutorSwitch && !session.crossLanguageTransferBlocked && chunk.text.includes('[SWITCH_TUTOR')) {
             // FALLBACK: Direct regex detection when parser misses the tag
             const switchMatch = chunk.text.match(/\[SWITCH_TUTOR\s+target\s*=\s*["']?(male|female)["']?(?:\s+language\s*=\s*["']?(\w+)["']?)?(?:\s+role\s*=\s*["']?(tutor|assistant)["']?)?\s*\]/i);
             if (switchMatch) {
@@ -3426,18 +3540,55 @@ Remember: David may reference things discussed in these recent text chats.
       // TUTOR SWITCH: Execute pending handoff after response completes (Open-mic path)
       if (session.pendingTutorSwitch) {
         const { targetGender, targetLanguage, targetRole } = session.pendingTutorSwitch;
-        session.pendingTutorSwitch = undefined; // Clear the pending switch
         
-        const isAssistantSwitch = targetRole === 'assistant';
-        const isLanguageSwitch = !!targetLanguage && targetLanguage.toLowerCase() !== session.targetLanguage.toLowerCase();
-        const effectiveLanguage = targetLanguage?.toLowerCase() || session.targetLanguage.toLowerCase();
+        // CROSS-LANGUAGE TRANSFER GATE: Validate before executing
+        // Assistant switches are always within same-language context, so no validation needed
+        const transferValidation = targetRole !== 'assistant' 
+          ? validateTutorTransfer(session.targetLanguage, targetLanguage)
+          : { allowed: true as const };
         
-        console.log(`[Tutor Switch] Open-mic: Executing handoff to ${targetGender} tutor${isLanguageSwitch ? ` (${effectiveLanguage})` : ''}`);
-        
-        // Store previous tutor name for natural handoff intro
-        session.previousTutorName = session.tutorName;
-        
-        try {
+        if (!transferValidation.allowed) {
+          console.log(`[Tutor Switch] Open-mic BLOCKED: Cross-language transfer from ${session.targetLanguage} to ${targetLanguage}`);
+          console.log(`[Tutor Switch] Reason: ${transferValidation.reason}`);
+          session.pendingTutorSwitch = undefined; // Clear only after we've logged the blocked attempt
+          session.crossLanguageTransferBlocked = true; // Prevent retries within this turn
+          
+          // Notify client that the cross-language transfer was blocked
+          this.sendMessage(session.ws, {
+            type: 'tutor_transfer_blocked',
+            timestamp: Date.now(),
+            fromLanguage: session.targetLanguage,
+            toLanguage: targetLanguage,
+            reason: transferValidation.reason,
+          } as any);
+        } else {
+          // PROCEED WITH TRANSFER
+          session.pendingTutorSwitch = undefined; // Clear the pending switch now that we're executing
+          const isAssistantSwitch = targetRole === 'assistant';
+          const effectiveLanguage = targetLanguage?.toLowerCase() || session.targetLanguage.toLowerCase();
+          const isLanguageSwitch = effectiveLanguage !== session.targetLanguage.toLowerCase();
+          
+          // DEFENSE-IN-DEPTH: Secondary validation using final resolved language
+          // This catches any edge cases where effectiveLanguage differs from targetLanguage
+          if (!isAssistantSwitch && isLanguageSwitch && !CROSS_LANGUAGE_TRANSFERS_ENABLED) {
+            console.log(`[Tutor Switch] Open-mic BLOCKED (defense): Resolved language ${effectiveLanguage} differs from session ${session.targetLanguage}`);
+            session.crossLanguageTransferBlocked = true;
+            this.sendMessage(session.ws, {
+              type: 'tutor_transfer_blocked',
+              timestamp: Date.now(),
+              fromLanguage: session.targetLanguage,
+              toLanguage: effectiveLanguage,
+              reason: 'Cross-language transfers are currently disabled.',
+            } as any);
+            // Don't proceed with switch - skip the rest of tutor switch logic
+          } else {
+            // Defense passed - proceed with switch
+            console.log(`[Tutor Switch] Open-mic: Executing handoff to ${targetGender} tutor${isLanguageSwitch ? ` (${effectiveLanguage})` : ''}`);
+            
+            // Store previous tutor name for natural handoff intro
+            session.previousTutorName = session.tutorName;
+          
+            try {
           let tutorName: string | undefined;
           
           if (isAssistantSwitch) {
@@ -3520,6 +3671,8 @@ Remember: David may reference things discussed in these recent text chats.
             isLanguageSwitch: false,
           });
         }
+          } // End of defense-in-depth else block
+        } // End of transferValidation.allowed else block (Open-mic)
       }
       
       return metrics;
