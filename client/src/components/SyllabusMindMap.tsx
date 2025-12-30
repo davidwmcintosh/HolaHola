@@ -1310,7 +1310,7 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
         className={`relative mx-auto ${isMobileView ? 'overflow-hidden' : 'overflow-visible'}`}
         style={{ 
           width: containerWidth, 
-          height: containerHeight + (isMobileView ? 80 : 150),
+          height: containerHeight + (isMobileView ? 40 : 80),
           marginTop: isMobileView ? 10 : 20,
         }}
         data-testid="brain-container"
@@ -1320,7 +1320,7 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
           className="relative"
           style={{
             width: containerWidth,
-            height: containerHeight + (isMobileView ? 80 : 150),
+            height: containerHeight + (isMobileView ? 40 : 80),
           }}
         >
         
