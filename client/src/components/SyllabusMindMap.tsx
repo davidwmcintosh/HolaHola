@@ -1477,7 +1477,7 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
       </div>
       
       {/* Activity Inputs with Flow Lines - Learning activities that feed the brain */}
-      <div className={`relative ${isMobileView ? '-mt-36' : '-mt-80'}`} data-testid="activity-inputs-container">
+      <div className={`relative ${isMobileView ? '-mt-29' : '-mt-62'}`} data-testid="activity-inputs-container">
         {/* Flow lines SVG - animated gradients rising to brain */}
         <svg 
           className="absolute left-1/2 -translate-x-1/2 bottom-8 pointer-events-none"
