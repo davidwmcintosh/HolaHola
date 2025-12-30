@@ -1,16 +1,16 @@
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
 import { useLocation, Link } from 'wouter';
 import { apiRequest, queryClient } from '@/lib/queryClient';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Mail, Lock, LogIn } from 'lucide-react';
+import holaholaLogo from '@assets/holaholamainlogoBackgroundRemoved_1765308837223.png';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -18,6 +18,19 @@ const loginSchema = z.object({
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
+
+// Floating language greetings for visual interest
+const floatingGreetings = [
+  { text: 'Hola', color: 'text-orange-500', position: 'top-[8%] left-[5%]', size: 'text-2xl md:text-3xl', delay: '0s' },
+  { text: 'Bonjour', color: 'text-blue-500', position: 'top-[15%] right-[8%]', size: 'text-xl md:text-2xl', delay: '0.5s' },
+  { text: '你好', color: 'text-red-500', position: 'top-[25%] left-[8%]', size: 'text-3xl md:text-4xl', delay: '1s' },
+  { text: 'Ciao', color: 'text-green-600', position: 'bottom-[25%] right-[5%]', size: 'text-xl md:text-2xl', delay: '1.5s' },
+  { text: 'こんにちは', color: 'text-pink-500', position: 'bottom-[15%] left-[3%]', size: 'text-lg md:text-xl', delay: '2s' },
+  { text: 'Olá', color: 'text-emerald-500', position: 'bottom-[8%] right-[10%]', size: 'text-2xl md:text-3xl', delay: '2.5s' },
+  { text: 'Guten Tag', color: 'text-amber-600', position: 'top-[40%] right-[3%]', size: 'text-lg md:text-xl', delay: '3s' },
+  { text: '안녕', color: 'text-purple-500', position: 'bottom-[35%] left-[5%]', size: 'text-xl md:text-2xl', delay: '3.5s' },
+  { text: 'नमस्ते', color: 'text-orange-600', position: 'top-[50%] left-[2%]', size: 'text-2xl md:text-3xl', delay: '4s' },
+];
 
 export default function Login() {
   const [, navigate] = useLocation();
@@ -40,7 +53,7 @@ export default function Login() {
       }
       return response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
       toast({
         title: 'Welcome back!',
@@ -48,7 +61,7 @@ export default function Login() {
       });
       navigate('/');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: 'Login failed',
         description: error.message || 'Invalid email or password',
@@ -62,17 +75,48 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold" data-testid="text-login-title">
-            Welcome Back
-          </CardTitle>
-          <CardDescription data-testid="text-login-description">
-            Sign in to continue learning
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-sky-50 via-background to-orange-50 dark:from-sky-950/20 dark:via-background dark:to-orange-950/20 p-4 relative overflow-hidden">
+      {/* Floating greetings - hidden on very small screens */}
+      <div className="hidden sm:block absolute inset-0 pointer-events-none overflow-hidden">
+        {floatingGreetings.map((greeting, index) => (
+          <span
+            key={index}
+            className={`absolute ${greeting.position} ${greeting.color} ${greeting.size} font-bold opacity-20 dark:opacity-15 select-none`}
+            style={{
+              animation: `float 6s ease-in-out infinite`,
+              animationDelay: greeting.delay,
+            }}
+          >
+            {greeting.text}
+          </span>
+        ))}
+      </div>
+
+      {/* Main login card */}
+      <Card className="w-full max-w-md relative z-10 shadow-xl border-0 bg-card/95 backdrop-blur-sm">
+        <CardContent className="pt-8 pb-6 px-6 md:px-8">
+          {/* Logo and branding */}
+          <div className="flex flex-col items-center mb-6">
+            <img 
+              src={holaholaLogo} 
+              alt="HolaHola" 
+              className="h-16 w-auto mb-3"
+              data-testid="img-logo"
+            />
+            <h1 
+              className="text-2xl font-bold text-foreground"
+              data-testid="text-login-title"
+            >
+              Welcome Back
+            </h1>
+            <p 
+              className="text-sm text-muted-foreground mt-1"
+              data-testid="text-login-description"
+            >
+              Sign in to continue your language journey
+            </p>
+          </div>
+
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
@@ -153,7 +197,7 @@ export default function Login() {
                 <span className="w-full border-t" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+                <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
               </div>
             </div>
             
@@ -174,13 +218,21 @@ export default function Login() {
             
             <p className="text-center text-sm text-muted-foreground" data-testid="text-new-user-hint">
               New to HolaHola?{' '}
-              <a href="/get-started" className="text-primary hover:underline" data-testid="link-get-started">
+              <a href="/get-started" className="text-primary hover:underline font-medium" data-testid="link-get-started">
                 Get Started
               </a>
             </p>
           </div>
         </CardContent>
       </Card>
+
+      {/* CSS animation for floating effect */}
+      <style>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0px) rotate(-2deg); }
+          50% { transform: translateY(-15px) rotate(2deg); }
+        }
+      `}</style>
     </div>
   );
 }
