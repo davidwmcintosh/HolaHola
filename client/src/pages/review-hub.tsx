@@ -558,13 +558,9 @@ export default function ReviewHub() {
         selectedLanguage={language !== 'all' ? language : undefined}
         selectedGender={tutorGender}
         filterLanguage={language !== 'all' ? language : undefined}
+        filterSlot={<LearningContextFilter />}
         className="py-2"
       />
-
-      {/* Learning Context Filters */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <LearningContextFilter />
-      </div>
 
       {/* Daily Plan Section */}
       <Card data-testid="section-daily-plan">

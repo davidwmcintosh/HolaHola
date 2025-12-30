@@ -13,9 +13,10 @@ interface TutorCardProps {
   isSelected: boolean;
   onSelect: () => void;
   isMobile: boolean;
+  isFiltered?: boolean;
 }
 
-function TutorCard({ tutor, isSelected, onSelect, isMobile }: TutorCardProps) {
+function TutorCard({ tutor, isSelected, onSelect, isMobile, isFiltered = false }: TutorCardProps) {
   const cardWidth = isMobile ? 120 : 140;
   const cardHeight = isMobile ? 170 : 190;
   const avatarSize = isMobile ? 64 : 80;
@@ -29,6 +30,7 @@ function TutorCard({ tutor, isSelected, onSelect, isMobile }: TutorCardProps) {
           ? 'ring-2 shadow-lg scale-105' 
           : 'hover:scale-[1.03]'
         }
+        ${isFiltered ? 'opacity-40 grayscale' : ''}
       `}
       style={{ 
         width: cardWidth, 
@@ -46,7 +48,7 @@ function TutorCard({ tutor, isSelected, onSelect, isMobile }: TutorCardProps) {
     >
       <span 
         className="text-[10px] font-medium uppercase tracking-wide mb-1"
-        style={{ color: tutor.accentColor }}
+        style={{ color: isFiltered ? undefined : tutor.accentColor }}
       >
         Click to Call
       </span>
@@ -109,6 +111,7 @@ interface TutorShowcaseProps {
   selectedLanguage?: string;
   selectedGender?: TutorGender;
   filterLanguage?: string;
+  filterSlot?: React.ReactNode;
   className?: string;
 }
 
@@ -117,16 +120,15 @@ export function TutorShowcase({
   selectedLanguage,
   selectedGender,
   filterLanguage,
+  filterSlot,
   className = '' 
 }: TutorShowcaseProps) {
-  const allTutors = useMemo(() => getAllTutorsForShowcase(), []);
+  const tutors = useMemo(() => getAllTutorsForShowcase(), []);
   
-  const tutors = useMemo(() => {
-    if (!filterLanguage || filterLanguage === 'all') {
-      return allTutors;
-    }
-    return allTutors.filter(t => t.language === filterLanguage);
-  }, [allTutors, filterLanguage]);
+  const isFilteredOut = (tutor: TutorShowcaseData) => {
+    if (!filterLanguage || filterLanguage === 'all') return false;
+    return tutor.language !== filterLanguage;
+  };
   const scrollRef = useRef<HTMLDivElement>(null);
   const [selectedTutor, setSelectedTutor] = useState<TutorShowcaseData | null>(null);
   
@@ -168,6 +170,13 @@ export function TutorShowcase({
         Meet Your Tutors
       </h2>
       
+      {/* Filter slot - dropdowns go between title and tutor cards */}
+      {filterSlot && (
+        <div className="flex items-center justify-center gap-3 flex-wrap mb-4">
+          {filterSlot}
+        </div>
+      )}
+      
       {/* Mobile carousel - visible on small screens, hidden on md+ */}
       <div className="block md:hidden w-full overflow-visible">
         <div 
@@ -187,6 +196,7 @@ export function TutorShowcase({
                 isSelected={isSelected(tutor)}
                 onSelect={() => handleSelect(tutor)}
                 isMobile={true}
+                isFiltered={isFilteredOut(tutor)}
               />
             </div>
           ))}
@@ -205,6 +215,7 @@ export function TutorShowcase({
             isSelected={isSelected(tutor)}
             onSelect={() => handleSelect(tutor)}
             isMobile={false}
+            isFiltered={isFilteredOut(tutor)}
           />
         ))}
       </div>
