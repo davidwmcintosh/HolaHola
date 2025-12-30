@@ -38,19 +38,19 @@ export default function Landing() {
     <div className="min-h-screen bg-gradient-to-br from-sky-50 via-background to-orange-50 dark:from-sky-950/20 dark:via-background dark:to-orange-950/20 overflow-hidden">
       {/* Hero Section with mind map watermark */}
       <div className="relative">
-        {/* Full Mind Map Watermark - brain with lobe bubbles */}
+        {/* Full Mind Map Watermark - brain with lobe bubbles, full width */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
-          <div className="relative w-[500px] md:w-[650px] lg:w-[800px] h-[400px] md:h-[500px] lg:h-[600px]">
+          <div className="relative w-full max-w-[900px] md:max-w-[1100px] lg:max-w-[1400px] h-[500px] md:h-[600px] lg:h-[700px]">
             {/* Brain in center */}
             <img 
               src={brainImage} 
               alt="" 
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200px] md:w-[280px] lg:w-[350px] opacity-[0.12] dark:opacity-[0.08]"
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[280px] md:w-[380px] lg:w-[480px] opacity-[0.12] dark:opacity-[0.08]"
             />
             
             {/* Lobe cloud bubbles orbiting the brain */}
             {mindMapLobes.map((lobe, index) => {
-              const distance = 140;
+              const distance = 200;
               const angleRad = (lobe.angle * Math.PI) / 180;
               const x = Math.cos(angleRad) * distance;
               const y = Math.sin(angleRad) * distance;
@@ -58,14 +58,14 @@ export default function Landing() {
               return (
                 <div
                   key={index}
-                  className="absolute top-1/2 left-1/2 opacity-[0.15] dark:opacity-[0.10]"
+                  className="absolute top-1/2 left-1/2 opacity-[0.18] dark:opacity-[0.12]"
                   style={{
                     transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`,
                   }}
                 >
                   <svg 
                     viewBox="0 0 100 70" 
-                    className="w-[80px] md:w-[100px] lg:w-[120px] h-[56px] md:h-[70px] lg:h-[84px]"
+                    className="w-[100px] md:w-[130px] lg:w-[160px] h-[70px] md:h-[91px] lg:h-[112px]"
                   >
                     <path
                       d={lobe.cloudPath}
