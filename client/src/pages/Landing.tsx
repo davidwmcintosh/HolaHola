@@ -8,18 +8,43 @@ import brainImage from "@assets/transparent_colorful_cartoon_brain_Background_Re
 import spanishFemale from "@assets/tutor-listening-no-background_1764099971094.png";
 import spanishMale from "@assets/Boy-tutor-waiting-No-Background_1764186322051.png";
 import frenchFemale from "@assets/Tutor_Images/Female/French_Female_Speaking_No_Background.jpg";
+import frenchMale from "@assets/Tutor_Images/Male/French_Male_Talking.jpg";
 import germanMale from "@assets/Tutor_Images/Male/German_Male_Talking.jpg";
+import germanFemale from "@assets/Tutor_Images/Female/German_Female_Talking_No_Background.jpg";
 import italianFemale from "@assets/Tutor_Images/Female/Italian_Female_Talking_No_Background.jpg";
+import italianMale from "@assets/Tutor_Images/Male/Italian_Male_Talking.jpg";
 import japaneseMale from "@assets/Tutor_Images/Male/Japanese_Male_Talking.jpg";
+import japaneseFemale from "@assets/Tutor_Images/Female/Japanese_Female_Talking_No_Background.jpg";
+import chineseFemale from "@assets/Tutor_Images/Female/Chinese_Female_Talking_No_Background.jpg";
+import chineseMale from "@assets/Tutor_Images/Male/Chinese_Male_Talking.jpg";
+import koreanFemale from "@assets/Tutor_Images/Female/Korean_Female_Talking_No_Background.jpg";
+import koreanMale from "@assets/Tutor_Images/Male/Korean_Male_Talking.jpg";
 
-// Tutor bubbles positioned around the hero
+// Tutor bubbles spread around the entire page
 const tutorBubbles = [
-  { avatar: spanishFemale, position: 'top-[5%] left-[3%]', size: 'w-16 h-16 md:w-24 md:h-24', bubbleColor: 'border-orange-400' },
-  { avatar: spanishMale, position: 'top-[8%] right-[5%]', size: 'w-14 h-14 md:w-20 md:h-20', bubbleColor: 'border-orange-300' },
-  { avatar: frenchFemale, position: 'top-[25%] left-[2%]', size: 'w-12 h-12 md:w-18 md:h-18', bubbleColor: 'border-blue-400' },
-  { avatar: germanMale, position: 'top-[30%] right-[3%]', size: 'w-14 h-14 md:w-20 md:h-20', bubbleColor: 'border-amber-400' },
-  { avatar: italianFemale, position: 'top-[15%] left-[8%]', size: 'w-10 h-10 md:w-16 md:h-16', bubbleColor: 'border-green-400' },
-  { avatar: japaneseMale, position: 'top-[20%] right-[8%]', size: 'w-12 h-12 md:w-18 md:h-18', bubbleColor: 'border-pink-400' },
+  // Top row - spread wide
+  { avatar: spanishFemale, position: 'top-[2%] left-[2%]', size: 'w-20 h-20 md:w-28 md:h-28', bubbleColor: 'border-orange-400' },
+  { avatar: chineseMale, position: 'top-[5%] left-[20%]', size: 'w-14 h-14 md:w-20 md:h-20', bubbleColor: 'border-red-400' },
+  { avatar: frenchFemale, position: 'top-[3%] right-[25%]', size: 'w-16 h-16 md:w-24 md:h-24', bubbleColor: 'border-blue-400' },
+  { avatar: spanishMale, position: 'top-[2%] right-[2%]', size: 'w-18 h-18 md:w-26 md:h-26', bubbleColor: 'border-orange-300' },
+  
+  // Upper sides
+  { avatar: koreanFemale, position: 'top-[15%] left-[1%]', size: 'w-16 h-16 md:w-22 md:h-22', bubbleColor: 'border-sky-400' },
+  { avatar: germanMale, position: 'top-[18%] right-[1%]', size: 'w-14 h-14 md:w-20 md:h-20', bubbleColor: 'border-amber-400' },
+  
+  // Mid sides
+  { avatar: italianFemale, position: 'top-[32%] left-[0%]', size: 'w-18 h-18 md:w-24 md:h-24', bubbleColor: 'border-green-400' },
+  { avatar: japaneseMale, position: 'top-[28%] right-[0%]', size: 'w-16 h-16 md:w-22 md:h-22', bubbleColor: 'border-pink-400' },
+  
+  // Lower sides - for features section
+  { avatar: frenchMale, position: 'top-[48%] left-[1%]', size: 'w-14 h-14 md:w-20 md:h-20', bubbleColor: 'border-blue-300' },
+  { avatar: chineseFemale, position: 'top-[45%] right-[1%]', size: 'w-16 h-16 md:w-22 md:h-22', bubbleColor: 'border-red-300' },
+  
+  // Bottom area
+  { avatar: germanFemale, position: 'top-[62%] left-[2%]', size: 'w-12 h-12 md:w-18 md:h-18', bubbleColor: 'border-amber-300' },
+  { avatar: koreanMale, position: 'top-[58%] right-[2%]', size: 'w-14 h-14 md:w-20 md:h-20', bubbleColor: 'border-sky-300' },
+  { avatar: italianMale, position: 'top-[75%] left-[1%]', size: 'w-16 h-16 md:w-22 md:h-22', bubbleColor: 'border-green-300' },
+  { avatar: japaneseFemale, position: 'top-[72%] right-[1%]', size: 'w-12 h-12 md:w-18 md:h-18', bubbleColor: 'border-pink-300' },
 ];
 
 export default function Landing() {
@@ -36,12 +61,12 @@ export default function Landing() {
           />
         </div>
         
-        {/* Tutor avatar bubbles - hidden on mobile */}
-        <div className="hidden md:block absolute inset-0 pointer-events-none overflow-hidden">
+        {/* Tutor avatar bubbles - spread across entire page, hidden on mobile */}
+        <div className="hidden md:block fixed inset-0 pointer-events-none overflow-hidden z-0">
           {tutorBubbles.map((tutor, index) => (
             <div
               key={index}
-              className={`absolute ${tutor.position} ${tutor.size} rounded-full border-2 ${tutor.bubbleColor} bg-white/80 dark:bg-gray-800/80 shadow-lg opacity-40 dark:opacity-30 overflow-hidden`}
+              className={`absolute ${tutor.position} ${tutor.size} rounded-full border-2 ${tutor.bubbleColor} bg-white/80 dark:bg-gray-800/80 shadow-lg opacity-30 dark:opacity-20 overflow-hidden`}
             >
               <img 
                 src={tutor.avatar} 
@@ -54,12 +79,12 @@ export default function Landing() {
 
         <div className="container mx-auto px-4 pt-12 pb-8 md:pt-20 md:pb-16 relative z-10">
           <div className="text-center space-y-6 max-w-3xl mx-auto">
-            {/* Logo */}
-            <div className="flex justify-center mb-4">
+            {/* Logo - 400% bigger */}
+            <div className="flex justify-center mb-6">
               <img 
                 src={holaholaLogo} 
                 alt="HolaHola" 
-                className="h-20 md:h-28 w-auto"
+                className="h-48 md:h-72 lg:h-80 w-auto"
                 data-testid="img-landing-logo"
               />
             </div>
