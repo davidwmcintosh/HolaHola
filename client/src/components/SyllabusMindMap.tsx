@@ -882,7 +882,7 @@ function TutorObservationsBubble({
                   data-testid="button-practice-from-mindmap"
                 >
                   <Sparkles className="h-3 w-3" />
-                  Practice with Daniela
+                  Practice with {tutorName}
                   <ChevronRight className="h-3 w-3 ml-auto" />
                 </Button>
               </Link>
