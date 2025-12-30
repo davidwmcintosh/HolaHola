@@ -11427,6 +11427,102 @@ Return ONLY the ${targetLanguage} phrase:`;
       res.status(500).json({ error: error.message });
     }
   });
+  
+  // ============================================================================
+  // AI LESSON GENERATION ENDPOINTS
+  // ============================================================================
+  
+  // Generate a lesson draft for a specific Can-Do statement
+  app.post("/api/admin/lesson-drafts/generate", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { canDoStatementId, additionalContext } = req.body;
+      const userId = req.user?.claims?.sub;
+      
+      if (!canDoStatementId) {
+        return res.status(400).json({ error: "canDoStatementId is required" });
+      }
+      
+      const { generateAndSaveLessonDraft } = await import('./services/ai-lesson-generator');
+      const result = await generateAndSaveLessonDraft(canDoStatementId, userId, additionalContext);
+      
+      if (result.success) {
+        res.json({ success: true, draftId: result.draftId });
+      } else {
+        res.status(500).json({ error: result.error });
+      }
+    } catch (error: any) {
+      console.error('[AI Lesson Generation] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Generate lessons for coverage gaps (batch generation)
+  app.post("/api/admin/lesson-drafts/generate-for-gaps", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { language, limit = 5 } = req.body;
+      const userId = req.user?.claims?.sub;
+      
+      if (!language) {
+        return res.status(400).json({ error: "language is required" });
+      }
+      
+      const { generateLessonsForGaps } = await import('./services/ai-lesson-generator');
+      
+      // Run async to avoid timeout - return immediately
+      res.json({ 
+        message: `Generation started for ${limit} lessons in ${language}. Check drafts later.`,
+        queued: true
+      });
+      
+      // Generate in background
+      generateLessonsForGaps(language, limit, userId).then(result => {
+        console.log(`[AI Lesson Generation] Completed for ${language}:`, result);
+      }).catch(err => {
+        console.error(`[AI Lesson Generation] Failed for ${language}:`, err);
+      });
+    } catch (error: any) {
+      console.error('[AI Lesson Generation Batch] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get lesson drafts (for review)
+  app.get("/api/admin/lesson-drafts", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { status, language } = req.query;
+      const { getLessonDrafts } = await import('./services/ai-lesson-generator');
+      const drafts = await getLessonDrafts(status as string, language as string);
+      res.json(drafts);
+    } catch (error: any) {
+      console.error('[Lesson Drafts List] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Update draft status (approve/reject)
+  app.patch("/api/admin/lesson-drafts/:draftId/status", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { draftId } = req.params;
+      const { status, reviewNotes } = req.body;
+      const userId = req.user?.claims?.sub;
+      
+      if (!['pending', 'approved', 'rejected'].includes(status)) {
+        return res.status(400).json({ error: "Invalid status. Must be pending, approved, or rejected" });
+      }
+      
+      const { updateDraftStatus } = await import('./services/ai-lesson-generator');
+      const updated = await updateDraftStatus(draftId, status, userId, reviewNotes);
+      
+      if (updated) {
+        res.json(updated);
+      } else {
+        res.status(404).json({ error: "Draft not found" });
+      }
+    } catch (error: any) {
+      console.error('[Lesson Draft Status Update] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   // Get a student's Can-Do progress for a language
   app.get("/api/fluency/can-do-progress/:language", isAuthenticated, async (req: any, res) => {

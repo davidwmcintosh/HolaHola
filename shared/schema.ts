@@ -2740,6 +2740,77 @@ export type InsertHiveSnapshot = z.infer<typeof insertHiveSnapshotSchema>;
 export type HiveSnapshot = typeof hiveSnapshots.$inferSelect;
 export type HiveSnapshotType = 'teaching_moment' | 'breakthrough' | 'struggle_pattern' | 'beacon_context' | 'session_summary' | 'plateau_alert' | 'relationship_moment' | 'role_reversal' | 'humor_shared' | 'voice_diagnostic' | 'life_context' | 'voice_baselines' | 'aggregate_analytics';
 
+// ===== AI Lesson Drafts =====
+// Stores AI-generated lesson plans pending founder review
+export const lessonDraftStatusEnum = pgEnum("lesson_draft_status", [
+  'draft',        // Just generated, not reviewed
+  'pending',      // In review queue
+  'approved',     // Approved, ready to publish
+  'published',    // Published to curriculum
+  'rejected'      // Rejected, won't be used
+]);
+
+export const lessonDrafts = pgTable("lesson_drafts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Target Can-Do statement this lesson teaches
+  canDoStatementId: varchar("can_do_statement_id").notNull().references(() => canDoStatements.id),
+  
+  // Lesson metadata
+  language: varchar("language").notNull(),
+  actflLevel: varchar("actfl_level").notNull(),
+  category: varchar("category").notNull(), // interpersonal, interpretive, presentational
+  
+  // Generated lesson content (full structured payload)
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  draftPayload: jsonb("draft_payload").notNull().$type<{
+    objectives: string[];
+    warmUp: string;
+    modelInput: string;
+    modelOutput: string;
+    scaffoldedTasks: Array<{
+      taskNumber: number;
+      instruction: string;
+      expectedResponse: string;
+      scaffoldingNotes: string;
+    }>;
+    assessmentCheck: string;
+    culturalConnection: string;
+    vocabularyFocus: string[];
+    grammarFocus: string[];
+    suggestedDuration: number;
+    lessonType: string;
+  }>(),
+  
+  // Review workflow
+  status: lessonDraftStatusEnum("status").notNull().default('draft'),
+  reviewNotes: text("review_notes"),
+  
+  // Published lesson reference (after approval)
+  publishedLessonId: varchar("published_lesson_id"),
+  
+  // Lifecycle
+  createdBy: varchar("created_by").references(() => users.id),
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  reviewedAt: timestamp("reviewed_at"),
+  publishedAt: timestamp("published_at"),
+}, (table) => [
+  index("idx_lesson_drafts_status").on(table.status),
+  index("idx_lesson_drafts_language").on(table.language),
+  index("idx_lesson_drafts_cando").on(table.canDoStatementId),
+]);
+
+export const insertLessonDraftSchema = createInsertSchema(lessonDrafts).omit({
+  id: true,
+  createdAt: true,
+  reviewedAt: true,
+  publishedAt: true,
+});
+export type InsertLessonDraft = z.infer<typeof insertLessonDraftSchema>;
+export type LessonDraft = typeof lessonDrafts.$inferSelect;
+
 // ===== Daniela's Growth Memory System =====
 // Two-tier memory architecture:
 // - Tier 1: Daniela's Growth Memories (PERSISTENT) - Her own learning journey
