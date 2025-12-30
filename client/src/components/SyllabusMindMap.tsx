@@ -591,8 +591,8 @@ function TutorObservationsBubble({
   const improvingStruggles = context?.struggles.filter(s => s.status === 'improving').slice(0, 3) || [];
   const strategyCount = context?.effectiveStrategies.length || 0;
 
-  // Cloud path for thought bubble (viewBox 0 0 180 140) - scaled up
-  const cloudPath = "M40,65 C16,60 8,41 29,21 C45,3 82,8 98,21 C118,8 147,16 147,42 C164,49 159,79 136,85 C141,101 118,115 90,110 C70,123 36,115 33,95 C11,95 8,78 40,65 Z";
+  // Cloud path for thought bubble (viewBox 0 0 180 140) - slightly reduced arch
+  const cloudPath = "M40,62 C18,58 12,44 30,28 C44,12 80,15 96,26 C114,14 145,22 145,44 C160,50 156,76 135,82 C139,96 118,108 90,104 C72,115 40,110 36,92 C16,92 12,76 40,62 Z";
 
   return (
     <>
