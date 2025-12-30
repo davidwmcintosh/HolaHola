@@ -130,7 +130,7 @@ export default function Landing() {
             
             {/* Featured Tutors Row */}
             <div className="pt-6">
-              <p className="text-sm text-muted-foreground mb-3">Meet your AI tutors</p>
+              <p className="text-sm text-muted-foreground mb-3">Here are a few of our AI Tutors</p>
               <div className="flex flex-wrap justify-center gap-4 md:gap-6">
                 {featuredTutors.map((tutor, index) => (
                   <div key={index} className="flex flex-col items-center gap-1.5">
