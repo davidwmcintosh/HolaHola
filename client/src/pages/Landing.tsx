@@ -92,15 +92,15 @@ export default function Landing() {
 
         <div className="container mx-auto px-6 md:px-8 pt-10 pb-10 md:pt-16 md:pb-16 relative z-10">
           <div className="text-center space-y-5 max-w-4xl mx-auto">
-            {/* Logo + Title on same line */}
-            <div className="flex flex-col md:flex-row items-center justify-center gap-2 md:gap-4">
+            {/* Logo positioned top-left, title below */}
+            <div className="flex flex-col items-start md:items-center gap-3">
               <img 
                 src={holaholaLogo} 
                 alt="HolaHola" 
-                className="h-20 md:h-24 lg:h-28 w-auto"
+                className="h-28 md:h-36 lg:h-44 w-auto -ml-2 md:ml-0"
                 data-testid="img-landing-logo"
               />
-              <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold tracking-tight text-foreground">
+              <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold tracking-tight text-foreground text-left md:text-center">
                 Master Any Language with AI
               </h1>
             </div>
