@@ -125,7 +125,9 @@ export default function Pricing() {
 
   const classPriceCents = parseInt(pricingConfig?.class_price_cents || '4900');
   const hourRateCents = parseInt(pricingConfig?.hour_rate_cents || '580');
-  const hourPackages = getHourPackages(hourRateCents);
+  const pack5hrDiscount = parseInt(pricingConfig?.pack_5hr_discount_percent || '0');
+  const pack10hrDiscount = parseInt(pricingConfig?.pack_10hr_discount_percent || '10');
+  const hourPackages = getHourPackages(hourRateCents, pack5hrDiscount, pack10hrDiscount);
   const classPrice = getClassPrice(classPriceCents);
 
   const handleSelectClass = (classId: string) => {
@@ -343,7 +345,12 @@ export default function Pricing() {
                   </CardHeader>
                   <CardContent className="text-center flex-grow">
                     <div className="mb-2">
-                      <span className="text-4xl font-bold">${pkg.price}</span>
+                      <span className="text-4xl font-bold">${pkg.price.toFixed(0)}</span>
+                      {pkg.discount > 0 && (
+                        <Badge variant="secondary" className="ml-2 text-green-600 dark:text-green-400">
+                          {pkg.discount}% off
+                        </Badge>
+                      )}
                     </div>
                     <div className="text-sm text-muted-foreground mb-4">
                       {pkg.hours} hours (${pkg.pricePerHour.toFixed(2)}/hr)
