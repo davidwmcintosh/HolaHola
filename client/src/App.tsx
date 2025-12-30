@@ -60,6 +60,7 @@ const NotFound = lazy(() => import("@/pages/not-found"));
 
 // Auth pages
 const Login = lazy(() => import("@/pages/auth/Login"));
+const Signup = lazy(() => import("@/pages/auth/Signup"));
 const GetStarted = lazy(() => import("@/pages/auth/GetStarted"));
 const CompleteRegistration = lazy(() => import("@/pages/auth/CompleteRegistration"));
 const ForgotPassword = lazy(() => import("@/pages/auth/ForgotPassword"));
@@ -122,6 +123,7 @@ function Router() {
           <Route path="/" component={Landing} />
           <Route path="/get-started" component={GetStarted} />
           <Route path="/login" component={Login} />
+          <Route path="/signup" component={Signup} />
           <Route path="/complete-registration" component={CompleteRegistration} />
           <Route path="/forgot-password" component={ForgotPassword} />
           <Route path="/reset-password" component={ResetPassword} />

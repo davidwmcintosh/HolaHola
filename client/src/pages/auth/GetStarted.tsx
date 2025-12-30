@@ -272,7 +272,7 @@ export default function GetStarted() {
               className="w-full"
               size="lg"
               variant="secondary"
-              onClick={() => navigate('/login')}
+              onClick={() => navigate('/signup')}
               data-testid="button-email-signup"
             >
               <Mail className="h-5 w-5 mr-2" />
