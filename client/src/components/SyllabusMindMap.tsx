@@ -572,8 +572,8 @@ function TutorObservationsBubble({
   // Always show the bubble - display placeholder if no content yet
 
   // Position in upper left corner - offset left for better visual balance
-  const x = isMobile ? -30 : -100; // Push left outside container for overlap effect
-  const y = isMobile ? 10 : 0; // Upper area
+  const x = isMobile ? -30 : 90; // Moved right
+  const y = isMobile ? 10 : -50; // Moved up
   
   // Dimensions - smaller on mobile but still readable (text stays ≥12px)
   const collapsedWidth = isMobile ? 160 : 220;
