@@ -1542,7 +1542,7 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
         </svg>
         
         {/* Activity pills - teal/cyan theme (unused color) - hidden on mobile for cleaner layout */}
-        <div className={`flex justify-center gap-2 ${isMobileView ? 'hidden' : ''}`} data-testid="activity-inputs">
+        <div className={`flex justify-center gap-2 ml-8 ${isMobileView ? 'hidden' : ''}`} data-testid="activity-inputs">
           {[
             { name: 'Practice', Icon: Target },
             { name: 'Talk', Icon: Mic },
