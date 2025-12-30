@@ -19,7 +19,8 @@ import {
   actflAssessmentEvents,
   classCurriculumLessons,
   classCurriculumUnits,
-  teacherClasses
+  teacherClasses,
+  curriculumLessons
 } from "@shared/schema";
 import { eq, and, inArray, sql, like, ilike, or } from "drizzle-orm";
 import { callGeminiWithSchema, GEMINI_MODELS } from "../gemini-utils";
@@ -595,4 +596,278 @@ export async function recordLessonCompletionCanDo(
 
   const statementIds = linkedStatements.map(s => s.id);
   return recordBatchCanDoProgress(userId, statementIds, conversationId);
+}
+
+/**
+ * COVERAGE ANALYSIS - Identify gaps in Can-Do statement coverage
+ */
+export async function getCoverageAnalysis(language?: string): Promise<{
+  summary: {
+    totalStatements: number;
+    coveredStatements: number;
+    uncoveredStatements: number;
+    coveragePercent: number;
+    totalLessons: number;
+    linkedLessons: number;
+  };
+  byLevel: Array<{
+    level: string;
+    total: number;
+    covered: number;
+    uncovered: number;
+    coveragePercent: number;
+  }>;
+  byCategory: Array<{
+    category: string;
+    total: number;
+    covered: number;
+    uncovered: number;
+    coveragePercent: number;
+  }>;
+  gaps: Array<{
+    id: string;
+    statement: string;
+    category: string;
+    level: string;
+    language: string;
+    lessonCount: number;
+  }>;
+  wellCovered: Array<{
+    id: string;
+    statement: string;
+    category: string;
+    level: string;
+    lessonCount: number;
+  }>;
+}> {
+  // Get all Can-Do statements (optionally filtered by language)
+  let allStatements;
+  if (language) {
+    allStatements = await db
+      .select()
+      .from(canDoStatements)
+      .where(eq(canDoStatements.language, language));
+  } else {
+    allStatements = await db.select().from(canDoStatements);
+  }
+
+  // Get all lesson-statement links
+  const allLinks = await db
+    .select({
+      canDoId: lessonCanDoStatements.canDoStatementId,
+      lessonId: lessonCanDoStatements.lessonId
+    })
+    .from(lessonCanDoStatements);
+
+  // Count links per statement
+  const linkCountMap = new Map<string, number>();
+  for (const link of allLinks) {
+    linkCountMap.set(link.canDoId, (linkCountMap.get(link.canDoId) || 0) + 1);
+  }
+
+  // Get unique linked statements
+  const linkedStatementIds = new Set(allLinks.map(l => l.canDoId));
+
+  // Get total lessons and linked lessons
+  const allLessons = await db.select({ id: curriculumLessons.id }).from(curriculumLessons);
+  const linkedLessonIds = new Set(allLinks.map(l => l.lessonId));
+
+  // Categorize by level
+  const levelStats = new Map<string, { total: number; covered: number }>();
+  const categoryStats = new Map<string, { total: number; covered: number }>();
+
+  const gaps: Array<{
+    id: string;
+    statement: string;
+    category: string;
+    level: string;
+    language: string;
+    lessonCount: number;
+  }> = [];
+
+  const wellCovered: Array<{
+    id: string;
+    statement: string;
+    category: string;
+    level: string;
+    lessonCount: number;
+  }> = [];
+
+  for (const stmt of allStatements) {
+    const level = stmt.actflLevel || 'unknown';
+    const category = stmt.category || 'unknown';
+    const lessonCount = linkCountMap.get(stmt.id) || 0;
+    const isCovered = lessonCount > 0;
+
+    // Update level stats
+    if (!levelStats.has(level)) {
+      levelStats.set(level, { total: 0, covered: 0 });
+    }
+    const ls = levelStats.get(level)!;
+    ls.total++;
+    if (isCovered) ls.covered++;
+
+    // Update category stats
+    if (!categoryStats.has(category)) {
+      categoryStats.set(category, { total: 0, covered: 0 });
+    }
+    const cs = categoryStats.get(category)!;
+    cs.total++;
+    if (isCovered) cs.covered++;
+
+    // Identify gaps (0 lessons)
+    if (lessonCount === 0) {
+      gaps.push({
+        id: stmt.id,
+        statement: stmt.statement,
+        category,
+        level,
+        language: stmt.language,
+        lessonCount: 0
+      });
+    }
+
+    // Identify well-covered (3+ lessons)
+    if (lessonCount >= 3) {
+      wellCovered.push({
+        id: stmt.id,
+        statement: stmt.statement,
+        category,
+        level,
+        lessonCount
+      });
+    }
+  }
+
+  // Build level breakdown
+  const levelOrder = [
+    'novice_low', 'novice_mid', 'novice_high',
+    'intermediate_low', 'intermediate_mid', 'intermediate_high',
+    'advanced_low', 'advanced_mid', 'advanced_high',
+    'superior', 'distinguished'
+  ];
+  
+  const byLevel = levelOrder
+    .filter(l => levelStats.has(l))
+    .map(level => {
+      const stats = levelStats.get(level)!;
+      return {
+        level,
+        total: stats.total,
+        covered: stats.covered,
+        uncovered: stats.total - stats.covered,
+        coveragePercent: stats.total > 0 ? Math.round((stats.covered / stats.total) * 100) : 0
+      };
+    });
+
+  // Build category breakdown
+  const byCategory = Array.from(categoryStats.entries()).map(([category, stats]) => ({
+    category,
+    total: stats.total,
+    covered: stats.covered,
+    uncovered: stats.total - stats.covered,
+    coveragePercent: stats.total > 0 ? Math.round((stats.covered / stats.total) * 100) : 0
+  }));
+
+  return {
+    summary: {
+      totalStatements: allStatements.length,
+      coveredStatements: linkedStatementIds.size,
+      uncoveredStatements: allStatements.length - linkedStatementIds.size,
+      coveragePercent: allStatements.length > 0 
+        ? Math.round((linkedStatementIds.size / allStatements.length) * 100) 
+        : 0,
+      totalLessons: allLessons.length,
+      linkedLessons: linkedLessonIds.size
+    },
+    byLevel,
+    byCategory,
+    gaps: gaps.slice(0, 50), // Top 50 gaps
+    wellCovered: wellCovered.slice(0, 20) // Top 20 well-covered
+  };
+}
+
+/**
+ * Get coverage for a specific class
+ */
+export async function getClassCoverageAnalysis(classId: string): Promise<{
+  className: string;
+  language: string;
+  summary: {
+    totalLessons: number;
+    linkedLessons: number;
+    totalLinks: number;
+    uniqueStatementsCovered: number;
+  };
+  lessonCoverage: Array<{
+    lessonId: string;
+    lessonName: string;
+    lessonType: string;
+    statementCount: number;
+  }>;
+}> {
+  // Get class info
+  const [classInfo] = await db
+    .select({ name: teacherClasses.name, language: teacherClasses.language })
+    .from(teacherClasses)
+    .where(eq(teacherClasses.id, classId))
+    .limit(1);
+
+  if (!classInfo) {
+    throw new Error('Class not found');
+  }
+
+  // Get all lessons in this class with their source lesson IDs
+  const lessons = await db
+    .select({
+      id: classCurriculumLessons.id,
+      sourceLessonId: classCurriculumLessons.sourceLessonId,
+      name: classCurriculumLessons.name,
+      lessonType: classCurriculumLessons.lessonType
+    })
+    .from(classCurriculumLessons)
+    .innerJoin(classCurriculumUnits, eq(classCurriculumLessons.classUnitId, classCurriculumUnits.id))
+    .where(eq(classCurriculumUnits.classId, classId));
+
+  // Get links for source lessons
+  const sourceLessonIds = lessons.filter(l => l.sourceLessonId).map(l => l.sourceLessonId!);
+  
+  const links = sourceLessonIds.length > 0 ? await db
+    .select({
+      lessonId: lessonCanDoStatements.lessonId,
+      canDoId: lessonCanDoStatements.canDoStatementId
+    })
+    .from(lessonCanDoStatements)
+    .where(inArray(lessonCanDoStatements.lessonId, sourceLessonIds)) : [];
+
+  // Count links per lesson
+  const lessonLinkCounts = new Map<string, number>();
+  const allCoveredStatements = new Set<string>();
+  
+  for (const link of links) {
+    lessonLinkCounts.set(link.lessonId, (lessonLinkCounts.get(link.lessonId) || 0) + 1);
+    allCoveredStatements.add(link.canDoId);
+  }
+
+  // Build lesson coverage
+  const lessonCoverage = lessons.map(lesson => ({
+    lessonId: lesson.id,
+    lessonName: lesson.name || 'Untitled',
+    lessonType: lesson.lessonType || 'conversation',
+    statementCount: lesson.sourceLessonId ? (lessonLinkCounts.get(lesson.sourceLessonId) || 0) : 0
+  }));
+
+  const linkedLessons = lessonCoverage.filter(l => l.statementCount > 0).length;
+
+  return {
+    className: classInfo.name,
+    language: classInfo.language,
+    summary: {
+      totalLessons: lessons.length,
+      linkedLessons,
+      totalLinks: links.length,
+      uniqueStatementsCovered: allCoveredStatements.size
+    },
+    lessonCoverage
+  };
 }

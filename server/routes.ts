@@ -18333,6 +18333,32 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
       res.status(500).json({ error: error.message });
     }
   });
+  
+  // Agent: Get coverage analysis (identify gaps in Can-Do statement coverage)
+  app.get("/api/agent/fluency-wiring/coverage", requireAgentToken, async (req: any, res) => {
+    try {
+      const language = req.query.language as string | undefined;
+      const { getCoverageAnalysis } = await import('./services/fluency-wiring-service');
+      const analysis = await getCoverageAnalysis(language);
+      res.json(analysis);
+    } catch (error: any) {
+      console.error('[AGENT-FLUENCY] Coverage analysis error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Agent: Get coverage for a specific class
+  app.get("/api/agent/fluency-wiring/coverage/class/:classId", requireAgentToken, async (req: any, res) => {
+    try {
+      const { classId } = req.params;
+      const { getClassCoverageAnalysis } = await import('./services/fluency-wiring-service');
+      const analysis = await getClassCoverageAnalysis(classId);
+      res.json(analysis);
+    } catch (error: any) {
+      console.error('[AGENT-FLUENCY] Class coverage error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   // ============================================================================
   // REAL-TIME EXPRESS LANE BRIDGE (Cross-Environment)
