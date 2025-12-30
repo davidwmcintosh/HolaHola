@@ -24,13 +24,13 @@ function TutorCard({ tutor, isSelected, onSelect, isMobile, isFiltered = false }
   return (
     <Card
       className={`
-        relative flex flex-col items-center p-3 pt-2 cursor-pointer
-        transition-all duration-200 ease-out shrink-0 hover-elevate
+        relative flex flex-col items-center p-3 pt-2
+        transition-all duration-200 ease-out shrink-0
+        ${isFiltered ? 'opacity-40 grayscale' : 'cursor-pointer hover-elevate'}
         ${isSelected 
           ? 'ring-2 shadow-lg scale-105' 
-          : 'hover:scale-[1.03]'
+          : isFiltered ? '' : 'hover:scale-[1.03]'
         }
-        ${isFiltered ? 'opacity-40 grayscale' : ''}
       `}
       style={{ 
         width: cardWidth, 
@@ -38,19 +38,20 @@ function TutorCard({ tutor, isSelected, onSelect, isMobile, isFiltered = false }
         borderColor: isSelected ? tutor.accentColor : undefined,
         boxShadow: isSelected ? `0 4px 20px ${tutor.accentColor}40` : undefined,
       }}
-      onClick={onSelect}
-      onKeyDown={(e) => e.key === 'Enter' && onSelect()}
-      tabIndex={0}
+      onClick={isFiltered ? undefined : onSelect}
+      onKeyDown={(e) => !isFiltered && e.key === 'Enter' && onSelect()}
+      tabIndex={isFiltered ? -1 : 0}
       role="button"
       aria-label={`Practice ${tutor.language} with ${tutor.name}`}
       aria-pressed={isSelected}
+      aria-disabled={isFiltered}
       data-testid={`card-tutor-${tutor.language}-${tutor.gender}`}
     >
       <span 
         className="text-[10px] font-medium uppercase tracking-wide mb-1"
         style={{ color: isFiltered ? undefined : tutor.accentColor }}
       >
-        Click to Call
+        {isFiltered ? '' : 'Click to Call'}
       </span>
       
       <div 
