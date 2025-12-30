@@ -541,9 +541,6 @@ export default function ReviewHub() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          <LearningContextFilter />
-        </div>
       </div>
 
       {/* Tutor Showcase - Click a tutor to start a conversation */}
@@ -563,6 +560,11 @@ export default function ReviewHub() {
         filterLanguage={language !== 'all' ? language : undefined}
         className="py-2"
       />
+
+      {/* Learning Context Filters */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <LearningContextFilter />
+      </div>
 
       {/* Daily Plan Section */}
       <Card data-testid="section-daily-plan">

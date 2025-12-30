@@ -169,10 +169,10 @@ export function TutorShowcase({
       </h2>
       
       {/* Mobile carousel - visible on small screens, hidden on md+ */}
-      <div className="block md:hidden w-full max-w-full overflow-hidden">
+      <div className="block md:hidden w-full overflow-visible">
         <div 
           ref={scrollRef}
-          className="flex w-full max-w-full gap-3 overflow-x-auto snap-x snap-mandatory pb-3 px-4"
+          className="flex w-full gap-3 overflow-x-auto snap-x snap-mandatory pb-3 pl-1 pr-4"
           style={{ 
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
