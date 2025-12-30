@@ -18238,6 +18238,63 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
       res.status(500).json({ error: error.message });
     }
   });
+  
+  // Agent: Trigger fluency wiring bulk mapping
+  app.post("/api/agent/fluency-wiring/map-all", requireAgentToken, async (req: any, res) => {
+    try {
+      const agentId = req.agentId || 'replit-agent';
+      console.log(`[AGENT-FLUENCY] Bulk fluency wiring triggered by agent: ${agentId}`);
+      logAgentAction('fluency_wiring', '/api/agent/fluency-wiring/map-all', true, `Triggered by ${agentId}`);
+      
+      const { mapAllLessonsAcrossAllClasses } = await import('./services/fluency-wiring-service');
+      const result = await mapAllLessonsAcrossAllClasses();
+      
+      res.json({
+        success: true,
+        triggeredBy: agentId,
+        ...result
+      });
+    } catch (error: any) {
+      console.error('[AGENT-FLUENCY] Bulk mapping error:', error);
+      logAgentAction('fluency_wiring', '/api/agent/fluency-wiring/map-all', false, error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Agent: Get fluency wiring status (uses admin endpoint logic)
+  app.get("/api/agent/fluency-wiring/status", requireAgentToken, async (req: any, res) => {
+    try {
+      const [lessonCount] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(classCurriculumLessons);
+      
+      const [linkCount] = await db
+        .select({ count: sql<number>`count(distinct lesson_id)` })
+        .from(lessonCanDoStatements);
+      
+      const [canDoCount] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(canDoStatements);
+      
+      const totalLessons = Number(lessonCount?.count || 0);
+      const lessonsWithLinks = Number(linkCount?.count || 0);
+      const totalCanDoStatements = Number(canDoCount?.count || 0);
+      
+      res.json({
+        totalLessons,
+        lessonsWithLinks,
+        lessonsWithoutLinks: totalLessons - lessonsWithLinks,
+        totalCanDoStatements,
+        mappingCoverage: totalLessons > 0 
+          ? `${Math.round((lessonsWithLinks / totalLessons) * 100)}%`
+          : '0%',
+        ready: lessonsWithLinks >= totalLessons * 0.9
+      });
+    } catch (error: any) {
+      console.error('[AGENT-FLUENCY] Status error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   // ============================================================================
   // REAL-TIME EXPRESS LANE BRIDGE (Cross-Environment)
