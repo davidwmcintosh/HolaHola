@@ -206,6 +206,8 @@ function LobeSatellite({
   onToggle,
   centerX,
   centerY,
+  orbitScale = 1,
+  isMobile = false,
 }: { 
   segment: BrainSegment;
   topics: TopicNode[];
@@ -213,6 +215,8 @@ function LobeSatellite({
   onToggle: () => void;
   centerX: number;
   centerY: number;
+  orbitScale?: number;
+  isMobile?: boolean;
 }) {
   const config = SEGMENT_CONFIG[segment];
   const Icon = config.icon;
@@ -222,10 +226,10 @@ function LobeSatellite({
   const progress = total > 0 ? (mastered / total) * 100 : 0;
   const lightingState = getLightingState(progress);
   
-  // Calculate position based on orbit
+  // Calculate position based on orbit - scales distance on mobile but keeps satellite size
   const angle = (config.orbit.angle * Math.PI) / 180;
-  const x = centerX + Math.cos(angle) * config.orbit.distance;
-  const y = centerY + Math.sin(angle) * config.orbit.distance;
+  const x = centerX + Math.cos(angle) * config.orbit.distance * orbitScale;
+  const y = centerY + Math.sin(angle) * config.orbit.distance * orbitScale;
   
   // Lighting state styles
   const opacityMap: Record<LightingState, number> = {
@@ -240,11 +244,11 @@ function LobeSatellite({
     lit: `0 0 25px ${config.glowColor}, 0 0 50px ${config.glowColor}`,
   };
 
-  // Expanded size for in-place expansion - bigger satellite size
-  const expandedWidth = 220;
-  const expandedHeight = 240;
-  const collapsedWidth = 100;
-  const collapsedHeight = 80;
+  // Satellite sizes - mobile uses smaller expanded panels but same touch targets (≥44px)
+  const expandedWidth = isMobile ? 180 : 220;
+  const expandedHeight = isMobile ? 200 : 240;
+  const collapsedWidth = isMobile ? 80 : 100; // Still ≥44px touch target
+  const collapsedHeight = isMobile ? 64 : 80; // Still ≥44px touch target
 
   return (
     <div
@@ -532,6 +536,7 @@ function TutorObservationsBubble({
   onToggle,
   centerX,
   centerY,
+  isMobile = false,
 }: {
   userId?: string;
   language: string;
@@ -540,6 +545,7 @@ function TutorObservationsBubble({
   onToggle: () => void;
   centerX: number;
   centerY: number;
+  isMobile?: boolean;
 }) {
   // Fetch learning context
   const { data: context, isLoading } = useQuery<StudentLearningContext | null>({
@@ -566,15 +572,15 @@ function TutorObservationsBubble({
   // Don't render if no content (student hasn't had enough conversations yet)
   if (!isLoading && !hasContent) return null;
 
-  // Position in upper left corner as per user's drawing - pushed further left
-  const x = -170; // Even further left
-  const y = -5; // Lifted up near top
+  // Position in upper left corner - adjusted for mobile
+  const x = isMobile ? -100 : -170; // Less offset on mobile
+  const y = isMobile ? 10 : -5; // Slightly lower on mobile
   
-  // Much larger dimensions - bigger bubble
-  const collapsedWidth = 210;
-  const collapsedHeight = 165;
-  const expandedWidth = 380;
-  const expandedHeight = 450;
+  // Dimensions - smaller on mobile but still readable (text stays ≥12px)
+  const collapsedWidth = isMobile ? 150 : 210;
+  const collapsedHeight = isMobile ? 120 : 165;
+  const expandedWidth = isMobile ? 280 : 380;
+  const expandedHeight = isMobile ? 320 : 450;
 
   // Colors - primary/accent theme for importance
   const accentColor = 'hsl(var(--primary))';
@@ -1160,32 +1166,32 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
   const [expandedSegment, setExpandedSegment] = useState<BrainSegment | null>(null);
   const [observationsExpanded, setObservationsExpanded] = useState(false);
   
-  // Container dimensions for positioning (design at 460px, scales down on mobile)
-  const containerWidth = 460;
-  const containerHeight = 420;
-  const centerX = containerWidth / 2;
-  const centerY = containerHeight / 2 - 20; // Shift brain up slightly to make room below
-  
-  // Responsive scaling for mobile - minimum 0.85 to maintain touch targets and readability
-  const [scale, setScale] = useState(1);
+  // Responsive dimensions - mobile uses compact layout with smaller brain but same text/touch sizes
   const [isMobileView, setIsMobileView] = useState(false);
+  const [containerWidth, setContainerWidth] = useState(460);
   
   useEffect(() => {
-    const updateScale = () => {
+    const updateLayout = () => {
       const screenWidth = window.innerWidth;
-      // Minimum scale 0.85 to keep touch targets ≥44px and text readable
       if (screenWidth < 500) {
-        setScale(0.85);
         setIsMobileView(true);
+        setContainerWidth(Math.min(screenWidth - 32, 380)); // Compact mobile layout
       } else {
-        setScale(1);
         setIsMobileView(false);
+        setContainerWidth(460); // Full desktop layout
       }
     };
-    updateScale();
-    window.addEventListener('resize', updateScale);
-    return () => window.removeEventListener('resize', updateScale);
+    updateLayout();
+    window.addEventListener('resize', updateLayout);
+    return () => window.removeEventListener('resize', updateLayout);
   }, []);
+  
+  // Derived dimensions based on container width
+  const containerHeight = isMobileView ? 360 : 420;
+  const centerX = containerWidth / 2;
+  const centerY = containerHeight / 2 - (isMobileView ? 10 : 20);
+  const brainSize = isMobileView ? 180 : 230; // Brain size adapts
+  const orbitScale = isMobileView ? 0.75 : 1; // Tighter orbits on mobile, text stays readable
   
   // Determine if we're in class/syllabus context
   const hasSyllabus = !!syllabusOverview && syllabusOverview.units.length > 0;
@@ -1298,24 +1304,23 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
   const avgProgress = Object.values(segmentProgress).reduce((a, b) => a + b, 0) / 5;
   
   return (
-    <div className={`${className} overflow-visible`} data-testid="syllabus-mind-map">
-      {/* Brain visualization container - floating without background for cleaner mobile experience */}
+    <div className={`${className} ${isMobileView ? 'overflow-hidden' : 'overflow-visible'}`} data-testid="syllabus-mind-map">
+      {/* Brain visualization container - responsive dimensions, no transform scaling */}
       <div 
-        className="relative mx-auto overflow-visible origin-top"
+        className={`relative mx-auto ${isMobileView ? 'overflow-hidden' : 'overflow-visible'}`}
         style={{ 
-          width: containerWidth * scale, 
-          height: (containerHeight + 150) * scale,
-          marginTop: 20,
+          width: containerWidth, 
+          height: containerHeight + (isMobileView ? 80 : 150),
+          marginTop: isMobileView ? 10 : 20,
         }}
         data-testid="brain-container"
       >
-        {/* Scaled inner wrapper */}
+        {/* No scaling wrapper - direct responsive layout */}
         <div
-          className="relative origin-top-left"
+          className="relative"
           style={{
-            transform: `scale(${scale})`,
             width: containerWidth,
-            height: containerHeight + 150,
+            height: containerHeight + (isMobileView ? 80 : 150),
           }}
         >
         
@@ -1340,10 +1345,12 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
           {(['frontal', 'parietal', 'temporal', 'occipital', 'cerebellum'] as BrainSegment[]).map(segment => {
             const config = SEGMENT_CONFIG[segment];
             const angle = (config.orbit.angle * Math.PI) / 180;
-            const satelliteX = centerX + Math.cos(angle) * config.orbit.distance;
-            const satelliteY = centerY + Math.sin(angle) * config.orbit.distance;
-            const targetX = centerX + config.arrowTarget.x;
-            const targetY = centerY + config.arrowTarget.y;
+            // Apply orbitScale to satellite positions and arrow targets
+            const satelliteX = centerX + Math.cos(angle) * config.orbit.distance * orbitScale;
+            const satelliteY = centerY + Math.sin(angle) * config.orbit.distance * orbitScale;
+            const brainRatio = brainSize / 230; // Scale arrow targets with brain size
+            const targetX = centerX + config.arrowTarget.x * brainRatio;
+            const targetY = centerY + config.arrowTarget.y * brainRatio;
             
             // Calculate control point for curved arrow
             const midX = (satelliteX + targetX) / 2;
@@ -1386,10 +1393,10 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
         <div 
           className="absolute transition-all duration-500 z-10"
           style={{
-            left: centerX - 115,
-            top: centerY - 115,
-            width: 230,
-            height: 230,
+            left: centerX - brainSize / 2,
+            top: centerY - brainSize / 2,
+            width: brainSize,
+            height: brainSize,
           }}
         >
           {/* Ambient glow behind brain - intensifies with progress */}
@@ -1436,6 +1443,8 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
             onToggle={() => toggleSegment(segment)}
             centerX={centerX}
             centerY={centerY}
+            orbitScale={orbitScale}
+            isMobile={isMobileView}
           />
         ))}
         
@@ -1448,11 +1457,12 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
           onToggle={toggleObservations}
           centerX={centerX}
           centerY={centerY}
+          isMobile={isMobileView}
         />
       </div>
       
       {/* Activity Inputs with Flow Lines - Learning activities that feed the brain */}
-      <div className="relative -mt-52" data-testid="activity-inputs-container">
+      <div className={`relative ${isMobileView ? '-mt-24' : '-mt-52'}`} data-testid="activity-inputs-container">
         {/* Flow lines SVG - animated gradients rising to brain */}
         <svg 
           className="absolute left-1/2 -translate-x-1/2 bottom-8 pointer-events-none"
