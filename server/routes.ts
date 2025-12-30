@@ -13219,6 +13219,79 @@ Current conversation context:
     }
   });
   
+  // ===== Product Config (Pricing Settings) =====
+  
+  // Get all product config settings (admin only)
+  app.get("/api/admin/product-config", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const config = await storage.getAllProductConfig();
+      res.json(config);
+    } catch (error: any) {
+      console.error('Error fetching product config:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get single product config value (public - for pricing display)
+  app.get("/api/product-config/:key", async (req, res) => {
+    try {
+      const { key } = req.params;
+      const config = await storage.getProductConfig(key);
+      if (!config) {
+        return res.status(404).json({ error: 'Config not found' });
+      }
+      res.json({ key: config.key, value: config.value });
+    } catch (error: any) {
+      console.error('Error fetching product config:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get all pricing config for public display
+  app.get("/api/pricing-config", async (req, res) => {
+    try {
+      const configs = await storage.getAllProductConfig();
+      // Only return pricing-related keys
+      const pricingKeys = ['class_price_cents', 'hour_rate_cents', 'free_trial_hours'];
+      const pricingConfig = configs
+        .filter(c => pricingKeys.includes(c.key))
+        .reduce((acc, c) => ({ ...acc, [c.key]: c.value }), {});
+      res.json(pricingConfig);
+    } catch (error: any) {
+      console.error('Error fetching pricing config:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Update product config (admin only)
+  app.put("/api/admin/product-config/:key", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { key } = req.params;
+      const { value, description } = req.body;
+      
+      if (!value) {
+        return res.status(400).json({ error: 'Value is required' });
+      }
+      
+      const userId = req.user?.claims?.sub;
+      const config = await storage.upsertProductConfig(key, value, description || '', userId);
+      
+      // Log the admin action
+      await storage.logAdminAction({
+        actorId: userId,
+        action: 'update_product_config',
+        targetType: 'product_config',
+        targetId: key,
+        metadata: { value, description },
+      });
+      
+      res.json(config);
+    } catch (error: any) {
+      console.error('Error updating product config:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // ===== Support Tickets (Admin) =====
   
   // Get support tickets for admin console

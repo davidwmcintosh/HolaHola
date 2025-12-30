@@ -108,6 +108,9 @@ import {
   danielaRecommendations,
   studentTierSignals,
   adminAuditLog,
+  productConfig,
+  type ProductConfig,
+  type InsertProductConfig,
   conversationTopics,
   vocabularyWordTopics,
   userLessons,
@@ -582,6 +585,11 @@ export interface IStorage {
     userAgent?: string;
   }): Promise<void>;
   getAdminAuditLogs(options?: { limit?: number; offset?: number; actorId?: string }): Promise<{ logs: any[]; total: number }>;
+  
+  // Product Config (Pricing settings)
+  getProductConfig(key: string): Promise<ProductConfig | undefined>;
+  getAllProductConfig(): Promise<ProductConfig[]>;
+  upsertProductConfig(key: string, value: string, description: string, updatedBy: string): Promise<ProductConfig>;
   
   // Support Tickets (Admin)
   getAdminSupportTickets(options: {
@@ -4211,6 +4219,34 @@ export class DatabaseStorage implements IStorage {
       logs,
       total: Number((countResult[0] as any).count)
     };
+  }
+  
+  // Product Config (Pricing settings)
+  async getProductConfig(key: string): Promise<ProductConfig | undefined> {
+    const result = await db.select().from(productConfig).where(eq(productConfig.key, key)).limit(1);
+    return result[0];
+  }
+  
+  async getAllProductConfig(): Promise<ProductConfig[]> {
+    return await db.select().from(productConfig).orderBy(productConfig.key);
+  }
+  
+  async upsertProductConfig(key: string, value: string, description: string, updatedBy: string): Promise<ProductConfig> {
+    const existing = await this.getProductConfig(key);
+    if (existing) {
+      const result = await db
+        .update(productConfig)
+        .set({ value, description, updatedBy, updatedAt: new Date() })
+        .where(eq(productConfig.key, key))
+        .returning();
+      return result[0];
+    } else {
+      const result = await db
+        .insert(productConfig)
+        .values({ key, value, description, updatedBy })
+        .returning();
+      return result[0];
+    }
   }
   
   // Support Tickets (Admin)

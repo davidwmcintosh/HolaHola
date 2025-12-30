@@ -1133,6 +1133,7 @@ export default function CommandCenter() {
     { id: "classes", label: "Classes", icon: GraduationCap, roles: ['admin', 'developer'] },
     { id: "analytics", label: "Analytics", icon: BarChart3, roles: ['admin', 'developer'] },
     { id: "reports", label: "Reports", icon: DollarSign, roles: ['admin', 'developer'] },
+    { id: "pricing", label: "Pricing", icon: Tags, roles: ['admin'] },
     { id: "images", label: "Images", icon: Image, roles: ['admin', 'developer'] },
     { id: "voice-lab", label: "Voice Lab", icon: Volume2, roles: ['admin', 'developer'] },
     { id: "voice-intelligence", label: "Voice Diagnostics", icon: Activity, roles: ['admin', 'developer'] },
@@ -1234,6 +1235,10 @@ export default function CommandCenter() {
 
           <TabsContent value="reports" className="space-y-4">
             <ReportsTab />
+          </TabsContent>
+
+          <TabsContent value="pricing" className="space-y-4">
+            <PricingSettingsTab />
           </TabsContent>
 
           <TabsContent value="images" className="space-y-4">
@@ -5676,6 +5681,245 @@ function ReportsTab() {
             Failed to load reports data
           </CardContent>
         </Card>
+      )}
+    </div>
+  );
+}
+
+// Pricing Settings Tab - Admin-only pricing configuration
+function PricingSettingsTab() {
+  const { toast } = useToast();
+  const [classPriceCents, setClassPriceCents] = useState<string>("");
+  const [hourRateCents, setHourRateCents] = useState<string>("");
+  const [freeTrialHours, setFreeTrialHours] = useState<string>("");
+  const [hasChanges, setHasChanges] = useState(false);
+
+  // Fetch current pricing config
+  const { data: pricingConfig, isLoading, refetch } = useQuery<Record<string, string>>({
+    queryKey: ["/api/pricing-config"],
+  });
+
+  // Initialize form when data loads
+  useEffect(() => {
+    if (pricingConfig) {
+      setClassPriceCents(pricingConfig.class_price_cents || "4900");
+      setHourRateCents(pricingConfig.hour_rate_cents || "580");
+      setFreeTrialHours(pricingConfig.free_trial_hours || "0.5");
+      setHasChanges(false);
+    }
+  }, [pricingConfig]);
+
+  // Save mutation
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const updates: Array<{ key: string; value: string; description?: string }> = [];
+      
+      if (classPriceCents !== pricingConfig?.class_price_cents) {
+        updates.push({ 
+          key: "class_price_cents", 
+          value: classPriceCents,
+          description: "Price per class in cents" 
+        });
+      }
+      if (hourRateCents !== pricingConfig?.hour_rate_cents) {
+        updates.push({ 
+          key: "hour_rate_cents", 
+          value: hourRateCents,
+          description: "Price per hour in cents" 
+        });
+      }
+      if (freeTrialHours !== pricingConfig?.free_trial_hours) {
+        updates.push({ 
+          key: "free_trial_hours", 
+          value: freeTrialHours,
+          description: "Number of free trial hours" 
+        });
+      }
+      
+      for (const update of updates) {
+        await apiRequest("POST", "/api/admin/product-config", update);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/pricing-config"] });
+      toast({ title: "Pricing settings saved" });
+      setHasChanges(false);
+    },
+    onError: () => {
+      toast({ variant: "destructive", title: "Failed to save pricing settings" });
+    }
+  });
+
+  const handleChange = (setter: (val: string) => void) => (value: string) => {
+    setter(value);
+    setHasChanges(true);
+  };
+
+  const formatCentsAsPrice = (cents: string) => {
+    const num = parseInt(cents) || 0;
+    return `$${(num / 100).toFixed(2)}`;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-32" />
+        <Skeleton className="h-32" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <Tags className="h-6 w-6" />
+            Pricing Settings
+          </h2>
+          <p className="text-muted-foreground">
+            Configure platform pricing for classes and self-directed learning
+          </p>
+        </div>
+        <Button
+          onClick={() => saveMutation.mutate()}
+          disabled={!hasChanges || saveMutation.isPending}
+          data-testid="button-save-pricing"
+        >
+          {saveMutation.isPending ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4 mr-2" />
+          )}
+          Save Changes
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <GraduationCap className="h-5 w-5" />
+              Class Pricing
+            </CardTitle>
+            <CardDescription>
+              Flat rate charged for each class enrollment
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Price per Class (cents)</label>
+              <Input
+                type="number"
+                value={classPriceCents}
+                onChange={(e) => handleChange(setClassPriceCents)(e.target.value)}
+                placeholder="4900"
+                data-testid="input-class-price"
+              />
+              <p className="text-sm text-muted-foreground">
+                Display price: {formatCentsAsPrice(classPriceCents)}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Self-Directed Hours
+            </CardTitle>
+            <CardDescription>
+              Hourly rate for self-directed learning time
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Hour Rate (cents)</label>
+              <Input
+                type="number"
+                value={hourRateCents}
+                onChange={(e) => handleChange(setHourRateCents)(e.target.value)}
+                placeholder="580"
+                data-testid="input-hour-rate"
+              />
+              <p className="text-sm text-muted-foreground">
+                Display price: {formatCentsAsPrice(hourRateCents)}/hour
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5" />
+              Free Trial
+            </CardTitle>
+            <CardDescription>
+              Free hours given to new users to try the platform
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Free Trial Hours</label>
+              <Input
+                type="number"
+                step="0.5"
+                value={freeTrialHours}
+                onChange={(e) => handleChange(setFreeTrialHours)(e.target.value)}
+                placeholder="0.5"
+                data-testid="input-free-trial-hours"
+              />
+              <p className="text-sm text-muted-foreground">
+                {parseFloat(freeTrialHours) === 0.5 ? "30 minutes" : 
+                 parseFloat(freeTrialHours) === 1 ? "1 hour" : 
+                 `${parseFloat(freeTrialHours) * 60} minutes`} of free learning time
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Current Pricing Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center py-2 border-b">
+                <span className="text-muted-foreground">Class enrollment</span>
+                <span className="font-medium">{formatCentsAsPrice(classPriceCents)}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b">
+                <span className="text-muted-foreground">Hourly rate</span>
+                <span className="font-medium">{formatCentsAsPrice(hourRateCents)}/hr</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b">
+                <span className="text-muted-foreground">5-hour pack</span>
+                <span className="font-medium">{formatCentsAsPrice((parseInt(hourRateCents) * 5).toString())}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b">
+                <span className="text-muted-foreground">10-hour pack</span>
+                <span className="font-medium">{formatCentsAsPrice((parseInt(hourRateCents) * 10).toString())}</span>
+              </div>
+              <div className="flex justify-between items-center py-2">
+                <span className="text-muted-foreground">Free trial</span>
+                <span className="font-medium">{freeTrialHours} hours</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {hasChanges && (
+        <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-md p-4 flex items-center gap-3">
+          <AlertTriangle className="h-5 w-5 text-yellow-600" />
+          <span className="text-sm">You have unsaved changes. Click "Save Changes" to apply.</span>
+        </div>
       )}
     </div>
   );

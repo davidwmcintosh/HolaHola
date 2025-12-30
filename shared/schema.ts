@@ -1441,6 +1441,20 @@ export const hourPackages = pgTable("hour_packages", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Product config - global pricing and product settings
+export const productConfig = pgTable("product_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: varchar("key").notNull().unique(), // "class_price_cents", "hour_rate_cents", etc.
+  value: text("value").notNull(), // Stored as string, parsed by consumer
+  description: text("description"), // Human-readable description
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  updatedBy: varchar("updated_by").references(() => users.id),
+});
+
+export const insertProductConfigSchema = createInsertSchema(productConfig).omit({ id: true, updatedAt: true });
+export type InsertProductConfig = z.infer<typeof insertProductConfigSchema>;
+export type ProductConfig = typeof productConfig.$inferSelect;
+
 // ===== Admin System Tables =====
 
 // Admin audit log for tracking all admin actions
