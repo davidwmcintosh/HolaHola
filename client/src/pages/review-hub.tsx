@@ -934,21 +934,6 @@ export default function ReviewHub() {
         </Card>
       )}
 
-      {/* Syllabus Time Progress - Shows expected vs actual time per unit */}
-      {(() => {
-        const specialModes = ['self-directed', 'all', 'all-learning', 'founder-mode', 'honesty-mode'];
-        const isClassContext = learningContext && !specialModes.includes(learningContext);
-        const syllabus = data?.syllabusOverview;
-        
-        if (!isClassContext || !syllabus) return null;
-        
-        return (
-          <SyllabusTimeProgress 
-            classId={syllabus.classId} 
-            compact={false}
-          />
-        );
-      })()}
 
       {/* Topic Deep Dives with Culture Insight */}
       {(hasTopics || (data?.culturalTips?.length ?? 0) > 0) && (
