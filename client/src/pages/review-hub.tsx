@@ -48,6 +48,7 @@ import { SyllabusTimeProgress } from "@/components/SyllabusTimeProgress";
 import { SyllabusMindMap } from "@/components/SyllabusMindMap";
 import { DanielaLearningInsights } from "@/components/DanielaLearningInsights";
 import { getTutorName } from "@/lib/tutor-avatars";
+import { TutorShowcase, type TutorSelection } from "@/components/TutorShowcase";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { VocabularyWord, Conversation, CulturalTip, UserLesson, Topic } from "@shared/schema";
@@ -542,68 +543,21 @@ export default function ReviewHub() {
         </div>
         <div className="flex items-center gap-3 flex-wrap -mt-2">
           <LearningContextFilter />
-          <Link href="/chat" onClick={() => forceNewConversation()}>
-            <Button size="lg" className="gap-2" data-testid="button-call-tutor">
-              <Phone className="h-5 w-5" />
-              Call {currentTutorName}
-            </Button>
-          </Link>
         </div>
       </div>
 
-      {/* Quick Stats Row - Horizontal scroll on mobile, grid on desktop */}
-      <div className="flex md:grid md:grid-cols-5 gap-3 overflow-x-auto pb-2 md:pb-0 md:overflow-visible -mx-4 px-4 md:mx-0 md:px-0 snap-x snap-mandatory md:snap-none">
-        <Card className="p-3 flex-shrink-0 w-[140px] md:w-auto snap-start">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-full bg-orange-100 dark:bg-orange-900/30">
-              <Flame className="h-4 w-4 text-orange-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold" data-testid="text-streak">{data?.stats.streakDays || 0}</p>
-              <p className="text-xs text-muted-foreground">Streak</p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-3 flex-shrink-0 w-[140px] md:w-auto snap-start">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/30">
-              <BookOpen className="h-4 w-4 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold" data-testid="text-vocab-count">{data?.stats.totalVocabulary || 0}</p>
-              <p className="text-xs text-muted-foreground">Words</p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-3 flex-shrink-0 w-[140px] md:w-auto snap-start">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-full bg-green-100 dark:bg-green-900/30">
-              <MessageSquare className="h-4 w-4 text-green-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold" data-testid="text-conv-count">{data?.stats.totalConversations || 0}</p>
-              <p className="text-xs text-muted-foreground">Chats</p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-3 flex-shrink-0 w-[140px] md:w-auto snap-start">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-full bg-purple-100 dark:bg-purple-900/30">
-              <Target className="h-4 w-4 text-purple-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold" data-testid="text-due-count">{data?.stats.dueCount || 0}</p>
-              <p className="text-xs text-muted-foreground">Due</p>
-            </div>
-          </div>
-        </Card>
-        {/* ACTFL Fluency - only show when single language selected */}
-        {language !== "all" && (
-          <div className="flex-shrink-0 w-[140px] md:w-auto snap-start">
-            <ActflFluencyDial stat language={language} />
-          </div>
-        )}
-      </div>
+      {/* Tutor Showcase - Click a tutor to start a conversation */}
+      <TutorShowcase 
+        onTutorSelect={(selection) => {
+          if (selection) {
+            // Navigate to chat with selected tutor
+            forceNewConversation();
+            window.location.href = `/chat?language=${selection.language}&gender=${selection.gender}`;
+          }
+        }}
+        selectedLanguage={language !== 'all' ? language : undefined}
+        className="py-2"
+      />
 
       {/* Daily Plan Section */}
       <Card data-testid="section-daily-plan">
@@ -790,23 +744,6 @@ export default function ReviewHub() {
             );
           })()}
 
-          {/* Call Tutor */}
-          <Link href="/chat">
-            <div className="flex items-center justify-between p-3 rounded-lg border border-dashed hover-elevate cursor-pointer" data-testid="link-call-tutor">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-full bg-primary/10">
-                  <Phone className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="font-medium">Call {currentTutorName}</p>
-                  <p className="text-sm text-muted-foreground">Start a new conversation</p>
-                </div>
-              </div>
-              <Button variant="ghost" size="icon">
-                <ArrowRight className="h-5 w-5" />
-              </Button>
-            </div>
-          </Link>
         </CardContent>
       </Card>
 
