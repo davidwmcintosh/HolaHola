@@ -11524,6 +11524,34 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  // DEV ONLY: Trigger gap fill without auth (for automation)
+  if (process.env.NODE_ENV === 'development') {
+    app.post("/api/dev/trigger-gap-fill", async (req: any, res) => {
+      try {
+        const { generateAllGapsAutomation, getAllCoverageGaps } = await import('./services/ai-lesson-generator');
+        
+        const { totalGaps, byLanguage } = await getAllCoverageGaps();
+        
+        if (totalGaps === 0) {
+          return res.json({ message: "No gaps to fill!", totalGaps: 0 });
+        }
+        
+        const { jobId } = await generateAllGapsAutomation(undefined, 10, 5000);
+        
+        res.json({
+          message: `Started gap fill job. Generating ${totalGaps} lessons.`,
+          jobId,
+          totalGaps,
+          byLanguage,
+          estimatedTime: `~${Math.ceil(totalGaps * 2 / 60)} minutes`
+        });
+      } catch (error: any) {
+        console.error('[DEV Gap Fill] Error:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+  }
+  
   // Get all coverage gaps summary
   app.get("/api/admin/lesson-drafts/gaps-summary", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {
