@@ -17,13 +17,13 @@ interface TutorCardProps {
 
 function TutorCard({ tutor, isSelected, onSelect, isMobile }: TutorCardProps) {
   const cardWidth = isMobile ? 120 : 140;
-  const cardHeight = isMobile ? 150 : 170;
+  const cardHeight = isMobile ? 170 : 190;
   const avatarSize = isMobile ? 64 : 80;
   
   return (
     <Card
       className={`
-        relative flex flex-col items-center justify-center p-3 cursor-pointer
+        relative flex flex-col items-center p-3 pt-2 cursor-pointer
         transition-all duration-200 ease-out shrink-0 hover-elevate
         ${isSelected 
           ? 'ring-2 shadow-lg scale-105' 
@@ -44,6 +44,13 @@ function TutorCard({ tutor, isSelected, onSelect, isMobile }: TutorCardProps) {
       aria-pressed={isSelected}
       data-testid={`card-tutor-${tutor.language}-${tutor.gender}`}
     >
+      <span 
+        className="text-[10px] font-medium uppercase tracking-wide mb-1"
+        style={{ color: tutor.accentColor }}
+      >
+        Click to Call
+      </span>
+      
       <div 
         className="rounded-full p-0.5 mb-2"
         style={{ 
@@ -101,6 +108,7 @@ interface TutorShowcaseProps {
   onTutorSelect?: (selection: TutorSelection | null) => void;
   selectedLanguage?: string;
   selectedGender?: TutorGender;
+  filterLanguage?: string;
   className?: string;
 }
 
@@ -108,9 +116,17 @@ export function TutorShowcase({
   onTutorSelect, 
   selectedLanguage,
   selectedGender,
+  filterLanguage,
   className = '' 
 }: TutorShowcaseProps) {
-  const tutors = useMemo(() => getAllTutorsForShowcase(), []);
+  const allTutors = useMemo(() => getAllTutorsForShowcase(), []);
+  
+  const tutors = useMemo(() => {
+    if (!filterLanguage || filterLanguage === 'all') {
+      return allTutors;
+    }
+    return allTutors.filter(t => t.language === filterLanguage);
+  }, [allTutors, filterLanguage]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [selectedTutor, setSelectedTutor] = useState<TutorShowcaseData | null>(null);
   

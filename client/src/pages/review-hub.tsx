@@ -529,7 +529,7 @@ export default function ReviewHub() {
   return (
     <div className="container mx-auto p-4 max-w-4xl space-y-4">
       {/* Header */}
-      <div className="flex items-start justify-between flex-wrap gap-2 md:gap-3">
+      <div className="flex flex-col gap-3">
         <div className="flex items-center gap-1">
           <img src={holaholaLogo} alt="HolaHola" className="h-[7.5rem] w-[7.5rem] -mr-2" />
           <div>
@@ -541,7 +541,7 @@ export default function ReviewHub() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3 flex-wrap -mt-2">
+        <div className="flex items-center gap-3 flex-wrap">
           <LearningContextFilter />
         </div>
       </div>
@@ -560,6 +560,7 @@ export default function ReviewHub() {
         }}
         selectedLanguage={language !== 'all' ? language : undefined}
         selectedGender={tutorGender}
+        filterLanguage={language !== 'all' ? language : undefined}
         className="py-2"
       />
 
