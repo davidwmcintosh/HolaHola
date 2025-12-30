@@ -1168,7 +1168,7 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
   
   // Responsive dimensions - mobile uses compact layout with smaller brain but same text/touch sizes
   const [isMobileView, setIsMobileView] = useState(false);
-  const [containerWidth, setContainerWidth] = useState(460);
+  const [containerWidth, setContainerWidth] = useState(560);
   
   useEffect(() => {
     const updateLayout = () => {
@@ -1178,7 +1178,7 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
         setContainerWidth(Math.min(screenWidth - 32, 380)); // Compact mobile layout
       } else {
         setIsMobileView(false);
-        setContainerWidth(460); // Full desktop layout
+        setContainerWidth(560); // Larger desktop layout
       }
     };
     updateLayout();
@@ -1187,11 +1187,11 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
   }, []);
   
   // Derived dimensions based on container width
-  const containerHeight = isMobileView ? 360 : 420;
+  const containerHeight = isMobileView ? 380 : 500;
   const centerX = containerWidth / 2;
   const centerY = containerHeight / 2 - (isMobileView ? 10 : 20);
-  const brainSize = isMobileView ? 180 : 230; // Brain size adapts
-  const orbitScale = isMobileView ? 0.75 : 1; // Tighter orbits on mobile, text stays readable
+  const brainSize = isMobileView ? 200 : 280; // Brain size adapts - larger overall
+  const orbitScale = isMobileView ? 0.8 : 1.1; // Larger orbits for bigger layout
   
   // Determine if we're in class/syllabus context
   const hasSyllabus = !!syllabusOverview && syllabusOverview.units.length > 0;
@@ -1312,7 +1312,7 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
           width: containerWidth, 
           height: containerHeight + (isMobileView ? 80 : 150),
           marginTop: isMobileView ? 10 : 20,
-          marginBottom: isMobileView ? -80 : -130,
+          marginBottom: isMobileView ? -60 : -80,
         }}
         data-testid="brain-container"
       >
