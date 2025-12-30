@@ -454,7 +454,7 @@ function LinearSyllabusView({ syllabus }: { syllabus: SyllabusOverview }) {
 
 export default function ReviewHub() {
   const { user } = useUser();
-  const { language, tutorGender } = useLanguage();
+  const { language, tutorGender, setLanguage, setTutorGender } = useLanguage();
   const { learningContext } = useLearningFilter();
   const { setOpen, isMobile, setOpenMobile } = useSidebar();
   
@@ -550,12 +550,16 @@ export default function ReviewHub() {
       <TutorShowcase 
         onTutorSelect={(selection) => {
           if (selection) {
+            // Update language context to reflect selected tutor
+            setLanguage(selection.language);
+            setTutorGender(selection.gender);
             // Navigate to chat with selected tutor
             forceNewConversation();
             window.location.href = `/chat?language=${selection.language}&gender=${selection.gender}`;
           }
         }}
         selectedLanguage={language !== 'all' ? language : undefined}
+        selectedGender={tutorGender}
         className="py-2"
       />
 

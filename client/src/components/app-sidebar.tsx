@@ -54,7 +54,7 @@ const adminMenuItems = [
 
 export function AppSidebar() {
   const [location] = useLocation();
-  const { userName } = useLanguage();
+  const { userName, language, tutorGender } = useLanguage();
   const { user } = useAuth();
   const { setOpenMobile, setOpen, isMobile } = useSidebar();
   
@@ -105,7 +105,7 @@ export function AppSidebar() {
   
   // Fetch assistant name for the user's current language
   const { data: assistantData } = useQuery<{ name: string; language: string; gender: string }>({
-    queryKey: ['/api/assistant/name'],
+    queryKey: ['/api/assistant/name', language, tutorGender],
     enabled: !!user,
     staleTime: 60000, // Cache for 1 minute
   });
