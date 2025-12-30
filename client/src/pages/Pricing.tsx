@@ -27,36 +27,45 @@ interface PublicClass {
   classLevel: number;
 }
 
-const hourPackages = [
-  {
-    id: 'starter',
-    name: 'Starter',
-    hours: 5,
-    price: 29,
-    pricePerHour: 5.80,
-    description: 'Perfect for trying out self-directed learning',
-    features: ['5 hours of AI tutor time', 'All 9 languages', 'Progress tracking', 'Never expires'],
-  },
-  {
-    id: 'explorer',
-    name: 'Explorer',
-    hours: 15,
-    price: 69,
-    pricePerHour: 4.60,
-    description: 'Great for consistent weekly practice',
-    features: ['15 hours of AI tutor time', 'All 9 languages', 'Pronunciation feedback', 'Progress tracking', 'Never expires'],
-    popular: true,
-  },
-  {
-    id: 'intensive',
-    name: 'Intensive',
-    hours: 30,
-    price: 119,
-    pricePerHour: 3.97,
-    description: 'Best value for serious learners',
-    features: ['30 hours of AI tutor time', 'All 9 languages', 'Pronunciation feedback', 'ACTFL assessments', 'Priority support', 'Never expires'],
-  },
-];
+interface PricingConfig {
+  class_price_cents: string;
+  hour_rate_cents: string;
+  free_trial_hours: string;
+}
+
+function getHourPackages(hourRateCents: number) {
+  const baseRate = hourRateCents / 100;
+  return [
+    {
+      id: 'starter',
+      name: 'Starter',
+      hours: 5,
+      price: Math.round(baseRate * 5),
+      pricePerHour: baseRate,
+      description: 'Perfect for trying out self-directed learning',
+      features: ['5 hours of AI tutor time', 'All 9 languages', 'Progress tracking', 'Never expires'],
+    },
+    {
+      id: 'explorer',
+      name: 'Explorer',
+      hours: 15,
+      price: Math.round(baseRate * 15 * 0.79),
+      pricePerHour: Math.round(baseRate * 0.79 * 100) / 100,
+      description: 'Great for consistent weekly practice',
+      features: ['15 hours of AI tutor time', 'All 9 languages', 'Pronunciation feedback', 'Progress tracking', 'Never expires'],
+      popular: true,
+    },
+    {
+      id: 'intensive',
+      name: 'Intensive',
+      hours: 30,
+      price: Math.round(baseRate * 30 * 0.68),
+      pricePerHour: Math.round(baseRate * 0.68 * 100) / 100,
+      description: 'Best value for serious learners',
+      features: ['30 hours of AI tutor time', 'All 9 languages', 'Pronunciation feedback', 'ACTFL assessments', 'Priority support', 'Never expires'],
+    },
+  ];
+}
 
 const iconMap: Record<string, typeof BookOpen> = {
   'graduation-cap': GraduationCap,
@@ -86,14 +95,8 @@ function getLanguageLabel(language: string): string {
   return labels[language.toLowerCase()] || language;
 }
 
-function getClassPrice(classLevel: number): { price: number; period: string } {
-  switch (classLevel) {
-    case 1: return { price: 49, period: '/class' };
-    case 2: return { price: 59, period: '/class' };
-    case 3: return { price: 69, period: '/class' };
-    case 4: return { price: 79, period: '/class' };
-    default: return { price: 49, period: '/class' };
-  }
+function getClassPrice(classPriceCents: number): { price: number; period: string } {
+  return { price: classPriceCents / 100, period: '/class' };
 }
 
 function getLevelBadge(classLevel: number): { label: string; variant: 'default' | 'secondary' | 'outline' } {
@@ -110,6 +113,10 @@ export default function Pricing() {
   const [, navigate] = useLocation();
   const { isAuthenticated } = useAuth();
 
+  const { data: pricingConfig } = useQuery<PricingConfig>({
+    queryKey: ['/api/pricing-config'],
+  });
+
   const { data: classTypes } = useQuery<ClassType[]>({
     queryKey: ['/api/class-types'],
   });
@@ -117,6 +124,11 @@ export default function Pricing() {
   const { data: publicClasses } = useQuery<PublicClass[]>({
     queryKey: ['/api/classes/public'],
   });
+
+  const classPriceCents = parseInt(pricingConfig?.class_price_cents || '4900');
+  const hourRateCents = parseInt(pricingConfig?.hour_rate_cents || '580');
+  const hourPackages = getHourPackages(hourRateCents);
+  const classPrice = getClassPrice(classPriceCents);
 
   const handleSelectClass = (classId: string) => {
     navigate(`/classes/${classId}`);
@@ -197,7 +209,6 @@ export default function Pricing() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {featuredClasses.map((cls) => {
                     const level = getLevelBadge(cls.classLevel);
-                    const pricing = getClassPrice(cls.classLevel);
                     return (
                       <Card key={cls.id} className="relative border-primary/20 flex flex-col" data-testid={`card-class-${cls.id}`}>
                         <Badge className="absolute -top-2 -right-2" variant="default">Featured</Badge>
@@ -212,8 +223,8 @@ export default function Pricing() {
                         </CardHeader>
                         <CardContent className="flex-grow">
                           <div className="mb-3">
-                            <span className="text-3xl font-bold">${pricing.price}</span>
-                            <span className="text-muted-foreground ml-1">{pricing.period}</span>
+                            <span className="text-3xl font-bold">${classPrice.price}</span>
+                            <span className="text-muted-foreground ml-1">{classPrice.period}</span>
                           </div>
                           <div className="text-sm text-muted-foreground">
                             Target: {cls.targetActflLevel?.replace('_', ' ').toUpperCase() || 'Varies'}
@@ -252,7 +263,6 @@ export default function Pricing() {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {classes.map((cls) => {
                       const level = getLevelBadge(cls.classLevel);
-                      const pricing = getClassPrice(cls.classLevel);
                       return (
                         <Card key={cls.id} className="flex flex-col" data-testid={`card-class-${cls.id}`}>
                           <CardHeader className="pb-2">
@@ -266,8 +276,8 @@ export default function Pricing() {
                           </CardHeader>
                           <CardContent className="flex-grow">
                             <div className="mb-3">
-                              <span className="text-3xl font-bold">${pricing.price}</span>
-                              <span className="text-muted-foreground ml-1">{pricing.period}</span>
+                              <span className="text-3xl font-bold">${classPrice.price}</span>
+                              <span className="text-muted-foreground ml-1">{classPrice.period}</span>
                             </div>
                             <div className="text-sm text-muted-foreground">
                               Target: {cls.targetActflLevel?.replace('_', ' ').toUpperCase() || 'Varies'}

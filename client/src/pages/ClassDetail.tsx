@@ -31,6 +31,12 @@ interface PublicClass {
   classLevel: number;
 }
 
+interface PricingConfig {
+  class_price_cents: string;
+  hour_rate_cents: string;
+  free_trial_hours: string;
+}
+
 const iconMap: Record<string, typeof BookOpen> = {
   'graduation-cap': GraduationCap,
   'briefcase': Briefcase,
@@ -59,14 +65,8 @@ function getLanguageLabel(language: string): string {
   return labels[language.toLowerCase()] || language;
 }
 
-function getClassPrice(classLevel: number): { price: number; period: string } {
-  switch (classLevel) {
-    case 1: return { price: 49, period: '/class' };
-    case 2: return { price: 59, period: '/class' };
-    case 3: return { price: 69, period: '/class' };
-    case 4: return { price: 79, period: '/class' };
-    default: return { price: 49, period: '/class' };
-  }
+function getClassPrice(classPriceCents: number): { price: number; period: string } {
+  return { price: classPriceCents / 100, period: '/class' };
 }
 
 function getLevelBadge(classLevel: number): { label: string; description: string } {
@@ -94,10 +94,15 @@ export default function ClassDetail() {
   const { isAuthenticated } = useAuth();
   const classId = params?.id;
 
+  const { data: pricingConfig } = useQuery<PricingConfig>({
+    queryKey: ['/api/pricing-config'],
+  });
+
   const { data: publicClasses, isLoading } = useQuery<PublicClass[]>({
     queryKey: ['/api/classes/public'],
   });
 
+  const classPriceCents = parseInt(pricingConfig?.class_price_cents || '4900');
   const classData = publicClasses?.find(c => c.id === classId);
   
   const handleEnroll = () => {
@@ -147,7 +152,7 @@ export default function ClassDetail() {
   }
 
   const level = getLevelBadge(classData.classLevel);
-  const pricing = getClassPrice(classData.classLevel);
+  const pricing = getClassPrice(classPriceCents);
   const Icon = classData.classType?.icon ? getIcon(classData.classType.icon) : BookOpen;
 
   return (

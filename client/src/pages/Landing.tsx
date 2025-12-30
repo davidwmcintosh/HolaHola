@@ -13,6 +13,8 @@ import italianFemale from "@assets/Tutor_Images/Female/Italian_Female_Talking_No
 import japaneseFemale from "@assets/Tutor_Images/Female/Japanese_Female_Talking_No_Background.jpg";
 import chineseMale from "@assets/Tutor_Images/Male/Chinese_Male_Talking.jpg";
 import koreanFemale from "@assets/Tutor_Images/Female/Korean_Female_Talking_No_Background.jpg";
+import englishFemale from "@assets/Tutor_Images/Female/English_Talking-No_Background.jpg";
+import portugueseFemale from "@assets/Tutor_Images/Female/Portuguese_Female_Talking_No_Background.jpg";
 
 // Featured tutors with names for display below buttons
 const featuredTutors = [
@@ -20,9 +22,11 @@ const featuredTutors = [
   { avatar: frenchMale, name: 'Pierre', language: 'French', borderColor: 'border-blue-400' },
   { avatar: germanMale, name: 'Hans', language: 'German', borderColor: 'border-amber-400' },
   { avatar: italianFemale, name: 'Sofia', language: 'Italian', borderColor: 'border-green-400' },
+  { avatar: portugueseFemale, name: 'Lucia', language: 'Portuguese', borderColor: 'border-emerald-400' },
   { avatar: japaneseFemale, name: 'Yuki', language: 'Japanese', borderColor: 'border-pink-400' },
   { avatar: chineseMale, name: 'Wei', language: 'Chinese', borderColor: 'border-red-400' },
   { avatar: koreanFemale, name: 'Min-ji', language: 'Korean', borderColor: 'border-sky-400' },
+  { avatar: englishFemale, name: 'Emma', language: 'English', borderColor: 'border-indigo-400' },
 ];
 
 // Mind map lobe configuration for watermark

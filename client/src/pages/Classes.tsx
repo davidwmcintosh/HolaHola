@@ -30,6 +30,12 @@ interface PublicClass {
   classLevel: number;
 }
 
+interface PricingConfig {
+  class_price_cents: string;
+  hour_rate_cents: string;
+  free_trial_hours: string;
+}
+
 const iconMap: Record<string, typeof BookOpen> = {
   'graduation-cap': GraduationCap,
   'briefcase': Briefcase,
@@ -58,14 +64,8 @@ function getLanguageLabel(language: string): string {
   return labels[language.toLowerCase()] || language;
 }
 
-function getClassPrice(classLevel: number): { price: number; period: string } {
-  switch (classLevel) {
-    case 1: return { price: 49, period: '/class' };
-    case 2: return { price: 59, period: '/class' };
-    case 3: return { price: 69, period: '/class' };
-    case 4: return { price: 79, period: '/class' };
-    default: return { price: 49, period: '/class' };
-  }
+function getClassPrice(classPriceCents: number): { price: number; period: string } {
+  return { price: classPriceCents / 100, period: '/class' };
 }
 
 function getLevelBadge(classLevel: number): { label: string; variant: 'default' | 'secondary' | 'outline' } {
@@ -106,9 +106,16 @@ export default function Classes() {
   const [languageFilter, setLanguageFilter] = useState('all');
   const [levelFilter, setLevelFilter] = useState('all');
 
+  const { data: pricingConfig } = useQuery<PricingConfig>({
+    queryKey: ['/api/pricing-config'],
+  });
+
   const { data: publicClasses, isLoading } = useQuery<PublicClass[]>({
     queryKey: ['/api/classes/public'],
   });
+
+  const classPriceCents = parseInt(pricingConfig?.class_price_cents || '4900');
+  const classPrice = getClassPrice(classPriceCents);
 
   const featuredClasses = publicClasses?.filter(c => c.isFeatured)
     .sort((a, b) => (a.featuredOrder || 0) - (b.featuredOrder || 0)) || [];
@@ -201,7 +208,6 @@ export default function Classes() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {featuredClasses.map((cls) => {
                     const level = getLevelBadge(cls.classLevel);
-                    const pricing = getClassPrice(cls.classLevel);
                     return (
                       <Card key={cls.id} className="relative border-primary/20 flex flex-col hover-elevate" data-testid={`card-featured-class-${cls.id}`}>
                         <Badge className="absolute -top-2 -right-2" variant="default">Featured</Badge>
@@ -216,8 +222,8 @@ export default function Classes() {
                         </CardHeader>
                         <CardContent className="flex-grow">
                           <div className="mb-3">
-                            <span className="text-3xl font-bold">${pricing.price}</span>
-                            <span className="text-muted-foreground ml-1">{pricing.period}</span>
+                            <span className="text-3xl font-bold">${classPrice.price}</span>
+                            <span className="text-muted-foreground ml-1">{classPrice.period}</span>
                           </div>
                           <div className="text-sm text-muted-foreground">
                             Target: {cls.targetActflLevel?.replace('_', ' ').toUpperCase() || 'Varies'}
@@ -253,7 +259,6 @@ export default function Classes() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredClasses.map((cls) => {
                     const level = getLevelBadge(cls.classLevel);
-                    const pricing = getClassPrice(cls.classLevel);
                     const Icon = cls.classType?.icon ? getIcon(cls.classType.icon) : BookOpen;
                     return (
                       <Card key={cls.id} className="flex flex-col hover-elevate" data-testid={`card-class-${cls.id}`}>
@@ -268,8 +273,8 @@ export default function Classes() {
                         </CardHeader>
                         <CardContent className="flex-grow">
                           <div className="mb-3">
-                            <span className="text-3xl font-bold">${pricing.price}</span>
-                            <span className="text-muted-foreground ml-1">{pricing.period}</span>
+                            <span className="text-3xl font-bold">${classPrice.price}</span>
+                            <span className="text-muted-foreground ml-1">{classPrice.period}</span>
                           </div>
                           <div className="text-sm text-muted-foreground">
                             Target: {cls.targetActflLevel?.replace('_', ' ').toUpperCase() || 'Varies'}
