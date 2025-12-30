@@ -1326,7 +1326,7 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
           width: containerWidth, 
           height: containerHeight + (isMobileView ? 80 : 150),
           marginTop: isMobileView ? 10 : 20,
-          marginBottom: isMobileView ? -60 : -120,
+          marginBottom: isMobileView ? -60 : -160,
         }}
         data-testid="brain-container"
       >
