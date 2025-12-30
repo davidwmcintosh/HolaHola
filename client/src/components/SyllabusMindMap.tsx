@@ -1310,8 +1310,9 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
         className={`relative mx-auto ${isMobileView ? 'overflow-hidden' : 'overflow-visible'}`}
         style={{ 
           width: containerWidth, 
-          height: containerHeight + (isMobileView ? 40 : 80),
+          height: containerHeight + (isMobileView ? 80 : 150),
           marginTop: isMobileView ? 10 : 20,
+          marginBottom: isMobileView ? -40 : -70,
         }}
         data-testid="brain-container"
       >
@@ -1320,7 +1321,7 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
           className="relative"
           style={{
             width: containerWidth,
-            height: containerHeight + (isMobileView ? 40 : 80),
+            height: containerHeight + (isMobileView ? 80 : 150),
           }}
         >
         
@@ -1568,7 +1569,7 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
       )}
       
       {/* Instructions hint */}
-      <div className="text-center -mt-16">
+      <div className="text-center mt-1">
         <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
           <ChevronUp className="h-3 w-3" />
           Tap a lobe to explore topics
