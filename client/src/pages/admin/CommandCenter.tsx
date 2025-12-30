@@ -5900,11 +5900,17 @@ function PricingSettingsTab() {
               </div>
               <div className="flex justify-between items-center py-2 border-b">
                 <span className="text-muted-foreground">5-hour pack</span>
-                <span className="font-medium">{formatCentsAsPrice((parseInt(hourRateCents) * 5).toString())}</span>
+                <span className="font-medium">
+                  {formatCentsAsPrice((parseInt(hourRateCents) * 5).toString())}
+                  <span className="text-muted-foreground text-sm ml-1">({formatCentsAsPrice(hourRateCents)}/hr)</span>
+                </span>
               </div>
               <div className="flex justify-between items-center py-2 border-b">
                 <span className="text-muted-foreground">10-hour pack</span>
-                <span className="font-medium">{formatCentsAsPrice((parseInt(hourRateCents) * 10).toString())}</span>
+                <span className="font-medium">
+                  {formatCentsAsPrice((parseInt(hourRateCents) * 10).toString())}
+                  <span className="text-muted-foreground text-sm ml-1">({formatCentsAsPrice(hourRateCents)}/hr)</span>
+                </span>
               </div>
               <div className="flex justify-between items-center py-2">
                 <span className="text-muted-foreground">Free trial</span>
