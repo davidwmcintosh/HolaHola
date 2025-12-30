@@ -181,7 +181,7 @@ export function TutorShowcase({
       <div className="block md:hidden w-full overflow-visible">
         <div 
           ref={scrollRef}
-          className="flex w-full gap-3 overflow-x-auto snap-x snap-mandatory pb-3 pl-1 pr-4"
+          className="flex w-full gap-3 overflow-x-auto snap-x snap-mandatory pb-3 pl-4 pr-4"
           style={{ 
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
