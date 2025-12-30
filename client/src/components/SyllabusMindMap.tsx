@@ -612,7 +612,7 @@ function TutorObservationsBubble({
         </defs>
         {!isExpanded && (
           <path
-            d={`M ${x + collapsedWidth + 5} ${y + collapsedHeight / 2 - 10} Q ${x + collapsedWidth + 80} ${y + 50} ${centerX - 45} ${centerY - 65}`}
+            d={`M ${x + collapsedWidth - 15} ${y + collapsedHeight / 2 + 10} Q ${x + collapsedWidth + 80} ${y + 50} ${centerX - 45} ${centerY - 65}`}
             stroke={accentColor}
             strokeWidth="2.5"
             fill="none"
