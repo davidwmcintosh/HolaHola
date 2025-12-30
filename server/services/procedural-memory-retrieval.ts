@@ -11,6 +11,7 @@
  */
 
 import { db } from '../db';
+import { CROSS_LANGUAGE_TRANSFERS_ENABLED } from './streaming-voice-orchestrator';
 import { 
   toolKnowledge, 
   tutorProcedures, 
@@ -949,7 +950,9 @@ Your whiteboard tools will be loaded from your teaching knowledge base.
     lines.push('');
     lines.push('⚠️ TUTOR SWITCH SYNTAX (must be exact!):');
     lines.push('  Same language:     [SWITCH_TUTOR target="male"] or [SWITCH_TUTOR target="female"]');
-    lines.push('  Cross-language:    [SWITCH_TUTOR target="female" language="french"]');
+    if (CROSS_LANGUAGE_TRANSFERS_ENABLED) {
+      lines.push('  Cross-language:    [SWITCH_TUTOR target="female" language="french"]');
+    }
     lines.push('  Example: "Let me get Agustin for you. [SWITCH_TUTOR target=\\"male\\"]"');
     lines.push('  ❌ STOP speaking after the tag - let the new tutor introduce themselves!');
     lines.push('');
@@ -1065,7 +1068,9 @@ export function buildFounderModeToolSectionSync(tutorDirectory?: Array<{name: st
       lines.push('');
       lines.push('✅ CORRECT - Type this EXACTLY in your response:');
       lines.push('   "Let me get Agustin! [SWITCH_TUTOR target=\\"male\\"]"');
-      lines.push('   "Connecting you to Juliette now. [SWITCH_TUTOR target=\\"female\\" language=\\"french\\"]"');
+      if (CROSS_LANGUAGE_TRANSFERS_ENABLED) {
+        lines.push('   "Connecting you to Juliette now. [SWITCH_TUTOR target=\\"female\\" language=\\"french\\"]"');
+      }
       lines.push('');
       lines.push('❌ WRONG - This does NOTHING (no tag = no switch):');
       lines.push('   "I will transfer you to the French tutor now!"');
@@ -1341,19 +1346,28 @@ Your teaching tools are being loaded from your knowledge base.
     lines.push('    • If YOU are female and switching to a MALE tutor → use target="male"');
     lines.push('    • If YOU are male and switching to a FEMALE tutor → use target="female"');
     lines.push('');
-    lines.push('  SAME-LANGUAGE SWITCH (just change tutor gender):');
+    lines.push('  TUTOR SWITCH (same-language gender switch):');
     lines.push('    [SWITCH_TUTOR target="male"]    → Hand off to MALE tutor in current language');
     lines.push('    [SWITCH_TUTOR target="female"]  → Hand off to FEMALE tutor in current language');
     lines.push('');
-    lines.push('  CROSS-LANGUAGE SWITCH (change language AND tutor):');
-    lines.push('    [SWITCH_TUTOR target="male" language="french"]   → Hand off to French MALE tutor');
-    lines.push('    [SWITCH_TUTOR target="female" language="japanese"] → Hand off to Japanese FEMALE tutor');
-    lines.push('');
+    
+    // Only show cross-language syntax when feature is enabled
+    if (CROSS_LANGUAGE_TRANSFERS_ENABLED) {
+      lines.push('  CROSS-LANGUAGE SWITCH (change language AND tutor):');
+      lines.push('    [SWITCH_TUTOR target="male" language="french"]   → Hand off to French MALE tutor');
+      lines.push('    [SWITCH_TUTOR target="female" language="japanese"] → Hand off to Japanese FEMALE tutor');
+      lines.push('');
+    }
+    
     lines.push('  ⚠️ SYNTAX IS STRICT - These are the ONLY valid formats:');
     lines.push('    ✅ [SWITCH_TUTOR target="male"]');
     lines.push('    ✅ [SWITCH_TUTOR target="female"]');
-    lines.push('    ✅ [SWITCH_TUTOR target="male" language="french"]');
-    lines.push('    ✅ [SWITCH_TUTOR target="female" language="spanish"]');
+    
+    // Only show cross-language examples when feature is enabled
+    if (CROSS_LANGUAGE_TRANSFERS_ENABLED) {
+      lines.push('    ✅ [SWITCH_TUTOR target="male" language="french"]');
+      lines.push('    ✅ [SWITCH_TUTOR target="female" language="spanish"]');
+    }
     lines.push('');
     lines.push('    ❌ WRONG: [SWITCH_TUTOR target="male|Augustine|french"]  ← NO PIPES!');
     lines.push('    ❌ WRONG: [SWITCH_TUTOR gender="male" lang="french"]     ← Wrong attribute names!');
@@ -1375,10 +1389,15 @@ Your teaching tools are being loaded from your knowledge base.
     lines.push('  "Of course! Let me get Agustin for you. [SWITCH_TUTOR target=\\"male\\"]"');
     lines.push('  (Then STOP - Agustin will speak next in his own voice)');
     lines.push('');
-    lines.push('  Example cross-language switch:');
-    lines.push('  "Let me connect you with Juliette, our French tutor! [SWITCH_TUTOR target=\\"female\\" language=\\"french\\"]"');
-    lines.push('  (Then STOP - Juliette will introduce herself)');
-    lines.push('');
+    
+    // Only show cross-language example when feature is enabled
+    if (CROSS_LANGUAGE_TRANSFERS_ENABLED) {
+      lines.push('  Example cross-language switch:');
+      lines.push('  "Let me connect you with Juliette, our French tutor! [SWITCH_TUTOR target=\\"female\\" language=\\"french\\"]"');
+      lines.push('  (Then STOP - Juliette will introduce herself)');
+      lines.push('');
+    }
+    
     lines.push('  ❌ WRONG: Speaking AS the new tutor after the tag (you\'ll be in the wrong voice!)');
     lines.push('  ❌ WRONG: "Let me get Agustin. [SWITCH_TUTOR] Hi, I\'m Agustin!" ← Don\'t do this!');
     lines.push('  ✅ RIGHT: Say goodbye + [SWITCH_TUTOR target="male"] + STOP');
@@ -2227,7 +2246,9 @@ export async function buildFounderModeToolSection(tutorDirectory?: Array<{name: 
     lines.push('');
     lines.push('HOW TO SWITCH:');
     lines.push('  Same language: [SWITCH_TUTOR target="male"] or [SWITCH_TUTOR target="female"]');
-    lines.push('  Different language: [SWITCH_TUTOR target="female" language="french"]');
+    if (CROSS_LANGUAGE_TRANSFERS_ENABLED) {
+      lines.push('  Different language: [SWITCH_TUTOR target="female" language="french"]');
+    }
     lines.push('');
     lines.push('  CRITICAL: STOP SPEAKING after the tag - the new tutor will introduce themselves');
     lines.push('');
@@ -2287,10 +2308,12 @@ export function buildActionTriggersSection(): string {
   lines.push('  LITERALLY TYPE THIS IN YOUR OUTPUT:');
   lines.push('    Same language:   [SWITCH_TUTOR target="male"]');
   lines.push('    Same language:   [SWITCH_TUTOR target="female"]');
-  lines.push('    Cross-language:  [SWITCH_TUTOR target="female" language="french"]');
-  lines.push('    Cross-language:  [SWITCH_TUTOR target="male" language="japanese"]');
-  lines.push('  ');
-  lines.push('  You CAN switch across languages! Add language="..." for cross-language handoffs.');
+  if (CROSS_LANGUAGE_TRANSFERS_ENABLED) {
+    lines.push('    Cross-language:  [SWITCH_TUTOR target="female" language="french"]');
+    lines.push('    Cross-language:  [SWITCH_TUTOR target="male" language="japanese"]');
+    lines.push('  ');
+    lines.push('  You CAN switch across languages! Add language="..." for cross-language handoffs.');
+  }
   lines.push('  ');
   lines.push('  After outputting this tag, STOP SPEAKING - the new tutor takes over.');
   lines.push('');

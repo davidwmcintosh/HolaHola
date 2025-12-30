@@ -111,7 +111,10 @@ import {
  * This gate preserves all cross-language code paths - they remain intact but
  * are simply blocked at execution time until the feature is properly built out.
  */
-const CROSS_LANGUAGE_TRANSFERS_ENABLED = false;
+// Feature flag for cross-language tutor transfers
+// When false: Only same-language gender switches allowed
+// When true: Full cross-language transfers enabled (future enrollment-based feature)
+export const CROSS_LANGUAGE_TRANSFERS_ENABLED = false;
 
 /**
  * Validates if a tutor transfer should be allowed

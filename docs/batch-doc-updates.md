@@ -72,7 +72,9 @@ function validateTutorTransfer(
 
 | File | Changes |
 |------|---------|
-| `server/services/streaming-voice-orchestrator.ts` | Feature flag, validateTutorTransfer, retry prevention, WebSocket message |
+| `server/services/streaming-voice-orchestrator.ts` | Feature flag (exported), validateTutorTransfer, retry prevention, WebSocket message |
+| `server/services/procedural-memory-retrieval.ts` | Conditionally hides cross-language syntax/examples when flag is false |
+| `server/system-prompt.ts` | Conditionally hides cross-language quick reference when flag is false |
 
 #### Integration Points
 
@@ -88,6 +90,16 @@ When `CROSS_LANGUAGE_TRANSFERS_ENABLED` is set to `true`:
 - Enrollment-based restrictions can be added as a secondary gate
 - See `docs/enrollment-based-cross-language-transfers.md` for implementation plan
 
+#### Prompt Updates (Hiding Language Field from Daniela)
+
+When `CROSS_LANGUAGE_TRANSFERS_ENABLED = false`, the following are hidden from Daniela's prompts:
+- Cross-language syntax examples in ACTION_TRIGGERS
+- Cross-language quick reference in tutor directory
+- Cross-language examples in Founder Mode tool sections
+- "You CAN switch across languages!" messaging
+
+This prevents Daniela from even attempting cross-language transfers since she doesn't see the `language` field as an option.
+
 #### Architecture Decision
 
 Two-layer validation ensures robust protection:
@@ -95,6 +107,11 @@ Two-layer validation ensures robust protection:
 2. **Layer 2** catches edge cases where effectiveLanguage differs from targetLanguage (e.g., after inference)
 
 This defense-in-depth approach prevents bypasses via parameter manipulation or inference edge cases.
+
+Combined with prompt updates, this creates a **three-layer protection**:
+1. **Prompt Layer** - Daniela doesn't see cross-language as an option
+2. **Primary Gate** - validateTutorTransfer blocks explicit language parameters
+3. **Defense-in-Depth** - Secondary check on computed effectiveLanguage
 
 ---
 

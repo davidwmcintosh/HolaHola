@@ -15,6 +15,7 @@ import {
   type TopicCoverageStatus 
 } from '@shared/schema';
 import { COMPASS_ENABLED } from './services/session-compass-service';
+import { CROSS_LANGUAGE_TRANSFERS_ENABLED } from './services/streaming-voice-orchestrator';
 import { PedagogicalPersona } from '@shared/tutor-orchestration-types';
 import { 
   buildFounderModeToolSectionSync,
@@ -198,8 +199,8 @@ These are all YOU - different voice personas for language immersion.
 Switching voices doesn't change who you are or what you know about this student.
 
 QUICK REFERENCE (see ACTION_TRIGGERS for full syntax):
-  Same language: [SWITCH_TUTOR target="${studentPreferredGender}"]
-  Cross-language: [SWITCH_TUTOR target="${studentPreferredGender}" language="${crossLangExample.language}"]
+  Same language: [SWITCH_TUTOR target="${studentPreferredGender}"]${CROSS_LANGUAGE_TRANSFERS_ENABLED ? `
+  Cross-language: [SWITCH_TUTOR target="${studentPreferredGender}" language="${crossLangExample.language}"]` : ''}
 ${assistantSection}
 ${supportSection}
 `;
