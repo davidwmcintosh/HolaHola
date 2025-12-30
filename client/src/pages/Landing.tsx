@@ -4,64 +4,101 @@ import { Globe, MessageCircle, BookOpen, TrendingUp, Volume2, Target, ArrowRight
 import holaholaLogo from '@assets/holaholamainlogoBackgroundRemoved_1765308837223.png';
 import brainImage from "@assets/transparent_colorful_cartoon_brain_Background_Removed_1765564186963.png";
 
-// Tutor avatars for watermark display
+// Tutor avatars for edge watermarks
 import spanishFemale from "@assets/tutor-listening-no-background_1764099971094.png";
 import spanishMale from "@assets/Boy-tutor-waiting-No-Background_1764186322051.png";
-import frenchFemale from "@assets/Tutor_Images/Female/French_Female_Speaking_No_Background.jpg";
 import frenchMale from "@assets/Tutor_Images/Male/French_Male_Talking.jpg";
 import germanMale from "@assets/Tutor_Images/Male/German_Male_Talking.jpg";
-import germanFemale from "@assets/Tutor_Images/Female/German_Female_Talking_No_Background.jpg";
 import italianFemale from "@assets/Tutor_Images/Female/Italian_Female_Talking_No_Background.jpg";
-import italianMale from "@assets/Tutor_Images/Male/Italian_Male_Talking.jpg";
 import japaneseMale from "@assets/Tutor_Images/Male/Japanese_Male_Talking.jpg";
 import japaneseFemale from "@assets/Tutor_Images/Female/Japanese_Female_Talking_No_Background.jpg";
 import chineseFemale from "@assets/Tutor_Images/Female/Chinese_Female_Talking_No_Background.jpg";
 import chineseMale from "@assets/Tutor_Images/Male/Chinese_Male_Talking.jpg";
 import koreanFemale from "@assets/Tutor_Images/Female/Korean_Female_Talking_No_Background.jpg";
-import koreanMale from "@assets/Tutor_Images/Male/Korean_Male_Talking.jpg";
 
-// Tutor bubbles spread around the entire page
+// Tutor bubbles only on edges - not covering center content
 const tutorBubbles = [
-  // Top row - spread wide
-  { avatar: spanishFemale, position: 'top-[2%] left-[2%]', size: 'w-20 h-20 md:w-28 md:h-28', bubbleColor: 'border-orange-400' },
-  { avatar: chineseMale, position: 'top-[5%] left-[20%]', size: 'w-14 h-14 md:w-20 md:h-20', bubbleColor: 'border-red-400' },
-  { avatar: frenchFemale, position: 'top-[3%] right-[25%]', size: 'w-16 h-16 md:w-24 md:h-24', bubbleColor: 'border-blue-400' },
-  { avatar: spanishMale, position: 'top-[2%] right-[2%]', size: 'w-18 h-18 md:w-26 md:h-26', bubbleColor: 'border-orange-300' },
+  // Left edge only
+  { avatar: spanishFemale, position: 'top-[5%] left-[1%]', size: 'w-14 h-14 md:w-20 md:h-20', bubbleColor: 'border-orange-400' },
+  { avatar: koreanFemale, position: 'top-[22%] left-[0%]', size: 'w-12 h-12 md:w-16 md:h-16', bubbleColor: 'border-sky-400' },
+  { avatar: italianFemale, position: 'top-[40%] left-[1%]', size: 'w-14 h-14 md:w-18 md:h-18', bubbleColor: 'border-green-400' },
+  { avatar: frenchMale, position: 'top-[58%] left-[0%]', size: 'w-12 h-12 md:w-16 md:h-16', bubbleColor: 'border-blue-300' },
+  { avatar: chineseMale, position: 'top-[75%] left-[1%]', size: 'w-14 h-14 md:w-18 md:h-18', bubbleColor: 'border-red-400' },
   
-  // Upper sides
-  { avatar: koreanFemale, position: 'top-[15%] left-[1%]', size: 'w-16 h-16 md:w-22 md:h-22', bubbleColor: 'border-sky-400' },
-  { avatar: germanMale, position: 'top-[18%] right-[1%]', size: 'w-14 h-14 md:w-20 md:h-20', bubbleColor: 'border-amber-400' },
-  
-  // Mid sides
-  { avatar: italianFemale, position: 'top-[32%] left-[0%]', size: 'w-18 h-18 md:w-24 md:h-24', bubbleColor: 'border-green-400' },
-  { avatar: japaneseMale, position: 'top-[28%] right-[0%]', size: 'w-16 h-16 md:w-22 md:h-22', bubbleColor: 'border-pink-400' },
-  
-  // Lower sides - for features section
-  { avatar: frenchMale, position: 'top-[48%] left-[1%]', size: 'w-14 h-14 md:w-20 md:h-20', bubbleColor: 'border-blue-300' },
-  { avatar: chineseFemale, position: 'top-[45%] right-[1%]', size: 'w-16 h-16 md:w-22 md:h-22', bubbleColor: 'border-red-300' },
-  
-  // Bottom area
-  { avatar: germanFemale, position: 'top-[62%] left-[2%]', size: 'w-12 h-12 md:w-18 md:h-18', bubbleColor: 'border-amber-300' },
-  { avatar: koreanMale, position: 'top-[58%] right-[2%]', size: 'w-14 h-14 md:w-20 md:h-20', bubbleColor: 'border-sky-300' },
-  { avatar: italianMale, position: 'top-[75%] left-[1%]', size: 'w-16 h-16 md:w-22 md:h-22', bubbleColor: 'border-green-300' },
-  { avatar: japaneseFemale, position: 'top-[72%] right-[1%]', size: 'w-12 h-12 md:w-18 md:h-18', bubbleColor: 'border-pink-300' },
+  // Right edge only
+  { avatar: spanishMale, position: 'top-[5%] right-[1%]', size: 'w-14 h-14 md:w-20 md:h-20', bubbleColor: 'border-orange-300' },
+  { avatar: germanMale, position: 'top-[22%] right-[0%]', size: 'w-12 h-12 md:w-16 md:h-16', bubbleColor: 'border-amber-400' },
+  { avatar: japaneseMale, position: 'top-[40%] right-[1%]', size: 'w-14 h-14 md:w-18 md:h-18', bubbleColor: 'border-pink-400' },
+  { avatar: chineseFemale, position: 'top-[58%] right-[0%]', size: 'w-12 h-12 md:w-16 md:h-16', bubbleColor: 'border-red-300' },
+  { avatar: japaneseFemale, position: 'top-[75%] right-[1%]', size: 'w-14 h-14 md:w-18 md:h-18', bubbleColor: 'border-pink-300' },
+];
+
+// Mind map lobe configuration for watermark
+const mindMapLobes = [
+  { name: 'Chat!', color: '#60A5FA', angle: -55, cloudPath: 'M25,35 C10,35 5,25 15,15 C20,5 35,5 45,10 C55,5 70,8 75,18 C85,20 90,32 80,42 C85,52 75,60 60,58 C50,65 30,62 25,52 C12,55 8,45 25,35 Z' },
+  { name: 'Practice!', color: '#4ADE80', angle: -15, cloudPath: 'M20,38 C8,35 5,22 18,12 C28,2 48,5 55,12 C65,5 82,10 85,25 C95,30 92,48 78,52 C80,62 65,68 50,60 C35,68 15,60 18,48 C5,48 8,40 20,38 Z' },
+  { name: 'Words!', color: '#FBBF24', angle: 200, cloudPath: 'M22,32 C10,28 8,15 22,10 C32,2 52,5 58,15 C68,8 85,15 82,30 C92,38 85,55 70,55 C72,65 55,70 42,62 C28,70 10,60 15,48 C2,45 5,35 22,32 Z' },
+  { name: 'Culture!', color: '#F87171', angle: 25, cloudPath: 'M28,35 C15,32 10,20 25,12 C35,3 55,8 60,18 C72,10 88,18 85,32 C95,40 88,58 72,55 C75,65 58,72 45,62 C30,70 12,58 18,45 C5,42 10,35 28,35 Z' },
+  { name: 'Grammar!', color: '#C084FC', angle: 160, cloudPath: 'M25,30 C12,25 8,12 25,8 C38,0 58,5 62,18 C75,10 92,22 85,38 C95,48 82,62 65,58 C68,70 48,75 35,65 C20,72 5,58 15,45 C2,40 8,32 25,30 Z' },
 ];
 
 export default function Landing() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-50 via-background to-orange-50 dark:from-sky-950/20 dark:via-background dark:to-orange-950/20 overflow-hidden">
-      {/* Hero Section with tutor avatars watermark */}
+      {/* Hero Section with mind map watermark */}
       <div className="relative">
-        {/* Brain watermark - centered behind content */}
+        {/* Full Mind Map Watermark - brain with lobe bubbles */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
-          <img 
-            src={brainImage} 
-            alt="" 
-            className="w-[400px] md:w-[500px] lg:w-[600px] opacity-[0.08] dark:opacity-[0.05]"
-          />
+          <div className="relative w-[500px] md:w-[650px] lg:w-[800px] h-[400px] md:h-[500px] lg:h-[600px]">
+            {/* Brain in center */}
+            <img 
+              src={brainImage} 
+              alt="" 
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200px] md:w-[280px] lg:w-[350px] opacity-[0.12] dark:opacity-[0.08]"
+            />
+            
+            {/* Lobe cloud bubbles orbiting the brain */}
+            {mindMapLobes.map((lobe, index) => {
+              const distance = 140;
+              const angleRad = (lobe.angle * Math.PI) / 180;
+              const x = Math.cos(angleRad) * distance;
+              const y = Math.sin(angleRad) * distance;
+              
+              return (
+                <div
+                  key={index}
+                  className="absolute top-1/2 left-1/2 opacity-[0.15] dark:opacity-[0.10]"
+                  style={{
+                    transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`,
+                  }}
+                >
+                  <svg 
+                    viewBox="0 0 100 70" 
+                    className="w-[80px] md:w-[100px] lg:w-[120px] h-[56px] md:h-[70px] lg:h-[84px]"
+                  >
+                    <path
+                      d={lobe.cloudPath}
+                      fill={lobe.color}
+                      stroke={lobe.color}
+                      strokeWidth="1"
+                    />
+                    <text
+                      x="50"
+                      y="40"
+                      textAnchor="middle"
+                      className="fill-white font-bold text-[10px] md:text-[12px]"
+                      style={{ fontSize: '10px' }}
+                    >
+                      {lobe.name}
+                    </text>
+                  </svg>
+                </div>
+              );
+            })}
+          </div>
         </div>
         
-        {/* Tutor avatar bubbles - spread across entire page, hidden on mobile */}
+        {/* Tutor avatar bubbles - edges only, hidden on mobile */}
         <div className="hidden md:block fixed inset-0 pointer-events-none overflow-hidden z-0">
           {tutorBubbles.map((tutor, index) => (
             <div
@@ -77,19 +114,19 @@ export default function Landing() {
           ))}
         </div>
 
-        <div className="container mx-auto px-4 pt-12 pb-8 md:pt-20 md:pb-16 relative z-10">
-          <div className="text-center space-y-6 max-w-3xl mx-auto">
-            {/* Logo - 400% bigger */}
-            <div className="flex justify-center mb-6">
+        <div className="container mx-auto px-4 pt-4 pb-6 md:pt-8 md:pb-12 relative z-10">
+          <div className="text-center space-y-4 max-w-3xl mx-auto">
+            {/* Logo - large but tighter to top */}
+            <div className="flex justify-center">
               <img 
                 src={holaholaLogo} 
                 alt="HolaHola" 
-                className="h-48 md:h-72 lg:h-80 w-auto"
+                className="h-32 md:h-48 lg:h-56 w-auto"
                 data-testid="img-landing-logo"
               />
             </div>
             
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-foreground">
+            <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold tracking-tight text-foreground">
               Master Any Language with AI
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
