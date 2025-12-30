@@ -1,3 +1,4 @@
+import { Link } from 'wouter';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Globe, MessageCircle, BookOpen, TrendingUp, Volume2, Target, ArrowRight } from "lucide-react";
@@ -274,6 +275,15 @@ export default function Landing() {
 
       {/* Footer */}
       <footer className="container mx-auto px-4 py-8 text-center text-sm text-muted-foreground border-t">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-2">
+          <Link href="/pricing" className="text-primary hover:underline" data-testid="link-pricing">
+            View Plans & Pricing
+          </Link>
+          <span className="hidden sm:inline text-muted-foreground/50">|</span>
+          <a href="mailto:support@holahola.app" className="hover:underline">
+            Contact Support
+          </a>
+        </div>
         <p>HolaHola - AI-Powered Language Learning</p>
       </footer>
     </div>

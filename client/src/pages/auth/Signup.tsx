@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Mail, Lock, User, UserPlus } from 'lucide-react';
+import { Loader2, Mail, Lock, User, UserPlus, Sparkles, Check, Crown } from 'lucide-react';
 import { SiGoogle, SiGithub, SiApple } from 'react-icons/si';
 import holaholaLogo from '@assets/holaholamainlogoBackgroundRemoved_1765308837223.png';
 
@@ -134,6 +134,36 @@ export default function Signup() {
             >
               Start your language learning journey today
             </p>
+          </div>
+
+          {/* Free trial info */}
+          <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-primary/10 rounded-lg p-4 mb-6" data-testid="div-free-trial-info">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              <span className="font-semibold">Free Plan Includes:</span>
+            </div>
+            <ul className="text-sm text-muted-foreground space-y-1">
+              <li className="flex items-center gap-2">
+                <Check className="h-3.5 w-3.5 text-green-500" />
+                20 voice conversations per month
+              </li>
+              <li className="flex items-center gap-2">
+                <Check className="h-3.5 w-3.5 text-green-500" />
+                Access to all 9 languages
+              </li>
+              <li className="flex items-center gap-2">
+                <Check className="h-3.5 w-3.5 text-green-500" />
+                Vocabulary, grammar & cultural tips
+              </li>
+            </ul>
+            <Link 
+              href="/pricing" 
+              className="text-xs text-primary hover:underline mt-2 inline-flex items-center gap-1"
+              data-testid="link-view-plans"
+            >
+              <Crown className="h-3 w-3" />
+              View all plans
+            </Link>
           </div>
 
           <Form {...form}>

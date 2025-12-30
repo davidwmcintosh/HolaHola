@@ -18,6 +18,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StreakIndicator } from "@/components/StreakIndicator";
+import { UsageIndicator } from "@/components/UpgradePrompt";
 import { SupportAssistModal } from "@/components/SupportAssistModal";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/hooks/useAuth";
@@ -296,8 +297,9 @@ export function AppSidebar() {
         )}
       </SidebarContent>
       <SidebarFooter className="p-6 space-y-4">
-        <div className="px-2">
+        <div className="px-2 space-y-2">
           <StreakIndicator compact />
+          <UsageIndicator />
         </div>
         <SidebarMenu>
           <SidebarMenuItem>
