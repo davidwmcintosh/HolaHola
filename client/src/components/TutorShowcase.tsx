@@ -106,7 +106,7 @@ export function TutorShowcase({
   return (
     <div className={`w-full ${className}`} data-testid="tutor-showcase">
       <div className="flex items-start justify-start gap-6 flex-wrap">
-        <div className="flex flex-col items-center gap-3 pt-3">
+        <div className="flex flex-col items-center gap-3 pt-6">
           <h2 className="text-lg md:text-xl font-semibold">
             Meet Your Tutors
           </h2>
