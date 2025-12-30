@@ -113,7 +113,7 @@ const SEGMENT_CONFIG: Record<BrainSegment, {
     glowColor: 'rgba(251, 191, 36, 0.6)',
     icon: BookOpen,
     categories: ['Vocabulary', 'Memory', 'Numbers', 'Colors', 'Time'],
-    orbit: { angle: 200, distance: 150 },
+    orbit: { angle: 210, distance: 150 },
     cloudPath: 'M22,32 C10,28 8,15 22,10 C32,2 52,5 58,15 C68,8 85,15 82,30 C92,38 85,55 70,55 C72,65 55,70 42,62 C28,70 10,60 15,48 C2,45 5,35 22,32 Z',
     arrowTarget: { x: -60, y: 5 }, // Yellow temporal lobe (left side)
   },
