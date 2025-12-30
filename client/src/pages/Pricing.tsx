@@ -1,125 +1,154 @@
-import { useLocation, Link } from 'wouter';
+import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Check, X, Sparkles, Zap, Crown, Building2, ArrowLeft } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Check, Clock, BookOpen, Building2, ArrowLeft, Users, GraduationCap, Briefcase, Plane, Globe, Sparkles } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useQuery } from '@tanstack/react-query';
 
-interface PlanFeature {
+interface ClassType {
+  id: string;
   name: string;
-  free: boolean | string;
-  basic: boolean | string;
-  pro: boolean | string;
-  institutional: boolean | string;
+  description: string;
+  slug: string;
+  icon: string;
 }
 
-const features: PlanFeature[] = [
-  { name: 'Voice conversations per month', free: '20', basic: '100', pro: 'Unlimited', institutional: 'Unlimited' },
-  { name: 'AI Tutor access', free: true, basic: true, pro: true, institutional: true },
-  { name: 'All 9 languages', free: true, basic: true, pro: true, institutional: true },
-  { name: 'Vocabulary builder', free: true, basic: true, pro: true, institutional: true },
-  { name: 'Grammar exercises', free: true, basic: true, pro: true, institutional: true },
-  { name: 'Cultural tips', free: true, basic: true, pro: true, institutional: true },
-  { name: 'Progress tracking', free: true, basic: true, pro: true, institutional: true },
-  { name: 'ACTFL assessments', free: 'Basic', basic: 'Full', pro: 'Full + Reports', institutional: 'Full + Analytics' },
-  { name: 'Pronunciation feedback', free: false, basic: true, pro: true, institutional: true },
-  { name: 'Personalized learning path', free: false, basic: true, pro: true, institutional: true },
-  { name: 'Priority AI response', free: false, basic: false, pro: true, institutional: true },
-  { name: 'Advanced voice models', free: false, basic: false, pro: true, institutional: true },
-  { name: 'Class management', free: false, basic: false, pro: false, institutional: true },
-  { name: 'Student analytics', free: false, basic: false, pro: false, institutional: true },
-  { name: 'Bulk hour packages', free: false, basic: false, pro: false, institutional: true },
-  { name: 'Custom syllabus builder', free: false, basic: false, pro: false, institutional: true },
-];
+interface PublicClass {
+  id: string;
+  name: string;
+  description: string;
+  language: string;
+  classTypeId: string;
+  isFeatured: boolean;
+  featuredOrder: number;
+  targetActflLevel: string;
+  classLevel: number;
+}
 
-const plans = [
+const hourPackages = [
   {
-    id: 'free',
-    name: 'Free',
-    description: 'Perfect for getting started',
-    price: '$0',
-    period: 'forever',
-    icon: Sparkles,
-    highlight: false,
-    cta: 'Get Started',
-    ctaVariant: 'outline' as const,
+    id: 'starter',
+    name: 'Starter',
+    hours: 5,
+    price: 29,
+    pricePerHour: 5.80,
+    description: 'Perfect for trying out self-directed learning',
+    features: ['5 hours of AI tutor time', 'All 9 languages', 'Progress tracking', 'Never expires'],
   },
   {
-    id: 'basic',
-    name: 'Basic',
-    description: 'For regular learners',
-    price: '$9',
-    period: '/month',
-    icon: Zap,
-    highlight: false,
-    cta: 'Start Basic',
-    ctaVariant: 'outline' as const,
+    id: 'explorer',
+    name: 'Explorer',
+    hours: 15,
+    price: 69,
+    pricePerHour: 4.60,
+    description: 'Great for consistent weekly practice',
+    features: ['15 hours of AI tutor time', 'All 9 languages', 'Pronunciation feedback', 'Progress tracking', 'Never expires'],
+    popular: true,
   },
   {
-    id: 'pro',
-    name: 'Pro',
-    description: 'For serious language learners',
-    price: '$19',
-    period: '/month',
-    icon: Crown,
-    highlight: true,
-    cta: 'Go Pro',
-    ctaVariant: 'default' as const,
-    badge: 'Most Popular',
-  },
-  {
-    id: 'institutional',
-    name: 'Institutional',
-    description: 'For schools & organizations',
-    price: 'Custom',
-    period: 'pricing',
-    icon: Building2,
-    highlight: false,
-    cta: 'Contact Sales',
-    ctaVariant: 'outline' as const,
+    id: 'intensive',
+    name: 'Intensive',
+    hours: 30,
+    price: 119,
+    pricePerHour: 3.97,
+    description: 'Best value for serious learners',
+    features: ['30 hours of AI tutor time', 'All 9 languages', 'Pronunciation feedback', 'ACTFL assessments', 'Priority support', 'Never expires'],
   },
 ];
 
-function FeatureValue({ value }: { value: boolean | string }) {
-  if (typeof value === 'boolean') {
-    return value ? (
-      <Check className="h-5 w-5 text-green-500" />
-    ) : (
-      <X className="h-5 w-5 text-muted-foreground/40" />
-    );
+const iconMap: Record<string, typeof BookOpen> = {
+  'graduation-cap': GraduationCap,
+  'briefcase': Briefcase,
+  'plane': Plane,
+  'globe': Globe,
+  'book-open': BookOpen,
+};
+
+function getIcon(iconName: string | null) {
+  if (!iconName) return BookOpen;
+  return iconMap[iconName] || BookOpen;
+}
+
+function getLanguageLabel(language: string): string {
+  const labels: Record<string, string> = {
+    spanish: 'Spanish',
+    french: 'French',
+    german: 'German',
+    italian: 'Italian',
+    portuguese: 'Portuguese',
+    japanese: 'Japanese',
+    korean: 'Korean',
+    'mandarin chinese': 'Mandarin',
+    english: 'English',
+  };
+  return labels[language.toLowerCase()] || language;
+}
+
+function getClassPrice(classLevel: number): { price: number; period: string } {
+  switch (classLevel) {
+    case 1: return { price: 49, period: '/class' };
+    case 2: return { price: 59, period: '/class' };
+    case 3: return { price: 69, period: '/class' };
+    case 4: return { price: 79, period: '/class' };
+    default: return { price: 49, period: '/class' };
   }
-  return <span className="text-sm font-medium">{value}</span>;
+}
+
+function getLevelBadge(classLevel: number): { label: string; variant: 'default' | 'secondary' | 'outline' } {
+  switch (classLevel) {
+    case 1: return { label: 'Beginner', variant: 'secondary' };
+    case 2: return { label: 'Intermediate', variant: 'default' };
+    case 3: return { label: 'Advanced', variant: 'outline' };
+    case 4: return { label: 'Superior', variant: 'outline' };
+    default: return { label: 'All Levels', variant: 'secondary' };
+  }
 }
 
 export default function Pricing() {
   const [, navigate] = useLocation();
-  const { isAuthenticated, user } = useAuth();
-  const currentTier = user?.subscriptionTier || 'free';
+  const { isAuthenticated } = useAuth();
 
-  const handleSelectPlan = (planId: string) => {
-    if (planId === 'institutional') {
-      window.location.href = 'mailto:sales@holahola.app?subject=Institutional%20Plan%20Inquiry';
-      return;
-    }
+  const { data: classTypes } = useQuery<ClassType[]>({
+    queryKey: ['/api/class-types'],
+  });
 
+  const { data: publicClasses } = useQuery<PublicClass[]>({
+    queryKey: ['/api/classes/public'],
+  });
+
+  const handleSelectClass = (classId: string) => {
     if (!isAuthenticated) {
-      sessionStorage.setItem('selectedPlan', planId);
+      sessionStorage.setItem('selectedClass', classId);
       navigate('/signup');
       return;
     }
+    navigate(`/enroll/${classId}`);
+  };
 
-    if (planId === 'free') {
-      navigate('/');
+  const handleSelectHours = (packageId: string) => {
+    if (!isAuthenticated) {
+      sessionStorage.setItem('selectedHourPackage', packageId);
+      navigate('/signup');
       return;
     }
-
-    navigate(`/checkout?plan=${planId}`);
+    navigate(`/checkout?package=${packageId}`);
   };
+
+  const handleContactSales = () => {
+    window.location.href = 'mailto:sales@holahola.app?subject=Institutional%20Plan%20Inquiry';
+  };
+
+  const featuredClasses = publicClasses?.filter(c => c.isFeatured).sort((a, b) => (a.featuredOrder || 0) - (b.featuredOrder || 0)) || [];
+  const classesByType = classTypes?.reduce((acc, type) => {
+    acc[type.id] = publicClasses?.filter(c => c.classTypeId === type.id) || [];
+    return acc;
+  }, {} as Record<string, PublicClass[]>) || {};
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
       <div className="container mx-auto px-4 py-8 md:py-12">
-        {/* Back button for authenticated users */}
         {isAuthenticated && (
           <Button
             variant="ghost"
@@ -132,134 +161,252 @@ export default function Pricing() {
           </Button>
         )}
 
-        {/* Header */}
         <div className="text-center mb-10 md:mb-14">
           <h1 className="text-3xl md:text-4xl font-bold mb-3" data-testid="text-pricing-title">
-            Choose Your Learning Plan
+            Learn Your Way
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Start free and upgrade anytime. All plans include access to our AI tutors across 9 languages.
+            Choose structured classes with expert-designed curricula, or practice independently with flexible hour packs.
           </p>
         </div>
 
-        {/* Plan Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-          {plans.map((plan) => {
-            const Icon = plan.icon;
-            const isCurrentPlan = isAuthenticated && currentTier === plan.id;
-            
-            return (
-              <Card
-                key={plan.id}
-                className={`relative flex flex-col ${
-                  plan.highlight
-                    ? 'border-primary shadow-lg scale-[1.02]'
-                    : ''
-                } ${isCurrentPlan ? 'ring-2 ring-primary' : ''}`}
-                data-testid={`card-plan-${plan.id}`}
-              >
-                {plan.badge && (
-                  <Badge
-                    className="absolute -top-3 left-1/2 -translate-x-1/2"
-                    variant="default"
-                  >
-                    {plan.badge}
-                  </Badge>
-                )}
-                {isCurrentPlan && (
-                  <Badge
-                    className="absolute -top-3 right-4"
-                    variant="secondary"
-                  >
-                    Current Plan
-                  </Badge>
-                )}
-                <CardHeader className="text-center pb-2">
-                  <div className="mx-auto p-3 rounded-full bg-primary/10 w-fit mb-2">
-                    <Icon className="h-6 w-6 text-primary" />
+        <Tabs defaultValue="classes" className="w-full">
+          <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8">
+            <TabsTrigger value="classes" className="gap-2" data-testid="tab-classes">
+              <BookOpen className="h-4 w-4" />
+              Classes
+            </TabsTrigger>
+            <TabsTrigger value="hours" className="gap-2" data-testid="tab-hours">
+              <Clock className="h-4 w-4" />
+              Self-Directed Hours
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="classes" className="space-y-10">
+            <div className="text-center">
+              <p className="text-muted-foreground">
+                Structured courses designed by language education experts following ACTFL standards.
+              </p>
+            </div>
+
+            {featuredClasses.length > 0 && (
+              <div className="space-y-4">
+                <h2 className="text-xl font-semibold flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  Featured Classes
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {featuredClasses.map((cls) => {
+                    const level = getLevelBadge(cls.classLevel);
+                    const pricing = getClassPrice(cls.classLevel);
+                    return (
+                      <Card key={cls.id} className="relative border-primary/20 flex flex-col" data-testid={`card-class-${cls.id}`}>
+                        <Badge className="absolute -top-2 -right-2" variant="default">Featured</Badge>
+                        <CardHeader className="pb-2">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Globe className="h-5 w-5 text-primary" />
+                            <Badge variant="outline">{getLanguageLabel(cls.language)}</Badge>
+                            <Badge variant={level.variant}>{level.label}</Badge>
+                          </div>
+                          <CardTitle className="text-lg">{cls.name}</CardTitle>
+                          <CardDescription className="line-clamp-2">{cls.description}</CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex-grow">
+                          <div className="mb-3">
+                            <span className="text-3xl font-bold">${pricing.price}</span>
+                            <span className="text-muted-foreground ml-1">{pricing.period}</span>
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            Target: {cls.targetActflLevel?.replace('_', ' ').toUpperCase() || 'Varies'}
+                          </div>
+                        </CardContent>
+                        <CardFooter>
+                          <Button
+                            className="w-full"
+                            onClick={() => handleSelectClass(cls.id)}
+                            data-testid={`button-enroll-${cls.id}`}
+                          >
+                            Enroll Now
+                          </Button>
+                        </CardFooter>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {classTypes?.map((type) => {
+              const classes = classesByType[type.id] || [];
+              if (classes.length === 0) return null;
+              const Icon = getIcon(type.icon);
+              
+              return (
+                <div key={type.id} className="space-y-4">
+                  <h2 className="text-xl font-semibold flex items-center gap-2">
+                    <Icon className="h-5 w-5 text-primary" />
+                    {type.name}
+                  </h2>
+                  {type.description && (
+                    <p className="text-muted-foreground text-sm">{type.description}</p>
+                  )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {classes.map((cls) => {
+                      const level = getLevelBadge(cls.classLevel);
+                      const pricing = getClassPrice(cls.classLevel);
+                      return (
+                        <Card key={cls.id} className="flex flex-col" data-testid={`card-class-${cls.id}`}>
+                          <CardHeader className="pb-2">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Globe className="h-5 w-5 text-primary" />
+                              <Badge variant="outline">{getLanguageLabel(cls.language)}</Badge>
+                              <Badge variant={level.variant}>{level.label}</Badge>
+                            </div>
+                            <CardTitle className="text-lg">{cls.name}</CardTitle>
+                            <CardDescription className="line-clamp-2">{cls.description}</CardDescription>
+                          </CardHeader>
+                          <CardContent className="flex-grow">
+                            <div className="mb-3">
+                              <span className="text-3xl font-bold">${pricing.price}</span>
+                              <span className="text-muted-foreground ml-1">{pricing.period}</span>
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              Target: {cls.targetActflLevel?.replace('_', ' ').toUpperCase() || 'Varies'}
+                            </div>
+                          </CardContent>
+                          <CardFooter>
+                            <Button
+                              variant="outline"
+                              className="w-full"
+                              onClick={() => handleSelectClass(cls.id)}
+                              data-testid={`button-enroll-${cls.id}`}
+                            >
+                              Enroll Now
+                            </Button>
+                          </CardFooter>
+                        </Card>
+                      );
+                    })}
                   </div>
-                  <CardTitle className="text-xl">{plan.name}</CardTitle>
-                  <CardDescription>{plan.description}</CardDescription>
-                </CardHeader>
-                <CardContent className="text-center flex-grow">
-                  <div className="mb-4">
-                    <span className="text-4xl font-bold">{plan.price}</span>
-                    <span className="text-muted-foreground ml-1">{plan.period}</span>
-                  </div>
-                </CardContent>
-                <CardFooter>
-                  <Button
-                    className="w-full"
-                    variant={plan.ctaVariant}
-                    onClick={() => handleSelectPlan(plan.id)}
-                    disabled={isCurrentPlan}
-                    data-testid={`button-select-${plan.id}`}
-                  >
-                    {isCurrentPlan ? 'Current Plan' : plan.cta}
+                </div>
+              );
+            })}
+
+            {(!publicClasses || publicClasses.length === 0) && (
+              <Card className="text-center py-12">
+                <CardContent>
+                  <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Classes Coming Soon</h3>
+                  <p className="text-muted-foreground mb-4">
+                    We're preparing expert-designed courses. In the meantime, try our self-directed hours!
+                  </p>
+                  <Button onClick={() => (document.querySelector('[data-testid="tab-hours"]') as HTMLElement)?.click()}>
+                    Explore Hour Packages
                   </Button>
-                </CardFooter>
+                </CardContent>
               </Card>
-            );
-          })}
+            )}
+          </TabsContent>
+
+          <TabsContent value="hours" className="space-y-8">
+            <div className="text-center">
+              <p className="text-muted-foreground">
+                Practice on your own schedule. Choose topics freely and learn at your own pace.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {hourPackages.map((pkg) => (
+                <Card
+                  key={pkg.id}
+                  className={`relative flex flex-col ${pkg.popular ? 'border-primary shadow-lg scale-[1.02]' : ''}`}
+                  data-testid={`card-hours-${pkg.id}`}
+                >
+                  {pkg.popular && (
+                    <Badge className="absolute -top-3 left-1/2 -translate-x-1/2" variant="default">
+                      Best Value
+                    </Badge>
+                  )}
+                  <CardHeader className="text-center pb-2">
+                    <div className="mx-auto p-3 rounded-full bg-primary/10 w-fit mb-2">
+                      <Clock className="h-6 w-6 text-primary" />
+                    </div>
+                    <CardTitle className="text-xl">{pkg.name}</CardTitle>
+                    <CardDescription>{pkg.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="text-center flex-grow">
+                    <div className="mb-2">
+                      <span className="text-4xl font-bold">${pkg.price}</span>
+                    </div>
+                    <div className="text-sm text-muted-foreground mb-4">
+                      {pkg.hours} hours (${pkg.pricePerHour.toFixed(2)}/hr)
+                    </div>
+                    <ul className="text-sm space-y-2 text-left">
+                      {pkg.features.map((feature, i) => (
+                        <li key={i} className="flex items-start gap-2">
+                          <Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />
+                          <span>{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                  <CardFooter>
+                    <Button
+                      className="w-full"
+                      variant={pkg.popular ? 'default' : 'outline'}
+                      onClick={() => handleSelectHours(pkg.id)}
+                      data-testid={`button-buy-${pkg.id}`}
+                    >
+                      Buy {pkg.hours} Hours
+                    </Button>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+
+            <div className="bg-muted/50 rounded-lg p-6 text-center">
+              <h3 className="font-semibold mb-2">How Self-Directed Hours Work</h3>
+              <p className="text-muted-foreground text-sm max-w-2xl mx-auto">
+                Purchase hours and use them anytime for voice conversations with AI tutors across all 9 languages.
+                Practice specific topics, prepare for trips, or maintain your skills. Hours never expire.
+              </p>
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        <div className="mt-16 bg-gradient-to-br from-primary/5 to-primary/10 rounded-lg p-8 md:p-12">
+          <div className="max-w-3xl mx-auto text-center">
+            <div className="inline-flex p-3 rounded-full bg-primary/10 mb-4">
+              <Building2 className="h-8 w-8 text-primary" />
+            </div>
+            <h2 className="text-2xl md:text-3xl font-bold mb-4">For Schools & Institutions</h2>
+            <p className="text-muted-foreground mb-6 max-w-xl mx-auto">
+              Bring HolaHola to your classroom with bulk pricing, teacher dashboards, student progress tracking,
+              and custom syllabi aligned to your curriculum.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 max-w-lg mx-auto">
+              <div className="flex items-center gap-2 justify-center text-sm">
+                <Users className="h-4 w-4 text-primary" />
+                <span>Bulk student licenses</span>
+              </div>
+              <div className="flex items-center gap-2 justify-center text-sm">
+                <GraduationCap className="h-4 w-4 text-primary" />
+                <span>Teacher dashboards</span>
+              </div>
+              <div className="flex items-center gap-2 justify-center text-sm">
+                <BookOpen className="h-4 w-4 text-primary" />
+                <span>Custom syllabi</span>
+              </div>
+            </div>
+            <Button size="lg" onClick={handleContactSales} data-testid="button-contact-sales">
+              Contact Sales
+            </Button>
+          </div>
         </div>
 
-        {/* Feature Comparison Table */}
-        <div className="bg-card rounded-lg border shadow-sm overflow-hidden">
-          <div className="p-6 border-b">
-            <h2 className="text-xl font-semibold" data-testid="text-compare-features">
-              Compare Features
-            </h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full" data-testid="table-features">
-              <thead>
-                <tr className="border-b bg-muted/50">
-                  <th className="text-left p-4 font-medium">Feature</th>
-                  <th className="text-center p-4 font-medium min-w-[100px]">Free</th>
-                  <th className="text-center p-4 font-medium min-w-[100px]">Basic</th>
-                  <th className="text-center p-4 font-medium min-w-[100px] bg-primary/5">Pro</th>
-                  <th className="text-center p-4 font-medium min-w-[100px]">Institutional</th>
-                </tr>
-              </thead>
-              <tbody>
-                {features.map((feature, index) => (
-                  <tr
-                    key={feature.name}
-                    className={index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}
-                    data-testid={`row-feature-${index}`}
-                  >
-                    <td className="p-4 text-sm">{feature.name}</td>
-                    <td className="p-4 text-center">
-                      <div className="flex justify-center">
-                        <FeatureValue value={feature.free} />
-                      </div>
-                    </td>
-                    <td className="p-4 text-center">
-                      <div className="flex justify-center">
-                        <FeatureValue value={feature.basic} />
-                      </div>
-                    </td>
-                    <td className="p-4 text-center bg-primary/5">
-                      <div className="flex justify-center">
-                        <FeatureValue value={feature.pro} />
-                      </div>
-                    </td>
-                    <td className="p-4 text-center">
-                      <div className="flex justify-center">
-                        <FeatureValue value={feature.institutional} />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* FAQ or Additional Info */}
         <div className="mt-12 text-center">
           <p className="text-muted-foreground">
-            Questions about our plans?{' '}
+            Questions about pricing?{' '}
             <a href="mailto:support@holahola.app" className="text-primary hover:underline">
               Contact our team
             </a>

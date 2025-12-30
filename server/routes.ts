@@ -8002,6 +8002,41 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // Public class catalogue for pricing page - no auth required
+  // SECURITY: Only returns public metadata for classes marked isPublicCatalogue=true
+  app.get("/api/classes/public", async (req, res) => {
+    try {
+      const allClasses = await storage.getAllActiveClasses();
+      const classTypesData = await storage.getActiveClassTypes();
+      const classTypeMap = new Map(classTypesData.map(ct => [ct.id, ct]));
+      
+      // SECURITY: Only show classes explicitly marked as public catalogue
+      const publicClasses = allClasses.filter(cls => cls.isPublicCatalogue && cls.isActive);
+      
+      // Return only safe public metadata
+      const sanitizedClasses = publicClasses.map(cls => {
+        const ct = cls.classTypeId ? classTypeMap.get(cls.classTypeId) : null;
+        return {
+          id: cls.id,
+          name: cls.name,
+          description: cls.description,
+          language: cls.language,
+          classTypeId: cls.classTypeId,
+          classType: ct ? { id: ct.id, name: ct.name, slug: ct.slug, icon: ct.icon } : null,
+          isFeatured: cls.isFeatured,
+          featuredOrder: cls.featuredOrder,
+          targetActflLevel: cls.targetActflLevel,
+          classLevel: cls.classLevel,
+        };
+      });
+      
+      res.json(sanitizedClasses);
+    } catch (error: any) {
+      console.error('Error fetching public classes:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Browse class catalogue - returns ONLY public classes marked with isPublicCatalogue=true
   // SECURITY: Only returns public metadata (id, name, description, language) - NO join codes
   // SECURITY: Only classes explicitly marked as public are visible - prevents institutional class leakage
