@@ -22,7 +22,7 @@ import {
   Target, Layers, GraduationCap, Globe, Mic, Clock,
   TrendingUp, TrendingDown, Minus, Trophy, AlertTriangle, Lightbulb, ChevronRight
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import type { ActflProgress, UnifiedProgressResponse, TimeVarianceSummary } from "@shared/schema";
 import { calculateContinuousScore } from "@/components/actfl/actfl-gauge-core";
 import brainImage from "@assets/transparent_colorful_cartoon_brain_Background_Removed_1765564186963.png";
@@ -1160,11 +1160,32 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
   const [expandedSegment, setExpandedSegment] = useState<BrainSegment | null>(null);
   const [observationsExpanded, setObservationsExpanded] = useState(false);
   
-  // Container dimensions for positioning
+  // Container dimensions for positioning (design at 460px, scales down on mobile)
   const containerWidth = 460;
   const containerHeight = 420;
   const centerX = containerWidth / 2;
   const centerY = containerHeight / 2 - 20; // Shift brain up slightly to make room below
+  
+  // Responsive scaling for mobile - minimum 0.85 to maintain touch targets and readability
+  const [scale, setScale] = useState(1);
+  const [isMobileView, setIsMobileView] = useState(false);
+  
+  useEffect(() => {
+    const updateScale = () => {
+      const screenWidth = window.innerWidth;
+      // Minimum scale 0.85 to keep touch targets ≥44px and text readable
+      if (screenWidth < 500) {
+        setScale(0.85);
+        setIsMobileView(true);
+      } else {
+        setScale(1);
+        setIsMobileView(false);
+      }
+    };
+    updateScale();
+    window.addEventListener('resize', updateScale);
+    return () => window.removeEventListener('resize', updateScale);
+  }, []);
   
   // Determine if we're in class/syllabus context
   const hasSyllabus = !!syllabusOverview && syllabusOverview.units.length > 0;
@@ -1280,14 +1301,23 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
     <div className={`${className} overflow-visible`} data-testid="syllabus-mind-map">
       {/* Brain visualization container - floating without background for cleaner mobile experience */}
       <div 
-        className="relative mx-auto overflow-visible"
+        className="relative mx-auto overflow-visible origin-top"
         style={{ 
-          width: containerWidth, 
-          height: containerHeight + 150, // Extra space for expanded panels
-          marginTop: 20, // Space for glow effects above bubbles
+          width: containerWidth * scale, 
+          height: (containerHeight + 150) * scale,
+          marginTop: 20,
         }}
         data-testid="brain-container"
       >
+        {/* Scaled inner wrapper */}
+        <div
+          className="relative origin-top-left"
+          style={{
+            transform: `scale(${scale})`,
+            width: containerWidth,
+            height: containerHeight + 150,
+          }}
+        >
         
         {/* Curved arrows from satellites to brain - above brain */}
         <svg className="absolute inset-0 w-full h-full pointer-events-none z-20">
@@ -1486,8 +1516,8 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
           })}
         </svg>
         
-        {/* Activity pills - teal/cyan theme (unused color) */}
-        <div className="flex justify-center gap-2" data-testid="activity-inputs">
+        {/* Activity pills - teal/cyan theme (unused color) - hidden on mobile for cleaner layout */}
+        <div className={`flex justify-center gap-2 ${isMobileView ? 'hidden' : ''}`} data-testid="activity-inputs">
           {[
             { name: 'Practice', Icon: Target },
             { name: 'Talk', Icon: Mic },
@@ -1517,6 +1547,7 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
             </div>
           ))}
         </div>
+        </div>{/* End inner scale container */}
       </div>
       
       {/* Time Tracking Display - only show when unified progress has time data */}

@@ -132,12 +132,12 @@ function Router() {
   }
 
   // For authenticated users, always define all routes
-  // Review Hub is now the main dashboard/landing page
+  // Dashboard is the main landing page with brain mind map
   return (
     <PageWrapper>
       <Switch>
-        <Route path="/" component={ReviewHub} />
-        <Route path="/dashboard" component={ReviewHub} />
+        <Route path="/" component={Dashboard} />
+        <Route path="/dashboard" component={Dashboard} />
         <Route path="/review" component={ReviewHub} />
         <Route path="/onboarding" component={Onboarding} />
         <Route path="/chat" component={Chat} />

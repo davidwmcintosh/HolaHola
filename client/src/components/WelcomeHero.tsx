@@ -16,28 +16,28 @@ export function WelcomeHero({ onStartPractice }: WelcomeHeroProps) {
 
   return (
     <div className="relative overflow-hidden rounded-lg">
-      <div className="relative h-96 flex items-center justify-center">
+      <div className="relative min-h-[200px] md:min-h-[280px] flex items-center justify-center py-8 md:py-12">
         <img 
           src={heroImage} 
           alt="Language learning illustration" 
           className="absolute inset-0 w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-background/95 via-background/80 to-background/60" />
-        <div className="relative z-10 max-w-2xl px-8 text-center">
-          <h1 className="text-5xl font-bold mb-4">
+        <div className="relative z-10 max-w-2xl px-4 md:px-8 text-center">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-2 md:mb-4">
             Master Any Language with AI
           </h1>
-          <p className="text-xl text-muted-foreground mb-8 leading-relaxed">
+          <p className="text-sm sm:text-base md:text-lg text-muted-foreground mb-4 md:mb-6 leading-relaxed">
             Practice conversations, build vocabulary, and perfect your grammar with personalized AI-powered lessons
           </p>
           <Button 
-            size="lg" 
-            className="text-base px-6 py-3"
+            size="default" 
+            className="text-sm md:text-base px-4 md:px-6"
             onClick={handleStartPractice}
             data-testid="button-start-practice"
           >
             Start Practicing
-            <ArrowRight className="ml-2 h-5 w-5" />
+            <ArrowRight className="ml-2 h-4 w-4 md:h-5 md:w-5" />
           </Button>
         </div>
       </div>
