@@ -90,8 +90,8 @@ export default function Landing() {
         </div>
         
 
-        <div className="container mx-auto px-4 pt-4 pb-6 md:pt-8 md:pb-12 relative z-10">
-          <div className="text-center space-y-4 max-w-4xl mx-auto">
+        <div className="container mx-auto px-6 md:px-8 pt-10 pb-10 md:pt-16 md:pb-16 relative z-10">
+          <div className="text-center space-y-5 max-w-4xl mx-auto">
             {/* Logo + Title on same line */}
             <div className="flex flex-col md:flex-row items-center justify-center gap-2 md:gap-4">
               <img 
