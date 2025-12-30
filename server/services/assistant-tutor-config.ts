@@ -44,16 +44,16 @@ export interface AssistantPersona {
  */
 export const ASSISTANT_TUTORS: Record<string, { female: string; male: string }> = {
   spanish: { female: 'Aris', male: 'Marco' },           // Aris: original, created by Daniela
-  french: { female: 'Amélie', male: 'Étienne' },        // Classic French names
-  german: { female: 'Greta', male: 'Felix' },           // Modern German names
-  italian: { female: 'Chiara', male: 'Matteo' },        // Common Italian names
-  japanese: { female: 'Hana', male: 'Kenji' },          // Elegant Japanese names (花, 健二)
-  'mandarin chinese': { female: 'Mei', male: 'Wei' },   // Beautiful/great (美, 伟)
-  mandarin: { female: 'Mei', male: 'Wei' },             // Alias for mandarin chinese
-  chinese: { female: 'Mei', male: 'Wei' },              // Alias for mandarin chinese
-  portuguese: { female: 'Clara', male: 'Rafael' },      // Brazilian Portuguese names
-  english: { female: 'Emma', male: 'Jack' },            // Friendly English names
-  korean: { female: 'Soo-yeon', male: 'Ji-ho' },        // Modern Korean names (수연, 지호)
+  french: { female: 'Colette', male: 'Henri' },         // Distinct from main tutors (Amélie/Étienne)
+  german: { female: 'Liesel', male: 'Klaus' },          // Distinct from main tutors (Greta/Felix)
+  italian: { female: 'Valentina', male: 'Luca' },       // Distinct from main tutors (Chiara/Matteo)
+  japanese: { female: 'Yuki', male: 'Takeshi' },        // Distinct from main tutors (Hana/Kenji)
+  'mandarin chinese': { female: 'Lian', male: 'Chen' }, // Distinct from main tutors (Mei/Wei)
+  mandarin: { female: 'Lian', male: 'Chen' },           // Alias for mandarin chinese
+  chinese: { female: 'Lian', male: 'Chen' },            // Alias for mandarin chinese
+  portuguese: { female: 'Beatriz', male: 'Tiago' },     // Distinct from main tutors (Lucia/Carlos)
+  english: { female: 'Grace', male: 'Oliver' },         // Distinct from main tutors (Emma/Jack)
+  korean: { female: 'Eun-ji', male: 'Min-ho' },         // Distinct from main tutors (Soo-yeon/Ji-ho)
 };
 
 /**

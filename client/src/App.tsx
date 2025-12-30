@@ -140,13 +140,13 @@ function Router() {
   }
 
   // For authenticated users, always define all routes
-  // Dashboard is the main landing page with brain mind map
+  // ReviewHub is the main landing page (Language Hub)
   return (
     <PageWrapper>
       <Switch>
-        <Route path="/" component={Dashboard} />
-        <Route path="/dashboard" component={Dashboard} />
-        <Route path="/review" component={ReviewHub} />
+        <Route path="/" component={ReviewHub} />
+        <Route path="/dashboard" component={ReviewHub} />
+        <Route path="/legacy-dashboard" component={Dashboard} />
         <Route path="/onboarding" component={Onboarding} />
         <Route path="/chat" component={Chat} />
         {/* Voice tutor route aliases - all redirect to /chat */}
