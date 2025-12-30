@@ -345,7 +345,7 @@ export default function Pricing() {
                   </CardHeader>
                   <CardContent className="text-center flex-grow">
                     <div className="mb-2">
-                      <span className="text-4xl font-bold">${pkg.price.toFixed(0)}</span>
+                      <span className="text-4xl font-bold">${pkg.price.toFixed(2)}</span>
                       {pkg.discount > 0 && (
                         <Badge variant="secondary" className="ml-2 text-green-600 dark:text-green-400">
                           {pkg.discount}% off
