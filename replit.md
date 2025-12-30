@@ -74,6 +74,17 @@ The Tutor Naming Architecture defines 36 total tutors: 18 main tutors (dynamic f
 - **Supported Commands**: SWITCH_TUTOR, PHASE_SHIFT, ACTFL_UPDATE, SYLLABUS_PROGRESS, CALL_SUPPORT/CALL_SOFIA, HIVE, SELF_SURGERY
 - **Observability**: All detected commands logged with source (json/bracketed) for debugging
 
+**Fluency Wiring System**: Connects 1,053 ACTFL Can-Do statements to 559 lessons for competency-based advancement:
+- **Core Philosophy**: ACTFL fluency standards delivered through conversational tutors (Daniela) who guide students through competency-based advancement rather than strict hour-based requirements
+- **AI-Powered Mapping**: `fluency-wiring-service.ts` uses Gemini to analyze lesson content and match to appropriate Can-Do statements by language, level, and skill (Speaking, Listening, Reading, Writing)
+- **Admin Endpoints**:
+  - GET `/api/admin/fluency-wiring/status` - Check current mapping coverage
+  - POST `/api/admin/fluency-wiring/map-all-lessons` - Bulk map all lessons to Can-Do statements
+  - POST `/api/admin/fluency-wiring/map-lesson/:lessonId` - Map single lesson
+- **Progress Recording**: When lessons complete with competency verified (`competency-verifier.ts`), Can-Do progress is recorded to `studentCanDoProgress` table with proficiency scores
+- **Startup Check**: `fluency-wiring-seed.ts` runs at server startup to report readiness status and guide admin trigger
+- **ACTFL Assessment Events**: Logged to `actflAssessmentEvents` table for tracking student advancement through proficiency levels (Novice→Intermediate→Advanced→Superior→Distinguished)
+
 ## External Dependencies
 - Stripe: Payment processing and subscription management.
 - Replit Auth: OIDC authentication.
