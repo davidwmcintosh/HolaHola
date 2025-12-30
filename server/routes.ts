@@ -40,6 +40,11 @@ import {
   dialectVariations,
   linguisticBridges,
   culturalTips,
+  lessonCanDoStatements,
+  canDoStatements,
+  studentCanDoProgress,
+  actflAssessmentEvents,
+  classCurriculumLessons,
 } from "@shared/schema";
 import { hasTeacherAccess, hasDeveloperAccess } from "@shared/permissions";
 import OpenAI, { toFile } from "openai";
@@ -11345,6 +11350,96 @@ Return ONLY the ${targetLanguage} phrase:`;
       res.json(leaderboard);
     } catch (error: any) {
       console.error('[Velocity Leaderboard] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===== FLUENCY WIRING SYSTEM =====
+  // These endpoints connect lessons to ACTFL Can-Do statements and track student fluency progress
+  
+  // Get fluency wiring status - how many lessons are linked to Can-Do statements
+  app.get("/api/admin/fluency-wiring/status", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const [lessonCount] = await db.select({ count: sql<number>`count(*)` }).from(classCurriculumLessons);
+      const [linkCount] = await db.select({ count: sql<number>`count(*)` }).from(lessonCanDoStatements);
+      const [canDoCount] = await db.select({ count: sql<number>`count(*)` }).from(canDoStatements);
+      const [progressCount] = await db.select({ count: sql<number>`count(*)` }).from(studentCanDoProgress);
+      const [assessmentCount] = await db.select({ count: sql<number>`count(*)` }).from(actflAssessmentEvents);
+      
+      res.json({
+        totalLessons: Number(lessonCount.count),
+        linkedLessons: Number(linkCount.count),
+        canDoStatements: Number(canDoCount.count),
+        studentProgressRecords: Number(progressCount.count),
+        assessmentEvents: Number(assessmentCount.count),
+        wiringComplete: Number(linkCount.count) > 0
+      });
+    } catch (error: any) {
+      console.error('[Fluency Wiring Status] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Map a single class's lessons to Can-Do statements
+  app.post("/api/admin/fluency-wiring/map-class/:classId", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { mapAllLessonsInClass } = await import('./services/fluency-wiring-service');
+      const { classId } = req.params;
+      
+      console.log(`[Fluency Wiring] Mapping class ${classId}`);
+      const result = await mapAllLessonsInClass(classId);
+      res.json(result);
+    } catch (error: any) {
+      console.error('[Fluency Wiring Map Class] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Map ALL lessons across ALL classes to Can-Do statements (bulk operation)
+  app.post("/api/admin/fluency-wiring/map-all", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { mapAllLessonsAcrossAllClasses } = await import('./services/fluency-wiring-service');
+      
+      console.log('[Fluency Wiring] Starting full system mapping...');
+      res.json({ message: 'Full mapping started. This may take several minutes.' });
+      
+      // Run async to avoid timeout
+      mapAllLessonsAcrossAllClasses().then(result => {
+        console.log('[Fluency Wiring] Full mapping complete:', result);
+      }).catch(err => {
+        console.error('[Fluency Wiring] Full mapping error:', err);
+      });
+    } catch (error: any) {
+      console.error('[Fluency Wiring Map All] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get a student's Can-Do progress for a language
+  app.get("/api/fluency/can-do-progress/:language", isAuthenticated, async (req: any, res) => {
+    try {
+      const { getStudentCanDoProgress } = await import('./services/fluency-wiring-service');
+      const userId = req.user?.claims?.sub || req.userId;
+      const { language } = req.params;
+      
+      const progress = await getStudentCanDoProgress(userId, language);
+      res.json(progress);
+    } catch (error: any) {
+      console.error('[Can-Do Progress] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get Can-Do statements linked to a specific lesson
+  app.get("/api/fluency/lesson-can-do/:lessonId", isAuthenticated, async (req: any, res) => {
+    try {
+      const { getLessonCanDoStatements } = await import('./services/fluency-wiring-service');
+      const { lessonId } = req.params;
+      
+      const statements = await getLessonCanDoStatements(lessonId);
+      res.json({ statements });
+    } catch (error: any) {
+      console.error('[Lesson Can-Do] Error:', error);
       res.status(500).json({ error: error.message });
     }
   });

@@ -390,6 +390,23 @@ export async function markLessonAsOrganicallyCompleted(
     }
 
     console.log(`[COMPETENCY] Marked lesson ${lessonId} as organically completed for student ${studentId}`);
+    
+    // FLUENCY WIRING: Record Can-Do statement progress for this lesson
+    try {
+      const { recordLessonCompletionCanDo } = await import('./fluency-wiring-service');
+      const canDoRecorded = await recordLessonCompletionCanDo(
+        studentId, 
+        lessonId, 
+        competencyResult.evidenceConversationIds[0]
+      );
+      if (canDoRecorded > 0) {
+        console.log(`[COMPETENCY] Recorded ${canDoRecorded} Can-Do statements for lesson completion`);
+      }
+    } catch (canDoError) {
+      console.error("[COMPETENCY] Error recording Can-Do progress:", canDoError);
+      // Don't fail the lesson completion if Can-Do recording fails
+    }
+    
     return true;
   } catch (error) {
     console.error("[COMPETENCY] Error marking lesson complete:", error);
