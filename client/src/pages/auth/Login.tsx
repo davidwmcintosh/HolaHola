@@ -98,20 +98,22 @@ export default function Login() {
         <CardContent className="pt-8 pb-6 px-6 md:px-8">
           {/* Logo and branding */}
           <div className="flex flex-col items-center mb-6">
-            <img 
-              src={holaholaLogo} 
-              alt="HolaHola" 
-              className="h-36 md:h-44 w-auto mb-4"
-              data-testid="img-logo"
-            />
-            <h1 
-              className="text-2xl font-bold text-foreground"
-              data-testid="text-login-title"
-            >
-              Welcome Back
-            </h1>
+            <div className="flex flex-row items-center justify-center gap-3">
+              <img 
+                src={holaholaLogo} 
+                alt="HolaHola" 
+                className="h-16 md:h-20 w-auto"
+                data-testid="img-logo"
+              />
+              <h1 
+                className="text-2xl md:text-3xl font-bold text-foreground"
+                data-testid="text-login-title"
+              >
+                Welcome Back
+              </h1>
+            </div>
             <p 
-              className="text-sm text-muted-foreground mt-1"
+              className="text-sm text-muted-foreground mt-2"
               data-testid="text-login-description"
             >
               Sign in to continue your language journey
