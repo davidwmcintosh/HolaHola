@@ -97,8 +97,8 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="h-full overflow-auto">
-      <div className="container mx-auto p-8 max-w-7xl">
+    <div className="h-full overflow-x-hidden overflow-y-auto">
+      <div className="w-full max-w-full px-4 py-6 md:px-8 mx-auto md:max-w-7xl overflow-hidden">
         {content}
       </div>
     </div>
@@ -224,11 +224,11 @@ function AuthenticatedApp({ style }: { style: { [key: string]: string } }) {
         <LearningFilterProvider>
           <PendingJoinCodeHandler />
           <SidebarProvider defaultOpen={true} style={style as React.CSSProperties}>
-            <div className="flex h-screen w-full">
+            <div className="flex h-screen w-full max-w-full overflow-hidden">
               {/* Sidebar renders as Sheet overlay on mobile, regular sidebar on desktop */}
               <AppSidebar />
-              <div className="flex flex-col flex-1 relative">
-                <main className="flex-1 overflow-auto">
+              <div className="flex flex-col flex-1 relative min-w-0 overflow-hidden">
+                <main className="flex-1 overflow-x-hidden overflow-y-auto">
                   <Router />
                 </main>
                 {/* Floating menu button - works on all screen sizes */}

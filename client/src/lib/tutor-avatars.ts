@@ -89,6 +89,79 @@ interface TutorAvatarSet {
   talking: string;
 }
 
+// Language accent colors for UI theming
+export const languageAccentColors: Record<SupportedLanguage, string> = {
+  spanish: '#F59E0B',    // Warm Orange
+  french: '#3B82F6',     // Royal Blue
+  german: '#CA8A04',     // Deep Gold
+  italian: '#22C55E',    // Forest Green
+  portuguese: '#14B8A6', // Ocean Teal
+  chinese: '#EF4444',    // Imperial Red
+  japanese: '#EC4899',   // Cherry Blossom
+  korean: '#0EA5E9',     // Sky Blue
+  english: '#8B5CF6',    // Purple
+};
+
+// Tutor personality taglines for showcase
+export const tutorTaglines: Record<SupportedLanguage, { male: string; female: string }> = {
+  spanish: { male: 'Patient & supportive', female: 'Warm & encouraging' },
+  french: { male: 'Charming & witty', female: 'Elegant & precise' },
+  german: { male: 'Structured & friendly', female: 'Clear & thorough' },
+  italian: { male: 'Animated & fun', female: 'Expressive & passionate' },
+  portuguese: { male: 'Relaxed & natural', female: 'Melodic & warm' },
+  chinese: { male: 'Calm & wise', female: 'Gentle & patient' },
+  japanese: { male: 'Thoughtful & precise', female: 'Polite & encouraging' },
+  korean: { male: 'Cool & supportive', female: 'Energetic & modern' },
+  english: { male: 'Casual & helpful', female: 'Friendly & clear' },
+};
+
+// Get accent color for a language
+export function getLanguageAccentColor(language: string | null | undefined): string {
+  const normalizedLanguage = normalizeLanguage(language);
+  return languageAccentColors[normalizedLanguage];
+}
+
+// Get tutor tagline for a language and gender
+export function getTutorTagline(language: string | null | undefined, gender: TutorGender): string {
+  const normalizedLanguage = normalizeLanguage(language);
+  return tutorTaglines[normalizedLanguage][gender];
+}
+
+// Export all tutor data for showcase component
+export interface TutorShowcaseData {
+  language: SupportedLanguage;
+  gender: TutorGender;
+  name: string;
+  tagline: string;
+  accentColor: string;
+  avatar: string;
+}
+
+export function getAllTutorsForShowcase(): TutorShowcaseData[] {
+  const languages: SupportedLanguage[] = [
+    'spanish', 'french', 'german', 'italian', 'portuguese',
+    'chinese', 'japanese', 'korean', 'english'
+  ];
+  const genders: TutorGender[] = ['female', 'male'];
+  
+  const tutors: TutorShowcaseData[] = [];
+  
+  for (const language of languages) {
+    for (const gender of genders) {
+      tutors.push({
+        language,
+        gender,
+        name: getTutorName(language, gender),
+        tagline: tutorTaglines[language][gender],
+        accentColor: languageAccentColors[language],
+        avatar: getTutorAvatar(language, gender, 'listening'),
+      });
+    }
+  }
+  
+  return tutors;
+}
+
 const femaleAvatars: Record<SupportedLanguage, TutorAvatarSet> = {
   chinese: { listening: chineseFemaleListening, thinking: chineseFemaleThinking, talking: chineseFemaleTalking },
   english: { listening: englishFemaleListening, thinking: englishFemaleThinking, talking: englishFemaleTalking },

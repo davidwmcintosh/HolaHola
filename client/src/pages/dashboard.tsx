@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { WelcomeHero } from "@/components/WelcomeHero";
 import { LearningAlerts } from "@/components/LearningAlerts";
 import { SyllabusMindMap } from "@/components/SyllabusMindMap";
+import { TutorShowcase, type TutorSelection } from "@/components/TutorShowcase";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLocation, Link } from "wouter";
@@ -10,26 +12,54 @@ import { Target, ArrowRight, Sparkles } from "lucide-react";
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
-  const { language } = useLanguage();
+  const { language, setLanguage } = useLanguage();
   const { setOpenMobile, isMobile } = useSidebar();
+  const [selectedTutor, setSelectedTutor] = useState<TutorSelection | null>(null);
   
   const handleStartPractice = () => {
     if (isMobile) {
       setOpenMobile(false);
     }
+    if (selectedTutor) {
+      setLanguage(selectedTutor.language);
+      localStorage.setItem('tutorGender', selectedTutor.gender);
+    }
     setLocation("/chat");
   };
+  
+  const handleTutorSelect = (selection: TutorSelection | null) => {
+    setSelectedTutor(selection);
+  };
+
+  const displayLanguage = selectedTutor?.language || language;
+  const ctaText = selectedTutor 
+    ? `Practice with ${selectedTutor.name}` 
+    : 'Start Practicing';
 
   return (
-    <div className="space-y-6 md:space-y-8">
-      <WelcomeHero onStartPractice={handleStartPractice} />
+    <div className="space-y-6 md:space-y-8 w-full max-w-full overflow-hidden">
+      <WelcomeHero 
+        onStartPractice={handleStartPractice} 
+        ctaText={ctaText}
+      />
+      
+      {/* Tutor Showcase */}
+      <TutorShowcase 
+        onTutorSelect={handleTutorSelect}
+        selectedLanguage={selectedTutor?.language}
+        selectedGender={selectedTutor?.gender}
+        className="py-2"
+      />
       
       {/* Learning Alerts */}
-      <LearningAlerts language={language} />
+      <LearningAlerts language={displayLanguage} />
       
       {/* Brain Mind Map - Central Feature */}
       <div className="w-full">
-        <SyllabusMindMap language={language} mode="emergent" />
+        <SyllabusMindMap 
+          language={displayLanguage} 
+          mode="emergent" 
+        />
       </div>
       
       {/* What's Next - Link to Review Hub */}
