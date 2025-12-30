@@ -114,7 +114,7 @@ export default function Landing() {
                 data-testid="button-get-started"
                 className="text-base px-8"
               >
-                Get Started Free
+                Create Account
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
               <Button
@@ -258,7 +258,7 @@ export default function Landing() {
               data-testid="button-get-started-cta"
               className="text-base px-8"
             >
-              Get Started Free
+              Create Account
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
             <Button
