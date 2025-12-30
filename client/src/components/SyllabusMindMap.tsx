@@ -91,7 +91,7 @@ const SEGMENT_CONFIG: Record<BrainSegment, {
     glowColor: 'rgba(96, 165, 250, 0.6)',
     icon: MessageSquare,
     categories: ['Social Situations', 'Communication', 'Conversations', 'Introductions'],
-    orbit: { angle: -55, distance: 150 },
+    orbit: { angle: -65, distance: 150 },
     cloudPath: 'M25,35 C10,35 5,25 15,15 C20,5 35,5 45,10 C55,5 70,8 75,18 C85,20 90,32 80,42 C85,52 75,60 60,58 C50,65 30,62 25,52 C12,55 8,45 25,35 Z',
     arrowTarget: { x: -40, y: -40 }, // Blue frontal lobe (top-left)
   },
