@@ -245,10 +245,10 @@ function LobeSatellite({
   };
 
   // Satellite sizes - mobile uses smaller expanded panels but same touch targets (≥44px)
-  const expandedWidth = isMobile ? 180 : 220;
-  const expandedHeight = isMobile ? 200 : 240;
-  const collapsedWidth = isMobile ? 80 : 100; // Still ≥44px touch target
-  const collapsedHeight = isMobile ? 64 : 80; // Still ≥44px touch target
+  const expandedWidth = isMobile ? 200 : 260;
+  const expandedHeight = isMobile ? 220 : 280;
+  const collapsedWidth = isMobile ? 100 : 130; // Larger pills
+  const collapsedHeight = isMobile ? 80 : 100; // Larger pills
 
   return (
     <div
@@ -572,13 +572,13 @@ function TutorObservationsBubble({
   // Don't render if no content (student hasn't had enough conversations yet)
   if (!isLoading && !hasContent) return null;
 
-  // Position in upper left corner - adjusted for mobile
-  const x = isMobile ? -100 : -170; // Less offset on mobile
-  const y = isMobile ? 10 : -5; // Slightly lower on mobile
+  // Position in upper left corner - keep within container bounds
+  const x = isMobile ? 10 : 20; // Stay inside container left edge
+  const y = isMobile ? 20 : 15; // Upper area
   
   // Dimensions - smaller on mobile but still readable (text stays ≥12px)
-  const collapsedWidth = isMobile ? 150 : 210;
-  const collapsedHeight = isMobile ? 120 : 165;
+  const collapsedWidth = isMobile ? 160 : 220;
+  const collapsedHeight = isMobile ? 130 : 175;
   const expandedWidth = isMobile ? 280 : 380;
   const expandedHeight = isMobile ? 320 : 450;
 
