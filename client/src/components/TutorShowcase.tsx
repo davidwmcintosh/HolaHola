@@ -19,7 +19,7 @@ function TutorCard({ tutor, onSelect }: TutorCardProps) {
       className="relative flex flex-col items-center p-3 pt-2 cursor-pointer transition-all duration-200 ease-out hover-elevate hover:scale-[1.03] shrink-0"
       style={{ 
         width: 110,
-        height: 160,
+        height: 130,
       }}
       onClick={onSelect}
       onKeyDown={(e) => e.key === 'Enter' && onSelect()}
