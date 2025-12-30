@@ -224,17 +224,20 @@ function fallbackMapping(
 
 /**
  * Bulk map all lessons in a class to Can-Do statements
+ * RESUMABLE: Skips lessons that already have Can-Do links
  */
 export async function mapAllLessonsInClass(classId: string): Promise<{
   success: boolean;
   linksCreated: number;
   lessonsProcessed: number;
+  lessonsSkipped: number;
   errors: string[];
 }> {
   console.log(`[FLUENCY-WIRING] Starting bulk mapping for class ${classId}`);
   
   const errors: string[] = [];
   let linksCreated = 0;
+  let lessonsSkipped = 0;
 
   // Get class language
   const [classInfo] = await db
@@ -244,13 +247,15 @@ export async function mapAllLessonsInClass(classId: string): Promise<{
     .limit(1);
 
   if (!classInfo) {
-    return { success: false, linksCreated: 0, lessonsProcessed: 0, errors: ['Class not found'] };
+    return { success: false, linksCreated: 0, lessonsProcessed: 0, lessonsSkipped: 0, errors: ['Class not found'] };
   }
 
-  // Get all lessons in this class
+  // Get all lessons in this class - using SOURCE template lesson IDs
+  // (lessonCanDoStatements references curriculumLessons, not classCurriculumLessons)
   const lessons = await db
     .select({
       id: classCurriculumLessons.id,
+      sourceLessonId: classCurriculumLessons.sourceLessonId, // Template lesson ID
       name: classCurriculumLessons.name,
       lessonType: classCurriculumLessons.lessonType,
       objectives: classCurriculumLessons.objectives,
@@ -261,12 +266,23 @@ export async function mapAllLessonsInClass(classId: string): Promise<{
     .innerJoin(classCurriculumUnits, eq(classCurriculumLessons.classUnitId, classCurriculumUnits.id))
     .where(eq(classCurriculumUnits.classId, classId));
 
-  console.log(`[FLUENCY-WIRING] Found ${lessons.length} lessons to map`);
+  // Get already-linked source lessons to skip (for resumability)
+  const alreadyLinked = await db
+    .select({ lessonId: lessonCanDoStatements.lessonId })
+    .from(lessonCanDoStatements);
+  const linkedLessonIds = new Set(alreadyLinked.map(l => l.lessonId));
+  
+  // Filter to lessons with source templates that haven't been linked yet
+  const lessonsToMap = lessons.filter(l => l.sourceLessonId && !linkedLessonIds.has(l.sourceLessonId));
+  console.log(`[FLUENCY-WIRING] Found ${lessons.length} lessons, ${lessonsToMap.length} need mapping, ${linkedLessonIds.size} already linked`);
 
-  for (const lesson of lessons) {
+  for (const lesson of lessonsToMap) {
     try {
+      // Use sourceLessonId for mapping (links to template lessons in curriculumLessons)
+      const sourceLessonId = lesson.sourceLessonId!;
+      
       const mapping = await mapLessonToCanDoStatements(
-        lesson.id,
+        sourceLessonId,
         lesson.name || 'Untitled Lesson',
         lesson.lessonType || 'conversation',
         (lesson.objectives as string[]) || [],
@@ -275,10 +291,10 @@ export async function mapAllLessonsInClass(classId: string): Promise<{
         lesson.actflLevel || 'novice_low'
       );
 
-      // Insert the links
+      // Insert the links using source template lesson ID
       for (const canDoId of mapping.canDoStatementIds) {
         await db.insert(lessonCanDoStatements).values({
-          lessonId: lesson.id,
+          lessonId: sourceLessonId,
           canDoStatementId: canDoId
         }).onConflictDoNothing();
         linksCreated++;
@@ -291,12 +307,14 @@ export async function mapAllLessonsInClass(classId: string): Promise<{
     }
   }
 
-  console.log(`[FLUENCY-WIRING] Completed mapping for class ${classId}: ${linksCreated} links created`);
+  lessonsSkipped = lessons.length - lessonsToMap.length;
+  console.log(`[FLUENCY-WIRING] Completed mapping for class ${classId}: ${linksCreated} links created, ${lessonsSkipped} skipped`);
 
   return {
     success: errors.length === 0,
     linksCreated,
-    lessonsProcessed: lessons.length,
+    lessonsProcessed: lessonsToMap.length,
+    lessonsSkipped,
     errors
   };
 }

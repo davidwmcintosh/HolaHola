@@ -18239,7 +18239,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
     }
   });
   
-  // Agent: Trigger fluency wiring bulk mapping
+  // Agent: Trigger fluency wiring bulk mapping (all classes)
   app.post("/api/agent/fluency-wiring/map-all", requireAgentToken, async (req: any, res) => {
     try {
       const agentId = req.agentId || 'replit-agent';
@@ -18257,6 +18257,44 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
     } catch (error: any) {
       console.error('[AGENT-FLUENCY] Bulk mapping error:', error);
       logAgentAction('fluency_wiring', '/api/agent/fluency-wiring/map-all', false, error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Agent: Map a single class (more reliable than all at once)
+  app.post("/api/agent/fluency-wiring/map-class/:classId", requireAgentToken, async (req: any, res) => {
+    try {
+      const agentId = req.agentId || 'replit-agent';
+      const { classId } = req.params;
+      console.log(`[AGENT-FLUENCY] Mapping class ${classId} triggered by agent: ${agentId}`);
+      logAgentAction('fluency_wiring_class', `/api/agent/fluency-wiring/map-class/${classId}`, true, `Triggered by ${agentId}`);
+      
+      const { mapAllLessonsInClass } = await import('./services/fluency-wiring-service');
+      const result = await mapAllLessonsInClass(classId);
+      
+      res.json({
+        success: true,
+        classId,
+        triggeredBy: agentId,
+        ...result
+      });
+    } catch (error: any) {
+      console.error('[AGENT-FLUENCY] Class mapping error:', error);
+      logAgentAction('fluency_wiring_class', req.path, false, error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Agent: Get list of classes for mapping
+  app.get("/api/agent/fluency-wiring/classes", requireAgentToken, async (req: any, res) => {
+    try {
+      const classes = await db
+        .select({ id: teacherClasses.id, name: teacherClasses.name, language: teacherClasses.language })
+        .from(teacherClasses);
+      
+      res.json({ classes, total: classes.length });
+    } catch (error: any) {
+      console.error('[AGENT-FLUENCY] Classes list error:', error);
       res.status(500).json({ error: error.message });
     }
   });
