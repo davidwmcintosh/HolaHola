@@ -368,3 +368,108 @@ export async function generateLessonsForGaps(
 
   return { generated: draftIds.length, draftIds, errors };
 }
+
+/**
+ * Get all coverage gaps across all languages
+ */
+export async function getAllCoverageGaps(): Promise<{
+  totalGaps: number;
+  byLanguage: Record<string, number>;
+  gaps: Array<{ id: string; language: string; actflLevel: string; category: string; statement: string }>;
+}> {
+  const allCanDos = await db.select().from(canDoStatements);
+  
+  const coveredIds = await db
+    .select({ id: lessonCanDoStatements.canDoStatementId })
+    .from(lessonCanDoStatements);
+  
+  const coveredSet = new Set(coveredIds.map(c => c.id));
+  const uncovered = allCanDos.filter(c => !coveredSet.has(c.id));
+  
+  const byLanguage: Record<string, number> = {};
+  for (const gap of uncovered) {
+    byLanguage[gap.language] = (byLanguage[gap.language] || 0) + 1;
+  }
+  
+  // Prioritize by level
+  const levelPriority: Record<string, number> = {
+    advanced_high: 9, advanced_mid: 8, advanced_low: 7,
+    intermediate_high: 6, intermediate_mid: 5, intermediate_low: 4,
+    novice_high: 3, novice_mid: 2, novice_low: 1
+  };
+  
+  const sortedGaps = uncovered
+    .sort((a, b) => (levelPriority[b.actflLevel] || 0) - (levelPriority[a.actflLevel] || 0))
+    .map(g => ({
+      id: g.id,
+      language: g.language,
+      actflLevel: g.actflLevel,
+      category: g.category,
+      statement: g.statement
+    }));
+  
+  return {
+    totalGaps: uncovered.length,
+    byLanguage,
+    gaps: sortedGaps
+  };
+}
+
+/**
+ * Generate lessons for ALL gaps across all languages
+ * Runs in background with progress tracking
+ */
+export async function generateAllGapsAutomation(
+  createdBy?: string,
+  batchSize: number = 10,
+  delayBetweenBatches: number = 5000
+): Promise<{ jobId: string }> {
+  const jobId = `gap-fill-${Date.now()}`;
+  
+  // Run in background
+  (async () => {
+    console.log(`[AI-LESSON] Starting automated gap fill job: ${jobId}`);
+    
+    const { gaps } = await getAllCoverageGaps();
+    console.log(`[AI-LESSON] Found ${gaps.length} total gaps to fill`);
+    
+    let generated = 0;
+    let errors = 0;
+    
+    for (let i = 0; i < gaps.length; i += batchSize) {
+      const batch = gaps.slice(i, i + batchSize);
+      console.log(`[AI-LESSON] Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(gaps.length / batchSize)}`);
+      
+      for (const gap of batch) {
+        try {
+          const result = await generateAndSaveLessonDraft(gap.id, createdBy);
+          if (result.success) {
+            generated++;
+            console.log(`[AI-LESSON] Generated ${generated}/${gaps.length}: ${gap.language} - ${gap.statement.substring(0, 40)}...`);
+          } else {
+            errors++;
+            console.error(`[AI-LESSON] Failed: ${result.error}`);
+          }
+        } catch (err: any) {
+          errors++;
+          console.error(`[AI-LESSON] Error: ${err.message}`);
+        }
+        
+        // Rate limit between individual generations
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      }
+      
+      // Longer delay between batches
+      if (i + batchSize < gaps.length) {
+        console.log(`[AI-LESSON] Batch complete. Waiting ${delayBetweenBatches / 1000}s before next batch...`);
+        await new Promise(resolve => setTimeout(resolve, delayBetweenBatches));
+      }
+    }
+    
+    console.log(`[AI-LESSON] Job ${jobId} complete: ${generated} generated, ${errors} errors`);
+  })().catch(err => {
+    console.error(`[AI-LESSON] Job ${jobId} failed:`, err);
+  });
+  
+  return { jobId };
+}

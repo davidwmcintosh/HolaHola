@@ -160,6 +160,29 @@ export default function FluencyCoverage() {
     }
   });
 
+  const fillAllGapsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/admin/lesson-drafts/fill-all-gaps", {
+        batchSize: 10,
+        delayBetweenBatches: 5000
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Automated Gap Fill Started",
+        description: `${data.message} Estimated time: ${data.estimatedTime}`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Automation Failed",
+        description: error.message || "Failed to start automated gap fill",
+        variant: "destructive",
+      });
+    }
+  });
+
   const handleGenerateLesson = (canDoStatementId: string) => {
     setGeneratingId(canDoStatementId);
     generateLessonMutation.mutate(canDoStatementId);
@@ -182,7 +205,7 @@ export default function FluencyCoverage() {
                 Monitor Can-Do statement coverage across lessons and identify content gaps
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
                 <SelectTrigger className="w-48" data-testid="select-language">
                   <SelectValue placeholder="Select language" />
@@ -195,6 +218,18 @@ export default function FluencyCoverage() {
                   ))}
                 </SelectContent>
               </Select>
+              <Button
+                onClick={() => fillAllGapsMutation.mutate()}
+                disabled={fillAllGapsMutation.isPending}
+                data-testid="button-fill-all-gaps"
+              >
+                {fillAllGapsMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4 mr-2" />
+                )}
+                Fill All Gaps
+              </Button>
               <Button variant="outline" asChild data-testid="link-review-queue">
                 <Link href="/admin/lesson-drafts">
                   <FileText className="h-4 w-4 mr-2" />

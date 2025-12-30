@@ -11523,6 +11523,52 @@ Return ONLY the ${targetLanguage} phrase:`;
       res.status(500).json({ error: error.message });
     }
   });
+  
+  // Get all coverage gaps summary
+  app.get("/api/admin/lesson-drafts/gaps-summary", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { getAllCoverageGaps } = await import('./services/ai-lesson-generator');
+      const gaps = await getAllCoverageGaps();
+      res.json(gaps);
+    } catch (error: any) {
+      console.error('[Coverage Gaps Summary] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Start automated gap filling for ALL languages
+  app.post("/api/admin/lesson-drafts/fill-all-gaps", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const { batchSize = 10, delayBetweenBatches = 5000 } = req.body;
+      
+      const { generateAllGapsAutomation, getAllCoverageGaps } = await import('./services/ai-lesson-generator');
+      
+      // Get gap count first
+      const { totalGaps, byLanguage } = await getAllCoverageGaps();
+      
+      if (totalGaps === 0) {
+        return res.json({ 
+          message: "No gaps to fill - all Can-Do statements are covered!",
+          totalGaps: 0 
+        });
+      }
+      
+      // Start background job
+      const { jobId } = await generateAllGapsAutomation(userId, batchSize, delayBetweenBatches);
+      
+      res.json({
+        message: `Started automated gap fill job. Generating ${totalGaps} lessons across ${Object.keys(byLanguage).length} languages.`,
+        jobId,
+        totalGaps,
+        byLanguage,
+        estimatedTime: `~${Math.ceil(totalGaps * 2 / 60)} minutes`
+      });
+    } catch (error: any) {
+      console.error('[Fill All Gaps] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   // Get a student's Can-Do progress for a language
   app.get("/api/fluency/can-do-progress/:language", isAuthenticated, async (req: any, res) => {
