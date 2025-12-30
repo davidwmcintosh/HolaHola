@@ -101,7 +101,7 @@ export default function Login() {
             <img 
               src={holaholaLogo} 
               alt="HolaHola" 
-              className="h-16 w-auto mb-3"
+              className="h-36 md:h-44 w-auto mb-4"
               data-testid="img-logo"
             />
             <h1 
