@@ -2,38 +2,53 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Globe, MessageCircle, BookOpen, TrendingUp, Volume2, Target, ArrowRight } from "lucide-react";
 import holaholaLogo from '@assets/holaholamainlogoBackgroundRemoved_1765308837223.png';
+import brainImage from "@assets/transparent_colorful_cartoon_brain_Background_Removed_1765564186963.png";
 
-// Floating language greetings for visual interest
-const floatingGreetings = [
-  { text: 'Hola', color: 'text-orange-500', position: 'top-[12%] left-[8%]', size: 'text-3xl md:text-4xl', delay: '0s' },
-  { text: 'Bonjour', color: 'text-blue-500', position: 'top-[18%] right-[10%]', size: 'text-2xl md:text-3xl', delay: '0.5s' },
-  { text: '你好', color: 'text-red-500', position: 'top-[28%] left-[5%]', size: 'text-4xl md:text-5xl', delay: '1s' },
-  { text: 'Ciao', color: 'text-green-600', position: 'top-[22%] right-[25%]', size: 'text-xl md:text-2xl', delay: '1.5s' },
-  { text: 'こんにちは', color: 'text-pink-500', position: 'top-[35%] right-[5%]', size: 'text-lg md:text-xl', delay: '2s' },
-  { text: 'Olá', color: 'text-emerald-500', position: 'top-[8%] right-[35%]', size: 'text-2xl md:text-3xl', delay: '2.5s' },
-  { text: 'Guten Tag', color: 'text-amber-600', position: 'top-[32%] left-[15%]', size: 'text-lg md:text-xl', delay: '3s' },
-  { text: '안녕', color: 'text-purple-500', position: 'top-[15%] left-[25%]', size: 'text-xl md:text-2xl', delay: '3.5s' },
-  { text: 'नमस्ते', color: 'text-orange-600', position: 'top-[38%] left-[3%]', size: 'text-2xl md:text-3xl', delay: '4s' },
+// Tutor avatars for watermark display
+import spanishFemale from "@assets/tutor-listening-no-background_1764099971094.png";
+import spanishMale from "@assets/Boy-tutor-waiting-No-Background_1764186322051.png";
+import frenchFemale from "@assets/Tutor_Images/Female/French_Female_Speaking_No_Background.jpg";
+import germanMale from "@assets/Tutor_Images/Male/German_Male_Talking.jpg";
+import italianFemale from "@assets/Tutor_Images/Female/Italian_Female_Talking_No_Background.jpg";
+import japaneseMale from "@assets/Tutor_Images/Male/Japanese_Male_Talking.jpg";
+
+// Tutor bubbles positioned around the hero
+const tutorBubbles = [
+  { avatar: spanishFemale, position: 'top-[5%] left-[3%]', size: 'w-16 h-16 md:w-24 md:h-24', bubbleColor: 'border-orange-400' },
+  { avatar: spanishMale, position: 'top-[8%] right-[5%]', size: 'w-14 h-14 md:w-20 md:h-20', bubbleColor: 'border-orange-300' },
+  { avatar: frenchFemale, position: 'top-[25%] left-[2%]', size: 'w-12 h-12 md:w-18 md:h-18', bubbleColor: 'border-blue-400' },
+  { avatar: germanMale, position: 'top-[30%] right-[3%]', size: 'w-14 h-14 md:w-20 md:h-20', bubbleColor: 'border-amber-400' },
+  { avatar: italianFemale, position: 'top-[15%] left-[8%]', size: 'w-10 h-10 md:w-16 md:h-16', bubbleColor: 'border-green-400' },
+  { avatar: japaneseMale, position: 'top-[20%] right-[8%]', size: 'w-12 h-12 md:w-18 md:h-18', bubbleColor: 'border-pink-400' },
 ];
 
 export default function Landing() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-50 via-background to-orange-50 dark:from-sky-950/20 dark:via-background dark:to-orange-950/20 overflow-hidden">
-      {/* Hero Section with floating greetings */}
+      {/* Hero Section with tutor avatars watermark */}
       <div className="relative">
-        {/* Floating greetings background - hidden on mobile */}
+        {/* Brain watermark - centered behind content */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
+          <img 
+            src={brainImage} 
+            alt="" 
+            className="w-[400px] md:w-[500px] lg:w-[600px] opacity-[0.08] dark:opacity-[0.05]"
+          />
+        </div>
+        
+        {/* Tutor avatar bubbles - hidden on mobile */}
         <div className="hidden md:block absolute inset-0 pointer-events-none overflow-hidden">
-          {floatingGreetings.map((greeting, index) => (
-            <span
+          {tutorBubbles.map((tutor, index) => (
+            <div
               key={index}
-              className={`absolute ${greeting.position} ${greeting.color} ${greeting.size} font-bold opacity-15 dark:opacity-10 select-none`}
-              style={{
-                animation: `float 6s ease-in-out infinite`,
-                animationDelay: greeting.delay,
-              }}
+              className={`absolute ${tutor.position} ${tutor.size} rounded-full border-2 ${tutor.bubbleColor} bg-white/80 dark:bg-gray-800/80 shadow-lg opacity-40 dark:opacity-30 overflow-hidden`}
             >
-              {greeting.text}
-            </span>
+              <img 
+                src={tutor.avatar} 
+                alt="" 
+                className="w-full h-full object-cover object-top"
+              />
+            </div>
           ))}
         </div>
 
@@ -206,14 +221,6 @@ export default function Landing() {
       <footer className="container mx-auto px-4 py-8 text-center text-sm text-muted-foreground border-t">
         <p>HolaHola - AI-Powered Language Learning</p>
       </footer>
-
-      {/* CSS animation for floating effect */}
-      <style>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0px) rotate(-2deg); }
-          50% { transform: translateY(-15px) rotate(2deg); }
-        }
-      `}</style>
     </div>
   );
 }
