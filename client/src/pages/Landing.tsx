@@ -115,20 +115,19 @@ export default function Landing() {
         </div>
 
         <div className="container mx-auto px-4 pt-4 pb-6 md:pt-8 md:pb-12 relative z-10">
-          <div className="text-center space-y-4 max-w-3xl mx-auto">
-            {/* Logo - large but tighter to top */}
-            <div className="flex justify-center">
+          <div className="text-center space-y-4 max-w-4xl mx-auto">
+            {/* Logo + Title on same line */}
+            <div className="flex flex-col md:flex-row items-center justify-center gap-2 md:gap-4">
               <img 
                 src={holaholaLogo} 
                 alt="HolaHola" 
-                className="h-32 md:h-48 lg:h-56 w-auto"
+                className="h-20 md:h-24 lg:h-28 w-auto"
                 data-testid="img-landing-logo"
               />
+              <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold tracking-tight text-foreground">
+                Master Any Language with AI
+              </h1>
             </div>
-            
-            <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold tracking-tight text-foreground">
-              Master Any Language with AI
-            </h1>
             <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
               Practice conversations, build vocabulary, and perfect your grammar with personalized AI tutors who adapt to your learning style
             </p>
