@@ -569,8 +569,7 @@ function TutorObservationsBubble({
     context.recentProgress.length > 0
   );
 
-  // Don't render if no content (student hasn't had enough conversations yet)
-  if (!isLoading && !hasContent) return null;
+  // Always show the bubble - display placeholder if no content yet
 
   // Position in upper left corner - keep within container bounds
   const x = isMobile ? 10 : 20; // Stay inside container left edge
@@ -770,6 +769,21 @@ function TutorObservationsBubble({
             
             {/* Content - scrollable */}
             <div className="space-y-3 max-h-[250px] overflow-y-auto pr-1">
+              {/* Placeholder when no content yet */}
+              {!hasContent && (
+                <div className="flex flex-col items-center justify-center py-6 text-center">
+                  <div className="p-3 rounded-full bg-primary/10 mb-3">
+                    <Sparkles className="h-6 w-6 text-primary/60" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Start practicing to unlock personalized insights!
+                  </p>
+                  <p className="text-xs text-muted-foreground/70 mt-1">
+                    {tutorName} will track your progress and learning patterns.
+                  </p>
+                </div>
+              )}
+              
               {/* Breakthroughs */}
               {breakthroughCount > 0 && (
                 <div className="space-y-1.5">
