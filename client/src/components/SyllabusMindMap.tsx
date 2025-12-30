@@ -1568,7 +1568,7 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
       )}
       
       {/* Instructions hint */}
-      <div className="text-center mt-3">
+      <div className="text-center mt-1">
         <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
           <ChevronUp className="h-3 w-3" />
           Tap a lobe to explore topics
