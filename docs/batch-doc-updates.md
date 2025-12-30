@@ -8,6 +8,96 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: December 30, 2025 - Cross-Language Tutor Transfer Gate
+
+**Status**: COMPLETED - Two-layer validation with feature flag
+
+**Overview**: Implemented a security gate blocking cross-language tutor transfers while preserving code for future enrollment-based expansion. Same-language gender switches continue to work normally.
+
+#### What Was Implemented
+
+| Feature | Description |
+|---------|-------------|
+| Feature Flag | `CROSS_LANGUAGE_TRANSFERS_ENABLED` (default: false) controls gate behavior |
+| Primary Validation | `validateTutorTransfer()` helper checks targetLanguage before switch |
+| Defense-in-Depth | Secondary check on computed effectiveLanguage catches edge cases |
+| Retry Prevention | `crossLanguageTransferBlocked` session flag prevents retry attempts within same turn |
+| User Feedback | `tutor_transfer_blocked` WebSocket message for denial notifications |
+
+#### Two-Layer Protection Architecture
+
+```
+Layer 1: validateTutorTransfer(sessionLanguage, targetLanguage)
+    ↓ Catches explicit cross-language requests
+    
+Layer 2: Defense-in-Depth check on effectiveLanguage
+    ↓ Catches cases where language differs after inference
+    
+Result: Cross-language blocked, same-language allowed
+```
+
+#### validateTutorTransfer Helper
+
+```typescript
+// server/services/streaming-voice-orchestrator.ts
+const CROSS_LANGUAGE_TRANSFERS_ENABLED = false;
+
+function validateTutorTransfer(
+  currentLanguage: string,
+  targetLanguage: string | undefined
+): { allowed: true } | { allowed: false; reason: string } {
+  if (!CROSS_LANGUAGE_TRANSFERS_ENABLED && targetLanguage && 
+      targetLanguage.toLowerCase() !== currentLanguage.toLowerCase()) {
+    return {
+      allowed: false,
+      reason: 'Cross-language transfers are currently disabled.',
+    };
+  }
+  return { allowed: true };
+}
+```
+
+#### Retry Prevention Flow
+
+```
+1. AI attempts cross-language switch
+2. validateTutorTransfer blocks it
+3. crossLanguageTransferBlocked flag set to true
+4. AI generates response (may retry switch)
+5. Command parsing checks flag → skips if blocked
+6. Flag resets at start of next turn
+```
+
+#### Key Files Modified
+
+| File | Changes |
+|------|---------|
+| `server/services/streaming-voice-orchestrator.ts` | Feature flag, validateTutorTransfer, retry prevention, WebSocket message |
+
+#### Integration Points
+
+| Voice Mode | Validation Location | Defense Location |
+|------------|---------------------|------------------|
+| PTT (Push-to-Talk) | Line ~2662 | Line ~2691 |
+| Open-mic | Line ~3546 | Line ~3574 |
+
+#### Future Expansion (Feature Flag = true)
+
+When `CROSS_LANGUAGE_TRANSFERS_ENABLED` is set to `true`:
+- All cross-language transfers will be allowed
+- Enrollment-based restrictions can be added as a secondary gate
+- See `docs/enrollment-based-cross-language-transfers.md` for implementation plan
+
+#### Architecture Decision
+
+Two-layer validation ensures robust protection:
+1. **Layer 1** catches when AI explicitly specifies a different language
+2. **Layer 2** catches edge cases where effectiveLanguage differs from targetLanguage (e.g., after inference)
+
+This defense-in-depth approach prevents bypasses via parameter manipulation or inference edge cases.
+
+---
+
 ### Session: December 28, 2025 - ACTION_TRIGGERS Command System Cleanup
 
 **Status**: COMPLETED - Prompt deduplication and robust cross-language handoffs
