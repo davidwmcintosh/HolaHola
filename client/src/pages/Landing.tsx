@@ -115,7 +115,6 @@ export default function Landing() {
                 className="text-base px-8"
               >
                 Create Account
-                <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
               <Button
                 size="lg"
@@ -259,7 +258,6 @@ export default function Landing() {
               className="text-base px-8"
             >
               Create Account
-              <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
             <Button
               size="lg"
