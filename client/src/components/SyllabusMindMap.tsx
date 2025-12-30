@@ -1480,9 +1480,9 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
       <div className={`relative ${isMobileView ? '-mt-32 -mb-40' : '-mt-64 -mb-64'}`} data-testid="activity-inputs-container">
         {/* Flow lines SVG - animated gradients rising to brain */}
         <svg 
-          className="absolute left-1/2 -translate-x-1/2 bottom-8 pointer-events-none"
+          className="absolute left-1/2 -translate-x-1/2 bottom-0 pointer-events-none"
           width="400" 
-          height="50"
+          height="30"
           style={{ overflow: 'visible' }}
         >
           <defs>
