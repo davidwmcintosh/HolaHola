@@ -276,6 +276,10 @@ export default function Landing() {
       {/* Footer */}
       <footer className="container mx-auto px-4 py-8 text-center text-sm text-muted-foreground border-t">
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-2">
+          <Link href="/classes" className="text-primary hover:underline" data-testid="link-browse-classes">
+            Browse Classes
+          </Link>
+          <span className="hidden sm:inline text-muted-foreground/50">|</span>
           <Link href="/pricing" className="text-primary hover:underline" data-testid="link-pricing">
             View Plans & Pricing
           </Link>

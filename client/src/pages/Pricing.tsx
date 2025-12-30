@@ -119,12 +119,7 @@ export default function Pricing() {
   });
 
   const handleSelectClass = (classId: string) => {
-    if (!isAuthenticated) {
-      sessionStorage.setItem('selectedClass', classId);
-      navigate('/signup');
-      return;
-    }
-    navigate(`/enroll/${classId}`);
+    navigate(`/classes/${classId}`);
   };
 
   const handleSelectHours = (packageId: string) => {
@@ -183,10 +178,14 @@ export default function Pricing() {
           </TabsList>
 
           <TabsContent value="classes" className="space-y-10">
-            <div className="text-center">
+            <div className="text-center space-y-4">
               <p className="text-muted-foreground">
                 Structured courses designed by language education experts following ACTFL standards.
               </p>
+              <Button variant="outline" onClick={() => navigate('/classes')} data-testid="button-browse-all-classes">
+                <BookOpen className="h-4 w-4 mr-2" />
+                Browse All Classes
+              </Button>
             </div>
 
             {featuredClasses.length > 0 && (
@@ -224,9 +223,9 @@ export default function Pricing() {
                           <Button
                             className="w-full"
                             onClick={() => handleSelectClass(cls.id)}
-                            data-testid={`button-enroll-${cls.id}`}
+                            data-testid={`button-view-${cls.id}`}
                           >
-                            Enroll Now
+                            View Details
                           </Button>
                         </CardFooter>
                       </Card>
@@ -279,9 +278,9 @@ export default function Pricing() {
                               variant="outline"
                               className="w-full"
                               onClick={() => handleSelectClass(cls.id)}
-                              data-testid={`button-enroll-${cls.id}`}
+                              data-testid={`button-view-${cls.id}`}
                             >
-                              Enroll Now
+                              View Details
                             </Button>
                           </CardFooter>
                         </Card>

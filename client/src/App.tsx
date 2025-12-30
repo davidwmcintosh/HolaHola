@@ -63,6 +63,8 @@ const Login = lazy(() => import("@/pages/auth/Login"));
 const Signup = lazy(() => import("@/pages/auth/Signup"));
 const GetStarted = lazy(() => import("@/pages/auth/GetStarted"));
 const Pricing = lazy(() => import("@/pages/Pricing"));
+const Classes = lazy(() => import("@/pages/Classes"));
+const ClassDetail = lazy(() => import("@/pages/ClassDetail"));
 const CompleteRegistration = lazy(() => import("@/pages/auth/CompleteRegistration"));
 const ForgotPassword = lazy(() => import("@/pages/auth/ForgotPassword"));
 const ResetPassword = lazy(() => import("@/pages/auth/ResetPassword"));
@@ -126,6 +128,8 @@ function Router() {
           <Route path="/login" component={Login} />
           <Route path="/signup" component={Signup} />
           <Route path="/pricing" component={Pricing} />
+          <Route path="/classes" component={Classes} />
+          <Route path="/classes/:id" component={ClassDetail} />
           <Route path="/complete-registration" component={CompleteRegistration} />
           <Route path="/forgot-password" component={ForgotPassword} />
           <Route path="/reset-password" component={ResetPassword} />
@@ -186,6 +190,8 @@ function Router() {
         
         <Route path="/settings" component={Settings} />
         <Route path="/pricing" component={Pricing} />
+        <Route path="/classes" component={Classes} />
+        <Route path="/classes/:id" component={ClassDetail} />
         <Route component={NotFound} />
       </Switch>
     </PageWrapper>
