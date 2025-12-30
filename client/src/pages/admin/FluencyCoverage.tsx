@@ -1,14 +1,18 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { RoleGuard } from "@/components/admin/RoleGuard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { BookOpen, Target, AlertTriangle, CheckCircle, GraduationCap } from "lucide-react";
+import { BookOpen, Target, AlertTriangle, CheckCircle, GraduationCap, Sparkles, Loader2, FileText } from "lucide-react";
 import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Link } from "wouter";
 
 interface CoverageAnalysis {
   summary: {
@@ -97,6 +101,8 @@ function getCoverageProgressColor(percent: number): string {
 
 export default function FluencyCoverage() {
   const [selectedLanguage, setSelectedLanguage] = useState("spanish");
+  const [generatingId, setGeneratingId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const { data: status, isLoading: statusLoading } = useQuery<FluencyStatus>({
     queryKey: ["/api/admin/fluency-wiring/status"],
@@ -106,6 +112,62 @@ export default function FluencyCoverage() {
     queryKey: [`/api/admin/fluency-wiring/coverage/${selectedLanguage}`],
     enabled: selectedLanguage !== "all",
   });
+
+  const generateLessonMutation = useMutation({
+    mutationFn: async (canDoStatementId: string) => {
+      const response = await apiRequest("POST", "/api/admin/lesson-drafts/generate", {
+        canDoStatementId
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Lesson Draft Created",
+        description: "AI has generated a lesson draft. Check the Review Queue to approve it.",
+      });
+      setGeneratingId(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Generation Failed",
+        description: error.message || "Failed to generate lesson",
+        variant: "destructive",
+      });
+      setGeneratingId(null);
+    }
+  });
+
+  const batchGenerateMutation = useMutation({
+    mutationFn: async ({ language, limit }: { language: string; limit: number }) => {
+      const response = await apiRequest("POST", "/api/admin/lesson-drafts/generate-for-gaps", {
+        language,
+        limit
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Batch Generation Started",
+        description: data.message,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Batch Generation Failed",
+        description: error.message || "Failed to start batch generation",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const handleGenerateLesson = (canDoStatementId: string) => {
+    setGeneratingId(canDoStatementId);
+    generateLessonMutation.mutate(canDoStatementId);
+  };
+
+  const handleBatchGenerate = (count: number) => {
+    batchGenerateMutation.mutate({ language: selectedLanguage, limit: count });
+  };
 
   return (
     <RoleGuard allowedRoles={['admin', 'developer', 'founder']}>
@@ -120,25 +182,38 @@ export default function FluencyCoverage() {
                 Monitor Can-Do statement coverage across lessons and identify content gaps
               </p>
             </div>
-            <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-              <SelectTrigger className="w-48" data-testid="select-language">
-                <SelectValue placeholder="Select language" />
-              </SelectTrigger>
-              <SelectContent>
-                {LANGUAGES.map((lang) => (
-                  <SelectItem key={lang.value} value={lang.value} data-testid={`select-item-${lang.value}`}>
-                    {lang.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+                <SelectTrigger className="w-48" data-testid="select-language">
+                  <SelectValue placeholder="Select language" />
+                </SelectTrigger>
+                <SelectContent>
+                  {LANGUAGES.map((lang) => (
+                    <SelectItem key={lang.value} value={lang.value}>
+                      {lang.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button variant="outline" asChild data-testid="link-review-queue">
+                <Link href="/admin/lesson-drafts">
+                  <FileText className="h-4 w-4 mr-2" />
+                  Review Queue
+                </Link>
+              </Button>
+            </div>
           </div>
 
           <div className="grid gap-4 md:grid-cols-4">
             {statusLoading ? (
               <>
                 {[...Array(4)].map((_, i) => (
-                  <Skeleton key={i} className="h-32" />
+                  <Card key={i}>
+                    <CardContent className="pt-6">
+                      <Skeleton className="h-8 w-20 mb-2" />
+                      <Skeleton className="h-4 w-32" />
+                    </CardContent>
+                  </Card>
                 ))}
               </>
             ) : (
@@ -151,7 +226,7 @@ export default function FluencyCoverage() {
                   <CardContent>
                     <div className="text-2xl font-bold">{status?.totalLessons || 0}</div>
                     <p className="text-xs text-muted-foreground">
-                      Template lessons
+                      Across all languages
                     </p>
                   </CardContent>
                 </Card>
@@ -159,14 +234,13 @@ export default function FluencyCoverage() {
                 <Card data-testid="card-linked-lessons">
                   <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                     <CardTitle className="text-sm font-medium">Linked Lessons</CardTitle>
-                    <Target className="h-4 w-4 text-muted-foreground" />
+                    <Target className="h-4 w-4 text-blue-500" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">{status?.lessonsWithLinks || 0}</div>
-                    <Progress 
-                      value={status ? (status.lessonsWithLinks / status.totalLessons) * 100 : 0} 
-                      className="mt-2 h-2" 
-                    />
+                    <p className="text-xs text-muted-foreground">
+                      With Can-Do statements
+                    </p>
                   </CardContent>
                 </Card>
 
@@ -280,13 +354,48 @@ export default function FluencyCoverage() {
           {selectedLanguage !== "all" && (
             <Card data-testid="card-gaps">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-amber-500" />
-                  Content Gaps
-                </CardTitle>
-                <CardDescription>
-                  Can-Do statements not covered by any lesson - these need new content
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <AlertTriangle className="h-5 w-5 text-amber-500" />
+                      Content Gaps
+                    </CardTitle>
+                    <CardDescription>
+                      Can-Do statements not covered by any lesson - these need new content
+                    </CardDescription>
+                  </div>
+                  {coverage?.gaps && coverage.gaps.length > 0 && (
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleBatchGenerate(5)}
+                        disabled={batchGenerateMutation.isPending}
+                        data-testid="button-batch-generate-5"
+                      >
+                        {batchGenerateMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-4 w-4 mr-2" />
+                        )}
+                        Generate 5
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => handleBatchGenerate(10)}
+                        disabled={batchGenerateMutation.isPending}
+                        data-testid="button-batch-generate-10"
+                      >
+                        {batchGenerateMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-4 w-4 mr-2" />
+                        )}
+                        Generate 10
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
                 {coverageLoading ? (
@@ -301,18 +410,33 @@ export default function FluencyCoverage() {
                       {coverage.gaps.map((gap, index) => (
                         <div 
                           key={gap.id} 
-                          className="p-3 border rounded-lg hover-elevate"
+                          className="p-3 border rounded-lg hover-elevate flex items-start justify-between gap-3"
                           data-testid={`gap-${index}`}
                         >
-                          <p className="text-sm font-medium">{gap.statement}</p>
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            <Badge variant="outline">
-                              {LEVEL_LABELS[gap.level] || gap.level}
-                            </Badge>
-                            <Badge variant="secondary">
-                              {CATEGORY_LABELS[gap.category] || gap.category}
-                            </Badge>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium">{gap.statement}</p>
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              <Badge variant="outline">
+                                {LEVEL_LABELS[gap.level] || gap.level}
+                              </Badge>
+                              <Badge variant="secondary">
+                                {CATEGORY_LABELS[gap.category] || gap.category}
+                              </Badge>
+                            </div>
                           </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleGenerateLesson(gap.id)}
+                            disabled={generatingId === gap.id || generateLessonMutation.isPending}
+                            data-testid={`button-generate-${index}`}
+                          >
+                            {generatingId === gap.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Sparkles className="h-4 w-4" />
+                            )}
+                          </Button>
                         </div>
                       ))}
                     </div>

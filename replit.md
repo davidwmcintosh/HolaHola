@@ -85,6 +85,20 @@ The Tutor Naming Architecture defines 36 total tutors: 18 main tutors (dynamic f
 - **Startup Check**: `fluency-wiring-seed.ts` runs at server startup to report readiness status and guide admin trigger
 - **ACTFL Assessment Events**: Logged to `actflAssessmentEvents` table for tracking student advancement through proficiency levels (Novice→Intermediate→Advanced→Superior→Distinguished)
 
+**AI Lesson Generation System**: Automatically generates lesson content to fill coverage gaps:
+- **Service**: `server/services/ai-lesson-generator.ts` uses Gemini Flash to create structured lesson drafts
+- **Generated Content**: objectives, warm-up activities, model input/output, scaffolded tasks (with instruction, expected response, scaffolding notes), assessment checks, cultural connections, vocabulary focus, grammar focus
+- **Database**: `lesson_drafts` table tracks AI-generated content with statuses: draft → pending → approved → published → rejected
+- **Admin UI**:
+  - `/admin/fluency-coverage` - Coverage dashboard with "Generate Lesson" buttons for each gap and batch generation (Generate 5/10)
+  - `/admin/lesson-drafts` - Review queue for approving/rejecting AI-generated drafts with tabbed preview
+- **Admin Endpoints**:
+  - POST `/api/admin/lesson-drafts/generate` - Generate single lesson from Can-Do statement ID
+  - POST `/api/admin/lesson-drafts/generate-for-gaps` - Batch generate lessons for uncovered Can-Do statements (prioritizes advanced levels)
+  - GET `/api/admin/lesson-drafts` - List drafts with status/language filters
+  - PATCH `/api/admin/lesson-drafts/:draftId/status` - Update draft status (pending/approved/rejected)
+- **Rate Limiting**: 1 second delay between AI generations to avoid quota issues
+
 ## External Dependencies
 - Stripe: Payment processing and subscription management.
 - Replit Auth: OIDC authentication.
