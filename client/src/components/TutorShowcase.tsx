@@ -97,36 +97,38 @@ export function TutorShowcase({
 }: TutorShowcaseProps) {
   const allTutors = useMemo(() => getAllTutorsForShowcase(), []);
   
-  const activeTutor = useMemo(() => {
+  const languageTutors = useMemo(() => {
     const lang = selectedLanguage === 'all' ? 'spanish' : selectedLanguage;
-    return allTutors.find(t => t.language === lang && t.gender === selectedGender) || allTutors[0];
-  }, [selectedLanguage, selectedGender, allTutors]);
+    return allTutors.filter(t => t.language === lang);
+  }, [selectedLanguage, allTutors]);
   
-  const handleSelect = () => {
-    if (activeTutor) {
-      onTutorSelect?.({
-        language: activeTutor.language,
-        gender: activeTutor.gender,
-        name: activeTutor.name,
-      });
-    }
+  const handleSelect = (tutor: TutorShowcaseData) => {
+    onTutorSelect?.({
+      language: tutor.language,
+      gender: tutor.gender,
+      name: tutor.name,
+    });
   };
 
   return (
     <div className={`w-full ${className}`} data-testid="tutor-showcase">
-      <h2 className="text-lg md:text-xl font-semibold text-center mb-3 md:mb-4">
-        Meet Your Tutor
-      </h2>
-      
-      <div className="flex items-center justify-center gap-4 flex-wrap">
-        {filterSlot}
+      <div className="flex items-start justify-start gap-6 flex-wrap">
+        <div className="flex flex-col items-center gap-3">
+          <h2 className="text-lg md:text-xl font-semibold">
+            Meet Your Tutors
+          </h2>
+          {filterSlot}
+        </div>
         
-        {activeTutor && (
-          <TutorCard
-            tutor={activeTutor}
-            onSelect={handleSelect}
-          />
-        )}
+        <div className="flex items-center gap-3">
+          {languageTutors.map((tutor) => (
+            <TutorCard
+              key={`${tutor.language}-${tutor.gender}`}
+              tutor={tutor}
+              onSelect={() => handleSelect(tutor)}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
