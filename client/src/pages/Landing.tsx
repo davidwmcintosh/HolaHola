@@ -133,16 +133,16 @@ export default function Landing() {
               <p className="text-sm text-muted-foreground mb-3">Meet your AI tutors</p>
               <div className="flex flex-wrap justify-center gap-4 md:gap-6">
                 {featuredTutors.map((tutor, index) => (
-                  <div key={index} className="flex flex-col items-center gap-1">
-                    <div className={`w-12 h-12 md:w-14 md:h-14 rounded-full border-2 ${tutor.borderColor} bg-white dark:bg-gray-800 shadow-md overflow-hidden`}>
+                  <div key={index} className="flex flex-col items-center gap-1.5">
+                    <div className={`w-16 h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 rounded-full border-2 ${tutor.borderColor} bg-white dark:bg-gray-800 shadow-md overflow-hidden`}>
                       <img 
                         src={tutor.avatar} 
                         alt={tutor.name}
                         className="w-full h-full object-cover object-top"
                       />
                     </div>
-                    <span className="text-xs font-medium text-foreground">{tutor.name}</span>
-                    <span className="text-[10px] text-muted-foreground">{tutor.language}</span>
+                    <span className="text-sm font-medium text-foreground">{tutor.name}</span>
+                    <span className="text-xs text-muted-foreground">{tutor.language}</span>
                   </div>
                 ))}
               </div>
