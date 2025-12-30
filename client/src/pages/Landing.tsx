@@ -4,33 +4,24 @@ import { Globe, MessageCircle, BookOpen, TrendingUp, Volume2, Target, ArrowRight
 import holaholaLogo from '@assets/holaholamainlogoBackgroundRemoved_1765308837223.png';
 import brainImage from "@assets/transparent_colorful_cartoon_brain_Background_Removed_1765564186963.png";
 
-// Tutor avatars for edge watermarks
+// Tutor avatars for featured tutors row
 import spanishFemale from "@assets/tutor-listening-no-background_1764099971094.png";
-import spanishMale from "@assets/Boy-tutor-waiting-No-Background_1764186322051.png";
 import frenchMale from "@assets/Tutor_Images/Male/French_Male_Talking.jpg";
 import germanMale from "@assets/Tutor_Images/Male/German_Male_Talking.jpg";
 import italianFemale from "@assets/Tutor_Images/Female/Italian_Female_Talking_No_Background.jpg";
-import japaneseMale from "@assets/Tutor_Images/Male/Japanese_Male_Talking.jpg";
 import japaneseFemale from "@assets/Tutor_Images/Female/Japanese_Female_Talking_No_Background.jpg";
-import chineseFemale from "@assets/Tutor_Images/Female/Chinese_Female_Talking_No_Background.jpg";
 import chineseMale from "@assets/Tutor_Images/Male/Chinese_Male_Talking.jpg";
 import koreanFemale from "@assets/Tutor_Images/Female/Korean_Female_Talking_No_Background.jpg";
 
-// Tutor bubbles only on edges - not covering center content
-const tutorBubbles = [
-  // Left edge only
-  { avatar: spanishFemale, position: 'top-[5%] left-[1%]', size: 'w-14 h-14 md:w-20 md:h-20', bubbleColor: 'border-orange-400' },
-  { avatar: koreanFemale, position: 'top-[22%] left-[0%]', size: 'w-12 h-12 md:w-16 md:h-16', bubbleColor: 'border-sky-400' },
-  { avatar: italianFemale, position: 'top-[40%] left-[1%]', size: 'w-14 h-14 md:w-18 md:h-18', bubbleColor: 'border-green-400' },
-  { avatar: frenchMale, position: 'top-[58%] left-[0%]', size: 'w-12 h-12 md:w-16 md:h-16', bubbleColor: 'border-blue-300' },
-  { avatar: chineseMale, position: 'top-[75%] left-[1%]', size: 'w-14 h-14 md:w-18 md:h-18', bubbleColor: 'border-red-400' },
-  
-  // Right edge only
-  { avatar: spanishMale, position: 'top-[5%] right-[1%]', size: 'w-14 h-14 md:w-20 md:h-20', bubbleColor: 'border-orange-300' },
-  { avatar: germanMale, position: 'top-[22%] right-[0%]', size: 'w-12 h-12 md:w-16 md:h-16', bubbleColor: 'border-amber-400' },
-  { avatar: japaneseMale, position: 'top-[40%] right-[1%]', size: 'w-14 h-14 md:w-18 md:h-18', bubbleColor: 'border-pink-400' },
-  { avatar: chineseFemale, position: 'top-[58%] right-[0%]', size: 'w-12 h-12 md:w-16 md:h-16', bubbleColor: 'border-red-300' },
-  { avatar: japaneseFemale, position: 'top-[75%] right-[1%]', size: 'w-14 h-14 md:w-18 md:h-18', bubbleColor: 'border-pink-300' },
+// Featured tutors with names for display below buttons
+const featuredTutors = [
+  { avatar: spanishFemale, name: 'Daniela', language: 'Spanish', borderColor: 'border-orange-400' },
+  { avatar: frenchMale, name: 'Pierre', language: 'French', borderColor: 'border-blue-400' },
+  { avatar: germanMale, name: 'Hans', language: 'German', borderColor: 'border-amber-400' },
+  { avatar: italianFemale, name: 'Sofia', language: 'Italian', borderColor: 'border-green-400' },
+  { avatar: japaneseFemale, name: 'Yuki', language: 'Japanese', borderColor: 'border-pink-400' },
+  { avatar: chineseMale, name: 'Wei', language: 'Chinese', borderColor: 'border-red-400' },
+  { avatar: koreanFemale, name: 'Min-ji', language: 'Korean', borderColor: 'border-sky-400' },
 ];
 
 // Mind map lobe configuration for watermark
@@ -98,21 +89,6 @@ export default function Landing() {
           </div>
         </div>
         
-        {/* Tutor avatar bubbles - edges only, hidden on mobile */}
-        <div className="hidden md:block fixed inset-0 pointer-events-none overflow-hidden z-0">
-          {tutorBubbles.map((tutor, index) => (
-            <div
-              key={index}
-              className={`absolute ${tutor.position} ${tutor.size} rounded-full border-2 ${tutor.bubbleColor} bg-white/80 dark:bg-gray-800/80 shadow-lg opacity-30 dark:opacity-20 overflow-hidden`}
-            >
-              <img 
-                src={tutor.avatar} 
-                alt="" 
-                className="w-full h-full object-cover object-top"
-              />
-            </div>
-          ))}
-        </div>
 
         <div className="container mx-auto px-4 pt-4 pb-6 md:pt-8 md:pb-12 relative z-10">
           <div className="text-center space-y-4 max-w-4xl mx-auto">
@@ -131,7 +107,7 @@ export default function Landing() {
             <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
               Practice conversations, build vocabulary, and perfect your grammar with personalized AI tutors who adapt to your learning style
             </p>
-            <div className="pt-6 flex flex-col sm:flex-row gap-3 justify-center">
+            <div className="pt-4 flex flex-col sm:flex-row gap-3 justify-center">
               <Button
                 size="lg"
                 onClick={() => window.location.href = '/get-started'}
@@ -150,6 +126,26 @@ export default function Landing() {
               >
                 I Have an Account
               </Button>
+            </div>
+            
+            {/* Featured Tutors Row */}
+            <div className="pt-6">
+              <p className="text-sm text-muted-foreground mb-3">Meet your AI tutors</p>
+              <div className="flex flex-wrap justify-center gap-4 md:gap-6">
+                {featuredTutors.map((tutor, index) => (
+                  <div key={index} className="flex flex-col items-center gap-1">
+                    <div className={`w-12 h-12 md:w-14 md:h-14 rounded-full border-2 ${tutor.borderColor} bg-white dark:bg-gray-800 shadow-md overflow-hidden`}>
+                      <img 
+                        src={tutor.avatar} 
+                        alt={tutor.name}
+                        className="w-full h-full object-cover object-top"
+                      />
+                    </div>
+                    <span className="text-xs font-medium text-foreground">{tutor.name}</span>
+                    <span className="text-[10px] text-muted-foreground">{tutor.language}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
