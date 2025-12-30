@@ -17,16 +17,17 @@ import englishFemale from "@assets/Tutor_Images/Female/English_Talking-No_Backgr
 import portugueseFemale from "@assets/Tutor_Images/Female/Portuguese_Female_Talking_No_Background.jpg";
 
 // Featured tutors with names for display below buttons
+// Names must match tutor_voices table in database (voice_name field, first part before " - ")
 const featuredTutors = [
   { avatar: spanishFemale, name: 'Daniela', language: 'Spanish', borderColor: 'border-orange-400' },
-  { avatar: frenchMale, name: 'Pierre', language: 'French', borderColor: 'border-blue-400' },
-  { avatar: germanMale, name: 'Hans', language: 'German', borderColor: 'border-amber-400' },
-  { avatar: italianFemale, name: 'Sofia', language: 'Italian', borderColor: 'border-green-400' },
-  { avatar: portugueseFemale, name: 'Lucia', language: 'Portuguese', borderColor: 'border-emerald-400' },
-  { avatar: japaneseFemale, name: 'Yuki', language: 'Japanese', borderColor: 'border-pink-400' },
-  { avatar: chineseMale, name: 'Wei', language: 'Chinese', borderColor: 'border-red-400' },
-  { avatar: koreanFemale, name: 'Min-ji', language: 'Korean', borderColor: 'border-sky-400' },
-  { avatar: englishFemale, name: 'Emma', language: 'English', borderColor: 'border-indigo-400' },
+  { avatar: frenchMale, name: 'Vincent', language: 'French', borderColor: 'border-blue-400' },
+  { avatar: germanMale, name: 'Lukas', language: 'German', borderColor: 'border-amber-400' },
+  { avatar: italianFemale, name: 'Liv', language: 'Italian', borderColor: 'border-green-400' },
+  { avatar: portugueseFemale, name: 'Isabel', language: 'Portuguese', borderColor: 'border-emerald-400' },
+  { avatar: japaneseFemale, name: 'Sayuri', language: 'Japanese', borderColor: 'border-pink-400' },
+  { avatar: chineseMale, name: 'Tao', language: 'Chinese', borderColor: 'border-red-400' },
+  { avatar: koreanFemale, name: 'Jihyun', language: 'Korean', borderColor: 'border-sky-400' },
+  { avatar: englishFemale, name: 'Cindy', language: 'English', borderColor: 'border-indigo-400' },
 ];
 
 // Mind map lobe configuration for watermark

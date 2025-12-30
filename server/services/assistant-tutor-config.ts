@@ -43,17 +43,17 @@ export interface AssistantPersona {
  * These are TTS voice selections, not separate AI personalities
  */
 export const ASSISTANT_TUTORS: Record<string, { female: string; male: string }> = {
-  spanish: { female: 'Aris', male: 'Marco' },           // Aris: original, created by Daniela
-  french: { female: 'Colette', male: 'Henri' },         // Distinct from main tutors (Amélie/Étienne)
-  german: { female: 'Liesel', male: 'Klaus' },          // Distinct from main tutors (Greta/Felix)
-  italian: { female: 'Valentina', male: 'Luca' },       // Distinct from main tutors (Chiara/Matteo)
-  japanese: { female: 'Yuki', male: 'Takeshi' },        // Distinct from main tutors (Hana/Kenji)
-  'mandarin chinese': { female: 'Lian', male: 'Chen' }, // Distinct from main tutors (Mei/Wei)
+  spanish: { female: 'Aris', male: 'Marco' },           // Aris: original, created by Daniela (Main: Daniela/Agustin)
+  french: { female: 'Colette', male: 'Henri' },         // Distinct from main tutors (Juliette/Vincent)
+  german: { female: 'Liesel', male: 'Klaus' },          // Distinct from main tutors (Greta/Lukas)
+  italian: { female: 'Valentina', male: 'Enzo' },       // Distinct from main tutors (Liv/Luca)
+  japanese: { female: 'Yuki', male: 'Takeshi' },        // Distinct from main tutors (Sayuri/Daisuke)
+  'mandarin chinese': { female: 'Lian', male: 'Chen' }, // Distinct from main tutors (Hua/Tao)
   mandarin: { female: 'Lian', male: 'Chen' },           // Alias for mandarin chinese
   chinese: { female: 'Lian', male: 'Chen' },            // Alias for mandarin chinese
-  portuguese: { female: 'Beatriz', male: 'Tiago' },     // Distinct from main tutors (Lucia/Carlos)
-  english: { female: 'Grace', male: 'Oliver' },         // Distinct from main tutors (Emma/Jack)
-  korean: { female: 'Eun-ji', male: 'Min-ho' },         // Distinct from main tutors (Soo-yeon/Ji-ho)
+  portuguese: { female: 'Beatriz', male: 'Tiago' },     // Distinct from main tutors (Isabel/Camilo)
+  english: { female: 'Grace', male: 'Oliver' },         // Distinct from main tutors (Cindy/Blake)
+  korean: { female: 'Eun-ji', male: 'Min-ho' },         // Distinct from main tutors (Jihyun/Minho)
 };
 
 /**

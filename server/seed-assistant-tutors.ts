@@ -21,33 +21,33 @@ import { eq, and } from "drizzle-orm";
  * Combined with voice IDs from tts-service.ts GOOGLE_ASSISTANT_VOICE_MAP
  */
 const ASSISTANT_TUTOR_SEEDS = [
-  // Spanish
+  // Spanish - Main tutors: Daniela/Agustin (Cartesia)
   { language: 'spanish', gender: 'female', name: 'Aris', voiceId: 'es-US-Neural2-A', languageCode: 'es-US' },
   { language: 'spanish', gender: 'male', name: 'Marco', voiceId: 'es-US-Neural2-C', languageCode: 'es-US' },
-  // French
-  { language: 'french', gender: 'female', name: 'Amélie', voiceId: 'fr-FR-Neural2-A', languageCode: 'fr-FR' },
-  { language: 'french', gender: 'male', name: 'Étienne', voiceId: 'fr-FR-Neural2-D', languageCode: 'fr-FR' },
-  // German
-  { language: 'german', gender: 'female', name: 'Greta', voiceId: 'de-DE-Neural2-A', languageCode: 'de-DE' },
-  { language: 'german', gender: 'male', name: 'Felix', voiceId: 'de-DE-Neural2-B', languageCode: 'de-DE' },
-  // Italian
-  { language: 'italian', gender: 'female', name: 'Chiara', voiceId: 'it-IT-Neural2-A', languageCode: 'it-IT' },
-  { language: 'italian', gender: 'male', name: 'Matteo', voiceId: 'it-IT-Neural2-C', languageCode: 'it-IT' },
-  // Japanese
-  { language: 'japanese', gender: 'female', name: 'Hana', voiceId: 'ja-JP-Neural2-B', languageCode: 'ja-JP' },
-  { language: 'japanese', gender: 'male', name: 'Kenji', voiceId: 'ja-JP-Neural2-C', languageCode: 'ja-JP' },
-  // Mandarin Chinese
-  { language: 'mandarin chinese', gender: 'female', name: 'Mei', voiceId: 'cmn-CN-Wavenet-A', languageCode: 'cmn-CN' },
-  { language: 'mandarin chinese', gender: 'male', name: 'Wei', voiceId: 'cmn-CN-Wavenet-B', languageCode: 'cmn-CN' },
-  // Portuguese
-  { language: 'portuguese', gender: 'female', name: 'Clara', voiceId: 'pt-BR-Neural2-A', languageCode: 'pt-BR' },
-  { language: 'portuguese', gender: 'male', name: 'Rafael', voiceId: 'pt-BR-Neural2-B', languageCode: 'pt-BR' },
-  // English
-  { language: 'english', gender: 'female', name: 'Emma', voiceId: 'en-US-Neural2-F', languageCode: 'en-US' },
-  { language: 'english', gender: 'male', name: 'Jack', voiceId: 'en-US-Neural2-D', languageCode: 'en-US' },
-  // Korean
-  { language: 'korean', gender: 'female', name: 'Soo-yeon', voiceId: 'ko-KR-Neural2-A', languageCode: 'ko-KR' },
-  { language: 'korean', gender: 'male', name: 'Ji-ho', voiceId: 'ko-KR-Neural2-C', languageCode: 'ko-KR' },
+  // French - Main tutors: Juliette/Vincent (Cartesia)
+  { language: 'french', gender: 'female', name: 'Colette', voiceId: 'fr-FR-Neural2-A', languageCode: 'fr-FR' },
+  { language: 'french', gender: 'male', name: 'Henri', voiceId: 'fr-FR-Neural2-D', languageCode: 'fr-FR' },
+  // German - Main tutors: Greta/Lukas (Cartesia)
+  { language: 'german', gender: 'female', name: 'Liesel', voiceId: 'de-DE-Neural2-A', languageCode: 'de-DE' },
+  { language: 'german', gender: 'male', name: 'Klaus', voiceId: 'de-DE-Neural2-B', languageCode: 'de-DE' },
+  // Italian - Main tutors: Liv/Luca (Cartesia) - assistant male is Enzo to avoid conflict with main Luca
+  { language: 'italian', gender: 'female', name: 'Valentina', voiceId: 'it-IT-Neural2-A', languageCode: 'it-IT' },
+  { language: 'italian', gender: 'male', name: 'Enzo', voiceId: 'it-IT-Neural2-C', languageCode: 'it-IT' },
+  // Japanese - Main tutors: Sayuri/Daisuke (Cartesia)
+  { language: 'japanese', gender: 'female', name: 'Yuki', voiceId: 'ja-JP-Neural2-B', languageCode: 'ja-JP' },
+  { language: 'japanese', gender: 'male', name: 'Takeshi', voiceId: 'ja-JP-Neural2-C', languageCode: 'ja-JP' },
+  // Mandarin Chinese - Main tutors: Hua/Tao (Cartesia)
+  { language: 'mandarin chinese', gender: 'female', name: 'Lian', voiceId: 'cmn-CN-Wavenet-A', languageCode: 'cmn-CN' },
+  { language: 'mandarin chinese', gender: 'male', name: 'Chen', voiceId: 'cmn-CN-Wavenet-B', languageCode: 'cmn-CN' },
+  // Portuguese - Main tutors: Isabel/Camilo (Cartesia)
+  { language: 'portuguese', gender: 'female', name: 'Beatriz', voiceId: 'pt-BR-Neural2-A', languageCode: 'pt-BR' },
+  { language: 'portuguese', gender: 'male', name: 'Tiago', voiceId: 'pt-BR-Neural2-B', languageCode: 'pt-BR' },
+  // English - Main tutors: Cindy/Blake (Cartesia)
+  { language: 'english', gender: 'female', name: 'Grace', voiceId: 'en-US-Neural2-F', languageCode: 'en-US' },
+  { language: 'english', gender: 'male', name: 'Oliver', voiceId: 'en-US-Neural2-D', languageCode: 'en-US' },
+  // Korean - Main tutors: Jihyun/Minho (Cartesia)
+  { language: 'korean', gender: 'female', name: 'Eun-ji', voiceId: 'ko-KR-Neural2-A', languageCode: 'ko-KR' },
+  { language: 'korean', gender: 'male', name: 'Min-ho', voiceId: 'ko-KR-Neural2-C', languageCode: 'ko-KR' },
 ];
 
 /**
