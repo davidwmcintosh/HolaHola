@@ -122,7 +122,7 @@ export default function Landing() {
                 variant="outline"
                 onClick={() => window.location.href = '/login'}
                 data-testid="button-login"
-                className="text-base"
+                className="text-base bg-background/90 border-foreground/30"
               >
                 I Have an Account
               </Button>
