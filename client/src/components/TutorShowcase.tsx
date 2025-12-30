@@ -63,13 +63,6 @@ function TutorCard({ tutor, onSelect }: TutorCardProps) {
       <span className="text-sm font-semibold text-center leading-tight">
         {tutor.name}
       </span>
-      
-      <span 
-        className="text-xs text-muted-foreground text-center leading-tight mt-0.5"
-        style={{ fontSize: '11px' }}
-      >
-        {tutor.tagline}
-      </span>
     </Card>
   );
 }
