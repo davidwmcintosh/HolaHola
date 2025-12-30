@@ -31,38 +31,36 @@ interface PricingConfig {
   class_price_cents: string;
   hour_rate_cents: string;
   free_trial_hours: string;
+  pack_5hr_discount_percent?: string;
+  pack_10hr_discount_percent?: string;
 }
 
-function getHourPackages(hourRateCents: number) {
+function getHourPackages(hourRateCents: number, pack5hrDiscount: number = 0, pack10hrDiscount: number = 10) {
   const baseRate = hourRateCents / 100;
+  const discount5hr = 1 - (pack5hrDiscount / 100);
+  const discount10hr = 1 - (pack10hrDiscount / 100);
+  
   return [
     {
       id: 'starter',
       name: 'Starter',
       hours: 5,
-      price: Math.round(baseRate * 5),
-      pricePerHour: baseRate,
+      price: Math.round(baseRate * 5 * discount5hr * 100) / 100,
+      pricePerHour: Math.round(baseRate * discount5hr * 100) / 100,
+      discount: pack5hrDiscount,
       description: 'Perfect for trying out self-directed learning',
       features: ['5 hours of AI tutor time', 'All 9 languages', 'Progress tracking', 'Never expires'],
     },
     {
       id: 'explorer',
       name: 'Explorer',
-      hours: 15,
-      price: Math.round(baseRate * 15 * 0.79),
-      pricePerHour: Math.round(baseRate * 0.79 * 100) / 100,
+      hours: 10,
+      price: Math.round(baseRate * 10 * discount10hr * 100) / 100,
+      pricePerHour: Math.round(baseRate * discount10hr * 100) / 100,
+      discount: pack10hrDiscount,
       description: 'Great for consistent weekly practice',
-      features: ['15 hours of AI tutor time', 'All 9 languages', 'Pronunciation feedback', 'Progress tracking', 'Never expires'],
+      features: ['10 hours of AI tutor time', 'All 9 languages', 'Pronunciation feedback', 'Progress tracking', 'Never expires'],
       popular: true,
-    },
-    {
-      id: 'intensive',
-      name: 'Intensive',
-      hours: 30,
-      price: Math.round(baseRate * 30 * 0.68),
-      pricePerHour: Math.round(baseRate * 0.68 * 100) / 100,
-      description: 'Best value for serious learners',
-      features: ['30 hours of AI tutor time', 'All 9 languages', 'Pronunciation feedback', 'ACTFL assessments', 'Priority support', 'Never expires'],
     },
   ];
 }

@@ -5692,6 +5692,8 @@ function PricingSettingsTab() {
   const [classPriceCents, setClassPriceCents] = useState<string>("");
   const [hourRateCents, setHourRateCents] = useState<string>("");
   const [freeTrialHours, setFreeTrialHours] = useState<string>("");
+  const [pack5hrDiscount, setPack5hrDiscount] = useState<string>("");
+  const [pack10hrDiscount, setPack10hrDiscount] = useState<string>("");
   const [hasChanges, setHasChanges] = useState(false);
 
   // Fetch current pricing config
@@ -5705,6 +5707,8 @@ function PricingSettingsTab() {
       setClassPriceCents(pricingConfig.class_price_cents || "4900");
       setHourRateCents(pricingConfig.hour_rate_cents || "580");
       setFreeTrialHours(pricingConfig.free_trial_hours || "0.5");
+      setPack5hrDiscount(pricingConfig.pack_5hr_discount_percent || "0");
+      setPack10hrDiscount(pricingConfig.pack_10hr_discount_percent || "10");
       setHasChanges(false);
     }
   }, [pricingConfig]);
@@ -5733,6 +5737,20 @@ function PricingSettingsTab() {
           key: "free_trial_hours", 
           value: freeTrialHours,
           description: "Number of free trial hours" 
+        });
+      }
+      if (pack5hrDiscount !== pricingConfig?.pack_5hr_discount_percent) {
+        updates.push({ 
+          key: "pack_5hr_discount_percent", 
+          value: pack5hrDiscount,
+          description: "Discount percentage for 5-hour pack" 
+        });
+      }
+      if (pack10hrDiscount !== pricingConfig?.pack_10hr_discount_percent) {
+        updates.push({ 
+          key: "pack_10hr_discount_percent", 
+          value: pack10hrDiscount,
+          description: "Discount percentage for 10-hour pack" 
         });
       }
       
@@ -5884,6 +5902,50 @@ function PricingSettingsTab() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
+              <Percent className="h-5 w-5" />
+              Volume Discounts
+            </CardTitle>
+            <CardDescription>
+              Discount percentages for hour packs to encourage bulk purchases
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">5-Hour Pack Discount (%)</label>
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                value={pack5hrDiscount}
+                onChange={(e) => handleChange(setPack5hrDiscount)(e.target.value)}
+                placeholder="0"
+                data-testid="input-5hr-discount"
+              />
+              <p className="text-sm text-muted-foreground">
+                {parseFloat(pack5hrDiscount) > 0 ? `${pack5hrDiscount}% off base rate` : "No discount (base rate)"}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">10-Hour Pack Discount (%)</label>
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                value={pack10hrDiscount}
+                onChange={(e) => handleChange(setPack10hrDiscount)(e.target.value)}
+                placeholder="10"
+                data-testid="input-10hr-discount"
+              />
+              <p className="text-sm text-muted-foreground">
+                {parseFloat(pack10hrDiscount) > 0 ? `${pack10hrDiscount}% off base rate` : "No discount (base rate)"}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5" />
               Current Pricing Summary
             </CardTitle>
@@ -5899,17 +5961,17 @@ function PricingSettingsTab() {
                 <span className="font-medium">{formatCentsAsPrice(hourRateCents)}/hr</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b">
-                <span className="text-muted-foreground">5-hour pack</span>
+                <span className="text-muted-foreground">5-hour pack {parseFloat(pack5hrDiscount) > 0 && <span className="text-green-600">({pack5hrDiscount}% off)</span>}</span>
                 <span className="font-medium">
-                  {formatCentsAsPrice((parseInt(hourRateCents) * 5).toString())}
-                  <span className="text-muted-foreground text-sm ml-1">({formatCentsAsPrice(hourRateCents)}/hr)</span>
+                  {formatCentsAsPrice(Math.round(parseInt(hourRateCents) * 5 * (1 - parseFloat(pack5hrDiscount) / 100)).toString())}
+                  <span className="text-muted-foreground text-sm ml-1">({formatCentsAsPrice(Math.round(parseInt(hourRateCents) * (1 - parseFloat(pack5hrDiscount) / 100)).toString())}/hr)</span>
                 </span>
               </div>
               <div className="flex justify-between items-center py-2 border-b">
-                <span className="text-muted-foreground">10-hour pack</span>
+                <span className="text-muted-foreground">10-hour pack {parseFloat(pack10hrDiscount) > 0 && <span className="text-green-600">({pack10hrDiscount}% off)</span>}</span>
                 <span className="font-medium">
-                  {formatCentsAsPrice((parseInt(hourRateCents) * 10).toString())}
-                  <span className="text-muted-foreground text-sm ml-1">({formatCentsAsPrice(hourRateCents)}/hr)</span>
+                  {formatCentsAsPrice(Math.round(parseInt(hourRateCents) * 10 * (1 - parseFloat(pack10hrDiscount) / 100)).toString())}
+                  <span className="text-muted-foreground text-sm ml-1">({formatCentsAsPrice(Math.round(parseInt(hourRateCents) * (1 - parseFloat(pack10hrDiscount) / 100)).toString())}/hr)</span>
                 </span>
               </div>
               <div className="flex justify-between items-center py-2">

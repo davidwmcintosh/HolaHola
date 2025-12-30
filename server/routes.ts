@@ -13252,7 +13252,7 @@ Current conversation context:
     try {
       const configs = await storage.getAllProductConfig();
       // Only return pricing-related keys
-      const pricingKeys = ['class_price_cents', 'hour_rate_cents', 'free_trial_hours'];
+      const pricingKeys = ['class_price_cents', 'hour_rate_cents', 'free_trial_hours', 'pack_5hr_discount_percent', 'pack_10hr_discount_percent'];
       const pricingConfig = configs
         .filter(c => pricingKeys.includes(c.key))
         .reduce((acc, c) => ({ ...acc, [c.key]: c.value }), {});
