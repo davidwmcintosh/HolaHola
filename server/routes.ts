@@ -11414,6 +11414,19 @@ Return ONLY the ${targetLanguage} phrase:`;
       res.status(500).json({ error: error.message });
     }
   });
+  
+  // Admin: Get coverage analysis (identify gaps in Can-Do statement coverage)
+  app.get("/api/admin/fluency-wiring/coverage/:language", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const language = req.params.language;
+      const { getCoverageAnalysis } = await import('./services/fluency-wiring-service');
+      const analysis = await getCoverageAnalysis(language);
+      res.json(analysis);
+    } catch (error: any) {
+      console.error('[Fluency Wiring Coverage] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   // Get a student's Can-Do progress for a language
   app.get("/api/fluency/can-do-progress/:language", isAuthenticated, async (req: any, res) => {
