@@ -543,7 +543,7 @@ export default function ReviewHub() {
         </div>
       </div>
 
-      {/* Tutor Showcase - Click a tutor to start a conversation */}
+      {/* Tutor Showcase - Click the tutor to start a conversation */}
       <TutorShowcase 
         onTutorSelect={(selection) => {
           if (selection) {
@@ -555,9 +555,8 @@ export default function ReviewHub() {
             window.location.href = `/chat?language=${selection.language}&gender=${selection.gender}`;
           }
         }}
-        selectedLanguage={language !== 'all' ? language : undefined}
+        selectedLanguage={language}
         selectedGender={tutorGender}
-        filterLanguage={language !== 'all' ? language : undefined}
         filterSlot={<LearningContextFilter />}
         className="py-2"
       />
