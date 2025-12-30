@@ -1326,7 +1326,7 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
           width: containerWidth, 
           height: containerHeight + (isMobileView ? 80 : 150),
           marginTop: isMobileView ? 10 : 20,
-          marginBottom: isMobileView ? -60 : -80,
+          marginBottom: isMobileView ? -60 : -120,
         }}
         data-testid="brain-container"
       >
@@ -1480,9 +1480,9 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
       <div className={`relative ${isMobileView ? '-mt-32 -mb-40' : '-mt-64 -mb-64'}`} data-testid="activity-inputs-container">
         {/* Flow lines SVG - animated gradients rising to brain */}
         <svg 
-          className="absolute left-1/2 -translate-x-1/2 bottom-0 pointer-events-none"
+          className="absolute left-1/2 -translate-x-1/2 bottom-8 pointer-events-none"
           width="400" 
-          height="30"
+          height="50"
           style={{ overflow: 'visible' }}
         >
           <defs>
