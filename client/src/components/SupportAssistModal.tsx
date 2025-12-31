@@ -37,7 +37,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -589,8 +588,8 @@ export function SupportAssistModal({
             </div>
 
             {/* Messages */}
-            <ScrollArea 
-              className="flex-1 min-h-0 p-4" 
+            <div 
+              className="flex-1 min-h-0 overflow-y-auto p-4" 
               ref={scrollRef}
               data-testid="scroll-messages"
             >
@@ -657,7 +656,7 @@ export function SupportAssistModal({
                   </div>
                 )}
               </div>
-            </ScrollArea>
+            </div>
 
             {/* Resolution Banner */}
             {isResolved && (
