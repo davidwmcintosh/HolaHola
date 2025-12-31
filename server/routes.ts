@@ -15271,15 +15271,30 @@ Current conversation context:
   // Get pending Sofia issue reports for founder review
   app.get("/api/admin/sofia-issue-reports", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {
-      const { status = 'pending', limit = '50' } = req.query;
-      const reports = await supportPersonaService.getPendingIssueReports(parseInt(limit as string, 10));
+      const { status = 'pending', limit = '100' } = req.query;
       
-      // If status filter requested, filter from the service
-      const filtered = status === 'all' ? reports : reports.filter((r: any) => r.status === status);
+      // Get all reports to compute counts
+      const allReports = await db.select()
+        .from(sofiaIssueReports)
+        .orderBy(desc(sofiaIssueReports.createdAt))
+        .limit(500);
+      
+      // Compute counts by status
+      const counts = {
+        pending: allReports.filter((r: any) => r.status === 'pending').length,
+        reviewed: allReports.filter((r: any) => r.status === 'reviewed').length,
+        actionable: allReports.filter((r: any) => r.status === 'actionable').length,
+        resolved: allReports.filter((r: any) => r.status === 'resolved').length,
+      };
+      
+      // Filter by requested status
+      const filtered = status === 'all' ? allReports : allReports.filter((r: any) => r.status === status);
+      const limited = filtered.slice(0, parseInt(limit as string, 10));
       
       res.json({ 
-        reports: filtered,
-        total: filtered.length,
+        reports: limited,
+        total: limited.length,
+        counts,
         timestamp: new Date().toISOString(),
       });
     } catch (error: any) {
@@ -15294,8 +15309,8 @@ Current conversation context:
       const { reportId } = req.params;
       const { status, founderNotes } = req.body;
       
-      if (!status || !['pending', 'reviewed', 'resolved', 'dismissed'].includes(status)) {
-        return res.status(400).json({ error: 'Valid status required: pending, reviewed, resolved, dismissed' });
+      if (!status || !['pending', 'reviewed', 'actionable', 'resolved', 'duplicate'].includes(status)) {
+        return res.status(400).json({ error: 'Valid status required: pending, reviewed, actionable, resolved, duplicate' });
       }
       
       const [updated] = await db.update(sofiaIssueReports)
