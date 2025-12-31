@@ -14,6 +14,7 @@ import { founderCollabWSBroker } from "./services/founder-collab-ws-broker";
 import { hiveConsciousnessService } from "./services/hive-consciousness-service";
 import { migrationOrchestrator } from "./migrations/migration-orchestrator";
 import { memoryRecoveryWorker } from "./services/memory-recovery-worker";
+import { supportPersonaService } from "./services/support-persona-service";
 
 const app = express();
 
@@ -43,6 +44,9 @@ hiveConsciousnessService.startListening();
 
 // Start Memory Recovery Worker - catches orphaned memory candidates from interrupted sessions
 memoryRecoveryWorker.start(5); // Run every 5 minutes
+
+// Start Sofia Issue Monitoring Worker - detects patterns and emits EXPRESS Lane alerts
+supportPersonaService.startIssueMonitoringWorker(5); // Run every 5 minutes
 
 // CRITICAL: Attach WebSocket handler IMMEDIATELY after server creation
 // This ensures upgrade events are handled BEFORE Vite's HMR gets a chance to interfere

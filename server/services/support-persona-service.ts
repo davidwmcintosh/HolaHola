@@ -28,6 +28,7 @@ import {
 import { eq, desc, and, or, like, sql } from "drizzle-orm";
 import { buildSupportPersonaPrompt, shouldHandoffToSupport, type SupportVoiceDiagnostics } from "../support-system-prompt";
 import { hiveCollaborationService, type BeaconType } from "./hive-collaboration-service";
+import { founderCollabService } from "./founder-collaboration-service";
 
 // Initialize Gemini client (consistent with Daniela and Aris)
 // Uses fallback pattern: AI_INTEGRATIONS_GEMINI_API_KEY || GEMINI_API_KEY
@@ -196,22 +197,27 @@ class SupportPersonaService {
 
     console.log(`[Sofia] Created issue report ${report.id} - type: ${params.issueType} for user ${params.userId}`);
     
-    // In production, also send a beacon to the Hive so founder is aware
+    const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
+    
+    // Always send EXPRESS Lane alert for immediate visibility
+    founderCollabService.emitSofiaIssueAlert({
+      reportId: report.id,
+      issueType: params.issueType,
+      userDescription: params.userDescription,
+      environment,
+      hasVoiceDiagnostics: !!params.voiceDiagnostics,
+      hasClientTelemetry: !!params.clientTelemetry,
+    }).catch(e => console.warn('[Sofia] Failed to emit EXPRESS Lane alert:', e));
+    
+    // In production, also emit a beacon to the Hive so Editor is aware
     if (process.env.NODE_ENV === 'production') {
       try {
-        await hiveCollaborationService.sendBeacon({
-          beaconType: 'support_issue' as BeaconType,
-          priority: 'high',
-          subject: `Voice Issue Report: ${params.issueType}`,
-          content: `User reported: ${params.userDescription.substring(0, 200)}`,
-          metadata: {
-            reportId: report.id,
-            issueType: params.issueType,
-            hasVoiceDiagnostics: !!params.voiceDiagnostics,
-          },
-        });
+        // Note: emitBeacon requires a channelId for the teaching session context
+        // Since Sofia issues are not session-specific, we skip the hive beacon
+        // and rely on EXPRESS Lane alerts instead
+        console.log(`[Sofia] Production issue report ${report.id} - EXPRESS Lane alert sent`);
       } catch (e) {
-        console.warn('[Sofia] Failed to send issue beacon:', e);
+        console.warn('[Sofia] Failed to process issue beacon:', e);
       }
     }
 
@@ -721,6 +727,177 @@ class SupportPersonaService {
       description: params.context || 'User returned to Daniela',
       sofiaResponse: `Support session ended, returning to language learning.`,
     });
+  }
+  
+  // ============================================================================
+  // PERIODIC ISSUE MONITORING WORKER
+  // ============================================================================
+  
+  private monitoringInterval: NodeJS.Timeout | null = null;
+  private lastCheckTime: Date | null = null;
+  private patternAlertCooldown: Map<string, Date> = new Map();
+  
+  /**
+   * Start the periodic issue monitoring worker
+   * Checks for patterns and sends summaries every 5 minutes
+   */
+  startIssueMonitoringWorker(intervalMinutes: number = 5): void {
+    if (this.monitoringInterval) {
+      console.log('[Sofia Monitor] Worker already running');
+      return;
+    }
+    
+    const intervalMs = intervalMinutes * 60 * 1000;
+    this.lastCheckTime = new Date();
+    
+    console.log(`[Sofia Monitor] Starting issue monitoring worker (interval: ${intervalMinutes}min)`);
+    
+    this.monitoringInterval = setInterval(async () => {
+      await this.runMonitoringCheck();
+    }, intervalMs);
+    
+    // Run initial check after 30 seconds
+    setTimeout(() => this.runMonitoringCheck(), 30000);
+  }
+  
+  /**
+   * Stop the monitoring worker
+   */
+  stopIssueMonitoringWorker(): void {
+    if (this.monitoringInterval) {
+      clearInterval(this.monitoringInterval);
+      this.monitoringInterval = null;
+      console.log('[Sofia Monitor] Worker stopped');
+    }
+  }
+  
+  /**
+   * Run a single monitoring check - detect patterns and emit summary
+   */
+  private async runMonitoringCheck(): Promise<void> {
+    try {
+      const now = new Date();
+      const lastCheck = this.lastCheckTime || new Date(Date.now() - 5 * 60 * 1000);
+      const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
+      
+      // Get all reports from the last hour for pattern detection
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      const recentReports = await db.select()
+        .from(sofiaIssueReports)
+        .where(sql`${sofiaIssueReports.createdAt} > ${oneHourAgo}`)
+        .orderBy(desc(sofiaIssueReports.createdAt));
+      
+      // Pattern detection: cluster similar issues
+      await this.detectAndAlertPatterns(recentReports, 60);
+      
+      // Get counts for summary
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      
+      const allPending = await db.select()
+        .from(sofiaIssueReports)
+        .where(eq(sofiaIssueReports.status, 'pending'));
+      
+      const resolvedToday = await db.select({ count: sql<number>`count(*)` })
+        .from(sofiaIssueReports)
+        .where(and(
+          eq(sofiaIssueReports.status, 'resolved'),
+          sql`${sofiaIssueReports.reviewedAt} > ${todayStart}`
+        ));
+      
+      const newSinceLastCheck = recentReports.filter(r => 
+        new Date(r.createdAt) > lastCheck
+      ).length;
+      
+      // Count by issue type
+      const issueTypeCounts: Record<string, number> = {};
+      for (const report of allPending) {
+        const type = report.issueType || 'unknown';
+        issueTypeCounts[type] = (issueTypeCounts[type] || 0) + 1;
+      }
+      
+      const topIssueTypes = Object.entries(issueTypeCounts)
+        .map(([type, count]) => ({ type, count }))
+        .sort((a, b) => b.count - a.count);
+      
+      // Emit summary to EXPRESS Lane (only if there's activity)
+      await founderCollabService.emitSofiaIssueSummary({
+        pendingCount: allPending.length,
+        newSinceLastCheck,
+        resolvedToday: resolvedToday[0]?.count || 0,
+        topIssueTypes,
+        environment,
+      });
+      
+      this.lastCheckTime = now;
+      console.log(`[Sofia Monitor] Check complete: ${allPending.length} pending, ${newSinceLastCheck} new`);
+      
+    } catch (error) {
+      console.error('[Sofia Monitor] Error in monitoring check:', error);
+    }
+  }
+  
+  /**
+   * Detect patterns in issue reports and emit alerts
+   */
+  private async detectAndAlertPatterns(
+    reports: typeof sofiaIssueReports.$inferSelect[],
+    timeWindowMinutes: number
+  ): Promise<void> {
+    const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
+    
+    // Group by issue type
+    const byType: Record<string, typeof reports> = {};
+    for (const report of reports) {
+      const type = report.issueType || 'unknown';
+      if (!byType[type]) byType[type] = [];
+      byType[type].push(report);
+    }
+    
+    // Check for clusters (3+ of same type in the time window)
+    for (const [issueType, typeReports] of Object.entries(byType)) {
+      const count = typeReports.length;
+      
+      if (count >= 3) {
+        // Check cooldown to prevent spam (30 min cooldown per pattern type)
+        const cooldownKey = `${issueType}-${environment}`;
+        const lastAlert = this.patternAlertCooldown.get(cooldownKey);
+        const cooldownMs = 30 * 60 * 1000; // 30 minutes
+        
+        if (lastAlert && (Date.now() - lastAlert.getTime()) < cooldownMs) {
+          continue; // Skip, still in cooldown
+        }
+        
+        // Generate recommendation based on issue type
+        let recommendation: string | undefined;
+        if (issueType === 'double_audio') {
+          recommendation = 'Check TTS audio queue management and deduplication logic';
+        } else if (issueType === 'no_audio') {
+          recommendation = 'Verify TTS service health and audio playback initialization';
+        } else if (issueType === 'latency') {
+          recommendation = 'Review streaming pipeline for bottlenecks (STT/LLM/TTS)';
+        } else if (issueType === 'connection') {
+          recommendation = 'Check WebSocket stability and reconnection logic';
+        } else if (issueType === 'microphone') {
+          recommendation = 'Review microphone permission handling and audio input stream';
+        }
+        
+        await founderCollabService.emitSofiaPatternAlert({
+          patternType: 'cluster',
+          issueType,
+          count,
+          timeWindowMinutes,
+          environment,
+          recentReportIds: typeReports.slice(0, 5).map(r => r.id),
+          recommendation,
+        });
+        
+        // Set cooldown
+        this.patternAlertCooldown.set(cooldownKey, new Date());
+        
+        console.log(`[Sofia Monitor] Pattern alert: ${count}x ${issueType}`);
+      }
+    }
   }
 }
 
