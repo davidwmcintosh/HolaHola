@@ -10,11 +10,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, CheckCircle, XCircle, Clock, Sparkles, ChevronRight, BookOpen, Target, MessageSquare, Loader2 } from "lucide-react";
+import { FileText, CheckCircle, XCircle, Clock, Sparkles, ChevronRight, BookOpen, Target, MessageSquare, Loader2, Shuffle, CheckCheck, AlertCircle } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Link } from "wouter";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface ScaffoldedTask {
   taskNumber: number;
@@ -102,6 +103,9 @@ export default function LessonDrafts() {
   const [languageFilter, setLanguageFilter] = useState("");
   const [selectedDraft, setSelectedDraft] = useState<LessonDraft | null>(null);
   const [reviewNotes, setReviewNotes] = useState("");
+  const [sampledDrafts, setSampledDrafts] = useState<LessonDraft[]>([]);
+  const [showSampling, setShowSampling] = useState(false);
+  const [samplingComplete, setSamplingComplete] = useState(false);
   const { toast } = useToast();
 
   const { data: drafts, isLoading } = useQuery<LessonDraft[]>({
@@ -154,6 +158,65 @@ export default function LessonDrafts() {
 
   const handleMarkPending = (draftId: string) => {
     updateStatusMutation.mutate({ draftId, status: "pending" });
+  };
+
+  // Sampling mutation
+  const sampleMutation = useMutation({
+    mutationFn: async (count: number) => {
+      const params = new URLSearchParams({ count: count.toString(), status: 'draft' });
+      if (languageFilter) params.append('language', languageFilter);
+      const response = await fetch(`/api/admin/lesson-drafts/sample?${params.toString()}`, {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to fetch sample");
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setSampledDrafts(data.sample);
+      setShowSampling(true);
+      setSamplingComplete(false);
+      toast({
+        title: "Sample Ready",
+        description: `Loaded ${data.sampleSize} random drafts from ${data.totalAvailable} available`,
+      });
+    },
+  });
+
+  // Bulk approve mutation
+  const bulkApproveMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/admin/lesson-drafts/bulk-status", {
+        status: "approved",
+        currentStatus: "draft",
+        language: languageFilter || undefined,
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/lesson-drafts"] });
+      setSampledDrafts([]);
+      setShowSampling(false);
+      setSamplingComplete(false);
+      toast({
+        title: "Bulk Approval Complete",
+        description: data.message,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Bulk Approval Failed",
+        description: error.message || "Failed to approve drafts",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleStartSampling = () => {
+    sampleMutation.mutate(5);
+  };
+
+  const handleBulkApprove = () => {
+    bulkApproveMutation.mutate();
   };
 
   const filteredDrafts = drafts?.filter((d) => {
@@ -217,7 +280,7 @@ export default function LessonDrafts() {
             })}
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
             <Select value={languageFilter} onValueChange={setLanguageFilter}>
               <SelectTrigger className="w-48" data-testid="select-language-filter">
                 <SelectValue placeholder="All Languages" />
@@ -230,7 +293,113 @@ export default function LessonDrafts() {
                 ))}
               </SelectContent>
             </Select>
+            
+            {statusFilter === "draft" && (statusCounts.draft || 0) > 0 && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={handleStartSampling}
+                  disabled={sampleMutation.isPending}
+                  data-testid="button-start-sampling"
+                >
+                  {sampleMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Shuffle className="h-4 w-4 mr-2" />
+                  )}
+                  Quick Sample (5 Random)
+                </Button>
+                
+                {samplingComplete && (
+                  <Button
+                    onClick={handleBulkApprove}
+                    disabled={bulkApproveMutation.isPending}
+                    data-testid="button-bulk-approve"
+                  >
+                    {bulkApproveMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <CheckCheck className="h-4 w-4 mr-2" />
+                    )}
+                    Approve All {statusCounts.draft || 0} Drafts
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
+
+          {showSampling && sampledDrafts.length > 0 && (
+            <Alert className="border-primary/50 bg-primary/5">
+              <Shuffle className="h-4 w-4" />
+              <AlertTitle>Quick Sample Review</AlertTitle>
+              <AlertDescription>
+                Review these {sampledDrafts.length} random lessons. If quality looks good, approve all drafts at once.
+              </AlertDescription>
+              <div className="mt-4 space-y-2">
+                {sampledDrafts.map((item, index) => (
+                  <div
+                    key={item.draft.id}
+                    className="p-3 bg-background border rounded-lg flex items-center justify-between gap-4 cursor-pointer hover-elevate"
+                    onClick={() => setSelectedDraft(item)}
+                    data-testid={`sample-draft-${index}`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-primary">#{index + 1}</span>
+                        <h4 className="font-medium truncate text-sm">{item.draft.name}</h4>
+                      </div>
+                      <p className="text-xs text-muted-foreground line-clamp-1">
+                        {item.canDo?.statement}
+                      </p>
+                      <div className="flex gap-1 mt-1">
+                        <Badge variant="outline" className="text-xs capitalize">{item.draft.language}</Badge>
+                        <Badge variant="secondary" className="text-xs">{LEVEL_LABELS[item.draft.actflLevel]}</Badge>
+                      </div>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setShowSampling(false);
+                    setSampledDrafts([]);
+                    setSamplingComplete(false);
+                  }}
+                  data-testid="button-close-sampling"
+                >
+                  Close Sample
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => setSamplingComplete(true)}
+                  disabled={samplingComplete}
+                  data-testid="button-confirm-quality"
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Quality Looks Good
+                </Button>
+                {samplingComplete && (
+                  <Button
+                    size="sm"
+                    onClick={handleBulkApprove}
+                    disabled={bulkApproveMutation.isPending}
+                    data-testid="button-bulk-approve-panel"
+                  >
+                    {bulkApproveMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <CheckCheck className="h-4 w-4 mr-2" />
+                    )}
+                    Approve All {statusCounts.draft || 0} Drafts
+                  </Button>
+                )}
+              </div>
+            </Alert>
+          )}
 
           <Card data-testid="card-drafts-list">
             <CardHeader>

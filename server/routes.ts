@@ -11524,6 +11524,66 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  // Bulk update lesson draft status (for approving/rejecting many at once)
+  app.post("/api/admin/lesson-drafts/bulk-status", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { status, language, currentStatus } = req.body;
+      const userId = req.user?.claims?.sub;
+      
+      if (!['pending', 'approved', 'rejected'].includes(status)) {
+        return res.status(400).json({ error: "Invalid status. Must be pending, approved, or rejected" });
+      }
+      
+      // Get all drafts matching the filter
+      const { getDrafts, updateDraftStatus } = await import('./services/ai-lesson-generator');
+      const drafts = await getDrafts(currentStatus || 'draft', language || undefined);
+      
+      let updated = 0;
+      for (const d of drafts) {
+        try {
+          await updateDraftStatus(d.draft.id, status, userId, `Bulk ${status}`);
+          updated++;
+        } catch (err) {
+          console.error(`[Bulk Status] Failed to update ${d.draft.id}:`, err);
+        }
+      }
+      
+      res.json({ 
+        success: true, 
+        updated, 
+        total: drafts.length,
+        message: `Updated ${updated} drafts to ${status}` 
+      });
+    } catch (error: any) {
+      console.error('[Bulk Lesson Draft Status] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get random sample of drafts for quick review
+  app.get("/api/admin/lesson-drafts/sample", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { count = '5', status = 'draft', language } = req.query;
+      const sampleCount = Math.min(parseInt(count as string) || 5, 20);
+      
+      const { getDrafts } = await import('./services/ai-lesson-generator');
+      const drafts = await getDrafts(status as string, language as string || undefined);
+      
+      // Shuffle and take sample
+      const shuffled = drafts.sort(() => Math.random() - 0.5);
+      const sample = shuffled.slice(0, sampleCount);
+      
+      res.json({
+        sample,
+        totalAvailable: drafts.length,
+        sampleSize: sample.length
+      });
+    } catch (error: any) {
+      console.error('[Sample Drafts] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // DEV ONLY: Trigger gap fill without auth (for automation)
   if (process.env.NODE_ENV === 'development') {
     app.post("/api/dev/trigger-gap-fill", async (req: any, res) => {
