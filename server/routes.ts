@@ -11535,8 +11535,8 @@ Return ONLY the ${targetLanguage} phrase:`;
       }
       
       // Get all drafts matching the filter
-      const { getDrafts, updateDraftStatus } = await import('./services/ai-lesson-generator');
-      const drafts = await getDrafts(currentStatus || 'draft', language || undefined);
+      const { getLessonDrafts, updateDraftStatus } = await import('./services/ai-lesson-generator');
+      const drafts = await getLessonDrafts(currentStatus || 'draft', language || undefined);
       
       let updated = 0;
       for (const d of drafts) {
@@ -11566,8 +11566,8 @@ Return ONLY the ${targetLanguage} phrase:`;
       const { count = '5', status = 'draft', language } = req.query;
       const sampleCount = Math.min(parseInt(count as string) || 5, 20);
       
-      const { getDrafts } = await import('./services/ai-lesson-generator');
-      const drafts = await getDrafts(status as string, language as string || undefined);
+      const { getLessonDrafts } = await import('./services/ai-lesson-generator');
+      const drafts = await getLessonDrafts(status as string, language as string || undefined);
       
       // Shuffle and take sample
       const shuffled = drafts.sort(() => Math.random() - 0.5);
