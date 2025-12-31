@@ -466,7 +466,6 @@ export default function LessonDrafts() {
               )}
             </CardContent>
           </Card>
-        </div>
 
         <Dialog open={!!selectedDraft} onOpenChange={(open) => !open && setSelectedDraft(null)}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">

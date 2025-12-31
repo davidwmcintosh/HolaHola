@@ -491,7 +491,6 @@ export default function FluencyCoverage() {
             </Card>
           )}
         </div>
-        </div>
       </div>
     </RoleGuard>
   );
