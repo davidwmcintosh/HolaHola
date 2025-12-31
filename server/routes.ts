@@ -14592,7 +14592,7 @@ Current conversation context:
   // Get student's syllabus time data for a specific class
   app.get("/api/analytics/syllabus-time/:classId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.claims?.sub;
       if (!userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -14615,7 +14615,7 @@ Current conversation context:
   // Get student's learning pace summary (for dashboard cards)
   app.get("/api/analytics/pace-summary", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.claims?.sub;
       if (!userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -14733,7 +14733,7 @@ Current conversation context:
   // Admin: Create a new system alert
   app.post("/api/system-alerts", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.claims?.sub;
       
       // Validate request body with Zod
       const parseResult = createSystemAlertSchema.safeParse(req.body);
@@ -14851,7 +14851,7 @@ Current conversation context:
   // Send a text message to Support Agent
   app.post("/api/support/message", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.claims?.sub;
       const { ticketId, message, category, mode, drillContext, clientTelemetry } = req.body;
       
       if (!message || typeof message !== 'string') {
@@ -14976,7 +14976,7 @@ Current conversation context:
   
   app.post("/api/support/voice-message", isAuthenticated, loadAuthenticatedUser(storage), upload.single('audio'), async (req: any, res) => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.claims?.sub;
       const audioFile = req.file;
       
       if (!audioFile) {
@@ -15110,7 +15110,7 @@ Current conversation context:
   app.post("/api/support/tickets/:ticketId/resolve", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
     try {
       const { ticketId } = req.params;
-      const userId = req.user?.id;
+      const userId = req.user?.claims?.sub;
       
       const ticket = await storage.getSupportTicket(ticketId);
       if (!ticket) {
@@ -15140,7 +15140,7 @@ Current conversation context:
   // Create a new support ticket
   app.post("/api/support/tickets", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.claims?.sub;
       const { category, subject, description, handoffFrom, handoffContext, deviceInfo } = req.body;
       
       if (!category || !subject || !description) {
@@ -15172,7 +15172,7 @@ Current conversation context:
   // Get user's support tickets
   app.get("/api/support/tickets", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.claims?.sub;
       const tickets = await storage.getSupportTickets({ userId, limit: 50 });
       res.json(tickets);
     } catch (error: any) {
@@ -15185,7 +15185,7 @@ Current conversation context:
   app.get("/api/support/tickets/:ticketId", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
     try {
       const { ticketId } = req.params;
-      const userId = req.user?.id;
+      const userId = req.user?.claims?.sub;
       
       const ticket = await storage.getSupportTicket(ticketId);
       if (!ticket) {
@@ -15877,7 +15877,7 @@ ${context ? `Context provided:\n${context}\n` : ''}`;
   // Get pending drill assignments for the current user
   app.get("/api/aris/drills/pending", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.claims?.sub;
       if (!userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -15893,7 +15893,7 @@ ${context ? `Context provided:\n${context}\n` : ''}`;
   // Get a specific drill assignment
   app.get("/api/aris/drills/:assignmentId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.claims?.sub;
       if (!userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -15919,7 +15919,7 @@ ${context ? `Context provided:\n${context}\n` : ''}`;
   // Start a drill assignment
   app.post("/api/aris/drills/:assignmentId/start", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.claims?.sub;
       if (!userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -15955,7 +15955,7 @@ ${context ? `Context provided:\n${context}\n` : ''}`;
   // Complete a drill assignment with results
   app.post("/api/aris/drills/:assignmentId/complete", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.claims?.sub;
       if (!userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -16102,7 +16102,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   // Get drill history for current user
   app.get("/api/aris/history", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.claims?.sub;
       if (!userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -16535,7 +16535,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   // Create feature sprint
   app.post("/api/feature-sprints", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.claims?.sub;
       const sprint = await storage.createFeatureSprint({
         ...req.body,
         createdBy: userId
@@ -17054,7 +17054,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   // Create consultation thread
   app.post("/api/sprint-consults", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.claims?.sub;
       const thread = await storage.createConsultationThread({
         ...req.body,
         createdBy: userId
