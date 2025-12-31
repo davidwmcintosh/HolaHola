@@ -616,6 +616,71 @@ export function VoiceLabPanel({
                 </Button>
               </div>
             </div>
+            
+            <Separator />
+            
+            {/* Assistant Tutors Reference - Read Only */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <Label className="text-sm font-medium text-muted-foreground">Practice Partners (Assistants)</Label>
+              </div>
+              <div className="rounded-lg border bg-muted/30 p-3 text-xs space-y-2" data-testid="assistant-tutors-list">
+                <div className="grid grid-cols-[100px_1fr_1fr] gap-1 font-medium text-muted-foreground border-b pb-1 mb-1">
+                  <span>Language</span>
+                  <span>Female</span>
+                  <span>Male</span>
+                </div>
+                <div className="grid grid-cols-[100px_1fr_1fr] gap-1">
+                  <span className="text-muted-foreground">Spanish</span>
+                  <span>Aris</span>
+                  <span>Marco</span>
+                </div>
+                <div className="grid grid-cols-[100px_1fr_1fr] gap-1">
+                  <span className="text-muted-foreground">French</span>
+                  <span>Colette</span>
+                  <span>Henri</span>
+                </div>
+                <div className="grid grid-cols-[100px_1fr_1fr] gap-1">
+                  <span className="text-muted-foreground">German</span>
+                  <span>Liesel</span>
+                  <span>Klaus</span>
+                </div>
+                <div className="grid grid-cols-[100px_1fr_1fr] gap-1">
+                  <span className="text-muted-foreground">Italian</span>
+                  <span>Valentina</span>
+                  <span>Enzo</span>
+                </div>
+                <div className="grid grid-cols-[100px_1fr_1fr] gap-1">
+                  <span className="text-muted-foreground">Japanese</span>
+                  <span>Yuki</span>
+                  <span>Takeshi</span>
+                </div>
+                <div className="grid grid-cols-[100px_1fr_1fr] gap-1">
+                  <span className="text-muted-foreground">Mandarin</span>
+                  <span>Lian</span>
+                  <span>Chen</span>
+                </div>
+                <div className="grid grid-cols-[100px_1fr_1fr] gap-1">
+                  <span className="text-muted-foreground">Portuguese</span>
+                  <span>Beatriz</span>
+                  <span>Tiago</span>
+                </div>
+                <div className="grid grid-cols-[100px_1fr_1fr] gap-1">
+                  <span className="text-muted-foreground">English</span>
+                  <span>Grace</span>
+                  <span>Oliver</span>
+                </div>
+                <div className="grid grid-cols-[100px_1fr_1fr] gap-1">
+                  <span className="text-muted-foreground">Korean</span>
+                  <span>Eun-ji</span>
+                  <span>Min-ho</span>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Assistants use Google Cloud TTS for practice drills.
+              </p>
+            </div>
           </div>
         ) : (
           <div className="py-8 text-center text-muted-foreground">
