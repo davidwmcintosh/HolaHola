@@ -108,6 +108,7 @@ export interface TutorHandoffInfo {
   tutorName?: string;         // New tutor's name (e.g., "Sayuri")
   isLanguageSwitch: boolean;  // True if this is a cross-language handoff
   requiresGreeting?: boolean; // True if client should request greeting after reconnecting
+  isAssistant?: boolean;      // True if switching to assistant tutor (navigate to practice page)
 }
 
 /**
@@ -825,11 +826,14 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     tutorName?: string;
     isLanguageSwitch: boolean;
     requiresGreeting?: boolean;
+    isAssistant?: boolean;
     timestamp: number;
   }) => {
-    const { targetGender, targetLanguage, tutorName, isLanguageSwitch, requiresGreeting } = message;
+    const { targetGender, targetLanguage, tutorName, isLanguageSwitch, requiresGreeting, isAssistant } = message;
     
-    if (isLanguageSwitch && targetLanguage) {
+    if (isAssistant) {
+      console.log(`[StreamingVoice] Assistant handoff to ${tutorName} (${targetGender}) - navigate to practice page`);
+    } else if (isLanguageSwitch && targetLanguage) {
       console.log(`[StreamingVoice] Cross-language handoff to ${tutorName} (${targetGender}) in ${targetLanguage}`);
       // For cross-language handoffs, the server will skip intro generation
       // and the client will request greeting after reconnecting with new language
@@ -853,19 +857,21 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     }, 15000);  // 15 second timeout for error recovery
     
     // Notify parent component to update UI state (avatar, buttons)
-    // Pass full handoff info for cross-language support
+    // Pass full handoff info for cross-language and assistant support
     sessionConfigRef.current?.onTutorHandoff?.({
       targetGender,
       targetLanguage,
       tutorName,
       isLanguageSwitch,
       requiresGreeting,
+      isAssistant,
     });
     
     // Call updateVoice to complete the handoff workflow
     // For cross-language switches, server will skip intro generation (isLanguageSwitchHandoff flag)
     // but we still need to call this to complete the handoff gracefully
-    if (clientRef.current?.isReady()) {
+    // NOTE: For assistant switches, we don't update voice here - the parent will navigate away
+    if (clientRef.current?.isReady() && !isAssistant) {
       clientRef.current.updateVoice(targetGender);
     }
   }, []);

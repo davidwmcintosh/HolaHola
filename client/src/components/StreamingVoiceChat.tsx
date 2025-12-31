@@ -779,7 +779,19 @@ export function StreamingVoiceChat({
           // Voice-initiated tutor switch - update UI state when student asks to switch tutors
           // Supports both intra-language (gender only) and cross-language (gender + language) handoffs
           onTutorHandoff: (handoff) => {
-            const { targetGender, targetLanguage, tutorName, isLanguageSwitch } = handoff;
+            const { targetGender, targetLanguage, tutorName, isLanguageSwitch, isAssistant } = handoff;
+            
+            // ASSISTANT HANDOFF: Navigate to assistant practice page
+            if (isAssistant) {
+              console.log(`[TUTOR HANDOFF] Assistant handoff to ${tutorName} - navigating to practice page`);
+              // Disconnect from streaming voice before navigation
+              streamingVoice.disconnect();
+              streamingConnectedRef.current = false;
+              // Navigate to assistant practice page
+              window.location.href = '/aris-practice';
+              return;
+            }
+            
             if (isLanguageSwitch && targetLanguage) {
               console.log(`[TUTOR HANDOFF] Cross-language switch to ${tutorName} (${targetGender}) in ${targetLanguage}`);
               // Mark that we're in a language handoff - used to complete handoff after reconnection
@@ -2490,7 +2502,19 @@ export function StreamingVoiceChat({
               // Voice-initiated tutor switch - update UI state when student asks to switch tutors
               // Supports both intra-language (gender only) and cross-language (gender + language) handoffs
               onTutorHandoff: (handoff) => {
-                const { targetGender, targetLanguage, tutorName, isLanguageSwitch } = handoff;
+                const { targetGender, targetLanguage, tutorName, isLanguageSwitch, isAssistant } = handoff;
+                
+                // ASSISTANT HANDOFF: Navigate to assistant practice page
+                if (isAssistant) {
+                  console.log(`[TUTOR HANDOFF] Assistant handoff to ${tutorName} - navigating to practice page (reconnect context)`);
+                  // Disconnect from streaming voice before navigation
+                  streamingVoice.disconnect();
+                  streamingConnectedRef.current = false;
+                  // Navigate to assistant practice page
+                  window.location.href = '/aris-practice';
+                  return;
+                }
+                
                 if (isLanguageSwitch && targetLanguage) {
                   console.log(`[TUTOR HANDOFF] Cross-language switch to ${tutorName} (${targetGender}) in ${targetLanguage} (reconnect context)`);
                   // CRITICAL: Clear greeting lock so new tutor can greet

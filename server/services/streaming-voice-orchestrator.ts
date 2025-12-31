@@ -2814,6 +2814,7 @@ Remember: David may reference things discussed in these recent text chats.
               console.log(`[Tutor Switch] Assistant handoff: ${tutorName} (${effectiveLanguage}, ${targetGender}) - TTS: Google Cloud`);
               
               // Notify client of assistant handoff
+              // CRITICAL: isAssistant=true signals client to navigate to assistant practice page
               this.sendMessage(session.ws, {
                 type: 'tutor_handoff',
                 timestamp: Date.now(),
@@ -2822,6 +2823,7 @@ Remember: David may reference things discussed in these recent text chats.
                 tutorName,
                 isLanguageSwitch,
                 requiresGreeting: true,
+                isAssistant: true,  // Signals assistant mode - client should navigate to practice page
               });
             } else {
               console.warn(`[Tutor Switch] No assistant config found for ${effectiveLanguage}`);
