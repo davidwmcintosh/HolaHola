@@ -205,48 +205,6 @@ export function SupportAssistModal({
     }
   }, [audioEnabled, isDrillModeDisabled]);
 
-  const startRecording = useCallback(async () => {
-    // Prevent recording in drill mode (backend returns 501)
-    if (isDrillModeDisabled) return;
-    
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-      
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-      
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        stream.getTracks().forEach(track => track.stop());
-        
-        await transcribeAndSend(audioBlob);
-      };
-      
-      mediaRecorder.start();
-      setIsRecording(true);
-    } catch (error) {
-      console.error('[SupportAssist] Microphone error:', error);
-      toast({
-        variant: "destructive",
-        title: "Microphone Error",
-        description: "Couldn't access microphone. Please check permissions.",
-      });
-    }
-  }, [toast, isDrillModeDisabled]);
-
-  const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-    }
-  }, []);
-
   const transcribeAndSend = useCallback(async (audioBlob: Blob) => {
     // Prevent voice message in drill mode (backend returns 501)
     if (isDrillModeDisabled) {
@@ -316,6 +274,124 @@ export function SupportAssistModal({
       setIsLoading(false);
     }
   }, [ticketId, category, mode, drillContext, isDrillModeDisabled, audioEnabled, synthesizeAndPlay, toast]);
+
+  const startRecording = useCallback(async () => {
+    // Prevent recording in drill mode (backend returns 501)
+    if (isDrillModeDisabled) return;
+    
+    try {
+      // Check if MediaRecorder and getUserMedia are available
+      if (!navigator.mediaDevices?.getUserMedia) {
+        console.error('[SupportAssist] getUserMedia not supported');
+        toast({
+          variant: "destructive",
+          title: "Not Supported",
+          description: "Voice recording is not supported in this browser. Please use text input instead.",
+        });
+        return;
+      }
+      
+      console.log('[SupportAssist] Requesting microphone access...');
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+        } 
+      });
+      console.log('[SupportAssist] Microphone access granted, tracks:', stream.getAudioTracks().length);
+      
+      // Check for supported MIME types with fallback
+      let mimeType = 'audio/webm';
+      if (MediaRecorder.isTypeSupported) {
+        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+          mimeType = 'audio/webm;codecs=opus';
+        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+          mimeType = 'audio/webm';
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          mimeType = 'audio/mp4';
+        } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
+          mimeType = 'audio/ogg';
+        }
+      }
+      console.log('[SupportAssist] Using MIME type:', mimeType);
+      
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+      
+      mediaRecorder.ondataavailable = (event) => {
+        console.log('[SupportAssist] Audio chunk received, size:', event.data.size);
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+      
+      mediaRecorder.onerror = (event: any) => {
+        console.error('[SupportAssist] MediaRecorder error:', event.error);
+        toast({
+          variant: "destructive",
+          title: "Recording Error",
+          description: "An error occurred while recording. Please try again.",
+        });
+        setIsRecording(false);
+        stream.getTracks().forEach(track => track.stop());
+      };
+      
+      mediaRecorder.onstop = async () => {
+        console.log('[SupportAssist] Recording stopped, chunks:', audioChunksRef.current.length);
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        console.log('[SupportAssist] Created blob, size:', audioBlob.size);
+        stream.getTracks().forEach(track => track.stop());
+        
+        if (audioBlob.size === 0) {
+          console.error('[SupportAssist] Empty audio blob');
+          toast({
+            variant: "destructive",
+            title: "Recording Empty",
+            description: "No audio was captured. Please check your microphone and try again.",
+          });
+          return;
+        }
+        
+        await transcribeAndSend(audioBlob);
+      };
+      
+      // Start recording with timeslice to get ondataavailable events during recording
+      mediaRecorder.start(1000);
+      console.log('[SupportAssist] Recording started');
+      setIsRecording(true);
+    } catch (error: any) {
+      console.error('[SupportAssist] Microphone error:', error);
+      
+      // Provide specific error messages based on the error type
+      let errorMessage = "Couldn't access microphone. Please check permissions.";
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        errorMessage = "Microphone access was denied. Please allow microphone access in your browser settings.";
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        errorMessage = "No microphone found. Please connect a microphone and try again.";
+      } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+        errorMessage = "Microphone is busy or unavailable. Please close other apps using the microphone.";
+      } else if (error.name === 'OverconstrainedError') {
+        errorMessage = "Microphone doesn't meet requirements. Please try a different microphone.";
+      } else if (error.name === 'SecurityError') {
+        errorMessage = "Microphone access blocked for security reasons. Try using HTTPS.";
+      }
+      
+      toast({
+        variant: "destructive",
+        title: "Microphone Error",
+        description: errorMessage,
+      });
+    }
+  }, [toast, isDrillModeDisabled, transcribeAndSend]);
+
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      console.log('[SupportAssist] Stopping recording...');
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  }, []);
 
   const handleSendMessage = useCallback(async () => {
     // Prevent text message in drill mode (backend returns 501)
