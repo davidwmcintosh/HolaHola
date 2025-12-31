@@ -747,6 +747,16 @@ export interface StreamingSession {
   };
   // Deduplication: Track sent audio chunks to prevent double audio bug
   sentAudioChunks: Set<string>;
+  // Lesson Bundle Context - tells Daniela about pre-configured drills
+  lessonBundleContext?: {
+    lessonId: string;
+    lessonName: string;
+    hasBundledDrills: boolean;      // True if lesson has linked drill content
+    bundleId?: string;              // Bundle ID for grouped lessons
+    linkedDrillLessonId?: string;   // ID of the linked drill lesson
+    drillsProvisioned: boolean;     // True if auto-provision has run
+    provisionedDrillCount?: number; // Number of drills created for this lesson
+  };
 }
 
 /**
@@ -6339,8 +6349,46 @@ Only include observations you can clearly justify from the exchange. Return empt
                 if (units.length > 0) {
                   const lessons = await storage.getCurriculumLessons(units[0].id);
                   if (lessons.length > 0) {
+                    const currentLesson = lessons[0];
                     classEnrollment.curriculumUnit = units[0].name;
-                    classEnrollment.curriculumLesson = lessons[0].name;
+                    classEnrollment.curriculumLesson = currentLesson.name;
+                    
+                    // Check if this lesson has bundled drills
+                    const hasBundledDrills = !!(currentLesson as any).linkedDrillLessonId;
+                    
+                    // Store bundle context in session for Daniela's awareness
+                    session.lessonBundleContext = {
+                      lessonId: currentLesson.id,
+                      lessonName: currentLesson.name,
+                      hasBundledDrills,
+                      bundleId: (currentLesson as any).bundleId || undefined,
+                      linkedDrillLessonId: (currentLesson as any).linkedDrillLessonId || undefined,
+                      drillsProvisioned: false,
+                      provisionedDrillCount: 0,
+                    };
+                    
+                    // If lesson has bundled drills, auto-provision them
+                    if (hasBundledDrills && session.conversationId) {
+                      try {
+                        const { autoProvisionDrillsFromBundle } = await import('./drill-lifecycle-service');
+                        const provisionResult = await autoProvisionDrillsFromBundle(
+                          String(session.userId),
+                          currentLesson.id,
+                          session.conversationId
+                        );
+                        if (provisionResult.success) {
+                          session.lessonBundleContext.drillsProvisioned = true;
+                          session.lessonBundleContext.provisionedDrillCount = provisionResult.drillCount || 0;
+                          console.log(`[Streaming Greeting] Auto-provisioned ${provisionResult.drillCount} bundled drills for lesson`);
+                        }
+                      } catch (provisionError: any) {
+                        console.log(`[Streaming Greeting] Could not auto-provision drills: ${provisionError.message}`);
+                      }
+                    }
+                    
+                    if (hasBundledDrills) {
+                      console.log(`[Streaming Greeting] Lesson has bundled drills (linkedDrillLessonId: ${(currentLesson as any).linkedDrillLessonId})`);
+                    }
                   }
                 }
               } catch (curriculumError: any) {
@@ -6633,8 +6681,18 @@ Just a real conversation between two people.`;
       if (classEnrollment.curriculumLesson) {
         contextParts.push(`Current lesson: ${classEnrollment.curriculumLesson}`);
       }
+      
+      // LESSON BUNDLE CONTEXT: Tell Daniela about pre-configured drills
+      if (session.lessonBundleContext?.hasBundledDrills) {
+        contextParts.push(`\n*** BUNDLED PRACTICE DRILLS ***`);
+        contextParts.push(`This lesson has ${session.lessonBundleContext.provisionedDrillCount || 'some'} practice drills bundled.`);
+        contextParts.push(`You do NOT need to create drills with CALL_ASSISTANT - they're already prepared.`);
+        contextParts.push(`When the student is ready to practice, say something like "Let's practice what we learned" and the system will offer the bundled drills.`);
+        contextParts.push(`Save CALL_ASSISTANT for off-script moments when you cover material outside this lesson's bundle.`);
+      }
     } else {
       contextParts.push('\nLearning path: Self-directed (no class enrollment)');
+      contextParts.push('No bundled drills - use CALL_ASSISTANT if the student would benefit from focused practice on what you cover together.');
     }
     
     // COLLEAGUE INSIGHTS: Feedback from Aris (Assistant Tutor) about recent drill performance
