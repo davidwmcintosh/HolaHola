@@ -15173,7 +15173,7 @@ Current conversation context:
   app.get("/api/support/tickets", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
     try {
       const userId = req.user?.id;
-      const tickets = await storage.getSupportTicketsByUser(userId);
+      const tickets = await storage.getSupportTickets({ userId, limit: 50 });
       res.json(tickets);
     } catch (error: any) {
       console.error('[API] Error getting support tickets:', error);

@@ -117,6 +117,15 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     console.log('[LanguageContext] Setting language:', lang);
     localStorage.setItem("language", lang);
     setLanguageState(lang);
+    
+    // Also save to database so it persists across sessions and syncs with server
+    apiRequest("PUT", "/api/user/preferences", { targetLanguage: lang })
+      .then(() => {
+        console.log('[LanguageContext] Saved targetLanguage to database:', lang);
+      })
+      .catch((err) => {
+        console.error('[LanguageContext] Failed to save targetLanguage to database:', err);
+      });
   };
 
   const setDifficulty = (diff: DifficultyLevel) => {
