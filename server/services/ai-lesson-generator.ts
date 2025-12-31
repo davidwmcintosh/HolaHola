@@ -379,11 +379,19 @@ export async function getAllCoverageGaps(): Promise<{
 }> {
   const allCanDos = await db.select().from(canDoStatements);
   
+  // Check both published lessons AND existing drafts
   const coveredIds = await db
     .select({ id: lessonCanDoStatements.canDoStatementId })
     .from(lessonCanDoStatements);
   
-  const coveredSet = new Set(coveredIds.map(c => c.id));
+  const draftIds = await db
+    .select({ id: lessonDrafts.canDoStatementId })
+    .from(lessonDrafts);
+  
+  const coveredSet = new Set([
+    ...coveredIds.map(c => c.id),
+    ...draftIds.map(d => d.id)
+  ]);
   const uncovered = allCanDos.filter(c => !coveredSet.has(c.id));
   
   const byLanguage: Record<string, number> = {};
