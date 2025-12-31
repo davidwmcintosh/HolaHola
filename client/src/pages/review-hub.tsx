@@ -7,7 +7,7 @@ import { useLearningFilter } from "@/contexts/LearningFilterContext";
 import { LearningContextFilter } from "@/components/LearningContextFilter";
 import { ActflFluencyDial } from "@/components/ActflFluencyDial";
 import { useSidebar } from "@/components/ui/sidebar";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -457,6 +457,7 @@ export default function ReviewHub() {
   const { language, tutorGender, setLanguage, setTutorGender } = useLanguage();
   const { learningContext } = useLearningFilter();
   const { setOpen, isMobile, setOpenMobile } = useSidebar();
+  const [, setLocation] = useLocation();
   
   // Syllabus view preference - Mind Map is the HolaHola default
   const [syllabusView, setSyllabusView] = useState<SyllabusViewMode>(() => {
@@ -550,9 +551,11 @@ export default function ReviewHub() {
             // Update language context to reflect selected tutor
             setLanguage(selection.language);
             setTutorGender(selection.gender);
-            // Navigate to chat with selected tutor
+            // Also update localStorage immediately for tutorGender
+            localStorage.setItem('tutorGender', selection.gender);
+            // Navigate to chat with selected tutor using SPA navigation
             forceNewConversation();
-            window.location.href = `/chat?language=${selection.language}&gender=${selection.gender}`;
+            setLocation("/chat");
           }
         }}
         selectedLanguage={language}
