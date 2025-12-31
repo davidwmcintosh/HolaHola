@@ -578,17 +578,35 @@ export default function Chat() {
       />
       <div className="flex-1 min-h-0 flex">
         {/* Main chat area */}
-        <div className="flex-1 min-h-0">
+        <div className="flex-1 min-h-0 relative">
           {mode === "voice" ? (
-            <VoiceChat 
-              conversationId={conversationId} 
-              setConversationId={setConversationId}
-              setCurrentConversationOnboarding={setCurrentConversationOnboarding}
-              isResumedConversation={isResumedConversation}
-              onResumeHandled={() => setIsResumedConversation(false)}
-              onLanguageHandoff={handleLanguageHandoff}
-              onLanguageHandoffComplete={completeLanguageHandoff}
-            />
+            <>
+              <VoiceChat 
+                conversationId={conversationId} 
+                setConversationId={setConversationId}
+                setCurrentConversationOnboarding={setCurrentConversationOnboarding}
+                isResumedConversation={isResumedConversation}
+                onResumeHandled={() => setIsResumedConversation(false)}
+                onLanguageHandoff={handleLanguageHandoff}
+                onLanguageHandoffComplete={completeLanguageHandoff}
+              />
+              {/* Floating help button for voice chat */}
+              <Button
+                variant="outline"
+                size="icon"
+                className="absolute bottom-4 right-4 h-10 w-10 rounded-full shadow-lg bg-background/80 backdrop-blur-sm z-50"
+                onClick={() => setSupportHandoffContext({
+                  ticketId: null,
+                  category: 'technical',
+                  reason: 'Help request during voice chat',
+                  priority: 'normal',
+                })}
+                data-testid="button-voice-help"
+                title="Need help?"
+              >
+                <HelpCircle className="h-5 w-5" />
+              </Button>
+            </>
           ) : (
             <ChatInterface 
               conversationId={conversationId}
