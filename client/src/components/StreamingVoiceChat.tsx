@@ -788,7 +788,7 @@ export function StreamingVoiceChat({
               streamingVoice.disconnect();
               streamingConnectedRef.current = false;
               // Navigate to assistant practice page
-              window.location.href = '/aris-practice';
+              window.location.href = '/practice';
               return;
             }
             
@@ -2511,7 +2511,7 @@ export function StreamingVoiceChat({
                   streamingVoice.disconnect();
                   streamingConnectedRef.current = false;
                   // Navigate to assistant practice page
-                  window.location.href = '/aris-practice';
+                  window.location.href = '/practice';
                   return;
                 }
                 
