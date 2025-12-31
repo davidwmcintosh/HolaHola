@@ -479,8 +479,8 @@ class SupportPersonaService {
         contents: geminiContents,
         config: {
           systemInstruction: systemPrompt,
-          maxOutputTokens: 500,
-          temperature: 0.7,
+          maxOutputTokens: 300,
+          temperature: 0.6,
         },
       });
 

@@ -6,7 +6,7 @@ import { SupportAssistModal } from "@/components/SupportAssistModal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { MessageSquare, Mic, Plus, GraduationCap, User, Phone, Heart, Sparkles, Radio, Wifi, WifiOff, Send, Loader2, ChevronRight, ChevronLeft, Brain, Code, Volume2 } from "lucide-react";
+import { MessageSquare, Mic, Plus, GraduationCap, User, Phone, Heart, Sparkles, Radio, Wifi, WifiOff, Send, Loader2, ChevronRight, ChevronLeft, Brain, Code, Volume2, HelpCircle } from "lucide-react";
 import { useFounderCollab } from "@/hooks/useFounderCollab";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useLearningFilter } from "@/contexts/LearningFilterContext";
@@ -17,7 +17,6 @@ import { useCredits } from "@/contexts/UsageContext";
 import { InsufficientCreditsDialog } from "@/components/InsufficientCreditsDialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { DevToolsFloatingMenu } from "@/components/DevToolsFloatingMenu";
-import { FloatingHelpButton } from "@/components/FloatingHelpButton";
 
 export default function Chat() {
   const search = useSearch();
@@ -739,7 +738,7 @@ export default function Chat() {
                     </div>
                   )}
                   
-                  {/* Push-to-talk button */}
+                  {/* Push-to-talk button with help */}
                   <div className="flex gap-2 items-center">
                     <Button
                       className={`flex-1 ${syncVoiceState.isRecording ? 'bg-red-500 hover:bg-red-600' : ''}`}
@@ -762,6 +761,21 @@ export default function Chat() {
                           <span>Hold to talk</span>
                         </>
                       )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-9 w-9 flex-shrink-0"
+                      onClick={() => setSupportHandoffContext({
+                        ticketId: null,
+                        category: 'technical',
+                        reason: 'Help request during voice chat',
+                        priority: 'normal',
+                      })}
+                      data-testid="button-inline-help"
+                      title="Need help?"
+                    >
+                      <HelpCircle className="h-4 w-4" />
                     </Button>
                   </div>
                   
@@ -812,8 +826,6 @@ export default function Chat() {
         }}
       />
       
-      {/* Floating help button - access Sofia support during voice chat */}
-      <FloatingHelpButton defaultCategory="technical" />
       
       {/* Support modal - triggered by Daniela handoff in text chat */}
       <SupportAssistModal

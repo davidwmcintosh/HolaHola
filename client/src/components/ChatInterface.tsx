@@ -17,11 +17,11 @@ import { useStreak } from "@/hooks/use-streak";
 import { useToast } from "@/hooks/use-toast";
 
 export interface SupportHandoffContext {
-  ticketId: string;
+  ticketId: string | null;
   category: 'technical' | 'account' | 'billing' | 'content' | 'feedback' | 'other';
   priority: 'low' | 'normal' | 'high' | 'critical';
   reason: string;
-  sessionContext: {
+  sessionContext?: {
     learningTopic?: string;
     language?: string;
     lastDanielaMessage?: string;
