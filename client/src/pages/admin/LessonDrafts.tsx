@@ -316,20 +316,18 @@ export default function LessonDrafts() {
                   Quick Sample (5 Random)
                 </Button>
                 
-                {samplingComplete && (
-                  <Button
-                    onClick={handleBulkApprove}
-                    disabled={bulkApproveMutation.isPending}
-                    data-testid="button-bulk-approve"
-                  >
-                    {bulkApproveMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <CheckCheck className="h-4 w-4 mr-2" />
-                    )}
-                    Approve All {statusCounts.draft || 0} Drafts
-                  </Button>
-                )}
+                <Button
+                  onClick={handleBulkApprove}
+                  disabled={bulkApproveMutation.isPending}
+                  data-testid="button-bulk-approve"
+                >
+                  {bulkApproveMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <CheckCheck className="h-4 w-4 mr-2" />
+                  )}
+                  Approve All {statusCounts.draft || 0} Drafts
+                </Button>
               </div>
             )}
           </div>
