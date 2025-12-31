@@ -461,6 +461,19 @@ class SupportPersonaService {
 
     try {
       const gemini = getGeminiClient();
+      
+      // Pre-flight check: Verify API key is available
+      const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        console.error('[Sofia] CRITICAL: No Gemini API key available');
+        return {
+          response: "I'm sorry, our AI system is temporarily unavailable. Please return to Daniela and try again later.",
+          shouldReturnToDaniela: true,
+        };
+      }
+      
+      console.log(`[Sofia] Calling Gemini API for ticket ${params.ticketId} (mode: ${params.mode})`);
+      
       const response = await gemini.models.generateContent({
         model: 'gemini-2.0-flash',
         contents: geminiContents,
@@ -488,10 +501,28 @@ class SupportPersonaService {
         shouldReturnToDaniela,
         knowledgeUsed,
       };
-    } catch (error) {
-      console.error('[Sofia] Gemini API error:', error);
+    } catch (error: any) {
+      // Detailed error logging for debugging production issues
+      const errorMessage = error?.message || 'Unknown error';
+      const errorCode = error?.code || error?.status || 'N/A';
+      console.error('[Sofia] Gemini API error:', {
+        message: errorMessage,
+        code: errorCode,
+        ticketId: params.ticketId,
+        mode: params.mode,
+        stack: error?.stack?.split('\n').slice(0, 3).join('\n'),
+      });
+      
+      // Provide contextual fallback based on mode
+      if (params.mode === 'dev') {
+        return {
+          response: `[DEV MODE] Gemini API error: ${errorMessage} (code: ${errorCode}). Check server logs for details. The AI integration may need reconfiguration.`,
+          shouldReturnToDaniela: false,
+        };
+      }
+      
       return {
-        response: "I'm sorry, I'm experiencing technical difficulties. Please try again in a moment.",
+        response: "I'm sorry, I'm experiencing technical difficulties. Please try again in a moment, or return to Daniela if the issue persists.",
         shouldReturnToDaniela: false,
       };
     }

@@ -745,6 +745,8 @@ export interface StreamingSession {
     scenarioStrengths?: string;
     teachingPhilosophy?: string;
   };
+  // Deduplication: Track sent audio chunks to prevent double audio bug
+  sentAudioChunks: Set<string>;
 }
 
 /**
@@ -1055,6 +1057,8 @@ export class StreamingVoiceOrchestrator {
         emotion: 'friendly',
         expressiveness: 3,
       },
+      // Deduplication: Track sent audio chunks to prevent double audio bug
+      sentAudioChunks: new Set<string>(),
     };
     
     // Look up tutor voice from database to get per-tutor baseline settings
@@ -1491,6 +1495,7 @@ export class StreamingVoiceOrchestrator {
       // NEW TURN: Increment turnId for this response (for subtitle packet ordering)
       session.currentTurnId++;
       session.isInterrupted = false;  // Reset interrupt flag for new turn
+      session.sentAudioChunks.clear();  // Reset audio deduplication for new turn
       const turnId = session.currentTurnId;
       
       // Notify client that processing has started
@@ -3153,6 +3158,7 @@ Remember: David may reference things discussed in these recent text chats.
       session.isInterrupted = false;  // Reset interrupt flag for new turn
       session.switchTutorTriggered = false;  // Reset switch flag for new turn
       session.crossLanguageTransferBlocked = false;  // Reset cross-language block for new turn
+      session.sentAudioChunks.clear();  // Reset audio deduplication for new turn
       const turnId = session.currentTurnId;
       
       // Notify client that processing has started
@@ -6133,9 +6139,31 @@ Only include observations you can clearly justify from the exchange. Return empt
   
   /**
    * Send a JSON message over WebSocket
+   * Includes deduplication for audio_chunk to prevent double audio bug
    */
-  private sendMessage(ws: WS, message: StreamingMessage): void {
+  private sendMessage(ws: WS, message: StreamingMessage, session?: StreamingSession): void {
     if (ws.readyState === WS.OPEN) {
+      // DEDUPLICATION: Prevent duplicate audio chunks (double audio bug fix)
+      // Only deduplicate audio_chunk messages - sentence_ready has different semantics
+      if (message.type === 'audio_chunk') {
+        const audioMsg = message as any;
+        // Include message type in key to prevent collisions with other message types
+        const dedupeKey = `audio-${audioMsg.turnId}-${audioMsg.sentenceIndex}-${audioMsg.chunkIndex || 0}`;
+        
+        // Find session by WS if not provided
+        const targetSession = session || Array.from(this.sessions.values()).find(s => s.ws === ws);
+        
+        if (targetSession?.sentAudioChunks?.has(dedupeKey)) {
+          console.log(`[AUDIO DEDUP] Blocking duplicate audio_chunk: turnId=${audioMsg.turnId}, sentence=${audioMsg.sentenceIndex}, chunk=${audioMsg.chunkIndex || 0}`);
+          return; // Skip sending duplicate
+        }
+        
+        // Track this audio chunk
+        if (targetSession?.sentAudioChunks) {
+          targetSession.sentAudioChunks.add(dedupeKey);
+        }
+      }
+      
       const json = JSON.stringify(message);
       // DEBUG: Log critical message sends
       if (message.type === 'word_timing_delta') {
@@ -6375,6 +6403,7 @@ Only include observations you can clearly justify from the exchange. Return empt
       
       // NEW TURN: Increment turnId for this greeting response
       session.currentTurnId++;
+      session.sentAudioChunks.clear();  // Reset audio deduplication for new turn
       const turnId = session.currentTurnId;
       
       // Notify client that greeting is being generated
@@ -7111,6 +7140,7 @@ DON'T:
     
     // NEW TURN: Increment turnId for voice switch intro
     session.currentTurnId++;
+    session.sentAudioChunks.clear();  // Reset audio deduplication for new turn
     const turnId = session.currentTurnId;
     const switchStartTime = Date.now();
     let fullText = '';
@@ -7226,6 +7256,7 @@ DON'T:
     session.currentTurnId++;
     session.isInterrupted = false;
     session.isGenerating = true;
+    session.sentAudioChunks.clear();  // Reset audio deduplication for new turn
     const turnId = session.currentTurnId;
     
     // Notify client that an architect-triggered response is starting
