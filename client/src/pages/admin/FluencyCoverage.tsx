@@ -1,5 +1,4 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { AdminLayout } from "@/components/admin/AdminLayout";
 import { RoleGuard } from "@/components/admin/RoleGuard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { BookOpen, Target, AlertTriangle, CheckCircle, GraduationCap, Sparkles, Loader2, FileText } from "lucide-react";
+import { BookOpen, Target, AlertTriangle, CheckCircle, GraduationCap, Sparkles, Loader2, FileText, ArrowLeft } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -194,10 +193,16 @@ export default function FluencyCoverage() {
 
   return (
     <RoleGuard allowedRoles={['admin', 'developer', 'founder']}>
-      <AdminLayout>
-        <div className="space-y-6">
+      <div className="min-h-screen bg-background p-6">
+        <div className="max-w-7xl mx-auto space-y-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
+              <Button variant="ghost" size="sm" asChild className="mb-2" data-testid="link-back-command-center">
+                <Link href="/admin">
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to Command Center
+                </Link>
+              </Button>
               <h1 className="text-3xl md:text-4xl font-bold tracking-tight" data-testid="text-page-title">
                 ACTFL Fluency Coverage
               </h1>
@@ -486,7 +491,8 @@ export default function FluencyCoverage() {
             </Card>
           )}
         </div>
-      </AdminLayout>
+        </div>
+      </div>
     </RoleGuard>
   );
 }
