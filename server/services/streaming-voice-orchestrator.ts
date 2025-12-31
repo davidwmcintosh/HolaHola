@@ -1138,11 +1138,16 @@ export class StreamingVoiceOrchestrator {
         });
       
       // Build assistant entries from config
+      // Mark assistant matching student's gender preference as preferred (same as main tutors)
+      const sessionLang = config.targetLanguage.toLowerCase();
       const assistantEntries: TutorDirectoryEntry[] = Object.entries(ASSISTANT_TUTORS)
-        .flatMap(([lang, config]) => [
-          { name: config.male, gender: 'male' as const, language: lang.toLowerCase(), isPreferred: false, isCurrent: false, role: 'assistant' as const },
-          { name: config.female, gender: 'female' as const, language: lang.toLowerCase(), isPreferred: false, isCurrent: false, role: 'assistant' as const },
-        ]);
+        .flatMap(([lang, assistantConfig]) => {
+          const langNormalized = lang.toLowerCase();
+          return [
+            { name: assistantConfig.male, gender: 'male' as const, language: langNormalized, isPreferred: initialGender === 'male' && langNormalized === sessionLang, isCurrent: false, role: 'assistant' as const },
+            { name: assistantConfig.female, gender: 'female' as const, language: langNormalized, isPreferred: initialGender === 'female' && langNormalized === sessionLang, isCurrent: false, role: 'assistant' as const },
+          ];
+        });
       
       // Add Sofia support agent
       const sofiaEntry: TutorDirectoryEntry = {
@@ -2756,11 +2761,15 @@ Remember: David may reference things discussed in these recent text chats.
               });
             
             // Build assistant entries from config (config already uses lowercase)
+            // Mark assistant matching student's gender preference as preferred
             const assistantEntries: TutorDirectoryEntry[] = Object.entries(ASSISTANT_TUTORS)
-              .flatMap(([lang, config]) => [
-                { name: config.male, gender: 'male' as const, language: lang.toLowerCase(), isPreferred: false, isCurrent: false, role: 'assistant' as const },
-                { name: config.female, gender: 'female' as const, language: lang.toLowerCase(), isPreferred: false, isCurrent: false, role: 'assistant' as const },
-              ]);
+              .flatMap(([lang, assistantConfig]) => {
+                const langNormalized = lang.toLowerCase();
+                return [
+                  { name: assistantConfig.male, gender: 'male' as const, language: langNormalized, isPreferred: preferredGender === 'male' && langNormalized === currentLanguage, isCurrent: false, role: 'assistant' as const },
+                  { name: assistantConfig.female, gender: 'female' as const, language: langNormalized, isPreferred: preferredGender === 'female' && langNormalized === currentLanguage, isCurrent: false, role: 'assistant' as const },
+                ];
+              });
             
             // Add Sofia support agent
             const sofiaEntry: TutorDirectoryEntry = {
