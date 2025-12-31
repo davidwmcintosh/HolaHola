@@ -113,7 +113,8 @@ export default function LessonDrafts() {
     queryFn: async () => {
       const params = new URLSearchParams();
       if (statusFilter) params.append("status", statusFilter);
-      if (languageFilter) params.append("language", languageFilter);
+      // Only send language param if it's a specific language, not "all"
+      if (languageFilter && languageFilter !== "all") params.append("language", languageFilter);
       const response = await fetch(`/api/admin/lesson-drafts?${params.toString()}`, {
         credentials: "include",
       });

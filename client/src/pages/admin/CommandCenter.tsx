@@ -99,6 +99,7 @@ import {
   Save,
   Archive,
   Database,
+  Target,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -1117,6 +1118,14 @@ export default function CommandCenter() {
       setLocation('/admin/sync');
       return;
     }
+    if (value === 'fluency-coverage') {
+      setLocation('/admin/fluency-coverage');
+      return;
+    }
+    if (value === 'lesson-drafts') {
+      setLocation('/admin/lesson-drafts');
+      return;
+    }
     setActiveTab(value);
   };
 
@@ -1155,6 +1164,8 @@ export default function CommandCenter() {
     { id: "personal-facts", label: "Student Memories", icon: BookOpen, roles: ['admin', 'developer'] },
     { id: "memory-metrics", label: "Memory Metrics", icon: Activity, roles: ['admin', 'developer'] },
     { id: "sync-control", label: "Sync Control", icon: Database, roles: ['founder'] },
+    { id: "fluency-coverage", label: "Fluency Coverage", icon: Target, roles: ['admin', 'developer'] },
+    { id: "lesson-drafts", label: "Lesson Drafts", icon: Sparkles, roles: ['admin', 'developer'] },
   ].filter(tab => {
     if (tab.roles.includes('founder')) {
       return isFounder;
