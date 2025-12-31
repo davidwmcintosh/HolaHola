@@ -560,9 +560,13 @@ export const LATENCY_TARGETS = {
 export type ClientTelemetryEventType =
   | 'audio_chunk_received'     // Client received an audio_chunk or audio_chunk_part
   | 'audio_chunk_reassembled'  // Client reassembled chunked audio
+  | 'audio_enqueued'           // Audio chunk added to playback queue (for duplicate detection)
+  | 'audio_play_start'         // Individual audio chunk started playing
+  | 'audio_play_end'           // Individual audio chunk finished playing
   | 'playback_state_change'    // Audio player state changed (idle → playing → idle)
   | 'playback_started'         // First audio byte played
   | 'playback_ended'           // Audio playback completed
+  | 'queue_status'             // Periodic queue depth report (for diagnosing backlog)
   | 'callback_registered'      // Audio player callbacks were set
   | 'socket_message_received'  // Any Socket.io message received (for delivery confirmation)
   | 'speculative_ptt_trigger'  // Speculative PTT started AI generation

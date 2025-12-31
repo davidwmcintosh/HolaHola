@@ -697,6 +697,27 @@ export class StreamingAudioPlayer {
     this.queue.push(chunk);
     this.updatePendingCount(this.pendingAudioCount + 1);
     
+    // TELEMETRY: Track enqueue for production duplicate audio debugging
+    try {
+      const emitter = getTelemetryEmitter();
+      if (emitter) {
+        emitter.emit('audio_enqueued', {
+          queueDepth: this.queue.length,
+          audioLength: chunk.audio instanceof ArrayBuffer ? chunk.audio.byteLength : 0,
+          format: chunk.audioFormat || 'unknown',
+        }, chunk.sentenceIndex, chunk.chunkIndex);
+        
+        // Emit queue_status on every enqueue for backlog tracking
+        emitter.emit('queue_status', {
+          queueDepth: this.queue.length,
+          pendingAudioCount: this.pendingAudioCount,
+          event: 'ENQUEUE',
+          isPlaying: this.isPlaying,
+          warning: this.queue.length > 3 ? 'QUEUE_BACKLOG' : undefined,
+        });
+      }
+    } catch (e) { /* telemetry failure shouldn't break audio */ }
+    
     // Start playback if not already playing
     if (!this.isPlaying) {
       console.log(`[AUDIO PLAYER] Not playing, calling playNext()`);
@@ -1865,6 +1886,17 @@ export class StreamingAudioPlayer {
       this.setState('playing');
       this.playbackStartTime = performance.now();
       
+      // TELEMETRY: Track play start for production duplicate audio debugging
+      try {
+        const emitter = getTelemetryEmitter();
+        if (emitter) {
+          emitter.emit('audio_play_start', {
+            format: 'mp3',
+            queueRemaining: this.queue.length,
+          }, chunk.sentenceIndex, chunk.chunkIndex);
+        }
+      } catch (e) { /* telemetry failure shouldn't break audio */ }
+      
       // Fire onSentenceStart for precise sync with subtitle timing
       this.notifySentenceStart(this.currentSentenceIndex);
       
@@ -1874,6 +1906,25 @@ export class StreamingAudioPlayer {
     
     this.currentAudio.onended = () => {
       this.stopPrecisionTiming();
+      
+      // TELEMETRY: Track play end for production duplicate audio debugging
+      try {
+        const emitter = getTelemetryEmitter();
+        if (emitter) {
+          emitter.emit('audio_play_end', {
+            format: 'mp3',
+            durationMs: performance.now() - this.playbackStartTime,
+          }, chunk.sentenceIndex, chunk.chunkIndex);
+          
+          // Emit queue_status on dequeue to track queue evolution
+          emitter.emit('queue_status', {
+            queueDepth: this.queue.length,
+            pendingAudioCount: this.pendingAudioCount - 1, // After decrement
+            event: 'DEQUEUE',
+          });
+        }
+      } catch (e) { /* telemetry failure shouldn't break audio */ }
+      
       this.notifySentenceEnd(chunk.sentenceIndex);
       
       // Decrement pending count after chunk finishes
@@ -1935,6 +1986,17 @@ export class StreamingAudioPlayer {
     this.setState('playing');
     this.playbackStartTime = performance.now();
     
+    // TELEMETRY: Track play start for production duplicate audio debugging
+    try {
+      const emitter = getTelemetryEmitter();
+      if (emitter) {
+        emitter.emit('audio_play_start', {
+          format: 'pcm_f32le',
+          queueRemaining: this.queue.length,
+        }, chunk.sentenceIndex, chunk.chunkIndex);
+      }
+    } catch (e) { /* telemetry failure shouldn't break audio */ }
+    
     // Fire onSentenceStart for precise sync with subtitle timing
     this.notifySentenceStart(this.currentSentenceIndex);
     
@@ -1944,6 +2006,25 @@ export class StreamingAudioPlayer {
     // Handle playback end
     source.onended = () => {
       this.stopPrecisionTiming();
+      
+      // TELEMETRY: Track play end for production duplicate audio debugging
+      try {
+        const emitter = getTelemetryEmitter();
+        if (emitter) {
+          emitter.emit('audio_play_end', {
+            format: 'pcm_f32le',
+            durationMs: performance.now() - this.playbackStartTime,
+          }, chunk.sentenceIndex, chunk.chunkIndex);
+          
+          // Emit queue_status on dequeue to track queue evolution
+          emitter.emit('queue_status', {
+            queueDepth: this.queue.length,
+            pendingAudioCount: this.pendingAudioCount - 1, // After decrement
+            event: 'DEQUEUE',
+          });
+        }
+      } catch (e) { /* telemetry failure shouldn't break audio */ }
+      
       this.currentPcmSource = null;
       this.notifySentenceEnd(chunk.sentenceIndex);
       

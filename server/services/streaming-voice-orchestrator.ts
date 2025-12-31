@@ -758,6 +758,7 @@ export interface StreamingMetrics {
   totalLatencyMs: number;
   sentenceCount: number;
   audioBytes: number;
+  audioChunkCount: number;  // Total audio chunks sent for debugging duplicate audio
   userTranscript?: string;
   aiResponse?: string;
 }
@@ -1291,6 +1292,7 @@ export class StreamingVoiceOrchestrator {
       totalLatencyMs: 0,
       sentenceCount: 0,
       audioBytes: 0,
+      audioChunkCount: 0,
     };
     
     try {
@@ -2599,19 +2601,24 @@ Remember: David may reference things discussed in these recent text chats.
         fullText: fullText.trim(),
       } as StreamingResponseCompleteMessage);
       
-      console.log(`[Streaming Orchestrator] Complete: ${metrics.sentenceCount} sentences in ${metrics.totalLatencyMs}ms (turnId: ${turnId})`);
+      console.log(`[Streaming Orchestrator] Complete: ${metrics.sentenceCount} sentences, ${metrics.audioChunkCount} audio chunks in ${metrics.totalLatencyMs}ms (turnId: ${turnId})`);
       console.log(`[Streaming Orchestrator] Latencies: STT=${metrics.sttLatencyMs}ms, AI=${metrics.aiFirstTokenMs}ms, TTS=${metrics.ttsFirstByteMs}ms`);
       
       // Emit TTS success for diagnostics (use ttsFirstByteMs for TTS-specific latency)
+      // Only include audioChunkCount when audio was actually produced (not text-only turns)
       voiceDiagnostics.emit({
         sessionId,
         stage: 'tts',
         success: true,
         latencyMs: metrics.ttsFirstByteMs || 0,
-        metadata: { sentenceCount: metrics.sentenceCount }
+        metadata: { 
+          sentenceCount: metrics.sentenceCount, 
+          ...(metrics.audioChunkCount > 0 && { audioChunkCount: metrics.audioChunkCount })
+        }
       });
       
       // Emit complete E2E response for overall diagnostics
+      // CRITICAL: audioChunkCount helps debug production double audio issues
       voiceDiagnostics.emit({
         sessionId,
         stage: 'complete',
@@ -2621,7 +2628,8 @@ Remember: David may reference things discussed in these recent text chats.
           sttMs: metrics.sttLatencyMs, 
           aiMs: metrics.aiFirstTokenMs, 
           ttsMs: metrics.ttsFirstByteMs,
-          sentenceCount: metrics.sentenceCount 
+          sentenceCount: metrics.sentenceCount,
+          ...(metrics.audioChunkCount > 0 && { audioChunkCount: metrics.audioChunkCount })
         }
       });
       
@@ -3116,6 +3124,7 @@ Remember: David may reference things discussed in these recent text chats.
       totalLatencyMs: 0,
       sentenceCount: 0,
       audioBytes: 0,
+      audioChunkCount: 0,
     };
     
     try {
@@ -3978,6 +3987,7 @@ Remember: David may reference things discussed in these recent text chats.
           }
           audioChunks.push(audioChunk.audio);
           metrics.audioBytes += audioChunk.audio.length;
+          metrics.audioChunkCount++;  // Track for production duplicate audio debugging
           totalDurationMs += audioChunk.durationMs;
           
           // Track format from first chunk
@@ -4119,6 +4129,7 @@ Remember: David may reference things discussed in these recent text chats.
       }
       
       metrics.audioBytes += result.audio.length;
+      metrics.audioChunkCount++;  // Track for production duplicate audio debugging (Google = 1 chunk)
       const totalDurationMs = result.durationMs || 3000; // Estimate if not provided
       
       console.log(`[Streaming] Assistant sentence ${index}: ${result.audio.length} bytes (Google MP3), ~${Math.round(totalDurationMs)}ms`);
@@ -4314,6 +4325,7 @@ Remember: David may reference things discussed in these recent text chats.
           // Audio chunk callback - buffer until timing arrives, then stream directly
           onAudioChunk: (audioChunk, idx) => {
             metrics.audioBytes += audioChunk.audio.length;
+            metrics.audioChunkCount++;  // Track for production duplicate audio debugging
             
             if (!sentenceReadySent) {
               // Still buffering - wait for first timing
@@ -6192,6 +6204,7 @@ Only include observations you can clearly justify from the exchange. Return empt
       totalLatencyMs: 0,
       sentenceCount: 0,
       audioBytes: 0,
+      audioChunkCount: 0,
     };
     
     try {
@@ -6455,7 +6468,7 @@ Only include observations you can clearly justify from the exchange. Return empt
         fullText: fullText.trim(),
       } as StreamingResponseCompleteMessage);
       
-      console.log(`[Streaming Greeting] Complete: ${metrics.sentenceCount} sentences in ${metrics.totalLatencyMs}ms`);
+      console.log(`[Streaming Greeting] Complete: ${metrics.sentenceCount} sentences, ${metrics.audioChunkCount} audio chunks in ${metrics.totalLatencyMs}ms`);
       
       // Log structured metrics for monitoring (non-blocking, just console.log)
       // Note: greeting has no STT, so time-to-first-audio is AI + TTS
@@ -6467,6 +6480,7 @@ Only include observations you can clearly justify from the exchange. Return empt
         timeToFirstAudioMs: timeToFirstAudio,
         totalMs: metrics.totalLatencyMs,
         sentences: metrics.sentenceCount,
+        audioChunks: metrics.audioChunkCount,
         targetMet: timeToFirstAudio <= 3000,
       });
       
@@ -7111,6 +7125,7 @@ DON'T:
       totalLatencyMs: 0,
       sentenceCount: 0,
       audioBytes: 0,
+      audioChunkCount: 0,
     };
     
     try {
@@ -7256,6 +7271,7 @@ Acknowledge Claude's input naturally and address what they said.
         totalLatencyMs: 0,
         sentenceCount: 0,
         audioBytes: 0,
+      audioChunkCount: 0,
       };
       
       // Use a system prompt that tells Daniela to respond to the architect

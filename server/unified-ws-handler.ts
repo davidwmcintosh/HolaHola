@@ -49,6 +49,7 @@ import { updateToolEventEngagement, mapWhiteboardTypeToToolType } from './servic
 import { buildNeuralNetworkPromptSection } from './services/neural-network-retrieval';
 import { getPredictiveTeachingContext, type PredictiveTeachingContext } from './services/procedural-memory-retrieval';
 import { studentLearningService } from './services/student-learning-service';
+import { voiceDiagnostics } from './services/voice-diagnostics-service';
 import type { VoiceSession as UsageVoiceSession, CompassContext, TutorSession } from '@shared/schema';
 
 // Use /api/ paths - Replit's proxy properly routes these
@@ -299,6 +300,18 @@ function sendError(ws: WS, code: string, message: string, recoverable: boolean) 
  */
 function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
   console.log('[Streaming Voice] Client connected');
+  
+  // Generate unique connection ID for telemetry correlation
+  const connectionId = `conn_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+  const connectionStartTime = Date.now();
+  
+  // Emit connection open telemetry for production debugging
+  voiceDiagnostics.emit({
+    sessionId: connectionId,
+    stage: 'connection',
+    success: true,
+    metadata: { event: 'open', timestamp: connectionStartTime }
+  });
 
   const orchestrator = getStreamingVoiceOrchestrator();
   let session: StreamingSession | null = null;
@@ -2127,6 +2140,23 @@ Reference past discussions when relevant, but don't force it.
     console.log(`[Streaming Voice] Closed: ${code} - ${reason}`);
     clearInterval(heartbeatInterval);  // Clean up heartbeat
     
+    // Emit connection close telemetry for production debugging
+    const connectionDurationMs = Date.now() - connectionStartTime;
+    voiceDiagnostics.emit({
+      sessionId: session?.id || connectionId,
+      stage: 'connection',
+      success: true,
+      latencyMs: connectionDurationMs,
+      metadata: { 
+        event: 'close', 
+        code, 
+        reason: reason?.toString() || '',
+        conversationId: conversationId || undefined,
+        userId: userId || undefined,
+        exchangeCount
+      }
+    });
+    
     // Clean up open mic session to prevent orphaned Deepgram connections
     if (openMicSession) {
       console.log('[Streaming Voice] Cleaning up open mic session on disconnect');
@@ -2159,6 +2189,21 @@ Reference past discussions when relevant, but don't force it.
 
   ws.on('error', (error) => {
     console.error('[Streaming Voice] Connection error:', error);
+    
+    // Emit connection error telemetry for production debugging
+    const connectionDurationMs = Date.now() - connectionStartTime;
+    voiceDiagnostics.emit({
+      sessionId: session?.id || connectionId,
+      stage: 'connection',
+      success: false,
+      error: error.message,
+      latencyMs: connectionDurationMs,
+      metadata: { 
+        event: 'error',
+        conversationId: conversationId || undefined,
+        userId: userId || undefined
+      }
+    });
     
     // Clean up open mic session on error too
     if (openMicSession) {
