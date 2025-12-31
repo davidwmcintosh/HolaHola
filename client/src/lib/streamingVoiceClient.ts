@@ -921,6 +921,7 @@ export class StreamingVoiceClient {
         case 'tutor_handoff':
           // Tutor handoff - current tutor said goodbye, switch to new tutor
           // Supports both intra-language (gender only) and cross-language (gender + language) handoffs
+          // Also supports assistant handoff (role="assistant") for practice partner switches
           this.emit('tutorHandoff', message as { 
             type: string; 
             targetGender: 'male' | 'female'; 
@@ -928,6 +929,7 @@ export class StreamingVoiceClient {
             tutorName?: string;       // New tutor's name (e.g., "Sayuri")
             isLanguageSwitch: boolean;
             requiresGreeting?: boolean; // True if client should request greeting after reconnecting
+            isAssistant?: boolean;     // True if switching to assistant tutor (navigate to practice page)
             timestamp: number;
           });
           break;
