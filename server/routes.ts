@@ -16116,6 +16116,140 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
     }
   });
   
+  // ===== DRILL LIFECYCLE MANAGEMENT =====
+  // Auto-provision drills from lesson bundles and manage lifecycle states
+  
+  // Auto-provision drills for a lesson (called when starting a lesson)
+  app.post("/api/aris/drills/provision", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const { lessonId, conversationId } = req.body;
+      if (!lessonId) {
+        return res.status(400).json({ error: "lessonId is required" });
+      }
+      
+      const { autoProvisionDrillsFromBundle } = await import('./services/drill-lifecycle-service');
+      const result = await autoProvisionDrillsFromBundle(userId, lessonId, conversationId);
+      
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(400).json({ error: result.error });
+      }
+    } catch (error: any) {
+      console.error('[API] Error provisioning drills:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Transition drill lifecycle state
+  app.post("/api/aris/drills/:assignmentId/lifecycle", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const { assignmentId } = req.params;
+      const { newState, handledBy } = req.body;
+      
+      if (!newState) {
+        return res.status(400).json({ error: "newState is required" });
+      }
+      
+      const validStates = ['planned', 'active', 'completed', 'delegated', 'skipped'];
+      if (!validStates.includes(newState)) {
+        return res.status(400).json({ error: `Invalid state: ${newState}` });
+      }
+      
+      const assignment = await storage.getArisDrillAssignment(assignmentId);
+      if (!assignment) {
+        return res.status(404).json({ error: "Assignment not found" });
+      }
+      
+      if (assignment.userId !== userId) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+      
+      const { transitionDrillState } = await import('./services/drill-lifecycle-service');
+      const result = await transitionDrillState(assignmentId, newState, handledBy);
+      
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(400).json({ error: result.error });
+      }
+    } catch (error: any) {
+      console.error('[API] Error transitioning drill state:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Activate all planned drills in a bundle
+  app.post("/api/aris/drills/activate-bundle", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const { bundleId } = req.body;
+      if (!bundleId) {
+        return res.status(400).json({ error: "bundleId is required" });
+      }
+      
+      const { activatePlannedDrills } = await import('./services/drill-lifecycle-service');
+      const result = await activatePlannedDrills(userId, bundleId);
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error('[API] Error activating bundle drills:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get drill statistics for current user
+  app.get("/api/aris/drills/stats", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const { getDrillStats } = await import('./services/drill-lifecycle-service');
+      const stats = await getDrillStats(userId);
+      
+      res.json(stats);
+    } catch (error: any) {
+      console.error('[API] Error fetching drill stats:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get pending drills with lifecycle awareness
+  app.get("/api/aris/drills/lifecycle/pending", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const language = req.query.language as string | undefined;
+      
+      const { getPendingDrillsForUser } = await import('./services/drill-lifecycle-service');
+      const drills = await getPendingDrillsForUser(userId, language);
+      
+      res.json(drills);
+    } catch (error: any) {
+      console.error('[API] Error fetching lifecycle pending drills:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // Get assistant persona - now language-aware
   // Query params: ?language=spanish&gender=female (optional, defaults to user's settings)
   app.get("/api/aris/persona", isAuthenticated, async (req: any, res) => {
