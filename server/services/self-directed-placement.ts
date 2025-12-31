@@ -138,7 +138,7 @@ If no samples provided, estimate from self-reported difficulty with lower confid
 
   try {
     const response = await gemini.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       contents: assessmentPrompt,
     });
 

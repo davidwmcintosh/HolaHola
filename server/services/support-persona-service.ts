@@ -475,7 +475,7 @@ class SupportPersonaService {
       console.log(`[Sofia] Calling Gemini API for ticket ${params.ticketId} (mode: ${params.mode})`);
       
       const response = await gemini.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash',
         contents: geminiContents,
         config: {
           systemInstruction: systemPrompt,
