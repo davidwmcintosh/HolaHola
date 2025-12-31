@@ -15339,7 +15339,7 @@ Current conversation context:
   // Aggregates voice pipeline, Sofia issues, active sessions for at-a-glance monitoring
   // ============================================================================
   
-  app.get("/api/admin/system-health", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/system-health", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
     try {
       const orchestrator = getStreamingVoiceOrchestrator();
       const activeSessions = orchestrator.getActiveSessionCount();

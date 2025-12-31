@@ -1250,26 +1250,59 @@ export default function CommandCenter() {
         <SystemHealthDashboard />
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-          <TabsList className="flex flex-wrap h-auto gap-1 p-1">
-            {availableTabs.map(tab => {
-              const Icon = tab.icon;
-              const showBadge = tab.id === 'brain-surgery' && pendingProposalsCount > 0;
-              return (
-                <TabsTrigger 
-                  key={tab.id} 
-                  value={tab.id}
-                  className="flex items-center gap-2 px-4 py-2"
-                  data-testid={`tab-${tab.id}`}
-                >
-                  <Icon className="h-4 w-4" />
-                  <span className="hidden sm:inline">{tab.label}</span>
-                  {showBadge && (
-                    <Badge variant="destructive" className="h-5 min-w-5 px-1 text-xs" data-testid="badge-pending-proposals">
-                      {pendingProposalsCount}
-                    </Badge>
-                  )}
-                </TabsTrigger>
+          <TabsList className="flex flex-wrap h-auto gap-1 p-2 bg-muted/50">
+            {tabGroups.flatMap((group, groupIndex) => {
+              // Filter tabs in this group based on role - with proper founder check
+              const groupTabs = group.tabs.filter(tab => {
+                if (tab.roles.includes('founder')) return isFounder;
+                if (user?.role === 'admin') return tab.roles.includes('admin') || tab.roles.includes('developer');
+                if (user?.role === 'developer') return tab.roles.includes('developer');
+                if (isTeacher) return tab.roles.includes('teacher');
+                return false;
+              });
+              
+              if (groupTabs.length === 0) return [];
+              
+              // Create elements: group label + tabs + optional separator
+              const elements: JSX.Element[] = [];
+              
+              // Add visual separator before each group (except first)
+              if (groupIndex > 0) {
+                elements.push(
+                  <div key={`sep-${group.label}`} className="h-6 w-px bg-border mx-1" />
+                );
+              }
+              
+              // Add group label
+              elements.push(
+                <span key={`label-${group.label}`} className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide px-1.5 py-1">
+                  {group.label}
+                </span>
               );
+              
+              // Add tabs
+              groupTabs.forEach(tab => {
+                const Icon = tab.icon;
+                const showBadge = tab.id === 'brain-surgery' && pendingProposalsCount > 0;
+                elements.push(
+                  <TabsTrigger 
+                    key={tab.id} 
+                    value={tab.id}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs"
+                    data-testid={`tab-${tab.id}`}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">{tab.label}</span>
+                    {showBadge && (
+                      <Badge variant="destructive" className="h-4 min-w-4 px-1 text-[10px]" data-testid="badge-pending-proposals">
+                        {pendingProposalsCount}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                );
+              });
+              
+              return elements;
             })}
           </TabsList>
 
