@@ -86,7 +86,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const LANGUAGES = [
-  { value: "", label: "All Languages" },
+  { value: "all", label: "All Languages" },
   { value: "spanish", label: "Spanish" },
   { value: "french", label: "French" },
   { value: "german", label: "German" },
@@ -100,7 +100,7 @@ const LANGUAGES = [
 
 export default function LessonDrafts() {
   const [statusFilter, setStatusFilter] = useState("draft");
-  const [languageFilter, setLanguageFilter] = useState("");
+  const [languageFilter, setLanguageFilter] = useState("all");
   const [selectedDraft, setSelectedDraft] = useState<LessonDraft | null>(null);
   const [reviewNotes, setReviewNotes] = useState("");
   const [sampledDrafts, setSampledDrafts] = useState<LessonDraft[]>([]);
@@ -164,7 +164,7 @@ export default function LessonDrafts() {
   const sampleMutation = useMutation({
     mutationFn: async (count: number) => {
       const params = new URLSearchParams({ count: count.toString(), status: 'draft' });
-      if (languageFilter) params.append('language', languageFilter);
+      if (languageFilter && languageFilter !== "all") params.append('language', languageFilter);
       const response = await fetch(`/api/admin/lesson-drafts/sample?${params.toString()}`, {
         credentials: "include",
       });
@@ -188,7 +188,7 @@ export default function LessonDrafts() {
       const response = await apiRequest("POST", "/api/admin/lesson-drafts/bulk-status", {
         status: "approved",
         currentStatus: "draft",
-        language: languageFilter || undefined,
+        language: languageFilter !== "all" ? languageFilter : undefined,
       });
       return response.json();
     },
@@ -221,7 +221,7 @@ export default function LessonDrafts() {
 
   const filteredDrafts = drafts?.filter((d) => {
     if (statusFilter && d.draft.status !== statusFilter) return false;
-    if (languageFilter && d.draft.language !== languageFilter) return false;
+    if (languageFilter && languageFilter !== "all" && d.draft.language !== languageFilter) return false;
     return true;
   });
 
