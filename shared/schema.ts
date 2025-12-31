@@ -4999,6 +4999,28 @@ export const arisDrillTypeEnum = pgEnum("aris_drill_type", [
   "sentence_order", // Word ordering
 ]);
 
+// Drill origin - where this drill came from
+export const arisDrillOriginEnum = pgEnum("aris_drill_origin", [
+  "syllabus_bundle",  // Auto-provisioned from lesson bundle
+  "daniela_manual",   // Daniela created on-the-fly during conversation
+]);
+
+// Drill lifecycle state - tracks progression through the drill workflow
+export const arisDrillLifecycleEnum = pgEnum("aris_drill_lifecycle", [
+  "planned",    // Auto-created from lesson bundle, not yet started
+  "active",     // Student currently working on this drill
+  "completed",  // Drill finished successfully
+  "delegated",  // Handed off to assistant tutor
+  "skipped",    // Student or tutor decided to skip
+]);
+
+// Who handles the drill execution
+export const arisDrillHandlerEnum = pgEnum("aris_drill_handler", [
+  "daniela",    // Main tutor handles directly in conversation
+  "assistant",  // Delegated to assistant tutor (practice page)
+  "both",       // Started with Daniela, delegated to assistant for practice
+]);
+
 // Assignments from Daniela to Aris
 export const arisDrillAssignments = pgTable("aris_drill_assignments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -5038,10 +5060,28 @@ export const arisDrillAssignments = pgTable("aris_drill_assignments", {
   assignedAt: timestamp("assigned_at").notNull().defaultNow(),
   startedAt: timestamp("started_at"),
   completedAt: timestamp("completed_at"),
+  
+  // === Drill Lifecycle Fields ===
+  // Origin - where this drill came from
+  origin: arisDrillOriginEnum("origin").default("daniela_manual"), // syllabus_bundle | daniela_manual
+  
+  // Lifecycle state - tracks progression through drill workflow
+  lifecycleState: arisDrillLifecycleEnum("lifecycle_state").default("active"), // planned | active | completed | delegated | skipped
+  
+  // Handler - who executes this drill
+  handledBy: arisDrillHandlerEnum("handled_by").default("assistant"), // daniela | assistant | both
+  
+  // Link to curriculum lesson (for syllabus-originated drills)
+  lessonId: varchar("lesson_id").references(() => curriculumLessons.id), // Links to curriculum lesson
+  
+  // Bundle tracking (for lesson pairs: conversation + drill)
+  bundleId: varchar("bundle_id"), // Groups related drills from same bundle
 }, (table) => [
   index("idx_aris_assignments_user").on(table.userId),
   index("idx_aris_assignments_status").on(table.status),
   index("idx_aris_assignments_created").on(table.assignedAt),
+  index("idx_aris_assignments_lifecycle").on(table.lifecycleState),
+  index("idx_aris_assignments_lesson").on(table.lessonId),
 ]);
 
 export const insertArisDrillAssignmentSchema = createInsertSchema(arisDrillAssignments).omit({
