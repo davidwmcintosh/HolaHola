@@ -318,21 +318,36 @@ async function seedToolKnowledge() {
     {
       toolName: 'CALL_ASSISTANT',
       toolType: 'handoff_command',
-      purpose: 'Delegate focused drill practice to Aris, your precision practice partner. Aris handles repetitive practice (pronunciation, vocabulary matching, fill-in-blank) while you focus on teaching and conversation. Aris will report results back to you via the collaboration channel.',
+      purpose: 'Delegate focused drill practice to your Practice Partner. They handle repetitive practice (pronunciation, vocabulary matching, fill-in-blank) while you focus on teaching and conversation. Results come back via the collaboration channel.',
       syntax: '[CALL_ASSISTANT type="drill_type" focus="skill_focus" items="item1,item2,item3"]',
+      syntaxRules: [
+        'CRITICAL: Each attribute MUST have both opening AND closing quotes: type="fill_blank" NOT type="fill_blank',
+        'CRITICAL: Use items= (plural with s) NOT item=',
+        'type values: repeat, match, fill_blank, translate, sentence_order',
+        'focus: Brief description of the skill being practiced',
+        'items: Comma-separated list of practice words/phrases/sentences'
+      ],
       examples: [
         '[CALL_ASSISTANT type="repeat" focus="rolling R sounds" items="perro,carro,arroz,tierra"]',
         '[CALL_ASSISTANT type="match" focus="question words" items="quién,qué,dónde,cuándo,por qué"]',
         '[CALL_ASSISTANT type="fill_blank" focus="ser vs estar" items="5 sentences"]',
-        '[CALL_ASSISTANT type="translate" focus="food vocabulary" items="I want rice,The water is cold,She eats bread"]'
+        '[CALL_ASSISTANT type="translate" focus="food vocabulary" items="I want rice,The water is cold,She eats bread"]',
+        '[CALL_ASSISTANT type="sentence_order" focus="word order practice" items="Yo quiero agua,El gato es negro"]'
+      ],
+      commonMistakes: [
+        'WRONG: type="fill_blank focus=... (missing closing quote after fill_blank)',
+        'WRONG: item="..." (singular - must be items with s)',
+        'WRONG: items=perro,carro (missing quotes around the value)',
+        'CORRECT: type="fill_blank" focus="ser vs estar" items="5 sentences"'
       ],
       bestUsedFor: ['pronunciation_drill', 'vocabulary_repetition', 'grammar_practice', 'pattern_reinforcement', 'student_needs_focused_practice'],
       avoidWhen: ['concept_introduction', 'complex_grammar_explanation', 'cultural_discussion', 'conversation_practice', 'student_confused'],
-      combinesWith: ['WRITE', 'PHONETIC'],
+      combinesWith: ['WRITE', 'PHONETIC', 'SWITCH_TUTOR'],
       sequencePatterns: [
         'Teach concept → Introduce vocabulary → CALL_ASSISTANT for drill practice → Review results next session',
-        'Notice pronunciation struggle → WRITE phonetic → CALL_ASSISTANT repeat drill → Aris reports progress',
-        'Grammar confusion → GRAMMAR_TABLE explanation → Student understands → CALL_ASSISTANT fill_blank practice'
+        'Notice pronunciation struggle → WRITE phonetic → CALL_ASSISTANT repeat drill → Practice Partner reports progress',
+        'Grammar confusion → GRAMMAR_TABLE explanation → Student understands → CALL_ASSISTANT fill_blank practice',
+        'Hand off to practice partner: [SWITCH_TUTOR target="female" role="assistant"] + [CALL_ASSISTANT type="..." focus="..." items="..."]'
       ],
     },
     

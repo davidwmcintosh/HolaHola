@@ -3685,11 +3685,14 @@ Remember: David may reference things discussed in these recent text chats.
           });
           
           // Trigger new tutor's greeting automatically
-          if (tutorName) {
+          // SKIP for assistant handoffs - client navigates immediately, practice page handles its own greeting
+          if (tutorName && !isAssistantSwitch) {
             console.log(`[Tutor Switch] Open-mic: Triggering ${tutorName}'s greeting`);
             this.processVoiceSwitchIntro(sessionId, tutorName, targetGender).catch((err: Error) => {
               console.error(`[Tutor Switch] Failed to generate greeting:`, err.message);
             });
+          } else if (isAssistantSwitch) {
+            console.log(`[Tutor Switch] Open-mic: Skipping greeting - assistant practice page will greet`);
           }
           
         } catch (err: any) {
