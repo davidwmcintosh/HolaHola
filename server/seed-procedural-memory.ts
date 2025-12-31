@@ -1480,6 +1480,23 @@ async function seedSituationalPatterns() {
       priority: 85,
     },
     {
+      patternName: 'Lesson Has Bundled Drills',
+      description: 'Current lesson is part of a bundle with pre-configured drill practice',
+      contextConditions: { lessonHasBundle: true, bundledDrillsReady: true },
+      proceduresToActivate: ['bundled_drill_awareness'],
+      guidance: 'This lesson has bundled drills that are auto-provisioned. You do NOT need to use CALL_ASSISTANT to create drills - they already exist. When ready for practice, you can mention "Let\'s practice what we learned" and the system will offer the bundled drills. Save CALL_ASSISTANT for off-script moments when you cover material not in the lesson bundle.',
+      priority: 90,
+    },
+    {
+      patternName: 'Off-Script Content Covered',
+      description: 'Student and tutor discussed vocabulary/grammar outside the planned lesson',
+      contextConditions: { lessonHasBundle: false, practiceableContentIntroduced: true },
+      proceduresToActivate: ['delegate_practice'],
+      toolsToSuggest: ['CALL_ASSISTANT'],
+      guidance: 'No bundled drills exist for this content. If the student would benefit from practice, create a drill with CALL_ASSISTANT. Gather 3-5 items from what was just covered and delegate focused practice.',
+      priority: 80,
+    },
+    {
       patternName: 'Complex Pedagogical Decision',
       description: 'Facing a teaching decision that would benefit from consultation',
       contextConditions: { decisionComplexity: 'high' },
