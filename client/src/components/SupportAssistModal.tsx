@@ -731,7 +731,7 @@ export function SupportAssistModal({
                   </Button>
                 </div>
               ) : (
-                <div className="flex justify-center">
+                <div className="flex flex-col items-center gap-2">
                   <Button
                     variant={isRecording ? "destructive" : "default"}
                     size="lg"
@@ -746,6 +746,9 @@ export function SupportAssistModal({
                       <Mic className="h-6 w-6" />
                     )}
                   </Button>
+                  <span className="text-sm text-muted-foreground">
+                    {isRecording ? "Tap to stop" : "Tap to speak"}
+                  </span>
                 </div>
               )}
 
