@@ -4129,16 +4129,16 @@ Remember: David may reference things discussed in these recent text chats.
         forceProvider: 'google', // CRITICAL: Force Google TTS for assistant tutors, bypass Cartesia
       });
       
-      if (!result.audio || result.audio.length === 0) {
+      if (!result.audioBuffer || result.audioBuffer.length === 0) {
         console.warn(`[Streaming] Google TTS returned empty audio for sentence ${index}`);
         return;
       }
       
-      metrics.audioBytes += result.audio.length;
+      metrics.audioBytes += result.audioBuffer.length;
       metrics.audioChunkCount++;  // Track for production duplicate audio debugging (Google = 1 chunk)
       const totalDurationMs = result.durationMs || 3000; // Estimate if not provided
       
-      console.log(`[Streaming] Assistant sentence ${index}: ${result.audio.length} bytes (Google MP3), ~${Math.round(totalDurationMs)}ms`);
+      console.log(`[Streaming] Assistant sentence ${index}: ${result.audioBuffer.length} bytes (Google MP3), ~${Math.round(totalDurationMs)}ms`);
       
       // Send word timings (estimated since Google doesn't provide native timings)
       if (session.subtitleMode !== 'off') {
@@ -4156,7 +4156,7 @@ Remember: David may reference things discussed in these recent text chats.
       }
       
       // Send the audio
-      const audioBase64 = result.audio.toString('base64');
+      const audioBase64 = result.audioBuffer.toString('base64');
       this.sendMessage(session.ws, {
         type: 'audio_chunk',
         timestamp: Date.now(),
