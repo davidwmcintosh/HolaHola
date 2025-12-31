@@ -4831,6 +4831,56 @@ export const insertSupportPatternSchema = createInsertSchema(supportPatterns).om
 export type InsertSupportPattern = z.infer<typeof insertSupportPatternSchema>;
 export type SupportPattern = typeof supportPatterns.$inferSelect;
 
+// Sofia Issue Reports - diagnostic snapshots when Sofia detects customer issues
+// These are created automatically when Sofia hears about voice/audio problems
+export const sofiaIssueReports = pgTable("sofia_issue_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // User context
+  userId: varchar("user_id").notNull(),
+  ticketId: varchar("ticket_id"), // Link to support ticket if exists
+  
+  // Issue details
+  issueType: varchar("issue_type").notNull(), // 'double_audio', 'no_audio', 'latency', 'connection', 'other'
+  userDescription: text("user_description").notNull(), // What the user said
+  sofiaAnalysis: text("sofia_analysis"), // Sofia's assessment
+  
+  // Diagnostic snapshot at time of report
+  diagnosticSnapshot: jsonb("diagnostic_snapshot"), // VoiceDiagnostics data
+  clientTelemetry: jsonb("client_telemetry"), // Queue depth, audio events, etc.
+  
+  // Device/browser context
+  deviceInfo: jsonb("device_info"), // browser, os, device
+  
+  // Founder review
+  status: varchar("status").default("pending"), // 'pending', 'reviewed', 'actionable', 'resolved', 'duplicate'
+  founderNotes: text("founder_notes"),
+  reviewedAt: timestamp("reviewed_at"),
+  
+  // Tracking
+  environment: varchar("environment").default("development"), // 'development' or 'production'
+  
+  // Two-way sync (prod→dev for founder visibility)
+  syncStatus: varchar("sync_status").default("local"),
+  originId: varchar("origin_id"),
+  originEnvironment: varchar("origin_environment"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_sofia_reports_user").on(table.userId),
+  index("idx_sofia_reports_type").on(table.issueType),
+  index("idx_sofia_reports_status").on(table.status),
+  index("idx_sofia_reports_created").on(table.createdAt),
+]);
+
+export const insertSofiaIssueReportSchema = createInsertSchema(sofiaIssueReports).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertSofiaIssueReport = z.infer<typeof insertSofiaIssueReportSchema>;
+export type SofiaIssueReport = typeof sofiaIssueReports.$inferSelect;
+
 // ===== AGENT COLLABORATION =====
 // Cross-agent text-based communication for the Hive Mind
 

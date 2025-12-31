@@ -159,6 +159,9 @@ import {
   type InsertSupportMessage,
   supportTickets,
   supportMessages,
+  sofiaIssueReports,
+  type SofiaIssueReport,
+  type InsertSofiaIssueReport,
   type AgentCollaborationEvent,
   type InsertAgentCollaborationEvent,
   type SecureAgentMessage,
@@ -848,6 +851,11 @@ export interface IStorage {
   getSupportMessages(ticketId: string): Promise<SupportMessage[]>;
   // Alias for routes - maps senderType to role field
   addSupportMessage(data: { ticketId: string; senderType: 'user' | 'support'; senderId?: string; content: string }): Promise<SupportMessage>;
+  
+  // Sofia Issue Reports (Production voice debugging)
+  createSofiaIssueReport(data: InsertSofiaIssueReport): Promise<SofiaIssueReport>;
+  getSofiaIssueReports(options?: { status?: string; issueType?: string; userId?: string; limit?: number }): Promise<SofiaIssueReport[]>;
+  updateSofiaIssueReport(id: string, data: Partial<SofiaIssueReport>): Promise<SofiaIssueReport | undefined>;
   
   // Daniela Suggestions (Hive Mind - Active contributions from Daniela)
   createDanielaSuggestion(data: InsertDanielaSuggestion): Promise<DanielaSuggestion>;
@@ -6388,6 +6396,45 @@ export class DatabaseStorage implements IStorage {
     });
   }
   
+  // ===== Sofia Issue Reports (Production voice debugging) =====
+  
+  async createSofiaIssueReport(data: InsertSofiaIssueReport): Promise<SofiaIssueReport> {
+    const [report] = await db.insert(sofiaIssueReports).values(data).returning();
+    return report;
+  }
+  
+  async getSofiaIssueReports(options?: { status?: string; issueType?: string; userId?: string; limit?: number }): Promise<SofiaIssueReport[]> {
+    const conditions: any[] = [];
+    
+    if (options?.status) {
+      conditions.push(eq(sofiaIssueReports.status, options.status));
+    }
+    if (options?.issueType) {
+      conditions.push(eq(sofiaIssueReports.issueType, options.issueType));
+    }
+    if (options?.userId) {
+      conditions.push(eq(sofiaIssueReports.userId, options.userId));
+    }
+    
+    const query = db.select().from(sofiaIssueReports);
+    
+    if (conditions.length > 0) {
+      return query.where(and(...conditions))
+        .orderBy(desc(sofiaIssueReports.createdAt))
+        .limit(options?.limit || 50);
+    }
+    
+    return query.orderBy(desc(sofiaIssueReports.createdAt)).limit(options?.limit || 50);
+  }
+  
+  async updateSofiaIssueReport(id: string, data: Partial<SofiaIssueReport>): Promise<SofiaIssueReport | undefined> {
+    const [updated] = await db.update(sofiaIssueReports)
+      .set(data)
+      .where(eq(sofiaIssueReports.id, id))
+      .returning();
+    return updated;
+  }
+
   // ===== Daniela Suggestions (Hive Mind - Active contributions) =====
   
   async createDanielaSuggestion(data: InsertDanielaSuggestion): Promise<DanielaSuggestion> {
