@@ -20,6 +20,7 @@ import {
   supportMessages,
   supportKnowledgeBase,
   supportPatterns,
+  sofiaIssueReports,
   type SupportTicket,
   type SupportMessage,
   type SupportKnowledgeBase,
@@ -131,6 +132,101 @@ class SupportPersonaService {
         updatedAt: new Date(),
       })
       .where(eq(supportKnowledgeBase.id, articleId));
+  }
+
+  // ============================================================================
+  // ISSUE DETECTION & REPORTING (Production Debugging)
+  // ============================================================================
+
+  /**
+   * Issue keywords that trigger automatic report creation
+   * Categorized by issue type for better analysis
+   */
+  private readonly ISSUE_KEYWORDS: Record<string, string[]> = {
+    double_audio: ['double audio', 'audio twice', 'hearing twice', 'duplicate sound', 'echo', 'playing twice', 'repeated audio', 'double playback'],
+    no_audio: ['no audio', 'can\'t hear', 'cannot hear', 'no sound', 'audio not working', 'sound not working', 'muted', 'silent', 'no voice'],
+    latency: ['slow', 'delay', 'laggy', 'lag', 'takes too long', 'waiting forever', 'response time', 'latency'],
+    connection: ['disconnected', 'connection lost', 'dropped', 'keeps disconnecting', 'connection issues', 'unstable connection'],
+    microphone: ['microphone', 'mic not working', 'can\'t record', 'not picking up', 'voice not detected'],
+  };
+
+  /**
+   * Detect if user message contains voice/audio issue keywords
+   * Returns issue type if detected, null otherwise
+   */
+  detectVoiceIssue(userMessage: string): { issueType: string; matchedKeywords: string[] } | null {
+    const lowerMessage = userMessage.toLowerCase();
+    
+    for (const [issueType, keywords] of Object.entries(this.ISSUE_KEYWORDS)) {
+      const matched = keywords.filter(keyword => lowerMessage.includes(keyword));
+      if (matched.length > 0) {
+        return { issueType, matchedKeywords: matched };
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * Create an issue report with diagnostic snapshot
+   * This captures the state at the moment a user reports an issue
+   */
+  async createIssueReport(params: {
+    userId: string;
+    ticketId?: string;
+    issueType: string;
+    userDescription: string;
+    voiceDiagnostics?: SupportVoiceDiagnostics;
+    deviceInfo?: { browser?: string; os?: string; device?: string };
+    clientTelemetry?: Record<string, any>;
+  }): Promise<{ id: string }> {
+    const [report] = await db.insert(sofiaIssueReports)
+      .values({
+        userId: params.userId,
+        ticketId: params.ticketId,
+        issueType: params.issueType,
+        userDescription: params.userDescription,
+        diagnosticSnapshot: params.voiceDiagnostics || null,
+        clientTelemetry: params.clientTelemetry || null,
+        deviceInfo: params.deviceInfo || null,
+        environment: process.env.NODE_ENV === 'production' ? 'production' : 'development',
+        status: 'pending',
+      })
+      .returning();
+
+    console.log(`[Sofia] Created issue report ${report.id} - type: ${params.issueType} for user ${params.userId}`);
+    
+    // In production, also send a beacon to the Hive so founder is aware
+    if (process.env.NODE_ENV === 'production') {
+      try {
+        await hiveCollaborationService.sendBeacon({
+          beaconType: 'support_issue' as BeaconType,
+          priority: 'high',
+          subject: `Voice Issue Report: ${params.issueType}`,
+          content: `User reported: ${params.userDescription.substring(0, 200)}`,
+          metadata: {
+            reportId: report.id,
+            issueType: params.issueType,
+            hasVoiceDiagnostics: !!params.voiceDiagnostics,
+          },
+        });
+      } catch (e) {
+        console.warn('[Sofia] Failed to send issue beacon:', e);
+      }
+    }
+
+    return { id: report.id };
+  }
+
+  /**
+   * Get pending issue reports for founder review
+   */
+  async getPendingIssueReports(limit: number = 50): Promise<any[]> {
+    return db.select()
+      .from(sofiaIssueReports)
+      .where(eq(sofiaIssueReports.status, 'pending'))
+      .orderBy(desc(sofiaIssueReports.createdAt))
+      .limit(limit);
   }
 
   // ============================================================================
@@ -275,6 +371,25 @@ class SupportPersonaService {
       await new Promise(resolve => setTimeout(resolve, SUPPORT_LIMITS.rateLimitMs - timeSinceLastCall));
     }
     this.lastApiCall = Date.now();
+
+    // Auto-detect voice issues and create diagnostic report
+    const detectedIssue = this.detectVoiceIssue(params.userMessage);
+    if (detectedIssue) {
+      const ticket = await this.getTicket(params.ticketId);
+      if (ticket) {
+        // Create issue report with diagnostic snapshot (fire and forget)
+        this.createIssueReport({
+          userId: ticket.userId,
+          ticketId: params.ticketId,
+          issueType: detectedIssue.issueType,
+          userDescription: params.userMessage,
+          voiceDiagnostics: params.voiceDiagnostics,
+          deviceInfo: params.deviceInfo,
+        }).catch(err => console.warn('[Sofia] Failed to create issue report:', err));
+        
+        console.log(`[Sofia] Detected voice issue: ${detectedIssue.issueType} (keywords: ${detectedIssue.matchedKeywords.join(', ')})`);
+      }
+    }
 
     const messages = await this.getMessages(params.ticketId);
     const relevantArticles = await this.findRelevantArticles(params.userMessage);
