@@ -130,6 +130,70 @@ const LEVEL_DESCRIPTIONS: Record<string, string> = {
   advanced_high: "Advanced High - Can discuss complex topics with precision and fluency"
 };
 
+// Critical: Language scaffolding guidelines by level
+const LANGUAGE_SCAFFOLDING: Record<string, string> = {
+  novice_low: `LANGUAGE USE FOR NOVICE LOW:
+- ALL instructions, explanations, and activity descriptions MUST be in ENGLISH
+- Only short vocabulary words/phrases (3-5 words max) in target language
+- Target language should be in quotes or italics with English translation immediately following
+- Example: "Say 'Hola' (Hello) to greet someone"
+- Scaffolding notes should explain pronunciation and cultural context in English
+- Expected responses: single words or 2-3 word phrases only`,
+
+  novice_mid: `LANGUAGE USE FOR NOVICE MID:
+- Instructions and explanations MUST be in ENGLISH
+- Vocabulary lists and short phrases in target language with English translations
+- Model dialogues: target language with English translations in parentheses
+- Example: "Yo soy María. (I am María.)"
+- Activities described in English with target language examples embedded
+- Expected responses: short phrases and memorized sentences`,
+
+  novice_high: `LANGUAGE USE FOR NOVICE HIGH:
+- Main instructions in ENGLISH, simple target language for repetitive tasks
+- Full sentences in target language with English translation support
+- Longer dialogues with translations available
+- Students produce simple sentences; support structures in English
+- Scaffolding provides English hints for sentence building`,
+
+  intermediate_low: `LANGUAGE USE FOR INTERMEDIATE LOW:
+- Instructions can mix English (70%) and target language (30%)
+- Model texts primarily in target language with key vocabulary glossed
+- Students should create their own sentences; scaffolding in English
+- Cultural explanations in English with target language examples
+- Error correction notes in English`,
+
+  intermediate_mid: `LANGUAGE USE FOR INTERMEDIATE MID:
+- Instructions: 50% English, 50% target language
+- Texts and dialogues mostly in target language
+- Scaffolding tips in English for complex structures
+- Students handle paragraph-length responses
+- Cultural content can be in target language with minimal support`,
+
+  intermediate_high: `LANGUAGE USE FOR INTERMEDIATE HIGH:
+- Instructions primarily in target language (70%), English for complex grammar explanations
+- Extended texts in target language
+- Minimal English scaffolding - mainly for nuanced grammar points
+- Students produce connected paragraphs
+- Cultural analysis can be conducted in target language`,
+
+  advanced_low: `LANGUAGE USE FOR ADVANCED LOW:
+- Instructions almost entirely in target language (85%)
+- English only for meta-linguistic explanations or complex cultural comparisons
+- Extended authentic texts in target language
+- Students produce multi-paragraph responses`,
+
+  advanced_mid: `LANGUAGE USE FOR ADVANCED MID:
+- Instructions entirely in target language (95%)
+- English only for specialized terminology or advanced grammar analysis
+- Authentic materials without modification
+- Students engage in extended discourse`,
+
+  advanced_high: `LANGUAGE USE FOR ADVANCED HIGH:
+- All content in target language (100%)
+- English only for contrastive analysis or translation exercises
+- Students handle any topic with sophistication`
+};
+
 const CATEGORY_GUIDANCE: Record<string, string> = {
   interpersonal: "Focus on two-way communication, conversation practice, and interactive exchanges. Include dialogue practice, role-plays, and partner activities.",
   interpretive: "Focus on comprehension skills - listening and reading. Include authentic texts, audio materials, and comprehension questions.",
@@ -152,6 +216,7 @@ export async function generateLessonFromCanDo(
 
     const levelDescription = LEVEL_DESCRIPTIONS[canDo.actflLevel] || canDo.actflLevel;
     const categoryGuidance = CATEGORY_GUIDANCE[request.category] || "";
+    const languageScaffolding = LANGUAGE_SCAFFOLDING[canDo.actflLevel] || LANGUAGE_SCAFFOLDING.intermediate_low;
 
     const prompt = `You are an expert language curriculum designer specializing in ACTFL proficiency-based instruction.
 
@@ -163,17 +228,21 @@ TARGET CAN-DO STATEMENT:
 COMMUNICATION MODE: ${request.category.toUpperCase()}
 ${categoryGuidance}
 
-REQUIREMENTS:
+=== CRITICAL: LANGUAGE SCAFFOLDING REQUIREMENTS ===
+${languageScaffolding}
+
+This is the MOST IMPORTANT requirement. The amount of target language vs. English MUST match the student's proficiency level. Beginners need English support; advanced learners can handle full immersion.
+
+=== GENERAL REQUIREMENTS ===
 1. The lesson MUST directly teach and assess the Can-Do statement
-2. All target language content should be in ${request.language}
-3. Instructions and explanations should be in English
-4. Tasks should progress from supported to independent performance
-5. Include authentic cultural connections
-6. Keep vocabulary and grammar appropriate for the proficiency level
+2. Tasks should progress from supported to independent performance
+3. Include authentic cultural connections
+4. Keep vocabulary and grammar appropriate for the proficiency level
+5. Scaffolding notes should help the tutor support struggling learners
 
 ${request.additionalContext ? `ADDITIONAL CONTEXT: ${request.additionalContext}` : ""}
 
-Generate a comprehensive, engaging lesson that helps students achieve this Can-Do statement.`;
+Generate a comprehensive, engaging lesson that helps students achieve this Can-Do statement. Remember: match language use to the proficiency level!`;
 
     const messages = [
       { role: 'system', content: 'You are an expert language curriculum designer.' },
