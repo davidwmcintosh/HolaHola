@@ -6003,7 +6003,8 @@ Only include observations you can clearly justify from the exchange. Return empt
         difficulty: 'medium' as const,
       };
       
-      // Create drill assignment in database
+      // Create drill assignment in database with lifecycle tracking
+      // Off-script drills are created as "active" (ready to start) since Daniela just delegated them
       const assignment = await storage.createArisDrillAssignment({
         userId: String(session.userId),
         conversationId: session.conversationId || null,
@@ -6013,7 +6014,11 @@ Only include observations you can clearly justify from the exchange. Return empt
         drillContent,
         priority: data.priority || 'medium',
         status: 'pending',
-      });
+        // Lifecycle fields for off-script drill creation
+        origin: 'tutor_delegated',
+        lifecycleState: 'active',  // Ready to start immediately
+        handledBy: 'assistant',
+      } as any);
       
       console.log(`[Assistant Handoff] Created assignment #${assignment.id}: ${data.drillType} for "${data.focus}"`);
       console.log(`[Assistant Handoff] Items: ${data.items.length} practice items`);
