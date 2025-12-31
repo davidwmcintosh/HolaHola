@@ -16,6 +16,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { hasAdminAccess, hasTeacherAccess } from "@shared/permissions";
 import { ImpersonationBanner } from "@/components/admin/ImpersonationBanner";
+import { SystemHealthDashboard } from "@/components/admin/SystemHealthDashboard";
 import { useUser } from "@/lib/auth";
 import { SyllabusBuilder } from "@/components/SyllabusBuilder";
 import { useFounderCollab } from "@/hooks/useFounderCollab";
@@ -1136,38 +1137,79 @@ export default function CommandCenter() {
   });
   const pendingProposalsCount = pendingProposalsData?.proposals?.filter(p => p.status === 'pending').length || 0;
 
-  const availableTabs = [
-    { id: "overview", label: "Overview", icon: LayoutDashboard, roles: ['admin', 'developer', 'teacher'] },
-    { id: "users", label: "Users", icon: Users, roles: ['admin'] },
-    { id: "classes", label: "Classes", icon: GraduationCap, roles: ['admin', 'developer'] },
-    { id: "analytics", label: "Analytics", icon: BarChart3, roles: ['admin', 'developer'] },
-    { id: "reports", label: "Reports", icon: DollarSign, roles: ['admin', 'developer'] },
-    { id: "pricing", label: "Pricing", icon: Tags, roles: ['admin'] },
-    { id: "images", label: "Images", icon: Image, roles: ['admin', 'developer'] },
-    { id: "voice-lab", label: "Voice Lab", icon: Volume2, roles: ['admin', 'developer'] },
-    { id: "voice-intelligence", label: "Voice Diagnostics", icon: Activity, roles: ['admin', 'developer'] },
-    { id: "voice-analytics", label: "Voice Metrics", icon: Mic, roles: ['admin', 'developer'] },
-    { id: "velocity", label: "Learning Velocity", icon: TrendingUp, roles: ['admin', 'developer'] },
-    { id: "neural-network", label: "Neural Network", icon: Zap, roles: ['developer', 'admin'] },
-    { id: "brain-surgery", label: "Brain Surgery", icon: Brain, roles: ['developer', 'admin'] },
-    { id: "north-star", label: "North Star", icon: Compass, roles: ['developer', 'admin'] },
-    { id: "teaching-tools", label: "Teaching Tools", icon: Activity, roles: ['developer', 'admin'] },
-    { id: "dev-tools", label: "Dev Tools", icon: Code, roles: ['developer', 'admin'] },
-    { id: "audit", label: "Audit", icon: FileText, roles: ['admin'] },
-    { id: "support", label: "Support", icon: Headphones, roles: ['admin', 'developer'] },
-    { id: "sofia-issues", label: "Sofia Issues", icon: AlertCircle, roles: ['admin', 'developer'] },
-    { id: "dept-chat", label: "Dept Chat", icon: Lock, roles: ['admin', 'developer'] },
-    { id: "editor-chat", label: "Express Lane", icon: MessageSquare, roles: ['admin', 'developer'] },
-    { id: "feature-sprint", label: "Feature Sprint", icon: Zap, roles: ['admin', 'developer'] },
-    { id: "collaboration", label: "Collaboration", icon: Handshake, roles: ['admin', 'developer'] },
-    { id: "beacons", label: "Beacons", icon: Radio, roles: ['admin', 'developer'] },
-    { id: "memory-migration", label: "Memory Migration", icon: Brain, roles: ['developer'] },
-    { id: "personal-facts", label: "Student Memories", icon: BookOpen, roles: ['admin', 'developer'] },
-    { id: "memory-metrics", label: "Memory Metrics", icon: Activity, roles: ['admin', 'developer'] },
-    { id: "sync-control", label: "Sync Control", icon: Database, roles: ['founder'] },
-    { id: "fluency-coverage", label: "Fluency Coverage", icon: Target, roles: ['admin', 'developer'] },
-    { id: "lesson-drafts", label: "Lesson Drafts", icon: Sparkles, roles: ['admin', 'developer'] },
-  ].filter(tab => {
+  // Tab groups for organized display - grouped by function
+  const tabGroups = [
+    {
+      label: 'Core',
+      tabs: [
+        { id: "overview", label: "Overview", icon: LayoutDashboard, roles: ['admin', 'developer', 'teacher'] },
+        { id: "users", label: "Users", icon: Users, roles: ['admin'] },
+        { id: "classes", label: "Classes", icon: GraduationCap, roles: ['admin', 'developer'] },
+      ]
+    },
+    {
+      label: 'Analytics',
+      tabs: [
+        { id: "analytics", label: "Analytics", icon: BarChart3, roles: ['admin', 'developer'] },
+        { id: "reports", label: "Reports", icon: DollarSign, roles: ['admin', 'developer'] },
+        { id: "voice-analytics", label: "Voice Metrics", icon: Mic, roles: ['admin', 'developer'] },
+        { id: "velocity", label: "Velocity", icon: TrendingUp, roles: ['admin', 'developer'] },
+        { id: "memory-metrics", label: "Memory", icon: Activity, roles: ['admin', 'developer'] },
+      ]
+    },
+    {
+      label: 'Hive',
+      tabs: [
+        { id: "editor-chat", label: "EXPRESS Lane", icon: MessageSquare, roles: ['admin', 'developer'] },
+        { id: "dept-chat", label: "Dept Chat", icon: Lock, roles: ['admin', 'developer'] },
+        { id: "collaboration", label: "Collab", icon: Handshake, roles: ['admin', 'developer'] },
+        { id: "beacons", label: "Beacons", icon: Radio, roles: ['admin', 'developer'] },
+        { id: "feature-sprint", label: "Sprint", icon: Zap, roles: ['admin', 'developer'] },
+      ]
+    },
+    {
+      label: 'Intelligence',
+      tabs: [
+        { id: "neural-network", label: "Neural Net", icon: Zap, roles: ['developer', 'admin'] },
+        { id: "brain-surgery", label: "Surgery", icon: Brain, roles: ['developer', 'admin'] },
+        { id: "north-star", label: "North Star", icon: Compass, roles: ['developer', 'admin'] },
+        { id: "teaching-tools", label: "Tools", icon: Activity, roles: ['developer', 'admin'] },
+      ]
+    },
+    {
+      label: 'Content',
+      tabs: [
+        { id: "lesson-drafts", label: "Lessons", icon: Sparkles, roles: ['admin', 'developer'] },
+        { id: "fluency-coverage", label: "Fluency", icon: Target, roles: ['admin', 'developer'] },
+        { id: "images", label: "Images", icon: Image, roles: ['admin', 'developer'] },
+      ]
+    },
+    {
+      label: 'Support',
+      tabs: [
+        { id: "sofia-issues", label: "Issues", icon: AlertCircle, roles: ['admin', 'developer'] },
+        { id: "support", label: "Support", icon: Headphones, roles: ['admin', 'developer'] },
+        { id: "audit", label: "Audit", icon: FileText, roles: ['admin'] },
+      ]
+    },
+    {
+      label: 'System',
+      tabs: [
+        { id: "dev-tools", label: "Dev Tools", icon: Code, roles: ['developer', 'admin'] },
+        { id: "voice-lab", label: "Voice Lab", icon: Volume2, roles: ['admin', 'developer'] },
+        { id: "voice-intelligence", label: "Diagnostics", icon: Activity, roles: ['admin', 'developer'] },
+        { id: "sync-control", label: "Sync", icon: Database, roles: ['founder'] },
+        { id: "memory-migration", label: "Migration", icon: Brain, roles: ['developer'] },
+        { id: "personal-facts", label: "Memories", icon: BookOpen, roles: ['admin', 'developer'] },
+        { id: "pricing", label: "Pricing", icon: Tags, roles: ['admin'] },
+      ]
+    },
+  ];
+
+  // Flatten tabs for filtering and lookup
+  const allTabs = tabGroups.flatMap(g => g.tabs);
+  
+  const availableTabs = allTabs.filter(tab => {
     if (tab.roles.includes('founder')) {
       return isFounder;
     }
@@ -1204,6 +1246,8 @@ export default function CommandCenter() {
             Manage platform operations, monitor analytics, and configure system settings
           </p>
         </div>
+
+        <SystemHealthDashboard />
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
           <TabsList className="flex flex-wrap h-auto gap-1 p-1">

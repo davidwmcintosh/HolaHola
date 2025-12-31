@@ -15334,6 +15334,91 @@ Current conversation context:
     }
   });
   
+  // ============================================================================
+  // UNIFIED SYSTEM HEALTH DASHBOARD (Founder/Admin)
+  // Aggregates voice pipeline, Sofia issues, active sessions for at-a-glance monitoring
+  // ============================================================================
+  
+  app.get("/api/admin/system-health", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const orchestrator = getStreamingVoiceOrchestrator();
+      const activeSessions = orchestrator.getActiveSessionCount();
+      
+      // Voice diagnostics - get current stats and remediation status
+      const voiceStats = voiceDiagnostics.getStats();
+      const remediationStatus = voiceDiagnostics.getRemediationStatus();
+      
+      // Sofia issues - get counts by status
+      const allReports = await db.select()
+        .from(sofiaIssueReports)
+        .orderBy(desc(sofiaIssueReports.createdAt))
+        .limit(500);
+      
+      const sofiaIssueCounts = {
+        pending: allReports.filter((r: any) => r.status === 'pending').length,
+        actionable: allReports.filter((r: any) => r.status === 'actionable').length,
+        resolved: allReports.filter((r: any) => r.status === 'resolved').length,
+        total: allReports.length,
+      };
+      
+      // Recent issues (last hour)
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      const recentIssues = allReports.filter((r: any) => new Date(r.createdAt) > oneHourAgo);
+      
+      // Calculate voice failure rate from recent events
+      const failureRate = voiceStats.totalEvents > 0 
+        ? (voiceStats.failureCount / voiceStats.totalEvents) * 100 
+        : 0;
+      
+      // Determine overall health status
+      let overallStatus: 'healthy' | 'degraded' | 'critical' = 'healthy';
+      if (remediationStatus.state === 'fallback' || remediationStatus.state === 'degraded') {
+        overallStatus = 'degraded';
+      }
+      if (failureRate > 20 || sofiaIssueCounts.pending > 5) {
+        overallStatus = 'critical';
+      }
+      
+      // Get voice latency from recent telemetry if available
+      const telemetryEvents = getRecentTelemetryEvents();
+      const latencyEvents = telemetryEvents.filter((e: any) => e.deliveryLatencyMs != null).slice(-20);
+      const avgLatency = latencyEvents.length > 0
+        ? Math.round(latencyEvents.reduce((sum: number, e: any) => sum + e.deliveryLatencyMs, 0) / latencyEvents.length)
+        : null;
+      
+      res.json({
+        timestamp: new Date().toISOString(),
+        overallStatus,
+        
+        voice: {
+          provider: remediationStatus.currentProvider,
+          state: remediationStatus.state,
+          inFallback: remediationStatus.inFallbackMode,
+          avgLatencyMs: avgLatency,
+          failureRate: Math.round(failureRate * 10) / 10,
+          totalEvents: voiceStats.totalEvents,
+          recentFailures: voiceStats.failureCount,
+        },
+        
+        sessions: {
+          active: activeSessions,
+        },
+        
+        sofiaIssues: {
+          pending: sofiaIssueCounts.pending,
+          actionable: sofiaIssueCounts.actionable,
+          recentHour: recentIssues.length,
+          needsAttention: sofiaIssueCounts.pending + sofiaIssueCounts.actionable > 0,
+        },
+        
+        environment: process.env.NODE_ENV || 'development',
+      });
+    } catch (error: any) {
+      console.error('[API] Error getting system health:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // Admin: Get available Google TTS voices for assistant tutors
   app.get("/api/admin/google-voices/:language?/:gender?", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
