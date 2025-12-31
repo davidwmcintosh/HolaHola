@@ -3681,6 +3681,7 @@ Remember: David may reference things discussed in these recent text chats.
             tutorName,
             isLanguageSwitch,
             requiresGreeting: true,
+            isAssistant: isAssistantSwitch, // Signals assistant mode - client should navigate to practice page
           });
           
           // Trigger new tutor's greeting automatically
