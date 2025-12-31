@@ -45,6 +45,7 @@ import {
   studentCanDoProgress,
   actflAssessmentEvents,
   classCurriculumLessons,
+  sofiaIssueReports,
 } from "@shared/schema";
 import { hasTeacherAccess, hasDeveloperAccess } from "@shared/permissions";
 import OpenAI, { toFile } from "openai";
@@ -15257,6 +15258,62 @@ Current conversation context:
       res.send(result.audioBuffer);
     } catch (error: any) {
       console.error('[API] Error auditioning support voice:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // ============================================================================
+  // SOFIA ISSUE REPORTS (Founder Only)
+  // Production debugging - view user-reported voice/audio issues with diagnostics
+  // ============================================================================
+  
+  // Get pending Sofia issue reports for founder review
+  app.get("/api/admin/sofia-issue-reports", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { status = 'pending', limit = '50' } = req.query;
+      const reports = await supportPersonaService.getPendingIssueReports(parseInt(limit as string, 10));
+      
+      // If status filter requested, filter from the service
+      const filtered = status === 'all' ? reports : reports.filter((r: any) => r.status === status);
+      
+      res.json({ 
+        reports: filtered,
+        total: filtered.length,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      console.error('[API] Error getting Sofia issue reports:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Update Sofia issue report status (mark as reviewed, dismissed, etc)
+  app.patch("/api/admin/sofia-issue-reports/:reportId", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { reportId } = req.params;
+      const { status, founderNotes } = req.body;
+      
+      if (!status || !['pending', 'reviewed', 'resolved', 'dismissed'].includes(status)) {
+        return res.status(400).json({ error: 'Valid status required: pending, reviewed, resolved, dismissed' });
+      }
+      
+      const [updated] = await db.update(sofiaIssueReports)
+        .set({ 
+          status,
+          founderNotes: founderNotes || null,
+          reviewedAt: status !== 'pending' ? new Date() : null,
+        })
+        .where(eq(sofiaIssueReports.id, reportId))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ error: 'Issue report not found' });
+      }
+      
+      console.log(`[Sofia] Founder updated issue report ${reportId} -> ${status}`);
+      res.json({ success: true, report: updated });
+    } catch (error: any) {
+      console.error('[API] Error updating Sofia issue report:', error);
       res.status(500).json({ error: error.message });
     }
   });
