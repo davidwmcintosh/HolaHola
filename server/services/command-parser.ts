@@ -28,7 +28,8 @@ export type ActionCommandType =
   | 'CALL_SOFIA'
   | 'HIVE'
   | 'SELF_SURGERY'
-  | 'VOICE_ADJUST';
+  | 'VOICE_ADJUST'
+  | 'VOICE_RESET';
 
 /**
  * Parsed command with type and parameters
