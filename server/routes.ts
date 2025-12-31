@@ -14901,6 +14901,9 @@ Current conversation context:
         user?.email === (process.env.FOUNDER_EMAIL || 'davidwmcintosh@gmail.com');
       const supportMode = isDevUser ? 'dev' : 'user';
       
+      // Get voice diagnostics for dev mode users
+      const voiceDiagnosticsContext = isDevUser ? voiceDiagnostics.getSupportDiagnostics() : undefined;
+      
       const result = await supportPersonaService.generateResponse({
         ticketId,
         userMessage: message,
@@ -14911,6 +14914,7 @@ Current conversation context:
           learningTopic: ticket.handoffReason,
         } : undefined,
         mode: supportMode,
+        voiceDiagnostics: voiceDiagnosticsContext,
       });
       
       // Store the support response using storage (reliable persistence)
@@ -15065,6 +15069,9 @@ Current conversation context:
           user?.email === (process.env.FOUNDER_EMAIL || 'davidwmcintosh@gmail.com');
         const supportMode = isDevUser ? 'dev' : 'user';
         
+        // Get voice diagnostics for dev mode users
+        const voiceDiagnosticsContext = isDevUser ? voiceDiagnostics.getSupportDiagnostics() : undefined;
+        
         const result = await supportPersonaService.generateResponse({
           ticketId,
           userMessage: transcript,
@@ -15075,6 +15082,7 @@ Current conversation context:
             learningTopic: ticket.handoffReason,
           } : undefined,
           mode: supportMode,
+          voiceDiagnostics: voiceDiagnosticsContext,
         });
         
         reply = result.response;

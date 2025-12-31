@@ -25,7 +25,7 @@ import {
   type SupportKnowledgeBase,
 } from "@shared/schema";
 import { eq, desc, and, or, like, sql } from "drizzle-orm";
-import { buildSupportPersonaPrompt, shouldHandoffToSupport } from "../support-system-prompt";
+import { buildSupportPersonaPrompt, shouldHandoffToSupport, type SupportVoiceDiagnostics } from "../support-system-prompt";
 import { hiveCollaborationService, type BeaconType } from "./hive-collaboration-service";
 
 // Initialize Gemini client (consistent with Daniela and Aris)
@@ -266,13 +266,7 @@ class SupportPersonaService {
       lastDanielaMessage?: string;
     };
     mode?: 'user' | 'dev';
-    voiceDiagnostics?: {
-      avgLatencyMs?: number;
-      connectionHealth?: 'healthy' | 'degraded' | 'poor';
-      recentErrors?: string[];
-      ttsProvider?: string;
-      sttProvider?: string;
-    };
+    voiceDiagnostics?: SupportVoiceDiagnostics;
   }): Promise<{ response: string; shouldReturnToDaniela: boolean; knowledgeUsed?: string }> {
     // Rate limiting
     const now = Date.now();

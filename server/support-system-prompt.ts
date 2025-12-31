@@ -1,5 +1,23 @@
 export type SupportMode = 'user' | 'dev';
 
+// Extended voice diagnostics for Support system integration
+export interface SupportVoiceDiagnostics {
+  avgLatencyMs?: number;
+  connectionHealth?: 'healthy' | 'degraded' | 'poor';
+  recentErrors?: string[];
+  ttsProvider?: string;
+  sttProvider?: string;
+  // Production audio telemetry (helps debug double audio issues)
+  recentQueueBacklogs?: number; // Count of QUEUE_BACKLOG warnings in last hour
+  avgAudioChunksPerTurn?: number; // Average chunks sent per turn
+  connectionIssues?: Array<{
+    type: 'duplicate_connection' | 'early_close' | 'error';
+    count: number;
+    lastSeen?: string;
+  }>;
+  productionTelemetrySummary?: string; // Brief summary for Sofia to reference
+}
+
 export function buildSupportPersonaPrompt(context: {
   userName?: string;
   deviceInfo?: {
@@ -17,13 +35,7 @@ export function buildSupportPersonaPrompt(context: {
     resolved: boolean;
   }>;
   mode?: SupportMode;
-  voiceDiagnostics?: {
-    avgLatencyMs?: number;
-    connectionHealth?: 'healthy' | 'degraded' | 'poor';
-    recentErrors?: string[];
-    ttsProvider?: string;
-    sttProvider?: string;
-  };
+  voiceDiagnostics?: SupportVoiceDiagnostics;
 }): string {
   const { userName, deviceInfo, handoffContext, previousIssues, mode = 'user', voiceDiagnostics } = context;
   
@@ -361,15 +373,32 @@ function buildDevModePrompt(context: {
     os?: string;
     device?: string;
   };
-  voiceDiagnostics?: {
-    avgLatencyMs?: number;
-    connectionHealth?: 'healthy' | 'degraded' | 'poor';
-    recentErrors?: string[];
-    ttsProvider?: string;
-    sttProvider?: string;
-  };
+  voiceDiagnostics?: SupportVoiceDiagnostics;
 }): string {
   const { userName, deviceInfo, voiceDiagnostics } = context;
+  
+  // Build production telemetry section if available
+  const productionTelemetrySection = voiceDiagnostics ? (() => {
+    const lines: string[] = [];
+    
+    if (voiceDiagnostics.recentQueueBacklogs !== undefined && voiceDiagnostics.recentQueueBacklogs > 0) {
+      lines.push(`⚠️ Queue Backlogs (last hour): ${voiceDiagnostics.recentQueueBacklogs} (potential double audio indicator)`);
+    }
+    if (voiceDiagnostics.avgAudioChunksPerTurn !== undefined) {
+      lines.push(`Audio Chunks per Turn: ${voiceDiagnostics.avgAudioChunksPerTurn.toFixed(1)} avg`);
+    }
+    if (voiceDiagnostics.connectionIssues?.length) {
+      lines.push('Connection Issues:');
+      for (const issue of voiceDiagnostics.connectionIssues) {
+        lines.push(`  - ${issue.type}: ${issue.count} occurrences${issue.lastSeen ? ` (last: ${issue.lastSeen})` : ''}`);
+      }
+    }
+    if (voiceDiagnostics.productionTelemetrySummary) {
+      lines.push(`\nSummary: ${voiceDiagnostics.productionTelemetrySummary}`);
+    }
+    
+    return lines.length > 0 ? `\nProduction Audio Telemetry:\n${lines.join('\n')}` : '';
+  })() : '';
   
   const diagnosticsSection = voiceDiagnostics ? `
 ═══════════════════════════════════════════════════════════════════
@@ -383,6 +412,7 @@ Current Status:
 - STT Provider: ${voiceDiagnostics.sttProvider ?? 'Unknown'}
 
 ${voiceDiagnostics.recentErrors?.length ? `Recent Errors:\n${voiceDiagnostics.recentErrors.map(e => `  - ${e}`).join('\n')}` : 'No recent errors'}
+${productionTelemetrySection}
 ` : '';
 
   return `

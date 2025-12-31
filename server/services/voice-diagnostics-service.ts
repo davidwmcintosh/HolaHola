@@ -1087,6 +1087,132 @@ class VoiceDiagnosticsService {
       remediation: this.getRemediationStatus(),
     };
   }
+  // ============================================================
+  // SUPPORT SYSTEM INTEGRATION
+  // ============================================================
+  
+  /**
+   * Get voice diagnostics formatted for Sofia Support system
+   * Includes production telemetry for debugging double audio issues
+   */
+  getSupportDiagnostics(): {
+    avgLatencyMs?: number;
+    connectionHealth: 'healthy' | 'degraded' | 'poor';
+    recentErrors: string[];
+    ttsProvider: string;
+    sttProvider: string;
+    recentQueueBacklogs?: number;
+    avgAudioChunksPerTurn?: number;
+    connectionIssues?: Array<{
+      type: 'duplicate_connection' | 'early_close' | 'error';
+      count: number;
+      lastSeen?: string;
+    }>;
+    productionTelemetrySummary?: string;
+  } {
+    const now = Date.now();
+    const events = this.events;
+    const oneHourAgo = now - 60 * 60 * 1000;
+    
+    // Calculate E2E latency from complete events
+    const completeEvents = events.filter(e => 
+      e.stage === 'complete' && e.status === 'success' && e.durationMs
+    );
+    const avgLatencyMs = completeEvents.length > 0
+      ? Math.round(completeEvents.reduce((sum, e) => sum + (e.durationMs || 0), 0) / completeEvents.length)
+      : undefined;
+    
+    // Determine connection health based on recent failures
+    const recentFailures = events.filter(e => 
+      e.status === 'fail' && new Date(e.timestamp).getTime() > oneHourAgo
+    );
+    const recentSuccesses = events.filter(e => 
+      e.status === 'success' && new Date(e.timestamp).getTime() > oneHourAgo
+    );
+    const failureRate = (recentSuccesses.length + recentFailures.length) > 0
+      ? recentFailures.length / (recentSuccesses.length + recentFailures.length)
+      : 0;
+    
+    let connectionHealth: 'healthy' | 'degraded' | 'poor' = 'healthy';
+    if (failureRate > 0.2) connectionHealth = 'poor';
+    else if (failureRate > 0.05) connectionHealth = 'degraded';
+    
+    // Get recent error messages
+    const recentErrors = recentFailures
+      .slice(-5)
+      .reverse()
+      .map(e => `${e.stage}: ${e.message}`);
+    
+    // Count queue backlog warnings from connection events with queue_status metadata
+    const queueBacklogEvents = events.filter(e => 
+      new Date(e.timestamp).getTime() > oneHourAgo &&
+      e.metadata?.warning === 'QUEUE_BACKLOG'
+    );
+    const recentQueueBacklogs = queueBacklogEvents.length > 0 ? queueBacklogEvents.length : undefined;
+    
+    // Calculate average audio chunks per turn from complete events
+    const audioChunkEvents = events.filter(e => 
+      e.stage === 'complete' && 
+      e.status === 'success' && 
+      typeof e.metadata?.audioChunkCount === 'number'
+    );
+    const avgAudioChunksPerTurn = audioChunkEvents.length > 0
+      ? audioChunkEvents.reduce((sum, e) => sum + (e.metadata?.audioChunkCount || 0), 0) / audioChunkEvents.length
+      : undefined;
+    
+    // Analyze connection lifecycle events
+    const connectionEvents = events.filter(e => 
+      e.stage === 'connection' && new Date(e.timestamp).getTime() > oneHourAgo
+    );
+    const connectionIssues: Array<{ type: 'duplicate_connection' | 'early_close' | 'error'; count: number; lastSeen?: string }> = [];
+    
+    // Count early closes (connections < 10 seconds that weren't intentional)
+    const earlyCloses = connectionEvents.filter(e => 
+      e.metadata?.duration && e.metadata.duration < 10000 && e.status === 'success'
+    );
+    if (earlyCloses.length > 0) {
+      connectionIssues.push({
+        type: 'early_close',
+        count: earlyCloses.length,
+        lastSeen: earlyCloses[earlyCloses.length - 1]?.timestamp?.toISOString(),
+      });
+    }
+    
+    // Count connection errors
+    const connectionErrors = connectionEvents.filter(e => e.status === 'fail');
+    if (connectionErrors.length > 0) {
+      connectionIssues.push({
+        type: 'error',
+        count: connectionErrors.length,
+        lastSeen: connectionErrors[connectionErrors.length - 1]?.timestamp?.toISOString(),
+      });
+    }
+    
+    // Build summary
+    const summaryParts: string[] = [];
+    if (recentQueueBacklogs && recentQueueBacklogs > 0) {
+      summaryParts.push(`${recentQueueBacklogs} queue backlogs detected`);
+    }
+    if (avgAudioChunksPerTurn !== undefined && avgAudioChunksPerTurn > 5) {
+      summaryParts.push(`high chunk count (${avgAudioChunksPerTurn.toFixed(1)}/turn)`);
+    }
+    if (connectionIssues.length > 0) {
+      const issueCount = connectionIssues.reduce((sum, i) => sum + i.count, 0);
+      summaryParts.push(`${issueCount} connection issues`);
+    }
+    
+    return {
+      avgLatencyMs,
+      connectionHealth,
+      recentErrors,
+      ttsProvider: this.inFallbackMode ? 'Google TTS (fallback)' : 'Cartesia Sonic-3',
+      sttProvider: 'Deepgram Nova-3',
+      recentQueueBacklogs,
+      avgAudioChunksPerTurn,
+      connectionIssues: connectionIssues.length > 0 ? connectionIssues : undefined,
+      productionTelemetrySummary: summaryParts.length > 0 ? summaryParts.join('; ') : undefined,
+    };
+  }
 }
 
 // Singleton instance
