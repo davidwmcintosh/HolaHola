@@ -41,6 +41,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { getClientDiagnosticsSnapshot } from "@/lib/streamingVoiceClient";
 
 type InputMode = 'text' | 'voice';
 
@@ -341,12 +342,16 @@ export function SupportAssistModal({
     setIsLoading(true);
 
     try {
+      // Capture client telemetry for issue debugging (especially voice issues)
+      const clientTelemetry = getClientDiagnosticsSnapshot();
+      
       const response = await apiRequest('POST', '/api/support/message', {
         ticketId,
         message: userMessage.content,
         category,
         mode,
         drillContext,
+        clientTelemetry,
       });
       
       const data = await response.json();

@@ -295,6 +295,26 @@ export class StreamingVoiceClient {
   }
   
   /**
+   * Get client-side telemetry snapshot for debugging
+   * Used by Sofia issue reports to capture state at moment of issue report
+   */
+  getClientDiagnostics(): Record<string, any> {
+    return {
+      connectionState: this.state,
+      socketConnected: this.socket?.connected ?? false,
+      socketId: this.socket?.id ?? null,
+      connectionId: this.connectionId,
+      sessionId: this.sessionId,
+      hasActiveSession: !!this.sessionId,
+      reconnectCount: this.reconnectAttempts,
+      intentionalDisconnect: this.intentionalDisconnect,
+      lastConversationId: this.lastConversationId,
+      userAgent: navigator.userAgent,
+      timestamp: new Date().toISOString(),
+    };
+  }
+  
+  /**
    * Check if connected and ready
    */
   isReady(): boolean {
@@ -1280,4 +1300,46 @@ export function resetStreamingVoiceClient(): StreamingVoiceClient {
     window.__streamingVoiceClient = null;
   }
   return getStreamingVoiceClient();
+}
+
+/**
+ * Get client-side diagnostics for Sofia issue reports
+ * Captures voice connection state, audio status, and device info at moment of issue
+ */
+export function getClientDiagnosticsSnapshot(): Record<string, any> {
+  try {
+    const client = typeof window !== 'undefined' && window.__streamingVoiceClient
+      ? window.__streamingVoiceClient
+      : null;
+    
+    return {
+      // Voice connection state
+      voiceClient: client?.getClientDiagnostics() || { status: 'not_initialized' },
+      
+      // Device info
+      device: {
+        browser: navigator.userAgent,
+        platform: navigator.platform,
+        language: navigator.language,
+        onLine: navigator.onLine,
+        cookiesEnabled: navigator.cookieEnabled,
+      },
+      
+      // Audio context state (if available)
+      audioContext: typeof AudioContext !== 'undefined' ? {
+        available: true,
+        // AudioContext may not exist yet
+        state: 'unknown',
+      } : { available: false },
+      
+      // Capture timestamp
+      capturedAt: new Date().toISOString(),
+    };
+  } catch (e) {
+    return {
+      error: 'Failed to capture diagnostics',
+      message: String(e),
+      capturedAt: new Date().toISOString(),
+    };
+  }
 }

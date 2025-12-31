@@ -14852,7 +14852,7 @@ Current conversation context:
   app.post("/api/support/message", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
     try {
       const userId = req.user?.id;
-      const { ticketId, message, category, mode, drillContext } = req.body;
+      const { ticketId, message, category, mode, drillContext, clientTelemetry } = req.body;
       
       if (!message || typeof message !== 'string') {
         return res.status(400).json({ error: 'Message is required' });
@@ -14916,6 +14916,7 @@ Current conversation context:
         } : undefined,
         mode: supportMode,
         voiceDiagnostics: voiceDiagnosticsContext,
+        clientTelemetry,
       });
       
       // Store the support response using storage (reliable persistence)

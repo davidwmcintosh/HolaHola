@@ -363,6 +363,7 @@ class SupportPersonaService {
     };
     mode?: 'user' | 'dev';
     voiceDiagnostics?: SupportVoiceDiagnostics;
+    clientTelemetry?: Record<string, any>;
   }): Promise<{ response: string; shouldReturnToDaniela: boolean; knowledgeUsed?: string }> {
     // Rate limiting
     const now = Date.now();
@@ -385,6 +386,7 @@ class SupportPersonaService {
           userDescription: params.userMessage,
           voiceDiagnostics: params.voiceDiagnostics,
           deviceInfo: params.deviceInfo,
+          clientTelemetry: params.clientTelemetry,
         }).catch(err => console.warn('[Sofia] Failed to create issue report:', err));
         
         console.log(`[Sofia] Detected voice issue: ${detectedIssue.issueType} (keywords: ${detectedIssue.matchedKeywords.join(', ')})`);
