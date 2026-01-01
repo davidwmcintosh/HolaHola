@@ -11659,6 +11659,72 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // ===== Lesson Publishing Workflow =====
+  // Preview approved drafts ready for publishing
+  app.get("/api/admin/lesson-drafts/publish/preview", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { getPublishPreview, getPublishStats } = await import('./services/lesson-publishing-service');
+      const { language } = req.query;
+      
+      const [preview, stats] = await Promise.all([
+        getPublishPreview(language as string || undefined),
+        getPublishStats()
+      ]);
+      
+      res.json({
+        readyToPublish: preview.length,
+        drafts: preview,
+        statsByLanguage: stats
+      });
+    } catch (error: any) {
+      console.error('[Publish Preview] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Publish a single draft
+  app.post("/api/admin/lesson-drafts/publish/:draftId", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { publishDraft } = await import('./services/lesson-publishing-service');
+      const { draftId } = req.params;
+      
+      const result = await publishDraft(draftId);
+      
+      if (result.success) {
+        res.json({
+          message: 'Draft published successfully',
+          lessonId: result.lessonId,
+          drillCount: result.drillCount
+        });
+      } else {
+        res.status(400).json({ error: result.error });
+      }
+    } catch (error: any) {
+      console.error('[Publish Draft] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Batch publish all approved drafts
+  app.post("/api/admin/lesson-drafts/publish/batch", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { publishBatch } = await import('./services/lesson-publishing-service');
+      const { language, limit = 100 } = req.body;
+      
+      const result = await publishBatch(language, limit);
+      
+      res.json({
+        message: `Batch publish complete: ${result.published} published, ${result.failed} failed`,
+        published: result.published,
+        failed: result.failed,
+        details: result.results.filter(r => !r.success).slice(0, 10)
+      });
+    } catch (error: any) {
+      console.error('[Batch Publish] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Get a student's Can-Do progress for a language
   app.get("/api/fluency/can-do-progress/:language", isAuthenticated, async (req: any, res) => {
     try {
