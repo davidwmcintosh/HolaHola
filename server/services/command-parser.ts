@@ -26,6 +26,7 @@ export type ActionCommandType =
   | 'SYLLABUS_PROGRESS'
   | 'CALL_SUPPORT'
   | 'CALL_SOFIA'
+  | 'CALL_ASSISTANT'  // Delegate drill practice to assistant tutor
   | 'HIVE'
   | 'SELF_SURGERY'
   | 'VOICE_ADJUST'
@@ -64,6 +65,9 @@ export const VALID_ENUM_VALUES = {
   ACTFL_UPDATE_DIRECTION: ['up', 'down', 'confirm'],
   CALL_SUPPORT_CATEGORY: ['technical', 'account', 'billing', 'content', 'feedback', 'other'],
   CALL_SUPPORT_PRIORITY: ['low', 'normal', 'high', 'critical'],
+  // CALL_ASSISTANT: Delegate drill practice to assistant tutor
+  CALL_ASSISTANT_TYPE: ['repeat', 'translate', 'match', 'fill_blank', 'sentence_order'],
+  CALL_ASSISTANT_PRIORITY: ['low', 'medium', 'high'],
   HIVE_CATEGORY: ['self_improvement', 'content_gap', 'ux_observation', 'teaching_insight', 'product_feature', 'technical_issue', 'student_pattern', 'tool_enhancement'],
   SELF_SURGERY_TARGET: ['tutor_procedures', 'teaching_principles', 'tool_knowledge', 'situational_patterns', 'language_idioms', 'cultural_nuances', 'learner_error_patterns', 'dialect_variations', 'linguistic_bridges', 'creativity_templates'],
   // Voice adjustment options - Cartesia TTS supports these emotions and speed modifiers
@@ -110,6 +114,11 @@ const COMMAND_SCHEMAS: Record<ActionCommandType, { required: string[]; optional:
     optional: ['reason', 'priority', 'context'],
     enums: { category: VALID_ENUM_VALUES.CALL_SUPPORT_CATEGORY, priority: VALID_ENUM_VALUES.CALL_SUPPORT_PRIORITY },
   },
+  CALL_ASSISTANT: {
+    required: ['type', 'focus', 'items'],  // type=drill_type, focus=skill_focus, items=comma-separated list
+    optional: ['priority'],
+    enums: { type: VALID_ENUM_VALUES.CALL_ASSISTANT_TYPE, priority: VALID_ENUM_VALUES.CALL_ASSISTANT_PRIORITY },
+  },
   HIVE: {
     required: ['category', 'title', 'description'],
     optional: ['reasoning', 'priority'],
@@ -151,6 +160,7 @@ const ROBUST_TAG_PATTERNS: Record<ActionCommandType, RegExp> = {
   SYLLABUS_PROGRESS: /\[SYLLABUS_PROGRESS\s+([^\]]+)\]/gi,
   CALL_SUPPORT: /\[CALL_SUPPORT\s+([^\]]+)\]/gi,
   CALL_SOFIA: /\[CALL_SOFIA\s+([^\]]+)\]/gi,
+  CALL_ASSISTANT: /\[CALL_ASSISTANT\s+([^\]]+)\]/gi,  // Delegate drill to assistant tutor
   HIVE: /\[HIVE\s+([^\]]+)\]/gi,
   SELF_SURGERY: /\[SELF_SURGERY\s+([^\]]+)\]/gi,
   VOICE_ADJUST: /\[VOICE_ADJUST\s+([^\]]+)\]/gi,

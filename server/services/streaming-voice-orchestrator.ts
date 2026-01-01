@@ -1832,11 +1832,13 @@ Remember: David may reference things discussed in these recent text chats.
           // ROUTING: Process commands based on their source and type
           // - JSON-sourced commands: Process here (whiteboard parser doesn't handle JSON)
           // - Bracketed VOICE_ADJUST/VOICE_RESET: Process here (whiteboard parser doesn't handle voice commands)
+          // - Bracketed CALL_ASSISTANT: Process here (whiteboard parser never implemented parsing for it)
           // - Other bracketed commands: Already handled by whiteboard parser above
           const commandsToProcess = commandParseResult.commands.filter(c => 
             c.source === 'json' || 
             c.type === 'VOICE_ADJUST' || 
-            c.type === 'VOICE_RESET'
+            c.type === 'VOICE_RESET' ||
+            c.type === 'CALL_ASSISTANT'  // Whiteboard parser doesn't implement CALL_ASSISTANT
           );
           
           for (const cmd of commandsToProcess) {
@@ -1918,6 +1920,39 @@ Remember: David may reference things discussed in these recent text chats.
                       reason: cmd.params.reason as string | undefined,
                     };
                     console.log(`[CommandParser→Support] Queued support handoff: ${category} via ${cmd.source} format`);
+                  }
+                  break;
+                }
+                case 'CALL_ASSISTANT': {
+                  // Delegate drill practice to assistant tutor (e.g., Aris)
+                  // Only process via command parser to avoid duplicate processing with whiteboard
+                  const drillType = cmd.params.type as string;
+                  const focus = cmd.params.focus as string;
+                  const items = cmd.params.items as string;
+                  
+                  if (drillType && focus && items && !session.pendingAssistantHandoff) {
+                    // Parse items (comma-separated string)
+                    const itemsList = items.split(',').map(s => s.trim()).filter(Boolean);
+                    
+                    // Queue assistant handoff (don't block current response)
+                    this.processAssistantHandoff(session, {
+                      drillType: drillType as 'repeat' | 'translate' | 'match' | 'fill_blank' | 'sentence_order',
+                      focus,
+                      items: itemsList,
+                      priority: cmd.params.priority as 'low' | 'medium' | 'high' | undefined,
+                    }, turnId).catch(err => {
+                      console.error(`[CommandParser→AssistantHandoff] Error:`, err);
+                    });
+                    
+                    // Set flag to indicate assistant handoff is pending
+                    session.pendingAssistantHandoff = {
+                      drillType: drillType as 'repeat' | 'translate' | 'match' | 'fill_blank' | 'sentence_order',
+                      focus,
+                      items: itemsList,
+                      priority: cmd.params.priority as 'low' | 'medium' | 'high' | undefined,
+                    };
+                    
+                    console.log(`[CommandParser→AssistantHandoff] Delegated to assistant: ${drillType} drill for "${focus}" with ${itemsList.length} items via ${cmd.source} format`);
                   }
                   break;
                 }
@@ -2335,40 +2370,9 @@ Remember: David may reference things discussed in these recent text chats.
             
             // NOTE: PHASE_SHIFT and CALL_SUPPORT moved to early processing above
             
-            // CALL_ASSISTANT: Tri-Lane Hive command - delegate drill practice to Aris
-            // When Daniela identifies a need for focused, repetitive practice
-            const assistantItem = whiteboardParsed.whiteboardItems.find(item => item.type === 'call_assistant');
-            if (assistantItem && 'data' in assistantItem && assistantItem.data) {
-              const data = assistantItem.data as { 
-                type: 'repeat' | 'translate' | 'match' | 'fill_blank' | 'sentence_order';
-                focus: string;
-                items: string;
-                priority?: 'low' | 'medium' | 'high';
-              };
-              
-              // Parse items (comma-separated string)
-              const itemsList = data.items.split(',').map(s => s.trim()).filter(Boolean);
-              
-              // Queue assistant handoff (don't block current response)
-              this.processAssistantHandoff(session, {
-                drillType: data.type,
-                focus: data.focus,
-                items: itemsList,
-                priority: data.priority,
-              }, turnId).catch(err => {
-                console.error(`[Assistant Handoff] Error processing handoff:`, err);
-              });
-              
-              // Set flag to indicate assistant handoff is pending
-              session.pendingAssistantHandoff = {
-                drillType: data.type,
-                focus: data.focus,
-                items: itemsList,
-                priority: data.priority,
-              };
-              
-              console.log(`[Assistant Handoff] Daniela delegated to Aris: ${data.type} drill for "${data.focus}" with ${itemsList.length} items`);
-            }
+            // NOTE: CALL_ASSISTANT is now handled by command-parser.ts (lines 1927-1958)
+            // The whiteboard parser never implemented call_assistant parsing, so all CALL_ASSISTANT
+            // commands (both bracketed and JSON format) are processed via the command parser.
             
             // HIVE: Daniela's active contribution to the hive mind
             // When Daniela formulates an idea, suggestion, or observation to share with founders
