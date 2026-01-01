@@ -11725,6 +11725,80 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // ===== Curriculum Sync Workflow =====
+  // Get sync status for all classes
+  app.get("/api/admin/curriculum/sync/status", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { getClassSyncStatus } = await import('./services/curriculum-sync-service');
+      const status = await getClassSyncStatus();
+      res.json(status);
+    } catch (error: any) {
+      console.error('[Curriculum Sync Status] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Preview what would be synced for a specific class
+  app.get("/api/admin/curriculum/sync/preview/:classId", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { previewClassSync } = await import('./services/curriculum-sync-service');
+      const { classId } = req.params;
+      
+      const preview = await previewClassSync(classId);
+      if (!preview) {
+        return res.status(404).json({ error: 'Class not found or has no curriculum path' });
+      }
+      res.json(preview);
+    } catch (error: any) {
+      console.error('[Curriculum Sync Preview] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Sync a single class with master curriculum
+  app.post("/api/admin/curriculum/sync/:classId", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { syncClassWithMaster } = await import('./services/curriculum-sync-service');
+      const { classId } = req.params;
+      
+      const result = await syncClassWithMaster(classId);
+      
+      if (result.errors.length > 0) {
+        return res.status(400).json({ error: result.errors.join(', '), result });
+      }
+      
+      res.json({
+        message: `Synced "${result.className}": ${result.unitsAdded} units, ${result.lessonsAdded} lessons added`,
+        ...result
+      });
+    } catch (error: any) {
+      console.error('[Curriculum Sync] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Sync all classes with master curriculum
+  app.post("/api/admin/curriculum/sync/all", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { syncAllClasses } = await import('./services/curriculum-sync-service');
+      const result = await syncAllClasses();
+      
+      const totalUnits = result.results.reduce((sum, r) => sum + r.unitsAdded, 0);
+      const totalLessons = result.results.reduce((sum, r) => sum + r.lessonsAdded, 0);
+      
+      res.json({
+        message: `Synced ${result.synced} classes: ${totalUnits} units, ${totalLessons} lessons added`,
+        synced: result.synced,
+        totalUnits,
+        totalLessons,
+        details: result.results.filter(r => r.unitsAdded > 0 || r.lessonsAdded > 0 || r.errors.length > 0)
+      });
+    } catch (error: any) {
+      console.error('[Curriculum Sync All] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Get a student's Can-Do progress for a language
   app.get("/api/fluency/can-do-progress/:language", isAuthenticated, async (req: any, res) => {
     try {
