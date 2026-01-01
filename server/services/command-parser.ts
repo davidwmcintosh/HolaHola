@@ -18,19 +18,33 @@ import { WhiteboardItem, WHITEBOARD_TAGS, WHITEBOARD_PATTERNS } from "@shared/wh
 
 /**
  * Supported command types that trigger backend actions
+ * 
+ * UNIFIED COMMAND REGISTRY: All actionable tags must be defined here.
+ * The whiteboard parser handles VISUAL CONTENT only (WRITE, PHONETIC, etc.)
+ * The command parser handles ALL ACTION COMMANDS (processed exactly once).
  */
 export type ActionCommandType = 
-  | 'SWITCH_TUTOR'
-  | 'PHASE_SHIFT'
-  | 'ACTFL_UPDATE'
-  | 'SYLLABUS_PROGRESS'
-  | 'CALL_SUPPORT'
-  | 'CALL_SOFIA'
-  | 'CALL_ASSISTANT'  // Delegate drill practice to assistant tutor
-  | 'HIVE'
-  | 'SELF_SURGERY'
-  | 'VOICE_ADJUST'
-  | 'VOICE_RESET';
+  // === TEACHING & PROGRESSION ===
+  | 'SWITCH_TUTOR'      // Hand off to different tutor (gender/language/role)
+  | 'PHASE_SHIFT'       // Transition teaching phase
+  | 'ACTFL_UPDATE'      // Update student's proficiency level
+  | 'SYLLABUS_PROGRESS' // Track topic competency
+  | 'CALL_SUPPORT'      // Hand off to Sofia support agent
+  | 'CALL_SOFIA'        // Alias for CALL_SUPPORT
+  | 'CALL_ASSISTANT'    // Delegate drill practice to assistant tutor
+  // === SYSTEM & HIVE ===
+  | 'HIVE'              // Daniela's contribution to hive mind
+  | 'SELF_SURGERY'      // Neural network modifications (Founder Mode)
+  // === VOICE CONTROL ===
+  | 'VOICE_ADJUST'      // Real-time voice adjustment (speed, emotion)
+  | 'VOICE_RESET'       // Reset voice to baseline
+  // === UI CONTROL ===
+  | 'SUBTITLE'          // Toggle subtitle mode (off/on/target)
+  | 'SHOW'              // Display custom overlay text
+  | 'HIDE'              // Hide custom overlay
+  | 'TEXT_INPUT'        // Request text input from student
+  | 'CLEAR'             // Clear whiteboard
+  | 'HOLD'              // Prevent whiteboard auto-clear
 
 /**
  * Parsed command with type and parameters
@@ -78,6 +92,8 @@ export const VALID_ENUM_VALUES = {
   VOICE_ADJUST_EMOTION_LEGACY: ['positivity', 'curiosity', 'surprise', 'anger', 'sadness'],
   // Personality presets that determine baseline emotion and allowed emotion range
   VOICE_ADJUST_PERSONALITY: ['warm', 'calm', 'energetic', 'professional'],
+  // UI Control commands
+  SUBTITLE_MODE: ['off', 'on', 'target'],
 };
 
 /**
@@ -144,6 +160,37 @@ const COMMAND_SCHEMAS: Record<ActionCommandType, { required: string[]; optional:
     optional: ['reason'],
     enums: {},
   },
+  // === UI CONTROL COMMANDS ===
+  SUBTITLE: {
+    required: ['mode'],  // mode: off|on|target
+    optional: [],
+    enums: { mode: VALID_ENUM_VALUES.SUBTITLE_MODE },
+  },
+  SHOW: {
+    required: ['text'],  // Text to display in overlay
+    optional: [],
+    enums: {},
+  },
+  HIDE: {
+    required: [],  // No params - just hide the overlay
+    optional: [],
+    enums: {},
+  },
+  TEXT_INPUT: {
+    required: ['prompt'],  // Prompt to show for text input
+    optional: [],
+    enums: {},
+  },
+  CLEAR: {
+    required: [],  // No params - clear whiteboard
+    optional: [],
+    enums: {},
+  },
+  HOLD: {
+    required: [],  // No params - prevent whiteboard auto-clear
+    optional: [],
+    enums: {},
+  },
 };
 
 /**
@@ -154,17 +201,33 @@ const COMMAND_SCHEMAS: Record<ActionCommandType, { required: string[]; optional:
  * NOTE: CALL_SUPPORT and CALL_SOFIA are handled specially to avoid duplication
  */
 const ROBUST_TAG_PATTERNS: Record<ActionCommandType, RegExp> = {
+  // === TEACHING & PROGRESSION ===
   SWITCH_TUTOR: /\[SWITCH_TUTOR[S]?\s+([^\]]+)\]/gi,
   PHASE_SHIFT: /\[PHASE_SHIFT\s+([^\]]+)\]/gi,
   ACTFL_UPDATE: /\[ACTFL_UPDATE\s+([^\]]+)\]/gi,
   SYLLABUS_PROGRESS: /\[SYLLABUS_PROGRESS\s+([^\]]+)\]/gi,
   CALL_SUPPORT: /\[CALL_SUPPORT\s+([^\]]+)\]/gi,
   CALL_SOFIA: /\[CALL_SOFIA\s+([^\]]+)\]/gi,
-  CALL_ASSISTANT: /\[CALL_ASSISTANT\s+([^\]]+)\]/gi,  // Delegate drill to assistant tutor
+  CALL_ASSISTANT: /\[CALL_ASSISTANT\s+([^\]]+)\]/gi,
+  // === SYSTEM & HIVE ===
   HIVE: /\[HIVE\s+([^\]]+)\]/gi,
   SELF_SURGERY: /\[SELF_SURGERY\s+([^\]]+)\]/gi,
+  // === VOICE CONTROL ===
   VOICE_ADJUST: /\[VOICE_ADJUST\s+([^\]]+)\]/gi,
-  VOICE_RESET: /\[VOICE_RESET(?:\s+([^\]]*))?\]/gi,  // Optional params for reason
+  VOICE_RESET: /\[VOICE_RESET(?:\s+([^\]]*))?\]/gi,
+  // === UI CONTROL ===
+  // SUBTITLE captures: [SUBTITLE off], [SUBTITLE on], [SUBTITLE target]
+  // The mode value is captured in group 1
+  SUBTITLE: /\[SUBTITLE\s+(off|on|target)\s*\]/gi,
+  // SHOW captures: [SHOW: text to display]
+  SHOW: /\[SHOW:\s*([^\]]+)\]/gi,
+  // HIDE is a simple flag
+  HIDE: /\[HIDE\]/gi,
+  // TEXT_INPUT captures: [TEXT_INPUT:prompt text]
+  TEXT_INPUT: /\[TEXT_INPUT:\s*([^\]]+)\]/gi,
+  // CLEAR and HOLD are simple flags
+  CLEAR: /\[CLEAR\]/gi,
+  HOLD: /\[HOLD\]/gi,
 };
 
 /**
@@ -308,6 +371,35 @@ function parseActionTriggersJSON(text: string): { commands: ParsedCommand[]; err
 }
 
 /**
+ * Special parameter extraction for UI control commands that don't use key="value" syntax
+ * Maps regex capture groups to the expected parameter names
+ */
+function extractSpecialParams(type: ActionCommandType, match: RegExpExecArray): Record<string, string | number> | null {
+  switch (type) {
+    case 'SUBTITLE':
+      // [SUBTITLE off/on/target] - group 1 is the mode
+      return match[1] ? { mode: match[1].toLowerCase() } : null;
+    case 'SHOW':
+      // [SHOW: text] - group 1 is the text
+      return match[1] ? { text: match[1].trim() } : null;
+    case 'HIDE':
+      // [HIDE] - no params needed
+      return {};
+    case 'TEXT_INPUT':
+      // [TEXT_INPUT: prompt] - group 1 is the prompt
+      return match[1] ? { prompt: match[1].trim() } : null;
+    case 'CLEAR':
+      // [CLEAR] - no params needed
+      return {};
+    case 'HOLD':
+      // [HOLD] - no params needed
+      return {};
+    default:
+      return null; // Use standard key="value" parsing
+  }
+}
+
+/**
  * Extract commands using bracketed [TAG ...] syntax (fallback)
  */
 function parseBracketedCommands(text: string): { commands: ParsedCommand[]; errors: string[] } {
@@ -319,10 +411,16 @@ function parseBracketedCommands(text: string): { commands: ParsedCommand[]; erro
     let match;
     
     while ((match = pattern.exec(text)) !== null) {
-      const attrString = match[1];
-      const params = parseAttributes(attrString);
-      
       const commandType = type as ActionCommandType;
+      
+      // Try special parameter extraction first (for UI control commands)
+      const specialParams = extractSpecialParams(commandType, match);
+      
+      // If not a special command, use standard key="value" parsing
+      const params: Record<string, string | number> = specialParams !== null
+        ? specialParams
+        : parseAttributes(match[1] || '');
+      
       const validation = validateCommand(commandType, params);
       
       // Only block on missing required fields
@@ -505,11 +603,60 @@ export function formatCommand(cmd: ParsedCommand): string {
 }
 
 /**
+ * Detect and log unknown/unhandled tags for telemetry
+ * This helps identify new command patterns that Daniela is using
+ */
+export function detectUnknownTags(text: string): string[] {
+  const unknownTags: string[] = [];
+  
+  // Pattern to detect any [TAG ...] format that looks like a command
+  // (i.e., starts with uppercase letters, may have params)
+  const tagPattern = /\[([A-Z][A-Z0-9_]*)\s*[^\]]*\]/gi;
+  let match;
+  
+  // Known visual-only tags that whiteboard parser handles (should not be flagged)
+  const knownVisualTags = new Set([
+    'WRITE', 'PHONETIC', 'WORD', 'HIGHLIGHT', 'TRANSLATION', 'EXAMPLE',
+    'CONJUGATION', 'CULTURAL_NOTE', 'AUDIO_CLIP', 'DRILL', 'HANZI', 'WORD_MAP'
+  ]);
+  
+  while ((match = tagPattern.exec(text)) !== null) {
+    const tagName = match[1].toUpperCase();
+    
+    // Skip known action commands (handled by this parser)
+    if (tagName in COMMAND_SCHEMAS) continue;
+    
+    // Skip known visual tags (handled by whiteboard parser)
+    if (knownVisualTags.has(tagName)) continue;
+    
+    // Skip obvious false positives (e.g., markdown, URLs)
+    if (tagName.length < 3) continue;
+    
+    unknownTags.push(match[0]);
+  }
+  
+  if (unknownTags.length > 0) {
+    console.log(`[CommandParser - TELEMETRY] Unknown tags detected: ${unknownTags.join(', ')}`);
+  }
+  
+  return unknownTags;
+}
+
+/**
  * Service singleton for command parsing
  */
 class CommandParserService {
   parse(text: string): CommandParseResult {
-    return parseActionCommands(text);
+    const result = parseActionCommands(text);
+    
+    // Run telemetry to detect unknown tags (non-blocking)
+    const unknownTags = detectUnknownTags(text);
+    if (unknownTags.length > 0) {
+      // Attach unknown tags to result for observability
+      (result as any).unknownTags = unknownTags;
+    }
+    
+    return result;
   }
   
   hasCommands(text: string): boolean {
@@ -522,6 +669,13 @@ class CommandParserService {
   
   normalizeType(type: string): ActionCommandType | null {
     return normalizeCommandType(type);
+  }
+  
+  /**
+   * Expose telemetry for external use
+   */
+  detectUnknownTags(text: string): string[] {
+    return detectUnknownTags(text);
   }
 }
 

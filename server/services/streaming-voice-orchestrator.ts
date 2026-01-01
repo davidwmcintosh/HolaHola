@@ -1829,17 +1829,11 @@ Remember: David may reference things discussed in these recent text chats.
             }
           }
           
-          // ROUTING: Process commands based on their source and type
-          // - JSON-sourced commands: Process here (whiteboard parser doesn't handle JSON)
-          // - Bracketed VOICE_ADJUST/VOICE_RESET: Process here (whiteboard parser doesn't handle voice commands)
-          // - Bracketed CALL_ASSISTANT: Process here (whiteboard parser never implemented parsing for it)
-          // - Other bracketed commands: Already handled by whiteboard parser above
-          const commandsToProcess = commandParseResult.commands.filter(c => 
-            c.source === 'json' || 
-            c.type === 'VOICE_ADJUST' || 
-            c.type === 'VOICE_RESET' ||
-            c.type === 'CALL_ASSISTANT'  // Whiteboard parser doesn't implement CALL_ASSISTANT
-          );
+          // UNIFIED COMMAND ROUTING: Process ALL commands through command-parser
+          // This ensures each command executes exactly once with consistent validation.
+          // The whiteboard parser now ONLY handles visual content (WRITE, PHONETIC, etc.)
+          // All action commands are routed through here.
+          const commandsToProcess = commandParseResult.commands;
           
           for (const cmd of commandsToProcess) {
               switch (cmd.type) {
@@ -2109,6 +2103,57 @@ Remember: David may reference things discussed in these recent text chats.
                   }
                   break;
                 }
+                // === UI CONTROL COMMANDS ===
+                case 'SUBTITLE': {
+                  // Toggle subtitle mode: off/on/target
+                  const mode = (cmd.params.mode as string)?.toLowerCase();
+                  if (mode && ['off', 'on', 'target'].includes(mode)) {
+                    const validMode = mode === 'on' ? 'all' : mode as 'off' | 'all' | 'target';
+                    session.subtitleMode = validMode;
+                    console.log(`[CommandParser→Subtitle] Mode changed to: ${validMode} via ${cmd.source} format`);
+                  }
+                  break;
+                }
+                case 'SHOW': {
+                  // Display custom overlay text
+                  const text = cmd.params.text as string;
+                  if (text) {
+                    // Set custom overlay on session for frontend to display
+                    (session as any).customOverlayText = text;
+                    console.log(`[CommandParser→Show] Custom overlay: "${text.substring(0, 50)}..." via ${cmd.source} format`);
+                  }
+                  break;
+                }
+                case 'HIDE': {
+                  // Hide custom overlay
+                  (session as any).customOverlayText = undefined;
+                  console.log(`[CommandParser→Hide] Custom overlay hidden via ${cmd.source} format`);
+                  break;
+                }
+                case 'TEXT_INPUT': {
+                  // Request text input from student
+                  const prompt = cmd.params.prompt as string;
+                  if (prompt) {
+                    // Store pending text input request for frontend
+                    (session as any).pendingTextInput = { prompt };
+                    console.log(`[CommandParser→TextInput] Requested: "${prompt.substring(0, 50)}..." via ${cmd.source} format`);
+                  }
+                  break;
+                }
+                case 'CLEAR': {
+                  // Clear whiteboard - set session flag for inclusion in whiteboard_update message
+                  // This ensures CLEAR works when detected via JSON ACTION_TRIGGERS (not just text)
+                  (session as any).commandParserClear = true;
+                  console.log(`[CommandParser→Clear] Whiteboard clear requested via ${cmd.source} format`);
+                  break;
+                }
+                case 'HOLD': {
+                  // Prevent whiteboard auto-clear - set session flag for inclusion in whiteboard_update message
+                  // This ensures HOLD works when detected via JSON ACTION_TRIGGERS (not just text)
+                  (session as any).commandParserHold = true;
+                  console.log(`[CommandParser→Hold] Whiteboard hold requested via ${cmd.source} format`);
+                  break;
+                }
               }
           }
           
@@ -2121,183 +2166,31 @@ Remember: David may reference things discussed in these recent text chats.
             console.log(`[Display Clean DEBUG] Chunk ${chunk.index} display: "${displayText.substring(0, 80)}..." (len=${displayText.length})`);
           }
           
-          // CRITICAL FIX: Process internal commands BEFORE the conditional block
-          // This ensures commands execute even if parseWhiteboardMarkup returns empty items
-          // (e.g., when tags aren't parsed correctly due to streaming chunking)
-          
-          // SWITCH_TUTOR: Queue tutor handoff (PTT mode)
-          // First try structured parsing, then fallback to regex if parser returned empty
-          // Skip if cross-language transfer was already blocked this turn (prevents retries)
-          const pttSwitchItem = whiteboardParsed.whiteboardItems.find(item => item.type === 'switch_tutor');
-          if (pttSwitchItem && 'data' in pttSwitchItem && pttSwitchItem.data && !session.pendingTutorSwitch && !session.crossLanguageTransferBlocked) {
-            const data = pttSwitchItem.data as { 
-              targetGender: 'male' | 'female'; 
-              targetLanguage?: string;
-              targetRole?: 'tutor' | 'assistant';
-            };
-            
-            // AUTO-INFER LANGUAGE: If no language specified but AI mentioned a tutor from another language,
-            // infer the language from the tutor name to fix cross-language handoffs
-            let resolvedLanguage = data.targetLanguage;
-            if (!resolvedLanguage && session.tutorDirectory && session.targetLanguage) {
-              resolvedLanguage = inferLanguageFromTutorName(
-                chunk.text,
-                data.targetGender,
-                session.targetLanguage,
-                session.tutorDirectory
-              );
-            }
-            
-            session.pendingTutorSwitch = { 
-              targetGender: data.targetGender,
-              targetLanguage: resolvedLanguage,
-              targetRole: data.targetRole,
-            };
-            session.switchTutorTriggered = true;
-            console.log(`[Tutor Switch] PTT (parsed): Queued handoff to ${data.targetGender} tutor${resolvedLanguage ? ` (${resolvedLanguage})` : ''}`);
-          } else if (!session.pendingTutorSwitch && !session.crossLanguageTransferBlocked && chunk.text.includes('[SWITCH_TUTOR')) {
-            // FALLBACK: Direct regex detection when parser misses the tag
-            // Patterns: [SWITCH_TUTOR target="male"] or [SWITCH_TUTOR target="female" language="french"]
-            const switchMatch = chunk.text.match(/\[SWITCH_TUTOR\s+target\s*=\s*["']?(male|female)["']?(?:\s+language\s*=\s*["']?(\w+)["']?)?(?:\s+role\s*=\s*["']?(tutor|assistant)["']?)?\s*\]/i);
-            if (switchMatch) {
-              const targetGender = switchMatch[1].toLowerCase() as 'male' | 'female';
-              let targetLanguage = switchMatch[2]?.toLowerCase();
-              const targetRole = switchMatch[3]?.toLowerCase() as 'tutor' | 'assistant' | undefined;
-              
-              // AUTO-INFER LANGUAGE: If no language specified but AI mentioned a tutor from another language
-              if (!targetLanguage && session.tutorDirectory && session.targetLanguage) {
-                targetLanguage = inferLanguageFromTutorName(
-                  chunk.text,
-                  targetGender,
-                  session.targetLanguage,
-                  session.tutorDirectory
-                );
-              }
-              
-              session.pendingTutorSwitch = { 
-                targetGender,
-                targetLanguage,
-                targetRole,
-              };
-              session.switchTutorTriggered = true;
-              console.log(`[Tutor Switch] PTT (regex fallback): Queued handoff to ${targetGender} tutor${targetLanguage ? ` (${targetLanguage})` : ''}`);
-            } else {
-              // FALLBACK 2: Handle malformed combined formats like target="female_french" or target="male_german"
-              // Gemini sometimes concatenates gender and language with underscore
-              const combinedMatch = chunk.text.match(/\[SWITCH_TUTOR\s+target\s*=\s*["']?(male|female)[_-](\w+)["']?\s*\]/i);
-              if (combinedMatch) {
-                const targetGender = combinedMatch[1].toLowerCase() as 'male' | 'female';
-                const targetLanguage = combinedMatch[2].toLowerCase();
-                session.pendingTutorSwitch = { targetGender, targetLanguage };
-                session.switchTutorTriggered = true;
-                console.log(`[Tutor Switch] PTT (combined format): Queued handoff to ${targetGender} tutor (${targetLanguage}) - parsed from "${combinedMatch[0]}"`);
-              }
-            }
-          }
-          
-          // ACTFL_UPDATE: Process proficiency updates (PTT mode)
-          // First try structured parsing, then fallback to regex
-          const pttActflItems = whiteboardParsed.whiteboardItems.filter(item => item.type === 'actfl_update');
-          let actflProcessed = false;
-          for (const item of pttActflItems) {
-            if ('data' in item && item.data) {
-              const actflData = item.data as { level: string; confidence: number; reason: string; direction?: 'up' | 'down' | 'confirm' };
-              this.processActflUpdate(session, actflData).catch(err => {
-                console.error(`[ACTFL Update] PTT error:`, err);
-              });
-              console.log(`[ACTFL Update] PTT (parsed): ${actflData.level} (confidence: ${actflData.confidence})`);
-              actflProcessed = true;
-            }
-          }
-          // FALLBACK: Direct regex detection for ACTFL_UPDATE
-          if (!actflProcessed && chunk.text.includes('[ACTFL_UPDATE')) {
-            const actflMatch = chunk.text.match(/\[ACTFL_UPDATE\s+level\s*=\s*["']?([^"'\]]+)["']?(?:\s+confidence\s*=\s*["']?(\d+(?:\.\d+)?)["']?)?(?:\s+reason\s*=\s*["']?([^"'\]]+)["']?)?\s*\]/i);
-            if (actflMatch) {
-              const level = actflMatch[1];
-              const confidence = actflMatch[2] ? parseFloat(actflMatch[2]) : 0.8;
-              const reason = actflMatch[3] || 'Observed in conversation';
-              this.processActflUpdate(session, { level, confidence, reason }).catch(err => {
-                console.error(`[ACTFL Update] PTT regex fallback error:`, err);
-              });
-              console.log(`[ACTFL Update] PTT (regex fallback): ${level} (confidence: ${confidence})`);
-            }
-          }
-          
-          // PHASE_SHIFT: Process phase transitions (PTT mode)
-          // First try structured parsing, then fallback to regex
-          const pttPhaseShiftItems = whiteboardParsed.whiteboardItems.filter(item => item.type === 'phase_shift');
-          let phaseProcessed = false;
-          for (const item of pttPhaseShiftItems) {
-            if ('data' in item && item.data) {
-              const phaseData = item.data as { to: 'warmup' | 'active_teaching' | 'challenge' | 'reflection' | 'drill' | 'assessment'; reason: string };
-              this.processPhaseShift(session, phaseData).catch(err => {
-                console.error(`[Phase Shift] PTT error:`, err);
-              });
-              console.log(`[Phase Shift] PTT (parsed): ${phaseData.to} - ${phaseData.reason}`);
-              phaseProcessed = true;
-            }
-          }
-          // FALLBACK: Direct regex detection for PHASE_SHIFT
-          if (!phaseProcessed && chunk.text.includes('[PHASE_SHIFT')) {
-            const phaseMatch = chunk.text.match(/\[PHASE_SHIFT\s+to\s*=\s*["']?(warmup|active_teaching|challenge|reflection|drill|assessment)["']?(?:\s+reason\s*=\s*["']?([^"'\]]+)["']?)?\s*\]/i);
-            if (phaseMatch) {
-              const to = phaseMatch[1].toLowerCase() as 'warmup' | 'active_teaching' | 'challenge' | 'reflection' | 'drill' | 'assessment';
-              const reason = phaseMatch[2] || 'Teaching phase transition';
-              this.processPhaseShift(session, { to, reason }).catch(err => {
-                console.error(`[Phase Shift] PTT regex fallback error:`, err);
-              });
-              console.log(`[Phase Shift] PTT (regex fallback): ${to} - ${reason}`);
-            }
-          }
-          
-          // CALL_SUPPORT: Process support handoffs (PTT mode)
-          // First try structured parsing, then fallback to regex
-          const pttSupportItem = whiteboardParsed.whiteboardItems.find(item => item.type === 'call_support');
-          if (pttSupportItem && 'data' in pttSupportItem && pttSupportItem.data && !session.pendingSupportHandoff) {
-            const supportData = pttSupportItem.data as { 
-              category: 'technical' | 'account' | 'billing' | 'content' | 'feedback' | 'other';
-              reason: string;
-              priority: 'low' | 'normal' | 'high' | 'critical';
-              context?: string;
-            };
-            this.processSupportHandoff(session, supportData, turnId).catch(err => {
-              console.error(`[Support Handoff] PTT error:`, err);
-            });
-            session.pendingSupportHandoff = {
-              category: supportData.category,
-              reason: supportData.reason,
-              priority: supportData.priority,
-              context: supportData.context,
-            };
-            console.log(`[Support Handoff] PTT (parsed): ${supportData.category} (${supportData.priority})`);
-          } else if (!session.pendingSupportHandoff && (chunk.text.includes('[CALL_SUPPORT') || chunk.text.includes('[CALL_SOFIA'))) {
-            // FALLBACK: Direct regex detection for CALL_SUPPORT/CALL_SOFIA
-            const supportMatch = chunk.text.match(/\[CALL_(?:SUPPORT|SOFIA)\s+category\s*=\s*["']?(technical|account|billing|content|feedback|other)["']?(?:\s+reason\s*=\s*["']?([^"'\]]+)["']?)?(?:\s+priority\s*=\s*["']?(low|normal|high|critical)["']?)?\s*\]/i);
-            if (supportMatch) {
-              const category = supportMatch[1].toLowerCase() as 'technical' | 'account' | 'billing' | 'content' | 'feedback' | 'other';
-              const reason = supportMatch[2] || 'User needs assistance';
-              const priority = (supportMatch[3]?.toLowerCase() || 'normal') as 'low' | 'normal' | 'high' | 'critical';
-              this.processSupportHandoff(session, { category, reason, priority }, turnId).catch(err => {
-                console.error(`[Support Handoff] PTT regex fallback error:`, err);
-              });
-              session.pendingSupportHandoff = { category, reason, priority };
-              console.log(`[Support Handoff] PTT (regex fallback): ${category} (${priority})`);
-            }
-          }
+          // NOTE: All action commands (SWITCH_TUTOR, ACTFL_UPDATE, PHASE_SHIFT, CALL_SUPPORT, etc.)
+          // are now processed ONLY via the unified command parser above.
+          // The duplicate whiteboard parser path has been removed to prevent double execution.
           
           // Send whiteboard updates BEFORE early returns (for visual feedback)
           const pttVisualItems = whiteboardParsed.whiteboardItems.filter(
             item => !['switch_tutor', 'actfl_update', 'syllabus_progress', 'phase_shift', 'call_support', 'call_assistant', 'hive', 'self_surgery'].includes(item.type)
           );
           
-          if (pttVisualItems.length > 0 || whiteboardParsed.shouldClear || whiteboardParsed.shouldHold) {
+          // Combine whiteboard parser flags with command parser flags (JSON ACTION_TRIGGERS)
+          const shouldClear = whiteboardParsed.shouldClear || (session as any).commandParserClear;
+          const shouldHold = whiteboardParsed.shouldHold || (session as any).commandParserHold;
+          
+          // Clear the command parser flags after use (one-shot)
+          if ((session as any).commandParserClear) (session as any).commandParserClear = false;
+          if ((session as any).commandParserHold) (session as any).commandParserHold = false;
+          
+          if (pttVisualItems.length > 0 || shouldClear || shouldHold) {
             this.sendMessage(session.ws, {
               type: 'whiteboard_update',
               timestamp: Date.now(),
               turnId,
               items: pttVisualItems,
-              shouldClear: whiteboardParsed.shouldClear,
-              shouldHold: whiteboardParsed.shouldHold,
+              shouldClear,
+              shouldHold,
             } as StreamingWhiteboardMessage);
           }
           
@@ -2352,83 +2245,9 @@ Remember: David may reference things discussed in these recent text chats.
               }
             }
             
-            // NOTE: SWITCH_TUTOR, ACTFL_UPDATE, PHASE_SHIFT, CALL_SUPPORT moved to early processing (lines 1716-1776)
-            // to ensure commands execute even if parseWhiteboardMarkup returns empty items
-            
-            // SYLLABUS_PROGRESS: Emergent neural network command - track topic competency
-            const syllabusItems = whiteboardParsed.whiteboardItems.filter(item => item.type === 'syllabus_progress');
-            for (const item of syllabusItems) {
-              if ('data' in item && item.data) {
-                const data = item.data as { topic: string; status: 'demonstrated' | 'needs_review' | 'struggling'; evidence: string };
-                // Queue syllabus progress update (don't block TTS)
-                this.processSyllabusProgress(session, data).catch(err => {
-                  console.error(`[Syllabus Progress] Error processing update:`, err);
-                });
-                console.log(`[Syllabus Progress] Topic "${data.topic}" marked as ${data.status}: ${data.evidence}`);
-              }
-            }
-            
-            // NOTE: PHASE_SHIFT and CALL_SUPPORT moved to early processing above
-            
-            // NOTE: CALL_ASSISTANT is now handled by command-parser.ts (lines 1927-1958)
-            // The whiteboard parser never implemented call_assistant parsing, so all CALL_ASSISTANT
-            // commands (both bracketed and JSON format) are processed via the command parser.
-            
-            // HIVE: Daniela's active contribution to the hive mind
-            // When Daniela formulates an idea, suggestion, or observation to share with founders
-            const hiveItems = whiteboardParsed.whiteboardItems.filter(item => item.type === 'hive');
-            for (const item of hiveItems) {
-              if ('data' in item && item.data) {
-                const data = item.data as { 
-                  category: string;
-                  title: string;
-                  description: string;
-                  reasoning?: string;
-                  priority?: number;
-                  targetLanguage?: string;
-                  affectedTools?: string[];
-                };
-                // Queue hive suggestion (don't block TTS)
-                this.processHiveSuggestion(session, data).catch(err => {
-                  console.error(`[Hive] Error processing suggestion:`, err);
-                });
-                console.log(`[Hive] Daniela posted to hive: "${data.title}" (${data.category}, priority: ${data.priority || 5})`);
-              }
-            }
-            
-            // SELF-SURGERY: Daniela's direct neural network modifications (Founder Mode only)
-            // When Daniela proposes structured data for insertion into her procedural memory tables
-            const selfSurgeryItems = whiteboardParsed.whiteboardItems.filter(item => item.type === 'self_surgery');
-            for (const item of selfSurgeryItems) {
-              if ('data' in item && item.data) {
-                const data = item.data as SelfSurgeryItemData;
-                
-                // AUTO-DETECT & EMIT BEACON: Notify Editor of SELF_SURGERY proposal before execution
-                // This allows the Editor to review proposals in real-time
-                if (session.hiveChannelId) {
-                  const contentPreview = typeof data.content === 'string' 
-                    ? data.content.substring(0, 300)
-                    : JSON.stringify(data.content).substring(0, 300);
-                  
-                  hiveCollaborationService.emitBeacon({
-                    channelId: session.hiveChannelId,
-                    tutorTurn: `[SELF_SURGERY PROPOSAL]\nTarget: ${data.targetTable}\nPriority: ${data.priority || 50}, Confidence: ${data.confidence || 70}\nReasoning: ${data.reasoning || 'No reasoning provided'}\n\nContent: ${contentPreview}...`,
-                    studentTurn: transcript || '',
-                    beaconType: 'self_surgery_proposal',
-                    beaconReason: `Daniela proposed neural network modification: ${data.targetTable}`,
-                  }).catch(err => {
-                    console.error(`[Self-Surgery] Failed to emit proposal beacon:`, err);
-                  });
-                  console.log(`[Self-Surgery] HIVE beacon emitted for proposal: ${data.targetTable}`);
-                }
-                
-                // Queue self-surgery proposal (don't block TTS)
-                this.processSelfSurgery(session, data).catch(err => {
-                  console.error(`[Self-Surgery] Error processing proposal:`, err);
-                });
-                console.log(`[Self-Surgery] Daniela proposed: ${data.targetTable} (priority: ${data.priority || 50}, confidence: ${data.confidence || 70})`);
-              }
-            }
+            // NOTE: All action commands (SWITCH_TUTOR, ACTFL_UPDATE, PHASE_SHIFT, CALL_SUPPORT,
+            // SYLLABUS_PROGRESS, HIVE, SELF_SURGERY, CALL_ASSISTANT) are now processed ONLY
+            // via the unified command parser above to prevent double execution.
           }
           
           // ARCHITECT BIDIRECTIONAL: Detect and route [TO_ARCHITECT: message] tags
@@ -3304,160 +3123,216 @@ Remember: David may reference things discussed in these recent text chats.
           
           const displayText = cleanTextForDisplay(chunk.text);
           
-          // DEBUG: Trace display text cleaning for command tags in open-mic mode
-          if (chunk.text.includes('[SWITCH_TUTOR') || chunk.text.includes('[CALL_SUPPORT') || chunk.text.includes('[PHASE_SHIFT')) {
-            console.log(`[Display Clean DEBUG - OpenMic] Chunk ${chunk.index} raw: "${chunk.text.substring(0, 80)}..."`);
-            console.log(`[Display Clean DEBUG - OpenMic] Chunk ${chunk.index} display: "${displayText.substring(0, 80)}..." (len=${displayText.length})`);
+          // UNIFIED COMMAND ROUTING (Open-mic mode):
+          // Process ALL action commands through command-parser for consistent single-execution
+          const openMicCommandResult = commandParserService.parse(chunk.text);
+          
+          if (openMicCommandResult.commands.length > 0) {
+            console.log(`[CommandParser - OpenMic] Detected ${openMicCommandResult.commands.length} commands in chunk ${chunk.index}:`,
+              openMicCommandResult.commands.map(c => `${c.type}(${c.source})`));
           }
           
-          // Process internal commands BEFORE any early returns - commands must always execute
-          // This ensures SWITCH_TUTOR works even if displayText is empty
-          
-          // SWITCH_TUTOR: Queue tutor handoff (with regex fallback)
-          // Skip if cross-language transfer was already blocked this turn (prevents retries)
-          const switchItem = whiteboardParsed.whiteboardItems.find(item => item.type === 'switch_tutor');
-          if (switchItem && 'data' in switchItem && switchItem.data && !session.pendingTutorSwitch && !session.crossLanguageTransferBlocked) {
-            const data = switchItem.data as { 
-              targetGender: 'male' | 'female'; 
-              targetLanguage?: string;
-              targetRole?: 'tutor' | 'assistant';
-            };
-            
-            // AUTO-INFER LANGUAGE: If no language specified but AI mentioned a tutor from another language,
-            // infer the language from the tutor name to fix cross-language handoffs
-            let resolvedLanguage = data.targetLanguage;
-            if (!resolvedLanguage && session.tutorDirectory && session.targetLanguage) {
-              resolvedLanguage = inferLanguageFromTutorName(
-                chunk.text,
-                data.targetGender,
-                session.targetLanguage,
-                session.tutorDirectory
-              );
-            }
-            
-            session.pendingTutorSwitch = { 
-              targetGender: data.targetGender,
-              targetLanguage: resolvedLanguage,
-              targetRole: data.targetRole,
-            };
-            session.switchTutorTriggered = true;
-            console.log(`[Tutor Switch] Open-mic (parsed): Queued handoff to ${data.targetGender} tutor${resolvedLanguage ? ` (${resolvedLanguage})` : ''}`);
-          } else if (!session.pendingTutorSwitch && !session.crossLanguageTransferBlocked && chunk.text.includes('[SWITCH_TUTOR')) {
-            // FALLBACK: Direct regex detection when parser misses the tag
-            const switchMatch = chunk.text.match(/\[SWITCH_TUTOR\s+target\s*=\s*["']?(male|female)["']?(?:\s+language\s*=\s*["']?(\w+)["']?)?(?:\s+role\s*=\s*["']?(tutor|assistant)["']?)?\s*\]/i);
-            if (switchMatch) {
-              const targetGender = switchMatch[1].toLowerCase() as 'male' | 'female';
-              let targetLanguage = switchMatch[2]?.toLowerCase();
-              const targetRole = switchMatch[3]?.toLowerCase() as 'tutor' | 'assistant' | undefined;
-              
-              // AUTO-INFER LANGUAGE: If no language specified but AI mentioned a tutor from another language
-              if (!targetLanguage && session.tutorDirectory && session.targetLanguage) {
-                targetLanguage = inferLanguageFromTutorName(
-                  chunk.text,
-                  targetGender,
-                  session.targetLanguage,
-                  session.tutorDirectory
-                );
+          for (const cmd of openMicCommandResult.commands) {
+            switch (cmd.type) {
+              case 'SWITCH_TUTOR': {
+                const target = cmd.params.target as string;
+                if (!session.pendingTutorSwitch && !session.crossLanguageTransferBlocked && target) {
+                  const targetGender = target as 'male' | 'female';
+                  let resolvedLanguage = cmd.params.language as string | undefined;
+                  if (!resolvedLanguage && session.tutorDirectory && session.targetLanguage) {
+                    resolvedLanguage = inferLanguageFromTutorName(chunk.text, targetGender, session.targetLanguage, session.tutorDirectory);
+                  }
+                  session.pendingTutorSwitch = { targetGender, targetLanguage: resolvedLanguage, targetRole: cmd.params.role as 'tutor' | 'assistant' | undefined };
+                  session.switchTutorTriggered = true;
+                  console.log(`[CommandParser→TutorSwitch - OpenMic] Queued handoff to ${target}${resolvedLanguage ? ` (${resolvedLanguage})` : ''}`);
+                }
+                break;
               }
-              
-              session.pendingTutorSwitch = { targetGender, targetLanguage, targetRole };
-              session.switchTutorTriggered = true;
-              console.log(`[Tutor Switch] Open-mic (regex fallback): Queued handoff to ${targetGender} tutor${targetLanguage ? ` (${targetLanguage})` : ''}`);
-            } else {
-              // FALLBACK 2: Handle malformed combined formats like target="female_french" or target="male_german"
-              // Gemini sometimes concatenates gender and language with underscore
-              const combinedMatch = chunk.text.match(/\[SWITCH_TUTOR\s+target\s*=\s*["']?(male|female)[_-](\w+)["']?\s*\]/i);
-              if (combinedMatch) {
-                const targetGender = combinedMatch[1].toLowerCase() as 'male' | 'female';
-                const targetLanguage = combinedMatch[2].toLowerCase();
-                session.pendingTutorSwitch = { targetGender, targetLanguage };
-                session.switchTutorTriggered = true;
-                console.log(`[Tutor Switch] Open-mic (combined format): Queued handoff to ${targetGender} tutor (${targetLanguage}) - parsed from "${combinedMatch[0]}"`);
+              case 'PHASE_SHIFT': {
+                const to = cmd.params.to as string;
+                const reason = cmd.params.reason as string;
+                if (to && reason) {
+                  this.processPhaseShift(session, { to: to as any, reason }).catch(err => console.error(`[CommandParser→PhaseShift - OpenMic] Error:`, err));
+                  console.log(`[CommandParser→PhaseShift - OpenMic] ${to} - ${reason}`);
+                }
+                break;
               }
-            }
-          }
-          
-          // ACTFL_UPDATE: Process proficiency updates (with regex fallback)
-          const actflItems = whiteboardParsed.whiteboardItems.filter(item => item.type === 'actfl_update');
-          let openMicActflProcessed = false;
-          for (const item of actflItems) {
-            if ('data' in item && item.data) {
-              const actflData = item.data as { level: string; confidence: number; reason: string; direction?: 'up' | 'down' | 'confirm' };
-              this.processActflUpdate(session, actflData).catch(err => {
-                console.error(`[ACTFL Update] Open-mic error:`, err);
-              });
-              console.log(`[ACTFL Update] Open-mic (parsed): ${actflData.level} (confidence: ${actflData.confidence})`);
-              openMicActflProcessed = true;
-            }
-          }
-          if (!openMicActflProcessed && chunk.text.includes('[ACTFL_UPDATE')) {
-            const actflMatch = chunk.text.match(/\[ACTFL_UPDATE\s+level\s*=\s*["']?([^"'\]]+)["']?(?:\s+confidence\s*=\s*["']?(\d+(?:\.\d+)?)["']?)?(?:\s+reason\s*=\s*["']?([^"'\]]+)["']?)?\s*\]/i);
-            if (actflMatch) {
-              const level = actflMatch[1];
-              const confidence = actflMatch[2] ? parseFloat(actflMatch[2]) : 0.8;
-              const reason = actflMatch[3] || 'Observed in conversation';
-              this.processActflUpdate(session, { level, confidence, reason }).catch(err => {
-                console.error(`[ACTFL Update] Open-mic regex fallback error:`, err);
-              });
-              console.log(`[ACTFL Update] Open-mic (regex fallback): ${level}`);
-            }
-          }
-          
-          // PHASE_SHIFT: Process phase transitions (with regex fallback)
-          const phaseShiftItems = whiteboardParsed.whiteboardItems.filter(item => item.type === 'phase_shift');
-          let openMicPhaseProcessed = false;
-          for (const item of phaseShiftItems) {
-            if ('data' in item && item.data) {
-              const phaseData = item.data as { to: 'warmup' | 'active_teaching' | 'challenge' | 'reflection' | 'drill' | 'assessment'; reason: string };
-              this.processPhaseShift(session, phaseData).catch(err => {
-                console.error(`[Phase Shift] Open-mic error:`, err);
-              });
-              console.log(`[Phase Shift] Open-mic (parsed): ${phaseData.to} - ${phaseData.reason}`);
-              openMicPhaseProcessed = true;
-            }
-          }
-          if (!openMicPhaseProcessed && chunk.text.includes('[PHASE_SHIFT')) {
-            const phaseMatch = chunk.text.match(/\[PHASE_SHIFT\s+to\s*=\s*["']?(warmup|active_teaching|challenge|reflection|drill|assessment)["']?(?:\s+reason\s*=\s*["']?([^"'\]]+)["']?)?\s*\]/i);
-            if (phaseMatch) {
-              const to = phaseMatch[1].toLowerCase() as 'warmup' | 'active_teaching' | 'challenge' | 'reflection' | 'drill' | 'assessment';
-              const reason = phaseMatch[2] || 'Teaching phase transition';
-              this.processPhaseShift(session, { to, reason }).catch(err => {
-                console.error(`[Phase Shift] Open-mic regex fallback error:`, err);
-              });
-              console.log(`[Phase Shift] Open-mic (regex fallback): ${to}`);
-            }
-          }
-          
-          // CALL_SUPPORT: Process support handoffs (with regex fallback)
-          const supportItem = whiteboardParsed.whiteboardItems.find(item => item.type === 'call_support');
-          if (supportItem && 'data' in supportItem && supportItem.data && !session.pendingSupportHandoff) {
-            const supportData = supportItem.data as { 
-              category: 'technical' | 'account' | 'billing' | 'content' | 'feedback' | 'other';
-              reason: string;
-              priority: 'low' | 'normal' | 'high' | 'critical';
-              context?: string;
-            };
-            this.processSupportHandoff(session, supportData, turnId).catch(err => {
-              console.error(`[Support Handoff] Open-mic error:`, err);
-            });
-            session.pendingSupportHandoff = {
-              category: supportData.category,
-              reason: supportData.reason,
-              priority: supportData.priority,
-              context: supportData.context,
-            };
-            console.log(`[Support Handoff] Open-mic (parsed): ${supportData.category} (${supportData.priority})`);
-          } else if (!session.pendingSupportHandoff && (chunk.text.includes('[CALL_SUPPORT') || chunk.text.includes('[CALL_SOFIA'))) {
-            const supportMatch = chunk.text.match(/\[CALL_(?:SUPPORT|SOFIA)\s+category\s*=\s*["']?(technical|account|billing|content|feedback|other)["']?(?:\s+reason\s*=\s*["']?([^"'\]]+)["']?)?(?:\s+priority\s*=\s*["']?(low|normal|high|critical)["']?)?\s*\]/i);
-            if (supportMatch) {
-              const category = supportMatch[1].toLowerCase() as 'technical' | 'account' | 'billing' | 'content' | 'feedback' | 'other';
-              const reason = supportMatch[2] || 'User needs assistance';
-              const priority = (supportMatch[3]?.toLowerCase() || 'normal') as 'low' | 'normal' | 'high' | 'critical';
-              this.processSupportHandoff(session, { category, reason, priority }, turnId).catch(err => {
-                console.error(`[Support Handoff] Open-mic regex fallback error:`, err);
-              });
-              session.pendingSupportHandoff = { category, reason, priority };
-              console.log(`[Support Handoff] Open-mic (regex fallback): ${category}`);
+              case 'ACTFL_UPDATE': {
+                const level = cmd.params.level as string;
+                if (level) {
+                  this.processActflUpdate(session, { level, confidence: (cmd.params.confidence as number) || 0.8, reason: (cmd.params.reason as string) || 'Observed in conversation', direction: cmd.params.direction as any }).catch(err => console.error(`[CommandParser→ActflUpdate - OpenMic] Error:`, err));
+                  console.log(`[CommandParser→ActflUpdate - OpenMic] Level: ${level}`);
+                }
+                break;
+              }
+              case 'SYLLABUS_PROGRESS': {
+                const topic = cmd.params.topic as string;
+                const status = cmd.params.status as string;
+                if (topic && status) {
+                  this.processSyllabusProgress(session, { topic, status: status as any, evidence: (cmd.params.evidence as string) || 'Observed' }).catch(err => console.error(`[CommandParser→SyllabusProgress - OpenMic] Error:`, err));
+                }
+                break;
+              }
+              case 'CALL_SUPPORT':
+              case 'CALL_SOFIA': {
+                const category = cmd.params.category as string;
+                if (category && !session.pendingSupportHandoff) {
+                  session.pendingSupportHandoff = { category, reason: cmd.params.reason as string | undefined };
+                  console.log(`[CommandParser→Support - OpenMic] Queued: ${category}`);
+                }
+                break;
+              }
+              case 'CALL_ASSISTANT': {
+                const drillType = cmd.params.type as string;
+                const focus = cmd.params.focus as string;
+                const items = cmd.params.items as string;
+                if (drillType && focus && items && !session.pendingAssistantHandoff) {
+                  const itemsList = items.split(',').map(s => s.trim()).filter(Boolean);
+                  this.processAssistantHandoff(session, { drillType: drillType as any, focus, items: itemsList, priority: cmd.params.priority as any }, turnId).catch(err => console.error(`[CommandParser→AssistantHandoff - OpenMic] Error:`, err));
+                  session.pendingAssistantHandoff = { drillType: drillType as any, focus, items: itemsList, priority: cmd.params.priority as any };
+                  console.log(`[CommandParser→AssistantHandoff - OpenMic] Delegated: ${drillType} for "${focus}"`);
+                }
+                break;
+              }
+              case 'SUBTITLE': {
+                const mode = (cmd.params.mode as string)?.toLowerCase();
+                if (mode && ['off', 'on', 'target'].includes(mode)) {
+                  session.subtitleMode = mode === 'on' ? 'all' : mode as 'off' | 'all' | 'target';
+                  console.log(`[CommandParser→Subtitle - OpenMic] Mode: ${session.subtitleMode}`);
+                }
+                break;
+              }
+              case 'SHOW': {
+                const text = cmd.params.text as string;
+                if (text) { (session as any).customOverlayText = text; }
+                break;
+              }
+              case 'HIDE': {
+                (session as any).customOverlayText = undefined;
+                break;
+              }
+              case 'TEXT_INPUT': {
+                const prompt = cmd.params.prompt as string;
+                if (prompt) { (session as any).pendingTextInput = { prompt }; }
+                break;
+              }
+              case 'CLEAR': {
+                // Clear whiteboard - set session flag for inclusion in whiteboard_update message
+                (session as any).commandParserClear = true;
+                console.log(`[CommandParser→Clear - OpenMic] Whiteboard clear requested via ${cmd.source} format`);
+                break;
+              }
+              case 'HOLD': {
+                // Prevent whiteboard auto-clear - set session flag for inclusion in whiteboard_update message
+                (session as any).commandParserHold = true;
+                console.log(`[CommandParser→Hold - OpenMic] Whiteboard hold requested via ${cmd.source} format`);
+                break;
+              }
+              case 'HIVE': {
+                // Daniela's active contribution to the hive mind
+                const category = cmd.params.category as string;
+                const title = cmd.params.title as string;
+                const description = cmd.params.description as string;
+                if (category && title && description) {
+                  this.processHiveSuggestion(session, {
+                    category,
+                    title,
+                    description,
+                    reasoning: cmd.params.reasoning as string | undefined,
+                    priority: cmd.params.priority as number | undefined,
+                  }).catch(err => console.error(`[CommandParser→Hive - OpenMic] Error:`, err));
+                  console.log(`[CommandParser→Hive - OpenMic] Posted: "${title}" (${category})`);
+                }
+                break;
+              }
+              case 'SELF_SURGERY': {
+                // Daniela's direct neural network modifications (Founder Mode only)
+                const target = cmd.params.target as string;
+                const content = cmd.params.content;
+                const reasoning = cmd.params.reasoning as string;
+                
+                if (!session.isFounderMode) {
+                  console.log(`[CommandParser→SelfSurgery - OpenMic] Ignored (not Founder Mode): ${target}`);
+                  break;
+                }
+                
+                if (target && content && reasoning) {
+                  let parsedContent: Record<string, unknown>;
+                  try {
+                    parsedContent = typeof content === 'string' ? JSON.parse(content) : content as Record<string, unknown>;
+                  } catch (parseErr) {
+                    console.error(`[CommandParser→SelfSurgery - OpenMic] Invalid JSON content:`, parseErr);
+                    break;
+                  }
+                  
+                  const priority = (cmd.params.priority as number) || 50;
+                  const confidence = (cmd.params.confidence as number) || 70;
+                  
+                  // Emit Hive beacon for founder visibility
+                  if (session.hiveChannelId) {
+                    const contentPreview = JSON.stringify(parsedContent).substring(0, 300);
+                    hiveCollaborationService.emitBeacon({
+                      channelId: session.hiveChannelId,
+                      tutorTurn: `[SELF_SURGERY PROPOSAL]\nTarget: ${target}\nPriority: ${priority}, Confidence: ${confidence}\nReasoning: ${reasoning}\n\nContent: ${contentPreview}...`,
+                      studentTurn: transcript || '',
+                      beaconType: 'self_surgery_proposal',
+                      beaconReason: `Daniela proposed neural network modification: ${target}`,
+                    }).catch(err => console.error(`[CommandParser→SelfSurgery - OpenMic] Beacon error:`, err));
+                  }
+                  
+                  this.processSelfSurgery(session, {
+                    targetTable: target as import('@shared/whiteboard-types').SelfSurgeryTarget,
+                    content: parsedContent,
+                    reasoning,
+                    priority,
+                    confidence,
+                  }).catch(err => console.error(`[CommandParser→SelfSurgery - OpenMic] Error:`, err));
+                  console.log(`[CommandParser→SelfSurgery - OpenMic] Proposal for ${target}`);
+                }
+                break;
+              }
+              case 'VOICE_ADJUST': {
+                // Apply voice override for next TTS synthesis
+                const speed = (cmd.params.speed as string | undefined)?.toLowerCase();
+                const emotion = (cmd.params.emotion as string | undefined)?.toLowerCase();
+                const personality = (cmd.params.personality as string | undefined)?.toLowerCase();
+                
+                const speedMap: Record<string, number> = { 'slowest': 0.7, 'slow': 0.8, 'normal': 0.9, 'fast': 1.05, 'fastest': 1.2 };
+                const emotionMap: Record<string, string> = {
+                  'positivity': 'happy', 'curiosity': 'curious', 'surprise': 'surprised', 'anger': 'neutral', 'sadness': 'thoughtful',
+                  'happy': 'happy', 'excited': 'excited', 'friendly': 'friendly', 'curious': 'curious', 'thoughtful': 'thoughtful',
+                  'warm': 'warm', 'playful': 'playful', 'surprised': 'surprised', 'proud': 'proud', 'encouraging': 'encouraging',
+                  'calm': 'calm', 'neutral': 'neutral',
+                };
+                const validPersonalities = ['warm', 'calm', 'energetic', 'professional'];
+                const validatedPersonality = personality && validPersonalities.includes(personality) ? personality : undefined;
+                const mappedEmotion = emotion ? emotionMap[emotion] : undefined;
+                
+                const currentOverride = (session as any).voiceOverride || {};
+                (session as any).voiceOverride = {
+                  ...currentOverride,
+                  ...(speed && { speakingRate: speedMap[speed] || 0.9 }),
+                  ...(mappedEmotion && { emotion: mappedEmotion }),
+                  ...(validatedPersonality && { personality: validatedPersonality }),
+                };
+                console.log(`[CommandParser→VoiceAdjust - OpenMic] Applied: speed=${speed || 'unchanged'}, emotion=${mappedEmotion || 'unchanged'}`);
+                break;
+              }
+              case 'VOICE_RESET': {
+                // Reset voice to tutor's baseline settings
+                if (session.voiceDefaults) {
+                  (session as any).voiceOverride = {
+                    speakingRate: session.voiceDefaults.speakingRate,
+                    emotion: session.voiceDefaults.emotion,
+                    personality: session.voiceDefaults.personality,
+                    expressiveness: session.voiceDefaults.expressiveness,
+                  };
+                } else {
+                  (session as any).voiceOverride = undefined;
+                }
+                console.log(`[CommandParser→VoiceReset - OpenMic] Reset to defaults`);
+                break;
+              }
             }
           }
           
@@ -3467,14 +3342,22 @@ Remember: David may reference things discussed in these recent text chats.
             item => !['switch_tutor', 'actfl_update', 'syllabus_progress', 'phase_shift', 'call_support', 'call_assistant', 'hive', 'self_surgery'].includes(item.type)
           );
           
-          if (visualWhiteboardItems.length > 0 || whiteboardParsed.shouldClear || whiteboardParsed.shouldHold) {
+          // Combine whiteboard parser flags with command parser flags (JSON ACTION_TRIGGERS)
+          const openMicShouldClear = whiteboardParsed.shouldClear || (session as any).commandParserClear;
+          const openMicShouldHold = whiteboardParsed.shouldHold || (session as any).commandParserHold;
+          
+          // Clear the command parser flags after use (one-shot)
+          if ((session as any).commandParserClear) (session as any).commandParserClear = false;
+          if ((session as any).commandParserHold) (session as any).commandParserHold = false;
+          
+          if (visualWhiteboardItems.length > 0 || openMicShouldClear || openMicShouldHold) {
             this.sendMessage(session.ws, {
               type: 'whiteboard_update',
               timestamp: Date.now(),
               turnId,
               items: visualWhiteboardItems,
-              shouldClear: whiteboardParsed.shouldClear,
-              shouldHold: whiteboardParsed.shouldHold,
+              shouldClear: openMicShouldClear,
+              shouldHold: openMicShouldHold,
             } as StreamingWhiteboardMessage);
           }
           
