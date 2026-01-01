@@ -394,11 +394,19 @@ export async function generateLessonsForGaps(
     .from(canDoStatements)
     .where(eq(canDoStatements.language, language));
 
-  const coveredIds = await db
+  // Check both published lessons AND existing drafts to avoid duplicates
+  const coveredByLessons = await db
     .select({ id: lessonCanDoStatements.canDoStatementId })
     .from(lessonCanDoStatements);
 
-  const coveredSet = new Set(coveredIds.map(c => c.id));
+  const coveredByDrafts = await db
+    .select({ id: lessonDrafts.canDoStatementId })
+    .from(lessonDrafts);
+
+  const coveredSet = new Set([
+    ...coveredByLessons.map(c => c.id),
+    ...coveredByDrafts.map(d => d.id)
+  ]);
   const uncovered = allCanDos.filter(c => !coveredSet.has(c.id));
 
   // Prioritize by level (advanced > intermediate > novice)
