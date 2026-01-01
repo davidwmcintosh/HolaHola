@@ -171,6 +171,7 @@ class SupportPersonaService {
   /**
    * Create an issue report with diagnostic snapshot
    * This captures the state at the moment a user reports an issue
+   * Now also generates Sofia's analysis and returns it for voice response
    */
   async createIssueReport(params: {
     userId: string;
@@ -180,7 +181,9 @@ class SupportPersonaService {
     voiceDiagnostics?: SupportVoiceDiagnostics;
     deviceInfo?: { browser?: string; os?: string; device?: string };
     clientTelemetry?: Record<string, any>;
-  }): Promise<{ id: string }> {
+    generateAnalysis?: boolean;
+    mode?: 'user' | 'dev';
+  }): Promise<{ id: string; sofiaAnalysis?: string }> {
     const [report] = await db.insert(sofiaIssueReports)
       .values({
         userId: params.userId,
@@ -199,6 +202,32 @@ class SupportPersonaService {
     
     const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
     
+    // Generate Sofia's analysis if requested
+    let sofiaAnalysis: string | undefined;
+    if (params.generateAnalysis !== false) {
+      try {
+        sofiaAnalysis = await this.generateIssueAnalysis({
+          issueType: params.issueType,
+          userDescription: params.userDescription,
+          voiceDiagnostics: params.voiceDiagnostics,
+          deviceInfo: params.deviceInfo,
+          clientTelemetry: params.clientTelemetry,
+          mode: params.mode,
+          environment,
+        });
+        
+        // Update the report with the analysis
+        if (sofiaAnalysis) {
+          await db.update(sofiaIssueReports)
+            .set({ sofiaAnalysis })
+            .where(eq(sofiaIssueReports.id, report.id));
+          console.log(`[Sofia] Generated analysis for report ${report.id}`);
+        }
+      } catch (e) {
+        console.warn('[Sofia] Failed to generate analysis:', e);
+      }
+    }
+    
     // Always send EXPRESS Lane alert for immediate visibility
     founderCollabService.emitSofiaIssueAlert({
       reportId: report.id,
@@ -212,16 +241,85 @@ class SupportPersonaService {
     // In production, also emit a beacon to the Hive so Editor is aware
     if (process.env.NODE_ENV === 'production') {
       try {
-        // Note: emitBeacon requires a channelId for the teaching session context
-        // Since Sofia issues are not session-specific, we skip the hive beacon
-        // and rely on EXPRESS Lane alerts instead
         console.log(`[Sofia] Production issue report ${report.id} - EXPRESS Lane alert sent`);
       } catch (e) {
         console.warn('[Sofia] Failed to process issue beacon:', e);
       }
     }
 
-    return { id: report.id };
+    return { id: report.id, sofiaAnalysis };
+  }
+  
+  /**
+   * Generate Sofia's analysis for an issue report using Gemini
+   */
+  private async generateIssueAnalysis(params: {
+    issueType: string;
+    userDescription: string;
+    voiceDiagnostics?: SupportVoiceDiagnostics;
+    deviceInfo?: { browser?: string; os?: string; device?: string };
+    clientTelemetry?: Record<string, any>;
+    mode?: 'user' | 'dev';
+    environment: string;
+  }): Promise<string | undefined> {
+    const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.warn('[Sofia] No Gemini API key - cannot generate analysis');
+      return undefined;
+    }
+    
+    const gemini = getGeminiClient();
+    const isDevMode = params.mode === 'dev';
+    
+    // Build context from diagnostics
+    let diagnosticsContext = '';
+    if (params.voiceDiagnostics) {
+      diagnosticsContext = `\n\nVOICE DIAGNOSTICS:\n${JSON.stringify(params.voiceDiagnostics, null, 2)}`;
+    }
+    if (params.clientTelemetry) {
+      diagnosticsContext += `\n\nCLIENT TELEMETRY:\n${JSON.stringify(params.clientTelemetry, null, 2)}`;
+    }
+    if (params.deviceInfo) {
+      diagnosticsContext += `\n\nDEVICE INFO:\n- Browser: ${params.deviceInfo.browser || 'Unknown'}\n- OS: ${params.deviceInfo.os || 'Unknown'}\n- Device: ${params.deviceInfo.device || 'Unknown'}`;
+    }
+    
+    const systemPrompt = isDevMode 
+      ? `You are Sofia, the technical support specialist at HolaHola (an AI language learning platform). You're in DEV MODE helping the founder debug technical issues.
+
+Be direct, technical, and analytical. Share your diagnostic insights openly. You have access to voice telemetry, client data, and system metrics.
+
+The user is asking about a "${params.issueType}" issue in the ${params.environment} environment.
+${diagnosticsContext}
+
+Provide a technical analysis. Be concise but thorough. If you can identify likely causes, say so. If you need more information, ask specific technical questions.`
+      : `You are Sofia, the friendly technical support specialist at HolaHola. A user is reporting a "${params.issueType}" issue.
+
+Be warm, helpful, and reassuring. Explain any technical concepts in simple terms. Focus on actionable solutions the user can try.
+${diagnosticsContext ? `\n(Technical context available for diagnosis)` : ''}
+
+Acknowledge their issue, provide helpful guidance, and let them know you're here to help.`;
+    
+    try {
+      const response = await gemini.models.generateContent({
+        model: 'gemini-2.0-flash-lite',
+        contents: [{ role: 'user', parts: [{ text: params.userDescription }] }],
+        config: {
+          systemInstruction: systemPrompt,
+          maxOutputTokens: 500,
+          temperature: 0.7,
+        },
+      });
+      
+      const text = response.text?.trim();
+      if (text) {
+        console.log(`[Sofia] Generated ${text.length} char analysis for ${params.issueType} issue`);
+        return text;
+      }
+    } catch (e: any) {
+      console.error('[Sofia] Gemini analysis failed:', e.message);
+    }
+    
+    return undefined;
   }
 
   /**
@@ -758,6 +856,52 @@ class SupportPersonaService {
       description: params.context || 'User returned to Daniela',
       sofiaResponse: `Support session ended, returning to language learning.`,
     });
+  }
+  
+  // ============================================================================
+  // VOICE CHAT ISSUE HANDLING (Direct, without formal ticket)
+  // ============================================================================
+  
+  /**
+   * Handle an issue report directly from voice chat
+   * Creates an issue report, generates Sofia's analysis, and returns it for speech
+   * This is the main entry point for voice chat issue detection
+   */
+  async handleVoiceChatIssue(params: {
+    userId: string;
+    userMessage: string;
+    voiceDiagnostics?: SupportVoiceDiagnostics;
+    deviceInfo?: { browser?: string; os?: string; device?: string };
+    clientTelemetry?: Record<string, any>;
+    isFounder?: boolean;
+  }): Promise<{ detected: boolean; issueType?: string; sofiaResponse?: string; reportId?: string }> {
+    // Detect if this message contains an issue
+    const detectedIssue = this.detectVoiceIssue(params.userMessage);
+    
+    if (!detectedIssue) {
+      return { detected: false };
+    }
+    
+    console.log(`[Sofia Voice] Detected ${detectedIssue.issueType} issue (keywords: ${detectedIssue.matchedKeywords.join(', ')})`);
+    
+    // Create the issue report and generate analysis
+    const report = await this.createIssueReport({
+      userId: params.userId,
+      issueType: detectedIssue.issueType,
+      userDescription: params.userMessage,
+      voiceDiagnostics: params.voiceDiagnostics,
+      deviceInfo: params.deviceInfo,
+      clientTelemetry: params.clientTelemetry,
+      generateAnalysis: true,
+      mode: params.isFounder ? 'dev' : 'user',
+    });
+    
+    return {
+      detected: true,
+      issueType: detectedIssue.issueType,
+      sofiaResponse: report.sofiaAnalysis,
+      reportId: report.id,
+    };
   }
   
   // ============================================================================

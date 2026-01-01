@@ -81,6 +81,7 @@ import { learnerMemoryExtractionService } from "./learner-memory-extraction-serv
 import { studentLearningService } from "./student-learning-service";
 import { memoryCheckpointService } from "./memory-checkpoint-service";
 import { phonemeAnalyticsService } from "./phoneme-analytics-service";
+import { supportPersonaService } from "./support-persona-service";
 import { db } from "../db";
 import { 
   tutorProcedures, 
@@ -1428,6 +1429,104 @@ export class StreamingVoiceOrchestrator {
       if (containsMildlyInappropriateContent(transcript)) {
         console.log('[Streaming Orchestrator] Content moderation: Mild content - tutor will redirect');
         contentRedirectNote = ' (Note: Gently redirect this conversation back to language learning without being preachy.)';
+      }
+      
+      // SOFIA ISSUE DETECTION: Check if user is reporting a technical issue
+      // If so, let Sofia handle it and respond with diagnostic analysis
+      if (session.isFounderMode) {
+        try {
+          const sofiaResult = await supportPersonaService.handleVoiceChatIssue({
+            userId: String(session.userId),
+            userMessage: transcript,
+            isFounder: true,
+          });
+          
+          if (sofiaResult.detected && sofiaResult.sofiaResponse) {
+            console.log(`[Sofia PTT] Handling ${sofiaResult.issueType} issue for founder`);
+            
+            // NEW TURN for Sofia's response
+            session.currentTurnId++;
+            const sofiaTurnId = session.currentTurnId;
+            
+            // Notify client that processing started
+            this.sendMessage(session.ws, {
+              type: 'processing',
+              timestamp: Date.now(),
+              turnId: sofiaTurnId,
+              userTranscript: transcript,
+            } as StreamingProcessingMessage);
+            
+            // Stream Sofia's response through TTS
+            // Use a neutral voice for Sofia (can be configured later)
+            const sofiaChunks = this.splitIntoSentences(sofiaResult.sofiaResponse);
+            let sentenceIndex = 0;
+            
+            for (const chunk of sofiaChunks) {
+              if (!chunk.trim()) continue;
+              
+              this.sendMessage(session.ws, {
+                type: 'sentence_start',
+                timestamp: Date.now(),
+                turnId: sofiaTurnId,
+                sentenceIndex,
+              } as StreamingSentenceStartMessage);
+              
+              // Generate TTS for Sofia's response
+              const audioBuffer = await this.cartesiaService.synthesizeBytes(
+                chunk,
+                session.activeTutorVoiceId || session.tutorVoiceId,
+                {
+                  speakingRate: 1.0,
+                  emotion: ['positivity:medium'],
+                },
+                'sofia-support'
+              );
+              
+              if (audioBuffer && audioBuffer.length > 0) {
+                this.sendMessage(session.ws, {
+                  type: 'audio_chunk',
+                  timestamp: Date.now(),
+                  turnId: sofiaTurnId,
+                  sentenceIndex,
+                  chunkIndex: 0,
+                  audio: Buffer.from(audioBuffer).toString('base64'),
+                  isFinal: true,
+                } as StreamingAudioChunkMessage);
+              }
+              
+              this.sendMessage(session.ws, {
+                type: 'sentence_end',
+                timestamp: Date.now(),
+                turnId: sofiaTurnId,
+                sentenceIndex,
+                text: chunk,
+                audio: null,
+              } as StreamingSentenceEndMessage);
+              
+              sentenceIndex++;
+            }
+            
+            // Mark response complete
+            this.sendMessage(session.ws, {
+              type: 'response_complete',
+              timestamp: Date.now(),
+              turnId: sofiaTurnId,
+              fullText: sofiaResult.sofiaResponse,
+            } as StreamingResponseCompleteMessage);
+            
+            // Add to conversation history
+            session.conversationHistory.push({ role: 'user', content: transcript });
+            session.conversationHistory.push({ role: 'assistant', content: `[Sofia Support] ${sofiaResult.sofiaResponse}` });
+            
+            metrics.sentenceCount = sentenceIndex;
+            metrics.totalLatencyMs = Date.now() - startTime;
+            
+            return metrics;
+          }
+        } catch (e: any) {
+          console.warn(`[Sofia PTT] Issue detection error: ${e.message}`);
+          // Continue with normal flow if Sofia fails
+        }
       }
       
       // STT CONFIDENCE INTEGRATION: Help Daniela adapt when speech recognition is uncertain
