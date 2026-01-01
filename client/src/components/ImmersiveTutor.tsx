@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, MessageSquare, RefreshCw, Trash2, Loader2, PhoneOff, Radio, Handshake, BookOpen, AlertTriangle, Wrench, Sparkles, Pencil, Globe, BookMarked, Lightbulb, Volume2 } from "lucide-react";
+import { Mic, MicOff, MessageSquare, RefreshCw, Trash2, Loader2, PhoneOff, Radio, Handshake, BookOpen, AlertTriangle, Wrench, Sparkles, Pencil, Globe, BookMarked, Lightbulb, Volume2, HelpCircle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Sheet,
@@ -125,6 +125,8 @@ interface ImmersiveTutorProps {
   // Voice Lab: Session-level voice overrides (admin only)
   voiceOverride?: VoiceOverride | null;
   onVoiceOverrideChange?: (override: VoiceOverride | null) => void;
+  // Help button callback - opens support modal
+  onHelpClick?: () => void;
 }
 
 export function ImmersiveTutor({
@@ -168,6 +170,7 @@ export function ImmersiveTutor({
   onInterrupt,
   voiceOverride,
   onVoiceOverrideChange,
+  onHelpClick,
 }: ImmersiveTutorProps) {
   // CRITICAL: Use global playback state store instead of prop
   // This bypasses React prop drilling which becomes stale during HMR
@@ -958,8 +961,22 @@ export function ImmersiveTutor({
           )}
         </div>
 
-        {/* Slow Repeat button removed: PLAY whiteboard tool with speed control handles this */}
-        {/* Hooks preserved for potential DevTools access */}
+        {/* Help Button - opens support modal */}
+        {onHelpClick && (
+          <div className="flex flex-col items-center gap-1">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={onHelpClick}
+              className="h-10 w-10 md:h-12 md:w-12 rounded-full"
+              data-testid="button-help-voice-chat"
+              aria-label="Get help"
+            >
+              <HelpCircle className="h-5 w-5" />
+            </Button>
+            <span className="text-[10px] text-muted-foreground">Help</span>
+          </div>
+        )}
 
         {/* Developer Tools - Reload Credits and Reset Data */}
         {isDeveloper && (onReloadCredits || onResetData) && (

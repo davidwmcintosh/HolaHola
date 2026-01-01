@@ -32,7 +32,7 @@ import { useLearningFilter } from "@/contexts/LearningFilterContext";
 import { useToast } from "@/hooks/use-toast";
 import { useWhiteboard } from "@/hooks/useWhiteboard";
 import { getTutorNames } from "@/lib/tutor-avatars";
-import { FloatingHelpButton } from "@/components/FloatingHelpButton";
+import { SupportAssistModal } from "@/components/SupportAssistModal";
 import type { VoiceInputMode, OpenMicState } from "@shared/streaming-voice-types";
 import type { VoiceOverride } from "./VoiceLabPanel";
 
@@ -260,6 +260,7 @@ export function StreamingVoiceChat({
   const [lastAudioBlob, setLastAudioBlob] = useState<Blob | null>(null);
   const [lastMessageId, setLastMessageId] = useState<string | null>(null);
   const [isSlowRepeatLoading, setIsSlowRepeatLoading] = useState(false);
+  const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
   
   // Whiteboard hook - tutor-controlled visual teaching aids
   const whiteboard = useWhiteboard();
@@ -2960,11 +2961,20 @@ export function StreamingVoiceChat({
           onInterrupt={streamingVoice.sendInterrupt}
           voiceOverride={voiceOverride}
           onVoiceOverrideChange={setVoiceOverride}
+          onHelpClick={() => setIsSupportModalOpen(true)}
         />
       </div>
       
-      {/* Floating help button for support access */}
-      <FloatingHelpButton defaultCategory="technical" />
+      {/* Support modal - triggered by help button in controls */}
+      <SupportAssistModal
+        isOpen={isSupportModalOpen}
+        onClose={() => setIsSupportModalOpen(false)}
+        ticketId={null}
+        category="technical"
+        reason="Help request during voice chat"
+        priority="normal"
+        mode="support"
+      />
     </div>
   );
 }

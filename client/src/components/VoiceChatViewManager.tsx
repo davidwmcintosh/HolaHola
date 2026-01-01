@@ -59,6 +59,8 @@ interface VoiceChatViewManagerProps {
   // Voice Lab: Session-level voice overrides (admin only)
   voiceOverride?: VoiceOverride | null;
   onVoiceOverrideChange?: (override: VoiceOverride | null) => void;
+  // Help button callback - opens support modal
+  onHelpClick?: () => void;
 }
 
 export function VoiceChatViewManager({
@@ -101,6 +103,7 @@ export function VoiceChatViewManager({
   onInterrupt,
   voiceOverride,
   onVoiceOverrideChange,
+  onHelpClick,
 }: VoiceChatViewManagerProps) {
   const [view, setView] = useState<"live" | "history">("live");
   const touchStartX = useRef<number>(0);
@@ -225,6 +228,7 @@ export function VoiceChatViewManager({
                 onInterrupt={onInterrupt}
                 voiceOverride={voiceOverride}
                 onVoiceOverrideChange={onVoiceOverrideChange}
+                onHelpClick={onHelpClick}
               />
             </div>
           ) : (
