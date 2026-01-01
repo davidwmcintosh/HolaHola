@@ -86,7 +86,7 @@ export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'd
  * - true_false: True/false question
  * - conjugation: Verb conjugation practice
  */
-export type DrillType = 'repeat' | 'translate' | 'fill_blank' | 'match' | 'sentence_order' | 'multiple_choice' | 'true_false' | 'conjugation';
+export type DrillType = 'repeat' | 'translate' | 'fill_blank' | 'match' | 'sentence_order' | 'multiple_choice' | 'true_false' | 'conjugation' | 'dictation' | 'speak';
 
 /**
  * Drill state for interactive exercises
@@ -160,6 +160,14 @@ export interface DrillItemData {
   subject?: string;               // Subject pronoun (yo, tu, el, etc.)
   conjugatedForm?: string;        // Correct conjugated form
   userConjugation?: string;       // User's attempt
+  // Dictation drill specific fields
+  audioText?: string;             // Text that will be spoken for dictation
+  audioUrl?: string;              // Pre-generated audio URL (optional)
+  userTranscription?: string;     // User's typed transcription
+  // Speak drill specific fields
+  textToSpeak?: string;           // Text user should read aloud
+  translationHint?: string;       // Optional English translation hint
+  spokenAttempts?: number;        // Number of times user attempted
 }
 
 /**
@@ -1161,7 +1169,7 @@ function parseConjugationContent(content: string): Partial<DrillItemData> {
  */
 function parseDrillContent(typeAttr: string | undefined, content: string): DrillItemData {
   const drillType = (typeAttr?.toLowerCase() || 'repeat') as DrillType;
-  const validTypes: DrillType[] = ['repeat', 'translate', 'fill_blank', 'match', 'sentence_order', 'multiple_choice', 'true_false', 'conjugation'];
+  const validTypes: DrillType[] = ['repeat', 'translate', 'fill_blank', 'match', 'sentence_order', 'multiple_choice', 'true_false', 'conjugation', 'dictation', 'speak'];
   const validatedType = validTypes.includes(drillType) ? drillType : 'repeat';
   
   // Handle matching drills specially
@@ -1243,6 +1251,34 @@ function parseDrillContent(typeAttr: string | undefined, content: string): Drill
       prompt: conjData.prompt || content.trim(),
       state: 'waiting',
       ...conjData,
+    };
+  }
+  
+  // Handle dictation drills
+  // Format: "text to be spoken" or "text to be spoken|optional hint"
+  if (validatedType === 'dictation') {
+    const parts = content.split('|').map(p => p.trim());
+    const audioText = parts[0] || content.trim();
+    return {
+      drillType: 'dictation',
+      prompt: 'Listen and type what you hear',
+      state: 'waiting',
+      audioText,
+    };
+  }
+  
+  // Handle speak drills
+  // Format: "text to speak aloud" or "text to speak|translation hint"
+  if (validatedType === 'speak') {
+    const parts = content.split('|').map(p => p.trim());
+    const textToSpeak = parts[0] || content.trim();
+    const translationHint = parts[1] || undefined;
+    return {
+      drillType: 'speak',
+      prompt: textToSpeak,
+      state: 'waiting',
+      textToSpeak,
+      translationHint,
     };
   }
   
@@ -2334,6 +2370,14 @@ export function isConjugationDrill(item: DrillItem): boolean {
   return item.data.drillType === 'conjugation' && !!item.data.verb;
 }
 
+export function isDictationDrill(item: DrillItem): boolean {
+  return item.data.drillType === 'dictation' && !!item.data.audioText;
+}
+
+export function isSpeakDrill(item: DrillItem): boolean {
+  return item.data.drillType === 'speak' && !!item.data.textToSpeak;
+}
+
 /**
  * Create a pronunciation feedback item from analysis results
  */
@@ -2390,6 +2434,10 @@ export function getDrillInstructions(drillType: DrillType): string {
       return 'Is this statement true or false?';
     case 'conjugation':
       return 'Type the correct conjugated form of the verb';
+    case 'dictation':
+      return 'Listen carefully and type exactly what you hear';
+    case 'speak':
+      return 'Read the text aloud in the target language';
     default:
       return 'Complete this exercise';
   }

@@ -56,6 +56,8 @@ import {
   TrendingUp,
   HelpCircle,
   Type,
+  Headphones,
+  MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -85,7 +87,7 @@ import type {
   DrillState,
   MatchPair,
 } from "@shared/whiteboard-types";
-import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isToneItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isTextInputItem, isMatchingDrill, isFillBlankDrill, isSentenceOrderDrill, isMultipleChoiceDrill, isTrueFalseDrill, isConjugationDrill, getDrillInstructions } from "@shared/whiteboard-types";
+import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isToneItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isTextInputItem, isMatchingDrill, isFillBlankDrill, isSentenceOrderDrill, isMultipleChoiceDrill, isTrueFalseDrill, isConjugationDrill, isDictationDrill, isSpeakDrill, getDrillInstructions } from "@shared/whiteboard-types";
 import type { ToneItem } from "@shared/whiteboard-types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -1370,6 +1372,304 @@ const ConjugationDrillDisplay = ({ item, index, onComplete }: ConjugationDrillDi
           >
             <RotateCcw className="h-4 w-4 mr-2" />
             Try Again
+          </Button>
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
+interface DictationDrillDisplayProps {
+  item: DrillItem;
+  index: number;
+  onComplete?: (drillId: string, isCorrect: boolean) => void;
+}
+
+const DictationDrillDisplay = ({ item, index, onComplete }: DictationDrillDisplayProps) => {
+  const { data } = item;
+  const [userInput, setUserInput] = useState('');
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  
+  const instructions = getDrillInstructions(data.drillType);
+  
+  const handlePlayAudio = useCallback(async () => {
+    if (isPlaying) return;
+    setIsPlaying(true);
+    
+    try {
+      // Use pre-generated audio URL or synthesize on demand
+      if (data.audioUrl) {
+        if (!audioRef.current) {
+          audioRef.current = new Audio(data.audioUrl);
+        }
+        audioRef.current.onended = () => setIsPlaying(false);
+        audioRef.current.onerror = () => setIsPlaying(false);
+        await audioRef.current.play();
+      } else if (data.audioText) {
+        // Synthesize on demand using TTS
+        const result = await synthesizeSpeech(data.audioText, 'normal');
+        const audioUrl = URL.createObjectURL(result.audioBlob);
+        audioRef.current = new Audio(audioUrl);
+        audioRef.current.onended = () => {
+          URL.revokeObjectURL(audioUrl);
+          setIsPlaying(false);
+        };
+        audioRef.current.onerror = () => {
+          URL.revokeObjectURL(audioUrl);
+          setIsPlaying(false);
+        };
+        await audioRef.current.play();
+      }
+    } catch (err) {
+      console.error('[Dictation] Audio playback failed:', err);
+      setIsPlaying(false);
+    }
+  }, [isPlaying, data.audioUrl, data.audioText]);
+  
+  const handleSubmit = useCallback(() => {
+    const normalized = userInput.trim().toLowerCase().replace(/[.,!?]/g, '');
+    const expected = (data.audioText || '').trim().toLowerCase().replace(/[.,!?]/g, '');
+    const correct = normalized === expected;
+    setIsCorrect(correct);
+    setIsSubmitted(true);
+    if (onComplete) {
+      onComplete(item.id!, correct);
+    }
+  }, [userInput, data.audioText, item.id, onComplete]);
+  
+  const handleReset = useCallback(() => {
+    setUserInput('');
+    setIsSubmitted(false);
+    setIsCorrect(null);
+  }, []);
+  
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !isSubmitted && userInput.trim()) {
+      handleSubmit();
+    }
+  }, [handleSubmit, isSubmitted, userInput]);
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+      className="flex flex-col gap-3 p-4 rounded-lg border bg-cyan-500/10 border-cyan-500/30"
+      data-testid={`whiteboard-item-dictation-${index}`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Headphones className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+          <span className="text-sm font-medium text-cyan-700 dark:text-cyan-300 uppercase tracking-wide">
+            Dictation
+          </span>
+        </div>
+        {isSubmitted && (
+          isCorrect 
+            ? <CheckCircle2 className="h-5 w-5 text-green-500" />
+            : <XCircle className="h-5 w-5 text-red-500" />
+        )}
+      </div>
+      
+      <p className="text-xs text-muted-foreground">{instructions}</p>
+      
+      <div className="flex items-center justify-center py-4">
+        <Button
+          variant="outline"
+          size="lg"
+          onClick={handlePlayAudio}
+          disabled={isPlaying}
+          className="gap-2"
+          data-testid={`button-play-dictation-${index}`}
+        >
+          {isPlaying ? (
+            <Loader2 className="h-5 w-5 animate-spin" />
+          ) : (
+            <Volume2 className="h-5 w-5" />
+          )}
+          {isPlaying ? 'Playing...' : 'Play Audio'}
+        </Button>
+      </div>
+      
+      <Input
+        value={userInput}
+        onChange={(e) => setUserInput(e.target.value)}
+        onKeyDown={handleKeyDown}
+        disabled={isSubmitted}
+        placeholder="Type what you hear..."
+        className={`
+          text-center text-lg
+          ${isSubmitted 
+            ? isCorrect
+              ? 'border-green-500 bg-green-500/10'
+              : 'border-red-500 bg-red-500/10'
+            : ''
+          }
+        `}
+        data-testid={`input-dictation-${index}`}
+      />
+      
+      {!isSubmitted ? (
+        <Button
+          onClick={handleSubmit}
+          disabled={!userInput.trim()}
+          className="w-full"
+          data-testid={`button-submit-dictation-${index}`}
+        >
+          <CheckCircle2 className="h-4 w-4 mr-2" />
+          Check Answer
+        </Button>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <div className={`flex items-center gap-2 ${isCorrect ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+            {isCorrect ? (
+              <>
+                <CheckCircle2 className="h-5 w-5" />
+                <span className="font-medium">Correct!</span>
+              </>
+            ) : (
+              <>
+                <XCircle className="h-5 w-5" />
+                <span className="font-medium">
+                  The correct answer is: <strong>{data.audioText}</strong>
+                </span>
+              </>
+            )}
+          </div>
+          <Button
+            onClick={handleReset}
+            variant="outline"
+            size="sm"
+            data-testid={`button-reset-dictation-${index}`}
+          >
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Try Again
+          </Button>
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
+interface SpeakDrillDisplayProps {
+  item: DrillItem;
+  index: number;
+  onComplete?: (drillId: string, isCorrect: boolean) => void;
+}
+
+const SpeakDrillDisplay = ({ item, index, onComplete }: SpeakDrillDisplayProps) => {
+  const { data } = item;
+  const [attempts, setAttempts] = useState(0);
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [showHint, setShowHint] = useState(false);
+  
+  const instructions = getDrillInstructions(data.drillType);
+  
+  const handleAttempt = useCallback(() => {
+    setAttempts(prev => prev + 1);
+  }, []);
+  
+  const handleComplete = useCallback(() => {
+    setIsCompleted(true);
+    if (onComplete) {
+      // Speak drills are self-evaluated, so we consider them successful after completion
+      onComplete(item.id!, true);
+    }
+  }, [item.id, onComplete]);
+  
+  const handleReset = useCallback(() => {
+    setAttempts(0);
+    setIsCompleted(false);
+    setShowHint(false);
+  }, []);
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+      className="flex flex-col gap-3 p-4 rounded-lg border bg-pink-500/10 border-pink-500/30"
+      data-testid={`whiteboard-item-speak-${index}`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <MessageSquare className="h-4 w-4 text-pink-600 dark:text-pink-400" />
+          <span className="text-sm font-medium text-pink-700 dark:text-pink-300 uppercase tracking-wide">
+            Speak Aloud
+          </span>
+        </div>
+        {isCompleted && <CheckCircle2 className="h-5 w-5 text-green-500" />}
+      </div>
+      
+      <p className="text-xs text-muted-foreground">{instructions}</p>
+      
+      <div className="text-xl md:text-2xl font-medium text-center py-4 px-3 bg-background/50 rounded-lg">
+        {data.textToSpeak || data.prompt}
+      </div>
+      
+      {data.translationHint && (
+        <div className="flex flex-col items-center gap-1">
+          {showHint ? (
+            <p className="text-sm text-muted-foreground italic">
+              Translation: {data.translationHint}
+            </p>
+          ) : (
+            <button
+              onClick={() => setShowHint(true)}
+              className="text-xs text-pink-600 dark:text-pink-400 hover:underline"
+              data-testid={`button-show-hint-${index}`}
+            >
+              Show translation hint
+            </button>
+          )}
+        </div>
+      )}
+      
+      {attempts > 0 && !isCompleted && (
+        <p className="text-xs text-center text-muted-foreground">
+          Attempts: {attempts}
+        </p>
+      )}
+      
+      {!isCompleted ? (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleAttempt}
+            className="flex-1"
+            data-testid={`button-attempt-speak-${index}`}
+          >
+            <Mic className="h-4 w-4 mr-2" />
+            I Practiced
+          </Button>
+          <Button
+            onClick={handleComplete}
+            className="flex-1"
+            data-testid={`button-complete-speak-${index}`}
+          >
+            <CheckCircle2 className="h-4 w-4 mr-2" />
+            I Got It
+          </Button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+            <CheckCircle2 className="h-5 w-5" />
+            <span className="font-medium">Great job practicing!</span>
+          </div>
+          <Button
+            onClick={handleReset}
+            variant="outline"
+            size="sm"
+            data-testid={`button-reset-speak-${index}`}
+          >
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Practice Again
           </Button>
         </div>
       )}
@@ -2958,6 +3258,12 @@ const WhiteboardItemDisplay = ({
     }
     if (isConjugationDrill(item)) {
       return <ConjugationDrillDisplay item={item} index={index} onComplete={handleDrillComplete} />;
+    }
+    if (isDictationDrill(item)) {
+      return <DictationDrillDisplay item={item} index={index} onComplete={handleDrillComplete} />;
+    }
+    if (isSpeakDrill(item)) {
+      return <SpeakDrillDisplay item={item} index={index} onComplete={handleDrillComplete} />;
     }
     return (
       <DrillItemDisplay 

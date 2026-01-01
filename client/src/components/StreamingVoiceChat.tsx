@@ -32,6 +32,7 @@ import { useLearningFilter } from "@/contexts/LearningFilterContext";
 import { useToast } from "@/hooks/use-toast";
 import { useWhiteboard } from "@/hooks/useWhiteboard";
 import { getTutorNames } from "@/lib/tutor-avatars";
+import { FloatingHelpButton } from "@/components/FloatingHelpButton";
 import type { VoiceInputMode, OpenMicState } from "@shared/streaming-voice-types";
 import type { VoiceOverride } from "./VoiceLabPanel";
 
@@ -2961,6 +2962,9 @@ export function StreamingVoiceChat({
           onVoiceOverrideChange={setVoiceOverride}
         />
       </div>
+      
+      {/* Floating help button for support access */}
+      <FloatingHelpButton defaultCategory="technical" />
     </div>
   );
 }
