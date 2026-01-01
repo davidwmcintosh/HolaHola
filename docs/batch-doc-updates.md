@@ -8,6 +8,84 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: January 1, 2026 - Class Time Estimation with Drills
+
+**Status**: DOCUMENTED - Awaiting UI placement decision
+
+**Overview**: Added time estimation for classes including drill practice time. Classes now show both lesson-only time and total estimated time with drills.
+
+#### Time Estimation Formula
+
+```
+Total Hours with Drills = Lesson Hours x 2.5
+```
+
+This 2.5x multiplier accounts for:
+- Students won't do every drill - they practice until mastery
+- Drill items are auto-generated for comprehensive practice
+- A typical student spends 2-3x lesson time on drill practice
+
+#### Class Time Estimates
+
+| Class | Language | Lessons | Lesson Hrs | Total Hrs (with drills) |
+|-------|----------|---------|------------|-------------------------|
+| Spanish 1 | Spanish | 41 | 21.5 | 53.8 |
+| Spanish 1 - Demo | Spanish | 41 | 21.5 | 53.8 |
+| Spanish 2 | Spanish | 39 | 22.8 | 57.1 |
+| Spanish 3 | Spanish | 23 | 15.3 | 38.1 |
+| Spanish 4 / AP Prep | Spanish | 39 | 31.9 | 79.8 |
+| French 1 | French | 43 | 22.5 | 56.3 |
+| French 2 | French | 33 | 19.5 | 48.8 |
+| French 3 | French | 26 | 17.9 | 44.8 |
+| German 1 | German | 40 | 22.3 | 55.8 |
+| German 2 | German | 34 | 20.8 | 51.9 |
+| Italian 1 | Italian | 36 | 19.6 | 49.0 |
+| Italian 2 | Italian | 42 | 28.0 | 70.0 |
+| Portuguese 1 | Portuguese | 49 | 28.6 | 71.5 |
+| Portuguese 2 | Portuguese | 46 | 30.6 | 76.5 |
+| Japanese 1 | Japanese | 38 | 21.9 | 54.8 |
+| Japanese 2 | Japanese | 41 | 27.2 | 67.9 |
+| Mandarin 1 | Mandarin | 45 | 26.8 | 67.1 |
+| Mandarin 2 | Mandarin | 47 | 31.2 | 77.9 |
+| Korean 1 | Korean | 40 | 23.9 | 59.8 |
+| Korean 2 | Korean | 39 | 24.9 | 62.3 |
+| English 1 | English | 42 | 23.3 | 58.3 |
+| English 2 | English | 43 | 27.4 | 68.5 |
+
+#### Drill Item Counts (System-Wide)
+
+| Drill Type | Count | Est. Time (2 min each) |
+|------------|-------|------------------------|
+| Listen & Repeat | 1,023,261 | ~34,109 hrs |
+| Number Dictation | 698,164 | ~23,272 hrs |
+| Fill in Blank | 2,459 | ~82 hrs |
+| Translate & Speak | 234 | ~8 hrs |
+| Matching | 155 | ~5 hrs |
+
+Note: These are auto-generated for comprehensive practice (number dictation 1-1000 across 9 languages, etc.). Students do drills until mastery, not exhaustively.
+
+#### Lesson Type Distribution
+
+| Lesson Type | Count | Avg Time | Total Hours |
+|-------------|-------|----------|-------------|
+| Conversation | 470 | 37 min | 287 hrs |
+| Reading | 98 | 46 min | 75 hrs |
+| Vocabulary | 91 | 26 min | 40 hrs |
+| Writing | 70 | 49 min | 58 hrs |
+| Grammar | 63 | 27 min | 28 hrs |
+| Cultural | 40 | 33 min | 22 hrs |
+| Drill | 35 | 35 min | 21 hrs |
+
+#### Next Steps
+
+- Decide where to display this in UI:
+  - Teacher class dashboard?
+  - Admin syllabus overview?
+  - Student progress page?
+  - Marketing/sales materials?
+
+---
+
 ### Session: December 30, 2025 - Cross-Language Tutor Transfer Gate
 
 **Status**: COMPLETED - Two-layer validation with feature flag
