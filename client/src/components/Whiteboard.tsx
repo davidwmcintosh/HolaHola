@@ -54,6 +54,8 @@ import {
   AlertTriangle,
   Clock,
   TrendingUp,
+  HelpCircle,
+  Type,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -83,7 +85,7 @@ import type {
   DrillState,
   MatchPair,
 } from "@shared/whiteboard-types";
-import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isToneItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isTextInputItem, isMatchingDrill, isFillBlankDrill, isSentenceOrderDrill, getDrillInstructions } from "@shared/whiteboard-types";
+import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isToneItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isTextInputItem, isMatchingDrill, isFillBlankDrill, isSentenceOrderDrill, isMultipleChoiceDrill, isTrueFalseDrill, isConjugationDrill, getDrillInstructions } from "@shared/whiteboard-types";
 import type { ToneItem } from "@shared/whiteboard-types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -943,6 +945,428 @@ const SentenceOrderDrillDisplay = ({ item, index, onComplete }: SentenceOrderDri
             variant="outline"
             size="sm"
             data-testid={`button-reset-sentence-order-${index}`}
+          >
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Try Again
+          </Button>
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
+interface MultipleChoiceDrillDisplayProps {
+  item: DrillItem;
+  index: number;
+  onComplete?: (drillId: string, isCorrect: boolean) => void;
+}
+
+const MultipleChoiceDrillDisplay = ({ item, index, onComplete }: MultipleChoiceDrillDisplayProps) => {
+  const { data } = item;
+  const [selectedChoice, setSelectedChoice] = useState<number | null>(null);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+  
+  const choices = data.choices || [];
+  const instructions = getDrillInstructions(data.drillType);
+  const letters = ['A', 'B', 'C', 'D'];
+  
+  const handleSubmit = useCallback(() => {
+    if (selectedChoice === null) return;
+    const correct = selectedChoice === data.correctChoice;
+    setIsCorrect(correct);
+    setIsSubmitted(true);
+    if (onComplete) {
+      onComplete(item.id!, correct);
+    }
+  }, [selectedChoice, data.correctChoice, item.id, onComplete]);
+  
+  const handleReset = useCallback(() => {
+    setSelectedChoice(null);
+    setIsSubmitted(false);
+    setIsCorrect(null);
+  }, []);
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+      className="flex flex-col gap-3 p-4 rounded-lg border bg-blue-500/10 border-blue-500/30"
+      data-testid={`whiteboard-item-multiple-choice-${index}`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          <span className="text-sm font-medium text-blue-700 dark:text-blue-300 uppercase tracking-wide">
+            Multiple Choice
+          </span>
+        </div>
+        {isSubmitted && (
+          isCorrect 
+            ? <CheckCircle2 className="h-5 w-5 text-green-500" />
+            : <XCircle className="h-5 w-5 text-red-500" />
+        )}
+      </div>
+      
+      <p className="text-xs text-muted-foreground">{instructions}</p>
+      
+      <div className="text-lg font-medium text-center py-3 bg-background/50 rounded-lg">
+        {data.prompt}
+      </div>
+      
+      <div className="flex flex-col gap-2">
+        {choices.map((choice, i) => {
+          const isSelected = selectedChoice === i;
+          const isCorrectAnswer = i === data.correctChoice;
+          const showCorrect = isSubmitted && isCorrectAnswer;
+          const showWrong = isSubmitted && isSelected && !isCorrectAnswer;
+          
+          return (
+            <button
+              key={i}
+              onClick={() => !isSubmitted && setSelectedChoice(i)}
+              disabled={isSubmitted}
+              className={`
+                flex items-center gap-3 px-4 py-3 rounded-lg border text-left transition-all
+                ${showCorrect 
+                  ? 'bg-green-500/20 border-green-500 text-green-700 dark:text-green-300'
+                  : showWrong
+                    ? 'bg-red-500/20 border-red-500 text-red-700 dark:text-red-300'
+                    : isSelected
+                      ? 'bg-blue-500/20 border-blue-500 text-blue-700 dark:text-blue-300'
+                      : 'bg-background/80 border-border hover:bg-blue-500/10'
+                }
+                ${isSubmitted ? 'cursor-default' : 'cursor-pointer'}
+              `}
+              data-testid={`button-choice-${letters[i]}-${index}`}
+            >
+              <span className={`
+                flex items-center justify-center w-6 h-6 rounded-full text-sm font-bold
+                ${isSelected || showCorrect || showWrong 
+                  ? 'bg-current/20' 
+                  : 'bg-muted'
+                }
+              `}>
+                {letters[i]}
+              </span>
+              <span className="flex-1">{choice}</span>
+              {showCorrect && <CheckCircle2 className="h-5 w-5 text-green-500" />}
+              {showWrong && <XCircle className="h-5 w-5 text-red-500" />}
+            </button>
+          );
+        })}
+      </div>
+      
+      {!isSubmitted ? (
+        <Button
+          onClick={handleSubmit}
+          disabled={selectedChoice === null}
+          className="w-full"
+          data-testid={`button-submit-multiple-choice-${index}`}
+        >
+          <CheckCircle2 className="h-4 w-4 mr-2" />
+          Check Answer
+        </Button>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <div className={`flex items-center gap-2 ${isCorrect ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+            {isCorrect ? (
+              <>
+                <CheckCircle2 className="h-5 w-5" />
+                <span className="font-medium">Correct!</span>
+              </>
+            ) : (
+              <>
+                <XCircle className="h-5 w-5" />
+                <span className="font-medium">
+                  The correct answer is {letters[data.correctChoice || 0]}
+                </span>
+              </>
+            )}
+          </div>
+          <Button
+            onClick={handleReset}
+            variant="outline"
+            size="sm"
+            data-testid={`button-reset-multiple-choice-${index}`}
+          >
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Try Again
+          </Button>
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
+interface TrueFalseDrillDisplayProps {
+  item: DrillItem;
+  index: number;
+  onComplete?: (drillId: string, isCorrect: boolean) => void;
+}
+
+const TrueFalseDrillDisplay = ({ item, index, onComplete }: TrueFalseDrillDisplayProps) => {
+  const { data } = item;
+  const [selectedAnswer, setSelectedAnswer] = useState<boolean | null>(null);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+  
+  const instructions = getDrillInstructions(data.drillType);
+  
+  const handleSubmit = useCallback(() => {
+    if (selectedAnswer === null) return;
+    const correct = selectedAnswer === data.isTrue;
+    setIsCorrect(correct);
+    setIsSubmitted(true);
+    if (onComplete) {
+      onComplete(item.id!, correct);
+    }
+  }, [selectedAnswer, data.isTrue, item.id, onComplete]);
+  
+  const handleReset = useCallback(() => {
+    setSelectedAnswer(null);
+    setIsSubmitted(false);
+    setIsCorrect(null);
+  }, []);
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+      className="flex flex-col gap-3 p-4 rounded-lg border bg-amber-500/10 border-amber-500/30"
+      data-testid={`whiteboard-item-true-false-${index}`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <HelpCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <span className="text-sm font-medium text-amber-700 dark:text-amber-300 uppercase tracking-wide">
+            True or False
+          </span>
+        </div>
+        {isSubmitted && (
+          isCorrect 
+            ? <CheckCircle2 className="h-5 w-5 text-green-500" />
+            : <XCircle className="h-5 w-5 text-red-500" />
+        )}
+      </div>
+      
+      <p className="text-xs text-muted-foreground">{instructions}</p>
+      
+      <div className="text-lg font-medium text-center py-4 px-3 bg-background/50 rounded-lg italic">
+        "{data.statement || data.prompt}"
+      </div>
+      
+      <div className="flex gap-3">
+        <button
+          onClick={() => !isSubmitted && setSelectedAnswer(true)}
+          disabled={isSubmitted}
+          className={`
+            flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border text-lg font-medium transition-all
+            ${isSubmitted && data.isTrue
+              ? 'bg-green-500/20 border-green-500 text-green-700 dark:text-green-300'
+              : isSubmitted && selectedAnswer === true && !data.isTrue
+                ? 'bg-red-500/20 border-red-500 text-red-700 dark:text-red-300'
+                : selectedAnswer === true
+                  ? 'bg-amber-500/20 border-amber-500 text-amber-700 dark:text-amber-300'
+                  : 'bg-background/80 border-border hover:bg-amber-500/10'
+            }
+            ${isSubmitted ? 'cursor-default' : 'cursor-pointer'}
+          `}
+          data-testid={`button-true-${index}`}
+        >
+          <CheckCircle2 className="h-5 w-5" />
+          True
+        </button>
+        <button
+          onClick={() => !isSubmitted && setSelectedAnswer(false)}
+          disabled={isSubmitted}
+          className={`
+            flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border text-lg font-medium transition-all
+            ${isSubmitted && !data.isTrue
+              ? 'bg-green-500/20 border-green-500 text-green-700 dark:text-green-300'
+              : isSubmitted && selectedAnswer === false && data.isTrue
+                ? 'bg-red-500/20 border-red-500 text-red-700 dark:text-red-300'
+                : selectedAnswer === false
+                  ? 'bg-amber-500/20 border-amber-500 text-amber-700 dark:text-amber-300'
+                  : 'bg-background/80 border-border hover:bg-amber-500/10'
+            }
+            ${isSubmitted ? 'cursor-default' : 'cursor-pointer'}
+          `}
+          data-testid={`button-false-${index}`}
+        >
+          <XCircle className="h-5 w-5" />
+          False
+        </button>
+      </div>
+      
+      {!isSubmitted ? (
+        <Button
+          onClick={handleSubmit}
+          disabled={selectedAnswer === null}
+          className="w-full"
+          data-testid={`button-submit-true-false-${index}`}
+        >
+          <CheckCircle2 className="h-4 w-4 mr-2" />
+          Check Answer
+        </Button>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <div className={`flex items-center gap-2 ${isCorrect ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+            {isCorrect ? (
+              <>
+                <CheckCircle2 className="h-5 w-5" />
+                <span className="font-medium">Correct!</span>
+              </>
+            ) : (
+              <>
+                <XCircle className="h-5 w-5" />
+                <span className="font-medium">
+                  The statement is {data.isTrue ? 'True' : 'False'}
+                </span>
+              </>
+            )}
+          </div>
+          <Button
+            onClick={handleReset}
+            variant="outline"
+            size="sm"
+            data-testid={`button-reset-true-false-${index}`}
+          >
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Try Again
+          </Button>
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
+interface ConjugationDrillDisplayProps {
+  item: DrillItem;
+  index: number;
+  onComplete?: (drillId: string, isCorrect: boolean) => void;
+}
+
+const ConjugationDrillDisplay = ({ item, index, onComplete }: ConjugationDrillDisplayProps) => {
+  const { data } = item;
+  const [userInput, setUserInput] = useState('');
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+  
+  const instructions = getDrillInstructions(data.drillType);
+  
+  const handleSubmit = useCallback(() => {
+    const correct = userInput.trim().toLowerCase() === data.conjugatedForm?.toLowerCase();
+    setIsCorrect(correct);
+    setIsSubmitted(true);
+    if (onComplete) {
+      onComplete(item.id!, correct);
+    }
+  }, [userInput, data.conjugatedForm, item.id, onComplete]);
+  
+  const handleReset = useCallback(() => {
+    setUserInput('');
+    setIsSubmitted(false);
+    setIsCorrect(null);
+  }, []);
+  
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !isSubmitted && userInput.trim()) {
+      handleSubmit();
+    }
+  }, [handleSubmit, isSubmitted, userInput]);
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+      className="flex flex-col gap-3 p-4 rounded-lg border bg-emerald-500/10 border-emerald-500/30"
+      data-testid={`whiteboard-item-conjugation-${index}`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Type className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+          <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">
+            Verb Conjugation
+          </span>
+        </div>
+        {isSubmitted && (
+          isCorrect 
+            ? <CheckCircle2 className="h-5 w-5 text-green-500" />
+            : <XCircle className="h-5 w-5 text-red-500" />
+        )}
+      </div>
+      
+      <p className="text-xs text-muted-foreground">{instructions}</p>
+      
+      <div className="bg-background/50 rounded-lg p-4">
+        <div className="flex flex-wrap items-center justify-center gap-2 text-lg">
+          <span className="font-bold text-emerald-600 dark:text-emerald-400">{data.verb}</span>
+          <span className="text-muted-foreground">in</span>
+          <span className="px-2 py-1 bg-muted rounded text-sm">{data.tense}</span>
+          <span className="text-muted-foreground">for</span>
+          <span className="font-bold">{data.subject}</span>
+        </div>
+      </div>
+      
+      <div className="flex gap-2">
+        <Input
+          value={userInput}
+          onChange={(e) => setUserInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          disabled={isSubmitted}
+          placeholder="Type the conjugated form..."
+          className={`
+            flex-1 text-center text-lg
+            ${isSubmitted 
+              ? isCorrect
+                ? 'border-green-500 bg-green-500/10'
+                : 'border-red-500 bg-red-500/10'
+              : ''
+            }
+          `}
+          data-testid={`input-conjugation-${index}`}
+        />
+      </div>
+      
+      {!isSubmitted ? (
+        <Button
+          onClick={handleSubmit}
+          disabled={!userInput.trim()}
+          className="w-full"
+          data-testid={`button-submit-conjugation-${index}`}
+        >
+          <CheckCircle2 className="h-4 w-4 mr-2" />
+          Check Answer
+        </Button>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <div className={`flex items-center gap-2 ${isCorrect ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+            {isCorrect ? (
+              <>
+                <CheckCircle2 className="h-5 w-5" />
+                <span className="font-medium">Correct!</span>
+              </>
+            ) : (
+              <>
+                <XCircle className="h-5 w-5" />
+                <span className="font-medium">
+                  The correct form is: <strong>{data.conjugatedForm}</strong>
+                </span>
+              </>
+            )}
+          </div>
+          <Button
+            onClick={handleReset}
+            variant="outline"
+            size="sm"
+            data-testid={`button-reset-conjugation-${index}`}
           >
             <RotateCcw className="h-4 w-4 mr-2" />
             Try Again
@@ -2525,6 +2949,15 @@ const WhiteboardItemDisplay = ({
     }
     if (isSentenceOrderDrill(item)) {
       return <SentenceOrderDrillDisplay item={item} index={index} onComplete={handleDrillComplete} />;
+    }
+    if (isMultipleChoiceDrill(item)) {
+      return <MultipleChoiceDrillDisplay item={item} index={index} onComplete={handleDrillComplete} />;
+    }
+    if (isTrueFalseDrill(item)) {
+      return <TrueFalseDrillDisplay item={item} index={index} onComplete={handleDrillComplete} />;
+    }
+    if (isConjugationDrill(item)) {
+      return <ConjugationDrillDisplay item={item} index={index} onComplete={handleDrillComplete} />;
     }
     return (
       <DrillItemDisplay 

@@ -82,8 +82,11 @@ export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'd
  * - fill_blank: Fill in missing word(s) from options
  * - match: Match pairs of words/phrases
  * - sentence_order: Drag-and-drop word ordering
+ * - multiple_choice: Select correct answer from options
+ * - true_false: True/false question
+ * - conjugation: Verb conjugation practice
  */
-export type DrillType = 'repeat' | 'translate' | 'fill_blank' | 'match' | 'sentence_order';
+export type DrillType = 'repeat' | 'translate' | 'fill_blank' | 'match' | 'sentence_order' | 'multiple_choice' | 'true_false' | 'conjugation';
 
 /**
  * Drill state for interactive exercises
@@ -143,6 +146,20 @@ export interface DrillItemData {
   words?: string[];               // Scrambled words to arrange
   correctOrder?: string[];        // Words in correct order
   currentOrder?: string[];        // User's current arrangement
+  // Multiple choice drill specific fields
+  choices?: string[];             // Answer choices (A, B, C, D format)
+  correctChoice?: number;         // Index of correct choice (0-based)
+  selectedChoice?: number | null; // User's selected choice index
+  // True/false drill specific fields
+  statement?: string;             // Statement to evaluate
+  isTrue?: boolean;               // Whether statement is true
+  selectedTrueFalse?: boolean | null; // User's selection
+  // Conjugation drill specific fields
+  verb?: string;                  // Infinitive form of verb
+  tense?: string;                 // Target tense (present, preterite, etc.)
+  subject?: string;               // Subject pronoun (yo, tu, el, etc.)
+  conjugatedForm?: string;        // Correct conjugated form
+  userConjugation?: string;       // User's attempt
 }
 
 /**
@@ -1070,11 +1087,81 @@ function parseSentenceOrderContent(content: string): Partial<DrillItemData> {
 }
 
 /**
+ * Parse multiple choice content
+ * Format: question|A:choice1|B:choice2|C:choice3|D:choice4|correct:B
+ * Example: What does "hola" mean?|A:Goodbye|B:Hello|C:Please|D:Thank you|correct:B
+ */
+function parseMultipleChoiceContent(content: string): Partial<DrillItemData> {
+  const parts = content.split('|').map(p => p.trim());
+  const question = parts[0] || content;
+  const choices: string[] = [];
+  let correctChoice = 0;
+  
+  for (let i = 1; i < parts.length; i++) {
+    const part = parts[i];
+    if (part.toLowerCase().startsWith('correct:')) {
+      const letter = part.split(':')[1]?.trim().toUpperCase();
+      correctChoice = ['A', 'B', 'C', 'D'].indexOf(letter);
+      if (correctChoice < 0) correctChoice = 0;
+    } else if (/^[A-D]:/i.test(part)) {
+      choices.push(part.substring(2).trim());
+    }
+  }
+  
+  return {
+    prompt: question,
+    choices: choices.length >= 2 ? choices : ['Option A', 'Option B'],
+    correctChoice,
+    selectedChoice: null,
+  };
+}
+
+/**
+ * Parse true/false content
+ * Format: statement|true or statement|false
+ * Example: "Hola" means "goodbye"|false
+ */
+function parseTrueFalseContent(content: string): Partial<DrillItemData> {
+  const parts = content.split('|').map(p => p.trim());
+  const statement = parts[0] || content;
+  const answerPart = parts[1]?.toLowerCase() || 'true';
+  const isTrue = answerPart === 'true';
+  
+  return {
+    statement,
+    isTrue,
+    selectedTrueFalse: null,
+  };
+}
+
+/**
+ * Parse conjugation content
+ * Format: verb|tense|subject|correct_form
+ * Example: hablar|present|yo|hablo
+ */
+function parseConjugationContent(content: string): Partial<DrillItemData> {
+  const parts = content.split('|').map(p => p.trim());
+  const verb = parts[0] || content;
+  const tense = parts[1] || 'present';
+  const subject = parts[2] || 'yo';
+  const conjugatedForm = parts[3] || '';
+  
+  return {
+    verb,
+    tense,
+    subject,
+    conjugatedForm,
+    userConjugation: '',
+    prompt: `Conjugate "${verb}" in ${tense} tense for "${subject}"`,
+  };
+}
+
+/**
  * Parse DRILL content with optional type attribute
  */
 function parseDrillContent(typeAttr: string | undefined, content: string): DrillItemData {
   const drillType = (typeAttr?.toLowerCase() || 'repeat') as DrillType;
-  const validTypes: DrillType[] = ['repeat', 'translate', 'fill_blank', 'match', 'sentence_order'];
+  const validTypes: DrillType[] = ['repeat', 'translate', 'fill_blank', 'match', 'sentence_order', 'multiple_choice', 'true_false', 'conjugation'];
   const validatedType = validTypes.includes(drillType) ? drillType : 'repeat';
   
   // Handle matching drills specially
@@ -1123,6 +1210,39 @@ function parseDrillContent(typeAttr: string | undefined, content: string): Drill
       prompt: 'Arrange the words in the correct order',
       state: 'waiting',
       ...sentenceData,
+    };
+  }
+  
+  // Handle multiple choice drills
+  if (validatedType === 'multiple_choice') {
+    const mcData = parseMultipleChoiceContent(content);
+    return {
+      drillType: 'multiple_choice',
+      prompt: mcData.prompt || content.trim(),
+      state: 'waiting',
+      ...mcData,
+    };
+  }
+  
+  // Handle true/false drills
+  if (validatedType === 'true_false') {
+    const tfData = parseTrueFalseContent(content);
+    return {
+      drillType: 'true_false',
+      prompt: tfData.statement || content.trim(),
+      state: 'waiting',
+      ...tfData,
+    };
+  }
+  
+  // Handle conjugation drills
+  if (validatedType === 'conjugation') {
+    const conjData = parseConjugationContent(content);
+    return {
+      drillType: 'conjugation',
+      prompt: conjData.prompt || content.trim(),
+      state: 'waiting',
+      ...conjData,
     };
   }
   
@@ -2202,6 +2322,18 @@ export function isSentenceOrderDrill(item: DrillItem): boolean {
   return item.data.drillType === 'sentence_order' && Array.isArray(item.data.words);
 }
 
+export function isMultipleChoiceDrill(item: DrillItem): boolean {
+  return item.data.drillType === 'multiple_choice' && Array.isArray(item.data.choices);
+}
+
+export function isTrueFalseDrill(item: DrillItem): boolean {
+  return item.data.drillType === 'true_false' && item.data.statement !== undefined;
+}
+
+export function isConjugationDrill(item: DrillItem): boolean {
+  return item.data.drillType === 'conjugation' && !!item.data.verb;
+}
+
 /**
  * Create a pronunciation feedback item from analysis results
  */
@@ -2252,6 +2384,12 @@ export function getDrillInstructions(drillType: DrillType): string {
       return 'Match each item on the left with its pair on the right';
     case 'sentence_order':
       return 'Drag the words into the correct order to form a sentence';
+    case 'multiple_choice':
+      return 'Select the correct answer from the options below';
+    case 'true_false':
+      return 'Is this statement true or false?';
+    case 'conjugation':
+      return 'Type the correct conjugated form of the verb';
     default:
       return 'Complete this exercise';
   }

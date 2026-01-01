@@ -80,7 +80,7 @@ export const VALID_ENUM_VALUES = {
   CALL_SUPPORT_CATEGORY: ['technical', 'account', 'billing', 'content', 'feedback', 'other'],
   CALL_SUPPORT_PRIORITY: ['low', 'normal', 'high', 'critical'],
   // CALL_ASSISTANT: Delegate drill practice to assistant tutor
-  CALL_ASSISTANT_TYPE: ['repeat', 'translate', 'match', 'fill_blank', 'sentence_order'],
+  CALL_ASSISTANT_TYPE: ['repeat', 'translate', 'match', 'fill_blank', 'sentence_order', 'multiple_choice', 'true_false', 'conjugation'],
   CALL_ASSISTANT_PRIORITY: ['low', 'medium', 'high'],
   HIVE_CATEGORY: ['self_improvement', 'content_gap', 'ux_observation', 'teaching_insight', 'product_feature', 'technical_issue', 'student_pattern', 'tool_enhancement'],
   SELF_SURGERY_TARGET: ['tutor_procedures', 'teaching_principles', 'tool_knowledge', 'situational_patterns', 'language_idioms', 'cultural_nuances', 'learner_error_patterns', 'dialect_variations', 'linguistic_bridges', 'creativity_templates'],
