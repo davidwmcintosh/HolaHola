@@ -87,7 +87,8 @@ import type {
   DrillState,
   MatchPair,
 } from "@shared/whiteboard-types";
-import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isToneItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isTextInputItem, isMatchingDrill, isFillBlankDrill, isSentenceOrderDrill, isMultipleChoiceDrill, isTrueFalseDrill, isConjugationDrill, isDictationDrill, isSpeakDrill, getDrillInstructions } from "@shared/whiteboard-types";
+import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isToneItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isTextInputItem, isMatchingDrill, isFillBlankDrill, isSentenceOrderDrill, isMultipleChoiceDrill, isTrueFalseDrill, isConjugationDrill, isDictationDrill, isSpeakDrill, isCognateMatchDrill, isFalseFriendTrapDrill, getDrillInstructions } from "@shared/whiteboard-types";
+import type { CognatePair, FalseFriendOption } from "@shared/whiteboard-types";
 import type { ToneItem } from "@shared/whiteboard-types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -602,6 +603,360 @@ const MatchDrillDisplay = ({ item, index, onMatchComplete }: MatchDrillDisplayPr
             })}
           </div>
         </div>
+      )}
+    </motion.div>
+  );
+};
+
+interface CognateMatchDrillDisplayProps {
+  item: DrillItem;
+  index: number;
+  onComplete?: (drillId: string, success: boolean) => void;
+}
+
+const CognateMatchDrillDisplay = ({ item, index, onComplete }: CognateMatchDrillDisplayProps) => {
+  const { data } = item;
+  const cognates = data.cognates || [];
+  const shuffledTargets = data.shuffledTargets || cognates.map(c => c.targetWord);
+  
+  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
+  const [matchedIds, setMatchedIds] = useState<Set<string>>(new Set());
+  const [wrongPair, setWrongPair] = useState<{ sourceId: string; targetWord: string } | null>(null);
+  const [attempts, setAttempts] = useState(0);
+  const [wrongAttempts, setWrongAttempts] = useState(0);
+  
+  const isComplete = matchedIds.size === cognates.length;
+  const progress = cognates.length > 0 ? (matchedIds.size / cognates.length) * 100 : 0;
+  
+  const handleSourceClick = useCallback((cognateId: string) => {
+    if (matchedIds.has(cognateId)) return;
+    setWrongPair(null);
+    setSelectedSourceId(selectedSourceId === cognateId ? null : cognateId);
+  }, [selectedSourceId, matchedIds]);
+  
+  const handleTargetClick = useCallback((targetWord: string) => {
+    if (!selectedSourceId) return;
+    
+    setAttempts(prev => prev + 1);
+    
+    const selectedCognate = cognates.find(c => c.id === selectedSourceId);
+    if (selectedCognate && selectedCognate.targetWord === targetWord) {
+      const newMatchedSize = matchedIds.size + 1;
+      setMatchedIds(prev => {
+        const newSet = new Set(prev);
+        newSet.add(selectedSourceId);
+        return newSet;
+      });
+      setSelectedSourceId(null);
+      setWrongPair(null);
+      
+      if (newMatchedSize === cognates.length && onComplete) {
+        const isPerfect = wrongAttempts === 0;
+        onComplete(item.id!, isPerfect);
+      }
+    } else {
+      setWrongAttempts(prev => prev + 1);
+      setWrongPair({ sourceId: selectedSourceId, targetWord });
+      setTimeout(() => setWrongPair(null), 800);
+    }
+  }, [selectedSourceId, matchedIds, cognates, item.id, onComplete, wrongAttempts]);
+  
+  const handleReset = useCallback(() => {
+    setSelectedSourceId(null);
+    setMatchedIds(new Set());
+    setWrongPair(null);
+    setAttempts(0);
+    setWrongAttempts(0);
+  }, []);
+  
+  const isTargetMatched = (targetWord: string) => {
+    return cognates.some(c => matchedIds.has(c.id) && c.targetWord === targetWord);
+  };
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+      className="flex flex-col gap-3 p-4 rounded-lg border bg-indigo-500/10 border-indigo-500/30"
+      data-testid={`whiteboard-item-cognate-match-drill-${index}`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Languages className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+          <span className="text-sm font-medium text-indigo-700 dark:text-indigo-300 uppercase tracking-wide">
+            Cognate Match
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          {isComplete ? (
+            <CheckCircle2 className="h-5 w-5 text-green-500" />
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              {matchedIds.size}/{cognates.length}
+            </span>
+          )}
+        </div>
+      </div>
+      
+      <p className="text-xs text-muted-foreground">
+        Match English words to their cognates (similar words in the target language)
+      </p>
+      
+      <Progress value={progress} className="h-1.5" />
+      
+      {isComplete ? (
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="flex flex-col items-center gap-3 py-4"
+        >
+          <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+            <Trophy className="h-6 w-6" />
+            <span className="text-lg font-bold">Cognates mastered!</span>
+          </div>
+          <p className="text-sm text-muted-foreground text-center">
+            Great job recognizing word patterns across languages!
+          </p>
+          <Button
+            onClick={handleReset}
+            variant="outline"
+            size="sm"
+            data-testid={`button-reset-cognate-match-${index}`}
+          >
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Try Again
+          </Button>
+        </motion.div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-medium text-muted-foreground uppercase">English</span>
+            {cognates.map((cognate) => {
+              const isMatched = matchedIds.has(cognate.id);
+              const isSelected = selectedSourceId === cognate.id;
+              const isWrong = wrongPair?.sourceId === cognate.id;
+              
+              return (
+                <motion.button
+                  key={cognate.id}
+                  onClick={() => handleSourceClick(cognate.id)}
+                  disabled={isMatched}
+                  animate={isWrong ? { x: [-4, 4, -4, 4, 0] } : {}}
+                  transition={{ duration: 0.4 }}
+                  className={`
+                    px-3 py-2 rounded-md text-sm font-medium text-left transition-all
+                    ${isMatched 
+                      ? 'bg-green-500/20 text-green-700 dark:text-green-300 line-through opacity-60' 
+                      : isSelected
+                        ? 'bg-indigo-500/30 text-indigo-800 dark:text-indigo-200 ring-2 ring-indigo-500'
+                        : isWrong
+                          ? 'bg-red-500/20 text-red-700 dark:text-red-300'
+                          : 'bg-background/80 hover:bg-indigo-500/15'
+                    }
+                  `}
+                  data-testid={`button-cognate-source-${cognate.id}`}
+                >
+                  {cognate.sourceWord}
+                </motion.button>
+              );
+            })}
+          </div>
+          
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-medium text-muted-foreground uppercase">Target</span>
+            {shuffledTargets.map((targetWord, idx) => {
+              const isMatched = isTargetMatched(targetWord);
+              const isWrong = wrongPair?.targetWord === targetWord;
+              const canSelect = selectedSourceId && !isMatched;
+              
+              return (
+                <motion.button
+                  key={`${targetWord}-${idx}`}
+                  onClick={() => handleTargetClick(targetWord)}
+                  disabled={isMatched || !selectedSourceId}
+                  animate={isWrong ? { x: [-4, 4, -4, 4, 0] } : {}}
+                  transition={{ duration: 0.4 }}
+                  className={`
+                    px-3 py-2 rounded-md text-sm font-medium text-left transition-all
+                    ${isMatched 
+                      ? 'bg-green-500/20 text-green-700 dark:text-green-300 line-through opacity-60' 
+                      : isWrong
+                        ? 'bg-red-500/20 text-red-700 dark:text-red-300'
+                        : canSelect
+                          ? 'bg-background/80 hover:bg-indigo-500/15 cursor-pointer'
+                          : 'bg-background/80 opacity-50 cursor-not-allowed'
+                    }
+                  `}
+                  data-testid={`button-cognate-target-${idx}`}
+                >
+                  {targetWord}
+                </motion.button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
+interface FalseFriendTrapDrillDisplayProps {
+  item: DrillItem;
+  index: number;
+  onComplete?: (drillId: string, isCorrect: boolean) => void;
+}
+
+const FalseFriendTrapDrillDisplay = ({ item, index, onComplete }: FalseFriendTrapDrillDisplayProps) => {
+  const { data } = item;
+  const options = data.falseFriendOptions || [];
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [showExplanation, setShowExplanation] = useState(false);
+  
+  const selectedOption = options.find(o => o.id === selectedId);
+  const isCorrect = selectedOption ? !selectedOption.isTrap : null;
+  const trapOption = options.find(o => o.isTrap);
+  const correctOptions = options.filter(o => !o.isTrap);
+  
+  const handleSelect = useCallback((optionId: string) => {
+    if (isSubmitted) return;
+    setSelectedId(optionId);
+  }, [isSubmitted]);
+  
+  const handleSubmit = useCallback(() => {
+    if (!selectedId) return;
+    setIsSubmitted(true);
+    setShowExplanation(true);
+    
+    if (onComplete) {
+      const option = options.find(o => o.id === selectedId);
+      const correct = option ? !option.isTrap : false;
+      onComplete(item.id!, correct);
+    }
+  }, [selectedId, options, item.id, onComplete]);
+  
+  const handleReset = useCallback(() => {
+    setSelectedId(null);
+    setIsSubmitted(false);
+    setShowExplanation(false);
+  }, []);
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+      className="flex flex-col gap-3 p-4 rounded-lg border bg-amber-500/10 border-amber-500/30"
+      data-testid={`whiteboard-item-false-friend-trap-drill-${index}`}
+    >
+      <div className="flex items-center gap-2">
+        <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+        <span className="text-sm font-medium text-amber-700 dark:text-amber-300 uppercase tracking-wide">
+          False Friend Trap
+        </span>
+      </div>
+      
+      <p className="text-sm font-medium">{data.prompt}</p>
+      <p className="text-xs text-muted-foreground">
+        One of these is a false friend - it looks similar but means something different!
+      </p>
+      
+      <div className="flex flex-col gap-2">
+        {options.map((option) => {
+          const isSelected = selectedId === option.id;
+          const showResult = isSubmitted && isSelected;
+          const wasCorrectChoice = isSubmitted && !option.isTrap;
+          const wasTrap = isSubmitted && option.isTrap;
+          
+          return (
+            <motion.button
+              key={option.id}
+              onClick={() => handleSelect(option.id)}
+              disabled={isSubmitted}
+              animate={showResult && option.isTrap ? { x: [-4, 4, -4, 4, 0] } : {}}
+              transition={{ duration: 0.4 }}
+              className={`
+                px-4 py-3 rounded-md text-sm font-medium text-left transition-all flex items-center justify-between
+                ${isSubmitted 
+                  ? wasTrap
+                    ? 'bg-red-500/20 text-red-700 dark:text-red-300 border border-red-500/50'
+                    : wasCorrectChoice
+                      ? 'bg-green-500/20 text-green-700 dark:text-green-300 border border-green-500/50'
+                      : 'bg-background/80 opacity-60'
+                  : isSelected
+                    ? 'bg-amber-500/30 text-amber-800 dark:text-amber-200 ring-2 ring-amber-500'
+                    : 'bg-background/80 hover:bg-amber-500/15'
+                }
+              `}
+              data-testid={`button-false-friend-option-${option.id}`}
+            >
+              <span>{option.word}</span>
+              {isSubmitted && (
+                <span className="flex items-center gap-1">
+                  {wasTrap ? (
+                    <>
+                      <XCircle className="h-4 w-4" />
+                      <span className="text-xs">False friend!</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span className="text-xs">True cognate</span>
+                    </>
+                  )}
+                </span>
+              )}
+            </motion.button>
+          );
+        })}
+      </div>
+      
+      {!isSubmitted && selectedId && (
+        <Button
+          onClick={handleSubmit}
+          className="w-full"
+          data-testid={`button-submit-false-friend-${index}`}
+        >
+          Check Answer
+        </Button>
+      )}
+      
+      {showExplanation && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          className={`p-3 rounded-md ${isCorrect ? 'bg-green-500/10' : 'bg-amber-500/10'}`}
+        >
+          <div className="flex items-center gap-2 mb-2">
+            {isCorrect ? (
+              <>
+                <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+                <span className="font-medium text-green-700 dark:text-green-300">Correct! You avoided the trap!</span>
+              </>
+            ) : (
+              <>
+                <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                <span className="font-medium text-amber-700 dark:text-amber-300">Oops! You fell for the false friend!</span>
+              </>
+            )}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {data.trapExplanation || `"${trapOption?.word}" is a false friend - it looks similar but has a different meaning!`}
+          </p>
+          <Button
+            onClick={handleReset}
+            variant="outline"
+            size="sm"
+            className="mt-3"
+            data-testid={`button-reset-false-friend-${index}`}
+          >
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Try Again
+          </Button>
+        </motion.div>
       )}
     </motion.div>
   );
@@ -3264,6 +3619,12 @@ const WhiteboardItemDisplay = ({
     }
     if (isSpeakDrill(item)) {
       return <SpeakDrillDisplay item={item} index={index} onComplete={handleDrillComplete} />;
+    }
+    if (isCognateMatchDrill(item)) {
+      return <CognateMatchDrillDisplay item={item} index={index} onComplete={handleDrillComplete} />;
+    }
+    if (isFalseFriendTrapDrill(item)) {
+      return <FalseFriendTrapDrillDisplay item={item} index={index} onComplete={handleDrillComplete} />;
     }
     return (
       <DrillItemDisplay 

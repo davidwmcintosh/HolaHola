@@ -86,7 +86,7 @@ export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'd
  * - true_false: True/false question
  * - conjugation: Verb conjugation practice
  */
-export type DrillType = 'repeat' | 'translate' | 'fill_blank' | 'match' | 'sentence_order' | 'multiple_choice' | 'true_false' | 'conjugation' | 'dictation' | 'speak';
+export type DrillType = 'repeat' | 'translate' | 'fill_blank' | 'match' | 'sentence_order' | 'multiple_choice' | 'true_false' | 'conjugation' | 'dictation' | 'speak' | 'cognate_match' | 'false_friend_trap';
 
 /**
  * Drill state for interactive exercises
@@ -108,6 +108,28 @@ export interface MatchPair {
  * State for matching drill interactions
  */
 export type MatchState = 'pending' | 'selecting_left' | 'selecting_right' | 'complete';
+
+/**
+ * Cognate pair for cognate matching drills
+ * Shows English word paired with target language cognate
+ */
+export interface CognatePair {
+  id: string;
+  sourceWord: string;     // Word in source language (usually English)
+  targetWord: string;     // Cognate in target language
+  matched?: boolean;
+}
+
+/**
+ * Option for false friend trap drills
+ * One option is a false friend (trap), others are true cognates
+ */
+export interface FalseFriendOption {
+  id: string;
+  word: string;           // The word shown as option
+  isTrap: boolean;        // Whether this is the false friend
+  meaning?: string;       // Actual meaning (shown after selection)
+}
 
 /**
  * Image item metadata
@@ -168,6 +190,19 @@ export interface DrillItemData {
   textToSpeak?: string;           // Text user should read aloud
   translationHint?: string;       // Optional English translation hint
   spokenAttempts?: number;        // Number of times user attempted
+  // Cognate drill specific fields
+  sourceLanguage?: string;        // Source language (usually English)
+  targetLanguage?: string;        // Target language being learned
+  cognates?: CognatePair[];       // Cognate pairs to match
+  shuffledTargets?: string[];     // Shuffled target words for matching
+  selectedSourceId?: string | null; // Currently selected source word
+  cognateMatchedCount?: number;   // Number matched correctly
+  cognateState?: MatchState;      // Matching state
+  // False friend trap specific fields
+  falseFriendOptions?: FalseFriendOption[]; // Options including the trap
+  trapWord?: string;              // The false friend word
+  selectedOptionId?: string | null; // User's selection
+  trapExplanation?: string;       // Why the trap word is wrong
 }
 
 /**
@@ -1032,6 +1067,101 @@ function parseMatchPairs(content: string): { pairs: MatchPair[], shuffledRightId
 }
 
 /**
+ * Parse cognate matching pairs from drill content
+ * Format: source => target (one per line)
+ * Example:
+ *   family => familia
+ *   important => importante
+ *   nation => nación
+ */
+function parseCognatePairs(content: string): { pairs: CognatePair[], shuffledTargets: string[] } {
+  const lines = content.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const pairs: CognatePair[] = [];
+  let pairIndex = 0;
+  
+  for (const line of lines) {
+    const separatorMatch = line.match(/(.+?)\s*(?:=>|=)\s*(.+)/);
+    if (separatorMatch) {
+      const sourceWord = separatorMatch[1].trim();
+      const targetWord = separatorMatch[2].trim();
+      if (sourceWord && targetWord) {
+        pairs.push({
+          id: `cognate-${pairIndex}`,
+          sourceWord,
+          targetWord,
+          matched: false,
+        });
+        pairIndex++;
+      }
+    }
+  }
+  
+  // Deterministic shuffle using content as seed
+  const shuffledTargets = deterministicShuffle(
+    pairs.map(p => p.targetWord),
+    content
+  );
+  
+  return { pairs, shuffledTargets };
+}
+
+/**
+ * Parse false friend trap drill content
+ * Format: question|option1|option2|option3|trap_index|explanation
+ * The trap_index (0-based) indicates which option is the false friend
+ * Example: Which word means "library"?|biblioteca|librería|estantería|1|"librería" means bookstore!
+ */
+function parseFalseFriendTrap(content: string): {
+  prompt: string;
+  options: FalseFriendOption[];
+  trapWord: string;
+  explanation: string;
+} {
+  const parts = content.split('|').map(p => p.trim());
+  const prompt = parts[0] || 'Find the true cognate (avoid the false friend!)';
+  
+  // Find where options end and trap_index begins
+  // Look for a number that could be the trap index
+  let trapIndex = 0;
+  let explanation = '';
+  const options: FalseFriendOption[] = [];
+  
+  // Iterate through parts to find options vs trap index
+  for (let i = 1; i < parts.length; i++) {
+    const part = parts[i];
+    // Check if this is the trap index (a number)
+    const numMatch = part.match(/^(\d+)$/);
+    if (numMatch) {
+      trapIndex = parseInt(numMatch[1], 10);
+      // The rest is the explanation
+      explanation = parts.slice(i + 1).join(' ').trim();
+      break;
+    } else {
+      // This is an option
+      options.push({
+        id: `option-${i - 1}`,
+        word: part,
+        isTrap: false,
+      });
+    }
+  }
+  
+  // Mark the trap option
+  if (trapIndex >= 0 && trapIndex < options.length) {
+    options[trapIndex].isTrap = true;
+  }
+  
+  const trapWord = options.find(o => o.isTrap)?.word || '';
+  
+  return {
+    prompt,
+    options,
+    trapWord,
+    explanation: explanation || `"${trapWord}" is a false friend - it looks similar but means something different!`,
+  };
+}
+
+/**
  * Parse fill-in-the-blank content
  * Format: sentence with ___ | option1, option2, option3 | correctAnswer
  * Example: El perro ___ en la casa | está, estoy, estás | está
@@ -1169,7 +1299,7 @@ function parseConjugationContent(content: string): Partial<DrillItemData> {
  */
 function parseDrillContent(typeAttr: string | undefined, content: string): DrillItemData {
   const drillType = (typeAttr?.toLowerCase() || 'repeat') as DrillType;
-  const validTypes: DrillType[] = ['repeat', 'translate', 'fill_blank', 'match', 'sentence_order', 'multiple_choice', 'true_false', 'conjugation', 'dictation', 'speak'];
+  const validTypes: DrillType[] = ['repeat', 'translate', 'fill_blank', 'match', 'sentence_order', 'multiple_choice', 'true_false', 'conjugation', 'dictation', 'speak', 'cognate_match', 'false_friend_trap'];
   const validatedType = validTypes.includes(drillType) ? drillType : 'repeat';
   
   // Handle matching drills specially
@@ -1279,6 +1409,48 @@ function parseDrillContent(typeAttr: string | undefined, content: string): Drill
       state: 'waiting',
       textToSpeak,
       translationHint,
+    };
+  }
+  
+  // Handle cognate matching drills
+  // Format: source1=>target1\nsource2=>target2... (same as match but for cognates)
+  if (validatedType === 'cognate_match') {
+    const cognatePairs = parseCognatePairs(content);
+    
+    if (cognatePairs.pairs.length < 2) {
+      console.warn('[Whiteboard] Cognate match drill needs at least 2 pairs, falling back to repeat drill');
+      return {
+        drillType: 'repeat',
+        prompt: content.trim(),
+        state: 'waiting',
+      };
+    }
+    
+    return {
+      drillType: 'cognate_match',
+      prompt: `Match ${cognatePairs.pairs.length} cognate pairs`,
+      state: 'waiting',
+      cognates: cognatePairs.pairs,
+      shuffledTargets: cognatePairs.shuffledTargets,
+      selectedSourceId: null,
+      cognateMatchedCount: 0,
+      cognateState: 'pending',
+    };
+  }
+  
+  // Handle false friend trap drills
+  // Format: question|option1|option2|option3|trap_index|explanation
+  // Example: Which word means "library" in Spanish?|biblioteca|librería|estantería|1|"librería" means bookstore, not library!
+  if (validatedType === 'false_friend_trap') {
+    const trapData = parseFalseFriendTrap(content);
+    return {
+      drillType: 'false_friend_trap',
+      prompt: trapData.prompt,
+      state: 'waiting',
+      falseFriendOptions: trapData.options,
+      trapWord: trapData.trapWord,
+      trapExplanation: trapData.explanation,
+      selectedOptionId: null,
     };
   }
   
@@ -2378,6 +2550,14 @@ export function isSpeakDrill(item: DrillItem): boolean {
   return item.data.drillType === 'speak' && !!item.data.textToSpeak;
 }
 
+export function isCognateMatchDrill(item: DrillItem): boolean {
+  return item.data.drillType === 'cognate_match' && Array.isArray(item.data.cognates);
+}
+
+export function isFalseFriendTrapDrill(item: DrillItem): boolean {
+  return item.data.drillType === 'false_friend_trap' && Array.isArray(item.data.falseFriendOptions);
+}
+
 /**
  * Create a pronunciation feedback item from analysis results
  */
@@ -2438,6 +2618,10 @@ export function getDrillInstructions(drillType: DrillType): string {
       return 'Listen carefully and type exactly what you hear';
     case 'speak':
       return 'Read the text aloud in the target language';
+    case 'cognate_match':
+      return 'Match English words to their cognates in the target language';
+    case 'false_friend_trap':
+      return 'Find the TRUE cognate - one word is a false friend!';
     default:
       return 'Complete this exercise';
   }
