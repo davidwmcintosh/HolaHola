@@ -49,7 +49,7 @@ The ACTION_TRIGGERS Command Parsing System handles dual format command parsing (
 
 The Fluency Wiring System connects 1,053 ACTFL Can-Do statements to 559 lessons for competency-based advancement using AI-powered mapping of lesson content to Can-Do statements. It tracks student progress and records ACTFL assessment events.
 
-The AI Lesson Generation System automatically creates structured lesson drafts using Gemini Flash to fill coverage gaps, with content types including objectives, activities, tasks, assessments, and cultural/linguistic focus. Drafts are managed in a `lesson_drafts` table with an admin UI for review and approval.
+The AI Lesson Generation System automatically creates structured lesson drafts using Gemini Flash to fill coverage gaps, with content types including objectives, activities, tasks, assessments, and cultural/linguistic focus. Drafts are managed in a `lesson_drafts` table with an admin UI for review and approval. **Current progress: 343 lesson drafts generated** (Spanish 46, French 41, Japanese 41, Mandarin 39, Portuguese 37, German 37, Italian 34, English 34, Korean 34). Approximately 354 coverage gaps remaining. Note: Neon serverless WebSocket connections timeout during sustained batch operations - use smaller batches or the admin UI for continued generation.
 
 The Drill System supports multiple interactive drill types via [DRILL] tags:
 - `fill_in_the_blank`: Text completion with contextual clues
