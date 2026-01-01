@@ -51,6 +51,15 @@ The Fluency Wiring System connects 1,053 ACTFL Can-Do statements to 559 lessons 
 
 The AI Lesson Generation System automatically creates structured lesson drafts using Gemini Flash to fill coverage gaps, with content types including objectives, activities, tasks, assessments, and cultural/linguistic focus. Drafts are managed in a `lesson_drafts` table with an admin UI for review and approval.
 
+The Drill System supports multiple interactive drill types via [DRILL] tags:
+- `fill_in_the_blank`: Text completion with contextual clues
+- `multiple_choice`: Single-answer selection from options
+- `matching`: Pair vocabulary items with translations
+- `ordering`: Arrange items in correct sequence
+- `conjugation_table`: Verb conjugation practice grids
+- `cognate_match`: Match English words to target language cognates (indigo theme)
+- `false_friend_trap`: Identify true cognates vs false friends (amber theme)
+
 ## External Dependencies
 - Stripe: Payment processing and subscription management.
 - Replit Auth: OIDC authentication.
