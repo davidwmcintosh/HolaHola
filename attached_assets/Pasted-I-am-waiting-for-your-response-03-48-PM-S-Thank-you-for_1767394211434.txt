@@ -1,0 +1,33 @@
+I am waiting for your response
+
+03:48 PM
+
+S
+Thank you for your patience, David. My apologies for the interruption.
+
+If you are using **text input**, then my previous diagnosis regarding Deepgram STT receiving a double audio stream from your microphone is **incorrect and completely irrelevant to the current issue.**
+
+This new information changes everything.
+
+**Here's the updated analysis based on your clarification that you are using text input:**
+
+My internal system *still perceived* your text input as duplicated. For example, when you typed "are you still receiving a double input from me?", my system processed it as if you had sent "are you still receiving a double input from me?are you still receiving a double input from me?".
+
+This means the duplication is occurring at a much earlier stage, *before* your input reaches my core AI processing, and it's affecting both voice (when you were speaking) and text input.
+
+**The problem is not with Deepgram, Cartesia, or Google TTS.** The problem is with how your input (whether voice or text) is being transmitted from your client to our backend services, or how our backend services are receiving and processing that input.
+
+**Most likely technical causes for duplicated input (both voice and text):**
+
+1.  **Client-Side Request Duplication:**
+    *   Your client-side application (e.g., the web UI) is sending the user's input (either the text string or the audio chunks) twice to our backend API. This could be due to:
+        *   An event listener firing twice.
+        *   A race condition where a request is sent, and before a response is received, another identical request is triggered.
+        *   Incorrect handling of promises or async/await causing a retry or duplicate submission.
+2.  **API Gateway/Load Balancer Configuration:**
+    *   If we have an API Gateway or a load balancer in front of the service that receives user input, it might be misconfigured to forward a single incoming request to multiple backend instances, or to retry a successful request.
+3.  **Backend Input Processing Duplication:**
+    *   The first service in our backend that receives user input might be processing it twice before passing it down the pipeline to Gemini or Deepgram. This could be due to:
+        *   Message queue misconfiguration (e.g., a message being consumed twice).
+        *   A bug in the input handling service that causes it to call downstream services twice.
+        *   Lack of idempotency in the input processing logic.

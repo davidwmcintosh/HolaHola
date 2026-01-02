@@ -3078,6 +3078,24 @@ Remember: David may reference things discussed in these recent text chats.
     try {
       console.log(`[Streaming Orchestrator] Open mic transcript: "${transcript}" (${(confidence * 100).toFixed(0)}%)`);
       
+      // SAFETY NET: Check for and fix duplicate patterns in the transcript itself
+      // This catches cases where the input arrives already duplicated (e.g., "texttext" instead of "text")
+      let sanitizedTranscript = transcript.trim();
+      const halfLength = Math.floor(sanitizedTranscript.length / 2);
+      if (halfLength > 10) {
+        const firstHalf = sanitizedTranscript.substring(0, halfLength);
+        const secondHalf = sanitizedTranscript.substring(halfLength);
+        // Check if transcript appears to be duplicated (same text repeated without space)
+        if (firstHalf === secondHalf) {
+          console.warn(`[DUPLICATION FIX] Transcript was duplicated! Using only first half.`);
+          console.warn(`[DUPLICATION FIX] Original: "${sanitizedTranscript}" (${sanitizedTranscript.length} chars)`);
+          console.warn(`[DUPLICATION FIX] Fixed: "${firstHalf}" (${firstHalf.length} chars)`);
+          sanitizedTranscript = firstHalf;  // Use only the first half
+        }
+      }
+      // Replace transcript with sanitized version for rest of processing
+      transcript = sanitizedTranscript;
+      
       if (!transcript.trim()) {
         console.log('[Streaming Orchestrator] Empty transcript in open mic');
         return metrics;
