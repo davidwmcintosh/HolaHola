@@ -413,6 +413,7 @@ export class OpenMicSession {
   private totalBytes = 0;
   private keepaliveInterval: NodeJS.Timeout | null = null;
   private isSuppressed = false;
+  private lastFinalSegment = '';  // Deduplication: Track last final segment to prevent duplicates
   
   constructor(language: string, events: OpenMicEvents) {
     this.language = language;
@@ -431,6 +432,7 @@ export class OpenMicSession {
         this.currentTranscript = '';
         this.currentConfidence = 0;
         this.currentIntelligence = {};
+        this.lastFinalSegment = '';  // Reset dedup tracker when suppressed
       }
     }
   }
@@ -531,6 +533,7 @@ export class OpenMicSession {
             this.currentTranscript = '';
             this.currentConfidence = 0;
             this.currentIntelligence = {};
+            this.lastFinalSegment = '';  // Reset dedup tracker
             return;
           }
           
@@ -541,6 +544,7 @@ export class OpenMicSession {
           this.currentTranscript = '';
           this.currentConfidence = 0;
           this.currentIntelligence = {};
+          this.lastFinalSegment = '';  // Reset dedup tracker for new utterance
         });
         
         this.connection.on(LiveTranscriptionEvents.Transcript, (data: any) => {
@@ -636,13 +640,23 @@ export class OpenMicSession {
             }
             
             if (data.is_final) {
-              // Accumulate final segments
-              this.currentTranscript += (this.currentTranscript ? ' ' : '') + transcript;
-              this.currentConfidence = confidence;
-              console.log(`[OpenMic] Final segment accumulated: "${this.currentTranscript}"`);
-              // CRITICAL: Also notify PTT handler of accumulated transcript
-              // This ensures PTT mode sees the full accumulated text, not just interim fragments
-              this.events.onInterimTranscript?.(this.currentTranscript);
+              // DEDUPLICATION: Deepgram can send same final segment multiple times
+              // (especially during PTT streaming). Skip if identical to last segment.
+              const trimmedTranscript = transcript.trim();
+              const isExactDuplicate = trimmedTranscript === this.lastFinalSegment.trim();
+              
+              if (isExactDuplicate) {
+                console.log(`[OpenMic] DEDUP: Skipping duplicate final segment: "${trimmedTranscript.slice(0, 50)}..."`);
+              } else {
+                // Accumulate final segments
+                this.currentTranscript += (this.currentTranscript ? ' ' : '') + transcript;
+                this.currentConfidence = confidence;
+                this.lastFinalSegment = trimmedTranscript;
+                console.log(`[OpenMic] Final segment accumulated: "${this.currentTranscript}"`);
+                // CRITICAL: Also notify PTT handler of accumulated transcript
+                // This ensures PTT mode sees the full accumulated text, not just interim fragments
+                this.events.onInterimTranscript?.(this.currentTranscript);
+              }
             } else {
               // For interim results, send accumulated finals + current interim
               // This ensures PTT handler always has the complete picture
