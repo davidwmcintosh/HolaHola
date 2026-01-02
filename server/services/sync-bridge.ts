@@ -19,7 +19,9 @@ import {
   // Founder-specific tables
   learnerPersonalFacts,
   // Student conversations (for prod troubleshooting)
-  conversations, messages
+  conversations, messages,
+  // Sofia issue reports (for cross-environment debugging)
+  sofiaIssueReports
 } from '@shared/schema';
 import { eq, desc, gte, and, isNull, or, inArray, lt, sql } from 'drizzle-orm';
 import { neuralNetworkSync } from './neural-network-sync';
@@ -53,6 +55,7 @@ const SUPPORTED_BATCHES = [
   'prod-content-growth', // Pull Daniela-authored content from prod (idioms, nuances, etc.)
   'founder-context',   // Bidirectional sync of founder's personal facts (same Daniela in dev/prod)
   'prod-conversations', // Pull recent conversation transcripts from prod for troubleshooting
+  'sofia-telemetry',   // Pull Sofia runtime faults and issue reports from prod for debugging
 ] as const;
 
 // Capability map for fine-grained feature support
@@ -181,6 +184,13 @@ export interface SyncBundle {
   prodConversations?: {
     conversations: any[];
     messages: any[];
+    exportedAt: string;
+  };
+  // Sofia telemetry - runtime faults and issue reports (prod → dev for debugging)
+  sofiaTelemetry?: {
+    issueReports: any[];
+    runtimeFaults: number;
+    pendingCount: number;
     exportedAt: string;
   };
 }
@@ -645,6 +655,20 @@ class SyncBridgeService {
         console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
         batchErrors.push(errMsg);
         bundle.prodConversations = undefined;
+      }
+    }
+    
+    // BATCH: sofia-telemetry - Sofia runtime faults and issue reports for cross-env debugging (prod → dev pull)
+    if (batchType === 'sofia-telemetry') {
+      try {
+        const telemetryData = await this.exportSofiaTelemetry();
+        bundle.sofiaTelemetry = telemetryData;
+        console.log(`[SYNC-BRIDGE v19] sofia-telemetry: ${telemetryData.issueReports?.length || 0} issue reports, ${telemetryData.runtimeFaults} faults, ${telemetryData.pendingCount} pending`);
+      } catch (err: any) {
+        const errMsg = `sofia-telemetry export failed: ${err.message}`;
+        console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
+        batchErrors.push(errMsg);
+        bundle.sofiaTelemetry = undefined;
       }
     }
     
@@ -1190,6 +1214,120 @@ class SyncBridgeService {
       messages: conversationMessages,
       exportedAt: new Date().toISOString()
     };
+  }
+  
+  /**
+   * Export Sofia's runtime faults and issue reports for cross-environment debugging
+   * Production → Development sync so dev can diagnose production issues
+   */
+  async exportSofiaTelemetry(): Promise<{
+    issueReports: any[];
+    runtimeFaults: number;
+    pendingCount: number;
+    exportedAt: string;
+  }> {
+    // Get all issue reports from last 30 days that haven't been synced yet (or all for initial sync)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const issueReports = await db
+      .select()
+      .from(sofiaIssueReports)
+      .where(gte(sofiaIssueReports.createdAt, thirtyDaysAgo))
+      .orderBy(desc(sofiaIssueReports.createdAt));
+    
+    // Count runtime faults:
+    // - Issues with 'runtime_fault:*' prefix (programmatic reports from Sofia)
+    // - Issues with voice-related types: 'no_audio', 'connection', 'double_audio', 'latency'
+    const voiceFaultTypes = ['no_audio', 'connection', 'double_audio', 'latency'];
+    const runtimeFaults = issueReports.filter(r => 
+      r.issueType?.startsWith('runtime_fault:') || voiceFaultTypes.includes(r.issueType)
+    ).length;
+    
+    // Count pending issues (status = 'pending' or 'reviewed' but not resolved)
+    const pendingCount = issueReports.filter(r => r.status === 'pending' || r.status === 'actionable').length;
+    
+    console.log(`[SYNC-BRIDGE] Exporting Sofia telemetry: ${issueReports.length} issue reports, ${runtimeFaults} runtime faults, ${pendingCount} pending (last 30 days)`);
+    
+    return {
+      issueReports,
+      runtimeFaults,
+      pendingCount,
+      exportedAt: new Date().toISOString()
+    };
+  }
+  
+  /**
+   * Import Sofia telemetry from production for debugging
+   * Merges production issue reports into development DB
+   * Uses originId/originEnvironment pattern to track source
+   */
+  async importSofiaTelemetry(data: {
+    issueReports: any[];
+    runtimeFaults: number;
+    pendingCount: number;
+    exportedAt: string;
+  }): Promise<{ imported: number; errors: string[] }> {
+    const errors: string[] = [];
+    let imported = 0;
+    
+    if (!data.issueReports || data.issueReports.length === 0) {
+      return { imported: 0, errors: [] };
+    }
+    
+    for (const report of data.issueReports) {
+      try {
+        // Check if this report already exists (by originId from production)
+        const existing = await db
+          .select({ id: sofiaIssueReports.id })
+          .from(sofiaIssueReports)
+          .where(eq(sofiaIssueReports.originId, report.id))
+          .limit(1);
+        
+        if (existing.length > 0) {
+          // Update existing synced record
+          await db
+            .update(sofiaIssueReports)
+            .set({
+              sofiaAnalysis: report.sofiaAnalysis,
+              status: report.status,
+              founderNotes: report.founderNotes,
+              reviewedAt: report.reviewedAt ? new Date(report.reviewedAt) : null,
+              syncStatus: 'synced',
+            })
+            .where(eq(sofiaIssueReports.id, existing[0].id));
+          imported++;
+        } else {
+          // Insert new record with origin tracking
+          await db
+            .insert(sofiaIssueReports)
+            .values({
+              userId: report.userId,
+              ticketId: report.ticketId,
+              issueType: report.issueType,
+              userDescription: report.userDescription,
+              sofiaAnalysis: report.sofiaAnalysis,
+              diagnosticSnapshot: report.diagnosticSnapshot,
+              clientTelemetry: report.clientTelemetry,
+              deviceInfo: report.deviceInfo,
+              status: report.status,
+              founderNotes: report.founderNotes,
+              reviewedAt: report.reviewedAt ? new Date(report.reviewedAt) : null,
+              environment: 'production', // Mark as from production
+              syncStatus: 'synced',
+              originId: report.id, // Original ID from production
+              originEnvironment: report.environment || 'production',
+              createdAt: report.createdAt ? new Date(report.createdAt) : new Date(),
+            });
+          imported++;
+        }
+      } catch (err: any) {
+        errors.push(`Sofia issue ${report.id}: ${err.message}`);
+      }
+    }
+    
+    console.log(`[SYNC-BRIDGE] Imported ${imported} Sofia issue reports from production`);
+    return { imported, errors };
   }
   
   /**
@@ -1858,6 +1996,8 @@ class SyncBridgeService {
       'betaTesters', 'betaTesterCredits',
       // v19: Prod → dev pull batches
       'betaUsage', 'aggregateAnalytics',
+      // v20: Sofia telemetry for cross-env debugging
+      'sofiaTelemetry',
     ]);
     
     const bundleKeys = Object.keys(bundle);
@@ -2236,6 +2376,16 @@ class SyncBridgeService {
       counts['founderMessages'] = convResult.messages;
       if (convResult.errors.length) {
         errors.push(...convResult.errors);
+      }
+    }
+    
+    // Sofia Telemetry (prod → dev pull for cross-environment debugging)
+    if (bundle.sofiaTelemetry) {
+      console.log(`[SYNC-BRIDGE] Importing Sofia issue reports for debugging...`);
+      const telemetryResult = await this.importSofiaTelemetry(bundle.sofiaTelemetry);
+      counts['sofiaIssueReports'] = telemetryResult.imported;
+      if (telemetryResult.errors.length) {
+        errors.push(...telemetryResult.errors);
       }
     }
     

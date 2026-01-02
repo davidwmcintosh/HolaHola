@@ -15348,6 +15348,53 @@ Current conversation context:
     }
   });
   
+  // Dev-only: Get production telemetry for Sofia debugging
+  // This route allows Sofia in dev to see production runtime faults and diagnose issues
+  app.get("/api/support/production-telemetry", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      // Only available in development environment for debugging production
+      if (process.env.NODE_ENV === 'production') {
+        // In production, this returns a summary only (no detailed logs to prevent data leakage)
+        const telemetry = await supportPersonaService.getProductionTelemetry({ limit: 5 });
+        return res.json({
+          environment: 'production',
+          summary: telemetry.summary,
+          message: 'Detailed telemetry available in development environment only',
+        });
+      }
+      
+      const { limit = 20, hours = 24, includeResolved = false } = req.query;
+      const since = new Date(Date.now() - Number(hours) * 60 * 60 * 1000);
+      
+      const telemetry = await supportPersonaService.getProductionTelemetry({
+        limit: Number(limit),
+        since,
+        includeResolved: includeResolved === 'true',
+      });
+      
+      // Separate production faults from dev faults for easy filtering
+      const prodFaults = telemetry.faults.filter(f => f.environment === 'production');
+      const devFaults = telemetry.faults.filter(f => f.environment !== 'production');
+      
+      res.json({
+        environment: 'development',
+        production: {
+          faults: prodFaults,
+          count: prodFaults.length,
+        },
+        development: {
+          faults: devFaults,
+          count: devFaults.length,
+        },
+        summary: telemetry.summary,
+        queryParams: { limit: Number(limit), hours: Number(hours), since: since.toISOString() },
+      });
+    } catch (error: any) {
+      console.error('[API] Error getting production telemetry:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // Admin: Get Support Agent voice configuration metadata
   app.get("/api/admin/support-voice-meta", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {

@@ -39,7 +39,7 @@ The Tutor Naming Architecture defines 36 total tutors: 18 main tutors (dynamic f
 
 The Voice Lab System provides a real-time voice tuning panel for admin users during active voice chat sessions. It allows session-level overrides for speaking rate, personality, expressiveness, and emotion, with an optional save to persist settings to the database.
 
-The Sofia Support Agent System provides dual-mode technical support: "Dev Mode" for technical debugging and system status (for founder/admins) and "User Mode" for friendly end-user troubleshooting. Sofia can be called by Daniela via tags and integrates with voice telemetry for diagnostics.
+The Sofia Support Agent System provides dual-mode technical support: "Dev Mode" for technical debugging and system status (for founder/admins) and "User Mode" for friendly end-user troubleshooting. Sofia can be called by Daniela via tags and integrates with voice telemetry for diagnostics. The Production Telemetry System enables Sofia to self-diagnose runtime failures across environments: `reportRuntimeFault()` captures LLM errors with full context, stored in `sofia_issue_reports` with `issueType` prefixed `runtime_fault:*`. Cross-environment sync via the `sofia-telemetry` batch pulls production issue reports to dev for debugging (GET `/api/support/production-telemetry`).
 
 The Memory Recovery System ensures personal facts about students survive session interruptions by checkpointing utterances to `learner_memory_candidates` and processing them with a background recovery worker using Gemini memory extraction and hash-based deduplication.
 

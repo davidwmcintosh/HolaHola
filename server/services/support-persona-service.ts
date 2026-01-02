@@ -251,6 +251,136 @@ class SupportPersonaService {
   }
   
   /**
+   * Report a runtime fault (e.g., LLM API error) for production visibility
+   * This creates an issue report with detailed error context that syncs to dev
+   * allowing Sofia to diagnose her own failures across environments
+   */
+  async reportRuntimeFault(params: {
+    errorType: 'gemini_api_error' | 'tts_error' | 'stt_error' | 'database_error' | 'unknown_error';
+    errorMessage: string;
+    errorCode?: string;
+    errorStack?: string;
+    ticketId?: string;
+    userId?: string;
+    context?: Record<string, any>;
+  }): Promise<void> {
+    const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
+    
+    try {
+      // Create an issue report for this runtime fault
+      const [report] = await db.insert(sofiaIssueReports)
+        .values({
+          userId: params.userId || 'system',
+          ticketId: params.ticketId,
+          issueType: `runtime_fault:${params.errorType}`,
+          userDescription: `[SOFIA RUNTIME FAULT] ${params.errorMessage}`,
+          sofiaAnalysis: `Error occurred in ${environment}. Code: ${params.errorCode || 'N/A'}. This is an automated fault report - Sofia's LLM subsystem encountered an error.`,
+          diagnosticSnapshot: {
+            errorType: params.errorType,
+            errorMessage: params.errorMessage,
+            errorCode: params.errorCode,
+            stackTrace: params.errorStack,
+            timestamp: new Date().toISOString(),
+            nodeEnv: process.env.NODE_ENV,
+            hasGeminiKey: !!(process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY),
+            hasGeminiBaseUrl: !!process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
+          },
+          clientTelemetry: params.context || null,
+          environment,
+          status: 'pending',
+          syncStatus: 'pending_sync', // Mark for sync to dev environment
+        })
+        .returning();
+      
+      console.log(`[Sofia] Runtime fault reported: ${params.errorType} (${report.id}) in ${environment}`);
+      
+      // Emit EXPRESS Lane alert for immediate founder visibility
+      founderCollabService.emitSofiaIssueAlert({
+        reportId: report.id,
+        issueType: `runtime_fault:${params.errorType}`,
+        userDescription: `[RUNTIME] ${params.errorMessage}`,
+        environment,
+        hasVoiceDiagnostics: false,
+        hasClientTelemetry: !!params.context,
+      }).catch(e => console.warn('[Sofia] Failed to emit fault alert:', e));
+      
+    } catch (e) {
+      // Last resort - just log, don't throw
+      console.error('[Sofia] Failed to report runtime fault:', e);
+    }
+  }
+  
+  /**
+   * Get production telemetry for dev environment debugging
+   * Returns recent runtime faults and issue reports from production
+   */
+  async getProductionTelemetry(options?: {
+    limit?: number;
+    since?: Date;
+    includeResolved?: boolean;
+  }): Promise<{
+    faults: Array<{
+      id: string;
+      issueType: string;
+      userDescription: string;
+      sofiaAnalysis: string | null;
+      diagnosticSnapshot: any;
+      environment: string | null;
+      status: string | null;
+      createdAt: Date;
+    }>;
+    summary: {
+      totalPending: number;
+      runtimeFaults: number;
+      lastFaultTime: Date | null;
+    };
+  }> {
+    const limit = options?.limit || 20;
+    const since = options?.since || new Date(Date.now() - 24 * 60 * 60 * 1000); // Last 24h default
+    
+    const statusFilter = options?.includeResolved 
+      ? sql`1=1`
+      : sql`${sofiaIssueReports.status} IN ('pending', 'actionable')`;
+    
+    const faults = await db.select({
+      id: sofiaIssueReports.id,
+      issueType: sofiaIssueReports.issueType,
+      userDescription: sofiaIssueReports.userDescription,
+      sofiaAnalysis: sofiaIssueReports.sofiaAnalysis,
+      diagnosticSnapshot: sofiaIssueReports.diagnosticSnapshot,
+      environment: sofiaIssueReports.environment,
+      status: sofiaIssueReports.status,
+      createdAt: sofiaIssueReports.createdAt,
+    })
+      .from(sofiaIssueReports)
+      .where(and(
+        sql`${sofiaIssueReports.createdAt} > ${since}`,
+        statusFilter,
+      ))
+      .orderBy(desc(sofiaIssueReports.createdAt))
+      .limit(limit);
+    
+    // Get summary counts
+    const [counts] = await db.select({
+      totalPending: sql<number>`COUNT(*) FILTER (WHERE ${sofiaIssueReports.status} = 'pending')`,
+      runtimeFaults: sql<number>`COUNT(*) FILTER (WHERE ${sofiaIssueReports.issueType} LIKE 'runtime_fault:%')`,
+    })
+      .from(sofiaIssueReports)
+      .where(sql`${sofiaIssueReports.createdAt} > ${since}`);
+    
+    const lastFault = faults.find(f => f.issueType.startsWith('runtime_fault:'));
+    
+    return {
+      faults,
+      summary: {
+        totalPending: Number(counts?.totalPending || 0),
+        runtimeFaults: Number(counts?.runtimeFaults || 0),
+        lastFaultTime: lastFault?.createdAt || null,
+      },
+    };
+  }
+  
+  /**
    * Generate Sofia's analysis for an issue report using Gemini
    */
   private async generateIssueAnalysis(params: {
@@ -603,13 +733,33 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
       // Detailed error logging for debugging production issues
       const errorMessage = error?.message || 'Unknown error';
       const errorCode = error?.code || error?.status || 'N/A';
+      const errorStack = error?.stack?.split('\n').slice(0, 5).join('\n');
+      
       console.error('[Sofia] Gemini API error:', {
         message: errorMessage,
         code: errorCode,
         ticketId: params.ticketId,
         mode: params.mode,
-        stack: error?.stack?.split('\n').slice(0, 3).join('\n'),
+        stack: errorStack,
       });
+      
+      // Report runtime fault for cross-environment visibility
+      // This allows Sofia in dev to see production errors
+      const ticket = await this.getTicket(params.ticketId);
+      this.reportRuntimeFault({
+        errorType: 'gemini_api_error',
+        errorMessage,
+        errorCode: String(errorCode),
+        errorStack,
+        ticketId: params.ticketId,
+        userId: ticket?.userId,
+        context: {
+          mode: params.mode,
+          hasVoiceDiagnostics: !!params.voiceDiagnostics,
+          hasClientTelemetry: !!params.clientTelemetry,
+          messageLength: params.userMessage.length,
+        },
+      }).catch(e => console.warn('[Sofia] Failed to report fault:', e));
       
       // Provide contextual fallback based on mode
       if (params.mode === 'dev') {
