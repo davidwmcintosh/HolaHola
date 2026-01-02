@@ -15090,11 +15090,11 @@ Current conversation context:
       const { TTSService } = await import('./services/tts-service');
       const tts = new TTSService();
       
-      // Use Google TTS for Support Agent (cheaper than Cartesia)
+      // Use Google TTS for Sofia (cheaper than Cartesia, which is for Daniela)
       const result = await tts.synthesize({
         text,
         language,
-        provider: 'google',
+        forceProvider: 'google',
       });
       
       res.set('Content-Type', result.contentType);
