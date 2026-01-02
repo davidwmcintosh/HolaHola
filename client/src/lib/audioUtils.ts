@@ -350,6 +350,12 @@ export class StreamingAudioPlayer {
   private playbackHeld = false;
   private heldChunks: StreamingAudioChunk[] = [];
   
+  // DEDUPLICATION: Track processed audio chunks to prevent double playback
+  // Key format: "s${sentenceIndex}_c${chunkIndex}"
+  // PRODUCTION FIX: In production, the Replit proxy or network conditions can cause
+  // the same audio chunk to be delivered twice (via sentence_ready + audio_chunk, or retransmission)
+  private processedChunks: Set<string> = new Set();
+  
   constructor() {
     // Initialization - no logging needed
   }
@@ -493,6 +499,7 @@ export class StreamingAudioPlayer {
     this.progressiveFirstChunkStarted = false;
     this.sentenceSchedule.clear();
     this.wordSchedule.clear();
+    this.processedChunks.clear();  // DEDUPLICATION: Reset for new turn
     this.pendingWordTimings.clear();  // CRITICAL: Also clear pending word timings
     this.activeSentenceInLoop = -1;
     this.progressiveSentenceIndex = -1;
@@ -752,6 +759,16 @@ export class StreamingAudioPlayer {
   ): Promise<void> {
     console.log(`[AUDIO PLAYER] enqueueProgressivePcmChunk: sentence=${sentenceIndex}, chunk=${chunkIndex}, size=${audio.byteLength}, held=${this.playbackHeld}`);
     
+    // DEDUPLICATION: Skip chunks we've already processed
+    // PRODUCTION FIX: Prevents double audio when same chunk arrives via multiple paths
+    // (e.g., sentence_ready + audio_chunk, or network retransmission)
+    const chunkKey = `s${sentenceIndex}_c${chunkIndex}`;
+    if (this.processedChunks.has(chunkKey)) {
+      console.log(`[AUDIO PLAYER] DEDUP: Skipping duplicate chunk ${chunkKey}`);
+      return;
+    }
+    this.processedChunks.add(chunkKey);
+    
     // HOLD PLAYBACK: If held, buffer the chunk for later as a StreamingAudioChunk
     if (this.playbackHeld) {
       console.log(`[AUDIO PLAYER] Progressive chunk held for later playback`);
@@ -821,6 +838,7 @@ export class StreamingAudioPlayer {
         this.progressiveFirstChunkStarted = false;
         this.sentenceSchedule.clear();
         this.wordSchedule.clear();
+        this.processedChunks.clear();  // DEDUPLICATION: Reset for new turn
         this.activeSentenceInLoop = -1;
         // Reset scheduled time with larger prebuffer for smoother playback
         this.progressiveScheduledTime = ctx.currentTime + 0.2;
@@ -964,6 +982,7 @@ export class StreamingAudioPlayer {
     // Reset sentence and word schedules
     this.sentenceSchedule.clear();
     this.wordSchedule.clear();
+    this.processedChunks.clear();  // DEDUPLICATION: Reset for new turn
     this.pendingWordTimings.clear();
     this.activeSentenceInLoop = -1;
     this.wordMatchCount = 0;
