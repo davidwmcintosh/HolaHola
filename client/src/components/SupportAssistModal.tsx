@@ -116,6 +116,7 @@ export function SupportAssistModal({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const playbackSessionRef = useRef<number>(0); // Session ID for cancellation - each new playback gets a unique ID
   const { toast } = useToast();
   
   // IMPORTANT: Drill mode is currently disabled on the backend (returns 501)
@@ -154,6 +155,8 @@ export function SupportAssistModal({
 
   useEffect(() => {
     return () => {
+      // Increment session ID to invalidate any ongoing playback loops
+      playbackSessionRef.current++;
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
@@ -167,40 +170,99 @@ export function SupportAssistModal({
   const synthesizeAndPlay = useCallback(async (text: string) => {
     if (!audioEnabled || isDrillModeDisabled) return;
     
+    // Capture current session ID at start - any increment means this playback is stale
+    const mySessionId = ++playbackSessionRef.current;
+    
+    // Stop any currently playing audio from previous playback
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    
     try {
       setIsPlaying(true);
-      const response = await fetch('/api/support/synthesize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, language: 'english' }),
-        credentials: 'include',
-      });
       
-      if (!response.ok) {
-        console.warn('[SupportAssist] TTS synthesis failed, continuing without audio');
+      // Split text into sentences for progressive playback
+      // This allows the first sentence to play while the rest are being synthesized
+      const sentences = text
+        .split(/(?<=[.!?])\s+/)
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+      
+      if (sentences.length === 0) {
+        setIsPlaying(false);
         return;
       }
       
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-      
-      if (audioRef.current) {
-        audioRef.current.pause();
+      // Play sentences sequentially - first one starts immediately
+      for (let i = 0; i < sentences.length; i++) {
+        // Check if this playback session is still current
+        if (playbackSessionRef.current !== mySessionId) {
+          console.log('[SupportAssist] Playback session superseded, stopping');
+          return; // Don't set isPlaying=false, newer session owns that
+        }
+        
+        const sentence = sentences[i];
+        
+        // Skip very short segments (e.g., just punctuation)
+        if (sentence.length < 3) continue;
+        
+        try {
+          const response = await fetch('/api/support/synthesize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: sentence, language: 'english' }),
+            credentials: 'include',
+          });
+          
+          // Check session after fetch
+          if (playbackSessionRef.current !== mySessionId) return;
+          
+          if (!response.ok) {
+            console.warn(`[SupportAssist] TTS synthesis failed for sentence ${i}, skipping`);
+            continue;
+          }
+          
+          const audioBlob = await response.blob();
+          const audioUrl = URL.createObjectURL(audioBlob);
+          
+          // Wait for this sentence to finish playing before moving to the next
+          await new Promise<void>((resolve) => {
+            // Final session check before playing
+            if (playbackSessionRef.current !== mySessionId) {
+              URL.revokeObjectURL(audioUrl);
+              resolve();
+              return;
+            }
+            
+            const audio = new Audio(audioUrl);
+            audioRef.current = audio;
+            
+            const cleanup = () => {
+              URL.revokeObjectURL(audioUrl);
+              resolve();
+            };
+            
+            audio.onended = cleanup;
+            audio.onerror = cleanup;
+            audio.onpause = cleanup; // Also resolve on pause (for cancellation)
+            
+            audio.play().catch(cleanup);
+          });
+        } catch (sentenceError) {
+          console.warn(`[SupportAssist] Error with sentence ${i}, continuing:`, sentenceError);
+        }
       }
       
-      audioRef.current = new Audio(audioUrl);
-      audioRef.current.onended = () => {
+      // Only update isPlaying if we're still the current session
+      if (playbackSessionRef.current === mySessionId) {
         setIsPlaying(false);
-        URL.revokeObjectURL(audioUrl);
-      };
-      audioRef.current.onerror = () => {
-        setIsPlaying(false);
-        URL.revokeObjectURL(audioUrl);
-      };
-      await audioRef.current.play();
+      }
     } catch (error) {
       console.error('[SupportAssist] TTS error:', error);
-      setIsPlaying(false);
+      if (playbackSessionRef.current === mySessionId) {
+        setIsPlaying(false);
+      }
     }
   }, [audioEnabled, isDrillModeDisabled]);
 
@@ -494,8 +556,11 @@ export function SupportAssistModal({
   };
 
   const toggleAudio = () => {
+    const wasEnabled = audioEnabled;
     setAudioEnabled(!audioEnabled);
-    if (audioRef.current && audioEnabled) {
+    if (audioRef.current && wasEnabled) {
+      // Increment session ID to invalidate ongoing playback loop
+      playbackSessionRef.current++;
       audioRef.current.pause();
       setIsPlaying(false);
     }
