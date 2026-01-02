@@ -3023,10 +3023,10 @@ function VoiceAnalyticsTab() {
                       <tr key={stage} className="border-b">
                         <td className="p-2 font-medium">{stage.toUpperCase()}</td>
                         <td className="text-right p-2 text-muted-foreground">{metrics.count}</td>
-                        <td className={`text-right p-2 font-mono ${getLatencyColor(metrics.avg)}`}>{metrics.avg || '-'}</td>
-                        <td className={`text-right p-2 font-mono ${getLatencyColor(metrics.p50)}`}>{metrics.p50 || '-'}</td>
-                        <td className={`text-right p-2 font-mono ${getLatencyColor(metrics.p95)}`}>{metrics.p95 || '-'}</td>
-                        <td className={`text-right p-2 font-mono ${getLatencyColor(metrics.p99)}`}>{metrics.p99 || '-'}</td>
+                        <td className={`text-right p-2 font-mono ${getLatencyColor(metrics.avg)}`}>{metrics.count > 0 ? metrics.avg : '-'}</td>
+                        <td className={`text-right p-2 font-mono ${getLatencyColor(metrics.p50)}`}>{metrics.count > 0 ? metrics.p50 : '-'}</td>
+                        <td className={`text-right p-2 font-mono ${getLatencyColor(metrics.p95)}`}>{metrics.count > 0 ? metrics.p95 : '-'}</td>
+                        <td className={`text-right p-2 font-mono ${getLatencyColor(metrics.p99)}`}>{metrics.count > 0 ? metrics.p99 : '-'}</td>
                       </tr>
                     ))}
                   </tbody>
