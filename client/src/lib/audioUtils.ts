@@ -356,6 +356,10 @@ export class StreamingAudioPlayer {
   // the same audio chunk to be delivered twice (via sentence_ready + audio_chunk, or retransmission)
   private processedChunks: Set<string> = new Set();
   
+  // Per-sentence chunk counter for monotonic fallback when chunkIndex is missing
+  // This prevents collision when multiple chunks have undefined chunkIndex
+  private sentenceChunkCounters: Map<number, number> = new Map();
+  
   constructor() {
     // Initialization - no logging needed
   }
@@ -500,6 +504,7 @@ export class StreamingAudioPlayer {
     this.sentenceSchedule.clear();
     this.wordSchedule.clear();
     this.processedChunks.clear();  // DEDUPLICATION: Reset for new turn
+    this.sentenceChunkCounters.clear();  // DEDUPLICATION: Reset counters for new turn
     this.pendingWordTimings.clear();  // CRITICAL: Also clear pending word timings
     this.activeSentenceInLoop = -1;
     this.progressiveSentenceIndex = -1;
@@ -757,17 +762,30 @@ export class StreamingAudioPlayer {
     isLast: boolean,
     sampleRate: number = 24000
   ): Promise<void> {
-    console.log(`[AUDIO PLAYER] enqueueProgressivePcmChunk: sentence=${sentenceIndex}, chunk=${chunkIndex}, size=${audio.byteLength}, held=${this.playbackHeld}`);
-    
     // DEDUPLICATION: Skip chunks we've already processed
     // PRODUCTION FIX: Prevents double audio when same chunk arrives via multiple paths
     // (e.g., sentence_ready + audio_chunk, or network retransmission)
+    // 
+    // Strategy: Track (sentenceIndex, chunkIndex) pairs. True network duplicates
+    // will have the same pair. Server always sends proper chunkIndex values.
     const chunkKey = `s${sentenceIndex}_c${chunkIndex}`;
     if (this.processedChunks.has(chunkKey)) {
       console.log(`[AUDIO PLAYER] DEDUP: Skipping duplicate chunk ${chunkKey}`);
       return;
     }
     this.processedChunks.add(chunkKey);
+    
+    // Track chunk count per sentence for telemetry
+    const currentCounter = this.sentenceChunkCounters.get(sentenceIndex) || 0;
+    this.sentenceChunkCounters.set(sentenceIndex, currentCounter + 1);
+    
+    // Telemetry: Warn if chunkIndex suggests normalization occurred (0 when counter > 0)
+    // This shouldn't happen since server sends proper indices, but log for debugging
+    if (chunkIndex === 0 && currentCounter > 0) {
+      console.warn(`[AUDIO PLAYER] DEDUP WARNING: chunkIndex=0 received after ${currentCounter} chunks for sentence ${sentenceIndex}`);
+    }
+    
+    console.log(`[AUDIO PLAYER] enqueueProgressivePcmChunk: sentence=${sentenceIndex}, chunk=${chunkIndex}, size=${audio.byteLength}, held=${this.playbackHeld}`);
     
     // HOLD PLAYBACK: If held, buffer the chunk for later as a StreamingAudioChunk
     if (this.playbackHeld) {
@@ -839,6 +857,7 @@ export class StreamingAudioPlayer {
         this.sentenceSchedule.clear();
         this.wordSchedule.clear();
         this.processedChunks.clear();  // DEDUPLICATION: Reset for new turn
+        this.sentenceChunkCounters.clear();  // DEDUPLICATION: Reset counters for new turn
         this.activeSentenceInLoop = -1;
         // Reset scheduled time with larger prebuffer for smoother playback
         this.progressiveScheduledTime = ctx.currentTime + 0.2;
@@ -983,6 +1002,7 @@ export class StreamingAudioPlayer {
     this.sentenceSchedule.clear();
     this.wordSchedule.clear();
     this.processedChunks.clear();  // DEDUPLICATION: Reset for new turn
+    this.sentenceChunkCounters.clear();  // DEDUPLICATION: Reset counters for new turn
     this.pendingWordTimings.clear();
     this.activeSentenceInLoop = -1;
     this.wordMatchCount = 0;

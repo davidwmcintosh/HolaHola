@@ -633,9 +633,13 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       
       // Enqueue for progressive playback
       if (firstAudioChunk.audioFormat === 'pcm_f32le') {
+        // Normalize chunkIndex to ensure deduplication works correctly
+        const normalizedChunkIndex = typeof firstAudioChunk.chunkIndex === 'number' 
+          ? firstAudioChunk.chunkIndex 
+          : parseInt(firstAudioChunk.chunkIndex as any, 10) || 0;
         playerRef.current.enqueueProgressivePcmChunk(
           sentenceIndex,
-          firstAudioChunk.chunkIndex,
+          normalizedChunkIndex,
           bytes.buffer,
           firstAudioChunk.durationMs,
           false,  // Not last chunk
