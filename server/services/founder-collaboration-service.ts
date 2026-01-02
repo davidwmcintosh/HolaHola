@@ -1239,6 +1239,8 @@ ${formattedMessages.join('\n')}
   
   /**
    * Emit a real-time alert when Sofia creates an issue report from a user
+   * NOTE: Express Lane integration disabled - requires valid user ID in database.
+   * Sofia issue monitoring now logs to console only; issues are viewable in Command Center.
    */
   async emitSofiaIssueAlert(issue: {
     reportId: string;
@@ -1248,49 +1250,14 @@ ${formattedMessages.join('\n')}
     hasVoiceDiagnostics: boolean;
     hasClientTelemetry: boolean;
   }): Promise<boolean> {
-    try {
-      const sessionTitle = 'Sofia Issue Monitoring';
-      const systemFounderId = 'sofia-issue-monitor';
-      
-      const session = await this.findOrCreateSessionByTitle(systemFounderId, sessionTitle);
-      
-      const diagnosticsInfo = [
-        issue.hasVoiceDiagnostics ? '[x] Server diagnostics' : null,
-        issue.hasClientTelemetry ? '[x] Client telemetry' : null,
-      ].filter(Boolean).join(', ') || 'No diagnostics captured';
-      
-      const content = `[NEW ISSUE REPORT] [${issue.environment.toUpperCase()}]
-
-Type: ${issue.issueType.replace('_', ' ')}
-User said: "${issue.userDescription.substring(0, 200)}${issue.userDescription.length > 200 ? '...' : ''}"
-Diagnostics: ${diagnosticsInfo}
-
--> Review in Command Center > Sofia Issues tab`;
-
-      await this.addMessage(session.id, {
-        role: 'system',
-        content,
-        messageType: 'text',
-        metadata: {
-          source: 'sofia_issue_monitor',
-          reportId: issue.reportId,
-          issueType: issue.issueType,
-          environment: issue.environment,
-          alertType: 'new_issue',
-          timestamp: new Date().toISOString(),
-        }
-      });
-      
-      console.log(`[FounderCollab] Sofia issue alert emitted: ${issue.issueType} (${issue.reportId})`);
-      return true;
-    } catch (error) {
-      console.error('[FounderCollab] Error emitting Sofia issue alert:', error);
-      return false;
-    }
+    // Log to console for visibility - Express Lane integration requires a real user ID
+    console.log(`[Sofia Issue Alert] [${issue.environment.toUpperCase()}] ${issue.issueType}: "${issue.userDescription.substring(0, 100)}..." (${issue.reportId})`);
+    return true;
   }
   
   /**
    * Emit a pattern alert when Sofia detects clusters of similar issues
+   * NOTE: Express Lane integration disabled - requires valid user ID in database.
    */
   async emitSofiaPatternAlert(pattern: {
     patternType: string;
@@ -1301,50 +1268,15 @@ Diagnostics: ${diagnosticsInfo}
     recentReportIds: string[];
     recommendation?: string;
   }): Promise<boolean> {
-    try {
-      const sessionTitle = 'Sofia Issue Monitoring';
-      const systemFounderId = 'sofia-issue-monitor';
-      
-      const session = await this.findOrCreateSessionByTitle(systemFounderId, sessionTitle);
-      
-      const severityLevel = pattern.count >= 5 ? 'HIGH' : pattern.count >= 3 ? 'MEDIUM' : 'LOW';
-      
-      const content = `[PATTERN DETECTED] [${pattern.environment.toUpperCase()}]
-
-Pattern: ${pattern.count}x ${pattern.issueType.replace('_', ' ')} in last ${pattern.timeWindowMinutes} minutes
-Severity: ${severityLevel} - ${pattern.count >= 5 ? 'Immediate attention needed' : pattern.count >= 3 ? 'Monitor closely' : 'Tracking'}
-${pattern.recommendation ? `Recommendation: ${pattern.recommendation}` : ''}
-
-This suggests a systematic issue that may require investigation.
--> Review affected reports in Command Center > Sofia Issues tab`;
-
-      await this.addMessage(session.id, {
-        role: 'system',
-        content,
-        messageType: 'text',
-        metadata: {
-          source: 'sofia_issue_monitor',
-          patternType: pattern.patternType,
-          issueType: pattern.issueType,
-          count: pattern.count,
-          timeWindowMinutes: pattern.timeWindowMinutes,
-          environment: pattern.environment,
-          recentReportIds: pattern.recentReportIds,
-          alertType: 'pattern_detected',
-          timestamp: new Date().toISOString(),
-        }
-      });
-      
-      console.log(`[FounderCollab] Sofia pattern alert: ${pattern.count}x ${pattern.issueType} in ${pattern.timeWindowMinutes}min`);
-      return true;
-    } catch (error) {
-      console.error('[FounderCollab] Error emitting Sofia pattern alert:', error);
-      return false;
-    }
+    // Log to console for visibility - Express Lane integration requires a real user ID
+    const severityLevel = pattern.count >= 5 ? 'HIGH' : pattern.count >= 3 ? 'MEDIUM' : 'LOW';
+    console.log(`[Sofia Pattern Alert] [${pattern.environment.toUpperCase()}] [${severityLevel}] ${pattern.count}x ${pattern.issueType} in ${pattern.timeWindowMinutes}min`);
+    return true;
   }
   
   /**
    * Emit periodic summary of issue report status
+   * NOTE: Express Lane integration disabled - requires valid user ID in database.
    */
   async emitSofiaIssueSummary(summary: {
     pendingCount: number;
@@ -1359,47 +1291,10 @@ This suggests a systematic issue that may require investigation.
       return false;
     }
     
-    try {
-      const sessionTitle = 'Sofia Issue Monitoring';
-      const systemFounderId = 'sofia-issue-monitor';
-      
-      const session = await this.findOrCreateSessionByTitle(systemFounderId, sessionTitle);
-      
-      const statusLevel = summary.pendingCount > 5 ? 'ALERT' : summary.pendingCount > 0 ? 'ATTENTION' : 'OK';
-      
-      const topTypes = summary.topIssueTypes.slice(0, 3)
-        .map(t => `${t.type.replace('_', ' ')}: ${t.count}`)
-        .join(', ') || 'None';
-      
-      const content = `[ISSUE SUMMARY] [${summary.environment.toUpperCase()}] [${statusLevel}]
-
-Pending: ${summary.pendingCount} reports
-New since last check: ${summary.newSinceLastCheck}
-Resolved today: ${summary.resolvedToday}
-Top issue types: ${topTypes}
-
-${summary.pendingCount > 0 ? '-> Review in Command Center > Sofia Issues tab' : 'All clear'}`;
-
-      await this.addMessage(session.id, {
-        role: 'system',
-        content,
-        messageType: 'text',
-        metadata: {
-          source: 'sofia_issue_monitor',
-          alertType: 'periodic_summary',
-          pendingCount: summary.pendingCount,
-          newSinceLastCheck: summary.newSinceLastCheck,
-          environment: summary.environment,
-          timestamp: new Date().toISOString(),
-        }
-      });
-      
-      console.log(`[FounderCollab] Sofia issue summary: ${summary.pendingCount} pending, ${summary.newSinceLastCheck} new`);
-      return true;
-    } catch (error) {
-      console.error('[FounderCollab] Error emitting Sofia issue summary:', error);
-      return false;
-    }
+    // Log to console for visibility - Express Lane integration requires a real user ID
+    const statusLevel = summary.pendingCount > 5 ? 'ALERT' : summary.pendingCount > 0 ? 'ATTENTION' : 'OK';
+    console.log(`[Sofia Summary] [${summary.environment.toUpperCase()}] [${statusLevel}] ${summary.pendingCount} pending, ${summary.newSinceLastCheck} new`);
+    return true;
   }
 }
 

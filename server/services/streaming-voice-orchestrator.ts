@@ -4303,6 +4303,13 @@ Remember: David may reference things discussed in these recent text chats.
         estimatedTotalDuration: estimatedTotalDuration,
       } as StreamingSentenceReadyMessage);
       
+      // CRITICAL FIX: Track the first chunk in deduplication set to prevent double audio
+      // When sentence_ready is sent with firstAudioChunk, we must track it so that if
+      // the same chunk is later sent as audio_chunk (race condition), it gets blocked
+      const firstChunkDedupeKey = `audio-${effectiveTurnId}-${index}-${firstChunk.chunkIndex}`;
+      session.sentAudioChunks.add(firstChunkDedupeKey);
+      console.log(`[Progressive DEDUP] Tracked sentence_ready firstChunk: ${firstChunkDedupeKey}`);
+      
       // Send any additional buffered audio chunks (beyond the first one)
       for (let i = 1; i < bufferedAudioChunks.length; i++) {
         const chunk = bufferedAudioChunks[i];
