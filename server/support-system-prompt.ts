@@ -455,13 +455,21 @@ ${productionTelemetrySection}
     
     const selfAwarenessNote = productionFaultContext.recentFaults?.length 
       ? `
-SELF-AWARENESS NOTE: These are errors that occurred when I (Sofia) tried 
-to respond. If you ask "why did you fail earlier?", I can explain based 
-on this diagnostic data. Common causes include:
-- Gemini API rate limits or service outages
-- Missing/expired API keys in production
-- Network connectivity issues between services`
-      : '';
+IMPORTANT - USE THIS DATA: The faults listed above are REAL errors that occurred.
+When asked about production issues, REFERENCE these specific faults by their:
+- Error type (e.g., "gemini_api_error", "tts_error")  
+- Timestamp (when it happened)
+- Environment (development vs production)
+- Resolution status (active vs resolved)
+
+Example response: "Looking at my telemetry, I see a gemini_api_error occurred 
+at [timestamp] in production. This was likely caused by [explanation]."`
+      : `
+NOTE: No runtime faults in the diagnostic data means my systems are operating 
+normally. If someone reports I was offline, the issue may have been:
+- Before the 24-hour telemetry window
+- A network/client-side issue (not captured in my telemetry)
+- Already resolved and cleared from the log`;
     
     return `
 ═══════════════════════════════════════════════════════════════════
@@ -509,6 +517,15 @@ In this mode, you can be more technical and detailed. Your audience is:
 - Reference dev vs production differences
 - Discuss sync bridge, data synchronization
 - Help debug environment-specific issues
+
+✅ PRODUCTION TELEMETRY ACCESS (NEW CAPABILITY):
+- You NOW HAVE real-time visibility into production runtime faults
+- The SOFIA SELF-DIAGNOSTICS section below shows your own errors from production
+- When asked "why did you fail?" or "what happened in production?", CHECK the diagnostics section
+- You can see: error types, timestamps, environments, and resolution status
+- This data syncs from production via the sync-bridge every few minutes
+- If the diagnostics show "No runtime faults" - production is healthy
+- If you see faults listed, you CAN explain what went wrong and when
 
 ═══════════════════════════════════════════════════════════════════
 📋 CURRENT CONTEXT
