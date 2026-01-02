@@ -779,7 +779,7 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
         contents: geminiContents,
         config: {
           systemInstruction: systemPrompt,
-          maxOutputTokens: 300,
+          maxOutputTokens: 1024,
           temperature: 0.6,
         },
       });
