@@ -26,7 +26,7 @@ import {
   type SupportKnowledgeBase,
 } from "@shared/schema";
 import { eq, desc, and, or, like, sql } from "drizzle-orm";
-import { buildSupportPersonaPrompt, shouldHandoffToSupport, type SupportVoiceDiagnostics } from "../support-system-prompt";
+import { buildSupportPersonaPrompt, shouldHandoffToSupport, type SupportVoiceDiagnostics, type ProductionFaultContext } from "../support-system-prompt";
 import { hiveCollaborationService, type BeaconType } from "./hive-collaboration-service";
 import { founderCollabService } from "./founder-collaboration-service";
 
@@ -381,6 +381,47 @@ class SupportPersonaService {
   }
   
   /**
+   * Get recent runtime faults for Sofia's self-diagnosis capability
+   * Used to inject fault context into Sofia's prompt so she can explain her own failures
+   */
+  async getRecentRuntimeFaults(limit: number = 5): Promise<Array<{
+    id: string;
+    issueType: string;
+    userDescription: string;
+    environment: string | null;
+    status: string | null;
+    createdAt: Date;
+  }>> {
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    
+    // Get runtime faults and voice issues from last 24 hours
+    // - runtime_fault:* prefix for programmatic fault reports from Sofia
+    // - voice_fault:* prefix for voice-related issues
+    // - Direct voice issue types: no_audio, connection, double_audio, latency
+    const faults = await db.select({
+      id: sofiaIssueReports.id,
+      issueType: sofiaIssueReports.issueType,
+      userDescription: sofiaIssueReports.userDescription,
+      environment: sofiaIssueReports.environment,
+      status: sofiaIssueReports.status,
+      createdAt: sofiaIssueReports.createdAt,
+    })
+      .from(sofiaIssueReports)
+      .where(and(
+        sql`${sofiaIssueReports.createdAt} > ${oneDayAgo}`,
+        sql`(
+          ${sofiaIssueReports.issueType} LIKE 'runtime_fault:%' 
+          OR ${sofiaIssueReports.issueType} LIKE 'voice_fault:%'
+          OR ${sofiaIssueReports.issueType} IN ('no_audio', 'connection', 'double_audio', 'latency')
+        )`,
+      ))
+      .orderBy(desc(sofiaIssueReports.createdAt))
+      .limit(limit);
+    
+    return faults;
+  }
+  
+  /**
    * Generate Sofia's analysis for an issue report using Gemini
    */
   private async generateIssueAnalysis(params: {
@@ -662,6 +703,36 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
       .orderBy(desc(supportTickets.createdAt))
       .limit(5);
 
+    // In dev mode, load recent runtime faults for self-diagnosis
+    let productionFaultContext: ProductionFaultContext | undefined;
+    if (params.mode === 'dev') {
+      try {
+        const recentFaults = await this.getRecentRuntimeFaults();
+        const activeCount = recentFaults.filter(f => f.status !== 'resolved').length;
+        const prodCount = recentFaults.filter(f => f.environment === 'production').length;
+        
+        productionFaultContext = {
+          recentFaults: recentFaults.map(f => ({
+            errorType: f.issueType?.replace('runtime_fault:', '').replace('voice_fault:', '') || 'unknown',
+            errorMessage: f.userDescription || 'No description',
+            timestamp: f.createdAt?.toISOString() || 'unknown',
+            environment: f.environment || 'unknown',
+            resolved: f.status === 'resolved',
+          })),
+          faultSummary: recentFaults.length > 0
+            ? `${recentFaults.length} fault(s) in last 24h: ${activeCount} active, ${prodCount} from production`
+            : 'No runtime faults recorded in last 24 hours',
+          crossEnvAvailable: true,
+        };
+      } catch (err) {
+        console.warn('[Sofia] Failed to load production faults for context:', err);
+        productionFaultContext = { 
+          crossEnvAvailable: false,
+          faultSummary: 'Telemetry unavailable - sync may be pending',
+        };
+      }
+    }
+
     const systemPrompt = buildSupportPersonaPrompt({
       userName: params.userName,
       deviceInfo: params.deviceInfo,
@@ -672,6 +743,7 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
       })),
       mode: params.mode,
       voiceDiagnostics: params.voiceDiagnostics,
+      productionFaultContext,
     }) + knowledgeContext;
 
     // Build Gemini conversation history

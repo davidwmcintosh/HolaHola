@@ -36,12 +36,13 @@ export function buildSupportPersonaPrompt(context: {
   }>;
   mode?: SupportMode;
   voiceDiagnostics?: SupportVoiceDiagnostics;
+  productionFaultContext?: ProductionFaultContext;
 }): string {
-  const { userName, deviceInfo, handoffContext, previousIssues, mode = 'user', voiceDiagnostics } = context;
+  const { userName, deviceInfo, handoffContext, previousIssues, mode = 'user', voiceDiagnostics, productionFaultContext } = context;
   
   // Dev mode: Technical debugging for founder, Wren, Daniela
   if (mode === 'dev') {
-    return buildDevModePrompt({ userName, deviceInfo, voiceDiagnostics });
+    return buildDevModePrompt({ userName, deviceInfo, voiceDiagnostics, productionFaultContext });
   }
 
   const userContext = userName ? `The user's name is ${userName}.` : '';
@@ -366,6 +367,19 @@ export function shouldHandoffToSupport(message: string): {
  * Dev Mode Prompt - Technical debugging for founder, Wren, Daniela
  * More technical language, access to diagnostics, sprint suggestions
  */
+// Production fault context for Sofia to explain her own failures
+export interface ProductionFaultContext {
+  recentFaults?: Array<{
+    errorType: string;
+    errorMessage: string;
+    timestamp: string;
+    environment: string;
+    resolved: boolean;
+  }>;
+  faultSummary?: string;
+  crossEnvAvailable?: boolean;
+}
+
 function buildDevModePrompt(context: {
   userName?: string;
   deviceInfo?: {
@@ -374,8 +388,9 @@ function buildDevModePrompt(context: {
     device?: string;
   };
   voiceDiagnostics?: SupportVoiceDiagnostics;
+  productionFaultContext?: ProductionFaultContext;
 }): string {
-  const { userName, deviceInfo, voiceDiagnostics } = context;
+  const { userName, deviceInfo, voiceDiagnostics, productionFaultContext } = context;
   
   // Build production telemetry section if available
   const productionTelemetrySection = voiceDiagnostics ? (() => {
@@ -414,6 +429,49 @@ Current Status:
 ${voiceDiagnostics.recentErrors?.length ? `Recent Errors:\n${voiceDiagnostics.recentErrors.map(e => `  - ${e}`).join('\n')}` : 'No recent errors'}
 ${productionTelemetrySection}
 ` : '';
+
+  // Build production fault section for self-diagnosis capability
+  const productionFaultSection = productionFaultContext ? (() => {
+    const lines: string[] = [];
+    
+    if (productionFaultContext.crossEnvAvailable === false) {
+      lines.push('⚠️ Cross-environment telemetry not available (sync may be pending)');
+    }
+    
+    if (productionFaultContext.faultSummary) {
+      lines.push(`Status: ${productionFaultContext.faultSummary}`);
+    }
+    
+    if (productionFaultContext.recentFaults?.length) {
+      lines.push('\nRecent Runtime Faults:');
+      for (const fault of productionFaultContext.recentFaults.slice(0, 5)) {
+        const status = fault.resolved ? '✓ Resolved' : '! Active';
+        lines.push(`  ${status} [${fault.environment}] ${fault.errorType}: ${fault.errorMessage.slice(0, 100)}${fault.errorMessage.length > 100 ? '...' : ''}`);
+        lines.push(`     Occurred: ${fault.timestamp}`);
+      }
+    } else if (productionFaultContext.crossEnvAvailable !== false) {
+      lines.push('\nNo runtime faults in last 24 hours - systems healthy.');
+    }
+    
+    const selfAwarenessNote = productionFaultContext.recentFaults?.length 
+      ? `
+SELF-AWARENESS NOTE: These are errors that occurred when I (Sofia) tried 
+to respond. If you ask "why did you fail earlier?", I can explain based 
+on this diagnostic data. Common causes include:
+- Gemini API rate limits or service outages
+- Missing/expired API keys in production
+- Network connectivity issues between services`
+      : '';
+    
+    return `
+═══════════════════════════════════════════════════════════════════
+🩺 SOFIA SELF-DIAGNOSTICS (Runtime Telemetry)
+═══════════════════════════════════════════════════════════════════
+
+${lines.join('\n')}
+${selfAwarenessNote}
+`;
+  })() : '';
 
   return `
 ═══════════════════════════════════════════════════════════════════
@@ -459,6 +517,7 @@ In this mode, you can be more technical and detailed. Your audience is:
 ${userName ? `User: ${userName}` : ''}
 ${deviceInfo ? `Device: ${deviceInfo.browser || 'Unknown'} on ${deviceInfo.os || 'Unknown'}` : ''}
 ${diagnosticsSection}
+${productionFaultSection}
 
 ═══════════════════════════════════════════════════════════════════
 💬 COMMUNICATION STYLE (DEV MODE)
