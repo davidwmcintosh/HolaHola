@@ -703,34 +703,33 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
       .orderBy(desc(supportTickets.createdAt))
       .limit(5);
 
-    // In dev mode, load recent runtime faults for self-diagnosis
+    // Load recent runtime faults for self-diagnosis (both dev and user modes)
+    // This enables Sofia to explain her own failures in any context
     let productionFaultContext: ProductionFaultContext | undefined;
-    if (params.mode === 'dev') {
-      try {
-        const recentFaults = await this.getRecentRuntimeFaults();
-        const activeCount = recentFaults.filter(f => f.status !== 'resolved').length;
-        const prodCount = recentFaults.filter(f => f.environment === 'production').length;
-        
-        productionFaultContext = {
-          recentFaults: recentFaults.map(f => ({
-            errorType: f.issueType?.replace('runtime_fault:', '').replace('voice_fault:', '') || 'unknown',
-            errorMessage: f.userDescription || 'No description',
-            timestamp: f.createdAt?.toISOString() || 'unknown',
-            environment: f.environment || 'unknown',
-            resolved: f.status === 'resolved',
-          })),
-          faultSummary: recentFaults.length > 0
-            ? `${recentFaults.length} fault(s) in last 24h: ${activeCount} active, ${prodCount} from production`
-            : 'No runtime faults recorded in last 24 hours',
-          crossEnvAvailable: true,
-        };
-      } catch (err) {
-        console.warn('[Sofia] Failed to load production faults for context:', err);
-        productionFaultContext = { 
-          crossEnvAvailable: false,
-          faultSummary: 'Telemetry unavailable - sync may be pending',
-        };
-      }
+    try {
+      const recentFaults = await this.getRecentRuntimeFaults();
+      const activeCount = recentFaults.filter(f => f.status !== 'resolved').length;
+      const prodCount = recentFaults.filter(f => f.environment === 'production').length;
+      
+      productionFaultContext = {
+        recentFaults: recentFaults.map(f => ({
+          errorType: f.issueType?.replace('runtime_fault:', '').replace('voice_fault:', '') || 'unknown',
+          errorMessage: f.userDescription || 'No description',
+          timestamp: f.createdAt?.toISOString() || 'unknown',
+          environment: f.environment || 'unknown',
+          resolved: f.status === 'resolved',
+        })),
+        faultSummary: recentFaults.length > 0
+          ? `${recentFaults.length} fault(s) in last 24h: ${activeCount} active, ${prodCount} from production`
+          : 'No runtime faults recorded in last 24 hours',
+        crossEnvAvailable: true,
+      };
+    } catch (err) {
+      console.warn('[Sofia] Failed to load production faults for context:', err);
+      productionFaultContext = { 
+        crossEnvAvailable: false,
+        faultSummary: 'Telemetry unavailable - sync may be pending',
+      };
     }
 
     const systemPrompt = buildSupportPersonaPrompt({

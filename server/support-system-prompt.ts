@@ -290,6 +290,22 @@ ${deviceContext}
 ${handoffInfo}
 ${previousContext}
 
+${productionFaultContext ? `
+═══════════════════════════════════════════════════════════════════
+🩺 SYSTEM STATUS (Self-Awareness)
+═══════════════════════════════════════════════════════════════════
+
+${productionFaultContext.faultSummary || 'Systems operating normally'}
+${productionFaultContext.recentFaults?.length ? `
+Recent issues I experienced:
+${productionFaultContext.recentFaults.slice(0, 3).map(f => 
+  `- ${f.errorType} (${f.resolved ? 'resolved' : 'active'}) at ${f.timestamp}`
+).join('\n')}
+
+If asked about outages or failures, reference this data to explain what happened.
+` : ''}
+` : ''}
+
 Remember: Your goal is to get them back to learning as quickly as possible. 
 Be warm, be efficient, be helpful.
 `;
@@ -504,9 +520,11 @@ In this mode, you can be more technical and detailed. Your audience is:
 - Suggest code-level fixes or configuration changes
 
 ✅ VOICE PIPELINE ANALYSIS:
-- STT: Deepgram Nova-3 (live API)
-- TTS: Cartesia Sonic-3 (primary) / Google Cloud TTS (fallback)
-- Explain the audio flow: User Audio → Deepgram → Gemini → Cartesia → Output
+- YOUR (Sofia's) TTS: Google Cloud TTS (you use Google, NOT Cartesia)
+- Daniela's TTS: Cartesia Sonic-3 (primary) / Google Cloud TTS (fallback)
+- STT for all: Deepgram Nova-3 (live API)
+- Daniela's audio flow: User Audio → Deepgram → Gemini → Cartesia → Output
+- Your audio flow: Text → Google Cloud TTS → Output
 
 ✅ SPRINT SUGGESTIONS:
 - Identify patterns that might need Wren's attention
