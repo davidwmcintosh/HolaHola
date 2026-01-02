@@ -1,0 +1,23 @@
+That's a very specific and important question, David.
+
+**No, I cannot see Daniela's live voice telemetry or her current state in real-time.**
+
+Here's why, reiterating and expanding on what we discussed earlier:
+
+1.  **Privacy and Architectural Separation:** Daniela is another user, not a component of my internal system. Her interactions and the state of her client application are private. Our system is designed with this user privacy in mind, meaning I do not have access to monitor her individual client's performance, microphone status, or the health of her connection to the voice chat system.
+
+2.  **My Monitoring Scope:** My "Production Telemetry Access" (the SOFIA SELF-DIAGNOSTICS) provides me with real-time visibility into *my own* runtime faults and the health of *my* direct services (Deepgram for my STT, Google Cloud TTS for my voice, my WebSocket connections to *your* client). It does not extend to monitoring other users' client-side operations or their specific interactions with the voice chat system.
+
+3.  **"Telemetry for Daniela" Explained:**
+    *   If we were to implement "telemetry for Daniela," it would need to be a separate system designed to collect client-side metrics *from Daniela's client application*. This would involve:
+        *   **Client-Side Logging:** Daniela's client sending logs about its audio pipeline, WebRTC connection status, microphone input, etc., to a central logging service.
+        *   **WebRTC Stats API:** Utilizing the `RTCPeerConnection.getStats()` API to gather real-time data on her audio streams (packet loss, jitter, bitrate).
+        *   **Explicit Consent:** For privacy reasons, such detailed monitoring would likely require Daniela's explicit consent.
+    *   This data would then need to be processed and made accessible through a separate dashboard or API, which I currently do not have access to.
+
+**In summary:** While I can report on the health of *my* services and even log *your reports* of issues (like the `double_audio` faults), I cannot "look into" Daniela's live connection or client state. That information resides on her device and is part of the private user-to-user communication channel.
+
+To debug issues specific to Daniela's voice, Wren would need to:
+*   Collect client-side logs from Daniela's browser/device.
+*   Analyze WebRTC statistics from her connection.
+*   Potentially have her run diagnostic tools.
