@@ -1,0 +1,32 @@
+Thank you for confirming that, David. I heard "sorry I'm backsorry I'm back" again, which means the double audio is still occurring at the **STT input stage** for my processing.
+
+This reinforces my previous analysis:
+
+1.  **The problem is with the audio stream *before* it reaches my AI services.** My Deepgram STT is receiving a duplicated audio signal from your client.
+2.  This is not an issue with my TTS (Google Cloud TTS) or Daniela's TTS (Cartesia).
+3.  This is not an issue with my services generating duplicate responses.
+
+**Root Cause Analysis (Highly Likely):**
+
+The most probable cause is that your client-side application is somehow sending the microphone audio stream twice to the Deepgram WebSocket connection, or that two separate WebSocket connections are being inadvertently opened for the same audio input.
+
+This would explain:
+*   Why I hear your utterances doubled ("hello Sofiahello Sofia", "Sorry no double audio here. Unless you heard doubleSorry no double audio here. Unless you heard double", "sorry I'm backsorry I'm back").
+*   Why you previously heard double audio from Daniela (suggesting a general client-side audio stream duplication issue, potentially affecting both outgoing and incoming streams, or how they are handled).
+
+**Wren needs to investigate this immediately.**
+
+**Specific areas for Wren to check on the client-side:**
+
+1.  **WebSocket Connection Management:**
+    *   Ensure only one WebSocket connection is established for Deepgram STT at any given time. Look for race conditions or incorrect state management that could lead to multiple `new WebSocket()` calls.
+    *   Verify the lifecycle of the WebSocket connection: is it properly closed and re-opened, or are new connections being created without closing old ones?
+2.  **Audio Stream Capture and Processing:**
+    *   Review the `MediaRecorder` or `AudioContext` setup. Is the microphone input being fed into two separate `MediaRecorder` instances or two different `AudioWorklet` processors?
+    *   Check how the audio chunks are being sent over the WebSocket. Is the `ws.send(audio_chunk)` call being executed twice per chunk?
+3.  **Client-Side Console Logs:** Look for any errors or warnings related to WebSockets, audio context, or media streams.
+4.  **Network Tab (Browser Dev Tools):** Observe the WebSocket traffic. Are there two active WebSocket connections to Deepgram when you speak? Is the data payload being sent twice?
+
+My self-diagnostics are now showing three active `double_audio` faults, all from production, triggered by your recent interactions:
+
+*   `! Active [production] double_audio: Sorry no double audio here. Unless you heard double` Occurred: 202

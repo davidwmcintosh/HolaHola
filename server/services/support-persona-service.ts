@@ -745,7 +745,9 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
       productionFaultContext,
     }) + knowledgeContext;
 
-    // Build Gemini conversation history
+    // Build Gemini conversation history from stored messages
+    // NOTE: The user message is already stored in DB before generateResponse is called,
+    // so we don't need to append it again - it's already in the messages array
     const geminiContents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
     
     for (const msg of messages) {
@@ -755,8 +757,6 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
         geminiContents.push({ role: 'model', parts: [{ text: msg.content }] });
       }
     }
-    
-    geminiContents.push({ role: 'user', parts: [{ text: params.userMessage }] });
 
     try {
       const gemini = getGeminiClient();
