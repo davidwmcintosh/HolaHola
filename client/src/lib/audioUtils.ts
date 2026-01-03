@@ -762,6 +762,19 @@ export class StreamingAudioPlayer {
     isLast: boolean,
     sampleRate: number = 24000
   ): Promise<void> {
+    // CRITICAL FIX (Jan 3, 2026): Detect new turn BEFORE deduplication check
+    // Previously, the order was: check dedup → add to set → detect new turn → clear set
+    // This caused double audio: first chunk was added then immediately cleared, allowing duplicate through
+    // New order: detect new turn → clear set if needed → check dedup → add to set
+    const isNewTurnStarting = sentenceIndex === 0 && chunkIndex === 0 && !this.progressiveFirstChunkStarted;
+    
+    // For new turn, clear the deduplication set BEFORE checking for duplicates
+    if (isNewTurnStarting) {
+      console.log(`[AUDIO PLAYER] New turn detected - clearing deduplication state`);
+      this.processedChunks.clear();
+      this.sentenceChunkCounters.clear();
+    }
+    
     // DEDUPLICATION: Skip chunks we've already processed
     // PRODUCTION FIX: Prevents double audio when same chunk arrives via multiple paths
     // (e.g., sentence_ready + audio_chunk, or network retransmission)
@@ -836,13 +849,6 @@ export class StreamingAudioPlayer {
     // In that case, sentenceIndex === progressiveSentenceIndex but it's a NEW turn
     const isNewSentence = sentenceIndex !== this.progressiveSentenceIndex;
     
-    // CRITICAL FIX (Dec 3, 2025): Only treat sentence 0, chunk 0 as a new turn if:
-    // 1. We haven't started playing yet (progressiveFirstChunkStarted === false), OR
-    // 2. We're on a DIFFERENT sentence than the current one
-    // This prevents schedule wipe when Cartesia resends chunkIndex 0 due to retry/glitch
-    // Previously: just checking s===0 && c===0 would wipe schedule mid-sentence
-    const isNewTurnStarting = sentenceIndex === 0 && chunkIndex === 0 && !this.progressiveFirstChunkStarted;
-    
     // Capture isPlaying state BEFORE modifying it
     // This is needed for the restart loop logic below
     const wasPlayingBeforeThisChunk = this.isPlaying;
@@ -851,13 +857,12 @@ export class StreamingAudioPlayer {
       // Clear arrays for new sentence (old sources will continue playing)
       this.progressiveChunks = [];
       
-      // For new turn, clear the sentence schedule and reset timing
+      // For new turn, reset timing state (dedup already cleared above)
       if (isNewTurnStarting) {
         this.progressiveFirstChunkStarted = false;
         this.sentenceSchedule.clear();
         this.wordSchedule.clear();
-        this.processedChunks.clear();  // DEDUPLICATION: Reset for new turn
-        this.sentenceChunkCounters.clear();  // DEDUPLICATION: Reset counters for new turn
+        // NOTE: processedChunks already cleared above BEFORE dedup check
         this.activeSentenceInLoop = -1;
         // Reset scheduled time with larger prebuffer for smoother playback
         this.progressiveScheduledTime = ctx.currentTime + 0.2;
