@@ -8036,9 +8036,13 @@ Return ONLY the ${targetLanguage} phrase:`;
           isFeatured: cls.isFeatured,
           featuredOrder: cls.featuredOrder,
           targetActflLevel: cls.targetActflLevel,
+          expectedActflMin: cls.expectedActflMin,
           classLevel: cls.classLevel,
         };
       });
+      
+      // Sort: alphabetically by name
+      sanitizedClasses.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
       
       res.json(sanitizedClasses);
     } catch (error: any) {
@@ -8191,13 +8195,8 @@ Return ONLY the ${targetLanguage} phrase:`;
         };
       });
       
-      // Sort: unenrolled classes first, then alphabetically by name
-      sanitizedClasses.sort((a, b) => {
-        if (a.isEnrolled !== b.isEnrolled) {
-          return a.isEnrolled ? 1 : -1; // Unenrolled first
-        }
-        return a.name.localeCompare(b.name, undefined, { numeric: true });
-      });
+      // Sort: alphabetically by name
+      sanitizedClasses.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
       
       res.json(sanitizedClasses);
     } catch (error: any) {
