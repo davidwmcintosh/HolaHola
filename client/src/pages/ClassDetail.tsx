@@ -155,6 +155,15 @@ export default function ClassDetail() {
   const pricing = getClassPrice(classPriceCents);
   const Icon = classData.classType?.icon ? getIcon(classData.classType.icon) : BookOpen;
 
+  const classSpecificFeatures = [
+    { icon: MessageCircle, text: `AI-powered ${getLanguageLabel(classData.language)} conversation practice` },
+    { icon: Mic, text: 'Real-time pronunciation feedback' },
+    { icon: Target, text: `${classData.name} - ACTFL-aligned curriculum` },
+    { icon: Award, text: `Mastery tracking for ${getLanguageLabel(classData.language)} proficiency` },
+    { icon: Users, text: `${getLanguageLabel(classData.language)} native-speaking AI tutors` },
+    { icon: Clock, text: 'Flexible scheduling for your pace' },
+  ];
+
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto px-4 py-8 md:px-8">
@@ -219,7 +228,7 @@ export default function ClassDetail() {
             <div>
               <h2 className="text-xl font-semibold mb-4">What You'll Get</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {CLASS_FEATURES.map((feature, index) => {
+                {classSpecificFeatures.map((feature, index) => {
                   const FeatureIcon = feature.icon;
                   return (
                     <div key={index} className="flex items-center gap-3">
