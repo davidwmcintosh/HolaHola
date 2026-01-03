@@ -2817,8 +2817,13 @@ class SyncBridgeService {
       const allErrors: string[] = [];
       let overallSuccess = true;
       
+      // v21: Track completed batches for accurate status determination
+      const completedBatches: string[] = [];
+      const attemptedBatches: string[] = [];
+      
       // BATCH 1: Neural network core (small, fast)
       if (shouldRun('neural-core')) {
+        attemptedBatches.push('neural-core');
         console.log('[SYNC-BRIDGE] Batch 1: Neural network core...');
         const coreBundle: Partial<SyncBundle> = {
           generatedAt: new Date().toISOString(),
@@ -2830,11 +2835,13 @@ class SyncBridgeService {
         const batch1 = await this.sendBatch(peerUrl, 'neural-core', coreBundle);
         Object.assign(allCounts, batch1.counts);
         allErrors.push(...batch1.errors);
-        if (!batch1.success) overallSuccess = false;
+        if (batch1.success) completedBatches.push('neural-core');
+        else overallSuccess = false;
       }
       
       // BATCH 2a: Advanced intelligence + Daniela suggestions (split for timeout fix)
       if (shouldRun('advanced-intel-a')) {
+        attemptedBatches.push('advanced-intel-a');
         console.log('[SYNC-BRIDGE] Batch 2a: Advanced intelligence (part A)...');
         const advancedBundleA: Partial<SyncBundle> = {
           generatedAt: new Date().toISOString(),
@@ -2845,11 +2852,13 @@ class SyncBridgeService {
         const batch2a = await this.sendBatch(peerUrl, 'advanced-intel-a', advancedBundleA);
         Object.assign(allCounts, batch2a.counts);
         allErrors.push(...batch2a.errors);
-        if (!batch2a.success) overallSuccess = false;
+        if (batch2a.success) completedBatches.push('advanced-intel-a');
+        else overallSuccess = false;
       }
       
       // BATCH 2b: TriLane + North Star (split for timeout fix)
       if (shouldRun('advanced-intel-b')) {
+        attemptedBatches.push('advanced-intel-b');
         console.log('[SYNC-BRIDGE] Batch 2b: Advanced intelligence (part B)...');
         const advancedBundleB: Partial<SyncBundle> = {
           generatedAt: new Date().toISOString(),
@@ -2860,11 +2869,13 @@ class SyncBridgeService {
         const batch2b = await this.sendBatch(peerUrl, 'advanced-intel-b', advancedBundleB);
         Object.assign(allCounts, batch2b.counts);
         allErrors.push(...batch2b.errors);
-        if (!batch2b.success) overallSuccess = false;
+        if (batch2b.success) completedBatches.push('advanced-intel-b');
+        else overallSuccess = false;
       }
       
       // BATCH 3: Express Lane data (can be large)
       if (shouldRun('express-lane')) {
+        attemptedBatches.push('express-lane');
         console.log('[SYNC-BRIDGE] Batch 3: Express Lane...');
         const expressLaneData = await this.exportExpressLaneData(lastSuccessfulPush);
         const expressBundle: Partial<SyncBundle> = {
@@ -2877,11 +2888,13 @@ class SyncBridgeService {
         const batch3 = await this.sendBatch(peerUrl, 'express-lane', expressBundle, 60000);
         Object.assign(allCounts, batch3.counts);
         allErrors.push(...batch3.errors);
-        if (!batch3.success) overallSuccess = false;
+        if (batch3.success) completedBatches.push('express-lane');
+        else overallSuccess = false;
       }
       
       // BATCH 4: Hive snapshots only
       if (shouldRun('hive-snapshots')) {
+        attemptedBatches.push('hive-snapshots');
         console.log('[SYNC-BRIDGE] Batch 4: Hive Snapshots...');
         const hiveSnapshots = await this.exportHiveSnapshots(lastSuccessfulPush);
         const hiveBundle: Partial<SyncBundle> = {
@@ -2892,11 +2905,13 @@ class SyncBridgeService {
         const batch4 = await this.sendBatch(peerUrl, 'hive-snapshots', hiveBundle, 60000);
         Object.assign(allCounts, batch4.counts);
         allErrors.push(...batch4.errors);
-        if (!batch4.success) overallSuccess = false;
+        if (batch4.success) completedBatches.push('hive-snapshots');
+        else overallSuccess = false;
       }
       
       // BATCH 5: Daniela growth memories only
       if (shouldRun('daniela-memories')) {
+        attemptedBatches.push('daniela-memories');
         console.log('[SYNC-BRIDGE] Batch 5: Daniela Memories...');
         const danielaMemories = await this.exportDanielaGrowthMemories(lastSuccessfulPush);
         const memoriesBundle: Partial<SyncBundle> = {
@@ -2907,11 +2922,13 @@ class SyncBridgeService {
         const batch5 = await this.sendBatch(peerUrl, 'daniela-memories', memoriesBundle, 60000);
         Object.assign(allCounts, batch5.counts);
         allErrors.push(...batch5.errors);
-        if (!batch5.success) overallSuccess = false;
+        if (batch5.success) completedBatches.push('daniela-memories');
+        else overallSuccess = false;
       }
       
       // BATCH 6: Product config (tutor voices, feature flags)
       if (shouldRun('product-config')) {
+        attemptedBatches.push('product-config');
         console.log('[SYNC-BRIDGE] Batch 6: Product config...');
         const configBundle: Partial<SyncBundle> = {
           generatedAt: new Date().toISOString(),
@@ -2921,11 +2938,13 @@ class SyncBridgeService {
         const batch6 = await this.sendBatch(peerUrl, 'product-config', configBundle);
         Object.assign(allCounts, batch6.counts);
         allErrors.push(...batch6.errors);
-        if (!batch6.success) overallSuccess = false;
+        if (batch6.success) completedBatches.push('product-config');
+        else overallSuccess = false;
       }
       
       // BATCH 7: Beta testers (users + credits)
       if (shouldRun('beta-testers')) {
+        attemptedBatches.push('beta-testers');
         console.log('[SYNC-BRIDGE] Batch 7: Beta testers...');
         const betaTesters = await this.exportBetaTesters();
         const betaBundle: Partial<SyncBundle> = {
@@ -2937,11 +2956,13 @@ class SyncBridgeService {
         const batch7 = await this.sendBatch(peerUrl, 'beta-testers', betaBundle);
         Object.assign(allCounts, batch7.counts);
         allErrors.push(...batch7.errors);
-        if (!batch7.success) overallSuccess = false;
+        if (batch7.success) completedBatches.push('beta-testers');
+        else overallSuccess = false;
       }
       
       // BATCH 8: Beta usage data (prod → dev pull)
       if (shouldRun('beta-usage')) {
+        attemptedBatches.push('beta-usage');
         console.log('[SYNC-BRIDGE] Batch 8: Beta usage data...');
         const betaUsage = await this.exportBetaUsage();
         const betaUsageBundle: Partial<SyncBundle> = {
@@ -2952,11 +2973,13 @@ class SyncBridgeService {
         const batch8 = await this.sendBatch(peerUrl, 'beta-usage', betaUsageBundle);
         Object.assign(allCounts, batch8.counts);
         allErrors.push(...batch8.errors);
-        if (!batch8.success) overallSuccess = false;
+        if (batch8.success) completedBatches.push('beta-usage');
+        else overallSuccess = false;
       }
       
       // BATCH 9: Aggregate analytics (prod → dev pull, anonymized)
       if (shouldRun('aggregate-analytics')) {
+        attemptedBatches.push('aggregate-analytics');
         console.log('[SYNC-BRIDGE] Batch 9: Aggregate analytics...');
         const aggregateAnalytics = await this.exportAggregateAnalytics();
         const analyticsBundle: Partial<SyncBundle> = {
@@ -2967,14 +2990,34 @@ class SyncBridgeService {
         const batch9 = await this.sendBatch(peerUrl, 'aggregate-analytics', analyticsBundle);
         Object.assign(allCounts, batch9.counts);
         allErrors.push(...batch9.errors);
-        if (!batch9.success) overallSuccess = false;
+        if (batch9.success) completedBatches.push('aggregate-analytics');
+        else overallSuccess = false;
       }
       
-      console.log(`[SYNC-BRIDGE] Batch sync complete. Overall success: ${overallSuccess}`);
+      // v21: Improved status determination based on completed batches
+      const expectedBatchCount = attemptedBatches.length;
+      const completedBatchCount = completedBatches.length;
+      
+      let finalStatus: 'success' | 'partial' | 'failed';
+      if (expectedBatchCount === 0) {
+        // No batches attempted (empty selection or all filtered) = success
+        finalStatus = 'success';
+      } else if (completedBatchCount === expectedBatchCount) {
+        // All attempted batches completed = success
+        finalStatus = 'success';
+      } else if (completedBatchCount > 0) {
+        // Some batches completed, some failed = partial
+        finalStatus = 'partial';
+      } else {
+        // No batches completed = failed
+        finalStatus = 'failed';
+      }
+      
+      console.log(`[SYNC-BRIDGE v21] Push complete. Completed: ${completedBatchCount}/${expectedBatchCount}, Status: ${finalStatus}, Errors: ${allErrors.length}`);
       
       await db.update(syncRuns)
         .set({
-          status: overallSuccess ? 'success' : (allErrors.length > 0 ? 'partial' : 'failed'),
+          status: finalStatus,
           bestPracticesCount: allCounts.bestPractices || 0,
           idiomCount: allCounts.idioms || 0,
           nuanceCount: allCounts.nuances || 0,
@@ -3003,7 +3046,7 @@ class SyncBridgeService {
         .where(eq(syncRuns.id, syncRun.id));
       
       return { 
-        success: overallSuccess, 
+        success: finalStatus === 'success', 
         syncRunId: syncRun.id,
         counts: allCounts, 
         errors: allErrors,
@@ -3317,11 +3360,33 @@ class SyncBridgeService {
         }
       }
       
-      console.log(`[SYNC-BRIDGE] All ${batchTypes.length} pull batches complete. Overall success: ${overallSuccess}`);
+      // v21: Improved status determination based on completed batches, not just errors
+      // - 'success': All expected batches completed (warnings are OK), or no batches attempted
+      // - 'partial': Some batches completed, some failed
+      // - 'failed': No batches completed successfully
+      const expectedBatchCount = batchTypes.length;
+      const completedBatchCount = completedBatches.length;
+      
+      let finalStatus: 'success' | 'partial' | 'failed';
+      if (expectedBatchCount === 0) {
+        // No batches to process (empty selection or all filtered) = success
+        finalStatus = 'success';
+      } else if (completedBatchCount === expectedBatchCount) {
+        // All batches completed - this is success even if there were import warnings
+        finalStatus = 'success';
+      } else if (completedBatchCount > 0) {
+        // Some batches completed, some failed
+        finalStatus = 'partial';
+      } else {
+        // No batches completed
+        finalStatus = 'failed';
+      }
+      
+      console.log(`[SYNC-BRIDGE v21] Pull complete. Completed: ${completedBatchCount}/${expectedBatchCount}, Status: ${finalStatus}, Errors: ${allErrors.length}`);
       
       await db.update(syncRuns)
         .set({
-          status: overallSuccess ? 'success' : (allErrors.length > 0 ? 'partial' : 'failed'),
+          status: finalStatus,
           bestPracticesCount: allCounts.bestPractices || 0,
           idiomCount: allCounts.idioms || 0,
           nuanceCount: allCounts.nuances || 0,
@@ -3350,7 +3415,7 @@ class SyncBridgeService {
         .where(eq(syncRuns.id, syncRun.id));
       
       return { 
-        success: overallSuccess, 
+        success: finalStatus === 'success', 
         syncRunId: syncRun.id,
         counts: allCounts, 
         errors: allErrors,
