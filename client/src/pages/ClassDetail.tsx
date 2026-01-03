@@ -4,8 +4,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { 
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { 
   ArrowLeft, BookOpen, Globe, GraduationCap, Briefcase, Plane, 
-  Check, Clock, Users, Target, MessageCircle, Mic, Award, Loader2, Volume2
+  Check, Clock, Users, Target, MessageCircle, Mic, Award, Loader2, Volume2,
+  ChevronRight
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
@@ -29,6 +36,24 @@ interface PublicClass {
   featuredOrder: number;
   targetActflLevel: string;
   classLevel: number;
+  syllabus?: {
+    pathId: string;
+    units: Array<{
+      id: string;
+      name: string;
+      description: string;
+      orderIndex: number;
+      actflLevel?: string;
+      estimatedHours?: number;
+      lessons: Array<{
+        id: string;
+        name: string;
+        description: string;
+        lessonType: string;
+        estimatedMinutes?: number;
+      }>;
+    }>;
+  };
 }
 
 interface PricingConfig {
@@ -110,12 +135,10 @@ export default function ClassDetail() {
     queryKey: ['/api/pricing-config'],
   });
 
-  const { data: publicClasses, isLoading } = useQuery<PublicClass[]>({
-    queryKey: ['/api/classes/public'],
+  const { data: classData, isLoading } = useQuery<PublicClass>({
+    queryKey: [`/api/classes/public/${classId}`],
+    enabled: !!classId,
   });
-
-  const classPriceCents = parseInt(pricingConfig?.class_price_cents || '4900');
-  const classData = publicClasses?.find(c => c.id === classId);
   
   const handleEnroll = () => {
     if (isAuthenticated) {
@@ -164,7 +187,7 @@ export default function ClassDetail() {
   }
 
   const level = getLevelBadge(classData.classLevel);
-  const pricing = getClassPrice(classPriceCents);
+  const pricing = getClassPrice(parseInt(pricingConfig?.class_price_cents || '4900'));
   const Icon = classData.classType?.icon ? getIcon(classData.classType.icon) : BookOpen;
 
   const classSpecificFeatures = getClassFeatures(classData.name, getLanguageLabel(classData.language));
@@ -246,6 +269,75 @@ export default function ClassDetail() {
                 })}
               </div>
             </div>
+
+            {classData.syllabus && classData.syllabus.units.length > 0 && (
+              <>
+                <Separator />
+                <div>
+                  <h2 className="text-xl font-semibold mb-4">Syllabus Curriculum</h2>
+                  <p className="text-muted-foreground mb-6">
+                    This class follows a structured curriculum designed to take you from {level.label.toLowerCase()} to fluent communication.
+                  </p>
+                  
+                  <Accordion type="single" collapsible className="w-full space-y-4">
+                    {classData.syllabus.units.map((unit, index) => (
+                      <AccordionItem key={unit.id} value={unit.id} className="border rounded-lg overflow-hidden">
+                        <AccordionTrigger className="px-4 py-4 hover:no-underline hover:bg-muted/50 transition-colors">
+                          <div className="flex items-center gap-4 text-left">
+                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                              <span className="font-bold text-primary">{index + 1}</span>
+                            </div>
+                            <div>
+                              <p className="font-semibold text-base">{unit.name}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                {unit.estimatedHours && (
+                                  <Badge variant="outline" className="text-[10px] h-4">
+                                    {unit.estimatedHours} hours
+                                  </Badge>
+                                )}
+                                <span className="text-xs text-muted-foreground">
+                                  {unit.lessons.length} lessons
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="px-4 pb-4 pt-2 border-t bg-muted/20">
+                          <div className="space-y-4">
+                            <p className="text-sm text-muted-foreground leading-relaxed">
+                              {unit.description}
+                            </p>
+                            
+                            <div className="space-y-2">
+                              {unit.lessons.map((lesson, lIndex) => (
+                                <div key={lesson.id} className="flex items-start gap-3 p-3 rounded-md bg-background border">
+                                  <div className="mt-1">
+                                    <div className="h-5 w-5 rounded-full border-2 border-primary/20 flex items-center justify-center">
+                                      <span className="text-[10px] font-bold text-muted-foreground">{lIndex + 1}</span>
+                                    </div>
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between gap-2 mb-1">
+                                      <p className="text-sm font-medium truncate">{lesson.name}</p>
+                                      <Badge variant="secondary" className="text-[10px] h-4 shrink-0 capitalize">
+                                        {lesson.lessonType.replace('_', ' ')}
+                                      </Badge>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground line-clamp-2">
+                                      {lesson.description}
+                                    </p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    ))}
+                  </Accordion>
+                </div>
+              </>
+            )}
 
             {classData.classType && (
               <>

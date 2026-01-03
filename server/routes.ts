@@ -8043,6 +8043,55 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // Get specific public class with syllabus content
+  app.get("/api/classes/public/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const allClasses = await storage.getAllActiveClasses();
+      const cls = allClasses.find(c => c.id === id && c.isPublicCatalogue && c.isActive);
+
+      if (!cls) {
+        return res.status(404).json({ message: "Class not found" });
+      }
+
+      const classTypesData = await storage.getActiveClassTypes();
+      const ct = cls.classTypeId ? classTypesData.find(type => type.id === cls.classTypeId) : null;
+
+      // Fetch syllabus if class has a curriculum path
+      let syllabus = null;
+      if (cls.curriculumPathId) {
+        const units = await db.select().from(curriculumUnits).where(eq(curriculumUnits.curriculumPathId, cls.curriculumPathId)).orderBy(curriculumUnits.orderIndex);
+        
+        const unitsWithLessons = await Promise.all(units.map(async (unit) => {
+          const lessons = await db.select().from(curriculumLessons).where(eq(curriculumLessons.unitId, unit.id)).orderBy(curriculumLessons.orderIndex);
+          return { ...unit, lessons };
+        }));
+
+        syllabus = {
+          pathId: cls.curriculumPathId,
+          units: unitsWithLessons
+        };
+      }
+
+      res.json({
+        id: cls.id,
+        name: cls.name,
+        description: cls.description,
+        language: cls.language,
+        classTypeId: cls.classTypeId,
+        classType: ct ? { id: ct.id, name: ct.name, slug: ct.slug, icon: ct.icon } : null,
+        isFeatured: cls.isFeatured,
+        featuredOrder: cls.featuredOrder,
+        targetActflLevel: cls.targetActflLevel,
+        classLevel: cls.classLevel,
+        syllabus
+      });
+    } catch (error: any) {
+      console.error("Error fetching class syllabus:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Browse class catalogue - returns ONLY public classes marked with isPublicCatalogue=true
   // SECURITY: Only returns public metadata (id, name, description, language) - NO join codes
   // SECURITY: Only classes explicitly marked as public are visible - prevents institutional class leakage
