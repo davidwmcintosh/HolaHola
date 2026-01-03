@@ -1998,6 +1998,9 @@ class SyncBridgeService {
       'betaUsage', 'aggregateAnalytics',
       // v20: Sofia telemetry for cross-env debugging
       'sofiaTelemetry',
+      // v21: Alternate field names for TriLane observations (prod→dev compatibility)
+      'agentObservations', 'supportObservations', 'systemAlerts', 'pagination',
+      'exportedAt', 'environment', 'understanding', 'examples',
     ]);
     
     const bundleKeys = Object.keys(bundle);
@@ -2093,6 +2096,42 @@ class SyncBridgeService {
       (o) => neuralNetworkSync.importAgentObservation(o));
     await importWithCount('alerts', bundle.alerts, 
       (a) => neuralNetworkSync.importSystemAlert(a));
+    
+    // v21: Handle alternate field names from production (TriLane observations)
+    // These use slightly different naming conventions
+    const bundleAny = bundle as any;
+    await importWithCount('agentObservations', bundleAny.agentObservations, 
+      (o) => neuralNetworkSync.importAgentObservation(o));
+    await importWithCount('supportObservations', bundleAny.supportObservations, 
+      (o) => neuralNetworkSync.importSupportObservation(o));
+    await importWithCount('systemAlerts', bundleAny.systemAlerts, 
+      (a) => neuralNetworkSync.importSystemAlert(a));
+    
+    // Handle alternate North Star field names from production
+    if (bundleAny.understanding?.length) {
+      for (const understanding of bundleAny.understanding) {
+        try {
+          const result = await neuralNetworkSync.importNorthStarUnderstanding(understanding, 'sync-bridge', undefined);
+          if (result?.success) {
+            counts['understanding'] = (counts['understanding'] || 0) + 1;
+          }
+        } catch (err: any) {
+          errors.push(`understanding: ${err.message}`);
+        }
+      }
+    }
+    if (bundleAny.examples?.length) {
+      for (const example of bundleAny.examples) {
+        try {
+          const result = await neuralNetworkSync.importNorthStarExample(example, 'sync-bridge', undefined);
+          if (result?.success) {
+            counts['examples'] = (counts['examples'] || 0) + 1;
+          }
+        } catch (err: any) {
+          errors.push(`examples: ${err.message}`);
+        }
+      }
+    }
     
     // North Star sync (constitutional foundation)
     // Principles must be imported first to build source→local ID mapping
