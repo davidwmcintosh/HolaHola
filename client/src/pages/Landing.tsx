@@ -288,10 +288,6 @@ export default function Landing() {
           <Link href="/pricing" className="text-primary hover:underline" data-testid="link-pricing">
             View Plans & Pricing
           </Link>
-          <span className="hidden sm:inline text-muted-foreground/50">|</span>
-          <a href="mailto:support@holahola.app" className="hover:underline">
-            Contact Support
-          </a>
         </div>
         <p>HolaHola - AI-Powered Language Learning</p>
       </footer>

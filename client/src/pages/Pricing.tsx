@@ -426,15 +426,6 @@ export default function Pricing() {
             </Button>
           </div>
         </div>
-
-        <div className="mt-12 text-center">
-          <p className="text-muted-foreground">
-            Questions about pricing?{' '}
-            <a href="mailto:support@holahola.app" className="text-primary hover:underline">
-              Contact our team
-            </a>
-          </p>
-        </div>
       </div>
     </div>
   );
