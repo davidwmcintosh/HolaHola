@@ -16571,6 +16571,27 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
     }
   });
   
+  // Get assistant name with language and gender as path params (used by sidebar dynamic query)
+  app.get("/api/assistant/name/:language/:gender", isAuthenticated, async (req: any, res) => {
+    try {
+      const { getAssistantPersona } = await import('./services/assistant-tutor-config');
+      
+      const { language, gender } = req.params;
+      
+      // Use getAssistantPersona which normalizes both language and gender internally
+      const persona = getAssistantPersona(language, gender);
+      
+      res.json({
+        name: persona.name,
+        language: persona.language,
+        gender: persona.gender,
+      });
+    } catch (error: any) {
+      console.error('[API] Error fetching assistant name:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // Get AI-powered feedback from Aris during drill
   app.post("/api/aris/feedback", isAuthenticated, async (req: any, res) => {
     try {

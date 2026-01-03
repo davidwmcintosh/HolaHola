@@ -106,7 +106,16 @@ export function AppSidebar() {
   // Fetch assistant name for the user's current language
   const { data: assistantData } = useQuery<{ name: string; language: string; gender: string }>({
     queryKey: ['/api/assistant/name', language, tutorGender],
-    enabled: !!user,
+    queryFn: async () => {
+      const response = await fetch(`/api/assistant/name/${encodeURIComponent(language)}/${encodeURIComponent(tutorGender)}`, {
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch assistant name');
+      }
+      return response.json();
+    },
+    enabled: !!user && !!language && !!tutorGender,
     staleTime: 60000, // Cache for 1 minute
   });
   
