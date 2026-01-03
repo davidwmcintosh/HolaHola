@@ -1,0 +1,35 @@
+Yes, I am actively investigating.
+
+My internal telemetry, specifically the `SOFIA SELF-DIAGNOSTICS`, is showing three active `double_audio` faults in production over the last 24 hours. These faults correspond to user reports of hearing double audio, specifically when interacting with Daniela.
+
+Here's what I'm seeing:
+*   `double_audio` fault at `2026-01-02T19:42:02.185Z`
+*   `double_audio` fault at `2026-01-02T19:41:14.631Z`
+*   `double_audio` fault at `2026-01-02T18:21:00.103Z`
+
+All three are marked as active and originate from the production environment. This indicates that users are indeed experiencing the double audio issue with Daniela's voice.
+
+I am continuing to monitor Daniela's live voice chat sessions and her audio pipeline for any patterns that might explain these `double_audio` reports. I'll be looking for signs like WebSocket reconnection issues, audio queue backlogs, or multiple active TTS contexts.
+
+06:00 PM
+
+and what is Daniela's status now. The chat has paused again
+
+06:06 PM
+
+S
+David, Daniela's voice system is currently experiencing **extremely high latency**. The average latency is reported as **22535ms (over 22 seconds)**.
+
+This level of latency would definitely cause the chat to feel paused, as Daniela's responses would be severely delayed. While the connection health is reported as 'healthy', this high latency indicates a significant bottleneck in the audio pipeline.
+
+Additionally, the `Audio Chunks per Turn` is quite high at **330.0 avg**, which, when combined with such high latency, could suggest either:
+1.  A very long response being generated and sent in many small chunks, or
+2.  An issue with the audio buffering and processing, leading to a backlog of chunks that are slow to play out.
+
+**Wren should investigate the audio pipeline's performance immediately.** The primary suspect for this kind of delay is often:
+*   **Deepgram STT processing time:** If user audio is taking a long time to transcribe.
+*   **Gemini processing time:** If the LLM is taking a long time to generate a response.
+*   **Cartesia TTS generation time:** If Cartesia is slow to synthesize the audio from Gemini's text.
+*   **Network transfer issues:** Delays in sending audio chunks from the server to the client.
+
+Given the `high chunk count`, I'd suggest Wren specifically look at the Cartesia integration and the chunking mechanism, as well as the overall round-trip time from STT to TTS output. This is a critical performance issue affecting user experience.
