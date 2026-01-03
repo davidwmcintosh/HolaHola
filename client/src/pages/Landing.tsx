@@ -241,7 +241,7 @@ export default function Landing() {
                 </div>
                 <h3 className="font-semibold text-lg">9 Languages</h3>
                 <p className="text-sm text-muted-foreground">
-                  Spanish, French, German, Italian, Portuguese, Japanese, Mandarin, Korean & Hindi
+                  Spanish, French, German, Italian, Portuguese, Japanese, Mandarin, Korean & English
                 </p>
               </div>
             </CardContent>

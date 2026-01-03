@@ -246,60 +246,51 @@ export default function Pricing() {
               </div>
             )}
 
-            {classTypes?.map((type) => {
-              const classes = classesByType[type.id] || [];
-              if (classes.length === 0) return null;
-              const Icon = getIcon(type.icon);
-              
-              return (
-                <div key={type.id} className="space-y-4">
-                  <h2 className="text-xl font-semibold flex items-center gap-2">
-                    <Icon className="h-5 w-5 text-primary" />
-                    {type.name}
-                  </h2>
-                  {type.description && (
-                    <p className="text-muted-foreground text-sm">{type.description}</p>
-                  )}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {classes.map((cls) => {
-                      const level = getLevelBadge(cls.classLevel);
-                      return (
-                        <Card key={cls.id} className="flex flex-col" data-testid={`card-class-${cls.id}`}>
-                          <CardHeader className="pb-2">
-                            <div className="flex items-center gap-2 mb-2">
-                              <Globe className="h-5 w-5 text-primary" />
-                              <Badge variant="outline">{getLanguageLabel(cls.language)}</Badge>
-                              <Badge variant={level.variant}>{level.label}</Badge>
-                            </div>
-                            <CardTitle className="text-lg">{cls.name}</CardTitle>
-                            <CardDescription className="line-clamp-2">{cls.description}</CardDescription>
-                          </CardHeader>
-                          <CardContent className="flex-grow">
-                            <div className="mb-3">
-                              <span className="text-3xl font-bold">${classPrice.price}</span>
-                              <span className="text-muted-foreground ml-1">{classPrice.period}</span>
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              Target: {cls.targetActflLevel?.replace('_', ' ').toUpperCase() || 'Varies'}
-                            </div>
-                          </CardContent>
-                          <CardFooter>
-                            <Button
-                              variant="outline"
-                              className="w-full"
-                              onClick={() => handleSelectClass(cls.id)}
-                              data-testid={`button-view-${cls.id}`}
-                            >
-                              View Details
-                            </Button>
-                          </CardFooter>
-                        </Card>
-                      );
-                    })}
-                  </div>
+            {publicClasses && publicClasses.length > 0 && (
+              <div className="space-y-4">
+                <h2 className="text-xl font-semibold flex items-center gap-2">
+                  <BookOpen className="h-5 w-5 text-primary" />
+                  All Classes
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {publicClasses.filter(cls => !cls.isFeatured).map((cls) => {
+                    const level = getLevelBadge(cls.classLevel);
+                    return (
+                      <Card key={cls.id} className="flex flex-col" data-testid={`card-class-${cls.id}`}>
+                        <CardHeader className="pb-2">
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
+                            <Globe className="h-5 w-5 text-primary" />
+                            <Badge variant="outline">{getLanguageLabel(cls.language)}</Badge>
+                            <Badge variant={level.variant}>{level.label}</Badge>
+                          </div>
+                          <CardTitle className="text-lg">{cls.name}</CardTitle>
+                          <CardDescription className="line-clamp-2">{cls.description}</CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex-grow">
+                          <div className="mb-3">
+                            <span className="text-3xl font-bold">${classPrice.price}</span>
+                            <span className="text-muted-foreground ml-1">{classPrice.period}</span>
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            Target: {cls.targetActflLevel?.replace('_', ' ').toUpperCase() || 'Varies'}
+                          </div>
+                        </CardContent>
+                        <CardFooter>
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => handleSelectClass(cls.id)}
+                            data-testid={`button-view-${cls.id}`}
+                          >
+                            View Details
+                          </Button>
+                        </CardFooter>
+                      </Card>
+                    );
+                  })}
                 </div>
-              );
-            })}
+              </div>
+            )}
 
             {(!publicClasses || publicClasses.length === 0) && (
               <Card className="text-center py-12">
