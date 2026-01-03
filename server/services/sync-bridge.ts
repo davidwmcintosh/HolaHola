@@ -2389,6 +2389,34 @@ class SyncBridgeService {
       }
     }
     
+    // v20: Prod Conversations (prod → dev pull for debugging - stored as snapshot)
+    if (bundle.prodConversations) {
+      const convData = bundle.prodConversations;
+      const convCount = convData.conversations?.length || 0;
+      const msgCount = convData.messages?.length || 0;
+      console.log(`[SYNC-BRIDGE] Storing ${convCount} prod conversations (${msgCount} messages) as snapshot...`);
+      try {
+        await db.insert(hiveSnapshots).values({
+          snapshotType: 'prod_conversations',
+          title: `Production Conversations - ${new Date().toISOString().split('T')[0]}`,
+          content: JSON.stringify({
+            conversations: convData.conversations?.slice(0, 20), // Limit for storage
+            messageCount: msgCount,
+            exportedAt: convData.exportedAt,
+          }),
+          context: JSON.stringify({ 
+            source: 'prod_sync', 
+            totalConversations: convCount,
+            totalMessages: msgCount,
+          }),
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        });
+        counts['prodConversations'] = convCount;
+      } catch (err: any) {
+        errors.push(`Prod conversations snapshot: ${err.message}`);
+      }
+    }
+    
     // Log final sync result summary
     if (errors.length > 0) {
       console.error(`[SYNC-BRIDGE] Import completed with ${errors.length} errors:`, errors);
@@ -3136,10 +3164,19 @@ class SyncBridgeService {
       // v15: advanced-intel-b now supports pagination for large observation datasets
       // v16: Skip already-completed batches on resume
       // v19: Support selective batch pulling for beta analytics
-      const allBatchTypes = ['neural-core', 'advanced-intel-a', 'advanced-intel-b', 'express-lane', 'hive-snapshots', 'daniela-memories', 'product-config', 'founder-context', 'beta-usage', 'aggregate-analytics'];
+      // v20: Added prod-to-dev diagnostic batches (sofia-telemetry, prod-conversations, prod-content-growth)
+      const allBatchTypes = [
+        'neural-core', 'advanced-intel-a', 'advanced-intel-b', 'express-lane', 
+        'hive-snapshots', 'daniela-memories', 'product-config', 'founder-context', 
+        'beta-usage', 'aggregate-analytics',
+        // v20: Production diagnostics - only pulled by dev from prod
+        'sofia-telemetry', 'prod-conversations', 'prod-content-growth'
+      ];
+      // Default excludes: beta-usage, aggregate-analytics (only pulled on demand)
+      // Note: sofia-telemetry, prod-conversations, prod-content-growth are now included by default
       const batchTypes = batchFilter && batchFilter.length > 0 
         ? allBatchTypes.filter(b => batchFilter.includes(b))
-        : allBatchTypes.filter(b => !['beta-usage', 'aggregate-analytics'].includes(b)); // By default, skip pull-only batches
+        : allBatchTypes.filter(b => !['beta-usage', 'aggregate-analytics'].includes(b));
       
       for (let i = 0; i < batchTypes.length; i++) {
         const batchType = batchTypes[i];

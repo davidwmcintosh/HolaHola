@@ -2697,7 +2697,8 @@ export const hiveSnapshotTypeEnum = pgEnum("hive_snapshot_type", [
   'voice_diagnostic',     // Voice pipeline diagnostic events for pattern analysis
   'life_context',         // Personal facts about student's life (synced from learner_personal_facts)
   'voice_baselines',      // Voice intelligence historical baselines for threshold tuning
-  'aggregate_analytics'   // Anonymized usage analytics from production
+  'aggregate_analytics',  // Anonymized usage analytics from production
+  'prod_conversations'    // Production conversation transcripts for debugging (v20)
 ]);
 
 // Hive Snapshots - Captures moments of teaching context for Daniela's awareness
