@@ -53,6 +53,7 @@ interface PublicClass {
         lessonType: string;
         estimatedMinutes?: number;
         drillCount?: number;
+        drillType?: string;
         linkedDrillLessonId?: string;
         bundleId?: string;
       }>;
@@ -345,11 +346,17 @@ export default function ClassDetail() {
                                     <div className="flex items-center justify-between gap-2 mb-1">
                                       <p className="text-sm font-medium truncate">{lesson.name}</p>
                                       <div className="flex gap-1">
-                                        {lesson.drillCount && lesson.drillCount > 0 ? (
-                                          <Badge variant="outline" className="text-[10px] h-4 shrink-0 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800">
-                                            {lesson.drillCount} Drills
+                                        {lesson.drillType ? (
+                                          <Badge variant="outline" className="text-[10px] h-4 shrink-0 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 capitalize">
+                                            {lesson.drillType.replace(/_/g, ' ')}
                                           </Badge>
-                                        ) : null}
+                                        ) : (
+                                          lesson.lessonType === 'drill' ? (
+                                            <Badge variant="outline" className="text-[10px] h-4 shrink-0 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800">
+                                              Drill
+                                            </Badge>
+                                          ) : null
+                                        )}
                                         <Badge variant="secondary" className="text-[10px] h-4 shrink-0 capitalize">
                                           {lesson.lessonType.replace('_', ' ')}
                                         </Badge>

@@ -8072,11 +8072,17 @@ Return ONLY the ${targetLanguage} phrase:`;
           // Enrich lessons with drill information if applicable
           const enrichedLessons = await Promise.all(lessons.map(async (lesson) => {
             let drillCount = 0;
+            let drillType = null;
             if (lesson.lessonType === 'drill') {
               const drillItems = await db.select().from(curriculumDrillItems).where(eq(curriculumDrillItems.lessonId, lesson.id));
               drillCount = drillItems.length;
+              if (drillItems.length > 0) {
+                // Determine the predominant drill type for display
+                const types = drillItems.map(d => d.itemType); // Correct column name is itemType
+                drillType = types[0]; // Simplest approach: show the first one's type
+              }
             }
-            return { ...lesson, drillCount };
+            return { ...lesson, drillCount, drillType };
           }));
           
           return { ...unit, lessons: enrichedLessons };
