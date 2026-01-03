@@ -224,8 +224,8 @@ export default function ClassDetail() {
           </Button>
         </Link>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
+        <div className="space-y-8">
+          <div className="space-y-6">
             <div>
               <div className="flex items-center gap-2 mb-4 flex-wrap">
                 <Icon className="h-6 w-6 text-primary" />
@@ -399,8 +399,8 @@ export default function ClassDetail() {
             )}
           </div>
 
-          <div className="lg:col-span-1">
-            <Card className="sticky top-4">
+          <div className="pt-8">
+            <Card className="max-w-2xl mx-auto">
               <CardHeader>
                 <CardTitle className="text-2xl">
                   <span className="text-4xl font-bold">${pricing.price}</span>
@@ -408,47 +408,53 @@ export default function ClassDetail() {
                 </CardTitle>
                 <CardDescription>One-time enrollment fee</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <ul className="space-y-3">
-                  <li className="flex items-start gap-2">
-                    <Check className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                    <span>Full access to all class materials</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                    <span>AI tutor conversation practice</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                    <span>Pronunciation feedback</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                    <span>Progress tracking</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                    <span>ACTFL-aligned assessments</span>
-                  </li>
-                </ul>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <ul className="space-y-3">
+                    <li className="flex items-start gap-2">
+                      <Check className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                      <span className="text-sm">Full access to all class materials</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Check className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                      <span className="text-sm">AI tutor conversation practice</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Check className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                      <span className="text-sm">Pronunciation feedback</span>
+                    </li>
+                  </ul>
+                  <ul className="space-y-3">
+                    <li className="flex items-start gap-2">
+                      <Check className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                      <span className="text-sm">Progress tracking</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Check className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                      <span className="text-sm">ACTFL-aligned assessments</span>
+                    </li>
+                  </ul>
+                </div>
                 
-                <Button 
-                  className="w-full" 
-                  size="lg"
-                  onClick={handleEnroll}
-                  data-testid="button-enroll-class"
-                >
-                  {isAuthenticated ? 'Enroll Now' : 'Sign Up to Enroll'}
-                </Button>
-                
-                {!isAuthenticated && (
-                  <p className="text-sm text-center text-muted-foreground">
-                    Already have an account?{' '}
-                    <Link href={`/login?redirect=/classes/${classId}`}>
-                      <span className="text-primary hover:underline cursor-pointer" data-testid="link-login">Log in</span>
-                    </Link>
-                  </p>
-                )}
+                <div className="space-y-4">
+                  <Button 
+                    className="w-full" 
+                    size="lg"
+                    onClick={handleEnroll}
+                    data-testid="button-enroll-class"
+                  >
+                    {isAuthenticated ? 'Enroll Now' : 'Sign Up to Enroll'}
+                  </Button>
+                  
+                  {!isAuthenticated && (
+                    <p className="text-sm text-center text-muted-foreground">
+                      Already have an account?{' '}
+                      <Link href={`/login?redirect=/classes/${classId}`}>
+                        <span className="text-primary hover:underline cursor-pointer" data-testid="link-login">Log in</span>
+                      </Link>
+                    </p>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>
