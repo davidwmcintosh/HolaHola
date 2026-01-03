@@ -212,10 +212,6 @@ export default function Pricing() {
               <p className="text-muted-foreground">
                 Structured courses designed by language education experts following ACTFL standards.
               </p>
-              <Button variant="outline" onClick={() => navigate('/classes')} data-testid="button-browse-all-classes">
-                <BookOpen className="h-4 w-4 mr-2" />
-                Browse All Classes
-              </Button>
             </div>
 
             {featuredClasses.length > 0 && (
