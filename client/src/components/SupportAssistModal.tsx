@@ -97,7 +97,7 @@ export function SupportAssistModal({
   isOpen,
   onClose,
   onResolved,
-  ticketId,
+  ticketId: propTicketId,
   category,
   reason,
   priority,
@@ -112,6 +112,8 @@ export function SupportAssistModal({
   const [isRecording, setIsRecording] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
+  const [ticketId, setTicketId] = useState<string | null>(propTicketId);
+  const [isCreatingTicket, setIsCreatingTicket] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -123,8 +125,48 @@ export function SupportAssistModal({
   // This modal should only be used for support mode until drill sessions are implemented
   const isDrillModeDisabled = mode === 'drill';
 
+  // Auto-create ticket when opened without one
   useEffect(() => {
-    if (isOpen && reason) {
+    if (isOpen && !propTicketId && !ticketId && !isCreatingTicket && mode === 'support') {
+      const createTicket = async () => {
+        setIsCreatingTicket(true);
+        try {
+          const response = await apiRequest('POST', '/api/support/tickets', {
+            category,
+            subject: reason || 'Help request',
+            description: reason || 'User requested help from voice chat',
+          });
+          const data = await response.json();
+          if (data.id) {
+            setTicketId(data.id);
+            console.log('[SupportAssist] Auto-created ticket:', data.id);
+          }
+        } catch (error) {
+          console.error('[SupportAssist] Failed to create ticket:', error);
+          toast({
+            variant: "destructive",
+            title: "Connection Error",
+            description: "Couldn't connect to support. Please try again.",
+          });
+        } finally {
+          setIsCreatingTicket(false);
+        }
+      };
+      createTicket();
+    }
+  }, [isOpen, propTicketId, ticketId, isCreatingTicket, mode, category, reason, toast]);
+
+  // Reset ticketId when modal is closed or prop changes
+  useEffect(() => {
+    if (!isOpen) {
+      setTicketId(null);
+    } else if (propTicketId) {
+      setTicketId(propTicketId);
+    }
+  }, [isOpen, propTicketId]);
+
+  useEffect(() => {
+    if (isOpen && reason && (ticketId || isDrillModeDisabled)) {
       // Drill mode is disabled - show informational message instead
       let initialMessage: string;
       if (isDrillModeDisabled) {
@@ -461,6 +503,15 @@ export function SupportAssistModal({
         variant: "destructive",
         title: "Feature Unavailable",
         description: "Drill mode text chat is not yet available.",
+      });
+      return;
+    }
+    
+    // Wait for ticket to be created
+    if (!ticketId) {
+      toast({
+        title: "Please wait",
+        description: "Connecting to support...",
       });
       return;
     }
