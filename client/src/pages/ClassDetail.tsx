@@ -136,7 +136,7 @@ export default function ClassDetail() {
   });
 
   const { data: classData, isLoading } = useQuery<PublicClass>({
-    queryKey: [`/api/classes/public/${classId}`],
+    queryKey: ['/api/classes/public', classId],
     enabled: !!classId,
   });
   

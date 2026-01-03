@@ -45,6 +45,9 @@ import {
   studentCanDoProgress,
   actflAssessmentEvents,
   classCurriculumLessons,
+  curriculumUnits,
+  curriculumLessons,
+  curriculumPaths,
   sofiaIssueReports,
 } from "@shared/schema";
 import { hasTeacherAccess, hasDeveloperAccess } from "@shared/permissions";
@@ -8063,7 +8066,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         const units = await db.select().from(curriculumUnits).where(eq(curriculumUnits.curriculumPathId, cls.curriculumPathId)).orderBy(curriculumUnits.orderIndex);
         
         const unitsWithLessons = await Promise.all(units.map(async (unit) => {
-          const lessons = await db.select().from(curriculumLessons).where(eq(curriculumLessons.unitId, unit.id)).orderBy(curriculumLessons.orderIndex);
+          const lessons = await db.select().from(curriculumLessons).where(eq(curriculumLessons.curriculumUnitId, unit.id)).orderBy(curriculumLessons.orderIndex);
           return { ...unit, lessons };
         }));
 
