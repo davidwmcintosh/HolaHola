@@ -393,12 +393,24 @@ export function useFounderCollab(): UseFounderCollabReturn {
         }
         audioPlayerRef.current = new Audio(url);
         audioPlayerRef.current.onended = () => {
+          console.log('[FounderCollab] Audio playback ended');
+          setPlayingMessageId(null);
+          setProcessingStatus('idle');
+          URL.revokeObjectURL(url);
+        };
+        audioPlayerRef.current.onerror = (e) => {
+          console.error('[FounderCollab] Audio playback error:', e);
           setPlayingMessageId(null);
           setProcessingStatus('idle');
           URL.revokeObjectURL(url);
         };
         setPlayingMessageId(data.messageId);
-        audioPlayerRef.current.play().catch(console.error);
+        audioPlayerRef.current.play().catch((err) => {
+          console.error('[FounderCollab] Audio play() failed:', err);
+          setPlayingMessageId(null);
+          setProcessingStatus('idle');
+          URL.revokeObjectURL(url);
+        });
         
         audioBufferRef.current = [];
       }
@@ -407,8 +419,22 @@ export function useFounderCollab(): UseFounderCollabReturn {
     socket.on('voice_complete', (data) => {
       if (!data.success) {
         setVoiceError(data.message || 'Voice processing failed');
+        // Reset to idle on failure (no audio to play)
+        setProcessingStatus('idle');
       }
       setIsRecording(false);
+      // Note: On success, processingStatus is reset to 'idle' when audio playback ends
+      // But add a safety timeout in case audio playback doesn't trigger onended
+      setTimeout(() => {
+        setProcessingStatus(prev => {
+          // Only reset if still stuck in 'speaking' (audio should have finished)
+          if (prev === 'speaking' || prev === 'thinking') {
+            console.log('[FounderCollab] Safety reset: processingStatus was stuck at', prev);
+            return 'idle';
+          }
+          return prev;
+        });
+      }, 30000); // 30 second safety timeout
     });
     
     socket.on('voice_error', (data) => {
