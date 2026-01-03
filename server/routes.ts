@@ -8179,6 +8179,9 @@ Return ONLY the ${targetLanguage} phrase:`;
           language: cls.language,
           isActive: cls.isActive,
           isEnrolled: enrolledClassIds.has(cls.id),
+          targetActflLevel: cls.targetActflLevel,
+          expectedActflMin: cls.expectedActflMin,
+          classLevel: cls.classLevel,
           classType: ct ? {
             id: ct.id,
             name: ct.name,
@@ -8188,14 +8191,11 @@ Return ONLY the ${targetLanguage} phrase:`;
         };
       });
       
-      // Sort: unenrolled classes first, then enrolled classes
+      // Sort: unenrolled classes first, then alphabetically by name
       sanitizedClasses.sort((a, b) => {
         if (a.isEnrolled !== b.isEnrolled) {
           return a.isEnrolled ? 1 : -1; // Unenrolled first
         }
-        // Then by language and name
-        const langCompare = a.language.localeCompare(b.language);
-        if (langCompare !== 0) return langCompare;
         return a.name.localeCompare(b.name, undefined, { numeric: true });
       });
       

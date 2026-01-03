@@ -27,6 +27,7 @@ interface PublicClass {
   isFeatured: boolean;
   featuredOrder: number;
   targetActflLevel: string;
+  expectedActflMin: string;
   classLevel: number;
 }
 
@@ -113,6 +114,23 @@ export default function Classes() {
   const { data: publicClasses, isLoading } = useQuery<PublicClass[]>({
     queryKey: ['/api/classes/public'],
   });
+
+  const getActflLabel = (level: string) => {
+    const labels: Record<string, string> = {
+      novice_low: "Novice Low",
+      novice_mid: "Novice Mid",
+      novice_high: "Novice High",
+      intermediate_low: "Intermediate Low",
+      intermediate_mid: "Intermediate Mid",
+      intermediate_high: "Intermediate High",
+      advanced_low: "Advanced Low",
+      advanced_mid: "Advanced Mid",
+      advanced_high: "Advanced High",
+      superior: "Superior",
+      distinguished: "Distinguished",
+    };
+    return labels[level] || level.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
 
   const classPriceCents = parseInt(pricingConfig?.class_price_cents || '4900');
   const classPrice = getClassPrice(classPriceCents);
@@ -226,7 +244,9 @@ export default function Classes() {
                             <span className="text-muted-foreground ml-1">{classPrice.period}</span>
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            Target: {cls.targetActflLevel?.replace('_', ' ').toUpperCase() || 'Varies'}
+                            Target: {cls.expectedActflMin && cls.targetActflLevel 
+                              ? `${getActflLabel(cls.expectedActflMin)} → ${getActflLabel(cls.targetActflLevel)}`
+                              : getActflLabel(cls.targetActflLevel || 'novice_low')}
                           </div>
                         </CardContent>
                         <CardFooter>
@@ -277,7 +297,9 @@ export default function Classes() {
                             <span className="text-muted-foreground ml-1">{classPrice.period}</span>
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            Target: {cls.targetActflLevel?.replace('_', ' ').toUpperCase() || 'Varies'}
+                            Target: {cls.expectedActflMin && cls.targetActflLevel 
+                              ? `${getActflLabel(cls.expectedActflMin)} → ${getActflLabel(cls.targetActflLevel)}`
+                              : getActflLabel(cls.targetActflLevel || 'novice_low')}
                           </div>
                         </CardContent>
                         <CardFooter>
