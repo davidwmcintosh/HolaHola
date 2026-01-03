@@ -48,6 +48,7 @@ import {
   curriculumUnits,
   curriculumLessons,
   curriculumPaths,
+  curriculumDrillItems,
   sofiaIssueReports,
 } from "@shared/schema";
 import { hasTeacherAccess, hasDeveloperAccess } from "@shared/permissions";
@@ -8067,7 +8068,18 @@ Return ONLY the ${targetLanguage} phrase:`;
         
         const unitsWithLessons = await Promise.all(units.map(async (unit) => {
           const lessons = await db.select().from(curriculumLessons).where(eq(curriculumLessons.curriculumUnitId, unit.id)).orderBy(curriculumLessons.orderIndex);
-          return { ...unit, lessons };
+          
+          // Enrich lessons with drill information if applicable
+          const enrichedLessons = await Promise.all(lessons.map(async (lesson) => {
+            let drillCount = 0;
+            if (lesson.lessonType === 'drill') {
+              const drillItems = await db.select().from(curriculumDrillItems).where(eq(curriculumDrillItems.lessonId, lesson.id));
+              drillCount = drillItems.length;
+            }
+            return { ...lesson, drillCount };
+          }));
+          
+          return { ...unit, lessons: enrichedLessons };
         }));
 
         syllabus = {
@@ -8086,6 +8098,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         isFeatured: cls.isFeatured,
         featuredOrder: cls.featuredOrder,
         targetActflLevel: cls.targetActflLevel,
+        expectedActflMin: cls.expectedActflMin,
         classLevel: cls.classLevel,
         syllabus
       });

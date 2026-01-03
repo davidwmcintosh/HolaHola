@@ -35,6 +35,7 @@ interface PublicClass {
   isFeatured: boolean;
   featuredOrder: number;
   targetActflLevel: string;
+  expectedActflMin: string;
   classLevel: number;
   syllabus?: {
     pathId: string;
@@ -51,6 +52,9 @@ interface PublicClass {
         description: string;
         lessonType: string;
         estimatedMinutes?: number;
+        drillCount?: number;
+        linkedDrillLessonId?: string;
+        bundleId?: string;
       }>;
     }>;
   };
@@ -186,6 +190,23 @@ export default function ClassDetail() {
     );
   }
 
+  const getActflLabel = (level: string) => {
+    const labels: Record<string, string> = {
+      novice_low: "Novice Low",
+      novice_mid: "Novice Mid",
+      novice_high: "Novice High",
+      intermediate_low: "Intermediate Low",
+      intermediate_mid: "Intermediate Mid",
+      intermediate_high: "Intermediate High",
+      advanced_low: "Advanced Low",
+      advanced_mid: "Advanced Mid",
+      advanced_high: "Advanced High",
+      superior: "Superior",
+      distinguished: "Distinguished",
+    };
+    return labels[level] || level.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+
   const level = getLevelBadge(classData.classLevel);
   const pricing = getClassPrice(parseInt(pricingConfig?.class_price_cents || '4900'));
   const Icon = classData.classType?.icon ? getIcon(classData.classType.icon) : BookOpen;
@@ -232,7 +253,11 @@ export default function ClassDetail() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="font-medium">{classData.targetActflLevel?.replace('_', ' ').toUpperCase() || 'Varies'}</p>
+                    <p className="font-medium">
+                      {classData.expectedActflMin && classData.targetActflLevel 
+                        ? `${getActflLabel(classData.expectedActflMin)} → ${getActflLabel(classData.targetActflLevel)}`
+                        : getActflLabel(classData.targetActflLevel || 'novice_low')}
+                    </p>
                     <p className="text-sm text-muted-foreground">{level.description}</p>
                   </CardContent>
                 </Card>
@@ -319,9 +344,16 @@ export default function ClassDetail() {
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between gap-2 mb-1">
                                       <p className="text-sm font-medium truncate">{lesson.name}</p>
-                                      <Badge variant="secondary" className="text-[10px] h-4 shrink-0 capitalize">
-                                        {lesson.lessonType.replace('_', ' ')}
-                                      </Badge>
+                                      <div className="flex gap-1">
+                                        {lesson.drillCount && lesson.drillCount > 0 ? (
+                                          <Badge variant="outline" className="text-[10px] h-4 shrink-0 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800">
+                                            {lesson.drillCount} Drills
+                                          </Badge>
+                                        ) : null}
+                                        <Badge variant="secondary" className="text-[10px] h-4 shrink-0 capitalize">
+                                          {lesson.lessonType.replace('_', ' ')}
+                                        </Badge>
+                                      </div>
                                     </div>
                                     <p className="text-xs text-muted-foreground line-clamp-2">
                                       {lesson.description}
