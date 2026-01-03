@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { 
   ArrowLeft, BookOpen, Globe, GraduationCap, Briefcase, Plane, 
-  Check, Clock, Users, Target, MessageCircle, Mic, Award, Loader2
+  Check, Clock, Users, Target, MessageCircle, Mic, Award, Loader2, Volume2
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
@@ -79,14 +79,26 @@ function getLevelBadge(classLevel: number): { label: string; description: string
   }
 }
 
-const CLASS_FEATURES = [
-  { icon: MessageCircle, text: 'AI-powered conversation practice' },
-  { icon: Mic, text: 'Real-time pronunciation feedback' },
-  { icon: Target, text: 'ACTFL-aligned curriculum' },
-  { icon: Award, text: 'Progress tracking & assessments' },
-  { icon: Users, text: 'Native-speaking AI tutors' },
-  { icon: Clock, text: 'Flexible scheduling' },
-];
+function getClassFeatures(className: string, language: string) {
+  const features = [
+    { icon: MessageCircle, text: 'AI-powered conversation practice' },
+    { icon: Mic, text: 'Real-time pronunciation feedback' },
+    { icon: Target, text: 'ACTFL-aligned curriculum' },
+    { icon: Award, text: 'Progress tracking & assessments' },
+  ];
+
+  if (className.toLowerCase().includes('pronunciation')) {
+    features.push({ icon: Volume2, text: 'Deep voice analysis' });
+    features.push({ icon: Award, text: 'Accent reduction' });
+  } else if (className.toLowerCase().includes('business')) {
+    features.push({ icon: Users, text: 'Professional etiquette' });
+    features.push({ icon: Globe, text: 'Workplace vocabulary' });
+  } else {
+    features.push({ icon: Users, text: `Native ${language} AI tutors` });
+    features.push({ icon: Clock, text: 'Flexible scheduling' });
+  }
+  return features;
+}
 
 export default function ClassDetail() {
   const [, params] = useRoute('/classes/:id');
@@ -155,14 +167,7 @@ export default function ClassDetail() {
   const pricing = getClassPrice(classPriceCents);
   const Icon = classData.classType?.icon ? getIcon(classData.classType.icon) : BookOpen;
 
-  const classSpecificFeatures = [
-    { icon: MessageCircle, text: `AI-powered ${getLanguageLabel(classData.language)} conversation practice` },
-    { icon: Mic, text: 'Real-time pronunciation feedback' },
-    { icon: Target, text: `${classData.name} - ACTFL-aligned curriculum` },
-    { icon: Award, text: `Mastery tracking for ${getLanguageLabel(classData.language)} proficiency` },
-    { icon: Users, text: `${getLanguageLabel(classData.language)} native-speaking AI tutors` },
-    { icon: Clock, text: 'Flexible scheduling for your pace' },
-  ];
+  const classSpecificFeatures = getClassFeatures(classData.name, getLanguageLabel(classData.language));
 
   return (
     <div className="min-h-screen bg-background">
@@ -235,7 +240,7 @@ export default function ClassDetail() {
                       <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
                         <FeatureIcon className="h-4 w-4 text-primary" />
                       </div>
-                      <span>{feature.text}</span>
+                      <span className="text-sm">{feature.text}</span>
                     </div>
                   );
                 })}

@@ -83,6 +83,24 @@ function PageLoader() {
   );
 }
 
+// ScrollToTop component to reset scroll position on route changes
+function ScrollToTop() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    // Standard window scroll for most cases
+    window.scrollTo(0, 0);
+    
+    // Also target the scrollable container in PageWrapper if it exists
+    const scrollContainer = document.querySelector('.overflow-y-auto');
+    if (scrollContainer) {
+      scrollContainer.scrollTop = 0;
+    }
+  }, [pathname]);
+
+  return null;
+}
+
 // Wrapper component that adds container padding for non-chat pages
 function PageWrapper({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -124,6 +142,7 @@ function Router() {
   if (!isAuthenticated) {
     return (
       <PageWrapper>
+        <ScrollToTop />
         <Switch>
           <Route path="/" component={Landing} />
           <Route path="/get-started" component={GetStarted} />
@@ -145,6 +164,7 @@ function Router() {
   // ReviewHub is the main landing page (Language Hub)
   return (
     <PageWrapper>
+      <ScrollToTop />
       <Switch>
         <Route path="/" component={ReviewHub} />
         <Route path="/dashboard" component={ReviewHub} />

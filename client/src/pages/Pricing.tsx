@@ -253,7 +253,7 @@ export default function Pricing() {
                   All Classes
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {publicClasses.filter(cls => !cls.isFeatured).map((cls) => {
+                  {publicClasses.map((cls) => {
                     const level = getLevelBadge(cls.classLevel);
                     return (
                       <Card key={cls.id} className="flex flex-col" data-testid={`card-class-${cls.id}`}>
