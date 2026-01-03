@@ -631,7 +631,7 @@ class SyncBridgeService {
     }
     
     // BATCH: founder-context - Founder's personal facts for same Daniela in dev/prod (bidirectional)
-    if (batchType === 'founder-context') {
+    if (!batchType || batchType === 'founder-context') {
       try {
         const contextData = await this.exportFounderContext();
         bundle.founderContext = contextData;
@@ -3136,7 +3136,7 @@ class SyncBridgeService {
       // v15: advanced-intel-b now supports pagination for large observation datasets
       // v16: Skip already-completed batches on resume
       // v19: Support selective batch pulling for beta analytics
-      const allBatchTypes = ['neural-core', 'advanced-intel-a', 'advanced-intel-b', 'express-lane', 'hive-snapshots', 'daniela-memories', 'product-config', 'beta-usage', 'aggregate-analytics'];
+      const allBatchTypes = ['neural-core', 'advanced-intel-a', 'advanced-intel-b', 'express-lane', 'hive-snapshots', 'daniela-memories', 'product-config', 'founder-context', 'beta-usage', 'aggregate-analytics'];
       const batchTypes = batchFilter && batchFilter.length > 0 
         ? allBatchTypes.filter(b => batchFilter.includes(b))
         : allBatchTypes.filter(b => !['beta-usage', 'aggregate-analytics'].includes(b)); // By default, skip pull-only batches
@@ -3153,7 +3153,7 @@ class SyncBridgeService {
         console.log(`[SYNC-BRIDGE] Pull batch ${i + 1}/${batchTypes.length}: ${batchType}...`);
         
         // 45s timeout for smaller batches, 60s for larger data batches
-        const timeout = ['express-lane', 'hive-snapshots', 'daniela-memories'].includes(batchType) ? 60000 : 45000;
+        const timeout = ['express-lane', 'hive-snapshots', 'daniela-memories', 'founder-context'].includes(batchType) ? 60000 : 45000;
         
         // Special handling for advanced-intel-b: paginated fetching
         if (batchType === 'advanced-intel-b') {
