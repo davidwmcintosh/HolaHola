@@ -3254,11 +3254,14 @@ class SyncBridgeService {
         // v20: Production diagnostics - only pulled by dev from prod
         'sofia-telemetry', 'prod-conversations', 'prod-content-growth'
       ];
-      // Default excludes: beta-usage, aggregate-analytics (only pulled on demand)
-      // Note: sofia-telemetry, prod-conversations, prod-content-growth are now included by default
+      // v23: Default excludes - large/slow batches that should sync on-demand
+      // - beta-usage, aggregate-analytics: analytics data, sync on demand
+      // - advanced-intel-b: 388K+ observations, needs dedicated sync (8000+ pages)
+      // Note: sofia-telemetry, prod-conversations, prod-content-growth are included by default
+      const DEFAULT_EXCLUDED = ['beta-usage', 'aggregate-analytics', 'advanced-intel-b'];
       const batchTypes = batchFilter && batchFilter.length > 0 
         ? allBatchTypes.filter(b => batchFilter.includes(b))
-        : allBatchTypes.filter(b => !['beta-usage', 'aggregate-analytics'].includes(b));
+        : allBatchTypes.filter(b => !DEFAULT_EXCLUDED.includes(b));
       
       for (let i = 0; i < batchTypes.length; i++) {
         const batchType = batchTypes[i];
@@ -3360,35 +3363,29 @@ class SyncBridgeService {
         }
       }
       
-      // v23: Improved status determination - treat 'advanced-intel-b' as non-critical
-      // The observation batch has 8000+ pages and often can't complete before timeout.
-      // Core teaching data is in other batches - don't let observations block success.
-      // - 'success': All CRITICAL batches completed (warnings OK), or no batches attempted
-      // - 'partial': Some critical batches failed (observations excluded from this check)
+      // v21: Improved status determination based on completed batches, not just errors
+      // - 'success': All expected batches completed (warnings are OK), or no batches attempted
+      // - 'partial': Some batches completed, some failed
       // - 'failed': No batches completed successfully
-      const NON_CRITICAL_BATCHES = ['advanced-intel-b']; // Analytics data, not teaching critical
-      const criticalBatches = batchTypes.filter(b => !NON_CRITICAL_BATCHES.includes(b));
-      const completedCritical = completedBatches.filter(b => !NON_CRITICAL_BATCHES.includes(b));
-      const expectedCriticalCount = criticalBatches.length;
-      const completedCriticalCount = completedCritical.length;
+      const expectedBatchCount = batchTypes.length;
       const completedBatchCount = completedBatches.length;
       
       let finalStatus: 'success' | 'partial' | 'failed';
-      if (expectedCriticalCount === 0) {
-        // No critical batches to process = success
+      if (expectedBatchCount === 0) {
+        // No batches to process (empty selection or all filtered) = success
         finalStatus = 'success';
-      } else if (completedCriticalCount === expectedCriticalCount) {
-        // All critical batches completed - success even if observations incomplete
+      } else if (completedBatchCount === expectedBatchCount) {
+        // All batches completed - this is success even if there were import warnings
         finalStatus = 'success';
       } else if (completedBatchCount > 0) {
-        // Some batches completed, but not all critical ones
+        // Some batches completed, some failed
         finalStatus = 'partial';
       } else {
         // No batches completed
         finalStatus = 'failed';
       }
       
-      console.log(`[SYNC-BRIDGE v23] Pull complete. Critical: ${completedCriticalCount}/${expectedCriticalCount}, Total: ${completedBatchCount}/${batchTypes.length}, Status: ${finalStatus}, Errors: ${allErrors.length}`);
+      console.log(`[SYNC-BRIDGE v21] Pull complete. Completed: ${completedBatchCount}/${expectedBatchCount}, Status: ${finalStatus}, Errors: ${allErrors.length}`);
       
       await db.update(syncRuns)
         .set({
