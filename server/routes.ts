@@ -15525,6 +15525,41 @@ Current conversation context:
   // Production debugging - view user-reported voice/audio issues with diagnostics
   // ============================================================================
   
+  // Client-side double audio detection report (auto-reported by dedup system)
+  // Rate-limited to prevent spam - max 1 report per user per 5 minutes
+  const doubleAudioReportCooldown = new Map<string, number>();
+  app.post("/api/support/report-double-audio", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id || req.user?.claims?.sub || 'anonymous';
+      const { blockedCount, passedCount, blockedKeys, userAgent } = req.body;
+      
+      // Rate limit: 1 report per 5 minutes per user
+      const now = Date.now();
+      const lastReport = doubleAudioReportCooldown.get(userId);
+      if (lastReport && now - lastReport < 5 * 60 * 1000) {
+        return res.json({ success: true, rateLimited: true });
+      }
+      doubleAudioReportCooldown.set(userId, now);
+      
+      // Create Sofia issue report for double audio detection
+      const { supportPersonaService } = await import('./services/support-persona-service');
+      const result = await supportPersonaService.createIssueReport({
+        userId,
+        issueType: 'double_audio',
+        userDescription: `Auto-detected: ${blockedCount} duplicate audio chunks blocked. Stats: ${passedCount} passed, blocked keys: ${blockedKeys?.slice(0, 5).map((k: any) => k.key).join(', ')}`,
+        clientTelemetry: { blockedCount, passedCount, blockedKeys, userAgent },
+        generateAnalysis: false, // Don't generate AI analysis for auto-reports
+        mode: 'dev',
+      });
+      
+      console.log(`[Sofia] Double audio auto-report from ${userId}: blocked=${blockedCount}, passed=${passedCount}`);
+      res.json({ success: true, reportId: result.id });
+    } catch (error: any) {
+      console.error('[API] Error reporting double audio:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // Get pending Sofia issue reports for founder review
   app.get("/api/admin/sofia-issue-reports", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {

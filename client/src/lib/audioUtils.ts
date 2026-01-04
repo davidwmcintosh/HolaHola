@@ -787,7 +787,7 @@ export class StreamingAudioPlayer {
     if (typeof window !== 'undefined') {
       const w = window as any;
       if (!w._dedupStats) {
-        w._dedupStats = { blocked: 0, passed: 0, keys: new Set(), blockedKeys: [] };
+        w._dedupStats = { blocked: 0, passed: 0, keys: new Set(), blockedKeys: [], lastReport: 0 };
       }
       if (this.processedChunks.has(chunkKey)) {
         w._dedupStats.blocked++;
@@ -795,6 +795,26 @@ export class StreamingAudioPlayer {
         // Keep only last 20 blocked keys for memory
         if (w._dedupStats.blockedKeys.length > 20) {
           w._dedupStats.blockedKeys = w._dedupStats.blockedKeys.slice(-20);
+        }
+        
+        // AUTO-REPORT: Send to Sofia when duplicates are detected (throttled)
+        // Only report once per 5 minutes to avoid spam
+        const now = Date.now();
+        if (now - w._dedupStats.lastReport > 5 * 60 * 1000 && w._dedupStats.blocked >= 2) {
+          w._dedupStats.lastReport = now;
+          // Fire-and-forget POST to Sofia
+          fetch('/api/support/report-double-audio', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              blockedCount: w._dedupStats.blocked,
+              passedCount: w._dedupStats.passed,
+              blockedKeys: w._dedupStats.blockedKeys,
+              userAgent: navigator.userAgent,
+            }),
+          }).catch(() => { /* Silently ignore errors */ });
+          console.log(`[AUDIO PLAYER] DEDUP: Auto-reported ${w._dedupStats.blocked} blocked chunks to Sofia`);
         }
       } else {
         w._dedupStats.passed++;
