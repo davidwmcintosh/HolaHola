@@ -32,7 +32,7 @@ const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production'
 
 // Version identifier to verify which code is running on production
 // Increment this when making sync-related changes to verify deployment
-const SYNC_BRIDGE_CODE_VERSION = "2024-12-25-v19-bidirectional-sync";
+const SYNC_BRIDGE_CODE_VERSION = "2025-01-04-v21-batch-completion-status";
 
 // Capability negotiation: List all batch types this version can import/export
 // When adding new batches, add them here so peers can gracefully handle version mismatches
