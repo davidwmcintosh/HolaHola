@@ -246,6 +246,31 @@ class SyncBridgeService {
     return lastPush?.completedAt || null;
   }
   
+  /**
+   * v23: Get the timestamp of the last successful pull sync for a specific batch
+   * Used for delta sync to only fetch newer records
+   */
+  async getLastSuccessfulPullTime(batchType?: string): Promise<Date | null> {
+    // Find the most recent successful or partial pull that included this batch
+    // For advanced-intel-b specifically, we want the last time observations were synced
+    const [lastPull] = await db
+      .select()
+      .from(syncRuns)
+      .where(
+        and(
+          eq(syncRuns.direction, 'pull'),
+          or(
+            eq(syncRuns.status, 'success'),
+            eq(syncRuns.status, 'partial') // Partial syncs may have completed some observations
+          )
+        )
+      )
+      .orderBy(desc(syncRuns.completedAt))
+      .limit(1);
+    
+    return lastPull?.completedAt || null;
+  }
+  
   async collectExportBundle(incrementalSince?: Date | null, batchType?: string): Promise<Partial<SyncBundle>> {
     // If a specific batch type is requested, only export that batch
     // This enables batched sync to avoid timeout issues
@@ -352,11 +377,13 @@ class SyncBridgeService {
       let northStar: any = { principles: [], understanding: [], examples: [] };
       
       // Export 1: exportTriLaneObservations with pagination
-      console.log(`[SYNC-BRIDGE v15] Step 1/2: exportTriLaneObservations (page=${page})...`);
+      // v23: Delta sync - pass incrementalSince to only export new observations
+      const sinceTs = incrementalSince || undefined;
+      console.log(`[SYNC-BRIDGE v23] Step 1/2: exportTriLaneObservations (page=${page}${sinceTs ? ', delta since ' + sinceTs.toISOString() : ''})...`);
       try {
-        triLane = await neuralNetworkSync.exportTriLaneObservations({ page });
+        triLane = await neuralNetworkSync.exportTriLaneObservations({ page, sinceTimestamp: sinceTs });
         const pag = triLane?.pagination;
-        console.log(`[SYNC-BRIDGE v15] Step 1 OK: ${triLane?.agentObservations?.length || 0}/${pag?.agentTotal || '?'} agent, ${triLane?.supportObservations?.length || 0}/${pag?.supportTotal || '?'} support, ${triLane?.systemAlerts?.length || 0}/${pag?.alertsTotal || '?'} alerts, hasMore=${pag?.hasMore} (+${Date.now() - batchStart}ms)`);
+        console.log(`[SYNC-BRIDGE v23] Step 1 OK: ${triLane?.agentObservations?.length || 0}/${pag?.agentTotal || '?'} agent, ${triLane?.supportObservations?.length || 0}/${pag?.supportTotal || '?'} support, ${triLane?.systemAlerts?.length || 0}/${pag?.alertsTotal || '?'} alerts, hasMore=${pag?.hasMore}${triLane?.deltaSync?.isDelta ? ' (DELTA)' : ''} (+${Date.now() - batchStart}ms)`);
       } catch (e: any) {
         console.error(`[SYNC-BRIDGE v15] Step 1 FAILED after ${Date.now() - batchStart}ms:`, e?.message || String(e));
         batchErrors.push(`advanced-intel-b step1: ${e?.message || 'unknown'}`);
@@ -3078,17 +3105,23 @@ class SyncBridgeService {
   
   /**
    * Fetch a single batch from the peer with timeout handling
+   * v23: Added sinceTimestamp for delta sync support
    */
   private async fetchBatch(
     peerUrl: string,
     batchType: string,
-    timeoutMs: number = 45000
+    timeoutMs: number = 45000,
+    sinceTimestamp?: Date
   ): Promise<{ success: boolean; bundle: Partial<SyncBundle>; error?: string }> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     
     try {
-      const requestPayload = { requestedAt: new Date().toISOString(), batchType };
+      // v23: Include sinceTimestamp for delta sync (observations only sync new records)
+      const requestPayload: any = { requestedAt: new Date().toISOString(), batchType };
+      if (sinceTimestamp) {
+        requestPayload.sinceTimestamp = sinceTimestamp.toISOString();
+      }
       const headers = createSyncHeaders(requestPayload);
       
       const response = await fetch(`${peerUrl}/api/sync/export`, {
@@ -3284,15 +3317,24 @@ class SyncBridgeService {
           let hasMore = true;
           const MAX_PAGES = 2000; // v22: Increased to handle 500K+ observations (387K needs ~1550 pages)
           
+          // v23: Delta sync - get last successful pull timestamp to only fetch new observations
+          const lastPullTime = await this.getLastSuccessfulPullTime('advanced-intel-b');
+          if (lastPullTime) {
+            console.log(`[SYNC-BRIDGE v23] Delta sync: only fetching observations since ${lastPullTime.toISOString()}`);
+          } else {
+            console.log(`[SYNC-BRIDGE v23] Full sync: no previous pull found, fetching all observations`);
+          }
+          
           if (page > 0) {
             console.log(`[SYNC-BRIDGE v16] Resuming observations from page ${page}`);
           }
           
           while (hasMore && page < MAX_PAGES) {
             const pageBatchType = page === 0 ? 'advanced-intel-b' : `advanced-intel-b-p${page}`;
-            console.log(`[SYNC-BRIDGE] Fetching observations page ${page}...`);
+            console.log(`[SYNC-BRIDGE] Fetching observations page ${page}${lastPullTime ? ' (delta)' : ''}...`);
             
-            const result = await this.fetchBatch(peerUrl, pageBatchType, timeout);
+            // v23: Pass sinceTimestamp for delta sync
+            const result = await this.fetchBatch(peerUrl, pageBatchType, timeout, lastPullTime || undefined);
             
             if (!result.success) {
               allErrors.push(result.error || `${pageBatchType} failed`);

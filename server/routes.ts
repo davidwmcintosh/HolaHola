@@ -18638,10 +18638,14 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   
   // Peer-to-peer: Export bundle (called by remote peer pulling from us)
   // Supports optional batchType parameter for batched sync
+  // v23: Added sinceTimestamp for delta sync support
   app.post("/api/sync/export", validateSyncRequest, async (req: any, res) => {
     const batchType = req.body?.batchType || 'full';
+    // v23: Parse sinceTimestamp for delta sync (only export records created after this time)
+    const sinceTimestamp = req.body?.sinceTimestamp ? new Date(req.body.sinceTimestamp) : null;
     const startTime = Date.now();
-    console.log(`[SYNC API v12] Export handler entered for batch: ${batchType} at ${new Date().toISOString()}`);
+    const deltaInfo = sinceTimestamp ? ` (delta since ${sinceTimestamp.toISOString()})` : '';
+    console.log(`[SYNC API v23] Export handler entered for batch: ${batchType}${deltaInfo} at ${new Date().toISOString()}`);
     
     // Track if we've sent a response
     let responseSent = false;
@@ -18672,9 +18676,10 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
     }, 40000);
     
     try {
-      console.log(`[SYNC API v12] Step 1: Calling collectExportBundle for ${batchType}`);
-      const bundle = await syncBridge.collectExportBundle(null, batchType);
-      console.log(`[SYNC API v12] Step 1.5: collectExportBundle returned for ${batchType} after ${Date.now() - startTime}ms`);
+      console.log(`[SYNC API v23] Step 1: Calling collectExportBundle for ${batchType}${deltaInfo}`);
+      // v23: Pass sinceTimestamp for delta sync
+      const bundle = await syncBridge.collectExportBundle(sinceTimestamp, batchType);
+      console.log(`[SYNC API v23] Step 1.5: collectExportBundle returned for ${batchType} after ${Date.now() - startTime}ms`);
       
       console.log(`[SYNC API v12] Step 2: Bundle collected, serializing to JSON string first`);
       const response = Object.assign({}, bundle, { _syncVersion: 12 });
