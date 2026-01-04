@@ -25,7 +25,7 @@ The Voice Diagnostics System provides production observability via a ring buffer
 
 The Replit Agent API provides secure access for external Replit Agent instances to interact with Hive/Wren services. The `streaming-voice-orchestrator.ts` enables Daniela to push messages directly to the EXPRESS Lane during voice chat sessions using tag patterns.
 
-Daniela's Voice Pipeline is `User Audio → Deepgram Nova-3 (LIVE API) → Gemini Streaming → Cartesia Sonic-3 → Audio Output`. Support/Assistant Tutors use Google Cloud Text-to-Speech. A Tutor Handoff System allows seamless transitions. Each of the 9 languages has unique male and female tutor avatars, and speculative PTT Streaming optimizes performance.
+Daniela's Voice Pipeline is `User Audio → Deepgram Nova-3 (LIVE API) → Gemini Streaming → Cartesia Sonic-3 → Audio Output`. Support/Assistant Tutors use Google Cloud Text-to-Speech. A Tutor Handoff System allows seamless transitions. Each of the 9 languages has unique male and female tutor avatars, and speculative PTT Streaming optimizes performance. A session-level transcript deduplication guard in `processOpenMicTranscript` prevents the same utterance from being processed twice (fixes race condition between PTT release and audio_data messages).
 
 Syllabus Template Automation pre-fills labels for teachers, and the Bundle Creation feature allows one-click creation of linked conversation + drill lesson pairs. Azure Pronunciation Assessment is implemented for post-session batch analysis to inform drill recommendations, with a sampling strategy for cost optimization and tiered assessment based on subscription.
 

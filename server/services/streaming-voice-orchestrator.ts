@@ -748,6 +748,10 @@ export interface StreamingSession {
   };
   // Deduplication: Track sent audio chunks to prevent double audio bug
   sentAudioChunks: Set<string>;
+  // Deduplication: Track last processed transcript hash to prevent double AI responses
+  // (Fixes race condition where PTT release and audio_data can both trigger AI with same transcript)
+  lastProcessedTranscriptHash?: string;
+  lastProcessedTranscriptTime?: number;
   // Lesson Bundle Context - tells Daniela about pre-configured drills
   lessonBundleContext?: {
     lessonId: string;
@@ -3050,6 +3054,33 @@ Remember: David may reference things discussed in these recent text chats.
       });
       throw new Error(`Session not found or inactive: ${sessionId}`);
     }
+    
+    // DEDUPLICATION GUARD: Prevent same transcript from being processed twice
+    // This fixes the race condition where PTT release and audio_data can both trigger AI
+    // with the same transcript when speculativeAiAccepted flag timing is off
+    const transcriptHash = transcript.trim().toLowerCase().substring(0, 100);
+    const now = Date.now();
+    const DEDUP_WINDOW_MS = 5000; // 5 second window to catch duplicates
+    
+    if (session.lastProcessedTranscriptHash === transcriptHash && 
+        session.lastProcessedTranscriptTime && 
+        (now - session.lastProcessedTranscriptTime) < DEDUP_WINDOW_MS) {
+      console.log(`[DEDUP] Skipping duplicate transcript (processed ${now - session.lastProcessedTranscriptTime}ms ago): "${transcript.slice(0, 50)}..."`);
+      return {
+        sessionId,
+        sttLatencyMs: 0,
+        aiFirstTokenMs: 0,
+        ttsFirstByteMs: 0,
+        totalLatencyMs: 0,
+        sentenceCount: 0,
+        audioBytes: 0,
+        audioChunkCount: 0,
+      };
+    }
+    
+    // Record this transcript as processed
+    session.lastProcessedTranscriptHash = transcriptHash;
+    session.lastProcessedTranscriptTime = now;
     
     // BARGE-IN DETECTION: If AI is currently generating a response, interrupt it
     if (session.isGenerating) {
