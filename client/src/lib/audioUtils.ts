@@ -782,6 +782,26 @@ export class StreamingAudioPlayer {
     // Strategy: Track (sentenceIndex, chunkIndex) pairs. True network duplicates
     // will have the same pair. Server always sends proper chunkIndex values.
     const chunkKey = `s${sentenceIndex}_c${chunkIndex}`;
+    
+    // PRODUCTION TELEMETRY: Track dedup stats at window level for debugging
+    if (typeof window !== 'undefined') {
+      const w = window as any;
+      if (!w._dedupStats) {
+        w._dedupStats = { blocked: 0, passed: 0, keys: new Set(), blockedKeys: [] };
+      }
+      if (this.processedChunks.has(chunkKey)) {
+        w._dedupStats.blocked++;
+        w._dedupStats.blockedKeys.push({ key: chunkKey, time: Date.now() });
+        // Keep only last 20 blocked keys for memory
+        if (w._dedupStats.blockedKeys.length > 20) {
+          w._dedupStats.blockedKeys = w._dedupStats.blockedKeys.slice(-20);
+        }
+      } else {
+        w._dedupStats.passed++;
+        w._dedupStats.keys.add(chunkKey);
+      }
+    }
+    
     if (this.processedChunks.has(chunkKey)) {
       console.log(`[AUDIO PLAYER] DEDUP: Skipping duplicate chunk ${chunkKey}`);
       return;
