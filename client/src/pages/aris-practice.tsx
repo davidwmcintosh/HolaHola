@@ -182,10 +182,12 @@ export default function ArisPractice() {
       } catch {
         setSessionGreeting("");
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error('[ArisPractice] Failed to start drill:', error);
+      const errorMessage = error?.message || error?.error || "Could not start the drill. Please try again.";
       toast({
         title: "Error",
-        description: "Could not start the drill. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
