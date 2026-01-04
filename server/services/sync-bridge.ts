@@ -3360,29 +3360,35 @@ class SyncBridgeService {
         }
       }
       
-      // v21: Improved status determination based on completed batches, not just errors
-      // - 'success': All expected batches completed (warnings are OK), or no batches attempted
-      // - 'partial': Some batches completed, some failed
+      // v23: Improved status determination - treat 'advanced-intel-b' as non-critical
+      // The observation batch has 8000+ pages and often can't complete before timeout.
+      // Core teaching data is in other batches - don't let observations block success.
+      // - 'success': All CRITICAL batches completed (warnings OK), or no batches attempted
+      // - 'partial': Some critical batches failed (observations excluded from this check)
       // - 'failed': No batches completed successfully
-      const expectedBatchCount = batchTypes.length;
+      const NON_CRITICAL_BATCHES = ['advanced-intel-b']; // Analytics data, not teaching critical
+      const criticalBatches = batchTypes.filter(b => !NON_CRITICAL_BATCHES.includes(b));
+      const completedCritical = completedBatches.filter(b => !NON_CRITICAL_BATCHES.includes(b));
+      const expectedCriticalCount = criticalBatches.length;
+      const completedCriticalCount = completedCritical.length;
       const completedBatchCount = completedBatches.length;
       
       let finalStatus: 'success' | 'partial' | 'failed';
-      if (expectedBatchCount === 0) {
-        // No batches to process (empty selection or all filtered) = success
+      if (expectedCriticalCount === 0) {
+        // No critical batches to process = success
         finalStatus = 'success';
-      } else if (completedBatchCount === expectedBatchCount) {
-        // All batches completed - this is success even if there were import warnings
+      } else if (completedCriticalCount === expectedCriticalCount) {
+        // All critical batches completed - success even if observations incomplete
         finalStatus = 'success';
       } else if (completedBatchCount > 0) {
-        // Some batches completed, some failed
+        // Some batches completed, but not all critical ones
         finalStatus = 'partial';
       } else {
         // No batches completed
         finalStatus = 'failed';
       }
       
-      console.log(`[SYNC-BRIDGE v21] Pull complete. Completed: ${completedBatchCount}/${expectedBatchCount}, Status: ${finalStatus}, Errors: ${allErrors.length}`);
+      console.log(`[SYNC-BRIDGE v23] Pull complete. Critical: ${completedCriticalCount}/${expectedCriticalCount}, Total: ${completedBatchCount}/${batchTypes.length}, Status: ${finalStatus}, Errors: ${allErrors.length}`);
       
       await db.update(syncRuns)
         .set({
