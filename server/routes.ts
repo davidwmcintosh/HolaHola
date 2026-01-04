@@ -11164,6 +11164,37 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  // ===== OBSERVATION SUMMARIZATION =====
+  // v23: Founder-only endpoints for observation summarization
+  
+  // Get summarization stats
+  app.get("/api/admin/observations/summarization/stats", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { observationSummarizationService } = await import('./services/observation-summarization-service');
+      const stats = await observationSummarizationService.getStats();
+      res.json(stats);
+    } catch (error: any) {
+      console.error('[Observation Summarization Stats] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Trigger manual summarization job
+  app.post("/api/admin/observations/summarization/run", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { observationSummarizationService } = await import('./services/observation-summarization-service');
+      console.log('[Observation Summarization] Manual run triggered by founder');
+      const result = await observationSummarizationService.runSummarizationJob();
+      res.json({
+        message: 'Summarization job completed',
+        ...result
+      });
+    } catch (error: any) {
+      console.error('[Observation Summarization Run] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // ===== SYNC CONTROL CENTER =====
   // Founder-only UI for managing dev-prod synchronization
   

@@ -4627,6 +4627,77 @@ export type InsertSystemAlert = z.infer<typeof insertSystemAlertSchema>;
 export type SystemAlert = typeof systemAlerts.$inferSelect;
 
 // ============================================================================
+// SYNTHESIZED INSIGHTS - Condensed observations for efficient sync
+// ============================================================================
+// v23: Wren synthesizes 100+ observations into 1 insight for cross-environment sync
+// This reduces sync payload from 388K observations to ~4K insights
+
+export const synthesizedInsightCategoryEnum = pgEnum('synthesized_insight_category', [
+  'teaching_pattern',    // Patterns in Daniela's teaching effectiveness
+  'error_cluster',       // Clustered error patterns from students
+  'feature_usage',       // How features are being used/adopted
+  'system_health',       // Platform performance patterns
+  'student_journey',     // Common learning paths
+  'content_quality',     // Quality patterns in curriculum
+  'voice_quality',       // Voice pipeline patterns
+  'support_trend',       // Support request patterns
+  'cross_agent'          // Patterns involving multiple agents
+]);
+
+export const synthesizedInsights = pgTable("synthesized_insights", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Classification
+  category: synthesizedInsightCategoryEnum("category").notNull(),
+  priority: integer("priority").default(50), // 1-100
+  
+  // The synthesized insight
+  title: varchar("title").notNull(),
+  insight: text("insight").notNull(), // The condensed learning
+  supportingEvidence: text("supporting_evidence"), // Summarized evidence
+  actionableRecommendation: text("actionable_recommendation"),
+  
+  // Aggregation metadata
+  observationCount: integer("observation_count").default(0), // How many observations synthesized
+  observationIds: text("observation_ids").array(), // IDs of source observations
+  timeRangeStart: timestamp("time_range_start"), // Oldest observation
+  timeRangeEnd: timestamp("time_range_end"), // Newest observation
+  sourceCategories: text("source_categories").array(), // Which observation categories included
+  
+  // Confidence & validation
+  confidence: integer("confidence").default(70), // 0-100 confidence in synthesis
+  validatedByFounder: boolean("validated_by_founder").default(false),
+  validatedAt: timestamp("validated_at"),
+  
+  // Impact tracking
+  impactScore: integer("impact_score").default(0), // How impactful this insight is
+  affectedUsers: integer("affected_users").default(0), // Estimated users affected
+  affectedSessions: integer("affected_sessions").default(0),
+  
+  // Two-way sync fields
+  syncStatus: varchar("sync_status").default("local"),
+  originId: varchar("origin_id"),
+  originEnvironment: varchar("origin_environment"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_synthesized_insights_category").on(table.category),
+  index("idx_synthesized_insights_priority").on(table.priority),
+  index("idx_synthesized_insights_created").on(table.createdAt),
+  index("idx_synthesized_insights_origin").on(table.originId),
+]);
+
+export const insertSynthesizedInsightSchema = createInsertSchema(synthesizedInsights).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSynthesizedInsight = z.infer<typeof insertSynthesizedInsightSchema>;
+export type SynthesizedInsight = typeof synthesizedInsights.$inferSelect;
+
+// ============================================================================
 // SUPPORT TICKETS - Daniela-to-Support handoff tracking
 // ============================================================================
 
