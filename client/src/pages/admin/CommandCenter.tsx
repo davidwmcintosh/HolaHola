@@ -6490,7 +6490,14 @@ function SofiaIssueReportsTab() {
     reports: any[];
     counts: { pending: number; reviewed: number; actionable: number; resolved: number };
   }>({
-    queryKey: ["/api/admin/sofia-issue-reports", { status: statusFilter }],
+    queryKey: ["/api/admin/sofia-issue-reports", statusFilter],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/sofia-issue-reports?status=${encodeURIComponent(statusFilter)}`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to fetch issue reports");
+      return res.json();
+    },
   });
 
   const updateReportMutation = useMutation({
