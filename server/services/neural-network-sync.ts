@@ -53,7 +53,7 @@ import {
   type NorthStarUnderstanding,
   type NorthStarExample,
 } from '@shared/schema';
-import { eq, and, isNull, desc, or, sql } from 'drizzle-orm';
+import { eq, and, isNull, desc, or, sql, gte } from 'drizzle-orm';
 import crypto from 'crypto';
 
 const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production' : 'development';
@@ -2361,11 +2361,13 @@ export class NeuralNetworkSyncService {
   // ===== Tri-Lane Hive Sync Methods =====
   
   // Export observations for sync to production (Tri-Lane Hive collaboration)
+  // v23: Delta sync support - only export records created since lastSyncTimestamp
   // Supports pagination via offset/limit to handle large datasets without timeouts
   async exportTriLaneObservations(options?: { 
     offset?: number; 
     limit?: number;
     page?: number; // 0-indexed page number
+    sinceTimestamp?: Date; // v23: Delta sync - only export records created after this timestamp
   }): Promise<{
     agentObservations: AgentObservation[];
     supportObservations: SupportObservation[];
@@ -2378,10 +2380,15 @@ export class NeuralNetworkSyncService {
       alertsTotal: number;
       hasMore: boolean;
     };
+    deltaSync?: {
+      sinceTimestamp: string;
+      isDelta: boolean;
+    };
   }> {
     const PAGE_SIZE = options?.limit || 250; // Reduced from 500 to avoid production import timeouts
     // Support both direct offset and 0-indexed page number
     const offset = options?.offset ?? (options?.page !== undefined ? options.page * PAGE_SIZE : 0);
+    const sinceTs = options?.sinceTimestamp;
     
     // Query each table separately with error handling - tables may not exist in all environments
     let agentObs: AgentObservation[] = [];
@@ -2392,14 +2399,20 @@ export class NeuralNetworkSyncService {
     let alertsTotal = 0;
     
     try {
+      // v23: Delta sync - add createdAt filter if sinceTimestamp provided
+      const baseCondition = eq(agentObservations.status, 'active');
+      const condition = sinceTs 
+        ? and(baseCondition, gte(agentObservations.createdAt, sinceTs))
+        : baseCondition;
+      
       // Get total count for pagination info
       const countResult = await db.select({ count: sql<number>`count(*)::int` })
         .from(agentObservations)
-        .where(eq(agentObservations.status, 'active'));
+        .where(condition);
       agentTotal = countResult[0]?.count || 0;
       
       agentObs = await db.select().from(agentObservations)
-        .where(eq(agentObservations.status, 'active'))
+        .where(condition)
         .orderBy(desc(agentObservations.priority), agentObservations.id)
         .limit(PAGE_SIZE)
         .offset(offset);
@@ -2408,13 +2421,19 @@ export class NeuralNetworkSyncService {
     }
     
     try {
+      // v23: Delta sync - add createdAt filter if sinceTimestamp provided
+      const baseCondition = eq(supportObservations.status, 'active');
+      const condition = sinceTs 
+        ? and(baseCondition, gte(supportObservations.createdAt, sinceTs))
+        : baseCondition;
+      
       const countResult = await db.select({ count: sql<number>`count(*)::int` })
         .from(supportObservations)
-        .where(eq(supportObservations.status, 'active'));
+        .where(condition);
       supportTotal = countResult[0]?.count || 0;
       
       supportObs = await db.select().from(supportObservations)
-        .where(eq(supportObservations.status, 'active'))
+        .where(condition)
         .orderBy(desc(supportObservations.priority), supportObservations.id)
         .limit(PAGE_SIZE)
         .offset(offset);
@@ -2423,13 +2442,19 @@ export class NeuralNetworkSyncService {
     }
     
     try {
+      // v23: Delta sync - add createdAt filter if sinceTimestamp provided
+      const baseCondition = eq(systemAlerts.isActive, true);
+      const condition = sinceTs 
+        ? and(baseCondition, gte(systemAlerts.createdAt, sinceTs))
+        : baseCondition;
+      
       const countResult = await db.select({ count: sql<number>`count(*)::int` })
         .from(systemAlerts)
-        .where(eq(systemAlerts.isActive, true));
+        .where(condition);
       alertsTotal = countResult[0]?.count || 0;
       
       alerts = await db.select().from(systemAlerts)
-        .where(eq(systemAlerts.isActive, true))
+        .where(condition)
         .orderBy(desc(systemAlerts.createdAt), systemAlerts.id)
         .limit(PAGE_SIZE)
         .offset(offset);
@@ -2439,7 +2464,8 @@ export class NeuralNetworkSyncService {
     
     const hasMore = (offset + PAGE_SIZE) < Math.max(agentTotal, supportTotal, alertsTotal);
     
-    console.log(`[NEURAL-SYNC] TriLane export page: ${agentObs.length}/${agentTotal} agent, ${supportObs.length}/${supportTotal} support, ${alerts.length}/${alertsTotal} alerts (offset=${offset}, hasMore=${hasMore})`);
+    const deltaInfo = sinceTs ? ` (delta since ${sinceTs.toISOString()})` : '';
+    console.log(`[NEURAL-SYNC] TriLane export page: ${agentObs.length}/${agentTotal} agent, ${supportObs.length}/${supportTotal} support, ${alerts.length}/${alertsTotal} alerts (offset=${offset}, hasMore=${hasMore})${deltaInfo}`);
     
     return {
       agentObservations: agentObs,
@@ -2453,6 +2479,11 @@ export class NeuralNetworkSyncService {
         alertsTotal,
         hasMore,
       },
+      // v23: Delta sync metadata
+      deltaSync: sinceTs ? {
+        sinceTimestamp: sinceTs.toISOString(),
+        isDelta: true,
+      } : undefined,
     };
   }
   
