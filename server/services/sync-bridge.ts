@@ -32,7 +32,7 @@ const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production'
 
 // Version identifier to verify which code is running on production
 // Increment this when making sync-related changes to verify deployment
-const SYNC_BRIDGE_CODE_VERSION = "2025-01-04-v21-batch-completion-status";
+const SYNC_BRIDGE_CODE_VERSION = "2025-01-04-v22-increased-max-pages";
 
 // Capability negotiation: List all batch types this version can import/export
 // When adding new batches, add them here so peers can gracefully handle version mismatches
@@ -69,7 +69,7 @@ const SYNC_CAPABILITIES = {
     softFailUnknownBatches: true,
   },
   maxPageSize: 250,
-  maxPages: 250,
+  maxPages: 2000,
 } as const;
 
 export type SyncCapabilities = typeof SYNC_CAPABILITIES;
@@ -3279,7 +3279,7 @@ class SyncBridgeService {
           // v16: Resume from last completed page
           let page = resumeFromPage > 0 ? resumeFromPage : 0;
           let hasMore = true;
-          const MAX_PAGES = 250; // Increased to handle 48K+ observations (need ~194 pages)
+          const MAX_PAGES = 2000; // v22: Increased to handle 500K+ observations (387K needs ~1550 pages)
           
           if (page > 0) {
             console.log(`[SYNC-BRIDGE v16] Resuming observations from page ${page}`);
