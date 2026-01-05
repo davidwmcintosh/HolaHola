@@ -32,6 +32,7 @@ import {
   VolumeX,
   Keyboard,
   HeartHandshake,
+  PhoneOff,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -617,6 +618,25 @@ export function SupportAssistModal({
     }
   };
 
+  const handleEndCall = useCallback(() => {
+    // Stop any playing audio immediately
+    playbackSessionRef.current++;
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setIsPlaying(false);
+    
+    // Stop any active recording
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecording(false);
+    
+    // Close the modal
+    onClose();
+  }, [onClose]);
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -693,12 +713,14 @@ export function SupportAssistModal({
                   )}
                 </Button>
                 <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={onClose}
-                  data-testid="button-close-support"
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleEndCall}
+                  className="gap-1.5"
+                  data-testid="button-end-call"
                 >
-                  <X className="h-5 w-5" />
+                  <PhoneOff className="h-4 w-4" />
+                  End Call
                 </Button>
               </div>
             </div>

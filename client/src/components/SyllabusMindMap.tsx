@@ -1016,57 +1016,18 @@ function formatMinutesToHoursMinutes(minutes: number): string {
 }
 
 function TimeTrackingDisplay({ timeVariance }: { timeVariance: TimeVarianceSummary }) {
-  const { estimatedTotalMinutes, actualTotalMinutes, paceStatus } = timeVariance;
-  
-  const paceConfig = {
-    ahead: {
-      Icon: TrendingUp,
-      label: "Ahead of pace",
-      color: "text-green-600 dark:text-green-400",
-      bgColor: "bg-green-50 dark:bg-green-950/30",
-      borderColor: "border-green-200 dark:border-green-800",
-    },
-    on_track: {
-      Icon: Minus,
-      label: "On track",
-      color: "text-blue-600 dark:text-blue-400",
-      bgColor: "bg-blue-50 dark:bg-blue-950/30",
-      borderColor: "border-blue-200 dark:border-blue-800",
-    },
-    behind: {
-      Icon: TrendingDown,
-      label: "Behind pace",
-      color: "text-amber-600 dark:text-amber-400",
-      bgColor: "bg-amber-50 dark:bg-amber-950/30",
-      borderColor: "border-amber-200 dark:border-amber-800",
-    },
-  };
-  
-  const config = paceConfig[paceStatus];
-  const PaceIcon = config.Icon;
+  const { actualTotalMinutes } = timeVariance;
   
   return (
     <div 
-      className={`flex items-center gap-3 px-3 py-2 rounded-lg border ${config.bgColor} ${config.borderColor} mx-auto max-w-xs`}
+      className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-muted/50 border-border mx-auto max-w-xs"
       data-testid="time-tracking-display"
     >
-      <div className="flex items-center gap-1.5">
-        <Clock className="h-4 w-4 text-muted-foreground" />
-        <span className="text-sm font-medium" data-testid="time-actual">
-          {formatMinutesToHoursMinutes(actualTotalMinutes)}
-        </span>
-        <span className="text-xs text-muted-foreground">/</span>
-        <span className="text-xs text-muted-foreground" data-testid="time-estimated">
-          {formatMinutesToHoursMinutes(estimatedTotalMinutes)}
-        </span>
-      </div>
-      
-      <div className="h-4 w-px bg-border" />
-      
-      <div className={`flex items-center gap-1 ${config.color}`} data-testid="pace-status">
-        <PaceIcon className="h-3.5 w-3.5" />
-        <span className="text-xs font-medium">{config.label}</span>
-      </div>
+      <Clock className="h-4 w-4 text-muted-foreground" />
+      <span className="text-sm text-muted-foreground">Time spent:</span>
+      <span className="text-sm font-medium" data-testid="time-actual">
+        {formatMinutesToHoursMinutes(actualTotalMinutes)}
+      </span>
     </div>
   );
 }

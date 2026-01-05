@@ -17,7 +17,8 @@ import {
   RefreshCw,
   MessageCircle,
   Clock,
-  Lightbulb
+  Lightbulb,
+  FlaskConical
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -28,6 +29,8 @@ import type { ArisDrillAssignment } from "@shared/schema";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWhiteboard } from "@/hooks/useWhiteboard";
 import { Whiteboard } from "@/components/Whiteboard";
+import { useUser } from "@/lib/auth";
+import { VoiceLabPanel, VoiceOverride } from "@/components/VoiceLabPanel";
 
 interface DrillContentItem {
   prompt: string;
@@ -82,6 +85,7 @@ interface ArisFeedbackResult {
 export default function ArisPractice() {
   const { language } = useLanguage();
   const { toast } = useToast();
+  const { user } = useUser();
   
   const [selectedAssignment, setSelectedAssignment] = useState<ArisDrillAssignment | null>(null);
   const [drillState, setDrillState] = useState<DrillState | null>(null);
@@ -92,8 +96,14 @@ export default function ArisPractice() {
   const [sessionGreeting, setSessionGreeting] = useState<string>("");
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoadingFeedback, setIsLoadingFeedback] = useState(false);
+  const [isVoiceLabOpen, setIsVoiceLabOpen] = useState(false);
+  const [voiceOverride, setVoiceOverride] = useState<VoiceOverride | null>(null);
   
   const whiteboard = useWhiteboard();
+  
+  // Admin/Developer check including founder access for Voice Lab
+  const FOUNDER_USER_ID = '49847136';
+  const isAdminOrDeveloper = user?.role === 'admin' || user?.role === 'developer' || user?.id === FOUNDER_USER_ID;
   
   const { data: pendingDrills, isLoading: loadingDrills } = useQuery<ArisDrillAssignment[]>({
     queryKey: ['/api/aris/drills/pending'],
@@ -578,18 +588,33 @@ export default function ArisPractice() {
   
   return (
     <div className="space-y-6" data-testid="aris-practice-page">
-      <div className="flex items-center gap-4">
-        <Avatar className="h-16 w-16 border-2 border-violet-500">
-          <AvatarFallback className="bg-violet-500 text-white text-xl font-bold">A</AvatarFallback>
-        </Avatar>
-        <div>
-          <h1 className="text-2xl font-bold" data-testid="text-page-title">
-            Practice with {arisPersona?.name || "Aris"}
-          </h1>
-          <p className="text-muted-foreground" data-testid="text-page-subtitle">
-            {arisPersona?.role || "Your Precision Practice Partner"}
-          </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Avatar className="h-16 w-16 border-2 border-violet-500">
+            <AvatarFallback className="bg-violet-500 text-white text-xl font-bold">A</AvatarFallback>
+          </Avatar>
+          <div>
+            <h1 className="text-2xl font-bold" data-testid="text-page-title">
+              Practice with {arisPersona?.name || "Aris"}
+            </h1>
+            <p className="text-muted-foreground" data-testid="text-page-subtitle">
+              {arisPersona?.role || "Your Precision Practice Partner"}
+            </p>
+          </div>
         </div>
+        
+        {isAdminOrDeveloper && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsVoiceLabOpen(true)}
+            className="gap-2"
+            data-testid="button-voice-lab"
+          >
+            <FlaskConical className="h-4 w-4" />
+            Voice Lab
+          </Button>
+        )}
       </div>
       
       {(!pendingDrills || pendingDrills.length === 0) ? (
@@ -669,6 +694,17 @@ export default function ArisPractice() {
             })}
           </div>
         </div>
+      )}
+      
+      {isAdminOrDeveloper && (
+        <VoiceLabPanel
+          isOpen={isVoiceLabOpen}
+          onClose={() => setIsVoiceLabOpen(false)}
+          language={language}
+          tutorGender="female"
+          onOverrideChange={setVoiceOverride}
+          currentOverride={voiceOverride}
+        />
       )}
     </div>
   );
