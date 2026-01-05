@@ -45,6 +45,7 @@ export function ChatInterface({ conversationId, setConversationId, setCurrentCon
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const previousAssistantCountRef = useRef(0);
   const lastStreakRecordDateRef = useRef<string | null>(null);
+  const sendingRef = useRef(false); // Prevent double-submissions
   const { recordPractice } = useStreak();
   const { toast } = useToast();
 
@@ -201,11 +202,22 @@ export function ChatInterface({ conversationId, setConversationId, setCurrentCon
 
   const handleSend = async () => {
     if (!input.trim() || !conversationId) return;
+    
+    // Prevent double-submissions (race condition guard)
+    if (sendingRef.current || sendMessageMutation.isPending) {
+      console.log('[CHAT] Prevented double submission');
+      return;
+    }
+    sendingRef.current = true;
 
     const messageContent = input;
     setInput("");
     
-    await sendMessageMutation.mutateAsync(messageContent);
+    try {
+      await sendMessageMutation.mutateAsync(messageContent);
+    } finally {
+      sendingRef.current = false;
+    }
   };
 
   const handleInsertAccent = (character: string) => {
