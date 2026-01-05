@@ -8788,12 +8788,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       const catalogItems = await Promise.all(
         drillLessons.map(async (lesson) => {
           const items = await db
-            .select({
-              id: curriculumDrillItems.id,
-              tags: curriculumDrillItems.tags,
-              difficulty: curriculumDrillItems.difficulty,
-              itemType: curriculumDrillItems.itemType,
-            })
+            .select()
             .from(curriculumDrillItems)
             .where(eq(curriculumDrillItems.lessonId, lesson.lessonId));
           
@@ -14591,13 +14586,84 @@ Current conversation context:
   // ===== Voice Lab API Endpoints (Admin Console) =====
   
   // Get current voice configuration by language and gender (for Voice Lab)
+  // Supports role=assistant to fetch assistant tutor voices (Google TTS) instead of main tutors (Cartesia)
   app.get("/api/admin/voices/current", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const { language, gender } = req.query;
+      const { language, gender, role } = req.query;
       if (!language || !gender) {
         return res.status(400).json({ error: "Language and gender are required" });
       }
       
+      // If role=assistant, fetch assistant tutor configuration (Google TTS voices)
+      if (role === 'assistant') {
+        const { getAssistantPersona } = await import('./services/assistant-tutor-config');
+        const persona = getAssistantPersona(language, gender);
+        
+        // Map language to Google TTS language codes - comprehensive mapping for all variants
+        const langToCode: Record<string, string> = {
+          // English variants
+          'english': 'en-US',
+          'english (us)': 'en-US',
+          'english (uk)': 'en-GB',
+          'english-us': 'en-US',
+          'english-uk': 'en-GB',
+          // Spanish variants
+          'spanish': 'es-US',
+          'spanish (spain)': 'es-ES',
+          'spanish (latin america)': 'es-US',
+          'spanish-la': 'es-US',
+          'spanish-es': 'es-ES',
+          // French
+          'french': 'fr-FR',
+          'french (france)': 'fr-FR',
+          'french (canada)': 'fr-CA',
+          // German
+          'german': 'de-DE',
+          // Italian
+          'italian': 'it-IT',
+          // Portuguese variants
+          'portuguese': 'pt-BR',
+          'portuguese (brazil)': 'pt-BR',
+          'portuguese (portugal)': 'pt-PT',
+          'portuguese-br': 'pt-BR',
+          'portuguese-pt': 'pt-PT',
+          // Japanese
+          'japanese': 'ja-JP',
+          // Chinese/Mandarin variants
+          'mandarin chinese': 'cmn-CN',
+          'mandarin': 'cmn-CN',
+          'chinese': 'cmn-CN',
+          'chinese (mandarin)': 'cmn-CN',
+          // Korean
+          'korean': 'ko-KR',
+        };
+        const normalizedLang = language.toLowerCase().trim();
+        const langCode = langToCode[normalizedLang] || 'en-US';
+        // Default to Aoede for female, Puck for male (Google Chirp 3 HD voices)
+        const defaultVoice = gender.toLowerCase() === 'male' 
+          ? `${langCode}-Chirp3-HD-Puck`
+          : `${langCode}-Chirp3-HD-Aoede`;
+        
+        // Build a voice response compatible with Voice Lab
+        res.json({
+          id: `assistant-${language}-${gender}`,
+          language: persona.language,
+          gender: persona.gender,
+          role: 'assistant',
+          provider: 'google',
+          voiceId: defaultVoice,
+          voiceName: persona.name,
+          languageCode: langCode,
+          speakingRate: 1.0,
+          personality: 'warm',
+          expressiveness: 3,
+          emotion: 'friendly',
+          isActive: true,
+        });
+        return;
+      }
+      
+      // Default: fetch main tutor voice (Cartesia)
       const voice = await storage.getTutorVoice(language.toLowerCase(), gender.toLowerCase());
       if (!voice) {
         return res.status(404).json({ error: `No voice configured for ${language} ${gender}` });

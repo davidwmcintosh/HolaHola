@@ -1142,6 +1142,7 @@ export default function ArisPractice() {
           tutorGender="female"
           onOverrideChange={setVoiceOverride}
           currentOverride={voiceOverride}
+          role="assistant"
         />
       )}
     </div>

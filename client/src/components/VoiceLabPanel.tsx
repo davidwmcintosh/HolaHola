@@ -72,6 +72,14 @@ export interface VoiceOverride {
   errorTolerance?: ErrorToleranceType;
 }
 
+interface GoogleVoice {
+  id: string;
+  name: string;
+  language: string;
+  gender: string;
+  languageCode: string;
+}
+
 interface VoiceLabPanelProps {
   isOpen: boolean;
   onClose: () => void;
@@ -80,6 +88,7 @@ interface VoiceLabPanelProps {
   onOverrideChange: (override: VoiceOverride | null) => void;
   currentOverride: VoiceOverride | null;
   onTutorGenderChange?: (gender: 'male' | 'female') => void;
+  role?: 'tutor' | 'assistant';  // Default is 'tutor' for main tutors (Cartesia), 'assistant' for drill tutors (Google TTS)
 }
 
 const SAMPLE_PHRASES: Record<string, string> = {
@@ -102,7 +111,9 @@ export function VoiceLabPanel({
   onOverrideChange,
   currentOverride,
   onTutorGenderChange,
+  role = 'tutor',  // Default to main tutor (Cartesia)
 }: VoiceLabPanelProps) {
+  const isAssistant = role === 'assistant';
   const { toast } = useToast();
   const [isAuditioning, setIsAuditioning] = useState(false);
   const [audioElement] = useState(() => new Audio());
@@ -122,24 +133,27 @@ export function VoiceLabPanel({
   // Voice selection state (for audition)
   const [selectedVoiceId, setSelectedVoiceId] = useState<string | null>(null);
 
-  // Fetch current tutor voice
+  // Fetch current tutor voice (main tutor for role='tutor', assistant for role='assistant')
   const { data: currentVoice, isLoading: isLoadingVoice } = useQuery<TutorVoice>({
-    queryKey: ['/api/admin/voices/current', language, tutorGender],
+    queryKey: ['/api/admin/voices/current', language, tutorGender, role],
     queryFn: async () => {
-      const res = await fetch(`/api/admin/voices/current?language=${language}&gender=${tutorGender}`);
+      const endpoint = isAssistant 
+        ? `/api/admin/voices/current?language=${language}&gender=${tutorGender}&role=assistant`
+        : `/api/admin/voices/current?language=${language}&gender=${tutorGender}`;
+      const res = await fetch(endpoint);
       if (!res.ok) throw new Error('Failed to fetch voice');
       return res.json();
     },
     enabled: isOpen,
   });
 
-  // Fetch TTS metadata (personalities, emotions, etc.)
+  // Fetch TTS metadata (personalities, emotions, etc.) - only for main tutors (Cartesia)
   const { data: ttsMetadata } = useQuery<TTSMetadata>({
     queryKey: ['/api/admin/tts-metadata'],
-    enabled: isOpen,
+    enabled: isOpen && !isAssistant,
   });
   
-  // Fetch available Cartesia voices for audition (filtered by language and gender)
+  // Fetch available Cartesia voices for main tutors
   const { data: cartesiaVoicesData, isLoading: isLoadingCartesiaVoices } = useQuery<{ voices: CartesiaVoice[]; total: number }>({
     queryKey: ['/api/admin/cartesia-voices', language, tutorGender],
     queryFn: async () => {
@@ -147,9 +161,25 @@ export function VoiceLabPanel({
       if (!res.ok) throw new Error('Failed to fetch voices');
       return res.json();
     },
-    enabled: isOpen && !!language,
+    enabled: isOpen && !!language && !isAssistant,
   });
   const cartesiaVoices = cartesiaVoicesData?.voices || [];
+
+  // Fetch available Google TTS voices for assistants
+  const { data: googleVoicesData, isLoading: isLoadingGoogleVoices } = useQuery<{ voices: GoogleVoice[]; total: number }>({
+    queryKey: ['/api/admin/google-voices', language, tutorGender],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/google-voices/${language}/${tutorGender}`);
+      if (!res.ok) throw new Error('Failed to fetch voices');
+      return res.json();
+    },
+    enabled: isOpen && !!language && isAssistant,
+  });
+  const googleVoices = googleVoicesData?.voices || [];
+
+  // Use appropriate voice list based on role
+  const availableVoices = isAssistant ? googleVoices : cartesiaVoices;
+  const isLoadingVoices = isAssistant ? isLoadingGoogleVoices : isLoadingCartesiaVoices;
 
   // Initialize local state from current voice or override
   useEffect(() => {
@@ -195,7 +225,7 @@ export function VoiceLabPanel({
     setHasChanges(true);
     
     const voiceChanged = selectedVoiceId && selectedVoiceId !== currentVoice?.voiceId;
-    const selectedVoiceName = cartesiaVoices.find(v => v.id === selectedVoiceId)?.name;
+    const selectedVoiceName = availableVoices.find(v => v.id === selectedVoiceId)?.name;
     toast({
       title: voiceChanged ? `Switched to ${selectedVoiceName}` : "Voice & teaching style applied",
       description: "Changes will take effect on the tutor's next response.",
@@ -335,7 +365,7 @@ export function VoiceLabPanel({
               {selectedVoiceId && selectedVoiceId !== currentVoice.voiceId && (
                 <Badge variant="outline" className="text-xs">
                   <ArrowRightLeft className="h-3 w-3 mr-1" />
-                  {cartesiaVoices.find(v => v.id === selectedVoiceId)?.name || 'Custom'}
+                  {availableVoices.find(v => v.id === selectedVoiceId)?.name || 'Custom'}
                 </Badge>
               )}
             </div>
@@ -354,17 +384,17 @@ export function VoiceLabPanel({
                   <SelectValue placeholder="Select a voice..." />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
-                  {isLoadingCartesiaVoices ? (
+                  {isLoadingVoices ? (
                     <div className="flex items-center justify-center py-4">
                       <Loader2 className="h-4 w-4 animate-spin mr-2" />
                       <span className="text-sm text-muted-foreground">Loading voices...</span>
                     </div>
-                  ) : cartesiaVoices.length === 0 ? (
+                  ) : availableVoices.length === 0 ? (
                     <div className="text-sm text-muted-foreground py-2 px-3">
                       No voices available for {language}
                     </div>
                   ) : (
-                    cartesiaVoices.map(voice => (
+                    availableVoices.map(voice => (
                       <SelectItem key={voice.id} value={voice.id}>
                         <div className="flex items-center gap-2">
                           <span>{voice.name}</span>
