@@ -85,7 +85,7 @@ function PageLoader() {
 
 // ScrollToTop component to reset scroll position on route changes
 function ScrollToTop() {
-  const { pathname } = useLocation();
+  const [pathname] = useLocation();
 
   useEffect(() => {
     // Standard window scroll for most cases

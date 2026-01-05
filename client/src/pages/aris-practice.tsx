@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Volume2, 
   CheckCircle2, 
@@ -18,7 +20,12 @@ import {
   MessageCircle,
   Clock,
   Lightbulb,
-  FlaskConical
+  FlaskConical,
+  Compass,
+  BookOpen,
+  GraduationCap,
+  CheckCheck,
+  Play
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -37,6 +44,8 @@ interface DrillContentItem {
   expectedAnswer?: string;
   options?: string[];
   pronunciation?: string;
+  itemType?: string;           // listen_repeat, translate_speak, etc.
+  audioReference?: string;      // Pre-recorded audio URL
 }
 
 interface DrillContent {
@@ -65,11 +74,25 @@ interface DrillState {
   incorrectCount: number;
   consecutiveCorrect: number;
   consecutiveIncorrect: number;
-  startTime: number | null;
+  sessionStartTime: number | null;  // Total session start (never reset)
+  startTime: number | null;         // Per-item start for response timing
   responseTimes: number[];
   struggledItems: string[];
   attempts: Record<string, { correct: number; incorrect: number }>;
   recentHistory: Array<{ prompt: string; wasCorrect: boolean; studentAnswer: string }>;
+}
+
+// Extended drill item for self-practice with full metadata
+interface SelfPracticeDrillItem {
+  id: string;
+  prompt: string;
+  expectedResponse: string | null;
+  pronunciationGuide: string | null;
+  itemType: string;
+  audioReference: string | null;
+  options: string[] | null;
+  difficulty: number | null;
+  tags: string[] | null;
 }
 
 interface ArisFeedbackResult {
@@ -80,6 +103,35 @@ interface ArisFeedbackResult {
   suggestSimplify: boolean;
   flagForDaniela: boolean;
   flagReason?: string;
+}
+
+interface CatalogItem {
+  lessonId: string;
+  lessonTitle: string;
+  targetLanguage: string;
+  itemCount: number;
+  estimatedMinutes: number;
+  tags: string[];
+  itemTypes: string[];
+  difficulty: number;
+  completed: boolean;
+  lastCompletedAt: string | null;
+}
+
+interface CatalogResponse {
+  catalog: CatalogItem[];
+  byLanguage: Record<string, CatalogItem[]>;
+  totalLessons: number;
+  languages: string[];
+}
+
+interface SelfPracticeSession {
+  id: string;
+  lessonId: string;
+  status: string;
+  totalItems: number;
+  completedItems: number;
+  correctItems: number;
 }
 
 export default function ArisPractice() {
@@ -98,6 +150,11 @@ export default function ArisPractice() {
   const [isLoadingFeedback, setIsLoadingFeedback] = useState(false);
   const [isVoiceLabOpen, setIsVoiceLabOpen] = useState(false);
   const [voiceOverride, setVoiceOverride] = useState<VoiceOverride | null>(null);
+  const [activeTab, setActiveTab] = useState("assigned");
+  const [catalogLanguageFilter, setCatalogLanguageFilter] = useState<string>("all");
+  const [catalogDifficultyFilter, setCatalogDifficultyFilter] = useState<string>("all");
+  const [selfPracticeSession, setSelfPracticeSession] = useState<SelfPracticeSession | null>(null);
+  const [selfPracticeDrillItems, setSelfPracticeDrillItems] = useState<SelfPracticeDrillItem[]>([]);
   
   const whiteboard = useWhiteboard();
   
@@ -111,6 +168,90 @@ export default function ArisPractice() {
   
   const { data: arisPersona } = useQuery<ArisPersona>({
     queryKey: ['/api/aris/persona'],
+  });
+  
+  // Practice catalog for Explore tab - include both filters in query key and URL
+  const { data: catalogData, isLoading: loadingCatalog } = useQuery<CatalogResponse>({
+    queryKey: ['/api/practice/catalog', catalogLanguageFilter, catalogDifficultyFilter],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (catalogLanguageFilter !== 'all') {
+        params.set('language', catalogLanguageFilter === 'current' ? language : catalogLanguageFilter);
+      }
+      if (catalogDifficultyFilter !== 'all') {
+        params.set('difficulty', catalogDifficultyFilter);
+      }
+      const queryString = params.toString();
+      const url = `/api/practice/catalog${queryString ? `?${queryString}` : ''}`;
+      const response = await fetch(url, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch catalog');
+      return response.json();
+    },
+    enabled: activeTab === 'explore',
+  });
+  
+  // Start self-practice session mutation
+  const startSelfPracticeMutation = useMutation({
+    mutationFn: async (lessonId: string) => {
+      return await apiRequest("POST", "/api/practice/sessions", { lessonId });
+    },
+    onSuccess: (data: any) => {
+      // Invalidate catalog to reflect session in-progress
+      queryClient.invalidateQueries({ queryKey: ['/api/practice/catalog'], exact: false });
+      setSelfPracticeSession(data.session);
+      setSelfPracticeDrillItems(data.drillItems || []);
+      const now = Date.now();
+      setDrillState({
+        currentItemIndex: 0,
+        correctCount: 0,
+        incorrectCount: 0,
+        consecutiveCorrect: 0,
+        consecutiveIncorrect: 0,
+        sessionStartTime: now,  // Track total session time
+        startTime: now,
+        responseTimes: [],
+        struggledItems: [],
+        attempts: {},
+        recentHistory: [],
+      });
+      setUserAnswer("");
+      setShowResult(false);
+      setIsCorrect(null);
+      setCurrentFeedback(null);
+      whiteboard.clear();
+      toast({
+        title: "Practice Started",
+        description: `Self-practice session started with ${data.drillItems?.length || 0} items`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to start practice session",
+        variant: "destructive",
+      });
+    },
+  });
+  
+  // Complete self-practice session mutation
+  const completeSelfPracticeMutation = useMutation({
+    mutationFn: async ({ sessionId, results }: { 
+      sessionId: string; 
+      results: { completedItems: number; correctItems: number; averageScore: number; totalTimeSpentMs: number; }
+    }) => {
+      return await apiRequest("PATCH", `/api/practice/sessions/${sessionId}/complete`, results);
+    },
+    onSuccess: () => {
+      // Invalidate all catalog queries regardless of filter params
+      queryClient.invalidateQueries({ queryKey: ['/api/practice/catalog'], exact: false });
+      setSelfPracticeSession(null);
+      setSelfPracticeDrillItems([]);
+      setDrillState(null);
+      toast({
+        title: "Practice Complete!",
+        description: "Great job on your self-directed practice!",
+      });
+    },
   });
   
   const startDrillMutation = useMutation({
@@ -158,13 +299,15 @@ export default function ArisPractice() {
       const content = assignment.drillContent as DrillContent | null;
       const itemCount = content?.items?.length || 0;
       
+      const now = Date.now();
       setDrillState({
         currentItemIndex: 0,
         correctCount: 0,
         incorrectCount: 0,
         consecutiveCorrect: 0,
         consecutiveIncorrect: 0,
-        startTime: Date.now(),
+        sessionStartTime: now,  // Track total session time
+        startTime: now,
         responseTimes: [],
         struggledItems: [],
         attempts: {},
@@ -237,10 +380,37 @@ export default function ArisPractice() {
   }, [isPlaying, selectedAssignment, language]);
   
   const checkAnswer = useCallback(async () => {
-    if (!selectedAssignment || !drillState) return;
+    if (!drillState) return;
     
-    const content = selectedAssignment.drillContent as DrillContent | null;
-    const drillItems = content?.items || [];
+    // Support both Aris assignments and self-practice sessions
+    const isSelfPractice = !!selfPracticeSession;
+    let drillItems: DrillContentItem[] = [];
+    let targetLanguage = language;
+    let drillType = 'practice';
+    let focusArea = '';
+    
+    if (isSelfPractice) {
+      // Self-practice mode - preserve full drill item metadata
+      drillItems = selfPracticeDrillItems.map(item => ({
+        prompt: item.prompt,
+        expectedAnswer: item.expectedResponse || item.prompt,
+        pronunciation: item.pronunciationGuide || undefined,
+        options: item.options || undefined,
+        itemType: item.itemType || undefined,
+        audioReference: item.audioReference || undefined,
+      }));
+      targetLanguage = selfPracticeSession.lessonId ? language : language;
+    } else if (selectedAssignment) {
+      // Aris assignment mode
+      const content = selectedAssignment.drillContent as DrillContent | null;
+      drillItems = content?.items || [];
+      targetLanguage = selectedAssignment.targetLanguage;
+      drillType = selectedAssignment.drillType;
+      focusArea = content?.focusArea || '';
+    } else {
+      return;
+    }
+    
     const currentItem = drillItems[drillState.currentItemIndex];
     if (!currentItem) return;
     
@@ -256,34 +426,43 @@ export default function ArisPractice() {
     setShowResult(true);
     setIsLoadingFeedback(true);
     
-    // Fetch AI-powered feedback
+    // Fetch AI-powered feedback (only for Aris assignments - self-practice uses simpler feedback)
     try {
-      const aiFeedback = await apiRequest("POST", "/api/aris/feedback", {
-        targetLanguage: selectedAssignment.targetLanguage,
-        drillType: selectedAssignment.drillType,
-        focusArea: content?.focusArea,
-        currentItem: {
-          prompt: currentItem.prompt,
-          expectedAnswer: targetText,
-          studentAnswer: userAnswer.trim(),
-        },
-        sessionProgress: {
-          correctCount: drillState.correctCount,
-          incorrectCount: drillState.incorrectCount,
-          currentIndex: drillState.currentItemIndex,
-          totalItems: drillItems.length,
-          struggledItems: drillState.struggledItems,
-          consecutiveCorrect: correct ? drillState.consecutiveCorrect + 1 : 0,
-          consecutiveIncorrect: correct ? 0 : drillState.consecutiveIncorrect + 1,
-        },
-        recentHistory: drillState.recentHistory.slice(-3),
-        isCorrect: correct,
-      }) as unknown as ArisFeedbackResult;
-      setCurrentFeedback(aiFeedback);
-      
-      // Process feedback for whiteboard markup (WRITE, PHONETIC, etc.)
-      if (aiFeedback?.feedback) {
-        whiteboard.processMessage(aiFeedback.feedback, selectedAssignment.targetLanguage);
+      if (!isSelfPractice && selectedAssignment) {
+        const aiFeedback = await apiRequest("POST", "/api/aris/feedback", {
+          targetLanguage: targetLanguage,
+          drillType: drillType,
+          focusArea: focusArea,
+          currentItem: {
+            prompt: currentItem.prompt,
+            expectedAnswer: targetText,
+            studentAnswer: userAnswer.trim(),
+          },
+          sessionProgress: {
+            correctCount: drillState.correctCount,
+            incorrectCount: drillState.incorrectCount,
+            currentIndex: drillState.currentItemIndex,
+            totalItems: drillItems.length,
+            struggledItems: drillState.struggledItems,
+            consecutiveCorrect: correct ? drillState.consecutiveCorrect + 1 : 0,
+            consecutiveIncorrect: correct ? 0 : drillState.consecutiveIncorrect + 1,
+          },
+          recentHistory: drillState.recentHistory.slice(-3),
+          isCorrect: correct,
+        }) as unknown as ArisFeedbackResult;
+        setCurrentFeedback(aiFeedback);
+        
+        // Process feedback for whiteboard markup (WRITE, PHONETIC, etc.)
+        if (aiFeedback?.feedback) {
+          whiteboard.processMessage(aiFeedback.feedback, targetLanguage);
+        }
+      } else {
+        // Self-practice uses simpler static feedback
+        setCurrentFeedback({
+          feedback: correct ? getRandomFeedback('correct') : getRandomFeedback('incorrect'),
+          suggestSimplify: false,
+          flagForDaniela: false,
+        });
       }
     } catch {
       // Fallback to static feedback if AI fails
@@ -329,13 +508,32 @@ export default function ArisPractice() {
         ].slice(-5),
       };
     });
-  }, [selectedAssignment, drillState, userAnswer, getRandomFeedback, whiteboard]);
+  }, [selectedAssignment, selfPracticeSession, selfPracticeDrillItems, drillState, userAnswer, getRandomFeedback, whiteboard, language]);
   
   const nextItem = useCallback(() => {
-    if (!selectedAssignment || !drillState) return;
+    if (!drillState) return;
     
-    const content = selectedAssignment.drillContent as DrillContent | null;
-    const drillItems = content?.items || [];
+    // Support both Aris assignments and self-practice sessions
+    const isSelfPractice = !!selfPracticeSession;
+    let drillItems: DrillContentItem[] = [];
+    
+    if (isSelfPractice) {
+      // Preserve full metadata for session completion
+      drillItems = selfPracticeDrillItems.map(item => ({
+        prompt: item.prompt,
+        expectedAnswer: item.expectedResponse || item.prompt,
+        pronunciation: item.pronunciationGuide || undefined,
+        options: item.options || undefined,
+        itemType: item.itemType || undefined,
+        audioReference: item.audioReference || undefined,
+      }));
+    } else if (selectedAssignment) {
+      const content = selectedAssignment.drillContent as DrillContent | null;
+      drillItems = content?.items || [];
+    } else {
+      return;
+    }
+    
     const nextIndex = drillState.currentItemIndex + 1;
     
     if (nextIndex >= drillItems.length) {
@@ -345,24 +543,38 @@ export default function ArisPractice() {
         ? drillState.responseTimes.reduce((a, b) => a + b, 0) / drillState.responseTimes.length
         : 0;
       
-      const behavioralFlags: string[] = [];
-      if (accuracy < 50) behavioralFlags.push('low_accuracy');
-      if (avgResponseTime > 10000) behavioralFlags.push('slow_responses');
-      if (drillState.struggledItems.length > drillItems.length / 2) behavioralFlags.push('many_struggles');
-      
-      completeDrillMutation.mutate({
-        assignmentId: selectedAssignment.id,
-        results: {
-          correctCount: drillState.correctCount,
-          incorrectCount: drillState.incorrectCount,
-          accuracyPercent: accuracy,
-          averageResponseTimeMs: avgResponseTime,
-          struggledItems: drillState.struggledItems,
-          itemAttempts: drillState.attempts,
-          behavioralFlags,
-          arisNotes: `Completed ${drillItems.length} items with ${accuracy}% accuracy.`,
-        },
-      });
+      if (isSelfPractice && selfPracticeSession) {
+        // Complete self-practice session - use sessionStartTime for accurate total duration
+        completeSelfPracticeMutation.mutate({
+          sessionId: selfPracticeSession.id,
+          results: {
+            completedItems: drillState.correctCount + drillState.incorrectCount,
+            correctItems: drillState.correctCount,
+            averageScore: accuracy,
+            totalTimeSpentMs: Date.now() - (drillState.sessionStartTime || Date.now()),
+          },
+        });
+      } else if (selectedAssignment) {
+        // Complete Aris assignment
+        const behavioralFlags: string[] = [];
+        if (accuracy < 50) behavioralFlags.push('low_accuracy');
+        if (avgResponseTime > 10000) behavioralFlags.push('slow_responses');
+        if (drillState.struggledItems.length > drillItems.length / 2) behavioralFlags.push('many_struggles');
+        
+        completeDrillMutation.mutate({
+          assignmentId: selectedAssignment.id,
+          results: {
+            correctCount: drillState.correctCount,
+            incorrectCount: drillState.incorrectCount,
+            accuracyPercent: accuracy,
+            averageResponseTimeMs: avgResponseTime,
+            struggledItems: drillState.struggledItems,
+            itemAttempts: drillState.attempts,
+            behavioralFlags,
+            arisNotes: `Completed ${drillItems.length} items with ${accuracy}% accuracy.`,
+          },
+        });
+      }
     } else {
       setDrillState(prev => prev ? { ...prev, currentItemIndex: nextIndex, startTime: Date.now() } : prev);
       setUserAnswer("");
@@ -371,7 +583,7 @@ export default function ArisPractice() {
       setCurrentFeedback(null);
       whiteboard.clear();
     }
-  }, [selectedAssignment, drillState, completeDrillMutation, whiteboard]);
+  }, [selectedAssignment, selfPracticeSession, selfPracticeDrillItems, drillState, completeDrillMutation, completeSelfPracticeMutation, whiteboard]);
   
   if (loadingDrills) {
     return (
@@ -381,9 +593,34 @@ export default function ArisPractice() {
     );
   }
   
-  if (selectedAssignment && drillState) {
-    const content = selectedAssignment.drillContent as DrillContent | null;
-    const drillItems = content?.items || [];
+  // Handle both assigned drills and self-practice sessions
+  const isInDrillSession = (selectedAssignment && drillState) || (selfPracticeSession && drillState);
+  
+  if (isInDrillSession && drillState) {
+    const isSelfPractice = !!selfPracticeSession;
+    let drillItems: DrillContentItem[] = [];
+    let sessionTitle = '';
+    let drillType = 'practice';
+    
+    if (isSelfPractice) {
+      // Preserve full metadata from self-practice items
+      drillItems = selfPracticeDrillItems.map(item => ({
+        prompt: item.prompt,
+        expectedAnswer: item.expectedResponse || item.prompt,
+        pronunciation: item.pronunciationGuide || undefined,
+        options: item.options || undefined,
+        itemType: item.itemType || undefined,
+        audioReference: item.audioReference || undefined,
+      }));
+      sessionTitle = 'Self-Practice Session';
+      drillType = selfPracticeDrillItems[0]?.itemType || 'practice';
+    } else if (selectedAssignment) {
+      const content = selectedAssignment.drillContent as DrillContent | null;
+      drillItems = content?.items || [];
+      sessionTitle = content?.focusArea || 'Practice Session';
+      drillType = selectedAssignment.drillType;
+    }
+    
     const currentItem = drillItems[drillState.currentItemIndex];
     const progress = drillItems.length > 0 
       ? ((drillState.currentItemIndex + 1) / drillItems.length) * 100 
@@ -406,8 +643,14 @@ export default function ArisPractice() {
             </div>
             <Badge variant="secondary" className="gap-1">
               <Target className="h-3 w-3" />
-              {selectedAssignment.drillType}
+              {drillType}
             </Badge>
+            {isSelfPractice && (
+              <Badge variant="outline" className="gap-1 border-blue-300 text-blue-600">
+                <Compass className="h-3 w-3" />
+                Self-Practice
+              </Badge>
+            )}
           </CardHeader>
           
           <CardContent className="space-y-6">
@@ -461,9 +704,9 @@ export default function ArisPractice() {
                     </span>
                   </div>
                   
-                  {content?.focusArea && (
+                  {sessionTitle && (
                     <p className="text-sm text-muted-foreground mb-4">
-                      Focus: {content.focusArea}
+                      Focus: {sessionTitle}
                     </p>
                   )}
                   
@@ -586,9 +829,31 @@ export default function ArisPractice() {
     );
   }
   
+  // Helper to format language names
+  const formatLanguage = (lang: string) => {
+    return lang.charAt(0).toUpperCase() + lang.slice(1);
+  };
+  
+  // Get difficulty label
+  const getDifficultyLabel = (level: number) => {
+    if (level <= 1) return "Beginner";
+    if (level <= 2) return "Elementary";
+    if (level <= 3) return "Intermediate";
+    return "Advanced";
+  };
+  
+  // Filter catalog - language/difficulty filters are handled server-side
+  // Only client-side filtering needed for "current" language option
+  const filteredCatalog = catalogData?.catalog?.filter(item => {
+    if (catalogLanguageFilter === 'current') {
+      return item.targetLanguage === language;
+    }
+    return true;
+  }) || [];
+  
   return (
     <div className="space-y-6" data-testid="aris-practice-page">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4">
           <Avatar className="h-16 w-16 border-2 border-violet-500">
             <AvatarFallback className="bg-violet-500 text-white text-xl font-bold">A</AvatarFallback>
@@ -617,84 +882,257 @@ export default function ArisPractice() {
         )}
       </div>
       
-      {(!pendingDrills || pendingDrills.length === 0) ? (
-        <Card className="border-dashed" data-testid="card-no-drills">
-          <CardContent className="py-12 text-center">
-            <Sparkles className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-lg font-medium mb-2">No Practice Assigned</h3>
-            <p className="text-muted-foreground max-w-md mx-auto">
-              Daniela hasn't assigned any practice drills yet. Keep chatting with her, 
-              and she'll send you focused practice when you need it!
-            </p>
-            <Button variant="outline" className="mt-6 gap-2" asChild>
-              <a href="/chat" data-testid="link-chat-daniela">
-                <MessageCircle className="h-4 w-4" />
-                Chat with Daniela
-              </a>
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-medium">Your Practice Queue</h2>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/aris/drills/pending'] })}
-              data-testid="button-refresh-drills"
-            >
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-          </div>
-          
-          <div className="grid gap-4">
-            {pendingDrills.map((drill) => {
-              const drillContent = drill.drillContent as DrillContent | null;
-              return (
-              <Card key={drill.id} className="hover-elevate" data-testid={`card-drill-${drill.id}`}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge variant="secondary" className="capitalize">
-                          {drill.drillType}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="assigned" className="gap-2" data-testid="tab-assigned">
+            <GraduationCap className="h-4 w-4" />
+            Assigned
+            {pendingDrills && pendingDrills.length > 0 && (
+              <Badge variant="secondary" className="ml-1">{pendingDrills.length}</Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="explore" className="gap-2" data-testid="tab-explore">
+            <Compass className="h-4 w-4" />
+            Explore
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="assigned" className="mt-6">
+          {loadingDrills ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : (!pendingDrills || pendingDrills.length === 0) ? (
+            <Card className="border-dashed" data-testid="card-no-drills">
+              <CardContent className="py-12 text-center">
+                <Sparkles className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-lg font-medium mb-2">No Practice Assigned</h3>
+                <p className="text-muted-foreground max-w-md mx-auto">
+                  Daniela hasn't assigned any practice drills yet. Keep chatting with her, 
+                  and she'll send you focused practice when you need it!
+                </p>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-6">
+                  <Button variant="outline" className="gap-2" asChild>
+                    <a href="/chat" data-testid="link-chat-daniela">
+                      <MessageCircle className="h-4 w-4" />
+                      Chat with Daniela
+                    </a>
+                  </Button>
+                  <Button 
+                    variant="secondary" 
+                    className="gap-2"
+                    onClick={() => setActiveTab('explore')}
+                    data-testid="button-explore-drills"
+                  >
+                    <Compass className="h-4 w-4" />
+                    Explore Practice
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-medium">Your Practice Queue</h2>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/aris/drills/pending'] })}
+                  data-testid="button-refresh-drills"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              <div className="grid gap-4">
+                {pendingDrills.map((drill) => {
+                  const drillContent = drill.drillContent as DrillContent | null;
+                  return (
+                  <Card key={drill.id} className="hover-elevate" data-testid={`card-drill-${drill.id}`}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <Badge variant="secondary" className="capitalize">
+                              {drill.drillType}
+                            </Badge>
+                            <Badge variant="outline" className="gap-1">
+                              <Clock className="h-3 w-3" />
+                              {drillContent?.items?.length || 0} items
+                            </Badge>
+                          </div>
+                          <h3 className="font-medium truncate" data-testid={`text-drill-focus-${drill.id}`}>
+                            {drillContent?.focusArea || "General Practice"}
+                          </h3>
+                          {drillContent?.instructions && (
+                            <p className="text-sm text-muted-foreground truncate">
+                              From Daniela: {drillContent.instructions}
+                            </p>
+                          )}
+                        </div>
+                        <Button 
+                          onClick={() => startDrill(drill)}
+                          disabled={startDrillMutation.isPending}
+                          className="shrink-0 gap-2"
+                          data-testid={`button-start-drill-${drill.id}`}
+                        >
+                          {startDrillMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Target className="h-4 w-4" />
+                          )}
+                          Start Practice
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </TabsContent>
+        
+        <TabsContent value="explore" className="mt-6">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div>
+                <h2 className="text-lg font-medium">Practice Catalog</h2>
+                <p className="text-sm text-muted-foreground">
+                  Browse and practice drills at your own pace
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Select 
+                  value={catalogLanguageFilter} 
+                  onValueChange={setCatalogLanguageFilter}
+                >
+                  <SelectTrigger className="w-[160px]" data-testid="select-language-filter">
+                    <SelectValue placeholder="Language" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Languages</SelectItem>
+                    <SelectItem value="current">Current ({formatLanguage(language)})</SelectItem>
+                    {catalogData?.languages?.map(lang => (
+                      <SelectItem key={lang} value={lang}>{formatLanguage(lang)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select 
+                  value={catalogDifficultyFilter} 
+                  onValueChange={setCatalogDifficultyFilter}
+                >
+                  <SelectTrigger className="w-[140px]" data-testid="select-difficulty-filter">
+                    <SelectValue placeholder="Difficulty" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Levels</SelectItem>
+                    <SelectItem value="1">Beginner</SelectItem>
+                    <SelectItem value="2">Elementary</SelectItem>
+                    <SelectItem value="3">Intermediate</SelectItem>
+                    <SelectItem value="4">Advanced</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/practice/catalog'], exact: false })}
+                  data-testid="button-refresh-catalog"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            
+            {loadingCatalog ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : filteredCatalog.length === 0 ? (
+              <Card className="border-dashed">
+                <CardContent className="py-12 text-center">
+                  <BookOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="text-lg font-medium mb-2">No Drills Available</h3>
+                  <p className="text-muted-foreground max-w-md mx-auto">
+                    No practice drills found for the selected language. Try selecting a different language or check back later.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {filteredCatalog.map((item) => (
+                  <Card 
+                    key={item.lessonId} 
+                    className={`hover-elevate ${item.completed ? 'border-green-500/30' : ''}`}
+                    data-testid={`card-catalog-${item.lessonId}`}
+                  >
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <CardTitle className="text-base truncate">
+                            {item.lessonTitle}
+                          </CardTitle>
+                          <CardDescription className="mt-1">
+                            {formatLanguage(item.targetLanguage)}
+                          </CardDescription>
+                        </div>
+                        {item.completed && (
+                          <CheckCheck className="h-5 w-5 text-green-500 shrink-0" />
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="outline" className="gap-1">
+                          <BookOpen className="h-3 w-3" />
+                          {item.itemCount} items
                         </Badge>
                         <Badge variant="outline" className="gap-1">
                           <Clock className="h-3 w-3" />
-                          {drillContent?.items?.length || 0} items
+                          ~{item.estimatedMinutes} min
+                        </Badge>
+                        <Badge variant="secondary">
+                          {getDifficultyLabel(item.difficulty)}
                         </Badge>
                       </div>
-                      <h3 className="font-medium truncate" data-testid={`text-drill-focus-${drill.id}`}>
-                        {drillContent?.focusArea || "General Practice"}
-                      </h3>
-                      {drillContent?.instructions && (
-                        <p className="text-sm text-muted-foreground truncate">
-                          From Daniela: {drillContent.instructions}
-                        </p>
+                      
+                      {item.tags.length > 0 && (
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {item.tags.slice(0, 3).map(tag => (
+                            <Badge key={tag} variant="outline" className="text-xs">
+                              {tag}
+                            </Badge>
+                          ))}
+                          {item.tags.length > 3 && (
+                            <span className="text-xs text-muted-foreground">
+                              +{item.tags.length - 3} more
+                            </span>
+                          )}
+                        </div>
                       )}
-                    </div>
-                    <Button 
-                      onClick={() => startDrill(drill)}
-                      disabled={startDrillMutation.isPending}
-                      className="shrink-0 gap-2"
-                      data-testid={`button-start-drill-${drill.id}`}
-                    >
-                      {startDrillMutation.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Target className="h-4 w-4" />
-                      )}
-                      Start Practice
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-              );
-            })}
+                      
+                      <Button 
+                        onClick={() => startSelfPracticeMutation.mutate(item.lessonId)}
+                        disabled={startSelfPracticeMutation.isPending}
+                        className="w-full gap-2"
+                        variant={item.completed ? "secondary" : "default"}
+                        data-testid={`button-start-self-practice-${item.lessonId}`}
+                      >
+                        {startSelfPracticeMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Play className="h-4 w-4" />
+                        )}
+                        {item.completed ? "Practice Again" : "Start Practice"}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        </TabsContent>
+      </Tabs>
       
       {isAdminOrDeveloper && (
         <VoiceLabPanel
