@@ -557,8 +557,10 @@ export default function ArisPractice() {
   
   // Normalize answer for comparison - handles number words and numeric representations
   const normalizeForComparison = useCallback((answer: string, target: string, lang: string): boolean => {
-    const normalizedAnswer = answer.trim().toLowerCase();
-    const normalizedTarget = target.trim().toLowerCase();
+    // Strip punctuation and normalize
+    const stripPunctuation = (s: string) => s.replace(/[.,!?;:'"()[\]{}]/g, '').trim().toLowerCase();
+    const normalizedAnswer = stripPunctuation(answer);
+    const normalizedTarget = stripPunctuation(target);
     
     // Direct match
     if (normalizedAnswer === normalizedTarget) return true;
