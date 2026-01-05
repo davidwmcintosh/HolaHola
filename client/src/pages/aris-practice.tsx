@@ -195,7 +195,8 @@ export default function ArisPractice() {
   const startSelfPracticeMutation = useMutation({
     mutationFn: async (lessonId: string) => {
       setLoadingLessonId(lessonId);
-      return await apiRequest("POST", "/api/practice/sessions", { lessonId });
+      const response = await apiRequest("POST", "/api/practice/sessions", { lessonId });
+      return await response.json();
     },
     onSuccess: (data: any) => {
       setLoadingLessonId(null);
