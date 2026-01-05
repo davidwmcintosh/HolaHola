@@ -370,8 +370,15 @@ export class UsageService {
   
   /**
    * Start a new voice session
+   * @param tutorMode - 'main' for primary tutor (Daniela), 'assistant' for assistant tutor (Aris)
    */
-  async startSession(userId: string, conversationId?: string, language?: string, classId?: string): Promise<VoiceSession> {
+  async startSession(
+    userId: string, 
+    conversationId?: string, 
+    language?: string, 
+    classId?: string,
+    tutorMode: 'main' | 'assistant' = 'main'
+  ): Promise<VoiceSession> {
     // Check credits with class context
     const creditCheck = await this.checkSufficientCredits(userId, classId);
     if (!creditCheck.allowed) {
@@ -398,6 +405,7 @@ export class UsageService {
         classId,
         status: 'active',
         isTestSession,
+        tutorMode,
       })
       .returning();
     

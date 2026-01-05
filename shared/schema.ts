@@ -1372,6 +1372,9 @@ export const entitlementTypeEnum = pgEnum('entitlement_type', ['class_allocation
 // Voice session status enum
 export const voiceSessionStatusEnum = pgEnum('voice_session_status', ['active', 'completed', 'abandoned', 'error']);
 
+// Tutor mode enum - distinguishes main tutor from assistant tutor sessions
+export const tutorModeEnum = pgEnum('tutor_mode', ['main', 'assistant']);
+
 // Voice sessions - tracks each tutoring session with timing and exchange data
 export const voiceSessions = pgTable("voice_sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1391,6 +1394,8 @@ export const voiceSessions = pgTable("voice_sessions", {
   // Session metadata
   language: varchar("language"),
   status: voiceSessionStatusEnum("status").default("active"),
+  // Tutor mode - distinguishes main tutor (Daniela) from assistant tutor (Aris) sessions
+  tutorMode: tutorModeEnum("tutor_mode").default("main"),
   // Class context (if enrolled)
   classId: varchar("class_id").references(() => teacherClasses.id),
   // Test session flag - sessions from test accounts excluded from production analytics
@@ -1400,6 +1405,7 @@ export const voiceSessions = pgTable("voice_sessions", {
   index("idx_voice_sessions_started").on(table.startedAt),
   index("idx_voice_sessions_class").on(table.classId),
   index("idx_voice_sessions_test").on(table.isTestSession),
+  index("idx_voice_sessions_tutor_mode").on(table.tutorMode),
 ]);
 
 // Usage ledger - credit transactions (earned and consumed)

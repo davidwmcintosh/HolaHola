@@ -28,6 +28,16 @@ const GREETING_LESSONS: Record<string, string> = {
   spanish: "f9328483-817c-4e91-99b9-55cbef52a5a2",
 };
 
+// Lesson IDs for Family Members across all languages
+const FAMILY_LESSONS: Record<string, string> = {
+  english: "2195a976-e5fc-4640-97e0-950738953fd4", // New Words: Family Members
+  spanish: "362aaf97-6cf9-41fd-ba01-a649f5a565c5", // New Words: Meet the Family
+  french: "e4d7dd5e-e9f2-4204-b11e-afb62b2b1adb",  // New Words: La Famille
+  german: "2c986639-8176-4039-babe-db9d2c023ee4",  // New Words: Familienmitglieder
+  italian: "6b77b02d-b2de-4869-819c-315d67760a5d", // New Words: I Membri della Famiglia
+  portuguese: "f0d0467d-b36e-4cc7-8af5-f57b18e0da69", // New Words: A Família
+};
+
 // Numbers 0-20 in each language
 const NUMBERS: Record<string, string[]> = {
   english: ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", 
@@ -162,11 +172,100 @@ const GREETINGS: Record<string, Array<{ phrase: string; meaning: string; alterna
   ],
 };
 
+// Family members vocabulary in each language
+const FAMILY: Record<string, Array<{ word: string; meaning: string; alternatives?: string[] }>> = {
+  english: [
+    { word: "mother", meaning: "Female parent", alternatives: ["mom", "mum"] },
+    { word: "father", meaning: "Male parent", alternatives: ["dad"] },
+    { word: "sister", meaning: "Female sibling" },
+    { word: "brother", meaning: "Male sibling" },
+    { word: "grandmother", meaning: "Parent's mother", alternatives: ["grandma"] },
+    { word: "grandfather", meaning: "Parent's father", alternatives: ["grandpa"] },
+    { word: "aunt", meaning: "Parent's sister" },
+    { word: "uncle", meaning: "Parent's brother" },
+    { word: "cousin", meaning: "Child of aunt or uncle" },
+    { word: "daughter", meaning: "Female child" },
+    { word: "son", meaning: "Male child" },
+    { word: "parents", meaning: "Mother and father" },
+  ],
+  spanish: [
+    { word: "madre", meaning: "Mother", alternatives: ["mamá"] },
+    { word: "padre", meaning: "Father", alternatives: ["papá"] },
+    { word: "hermana", meaning: "Sister" },
+    { word: "hermano", meaning: "Brother" },
+    { word: "abuela", meaning: "Grandmother" },
+    { word: "abuelo", meaning: "Grandfather" },
+    { word: "tía", meaning: "Aunt" },
+    { word: "tío", meaning: "Uncle" },
+    { word: "primo", meaning: "Cousin (male)", alternatives: ["prima"] },
+    { word: "hija", meaning: "Daughter" },
+    { word: "hijo", meaning: "Son" },
+    { word: "padres", meaning: "Parents" },
+  ],
+  french: [
+    { word: "mère", meaning: "Mother", alternatives: ["maman"] },
+    { word: "père", meaning: "Father", alternatives: ["papa"] },
+    { word: "sœur", meaning: "Sister" },
+    { word: "frère", meaning: "Brother" },
+    { word: "grand-mère", meaning: "Grandmother", alternatives: ["mamie"] },
+    { word: "grand-père", meaning: "Grandfather", alternatives: ["papy"] },
+    { word: "tante", meaning: "Aunt" },
+    { word: "oncle", meaning: "Uncle" },
+    { word: "cousin", meaning: "Cousin (male)", alternatives: ["cousine"] },
+    { word: "fille", meaning: "Daughter" },
+    { word: "fils", meaning: "Son" },
+    { word: "parents", meaning: "Parents" },
+  ],
+  german: [
+    { word: "Mutter", meaning: "Mother", alternatives: ["Mama", "Mutti"] },
+    { word: "Vater", meaning: "Father", alternatives: ["Papa", "Vati"] },
+    { word: "Schwester", meaning: "Sister" },
+    { word: "Bruder", meaning: "Brother" },
+    { word: "Großmutter", meaning: "Grandmother", alternatives: ["Oma"] },
+    { word: "Großvater", meaning: "Grandfather", alternatives: ["Opa"] },
+    { word: "Tante", meaning: "Aunt" },
+    { word: "Onkel", meaning: "Uncle" },
+    { word: "Cousin", meaning: "Cousin (male)", alternatives: ["Cousine"] },
+    { word: "Tochter", meaning: "Daughter" },
+    { word: "Sohn", meaning: "Son" },
+    { word: "Eltern", meaning: "Parents" },
+  ],
+  italian: [
+    { word: "madre", meaning: "Mother", alternatives: ["mamma"] },
+    { word: "padre", meaning: "Father", alternatives: ["papà"] },
+    { word: "sorella", meaning: "Sister" },
+    { word: "fratello", meaning: "Brother" },
+    { word: "nonna", meaning: "Grandmother" },
+    { word: "nonno", meaning: "Grandfather" },
+    { word: "zia", meaning: "Aunt" },
+    { word: "zio", meaning: "Uncle" },
+    { word: "cugino", meaning: "Cousin (male)", alternatives: ["cugina"] },
+    { word: "figlia", meaning: "Daughter" },
+    { word: "figlio", meaning: "Son" },
+    { word: "genitori", meaning: "Parents" },
+  ],
+  portuguese: [
+    { word: "mãe", meaning: "Mother", alternatives: ["mamãe"] },
+    { word: "pai", meaning: "Father", alternatives: ["papai"] },
+    { word: "irmã", meaning: "Sister" },
+    { word: "irmão", meaning: "Brother" },
+    { word: "avó", meaning: "Grandmother", alternatives: ["vovó"] },
+    { word: "avô", meaning: "Grandfather", alternatives: ["vovô"] },
+    { word: "tia", meaning: "Aunt" },
+    { word: "tio", meaning: "Uncle" },
+    { word: "primo", meaning: "Cousin (male)", alternatives: ["prima"] },
+    { word: "filha", meaning: "Daughter" },
+    { word: "filho", meaning: "Son" },
+    { word: "pais", meaning: "Parents" },
+  ],
+};
+
 export async function seedDrillContent() {
   console.log("[Drill Seed] Starting drill content seeding...");
   
   let numbersCreated = 0;
   let greetingsCreated = 0;
+  let familyCreated = 0;
 
   // Seed number drills for each language
   for (const [language, lessonId] of Object.entries(NUMBER_LESSONS)) {
@@ -241,12 +340,57 @@ export async function seedDrillContent() {
     }
   }
 
-  console.log(`[Drill Seed] Complete: ${numbersCreated} number drills, ${greetingsCreated} greeting drills created`);
+  // Seed family vocabulary drills for each language
+  for (const [language, lessonId] of Object.entries(FAMILY_LESSONS)) {
+    const familyWords = FAMILY[language];
+    if (!familyWords) continue;
+
+    for (let i = 0; i < familyWords.length; i++) {
+      const member = familyWords[i];
+      
+      try {
+        // Listen & Repeat drill item
+        await db.insert(curriculumDrillItems).values({
+          lessonId,
+          itemType: "listen_repeat",
+          orderIndex: i * 2,
+          prompt: member.word,
+          targetText: member.word,
+          targetLanguage: language,
+          hints: [member.meaning],
+          acceptableAlternatives: member.alternatives || [],
+          difficulty: 1,
+          tags: ["family", "vocabulary"],
+        }).onConflictDoNothing();
+        
+        // Translate & Speak drill item (meaning -> target word)
+        await db.insert(curriculumDrillItems).values({
+          lessonId,
+          itemType: "translate_speak",
+          orderIndex: i * 2 + 1,
+          prompt: member.meaning,
+          targetText: member.word,
+          targetLanguage: language,
+          hints: [`Say the word in ${language}`],
+          acceptableAlternatives: member.alternatives || [],
+          difficulty: 1,
+          tags: ["family", "speaking"],
+        }).onConflictDoNothing();
+        
+        familyCreated += 2;
+      } catch (e) {
+        // Ignore duplicates
+      }
+    }
+  }
+
+  console.log(`[Drill Seed] Complete: ${numbersCreated} number drills, ${greetingsCreated} greeting drills, ${familyCreated} family drills created`);
   
   // Update the lesson types to 'drill' for all drill lessons
   const allDrillLessonIds = [
     ...Object.values(NUMBER_LESSONS),
     ...Object.values(GREETING_LESSONS),
+    ...Object.values(FAMILY_LESSONS),
   ];
   
   try {
@@ -259,5 +403,5 @@ export async function seedDrillContent() {
     console.log(`[Drill Seed] Lesson type update skipped (already drill or error)`);
   }
   
-  return { numbersCreated, greetingsCreated };
+  return { numbersCreated, greetingsCreated, familyCreated };
 }
