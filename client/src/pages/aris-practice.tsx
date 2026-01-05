@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,13 +26,15 @@ import {
   GraduationCap,
   CheckCheck,
   Play,
-  ChevronLeft
+  ChevronLeft,
+  Mic,
+  MicOff
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { synthesizeSpeech } from "@/lib/restVoiceApi";
+import { synthesizeSpeech, transcribeAudio } from "@/lib/restVoiceApi";
 import type { ArisDrillAssignment } from "@shared/schema";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWhiteboard } from "@/hooks/useWhiteboard";
@@ -157,6 +159,13 @@ export default function ArisPractice() {
   const [selfPracticeSession, setSelfPracticeSession] = useState<SelfPracticeSession | null>(null);
   const [selfPracticeDrillItems, setSelfPracticeDrillItems] = useState<SelfPracticeDrillItem[]>([]);
   const [loadingLessonId, setLoadingLessonId] = useState<string | null>(null);
+  const [isRecordingAnswer, setIsRecordingAnswer] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  
+  // Voice recording refs
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
   
   const whiteboard = useWhiteboard();
   
@@ -396,6 +405,110 @@ export default function ArisPractice() {
     }
   }, [isPlaying, selectedAssignment, language]);
   
+  // Voice recording functions for listen/repeat drills
+  const startVoiceRecording = useCallback(async () => {
+    if (isRecordingAnswer) return;
+    
+    try {
+      // Check browser support
+      if (!navigator.mediaDevices?.getUserMedia) {
+        toast({
+          variant: "destructive",
+          title: "Not Supported",
+          description: "Voice recording is not supported in this browser.",
+        });
+        return;
+      }
+      
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: { echoCancellation: true, noiseSuppression: true } 
+      });
+      streamRef.current = stream;
+      
+      // Choose supported MIME type
+      let mimeType = 'audio/webm';
+      if (MediaRecorder.isTypeSupported?.('audio/webm;codecs=opus')) {
+        mimeType = 'audio/webm;codecs=opus';
+      } else if (MediaRecorder.isTypeSupported?.('audio/mp4')) {
+        mimeType = 'audio/mp4';
+      }
+      
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+      
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+      
+      mediaRecorder.onerror = () => {
+        toast({
+          variant: "destructive",
+          title: "Recording Error",
+          description: "An error occurred while recording. Please try again.",
+        });
+        setIsRecordingAnswer(false);
+        stream.getTracks().forEach(track => track.stop());
+      };
+      
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        stream.getTracks().forEach(track => track.stop());
+        
+        if (audioBlob.size === 0) {
+          toast({
+            variant: "destructive",
+            title: "Recording Empty",
+            description: "No audio was captured. Please try again.",
+          });
+          return;
+        }
+        
+        // Transcribe the audio
+        setIsTranscribing(true);
+        try {
+          const transcribedText = await transcribeAudio(audioBlob, language);
+          setUserAnswer(transcribedText);
+          setIsTranscribing(false);
+          
+          // Auto-check answer after transcription
+          // We'll trigger checkAnswer after setting the answer
+        } catch (error: any) {
+          setIsTranscribing(false);
+          toast({
+            variant: "destructive",
+            title: "Transcription Failed",
+            description: error.message || "Could not transcribe your speech. Please try again.",
+          });
+        }
+      };
+      
+      mediaRecorder.start();
+      setIsRecordingAnswer(true);
+      
+    } catch (error: any) {
+      console.error('[ArisPractice] Voice recording failed:', error);
+      toast({
+        variant: "destructive",
+        title: "Microphone Access Denied",
+        description: "Please allow microphone access to use voice input.",
+      });
+    }
+  }, [isRecordingAnswer, language, toast]);
+  
+  const stopVoiceRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setIsRecordingAnswer(false);
+  }, []);
+  
   const checkAnswer = useCallback(async () => {
     if (!drillState) return;
     
@@ -598,6 +711,8 @@ export default function ArisPractice() {
       setShowResult(false);
       setIsCorrect(null);
       setCurrentFeedback(null);
+      setIsRecordingAnswer(false);
+      setIsTranscribing(false);
       whiteboard.clear();
     }
   }, [selectedAssignment, selfPracticeSession, selfPracticeDrillItems, drillState, completeDrillMutation, completeSelfPracticeMutation, whiteboard]);
@@ -675,6 +790,8 @@ export default function ArisPractice() {
       setShowResult(false);
       setIsCorrect(null);
       setCurrentFeedback(null);
+      setIsRecordingAnswer(false);
+      setIsTranscribing(false);
       whiteboard.clear();
     };
     
@@ -778,23 +895,84 @@ export default function ArisPractice() {
                   
                   {!showResult ? (
                     <div className="space-y-4">
-                      <Input
-                        value={userAnswer}
-                        onChange={(e) => setUserAnswer(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && checkAnswer()}
-                        placeholder="Type your answer..."
-                        className="text-center text-lg"
-                        autoFocus
-                        data-testid="input-drill-answer"
-                      />
-                      <Button 
-                        onClick={checkAnswer} 
-                        disabled={!userAnswer.trim()}
-                        className="w-full"
-                        data-testid="button-check-answer"
-                      >
-                        Check Answer
-                      </Button>
+                      {/* Voice input mode for listen/repeat and pronunciation drills */}
+                      {(drillType === 'listen_repeat' || drillType === 'pronunciation') ? (
+                        <div className="space-y-4">
+                          {/* Voice recording button */}
+                          <div className="flex flex-col items-center gap-3">
+                            <Button
+                              variant={isRecordingAnswer ? "destructive" : "default"}
+                              size="lg"
+                              className={`h-16 w-16 rounded-full ${isRecordingAnswer ? 'animate-pulse' : ''}`}
+                              onClick={isRecordingAnswer ? stopVoiceRecording : startVoiceRecording}
+                              disabled={isTranscribing}
+                              data-testid="button-voice-record"
+                            >
+                              {isRecordingAnswer ? (
+                                <MicOff className="h-6 w-6" />
+                              ) : (
+                                <Mic className="h-6 w-6" />
+                              )}
+                            </Button>
+                            <span className="text-sm text-muted-foreground">
+                              {isTranscribing ? "Transcribing..." : isRecordingAnswer ? "Tap to stop" : "Tap to speak"}
+                            </span>
+                          </div>
+                          
+                          {/* Show transcribed text */}
+                          {userAnswer && !isRecordingAnswer && !isTranscribing && (
+                            <div className="p-3 bg-muted rounded-lg">
+                              <p className="text-sm text-muted-foreground mb-1">You said:</p>
+                              <p className="text-lg font-medium">{userAnswer}</p>
+                            </div>
+                          )}
+                          
+                          {/* Check answer button appears after transcription */}
+                          {userAnswer && !isRecordingAnswer && !isTranscribing && (
+                            <Button 
+                              onClick={checkAnswer} 
+                              className="w-full"
+                              data-testid="button-check-answer"
+                            >
+                              Check Answer
+                            </Button>
+                          )}
+                          
+                          {/* Fallback to text input option */}
+                          <div className="pt-2 border-t">
+                            <p className="text-xs text-muted-foreground mb-2">Or type your answer:</p>
+                            <Input
+                              value={userAnswer}
+                              onChange={(e) => setUserAnswer(e.target.value)}
+                              onKeyDown={(e) => e.key === 'Enter' && userAnswer.trim() && checkAnswer()}
+                              placeholder="Type your answer..."
+                              className="text-center"
+                              data-testid="input-drill-answer-fallback"
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        /* Standard text input for other drill types */
+                        <>
+                          <Input
+                            value={userAnswer}
+                            onChange={(e) => setUserAnswer(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && checkAnswer()}
+                            placeholder="Type your answer..."
+                            className="text-center text-lg"
+                            autoFocus
+                            data-testid="input-drill-answer"
+                          />
+                          <Button 
+                            onClick={checkAnswer} 
+                            disabled={!userAnswer.trim()}
+                            className="w-full"
+                            data-testid="button-check-answer"
+                          >
+                            Check Answer
+                          </Button>
+                        </>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-4">
