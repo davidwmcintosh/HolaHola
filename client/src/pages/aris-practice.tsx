@@ -169,6 +169,60 @@ export default function ArisPractice() {
   
   const whiteboard = useWhiteboard();
   
+  // localStorage keys for session persistence
+  const STORAGE_KEY_SESSION = 'aris-practice-session';
+  const STORAGE_KEY_STATE = 'aris-practice-state';
+  const STORAGE_KEY_ITEMS = 'aris-practice-items';
+  
+  // Restore session from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedSession = localStorage.getItem(STORAGE_KEY_SESSION);
+      const savedState = localStorage.getItem(STORAGE_KEY_STATE);
+      const savedItems = localStorage.getItem(STORAGE_KEY_ITEMS);
+      
+      if (savedSession && savedState && savedItems) {
+        const session = JSON.parse(savedSession) as SelfPracticeSession;
+        const state = JSON.parse(savedState) as DrillState;
+        const items = JSON.parse(savedItems) as SelfPracticeDrillItem[];
+        
+        // Only restore if session is still in progress
+        if (session.status === 'in_progress' && items.length > 0) {
+          setSelfPracticeSession(session);
+          setDrillState(state);
+          setSelfPracticeDrillItems(items);
+          setActiveTab('explore');
+        }
+      }
+    } catch (error) {
+      console.error('[ArisPractice] Failed to restore session from localStorage:', error);
+      // Clear corrupted data
+      localStorage.removeItem(STORAGE_KEY_SESSION);
+      localStorage.removeItem(STORAGE_KEY_STATE);
+      localStorage.removeItem(STORAGE_KEY_ITEMS);
+    }
+  }, []);
+  
+  // Save session progress to localStorage whenever state changes
+  useEffect(() => {
+    if (selfPracticeSession && drillState && selfPracticeDrillItems.length > 0) {
+      try {
+        localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(selfPracticeSession));
+        localStorage.setItem(STORAGE_KEY_STATE, JSON.stringify(drillState));
+        localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(selfPracticeDrillItems));
+      } catch (error) {
+        console.error('[ArisPractice] Failed to save session to localStorage:', error);
+      }
+    }
+  }, [selfPracticeSession, drillState, selfPracticeDrillItems]);
+  
+  // Clear localStorage when session ends
+  const clearSessionStorage = useCallback(() => {
+    localStorage.removeItem(STORAGE_KEY_SESSION);
+    localStorage.removeItem(STORAGE_KEY_STATE);
+    localStorage.removeItem(STORAGE_KEY_ITEMS);
+  }, []);
+  
   // Admin/Developer check including founder access for Voice Lab
   const FOUNDER_USER_ID = '49847136';
   const isAdminOrDeveloper = user?.role === 'admin' || user?.role === 'developer' || user?.id === FOUNDER_USER_ID;
@@ -273,6 +327,7 @@ export default function ArisPractice() {
       setSelfPracticeSession(null);
       setSelfPracticeDrillItems([]);
       setDrillState(null);
+      clearSessionStorage();
       toast({
         title: "Practice Complete!",
         description: "Great job on your self-directed practice!",
@@ -868,6 +923,7 @@ export default function ArisPractice() {
       if (isSelfPractice) {
         setSelfPracticeSession(null);
         setSelfPracticeDrillItems([]);
+        clearSessionStorage();
       } else {
         setSelectedAssignment(null);
       }
