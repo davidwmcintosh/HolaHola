@@ -1019,6 +1019,34 @@ export const userDrillProgress = pgTable("user_drill_progress", {
   index("idx_drill_progress_review").on(table.nextReviewAt),
 ]);
 
+// Self-directed practice sessions (for Practice Explorer feature)
+export const selfPracticeSessions = pgTable("self_practice_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  lessonId: varchar("lesson_id").notNull().references(() => curriculumLessons.id, { onDelete: 'cascade' }),
+  targetLanguage: text("target_language").notNull(),
+  // Session status
+  status: text("status").notNull().default("in_progress"), // in_progress, completed, abandoned
+  // Progress tracking
+  totalItems: integer("total_items").notNull().default(0),
+  completedItems: integer("completed_items").notNull().default(0),
+  correctItems: integer("correct_items").notNull().default(0),
+  averageScore: real("average_score"),
+  // Timing
+  startedAt: timestamp("started_at").notNull().defaultNow(),
+  completedAt: timestamp("completed_at"),
+  totalTimeSpentMs: integer("total_time_spent_ms").default(0),
+  // Metadata
+  drillItemIds: text("drill_item_ids").array(), // Which drill items were included
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_self_practice_user").on(table.userId),
+  index("idx_self_practice_lesson").on(table.lessonId),
+  index("idx_self_practice_status").on(table.status),
+  index("idx_self_practice_language").on(table.targetLanguage),
+]);
+
 // Class types for categorizing classes (ACTFL-Led, Executive, Travel, etc.)
 export const classTypes = pgTable("class_types", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1845,6 +1873,16 @@ export type DrillItemType = typeof drillItemTypeEnum.enumValues[number];
 
 export type InsertUserDrillProgress = z.infer<typeof insertUserDrillProgressSchema>;
 export type UserDrillProgress = typeof userDrillProgress.$inferSelect;
+
+export const insertSelfPracticeSessionSchema = createInsertSchema(selfPracticeSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  startedAt: true,
+});
+
+export type InsertSelfPracticeSession = z.infer<typeof insertSelfPracticeSessionSchema>;
+export type SelfPracticeSession = typeof selfPracticeSessions.$inferSelect;
 
 export const insertClassTypeSchema = createInsertSchema(classTypes).omit({
   id: true,
