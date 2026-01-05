@@ -155,6 +155,7 @@ export default function ArisPractice() {
   const [catalogDifficultyFilter, setCatalogDifficultyFilter] = useState<string>("all");
   const [selfPracticeSession, setSelfPracticeSession] = useState<SelfPracticeSession | null>(null);
   const [selfPracticeDrillItems, setSelfPracticeDrillItems] = useState<SelfPracticeDrillItem[]>([]);
+  const [loadingLessonId, setLoadingLessonId] = useState<string | null>(null);
   
   const whiteboard = useWhiteboard();
   
@@ -193,13 +194,26 @@ export default function ArisPractice() {
   // Start self-practice session mutation
   const startSelfPracticeMutation = useMutation({
     mutationFn: async (lessonId: string) => {
+      setLoadingLessonId(lessonId);
       return await apiRequest("POST", "/api/practice/sessions", { lessonId });
     },
     onSuccess: (data: any) => {
+      setLoadingLessonId(null);
       // Invalidate catalog to reflect session in-progress
       queryClient.invalidateQueries({ queryKey: ['/api/practice/catalog'], exact: false });
+      
+      const drillItems = data.drillItems || [];
+      if (drillItems.length === 0) {
+        toast({
+          title: "No Practice Items",
+          description: "This drill doesn't have any items yet. Try another one!",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       setSelfPracticeSession(data.session);
-      setSelfPracticeDrillItems(data.drillItems || []);
+      setSelfPracticeDrillItems(drillItems);
       const now = Date.now();
       setDrillState({
         currentItemIndex: 0,
@@ -225,6 +239,7 @@ export default function ArisPractice() {
       });
     },
     onError: (error: any) => {
+      setLoadingLessonId(null);
       toast({
         title: "Error",
         description: error?.message || "Failed to start practice session",
@@ -1109,12 +1124,12 @@ export default function ArisPractice() {
                       
                       <Button 
                         onClick={() => startSelfPracticeMutation.mutate(item.lessonId)}
-                        disabled={startSelfPracticeMutation.isPending}
+                        disabled={loadingLessonId !== null}
                         className="w-full gap-2"
                         variant={item.completed ? "secondary" : "default"}
                         data-testid={`button-start-self-practice-${item.lessonId}`}
                       >
-                        {startSelfPracticeMutation.isPending ? (
+                        {loadingLessonId === item.lessonId ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                           <Play className="h-4 w-4" />
