@@ -304,10 +304,14 @@ export function VoiceLabPanel({
           languageCode: currentVoice.languageCode,
           speakingRate,
           emotion,
+          provider: currentVoice.provider || (isAssistant ? 'google' : 'cartesia'),
         }),
       });
       
-      if (!res.ok) throw new Error('Audition failed');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Audition failed');
+      }
       
       const audioBlob = await res.blob();
       const audioUrl = URL.createObjectURL(audioBlob);

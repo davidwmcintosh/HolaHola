@@ -151,7 +151,7 @@ export default function ArisPractice() {
   const [isVoiceLabOpen, setIsVoiceLabOpen] = useState(false);
   const [voiceOverride, setVoiceOverride] = useState<VoiceOverride | null>(null);
   const [activeTab, setActiveTab] = useState("assigned");
-  const [catalogLanguageFilter, setCatalogLanguageFilter] = useState<string>("all");
+  const [catalogLanguageFilter, setCatalogLanguageFilter] = useState<string>("current");
   const [catalogDifficultyFilter, setCatalogDifficultyFilter] = useState<string>("all");
   const [selfPracticeSession, setSelfPracticeSession] = useState<SelfPracticeSession | null>(null);
   const [selfPracticeDrillItems, setSelfPracticeDrillItems] = useState<SelfPracticeDrillItem[]>([]);

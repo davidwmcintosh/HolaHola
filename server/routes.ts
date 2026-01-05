@@ -75,7 +75,7 @@ import passport from "passport";
 import { generateConversationTitle, generateConversationContextSummary } from "./conversation-utils";
 import { extractTargetLanguageText, hasSignificantTargetLanguageContent } from "./text-utils";
 import multer from "multer";
-import { getTTSService } from "./services/tts-service";
+import { getTTSService, TTSService } from "./services/tts-service";
 import { usageService } from "./services/usage-service";
 import { sessionCompassService, COMPASS_ENABLED } from "./services/session-compass-service";
 import { architectVoiceService, validateArchitectSecret } from "./services/architect-voice-service";
@@ -8894,13 +8894,16 @@ Return ONLY the ${targetLanguage} phrase:`;
         return res.status(400).json({ error: "No drill items found for this lesson" });
       }
       
+      // Get targetLanguage from drill items (lessons don't have targetLanguage column)
+      const targetLanguage = drillItems[0]?.targetLanguage || 'english';
+      
       // Create a new self-practice session
       const [session] = await db
         .insert(selfPracticeSessions)
         .values({
           userId,
           lessonId,
-          targetLanguage: lesson.targetLanguage,
+          targetLanguage,
           status: 'in_progress',
           totalItems: drillItems.length,
           completedItems: 0,
@@ -8913,8 +8916,8 @@ Return ONLY the ${targetLanguage} phrase:`;
         session,
         lesson: {
           id: lesson.id,
-          title: lesson.lessonTitle,
-          targetLanguage: lesson.targetLanguage,
+          title: lesson.name,
+          targetLanguage,
         },
         drillItems,
       });
@@ -14750,14 +14753,35 @@ Current conversation context:
   });
   
   // Audition a voice with specific settings (preview voice changes before saving)
+  // Supports both Cartesia (main tutors) and Google Cloud TTS (assistant tutors)
   app.post("/api/admin/voice-audition", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const { voiceId, text, languageCode, speakingRate, emotion } = req.body;
+      const { voiceId, text, languageCode, speakingRate, emotion, provider = 'cartesia' } = req.body;
       
       if (!voiceId || !text) {
         return res.status(400).json({ error: "voiceId and text are required" });
       }
       
+      // Handle Google Cloud TTS for assistant tutors
+      if (provider === 'google') {
+        const ttsService = new TTSService('google');
+        try {
+          const audioBuffer = await ttsService.synthesize(text, {
+            provider: 'google',
+            voiceId: voiceId,
+            languageCode: languageCode || 'en-US',
+            speed: speakingRate || 1.0,
+          });
+          res.setHeader('Content-Type', 'audio/mpeg');
+          res.send(Buffer.from(audioBuffer));
+          return;
+        } catch (error: any) {
+          console.error('[Voice Audition] Google TTS error:', error);
+          return res.status(500).json({ error: 'Voice synthesis failed: ' + error.message });
+        }
+      }
+      
+      // Default: Cartesia for main tutors
       const apiKey = process.env.CARTESIA_API_KEY;
       if (!apiKey) {
         return res.status(500).json({ error: "Cartesia API key not configured" });

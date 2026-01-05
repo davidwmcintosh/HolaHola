@@ -69,6 +69,15 @@ The Drill System supports multiple interactive drill types via [DRILL] tags:
 - `cognate_match`: Match English words to target language cognates (indigo theme)
 - `false_friend_trap`: Identify true cognates vs false friends (amber theme)
 
+The Practice Explorer System (`/practice` route, `aris-practice.tsx`) enables self-directed drill practice with a browsable catalog, separate from teacher-assigned drills. Key features:
+- **Dual-mode practice**: "Assigned" tab shows teacher-assigned drills, "Explore" tab shows self-practice catalog
+- **Auto-filter to Language Hub**: Catalog defaults to user's current language setting for relevant content
+- **Language/difficulty filtering**: Filter catalog by language or difficulty level
+- **Self-practice sessions**: Tracked separately in `self_practice_sessions` table
+- **Voice configuration**: Practice tutor Aris uses Google Cloud TTS Chirp-3 HD voices (assistant role)
+- **API endpoints**: GET `/api/practice/catalog` (browse drills), POST `/api/practice/sessions` (start session), PATCH `/api/practice/sessions/:id/complete` (complete session)
+- **Voice Lab for assistants**: Supports Google TTS audition via `provider` parameter on `/api/admin/voice-audition`
+
 ## External Dependencies
 - Stripe: Payment processing and subscription management.
 - Replit Auth: OIDC authentication.
