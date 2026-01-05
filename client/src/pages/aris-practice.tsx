@@ -1021,19 +1021,6 @@ export default function ArisPractice() {
                               Check Answer
                             </Button>
                           )}
-                          
-                          {/* Fallback to text input option */}
-                          <div className="pt-2 border-t">
-                            <p className="text-xs text-muted-foreground mb-2">Or type your answer:</p>
-                            <Input
-                              value={userAnswer}
-                              onChange={(e) => setUserAnswer(e.target.value)}
-                              onKeyDown={(e) => e.key === 'Enter' && userAnswer.trim() && checkAnswer()}
-                              placeholder="Type your answer..."
-                              className="text-center"
-                              data-testid="input-drill-answer-fallback"
-                            />
-                          </div>
                         </div>
                       ) : (
                         /* Standard text input for other drill types */
