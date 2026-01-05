@@ -8766,61 +8766,59 @@ Return ONLY the ${targetLanguage} phrase:`;
       const userId = req.user.claims.sub;
       const { language, tags, difficulty } = req.query;
       
-      // Get all drill-type lessons with their drill items
+      // Get all drill-type lessons (use 'name' column, not 'lessonTitle')
       const drillLessons = await db
         .select({
           lessonId: curriculumLessons.id,
-          lessonTitle: curriculumLessons.lessonTitle,
-          targetLanguage: curriculumLessons.targetLanguage,
+          lessonName: curriculumLessons.name,
           lessonType: curriculumLessons.lessonType,
           estimatedMinutes: curriculumLessons.estimatedMinutes,
         })
         .from(curriculumLessons)
-        .where(
-          and(
-            eq(curriculumLessons.lessonType, 'drill'),
-            language ? eq(curriculumLessons.targetLanguage, language as string) : undefined
-          )
-        )
-        .orderBy(curriculumLessons.targetLanguage, curriculumLessons.lessonTitle);
+        .where(eq(curriculumLessons.lessonType, 'drill'))
+        .orderBy(curriculumLessons.name);
       
-      // Get drill item counts and tags for each lesson
+      // Get drill item counts and metadata for each lesson using aggregates
       const catalogItems = await Promise.all(
         drillLessons.map(async (lesson) => {
-          const items = await db
-            .select()
+          // Get accurate count and language using aggregate query
+          const countResult = await db
+            .select({
+              count: sql<number>`count(*)::int`,
+              targetLanguage: curriculumDrillItems.targetLanguage,
+              avgDifficulty: sql<number>`round(avg(${curriculumDrillItems.difficulty}))::int`,
+            })
             .from(curriculumDrillItems)
-            .where(eq(curriculumDrillItems.lessonId, lesson.lessonId));
+            .where(eq(curriculumDrillItems.lessonId, lesson.lessonId))
+            .groupBy(curriculumDrillItems.targetLanguage)
+            .limit(1);
           
-          // Filter by tags if specified
-          let filteredItems = items;
-          if (tags) {
-            const tagArray = (tags as string).split(',');
-            filteredItems = items.filter(item => 
-              item.tags?.some(t => tagArray.includes(t))
-            );
+          if (countResult.length === 0) return null;
+          
+          const { count: totalCount, targetLanguage, avgDifficulty } = countResult[0];
+          
+          // Filter by language if specified
+          if (language && targetLanguage !== language) {
+            return null;
           }
           
-          // Filter by difficulty if specified
-          if (difficulty) {
-            const diffLevel = parseInt(difficulty as string);
-            filteredItems = filteredItems.filter(item => 
-              item.difficulty === diffLevel
-            );
-          }
+          // Get sample items for tags/types (limit to 50 for efficiency)
+          const sampleItems = await db
+            .select({
+              itemType: curriculumDrillItems.itemType,
+              tags: curriculumDrillItems.tags,
+            })
+            .from(curriculumDrillItems)
+            .where(eq(curriculumDrillItems.lessonId, lesson.lessonId))
+            .limit(50);
           
-          if (filteredItems.length === 0) return null;
-          
-          // Collect unique tags and item types
+          // Collect unique tags and item types from sample
           const allTags = new Set<string>();
           const allTypes = new Set<string>();
-          let avgDifficulty = 0;
-          filteredItems.forEach(item => {
+          sampleItems.forEach(item => {
             item.tags?.forEach(t => allTags.add(t));
             allTypes.add(item.itemType);
-            avgDifficulty += item.difficulty || 1;
           });
-          avgDifficulty = Math.round(avgDifficulty / filteredItems.length);
           
           // Check user's completion status for this lesson
           const userProgress = await db
@@ -8837,13 +8835,13 @@ Return ONLY the ${targetLanguage} phrase:`;
           
           return {
             lessonId: lesson.lessonId,
-            lessonTitle: lesson.lessonTitle,
-            targetLanguage: lesson.targetLanguage,
-            itemCount: filteredItems.length,
-            estimatedMinutes: lesson.estimatedMinutes || Math.ceil(filteredItems.length * 0.5),
+            lessonTitle: lesson.lessonName,
+            targetLanguage: targetLanguage,
+            itemCount: totalCount,
+            estimatedMinutes: lesson.estimatedMinutes || Math.ceil(Math.min(totalCount, 20) * 0.5),
             tags: Array.from(allTags),
             itemTypes: Array.from(allTypes),
-            difficulty: avgDifficulty,
+            difficulty: avgDifficulty || 1,
             completed: userProgress.length > 0,
             lastCompletedAt: userProgress[0]?.completedAt || null,
           };
@@ -14766,13 +14764,16 @@ Current conversation context:
       }
       
       // Build voice controls with emotion if provided
+      // Cartesia emotions must be in format like "positivity:high" not simple words like "friendly"
       const voiceControls: any = {};
       if (speakingRate && speakingRate !== 1.0) {
         voiceControls.speed = speakingRate < 0.9 ? 'slowest' : speakingRate > 1.1 ? 'fast' : 'normal';
       }
-      if (emotion) {
+      if (emotion && emotion.includes(':')) {
+        // Only use emotion if it's in valid Cartesia format (e.g., "positivity:high")
         voiceControls.emotion = [emotion];
       }
+      // Skip invalid emotion formats like "friendly", "warm", etc. - Cartesia will reject these
       
       const response = await fetch('https://api.cartesia.ai/tts/bytes', {
         method: 'POST',
