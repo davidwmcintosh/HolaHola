@@ -221,7 +221,7 @@ export default function ArisPractice() {
       whiteboard.clear();
       toast({
         title: "Practice Started",
-        description: `Self-practice session started with ${data.drillItems?.length || 0} items`,
+        description: "Your self-practice session is ready. Good luck!",
       });
     },
     onError: (error: any) => {
@@ -1083,10 +1083,6 @@ export default function ArisPractice() {
                     </CardHeader>
                     <CardContent className="space-y-3">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant="outline" className="gap-1">
-                          <BookOpen className="h-3 w-3" />
-                          {item.itemCount} items
-                        </Badge>
                         <Badge variant="outline" className="gap-1">
                           <Clock className="h-3 w-3" />
                           ~{item.estimatedMinutes} min
