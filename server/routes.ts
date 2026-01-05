@@ -3434,6 +3434,24 @@ Return a JSON array of suggestions with this format:
         conversationId,
       });
 
+      // DUPLICATE PREVENTION: Check if same message was just created (within 5 seconds)
+      const existingMessages = await storage.getMessagesByConversation(conversationId);
+      const fiveSecondsAgo = new Date(Date.now() - 5000);
+      const isDuplicate = existingMessages.some(msg => 
+        msg.role === 'user' && 
+        msg.content === messageData.content &&
+        new Date(msg.createdAt) > fiveSecondsAgo
+      );
+      
+      if (isDuplicate) {
+        console.log('[MESSAGE] Duplicate message detected, skipping:', messageData.content.substring(0, 50));
+        // Return the existing message instead of creating a duplicate
+        const existingMessage = existingMessages.find(msg => 
+          msg.role === 'user' && msg.content === messageData.content
+        );
+        return res.json({ userMessage: existingMessage, isDuplicate: true });
+      }
+
       // Save user message (initially without performance score)
       const userMessage = await storage.createMessage(messageData);
       
