@@ -50,6 +50,7 @@ import {
   curriculumPaths,
   curriculumDrillItems,
   sofiaIssueReports,
+  selfPracticeSessions,
 } from "@shared/schema";
 import { hasTeacherAccess, hasDeveloperAccess } from "@shared/permissions";
 import OpenAI, { toFile } from "openai";
@@ -8753,6 +8754,260 @@ Return ONLY the ${targetLanguage} phrase:`;
       res.json(items);
     } catch (error: any) {
       console.error('Error fetching due review items:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===== Practice Explorer (Self-Directed Drills) =====
+
+  // Get practice catalog - browse available drills by language/topic
+  app.get("/api/practice/catalog", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { language, tags, difficulty } = req.query;
+      
+      // Get all drill-type lessons with their drill items
+      const drillLessons = await db
+        .select({
+          lessonId: curriculumLessons.id,
+          lessonTitle: curriculumLessons.lessonTitle,
+          targetLanguage: curriculumLessons.targetLanguage,
+          lessonType: curriculumLessons.lessonType,
+          estimatedMinutes: curriculumLessons.estimatedMinutes,
+        })
+        .from(curriculumLessons)
+        .where(
+          and(
+            eq(curriculumLessons.lessonType, 'drill'),
+            language ? eq(curriculumLessons.targetLanguage, language as string) : undefined
+          )
+        )
+        .orderBy(curriculumLessons.targetLanguage, curriculumLessons.lessonTitle);
+      
+      // Get drill item counts and tags for each lesson
+      const catalogItems = await Promise.all(
+        drillLessons.map(async (lesson) => {
+          const items = await db
+            .select({
+              id: curriculumDrillItems.id,
+              tags: curriculumDrillItems.tags,
+              difficulty: curriculumDrillItems.difficulty,
+              itemType: curriculumDrillItems.itemType,
+            })
+            .from(curriculumDrillItems)
+            .where(eq(curriculumDrillItems.lessonId, lesson.lessonId));
+          
+          // Filter by tags if specified
+          let filteredItems = items;
+          if (tags) {
+            const tagArray = (tags as string).split(',');
+            filteredItems = items.filter(item => 
+              item.tags?.some(t => tagArray.includes(t))
+            );
+          }
+          
+          // Filter by difficulty if specified
+          if (difficulty) {
+            const diffLevel = parseInt(difficulty as string);
+            filteredItems = filteredItems.filter(item => 
+              item.difficulty === diffLevel
+            );
+          }
+          
+          if (filteredItems.length === 0) return null;
+          
+          // Collect unique tags and item types
+          const allTags = new Set<string>();
+          const allTypes = new Set<string>();
+          let avgDifficulty = 0;
+          filteredItems.forEach(item => {
+            item.tags?.forEach(t => allTags.add(t));
+            allTypes.add(item.itemType);
+            avgDifficulty += item.difficulty || 1;
+          });
+          avgDifficulty = Math.round(avgDifficulty / filteredItems.length);
+          
+          // Check user's completion status for this lesson
+          const userProgress = await db
+            .select()
+            .from(selfPracticeSessions)
+            .where(
+              and(
+                eq(selfPracticeSessions.userId, userId),
+                eq(selfPracticeSessions.lessonId, lesson.lessonId),
+                eq(selfPracticeSessions.status, 'completed')
+              )
+            )
+            .limit(1);
+          
+          return {
+            lessonId: lesson.lessonId,
+            lessonTitle: lesson.lessonTitle,
+            targetLanguage: lesson.targetLanguage,
+            itemCount: filteredItems.length,
+            estimatedMinutes: lesson.estimatedMinutes || Math.ceil(filteredItems.length * 0.5),
+            tags: Array.from(allTags),
+            itemTypes: Array.from(allTypes),
+            difficulty: avgDifficulty,
+            completed: userProgress.length > 0,
+            lastCompletedAt: userProgress[0]?.completedAt || null,
+          };
+        })
+      );
+      
+      // Filter out null entries (lessons with no matching items)
+      const result = catalogItems.filter(Boolean);
+      
+      // Group by language for easier UI rendering
+      const byLanguage: Record<string, typeof result> = {};
+      result.forEach(item => {
+        if (!item) return;
+        if (!byLanguage[item.targetLanguage]) {
+          byLanguage[item.targetLanguage] = [];
+        }
+        byLanguage[item.targetLanguage].push(item);
+      });
+      
+      res.json({
+        catalog: result,
+        byLanguage,
+        totalLessons: result.length,
+        languages: Object.keys(byLanguage),
+      });
+    } catch (error: any) {
+      console.error('Error fetching practice catalog:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Start a self-practice session
+  app.post("/api/practice/sessions", mutationLimiter, isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { lessonId } = req.body;
+      
+      if (!lessonId) {
+        return res.status(400).json({ error: "lessonId is required" });
+      }
+      
+      // Get the lesson and its drill items
+      const lesson = await storage.getCurriculumLesson(lessonId);
+      if (!lesson) {
+        return res.status(404).json({ error: "Lesson not found" });
+      }
+      
+      const drillItems = await storage.getDrillItems(lessonId);
+      if (drillItems.length === 0) {
+        return res.status(400).json({ error: "No drill items found for this lesson" });
+      }
+      
+      // Create a new self-practice session
+      const [session] = await db
+        .insert(selfPracticeSessions)
+        .values({
+          userId,
+          lessonId,
+          targetLanguage: lesson.targetLanguage,
+          status: 'in_progress',
+          totalItems: drillItems.length,
+          completedItems: 0,
+          correctItems: 0,
+          drillItemIds: drillItems.map(item => item.id),
+        })
+        .returning();
+      
+      res.json({
+        session,
+        lesson: {
+          id: lesson.id,
+          title: lesson.lessonTitle,
+          targetLanguage: lesson.targetLanguage,
+        },
+        drillItems,
+      });
+    } catch (error: any) {
+      console.error('Error starting practice session:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Complete a self-practice session
+  app.patch("/api/practice/sessions/:sessionId/complete", mutationLimiter, isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { sessionId } = req.params;
+      const { completedItems, correctItems, averageScore, totalTimeSpentMs } = req.body;
+      
+      // Get the session and verify ownership
+      const [session] = await db
+        .select()
+        .from(selfPracticeSessions)
+        .where(
+          and(
+            eq(selfPracticeSessions.id, sessionId),
+            eq(selfPracticeSessions.userId, userId)
+          )
+        );
+      
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      
+      if (session.status === 'completed') {
+        return res.status(400).json({ error: "Session already completed" });
+      }
+      
+      // Update the session
+      const [updated] = await db
+        .update(selfPracticeSessions)
+        .set({
+          status: 'completed',
+          completedItems: completedItems ?? session.completedItems,
+          correctItems: correctItems ?? session.correctItems,
+          averageScore: averageScore ?? session.averageScore,
+          totalTimeSpentMs: totalTimeSpentMs ?? session.totalTimeSpentMs,
+          completedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(selfPracticeSessions.id, sessionId))
+        .returning();
+      
+      res.json({
+        session: updated,
+        message: "Practice session completed successfully",
+      });
+    } catch (error: any) {
+      console.error('Error completing practice session:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get user's practice history
+  app.get("/api/practice/history", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { language, limit } = req.query;
+      
+      let query = db
+        .select()
+        .from(selfPracticeSessions)
+        .where(
+          and(
+            eq(selfPracticeSessions.userId, userId),
+            language ? eq(selfPracticeSessions.targetLanguage, language as string) : undefined
+          )
+        )
+        .orderBy(desc(selfPracticeSessions.createdAt))
+        .limit(parseInt(limit as string) || 20);
+      
+      const sessions = await query;
+      
+      res.json({
+        sessions,
+        totalSessions: sessions.length,
+      });
+    } catch (error: any) {
+      console.error('Error fetching practice history:', error);
       res.status(500).json({ error: error.message });
     }
   });
