@@ -14766,14 +14766,24 @@ Current conversation context:
       if (provider === 'google') {
         const ttsService = new TTSService('google');
         try {
-          const audioBuffer = await ttsService.synthesize(text, {
-            provider: 'google',
-            voiceId: voiceId,
-            languageCode: languageCode || 'en-US',
-            speed: speakingRate || 1.0,
+          // Map language code to language name for TTSService
+          const languageMap: Record<string, string> = {
+            'fr-FR': 'french', 'es-ES': 'spanish', 'es-US': 'spanish',
+            'de-DE': 'german', 'it-IT': 'italian', 'pt-BR': 'portuguese',
+            'ja-JP': 'japanese', 'ko-KR': 'korean', 'cmn-CN': 'mandarin chinese',
+            'en-US': 'english', 'en-GB': 'english',
+          };
+          const language = languageMap[languageCode] || 'english';
+          
+          const result = await ttsService.synthesize({
+            text,
+            voice: voiceId,
+            language,
+            speakingRate: speakingRate || 1.0,
+            forceProvider: 'google',
           });
-          res.setHeader('Content-Type', 'audio/mpeg');
-          res.send(Buffer.from(audioBuffer));
+          res.setHeader('Content-Type', result.contentType || 'audio/mpeg');
+          res.send(result.audioBuffer);
           return;
         } catch (error: any) {
           console.error('[Voice Audition] Google TTS error:', error);
