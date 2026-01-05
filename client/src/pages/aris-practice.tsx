@@ -25,7 +25,8 @@ import {
   BookOpen,
   GraduationCap,
   CheckCheck,
-  Play
+  Play,
+  ChevronLeft
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -642,19 +643,67 @@ export default function ArisPractice() {
       ? ((drillState.currentItemIndex + 1) / drillItems.length) * 100 
       : 0;
     
+    // Get user-friendly instruction based on drill type
+    const getDrillInstruction = (type: string) => {
+      switch (type) {
+        case 'listen_repeat':
+          return 'Listen to the audio and type what you hear';
+        case 'translate_speak':
+          return 'Translate the phrase and type your answer';
+        case 'vocabulary':
+        case 'vocab':
+          return 'Type the correct translation';
+        case 'numbers':
+          return 'Type the number shown';
+        case 'pronunciation':
+          return 'Listen and type what you hear';
+        default:
+          return 'Type your answer below';
+      }
+    };
+    
+    // Handle exiting the drill session
+    const handleExitDrill = () => {
+      if (isSelfPractice) {
+        setSelfPracticeSession(null);
+        setSelfPracticeDrillItems([]);
+      } else {
+        setSelectedAssignment(null);
+      }
+      setDrillState(null);
+      setUserAnswer("");
+      setShowResult(false);
+      setIsCorrect(null);
+      setCurrentFeedback(null);
+      whiteboard.clear();
+    };
+    
     return (
       <div className="space-y-6" data-testid="aris-drill-session">
+        {/* Back navigation */}
+        <Button 
+          variant="ghost" 
+          onClick={handleExitDrill}
+          className="mb-2"
+          data-testid="button-back-to-practice"
+        >
+          <ChevronLeft className="h-4 w-4 mr-1" />
+          Back to Practice
+        </Button>
+        
         <Card className="border-violet-500/30 bg-gradient-to-br from-violet-500/5 to-purple-500/5">
           <CardHeader className="flex flex-row items-center gap-4 pb-2">
             <Avatar className="h-12 w-12 border-2 border-violet-500">
-              <AvatarFallback className="bg-violet-500 text-white font-bold">A</AvatarFallback>
+              <AvatarFallback className="bg-violet-500 text-white font-bold">
+                {(arisPersona?.name || "A").charAt(0)}
+              </AvatarFallback>
             </Avatar>
             <div className="flex-1">
               <CardTitle className="text-lg" data-testid="text-aris-name">
-                {arisPersona?.name || "Aris"}
+                Practice with {arisPersona?.name || "Aris"}
               </CardTitle>
               <CardDescription data-testid="text-aris-role">
-                {arisPersona?.role || "Precision Practice Partner"}
+                {getDrillInstruction(drillType)}
               </CardDescription>
             </div>
             <Badge variant="secondary" className="gap-1">
@@ -720,7 +769,8 @@ export default function ArisPractice() {
                     </span>
                   </div>
                   
-                  {sessionTitle && (
+                  {/* Only show focus area for assigned drills (not self-practice) */}
+                  {sessionTitle && !isSelfPractice && (
                     <p className="text-sm text-muted-foreground mb-4">
                       Focus: {sessionTitle}
                     </p>
