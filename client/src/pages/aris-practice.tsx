@@ -509,6 +509,91 @@ export default function ArisPractice() {
     setIsRecordingAnswer(false);
   }, []);
   
+  // Number word mappings for multiple languages
+  const numberMappings: Record<string, Record<string, string>> = {
+    english: {
+      'zero': '0', 'one': '1', 'two': '2', 'three': '3', 'four': '4',
+      'five': '5', 'six': '6', 'seven': '7', 'eight': '8', 'nine': '9',
+      'ten': '10', 'eleven': '11', 'twelve': '12', 'thirteen': '13',
+      'fourteen': '14', 'fifteen': '15', 'sixteen': '16', 'seventeen': '17',
+      'eighteen': '18', 'nineteen': '19', 'twenty': '20',
+    },
+    french: {
+      'zéro': '0', 'zero': '0', 'un': '1', 'deux': '2', 'trois': '3', 'quatre': '4',
+      'cinq': '5', 'six': '6', 'sept': '7', 'huit': '8', 'neuf': '9',
+      'dix': '10', 'onze': '11', 'douze': '12', 'treize': '13',
+      'quatorze': '14', 'quinze': '15', 'seize': '16', 'dix-sept': '17',
+      'dix-huit': '18', 'dix-neuf': '19', 'vingt': '20',
+    },
+    spanish: {
+      'cero': '0', 'uno': '1', 'dos': '2', 'tres': '3', 'cuatro': '4',
+      'cinco': '5', 'seis': '6', 'siete': '7', 'ocho': '8', 'nueve': '9',
+      'diez': '10', 'once': '11', 'doce': '12', 'trece': '13',
+      'catorce': '14', 'quince': '15', 'dieciséis': '16', 'diecisiete': '17',
+      'dieciocho': '18', 'diecinueve': '19', 'veinte': '20',
+    },
+    italian: {
+      'zero': '0', 'uno': '1', 'due': '2', 'tre': '3', 'quattro': '4',
+      'cinque': '5', 'sei': '6', 'sette': '7', 'otto': '8', 'nove': '9',
+      'dieci': '10', 'undici': '11', 'dodici': '12', 'tredici': '13',
+      'quattordici': '14', 'quindici': '15', 'sedici': '16', 'diciassette': '17',
+      'diciotto': '18', 'diciannove': '19', 'venti': '20',
+    },
+    portuguese: {
+      'zero': '0', 'um': '1', 'dois': '2', 'três': '3', 'tres': '3', 'quatro': '4',
+      'cinco': '5', 'seis': '6', 'sete': '7', 'oito': '8', 'nove': '9',
+      'dez': '10', 'onze': '11', 'doze': '12', 'treze': '13',
+      'catorze': '14', 'quinze': '15', 'dezesseis': '16', 'dezessete': '17',
+      'dezoito': '18', 'dezenove': '19', 'vinte': '20',
+    },
+    german: {
+      'null': '0', 'eins': '1', 'zwei': '2', 'drei': '3', 'vier': '4',
+      'fünf': '5', 'funf': '5', 'sechs': '6', 'sieben': '7', 'acht': '8', 'neun': '9',
+      'zehn': '10', 'elf': '11', 'zwölf': '12', 'zwolf': '12', 'dreizehn': '13',
+      'vierzehn': '14', 'fünfzehn': '15', 'sechzehn': '16', 'siebzehn': '17',
+      'achtzehn': '18', 'neunzehn': '19', 'zwanzig': '20',
+    },
+  };
+  
+  // Normalize answer for comparison - handles number words and numeric representations
+  const normalizeForComparison = useCallback((answer: string, target: string, lang: string): boolean => {
+    const normalizedAnswer = answer.trim().toLowerCase();
+    const normalizedTarget = target.trim().toLowerCase();
+    
+    // Direct match
+    if (normalizedAnswer === normalizedTarget) return true;
+    
+    // Get number mappings for the current language + English fallback
+    const langMappings = numberMappings[lang] || {};
+    const englishMappings = numberMappings['english'] || {};
+    const allMappings = { ...englishMappings, ...langMappings };
+    
+    // Create reverse mappings (number -> words)
+    const reverseMappings: Record<string, string[]> = {};
+    Object.entries(allMappings).forEach(([word, num]) => {
+      if (!reverseMappings[num]) reverseMappings[num] = [];
+      reverseMappings[num].push(word);
+    });
+    
+    // Check if answer is a number word that matches the target number
+    if (allMappings[normalizedAnswer] === normalizedTarget) return true;
+    
+    // Check if target is a number and answer is any valid word for that number
+    if (reverseMappings[normalizedTarget]?.includes(normalizedAnswer)) return true;
+    
+    // Check if answer is a number and target is a word for that number
+    if (allMappings[normalizedTarget] === normalizedAnswer) return true;
+    
+    // Check if both map to the same number
+    const answerAsNumber = allMappings[normalizedAnswer];
+    const targetAsNumber = allMappings[normalizedTarget];
+    if (answerAsNumber && answerAsNumber === targetAsNumber) return true;
+    if (answerAsNumber && answerAsNumber === normalizedTarget) return true;
+    if (targetAsNumber && targetAsNumber === normalizedAnswer) return true;
+    
+    return false;
+  }, []);
+  
   const checkAnswer = useCallback(async () => {
     if (!drillState) return;
     
@@ -547,10 +632,9 @@ export default function ArisPractice() {
     const itemStartTime = drillState.startTime || Date.now();
     const responseTime = Date.now() - itemStartTime;
     
-    const normalizedAnswer = userAnswer.trim().toLowerCase();
     const targetText = currentItem.expectedAnswer || currentItem.prompt;
-    const normalizedTarget = targetText.toLowerCase();
-    const correct = normalizedAnswer === normalizedTarget;
+    // Use smart comparison that handles number words and other equivalents
+    const correct = normalizeForComparison(userAnswer, targetText, targetLanguage);
     
     setIsCorrect(correct);
     setShowResult(true);
@@ -638,7 +722,7 @@ export default function ArisPractice() {
         ].slice(-5),
       };
     });
-  }, [selectedAssignment, selfPracticeSession, selfPracticeDrillItems, drillState, userAnswer, getRandomFeedback, whiteboard, language]);
+  }, [selectedAssignment, selfPracticeSession, selfPracticeDrillItems, drillState, userAnswer, getRandomFeedback, whiteboard, language, normalizeForComparison]);
   
   const nextItem = useCallback(() => {
     if (!drillState) return;
