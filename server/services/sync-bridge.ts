@@ -10,6 +10,10 @@ import {
   // Wren intelligence tables
   wrenInsights, wrenProactiveTriggers, architecturalDecisionRecords,
   wrenMistakes, wrenLessons, wrenCommitments,
+  wrenMistakeResolutions, wrenSessionNotes, wrenPredictions,
+  wrenConfidenceRecords, wrenCalibrationStats,
+  // Daniela beacons and synthesized insights
+  danielaBeacons, synthesizedInsights,
   // Daniela intelligence tables
   danielaRecommendations, danielaFeatureFeedback,
   // Credits and usage tracking
@@ -32,7 +36,7 @@ const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production'
 
 // Version identifier to verify which code is running on production
 // Increment this when making sync-related changes to verify deployment
-const SYNC_BRIDGE_CODE_VERSION = "2025-01-04-v22-increased-max-pages";
+const SYNC_BRIDGE_CODE_VERSION = "2025-01-06-v24-complete-wren-daniela-coverage";
 
 // Capability negotiation: List all batch types this version can import/export
 // When adding new batches, add them here so peers can gracefully handle version mismatches
@@ -133,9 +137,16 @@ export interface SyncBundle {
   wrenMistakes: any[];
   wrenLessons: any[];
   wrenCommitments: any[];
+  wrenMistakeResolutions: any[];
+  wrenSessionNotes: any[];
+  wrenPredictions: any[];
+  wrenConfidenceRecords: any[];
+  wrenCalibrationStats: any[];
   // Daniela intelligence (beyond North Star already included)
   danielaRecommendations: any[];
   danielaFeatureFeedback: any[];
+  danielaBeacons: any[];
+  synthesizedInsights: any[];
   // Beta testers
   betaTesters: any[];
   betaTesterCredits: any[];
@@ -540,9 +551,10 @@ class SyncBridgeService {
       }
     }
     
-    // BATCH: wren-intel - All Wren intelligence tables
+    // BATCH: wren-intel - All Wren intelligence tables (11 tables total)
     if (!batchType || batchType === 'wren-intel') {
       try {
+        // Core Wren tables
         const insights = await db.select().from(wrenInsights);
         const triggers = await db.select().from(wrenProactiveTriggers);
         const adrs = await db.select().from(architecturalDecisionRecords);
@@ -550,13 +562,26 @@ class SyncBridgeService {
         const lessons = await db.select().from(wrenLessons);
         const commitments = await db.select().from(wrenCommitments);
         
+        // Extended Wren tables (mistake resolutions, session notes, predictions, calibration)
+        const mistakeResolutions = await db.select().from(wrenMistakeResolutions);
+        const sessionNotes = await db.select().from(wrenSessionNotes);
+        const predictions = await db.select().from(wrenPredictions);
+        const confidenceRecords = await db.select().from(wrenConfidenceRecords);
+        const calibrationStats = await db.select().from(wrenCalibrationStats);
+        
         bundle.wrenInsights = insights;
         bundle.wrenProactiveTriggers = triggers;
         bundle.architecturalDecisionRecords = adrs;
         bundle.wrenMistakes = mistakes;
         bundle.wrenLessons = lessons;
         bundle.wrenCommitments = commitments;
-        console.log(`[SYNC-BRIDGE] wren-intel: ${insights.length} insights, ${triggers.length} triggers, ${adrs.length} ADRs, ${mistakes.length} mistakes, ${lessons.length} lessons, ${commitments.length} commitments`);
+        bundle.wrenMistakeResolutions = mistakeResolutions;
+        bundle.wrenSessionNotes = sessionNotes;
+        bundle.wrenPredictions = predictions;
+        bundle.wrenConfidenceRecords = confidenceRecords;
+        bundle.wrenCalibrationStats = calibrationStats;
+        
+        console.log(`[SYNC-BRIDGE] wren-intel: ${insights.length} insights, ${triggers.length} triggers, ${adrs.length} ADRs, ${mistakes.length} mistakes, ${lessons.length} lessons, ${commitments.length} commitments, ${mistakeResolutions.length} resolutions, ${sessionNotes.length} notes, ${predictions.length} predictions, ${confidenceRecords.length} confidence, ${calibrationStats.length} calibration`);
       } catch (err: any) {
         const errMsg = `wren-intel export failed: ${err.message}`;
         console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
@@ -567,24 +592,35 @@ class SyncBridgeService {
         bundle.wrenMistakes = [];
         bundle.wrenLessons = [];
         bundle.wrenCommitments = [];
+        bundle.wrenMistakeResolutions = [];
+        bundle.wrenSessionNotes = [];
+        bundle.wrenPredictions = [];
+        bundle.wrenConfidenceRecords = [];
+        bundle.wrenCalibrationStats = [];
       }
     }
     
-    // BATCH: daniela-intel - Daniela recommendations and feature feedback
+    // BATCH: daniela-intel - Daniela recommendations, feedback, beacons, and synthesized insights
     if (!batchType || batchType === 'daniela-intel') {
       try {
         const recommendations = await db.select().from(danielaRecommendations);
         const feedback = await db.select().from(danielaFeatureFeedback);
+        const beacons = await db.select().from(danielaBeacons);
+        const insights = await db.select().from(synthesizedInsights);
         
         bundle.danielaRecommendations = recommendations;
         bundle.danielaFeatureFeedback = feedback;
-        console.log(`[SYNC-BRIDGE] daniela-intel: ${recommendations.length} recommendations, ${feedback.length} feedback`);
+        bundle.danielaBeacons = beacons;
+        bundle.synthesizedInsights = insights;
+        console.log(`[SYNC-BRIDGE] daniela-intel: ${recommendations.length} recommendations, ${feedback.length} feedback, ${beacons.length} beacons, ${insights.length} synthesized insights`);
       } catch (err: any) {
         const errMsg = `daniela-intel export failed: ${err.message}`;
         console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
         batchErrors.push(errMsg);
         bundle.danielaRecommendations = [];
         bundle.danielaFeatureFeedback = [];
+        bundle.danielaBeacons = [];
+        bundle.synthesizedInsights = [];
       }
     }
     
@@ -2404,6 +2440,32 @@ class SyncBridgeService {
       await importWithCount('wrenCommitments', bundle.wrenCommitments,
         (commitment) => this.importWrenCommitment(commitment));
     }
+    // Extended Wren tables (v24+)
+    if (bundle.wrenMistakeResolutions?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.wrenMistakeResolutions.length} Wren Mistake Resolutions...`);
+      await importWithCount('wrenMistakeResolutions', bundle.wrenMistakeResolutions,
+        (resolution) => this.importWrenMistakeResolution(resolution));
+    }
+    if (bundle.wrenSessionNotes?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.wrenSessionNotes.length} Wren Session Notes...`);
+      await importWithCount('wrenSessionNotes', bundle.wrenSessionNotes,
+        (note) => this.importWrenSessionNote(note));
+    }
+    if (bundle.wrenPredictions?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.wrenPredictions.length} Wren Predictions...`);
+      await importWithCount('wrenPredictions', bundle.wrenPredictions,
+        (prediction) => this.importWrenPrediction(prediction));
+    }
+    if (bundle.wrenConfidenceRecords?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.wrenConfidenceRecords.length} Wren Confidence Records...`);
+      await importWithCount('wrenConfidenceRecords', bundle.wrenConfidenceRecords,
+        (record) => this.importWrenConfidenceRecord(record));
+    }
+    if (bundle.wrenCalibrationStats?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.wrenCalibrationStats.length} Wren Calibration Stats...`);
+      await importWithCount('wrenCalibrationStats', bundle.wrenCalibrationStats,
+        (stat) => this.importWrenCalibrationStat(stat));
+    }
     
     // v18: Daniela Intelligence
     if (bundle.danielaRecommendations?.length) {
@@ -2415,6 +2477,17 @@ class SyncBridgeService {
       console.log(`[SYNC-BRIDGE] Importing ${bundle.danielaFeatureFeedback.length} Daniela Feature Feedback...`);
       await importWithCount('danielaFeatureFeedback', bundle.danielaFeatureFeedback,
         (feedback) => this.importDanielaFeatureFeedback(feedback));
+    }
+    // Extended Daniela tables (v24+)
+    if (bundle.danielaBeacons?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.danielaBeacons.length} Daniela Beacons...`);
+      await importWithCount('danielaBeacons', bundle.danielaBeacons,
+        (beacon) => this.importDanielaBeacon(beacon));
+    }
+    if (bundle.synthesizedInsights?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.synthesizedInsights.length} Synthesized Insights...`);
+      await importWithCount('synthesizedInsights', bundle.synthesizedInsights,
+        (insight) => this.importSynthesizedInsight(insight));
     }
     
     // v18: Beta Testers (merge by email) + v23: Direct enrollments
@@ -4412,6 +4485,115 @@ class SyncBridgeService {
         await db.insert(danielaFeatureFeedback).values({
           ...feedback,
           createdAt: new Date(feedback.createdAt),
+        });
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  }
+  
+  // Extended Wren import methods (v24+)
+  async importWrenMistakeResolution(resolution: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const existing = await db.select().from(wrenMistakeResolutions).where(eq(wrenMistakeResolutions.id, resolution.id)).limit(1);
+      if (existing.length === 0) {
+        await db.insert(wrenMistakeResolutions).values({
+          ...resolution,
+          createdAt: new Date(resolution.createdAt),
+        });
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  }
+  
+  async importWrenSessionNote(note: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const existing = await db.select().from(wrenSessionNotes).where(eq(wrenSessionNotes.id, note.id)).limit(1);
+      if (existing.length === 0) {
+        await db.insert(wrenSessionNotes).values({
+          ...note,
+          createdAt: new Date(note.createdAt),
+        });
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  }
+  
+  async importWrenPrediction(prediction: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const existing = await db.select().from(wrenPredictions).where(eq(wrenPredictions.id, prediction.id)).limit(1);
+      if (existing.length === 0) {
+        await db.insert(wrenPredictions).values({
+          ...prediction,
+          createdAt: new Date(prediction.createdAt),
+          evaluatedAt: prediction.evaluatedAt ? new Date(prediction.evaluatedAt) : null,
+        });
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  }
+  
+  async importWrenConfidenceRecord(record: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const existing = await db.select().from(wrenConfidenceRecords).where(eq(wrenConfidenceRecords.id, record.id)).limit(1);
+      if (existing.length === 0) {
+        await db.insert(wrenConfidenceRecords).values({
+          ...record,
+          createdAt: new Date(record.createdAt),
+        });
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  }
+  
+  async importWrenCalibrationStat(stat: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const existing = await db.select().from(wrenCalibrationStats).where(eq(wrenCalibrationStats.id, stat.id)).limit(1);
+      if (existing.length === 0) {
+        await db.insert(wrenCalibrationStats).values({
+          ...stat,
+          calculatedAt: new Date(stat.calculatedAt),
+        });
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  }
+  
+  // Extended Daniela import methods (v24+)
+  async importDanielaBeacon(beacon: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const existing = await db.select().from(danielaBeacons).where(eq(danielaBeacons.id, beacon.id)).limit(1);
+      if (existing.length === 0) {
+        await db.insert(danielaBeacons).values({
+          ...beacon,
+          createdAt: new Date(beacon.createdAt),
+          expiresAt: beacon.expiresAt ? new Date(beacon.expiresAt) : null,
+        });
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  }
+  
+  async importSynthesizedInsight(insight: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const existing = await db.select().from(synthesizedInsights).where(eq(synthesizedInsights.id, insight.id)).limit(1);
+      if (existing.length === 0) {
+        await db.insert(synthesizedInsights).values({
+          ...insight,
+          createdAt: new Date(insight.createdAt),
         });
       }
       return { success: true };
