@@ -2130,6 +2130,55 @@ Remember: David may reference things discussed in these recent text chats.
                   }
                   break;
                 }
+                case 'MEMORY_LOOKUP': {
+                  // On-demand neural memory search
+                  const query = cmd.params.query as string;
+                  const domainsStr = cmd.params.domains as string | undefined;
+                  
+                  if (query && session.studentId) {
+                    // Parse domains if provided (comma-separated)
+                    const domains = domainsStr 
+                      ? domainsStr.split(',').map(d => d.trim().toLowerCase()) as ('person' | 'motivation' | 'insight' | 'struggle' | 'session' | 'progress')[]
+                      : undefined;
+                    
+                    // Execute the memory search
+                    try {
+                      const { searchMemory, formatMemoryForConversation } = await import('./neural-memory-search');
+                      const memoryResults = await searchMemory(session.studentId, query, domains);
+                      
+                      if (memoryResults.results.length > 0) {
+                        // Format and inject into the conversation
+                        const formattedMemory = formatMemoryForConversation(memoryResults);
+                        
+                        // Add to conversation history for context
+                        if (session.conversationHistory) {
+                          session.conversationHistory.push({
+                            role: 'user',
+                            content: `[SYSTEM: Memory recall results for "${query}"]\n${formattedMemory}`,
+                          });
+                        }
+                        
+                        console.log(`[CommandParser→MemoryLookup] Found ${memoryResults.results.length} memories for "${query}" across domains: ${memoryResults.searchedDomains.join(', ')}`);
+                        
+                        // Emit to founder if in Founder Mode
+                        if (session.isFounderMode && session.hiveChannelId) {
+                          hiveCollaborationService.emitBeacon({
+                            channelId: session.hiveChannelId,
+                            tutorTurn: `[MEMORY_LOOKUP] Query: "${query}"\nDomains: ${memoryResults.searchedDomains.join(', ')}\nResults: ${memoryResults.results.length} memories found`,
+                            studentTurn: '',
+                            beaconType: 'memory_lookup',
+                            beaconReason: `Daniela searched neural memory for "${query}"`,
+                          }).catch(err => console.error(`[CommandParser→MemoryLookup] Beacon error:`, err));
+                        }
+                      } else {
+                        console.log(`[CommandParser→MemoryLookup] No memories found for "${query}"`);
+                      }
+                    } catch (err) {
+                      console.error(`[CommandParser→MemoryLookup] Error searching memory:`, err);
+                    }
+                  }
+                  break;
+                }
                 case 'VOICE_ADJUST': {
                   // Daniela's real-time voice adjustment
                   // Apply voice override for next TTS synthesis
@@ -3484,6 +3533,38 @@ Remember: David may reference things discussed in these recent text chats.
                     confidence,
                   }).catch(err => console.error(`[CommandParser→SelfSurgery - OpenMic] Error:`, err));
                   console.log(`[CommandParser→SelfSurgery - OpenMic] Proposal for ${target}`);
+                }
+                break;
+              }
+              case 'MEMORY_LOOKUP': {
+                // On-demand neural memory search
+                const query = cmd.params.query as string;
+                const domainsStr = cmd.params.domains as string | undefined;
+                
+                if (query && session.studentId) {
+                  const domains = domainsStr 
+                    ? domainsStr.split(',').map(d => d.trim().toLowerCase()) as ('person' | 'motivation' | 'insight' | 'struggle' | 'session' | 'progress')[]
+                    : undefined;
+                  
+                  try {
+                    const { searchMemory, formatMemoryForConversation } = await import('./neural-memory-search');
+                    const memoryResults = await searchMemory(session.studentId, query, domains);
+                    
+                    if (memoryResults.results.length > 0) {
+                      const formattedMemory = formatMemoryForConversation(memoryResults);
+                      if (session.conversationHistory) {
+                        session.conversationHistory.push({
+                          role: 'user',
+                          content: `[SYSTEM: Memory recall results for "${query}"]\n${formattedMemory}`,
+                        });
+                      }
+                      console.log(`[CommandParser→MemoryLookup - OpenMic] Found ${memoryResults.results.length} memories for "${query}"`);
+                    } else {
+                      console.log(`[CommandParser→MemoryLookup - OpenMic] No memories found for "${query}"`);
+                    }
+                  } catch (err) {
+                    console.error(`[CommandParser→MemoryLookup - OpenMic] Error:`, err);
+                  }
                 }
                 break;
               }

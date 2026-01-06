@@ -35,6 +35,8 @@ export type ActionCommandType =
   // === SYSTEM & HIVE ===
   | 'HIVE'              // Daniela's contribution to hive mind
   | 'SELF_SURGERY'      // Neural network modifications (Founder Mode)
+  // === MEMORY ===
+  | 'MEMORY_LOOKUP'     // On-demand search of neural memory for people, topics, etc.
   // === VOICE CONTROL ===
   | 'VOICE_ADJUST'      // Real-time voice adjustment (speed, emotion)
   | 'VOICE_RESET'       // Reset voice to baseline
@@ -94,6 +96,8 @@ export const VALID_ENUM_VALUES = {
   VOICE_ADJUST_PERSONALITY: ['warm', 'calm', 'energetic', 'professional'],
   // UI Control commands
   SUBTITLE_MODE: ['off', 'on', 'target'],
+  // Memory lookup domains
+  MEMORY_LOOKUP_DOMAINS: ['person', 'motivation', 'insight', 'struggle', 'session', 'progress'],
 };
 
 /**
@@ -191,6 +195,12 @@ const COMMAND_SCHEMAS: Record<ActionCommandType, { required: string[]; optional:
     optional: [],
     enums: {},
   },
+  // === MEMORY ===
+  MEMORY_LOOKUP: {
+    required: ['query'],  // The search query (name, topic, question)
+    optional: ['domains'],  // Comma-separated domains to search (person,motivation,insight,struggle,session,progress)
+    enums: {},  // domains validated separately since it's comma-separated
+  },
 };
 
 /**
@@ -228,6 +238,8 @@ const ROBUST_TAG_PATTERNS: Record<ActionCommandType, RegExp> = {
   // CLEAR and HOLD are simple flags
   CLEAR: /\[CLEAR\]/gi,
   HOLD: /\[HOLD\]/gi,
+  // === MEMORY ===
+  MEMORY_LOOKUP: /\[MEMORY_LOOKUP\s+([^\]]+)\]/gi,
 };
 
 /**
