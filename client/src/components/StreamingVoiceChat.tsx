@@ -656,6 +656,7 @@ export function StreamingVoiceChat({
             // Reset processing state now that response is complete
             setIsProcessing(false);
             isProcessingRef.current = false;
+            setProcessingStage(null);  // Clear processing stage indicator
             // Reset awaiting flag for next utterance
             isAwaitingResponseRef.current = false;
             // TRUE DUPLEX: Keep green light ready if open mic is active
@@ -934,14 +935,12 @@ export function StreamingVoiceChat({
         setCurrentPlayingMessageId(null);
       }
       
-      // CRITICAL: Clear isProcessing when audio starts playing
-      // This prevents "thinking" avatar from showing during "speaking" state
-      if (isProcessingRef.current) {
-        console.log('[AVATAR STATE] Audio playing - clearing isProcessing to prevent thinking/speaking overlap');
-        setIsProcessing(false);
-        isProcessingRef.current = false;
-        setProcessingStage(null);
-      }
+      // NOTE: We intentionally do NOT clear isProcessingRef here anymore.
+      // isProcessing should stay true until onResponseComplete is called.
+      // This prevents the avatar from going to 'listening' during pauses when
+      // Daniela is still thinking/generating more content.
+      // The avatar state logic already sets to 'speaking' when audio plays,
+      // so the processing state doesn't interfere with the speaking animation.
       
       // Mark that Daniela has spoken at least once this session
       hasDanielaSpokeOnceRef.current = true;
