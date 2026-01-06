@@ -986,12 +986,13 @@ class SyncBridgeService {
   /**
    * Export Beta Tester Usage Data (prod → dev pull)
    * Exports voice sessions, usage ledger entries, and cost summaries for beta testers
-   * This allows analyzing beta tester activity in the dev environment
+   * v24: Also exports conversations referenced by voice sessions to satisfy foreign keys
    */
   async exportBetaUsage(): Promise<{ 
     voiceSessions: any[]; 
     usageLedger: any[]; 
     costSummaries: any[];
+    conversations: any[]; // v24: Required parent records for voice sessions
     exportedAt: string;
   }> {
     // Get beta tester user IDs
@@ -1002,7 +1003,7 @@ class SyncBridgeService {
     
     if (betaUsers.length === 0) {
       console.log(`[SYNC-BRIDGE] No beta testers found for usage export`);
-      return { voiceSessions: [], usageLedger: [], costSummaries: [], exportedAt: new Date().toISOString() };
+      return { voiceSessions: [], usageLedger: [], costSummaries: [], conversations: [], exportedAt: new Date().toISOString() };
     }
     
     const userIds = betaUsers.map(u => u.id);
@@ -1013,6 +1014,30 @@ class SyncBridgeService {
       .from(voiceSessions)
       .where(inArray(voiceSessions.userId, userIds))
       .orderBy(desc(voiceSessions.startedAt));
+    
+    // v24: Get conversations referenced by voice sessions (to satisfy foreign keys)
+    const conversationIds = [...new Set(sessions.map(s => s.conversationId).filter(Boolean))];
+    let referencedConversations: any[] = [];
+    if (conversationIds.length > 0) {
+      referencedConversations = await db
+        .select({
+          id: conversations.id,
+          userId: conversations.userId,
+          language: conversations.language,
+          nativeLanguage: conversations.nativeLanguage,
+          difficulty: conversations.difficulty,
+          topic: conversations.topic,
+          title: conversations.title,
+          messageCount: conversations.messageCount,
+          duration: conversations.duration,
+          actflLevel: conversations.actflLevel,
+          classId: conversations.classId,
+          learningContext: conversations.learningContext,
+          createdAt: conversations.createdAt,
+        })
+        .from(conversations)
+        .where(inArray(conversations.id, conversationIds));
+    }
     
     // Get usage ledger entries (credits consumed/earned)
     const ledgerEntries = await db
@@ -1028,12 +1053,13 @@ class SyncBridgeService {
       .where(inArray(sessionCostSummary.userId, userIds))
       .orderBy(desc(sessionCostSummary.createdAt));
     
-    console.log(`[SYNC-BRIDGE] Exporting beta usage: ${sessions.length} sessions, ${ledgerEntries.length} ledger entries, ${costSummaryEntries.length} cost summaries`);
+    console.log(`[SYNC-BRIDGE] Exporting beta usage: ${sessions.length} sessions, ${ledgerEntries.length} ledger, ${referencedConversations.length} conversations`);
     
     return { 
       voiceSessions: sessions, 
       usageLedger: ledgerEntries, 
       costSummaries: costSummaryEntries,
+      conversations: referencedConversations,
       exportedAt: new Date().toISOString()
     };
   }
@@ -1892,28 +1918,121 @@ class SyncBridgeService {
   /**
    * Import Beta Tester Usage Data (from prod)
    * Merges usage data into dev database for analysis
-   * v24: Skips foreign key references that may not exist in target environment
-   * - Voice sessions: skips conversationId (may not exist in target)
-   * - Usage ledger: skips classId and voiceSessionId (may not exist in target)
+   * v24: Imports conversations FIRST, then voice sessions to satisfy foreign keys
+   * - Usage ledger: still skips classId and voiceSessionId (too complex to resolve)
    */
   async importBetaUsage(data: { 
     voiceSessions: any[]; 
     usageLedger: any[]; 
-    costSummaries: any[] 
-  }): Promise<{ sessionsImported: number; ledgerImported: number; costSummariesImported: number; errors: string[] }> {
+    costSummaries: any[];
+    conversations?: any[]; // v24: Parent records for voice sessions
+  }): Promise<{ sessionsImported: number; ledgerImported: number; costSummariesImported: number; conversationsImported: number; errors: string[] }> {
     let sessionsImported = 0;
     let ledgerImported = 0;
     let costSummariesImported = 0;
+    let conversationsImported = 0;
     const errors: string[] = [];
     const BATCH_SIZE = 100;
     
-    // v24: Skip voice sessions import entirely - the conversationId foreign key
-    // requires conversations to exist first, which is complicated cross-environment.
-    // Usage data is primarily for analytics, and ledger entries are more important.
-    console.log(`[SYNC-BRIDGE] Skipping ${(data.voiceSessions || []).length} voice sessions (foreign key dependencies)`);
+    // v24: First import conversations (required for voice session foreign keys)
+    const convos = data.conversations || [];
+    for (const conv of convos) {
+      try {
+        // Check if conversation already exists
+        const existing = await db
+          .select({ id: conversations.id })
+          .from(conversations)
+          .where(eq(conversations.id, conv.id))
+          .limit(1);
+        
+        if (existing.length === 0) {
+          await db.insert(conversations).values({
+            id: conv.id,
+            userId: conv.userId,
+            language: conv.language,
+            nativeLanguage: conv.nativeLanguage || 'english',
+            difficulty: conv.difficulty || 'beginner',
+            topic: conv.topic,
+            title: conv.title,
+            messageCount: conv.messageCount || 0,
+            duration: conv.duration || 0,
+            actflLevel: conv.actflLevel,
+            classId: null, // v24: Null out classId to avoid FK errors (classes not synced)
+            learningContext: conv.learningContext || 'self_directed',
+            createdAt: conv.createdAt ? new Date(conv.createdAt) : new Date(),
+          });
+          conversationsImported++;
+        }
+      } catch (convErr: any) {
+        // Skip on error - may be FK issue with classId
+        if (!convErr.message?.includes('duplicate key')) {
+          errors.push(`Conversation ${conv.id}: ${convErr.message}`);
+        }
+      }
+    }
+    
+    console.log(`[SYNC-BRIDGE] Imported ${conversationsImported} conversations for voice sessions`);
+    
+    // Now import voice sessions (conversations should exist now)
+    const sessions = data.voiceSessions || [];
+    for (let i = 0; i < sessions.length; i += BATCH_SIZE) {
+      const batch = sessions.slice(i, i + BATCH_SIZE);
+      try {
+        const values = batch.map(session => ({
+          id: session.id,
+          userId: session.userId,
+          conversationId: session.conversationId,
+          startedAt: session.startedAt ? new Date(session.startedAt) : new Date(),
+          endedAt: session.endedAt ? new Date(session.endedAt) : null,
+          durationSeconds: session.durationSeconds || 0,
+          exchangeCount: session.exchangeCount || 0,
+          studentSpeakingSeconds: session.studentSpeakingSeconds || 0,
+          tutorSpeakingSeconds: session.tutorSpeakingSeconds || 0,
+          language: session.language,
+          status: session.status || 'completed',
+        }));
+        
+        await db
+          .insert(voiceSessions)
+          .values(values)
+          .onConflictDoUpdate({
+            target: voiceSessions.id,
+            set: {
+              endedAt: sql`EXCLUDED.ended_at`,
+              durationSeconds: sql`EXCLUDED.duration_seconds`,
+              exchangeCount: sql`EXCLUDED.exchange_count`,
+              status: sql`EXCLUDED.status`,
+            }
+          });
+        sessionsImported += batch.length;
+      } catch (err: any) {
+        errors.push(`Voice sessions batch ${Math.floor(i/BATCH_SIZE)}: ${err.message}`);
+        // Fallback to individual inserts for this batch
+        for (const session of batch) {
+          try {
+            await db.insert(voiceSessions).values({
+              id: session.id,
+              userId: session.userId,
+              conversationId: session.conversationId,
+              startedAt: session.startedAt ? new Date(session.startedAt) : new Date(),
+              endedAt: session.endedAt ? new Date(session.endedAt) : null,
+              durationSeconds: session.durationSeconds || 0,
+              exchangeCount: session.exchangeCount || 0,
+              studentSpeakingSeconds: session.studentSpeakingSeconds || 0,
+              tutorSpeakingSeconds: session.tutorSpeakingSeconds || 0,
+              language: session.language,
+              status: session.status || 'completed',
+            }).onConflictDoNothing();
+            sessionsImported++;
+          } catch (e: any) {
+            // Skip individual errors silently
+          }
+        }
+      }
+    }
     
     // Batch import usage ledger entries
-    // Skip classId and voiceSessionId to avoid foreign key violations
+    // Skip classId and voiceSessionId to avoid FK violations (too complex to resolve)
     const ledgerEntries = data.usageLedger || [];
     for (let i = 0; i < ledgerEntries.length; i += BATCH_SIZE) {
       const batch = ledgerEntries.slice(i, i + BATCH_SIZE);
@@ -1938,7 +2057,7 @@ class SyncBridgeService {
           .onConflictDoNothing();
         ledgerImported += batch.length;
       } catch (err: any) {
-        errors.push(`Ledger batch ${i}: ${err.message}`);
+        errors.push(`Ledger batch ${Math.floor(i/BATCH_SIZE)}: ${err.message}`);
         // Fallback to individual inserts
         for (const entry of batch) {
           try {
@@ -1965,8 +2084,8 @@ class SyncBridgeService {
     // Cost summaries (already just counting, no actual import)
     costSummariesImported = (data.costSummaries || []).length;
     
-    console.log(`[SYNC-BRIDGE] Imported beta usage: ${sessionsImported} sessions skipped, ${ledgerImported} ledger, ${costSummariesImported} cost summaries`);
-    return { sessionsImported, ledgerImported, costSummariesImported, errors };
+    console.log(`[SYNC-BRIDGE] Imported beta usage: ${conversationsImported} convos, ${sessionsImported} sessions, ${ledgerImported} ledger, ${costSummariesImported} cost summaries`);
+    return { sessionsImported, ledgerImported, costSummariesImported, conversationsImported, errors };
   }
   
   /**
