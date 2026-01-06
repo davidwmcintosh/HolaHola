@@ -752,6 +752,9 @@ export interface StreamingSession {
   // (Fixes race condition where PTT release and audio_data can both trigger AI with same transcript)
   lastProcessedTranscriptHash?: string;
   lastProcessedTranscriptTime?: number;
+  // Deduplication: Track when last response completed to prevent rapid-fire responses
+  // (Fixes race condition where speculative AI completes and then final transcript triggers immediately after)
+  lastResponseCompletedTime?: number;
   // Lesson Bundle Context - tells Daniela about pre-configured drills
   lessonBundleContext?: {
     lessonId: string;
@@ -2504,6 +2507,7 @@ Remember: David may reference things discussed in these recent text chats.
       
       // Clear generating flag - response complete
       session.isGenerating = false;
+      session.lastResponseCompletedTime = Date.now();
       
       // Mark architect notes as delivered (only if not cleared by handleInterrupt)
       // handleInterrupt clears session.pendingArchitectNoteIds, so this is empty if interrupted
@@ -3084,6 +3088,27 @@ Remember: David may reference things discussed in these recent text chats.
       };
     }
     
+    // RAPID-FIRE GUARD: Prevent generating new response immediately after one just completed
+    // This catches the speculative AI → final transcript race condition where:
+    // 1. Speculative AI completes with partial transcript
+    // 2. Immediately after, PTT release triggers with full transcript
+    // Both transcripts are DIFFERENT so hash dedup doesn't catch it
+    const RESPONSE_COOLDOWN_MS = 800; // 800ms cooldown after response completion
+    if (session.lastResponseCompletedTime && 
+        (now - session.lastResponseCompletedTime) < RESPONSE_COOLDOWN_MS) {
+      console.log(`[DEDUP] Skipping rapid-fire transcript (response completed ${now - session.lastResponseCompletedTime}ms ago): "${transcript.slice(0, 50)}..."`);
+      return {
+        sessionId,
+        sttLatencyMs: 0,
+        aiFirstTokenMs: 0,
+        ttsFirstByteMs: 0,
+        totalLatencyMs: 0,
+        sentenceCount: 0,
+        audioBytes: 0,
+        audioChunkCount: 0,
+      };
+    }
+    
     // Record this transcript as processed
     session.lastProcessedTranscriptHash = transcriptHash;
     session.lastProcessedTranscriptTime = now;
@@ -3589,6 +3614,7 @@ Remember: David may reference things discussed in these recent text chats.
       
       // Clear generating flag - response complete
       session.isGenerating = false;
+      session.lastResponseCompletedTime = Date.now();
       
       // Mark architect notes as delivered (only if not cleared by handleInterrupt)
       // handleInterrupt clears session.pendingArchitectNoteIds, so this is empty if interrupted
