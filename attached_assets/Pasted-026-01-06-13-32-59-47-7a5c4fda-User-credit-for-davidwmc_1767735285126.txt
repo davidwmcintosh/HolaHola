@@ -1,0 +1,108 @@
+026-01-06 13:32:59.47
+7a5c4fda
+User
+'credit for davidwmcintosh@gmail.com: insert or update on table "usage_ledger" violates foreign key constraint "usage_ledger_class_id_teacher_classes_id_fk"',
+2026-01-06 13:32:59.47
+7a5c4fda
+User
+'credit for davidwmcintosh@gmail.com: insert or update on table "usage_ledger" violates foreign key constraint "usage_ledger_class_id_teacher_classes_id_fk"',
+2026-01-06 13:32:59.47
+7a5c4fda
+User
+'credit for davidwmcintosh@gmail.com: insert or update on table "usage_ledger" violates foreign key constraint "usage_ledger_class_id_teacher_classes_id_fk"',
+2026-01-06 13:32:59.47
+7a5c4fda
+User
+'credit for davidwmcintosh@gmail.com: insert or update on table "usage_ledger" violates foreign key constraint "usage_ledger_class_id_teacher_classes_id_fk"',
+2026-01-06 13:32:59.47
+7a5c4fda
+User
+'credit for davidwmcintosh@gmail.com: insert or update on table "usage_ledger" violates foreign key constraint "usage_ledger_class_id_teacher_classes_id_fk"',
+2026-01-06 13:32:59.47
+7a5c4fda
+User
+'credit for davidwmcintosh@gmail.com: insert or update on table "usage_ledger" violates foreign key constraint "usage_ledger_class_id_teacher_classes_id_fk"',
+2026-01-06 13:36:27.40
+7a5c4fda
+User
+'Voice session 6269ceef-74d3-417d-a237-2b207941c31e: insert or update on table "voice_sessions" violates foreign key constraint "voice_sessions_conversation_id_conversations_id_fk"',
+2026-01-06 13:36:27.40
+7a5c4fda
+User
+'Voice session 9ef60093-d694-4c82-ab51-38806123fda1: insert or update on table "voice_sessions" violates foreign key constraint "voice_sessions_conversation_id_conversations_id_fk"',
+2026-01-06 13:36:27.40
+7a5c4fda
+User
+'Voice session 4e3fb8ff-213d-42ce-ad32-84a11ef61881: insert or update on table "voice_sessions" violates foreign key constraint "voice_sessions_conversation_id_conversations_id_fk"',
+2026-01-06 13:36:27.40
+7a5c4fda
+User
+'Voice session 7523955e-6f7e-46b0-affa-19ac00fe7895: insert or update on table "voice_sessions" violates foreign key constraint "voice_sessions_conversation_id_conversations_id_fk"',
+2026-01-06 13:36:27.40
+7a5c4fda
+User
+'Voice session f9835b3a-62ea-4e1f-b1e0-bd96aea4f8ed: insert or update on table "voice_sessions" violates foreign key constraint "voice_sessions_conversation_id_conversations_id_fk"',
+2026-01-06 13:36:27.40
+7a5c4fda
+User
+'Voice session f7aa2b06-0e3a-4270-9feb-719ce0e0afae: insert or update on table "voice_sessions" violates foreign key constraint "voice_sessions_conversation_id_conversations_id_fk"',
+2026-01-06 13:36:27.40
+7a5c4fda
+User
+'Voice session 8517df2d-b4b2-46d3-a575-0842546f4ad1: insert or update on table "voice_sessions" violates foreign key constraint "voice_sessions_conversation_id_conversations_id_fk"',
+2026-01-06 13:36:27.40
+7a5c4fda
+User
+'Voice session f32cb7ae-e8a8-40fa-937b-6f12739ff39f: insert or update on table "voice_sessions" violates foreign key constraint "voice_sessions_conversation_id_conversations_id_fk"',
+2026-01-06 13:36:27.40
+7a5c4fda
+User
+'Voice session 6dc13fa8-734d-4ac0-8120-338466775fa8: insert or update on table "voice_sessions" violates foreign key constraint "voice_sessions_conversation_id_conversations_id_fk"',
+2026-01-06 13:36:27.40
+7a5c4fda
+User
+'Voice session 0867624e-79ad-4f81-81ff-b7adb26e9dfb: insert or update on table "voice_sessions" violates foreign key constraint "voice_sessions_conversation_id_conversations_id_fk"',
+2026-01-06 13:36:27.40
+7a5c4fda
+User
+'Voice session 1f8751c6-1901-4f33-b103-8646f4add0d2: insert or update on table "voice_sessions" violates foreign key constraint "voice_sessions_conversation_id_conversations_id_fk"',
+2026-01-06 13:36:27.40
+7a5c4fda
+User
+'Voice session 35b5e0f9-8f0b-4de8-b76a-c4580b5b4edb: insert or update on table "voice_sessions" violates foreign key constraint "voice_sessions_conversation_id_conversations_id_fk"',
+2026-01-06 13:36:27.40
+7a5c4fda
+User
+'Voice session df27283a-78c3-4dff-89bb-16fa2b1169f7: insert or update on table "voice_sessions" violates foreign key constraint "voice_sessions_conversation_id_conversations_id_fk"',
+2026-01-06 13:36:27.40
+7a5c4fda
+User
+'Voice session 15d9815e-8ea0-40ed-a72a-ffd3665c0434: insert or update on table "voice_sessions" violates foreign key constraint "voice_sessions_conversation_id_conversations_id_fk"',
+2026-01-06 13:36:27.40
+7a5c4fda
+User
+'Voice session 3fba19c2-1cfb-435e-8791-56fd05240258: insert or update on table "voice_sessions" violates foreign key constraint "voice_sessions_conversation_id_conversations_id_fk"',
+2026-01-06 13:36:27.40
+7a5c4fda
+User
+'Voice session 0218dba2-6baa-4e2f-b9a1-2ed8cb03ad0a: insert or update on table "voice_sessions" violates foreign key constraint "voice_sessions_conversation_id_conversations_id_fk"',
+2026-01-06 13:36:27.40
+7a5c4fda
+User
+'Voice session 998a079c-4c2c-4df8-a40a-f453957c5023: insert or update on table "voice_sessions" violates foreign key constraint "voice_sessions_conversation_id_conversations_id_fk"',
+2026-01-06 13:36:27.40
+7a5c4fda
+User
+'Voice session a8051dd4-86ca-46aa-9c4e-77724d279c2c: insert or update on table "voice_sessions" violates foreign key constraint "voice_sessions_conversation_id_conversations_id_fk"',
+2026-01-06 13:36:27.40
+7a5c4fda
+User
+'Voice session 6dc67660-9810-4489-a1b0-4f25df9ba945: insert or update on table "voice_sessions" violates foreign key constraint "voice_sessions_conversation_id_conversations_id_fk"',
+2026-01-06 13:36:27.40
+7a5c4fda
+User
+'Voice session c828556e-0eff-4eb4-8179-eb16098386e6: insert or update on table "voice_sessions" violates foreign key constraint "voice_sessions_conversation_id_conversations_id_fk"',
+2026-01-06 13:36:27.40
+7a5c4fda
+User
+'Voice session 548eee7a-3b8f-4b4d-9349-c7e7c8600fe7: insert or update on table "voice_sessions" violates foreign key constraint "voice_sessions_conversation_id_conversations_id_fk"',
