@@ -2993,7 +2993,7 @@ class SyncBridgeService {
           betaTesterCredits: betaTesters.credits,
           betaTesterEnrollments: betaTesters.enrollments,
         };
-        const batch7 = await this.sendBatch(peerUrl, 'beta-testers', betaBundle);
+        const batch7 = await this.sendBatch(peerUrl, 'beta-testers', betaBundle, 90000); // 90s for large credit/enrollment data
         Object.assign(allCounts, batch7.counts);
         allErrors.push(...batch7.errors);
         if (batch7.success) completedBatches.push('beta-testers');
@@ -3010,7 +3010,7 @@ class SyncBridgeService {
           sourceEnvironment: CURRENT_ENVIRONMENT,
           betaUsage,
         };
-        const batch8 = await this.sendBatch(peerUrl, 'beta-usage', betaUsageBundle, 60000);
+        const batch8 = await this.sendBatch(peerUrl, 'beta-usage', betaUsageBundle, 90000); // 90s for 858+ sessions
         Object.assign(allCounts, batch8.counts);
         allErrors.push(...batch8.errors);
         if (batch8.success) completedBatches.push('beta-usage');
