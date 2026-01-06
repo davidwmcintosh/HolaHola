@@ -1,0 +1,159 @@
+2026-01-06 09:28:37.18
+264b1956
+User
+[OpenMic] LOW AUDIO LEVEL: -78.1dB (chunk 860) - may be silence
+2026-01-06 09:28:42.34
+264b1956
+User
+[OpenMic] LOW AUDIO LEVEL: -81.1dB (chunk 880) - may be silence
+2026-01-06 09:28:47.54
+264b1956
+User
+[OpenMic] LOW AUDIO LEVEL: -77.7dB (chunk 900) - may be silence
+2026-01-06 09:29:01.49
+264b1956
+User
+[Streaming Voice] Failed to end usage session on disconnect: Cannot read properties of null (reading 'id')
+2026-01-06 09:29:02.79
+264b1956
+User
+[Streaming Voice] voice_override rejected - not authenticated or no session
+2026-01-06 09:29:24.26
+264b1956
+User
+[Hive Consciousness] Peer messages fetch failed for session 24cead57-5713-42b8-a6b0-50b5f4914735: 502
+2026-01-06 09:29:24.30
+264b1956
+User
+[Hive Consciousness] Peer messages fetch failed for session 6cc38540-65e9-411d-b832-3b3e0abf7b0f: 502
+2026-01-06 09:30:02.34
+264b1956
+User
+[OpenMic] LOW AUDIO LEVEL: -79.2dB (chunk 120) - may be silence
+2026-01-06 09:30:07.67
+264b1956
+User
+[OpenMic] LOW AUDIO LEVEL: -79.3dB (chunk 140) - may be silence
+2026-01-06 09:30:34.02
+264b1956
+User
+[OpenMic] LOW AUDIO LEVEL: -77.6dB (chunk 180) - may be silence
+2026-01-06 09:30:39.36
+264b1956
+User
+[OpenMic] LOW AUDIO LEVEL: -82.1dB (chunk 200) - may be silence
+2026-01-06 09:30:55.20
+264b1956
+User
+[OpenMic] LOW AUDIO LEVEL: -81.2dB (chunk 260) - may be silence
+2026-01-06 09:31:14.71
+264b1956
+User
+[OpenMic] LOW AUDIO LEVEL: -83.9dB (chunk 280) - may be silence
+2026-01-06 09:31:20.01
+264b1956
+User
+[OpenMic] LOW AUDIO LEVEL: -84.1dB (chunk 300) - may be silence
+2026-01-06 09:31:25.39
+264b1956
+User
+[OpenMic] LOW AUDIO LEVEL: -82.5dB (chunk 320) - may be silence
+2026-01-06 09:31:30.76
+264b1956
+User
+[OpenMic] LOW AUDIO LEVEL: -84.6dB (chunk 340) - may be silence
+2026-01-06 09:31:46.64
+264b1956
+User
+[OpenMic] LOW AUDIO LEVEL: -81.9dB (chunk 400) - may be silence
+2026-01-06 09:31:57.48
+264b1956
+User
+[OpenMic] LOW AUDIO LEVEL: -82.0dB (chunk 420) - may be silence
+2026-01-06 09:32:38.80
+264b1956
+User
+[OpenMic] LOW AUDIO LEVEL: -81.2dB (chunk 540) - may be silence
+2026-01-06 09:32:43.51
+264b1956
+User
+[Tutor Memory] Failed to save self-reflection: invalid input value for enum best_practice_category: "encouragement"
+2026-01-06 09:33:00.70
+264b1956
+User
+[OpenMic] LOW AUDIO LEVEL: -84.1dB (chunk 600) - may be silence
+2026-01-06 09:33:05.90
+264b1956
+User
+[OpenMic] LOW AUDIO LEVEL: -85.9dB (chunk 620) - may be silence
+2026-01-06 09:33:11.16
+264b1956
+User
+[OpenMic] LOW AUDIO LEVEL: -86.8dB (chunk 640) - may be silence
+2026-01-06 09:33:21.72
+264b1956
+User
+[OpenMic] LOW AUDIO LEVEL: -82.4dB (chunk 680) - may be silence
+2026-01-06 09:33:31.69
+264b1956
+User
+[OpenMic] LOW AUDIO LEVEL: -84.4dB (chunk 700) - may be silence
+2026-01-06 09:33:37.10
+264b1956
+User
+[OpenMic] LOW AUDIO LEVEL: -85.5dB (chunk 720) - may be silence
+2026-01-06 09:33:40.36
+264b1956
+User
+[Streaming Voice] Failed to end usage session: Cannot read properties of null (reading 'id')
+Wrap
+Colors
+Saved progress at the end of the loop
+In progress tasks
+2 / 3
+
+4 messages & 12 actions
+Now let me update the version number and check if any tables need batch processing:
+Add extended intelligence tables and update sync version
+Worked for 4 minutes
+and they are all included in the incremental syncs as well?
+
+
+3 messages & 15 actions
+Good question! Let me verify the incremental sync logic includes all the new tables:
+Add more data types to the system for tracking user progress
+Worked for 1 minute
+thank you
+
+
+1 message & 1 action
+You're welcome! The neural network sync is now complete with full coverage of all 60+ tables across 17 batches. Happy syncing! 🎯
+•
+Free
+•
+Publish
+Published your App
+I'm getting a failed to validate database migrations on my publish
+
+
+5 messages & 18 actions
+The dev app is running fine. The publish migration error is a deployment-specific issue. Let me check Replit docs for this:
+The 24 LSP errorsthat are pre-existing....Can we fix these?
+
+
+3 messages & 20 actions
+I see the issue. The sync-bridge references columns that exist in production but not in the development schema. Let me fix these by mapping to existing columns or removing the non-existent ones:
+Update data synchronization to match current schema definitions
+Worked for 2 minutes
+same error. failed to validate db migrations
+
+
+4 messages & 17 actions
+I found the issue. There's a `schema_migrations` table that Drizzle wants to delete, which is blocking the publish. Let me check what it contains:
+Preserve legacy migration tracking table in database schema
+Worked for 2 minutes
+sorry still same error
+
+
+1 message & 9 actions
+The deve
