@@ -1,0 +1,146 @@
+
+Time
+Deployment
+Source
+Log
+2026-01-04 22:40:22.45
+38acca25
+User
+[Stripe] production connector not configured - add STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, and STRIPE_WEBHOOK_SECRET to Secrets
+2026-01-04 22:42:02.68
+38acca25
+User
+height: 100vh;
+2026-01-04 22:42:02.68
+38acca25
+User
+}
+2026-01-04 22:42:02.68
+38acca25
+User
+color: #f5f9fc;
+2026-01-04 22:42:02.68
+38acca25
+User
+align-items: center;
+2026-01-04 22:42:02.68
+38acca25
+User
+2026-01-04 22:42:02.68
+38acca25
+User
+2026-01-04 22:42:02.68
+38acca25
+User
+[SYNC-BRIDGE] Pull batch advanced-intel-a rejected: 503 -
+2026-01-04 22:42:02.68
+38acca25
+User
+justify-content: center;
+2026-01-04 22:42:02.68
+38acca25
+User
+font-family: "IBM Plex Sans", "sans";
+2026-01-04 22:42:02.68
+38acca25
+User
+2026-01-04 22:42:02.68
+38acca25
+User
+body {
+2026-01-04 22:42:04.28
+38acca25
+User
+align-items: center;
+2026-01-04 22:42:04.28
+38acca25
+User
+body {
+2026-01-04 22:42:04.28
+38acca25
+User
+2026-01-04 22:42:04.28
+38acca25
+User
+display: flex;
+2026-01-04 22:42:04.28
+38acca25
+User
+2026-01-04 22:42:04.28
+38acca25
+User
+.title-box {
+2026-01-04 22:42:04.28
+38acca25
+User
+margin: 0;
+2026-01-04 22:42:04.28
+38acca25
+User
+2026-01-04 22:42:04.28
+38acca25
+User
+2026-01-04 22:42:04.28
+38acca25
+User
+color: #f5f9fc;
+2026-01-04 22:42:04.28
+38acca25
+User
+font-family: "IBM Plex Sans", "sans";
+2026-01-04 22:42:04.28
+38acca25
+User
+}
+2026-01-04 22:42:04.28
+38acca25
+User
+2026-01-04 22:42:04.58
+38acca25
+User
+2026-01-04 22:42:04.58
+38acca25
+User
+[SYNC-BRIDGE] Pull batch product-config rejected: 503 -
+2026-01-04 22:42:04.58
+38acca25
+User
+2026-01-04 22:42:04.98
+38acca25
+User
+2026-01-04 22:42:04.98
+38acca25
+User
+2026-01-04 22:59:11.44
+38acca25
+User
+[Stripe] production connector not configured - add STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, and STRIPE_WEBHOOK_SECRET to Secrets
+2026-01-04 22:59:58.12
+38acca25
+User
+2026-01-04 22:59:58.12
+38acca25
+User
+2026-01-04 22:59:58.12
+38acca25
+User
+[SYNC-BRIDGE] Batch neural-core rejected: 503 -
+2026-01-04 22:59:58.12
+38acca25
+User
+2026-01-04 22:59:58.12
+38acca25
+User
+2026-01-04 22:59:59.22
+38acca25
+User
+2026-01-04 22:59:59.22
+38acca25
+User
+2026-01-04 22:59:59.22
+38acca25
+User
+2026-01-04 22:59:59.22
+38acca25
+User
+[SYNC-BRIDGE] Batch advanced-intel-a rejected: 503 -
