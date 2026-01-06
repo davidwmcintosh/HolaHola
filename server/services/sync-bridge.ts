@@ -2107,7 +2107,7 @@ class SyncBridgeService {
       'wrenInsights', 'wrenProactiveTriggers', 'architecturalDecisionRecords',
       'wrenMistakes', 'wrenLessons', 'wrenCommitments',
       'danielaRecommendations', 'danielaFeatureFeedback',
-      'betaTesters', 'betaTesterCredits',
+      'betaTesters', 'betaTesterCredits', 'betaTesterEnrollments',
       // v19: Prod → dev pull batches
       'betaUsage', 'aggregateAnalytics',
       // v20: Sofia telemetry for cross-env debugging
@@ -2115,6 +2115,12 @@ class SyncBridgeService {
       // v21: Alternate field names for TriLane observations (prod→dev compatibility)
       'agentObservations', 'supportObservations', 'systemAlerts', 'pagination',
       'exportedAt', 'environment', 'understanding', 'examples',
+      // v22: Founder context and content growth (bidirectional sync)
+      'prodContentGrowth', 'founderContext', 'founderConversations', 'prodConversations',
+      // v24: Extended Wren and Daniela intelligence tables
+      'wrenMistakeResolutions', 'wrenSessionNotes', 'wrenPredictions',
+      'wrenConfidenceRecords', 'wrenCalibrationStats',
+      'danielaBeacons', 'synthesizedInsights',
     ]);
     
     const bundleKeys = Object.keys(bundle);
