@@ -60,6 +60,14 @@ export const topicPriorityEnum = pgEnum('topic_priority', [
   'bonus'          // Extra content for fast learners
 ]);
 
+// Legacy schema migrations tracking table
+// (IMPORTANT) Preserved for backward compatibility - do not delete
+export const schemaMigrations = pgTable("schema_migrations", {
+  version: varchar("version").primaryKey(),
+  name: varchar("name"),
+  appliedAt: timestamp("applied_at").defaultNow(),
+});
+
 // Replit Auth Integration - Session storage table
 // (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
 export const sessions = pgTable(
