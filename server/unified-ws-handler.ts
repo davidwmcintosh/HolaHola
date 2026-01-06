@@ -1750,28 +1750,59 @@ Reference past discussions when relevant, but don't force it.
                 }));
               }
             } else {
-              // Transcript changed significantly - interrupt and re-trigger via audio_data
-              console.log(`[SpeculativePTT] PHASE 2: ✗ Transcript changed too much (${(overlap * 100).toFixed(0)}% overlap), will re-trigger`);
+              // Transcript changed significantly - check if we can still interrupt
+              console.log(`[SpeculativePTT] PHASE 2: ✗ Transcript changed too much (${(overlap * 100).toFixed(0)}% overlap)`);
               
-              // Interrupt the speculative response
-              orchestrator.handleInterrupt(session.id);
+              // Check if speculative AI is still generating (can be interrupted)
+              // vs already completed (response already sent, too late to interrupt)
+              const speculativeSession = orchestrator.getSession(session.id);
+              const isStillGenerating = speculativeSession?.isGenerating ?? false;
               
-              // CRITICAL: Clear ALL speculative AI flags so audio_data runs normally
-              speculativeAiInProgress = false;
-              speculativeAiAccepted = false;  // Ensure audio_data is NOT skipped
-              
-              // Save final transcript for audio_data to use
-              pendingSpeculativeTranscript = finalTranscript;
-              pendingSpeculativeWordCount = speculativePttWordCount;
-              
-              // Notify client
-              if (ws.readyState === WS.OPEN) {
-                ws.send(JSON.stringify({
-                  type: 'ptt_speculative_ai_rejected',
-                  timestamp: Date.now(),
-                  reason: 'transcript_changed',
-                  overlap: overlap,
-                }));
+              if (isStillGenerating) {
+                // Speculative AI is still running - interrupt and re-trigger via audio_data
+                console.log(`[SpeculativePTT] PHASE 2: Speculative still generating - interrupting and will re-trigger`);
+                
+                // Interrupt the speculative response
+                orchestrator.handleInterrupt(session.id);
+                
+                // CRITICAL: Clear ALL speculative AI flags so audio_data runs normally
+                speculativeAiInProgress = false;
+                speculativeAiAccepted = false;  // Ensure audio_data is NOT skipped
+                
+                // Save final transcript for audio_data to use
+                pendingSpeculativeTranscript = finalTranscript;
+                pendingSpeculativeWordCount = speculativePttWordCount;
+                
+                // Notify client
+                if (ws.readyState === WS.OPEN) {
+                  ws.send(JSON.stringify({
+                    type: 'ptt_speculative_ai_rejected',
+                    timestamp: Date.now(),
+                    reason: 'transcript_changed',
+                    overlap: overlap,
+                  }));
+                }
+              } else {
+                // Speculative AI already completed - response already sent!
+                // Accept the partial response rather than double-responding
+                console.log(`[SpeculativePTT] PHASE 2: Speculative already completed - accepting partial response to prevent double-response`);
+                
+                // Clear pending transcript since speculative already responded
+                pendingSpeculativeTranscript = null;
+                pendingSpeculativeWordCount = 0;
+                speculativeAiAccepted = true;  // Mark as accepted so audio_data skips processing
+                
+                // Notify client that we're using the speculative result (even though transcript changed slightly)
+                if (ws.readyState === WS.OPEN) {
+                  ws.send(JSON.stringify({
+                    type: 'ptt_speculative_ai_accepted',
+                    timestamp: Date.now(),
+                    speculativeTranscript: speculativePttTranscriptUsed,
+                    finalTranscript: finalTranscript,
+                    overlap: overlap,
+                    note: 'accepted_to_prevent_double_response',
+                  }));
+                }
               }
             }
           } else {
@@ -3323,28 +3354,59 @@ This is a voice conversation. Speak naturally, as you would.`;
                 }));
               }
             } else {
-              // Transcript changed significantly - interrupt and re-trigger via audio_data
-              console.log(`[SpeculativePTT] PHASE 2: ✗ Transcript changed too much (${(overlap * 100).toFixed(0)}% overlap), will re-trigger`);
+              // Transcript changed significantly - check if we can still interrupt
+              console.log(`[SpeculativePTT] PHASE 2: ✗ Transcript changed too much (${(overlap * 100).toFixed(0)}% overlap)`);
               
-              // Interrupt the speculative response
-              orchestrator.handleInterrupt(session.id);
+              // Check if speculative AI is still generating (can be interrupted)
+              // vs already completed (response already sent, too late to interrupt)
+              const speculativeSession = orchestrator.getSession(session.id);
+              const isStillGenerating = speculativeSession?.isGenerating ?? false;
               
-              // CRITICAL: Clear ALL speculative AI flags so audio_data runs normally
-              speculativeAiInProgress = false;
-              speculativeAiAccepted = false;  // Ensure audio_data is NOT skipped
-              
-              // Save final transcript for audio_data to use
-              pendingSpeculativeTranscript = finalTranscript;
-              pendingSpeculativeWordCount = speculativePttWordCount;
-              
-              // Notify client
-              if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
-                ws.send(JSON.stringify({
-                  type: 'ptt_speculative_ai_rejected',
-                  timestamp: Date.now(),
-                  reason: 'transcript_changed',
-                  overlap: overlap,
-                }));
+              if (isStillGenerating) {
+                // Speculative AI is still running - interrupt and re-trigger via audio_data
+                console.log(`[SpeculativePTT] PHASE 2: Speculative still generating - interrupting and will re-trigger`);
+                
+                // Interrupt the speculative response
+                orchestrator.handleInterrupt(session.id);
+                
+                // CRITICAL: Clear ALL speculative AI flags so audio_data runs normally
+                speculativeAiInProgress = false;
+                speculativeAiAccepted = false;  // Ensure audio_data is NOT skipped
+                
+                // Save final transcript for audio_data to use
+                pendingSpeculativeTranscript = finalTranscript;
+                pendingSpeculativeWordCount = speculativePttWordCount;
+                
+                // Notify client
+                if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+                  ws.send(JSON.stringify({
+                    type: 'ptt_speculative_ai_rejected',
+                    timestamp: Date.now(),
+                    reason: 'transcript_changed',
+                    overlap: overlap,
+                  }));
+                }
+              } else {
+                // Speculative AI already completed - response already sent!
+                // Accept the partial response rather than double-responding
+                console.log(`[SpeculativePTT] PHASE 2: Speculative already completed - accepting partial response to prevent double-response`);
+                
+                // Clear pending transcript since speculative already responded
+                pendingSpeculativeTranscript = null;
+                pendingSpeculativeWordCount = 0;
+                speculativeAiAccepted = true;  // Mark as accepted so audio_data skips processing
+                
+                // Notify client that we're using the speculative result (even though transcript changed slightly)
+                if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+                  ws.send(JSON.stringify({
+                    type: 'ptt_speculative_ai_accepted',
+                    timestamp: Date.now(),
+                    speculativeTranscript: speculativePttTranscriptUsed,
+                    finalTranscript: finalTranscript,
+                    overlap: overlap,
+                    note: 'accepted_to_prevent_double_response',
+                  }));
+                }
               }
             }
           } else {

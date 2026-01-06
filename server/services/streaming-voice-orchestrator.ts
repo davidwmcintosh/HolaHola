@@ -983,6 +983,13 @@ export class StreamingVoiceOrchestrator {
   }
   
   /**
+   * Get a session by ID (for checking session state from external handlers)
+   */
+  getSession(sessionId: string): StreamingSession | undefined {
+    return this.sessions.get(sessionId);
+  }
+  
+  /**
    * Set callback for TTS state changes (used to suppress OpenMic during TTS)
    */
   setTtsStateCallback(sessionId: string, callback: (isTtsPlaying: boolean) => void): void {
