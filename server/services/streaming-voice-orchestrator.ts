@@ -2224,6 +2224,16 @@ Remember: David may reference things discussed in these recent text chats.
                     const validMode = mode === 'on' ? 'all' : mode as 'off' | 'all' | 'target';
                     session.subtitleMode = validMode;
                     console.log(`[CommandParser→Subtitle] Mode changed to: ${validMode} via ${cmd.source} format`);
+                    
+                    // Send WebSocket message to client to update UI subtitle setting
+                    if (session.ws.readyState === 1) {  // WebSocket.OPEN = 1
+                      session.ws.send(JSON.stringify({
+                        type: 'subtitle_mode_change',
+                        mode: validMode,  // 'off' | 'all' | 'target'
+                        timestamp: Date.now(),
+                      }));
+                      console.log(`[CommandParser→Subtitle] Sent subtitle_mode_change to client: ${validMode}`);
+                    }
                   }
                   break;
                 }

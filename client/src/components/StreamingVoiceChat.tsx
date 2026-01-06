@@ -138,7 +138,7 @@ export function StreamingVoiceChat({
   onLanguageHandoffComplete
 }: StreamingVoiceChatProps) {
   const [, navigate] = useLocation();
-  const { language, difficulty, setLanguage, subtitleMode, tutorGender, voiceSpeed, setTutorGender, setVoiceSpeed } = useLanguage();
+  const { language, difficulty, setLanguage, subtitleMode, setSubtitleMode, tutorGender, voiceSpeed, setTutorGender, setVoiceSpeed } = useLanguage();
   const { isDeveloper, isAdmin, user } = useUser();
   const { learningContext, isHonestyMode } = useLearningFilter();
   const { toast } = useToast();
@@ -817,6 +817,11 @@ export function StreamingVoiceChat({
               console.log(`[TUTOR HANDOFF] Switching to ${tutorName || targetGender} tutor`);
             }
             setTutorGender(targetGender);
+          },
+          // Handle server-initiated subtitle mode change (tutor [SUBTITLE on/off/target] command)
+          onSubtitleModeChange: (mode) => {
+            console.log('[SUBTITLE] Server command to change subtitle mode to:', mode);
+            setSubtitleMode(mode);
           },
         });
         streamingConnectedRef.current = true;
@@ -2534,6 +2539,11 @@ export function StreamingVoiceChat({
                   console.log(`[TUTOR HANDOFF] Switching to ${tutorName || targetGender} tutor (reconnect context)`);
                 }
                 setTutorGender(targetGender);
+              },
+              // Handle server-initiated subtitle mode change (tutor [SUBTITLE on/off/target] command)
+              onSubtitleModeChange: (mode) => {
+                console.log('[SUBTITLE] Server command to change subtitle mode to:', mode, '(reconnect context)');
+                setSubtitleMode(mode);
               },
             });
             streamingConnectedRef.current = true;

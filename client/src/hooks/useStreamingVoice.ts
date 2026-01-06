@@ -76,6 +76,8 @@ export interface StreamingSessionConfig {
   onTutorHandoff?: (handoff: TutorHandoffInfo) => void;
   /** Called when pronunciation coaching feedback is received from Deepgram word-level analysis */
   onPronunciationCoaching?: (coaching: PronunciationCoachingData) => void;
+  /** Called when server commands a subtitle mode change (tutor [SUBTITLE on/off/target] command) */
+  onSubtitleModeChange?: (mode: 'off' | 'all' | 'target') => void;
 }
 
 /**
@@ -816,6 +818,15 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   }, []);
   
   /**
+   * Handle subtitle mode change from server (tutor [SUBTITLE on/off/target] command)
+   */
+  const handleSubtitleModeChange = useCallback((message: { type: string; mode: 'off' | 'all' | 'target'; timestamp: number }) => {
+    const { mode } = message;
+    console.log('[StreamingVoice] Subtitle mode change from tutor:', mode);
+    sessionConfigRef.current?.onSubtitleModeChange?.(mode);
+  }, []);
+  
+  /**
    * Handle tutor handoff - triggered after current tutor says goodbye
    * Automatically switches voice to new tutor and triggers their introduction
    * Supports both intra-language (gender only) and cross-language (gender + language) handoffs
@@ -916,6 +927,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('interimTranscript', handleInterimTranscript);  // Open mic interim
       clientRef.current.on('openMicSessionClosed', handleOpenMicSessionClosed);  // Open mic session ended
       clientRef.current.on('tutorHandoff', handleTutorHandoff);  // Voice-initiated tutor switch
+      clientRef.current.on('subtitleModeChange', handleSubtitleModeChange);  // Server subtitle mode command
       
       // Connect WebSocket
       await clientRef.current.connect(config.conversationId);
@@ -947,7 +959,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       setError(err.message);
       throw err;
     }
-  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript]);
+  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleSubtitleModeChange]);
   
   /**
    * Disconnect from streaming voice service
@@ -973,6 +985,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.off('vadSpeechStarted', handleVadSpeechStarted);  // Open mic VAD
       clientRef.current.off('vadUtteranceEnd', handleVadUtteranceEnd);  // Open mic VAD
       clientRef.current.off('interimTranscript', handleInterimTranscript);  // Open mic interim
+      clientRef.current.off('subtitleModeChange', handleSubtitleModeChange);  // Server subtitle mode command
       clientRef.current.disconnect();
       clientRef.current = null;
     }
@@ -993,7 +1006,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       tutorSwitchTimeoutRef.current = null;
     }
     setIsSwitchingTutor(false);
-  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, subtitles]);
+  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleSubtitleModeChange, subtitles]);
   
   /**
    * Send audio for processing

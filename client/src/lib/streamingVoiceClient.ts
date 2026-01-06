@@ -212,6 +212,7 @@ type StreamingEventType =
   | 'voiceUpdated'
   | 'whiteboardUpdate'   // Visual teaching aids from tutor
   | 'tutorHandoff'       // Voice-initiated tutor switch
+  | 'subtitleModeChange' // Server command to change subtitle mode
   | 'error';
 
 /**
@@ -957,6 +958,12 @@ export class StreamingVoiceClient {
           
         case 'open_mic_session_closed':
           this.emit('openMicSessionClosed', message);
+          break;
+          
+        case 'subtitle_mode_change':
+          // Server command to change subtitle mode (from tutor [SUBTITLE on/off/target] command)
+          console.log('[StreamingVoice] Subtitle mode change from server:', message.mode);
+          this.emit('subtitleModeChange', message as { type: string; mode: 'off' | 'all' | 'target'; timestamp: number });
           break;
           
         default:
