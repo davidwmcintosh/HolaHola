@@ -3058,7 +3058,13 @@ Remember: David may reference things discussed in these recent text chats.
     // DEDUPLICATION GUARD: Prevent same transcript from being processed twice
     // This fixes the race condition where PTT release and audio_data can both trigger AI
     // with the same transcript when speculativeAiAccepted flag timing is off
-    const transcriptHash = transcript.trim().toLowerCase().substring(0, 100);
+    // Normalize: lowercase, strip punctuation, collapse whitespace to catch near-identical transcripts
+    const transcriptHash = transcript
+      .trim()
+      .toLowerCase()
+      .replace(/[.,!?;:'"""''…\-—–]/g, '') // Strip common punctuation
+      .replace(/\s+/g, ' ') // Collapse multiple spaces
+      .substring(0, 100);
     const now = Date.now();
     const DEDUP_WINDOW_MS = 5000; // 5 second window to catch duplicates
     
