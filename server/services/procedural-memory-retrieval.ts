@@ -243,19 +243,47 @@ export function buildStudentMemoryAwarenessSection(
   }
   
   // People connections - relationships they've mentioned
+  // Filter to high-quality connections: must have a name and meaningful context
   if (connections.length > 0) {
-    lines.push('PEOPLE IN THEIR LIFE:');
-    for (const conn of connections.slice(0, 5)) {
-      // Handle both old schema (personName) and new schema (pendingPersonName)
-      const personName = (conn as any).personName || conn.pendingPersonName || 'someone';
-      // Include both relationship details and pending context for richer memory
-      const details = conn.relationshipDetails || '';
-      const pendingContext = conn.pendingPersonContext || '';
-      const fullContext = [details, pendingContext].filter(Boolean).join('. ');
-      const contextStr = fullContext ? ` - ${fullContext}` : '';
-      lines.push(`  • ${personName}: ${conn.relationshipType}${contextStr}`);
+    // Filter out low-quality connections (empty names, tentative status, no context)
+    const qualityConnections = connections.filter(conn => {
+      const personName = (conn as any).personName || conn.pendingPersonName;
+      const hasContext = conn.relationshipDetails || conn.pendingPersonContext;
+      // Must have a name and either context or confirmed status
+      return personName && personName.trim().length > 0 && 
+             (hasContext || conn.status === 'confirmed');
+    });
+    
+    // Sort by: 1) confidence score (highest first), 2) status (confirmed > pending_match > tentative), 3) recency
+    const sortedConnections = qualityConnections.sort((a, b) => {
+      // Confidence score (higher is better)
+      const confDiff = (b.confidenceScore || 0) - (a.confidenceScore || 0);
+      if (confDiff !== 0) return confDiff;
+      
+      // Status priority: confirmed > pending_match > tentative
+      const statusPriority: Record<string, number> = { 'confirmed': 3, 'pending_match': 2, 'tentative': 1 };
+      const statusDiff = (statusPriority[b.status || ''] || 0) - (statusPriority[a.status || ''] || 0);
+      if (statusDiff !== 0) return statusDiff;
+      
+      // Recency (newer is better for equal confidence/status)
+      return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+    });
+    
+    if (sortedConnections.length > 0) {
+      lines.push('PEOPLE IN THEIR LIFE:');
+      // Show up to 10 high-quality connections (increased from 5)
+      for (const conn of sortedConnections.slice(0, 10)) {
+        // Handle both old schema (personName) and new schema (pendingPersonName)
+        const personName = (conn as any).personName || conn.pendingPersonName || 'someone';
+        // Include both relationship details and pending context for richer memory
+        const details = conn.relationshipDetails || '';
+        const pendingContext = conn.pendingPersonContext || '';
+        const fullContext = [details, pendingContext].filter(Boolean).join('. ');
+        const contextStr = fullContext ? ` - ${fullContext}` : '';
+        lines.push(`  • ${personName}: ${conn.relationshipType}${contextStr}`);
+      }
+      lines.push('');
     }
-    lines.push('');
   }
   
   // Recent session notes - continuity from last sessions
