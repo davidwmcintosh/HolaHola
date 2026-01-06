@@ -21,6 +21,7 @@
  * Target: < 1 second time to first audio byte (vs 5-7s synchronous mode)
  */
 
+import { createHash } from "crypto";
 import { createClient } from "@deepgram/sdk";
 import { getDeepgramLanguageCode, DeepgramIntelligence, DeepgramSentiment, DeepgramIntent, DeepgramEntity, DeepgramTopic, transcribeWithLiveAPI, TranscriptionResult } from "./deepgram-live-stt";
 import { analyzePronunciation, generateQuickCoaching, PronunciationCoaching } from "./live-pronunciation-coach";
@@ -748,6 +749,9 @@ export interface StreamingSession {
   };
   // Deduplication: Track sent audio chunks to prevent double audio bug
   sentAudioChunks: Set<string>;
+  // Content-based deduplication: Track audio content hashes to catch retries with new chunk IDs
+  // Key: short hash of audio content, Value: timestamp (for LRU cleanup)
+  sentAudioHashes: Map<string, number>;
   // Deduplication: Track last processed transcript hash to prevent double AI responses
   // (Fixes race condition where PTT release and audio_data can both trigger AI with same transcript)
   lastProcessedTranscriptHash?: string;
@@ -1084,6 +1088,8 @@ export class StreamingVoiceOrchestrator {
       },
       // Deduplication: Track sent audio chunks to prevent double audio bug
       sentAudioChunks: new Set<string>(),
+      // Content-based deduplication: Track audio hashes to catch TTS retries with new chunk IDs
+      sentAudioHashes: new Map<string, number>(),
     };
     
     // Look up tutor voice from database to get per-tutor baseline settings
@@ -1624,6 +1630,7 @@ export class StreamingVoiceOrchestrator {
       session.currentTurnId++;
       session.isInterrupted = false;  // Reset interrupt flag for new turn
       session.sentAudioChunks.clear();  // Reset audio deduplication for new turn
+      session.sentAudioHashes.clear();  // Reset content-based deduplication for new turn
       const turnId = session.currentTurnId;
       
       // Notify client that processing has started
@@ -3248,6 +3255,7 @@ Remember: David may reference things discussed in these recent text chats.
       session.switchTutorTriggered = false;  // Reset switch flag for new turn
       session.crossLanguageTransferBlocked = false;  // Reset cross-language block for new turn
       session.sentAudioChunks.clear();  // Reset audio deduplication for new turn
+      session.sentAudioHashes.clear();  // Reset content-based deduplication for new turn
       const turnId = session.currentTurnId;
       
       // Notify client that processing has started
@@ -6342,6 +6350,7 @@ Only include observations you can clearly justify from the exchange. Return empt
   /**
    * Send a JSON message over WebSocket
    * Includes deduplication for audio_chunk to prevent double audio bug
+   * Uses both chunk-ID and content-hash deduplication for comprehensive protection
    */
   private sendMessage(ws: WS, message: StreamingMessage, session?: StreamingSession): void {
     if (ws.readyState === WS.OPEN) {
@@ -6355,12 +6364,37 @@ Only include observations you can clearly justify from the exchange. Return empt
         // Find session by WS if not provided
         const targetSession = session || Array.from(this.sessions.values()).find(s => s.ws === ws);
         
+        // Layer 1: Check by chunk ID (same chunk sent twice)
         if (targetSession?.sentAudioChunks?.has(dedupeKey)) {
-          console.log(`[AUDIO DEDUP] Blocking duplicate audio_chunk: turnId=${audioMsg.turnId}, sentence=${audioMsg.sentenceIndex}, chunk=${audioMsg.chunkIndex || 0}`);
+          console.log(`[AUDIO DEDUP] Blocking duplicate audio_chunk (ID match): turnId=${audioMsg.turnId}, sentence=${audioMsg.sentenceIndex}, chunk=${audioMsg.chunkIndex || 0}`);
           return; // Skip sending duplicate
         }
         
-        // Track this audio chunk
+        // Layer 2: Check by content hash (TTS retry with new chunk ID but same audio)
+        // Only check if there's actual audio content
+        if (targetSession?.sentAudioHashes && audioMsg.audio && audioMsg.audio.length > 0) {
+          // Create a fast hash of the audio content (first 100 + last 100 chars for speed)
+          const audioContent = audioMsg.audio;
+          const sampleSize = Math.min(100, audioContent.length);
+          const sample = audioContent.slice(0, sampleSize) + audioContent.slice(-sampleSize);
+          const contentHash = createHash('md5').update(sample).digest('hex').slice(0, 12);
+          
+          if (targetSession.sentAudioHashes.has(contentHash)) {
+            console.log(`[AUDIO DEDUP] Blocking duplicate audio_chunk (CONTENT match): turnId=${audioMsg.turnId}, sentence=${audioMsg.sentenceIndex}, chunk=${audioMsg.chunkIndex || 0}, hash=${contentHash}`);
+            return; // Skip sending duplicate
+          }
+          
+          // Track this content hash with timestamp (for potential LRU cleanup)
+          targetSession.sentAudioHashes.set(contentHash, Date.now());
+          
+          // Limit hash cache size to prevent memory growth (keep last 100 unique audio chunks)
+          if (targetSession.sentAudioHashes.size > 100) {
+            const firstKey = targetSession.sentAudioHashes.keys().next().value;
+            if (firstKey) targetSession.sentAudioHashes.delete(firstKey);
+          }
+        }
+        
+        // Track this audio chunk by ID
         if (targetSession?.sentAudioChunks) {
           targetSession.sentAudioChunks.add(dedupeKey);
         }
@@ -6644,6 +6678,7 @@ Only include observations you can clearly justify from the exchange. Return empt
       // NEW TURN: Increment turnId for this greeting response
       session.currentTurnId++;
       session.sentAudioChunks.clear();  // Reset audio deduplication for new turn
+      session.sentAudioHashes.clear();  // Reset content-based deduplication for new turn
       const turnId = session.currentTurnId;
       
       // Notify client that greeting is being generated
@@ -7391,6 +7426,7 @@ DON'T:
     // NEW TURN: Increment turnId for voice switch intro
     session.currentTurnId++;
     session.sentAudioChunks.clear();  // Reset audio deduplication for new turn
+    session.sentAudioHashes.clear();  // Reset content-based deduplication for new turn
     const turnId = session.currentTurnId;
     const switchStartTime = Date.now();
     let fullText = '';
@@ -7507,6 +7543,7 @@ DON'T:
     session.isInterrupted = false;
     session.isGenerating = true;
     session.sentAudioChunks.clear();  // Reset audio deduplication for new turn
+    session.sentAudioHashes.clear();  // Reset content-based deduplication for new turn
     const turnId = session.currentTurnId;
     
     // Notify client that an architect-triggered response is starting

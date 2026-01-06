@@ -966,6 +966,11 @@ export class StreamingVoiceClient {
           this.emit('subtitleModeChange', message as { type: string; mode: 'off' | 'all' | 'target'; timestamp: number });
           break;
           
+        case 'activity':
+          // Keep-alive message from server during speculative PTT suppression
+          // Intentionally ignored - just prevents heartbeat timeout
+          break;
+          
         default:
           // Unknown message types - no logging on hot path
       }

@@ -441,6 +441,7 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
         
         // CRITICAL: If speculative AI is in progress or already accepted, skip this blob entirely
         // The response is already streaming from the speculative call - processing this would cause dual audio streams
+        // NOTE: Heartbeat is already reset above (missedPongs = 0) before this check, so suppression doesn't affect keep-alive
         if (speculativeAiAccepted || speculativeAiInProgress) {
           console.log(`[SpeculativePTT] PHASE 2: Skipping binary audio blob - speculative AI ${speculativeAiInProgress ? 'in progress' : 'already accepted'}`);
           if (speculativeAiAccepted) {
@@ -2638,6 +2639,7 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
         
         // CRITICAL: If speculative AI is in progress or already accepted, skip this blob entirely
         // The response is already streaming from the speculative call - processing this would cause dual audio streams
+        // NOTE: Heartbeat is already reset above (missedPongs = 0) before this check, so suppression doesn't affect keep-alive
         if (speculativeAiAccepted || speculativeAiInProgress) {
           console.log(`[SpeculativePTT] PHASE 2: Skipping binary audio blob - speculative AI ${speculativeAiInProgress ? 'in progress' : 'already accepted'}`);
           if (speculativeAiAccepted) {
