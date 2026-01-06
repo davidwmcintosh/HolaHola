@@ -139,6 +139,7 @@ export interface SyncBundle {
   // Beta testers
   betaTesters: any[];
   betaTesterCredits: any[];
+  betaTesterEnrollments: any[];  // Direct enrollments for beta testers (including Replit auth users)
   // Beta usage (prod → dev pull)
   betaUsage?: {
     voiceSessions: any[];
@@ -587,27 +588,31 @@ class SyncBridgeService {
       }
     }
     
-    // BATCH: beta-testers - Users with isBetaTester flag and their credits
+    // BATCH: beta-testers - Users with isBetaTester flag, their credits, and enrollments
     if (!batchType || batchType === 'beta-testers') {
       try {
         const testers = await db.select().from(users).where(eq(users.isBetaTester, true));
         const testerIds = testers.map(t => t.id);
         
-        // Get credits for beta testers from usage ledger
+        // Get credits and enrollments for beta testers
         let credits: any[] = [];
+        let enrollments: any[] = [];
         if (testerIds.length > 0) {
           credits = await db.select().from(usageLedger).where(inArray(usageLedger.userId, testerIds));
+          enrollments = await db.select().from(classEnrollments).where(inArray(classEnrollments.studentId, testerIds));
         }
         
         bundle.betaTesters = testers;
         bundle.betaTesterCredits = credits;
-        console.log(`[SYNC-BRIDGE] beta-testers: ${testers.length} testers, ${credits.length} credit entries`);
+        bundle.betaTesterEnrollments = enrollments;
+        console.log(`[SYNC-BRIDGE] beta-testers: ${testers.length} testers, ${credits.length} credits, ${enrollments.length} enrollments`);
       } catch (err: any) {
         const errMsg = `beta-testers export failed: ${err.message}`;
         console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
         batchErrors.push(errMsg);
         bundle.betaTesters = [];
         bundle.betaTesterCredits = [];
+        bundle.betaTesterEnrollments = [];
       }
     }
     
@@ -861,23 +866,20 @@ class SyncBridgeService {
   
   /**
    * Export Beta Testers for cross-environment sync
-   * Exports users with isBetaTester=true along with their credits
-   * IMPORTANT: Only exports password-based accounts (not Replit auth accounts)
-   * This ensures we only sync test accounts the founder created, not Replit test users
+   * Exports users with isBetaTester=true along with their credits and enrollments
+   * Includes ALL auth providers (password, replit, etc.) so founder/admin enrollments sync too
    */
-  async exportBetaTesters(): Promise<{ users: any[]; credits: any[] }> {
-    // Get only password-based beta testers (exclude Replit auth accounts)
+  async exportBetaTesters(): Promise<{ users: any[]; credits: any[]; enrollments: any[] }> {
+    // Get ALL beta testers regardless of auth provider
+    // Replit auth users already exist on prod, but we need to sync their enrollments
     const betaUsers = await db
       .select()
       .from(users)
-      .where(and(
-        eq(users.isBetaTester, true),
-        eq(users.authProvider, 'password')
-      ));
+      .where(eq(users.isBetaTester, true));
     
     if (betaUsers.length === 0) {
       console.log(`[SYNC-BRIDGE] No beta testers to export`);
-      return { users: [], credits: [] };
+      return { users: [], credits: [], enrollments: [] };
     }
     
     // Get credits for all beta testers
@@ -887,8 +889,14 @@ class SyncBridgeService {
       .from(usageLedger)
       .where(inArray(usageLedger.userId, userIds));
     
-    console.log(`[SYNC-BRIDGE] Exporting ${betaUsers.length} Beta Testers with ${credits.length} credits`);
-    return { users: betaUsers, credits };
+    // Get enrollments for all beta testers (so we sync class access too)
+    const enrollments = await db
+      .select()
+      .from(classEnrollments)
+      .where(inArray(classEnrollments.studentId, userIds));
+    
+    console.log(`[SYNC-BRIDGE] Exporting ${betaUsers.length} Beta Testers with ${credits.length} credits and ${enrollments.length} enrollments`);
+    return { users: betaUsers, credits, enrollments };
   }
   
   /**
@@ -2366,10 +2374,14 @@ class SyncBridgeService {
         (feedback) => this.importDanielaFeatureFeedback(feedback));
     }
     
-    // v18: Beta Testers (merge by email)
+    // v18: Beta Testers (merge by email) + v23: Direct enrollments
     if (bundle.betaTesters?.length) {
       console.log(`[SYNC-BRIDGE] Importing ${bundle.betaTesters.length} Beta Testers...`);
-      const betaResult = await this.importBetaTesters(bundle.betaTesters, bundle.betaTesterCredits || []);
+      const betaResult = await this.importBetaTesters(
+        bundle.betaTesters, 
+        bundle.betaTesterCredits || [],
+        bundle.betaTesterEnrollments || []
+      );
       counts['betaTesters'] = betaResult.usersImported;
       counts['betaTesterCredits'] = betaResult.creditsImported;
       counts['betaTesterEnrollments'] = betaResult.enrollmentsCreated;
@@ -2969,7 +2981,7 @@ class SyncBridgeService {
         else overallSuccess = false;
       }
       
-      // BATCH 7: Beta testers (users + credits)
+      // BATCH 7: Beta testers (users + credits + enrollments)
       if (shouldRun('beta-testers')) {
         attemptedBatches.push('beta-testers');
         console.log('[SYNC-BRIDGE] Batch 7: Beta testers...');
@@ -2979,6 +2991,7 @@ class SyncBridgeService {
           sourceEnvironment: CURRENT_ENVIRONMENT,
           betaTesters: betaTesters.users,
           betaTesterCredits: betaTesters.credits,
+          betaTesterEnrollments: betaTesters.enrollments,
         };
         const batch7 = await this.sendBatch(peerUrl, 'beta-testers', betaBundle);
         Object.assign(allCounts, batch7.counts);
@@ -4284,17 +4297,17 @@ class SyncBridgeService {
   
   /**
    * Import beta testers with merge-by-email logic
-   * If user exists in production (same email), merge credits
+   * If user exists in production (same email), merge credits and enrollments
    * If user doesn't exist, create user and add credits
-   * Auto-enrolls beta testers in all public classes
+   * v23: Now supports direct enrollment sync (for Replit auth users who already exist)
    */
-  async importBetaTesters(testers: any[], credits: any[]): Promise<{ usersImported: number; creditsImported: number; enrollmentsCreated: number; errors: string[] }> {
+  async importBetaTesters(testers: any[], credits: any[], directEnrollments: any[] = []): Promise<{ usersImported: number; creditsImported: number; enrollmentsCreated: number; errors: string[] }> {
     let usersImported = 0;
     let creditsImported = 0;
     let enrollmentsCreated = 0;
     const errors: string[] = [];
     
-    // Build credits map by userId for quick lookup
+    // Build maps for quick lookup
     const creditsByUserId = new Map<string, any[]>();
     for (const credit of credits) {
       const userCredits = creditsByUserId.get(credit.userId) || [];
@@ -4302,7 +4315,14 @@ class SyncBridgeService {
       creditsByUserId.set(credit.userId, userCredits);
     }
     
-    // Get all public classes for auto-enrollment
+    const enrollmentsByUserId = new Map<string, any[]>();
+    for (const enrollment of directEnrollments) {
+      const userEnrollments = enrollmentsByUserId.get(enrollment.studentId) || [];
+      userEnrollments.push(enrollment);
+      enrollmentsByUserId.set(enrollment.studentId, userEnrollments);
+    }
+    
+    // Get all public classes for auto-enrollment (fallback for users without direct enrollments)
     const publicClasses = await db
       .select()
       .from(teacherClasses)
@@ -4311,7 +4331,7 @@ class SyncBridgeService {
         eq(teacherClasses.isActive, true)
       ));
     
-    console.log(`[SYNC-BRIDGE] Found ${publicClasses.length} public classes for auto-enrollment`);
+    console.log(`[SYNC-BRIDGE] Found ${publicClasses.length} public classes, ${directEnrollments.length} direct enrollments`);
     
     for (const tester of testers) {
       try {
@@ -4319,6 +4339,7 @@ class SyncBridgeService {
         const existing = await db.select().from(users).where(eq(users.email, tester.email)).limit(1);
         
         let targetUserId: string;
+        const sourceUserId = tester.id;
         
         if (existing.length > 0) {
           // User exists - update beta tester flag
@@ -4326,10 +4347,10 @@ class SyncBridgeService {
           await db.update(users)
             .set({ isBetaTester: true })
             .where(eq(users.id, targetUserId));
-          console.log(`[SYNC-BRIDGE] Marked existing user as beta tester: ${tester.email}`);
+          console.log(`[SYNC-BRIDGE] Marked existing user as beta tester: ${tester.email} (target: ${targetUserId})`);
         } else {
-          // Create new user with new ID
-          targetUserId = tester.id;
+          // Create new user with source ID (password-based users)
+          targetUserId = sourceUserId;
           await db.insert(users).values({
             id: targetUserId,
             email: tester.email,
@@ -4337,7 +4358,7 @@ class SyncBridgeService {
             lastName: tester.lastName,
             profileImageUrl: tester.profileImageUrl,
             isBetaTester: true,
-            authProvider: 'password',
+            authProvider: tester.authProvider || 'password',
             createdAt: new Date(tester.createdAt),
             updatedAt: new Date(),
           });
@@ -4345,44 +4366,75 @@ class SyncBridgeService {
         }
         usersImported++;
         
-        // Auto-enroll in all public classes
-        for (const publicClass of publicClasses) {
-          try {
-            // Check if already enrolled
-            const existingEnrollment = await db
-              .select()
-              .from(classEnrollments)
-              .where(and(
-                eq(classEnrollments.classId, publicClass.id),
-                eq(classEnrollments.studentId, targetUserId)
-              ))
-              .limit(1);
-            
-            if (existingEnrollment.length === 0) {
-              await db.insert(classEnrollments).values({
-                classId: publicClass.id,
-                studentId: targetUserId,
-                isActive: true,
-              });
-              enrollmentsCreated++;
-              console.log(`[SYNC-BRIDGE] Auto-enrolled ${tester.email} in "${publicClass.name}"`);
+        // Check for direct enrollments from source (preferred over auto-enrollment)
+        const userDirectEnrollments = enrollmentsByUserId.get(sourceUserId) || [];
+        
+        if (userDirectEnrollments.length > 0) {
+          // v23: Use direct enrollments from dev (exact class assignments)
+          for (const enrollment of userDirectEnrollments) {
+            try {
+              // Check if already enrolled
+              const existingEnrollment = await db
+                .select()
+                .from(classEnrollments)
+                .where(and(
+                  eq(classEnrollments.classId, enrollment.classId),
+                  eq(classEnrollments.studentId, targetUserId)
+                ))
+                .limit(1);
+              
+              if (existingEnrollment.length === 0) {
+                await db.insert(classEnrollments).values({
+                  classId: enrollment.classId,
+                  studentId: targetUserId,
+                  isActive: enrollment.isActive ?? true,
+                  allocatedSeconds: enrollment.allocatedSeconds,
+                  usedSeconds: enrollment.usedSeconds,
+                });
+                enrollmentsCreated++;
+                console.log(`[SYNC-BRIDGE] Direct enrolled ${tester.email} in class ${enrollment.classId}`);
+              }
+            } catch (enrollErr: any) {
+              console.warn(`[SYNC-BRIDGE] Failed direct enrollment for ${tester.email}: ${enrollErr.message}`);
             }
-          } catch (enrollErr: any) {
-            // Non-fatal - continue with other enrollments
-            console.warn(`[SYNC-BRIDGE] Failed to enroll ${tester.email} in ${publicClass.name}: ${enrollErr.message}`);
+          }
+        } else {
+          // Fallback: Auto-enroll in all public classes (for users without explicit enrollments)
+          for (const publicClass of publicClasses) {
+            try {
+              const existingEnrollment = await db
+                .select()
+                .from(classEnrollments)
+                .where(and(
+                  eq(classEnrollments.classId, publicClass.id),
+                  eq(classEnrollments.studentId, targetUserId)
+                ))
+                .limit(1);
+              
+              if (existingEnrollment.length === 0) {
+                await db.insert(classEnrollments).values({
+                  classId: publicClass.id,
+                  studentId: targetUserId,
+                  isActive: true,
+                });
+                enrollmentsCreated++;
+                console.log(`[SYNC-BRIDGE] Auto-enrolled ${tester.email} in "${publicClass.name}"`);
+              }
+            } catch (enrollErr: any) {
+              console.warn(`[SYNC-BRIDGE] Failed to enroll ${tester.email} in ${publicClass.name}: ${enrollErr.message}`);
+            }
           }
         }
         
         // Import credits for this user
-        const userCredits = creditsByUserId.get(tester.id) || [];
+        const userCredits = creditsByUserId.get(sourceUserId) || [];
         for (const credit of userCredits) {
           try {
-            // Check if this exact credit already exists
             const existingCredit = await db.select().from(usageLedger).where(eq(usageLedger.id, credit.id)).limit(1);
             if (existingCredit.length === 0) {
               await db.insert(usageLedger).values({
                 ...credit,
-                userId: targetUserId, // Use target user ID (may be different if merged)
+                userId: targetUserId,
                 createdAt: new Date(credit.createdAt),
                 expiresAt: credit.expiresAt ? new Date(credit.expiresAt) : null,
               });
