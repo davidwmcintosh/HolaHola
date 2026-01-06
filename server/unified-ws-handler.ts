@@ -345,6 +345,7 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
   const SPECULATIVE_AI_TRIGGER_WORDS = PTT_SPECULATIVE_AI_ENABLED ? 3 : 999;
   let speculativeAiInProgress = false;  // Whether speculative AI is currently generating
   let speculativeAiAccepted = false;  // Whether speculative AI result was accepted (skip audio_data)
+  let pttReleaseInProgress = false;  // RACE GUARD: True while ptt_release handler is processing (has async awaits)
   
   // Usage tracking state
   let usageSession: UsageVoiceSession | null = null;
@@ -1167,6 +1168,13 @@ Reference past discussions when relevant, but don't force it.
             return;
           }
 
+          // RACE GUARD: If ptt_release is currently processing (has async awaits), skip this audio_data
+          // The ptt_release handler will handle the transcript directly, preventing double response
+          if (pttReleaseInProgress) {
+            console.log(`[SpeculativePTT] RACE GUARD: Skipping audio_data - ptt_release is still processing`);
+            break;
+          }
+
           // PHASE 2: If speculative AI was already accepted, skip this audio_data entirely
           // The response is already streaming from the speculative call
           if (speculativeAiAccepted) {
@@ -1657,6 +1665,9 @@ Reference past discussions when relevant, but don't force it.
             return;
           }
           
+          // RACE GUARD: Set flag to prevent audio_data from processing during our async waits
+          pttReleaseInProgress = true;
+          
           const interimTranscript = speculativePttTranscript.trim();
           console.log(`[SpeculativePTT] PTT released - interim transcript: "${interimTranscript}" (${speculativePttWordCount} words)`);
           
@@ -1853,6 +1864,9 @@ Reference past discussions when relevant, but don't force it.
           speculativeAiInProgress = false;  // Always clear in-progress flag
           // NOTE: speculativeAiAccepted is intentionally NOT reset here - audio_data will reset it after checking
           
+          // RACE GUARD: Clear the flag now that we're done with async processing
+          pttReleaseInProgress = false;
+          
           break;
         }
 
@@ -1878,6 +1892,7 @@ Reference past discussions when relevant, but don't force it.
           speculativePttTranscriptUsed = '';
           speculativeAiInProgress = false;
           speculativeAiAccepted = false;
+          pttReleaseInProgress = false;  // RACE GUARD: Reset on stop
           pendingSpeculativeTranscript = null;
           pendingSpeculativeWordCount = 0;
           break;
@@ -2560,6 +2575,7 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
   const SPECULATIVE_AI_TRIGGER_WORDS = PTT_SPECULATIVE_AI_ENABLED ? 3 : 999;
   let speculativeAiInProgress = false;  // Whether speculative AI is currently generating
   let speculativeAiAccepted = false;  // Whether speculative AI result was accepted (skip audio_data)
+  let pttReleaseInProgress = false;  // RACE GUARD: True while ptt_release handler is processing (has async awaits)
   
   // Usage tracking state
   let usageSession: UsageVoiceSession | null = null;
