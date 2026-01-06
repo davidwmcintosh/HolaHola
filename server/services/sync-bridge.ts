@@ -3010,7 +3010,7 @@ class SyncBridgeService {
           sourceEnvironment: CURRENT_ENVIRONMENT,
           betaUsage,
         };
-        const batch8 = await this.sendBatch(peerUrl, 'beta-usage', betaUsageBundle);
+        const batch8 = await this.sendBatch(peerUrl, 'beta-usage', betaUsageBundle, 60000);
         Object.assign(allCounts, batch8.counts);
         allErrors.push(...batch8.errors);
         if (batch8.success) completedBatches.push('beta-usage');
