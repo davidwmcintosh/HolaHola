@@ -33,6 +33,10 @@ const io = new SocketIOServer(server, {
   transports: ['websocket', 'polling'],
   // Increase max buffer size for audio chunks (default 1MB may be too small)
   maxHttpBufferSize: 5e6, // 5MB
+  // Keep-alive settings for voice chat stability
+  // Default pingInterval is 25s, pingTimeout is 20s - too aggressive for voice chat
+  pingInterval: 30000,   // Send ping every 30 seconds
+  pingTimeout: 120000,   // Wait 2 minutes for pong before disconnect (allows long pauses)
 });
 setupSocketIOHandler(io);
 
