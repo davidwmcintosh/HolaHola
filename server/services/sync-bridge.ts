@@ -3077,6 +3077,88 @@ class SyncBridgeService {
         else overallSuccess = false;
       }
       
+      // BATCH 10: Curriculum core (syllabi, units, lessons, topics)
+      if (shouldRun('curriculum-core')) {
+        attemptedBatches.push('curriculum-core');
+        console.log('[SYNC-BRIDGE] Batch 10: Curriculum core...');
+        const curriculumBundle = await this.collectExportBundle(lastSuccessfulPush, 'curriculum-core');
+        const batch10 = await this.sendBatch(peerUrl, 'curriculum-core', curriculumBundle, 60000);
+        Object.assign(allCounts, batch10.counts);
+        allErrors.push(...batch10.errors);
+        if (batch10.success) completedBatches.push('curriculum-core');
+        else overallSuccess = false;
+      }
+      
+      // BATCH 11: Curriculum drills (drill items, grammar, can-do statements)
+      if (shouldRun('curriculum-drills')) {
+        attemptedBatches.push('curriculum-drills');
+        console.log('[SYNC-BRIDGE] Batch 11: Curriculum drills...');
+        const drillsBundle = await this.collectExportBundle(lastSuccessfulPush, 'curriculum-drills');
+        const batch11 = await this.sendBatch(peerUrl, 'curriculum-drills', drillsBundle, 60000);
+        Object.assign(allCounts, batch11.counts);
+        allErrors.push(...batch11.errors);
+        if (batch11.success) completedBatches.push('curriculum-drills');
+        else overallSuccess = false;
+      }
+      
+      // BATCH 12: Wren intelligence (insights, triggers, ADRs, lessons)
+      if (shouldRun('wren-intel')) {
+        attemptedBatches.push('wren-intel');
+        console.log('[SYNC-BRIDGE] Batch 12: Wren intelligence...');
+        const wrenBundle = await this.collectExportBundle(lastSuccessfulPush, 'wren-intel');
+        const batch12 = await this.sendBatch(peerUrl, 'wren-intel', wrenBundle, 60000);
+        Object.assign(allCounts, batch12.counts);
+        allErrors.push(...batch12.errors);
+        if (batch12.success) completedBatches.push('wren-intel');
+        else overallSuccess = false;
+      }
+      
+      // BATCH 13: Daniela intelligence (recommendations, feature feedback)
+      if (shouldRun('daniela-intel')) {
+        attemptedBatches.push('daniela-intel');
+        console.log('[SYNC-BRIDGE] Batch 13: Daniela intelligence...');
+        const danielaBundle = await this.collectExportBundle(lastSuccessfulPush, 'daniela-intel');
+        const batch13 = await this.sendBatch(peerUrl, 'daniela-intel', danielaBundle);
+        Object.assign(allCounts, batch13.counts);
+        allErrors.push(...batch13.errors);
+        if (batch13.success) completedBatches.push('daniela-intel');
+        else overallSuccess = false;
+      }
+      
+      // BATCH 14: Founder context (personal facts for same Daniela in dev/prod)
+      if (shouldRun('founder-context')) {
+        attemptedBatches.push('founder-context');
+        console.log('[SYNC-BRIDGE] Batch 14: Founder context...');
+        const founderContext = await this.exportFounderContext();
+        const contextBundle: Partial<SyncBundle> = {
+          generatedAt: new Date().toISOString(),
+          sourceEnvironment: CURRENT_ENVIRONMENT,
+          founderContext,
+        };
+        const batch14 = await this.sendBatch(peerUrl, 'founder-context', contextBundle, 60000);
+        Object.assign(allCounts, batch14.counts);
+        allErrors.push(...batch14.errors);
+        if (batch14.success) completedBatches.push('founder-context');
+        else overallSuccess = false;
+      }
+      
+      // BATCH 15: Founder conversations (dev conversations for Daniela continuity)
+      if (shouldRun('founder-conversations')) {
+        attemptedBatches.push('founder-conversations');
+        console.log('[SYNC-BRIDGE] Batch 15: Founder conversations...');
+        const convData = await this.exportFounderConversations();
+        const convBundle: Partial<SyncBundle> = {
+          generatedAt: new Date().toISOString(),
+          sourceEnvironment: CURRENT_ENVIRONMENT,
+          founderConversations: convData,
+        };
+        const batch15 = await this.sendBatch(peerUrl, 'founder-conversations', convBundle, 90000);
+        Object.assign(allCounts, batch15.counts);
+        allErrors.push(...batch15.errors);
+        if (batch15.success) completedBatches.push('founder-conversations');
+        else overallSuccess = false;
+      }
+      
       // v21: Improved status determination based on completed batches
       const expectedBatchCount = attemptedBatches.length;
       const completedBatchCount = completedBatches.length;
