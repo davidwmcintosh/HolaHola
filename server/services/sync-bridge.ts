@@ -1233,16 +1233,16 @@ class SyncBridgeService {
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     
     // Use explicit column selection for Drizzle compatibility
+    // Note: Only selecting columns that exist in current schema
     const recentConversations = await db
       .select({
         id: conversations.id,
         userId: conversations.userId,
         language: conversations.language,
-        mode: conversations.mode,
+        learningContext: conversations.learningContext, // Maps to mode in older schemas
         topic: conversations.topic,
         actflLevel: conversations.actflLevel,
-        summary: conversations.summary,
-        endedAt: conversations.endedAt,
+        title: conversations.title, // Maps to summary in older schemas
         createdAt: conversations.createdAt,
       })
       .from(conversations)
@@ -1263,15 +1263,15 @@ class SyncBridgeService {
     const conversationIds = recentConversations.map(c => c.id);
     
     // Get all messages for these conversations with explicit column selection
+    // Note: Only selecting columns that exist in current schema
     const conversationMessages = await db
       .select({
         id: messages.id,
         conversationId: messages.conversationId,
         role: messages.role,
         content: messages.content,
-        audioUrl: messages.audioUrl,
-        correctedText: messages.correctedText,
-        feedback: messages.feedback,
+        targetLanguageText: messages.targetLanguageText,
+        performanceScore: messages.performanceScore,
         createdAt: messages.createdAt,
       })
       .from(messages)
@@ -1428,21 +1428,19 @@ class SyncBridgeService {
     const founderId = founderUser[0].id;
     
     // Get all founder conversations (no time limit - full history for Daniela continuity)
+    // Note: Only selecting columns that exist in current schema
     const founderConversations = await db
       .select({
         id: conversations.id,
-        uniqueId: conversations.uniqueId,
         userId: conversations.userId,
         language: conversations.language,
-        mode: conversations.mode,
+        learningContext: conversations.learningContext, // Maps to mode in older schemas
         topic: conversations.topic,
         actflLevel: conversations.actflLevel,
-        summary: conversations.summary,
-        endedAt: conversations.endedAt,
+        title: conversations.title, // Maps to summary in older schemas
         messageCount: conversations.messageCount,
-        durationSeconds: conversations.durationSeconds,
+        duration: conversations.duration, // Maps to durationSeconds in older schemas
         classId: conversations.classId,
-        lessonId: conversations.lessonId,
         createdAt: conversations.createdAt,
       })
       .from(conversations)
@@ -1458,20 +1456,16 @@ class SyncBridgeService {
     const conversationIds = founderConversations.map(c => c.id);
     
     // Get all messages for these conversations
+    // Note: Only selecting columns that exist in current schema
     const founderMessages = await db
       .select({
         id: messages.id,
         conversationId: messages.conversationId,
         role: messages.role,
         content: messages.content,
-        audioUrl: messages.audioUrl,
-        correctedText: messages.correctedText,
-        feedback: messages.feedback,
-        pronunciationScore: messages.pronunciationScore,
-        fluencyScore: messages.fluencyScore,
-        completenessScore: messages.completenessScore,
-        prosodyScore: messages.prosodyScore,
-        wordScores: messages.wordScores,
+        targetLanguageText: messages.targetLanguageText,
+        performanceScore: messages.performanceScore,
+        actflLevel: messages.actflLevel,
         createdAt: messages.createdAt,
       })
       .from(messages)
@@ -1817,48 +1811,40 @@ class SyncBridgeService {
     
     const founderId = founderUser[0].id;
     
-    // Import conversations (upsert by uniqueId or id)
+    // Import conversations (upsert by id)
+    // Note: Using columns that exist in current schema
     for (const conv of data.conversations || []) {
       try {
-        // Check if conversation exists by uniqueId (preferred) or id
-        // Build condition based on whether uniqueId exists
-        const whereCondition = conv.uniqueId 
-          ? or(eq(conversations.uniqueId, conv.uniqueId), eq(conversations.id, conv.id))
-          : eq(conversations.id, conv.id);
-        
         const existing = await db
           .select({ id: conversations.id })
           .from(conversations)
-          .where(whereCondition)
+          .where(eq(conversations.id, conv.id))
           .limit(1);
         
         if (existing.length === 0) {
           // Insert new conversation, mapping userId to local founder
           await db.insert(conversations).values({
-            id: conv.id,
-            uniqueId: conv.uniqueId,
             userId: founderId, // Map to local founder
             language: conv.language,
-            mode: conv.mode,
+            nativeLanguage: conv.nativeLanguage || 'english',
+            difficulty: conv.difficulty || 'beginner',
+            learningContext: conv.learningContext || conv.mode || 'self_directed',
             topic: conv.topic,
+            title: conv.title || conv.summary, // Map summary to title
             actflLevel: conv.actflLevel,
-            summary: conv.summary,
-            endedAt: conv.endedAt ? new Date(conv.endedAt) : null,
             messageCount: conv.messageCount || 0,
-            durationSeconds: conv.durationSeconds || 0,
+            duration: conv.duration || conv.durationSeconds || 0,
             classId: conv.classId,
-            lessonId: conv.lessonId,
             createdAt: conv.createdAt ? new Date(conv.createdAt) : new Date(),
           });
           conversationsImported++;
         } else {
-          // Update summary if newer
-          if (conv.summary && conv.endedAt) {
+          // Update title if available
+          if (conv.title || conv.summary) {
             await db
               .update(conversations)
               .set({
-                summary: conv.summary,
-                endedAt: conv.endedAt ? new Date(conv.endedAt) : null,
+                title: conv.title || conv.summary,
                 messageCount: conv.messageCount || 0,
               })
               .where(eq(conversations.id, existing[0].id));
@@ -1870,6 +1856,7 @@ class SyncBridgeService {
     }
     
     // Import messages (upsert by id)
+    // Note: Using columns that exist in current schema
     for (const msg of data.messages || []) {
       try {
         const existing = await db
@@ -1880,18 +1867,12 @@ class SyncBridgeService {
         
         if (existing.length === 0) {
           await db.insert(messages).values({
-            id: msg.id,
             conversationId: msg.conversationId,
             role: msg.role,
             content: msg.content,
-            audioUrl: msg.audioUrl,
-            correctedText: msg.correctedText,
-            feedback: msg.feedback,
-            pronunciationScore: msg.pronunciationScore,
-            fluencyScore: msg.fluencyScore,
-            completenessScore: msg.completenessScore,
-            prosodyScore: msg.prosodyScore,
-            wordScores: msg.wordScores,
+            targetLanguageText: msg.targetLanguageText,
+            performanceScore: msg.performanceScore || msg.pronunciationScore,
+            actflLevel: msg.actflLevel,
             createdAt: msg.createdAt ? new Date(msg.createdAt) : new Date(),
           });
           messagesImported++;
