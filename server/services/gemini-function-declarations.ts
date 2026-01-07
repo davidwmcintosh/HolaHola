@@ -244,7 +244,7 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
  */
 export function createDanielaTools(allowedFunctions?: string[]) {
   const declarations = allowedFunctions 
-    ? DANIELA_FUNCTION_DECLARATIONS.filter(fn => allowedFunctions.includes(fn.name))
+    ? DANIELA_FUNCTION_DECLARATIONS.filter(fn => fn.name && allowedFunctions.includes(fn.name))
     : DANIELA_FUNCTION_DECLARATIONS;
   
   return [{

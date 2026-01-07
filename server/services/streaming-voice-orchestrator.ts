@@ -1903,6 +1903,17 @@ Remember: David may reference things discussed in these recent text chats.
         systemPrompt: enhancedSystemPrompt,
         conversationHistory: conversationHistoryWithExpressLane,
         userMessage: userMessageWithNote,
+        enableFunctionCalling: true,  // Enable native Gemini 3 function calling
+        onFunctionCall: async (functionCalls: ExtractedFunctionCall[]) => {
+          // Route native function calls to command processing (fire-and-forget)
+          for (const fn of functionCalls) {
+            console.log(`[Native Function Call] ${fn.name}(${JSON.stringify(fn.args)})`);
+            // Map to legacy command processing (handled same as bracket commands)
+            this.handleNativeFunctionCall(sessionId, session, fn).catch(err => {
+              console.error(`[Native Function Call] Error handling ${fn.name}:`, err.message);
+            });
+          }
+        },
         onSentence: async (chunk: SentenceChunk) => {
           // BARGE-IN CHECK: Stop processing if user interrupted
           if (session.isInterrupted) {
@@ -3457,6 +3468,16 @@ Remember: David may reference things discussed in these recent text chats.
         systemPrompt: enhancedSystemPrompt,
         conversationHistory: session.conversationHistory,
         userMessage: userMessageWithNote,
+        enableFunctionCalling: true,  // Enable native Gemini 3 function calling (open-mic)
+        onFunctionCall: async (functionCalls: ExtractedFunctionCall[]) => {
+          // Route native function calls to command processing (fire-and-forget)
+          for (const fn of functionCalls) {
+            console.log(`[Native Function Call - OpenMic] ${fn.name}(${JSON.stringify(fn.args)})`);
+            this.handleNativeFunctionCall(sessionId, session, fn).catch(err => {
+              console.error(`[Native Function Call - OpenMic] Error handling ${fn.name}:`, err.message);
+            });
+          }
+        },
         onSentence: async (chunk: SentenceChunk) => {
           // BARGE-IN CHECK: Stop processing if user interrupted
           if (session.isInterrupted) {
@@ -7929,6 +7950,330 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
     } finally {
       session.isGenerating = false;
     }
+  }
+  
+  /**
+   * Handle native Gemini 3 function calls
+   * Routes function calls to the same command handlers as bracket notation
+   * Mirrors the command-parser switch statement for full parity
+   */
+  private async handleNativeFunctionCall(
+    sessionId: string,
+    session: StreamingSession,
+    fn: ExtractedFunctionCall
+  ): Promise<void> {
+    console.log(`[Native Function Call] Processing: ${fn.name} -> ${fn.legacyType}`);
+    
+    switch (fn.legacyType) {
+      case 'SWITCH_TUTOR': {
+        const target = fn.args.target as string | undefined;
+        const language = fn.args.language as string | undefined;
+        const role = fn.args.role as string | undefined;
+        
+        if (target && !session.pendingTutorSwitch && !session.crossLanguageTransferBlocked) {
+          const targetGender = target as 'male' | 'female';
+          console.log(`[Native Function Call] SWITCH_TUTOR -> ${targetGender}, language: ${language || 'same'}, role: ${role || 'tutor'}`);
+          
+          session.pendingTutorSwitch = {
+            targetGender,
+            targetLanguage: language || session.targetLanguage,
+            targetRole: (role === 'assistant' ? 'assistant' : 'tutor') as 'tutor' | 'assistant' | undefined,
+          };
+          session.switchTutorTriggered = true;
+        }
+        break;
+      }
+      
+      case 'PHASE_SHIFT': {
+        const to = fn.args.to as string | undefined;
+        const reason = fn.args.reason as string | undefined;
+        if (to && reason) {
+          this.processPhaseShift(session, { 
+            to: to as 'warmup' | 'active_teaching' | 'challenge' | 'reflection' | 'drill' | 'assessment', 
+            reason 
+          }).catch(err => console.error(`[Native Function→PhaseShift] Error:`, err));
+          console.log(`[Native Function→PhaseShift] Triggered: ${to} - ${reason}`);
+        }
+        break;
+      }
+      
+      case 'VOICE_ADJUST': {
+        // Daniela's real-time voice adjustment - mirrors legacy command parser exactly
+        const speed = (fn.args.speed as string | undefined)?.toLowerCase();
+        const emotion = (fn.args.emotion as string | undefined)?.toLowerCase();
+        const personality = (fn.args.personality as string | undefined)?.toLowerCase();
+        const reason = fn.args.reason as string | undefined;
+        
+        // Map speed strings to numeric values for Cartesia speakingRate (0.7-1.3 range)
+        const speedMap: Record<string, number> = {
+          'slowest': 0.7,
+          'slow': 0.8,
+          'normal': 0.9,
+          'fast': 1.05,
+          'fastest': 1.2,
+        };
+        
+        // Build voice override object (same as legacy)
+        const voiceOverride: any = { ...((session as any).voiceOverride || {}) };
+        
+        if (speed && speedMap[speed] !== undefined) {
+          voiceOverride.speakingRate = speedMap[speed];
+        }
+        if (emotion) {
+          voiceOverride.emotion = emotion;
+        }
+        if (personality) {
+          voiceOverride.personality = personality;
+        }
+        
+        (session as any).voiceOverride = voiceOverride;
+        console.log(`[Native Function→VoiceAdjust] Applied override:`, voiceOverride, `reason: ${reason || 'none'}`);
+        break;
+      }
+      
+      case 'VOICE_RESET': {
+        // Reset voice to tutor defaults - mirrors legacy command parser exactly
+        const reason = fn.args.reason as string | undefined;
+        
+        if (session.voiceDefaults) {
+          (session as any).voiceOverride = {
+            speakingRate: session.voiceDefaults.speakingRate,
+            emotion: session.voiceDefaults.emotion,
+            personality: session.voiceDefaults.personality,
+            expressiveness: session.voiceDefaults.expressiveness,
+          };
+          console.log(`[Native Function→VoiceReset] Reset to tutor defaults:`, session.voiceDefaults, `reason: ${reason || 'none'}`);
+        } else {
+          // Fallback: clear override entirely
+          (session as any).voiceOverride = undefined;
+          console.log(`[Native Function→VoiceReset] Cleared override (no defaults stored), reason: ${reason || 'none'}`);
+        }
+        break;
+      }
+      
+      case 'CALL_SUPPORT': {
+        const category = fn.args.category as string;
+        const reason = fn.args.reason as string | undefined;
+        const priority = fn.args.priority as string || 'normal';
+        console.log(`[Native Function Call] CALL_SUPPORT -> category: ${category}, priority: ${priority}`);
+        
+        // Mark session for support handoff (same as bracket command)
+        session.pendingSupportHandoff = {
+          category: category as 'technical' | 'account' | 'billing' | 'content' | 'feedback' | 'other',
+          reason: reason || 'Support requested',
+          priority: priority as 'low' | 'normal' | 'high' | 'critical',
+        };
+        break;
+      }
+      
+      case 'CALL_ASSISTANT': {
+        const drillType = fn.args.type as string;
+        const focus = fn.args.focus as string;
+        const itemsStr = fn.args.items as string;
+        const priority = fn.args.priority as string | undefined;
+        
+        if (drillType && focus && itemsStr) {
+          const itemsList = itemsStr.split(',').map((item: string) => item.trim()).filter(Boolean);
+          session.pendingAssistantHandoff = {
+            drillType: drillType as 'repeat' | 'translate' | 'match' | 'fill_blank' | 'sentence_order',
+            focus,
+            items: itemsList,
+            priority: priority as 'low' | 'medium' | 'high' | undefined,
+          };
+          console.log(`[Native Function→AssistantHandoff] Delegated: ${drillType} drill for "${focus}" with ${itemsList.length} items`);
+        }
+        break;
+      }
+      
+      case 'SUBTITLE': {
+        // Toggle subtitle mode: off/on/target - mirrors legacy command parser exactly
+        const mode = (fn.args.mode as string)?.toLowerCase();
+        if (mode && ['off', 'on', 'target'].includes(mode)) {
+          const validMode = mode === 'on' ? 'all' : mode as 'off' | 'all' | 'target';
+          session.subtitleMode = validMode;
+          console.log(`[Native Function→Subtitle] Mode changed to: ${validMode}`);
+          
+          // Send WebSocket message to client to update UI subtitle setting
+          if (session.ws.readyState === 1) {  // WebSocket.OPEN = 1
+            session.ws.send(JSON.stringify({
+              type: 'subtitle_mode_change',
+              mode: validMode,  // 'off' | 'all' | 'target'
+              timestamp: Date.now(),
+            }));
+          }
+        }
+        break;
+      }
+      
+      case 'HOLD': {
+        // Hold whiteboard content - prevents auto-clear
+        const hold = fn.args.hold as boolean | undefined;
+        console.log(`[Native Function Call] HOLD -> ${hold}`);
+        this.sendMessage(session.ws, {
+          type: 'whiteboard_update',
+          timestamp: Date.now(),
+          items: [{ type: 'hold', hold: hold !== false }],
+        });
+        break;
+      }
+      
+      case 'SHOW': {
+        const content = fn.args.content as string | undefined;
+        const contentType = fn.args.contentType as string | undefined;
+        if (content) {
+          this.sendMessage(session.ws, {
+            type: 'whiteboard_update',
+            timestamp: Date.now(),
+            items: [{ type: contentType || 'write', content }],
+          });
+          console.log(`[Native Function Call] SHOW -> type: ${contentType}`);
+        }
+        break;
+      }
+      
+      case 'HIDE': {
+        this.sendMessage(session.ws, {
+          type: 'whiteboard_update',
+          timestamp: Date.now(),
+          items: [{ type: 'clear' }],
+        });
+        console.log(`[Native Function Call] HIDE -> cleared overlay`);
+        break;
+      }
+      
+      case 'CLEAR': {
+        this.sendMessage(session.ws, {
+          type: 'whiteboard_update',
+          timestamp: Date.now(),
+          items: [{ type: 'clear' }],
+        });
+        console.log(`[Native Function Call] CLEAR -> whiteboard cleared`);
+        break;
+      }
+      
+      case 'TEXT_INPUT': {
+        const prompt = fn.args.prompt as string | undefined;
+        this.sendMessage(session.ws, {
+          type: 'whiteboard_update',
+          timestamp: Date.now(),
+          items: [{ type: 'text_input', content: prompt || 'Type your answer' }],
+        });
+        console.log(`[Native Function Call] TEXT_INPUT -> requesting text input`);
+        break;
+      }
+      
+      case 'MEMORY_LOOKUP': {
+        const query = fn.args.query as string | undefined;
+        const domainsStr = fn.args.domains as string | undefined;
+        
+        if (query) {
+          // Parse domains if provided (comma-separated)
+          const rawDomains = domainsStr 
+            ? domainsStr.split(',').map(d => d.trim().toLowerCase())
+            : [];
+          
+          console.log(`[Native Function→MemoryLookup] Query: "${query.substring(0, 50)}..." domains: ${rawDomains.length > 0 ? rawDomains.join(',') : 'all'}`);
+          
+          // Trigger memory lookup - results will be injected into context for next turn
+          // The actual lookup is handled by the procedural memory service
+          this.processMemoryLookup(session, query, rawDomains).catch(err => {
+            console.error(`[Native Function→MemoryLookup] Error:`, err.message);
+          });
+        }
+        break;
+      }
+      
+      case 'HIVE': {
+        const category = fn.args.category as string | undefined;
+        const title = fn.args.title as string | undefined;
+        const description = fn.args.description as string | undefined;
+        
+        if (category && title && description) {
+          this.processHiveSuggestion(session, {
+            category,
+            title,
+            description,
+            reasoning: fn.args.reasoning as string | undefined,
+            priority: fn.args.priority as number | undefined,
+          }).catch(err => console.error(`[Native Function→Hive] Error:`, err));
+          console.log(`[Native Function→Hive] Suggestion: ${category} - ${title}`);
+        }
+        break;
+      }
+      
+      case 'SELF_SURGERY': {
+        const target = fn.args.target as string | undefined;
+        const content = fn.args.content as string | undefined;
+        const reasoning = fn.args.reasoning as string | undefined;
+        
+        if (target && content && reasoning && session.isFounderMode) {
+          // Parse content as JSON if it's a string
+          let parsedContent: Record<string, unknown>;
+          try {
+            parsedContent = typeof content === 'string' ? JSON.parse(content) : content;
+          } catch {
+            console.warn(`[Native Function→SelfSurgery] Invalid JSON content: ${content.substring(0, 100)}...`);
+            break;
+          }
+          
+          this.processSelfSurgeryProposal(session, {
+            targetTable: target as import('@shared/whiteboard-types').SelfSurgeryTarget,
+            content: parsedContent,
+            reasoning,
+            priority: fn.args.priority as number | undefined,
+            confidence: fn.args.confidence as number | undefined,
+          }).catch(err => console.error(`[Native Function→SelfSurgery] Error:`, err));
+          console.log(`[Native Function→SelfSurgery] Proposal for ${target}`);
+        }
+        break;
+      }
+      
+      case 'ACTFL_UPDATE': {
+        const level = fn.args.level as string | undefined;
+        const confidence = fn.args.confidence as number | undefined;
+        const direction = fn.args.direction as string | undefined;
+        const reason = fn.args.reason as string | undefined;
+        
+        if (level) {
+          // Update ACTFL level via student learning service
+          console.log(`[Native Function→ActflUpdate] Level: ${level}, confidence: ${confidence}, direction: ${direction}`);
+          // The actual update is handled by student learning service when conversation ends
+          session.actflUpdate = { level, confidence, direction, reason };
+        }
+        break;
+      }
+      
+      case 'SYLLABUS_PROGRESS': {
+        const topic = fn.args.topic as string | undefined;
+        const status = fn.args.status as string | undefined;
+        const evidence = fn.args.evidence as string | undefined;
+        
+        if (topic && status) {
+          console.log(`[Native Function→SyllabusProgress] Topic: ${topic}, status: ${status}`);
+          // Track syllabus progress for this session
+          if (!session.syllabusProgress) session.syllabusProgress = [];
+          session.syllabusProgress.push({ topic, status, evidence });
+        }
+        break;
+      }
+      
+      default:
+        console.log(`[Native Function Call] Unknown function type: ${fn.legacyType}`);
+    }
+  }
+  
+  /**
+   * Process memory lookup request from native function call
+   */
+  private async processMemoryLookup(
+    session: StreamingSession, 
+    query: string, 
+    domains: string[]
+  ): Promise<void> {
+    // Store the lookup request for injection into next turn context
+    if (!session.pendingMemoryLookups) session.pendingMemoryLookups = [];
+    session.pendingMemoryLookups.push({ query, domains, timestamp: Date.now() });
+    console.log(`[MemoryLookup] Queued lookup: "${query.substring(0, 50)}..." (${domains.length} domains)`);
   }
   
   /**
