@@ -2639,6 +2639,9 @@ export const syncRuns = pgTable("sync_runs", {
   totalPagesExpected: integer("total_pages_expected"), // Total pages for observations
   resumedFromRunId: varchar("resumed_from_run_id"), // If this run resumed from a failed run
   
+  // Verification results (v28)
+  verificationResults: jsonb("verification_results"), // Array of SyncVerificationResult per batch
+  
   startedAt: timestamp("started_at").notNull().defaultNow(),
   completedAt: timestamp("completed_at"),
 }, (table) => [
