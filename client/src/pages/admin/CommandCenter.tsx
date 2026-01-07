@@ -765,6 +765,236 @@ function MemoryMetricsDashboardTab() {
   );
 }
 
+// Option B Neural Network Telemetry Dashboard
+interface NeuralTelemetryData {
+  period: string;
+  dateRange: { start: string; end: string };
+  summary: {
+    totalLookups: number;
+    totalResults: number;
+    totalPromptCharacters: number;
+    avgResultsPerLookup: number;
+    avgPromptSizeChars: number;
+    avgSearchDurationMs: number;
+  };
+  domainBreakdown: Record<string, number>;
+  byLanguage: Record<string, { lookups: number; results: number; avgChars: number }>;
+  recentQueries: Array<{
+    query: string;
+    language: string | null;
+    resultCount: number;
+    promptChars: number;
+    searchMs: number;
+    createdAt: string;
+  }>;
+}
+
+function OptionBTelemetryTab() {
+  const [period, setPeriod] = useState<string>("7d");
+  const { data, isLoading, refetch } = useQuery<NeuralTelemetryData>({
+    queryKey: ["/api/developer/neural-network-telemetry", { period }],
+    refetchInterval: 60000,
+  });
+
+  const domainColors: Record<string, string> = {
+    idiom: "bg-blue-500",
+    cultural: "bg-purple-500",
+    procedure: "bg-green-500",
+    principle: "bg-orange-500",
+    "error-pattern": "bg-red-500",
+    "situational-pattern": "bg-cyan-500",
+    "subtlety-cue": "bg-pink-500",
+    "emotional-pattern": "bg-yellow-500",
+    "creativity-template": "bg-indigo-500",
+  };
+
+  const totalDomainResults = data?.domainBreakdown 
+    ? Object.values(data.domainBreakdown).reduce((a, b) => a + b, 0) 
+    : 0;
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="h-5 w-5 text-primary" />
+                Option B: Neural Network Telemetry
+              </CardTitle>
+              <CardDescription>
+                Monitor teaching knowledge retrieval to evaluate prompt size impact vs teaching quality
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Select value={period} onValueChange={setPeriod}>
+                <SelectTrigger className="w-28" data-testid="select-telemetry-period">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1d">Last 24h</SelectItem>
+                  <SelectItem value="7d">Last 7 days</SelectItem>
+                  <SelectItem value="30d">Last 30 days</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => refetch()}
+                data-testid="button-refresh-telemetry"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <Skeleton key={i} className="h-24" />
+              ))}
+            </div>
+          ) : data ? (
+            <div className="space-y-6">
+              {/* Key Metrics Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Card className="p-4">
+                  <div className="text-sm text-muted-foreground">Total Lookups</div>
+                  <div className="text-2xl font-bold" data-testid="metric-total-lookups">
+                    {data.summary.totalLookups}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Avg Results: {data.summary.avgResultsPerLookup}
+                  </div>
+                </Card>
+                
+                <Card className="p-4">
+                  <div className="text-sm text-muted-foreground">Total Results</div>
+                  <div className="text-2xl font-bold text-green-600 dark:text-green-400" data-testid="metric-total-results">
+                    {data.summary.totalResults}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Teaching items retrieved
+                  </div>
+                </Card>
+                
+                <Card className="p-4">
+                  <div className="text-sm text-muted-foreground">Avg Prompt Size</div>
+                  <div className="text-2xl font-bold" data-testid="metric-avg-prompt-size">
+                    {(data.summary.avgPromptSizeChars / 1000).toFixed(1)}K
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    chars per lookup
+                  </div>
+                </Card>
+                
+                <Card className="p-4">
+                  <div className="text-sm text-muted-foreground">Avg Search Time</div>
+                  <div className="text-2xl font-bold" data-testid="metric-avg-search-time">
+                    {data.summary.avgSearchDurationMs}ms
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Total: {(data.summary.totalPromptCharacters / 1000).toFixed(0)}K chars
+                  </div>
+                </Card>
+              </div>
+
+              {/* Domain Breakdown */}
+              {data.domainBreakdown && totalDomainResults > 0 && (
+                <Card className="p-4">
+                  <div className="text-sm font-medium mb-3">Results by Domain (Option B Tables)</div>
+                  <div className="space-y-2">
+                    {Object.entries(data.domainBreakdown)
+                      .sort(([, a], [, b]) => b - a)
+                      .filter(([, count]) => count > 0)
+                      .map(([domain, count]) => (
+                        <div key={domain} className="flex items-center gap-2">
+                          <div className={`w-3 h-3 rounded-full ${domainColors[domain] || 'bg-gray-500'}`} />
+                          <span className="text-sm flex-1">{domain}</span>
+                          <span className="text-sm font-medium">{count}</span>
+                          <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full ${domainColors[domain] || 'bg-gray-500'}`}
+                              style={{ width: `${(count / totalDomainResults) * 100}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </Card>
+              )}
+
+              {/* Language Breakdown */}
+              {data.byLanguage && Object.keys(data.byLanguage).length > 0 && (
+                <Card className="p-4">
+                  <div className="text-sm font-medium mb-3">By Language</div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {Object.entries(data.byLanguage)
+                      .sort(([, a], [, b]) => b.lookups - a.lookups)
+                      .map(([lang, stats]) => (
+                        <div key={lang} className="p-2 bg-muted/50 rounded">
+                          <div className="font-medium capitalize">{lang}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {stats.lookups} lookups, {stats.results} results
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Avg: {(stats.avgChars / 1000).toFixed(1)}K chars
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </Card>
+              )}
+
+              {/* Recent Queries */}
+              {data.recentQueries && data.recentQueries.length > 0 && (
+                <Card className="p-4">
+                  <div className="text-sm font-medium mb-3">Recent Queries</div>
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {data.recentQueries.map((q, i) => (
+                      <div key={i} className="flex items-center gap-2 p-2 bg-muted/30 rounded text-sm">
+                        <Badge variant="outline" className="shrink-0">
+                          {q.language || 'all'}
+                        </Badge>
+                        <span className="flex-1 truncate" title={q.query}>{q.query}</span>
+                        <span className="text-muted-foreground shrink-0">
+                          {q.resultCount} results, {(q.promptChars / 1000).toFixed(1)}K chars
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+
+              {/* Decision Guidance */}
+              <Card className="p-4 border-primary/20 bg-primary/5">
+                <div className="text-sm font-medium mb-2 flex items-center gap-2">
+                  <Compass className="h-4 w-4" />
+                  Option A vs Option B Evaluation
+                </div>
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p><strong>Option A (On-Demand):</strong> Retrieve knowledge only when needed, smaller base prompts, higher latency per lookup</p>
+                  <p><strong>Option B (Pre-Seeded):</strong> Include teaching knowledge in prompts, larger prompts, faster teaching responses</p>
+                  <p className="pt-2">
+                    <strong>Key metrics to watch:</strong> Avg prompt size (aim for under 5K chars), 
+                    search duration (aim for under 100ms), and domain usage patterns to identify which tables add most value.
+                  </p>
+                </div>
+              </Card>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              No telemetry data yet. Data will appear after MEMORY_LOOKUP commands are executed in voice sessions.
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // Types for personal facts browser
 interface PersonalFact {
   id: string;
@@ -1155,6 +1385,7 @@ export default function CommandCenter() {
         { id: "voice-analytics", label: "Voice Metrics", icon: Mic, roles: ['admin', 'developer'] },
         { id: "velocity", label: "Velocity", icon: TrendingUp, roles: ['admin', 'developer'] },
         { id: "memory-metrics", label: "Memory", icon: Activity, roles: ['admin', 'developer'] },
+        { id: "option-b-telemetry", label: "Option B", icon: Database, roles: ['admin', 'developer'] },
       ]
     },
     {
@@ -1404,6 +1635,10 @@ export default function CommandCenter() {
 
           <TabsContent value="memory-metrics" className="space-y-4">
             <MemoryMetricsDashboardTab />
+          </TabsContent>
+
+          <TabsContent value="option-b-telemetry" className="space-y-4">
+            <OptionBTelemetryTab />
           </TabsContent>
         </Tabs>
       </div>
