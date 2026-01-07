@@ -7,6 +7,8 @@ import {
   curriculumDrillItems, grammarExercises, canDoStatements, culturalTips,
   // Neural network expansion tables (for prod-content-growth pull)
   languageIdioms, culturalNuances, learnerErrorPatterns, dialectVariations, linguisticBridges,
+  // Best practices for verification
+  selfBestPractices,
   // Wren intelligence tables
   wrenInsights, wrenProactiveTriggers, architecturalDecisionRecords,
   wrenMistakes, wrenLessons, wrenCommitments,
@@ -77,6 +79,25 @@ const SYNC_CAPABILITIES = {
 } as const;
 
 export type SyncCapabilities = typeof SYNC_CAPABILITIES;
+
+// Sync Verification Types (v28)
+export interface SyncManifest {
+  batchType: string;
+  generatedAt: string;
+  environment: string;
+  expected: Record<string, number | string>;
+  checksums: Record<string, string>;
+  error?: string;
+}
+
+export interface SyncVerificationResult {
+  batchType: string;
+  verifiedAt: string;
+  success: boolean;
+  discrepancies: string[];
+  peerCounts: Record<string, number>;
+  expectedCounts: Record<string, number | string>;
+}
 
 export interface SyncBundle {
   generatedAt: string;
@@ -360,6 +381,303 @@ class SyncBridgeService {
       .limit(1);
     
     return lastPull?.completedAt || null;
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SYNC VERIFICATION SYSTEM (v28)
+  // Pre-sync manifests + post-sync verification to catch "secret fails"
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  /**
+   * Generate a manifest of what we're about to sync for a given batch
+   * This allows verification after sync completes
+   */
+  async generateSyncManifest(batchType: string): Promise<SyncManifest> {
+    const manifest: SyncManifest = {
+      batchType,
+      generatedAt: new Date().toISOString(),
+      environment: CURRENT_ENVIRONMENT,
+      expected: {},
+      checksums: {},
+    };
+    
+    try {
+      switch (batchType) {
+        case 'beta-testers': {
+          const testers = await db.select().from(users).where(eq(users.isBetaTester, true));
+          const testerIds = testers.map(t => t.id);
+          
+          let credits: any[] = [];
+          let enrollments: any[] = [];
+          if (testerIds.length > 0) {
+            credits = await db.select().from(usageLedger).where(inArray(usageLedger.userId, testerIds));
+            enrollments = await db.select().from(classEnrollments).where(inArray(classEnrollments.studentId, testerIds));
+          }
+          
+          // Get classes (public + enrolled)
+          const publicClasses = await db.select().from(teacherClasses).where(
+            eq(teacherClasses.isPublicCatalogue, true)
+          );
+          const enrolledClassIds = [...new Set(enrollments.map(e => e.classId))];
+          let classCount = publicClasses.length;
+          if (enrolledClassIds.length > 0) {
+            const enrolledNonPublic = await db.select().from(teacherClasses).where(
+              and(
+                inArray(teacherClasses.id, enrolledClassIds),
+                eq(teacherClasses.isPublicCatalogue, false)
+              )
+            );
+            classCount += enrolledNonPublic.length;
+          }
+          
+          manifest.expected = {
+            users: testers.length,
+            credits: credits.length,
+            enrollments: enrollments.length,
+            classes: classCount,
+          };
+          break;
+        }
+        
+        case 'curriculum': {
+          const lessons = await db.select({ count: sql<number>`count(*)` }).from(curriculumLessons);
+          const units = await db.select({ count: sql<number>`count(*)` }).from(curriculumUnits);
+          const classes = await db.select({ count: sql<number>`count(*)` }).from(teacherClasses);
+          const drills = await db.select({ count: sql<number>`count(*)` }).from(curriculumDrillItems);
+          
+          manifest.expected = {
+            lessons: Number(lessons[0]?.count || 0),
+            units: Number(units[0]?.count || 0),
+            classes: Number(classes[0]?.count || 0),
+            drills: Number(drills[0]?.count || 0),
+          };
+          break;
+        }
+        
+        case 'neural-core': {
+          const bp = await db.select({ count: sql<number>`count(*)` }).from(selfBestPractices);
+          manifest.expected = {
+            bestPractices: Number(bp[0]?.count || 0),
+          };
+          break;
+        }
+        
+        case 'product-config': {
+          const voices = await db.select({ count: sql<number>`count(*)` }).from(tutorVoices);
+          manifest.expected = {
+            tutorVoices: Number(voices[0]?.count || 0),
+          };
+          break;
+        }
+        
+        default:
+          manifest.expected = { note: 'Manifest not implemented for this batch type' };
+      }
+    } catch (err: any) {
+      console.error(`[SYNC-VERIFY] Manifest generation failed for ${batchType}:`, err.message);
+      manifest.error = err.message;
+    }
+    
+    return manifest;
+  }
+  
+  /**
+   * Get current record counts for verification (called by peer after import)
+   */
+  async getRecordCounts(tables: string[]): Promise<Record<string, number>> {
+    const counts: Record<string, number> = {};
+    
+    for (const table of tables) {
+      try {
+        switch (table) {
+          case 'users':
+            const u = await db.select({ count: sql<number>`count(*)` }).from(users);
+            counts.users = Number(u[0]?.count || 0);
+            break;
+          case 'betaTesters':
+            const bt = await db.select({ count: sql<number>`count(*)` }).from(users).where(eq(users.isBetaTester, true));
+            counts.betaTesters = Number(bt[0]?.count || 0);
+            break;
+          case 'usageLedger':
+            const ul = await db.select({ count: sql<number>`count(*)` }).from(usageLedger);
+            counts.usageLedger = Number(ul[0]?.count || 0);
+            break;
+          case 'classEnrollments':
+            const ce = await db.select({ count: sql<number>`count(*)` }).from(classEnrollments);
+            counts.classEnrollments = Number(ce[0]?.count || 0);
+            break;
+          case 'teacherClasses':
+            const tc = await db.select({ count: sql<number>`count(*)` }).from(teacherClasses);
+            counts.teacherClasses = Number(tc[0]?.count || 0);
+            break;
+          case 'curriculumLessons':
+            const cl = await db.select({ count: sql<number>`count(*)` }).from(curriculumLessons);
+            counts.curriculumLessons = Number(cl[0]?.count || 0);
+            break;
+          case 'curriculumUnits':
+            const cu = await db.select({ count: sql<number>`count(*)` }).from(curriculumUnits);
+            counts.curriculumUnits = Number(cu[0]?.count || 0);
+            break;
+          case 'curriculumDrillItems':
+            const cdi = await db.select({ count: sql<number>`count(*)` }).from(curriculumDrillItems);
+            counts.curriculumDrillItems = Number(cdi[0]?.count || 0);
+            break;
+          case 'tutorVoices':
+            const tv = await db.select({ count: sql<number>`count(*)` }).from(tutorVoices);
+            counts.tutorVoices = Number(tv[0]?.count || 0);
+            break;
+          case 'bestPractices':
+            const bpp = await db.select({ count: sql<number>`count(*)` }).from(selfBestPractices);
+            counts.bestPractices = Number(bpp[0]?.count || 0);
+            break;
+          default:
+            counts[table] = -1; // Unknown table
+        }
+      } catch (err: any) {
+        console.error(`[SYNC-VERIFY] Count failed for ${table}:`, err.message);
+        counts[table] = -1;
+      }
+    }
+    
+    return counts;
+  }
+  
+  /**
+   * Verify a sync by comparing expected manifest against peer's actual counts
+   * Returns discrepancies found
+   */
+  async verifySyncWithPeer(peerUrl: string, manifest: SyncManifest): Promise<SyncVerificationResult> {
+    const result: SyncVerificationResult = {
+      batchType: manifest.batchType,
+      verifiedAt: new Date().toISOString(),
+      success: true,
+      discrepancies: [],
+      peerCounts: {},
+      expectedCounts: manifest.expected,
+    };
+    
+    try {
+      // Build list of tables to verify based on batch type
+      // Note: We verify "at least X records" rather than "exactly X records"
+      // since prod may have additional data from other sources
+      const tablesToVerify: string[] = [];
+      switch (manifest.batchType) {
+        case 'beta-testers':
+          // All tables included in beta-testers batch
+          tablesToVerify.push('betaTesters', 'teacherClasses');
+          break;
+        case 'curriculum':
+          tablesToVerify.push('curriculumLessons', 'curriculumUnits', 'teacherClasses', 'curriculumDrillItems');
+          break;
+        case 'product-config':
+          tablesToVerify.push('tutorVoices');
+          break;
+        case 'neural-core':
+          tablesToVerify.push('bestPractices');
+          break;
+      }
+      
+      if (tablesToVerify.length === 0) {
+        result.success = true;
+        result.discrepancies.push('No tables to verify for this batch type');
+        return result;
+      }
+      
+      // Call peer's verification endpoint
+      const response = await fetch(`${peerUrl}/api/sync/verify-counts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Sync-Secret': process.env.SYNC_SHARED_SECRET || '',
+        },
+        body: JSON.stringify({ tables: tablesToVerify }),
+      });
+      
+      if (!response.ok) {
+        result.success = false;
+        result.discrepancies.push(`Peer verification endpoint failed: ${response.status}`);
+        return result;
+      }
+      
+      const peerData = await response.json();
+      result.peerCounts = peerData.counts || {};
+      
+      // Compare expected vs actual for key metrics
+      // Mapping from manifest keys to verification keys
+      const keyMapping: Record<string, Record<string, string>> = {
+        'beta-testers': {
+          'users': 'betaTesters',
+          'classes': 'teacherClasses',
+        },
+        'curriculum': {
+          'lessons': 'curriculumLessons',
+          'units': 'curriculumUnits',
+          'classes': 'teacherClasses',
+          'drills': 'curriculumDrillItems',
+        },
+        'product-config': {
+          'tutorVoices': 'tutorVoices',
+        },
+        'neural-core': {
+          'bestPractices': 'bestPractices',
+        },
+      };
+      
+      const mapping = keyMapping[manifest.batchType] || {};
+      const comparisons: Array<{ manifestKey: string; verifyKey: string; expected: number; actual: number }> = [];
+      
+      for (const [manifestKey, verifyKey] of Object.entries(mapping)) {
+        const expected = manifest.expected[manifestKey];
+        if (typeof expected === 'number') {
+          comparisons.push({
+            manifestKey,
+            verifyKey,
+            expected,
+            actual: result.peerCounts[verifyKey] || 0,
+          });
+        }
+      }
+      
+      // Check for discrepancies - we verify "peer has at least X records"
+      // since peer may have additional data from other syncs or local additions
+      for (const comp of comparisons) {
+        if (comp.actual < comp.expected) {
+          result.success = false;
+          result.discrepancies.push(
+            `${comp.verifyKey}: sent ${comp.expected}, peer has ${comp.actual} (MISSING ${comp.expected - comp.actual})`
+          );
+        } else if (comp.actual >= comp.expected) {
+          // Peer has at least what we sent - this is success
+          result.discrepancies.push(
+            `${comp.verifyKey}: sent ${comp.expected}, peer has ${comp.actual} OK`
+          );
+        }
+      }
+      
+      if (comparisons.length === 0) {
+        result.discrepancies.push('No comparisons defined for this batch type');
+      }
+      
+    } catch (err: any) {
+      result.success = false;
+      result.discrepancies.push(`Verification failed: ${err.message}`);
+    }
+    
+    return result;
+  }
+  
+  /**
+   * Log sync verification results with clear formatting
+   */
+  logVerificationResult(result: SyncVerificationResult): void {
+    const status = result.success ? '✓ VERIFIED' : '✗ DISCREPANCY';
+    console.log(`\n[SYNC-VERIFY] ═══ ${result.batchType} ${status} ═══`);
+    console.log(`[SYNC-VERIFY] Expected: ${JSON.stringify(result.expectedCounts)}`);
+    console.log(`[SYNC-VERIFY] Peer has:  ${JSON.stringify(result.peerCounts)}`);
+    for (const d of result.discrepancies) {
+      console.log(`[SYNC-VERIFY] ${result.success ? '  ' : '! '}${d}`);
+    }
+    console.log(`[SYNC-VERIFY] ═══════════════════════════════════════\n`);
   }
   
   async collectExportBundle(incrementalSince?: Date | null, batchType?: string, options?: { sinceTimestamp?: string }): Promise<Partial<SyncBundle>> {
@@ -3440,16 +3758,36 @@ class SyncBridgeService {
       }
       
       // BATCH 7: Beta testers (users + credits + enrollments + classes)
-      // v28: Use collectExportBundle for consistent behavior with export endpoint
+      // v28: Use collectExportBundle for consistent behavior with export endpoint + verification
       if (shouldRun('beta-testers')) {
         attemptedBatches.push('beta-testers');
+        
+        // Pre-sync manifest - capture what we're about to send
+        const manifest = await this.generateSyncManifest('beta-testers');
         console.log('[SYNC-BRIDGE] Batch 7: Beta testers + classes...');
+        console.log(`[SYNC-VERIFY] Pre-sync manifest: ${manifest.expected.users} users, ${manifest.expected.classes} classes, ${manifest.expected.credits} credits, ${manifest.expected.enrollments} enrollments`);
+        
         const betaBundle = await this.collectExportBundle(null, 'beta-testers');
         const batch7 = await this.sendBatch(peerUrl, 'beta-testers', betaBundle, 90000); // 90s for large credit/enrollment data
         Object.assign(allCounts, batch7.counts);
         allErrors.push(...batch7.errors);
-        if (batch7.success) completedBatches.push('beta-testers');
-        else overallSuccess = false;
+        
+        if (batch7.success) {
+          completedBatches.push('beta-testers');
+          
+          // Post-sync verification - check data arrived
+          try {
+            const verification = await this.verifySyncWithPeer(peerUrl, manifest);
+            this.logVerificationResult(verification);
+            if (!verification.success) {
+              allErrors.push(`beta-testers verification failed: ${verification.discrepancies.join('; ')}`);
+            }
+          } catch (verifyErr: any) {
+            console.warn('[SYNC-VERIFY] Beta-testers verification failed:', verifyErr.message);
+          }
+        } else {
+          overallSuccess = false;
+        }
       }
       
       // BATCH 8: Beta usage data (prod → dev pull)

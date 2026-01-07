@@ -19284,6 +19284,22 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
     }
   });
   
+  // Peer-to-peer: Verify record counts (v28 - called by peer after sync to verify data arrived)
+  app.post("/api/sync/verify-counts", validateSyncRequest, async (req: any, res) => {
+    try {
+      const { tables } = req.body;
+      if (!tables || !Array.isArray(tables)) {
+        return res.status(400).json({ error: 'tables array required' });
+      }
+      console.log('[SYNC-VERIFY] Count verification requested for:', tables.join(', '));
+      const counts = await syncBridge.getRecordCounts(tables);
+      res.json({ counts, verifiedAt: new Date().toISOString() });
+    } catch (error: any) {
+      console.error('[SYNC-VERIFY] Verification error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // Admin: Trigger push to peer environment
   app.post("/api/sync/push", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
