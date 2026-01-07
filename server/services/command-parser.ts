@@ -97,7 +97,7 @@ export const VALID_ENUM_VALUES = {
   // UI Control commands
   SUBTITLE_MODE: ['off', 'on', 'target'],
   // Memory lookup domains
-  MEMORY_LOOKUP_DOMAINS: ['person', 'motivation', 'insight', 'struggle', 'session', 'progress'],
+  MEMORY_LOOKUP_DOMAINS: ['person', 'motivation', 'insight', 'struggle', 'session', 'progress', 'syllabus'],
 };
 
 /**

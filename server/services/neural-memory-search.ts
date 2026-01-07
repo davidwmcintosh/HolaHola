@@ -28,6 +28,9 @@ import {
   subtletyCues,
   emotionalPatterns,
   creativityTemplates,
+  curriculumPaths,
+  curriculumUnits,
+  curriculumLessons,
   type PeopleConnection,
   type StudentInsight,
   type LearningMotivation,
@@ -41,6 +44,9 @@ import {
   type SubtletyCue,
   type EmotionalPattern,
   type CreativityTemplate,
+  type CurriculumPath,
+  type CurriculumUnit,
+  type CurriculumLesson,
 } from '@shared/schema';
 import { eq, sql, desc, and, or, ilike } from 'drizzle-orm';
 
@@ -918,6 +924,238 @@ export async function searchTeachingKnowledge(
   };
 }
 
+// ===== SYLLABUS/CURRICULUM SEARCH =====
+
+/**
+ * Syllabus search result
+ */
+export interface SyllabusSearchResult {
+  type: 'path' | 'unit' | 'lesson';
+  id: string;
+  name: string;
+  language: string;
+  description?: string; // Optional since some curriculum entries may not have descriptions
+  level?: string; // ACTFL level or start-end range
+  parent?: string; // Parent path/unit name
+  details?: {
+    estimatedHours?: number;
+    objectives?: string[];
+    lessonType?: string;
+    orderIndex?: number;
+  };
+}
+
+/**
+ * Syllabus search response
+ */
+export interface SyllabusSearchResponse {
+  query: string;
+  language?: string;
+  results: SyllabusSearchResult[];
+  totalMatches: number;
+}
+
+/**
+ * Search syllabi/curriculum for on-demand lookup
+ * Searches paths, units, and lessons by name, description, language
+ * 
+ * @param query - Search query (syllabus name, topic, lesson name)
+ * @param language - Optional: filter by language
+ */
+export async function searchSyllabi(
+  query: string,
+  language?: string
+): Promise<SyllabusSearchResponse> {
+  const results: SyllabusSearchResult[] = [];
+  
+  const normalizedQuery = query.toLowerCase().trim();
+  const searchPattern = `%${normalizedQuery}%`;
+  
+  try {
+    // === CURRICULUM PATHS (Syllabi) ===
+    const paths = await db.select().from(curriculumPaths)
+      .where(
+        and(
+          language ? eq(curriculumPaths.language, language) : sql`true`,
+          or(
+            ilike(curriculumPaths.name, searchPattern),
+            ilike(curriculumPaths.description, searchPattern),
+            ilike(curriculumPaths.targetAudience, searchPattern)
+          )
+        )
+      )
+      .limit(10);
+    
+    for (const path of paths) {
+      results.push({
+        type: 'path',
+        id: path.id,
+        name: path.name,
+        language: path.language,
+        description: path.description || undefined,
+        level: `${path.startLevel} → ${path.endLevel}`,
+        details: {
+          estimatedHours: path.estimatedHours || undefined,
+        },
+      });
+    }
+    
+    // === CURRICULUM UNITS ===
+    const unitsWithPath = await db
+      .select({
+        unit: curriculumUnits,
+        pathName: curriculumPaths.name,
+        pathLanguage: curriculumPaths.language,
+      })
+      .from(curriculumUnits)
+      .innerJoin(curriculumPaths, eq(curriculumUnits.curriculumPathId, curriculumPaths.id))
+      .where(
+        and(
+          language ? eq(curriculumPaths.language, language) : sql`true`,
+          or(
+            ilike(curriculumUnits.name, searchPattern),
+            ilike(curriculumUnits.description, searchPattern),
+            ilike(curriculumUnits.culturalTheme, searchPattern)
+          )
+        )
+      )
+      .orderBy(curriculumUnits.orderIndex)
+      .limit(10);
+    
+    for (const { unit, pathName, pathLanguage } of unitsWithPath) {
+      results.push({
+        type: 'unit',
+        id: unit.id,
+        name: unit.name,
+        language: pathLanguage,
+        description: unit.description || undefined,
+        level: unit.actflLevel || undefined,
+        parent: pathName,
+        details: {
+          estimatedHours: unit.estimatedHours || undefined,
+          orderIndex: unit.orderIndex,
+        },
+      });
+    }
+    
+    // === CURRICULUM LESSONS ===
+    const lessonsWithContext = await db
+      .select({
+        lesson: curriculumLessons,
+        unitName: curriculumUnits.name,
+        pathName: curriculumPaths.name,
+        pathLanguage: curriculumPaths.language,
+      })
+      .from(curriculumLessons)
+      .innerJoin(curriculumUnits, eq(curriculumLessons.curriculumUnitId, curriculumUnits.id))
+      .innerJoin(curriculumPaths, eq(curriculumUnits.curriculumPathId, curriculumPaths.id))
+      .where(
+        and(
+          language ? eq(curriculumPaths.language, language) : sql`true`,
+          or(
+            ilike(curriculumLessons.name, searchPattern),
+            ilike(curriculumLessons.description, searchPattern),
+            ilike(curriculumLessons.conversationTopic, searchPattern)
+          )
+        )
+      )
+      .orderBy(curriculumLessons.orderIndex)
+      .limit(15);
+    
+    for (const { lesson, unitName, pathName, pathLanguage } of lessonsWithContext) {
+      results.push({
+        type: 'lesson',
+        id: lesson.id,
+        name: lesson.name,
+        language: pathLanguage,
+        description: lesson.description || undefined,
+        level: lesson.actflLevel || undefined,
+        parent: `${pathName} > ${unitName}`,
+        details: {
+          lessonType: lesson.lessonType,
+          objectives: lesson.objectives || undefined,
+          orderIndex: lesson.orderIndex,
+        },
+      });
+    }
+    
+  } catch (err: any) {
+    console.error('[NeuralMemory] Error searching syllabi:', err.message);
+  }
+  
+  return {
+    query,
+    language,
+    results,
+    totalMatches: results.length,
+  };
+}
+
+/**
+ * Format syllabus search for injection into conversation
+ */
+export function formatSyllabusSearch(response: SyllabusSearchResponse): string {
+  if (response.results.length === 0) {
+    return `[Syllabus search for "${response.query}": No matching syllabi, units, or lessons found]`;
+  }
+  
+  const lines: string[] = [];
+  lines.push(`\n═══ SYLLABUS LOOKUP: "${response.query}" ═══`);
+  if (response.language) {
+    lines.push(`Language: ${response.language}`);
+  }
+  lines.push(`Found ${response.totalMatches} matches:\n`);
+  
+  // Group by type
+  const paths = response.results.filter(r => r.type === 'path');
+  const units = response.results.filter(r => r.type === 'unit');
+  const lessons = response.results.filter(r => r.type === 'lesson');
+  
+  if (paths.length > 0) {
+    lines.push('📚 SYLLABI (Curriculum Paths):');
+    for (const path of paths) {
+      lines.push(`  • ${path.name} [${path.language}]`);
+      lines.push(`    Level: ${path.level}`);
+      const pathDesc = path.description ? path.description.substring(0, 150) : 'No description available';
+      lines.push(`    ${pathDesc}`);
+      if (path.details?.estimatedHours) {
+        lines.push(`    Duration: ~${path.details.estimatedHours} hours`);
+      }
+    }
+    lines.push('');
+  }
+  
+  if (units.length > 0) {
+    lines.push('📖 UNITS:');
+    for (const unit of units.slice(0, 5)) {
+      lines.push(`  • ${unit.name}`);
+      lines.push(`    In: ${unit.parent}`);
+      if (unit.level) lines.push(`    Level: ${unit.level}`);
+      const unitDesc = unit.description ? unit.description.substring(0, 100) : 'No description';
+      lines.push(`    ${unitDesc}`);
+    }
+    lines.push('');
+  }
+  
+  if (lessons.length > 0) {
+    lines.push('📝 LESSONS:');
+    for (const lesson of lessons.slice(0, 8)) {
+      lines.push(`  • ${lesson.name} (${lesson.details?.lessonType || 'lesson'})`);
+      lines.push(`    In: ${lesson.parent}`);
+      const lessonDesc = lesson.description ? lesson.description.substring(0, 80) : 'No description';
+      lines.push(`    ${lessonDesc}`);
+      if (lesson.details?.objectives?.length) {
+        lines.push(`    Objectives: ${lesson.details.objectives.slice(0, 2).join('; ')}`);
+      }
+    }
+    lines.push('');
+  }
+  
+  lines.push('═══════════════════════════════════════');
+  
+  return lines.join('\n');
+}
+
 /**
  * Format teaching knowledge for injection into conversation
  */
@@ -979,4 +1217,7 @@ export const neuralMemorySearch = {
   // Teaching knowledge (Phase 1)
   searchTeaching: searchTeachingKnowledge,
   formatTeaching: formatTeachingKnowledge,
+  // Syllabus/curriculum lookup (Phase 2)
+  searchSyllabi,
+  formatSyllabi: formatSyllabusSearch,
 };

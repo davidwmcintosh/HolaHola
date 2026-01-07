@@ -2139,7 +2139,7 @@ Remember: David may reference things discussed in these recent text chats.
                   break;
                 }
                 case 'MEMORY_LOOKUP': {
-                  // On-demand neural memory search - supports both student memory AND teaching knowledge
+                  // On-demand neural memory search - supports student memory, teaching knowledge, AND syllabus lookup
                   const query = cmd.params.query as string;
                   const domainsStr = cmd.params.domains as string | undefined;
                   
@@ -2149,19 +2149,22 @@ Remember: David may reference things discussed in these recent text chats.
                       ? domainsStr.split(',').map(d => d.trim().toLowerCase())
                       : [];
                     
-                    // Separate student domains from teaching domains
+                    // Separate student domains, teaching domains, and syllabus domain
                     const studentDomains = ['person', 'motivation', 'insight', 'struggle', 'session', 'progress'];
                     const teachingDomains = ['idiom', 'cultural', 'procedure', 'principle', 'error-pattern', 'situational-pattern', 'subtlety-cue', 'emotional-pattern', 'creativity-template'];
+                    const syllabusDomains = ['syllabus'];
                     
                     const requestedStudentDomains = rawDomains.filter(d => studentDomains.includes(d)) as ('person' | 'motivation' | 'insight' | 'struggle' | 'session' | 'progress')[];
                     const requestedTeachingDomains = rawDomains.filter(d => teachingDomains.includes(d)) as ('idiom' | 'cultural' | 'procedure' | 'principle' | 'error-pattern' | 'situational-pattern' | 'subtlety-cue' | 'emotional-pattern' | 'creativity-template')[];
+                    const requestedSyllabusDomains = rawDomains.filter(d => syllabusDomains.includes(d));
                     
-                    // If no specific domains requested, search BOTH student memory and teaching knowledge
+                    // If no specific domains requested, search all domains
                     const searchStudentMemory = requestedStudentDomains.length > 0 || rawDomains.length === 0;
                     const searchTeachingKnowledge = requestedTeachingDomains.length > 0 || rawDomains.length === 0;
+                    const searchSyllabi = requestedSyllabusDomains.length > 0 || rawDomains.length === 0;
                     
                     try {
-                      const { searchMemory, formatMemoryForConversation, searchTeachingKnowledge: searchTeaching, formatTeachingKnowledge } = await import('./neural-memory-search');
+                      const { searchMemory, formatMemoryForConversation, searchTeachingKnowledge: searchTeaching, formatTeachingKnowledge, searchSyllabi: searchSyllabiFunc, formatSyllabusSearch } = await import('./neural-memory-search');
                       
                       const results: string[] = [];
                       let totalFound = 0;
@@ -2219,6 +2222,17 @@ Remember: David may reference things discussed in these recent text chats.
                         }).catch(err => console.error('[NeuralTelemetry] Insert error:', err));
                       }
                       
+                      // Search syllabi/curriculum if applicable (Founder/Honesty mode syllabus access)
+                      if (searchSyllabi) {
+                        const syllabusResults = await searchSyllabiFunc(query, session.targetLanguage || undefined);
+                        if (syllabusResults.results.length > 0) {
+                          const formattedSyllabi = formatSyllabusSearch(syllabusResults);
+                          results.push(formattedSyllabi);
+                          totalFound += syllabusResults.results.length;
+                          console.log(`[CommandParser→MemoryLookup] Syllabus search found ${syllabusResults.results.length} results for "${query}"`);
+                        }
+                      }
+                      
                       if (results.length > 0) {
                         // Combine and inject into conversation
                         const combinedResults = results.join('\n\n');
@@ -2230,7 +2244,7 @@ Remember: David may reference things discussed in these recent text chats.
                           });
                         }
                         
-                        console.log(`[CommandParser→MemoryLookup] Found ${totalFound} results for "${query}" (student: ${searchStudentMemory}, teaching: ${searchTeachingKnowledge})`);
+                        console.log(`[CommandParser→MemoryLookup] Found ${totalFound} results for "${query}" (student: ${searchStudentMemory}, teaching: ${searchTeachingKnowledge}, syllabus: ${searchSyllabi})`);
                         
                         // Emit to founder if in Founder Mode
                         if (session.isFounderMode && session.hiveChannelId) {
@@ -3610,7 +3624,7 @@ Remember: David may reference things discussed in these recent text chats.
                 break;
               }
               case 'MEMORY_LOOKUP': {
-                // On-demand neural memory search - supports both student memory AND teaching knowledge
+                // On-demand neural memory search - supports student memory, teaching knowledge, AND syllabus lookup
                 const query = cmd.params.query as string;
                 const domainsStr = cmd.params.domains as string | undefined;
                 
@@ -3621,15 +3635,18 @@ Remember: David may reference things discussed in these recent text chats.
                   
                   const studentDomains = ['person', 'motivation', 'insight', 'struggle', 'session', 'progress'];
                   const teachingDomains = ['idiom', 'cultural', 'procedure', 'principle', 'error-pattern', 'situational-pattern', 'subtlety-cue', 'emotional-pattern', 'creativity-template'];
+                  const syllabusDomains = ['syllabus'];
                   
                   const requestedStudentDomains = rawDomains.filter(d => studentDomains.includes(d)) as ('person' | 'motivation' | 'insight' | 'struggle' | 'session' | 'progress')[];
                   const requestedTeachingDomains = rawDomains.filter(d => teachingDomains.includes(d)) as ('idiom' | 'cultural' | 'procedure' | 'principle' | 'error-pattern' | 'situational-pattern' | 'subtlety-cue' | 'emotional-pattern' | 'creativity-template')[];
+                  const requestedSyllabusDomains = rawDomains.filter(d => syllabusDomains.includes(d));
                   
                   const searchStudentMemory = requestedStudentDomains.length > 0 || rawDomains.length === 0;
                   const searchTeachingKnowledgeFlag = requestedTeachingDomains.length > 0 || rawDomains.length === 0;
+                  const searchSyllabi = requestedSyllabusDomains.length > 0 || rawDomains.length === 0;
                   
                   try {
-                    const { searchMemory, formatMemoryForConversation, searchTeachingKnowledge: searchTeaching, formatTeachingKnowledge } = await import('./neural-memory-search');
+                    const { searchMemory, formatMemoryForConversation, searchTeachingKnowledge: searchTeaching, formatTeachingKnowledge, searchSyllabi: searchSyllabiFunc, formatSyllabusSearch } = await import('./neural-memory-search');
                     
                     const results: string[] = [];
                     let totalFound = 0;
@@ -3686,6 +3703,17 @@ Remember: David may reference things discussed in these recent text chats.
                       }).catch(err => console.error('[NeuralTelemetry - OpenMic] Insert error:', err));
                     }
                     
+                    // Search syllabi/curriculum if applicable (Founder/Honesty mode syllabus access)
+                    if (searchSyllabi) {
+                      const syllabusResults = await searchSyllabiFunc(query, session.targetLanguage || undefined);
+                      if (syllabusResults.results.length > 0) {
+                        const formattedSyllabi = formatSyllabusSearch(syllabusResults);
+                        results.push(formattedSyllabi);
+                        totalFound += syllabusResults.results.length;
+                        console.log(`[CommandParser→MemoryLookup - OpenMic] Syllabus search found ${syllabusResults.results.length} results for "${query}"`);
+                      }
+                    }
+                    
                     if (results.length > 0) {
                       const combinedResults = results.join('\n\n');
                       if (session.conversationHistory) {
@@ -3694,7 +3722,7 @@ Remember: David may reference things discussed in these recent text chats.
                           content: `[SYSTEM: Memory recall results for "${query}"]\n${combinedResults}`,
                         });
                       }
-                      console.log(`[CommandParser→MemoryLookup - OpenMic] Found ${totalFound} results for "${query}"`);
+                      console.log(`[CommandParser→MemoryLookup - OpenMic] Found ${totalFound} results for "${query}" (syllabus: ${searchSyllabi})`);
                     } else {
                       console.log(`[CommandParser→MemoryLookup - OpenMic] No results found for "${query}"`);
                     }
