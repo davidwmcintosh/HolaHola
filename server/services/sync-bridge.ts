@@ -653,16 +653,26 @@ class SyncBridgeService {
     }
     
     // BATCH: beta-usage - Pull voice sessions and usage data from production (v19 bidirectional sync)
-    if (batchType === 'beta-usage') {
+    // v25: Supports pagination via beta-usage-p1, beta-usage-p2, etc.
+    if (batchType === 'beta-usage' || batchType?.startsWith('beta-usage-p')) {
       try {
-        const betaUsageData = await this.exportBetaUsage();
+        // Parse page number from batch type (e.g., beta-usage-p2 -> page 2)
+        let page = 0;
+        if (batchType?.startsWith('beta-usage-p')) {
+          page = parseInt(batchType.replace('beta-usage-p', ''), 10) || 0;
+        }
+        
+        // v25: Support delta sync via sinceTimestamp query param
+        const sinceTimestamp = (options as any)?.sinceTimestamp;
+        
+        const betaUsageData = await this.exportBetaUsage({ page, sinceTimestamp });
         bundle.betaUsage = betaUsageData;
-        console.log(`[SYNC-BRIDGE v19] beta-usage: ${betaUsageData?.voiceSessions?.length || 0} sessions, ${betaUsageData?.usageLedger?.length || 0} ledger entries`);
+        console.log(`[SYNC-BRIDGE v25] beta-usage page ${page}: ${betaUsageData?.voiceSessions?.length || 0} sessions, ${betaUsageData?.usageLedger?.length || 0} ledger${betaUsageData?.hasMore ? ' [MORE]' : ' [DONE]'}`);
       } catch (err: any) {
         const errMsg = `beta-usage export failed: ${err.message}`;
         console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
         batchErrors.push(errMsg);
-        bundle.betaUsage = { voiceSessions: [], usageLedger: [], costSummaries: [], exportedAt: new Date().toISOString() };
+        bundle.betaUsage = { voiceSessions: [], usageLedger: [], costSummaries: [], conversations: [], exportedAt: new Date().toISOString(), hasMore: false, page: 0 };
       }
     }
     
