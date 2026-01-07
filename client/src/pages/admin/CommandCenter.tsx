@@ -101,6 +101,7 @@ import {
   Archive,
   Database,
   Target,
+  Percent,
 } from "lucide-react";
 import {
   AlertDialog,
