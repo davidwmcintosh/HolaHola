@@ -51,6 +51,7 @@ import {
   curriculumDrillItems,
   sofiaIssueReports,
   selfPracticeSessions,
+  neuralNetworkTelemetry,
 } from "@shared/schema";
 import { hasTeacherAccess, hasDeveloperAccess } from "@shared/permissions";
 import OpenAI, { toFile } from "openai";
@@ -2582,6 +2583,106 @@ export async function registerRoutes(app: Express): Promise<void> {
     } catch (error: any) {
       console.error("Error fetching class estimates:", error);
       res.status(500).json({ message: "Failed to fetch class estimates" });
+    }
+  });
+  
+  // ===== Neural Network Telemetry (Option B Monitoring) =====
+  
+  // Get neural network teaching knowledge telemetry for Option B evaluation
+  app.get('/api/developer/neural-network-telemetry', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Verify user is a developer
+      const isDeveloper = await usageService.checkDeveloperBypass(userId);
+      if (!isDeveloper) {
+        return res.status(403).json({ message: "Developer access required" });
+      }
+      
+      const { period = '7d', limit: queryLimit = '100' } = req.query;
+      
+      // Calculate date range
+      const now = new Date();
+      let startDate: Date;
+      switch (period) {
+        case '1d': startDate = new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000); break;
+        case '7d': startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); break;
+        case '30d': startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); break;
+        default: startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      }
+      
+      // Get telemetry records
+      const records = await db
+        .select()
+        .from(neuralNetworkTelemetry)
+        .where(gte(neuralNetworkTelemetry.createdAt, startDate))
+        .orderBy(desc(neuralNetworkTelemetry.createdAt))
+        .limit(parseInt(queryLimit as string) || 100);
+      
+      // Calculate aggregates
+      const totalLookups = records.length;
+      const totalResults = records.reduce((sum, r) => sum + r.resultCount, 0);
+      const totalChars = records.reduce((sum, r) => sum + r.formattedCharacterLength, 0);
+      const avgResults = totalLookups > 0 ? Math.round((totalResults / totalLookups) * 100) / 100 : 0;
+      const avgPromptSize = totalLookups > 0 ? Math.round(totalChars / totalLookups) : 0;
+      const avgSearchMs = totalLookups > 0 
+        ? Math.round(records.reduce((sum, r) => sum + r.searchDurationMs, 0) / totalLookups) 
+        : 0;
+      
+      // Domain breakdown
+      const domainTotals = {
+        idiom: records.reduce((sum, r) => sum + r.idiomCount, 0),
+        cultural: records.reduce((sum, r) => sum + r.culturalCount, 0),
+        procedure: records.reduce((sum, r) => sum + r.procedureCount, 0),
+        principle: records.reduce((sum, r) => sum + r.principleCount, 0),
+        'error-pattern': records.reduce((sum, r) => sum + r.errorPatternCount, 0),
+        'situational-pattern': records.reduce((sum, r) => sum + r.situationalPatternCount, 0),
+        'subtlety-cue': records.reduce((sum, r) => sum + r.subtletyCueCount, 0),
+        'emotional-pattern': records.reduce((sum, r) => sum + r.emotionalPatternCount, 0),
+        'creativity-template': records.reduce((sum, r) => sum + r.creativityTemplateCount, 0),
+      };
+      
+      // Language breakdown
+      const byLanguage: Record<string, { lookups: number; results: number; avgChars: number }> = {};
+      for (const r of records) {
+        const lang = r.targetLanguage || 'unknown';
+        if (!byLanguage[lang]) {
+          byLanguage[lang] = { lookups: 0, results: 0, avgChars: 0 };
+        }
+        byLanguage[lang].lookups++;
+        byLanguage[lang].results += r.resultCount;
+        byLanguage[lang].avgChars += r.formattedCharacterLength;
+      }
+      // Calculate averages
+      for (const lang of Object.keys(byLanguage)) {
+        byLanguage[lang].avgChars = Math.round(byLanguage[lang].avgChars / byLanguage[lang].lookups);
+      }
+      
+      res.json({
+        period,
+        dateRange: { start: startDate.toISOString(), end: now.toISOString() },
+        summary: {
+          totalLookups,
+          totalResults,
+          totalPromptCharacters: totalChars,
+          avgResultsPerLookup: avgResults,
+          avgPromptSizeChars: avgPromptSize,
+          avgSearchDurationMs: avgSearchMs,
+        },
+        domainBreakdown: domainTotals,
+        byLanguage,
+        recentQueries: records.slice(0, 20).map(r => ({
+          query: r.query,
+          language: r.targetLanguage,
+          resultCount: r.resultCount,
+          promptChars: r.formattedCharacterLength,
+          searchMs: r.searchDurationMs,
+          createdAt: r.createdAt,
+        })),
+      });
+    } catch (error: any) {
+      console.error("Error fetching neural network telemetry:", error);
+      res.status(500).json({ message: "Failed to fetch neural network telemetry" });
     }
   });
 
