@@ -36,7 +36,7 @@ const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production'
 
 // Version identifier to verify which code is running on production
 // Increment this when making sync-related changes to verify deployment
-const SYNC_BRIDGE_CODE_VERSION = "2025-01-07-v26-all-batches-default-pagination-delta";
+const SYNC_BRIDGE_CODE_VERSION = "2025-01-07-v27-beta-tester-classes-sync";
 
 // Capability negotiation: List all batch types this version can import/export
 // When adding new batches, add them here so peers can gracefully handle version mismatches
@@ -151,6 +151,7 @@ export interface SyncBundle {
   betaTesters: any[];
   betaTesterCredits: any[];
   betaTesterEnrollments: any[];  // Direct enrollments for beta testers (including Replit auth users)
+  betaTesterClasses: any[];  // v27: Teacher classes needed for beta tester enrollments
   // Beta usage (prod → dev pull)
   // v25: Added pagination support (hasMore, page) and conversations for FK satisfaction
   betaUsage?: {
@@ -702,7 +703,7 @@ class SyncBridgeService {
       }
     }
     
-    // BATCH: beta-testers - Users with isBetaTester flag, their credits, and enrollments
+    // BATCH: beta-testers - Users with isBetaTester flag, their credits, enrollments, AND the classes they need
     if (!batchType || batchType === 'beta-testers') {
       try {
         const testers = await db.select().from(users).where(eq(users.isBetaTester, true));
@@ -716,10 +717,32 @@ class SyncBridgeService {
           enrollments = await db.select().from(classEnrollments).where(inArray(classEnrollments.studentId, testerIds));
         }
         
+        // v27: Also export teacherClasses that beta testers are enrolled in OR public classes
+        // This ensures production has the classes needed for enrollments to work
+        const enrolledClassIds = [...new Set(enrollments.map(e => e.classId))];
+        let classes: any[] = [];
+        
+        // Get all public classes plus any specific enrolled classes
+        const publicClasses = await db.select().from(teacherClasses).where(
+          eq(teacherClasses.isPublicCatalogue, true)
+        );
+        const publicClassIds = new Set(publicClasses.map(c => c.id));
+        
+        // Add any non-public classes that testers are enrolled in
+        if (enrolledClassIds.length > 0) {
+          const enrolledClasses = await db.select().from(teacherClasses).where(
+            inArray(teacherClasses.id, enrolledClassIds)
+          );
+          classes = [...publicClasses, ...enrolledClasses.filter(c => !publicClassIds.has(c.id))];
+        } else {
+          classes = publicClasses;
+        }
+        
         bundle.betaTesters = testers;
         bundle.betaTesterCredits = credits;
         bundle.betaTesterEnrollments = enrollments;
-        console.log(`[SYNC-BRIDGE] beta-testers: ${testers.length} testers, ${credits.length} credits, ${enrollments.length} enrollments`);
+        bundle.betaTesterClasses = classes;
+        console.log(`[SYNC-BRIDGE] beta-testers: ${testers.length} testers, ${credits.length} credits, ${enrollments.length} enrollments, ${classes.length} classes`);
       } catch (err: any) {
         const errMsg = `beta-testers export failed: ${err.message}`;
         console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
@@ -727,6 +750,7 @@ class SyncBridgeService {
         bundle.betaTesters = [];
         bundle.betaTesterCredits = [];
         bundle.betaTesterEnrollments = [];
+        bundle.betaTesterClasses = [];
       }
     }
     
@@ -2700,7 +2724,46 @@ class SyncBridgeService {
         (insight) => this.importSynthesizedInsight(insight));
     }
     
-    // v18: Beta Testers (merge by email) + v23: Direct enrollments
+    // v18: Beta Testers (merge by email) + v23: Direct enrollments + v27: Teacher classes
+    // v27: Import classes FIRST so enrollments can reference them
+    if (bundle.betaTesterClasses?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.betaTesterClasses.length} Teacher Classes for beta testers...`);
+      let classesImported = 0;
+      for (const cls of bundle.betaTesterClasses) {
+        try {
+          const existing = await db.select().from(teacherClasses).where(eq(teacherClasses.id, cls.id)).limit(1);
+          if (existing.length === 0) {
+            await db.insert(teacherClasses).values({
+              ...cls,
+              createdAt: cls.createdAt ? new Date(cls.createdAt) : new Date(),
+              updatedAt: cls.updatedAt ? new Date(cls.updatedAt) : new Date(),
+            });
+            classesImported++;
+            console.log(`[SYNC-BRIDGE] Created class: "${cls.name}" (${cls.language})`);
+          } else {
+            // Update existing class to match dev config
+            await db.update(teacherClasses)
+              .set({
+                name: cls.name,
+                language: cls.language,
+                classLevel: cls.classLevel,
+                isPublicCatalogue: cls.isPublicCatalogue,
+                isActive: cls.isActive,
+                description: cls.description,
+                curriculumPathId: cls.curriculumPathId,
+                updatedAt: new Date(),
+              })
+              .where(eq(teacherClasses.id, cls.id));
+            console.log(`[SYNC-BRIDGE] Updated class: "${cls.name}" (${cls.language})`);
+          }
+        } catch (err: any) {
+          console.warn(`[SYNC-BRIDGE] Failed to import class ${cls.name}: ${err.message}`);
+          errors.push(`Class ${cls.name}: ${err.message}`);
+        }
+      }
+      counts['betaTesterClasses'] = classesImported;
+    }
+    
     if (bundle.betaTesters?.length) {
       console.log(`[SYNC-BRIDGE] Importing ${bundle.betaTesters.length} Beta Testers...`);
       const betaResult = await this.importBetaTesters(
