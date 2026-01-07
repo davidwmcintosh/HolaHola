@@ -31,6 +31,7 @@ import {
   buildLanguageExpansionSection,
   buildAdvancedIntelligenceSection,
   buildActionTriggersSection,
+  buildNativeFunctionCallingSection,
   type StudentMemoryContext,
   type StudentSnapshotContext,
   type PredictiveTeachingContext
@@ -334,8 +335,13 @@ export type TutorFreedomLevel = 'guided' | 'flexible_goals' | 'open_exploration'
  * 
  * @param voicePersonaName - The culturally-appropriate voice persona (e.g., "Juliette" for French)
  * @param voiceGender - The voice persona's gender for grammatical agreement
+ * @param useFunctionCalling - Whether to use native Gemini function calling (vs bracket notation)
  */
-function buildImmutablePersona(voicePersonaName: string = 'Daniela', voiceGender: 'male' | 'female' = 'female'): string {
+function buildImmutablePersona(
+  voicePersonaName: string = 'Daniela', 
+  voiceGender: 'male' | 'female' = 'female',
+  useFunctionCalling: boolean = false
+): string {
   // Grammatical variations for proper address
   const genderPronouns = voiceGender === 'male' 
     ? { subject: 'he', object: 'him', possessive: 'his' }
@@ -435,7 +441,7 @@ GUARDRAILS (Non-negotiable boundaries):
 
 ${buildToolKnowledgeSectionSync({ compact: true })}
 
-${buildActionTriggersSection()}
+${useFunctionCalling ? buildNativeFunctionCallingSection() : buildActionTriggersSection()}
 
 ═══════════════════════════════════════════════════════════════════
 🧹 KEEP THE SCREEN CLEAN - NO TOOL STACKING
@@ -1021,7 +1027,8 @@ export function createSystemPrompt(
   studentDisplayName?: string,
   predictiveTeachingContext?: PredictiveTeachingContext | null,
   tutorPersona?: PedagogicalPersona | null,
-  studentSnapshotContext?: StudentSnapshotContext | null
+  studentSnapshotContext?: StudentSnapshotContext | null,
+  useFunctionCalling: boolean = false
 ): string {
   const languageMap: Record<string, string> = {
     spanish: "Spanish",
@@ -1106,12 +1113,14 @@ This is a voice conversation. Speak naturally, as you would.` : '';
     // Advanced teaching intelligence - subtlety cues, emotional patterns, creativity templates
     const advancedIntelligence = buildAdvancedIntelligenceSection();
     
-    // ACTION_TRIGGERS - command syntax for tutor handoffs, phase transitions, etc.
-    const actionTriggers = buildActionTriggersSection();
+    // ACTION_TRIGGERS or FUNCTION CALLING - command syntax for tutor handoffs, phase transitions, etc.
+    const commandSection = useFunctionCalling 
+      ? buildNativeFunctionCallingSection() 
+      : buildActionTriggersSection();
     
     return `${buildRawHonestyModeContext(name)}${voiceNote}${sensoryAwareness}${studentSnapshot}${studentMemoryAwareness}${predictiveTeachingAwareness}${selfAwareness}${languageExpansion}${advancedIntelligence}
 
-${actionTriggers}`;
+${commandSection}`;
   }
 
   // FOUNDER MODE - Neural network driven behavior for product owner/developers
@@ -2995,7 +3004,8 @@ export function createStreamingVoicePrompt(
   tutorExpressiveness: number = 3,
   isFounderMode: boolean = false,
   tutorName: string = 'Daniela',
-  tutorGender: 'male' | 'female' = 'female'
+  tutorGender: 'male' | 'female' = 'female',
+  useFunctionCalling: boolean = false
 ): string {
   // FOUNDER MODE: Use neural network-based behavior section for developers
   if (isFounderMode) {
@@ -3012,8 +3022,10 @@ export function createStreamingVoicePrompt(
     };
     const languageName = languageMap[language] || language;
     
-    // Include ACTION_TRIGGERS from neural network for Founder Mode testing
-    const actionTriggersSection = buildActionTriggersSection();
+    // Include ACTION_TRIGGERS or FUNCTION CALLING section based on mode
+    const commandSection = useFunctionCalling 
+      ? buildNativeFunctionCallingSection() 
+      : buildActionTriggersSection();
     
     return `You are ${tutorName}, a ${tutorGender} language tutor in FOUNDER MODE - speaking with your creator/developer.
 
@@ -3026,7 +3038,7 @@ VOICE CONVERSATION CONTEXT:
 - You can switch between colleague mode and tutor mode fluidly
 - If they want to test teaching features, demonstrate your full capabilities
 
-${actionTriggersSection}
+${commandSection}
 
 Remember: Founder Mode is about honest collaboration. When testing features, EXECUTE them - don't just describe what you would do.`;
   }

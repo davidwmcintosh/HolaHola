@@ -2524,12 +2524,149 @@ export async function buildFounderModeToolSection(tutorDirectory?: Array<{name: 
 }
 
 /**
+ * Build the NATIVE FUNCTION CALLING section for Daniela's system prompt
+ * 
+ * This is the Phase 3 Gemini native function calling approach:
+ * - Uses Gemini's built-in tool calling (no regex parsing needed)
+ * - 100+ simultaneous function calls supported
+ * - Lower latency and higher reliability than text-based commands
+ * 
+ * When this section is included, Daniela uses function calls instead of [BRACKET] tags.
+ */
+export function buildNativeFunctionCallingSection(): string {
+  const lines: string[] = [];
+  
+  lines.push('═══════════════════════════════════════════════════════════════════════════════');
+  lines.push('⚡ FUNCTION TOOLS - YOUR NATIVE CAPABILITIES');
+  lines.push('═══════════════════════════════════════════════════════════════════════════════');
+  lines.push('');
+  lines.push('You have function tools available for system actions. To trigger an action,');
+  lines.push('simply call the appropriate function. Do NOT use [BRACKET] tags or JSON blocks.');
+  lines.push('');
+  lines.push('The system will automatically detect your function calls and execute them.');
+  lines.push('You can call multiple functions in a single response if needed.');
+  lines.push('');
+  lines.push('═══════════════════════════════════════════════════════════════════════════════');
+  lines.push('TEACHING & PROGRESSION:');
+  lines.push('═══════════════════════════════════════════════════════════════════════════════');
+  lines.push('');
+  lines.push('switch_tutor(target, language?, role?)');
+  lines.push('  Switch to a different voice persona or language.');
+  lines.push('  - target (required): "male" or "female"');
+  lines.push('  - language (optional): target language for cross-language handoffs');
+  lines.push('  - role (optional): "tutor" (default) or "assistant" for practice mode');
+  lines.push('  After calling, STOP SPEAKING - the new tutor takes over.');
+  lines.push('');
+  lines.push('phase_shift(to, reason)');
+  lines.push('  Transition to a different teaching phase.');
+  lines.push('  - to (required): "warmup", "active_teaching", "challenge", "reflection", "drill", or "assessment"');
+  lines.push('  - reason (required): explanation for the transition');
+  lines.push('');
+  lines.push('actfl_update(level, confidence?, reason?, direction?)');
+  lines.push('  Update student\'s ACTFL proficiency assessment.');
+  lines.push('  - level (required): ACTFL level (e.g., "Novice Mid", "Intermediate Low")');
+  lines.push('  - confidence (optional): 0-1 confidence score');
+  lines.push('  - reason (optional): evidence for the assessment');
+  lines.push('  - direction (optional): "up", "down", or "confirm"');
+  lines.push('');
+  lines.push('syllabus_progress(topic, status, evidence?)');
+  lines.push('  Track student progress on syllabus topics.');
+  lines.push('  - topic (required): syllabus topic being tracked');
+  lines.push('  - status (required): "demonstrated", "needs_review", or "struggling"');
+  lines.push('  - evidence (optional): what student did to demonstrate this');
+  lines.push('');
+  lines.push('call_support(category, reason?, priority?)');
+  lines.push('  Hand off to Sofia for technical/billing support.');
+  lines.push('  - category (required): "technical", "account", "billing", "content", "feedback", or "other"');
+  lines.push('  - reason (optional): description of the issue');
+  lines.push('  - priority (optional): "low", "normal", "high", or "critical"');
+  lines.push('  After calling, STOP SPEAKING - Sofia takes over.');
+  lines.push('');
+  lines.push('call_assistant(type, focus, items, priority?)');
+  lines.push('  Delegate drill practice to assistant tutor.');
+  lines.push('  - type (required): "repeat", "translate", "match", "fill_blank", "sentence_order", "multiple_choice", "true_false", or "conjugation"');
+  lines.push('  - focus (required): skill or topic to focus on');
+  lines.push('  - items (required): comma-separated vocabulary/phrases for the drill');
+  lines.push('  - priority (optional): "low", "medium", or "high"');
+  lines.push('');
+  lines.push('───────────────────────────────────────────────────────────────────────────────');
+  lines.push('VOICE & UI CONTROL:');
+  lines.push('───────────────────────────────────────────────────────────────────────────────');
+  lines.push('');
+  lines.push('voice_adjust(speed?, emotion?, personality?, reason?)');
+  lines.push('  Adjust your speaking voice in real-time.');
+  lines.push('  - speed (optional): "slowest", "slow", "normal", "fast", or "fastest"');
+  lines.push('  - emotion (optional): "happy", "excited", "friendly", "curious", "thoughtful", "warm", "playful", "surprised", "proud", "encouraging", "calm", or "neutral"');
+  lines.push('  - personality (optional): "warm", "calm", "energetic", or "professional"');
+  lines.push('  - reason (optional): why adjusting voice');
+  lines.push('');
+  lines.push('voice_reset(reason?)');
+  lines.push('  Reset voice to baseline settings.');
+  lines.push('  - reason (optional): why resetting voice');
+  lines.push('');
+  lines.push('subtitle(mode)');
+  lines.push('  Control subtitle display.');
+  lines.push('  - mode (required): "off", "on", or "target" (target language only)');
+  lines.push('');
+  lines.push('show_overlay(text)');
+  lines.push('  Display text overlay on screen.');
+  lines.push('  - text (required): text to display');
+  lines.push('');
+  lines.push('hide_overlay()');
+  lines.push('  Hide the text overlay. No parameters.');
+  lines.push('');
+  lines.push('request_text_input(prompt)');
+  lines.push('  Request typed input from student.');
+  lines.push('  - prompt (required): prompt to display');
+  lines.push('');
+  lines.push('clear_whiteboard()');
+  lines.push('  Clear all whiteboard content. No parameters.');
+  lines.push('');
+  lines.push('hold_whiteboard()');
+  lines.push('  Prevent whiteboard auto-clearing. No parameters.');
+  lines.push('');
+  lines.push('───────────────────────────────────────────────────────────────────────────────');
+  lines.push('MEMORY & LEARNING:');
+  lines.push('───────────────────────────────────────────────────────────────────────────────');
+  lines.push('');
+  lines.push('memory_lookup(query, domains?)');
+  lines.push('  Search neural memory for student information.');
+  lines.push('  - query (required): what to search for (name, topic, question)');
+  lines.push('  - domains (optional): comma-separated: "person", "motivation", "insight", "struggle", "session", "progress", "syllabus"');
+  lines.push('');
+  lines.push('hive_suggestion(category, title, description, reasoning?, priority?)');
+  lines.push('  Contribute insight to the hive mind.');
+  lines.push('  - category (required): "self_improvement", "content_gap", "ux_observation", "teaching_insight", "product_feature", "technical_issue", "student_pattern", or "tool_enhancement"');
+  lines.push('  - title (required): brief title');
+  lines.push('  - description (required): detailed description');
+  lines.push('  - reasoning (optional): why this matters');
+  lines.push('  - priority (optional): numeric priority 1-5');
+  lines.push('');
+  lines.push('self_surgery(target, content, reasoning, priority?, confidence?)');
+  lines.push('  Propose neural network knowledge modifications (Founder Mode only).');
+  lines.push('  - target (required): "tutor_procedures", "teaching_principles", "tool_knowledge", "situational_patterns", "language_idioms", "cultural_nuances", "learner_error_patterns", "dialect_variations", "linguistic_bridges", or "creativity_templates"');
+  lines.push('  - content (required): JSON content to add/modify');
+  lines.push('  - reasoning (required): why this modification is needed');
+  lines.push('  - priority (optional): numeric priority 1-5');
+  lines.push('  - confidence (optional): 0-1 confidence score');
+  lines.push('');
+  lines.push('═══════════════════════════════════════════════════════════════════════════════');
+  lines.push('REMEMBER: Call functions directly - don\'t describe them or use [BRACKETS]');
+  lines.push('═══════════════════════════════════════════════════════════════════════════════');
+  lines.push('');
+  
+  return lines.join('\n');
+}
+
+/**
  * Build the ACTION_TRIGGERS section for Daniela's system prompt
  * 
  * This is the Phase 1/2 hybrid solution from the Daniela-Wren collaboration:
  * - Clear, non-negotiable section for system commands
  * - Supports both JSON format (Phase 2) and bracketed syntax (Phase 1 fallback)
  * - Explicitly categorizes these as ACTION TRIGGERS, not conversational examples
+ * 
+ * NOTE: When enableFunctionCalling is true, use buildNativeFunctionCallingSection() instead.
  */
 export function buildActionTriggersSection(): string {
   const tools = getCachedToolKnowledge();
