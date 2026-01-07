@@ -987,14 +987,25 @@ class SyncBridgeService {
    * Export Beta Tester Usage Data (prod → dev pull)
    * Exports voice sessions, usage ledger entries, and cost summaries for beta testers
    * v24: Also exports conversations referenced by voice sessions to satisfy foreign keys
+   * v25: Added pagination and delta sync support to avoid timeout issues
    */
-  async exportBetaUsage(): Promise<{ 
+  async exportBetaUsage(options?: { 
+    page?: number; 
+    sinceTimestamp?: string;
+  }): Promise<{ 
     voiceSessions: any[]; 
     usageLedger: any[]; 
     costSummaries: any[];
     conversations: any[]; // v24: Required parent records for voice sessions
     exportedAt: string;
+    hasMore: boolean; // v25: Pagination indicator
+    page: number; // v25: Current page
+    totalSessions?: number; // v25: Total count for progress tracking
   }> {
+    const PAGE_SIZE = 250; // Keep batches small to avoid timeout
+    const page = options?.page || 0;
+    const sinceTimestamp = options?.sinceTimestamp ? new Date(options.sinceTimestamp) : null;
+    
     // Get beta tester user IDs
     const betaUsers = await db
       .select({ id: users.id })
@@ -1003,17 +1014,35 @@ class SyncBridgeService {
     
     if (betaUsers.length === 0) {
       console.log(`[SYNC-BRIDGE] No beta testers found for usage export`);
-      return { voiceSessions: [], usageLedger: [], costSummaries: [], conversations: [], exportedAt: new Date().toISOString() };
+      return { voiceSessions: [], usageLedger: [], costSummaries: [], conversations: [], exportedAt: new Date().toISOString(), hasMore: false, page: 0 };
     }
     
     const userIds = betaUsers.map(u => u.id);
     
-    // Get voice sessions for beta testers
+    // Build where conditions for delta sync
+    const sessionConditions = [inArray(voiceSessions.userId, userIds)];
+    if (sinceTimestamp) {
+      sessionConditions.push(gte(voiceSessions.startedAt, sinceTimestamp));
+    }
+    
+    // Get total count for progress tracking (only on first page)
+    let totalSessions: number | undefined;
+    if (page === 0) {
+      const countResult = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(voiceSessions)
+        .where(and(...sessionConditions));
+      totalSessions = countResult[0]?.count || 0;
+    }
+    
+    // Get paginated voice sessions for beta testers
     const sessions = await db
       .select()
       .from(voiceSessions)
-      .where(inArray(voiceSessions.userId, userIds))
-      .orderBy(desc(voiceSessions.startedAt));
+      .where(and(...sessionConditions))
+      .orderBy(desc(voiceSessions.startedAt))
+      .limit(PAGE_SIZE)
+      .offset(page * PAGE_SIZE);
     
     // v24: Get conversations referenced by voice sessions (to satisfy foreign keys)
     const conversationIds = [...new Set(sessions.map(s => s.conversationId).filter(Boolean))];
@@ -1039,28 +1068,47 @@ class SyncBridgeService {
         .where(inArray(conversations.id, conversationIds));
     }
     
-    // Get usage ledger entries (credits consumed/earned)
-    const ledgerEntries = await db
-      .select()
-      .from(usageLedger)
-      .where(inArray(usageLedger.userId, userIds))
-      .orderBy(desc(usageLedger.createdAt));
+    // Get usage ledger entries - only on first page (not paginated separately)
+    // This keeps ledger synced with sessions for consistency
+    let ledgerEntries: any[] = [];
+    let costSummaryEntries: any[] = [];
+    if (page === 0) {
+      const ledgerConditions = [inArray(usageLedger.userId, userIds)];
+      if (sinceTimestamp) {
+        ledgerConditions.push(gte(usageLedger.createdAt, sinceTimestamp));
+      }
+      
+      ledgerEntries = await db
+        .select()
+        .from(usageLedger)
+        .where(and(...ledgerConditions))
+        .orderBy(desc(usageLedger.createdAt));
+      
+      // Get cost summaries (same delta filter)
+      const costConditions = [inArray(sessionCostSummary.userId, userIds)];
+      if (sinceTimestamp) {
+        costConditions.push(gte(sessionCostSummary.createdAt, sinceTimestamp));
+      }
+      
+      costSummaryEntries = await db
+        .select()
+        .from(sessionCostSummary)
+        .where(and(...costConditions))
+        .orderBy(desc(sessionCostSummary.createdAt));
+    }
     
-    // Get cost summaries
-    const costSummaryEntries = await db
-      .select()
-      .from(sessionCostSummary)
-      .where(inArray(sessionCostSummary.userId, userIds))
-      .orderBy(desc(sessionCostSummary.createdAt));
-    
-    console.log(`[SYNC-BRIDGE] Exporting beta usage: ${sessions.length} sessions, ${ledgerEntries.length} ledger, ${referencedConversations.length} conversations`);
+    const hasMore = sessions.length === PAGE_SIZE;
+    console.log(`[SYNC-BRIDGE v25] Exporting beta usage page ${page}: ${sessions.length} sessions, ${ledgerEntries.length} ledger, ${referencedConversations.length} conversations${sinceTimestamp ? ` (since ${sinceTimestamp.toISOString()})` : ''}${hasMore ? ' [MORE]' : ' [DONE]'}`);
     
     return { 
       voiceSessions: sessions, 
       usageLedger: ledgerEntries, 
       costSummaries: costSummaryEntries,
       conversations: referencedConversations,
-      exportedAt: new Date().toISOString()
+      exportedAt: new Date().toISOString(),
+      hasMore,
+      page,
+      totalSessions
     };
   }
   
