@@ -705,6 +705,74 @@ export default function SyncControlCenter() {
                 </CardContent>
               </Card>
 
+              {/* Sync Verification Results */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2">
+                    <CheckCircle2 className="h-5 w-5" />
+                    Sync Verification
+                  </CardTitle>
+                  <CardDescription>
+                    Post-sync verification - confirms data arrived at peer
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {verificationsLoading ? (
+                    <Skeleton className="h-32" />
+                  ) : verifications && verifications.verifications.length > 0 ? (
+                    <div className="space-y-3">
+                      {verifications.verifications.slice(0, 5).map((v, i) => (
+                        <div 
+                          key={`${v.batchType}-${i}`} 
+                          className={`p-3 rounded-lg border ${v.success ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'}`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              {v.success ? (
+                                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                              ) : (
+                                <XCircle className="h-4 w-4 text-red-500" />
+                              )}
+                              <span className="font-medium text-sm">{v.batchType}</span>
+                            </div>
+                            <span className="text-xs text-muted-foreground">
+                              {formatDate(v.verifiedAt)}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                              <span className="text-muted-foreground">Sent:</span>
+                              <span className="ml-1 font-mono">
+                                {Object.entries(v.expectedCounts).map(([k, c]) => `${k}:${c}`).join(', ')}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Peer has:</span>
+                              <span className="ml-1 font-mono">
+                                {Object.entries(v.peerCounts).map(([k, c]) => `${k}:${c}`).join(', ')}
+                              </span>
+                            </div>
+                          </div>
+                          {v.discrepancies.length > 0 && (
+                            <div className="mt-2 text-xs">
+                              {v.discrepancies.map((d, j) => (
+                                <p key={j} className={v.success ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
+                                  {d}
+                                </p>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No verification results yet. Run a sync with beta-testers batch to see verification.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
               {/* Sync Approval Queue - Items waiting to be approved for sync */}
               <Card>
                 <CardHeader className="pb-3">
