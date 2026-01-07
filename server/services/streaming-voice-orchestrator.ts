@@ -2364,9 +2364,22 @@ Remember: David may reference things discussed in these recent text chats.
                 }
                 // === UI CONTROL COMMANDS ===
                 case 'SUBTITLE': {
-                  // Toggle subtitle mode: off/on/target
+                  // Toggle subtitle mode: off/on/target OR show custom text
                   const mode = (cmd.params.mode as string)?.toLowerCase();
-                  if (mode && ['off', 'on', 'target'].includes(mode)) {
+                  const customText = cmd.params.text as string | undefined;
+                  
+                  if (mode === 'custom' && customText) {
+                    // Custom mode: Display specific text without speaking it
+                    console.log(`[CommandParser→Subtitle] Custom text: "${customText.substring(0, 50)}..." via ${cmd.source}`);
+                    if (session.ws.readyState === 1) {
+                      session.ws.send(JSON.stringify({
+                        type: 'custom_subtitle_display',
+                        text: customText,
+                        spoken: false,
+                        timestamp: Date.now(),
+                      }));
+                    }
+                  } else if (mode && ['off', 'on', 'target'].includes(mode)) {
                     const validMode = mode === 'on' ? 'all' : mode as 'off' | 'all' | 'target';
                     session.subtitleMode = validMode;
                     console.log(`[CommandParser→Subtitle] Mode changed to: ${validMode} via ${cmd.source} format`);
@@ -3580,13 +3593,25 @@ Remember: David may reference things discussed in these recent text chats.
               }
               case 'SUBTITLE': {
                 const mode = (cmd.params.mode as string)?.toLowerCase();
-                if (mode && ['off', 'on', 'target'].includes(mode)) {
+                const customText = cmd.params.text as string | undefined;
+                
+                if (mode === 'custom' && customText) {
+                  console.log(`[CommandParser→Subtitle - OpenMic] Custom: "${customText.substring(0, 50)}..."`);
+                  if (session.ws.readyState === 1) {
+                    session.ws.send(JSON.stringify({
+                      type: 'custom_subtitle_display',
+                      text: customText,
+                      spoken: false,
+                      timestamp: Date.now(),
+                    }));
+                  }
+                } else if (mode && ['off', 'on', 'target'].includes(mode)) {
                   const validMode = mode === 'on' ? 'all' : mode as 'off' | 'all' | 'target';
                   session.subtitleMode = validMode;
                   console.log(`[CommandParser→Subtitle - OpenMic] Mode: ${validMode}`);
                   
                   // Send WebSocket message to client to update UI subtitle setting
-                  if (session.ws.readyState === 1) {  // WebSocket.OPEN = 1
+                  if (session.ws.readyState === 1) {
                     session.ws.send(JSON.stringify({
                       type: 'subtitle_mode_change',
                       mode: validMode,
@@ -8113,15 +8138,31 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       }
       
       case 'SUBTITLE': {
-        // Toggle subtitle mode: off/on/target - mirrors legacy command parser exactly
+        // Toggle subtitle mode: off/on/target OR show custom text (not spoken)
         const mode = (fn.args.mode as string)?.toLowerCase();
-        if (mode && ['off', 'on', 'target'].includes(mode)) {
+        const customText = fn.args.text as string | undefined;
+        
+        if (mode === 'custom' && customText) {
+          // Custom mode: Display specific text without speaking it
+          console.log(`[Native Function→Subtitle] Custom text display: "${customText.substring(0, 50)}..."`);
+          
+          // Send custom subtitle text to client (shown-only, not spoken)
+          if (session.ws.readyState === 1) {
+            session.ws.send(JSON.stringify({
+              type: 'custom_subtitle_display',
+              text: customText,
+              spoken: false,  // Not spoken, just displayed
+              timestamp: Date.now(),
+            }));
+          }
+        } else if (mode && ['off', 'on', 'target'].includes(mode)) {
+          // Standard mode toggle: off/on/target
           const validMode = mode === 'on' ? 'all' : mode as 'off' | 'all' | 'target';
           session.subtitleMode = validMode;
           console.log(`[Native Function→Subtitle] Mode changed to: ${validMode}`);
           
           // Send WebSocket message to client to update UI subtitle setting
-          if (session.ws.readyState === 1) {  // WebSocket.OPEN = 1
+          if (session.ws.readyState === 1) {
             session.ws.send(JSON.stringify({
               type: 'subtitle_mode_change',
               mode: validMode,  // 'off' | 'all' | 'target'
