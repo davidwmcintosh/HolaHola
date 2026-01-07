@@ -1885,6 +1885,9 @@ class SyncBridgeService {
     let messagesImported = 0;
     const errors: string[] = [];
     
+    // Track valid conversation IDs (both imported and pre-existing)
+    const validConversationIds = new Set<string>();
+    
     // Get founder user in this environment
     const FOUNDER_EMAIL = process.env.FOUNDER_EMAIL || 'davidwmcintosh@gmail.com';
     const founderUser = await db
@@ -1913,6 +1916,7 @@ class SyncBridgeService {
         if (existing.length === 0) {
           // Insert new conversation, mapping userId to local founder
           await db.insert(conversations).values({
+            id: conv.id, // Preserve original ID for cross-environment FK satisfaction
             userId: founderId, // Map to local founder
             language: conv.language,
             nativeLanguage: conv.nativeLanguage || 'english',
@@ -1923,11 +1927,14 @@ class SyncBridgeService {
             actflLevel: conv.actflLevel,
             messageCount: conv.messageCount || 0,
             duration: conv.duration || conv.durationSeconds || 0,
-            classId: conv.classId,
+            classId: null, // Null out classId to avoid FK errors
             createdAt: conv.createdAt ? new Date(conv.createdAt) : new Date(),
           });
+          validConversationIds.add(conv.id);
           conversationsImported++;
         } else {
+          // Conversation already exists - it's valid for message import
+          validConversationIds.add(conv.id);
           // Update title if available
           if (conv.title || conv.summary) {
             await db
@@ -1940,13 +1947,22 @@ class SyncBridgeService {
           }
         }
       } catch (err: any) {
+        // Don't add to validConversationIds if insert failed
         errors.push(`Conversation ${conv.id}: ${err.message}`);
       }
     }
     
-    // Import messages (upsert by id)
-    // Note: Using columns that exist in current schema
+    console.log(`[SYNC-BRIDGE] ${validConversationIds.size} valid conversation IDs for message import`);
+    
+    // Import messages only for valid conversations (prevents FK errors)
+    let skippedOrphanMessages = 0;
     for (const msg of data.messages || []) {
+      // Skip messages for conversations that don't exist
+      if (!validConversationIds.has(msg.conversationId)) {
+        skippedOrphanMessages++;
+        continue;
+      }
+      
       try {
         const existing = await db
           .select({ id: messages.id })
@@ -1956,6 +1972,7 @@ class SyncBridgeService {
         
         if (existing.length === 0) {
           await db.insert(messages).values({
+            id: msg.id, // Preserve original ID
             conversationId: msg.conversationId,
             role: msg.role,
             content: msg.content,
@@ -1974,7 +1991,7 @@ class SyncBridgeService {
       }
     }
     
-    console.log(`[SYNC-BRIDGE] Imported ${conversationsImported} conversations, ${messagesImported} messages for founder continuity (${errors.length} errors)`);
+    console.log(`[SYNC-BRIDGE] Imported ${conversationsImported} conversations, ${messagesImported} messages for founder continuity (${skippedOrphanMessages} orphan messages skipped, ${errors.length} errors)`);
     return { conversations: conversationsImported, messages: messagesImported, errors };
   }
   
