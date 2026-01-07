@@ -8232,6 +8232,55 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         break;
       }
       
+      case 'SHOW_IMAGE': {
+        const word = fn.args.word as string;
+        const description = fn.args.description as string | undefined;
+        const context = fn.args.context as string | undefined;
+        
+        if (!word) {
+          console.warn(`[Native Function→ShowImage] Missing word parameter`);
+          break;
+        }
+        
+        console.log(`[Native Function→ShowImage] Resolving image for "${word}" (${description || 'no description'})`);
+        
+        // Resolve image using the vocabulary image resolver
+        // This is async but we don't want to block the stream, so fire and send when ready
+        import('../services/vocabulary-image-resolver').then(async ({ resolveVocabularyImage }) => {
+          try {
+            const result = await resolveVocabularyImage({
+              word,
+              language: session.language || 'spanish',
+              description: description || word,
+              conversationId: session.conversationId?.toString(),
+              userId: session.userId?.toString(),
+            });
+            
+            console.log(`[Native Function→ShowImage] Resolved: ${result.source} for "${word}"`);
+            
+            // Send image to whiteboard
+            this.sendMessage(session.ws, {
+              type: 'whiteboard_update',
+              timestamp: Date.now(),
+              items: [{
+                type: 'image',
+                content: word,
+                data: {
+                  word: result.word,
+                  description: result.description,
+                  imageUrl: result.imageUrl,
+                  context: context,
+                  source: result.source,
+                },
+              }],
+            });
+          } catch (err: any) {
+            console.error(`[Native Function→ShowImage] Error resolving image:`, err.message);
+          }
+        });
+        break;
+      }
+      
       case 'TEXT_INPUT': {
         const prompt = fn.args.prompt as string | undefined;
         this.sendMessage(session.ws, {

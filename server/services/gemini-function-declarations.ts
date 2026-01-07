@@ -191,6 +191,19 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
       required: [],
     },
   },
+  {
+    name: "show_image",
+    description: "Display an image on the whiteboard for vocabulary or cultural teaching. Fetches stock photos or generates AI images for words, concepts, places, food, objects, etc.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        word: { type: "string", description: "The vocabulary word or concept to show (e.g., 'manzana', 'mercado', 'paella')" },
+        description: { type: "string", description: "Brief description to help find the right image (e.g., 'red apple fruit', 'Mexican street market', 'Spanish rice dish')" },
+        context: { type: "string", description: "Optional teaching context (e.g., 'food vocabulary', 'cultural landmark')" },
+      },
+      required: ["word"],
+    },
+  },
 
   // === MEMORY ===
   {
@@ -268,6 +281,7 @@ export const FUNCTION_TO_COMMAND_MAP: Record<string, string> = {
   'subtitle': 'SUBTITLE',
   'show_overlay': 'SHOW',
   'hide_overlay': 'HIDE',
+  'show_image': 'SHOW_IMAGE',
   'request_text_input': 'TEXT_INPUT',
   'clear_whiteboard': 'CLEAR',
   'hold_whiteboard': 'HOLD',
