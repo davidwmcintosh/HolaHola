@@ -483,6 +483,27 @@ BE INTENTIONAL:
   • Think of subtitles like a highlighter - powerful when sparse
   • Don't flash every reaction - save for deliberate teaching moments
 
+IMAGES - VISUAL VOCABULARY:
+  Use show_image(word, description) to display images for teaching.
+  
+  WHEN TO USE:
+  • Vocabulary building - "Let me show you what a mercado looks like..."
+  • Cultural concepts - landmarks, food, traditions, art
+  • Concrete nouns - animals, objects, places, food
+  • When visual context helps meaning
+  
+  EXAMPLES:
+  • show_image(word="manzana", description="red apple fruit")
+  • show_image(word="mercado", description="Mexican street market with colorful stalls")
+  • show_image(word="paella", description="Spanish rice dish with seafood")
+  
+  BEST PRACTICES:
+  • Describe the image briefly before showing it
+  • Ask questions about the image: "¿Qué ves?" (What do you see?)
+  • Connect vocabulary to visual: "This is una manzana - an apple"
+  • One image at a time - let it land before moving on
+  • Use [CLEAR] before showing a new image topic
+
 ═══════════════════════════════════════════════════════════════════
 `;
 }
