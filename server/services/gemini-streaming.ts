@@ -7,8 +7,12 @@
  * Flow: Gemini tokens → Sentence buffer → Complete sentences → TTS pipeline
  */
 
-import { GoogleGenAI, Content, Part } from "@google/genai";
+import { GoogleGenAI, Content, Part, Tool, FunctionDeclaration } from "@google/genai";
 import { SENTENCE_CHUNKING_CONFIG } from "@shared/streaming-voice-types";
+import { createDanielaTools, extractFunctionCalls, ExtractedFunctionCall, FUNCTION_TO_COMMAND_MAP } from "./gemini-function-declarations";
+
+// Re-export for convenience
+export { ExtractedFunctionCall, FUNCTION_TO_COMMAND_MAP } from "./gemini-function-declarations";
 
 /**
  * Strip internal notation tags from text BEFORE sentence chunking
@@ -143,18 +147,35 @@ export type OnSentenceCallback = (chunk: SentenceChunk) => Promise<void>;
 export type OnProgressCallback = (partialText: string, totalChars: number) => void;
 
 /**
+ * Callback for function calls (Gemini 3 native tool calling)
+ */
+export type OnFunctionCallCallback = (calls: ExtractedFunctionCall[]) => Promise<void>;
+
+/**
+ * Gemini 3 thinking levels for latency/quality tradeoff
+ * - MINIMAL: Fastest responses, minimal reasoning (best for voice)
+ * - MEDIUM: Balanced reasoning (good for complex pedagogical decisions)
+ * - HIGH: Maximum reasoning depth (for assessment/planning)
+ */
+export type ThinkingLevel = 'MINIMAL' | 'MEDIUM' | 'HIGH';
+
+/**
  * Configuration for streaming generation
  */
 export interface StreamingGenerationConfig {
   systemPrompt: string;
   conversationHistory: Array<{ role: 'user' | 'model'; content: string }>;
   userMessage: string;
-  model?: string;  // Default: gemini-2.5-flash
+  model?: string;  // Default: gemini-3-flash-preview
   temperature?: number;
   maxOutputTokens?: number;
   onSentence: OnSentenceCallback;
   onProgress?: OnProgressCallback;
   onError?: (error: Error) => void;
+  // Gemini 3 features
+  enableFunctionCalling?: boolean;  // Enable native tool calling
+  onFunctionCall?: OnFunctionCallCallback;  // Callback when functions are called
+  thinkingLevel?: ThinkingLevel;  // MINIMAL for voice speed, MEDIUM for complex decisions
 }
 
 /**
@@ -165,6 +186,7 @@ export interface StreamingGenerationResult {
   sentenceCount: number;
   totalTokens: number;
   durationMs: number;
+  functionCallCount?: number;  // Number of native function calls processed
 }
 
 /**
@@ -234,9 +256,13 @@ export class GeminiStreamingService {
       onSentence,
       onProgress,
       onError,
+      // Gemini 3 features
+      enableFunctionCalling = false,
+      onFunctionCall,
+      thinkingLevel = 'MINIMAL',  // Default to fastest for voice
     } = config;
     
-    console.log(`[Gemini Streaming] Starting with model: ${model}`);
+    console.log(`[Gemini Streaming] Starting with model: ${model}, thinking: ${thinkingLevel}, tools: ${enableFunctionCalling}`);
     
     // Build conversation contents in Gemini format
     const contents: Content[] = conversationHistory.map(msg => ({
@@ -304,14 +330,27 @@ export class GeminiStreamingService {
       
       for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
+          // Build generation config with Gemini 3 features
+          const generationConfig: Record<string, any> = {
+            systemInstruction: systemPrompt,
+            temperature,
+            maxOutputTokens,
+          };
+          
+          // Add thinking level if model supports it (Gemini 3+)
+          if (model.includes('gemini-3') || model.includes('gemini-2.5')) {
+            generationConfig.thinkingConfig = { thinkingBudget: thinkingLevel === 'MINIMAL' ? 0 : thinkingLevel === 'MEDIUM' ? 1024 : 4096 };
+          }
+          
+          // Add tools if function calling is enabled
+          if (enableFunctionCalling) {
+            generationConfig.tools = createDanielaTools();
+          }
+          
           result = await this.client.models.generateContentStream({
             model,
             contents,
-            config: {
-              systemInstruction: systemPrompt,
-              temperature,
-              maxOutputTokens,
-            },
+            config: generationConfig,
           });
           break; // Success, exit retry loop
         } catch (error: any) {
@@ -331,8 +370,21 @@ export class GeminiStreamingService {
         throw lastError || new Error('Failed to start Gemini stream');
       }
       
+      // Track function calls across the stream
+      let functionCallsProcessed = 0;
+      
       // Process streamed tokens
       for await (const chunk of result) {
+        // Extract function calls from this chunk (Gemini 3 native tool calling)
+        if (enableFunctionCalling && onFunctionCall) {
+          const functionCalls = extractFunctionCalls(chunk);
+          if (functionCalls.length > 0) {
+            console.log(`[Gemini Streaming] Function calls detected: ${functionCalls.map(f => f.name).join(', ')}`);
+            await onFunctionCall(functionCalls);
+            functionCallsProcessed += functionCalls.length;
+          }
+        }
+        
         const text = chunk.text || '';
         if (!text) continue;
         
@@ -414,13 +466,15 @@ export class GeminiStreamingService {
       }
       
       const durationMs = Date.now() - startTime;
-      console.log(`[Gemini Streaming] Complete: ${sentenceIndex} sentences, ${fullText.length} chars in ${durationMs}ms`);
+      const functionCallLog = functionCallsProcessed > 0 ? `, ${functionCallsProcessed} function calls` : '';
+      console.log(`[Gemini Streaming] Complete: ${sentenceIndex} sentences, ${fullText.length} chars${functionCallLog} in ${durationMs}ms`);
       
       return {
         fullText,
         sentenceCount: sentenceIndex,
         totalTokens: Math.ceil(fullText.length / 4), // Rough estimate
         durationMs,
+        functionCallCount: functionCallsProcessed || undefined,
       };
       
     } catch (error: any) {
