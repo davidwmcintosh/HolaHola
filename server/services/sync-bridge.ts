@@ -3295,20 +3295,79 @@ class SyncBridgeService {
       }
       
       // BATCH 2b: TriLane + North Star (split for timeout fix)
+      // v27: Paginated push with delta sync - mirrors the pull logic
       if (shouldRun('advanced-intel-b')) {
         attemptedBatches.push('advanced-intel-b');
-        console.log('[SYNC-BRIDGE] Batch 2b: Advanced intelligence (part B)...');
-        const advancedBundleB: Partial<SyncBundle> = {
+        console.log('[SYNC-BRIDGE v27] Batch 2b: Advanced intelligence (part B) with pagination...');
+        
+        // First, send North Star data (small, non-paginated)
+        const northStarBundle: Partial<SyncBundle> = {
           generatedAt: new Date().toISOString(),
           sourceEnvironment: CURRENT_ENVIRONMENT,
-          ...await neuralNetworkSync.exportTriLaneObservations(),
           ...await neuralNetworkSync.exportNorthStar(),
         };
-        const batch2b = await this.sendBatch(peerUrl, 'advanced-intel-b', advancedBundleB);
-        Object.assign(allCounts, batch2b.counts);
-        allErrors.push(...batch2b.errors);
-        if (batch2b.success) completedBatches.push('advanced-intel-b');
-        else overallSuccess = false;
+        const northStarResult = await this.sendBatch(peerUrl, 'advanced-intel-b-northstar', northStarBundle);
+        Object.assign(allCounts, northStarResult.counts);
+        allErrors.push(...northStarResult.errors);
+        if (!northStarResult.success) overallSuccess = false;
+        
+        // Now paginated observations with delta sync
+        const lastPushTime = await this.getLastSuccessfulPushTime();
+        console.log(`[SYNC-BRIDGE v27] Observations delta push since: ${lastPushTime?.toISOString() || 'never (full sync)'}`);
+        
+        let page = 0;
+        let hasMore = true;
+        const MAX_PAGES = 2000;
+        let observationsPushed = 0;
+        
+        while (hasMore && page < MAX_PAGES) {
+          console.log(`[SYNC-BRIDGE v27] Pushing observations page ${page}${lastPushTime ? ' (delta)' : ''}...`);
+          
+          const triLane = await neuralNetworkSync.exportTriLaneObservations({ 
+            page, 
+            sinceTimestamp: lastPushTime || undefined 
+          });
+          
+          // Combine agent + support observations into the 'observations' property (matches SyncBundle schema)
+          const pageBundle: Partial<SyncBundle> = {
+            generatedAt: new Date().toISOString(),
+            sourceEnvironment: CURRENT_ENVIRONMENT,
+            observations: [
+              ...(Array.isArray(triLane?.agentObservations) ? triLane.agentObservations : []),
+              ...(Array.isArray(triLane?.supportObservations) ? triLane.supportObservations : [])
+            ],
+            alerts: Array.isArray(triLane?.systemAlerts) ? triLane.systemAlerts : [],
+            observationsPagination: triLane?.pagination || null,
+          };
+          
+          const pageResult = await this.sendBatch(peerUrl, `advanced-intel-b-p${page}`, pageBundle, 60000);
+          
+          if (!pageResult.success) {
+            allErrors.push(...pageResult.errors);
+            overallSuccess = false;
+            hasMore = false;
+            break;
+          }
+          
+          Object.assign(allCounts, pageResult.counts);
+          observationsPushed += (triLane?.agentObservations?.length || 0) + 
+                               (triLane?.supportObservations?.length || 0);
+          
+          hasMore = triLane.pagination?.hasMore ?? false;
+          page++;
+          
+          console.log(`[SYNC-BRIDGE v27] Page ${page - 1} pushed (${observationsPushed} total). hasMore=${hasMore}`);
+        }
+        
+        if (page >= MAX_PAGES) {
+          console.warn(`[SYNC-BRIDGE v27] Hit MAX_PAGES limit (${MAX_PAGES}) for observations push`);
+        }
+        
+        // Mark batch complete only if all pages succeeded
+        if (!allErrors.some(e => e.includes('advanced-intel-b'))) {
+          completedBatches.push('advanced-intel-b');
+          console.log(`[SYNC-BRIDGE v27] advanced-intel-b push complete: ${observationsPushed} observations in ${page} pages`);
+        }
       }
       
       // BATCH 3: Express Lane data (can be large)
