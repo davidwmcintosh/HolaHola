@@ -227,9 +227,12 @@ const PUSH_BATCHES = [
 // Available sync batch types for pulling from prod (prod → dev)
 const PULL_BATCHES = [
   { id: 'hive-snapshots', label: 'Hive Snapshots', description: 'Voice diagnostics, context snapshots' },
+  { id: 'beta-testers', label: 'Beta Testers', description: 'Beta users + credits from prod' },
   { id: 'beta-usage', label: 'Beta Usage', description: 'Voice sessions, credits consumed' },
   { id: 'aggregate-analytics', label: 'Analytics', description: 'Anonymized usage stats' },
   { id: 'prod-content-growth', label: 'Daniela Content', description: 'Idioms, nuances, error patterns' },
+  { id: 'prod-conversations', label: 'Prod Conversations', description: 'Recent conversations for troubleshooting' },
+  { id: 'sofia-telemetry', label: 'Sofia Telemetry', description: 'Runtime faults and issue reports' },
   { id: 'founder-context', label: 'Founder Context', description: 'Your personal facts (same Daniela)' },
 ];
 
