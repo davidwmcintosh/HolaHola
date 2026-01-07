@@ -2216,14 +2216,27 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
     } as SelfSurgeryItem);
   }
 
-  // Parse SUBTITLE control tags: [SUBTITLE off/on/target]
+  // Parse SUBTITLE control tags: [SUBTITLE off/on/target] or [SUBTITLE_TARGET] / [SUBTITLE_OFF]
   // Controls regular subtitle display (what Daniela is saying)
   let subtitleMode: SubtitleMode | undefined = undefined;
-  WHITEBOARD_PATTERNS.SUBTITLE.lastIndex = 0;
-  const subtitleMatch = WHITEBOARD_PATTERNS.SUBTITLE.exec(text);
-  if (subtitleMatch) {
-    subtitleMode = subtitleMatch[1].toLowerCase() as SubtitleMode;
+  
+  // Check for new simplified toggle tags first (higher priority)
+  WHITEBOARD_PATTERNS.SUBTITLE_TARGET.lastIndex = 0;
+  WHITEBOARD_PATTERNS.SUBTITLE_OFF.lastIndex = 0;
+  if (WHITEBOARD_PATTERNS.SUBTITLE_TARGET.test(text)) {
+    subtitleMode = 'target';
+  } else if (WHITEBOARD_PATTERNS.SUBTITLE_OFF.test(text)) {
+    subtitleMode = 'off';
+  } else {
+    // Fall back to legacy [SUBTITLE mode] format
+    WHITEBOARD_PATTERNS.SUBTITLE.lastIndex = 0;
+    const subtitleMatch = WHITEBOARD_PATTERNS.SUBTITLE.exec(text);
+    if (subtitleMatch) {
+      subtitleMode = subtitleMatch[1].toLowerCase() as SubtitleMode;
+    }
   }
+  WHITEBOARD_PATTERNS.SUBTITLE_TARGET.lastIndex = 0;
+  WHITEBOARD_PATTERNS.SUBTITLE_OFF.lastIndex = 0;
 
   // Parse SHOW for custom overlay display: [SHOW: text]
   // Independent from regular subtitles - for teaching moments
@@ -2234,12 +2247,21 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
     customOverlayText = showMatch[1].trim();
   }
   
-  // Also check legacy SUBTITLE_TEXT pattern for backwards compatibility
+  // Check for SUBTITLE_TEXT paired tags (spoken + shown, timing synced): [SUBTITLE_TEXT]phrase[/SUBTITLE_TEXT]
   if (!customOverlayText) {
     WHITEBOARD_PATTERNS.SUBTITLE_TEXT.lastIndex = 0;
     const subtitleTextMatch = WHITEBOARD_PATTERNS.SUBTITLE_TEXT.exec(text);
     if (subtitleTextMatch) {
       customOverlayText = subtitleTextMatch[1].trim();
+    }
+  }
+  
+  // Also check legacy colon format for backwards compatibility: [SUBTITLE_TEXT: phrase]
+  if (!customOverlayText) {
+    WHITEBOARD_PATTERNS.SUBTITLE_TEXT_LEGACY.lastIndex = 0;
+    const subtitleTextLegacyMatch = WHITEBOARD_PATTERNS.SUBTITLE_TEXT_LEGACY.exec(text);
+    if (subtitleTextLegacyMatch) {
+      customOverlayText = subtitleTextLegacyMatch[1].trim();
     }
   }
 

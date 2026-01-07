@@ -132,11 +132,12 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   // === UI CONTROL ===
   {
     name: "subtitle",
-    description: "Control subtitle display for the student. Turn on for visual reinforcement, off for listening focus.",
+    description: "Control subtitle display for the student. Use 'on'/'off'/'target' for toggle modes, or 'custom' to display specific text without speaking it.",
     parametersJsonSchema: {
       type: "object",
       properties: {
-        mode: { type: "string", enum: ["off", "on", "target"], description: "Subtitle mode: off=none, on=all languages, target=target language only" },
+        mode: { type: "string", enum: ["off", "on", "target", "custom"], description: "Subtitle mode: off=none, on=all languages, target=target language only, custom=display specific text" },
+        text: { type: "string", description: "Text to display when mode is 'custom'. Ignored for other modes." },
       },
       required: ["mode"],
     },
