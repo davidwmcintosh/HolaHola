@@ -120,6 +120,18 @@ interface SyncHealth {
   queriedAt: string;
 }
 
+interface PendingSyncTable {
+  tableName: string;
+  displayName: string;
+  localCount: number;
+  approvedCount: number;
+}
+
+interface PendingSyncData {
+  tables: PendingSyncTable[];
+  totalPending: number;
+}
+
 function formatDuration(ms?: number): string {
   if (!ms) return '-';
   if (ms < 1000) return `${ms}ms`;
@@ -257,6 +269,11 @@ export default function SyncControlCenter() {
     retry: false,
   });
 
+  const { data: pendingSync, isLoading: pendingSyncLoading, refetch: refetchPendingSync } = useQuery<PendingSyncData>({
+    queryKey: ["/api/admin/sync/pending"],
+    retry: false,
+  });
+
   const { data: peerSyncRuns, isLoading: peerSyncRunsLoading, refetch: refetchPeerSyncRuns } = useQuery<PeerSyncRunsResponse>({
     queryKey: ["/api/sync/peer-sync-runs"],
     retry: false,
@@ -369,9 +386,21 @@ export default function SyncControlCenter() {
     }
   });
 
+  const approveMutation = useMutation({
+    mutationFn: (tableName: string) => apiRequest("POST", "/api/admin/sync/approve", { tableName }),
+    onSuccess: (data: any) => {
+      const count = data.count || data.total || 0;
+      toast({ title: "Items Approved", description: `${count} items approved for sync` });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/sync/pending"] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Approval Failed", description: err.message, variant: "destructive" });
+    }
+  });
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await Promise.all([refetchStatus(), refetchHistory(), refetchPeerStats(), refetchLocalStats(), refetchCapabilities(), refetchPeerSyncRuns(), refetchSyncHealth()]);
+    await Promise.all([refetchStatus(), refetchHistory(), refetchPeerStats(), refetchLocalStats(), refetchCapabilities(), refetchPeerSyncRuns(), refetchSyncHealth(), refetchPendingSync()]);
     setIsRefreshing(false);
   };
 
@@ -653,6 +682,78 @@ export default function SyncControlCenter() {
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground">Unable to load sync health data</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Sync Approval Queue - Items waiting to be approved for sync */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2">
+                    <Clock className="h-5 w-5" />
+                    Sync Approval Queue
+                  </CardTitle>
+                  <CardDescription>
+                    Neural network items pending approval before they can sync
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {pendingSyncLoading ? (
+                    <Skeleton className="h-32" />
+                  ) : pendingSync ? (
+                    <div className="space-y-3">
+                      {pendingSync.totalPending === 0 ? (
+                        <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                          <CheckCircle2 className="h-4 w-4" />
+                          <span className="text-sm">All items approved - nothing pending</span>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-center justify-between mb-3">
+                            <Badge className="bg-yellow-500 text-white">
+                              {pendingSync.totalPending} items pending
+                            </Badge>
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => approveMutation.mutate('all')}
+                              disabled={approveMutation.isPending}
+                              data-testid="button-approve-all"
+                            >
+                              {approveMutation.isPending ? 'Approving...' : 'Approve All'}
+                            </Button>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            {pendingSync.tables.filter(t => t.localCount > 0).map(table => (
+                              <div key={table.tableName} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
+                                <div>
+                                  <span className="font-medium text-sm">{table.displayName}</span>
+                                  <div className="text-xs text-muted-foreground">
+                                    {table.localCount} pending | {table.approvedCount} approved
+                                  </div>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => approveMutation.mutate(table.tableName)}
+                                  disabled={approveMutation.isPending}
+                                  data-testid={`button-approve-${table.tableName}`}
+                                >
+                                  Approve
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                      
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Items with syncStatus="local" are created here but not yet synced. Approve to mark them for next sync.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Unable to load pending sync data</p>
                   )}
                 </CardContent>
               </Card>

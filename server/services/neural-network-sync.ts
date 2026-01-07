@@ -3166,6 +3166,143 @@ export class NeuralNetworkSyncService {
       .orderBy(desc(wrenInsights.createdAt))
       .limit(50);
   }
+
+  /**
+   * Get counts of items pending sync approval (syncStatus = 'local') across all neural network tables
+   */
+  async getPendingSyncCounts(): Promise<{
+    tables: Array<{
+      tableName: string;
+      displayName: string;
+      localCount: number;
+      approvedCount: number;
+    }>;
+    totalPending: number;
+  }> {
+    try {
+      const [
+        situationalLocal, situationalApproved,
+        principlesLocal, principlesApproved,
+        cuesLocal, cuesApproved,
+        emotionsLocal, emotionsApproved,
+        creativityLocal, creativityApproved,
+      ] = await Promise.all([
+        db.select({ count: sql<number>`count(*)::int` }).from(situationalPatterns).where(eq(situationalPatterns.syncStatus, 'local')),
+        db.select({ count: sql<number>`count(*)::int` }).from(situationalPatterns).where(eq(situationalPatterns.syncStatus, 'approved')),
+        db.select({ count: sql<number>`count(*)::int` }).from(teachingPrinciples).where(eq(teachingPrinciples.syncStatus, 'local')),
+        db.select({ count: sql<number>`count(*)::int` }).from(teachingPrinciples).where(eq(teachingPrinciples.syncStatus, 'approved')),
+        db.select({ count: sql<number>`count(*)::int` }).from(subtletyCues).where(eq(subtletyCues.syncStatus, 'local')),
+        db.select({ count: sql<number>`count(*)::int` }).from(subtletyCues).where(eq(subtletyCues.syncStatus, 'approved')),
+        db.select({ count: sql<number>`count(*)::int` }).from(emotionalPatterns).where(eq(emotionalPatterns.syncStatus, 'local')),
+        db.select({ count: sql<number>`count(*)::int` }).from(emotionalPatterns).where(eq(emotionalPatterns.syncStatus, 'approved')),
+        db.select({ count: sql<number>`count(*)::int` }).from(creativityTemplates).where(eq(creativityTemplates.syncStatus, 'local')),
+        db.select({ count: sql<number>`count(*)::int` }).from(creativityTemplates).where(eq(creativityTemplates.syncStatus, 'approved')),
+      ]);
+
+      const tables = [
+        { tableName: 'situational_patterns', displayName: 'Situational Patterns', localCount: situationalLocal[0]?.count || 0, approvedCount: situationalApproved[0]?.count || 0 },
+        { tableName: 'teaching_principles', displayName: 'Teaching Principles', localCount: principlesLocal[0]?.count || 0, approvedCount: principlesApproved[0]?.count || 0 },
+        { tableName: 'subtlety_cues', displayName: 'Subtlety Cues', localCount: cuesLocal[0]?.count || 0, approvedCount: cuesApproved[0]?.count || 0 },
+        { tableName: 'emotional_patterns', displayName: 'Emotional Patterns', localCount: emotionsLocal[0]?.count || 0, approvedCount: emotionsApproved[0]?.count || 0 },
+        { tableName: 'creativity_templates', displayName: 'Creativity Templates', localCount: creativityLocal[0]?.count || 0, approvedCount: creativityApproved[0]?.count || 0 },
+      ];
+
+      const totalPending = tables.reduce((sum, t) => sum + t.localCount, 0);
+
+      return { tables, totalPending };
+    } catch (error: any) {
+      console.error('[NeuralSync] Error getting pending sync counts:', error);
+      return { tables: [], totalPending: 0 };
+    }
+  }
+
+  /**
+   * Approve all local items in a specific table for sync
+   */
+  async approveTableForSync(tableName: string, approvedBy: string = 'admin'): Promise<{
+    success: boolean;
+    count: number;
+    error?: string;
+  }> {
+    try {
+      let result: any[] = [];
+      
+      switch (tableName) {
+        case 'situational_patterns':
+          result = await db.update(situationalPatterns)
+            .set({ syncStatus: 'approved' })
+            .where(eq(situationalPatterns.syncStatus, 'local'))
+            .returning();
+          break;
+        case 'teaching_principles':
+          result = await db.update(teachingPrinciples)
+            .set({ syncStatus: 'approved' })
+            .where(eq(teachingPrinciples.syncStatus, 'local'))
+            .returning();
+          break;
+        case 'subtlety_cues':
+          result = await db.update(subtletyCues)
+            .set({ syncStatus: 'approved' })
+            .where(eq(subtletyCues.syncStatus, 'local'))
+            .returning();
+          break;
+        case 'emotional_patterns':
+          result = await db.update(emotionalPatterns)
+            .set({ syncStatus: 'approved' })
+            .where(eq(emotionalPatterns.syncStatus, 'local'))
+            .returning();
+          break;
+        case 'creativity_templates':
+          result = await db.update(creativityTemplates)
+            .set({ syncStatus: 'approved' })
+            .where(eq(creativityTemplates.syncStatus, 'local'))
+            .returning();
+          break;
+        default:
+          return { success: false, count: 0, error: `Unknown table: ${tableName}` };
+      }
+
+      if (result.length > 0) {
+        await this.logSyncOperation({
+          operation: 'approve_for_sync',
+          tableName,
+          recordCount: result.length,
+          sourceEnvironment: CURRENT_ENVIRONMENT as 'development' | 'production',
+          targetEnvironment: CURRENT_ENVIRONMENT as 'development' | 'production',
+          performedBy: approvedBy,
+          status: 'success',
+          metadata: { approvedCount: result.length }
+        });
+        console.log(`[NeuralSync] Approved ${result.length} items in ${tableName} for sync`);
+      }
+
+      return { success: true, count: result.length };
+    } catch (error: any) {
+      console.error(`[NeuralSync] Error approving ${tableName} for sync:`, error);
+      return { success: false, count: 0, error: error.message };
+    }
+  }
+
+  /**
+   * Approve all local items across all neural network tables
+   */
+  async approveAllForSync(approvedBy: string = 'admin'): Promise<{
+    success: boolean;
+    counts: Record<string, number>;
+    total: number;
+  }> {
+    const tables = ['situational_patterns', 'teaching_principles', 'subtlety_cues', 'emotional_patterns', 'creativity_templates'];
+    const counts: Record<string, number> = {};
+    let total = 0;
+
+    for (const table of tables) {
+      const result = await this.approveTableForSync(table, approvedBy);
+      counts[table] = result.count;
+      total += result.count;
+    }
+
+    return { success: true, counts, total };
+  }
 }
 
 export const neuralNetworkSync = new NeuralNetworkSyncService();

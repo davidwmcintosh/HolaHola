@@ -11730,6 +11730,38 @@ Return ONLY the ${targetLanguage} phrase:`;
       res.status(500).json({ error: error.message });
     }
   });
+
+  // Get pending sync approval counts
+  app.get("/api/admin/sync/pending", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const pending = await neuralNetworkSync.getPendingSyncCounts();
+      res.json(pending);
+    } catch (error: any) {
+      console.error('[Admin Sync Pending] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Approve items for sync (per table or all)
+  app.post("/api/admin/sync/approve", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { tableName } = req.body;
+      const approvedBy = req.user?.id || 'admin';
+      
+      if (tableName === 'all') {
+        const result = await neuralNetworkSync.approveAllForSync(approvedBy);
+        res.json(result);
+      } else if (tableName) {
+        const result = await neuralNetworkSync.approveTableForSync(tableName, approvedBy);
+        res.json(result);
+      } else {
+        res.status(400).json({ error: 'tableName is required (or "all" to approve all tables)' });
+      }
+    } catch (error: any) {
+      console.error('[Admin Sync Approve] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
   
   // Get sync run history
   app.get("/api/admin/sync/history", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
