@@ -11731,6 +11731,17 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // v28: Get recent verification results
+  app.get("/api/admin/sync/verifications", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const verifications = await syncBridge.getRecentVerifications();
+      res.json(verifications);
+    } catch (error: any) {
+      console.error('[Admin Sync Verifications] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Get pending sync approval counts
   app.get("/api/admin/sync/pending", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {

@@ -132,6 +132,20 @@ interface PendingSyncData {
   totalPending: number;
 }
 
+interface SyncVerification {
+  batchType: string;
+  success: boolean;
+  expectedCounts: Record<string, number>;
+  peerCounts: Record<string, number>;
+  discrepancies: string[];
+  verifiedAt: string;
+}
+
+interface SyncVerificationsData {
+  verifications: SyncVerification[];
+  queriedAt: string;
+}
+
 function formatDuration(ms?: number): string {
   if (!ms) return '-';
   if (ms < 1000) return `${ms}ms`;
@@ -274,6 +288,11 @@ export default function SyncControlCenter() {
     retry: false,
   });
 
+  const { data: verifications, isLoading: verificationsLoading, refetch: refetchVerifications } = useQuery<SyncVerificationsData>({
+    queryKey: ["/api/admin/sync/verifications"],
+    retry: false,
+  });
+
   const { data: peerSyncRuns, isLoading: peerSyncRunsLoading, refetch: refetchPeerSyncRuns } = useQuery<PeerSyncRunsResponse>({
     queryKey: ["/api/sync/peer-sync-runs"],
     retry: false,
@@ -400,7 +419,7 @@ export default function SyncControlCenter() {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await Promise.all([refetchStatus(), refetchHistory(), refetchPeerStats(), refetchLocalStats(), refetchCapabilities(), refetchPeerSyncRuns(), refetchSyncHealth(), refetchPendingSync()]);
+    await Promise.all([refetchStatus(), refetchHistory(), refetchPeerStats(), refetchLocalStats(), refetchCapabilities(), refetchPeerSyncRuns(), refetchSyncHealth(), refetchPendingSync(), refetchVerifications()]);
     setIsRefreshing(false);
   };
 

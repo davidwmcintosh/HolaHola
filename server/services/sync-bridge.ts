@@ -3577,6 +3577,9 @@ class SyncBridgeService {
       const completedBatches: string[] = [];
       const attemptedBatches: string[] = [];
       
+      // v28: Collect verification results for UI display
+      const verificationResults: SyncVerificationResult[] = [];
+      
       // BATCH 1: Neural network core (small, fast)
       if (shouldRun('neural-core')) {
         attemptedBatches.push('neural-core');
@@ -3779,6 +3782,7 @@ class SyncBridgeService {
           try {
             const verification = await this.verifySyncWithPeer(peerUrl, manifest);
             this.logVerificationResult(verification);
+            verificationResults.push(verification);
             if (!verification.success) {
               allErrors.push(`beta-testers verification failed: ${verification.discrepancies.join('; ')}`);
             }
@@ -3931,6 +3935,7 @@ class SyncBridgeService {
         .set({
           status: finalStatus,
           completedBatches, // v28: Track completed batches for sync health
+          verificationResults: verificationResults.length > 0 ? verificationResults : null, // v28: Store verification results
           bestPracticesCount: allCounts.bestPractices || 0,
           idiomCount: allCounts.idioms || 0,
           nuanceCount: allCounts.nuances || 0,
@@ -4628,6 +4633,44 @@ class SyncBridgeService {
     return {
       environment: CURRENT_ENVIRONMENT,
       batches,
+      queriedAt: new Date().toISOString(),
+    };
+  }
+  
+  /**
+   * v28: Get recent verification results for UI display
+   */
+  async getRecentVerifications(): Promise<{
+    verifications: SyncVerificationResult[];
+    queriedAt: string;
+  }> {
+    // Get recent sync runs that have verification results
+    const runs = await db.select({
+      id: syncRuns.id,
+      direction: syncRuns.direction,
+      verificationResults: syncRuns.verificationResults,
+      completedAt: syncRuns.completedAt,
+    })
+      .from(syncRuns)
+      .where(sql`${syncRuns.verificationResults} IS NOT NULL`)
+      .orderBy(desc(syncRuns.completedAt))
+      .limit(10);
+    
+    // Flatten all verification results
+    const allVerifications: SyncVerificationResult[] = [];
+    for (const run of runs) {
+      if (Array.isArray(run.verificationResults)) {
+        for (const v of run.verificationResults as SyncVerificationResult[]) {
+          allVerifications.push({
+            ...v,
+            verifiedAt: run.completedAt?.toISOString() || v.verifiedAt,
+          });
+        }
+      }
+    }
+    
+    return {
+      verifications: allVerifications,
       queriedAt: new Date().toISOString(),
     };
   }
