@@ -31,6 +31,7 @@ import {
   curriculumPaths,
   curriculumUnits,
   curriculumLessons,
+  curriculumDrillItems,
   type PeopleConnection,
   type StudentInsight,
   type LearningMotivation,
@@ -930,7 +931,7 @@ export async function searchTeachingKnowledge(
  * Syllabus search result
  */
 export interface SyllabusSearchResult {
-  type: 'path' | 'unit' | 'lesson';
+  type: 'path' | 'unit' | 'lesson' | 'drill';
   id: string;
   name: string;
   language: string;
@@ -942,6 +943,8 @@ export interface SyllabusSearchResult {
     objectives?: string[];
     lessonType?: string;
     orderIndex?: number;
+    drillType?: string;
+    targetText?: string;
   };
 }
 
@@ -1079,6 +1082,47 @@ export async function searchSyllabi(
       });
     }
     
+    // === CURRICULUM DRILLS ===
+    const drillsWithContext = await db
+      .select({
+        drill: curriculumDrillItems,
+        lessonName: curriculumLessons.name,
+        unitName: curriculumUnits.name,
+        pathName: curriculumPaths.name,
+        pathLanguage: curriculumPaths.language,
+      })
+      .from(curriculumDrillItems)
+      .innerJoin(curriculumLessons, eq(curriculumDrillItems.lessonId, curriculumLessons.id))
+      .innerJoin(curriculumUnits, eq(curriculumLessons.curriculumUnitId, curriculumUnits.id))
+      .innerJoin(curriculumPaths, eq(curriculumUnits.curriculumPathId, curriculumPaths.id))
+      .where(
+        and(
+          language ? eq(curriculumPaths.language, language) : sql`true`,
+          or(
+            ilike(curriculumDrillItems.prompt, searchPattern),
+            ilike(curriculumDrillItems.targetText, searchPattern)
+          )
+        )
+      )
+      .orderBy(curriculumDrillItems.orderIndex)
+      .limit(10);
+    
+    for (const { drill, lessonName, unitName, pathName, pathLanguage } of drillsWithContext) {
+      results.push({
+        type: 'drill',
+        id: drill.id,
+        name: drill.prompt.substring(0, 50),
+        language: pathLanguage,
+        description: `Target: "${drill.targetText}"`,
+        parent: `${pathName} > ${unitName} > ${lessonName}`,
+        details: {
+          drillType: drill.itemType,
+          targetText: drill.targetText,
+          orderIndex: drill.orderIndex,
+        },
+      });
+    }
+    
   } catch (err: any) {
     console.error('[NeuralMemory] Error searching syllabi:', err.message);
   }
@@ -1096,7 +1140,7 @@ export async function searchSyllabi(
  */
 export function formatSyllabusSearch(response: SyllabusSearchResponse): string {
   if (response.results.length === 0) {
-    return `[Syllabus search for "${response.query}": No matching syllabi, units, or lessons found]`;
+    return `[Syllabus search for "${response.query}": No matching syllabi, units, lessons, or drills found]`;
   }
   
   const lines: string[] = [];
@@ -1110,6 +1154,7 @@ export function formatSyllabusSearch(response: SyllabusSearchResponse): string {
   const paths = response.results.filter(r => r.type === 'path');
   const units = response.results.filter(r => r.type === 'unit');
   const lessons = response.results.filter(r => r.type === 'lesson');
+  const drills = response.results.filter(r => r.type === 'drill');
   
   if (paths.length > 0) {
     lines.push('📚 SYLLABI (Curriculum Paths):');
@@ -1147,6 +1192,16 @@ export function formatSyllabusSearch(response: SyllabusSearchResponse): string {
       if (lesson.details?.objectives?.length) {
         lines.push(`    Objectives: ${lesson.details.objectives.slice(0, 2).join('; ')}`);
       }
+    }
+    lines.push('');
+  }
+  
+  if (drills.length > 0) {
+    lines.push('🎯 DRILLS:');
+    for (const drill of drills.slice(0, 6)) {
+      lines.push(`  • [${drill.details?.drillType || 'drill'}] "${drill.name}"`);
+      lines.push(`    Answer: "${drill.details?.targetText || ''}"`);
+      lines.push(`    In: ${drill.parent}`);
     }
     lines.push('');
   }
