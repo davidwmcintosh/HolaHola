@@ -705,7 +705,7 @@ export function buildLanguageExpansionSection(
   const nuances = getCachedCulturalNuances().filter(n => n.language.toLowerCase() === targetLanguage.toLowerCase());
   const errors = getCachedErrorPatterns().filter(e => 
     e.targetLanguage.toLowerCase() === targetLanguage.toLowerCase() &&
-    e.nativeLanguage.toLowerCase() === nativeLanguage.toLowerCase()
+    e.sourceLanguage.toLowerCase() === nativeLanguage.toLowerCase()
   );
   const dialects = getCachedDialects().filter(d => d.language.toLowerCase() === targetLanguage.toLowerCase());
   const bridges = getCachedLinguisticBridges().filter(b =>
@@ -733,7 +733,7 @@ export function buildLanguageExpansionSection(
     lines.push('IDIOMS & EXPRESSIONS (use authentically when opportunities arise):');
     idioms.slice(0, 5).forEach(i => {
       lines.push(`  • "${i.idiom}" → ${i.meaning}`);
-      if (i.usage) lines.push(`    Usage: ${i.usage}`);
+      if (i.usageExamples && i.usageExamples.length > 0) lines.push(`    Usage: ${i.usageExamples[0]}`);
     });
     lines.push('');
   }
@@ -743,7 +743,7 @@ export function buildLanguageExpansionSection(
     lines.push('CULTURAL NUANCES (inform your teaching approach):');
     nuances.slice(0, 5).forEach(n => {
       lines.push(`  • ${n.nuance}`);
-      if (n.teachingImplication) lines.push(`    For teaching: ${n.teachingImplication}`);
+      if (n.explanation) lines.push(`    For teaching: ${n.explanation}`);
     });
     lines.push('');
   }
@@ -752,8 +752,8 @@ export function buildLanguageExpansionSection(
   if (errors.length > 0) {
     lines.push('COMMON LEARNER MISTAKES (${nativeLanguage} speakers learning ${targetLanguage}):');
     errors.slice(0, 5).forEach(e => {
-      lines.push(`  • ${e.errorType}: ${e.description || 'Common pattern'}`);
-      if (e.correction) lines.push(`    Correction: ${e.correction}`);
+      lines.push(`  • ${e.errorCategory}: ${e.specificError || 'Common pattern'}`);
+      if (e.correctForms && e.correctForms.length > 0) lines.push(`    Correction: ${e.correctForms.join(', ')}`);
     });
     lines.push('');
   }
@@ -762,7 +762,7 @@ export function buildLanguageExpansionSection(
   if (dialects.length > 0) {
     lines.push('DIALECT AWARENESS:');
     dialects.slice(0, 3).forEach(d => {
-      lines.push(`  • ${d.region}: ${d.variation}`);
+      lines.push(`  • ${d.region}: ${d.regionalForm}`);
     });
     lines.push('');
   }
@@ -771,8 +771,8 @@ export function buildLanguageExpansionSection(
   if (bridges.length > 0) {
     lines.push('LINGUISTIC BRIDGES (leverage student\'s native knowledge):');
     bridges.slice(0, 5).forEach(b => {
-      lines.push(`  • ${b.bridgeType}: ${b.description || b.nativeExample || ''}`);
-      if (b.teachingTip) lines.push(`    Tip: ${b.teachingTip}`);
+      lines.push(`  • ${b.bridgeType}: ${b.explanation || b.sourceWord || ''}`);
+      if (b.teachingNote) lines.push(`    Tip: ${b.teachingNote}`);
     });
     lines.push('');
   }
@@ -807,7 +807,7 @@ export function buildAdvancedIntelligenceSection(): string {
   if (cues.length > 0) {
     lines.push('SUBTLETY CUES (recognize these moments):');
     cues.slice(0, 5).forEach(c => {
-      lines.push(`  • ${c.trigger}: ${c.response || c.description}`);
+      lines.push(`  • ${c.signalPattern}: ${c.suggestedResponses?.[0] || c.likelyMeaning}`);
     });
     lines.push('');
   }
@@ -816,7 +816,8 @@ export function buildAdvancedIntelligenceSection(): string {
   if (emotions.length > 0) {
     lines.push('EMOTIONAL INTELLIGENCE PATTERNS:');
     emotions.slice(0, 5).forEach(e => {
-      lines.push(`  • When student shows ${e.emotionalState}: ${e.teacherResponse || e.description}`);
+      const adjustment = e.pedagogicalAdjustments ? JSON.stringify(e.pedagogicalAdjustments) : e.typicalCauses?.join(', ');
+      lines.push(`  • When student shows ${e.emotionalState}: ${adjustment || 'Adapt approach'}`);
     });
     lines.push('');
   }
@@ -825,7 +826,7 @@ export function buildAdvancedIntelligenceSection(): string {
   if (templates.length > 0) {
     lines.push('CREATIVE TEACHING APPROACHES:');
     templates.slice(0, 5).forEach(t => {
-      lines.push(`  • ${t.templateName}: ${t.description || t.example}`);
+      lines.push(`  • ${t.templateType}: ${t.bridgePattern || t.exampleMetaphors?.[0] || 'Creative approach'}`);
     });
     lines.push('');
   }
@@ -877,7 +878,7 @@ export function buildWrenInsightsSection(): string {
     
     // Show top insights (by use count)
     categoryInsights.slice(0, 5).forEach(i => {
-      lines.push(`  • ${i.insight}`);
+      lines.push(`  • ${i.content}`);
       if (i.context) {
         lines.push(`    Context: ${i.context.slice(0, 80)}${i.context.length > 80 ? '...' : ''}`);
       }

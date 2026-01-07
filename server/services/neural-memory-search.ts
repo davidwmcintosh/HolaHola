@@ -169,7 +169,7 @@ export async function searchMemory(
         const motivations = await db.select().from(learningMotivations)
           .where(and(
             eq(learningMotivations.studentId, studentId),
-            eq(learningMotivations.isActive, true),
+            eq(learningMotivations.status, 'active'),
             or(
               ilike(learningMotivations.motivation, searchPattern),
               ilike(learningMotivations.details, searchPattern)
@@ -218,7 +218,7 @@ export async function searchMemory(
             relevance: Math.min(1, (struggle.occurrenceCount || 1) / 10),
             summary: `[${struggle.struggleArea}] ${struggle.description.substring(0, 100)}`,
             details: struggle.description + (struggle.specificExamples ? ` Examples: ${struggle.specificExamples}` : ''),
-            timestamp: struggle.lastOccurred || struggle.createdAt,
+            timestamp: struggle.lastOccurredAt || struggle.createdAt,
             source: 'recurring_struggles',
           });
         }
@@ -240,7 +240,7 @@ export async function searchMemory(
               ilike(sessionNotes.wins, searchPattern),
               ilike(sessionNotes.challenges, searchPattern),
               ilike(sessionNotes.nextSteps, searchPattern),
-              ilike(sessionNotes.teacherNotes, searchPattern)
+              ilike(sessionNotes.summary, searchPattern)
             )
           ))
           .orderBy(desc(sessionNotes.createdAt))
@@ -257,7 +257,7 @@ export async function searchMemory(
             domain: 'session',
             relevance: 0.6,
             summary: `Session from ${note.createdAt ? new Date(note.createdAt).toLocaleDateString() : 'unknown date'}`,
-            details: parts.join('. ') || note.teacherNotes || 'No details recorded.',
+            details: parts.join('. ') || note.summary || 'No details recorded.',
             timestamp: note.createdAt,
             source: 'session_notes',
           });
@@ -288,7 +288,7 @@ export async function searchMemory(
               domain: 'progress',
               relevance: 0.7,
               summary: `${assessment.language}: ${assessment.previousLevel || 'started'} → ${assessment.newLevel}`,
-              details: `Assessed at ${assessment.newLevel} level in ${assessment.language}. ${assessment.assessmentType || ''}`,
+              details: `Assessed at ${assessment.newLevel} level in ${assessment.language}. ${assessment.direction || ''}`,
               timestamp: assessment.createdAt,
               source: 'actfl_assessment_events',
             });
@@ -346,7 +346,7 @@ export function formatMemoryForConversation(response: MemorySearchResponse): str
     progress: '📈 Progress',
   };
   
-  for (const [domain, domainResults] of byDomain) {
+  for (const [domain, domainResults] of Array.from(byDomain)) {
     lines.push(`${domainLabels[domain] || domain}:`);
     for (const result of domainResults.slice(0, 3)) { // Max 3 per domain
       const date = result.timestamp ? ` (${new Date(result.timestamp).toLocaleDateString()})` : '';
@@ -759,7 +759,7 @@ export function formatTeachingKnowledge(response: TeachingMemoryResponse): strin
     byDomain.get(result.domain)!.push(result);
   }
   
-  for (const [domain, domainResults] of byDomain) {
+  for (const [domain, domainResults] of Array.from(byDomain)) {
     lines.push(`${domainLabels[domain] || domain}:`);
     for (const result of domainResults.slice(0, 3)) {
       lines.push(`  • ${result.summary}`);
