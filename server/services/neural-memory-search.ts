@@ -24,6 +24,10 @@ import {
   tutorProcedures,
   teachingPrinciples,
   learnerErrorPatterns,
+  situationalPatterns,
+  subtletyCues,
+  emotionalPatterns,
+  creativityTemplates,
   type PeopleConnection,
   type StudentInsight,
   type LearningMotivation,
@@ -33,6 +37,10 @@ import {
   type CulturalNuance,
   type TutorProcedure,
   type TeachingPrinciple,
+  type SituationalPattern,
+  type SubtletyCue,
+  type EmotionalPattern,
+  type CreativityTemplate,
 } from '@shared/schema';
 import { eq, sql, desc, and, or, ilike } from 'drizzle-orm';
 
@@ -399,7 +407,7 @@ export async function getStudentMemorySummary(studentId: string): Promise<string
     db.select().from(learningMotivations)
       .where(and(
         eq(learningMotivations.studentId, studentId),
-        eq(learningMotivations.isActive, true)
+        eq(learningMotivations.status, 'active')
       ))
       .limit(20),
     db.select().from(recurringStruggles)
@@ -445,7 +453,7 @@ export async function getStudentMemorySummary(studentId: string): Promise<string
  * Teaching memory search result
  */
 export interface TeachingMemoryResult {
-  domain: 'idiom' | 'cultural' | 'procedure' | 'principle' | 'error-pattern';
+  domain: 'idiom' | 'cultural' | 'procedure' | 'principle' | 'error-pattern' | 'situational-pattern' | 'subtlety-cue' | 'emotional-pattern' | 'creativity-template';
   relevance: number;
   summary: string;
   details: string;
@@ -475,7 +483,7 @@ export interface TeachingMemoryResponse {
 export async function searchTeachingKnowledge(
   query: string,
   language?: string,
-  domains?: ('idiom' | 'cultural' | 'procedure' | 'principle' | 'error-pattern')[]
+  domains?: ('idiom' | 'cultural' | 'procedure' | 'principle' | 'error-pattern' | 'situational-pattern' | 'subtlety-cue' | 'emotional-pattern' | 'creativity-template')[]
 ): Promise<TeachingMemoryResponse> {
   const results: TeachingMemoryResult[] = [];
   const searchedDomains: string[] = [];
@@ -483,7 +491,7 @@ export async function searchTeachingKnowledge(
   const normalizedQuery = query.toLowerCase().trim();
   const searchPattern = `%${normalizedQuery}%`;
   
-  const domainsToSearch = domains || ['idiom', 'cultural', 'procedure', 'principle', 'error-pattern'];
+  const domainsToSearch = domains || ['idiom', 'cultural', 'procedure', 'principle', 'error-pattern', 'situational-pattern', 'subtlety-cue', 'emotional-pattern', 'creativity-template'];
   const searchPromises: Promise<void>[] = [];
   
   // === LANGUAGE IDIOMS ===
@@ -713,6 +721,189 @@ export async function searchTeachingKnowledge(
     })());
   }
   
+  // === SITUATIONAL PATTERNS (Option B - Advanced Intelligence) ===
+  if (domainsToSearch.includes('situational-pattern')) {
+    searchedDomains.push('situational-pattern');
+    searchPromises.push((async () => {
+      try {
+        const whereClause = and(
+          eq(situationalPatterns.isActive, true),
+          or(
+            ilike(situationalPatterns.patternName, searchPattern),
+            ilike(situationalPatterns.description, searchPattern),
+            ilike(situationalPatterns.guidance, searchPattern)
+          )
+        );
+        
+        const patterns = await db.select().from(situationalPatterns)
+          .where(whereClause)
+          .orderBy(desc(situationalPatterns.priority))
+          .limit(10);
+        
+        for (const pattern of patterns) {
+          const tools = pattern.toolsToSuggest?.slice(0, 3).join(', ') || '';
+          const procedures = pattern.proceduresToActivate?.slice(0, 2).join(', ') || '';
+          results.push({
+            domain: 'situational-pattern',
+            relevance: (pattern.priority || 50) / 100,
+            summary: `[${pattern.patternName}] ${(pattern.description || '').substring(0, 80)}`,
+            details: [
+              pattern.guidance || '',
+              tools ? `Suggested tools: ${tools}` : '',
+              procedures ? `Activate procedures: ${procedures}` : '',
+            ].filter(Boolean).join('. '),
+            language: null,
+            source: 'situational_patterns',
+          });
+        }
+      } catch (err: any) {
+        console.error('[NeuralMemory] Error searching situational patterns:', err.message);
+      }
+    })());
+  }
+  
+  // === SUBTLETY CUES (Option B - Reading Between the Lines) ===
+  if (domainsToSearch.includes('subtlety-cue')) {
+    searchedDomains.push('subtlety-cue');
+    searchPromises.push((async () => {
+      try {
+        let whereClause = and(
+          eq(subtletyCues.isActive, true),
+          or(
+            ilike(subtletyCues.signalPattern, searchPattern),
+            ilike(subtletyCues.likelyMeaning, searchPattern),
+            ilike(subtletyCues.signalCategory, searchPattern),
+            ilike(subtletyCues.cueType, searchPattern)
+          )
+        );
+        
+        if (language) {
+          whereClause = and(
+            whereClause,
+            or(
+              eq(subtletyCues.language, language),
+              sql`${subtletyCues.language} IS NULL`
+            )
+          );
+        }
+        
+        const cues = await db.select().from(subtletyCues)
+          .where(whereClause)
+          .orderBy(desc(subtletyCues.priority))
+          .limit(10);
+        
+        for (const cue of cues) {
+          const responses = cue.suggestedResponses?.slice(0, 2).join('; ') || '';
+          const avoid = cue.avoidResponses?.slice(0, 2).join('; ') || '';
+          results.push({
+            domain: 'subtlety-cue',
+            relevance: (cue.priority || 50) / 100,
+            summary: `[${cue.cueType}/${cue.signalCategory}] ${cue.signalPattern.substring(0, 80)}`,
+            details: [
+              `Likely meaning: ${cue.likelyMeaning}`,
+              responses ? `Suggested responses: ${responses}` : '',
+              avoid ? `Avoid: ${avoid}` : '',
+              cue.culturalConsiderations ? `Cultural note: ${cue.culturalConsiderations}` : '',
+            ].filter(Boolean).join('. '),
+            language: cue.language,
+            source: 'subtlety_cues',
+          });
+        }
+      } catch (err: any) {
+        console.error('[NeuralMemory] Error searching subtlety cues:', err.message);
+      }
+    })());
+  }
+  
+  // === EMOTIONAL PATTERNS (Option B - Dynamic Empathy) ===
+  if (domainsToSearch.includes('emotional-pattern')) {
+    searchedDomains.push('emotional-pattern');
+    searchPromises.push((async () => {
+      try {
+        const whereClause = and(
+          eq(emotionalPatterns.isActive, true),
+          or(
+            ilike(emotionalPatterns.emotionalState, searchPattern),
+            ilike(emotionalPatterns.learningContext, searchPattern),
+            ilike(emotionalPatterns.pacingAdjustments, searchPattern)
+          )
+        );
+        
+        const patterns = await db.select().from(emotionalPatterns)
+          .where(whereClause)
+          .orderBy(desc(emotionalPatterns.priority))
+          .limit(10);
+        
+        for (const pattern of patterns) {
+          const causes = pattern.typicalCauses?.slice(0, 3).join(', ') || '';
+          const tools = pattern.toolRecommendations?.slice(0, 3).join(', ') || '';
+          const recovery = pattern.recoveryStrategies?.slice(0, 2).join('; ') || '';
+          results.push({
+            domain: 'emotional-pattern',
+            relevance: (pattern.priority || 50) / 100,
+            summary: `[${pattern.emotionalState}] ${causes || 'emotional state patterns'}`,
+            details: [
+              causes ? `Typical causes: ${causes}` : '',
+              pattern.pacingAdjustments ? `Pacing: ${pattern.pacingAdjustments}` : '',
+              tools ? `Recommended tools: ${tools}` : '',
+              recovery ? `Recovery strategies: ${recovery}` : '',
+              pattern.learningContext ? `Context: ${pattern.learningContext}` : '',
+            ].filter(Boolean).join('. '),
+            language: null,
+            source: 'emotional_patterns',
+          });
+        }
+      } catch (err: any) {
+        console.error('[NeuralMemory] Error searching emotional patterns:', err.message);
+      }
+    })());
+  }
+  
+  // === CREATIVITY TEMPLATES (Option B - Novel Metaphor Generation) ===
+  if (domainsToSearch.includes('creativity-template')) {
+    searchedDomains.push('creativity-template');
+    searchPromises.push((async () => {
+      try {
+        const whereClause = and(
+          eq(creativityTemplates.isActive, true),
+          or(
+            ilike(creativityTemplates.templateType, searchPattern),
+            ilike(creativityTemplates.sourceDomain, searchPattern),
+            ilike(creativityTemplates.bridgePattern, searchPattern),
+            ilike(creativityTemplates.reframeQuestion, searchPattern)
+          )
+        );
+        
+        const templates = await db.select().from(creativityTemplates)
+          .where(whereClause)
+          .orderBy(desc(creativityTemplates.priority))
+          .limit(10);
+        
+        for (const template of templates) {
+          const metaphors = template.exampleMetaphors?.slice(0, 2).join('; ') || '';
+          const angles = template.alternativeAngles?.slice(0, 2).join('; ') || '';
+          const concepts = template.targetConcepts?.slice(0, 3).join(', ') || '';
+          results.push({
+            domain: 'creativity-template',
+            relevance: (template.priority || 50) / 100,
+            summary: `[${template.templateType}] ${template.sourceDomain || 'creative approach'}`,
+            details: [
+              template.bridgePattern ? `Bridge: ${template.bridgePattern}` : '',
+              metaphors ? `Examples: ${metaphors}` : '',
+              template.reframeQuestion ? `Reframe: ${template.reframeQuestion}` : '',
+              angles ? `Alternative angles: ${angles}` : '',
+              concepts ? `For concepts: ${concepts}` : '',
+            ].filter(Boolean).join('. '),
+            language: null,
+            source: 'creativity_templates',
+          });
+        }
+      } catch (err: any) {
+        console.error('[NeuralMemory] Error searching creativity templates:', err.message);
+      }
+    })());
+  }
+  
   await Promise.all(searchPromises);
   
   // Sort by relevance
@@ -748,6 +939,10 @@ export function formatTeachingKnowledge(response: TeachingMemoryResponse): strin
     'procedure': 'Teaching Procedures',
     'principle': 'Teaching Principles',
     'error-pattern': 'Common Learner Errors',
+    'situational-pattern': 'Situational Patterns',
+    'subtlety-cue': 'Subtlety Cues',
+    'emotional-pattern': 'Emotional Intelligence',
+    'creativity-template': 'Creativity Templates',
   };
   
   // Group by domain
