@@ -213,6 +213,8 @@ type StreamingEventType =
   | 'whiteboardUpdate'   // Visual teaching aids from tutor
   | 'tutorHandoff'       // Voice-initiated tutor switch
   | 'subtitleModeChange' // Server command to change subtitle mode
+  | 'customOverlay'      // Server command to show/hide custom overlay
+  | 'textInputRequest'   // Server command to request text input
   | 'error';
 
 /**
@@ -964,6 +966,18 @@ export class StreamingVoiceClient {
           // Server command to change subtitle mode (from tutor [SUBTITLE on/off/target] command)
           console.log('[StreamingVoice] Subtitle mode change from server:', message.mode);
           this.emit('subtitleModeChange', message as { type: string; mode: 'off' | 'all' | 'target'; timestamp: number });
+          break;
+          
+        case 'custom_overlay':
+          // Server command to show/hide custom overlay (from tutor [SHOW: text] / [HIDE] commands)
+          console.log('[StreamingVoice] Custom overlay from server:', message.action, message.text?.substring(0, 50));
+          this.emit('customOverlay', message as { type: string; action: 'show' | 'hide'; text?: string; timestamp: number });
+          break;
+          
+        case 'text_input_request':
+          // Server command to request text input (from tutor [TEXT_INPUT: prompt] command)
+          console.log('[StreamingVoice] Text input request from server:', message.prompt?.substring(0, 50));
+          this.emit('textInputRequest', message as { type: string; prompt: string; timestamp: number });
           break;
           
         case 'activity':

@@ -2379,6 +2379,17 @@ Remember: David may reference things discussed in these recent text chats.
                     // Set custom overlay on session for frontend to display
                     (session as any).customOverlayText = text;
                     console.log(`[CommandParser→Show] Custom overlay: "${text.substring(0, 50)}..." via ${cmd.source} format`);
+                    
+                    // Send WebSocket message to client to display custom overlay
+                    if (session.ws.readyState === 1) {
+                      session.ws.send(JSON.stringify({
+                        type: 'custom_overlay',
+                        text: text,
+                        action: 'show',
+                        timestamp: Date.now(),
+                      }));
+                      console.log(`[CommandParser→Show] Sent custom_overlay to client`);
+                    }
                   }
                   break;
                 }
@@ -2386,6 +2397,16 @@ Remember: David may reference things discussed in these recent text chats.
                   // Hide custom overlay
                   (session as any).customOverlayText = undefined;
                   console.log(`[CommandParser→Hide] Custom overlay hidden via ${cmd.source} format`);
+                  
+                  // Send WebSocket message to client to hide custom overlay
+                  if (session.ws.readyState === 1) {
+                    session.ws.send(JSON.stringify({
+                      type: 'custom_overlay',
+                      action: 'hide',
+                      timestamp: Date.now(),
+                    }));
+                    console.log(`[CommandParser→Hide] Sent custom_overlay hide to client`);
+                  }
                   break;
                 }
                 case 'TEXT_INPUT': {
@@ -2395,6 +2416,16 @@ Remember: David may reference things discussed in these recent text chats.
                     // Store pending text input request for frontend
                     (session as any).pendingTextInput = { prompt };
                     console.log(`[CommandParser→TextInput] Requested: "${prompt.substring(0, 50)}..." via ${cmd.source} format`);
+                    
+                    // Send WebSocket message to client to request text input
+                    if (session.ws.readyState === 1) {
+                      session.ws.send(JSON.stringify({
+                        type: 'text_input_request',
+                        prompt: prompt,
+                        timestamp: Date.now(),
+                      }));
+                      console.log(`[CommandParser→TextInput] Sent text_input_request to client`);
+                    }
                   }
                   break;
                 }
@@ -3547,16 +3578,54 @@ Remember: David may reference things discussed in these recent text chats.
               }
               case 'SHOW': {
                 const text = cmd.params.text as string;
-                if (text) { (session as any).customOverlayText = text; }
+                if (text) {
+                  (session as any).customOverlayText = text;
+                  console.log(`[CommandParser→Show - OpenMic] Custom overlay: "${text.substring(0, 50)}..."`);
+                  
+                  // Send WebSocket message to client to display custom overlay
+                  if (session.ws.readyState === 1) {
+                    session.ws.send(JSON.stringify({
+                      type: 'custom_overlay',
+                      text: text,
+                      action: 'show',
+                      timestamp: Date.now(),
+                    }));
+                    console.log(`[CommandParser→Show - OpenMic] Sent custom_overlay to client`);
+                  }
+                }
                 break;
               }
               case 'HIDE': {
                 (session as any).customOverlayText = undefined;
+                console.log(`[CommandParser→Hide - OpenMic] Custom overlay hidden`);
+                
+                // Send WebSocket message to client to hide custom overlay
+                if (session.ws.readyState === 1) {
+                  session.ws.send(JSON.stringify({
+                    type: 'custom_overlay',
+                    action: 'hide',
+                    timestamp: Date.now(),
+                  }));
+                  console.log(`[CommandParser→Hide - OpenMic] Sent custom_overlay hide to client`);
+                }
                 break;
               }
               case 'TEXT_INPUT': {
                 const prompt = cmd.params.prompt as string;
-                if (prompt) { (session as any).pendingTextInput = { prompt }; }
+                if (prompt) {
+                  (session as any).pendingTextInput = { prompt };
+                  console.log(`[CommandParser→TextInput - OpenMic] Requested: "${prompt.substring(0, 50)}..."`);
+                  
+                  // Send WebSocket message to client to request text input
+                  if (session.ws.readyState === 1) {
+                    session.ws.send(JSON.stringify({
+                      type: 'text_input_request',
+                      prompt: prompt,
+                      timestamp: Date.now(),
+                    }));
+                    console.log(`[CommandParser→TextInput - OpenMic] Sent text_input_request to client`);
+                  }
+                }
                 break;
               }
               case 'CLEAR': {

@@ -78,6 +78,10 @@ export interface StreamingSessionConfig {
   onPronunciationCoaching?: (coaching: PronunciationCoachingData) => void;
   /** Called when server commands a subtitle mode change (tutor [SUBTITLE on/off/target] command) */
   onSubtitleModeChange?: (mode: 'off' | 'all' | 'target') => void;
+  /** Called when server commands a custom overlay show/hide (tutor [SHOW: text] / [HIDE] commands) */
+  onCustomOverlay?: (action: 'show' | 'hide', text?: string) => void;
+  /** Called when server requests text input from student (tutor [TEXT_INPUT: prompt] command) */
+  onTextInputRequest?: (prompt: string) => void;
 }
 
 /**
@@ -827,6 +831,24 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   }, []);
   
   /**
+   * Handle custom overlay from server (tutor [SHOW: text] / [HIDE] commands)
+   */
+  const handleCustomOverlay = useCallback((message: { type: string; action: 'show' | 'hide'; text?: string; timestamp: number }) => {
+    const { action, text } = message;
+    console.log('[StreamingVoice] Custom overlay from tutor:', action, text?.substring(0, 50));
+    sessionConfigRef.current?.onCustomOverlay?.(action, text);
+  }, []);
+  
+  /**
+   * Handle text input request from server (tutor [TEXT_INPUT: prompt] command)
+   */
+  const handleTextInputRequest = useCallback((message: { type: string; prompt: string; timestamp: number }) => {
+    const { prompt } = message;
+    console.log('[StreamingVoice] Text input request from tutor:', prompt?.substring(0, 50));
+    sessionConfigRef.current?.onTextInputRequest?.(prompt);
+  }, []);
+  
+  /**
    * Handle tutor handoff - triggered after current tutor says goodbye
    * Automatically switches voice to new tutor and triggers their introduction
    * Supports both intra-language (gender only) and cross-language (gender + language) handoffs
@@ -928,6 +950,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('openMicSessionClosed', handleOpenMicSessionClosed);  // Open mic session ended
       clientRef.current.on('tutorHandoff', handleTutorHandoff);  // Voice-initiated tutor switch
       clientRef.current.on('subtitleModeChange', handleSubtitleModeChange);  // Server subtitle mode command
+      clientRef.current.on('customOverlay', handleCustomOverlay);  // Server custom overlay command
+      clientRef.current.on('textInputRequest', handleTextInputRequest);  // Server text input request
       
       // Connect WebSocket
       await clientRef.current.connect(config.conversationId);
@@ -959,7 +983,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       setError(err.message);
       throw err;
     }
-  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleSubtitleModeChange]);
+  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest]);
   
   /**
    * Disconnect from streaming voice service
@@ -986,6 +1010,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.off('vadUtteranceEnd', handleVadUtteranceEnd);  // Open mic VAD
       clientRef.current.off('interimTranscript', handleInterimTranscript);  // Open mic interim
       clientRef.current.off('subtitleModeChange', handleSubtitleModeChange);  // Server subtitle mode command
+      clientRef.current.off('customOverlay', handleCustomOverlay);  // Server custom overlay command
+      clientRef.current.off('textInputRequest', handleTextInputRequest);  // Server text input request
       clientRef.current.disconnect();
       clientRef.current = null;
     }
@@ -1006,7 +1032,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       tutorSwitchTimeoutRef.current = null;
     }
     setIsSwitchingTutor(false);
-  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleSubtitleModeChange, subtitles]);
+  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, subtitles]);
   
   /**
    * Send audio for processing
