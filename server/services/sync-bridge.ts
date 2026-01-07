@@ -3618,11 +3618,12 @@ class SyncBridgeService {
         // v20: Production diagnostics - only pulled by dev from prod
         'sofia-telemetry', 'prod-conversations', 'prod-content-growth'
       ];
-      // v25: Default excludes - only truly large batches that need dedicated sync
-      // - aggregate-analytics: anonymized stats, sync on demand only
-      // - advanced-intel-b: 388K+ observations, needs dedicated sync (8000+ pages)
-      // Note: beta-usage now uses pagination (v25), no longer excluded
-      const DEFAULT_EXCLUDED = ['aggregate-analytics', 'advanced-intel-b'];
+      // v26: No default excludes - all batches use pagination + delta sync
+      // - aggregate-analytics: small payload, safe to include
+      // - advanced-intel-b: 388K+ initial, but delta sync only fetches new observations
+      // - beta-usage: paginated (v25) with delta sync
+      // After initial full sync, all batches are incremental and manageable
+      const DEFAULT_EXCLUDED: string[] = [];
       const batchTypes = batchFilter && batchFilter.length > 0 
         ? allBatchTypes.filter(b => batchFilter.includes(b))
         : allBatchTypes.filter(b => !DEFAULT_EXCLUDED.includes(b));
