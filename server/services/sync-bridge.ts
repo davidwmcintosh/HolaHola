@@ -3439,18 +3439,12 @@ class SyncBridgeService {
         else overallSuccess = false;
       }
       
-      // BATCH 7: Beta testers (users + credits + enrollments)
+      // BATCH 7: Beta testers (users + credits + enrollments + classes)
+      // v28: Use collectExportBundle for consistent behavior with export endpoint
       if (shouldRun('beta-testers')) {
         attemptedBatches.push('beta-testers');
-        console.log('[SYNC-BRIDGE] Batch 7: Beta testers...');
-        const betaTesters = await this.exportBetaTesters();
-        const betaBundle: Partial<SyncBundle> = {
-          generatedAt: new Date().toISOString(),
-          sourceEnvironment: CURRENT_ENVIRONMENT,
-          betaTesters: betaTesters.users,
-          betaTesterCredits: betaTesters.credits,
-          betaTesterEnrollments: betaTesters.enrollments,
-        };
+        console.log('[SYNC-BRIDGE] Batch 7: Beta testers + classes...');
+        const betaBundle = await this.collectExportBundle(null, 'beta-testers');
         const batch7 = await this.sendBatch(peerUrl, 'beta-testers', betaBundle, 90000); // 90s for large credit/enrollment data
         Object.assign(allCounts, batch7.counts);
         allErrors.push(...batch7.errors);
