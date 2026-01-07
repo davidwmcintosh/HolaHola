@@ -7,12 +7,18 @@
  * Flow: Gemini tokens → Sentence buffer → Complete sentences → TTS pipeline
  */
 
-import { GoogleGenAI, Content, Part, Tool, FunctionDeclaration } from "@google/genai";
+import { GoogleGenAI, Content, Part } from "@google/genai";
 import { SENTENCE_CHUNKING_CONFIG } from "@shared/streaming-voice-types";
-import { createDanielaTools, extractFunctionCalls, ExtractedFunctionCall, FUNCTION_TO_COMMAND_MAP } from "./gemini-function-declarations";
+import { 
+  createDanielaTools, 
+  extractFunctionCalls, 
+  FUNCTION_TO_COMMAND_MAP,
+  type ExtractedFunctionCall,
+} from "./gemini-function-declarations";
 
-// Re-export for convenience
-export { ExtractedFunctionCall, FUNCTION_TO_COMMAND_MAP } from "./gemini-function-declarations";
+// Re-export types and utilities for convenience
+export { FUNCTION_TO_COMMAND_MAP } from "./gemini-function-declarations";
+export type { ExtractedFunctionCall } from "./gemini-function-declarations";
 
 /**
  * Strip internal notation tags from text BEFORE sentence chunking
@@ -174,6 +180,7 @@ export interface StreamingGenerationConfig {
   onError?: (error: Error) => void;
   // Gemini 3 features
   enableFunctionCalling?: boolean;  // Enable native tool calling
+  allowedFunctions?: string[];  // Optional allowlist of function names (e.g., ['subtitle', 'show_overlay'])
   onFunctionCall?: OnFunctionCallCallback;  // Callback when functions are called
   thinkingLevel?: ThinkingLevel;  // MINIMAL for voice speed, MEDIUM for complex decisions
 }
@@ -338,13 +345,16 @@ export class GeminiStreamingService {
           };
           
           // Add thinking level if model supports it (Gemini 3+)
+          // Note: thinkingBudget must be >= 256 to enable any reasoning, 0 disables entirely
           if (model.includes('gemini-3') || model.includes('gemini-2.5')) {
-            generationConfig.thinkingConfig = { thinkingBudget: thinkingLevel === 'MINIMAL' ? 0 : thinkingLevel === 'MEDIUM' ? 1024 : 4096 };
+            generationConfig.thinkingConfig = { 
+              thinkingBudget: thinkingLevel === 'MINIMAL' ? 256 : thinkingLevel === 'MEDIUM' ? 1024 : 4096 
+            };
           }
           
           // Add tools if function calling is enabled
           if (enableFunctionCalling) {
-            generationConfig.tools = createDanielaTools();
+            generationConfig.tools = createDanielaTools(config.allowedFunctions);
           }
           
           result = await this.client.models.generateContentStream({
@@ -376,11 +386,15 @@ export class GeminiStreamingService {
       // Process streamed tokens
       for await (const chunk of result) {
         // Extract function calls from this chunk (Gemini 3 native tool calling)
+        // Note: Function call handling is fire-and-forget to avoid blocking token streaming
         if (enableFunctionCalling && onFunctionCall) {
           const functionCalls = extractFunctionCalls(chunk);
           if (functionCalls.length > 0) {
             console.log(`[Gemini Streaming] Function calls detected: ${functionCalls.map(f => f.name).join(', ')}`);
-            await onFunctionCall(functionCalls);
+            // Non-blocking: queue the function call handler without awaiting
+            onFunctionCall(functionCalls).catch(err => 
+              console.error('[Gemini Streaming] Function call handler error:', err.message)
+            );
             functionCallsProcessed += functionCalls.length;
           }
         }

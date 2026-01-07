@@ -14,33 +14,23 @@
  * Pass these declarations via `tools` config to generateContentStream()
  */
 
-import { FunctionDeclaration, Type, Schema } from "@google/genai";
+import { FunctionDeclaration } from "@google/genai";
 
 /**
  * All Daniela function declarations for Gemini 3 native calling
+ * Uses parametersJsonSchema format for @google/genai SDK
  */
 export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   // === TEACHING & PROGRESSION ===
   {
     name: "switch_tutor",
     description: "Hand off to a different tutor. Use when student requests a different voice, language, or needs specialized practice.",
-    parameters: {
-      type: Type.OBJECT,
+    parametersJsonSchema: {
+      type: "object",
       properties: {
-        target: {
-          type: Type.STRING,
-          enum: ["male", "female"],
-          description: "Target tutor gender",
-        },
-        language: {
-          type: Type.STRING,
-          description: "Target language for cross-language handoffs (e.g., 'japanese', 'spanish')",
-        },
-        role: {
-          type: Type.STRING,
-          enum: ["tutor", "assistant"],
-          description: "Whether switching to main tutor or assistant for drill practice",
-        },
+        target: { type: "string", enum: ["male", "female"], description: "Target tutor gender" },
+        language: { type: "string", description: "Target language for cross-language handoffs" },
+        role: { type: "string", enum: ["tutor", "assistant"], description: "Whether switching to main tutor or assistant" },
       },
       required: ["target"],
     },
@@ -48,18 +38,11 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: "phase_shift",
     description: "Transition to a different teaching phase based on student progress or needs.",
-    parameters: {
-      type: Type.OBJECT,
+    parametersJsonSchema: {
+      type: "object",
       properties: {
-        to: {
-          type: Type.STRING,
-          enum: ["warmup", "active_teaching", "challenge", "reflection", "drill", "assessment"],
-          description: "Target teaching phase",
-        },
-        reason: {
-          type: Type.STRING,
-          description: "Brief explanation for the phase transition",
-        },
+        to: { type: "string", enum: ["warmup", "active_teaching", "challenge", "reflection", "drill", "assessment"], description: "Target teaching phase" },
+        reason: { type: "string", description: "Brief explanation for the phase transition" },
       },
       required: ["to", "reason"],
     },
@@ -67,26 +50,13 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: "actfl_update",
     description: "Update student's ACTFL proficiency level based on demonstrated competency.",
-    parameters: {
-      type: Type.OBJECT,
+    parametersJsonSchema: {
+      type: "object",
       properties: {
-        level: {
-          type: Type.STRING,
-          description: "ACTFL level (e.g., 'Novice Mid', 'Intermediate Low')",
-        },
-        confidence: {
-          type: Type.NUMBER,
-          description: "Confidence score 0-1",
-        },
-        reason: {
-          type: Type.STRING,
-          description: "Evidence for the level assessment",
-        },
-        direction: {
-          type: Type.STRING,
-          enum: ["up", "down", "confirm"],
-          description: "Direction of level change",
-        },
+        level: { type: "string", description: "ACTFL level (e.g., 'Novice Mid', 'Intermediate Low')" },
+        confidence: { type: "number", description: "Confidence score 0-1" },
+        reason: { type: "string", description: "Evidence for the level assessment" },
+        direction: { type: "string", enum: ["up", "down", "confirm"], description: "Direction of level change" },
       },
       required: ["level"],
     },
@@ -94,22 +64,12 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: "syllabus_progress",
     description: "Track student progress on syllabus topics.",
-    parameters: {
-      type: Type.OBJECT,
+    parametersJsonSchema: {
+      type: "object",
       properties: {
-        topic: {
-          type: Type.STRING,
-          description: "Syllabus topic being tracked",
-        },
-        status: {
-          type: Type.STRING,
-          enum: ["demonstrated", "needs_review", "struggling"],
-          description: "Student's status on this topic",
-        },
-        evidence: {
-          type: Type.STRING,
-          description: "Evidence for the status assessment",
-        },
+        topic: { type: "string", description: "Syllabus topic being tracked" },
+        status: { type: "string", enum: ["demonstrated", "needs_review", "struggling"], description: "Student's status on this topic" },
+        evidence: { type: "string", description: "Evidence for the status assessment" },
       },
       required: ["topic", "status"],
     },
@@ -117,23 +77,12 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: "call_support",
     description: "Hand off to Sofia support agent for technical or account issues.",
-    parameters: {
-      type: Type.OBJECT,
+    parametersJsonSchema: {
+      type: "object",
       properties: {
-        category: {
-          type: Type.STRING,
-          enum: ["technical", "account", "billing", "content", "feedback", "other"],
-          description: "Support category",
-        },
-        reason: {
-          type: Type.STRING,
-          description: "Why support is needed",
-        },
-        priority: {
-          type: Type.STRING,
-          enum: ["low", "normal", "high", "critical"],
-          description: "Urgency level",
-        },
+        category: { type: "string", enum: ["technical", "account", "billing", "content", "feedback", "other"], description: "Support category" },
+        reason: { type: "string", description: "Why support is needed" },
+        priority: { type: "string", enum: ["low", "normal", "high", "critical"], description: "Urgency level" },
       },
       required: ["category"],
     },
@@ -141,27 +90,13 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: "call_assistant",
     description: "Delegate drill practice to assistant tutor for focused skill building.",
-    parameters: {
-      type: Type.OBJECT,
+    parametersJsonSchema: {
+      type: "object",
       properties: {
-        type: {
-          type: Type.STRING,
-          enum: ["repeat", "translate", "match", "fill_blank", "sentence_order", "multiple_choice", "true_false", "conjugation"],
-          description: "Type of drill",
-        },
-        focus: {
-          type: Type.STRING,
-          description: "Skill or topic to focus on",
-        },
-        items: {
-          type: Type.STRING,
-          description: "Comma-separated list of vocabulary/phrases for the drill",
-        },
-        priority: {
-          type: Type.STRING,
-          enum: ["low", "medium", "high"],
-          description: "Priority of this drill",
-        },
+        type: { type: "string", enum: ["repeat", "translate", "match", "fill_blank", "sentence_order", "multiple_choice", "true_false", "conjugation"], description: "Type of drill" },
+        focus: { type: "string", description: "Skill or topic to focus on" },
+        items: { type: "string", description: "Comma-separated list of vocabulary/phrases for the drill" },
+        priority: { type: "string", enum: ["low", "medium", "high"], description: "Priority of this drill" },
       },
       required: ["type", "focus", "items"],
     },
@@ -171,28 +106,13 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: "voice_adjust",
     description: "Adjust your speaking voice in real-time. Use to match student needs or emotional context.",
-    parameters: {
-      type: Type.OBJECT,
+    parametersJsonSchema: {
+      type: "object",
       properties: {
-        speed: {
-          type: Type.STRING,
-          enum: ["slowest", "slow", "normal", "fast", "fastest"],
-          description: "Speaking speed",
-        },
-        emotion: {
-          type: Type.STRING,
-          enum: ["happy", "excited", "friendly", "curious", "thoughtful", "warm", "playful", "surprised", "proud", "encouraging", "calm", "neutral"],
-          description: "Emotional tone",
-        },
-        personality: {
-          type: Type.STRING,
-          enum: ["warm", "calm", "energetic", "professional"],
-          description: "Personality preset",
-        },
-        reason: {
-          type: Type.STRING,
-          description: "Why adjusting voice",
-        },
+        speed: { type: "string", enum: ["slowest", "slow", "normal", "fast", "fastest"], description: "Speaking speed" },
+        emotion: { type: "string", enum: ["happy", "excited", "friendly", "curious", "thoughtful", "warm", "playful", "surprised", "proud", "encouraging", "calm", "neutral"], description: "Emotional tone" },
+        personality: { type: "string", enum: ["warm", "calm", "energetic", "professional"], description: "Personality preset" },
+        reason: { type: "string", description: "Why adjusting voice" },
       },
       required: [],
     },
@@ -200,13 +120,10 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: "voice_reset",
     description: "Reset voice to your baseline settings.",
-    parameters: {
-      type: Type.OBJECT,
+    parametersJsonSchema: {
+      type: "object",
       properties: {
-        reason: {
-          type: Type.STRING,
-          description: "Why resetting voice",
-        },
+        reason: { type: "string", description: "Why resetting voice" },
       },
       required: [],
     },
@@ -216,14 +133,10 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: "subtitle",
     description: "Control subtitle display for the student. Turn on for visual reinforcement, off for listening focus.",
-    parameters: {
-      type: Type.OBJECT,
+    parametersJsonSchema: {
+      type: "object",
       properties: {
-        mode: {
-          type: Type.STRING,
-          enum: ["off", "on", "target"],
-          description: "Subtitle mode: off=none, on=all languages, target=target language only",
-        },
+        mode: { type: "string", enum: ["off", "on", "target"], description: "Subtitle mode: off=none, on=all languages, target=target language only" },
       },
       required: ["mode"],
     },
@@ -231,13 +144,10 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: "show_overlay",
     description: "Display custom text overlay on screen (vocabulary word, grammar note, etc.)",
-    parameters: {
-      type: Type.OBJECT,
+    parametersJsonSchema: {
+      type: "object",
       properties: {
-        text: {
-          type: Type.STRING,
-          description: "Text to display in the overlay",
-        },
+        text: { type: "string", description: "Text to display in the overlay" },
       },
       required: ["text"],
     },
@@ -245,8 +155,8 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: "hide_overlay",
     description: "Hide the custom text overlay.",
-    parameters: {
-      type: Type.OBJECT,
+    parametersJsonSchema: {
+      type: "object",
       properties: {},
       required: [],
     },
@@ -254,13 +164,10 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: "request_text_input",
     description: "Ask the student to type a response (for spelling practice, written answers, etc.)",
-    parameters: {
-      type: Type.OBJECT,
+    parametersJsonSchema: {
+      type: "object",
       properties: {
-        prompt: {
-          type: Type.STRING,
-          description: "Prompt to display to the student",
-        },
+        prompt: { type: "string", description: "Prompt to display to the student" },
       },
       required: ["prompt"],
     },
@@ -268,8 +175,8 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: "clear_whiteboard",
     description: "Clear all content from the teaching whiteboard.",
-    parameters: {
-      type: Type.OBJECT,
+    parametersJsonSchema: {
+      type: "object",
       properties: {},
       required: [],
     },
@@ -277,8 +184,8 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: "hold_whiteboard",
     description: "Prevent whiteboard content from auto-clearing. Use to keep important content visible.",
-    parameters: {
-      type: Type.OBJECT,
+    parametersJsonSchema: {
+      type: "object",
       properties: {},
       required: [],
     },
@@ -288,17 +195,11 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: "memory_lookup",
     description: "Search your neural memory for information about the student, past conversations, or topics.",
-    parameters: {
-      type: Type.OBJECT,
+    parametersJsonSchema: {
+      type: "object",
       properties: {
-        query: {
-          type: Type.STRING,
-          description: "What to search for (name, topic, question)",
-        },
-        domains: {
-          type: Type.STRING,
-          description: "Comma-separated domains to search: person,motivation,insight,struggle,session,progress,syllabus",
-        },
+        query: { type: "string", description: "What to search for (name, topic, question)" },
+        domains: { type: "string", description: "Comma-separated domains to search: person,motivation,insight,struggle,session,progress,syllabus" },
       },
       required: ["query"],
     },
@@ -308,30 +209,14 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: "hive_suggestion",
     description: "Contribute an insight or suggestion to the hive mind for product improvement.",
-    parameters: {
-      type: Type.OBJECT,
+    parametersJsonSchema: {
+      type: "object",
       properties: {
-        category: {
-          type: Type.STRING,
-          enum: ["self_improvement", "content_gap", "ux_observation", "teaching_insight", "product_feature", "technical_issue", "student_pattern", "tool_enhancement"],
-          description: "Category of the suggestion",
-        },
-        title: {
-          type: Type.STRING,
-          description: "Brief title for the suggestion",
-        },
-        description: {
-          type: Type.STRING,
-          description: "Detailed description",
-        },
-        reasoning: {
-          type: Type.STRING,
-          description: "Why this matters",
-        },
-        priority: {
-          type: Type.NUMBER,
-          description: "Priority 1-5",
-        },
+        category: { type: "string", enum: ["self_improvement", "content_gap", "ux_observation", "teaching_insight", "product_feature", "technical_issue", "student_pattern", "tool_enhancement"], description: "Category of the suggestion" },
+        title: { type: "string", description: "Brief title for the suggestion" },
+        description: { type: "string", description: "Detailed description" },
+        reasoning: { type: "string", description: "Why this matters" },
+        priority: { type: "number", description: "Priority 1-5" },
       },
       required: ["category", "title", "description"],
     },
@@ -339,30 +224,14 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: "self_surgery",
     description: "Propose modifications to your neural network knowledge (Founder Mode only).",
-    parameters: {
-      type: Type.OBJECT,
+    parametersJsonSchema: {
+      type: "object",
       properties: {
-        target: {
-          type: Type.STRING,
-          enum: ["tutor_procedures", "teaching_principles", "tool_knowledge", "situational_patterns", "language_idioms", "cultural_nuances", "learner_error_patterns", "dialect_variations", "linguistic_bridges", "creativity_templates"],
-          description: "Which knowledge domain to modify",
-        },
-        content: {
-          type: Type.STRING,
-          description: "JSON content to add/modify",
-        },
-        reasoning: {
-          type: Type.STRING,
-          description: "Why this modification is needed",
-        },
-        priority: {
-          type: Type.NUMBER,
-          description: "Priority 1-5",
-        },
-        confidence: {
-          type: Type.NUMBER,
-          description: "Confidence 0-1",
-        },
+        target: { type: "string", enum: ["tutor_procedures", "teaching_principles", "tool_knowledge", "situational_patterns", "language_idioms", "cultural_nuances", "learner_error_patterns", "dialect_variations", "linguistic_bridges", "creativity_templates"], description: "Which knowledge domain to modify" },
+        content: { type: "string", description: "JSON content to add/modify" },
+        reasoning: { type: "string", description: "Why this modification is needed" },
+        priority: { type: "number", description: "Priority 1-5" },
+        confidence: { type: "number", description: "Confidence 0-1" },
       },
       required: ["target", "content", "reasoning"],
     },
@@ -370,11 +239,16 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
 ];
 
 /**
- * Create Gemini tools config with all Daniela functions
+ * Create Gemini tools config with Daniela functions
+ * @param allowedFunctions Optional allowlist of function names to include. If undefined, includes all.
  */
-export function createDanielaTools() {
+export function createDanielaTools(allowedFunctions?: string[]) {
+  const declarations = allowedFunctions 
+    ? DANIELA_FUNCTION_DECLARATIONS.filter(fn => allowedFunctions.includes(fn.name))
+    : DANIELA_FUNCTION_DECLARATIONS;
+  
   return [{
-    functionDeclarations: DANIELA_FUNCTION_DECLARATIONS,
+    functionDeclarations: declarations,
   }];
 }
 
@@ -402,8 +276,8 @@ export const FUNCTION_TO_COMMAND_MAP: Record<string, string> = {
 };
 
 /**
- * Extract function calls from a streaming chunk
- * Gemini 3 provides function_call in content parts
+ * Function call extracted from a streaming chunk
+ * This is the canonical type used across the codebase
  */
 export interface ExtractedFunctionCall {
   name: string;
@@ -411,6 +285,10 @@ export interface ExtractedFunctionCall {
   legacyType: string;
 }
 
+/**
+ * Extract function calls from a streaming chunk
+ * Gemini 3 provides function_call in content parts
+ */
 export function extractFunctionCalls(chunk: any): ExtractedFunctionCall[] {
   const calls: ExtractedFunctionCall[] = [];
   

@@ -25,7 +25,7 @@ import { createHash } from "crypto";
 import { createClient } from "@deepgram/sdk";
 import { getDeepgramLanguageCode, DeepgramIntelligence, DeepgramSentiment, DeepgramIntent, DeepgramEntity, DeepgramTopic, transcribeWithLiveAPI, TranscriptionResult } from "./deepgram-live-stt";
 import { analyzePronunciation, generateQuickCoaching, PronunciationCoaching } from "./live-pronunciation-coach";
-import { getGeminiStreamingService, SentenceChunk } from "./gemini-streaming";
+import { getGeminiStreamingService, SentenceChunk, ExtractedFunctionCall } from "./gemini-streaming";
 import { getCartesiaStreamingService } from "./cartesia-streaming";
 import { WebSocket as WS } from "ws";
 import {
