@@ -5464,7 +5464,7 @@ AI Response: "${aiResponse}"
 Return vocabulary items with word, translation, example sentence, and pronunciation guide.`;
 
         const response = await gemini.models.generateContent({
-          model: 'gemini-2.5-flash',
+          model: 'gemini-3-flash-preview',
           contents: [{ role: 'user', parts: [{ text: extractionPrompt }] }],
           config: {
             responseMimeType: "application/json",
@@ -5543,7 +5543,7 @@ Guidelines for TUTOR self-reflections (Daniela learning about herself):
 Only include observations you can clearly justify from the exchange. Return empty arrays if nothing notable.`;
 
         const obsResponse = await gemini.models.generateContent({
-          model: 'gemini-2.5-flash',
+          model: 'gemini-3-flash-preview',
           contents: [{ role: 'user', parts: [{ text: observationPrompt }] }],
           config: {
             responseMimeType: "application/json",

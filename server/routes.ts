@@ -3988,7 +3988,7 @@ Return a JSON array of suggestions with this format:
           tutorNameForPrompt, // Tutor name (Daniela or Agustin)
           tutorGenderForPrompt // Tutor gender for grammatical agreement
         );
-        const model = 'gemini-2.5-flash'; // Force Flash for voice (~200ms TTFT vs ~500ms+ for Pro)
+        const model = 'gemini-3-flash-preview'; // Force Flash 3 for voice (3x faster than 2.5)
         
         const fetchTime = Date.now() - startTime;
         console.log(`[VOICE FAST-PATH] Using ${model} for speed, context fetched in ${fetchTime}ms`);
