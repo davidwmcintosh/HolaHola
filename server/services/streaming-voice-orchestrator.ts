@@ -95,6 +95,7 @@ import {
   dialectVariations,
   linguisticBridges,
   featureSprints,
+  neuralNetworkTelemetry,
 } from "@shared/schema";
 
 /**
@@ -2150,10 +2151,10 @@ Remember: David may reference things discussed in these recent text chats.
                     
                     // Separate student domains from teaching domains
                     const studentDomains = ['person', 'motivation', 'insight', 'struggle', 'session', 'progress'];
-                    const teachingDomains = ['idiom', 'cultural', 'procedure', 'principle', 'error-pattern'];
+                    const teachingDomains = ['idiom', 'cultural', 'procedure', 'principle', 'error-pattern', 'situational-pattern', 'subtlety-cue', 'emotional-pattern', 'creativity-template'];
                     
                     const requestedStudentDomains = rawDomains.filter(d => studentDomains.includes(d)) as ('person' | 'motivation' | 'insight' | 'struggle' | 'session' | 'progress')[];
-                    const requestedTeachingDomains = rawDomains.filter(d => teachingDomains.includes(d)) as ('idiom' | 'cultural' | 'procedure' | 'principle' | 'error-pattern')[];
+                    const requestedTeachingDomains = rawDomains.filter(d => teachingDomains.includes(d)) as ('idiom' | 'cultural' | 'procedure' | 'principle' | 'error-pattern' | 'situational-pattern' | 'subtlety-cue' | 'emotional-pattern' | 'creativity-template')[];
                     
                     // If no specific domains requested, search BOTH student memory and teaching knowledge
                     const searchStudentMemory = requestedStudentDomains.length > 0 || rawDomains.length === 0;
@@ -2176,13 +2177,46 @@ Remember: David may reference things discussed in these recent text chats.
                       }
                       
                       // Search teaching knowledge if applicable
+                      let teachingResults: Awaited<ReturnType<typeof searchTeaching>> | null = null;
+                      let formattedTeachingKnowledge = '';
+                      const searchStartTime = Date.now();
+                      
                       if (searchTeachingKnowledge) {
                         const teachingDomainFilter = requestedTeachingDomains.length > 0 ? requestedTeachingDomains : undefined;
-                        const teachingResults = await searchTeaching(query, session.targetLanguage || undefined, teachingDomainFilter);
+                        teachingResults = await searchTeaching(query, session.targetLanguage || undefined, teachingDomainFilter);
                         if (teachingResults.results.length > 0) {
-                          results.push(formatTeachingKnowledge(teachingResults));
+                          formattedTeachingKnowledge = formatTeachingKnowledge(teachingResults);
+                          results.push(formattedTeachingKnowledge);
                           totalFound += teachingResults.results.length;
                         }
+                        
+                        // Emit telemetry for neural network monitoring
+                        const searchDurationMs = Date.now() - searchStartTime;
+                        const domainCounts = teachingResults.results.reduce((acc, r) => {
+                          acc[r.domain] = (acc[r.domain] || 0) + 1;
+                          return acc;
+                        }, {} as Record<string, number>);
+                        
+                        db.insert(neuralNetworkTelemetry).values({
+                          voiceSessionId: session.id,
+                          userId: session.userId,
+                          targetLanguage: session.targetLanguage || null,
+                          query,
+                          domainsSearched: teachingResults.domainsSearched,
+                          domainsRequested: teachingDomainFilter || null,
+                          resultCount: teachingResults.results.length,
+                          formattedCharacterLength: formattedTeachingKnowledge.length,
+                          idiomCount: domainCounts['idiom'] || 0,
+                          culturalCount: domainCounts['cultural'] || 0,
+                          procedureCount: domainCounts['procedure'] || 0,
+                          principleCount: domainCounts['principle'] || 0,
+                          errorPatternCount: domainCounts['error-pattern'] || 0,
+                          situationalPatternCount: domainCounts['situational-pattern'] || 0,
+                          subtletyCueCount: domainCounts['subtlety-cue'] || 0,
+                          emotionalPatternCount: domainCounts['emotional-pattern'] || 0,
+                          creativityTemplateCount: domainCounts['creativity-template'] || 0,
+                          searchDurationMs,
+                        }).catch(err => console.error('[NeuralTelemetry] Insert error:', err));
                       }
                       
                       if (results.length > 0) {
@@ -3586,10 +3620,10 @@ Remember: David may reference things discussed in these recent text chats.
                     : [];
                   
                   const studentDomains = ['person', 'motivation', 'insight', 'struggle', 'session', 'progress'];
-                  const teachingDomains = ['idiom', 'cultural', 'procedure', 'principle', 'error-pattern'];
+                  const teachingDomains = ['idiom', 'cultural', 'procedure', 'principle', 'error-pattern', 'situational-pattern', 'subtlety-cue', 'emotional-pattern', 'creativity-template'];
                   
                   const requestedStudentDomains = rawDomains.filter(d => studentDomains.includes(d)) as ('person' | 'motivation' | 'insight' | 'struggle' | 'session' | 'progress')[];
-                  const requestedTeachingDomains = rawDomains.filter(d => teachingDomains.includes(d)) as ('idiom' | 'cultural' | 'procedure' | 'principle' | 'error-pattern')[];
+                  const requestedTeachingDomains = rawDomains.filter(d => teachingDomains.includes(d)) as ('idiom' | 'cultural' | 'procedure' | 'principle' | 'error-pattern' | 'situational-pattern' | 'subtlety-cue' | 'emotional-pattern' | 'creativity-template')[];
                   
                   const searchStudentMemory = requestedStudentDomains.length > 0 || rawDomains.length === 0;
                   const searchTeachingKnowledgeFlag = requestedTeachingDomains.length > 0 || rawDomains.length === 0;
@@ -3609,13 +3643,47 @@ Remember: David may reference things discussed in these recent text chats.
                       }
                     }
                     
+                    // Search teaching knowledge if applicable
+                    let teachingResults: Awaited<ReturnType<typeof searchTeaching>> | null = null;
+                    let formattedTeachingKnowledge = '';
+                    const searchStartTime = Date.now();
+                    
                     if (searchTeachingKnowledgeFlag) {
                       const teachingDomainFilter = requestedTeachingDomains.length > 0 ? requestedTeachingDomains : undefined;
-                      const teachingResults = await searchTeaching(query, session.targetLanguage || undefined, teachingDomainFilter);
+                      teachingResults = await searchTeaching(query, session.targetLanguage || undefined, teachingDomainFilter);
                       if (teachingResults.results.length > 0) {
-                        results.push(formatTeachingKnowledge(teachingResults));
+                        formattedTeachingKnowledge = formatTeachingKnowledge(teachingResults);
+                        results.push(formattedTeachingKnowledge);
                         totalFound += teachingResults.results.length;
                       }
+                      
+                      // Emit telemetry for neural network monitoring
+                      const searchDurationMs = Date.now() - searchStartTime;
+                      const domainCounts = teachingResults.results.reduce((acc, r) => {
+                        acc[r.domain] = (acc[r.domain] || 0) + 1;
+                        return acc;
+                      }, {} as Record<string, number>);
+                      
+                      db.insert(neuralNetworkTelemetry).values({
+                        voiceSessionId: session.id,
+                        userId: session.userId,
+                        targetLanguage: session.targetLanguage || null,
+                        query,
+                        domainsSearched: teachingResults.domainsSearched,
+                        domainsRequested: teachingDomainFilter || null,
+                        resultCount: teachingResults.results.length,
+                        formattedCharacterLength: formattedTeachingKnowledge.length,
+                        idiomCount: domainCounts['idiom'] || 0,
+                        culturalCount: domainCounts['cultural'] || 0,
+                        procedureCount: domainCounts['procedure'] || 0,
+                        principleCount: domainCounts['principle'] || 0,
+                        errorPatternCount: domainCounts['error-pattern'] || 0,
+                        situationalPatternCount: domainCounts['situational-pattern'] || 0,
+                        subtletyCueCount: domainCounts['subtlety-cue'] || 0,
+                        emotionalPatternCount: domainCounts['emotional-pattern'] || 0,
+                        creativityTemplateCount: domainCounts['creativity-template'] || 0,
+                        searchDurationMs,
+                      }).catch(err => console.error('[NeuralTelemetry - OpenMic] Insert error:', err));
                     }
                     
                     if (results.length > 0) {

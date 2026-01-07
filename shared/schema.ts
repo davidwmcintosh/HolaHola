@@ -4035,6 +4035,51 @@ export const creativityTemplates = pgTable("creativity_templates", {
   index("idx_creativity_templates_origin").on(table.originId),
 ]);
 
+// ===== Neural Network Telemetry =====
+// Tracks MEMORY_LOOKUP events to monitor Option B (teaching knowledge retrieval) effectiveness
+// Enables: prompt size monitoring, domain usage analysis, teaching quality correlation
+
+export const neuralNetworkTelemetry = pgTable("neural_network_telemetry", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Session context
+  voiceSessionId: varchar("voice_session_id"),
+  userId: varchar("user_id"),
+  targetLanguage: varchar("target_language"),
+  
+  // Query details
+  query: text("query").notNull(),
+  domainsSearched: varchar("domains_searched").array(),
+  domainsRequested: varchar("domains_requested").array(),
+  
+  // Results metrics
+  resultCount: integer("result_count").default(0),
+  formattedCharacterLength: integer("formatted_character_length").default(0),
+  
+  // Domain-specific counts
+  idiomCount: integer("idiom_count").default(0),
+  culturalCount: integer("cultural_count").default(0),
+  procedureCount: integer("procedure_count").default(0),
+  principleCount: integer("principle_count").default(0),
+  errorPatternCount: integer("error_pattern_count").default(0),
+  situationalPatternCount: integer("situational_pattern_count").default(0),
+  subtletyCueCount: integer("subtlety_cue_count").default(0),
+  emotionalPatternCount: integer("emotional_pattern_count").default(0),
+  creativityTemplateCount: integer("creativity_template_count").default(0),
+  
+  // Quality signals (populated post-hoc if possible)
+  knowledgeUsedInResponse: boolean("knowledge_used_in_response"),
+  
+  // Timing
+  searchDurationMs: integer("search_duration_ms"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_neural_telemetry_session").on(table.voiceSessionId),
+  index("idx_neural_telemetry_user").on(table.userId),
+  index("idx_neural_telemetry_created").on(table.createdAt),
+  index("idx_neural_telemetry_language").on(table.targetLanguage),
+]);
+
 // ===== Daniela's Proactive Suggestion System =====
 // Real-time emergent intelligence where Daniela analyzes patterns and proactively
 // suggests improvements to herself, the product, and the HolaHola team
@@ -4372,6 +4417,15 @@ export type EmotionalPattern = typeof emotionalPatterns.$inferSelect;
 
 export type InsertCreativityTemplate = z.infer<typeof insertCreativityTemplateSchema>;
 export type CreativityTemplate = typeof creativityTemplates.$inferSelect;
+
+// Insert schema for Neural Network Telemetry
+export const insertNeuralNetworkTelemetrySchema = createInsertSchema(neuralNetworkTelemetry).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertNeuralNetworkTelemetry = z.infer<typeof insertNeuralNetworkTelemetrySchema>;
+export type NeuralNetworkTelemetry = typeof neuralNetworkTelemetry.$inferSelect;
 
 // Insert schemas for Daniela's Proactive Suggestion System
 export const insertDanielaSuggestionSchema = createInsertSchema(danielaSuggestions).omit({
