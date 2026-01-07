@@ -47,7 +47,7 @@ import { sessionCompassService, COMPASS_ENABLED } from './services/session-compa
 import { architectVoiceService } from './services/architect-voice-service';
 import { updateToolEventEngagement, mapWhiteboardTypeToToolType } from './services/pedagogical-insights-service';
 import { buildNeuralNetworkPromptSection } from './services/neural-network-retrieval';
-import { getPredictiveTeachingContext, type PredictiveTeachingContext } from './services/procedural-memory-retrieval';
+import { getPredictiveTeachingContext, getStudentSnapshotData, type PredictiveTeachingContext, type StudentSnapshotContext } from './services/procedural-memory-retrieval';
 import { studentLearningService } from './services/student-learning-service';
 import { voiceDiagnostics } from './services/voice-diagnostics-service';
 import type { VoiceSession as UsageVoiceSession, CompassContext, TutorSession } from '@shared/schema';
@@ -951,6 +951,21 @@ Reference past discussions when relevant, but don't force it.
             console.warn('[Streaming Voice] Could not load student memory:', memErr.message);
           }
           
+          // Fetch student snapshot context for session continuity and personal connection
+          // This gives Daniela quick context: last lesson, streak, personal follow-ups ("How did your soccer game go?")
+          let studentSnapshotContext: StudentSnapshotContext | null = null;
+          try {
+            studentSnapshotContext = await getStudentSnapshotData(userId!, effectiveLanguage);
+            const snapshotItems = (studentSnapshotContext.lastSession ? 1 : 0) +
+                                 (studentSnapshotContext.streak ? 1 : 0) +
+                                 (studentSnapshotContext.personalFollowUps?.length || 0);
+            if (snapshotItems > 0) {
+              console.log(`[Streaming Voice] Loaded student snapshot: ${snapshotItems} items (last session, streak, personal follow-ups)`);
+            }
+          } catch (snapErr: any) {
+            console.warn('[Streaming Voice] Could not load student snapshot:', snapErr.message);
+          }
+          
           // Run pre-session predictions and fetch predictive teaching context
           // This triggers struggle predictions and motivation analysis, persisting to neural network tables
           let predictiveTeachingContext: PredictiveTeachingContext | null = null;
@@ -1008,7 +1023,8 @@ Reference past discussions when relevant, but don't force it.
             studentMemoryContext, // Student memory for neural network
             user.firstName || user.username || undefined, // Student display name for memory section
             predictiveTeachingContext, // Predictive teaching from neural network tables
-            tutorPersona // Pedagogical persona - each tutor's unique teaching style
+            tutorPersona, // Pedagogical persona - each tutor's unique teaching style
+            studentSnapshotContext // Student snapshot for session continuity (last lesson, streak, personal follow-ups)
           );
 
           // Add founder memory context if in Founder Mode (but NOT in Raw Honesty Mode - keep it minimal)

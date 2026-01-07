@@ -23,6 +23,7 @@ import {
   buildDetailedToolDocumentationSync,
   buildSensoryAwarenessSection,
   buildStudentMemoryAwarenessSection,
+  buildStudentSnapshotSection,
   buildFullNeuralNetworkSectionSync,
   buildFounderModeBehaviorSection,
   buildPredictiveTeachingSection,
@@ -31,6 +32,7 @@ import {
   buildAdvancedIntelligenceSection,
   buildActionTriggersSection,
   type StudentMemoryContext,
+  type StudentSnapshotContext,
   type PredictiveTeachingContext
 } from './services/procedural-memory-retrieval';
 
@@ -1018,7 +1020,8 @@ export function createSystemPrompt(
   studentMemoryContext?: StudentMemoryContext | null,
   studentDisplayName?: string,
   predictiveTeachingContext?: PredictiveTeachingContext | null,
-  tutorPersona?: PedagogicalPersona | null
+  tutorPersona?: PedagogicalPersona | null,
+  studentSnapshotContext?: StudentSnapshotContext | null
 ): string {
   const languageMap: Record<string, string> = {
     spanish: "Spanish",
@@ -1084,6 +1087,11 @@ This is a voice conversation. Speak naturally, as you would.` : '';
       ? buildStudentMemoryAwarenessSection(studentDisplayName, studentMemoryContext)
       : '';
     
+    // Student snapshot - quick context for session continuity and personal connection
+    const studentSnapshot = studentSnapshotContext && studentDisplayName
+      ? buildStudentSnapshotSection(studentDisplayName, studentSnapshotContext)
+      : '';
+    
     // Predictive teaching awareness - neural network predictions flow through
     const predictiveTeachingAwareness = predictiveTeachingContext
       ? buildPredictiveTeachingSection(predictiveTeachingContext)
@@ -1101,7 +1109,7 @@ This is a voice conversation. Speak naturally, as you would.` : '';
     // ACTION_TRIGGERS - command syntax for tutor handoffs, phase transitions, etc.
     const actionTriggers = buildActionTriggersSection();
     
-    return `${buildRawHonestyModeContext(name)}${voiceNote}${sensoryAwareness}${studentMemoryAwareness}${predictiveTeachingAwareness}${selfAwareness}${languageExpansion}${advancedIntelligence}
+    return `${buildRawHonestyModeContext(name)}${voiceNote}${sensoryAwareness}${studentSnapshot}${studentMemoryAwareness}${predictiveTeachingAwareness}${selfAwareness}${languageExpansion}${advancedIntelligence}
 
 ${actionTriggers}`;
   }
@@ -1161,6 +1169,11 @@ NATURAL CONVERSATION FLOW:
       ? buildStudentMemoryAwarenessSection(studentDisplayName, studentMemoryContext)
       : '';
     
+    // Student snapshot - quick context for session continuity and personal connection
+    const studentSnapshot = studentSnapshotContext && studentDisplayName
+      ? buildStudentSnapshotSection(studentDisplayName, studentSnapshotContext)
+      : '';
+    
     // Predictive teaching awareness - neural network predictions inform teaching approach
     const predictiveTeachingAwareness = predictiveTeachingContext
       ? buildPredictiveTeachingSection(predictiveTeachingContext)
@@ -1187,6 +1200,7 @@ You are ${tutorName}, and today you're having an open conversation with ${name},
 ${streamingVoiceModeInstructions}
 ${founderTeachingTools}
 ${sensoryAwareness}
+${studentSnapshot}
 ${studentMemoryAwareness}
 ${predictiveTeachingAwareness}
 ${selfAwareness}
@@ -2499,6 +2513,11 @@ ${difficulty === "beginner" ? `BEGINNER: Use moderate Spanish (40-50%) with subs
     ? buildStudentMemoryAwarenessSection(studentDisplayName, studentMemoryContext)
     : '';
   
+  // Student snapshot - quick context for session continuity and personal connection
+  const studentSnapshot = studentSnapshotContext && studentDisplayName
+    ? buildStudentSnapshotSection(studentDisplayName, studentSnapshotContext)
+    : '';
+  
   // Predictive teaching awareness - neural network predictions inform teaching approach
   const predictiveTeachingAwareness = predictiveTeachingContext
     ? buildPredictiveTeachingSection(predictiveTeachingContext)
@@ -2525,6 +2544,7 @@ ${vocabularyReviewContext}
 ${culturalGuidelines}
 ${multimediaGuidance}
 ${timezoneSection}
+${studentSnapshot}
 ${studentMemoryAwareness}
 ${predictiveTeachingAwareness}
 ${selfAwareness}

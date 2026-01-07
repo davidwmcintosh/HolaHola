@@ -32,6 +32,12 @@ import {
   creativityTemplates,
   // Wren insights
   wrenInsights,
+  // Student snapshot data
+  learnerPersonalFacts,
+  voiceSessions,
+  userProgress,
+  conversations,
+  type LearnerPersonalFact,
   type TutorProcedure,
   type ToolKnowledge,
   type TeachingPrinciple,
@@ -67,6 +73,237 @@ export interface StudentMemoryContext {
   struggles: RecurringStruggle[];
   recentNotes: SessionNote[];
   connections: PeopleConnection[];
+}
+
+// ===== Student Snapshot Context Type =====
+// Compact summary for session continuity and personal connection
+export interface StudentSnapshotContext {
+  lastSession?: {
+    topic: string;
+    daysAgo: number;
+    summary?: string;
+  };
+  syllabusPosition?: {
+    className: string;
+    unitName: string;
+    percentComplete: number;
+  };
+  streak?: number; // consecutive days
+  recentWins?: string[]; // skills mastered
+  needsPractice?: string[]; // areas needing work
+  personalFollowUps?: { // things to ask about
+    fact: string;
+    factType: string;
+    daysAgo: number;
+  }[];
+}
+
+/**
+ * Build Student Snapshot section for session continuity and personal connection
+ * 
+ * This gives Daniela:
+ * 1. What happened last time (topic, how long ago)
+ * 2. Where student is in their syllabus
+ * 3. Engagement metrics (streak)
+ * 4. Recent successes and challenges
+ * 5. Personal facts to naturally reference ("How did the soccer game go?")
+ */
+export function buildStudentSnapshotSection(
+  studentName: string,
+  snapshot: StudentSnapshotContext
+): string {
+  // Check if we have any meaningful data
+  const hasData = snapshot.lastSession || snapshot.syllabusPosition || 
+                  snapshot.streak || snapshot.recentWins?.length || 
+                  snapshot.needsPractice?.length || snapshot.personalFollowUps?.length;
+  
+  if (!hasData) return '';
+  
+  const lines: string[] = [];
+  
+  lines.push('');
+  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push(`STUDENT SNAPSHOT: ${studentName.toUpperCase()}`);
+  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push('');
+  lines.push('Quick context for natural conversation continuity:');
+  lines.push('');
+  
+  // Last session
+  if (snapshot.lastSession) {
+    const daysText = snapshot.lastSession.daysAgo === 0 ? 'earlier today' :
+                     snapshot.lastSession.daysAgo === 1 ? 'yesterday' :
+                     `${snapshot.lastSession.daysAgo} days ago`;
+    lines.push(`LAST SESSION: "${snapshot.lastSession.topic}" (${daysText})`);
+    if (snapshot.lastSession.summary) {
+      lines.push(`  ${snapshot.lastSession.summary}`);
+    }
+  }
+  
+  // Syllabus position
+  if (snapshot.syllabusPosition) {
+    lines.push(`POSITION: ${snapshot.syllabusPosition.className}, "${snapshot.syllabusPosition.unitName}" — ${snapshot.syllabusPosition.percentComplete}% complete`);
+  }
+  
+  // Streak
+  if (snapshot.streak && snapshot.streak > 1) {
+    lines.push(`STREAK: ${snapshot.streak} consecutive days`);
+  }
+  
+  // Recent wins
+  if (snapshot.recentWins && snapshot.recentWins.length > 0) {
+    lines.push(`RECENT WINS: ${snapshot.recentWins.slice(0, 3).join(', ')}`);
+  }
+  
+  // Needs practice
+  if (snapshot.needsPractice && snapshot.needsPractice.length > 0) {
+    lines.push(`NEEDS PRACTICE: ${snapshot.needsPractice.slice(0, 3).join(', ')}`);
+  }
+  
+  // Personal follow-ups - the magic touch
+  if (snapshot.personalFollowUps && snapshot.personalFollowUps.length > 0) {
+    lines.push('');
+    lines.push('PERSONAL NOTES TO FOLLOW UP ON:');
+    lines.push('(Reference these naturally if the moment feels right)');
+    for (const followUp of snapshot.personalFollowUps.slice(0, 5)) {
+      const daysText = followUp.daysAgo === 0 ? 'today' :
+                       followUp.daysAgo === 1 ? 'yesterday' :
+                       followUp.daysAgo <= 7 ? 'this week' :
+                       `${followUp.daysAgo} days ago`;
+      lines.push(`  • ${followUp.fact} (mentioned ${daysText})`);
+    }
+  }
+  
+  lines.push('');
+  lines.push('═══════════════════════════════════════════════════════════════════');
+  
+  return lines.join('\n');
+}
+
+/**
+ * Fetch student snapshot data from database
+ * Returns data needed for buildStudentSnapshotSection
+ */
+export async function getStudentSnapshotData(
+  studentId: string,
+  targetLanguage?: string
+): Promise<StudentSnapshotContext> {
+  const snapshot: StudentSnapshotContext = {};
+  
+  try {
+    // 1. Get last session info by joining voiceSessions with conversations for topic
+    const recentSessions = await db.select({
+      sessionId: voiceSessions.id,
+      startedAt: voiceSessions.startedAt,
+      topic: sql<string>`COALESCE(${conversations.topic}, 'Practice session')`,
+      title: conversations.title,
+    })
+      .from(voiceSessions)
+      .leftJoin(conversations, eq(voiceSessions.conversationId, conversations.id))
+      .where(
+        and(
+          eq(voiceSessions.userId, studentId),
+          targetLanguage ? eq(voiceSessions.language, targetLanguage) : sql`true`
+        )
+      )
+      .orderBy(desc(voiceSessions.startedAt))
+      .limit(1);
+    
+    if (recentSessions.length > 0) {
+      const lastSession = recentSessions[0];
+      const daysAgo = Math.floor((Date.now() - new Date(lastSession.startedAt).getTime()) / (1000 * 60 * 60 * 24));
+      snapshot.lastSession = {
+        topic: lastSession.topic || lastSession.title || 'Practice session',
+        daysAgo,
+      };
+    }
+    
+    // 2. Get progress/streak from userProgress
+    const progress = await db.select()
+      .from(userProgress)
+      .where(
+        and(
+          eq(userProgress.userId, studentId),
+          targetLanguage ? eq(userProgress.language, targetLanguage) : sql`true`
+        )
+      )
+      .limit(1);
+    
+    if (progress.length > 0) {
+      const p = progress[0];
+      // Calculate streak from lastPracticeDate
+      if (p.lastPracticeDate) {
+        const lastDate = new Date(p.lastPracticeDate);
+        const today = new Date();
+        const diffDays = Math.floor((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
+        // If they practiced today or yesterday, show streak
+        if (diffDays <= 1) {
+          snapshot.streak = p.currentStreak || 1;
+        }
+      }
+    }
+    
+    // 3. Get recent personal facts for follow-up
+    // Prioritize: recent mentions, time-sensitive facts, high confidence
+    const personalFacts = await db.select()
+      .from(learnerPersonalFacts)
+      .where(
+        and(
+          eq(learnerPersonalFacts.studentId, studentId),
+          eq(learnerPersonalFacts.isActive, true)
+        )
+      )
+      .orderBy(desc(learnerPersonalFacts.lastMentionedAt))
+      .limit(10);
+    
+    if (personalFacts.length > 0) {
+      // Filter to good follow-up candidates:
+      // - Events that happened recently (relevantDate in past week)
+      // - Facts mentioned in past 2 weeks that are conversation-worthy
+      const now = new Date();
+      const followUpCandidates: { fact: string; factType: string; daysAgo: number }[] = [];
+      
+      for (const pf of personalFacts) {
+        const lastMentioned = pf.lastMentionedAt ? new Date(pf.lastMentionedAt) : new Date(pf.createdAt);
+        const daysAgo = Math.floor((now.getTime() - lastMentioned.getTime()) / (1000 * 60 * 60 * 24));
+        
+        // Check if this is a time-sensitive fact (event that just happened)
+        if (pf.relevantDate) {
+          const eventDate = new Date(pf.relevantDate);
+          const daysSinceEvent = Math.floor((now.getTime() - eventDate.getTime()) / (1000 * 60 * 60 * 24));
+          // Event was in past week - great follow-up opportunity
+          if (daysSinceEvent >= 0 && daysSinceEvent <= 7) {
+            followUpCandidates.push({
+              fact: pf.fact,
+              factType: pf.factType,
+              daysAgo: daysSinceEvent,
+            });
+            continue;
+          }
+        }
+        
+        // Otherwise, include recent conversation-worthy facts
+        // life_event, goal, travel, work, family are good for follow-up
+        const followUpTypes = ['life_event', 'goal', 'travel', 'work', 'family', 'hobby'];
+        if (followUpTypes.includes(pf.factType) && daysAgo <= 14) {
+          followUpCandidates.push({
+            fact: pf.fact,
+            factType: pf.factType,
+            daysAgo,
+          });
+        }
+      }
+      
+      if (followUpCandidates.length > 0) {
+        snapshot.personalFollowUps = followUpCandidates.slice(0, 5);
+      }
+    }
+    
+  } catch (err: any) {
+    console.error('[StudentSnapshot] Error fetching snapshot data:', err.message);
+  }
+  
+  return snapshot;
 }
 
 // ===== Sensory Awareness (Neural Network Approach) =====
