@@ -4639,12 +4639,13 @@ class SyncBridgeService {
   
   /**
    * v28: Get recent verification results for UI display
+   * v29: Only show most recent verification per batch type (deduplicated)
    */
   async getRecentVerifications(): Promise<{
     verifications: SyncVerificationResult[];
     queriedAt: string;
   }> {
-    // Get recent sync runs that have verification results
+    // Get recent sync runs that have verification results (ordered by most recent first)
     const runs = await db.select({
       id: syncRuns.id,
       direction: syncRuns.direction,
@@ -4654,23 +4655,32 @@ class SyncBridgeService {
       .from(syncRuns)
       .where(sql`${syncRuns.verificationResults} IS NOT NULL`)
       .orderBy(desc(syncRuns.completedAt))
-      .limit(10);
+      .limit(20);
     
-    // Flatten all verification results
-    const allVerifications: SyncVerificationResult[] = [];
+    // Deduplicate by batchType - keep only most recent verification per batch
+    const latestByBatch = new Map<string, SyncVerificationResult>();
+    
     for (const run of runs) {
       if (Array.isArray(run.verificationResults)) {
         for (const v of run.verificationResults as SyncVerificationResult[]) {
-          allVerifications.push({
-            ...v,
-            verifiedAt: run.completedAt?.toISOString() || v.verifiedAt,
-          });
+          const key = v.batchType;
+          // Only add if we haven't seen this batch type yet (first = most recent)
+          if (!latestByBatch.has(key)) {
+            latestByBatch.set(key, {
+              ...v,
+              verifiedAt: run.completedAt?.toISOString() || v.verifiedAt,
+            });
+          }
         }
       }
     }
     
+    // Convert map to array, sorted by verifiedAt descending
+    const verifications = Array.from(latestByBatch.values())
+      .sort((a, b) => new Date(b.verifiedAt).getTime() - new Date(a.verifiedAt).getTime());
+    
     return {
-      verifications: allVerifications,
+      verifications,
       queriedAt: new Date().toISOString(),
     };
   }
