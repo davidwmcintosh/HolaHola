@@ -8013,21 +8013,48 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           'fastest': 1.2,
         };
         
-        // Build voice override object (same as legacy)
-        const voiceOverride: any = { ...((session as any).voiceOverride || {}) };
+        // Map Daniela's emotion names to CartesiaEmotion types (same as legacy)
+        const emotionMap: Record<string, string> = {
+          'positivity': 'happy',
+          'curiosity': 'curious',
+          'surprise': 'surprised',
+          'anger': 'neutral',
+          'sadness': 'thoughtful',
+          'happy': 'happy',
+          'excited': 'excited',
+          'friendly': 'friendly',
+          'curious': 'curious',
+          'thoughtful': 'thoughtful',
+          'warm': 'warm',
+          'playful': 'playful',
+          'surprised': 'surprised',
+          'proud': 'proud',
+          'encouraging': 'encouraging',
+          'calm': 'calm',
+          'neutral': 'neutral',
+        };
         
-        if (speed && speedMap[speed] !== undefined) {
-          voiceOverride.speakingRate = speedMap[speed];
-        }
-        if (emotion) {
-          voiceOverride.emotion = emotion;
-        }
-        if (personality) {
-          voiceOverride.personality = personality;
-        }
+        // Validate personality if provided (same as legacy)
+        const validPersonalities = ['warm', 'calm', 'energetic', 'professional'];
+        const validatedPersonality = personality && validPersonalities.includes(personality) 
+          ? personality as TutorPersonality 
+          : undefined;
         
-        (session as any).voiceOverride = voiceOverride;
-        console.log(`[Native Function→VoiceAdjust] Applied override:`, voiceOverride, `reason: ${reason || 'none'}`);
+        // Map the emotion to CartesiaEmotion
+        const mappedEmotion = emotion ? emotionMap[emotion] : undefined;
+        
+        // Apply to session as voice override (same structure as legacy)
+        const currentOverride = (session as any).voiceOverride || {};
+        const newOverride = {
+          ...currentOverride,
+          ...(speed && { speakingRate: speedMap[speed] || 0.9 }),
+          ...(mappedEmotion && { emotion: mappedEmotion }),
+          ...(validatedPersonality && { personality: validatedPersonality }),
+        };
+        
+        (session as any).voiceOverride = newOverride;
+        console.log(`[Native Function→VoiceAdjust] Applied: speed=${speed || 'unchanged'} (rate=${speed ? speedMap[speed] : 'unchanged'}), emotion=${emotion || 'unchanged'} (mapped=${mappedEmotion || 'unchanged'}), personality=${validatedPersonality || 'unchanged'}, reason=${reason || 'none'}`);
+        console.log(`[Native Function→VoiceAdjust] Session override now:`, newOverride);
         break;
       }
       
