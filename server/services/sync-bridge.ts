@@ -152,11 +152,16 @@ export interface SyncBundle {
   betaTesterCredits: any[];
   betaTesterEnrollments: any[];  // Direct enrollments for beta testers (including Replit auth users)
   // Beta usage (prod → dev pull)
+  // v25: Added pagination support (hasMore, page) and conversations for FK satisfaction
   betaUsage?: {
     voiceSessions: any[];
     usageLedger: any[];
     costSummaries: any[];
+    conversations: any[]; // v24: Parent records for voice sessions
     exportedAt: string;
+    hasMore?: boolean; // v25: Pagination indicator
+    page?: number; // v25: Current page
+    totalSessions?: number; // v25: Total count for progress tracking
   };
   // Aggregate analytics (prod → dev pull, anonymized)
   aggregateAnalytics?: {
@@ -283,7 +288,7 @@ class SyncBridgeService {
     return lastPull?.completedAt || null;
   }
   
-  async collectExportBundle(incrementalSince?: Date | null, batchType?: string): Promise<Partial<SyncBundle>> {
+  async collectExportBundle(incrementalSince?: Date | null, batchType?: string, options?: { sinceTimestamp?: string }): Promise<Partial<SyncBundle>> {
     // If a specific batch type is requested, only export that batch
     // This enables batched sync to avoid timeout issues
     
@@ -1055,7 +1060,7 @@ class SyncBridgeService {
       .offset(page * PAGE_SIZE);
     
     // v24: Get conversations referenced by voice sessions (to satisfy foreign keys)
-    const conversationIds = [...new Set(sessions.map(s => s.conversationId).filter(Boolean))];
+    const conversationIds = Array.from(new Set(sessions.map(s => s.conversationId).filter(Boolean))) as string[];
     let referencedConversations: any[] = [];
     if (conversationIds.length > 0) {
       referencedConversations = await db
@@ -3613,11 +3618,11 @@ class SyncBridgeService {
         // v20: Production diagnostics - only pulled by dev from prod
         'sofia-telemetry', 'prod-conversations', 'prod-content-growth'
       ];
-      // v23: Default excludes - large/slow batches that should sync on-demand
-      // - beta-usage, aggregate-analytics: analytics data, sync on demand
+      // v25: Default excludes - only truly large batches that need dedicated sync
+      // - aggregate-analytics: anonymized stats, sync on demand only
       // - advanced-intel-b: 388K+ observations, needs dedicated sync (8000+ pages)
-      // Note: sofia-telemetry, prod-conversations, prod-content-growth are included by default
-      const DEFAULT_EXCLUDED = ['beta-usage', 'aggregate-analytics', 'advanced-intel-b'];
+      // Note: beta-usage now uses pagination (v25), no longer excluded
+      const DEFAULT_EXCLUDED = ['aggregate-analytics', 'advanced-intel-b'];
       const batchTypes = batchFilter && batchFilter.length > 0 
         ? allBatchTypes.filter(b => batchFilter.includes(b))
         : allBatchTypes.filter(b => !DEFAULT_EXCLUDED.includes(b));
@@ -3707,6 +3712,60 @@ class SyncBridgeService {
             console.log(`[SYNC-BRIDGE v16] advanced-intel-b NOT marked complete (hasMore=${hasMore}, success=${overallSuccess})`);
           }
             
+        } else if (batchType === 'beta-usage') {
+          // v25: Paginated beta-usage pull (similar to advanced-intel-b)
+          let page = 0;
+          let hasMore = true;
+          const MAX_PAGES = 50; // 250 sessions/page = 12,500 sessions max
+          
+          // v25: Delta sync - get last successful pull timestamp to only fetch new sessions
+          const lastPullTime = await this.getLastSuccessfulPullTime('beta-usage');
+          if (lastPullTime) {
+            console.log(`[SYNC-BRIDGE v25] beta-usage delta sync: only fetching sessions since ${lastPullTime.toISOString()}`);
+          } else {
+            console.log(`[SYNC-BRIDGE v25] beta-usage full sync: no previous pull found`);
+          }
+          
+          while (hasMore && page < MAX_PAGES) {
+            const pageBatchType = page === 0 ? 'beta-usage' : `beta-usage-p${page}`;
+            console.log(`[SYNC-BRIDGE v25] Fetching beta-usage page ${page}${lastPullTime ? ' (delta)' : ''}...`);
+            
+            const result = await this.fetchBatch(peerUrl, pageBatchType, 60000, lastPullTime || undefined); // 60s timeout
+            
+            if (!result.success) {
+              allErrors.push(result.error || `${pageBatchType} failed`);
+              overallSuccess = false;
+              hasMore = false;
+              break;
+            }
+            
+            // Apply the partial bundle
+            const importResult = await this.applyImportBundle(result.bundle as SyncBundle);
+            Object.assign(allCounts, importResult.counts);
+            allErrors.push(...importResult.errors);
+            if (!importResult.success) overallSuccess = false;
+            
+            // Check for more pages from betaUsage response
+            const betaUsagePagination = (result.bundle as SyncBundle).betaUsage;
+            hasMore = betaUsagePagination?.hasMore ?? false;
+            page++;
+            
+            console.log(`[SYNC-BRIDGE v25] beta-usage page ${page - 1} complete. hasMore=${hasMore}`);
+          }
+          
+          if (page >= MAX_PAGES) {
+            console.warn(`[SYNC-BRIDGE v25] Hit MAX_PAGES limit (${MAX_PAGES}) for beta-usage`);
+          }
+          
+          // Mark beta-usage as completed when all pages done
+          if (!hasMore && overallSuccess) {
+            completedBatches.push('beta-usage');
+            await db.update(syncRuns)
+              .set({ completedBatches })
+              .where(eq(syncRuns.id, syncRun.id));
+            console.log(`[SYNC-BRIDGE v25] beta-usage marked complete (${page} pages)`);
+          }
+          
         } else {
           // Standard single-fetch for other batches
           const result = await this.fetchBatch(peerUrl, batchType, timeout);
