@@ -36,7 +36,7 @@ const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production'
 
 // Version identifier to verify which code is running on production
 // Increment this when making sync-related changes to verify deployment
-const SYNC_BRIDGE_CODE_VERSION = "2025-01-07-v27-beta-tester-classes-sync";
+const SYNC_BRIDGE_CODE_VERSION = "2025-01-07-v28-fix-push-completed-batches";
 
 // Capability negotiation: List all batch types this version can import/export
 // When adding new batches, add them here so peers can gracefully handle version mismatches
@@ -3598,6 +3598,7 @@ class SyncBridgeService {
       await db.update(syncRuns)
         .set({
           status: finalStatus,
+          completedBatches, // v28: Track completed batches for sync health
           bestPracticesCount: allCounts.bestPractices || 0,
           idiomCount: allCounts.idioms || 0,
           nuanceCount: allCounts.nuances || 0,
