@@ -3529,8 +3529,19 @@ Remember: David may reference things discussed in these recent text chats.
               case 'SUBTITLE': {
                 const mode = (cmd.params.mode as string)?.toLowerCase();
                 if (mode && ['off', 'on', 'target'].includes(mode)) {
-                  session.subtitleMode = mode === 'on' ? 'all' : mode as 'off' | 'all' | 'target';
-                  console.log(`[CommandParser→Subtitle - OpenMic] Mode: ${session.subtitleMode}`);
+                  const validMode = mode === 'on' ? 'all' : mode as 'off' | 'all' | 'target';
+                  session.subtitleMode = validMode;
+                  console.log(`[CommandParser→Subtitle - OpenMic] Mode: ${validMode}`);
+                  
+                  // Send WebSocket message to client to update UI subtitle setting
+                  if (session.ws.readyState === 1) {  // WebSocket.OPEN = 1
+                    session.ws.send(JSON.stringify({
+                      type: 'subtitle_mode_change',
+                      mode: validMode,
+                      timestamp: Date.now(),
+                    }));
+                    console.log(`[CommandParser→Subtitle - OpenMic] Sent subtitle_mode_change to client: ${validMode}`);
+                  }
                 }
                 break;
               }
