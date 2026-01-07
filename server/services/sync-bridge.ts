@@ -667,8 +667,8 @@ class SyncBridgeService {
           page = parseInt(batchType.replace('beta-usage-p', ''), 10) || 0;
         }
         
-        // v25: Support delta sync via sinceTimestamp query param
-        const sinceTimestamp = (options as any)?.sinceTimestamp;
+        // v25: Support delta sync - check options first, fall back to incrementalSince from route
+        const sinceTimestamp = options?.sinceTimestamp || (incrementalSince ? incrementalSince.toISOString() : undefined);
         
         const betaUsageData = await this.exportBetaUsage({ page, sinceTimestamp });
         bundle.betaUsage = betaUsageData;
