@@ -2370,12 +2370,14 @@ Remember: David may reference things discussed in these recent text chats.
                   
                   if (mode === 'custom' && customText) {
                     // Custom mode: Display specific text without speaking it
+                    // Use existing custom_overlay protocol that client already handles
+                    (session as any).customOverlayText = customText;
                     console.log(`[CommandParser→Subtitle] Custom text: "${customText.substring(0, 50)}..." via ${cmd.source}`);
                     if (session.ws.readyState === 1) {
                       session.ws.send(JSON.stringify({
-                        type: 'custom_subtitle_display',
+                        type: 'custom_overlay',
                         text: customText,
-                        spoken: false,
+                        action: 'show',
                         timestamp: Date.now(),
                       }));
                     }
@@ -3596,12 +3598,14 @@ Remember: David may reference things discussed in these recent text chats.
                 const customText = cmd.params.text as string | undefined;
                 
                 if (mode === 'custom' && customText) {
+                  // Use existing custom_overlay protocol that client already handles
+                  (session as any).customOverlayText = customText;
                   console.log(`[CommandParser→Subtitle - OpenMic] Custom: "${customText.substring(0, 50)}..."`);
                   if (session.ws.readyState === 1) {
                     session.ws.send(JSON.stringify({
-                      type: 'custom_subtitle_display',
+                      type: 'custom_overlay',
                       text: customText,
-                      spoken: false,
+                      action: 'show',
                       timestamp: Date.now(),
                     }));
                   }
@@ -8142,18 +8146,27 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         const mode = (fn.args.mode as string)?.toLowerCase();
         const customText = fn.args.text as string | undefined;
         
-        if (mode === 'custom' && customText) {
-          // Custom mode: Display specific text without speaking it
-          console.log(`[Native Function→Subtitle] Custom text display: "${customText.substring(0, 50)}..."`);
-          
-          // Send custom subtitle text to client (shown-only, not spoken)
-          if (session.ws.readyState === 1) {
-            session.ws.send(JSON.stringify({
-              type: 'custom_subtitle_display',
-              text: customText,
-              spoken: false,  // Not spoken, just displayed
-              timestamp: Date.now(),
-            }));
+        if (mode === 'custom') {
+          if (!customText || customText.trim() === '') {
+            console.warn(`[Native Function→Subtitle] Custom mode requires text parameter, skipping`);
+          } else {
+            // Custom mode: Display specific text without speaking it
+            // Use existing custom_overlay protocol that client already handles
+            // Note: Use [HIDE] to clear the overlay when done
+            console.log(`[Native Function→Subtitle] Custom text display: "${customText.substring(0, 50)}..."`);
+            
+            // Set on session for any code that reads it
+            (session as any).customOverlayText = customText;
+            
+            // Send using existing custom_overlay message (already handled by client)
+            if (session.ws.readyState === 1) {
+              session.ws.send(JSON.stringify({
+                type: 'custom_overlay',
+                text: customText,
+                action: 'show',
+                timestamp: Date.now(),
+              }));
+            }
           }
         } else if (mode && ['off', 'on', 'target'].includes(mode)) {
           // Standard mode toggle: off/on/target

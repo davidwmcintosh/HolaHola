@@ -466,13 +466,22 @@ WORKFLOW:
   2. Practice together → Maybe add a drill
   3. Moving on? → [CLEAR] first, then introduce next concept
 
-SUBTITLES - BE INTENTIONAL:
+SUBTITLES - THREE MODES:
+  1. [SUBTITLE_TARGET] → Turn on target language subtitles (stays on until off)
+  2. [SUBTITLE_OFF] → Turn subtitles off
+  3. [SUBTITLE_TEXT]phrase[/SUBTITLE_TEXT] → Show specific text SYNCED with speech timing
+  4. subtitle(mode="custom", text="...") → Show text WITHOUT speaking it (function call)
+
+WHEN TO USE EACH:
+  • [SUBTITLE_TARGET] - Enable target language highlighting for a learning segment
+  • [SUBTITLE_OFF] - Clear subtitles when moving to listening-focused practice
+  • [SUBTITLE_TEXT]**Hola**[/SUBTITLE_TEXT] - When saying AND showing (timing syncs)
+  • subtitle(custom, "¡Perfecto!") - Flash text on screen without saying it
+
+BE INTENTIONAL:
   • Default is OFF - you opt in when subtitles help
-  • Don't use [SHOW: ¡Exacto!] for every reaction or thought
-  • Save [SHOW: text] for deliberate teaching moments
-  • When introducing a new word: [SHOW: palabra] → student sees it
-  • After the moment passes: [HIDE] to clean up
   • Think of subtitles like a highlighter - powerful when sparse
+  • Don't flash every reaction - save for deliberate teaching moments
 
 ═══════════════════════════════════════════════════════════════════
 `;
