@@ -19,11 +19,20 @@ import {
   recurringStruggles,
   sessionNotes,
   actflAssessmentEvents,
+  languageIdioms,
+  culturalNuances,
+  tutorProcedures,
+  teachingPrinciples,
+  learnerErrorPatterns,
   type PeopleConnection,
   type StudentInsight,
   type LearningMotivation,
   type RecurringStruggle,
   type SessionNote,
+  type LanguageIdiom,
+  type CulturalNuance,
+  type TutorProcedure,
+  type TeachingPrinciple,
 } from '@shared/schema';
 import { eq, sql, desc, and, or, ilike } from 'drizzle-orm';
 
@@ -427,10 +436,352 @@ export async function getStudentMemorySummary(studentId: string): Promise<string
   return lines.join('\n');
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// TEACHING KNOWLEDGE DOMAINS (Phase 1: On-Demand Recall)
+// These are language-specific (not student-specific) teaching knowledge
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Teaching memory search result
+ */
+export interface TeachingMemoryResult {
+  domain: 'idiom' | 'cultural' | 'procedure' | 'principle' | 'error-pattern';
+  relevance: number;
+  summary: string;
+  details: string;
+  language: string | null;
+  source: string;
+}
+
+/**
+ * Teaching memory search response
+ */
+export interface TeachingMemoryResponse {
+  query: string;
+  language: string | null;
+  results: TeachingMemoryResult[];
+  searchedDomains: string[];
+  totalMatches: number;
+}
+
+/**
+ * Search Daniela's teaching knowledge base
+ * Unlike student memory, this is filtered by LANGUAGE, not studentId
+ * 
+ * @param query - The search query (topic, phrase, situation)
+ * @param language - Target language (optional, searches all if not provided)
+ * @param domains - Limit to specific teaching domains
+ */
+export async function searchTeachingKnowledge(
+  query: string,
+  language?: string,
+  domains?: ('idiom' | 'cultural' | 'procedure' | 'principle' | 'error-pattern')[]
+): Promise<TeachingMemoryResponse> {
+  const results: TeachingMemoryResult[] = [];
+  const searchedDomains: string[] = [];
+  
+  const normalizedQuery = query.toLowerCase().trim();
+  const searchPattern = `%${normalizedQuery}%`;
+  
+  const domainsToSearch = domains || ['idiom', 'cultural', 'procedure', 'principle', 'error-pattern'];
+  const searchPromises: Promise<void>[] = [];
+  
+  // === LANGUAGE IDIOMS ===
+  if (domainsToSearch.includes('idiom')) {
+    searchedDomains.push('idiom');
+    searchPromises.push((async () => {
+      try {
+        let whereClause = and(
+          eq(languageIdioms.isActive, true),
+          or(
+            ilike(languageIdioms.idiom, searchPattern),
+            ilike(languageIdioms.meaning, searchPattern),
+            ilike(languageIdioms.literalTranslation, searchPattern),
+            ilike(languageIdioms.culturalContext, searchPattern)
+          )
+        );
+        
+        if (language) {
+          whereClause = and(whereClause, eq(languageIdioms.language, language));
+        }
+        
+        const idioms = await db.select().from(languageIdioms)
+          .where(whereClause)
+          .orderBy(desc(languageIdioms.createdAt))
+          .limit(10);
+        
+        for (const idiom of idioms) {
+          const examples = idiom.usageExamples?.slice(0, 2).join('; ') || '';
+          results.push({
+            domain: 'idiom',
+            relevance: 0.8,
+            summary: `"${idiom.idiom}" - ${idiom.meaning}`,
+            details: [
+              idiom.literalTranslation ? `Literal: "${idiom.literalTranslation}"` : '',
+              idiom.culturalContext ? `Context: ${idiom.culturalContext}` : '',
+              examples ? `Examples: ${examples}` : '',
+              idiom.region ? `Region: ${idiom.region}` : '',
+            ].filter(Boolean).join('. '),
+            language: idiom.language,
+            source: 'language_idioms',
+          });
+        }
+      } catch (err: any) {
+        console.error('[NeuralMemory] Error searching idioms:', err.message);
+      }
+    })());
+  }
+  
+  // === CULTURAL NUANCES ===
+  if (domainsToSearch.includes('cultural')) {
+    searchedDomains.push('cultural');
+    searchPromises.push((async () => {
+      try {
+        let whereClause = and(
+          eq(culturalNuances.isActive, true),
+          or(
+            ilike(culturalNuances.nuance, searchPattern),
+            ilike(culturalNuances.situation, searchPattern),
+            ilike(culturalNuances.explanation, searchPattern),
+            ilike(culturalNuances.category, searchPattern)
+          )
+        );
+        
+        if (language) {
+          whereClause = and(whereClause, eq(culturalNuances.language, language));
+        }
+        
+        const nuances = await db.select().from(culturalNuances)
+          .where(whereClause)
+          .orderBy(desc(culturalNuances.createdAt))
+          .limit(10);
+        
+        for (const nuance of nuances) {
+          const mistakes = nuance.commonMistakes?.slice(0, 2).join('; ') || '';
+          results.push({
+            domain: 'cultural',
+            relevance: 0.75,
+            summary: `[${nuance.category}] ${nuance.situation}: ${nuance.nuance.substring(0, 100)}`,
+            details: [
+              nuance.explanation || '',
+              mistakes ? `Common mistakes: ${mistakes}` : '',
+              nuance.formalityLevel ? `Formality: ${nuance.formalityLevel}` : '',
+              nuance.region ? `Region: ${nuance.region}` : '',
+            ].filter(Boolean).join('. '),
+            language: nuance.language,
+            source: 'cultural_nuances',
+          });
+        }
+      } catch (err: any) {
+        console.error('[NeuralMemory] Error searching cultural nuances:', err.message);
+      }
+    })());
+  }
+  
+  // === TUTOR PROCEDURES ===
+  if (domainsToSearch.includes('procedure')) {
+    searchedDomains.push('procedure');
+    searchPromises.push((async () => {
+      try {
+        let whereClause = and(
+          eq(tutorProcedures.isActive, true),
+          or(
+            ilike(tutorProcedures.title, searchPattern),
+            ilike(tutorProcedures.procedure, searchPattern),
+            ilike(tutorProcedures.category, searchPattern),
+            ilike(tutorProcedures.trigger, searchPattern)
+          )
+        );
+        
+        if (language) {
+          whereClause = and(
+            whereClause,
+            or(
+              eq(tutorProcedures.language, language),
+              sql`${tutorProcedures.language} IS NULL` // Universal procedures
+            )
+          );
+        }
+        
+        const procedures = await db.select().from(tutorProcedures)
+          .where(whereClause)
+          .orderBy(desc(tutorProcedures.priority))
+          .limit(10);
+        
+        for (const proc of procedures) {
+          const examples = proc.examples?.slice(0, 2).join('; ') || '';
+          results.push({
+            domain: 'procedure',
+            relevance: (proc.priority || 50) / 100,
+            summary: `[${proc.category}/${proc.trigger}] ${proc.title}`,
+            details: [
+              proc.procedure,
+              examples ? `Examples: ${examples}` : '',
+              proc.actflLevelRange ? `Level: ${proc.actflLevelRange}` : '',
+            ].filter(Boolean).join('. '),
+            language: proc.language,
+            source: 'tutor_procedures',
+          });
+        }
+      } catch (err: any) {
+        console.error('[NeuralMemory] Error searching procedures:', err.message);
+      }
+    })());
+  }
+  
+  // === TEACHING PRINCIPLES ===
+  if (domainsToSearch.includes('principle')) {
+    searchedDomains.push('principle');
+    searchPromises.push((async () => {
+      try {
+        const whereClause = and(
+          eq(teachingPrinciples.isActive, true),
+          or(
+            ilike(teachingPrinciples.principle, searchPattern),
+            ilike(teachingPrinciples.category, searchPattern),
+            ilike(teachingPrinciples.application, searchPattern)
+          )
+        );
+        
+        const principles = await db.select().from(teachingPrinciples)
+          .where(whereClause)
+          .orderBy(desc(teachingPrinciples.priority))
+          .limit(10);
+        
+        for (const principle of principles) {
+          const examples = principle.examples?.slice(0, 2).join('; ') || '';
+          results.push({
+            domain: 'principle',
+            relevance: (principle.priority || 50) / 100,
+            summary: `[${principle.category}] ${principle.principle.substring(0, 100)}`,
+            details: [
+              principle.principle,
+              principle.application ? `Application: ${principle.application}` : '',
+              examples ? `Examples: ${examples}` : '',
+            ].filter(Boolean).join('. '),
+            language: null, // Principles are language-agnostic
+            source: 'teaching_principles',
+          });
+        }
+      } catch (err: any) {
+        console.error('[NeuralMemory] Error searching principles:', err.message);
+      }
+    })());
+  }
+  
+  // === ERROR PATTERNS ===
+  if (domainsToSearch.includes('error-pattern')) {
+    searchedDomains.push('error-pattern');
+    searchPromises.push((async () => {
+      try {
+        let whereClause = and(
+          eq(learnerErrorPatterns.isActive, true),
+          or(
+            ilike(learnerErrorPatterns.specificError, searchPattern),
+            ilike(learnerErrorPatterns.errorCategory, searchPattern),
+            ilike(learnerErrorPatterns.whyItHappens, searchPattern)
+          )
+        );
+        
+        if (language) {
+          whereClause = and(whereClause, eq(learnerErrorPatterns.targetLanguage, language));
+        }
+        
+        const errors = await db.select().from(learnerErrorPatterns)
+          .where(whereClause)
+          .orderBy(desc(learnerErrorPatterns.createdAt))
+          .limit(10);
+        
+        for (const error of errors) {
+          const strategies = error.teachingStrategies?.slice(0, 2).join('; ') || '';
+          results.push({
+            domain: 'error-pattern',
+            relevance: error.priority === 'common' ? 0.9 : error.priority === 'occasional' ? 0.6 : 0.4,
+            summary: `[${error.errorCategory}] ${error.specificError}`,
+            details: [
+              error.whyItHappens || '',
+              strategies ? `Teaching strategies: ${strategies}` : '',
+              error.actflLevel ? `Typical at: ${error.actflLevel}` : '',
+            ].filter(Boolean).join('. '),
+            language: error.targetLanguage,
+            source: 'learner_error_patterns',
+          });
+        }
+      } catch (err: any) {
+        console.error('[NeuralMemory] Error searching error patterns:', err.message);
+      }
+    })());
+  }
+  
+  await Promise.all(searchPromises);
+  
+  // Sort by relevance
+  results.sort((a, b) => b.relevance - a.relevance);
+  
+  return {
+    query,
+    language: language || null,
+    results,
+    searchedDomains,
+    totalMatches: results.length,
+  };
+}
+
+/**
+ * Format teaching knowledge for injection into conversation
+ */
+export function formatTeachingKnowledge(response: TeachingMemoryResponse): string {
+  if (response.results.length === 0) {
+    return `[Teaching knowledge search for "${response.query}": No matches found]`;
+  }
+  
+  const lines: string[] = [];
+  lines.push(`\n═══ TEACHING KNOWLEDGE: "${response.query}" ═══`);
+  if (response.language) {
+    lines.push(`Language: ${response.language}`);
+  }
+  lines.push(`Found ${response.totalMatches} relevant entries:\n`);
+  
+  const domainLabels: Record<string, string> = {
+    'idiom': 'Idioms & Expressions',
+    'cultural': 'Cultural Nuances',
+    'procedure': 'Teaching Procedures',
+    'principle': 'Teaching Principles',
+    'error-pattern': 'Common Learner Errors',
+  };
+  
+  // Group by domain
+  const byDomain = new Map<string, TeachingMemoryResult[]>();
+  for (const result of response.results) {
+    if (!byDomain.has(result.domain)) {
+      byDomain.set(result.domain, []);
+    }
+    byDomain.get(result.domain)!.push(result);
+  }
+  
+  for (const [domain, domainResults] of byDomain) {
+    lines.push(`${domainLabels[domain] || domain}:`);
+    for (const result of domainResults.slice(0, 3)) {
+      lines.push(`  • ${result.summary}`);
+      if (result.details) {
+        lines.push(`    └─ ${result.details.substring(0, 250)}`);
+      }
+    }
+    lines.push('');
+  }
+  
+  lines.push('═══════════════════════════════════════');
+  
+  return lines.join('\n');
+}
+
 // Export singleton-style functions
 export const neuralMemorySearch = {
   search: searchMemory,
   format: formatMemoryForConversation,
   lookupPerson,
   getStudentMemorySummary,
+  // Teaching knowledge (Phase 1)
+  searchTeaching: searchTeachingKnowledge,
+  formatTeaching: formatTeachingKnowledge,
 };

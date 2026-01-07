@@ -2138,47 +2138,78 @@ Remember: David may reference things discussed in these recent text chats.
                   break;
                 }
                 case 'MEMORY_LOOKUP': {
-                  // On-demand neural memory search
+                  // On-demand neural memory search - supports both student memory AND teaching knowledge
                   const query = cmd.params.query as string;
                   const domainsStr = cmd.params.domains as string | undefined;
                   
-                  if (query && session.studentId) {
+                  if (query) {
                     // Parse domains if provided (comma-separated)
-                    const domains = domainsStr 
-                      ? domainsStr.split(',').map(d => d.trim().toLowerCase()) as ('person' | 'motivation' | 'insight' | 'struggle' | 'session' | 'progress')[]
-                      : undefined;
+                    const rawDomains = domainsStr 
+                      ? domainsStr.split(',').map(d => d.trim().toLowerCase())
+                      : [];
                     
-                    // Execute the memory search
+                    // Separate student domains from teaching domains
+                    const studentDomains = ['person', 'motivation', 'insight', 'struggle', 'session', 'progress'];
+                    const teachingDomains = ['idiom', 'cultural', 'procedure', 'principle', 'error-pattern'];
+                    
+                    const requestedStudentDomains = rawDomains.filter(d => studentDomains.includes(d)) as ('person' | 'motivation' | 'insight' | 'struggle' | 'session' | 'progress')[];
+                    const requestedTeachingDomains = rawDomains.filter(d => teachingDomains.includes(d)) as ('idiom' | 'cultural' | 'procedure' | 'principle' | 'error-pattern')[];
+                    
+                    // If no specific domains requested, search BOTH student memory and teaching knowledge
+                    const searchStudentMemory = requestedStudentDomains.length > 0 || rawDomains.length === 0;
+                    const searchTeachingKnowledge = requestedTeachingDomains.length > 0 || rawDomains.length === 0;
+                    
                     try {
-                      const { searchMemory, formatMemoryForConversation } = await import('./neural-memory-search');
-                      const memoryResults = await searchMemory(session.studentId, query, domains);
+                      const { searchMemory, formatMemoryForConversation, searchTeachingKnowledge: searchTeaching, formatTeachingKnowledge } = await import('./neural-memory-search');
                       
-                      if (memoryResults.results.length > 0) {
-                        // Format and inject into the conversation
-                        const formattedMemory = formatMemoryForConversation(memoryResults);
+                      const results: string[] = [];
+                      let totalFound = 0;
+                      
+                      // Search student memory if applicable
+                      if (searchStudentMemory && session.studentId) {
+                        const studentDomainFilter = requestedStudentDomains.length > 0 ? requestedStudentDomains : undefined;
+                        const memoryResults = await searchMemory(session.studentId, query, studentDomainFilter);
+                        if (memoryResults.results.length > 0) {
+                          results.push(formatMemoryForConversation(memoryResults));
+                          totalFound += memoryResults.results.length;
+                        }
+                      }
+                      
+                      // Search teaching knowledge if applicable
+                      if (searchTeachingKnowledge) {
+                        const teachingDomainFilter = requestedTeachingDomains.length > 0 ? requestedTeachingDomains : undefined;
+                        const teachingResults = await searchTeaching(query, session.targetLanguage || undefined, teachingDomainFilter);
+                        if (teachingResults.results.length > 0) {
+                          results.push(formatTeachingKnowledge(teachingResults));
+                          totalFound += teachingResults.results.length;
+                        }
+                      }
+                      
+                      if (results.length > 0) {
+                        // Combine and inject into conversation
+                        const combinedResults = results.join('\n\n');
                         
-                        // Add to conversation history for context
                         if (session.conversationHistory) {
                           session.conversationHistory.push({
                             role: 'user',
-                            content: `[SYSTEM: Memory recall results for "${query}"]\n${formattedMemory}`,
+                            content: `[SYSTEM: Memory recall results for "${query}"]\n${combinedResults}`,
                           });
                         }
                         
-                        console.log(`[CommandParser→MemoryLookup] Found ${memoryResults.results.length} memories for "${query}" across domains: ${memoryResults.searchedDomains.join(', ')}`);
+                        console.log(`[CommandParser→MemoryLookup] Found ${totalFound} results for "${query}" (student: ${searchStudentMemory}, teaching: ${searchTeachingKnowledge})`);
                         
                         // Emit to founder if in Founder Mode
                         if (session.isFounderMode && session.hiveChannelId) {
                           hiveCollaborationService.emitBeacon({
                             channelId: session.hiveChannelId,
-                            tutorTurn: `[MEMORY_LOOKUP] Query: "${query}"\nDomains: ${memoryResults.searchedDomains.join(', ')}\nResults: ${memoryResults.results.length} memories found`,
+                            tutorTurn: `[MEMORY_LOOKUP] Query: "${query}"\nDomains: ${rawDomains.join(', ') || 'all'}\nResults: ${totalFound} found`,
                             studentTurn: '',
                             beaconType: 'memory_lookup',
                             beaconReason: `Daniela searched neural memory for "${query}"`,
                           }).catch(err => console.error(`[CommandParser→MemoryLookup] Beacon error:`, err));
                         }
                       } else {
-                        console.log(`[CommandParser→MemoryLookup] No memories found for "${query}"`);
+                        console.log(`[CommandParser→MemoryLookup] No results found for "${query}"`);
                       }
                     } catch (err) {
                       console.error(`[CommandParser→MemoryLookup] Error searching memory:`, err);
@@ -3545,30 +3576,59 @@ Remember: David may reference things discussed in these recent text chats.
                 break;
               }
               case 'MEMORY_LOOKUP': {
-                // On-demand neural memory search
+                // On-demand neural memory search - supports both student memory AND teaching knowledge
                 const query = cmd.params.query as string;
                 const domainsStr = cmd.params.domains as string | undefined;
                 
-                if (query && session.studentId) {
-                  const domains = domainsStr 
-                    ? domainsStr.split(',').map(d => d.trim().toLowerCase()) as ('person' | 'motivation' | 'insight' | 'struggle' | 'session' | 'progress')[]
-                    : undefined;
+                if (query) {
+                  const rawDomains = domainsStr 
+                    ? domainsStr.split(',').map(d => d.trim().toLowerCase())
+                    : [];
+                  
+                  const studentDomains = ['person', 'motivation', 'insight', 'struggle', 'session', 'progress'];
+                  const teachingDomains = ['idiom', 'cultural', 'procedure', 'principle', 'error-pattern'];
+                  
+                  const requestedStudentDomains = rawDomains.filter(d => studentDomains.includes(d)) as ('person' | 'motivation' | 'insight' | 'struggle' | 'session' | 'progress')[];
+                  const requestedTeachingDomains = rawDomains.filter(d => teachingDomains.includes(d)) as ('idiom' | 'cultural' | 'procedure' | 'principle' | 'error-pattern')[];
+                  
+                  const searchStudentMemory = requestedStudentDomains.length > 0 || rawDomains.length === 0;
+                  const searchTeachingKnowledgeFlag = requestedTeachingDomains.length > 0 || rawDomains.length === 0;
                   
                   try {
-                    const { searchMemory, formatMemoryForConversation } = await import('./neural-memory-search');
-                    const memoryResults = await searchMemory(session.studentId, query, domains);
+                    const { searchMemory, formatMemoryForConversation, searchTeachingKnowledge: searchTeaching, formatTeachingKnowledge } = await import('./neural-memory-search');
                     
-                    if (memoryResults.results.length > 0) {
-                      const formattedMemory = formatMemoryForConversation(memoryResults);
+                    const results: string[] = [];
+                    let totalFound = 0;
+                    
+                    if (searchStudentMemory && session.studentId) {
+                      const studentDomainFilter = requestedStudentDomains.length > 0 ? requestedStudentDomains : undefined;
+                      const memoryResults = await searchMemory(session.studentId, query, studentDomainFilter);
+                      if (memoryResults.results.length > 0) {
+                        results.push(formatMemoryForConversation(memoryResults));
+                        totalFound += memoryResults.results.length;
+                      }
+                    }
+                    
+                    if (searchTeachingKnowledgeFlag) {
+                      const teachingDomainFilter = requestedTeachingDomains.length > 0 ? requestedTeachingDomains : undefined;
+                      const teachingResults = await searchTeaching(query, session.targetLanguage || undefined, teachingDomainFilter);
+                      if (teachingResults.results.length > 0) {
+                        results.push(formatTeachingKnowledge(teachingResults));
+                        totalFound += teachingResults.results.length;
+                      }
+                    }
+                    
+                    if (results.length > 0) {
+                      const combinedResults = results.join('\n\n');
                       if (session.conversationHistory) {
                         session.conversationHistory.push({
                           role: 'user',
-                          content: `[SYSTEM: Memory recall results for "${query}"]\n${formattedMemory}`,
+                          content: `[SYSTEM: Memory recall results for "${query}"]\n${combinedResults}`,
                         });
                       }
-                      console.log(`[CommandParser→MemoryLookup - OpenMic] Found ${memoryResults.results.length} memories for "${query}"`);
+                      console.log(`[CommandParser→MemoryLookup - OpenMic] Found ${totalFound} results for "${query}"`);
                     } else {
-                      console.log(`[CommandParser→MemoryLookup - OpenMic] No memories found for "${query}"`);
+                      console.log(`[CommandParser→MemoryLookup - OpenMic] No results found for "${query}"`);
                     }
                   } catch (err) {
                     console.error(`[CommandParser→MemoryLookup - OpenMic] Error:`, err);

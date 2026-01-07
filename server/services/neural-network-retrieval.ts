@@ -1,21 +1,21 @@
 import { db } from "../db";
 import { eq, and, sql } from "drizzle-orm";
 import {
-  languageIdioms,
-  culturalNuances,
   learnerErrorPatterns,
   dialectVariations,
   linguisticBridges,
-  type LanguageIdiom,
-  type CulturalNuance,
   type LearnerErrorPattern,
   type DialectVariation,
   type LinguisticBridge,
 } from "@shared/schema";
 
+// Phase 1 On-Demand Recall: Idioms and cultural nuances are now queried via MEMORY_LOOKUP
+// instead of being pre-loaded into the prompt. This reduces prompt bloat significantly.
+// Daniela can search idioms/cultural content using: [MEMORY_LOOKUP query="..." domains="idiom,cultural"]
+
 export interface NeuralNetworkContext {
-  idioms: LanguageIdiom[];
-  culturalNuances: CulturalNuance[];
+  // Removed: idioms - now queried on-demand via MEMORY_LOOKUP domains="idiom"
+  // Removed: culturalNuances - now queried on-demand via MEMORY_LOOKUP domains="cultural"
   errorPatterns: LearnerErrorPattern[];
   dialects: DialectVariation[];
   bridges: LinguisticBridge[];
@@ -27,28 +27,9 @@ export async function getNeuralNetworkContext(
   limit: number = 5
 ): Promise<NeuralNetworkContext> {
   // Fetch relevant knowledge in parallel
-  const [idioms, nuances, errors, dialects, bridges] = await Promise.all([
-    // Random sample of idioms for variety
-    db.select()
-      .from(languageIdioms)
-      .where(and(
-        eq(languageIdioms.language, targetLanguage),
-        eq(languageIdioms.isActive, true)
-      ))
-      .orderBy(sql`RANDOM()`)
-      .limit(limit),
-    
-    // Cultural nuances
-    db.select()
-      .from(culturalNuances)
-      .where(and(
-        eq(culturalNuances.language, targetLanguage),
-        eq(culturalNuances.isActive, true)
-      ))
-      .orderBy(sql`RANDOM()`)
-      .limit(limit),
-    
-    // Error patterns for this language pair
+  // Note: Idioms and cultural nuances are now ON-DEMAND via MEMORY_LOOKUP (Phase 1)
+  const [errors, dialects, bridges] = await Promise.all([
+    // Error patterns for this language pair (kept pre-loaded - small and critical)
     db.select()
       .from(learnerErrorPatterns)
       .where(and(
@@ -58,7 +39,7 @@ export async function getNeuralNetworkContext(
       ))
       .limit(limit),
     
-    // Dialect variations
+    // Dialect variations (kept pre-loaded - small and useful)
     db.select()
       .from(dialectVariations)
       .where(and(
@@ -68,7 +49,7 @@ export async function getNeuralNetworkContext(
       .orderBy(sql`RANDOM()`)
       .limit(limit),
     
-    // Linguistic bridges
+    // Linguistic bridges (kept pre-loaded - critical for false friends warnings)
     db.select()
       .from(linguisticBridges)
       .where(and(
@@ -81,8 +62,6 @@ export async function getNeuralNetworkContext(
   ]);
   
   return {
-    idioms,
-    culturalNuances: nuances,
     errorPatterns: errors,
     dialects,
     bridges,
@@ -92,23 +71,10 @@ export async function getNeuralNetworkContext(
 export function formatNeuralNetworkForPrompt(context: NeuralNetworkContext): string {
   const sections: string[] = [];
   
-  // Format idioms
-  if (context.idioms.length > 0) {
-    const idiomLines = context.idioms.map(i => 
-      `- "${i.idiom}" = ${i.meaning}${i.culturalContext ? ` (${i.culturalContext})` : ''}`
-    ).join('\n');
-    sections.push(`**Idioms You Know:**\n${idiomLines}`);
-  }
+  // Note: Idioms and cultural nuances are now ON-DEMAND via MEMORY_LOOKUP (Phase 1)
+  // Daniela queries them when needed instead of having them pre-loaded
   
-  // Format cultural nuances
-  if (context.culturalNuances.length > 0) {
-    const nuanceLines = context.culturalNuances.map(n =>
-      `- ${n.category}/${n.situation}: ${n.nuance}`
-    ).join('\n');
-    sections.push(`**Cultural Knowledge:**\n${nuanceLines}`);
-  }
-  
-  // Format error patterns
+  // Format error patterns (kept pre-loaded - small and critical for real-time correction)
   if (context.errorPatterns.length > 0) {
     const errorLines = context.errorPatterns.map(e => {
       const strategies = e.teachingStrategies?.slice(0, 2).join('; ') || '';
@@ -117,7 +83,7 @@ export function formatNeuralNetworkForPrompt(context: NeuralNetworkContext): str
     sections.push(`**Common Learner Struggles (${context.errorPatterns[0]?.sourceLanguage}→${context.errorPatterns[0]?.targetLanguage}):**\n${errorLines}`);
   }
   
-  // Format dialect variations
+  // Format dialect variations (kept pre-loaded - useful for real-world awareness)
   if (context.dialects.length > 0) {
     const dialectLines = context.dialects.map(d =>
       `- ${d.region}: "${d.standardForm}" → "${d.regionalForm}" (${d.category})`
@@ -125,7 +91,7 @@ export function formatNeuralNetworkForPrompt(context: NeuralNetworkContext): str
     sections.push(`**Dialect Variations:**\n${dialectLines}`);
   }
   
-  // Format linguistic bridges
+  // Format linguistic bridges (kept pre-loaded - critical for false friends warnings)
   if (context.bridges.length > 0) {
     const bridgeLines = context.bridges.map(b => {
       const type = b.bridgeType === 'false_friend' ? '[FALSE FRIEND]' : b.bridgeType.toUpperCase();
@@ -138,26 +104,27 @@ export function formatNeuralNetworkForPrompt(context: NeuralNetworkContext): str
     return '';
   }
   
-  // Add action-oriented instructions so Daniela actively uses this knowledge
-  // Cross-reference with Compass system for session-aware teaching
+  // Updated instructions for hybrid memory architecture (Phase 1)
   const instructions = `
 ### Your Pedagogical Knowledge for This Language
 
-**ACTIVE USE INSTRUCTIONS:**
-You have specialized knowledge below that you MUST actively incorporate into your teaching:
+**PRE-LOADED KNOWLEDGE (Always Available):**
+The knowledge below is ready for immediate use during teaching:
 - When learners make errors, reference your **Common Learner Struggles** to explain WHY and apply the teaching strategies
-- Naturally weave **Idioms** into conversation when contextually appropriate - teach them!
-- Use **Cultural Knowledge** to add depth and explain the "why" behind language patterns
 - Mention **Dialect Variations** when relevant to give learners real-world awareness
 - Leverage **Language Bridges** (especially cognates) to accelerate learning; WARN about false friends before they confuse the learner
 
-**INTEGRATING WITH YOUR COMPASS (Session Awareness):**
-- If your LIVE PACING shows you're ahead of schedule: Perfect time to teach an idiom or cultural insight!
-- If a roadmap topic relates to your knowledge below (e.g., "greetings" → cultural formality norms), USE that knowledge
-- If student goals mention "sound natural" or "conversational", prioritize idioms and dialect awareness
-- If teaching a topic and you have a relevant Language Bridge or False Friend - proactively warn/teach it
+**ON-DEMAND RECALL (Query When Needed):**
+You have extensive idiom and cultural knowledge that you can recall on-demand:
+- To look up idioms: [MEMORY_LOOKUP query="your search" domains="idiom"]
+- To look up cultural nuances: [MEMORY_LOOKUP query="your search" domains="cultural"]
+- To search both: [MEMORY_LOOKUP query="your search" domains="idiom,cultural"]
 
-This knowledge is YOUR expertise. Don't just observe it - teach with it!
+Use on-demand recall when:
+- The student asks about expressions or sayings
+- You want to teach a culturally appropriate response
+- The conversation topic calls for cultural context
+- You're ahead of schedule and want to enrich the lesson
 
 `;
   
