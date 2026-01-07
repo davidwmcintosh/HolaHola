@@ -222,6 +222,79 @@ export interface SyncResult {
 
 class SyncBridgeService {
   
+  // Concurrency lock to prevent parallel sync runs (v27)
+  private syncLock: {
+    isLocked: boolean;
+    lockedBy: string | null;
+    lockedAt: Date | null;
+    direction: 'push' | 'pull' | null;
+  } = {
+    isLocked: false,
+    lockedBy: null,
+    lockedAt: null,
+    direction: null,
+  };
+  
+  // Lock timeout: auto-release after 10 minutes to prevent stuck locks
+  private readonly LOCK_TIMEOUT_MS = 10 * 60 * 1000;
+  
+  /**
+   * Attempt to acquire the sync lock
+   * Returns true if lock acquired, false if already locked
+   */
+  private acquireLock(triggeredBy: string, direction: 'push' | 'pull'): boolean {
+    // Check if lock is stale (timed out)
+    if (this.syncLock.isLocked && this.syncLock.lockedAt) {
+      const lockAge = Date.now() - this.syncLock.lockedAt.getTime();
+      if (lockAge > this.LOCK_TIMEOUT_MS) {
+        console.warn(`[SYNC-LOCK] Releasing stale lock held by ${this.syncLock.lockedBy} for ${Math.round(lockAge / 1000)}s`);
+        this.releaseLock();
+      }
+    }
+    
+    if (this.syncLock.isLocked) {
+      console.warn(`[SYNC-LOCK] Sync already in progress: ${this.syncLock.direction} by ${this.syncLock.lockedBy} (started ${this.syncLock.lockedAt?.toISOString()})`);
+      return false;
+    }
+    
+    this.syncLock = {
+      isLocked: true,
+      lockedBy: triggeredBy,
+      lockedAt: new Date(),
+      direction,
+    };
+    console.log(`[SYNC-LOCK] Lock acquired for ${direction} by ${triggeredBy}`);
+    return true;
+  }
+  
+  /**
+   * Release the sync lock
+   */
+  private releaseLock(): void {
+    const was = this.syncLock;
+    this.syncLock = {
+      isLocked: false,
+      lockedBy: null,
+      lockedAt: null,
+      direction: null,
+    };
+    if (was.isLocked) {
+      const duration = was.lockedAt ? Math.round((Date.now() - was.lockedAt.getTime()) / 1000) : 0;
+      console.log(`[SYNC-LOCK] Lock released after ${duration}s (was: ${was.direction} by ${was.lockedBy})`);
+    }
+  }
+  
+  /**
+   * Get current lock status (for debugging/monitoring)
+   */
+  getLockStatus() {
+    return {
+      ...this.syncLock,
+      lockAgeMs: this.syncLock.lockedAt ? Date.now() - this.syncLock.lockedAt.getTime() : null,
+      timeoutMs: this.LOCK_TIMEOUT_MS,
+    };
+  }
+  
   /**
    * Get current sync capabilities for capability negotiation
    * Peers can use this to determine what features are supported
@@ -3087,6 +3160,16 @@ class SyncBridgeService {
       };
     }
     
+    // v27: Acquire concurrency lock to prevent parallel sync runs
+    if (!this.acquireLock(triggeredBy, 'push')) {
+      return {
+        success: false,
+        counts: {},
+        errors: [`Sync already in progress (${this.syncLock.direction} by ${this.syncLock.lockedBy}). Please wait for it to complete.`],
+        durationMs: Date.now() - startTime,
+      };
+    }
+    
     // Helper to check if a batch should run
     const shouldRun = (batch: string) => !selectedBatches || selectedBatches.includes(batch);
     
@@ -3448,6 +3531,9 @@ class SyncBridgeService {
         errors: [errorMessage],
         durationMs: Date.now() - startTime,
       };
+    } finally {
+      // v27: Always release the lock when done
+      this.releaseLock();
     }
   }
   
@@ -3523,6 +3609,16 @@ class SyncBridgeService {
         success: false,
         counts: {},
         errors: ['Sync not configured - set SYNC_PEER_URL and SYNC_SHARED_SECRET'],
+        durationMs: Date.now() - startTime,
+      };
+    }
+    
+    // v27: Acquire concurrency lock to prevent parallel sync runs
+    if (!this.acquireLock(triggeredBy, 'pull')) {
+      return {
+        success: false,
+        counts: {},
+        errors: [`Sync already in progress (${this.syncLock.direction} by ${this.syncLock.lockedBy}). Please wait for it to complete.`],
         durationMs: Date.now() - startTime,
       };
     }
@@ -3890,6 +3986,9 @@ class SyncBridgeService {
         errors: [errorMessage],
         durationMs: Date.now() - startTime,
       };
+    } finally {
+      // v27: Always release the lock when done
+      this.releaseLock();
     }
   }
   
@@ -3904,6 +4003,14 @@ class SyncBridgeService {
       lastNightlySync: SyncRun | null;
       nextSyncTime: string | null;
       environment: string;
+    };
+    lockStatus: {
+      isLocked: boolean;
+      lockedBy: string | null;
+      lockedAt: Date | null;
+      direction: 'push' | 'pull' | null;
+      lockAgeMs: number | null;
+      timeoutMs: number;
     };
   }> {
     // Clean up any orphaned sync runs (stuck in "running" for >10 min)
@@ -3944,6 +4051,7 @@ class SyncBridgeService {
       lastPull: lastPull || null,
       recentRuns,
       peerNightlyStatus,
+      lockStatus: this.getLockStatus(),
     };
   }
   
