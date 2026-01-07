@@ -14,7 +14,8 @@ import {
   Server,
   Database,
   Zap,
-  RotateCcw
+  RotateCcw,
+  Activity
 } from "lucide-react";
 import { RoleGuard } from "@/components/admin/RoleGuard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -100,6 +101,23 @@ interface CapabilityComparison {
     peerOnly: string[];
     versionMatch: boolean;
   };
+}
+
+interface SyncHealthBatch {
+  batchId: string;
+  label: string;
+  lastSuccessfulPush: string | null;
+  lastSuccessfulPull: string | null;
+  daysSinceLastPush: number | null;
+  daysSinceLastPull: number | null;
+  pushStatus: 'healthy' | 'stale' | 'critical' | 'never';
+  pullStatus: 'healthy' | 'stale' | 'critical' | 'never';
+}
+
+interface SyncHealth {
+  environment: string;
+  batches: SyncHealthBatch[];
+  queriedAt: string;
 }
 
 function formatDuration(ms?: number): string {
@@ -234,6 +252,11 @@ export default function SyncControlCenter() {
     retry: false,
   });
 
+  const { data: syncHealth, isLoading: syncHealthLoading, refetch: refetchSyncHealth } = useQuery<SyncHealth>({
+    queryKey: ["/api/admin/sync/health"],
+    retry: false,
+  });
+
   const { data: peerSyncRuns, isLoading: peerSyncRunsLoading, refetch: refetchPeerSyncRuns } = useQuery<PeerSyncRunsResponse>({
     queryKey: ["/api/sync/peer-sync-runs"],
     retry: false,
@@ -348,7 +371,7 @@ export default function SyncControlCenter() {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await Promise.all([refetchStatus(), refetchHistory(), refetchPeerStats(), refetchLocalStats(), refetchCapabilities(), refetchPeerSyncRuns()]);
+    await Promise.all([refetchStatus(), refetchHistory(), refetchPeerStats(), refetchLocalStats(), refetchCapabilities(), refetchPeerSyncRuns(), refetchSyncHealth()]);
     setIsRefreshing(false);
   };
 
@@ -515,6 +538,124 @@ export default function SyncControlCenter() {
                   </CardContent>
                 </Card>
               )}
+
+              {/* Sync Health - Per-batch status */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="h-5 w-5" />
+                    Sync Health
+                  </CardTitle>
+                  <CardDescription>
+                    Per-batch sync status - shows when each batch last synced successfully
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {syncHealthLoading ? (
+                    <Skeleton className="h-40" />
+                  ) : syncHealth ? (
+                    <div className="space-y-2">
+                      {/* Summary badges */}
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        {(() => {
+                          const critical = syncHealth.batches.filter(b => b.pushStatus === 'critical' || b.pullStatus === 'critical');
+                          const stale = syncHealth.batches.filter(b => (b.pushStatus === 'stale' || b.pullStatus === 'stale') && b.pushStatus !== 'critical' && b.pullStatus !== 'critical');
+                          const never = syncHealth.batches.filter(b => b.pushStatus === 'never' || b.pullStatus === 'never');
+                          
+                          return (
+                            <>
+                              {critical.length > 0 && (
+                                <Badge className="bg-red-500 text-white">
+                                  <XCircle className="h-3 w-3 mr-1" />
+                                  {critical.length} Critical
+                                </Badge>
+                              )}
+                              {stale.length > 0 && (
+                                <Badge className="bg-yellow-500 text-white">
+                                  <AlertTriangle className="h-3 w-3 mr-1" />
+                                  {stale.length} Stale
+                                </Badge>
+                              )}
+                              {never.length > 0 && (
+                                <Badge variant="secondary">
+                                  <Clock className="h-3 w-3 mr-1" />
+                                  {never.length} Never Synced
+                                </Badge>
+                              )}
+                              {critical.length === 0 && stale.length === 0 && never.length === 0 && (
+                                <Badge className="bg-green-500 text-white">
+                                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                                  All Healthy
+                                </Badge>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </div>
+                      
+                      {/* Batch table */}
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left py-2 pr-4">Batch</th>
+                              <th className="text-left py-2 px-2">
+                                <span className="flex items-center gap-1">
+                                  <ArrowUpRight className="h-3 w-3" />
+                                  Push
+                                </span>
+                              </th>
+                              <th className="text-left py-2 px-2">
+                                <span className="flex items-center gap-1">
+                                  <ArrowDownLeft className="h-3 w-3" />
+                                  Pull
+                                </span>
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {syncHealth.batches.map(batch => {
+                              const getStatusColor = (status: string) => {
+                                switch (status) {
+                                  case 'healthy': return 'text-green-600 dark:text-green-400';
+                                  case 'stale': return 'text-yellow-600 dark:text-yellow-400';
+                                  case 'critical': return 'text-red-600 dark:text-red-400';
+                                  default: return 'text-muted-foreground';
+                                }
+                              };
+                              
+                              const formatLastSync = (days: number | null) => {
+                                if (days === null) return 'Never';
+                                if (days === 0) return 'Today';
+                                if (days === 1) return '1 day ago';
+                                return `${days} days ago`;
+                              };
+                              
+                              return (
+                                <tr key={batch.batchId} className="border-b border-border/50">
+                                  <td className="py-2 pr-4 font-medium">{batch.label}</td>
+                                  <td className={`py-2 px-2 ${getStatusColor(batch.pushStatus)}`}>
+                                    {formatLastSync(batch.daysSinceLastPush)}
+                                  </td>
+                                  <td className={`py-2 px-2 ${getStatusColor(batch.pullStatus)}`}>
+                                    {formatLastSync(batch.daysSinceLastPull)}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                      
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Healthy: &lt;3 days | Stale: 3-7 days | Critical: &gt;7 days
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Unable to load sync health data</p>
+                  )}
+                </CardContent>
+              </Card>
 
               <Card>
                 <CardHeader>

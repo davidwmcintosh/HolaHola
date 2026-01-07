@@ -11720,6 +11720,17 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  // v27: Get per-batch sync health metrics
+  app.get("/api/admin/sync/health", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const health = await syncBridge.getSyncHealth();
+      res.json(health);
+    } catch (error: any) {
+      console.error('[Admin Sync Health] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // Get sync run history
   app.get("/api/admin/sync/history", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {

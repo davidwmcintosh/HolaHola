@@ -4177,6 +4177,128 @@ class SyncBridgeService {
     };
   }
   
+  /**
+   * v27: Per-batch sync health metrics
+   * Returns the last successful sync time for each batch type and staleness warnings
+   */
+  async getSyncHealth(): Promise<{
+    environment: string;
+    batches: Array<{
+      batchId: string;
+      label: string;
+      lastSuccessfulPush: string | null;
+      lastSuccessfulPull: string | null;
+      daysSinceLastPush: number | null;
+      daysSinceLastPull: number | null;
+      pushStatus: 'healthy' | 'stale' | 'critical' | 'never';
+      pullStatus: 'healthy' | 'stale' | 'critical' | 'never';
+    }>;
+    queriedAt: string;
+  }> {
+    // Get all successful/partial sync runs (no time limit - we need to find the LAST successful sync regardless of age)
+    // This ensures long-stale batches show as "critical" not "never synced"
+    const runs = await db.select({
+      id: syncRuns.id,
+      direction: syncRuns.direction,
+      status: syncRuns.status,
+      completedBatches: syncRuns.completedBatches,
+      completedAt: syncRuns.completedAt,
+      observationCount: syncRuns.observationCount,
+    })
+      .from(syncRuns)
+      .where(sql`${syncRuns.status} IN ('success', 'partial')`)
+      .orderBy(desc(syncRuns.completedAt))
+      .limit(500); // Limit for performance but no time restriction
+    
+    // All batch types we care about
+    const batchConfigs: Array<{ id: string; label: string }> = [
+      { id: 'neural-core', label: 'Neural Core' },
+      { id: 'advanced-intel-a', label: 'Advanced Intel A' },
+      { id: 'advanced-intel-b', label: 'Advanced Intel B (Observations)' },
+      { id: 'express-lane', label: 'Express Lane' },
+      { id: 'hive-snapshots', label: 'Hive Snapshots' },
+      { id: 'daniela-memories', label: 'Daniela Memories' },
+      { id: 'product-config', label: 'Product Config' },
+      { id: 'beta-testers', label: 'Beta Testers' },
+      { id: 'beta-usage', label: 'Beta Usage' },
+      { id: 'founder-context', label: 'Founder Context' },
+      { id: 'aggregate-analytics', label: 'Analytics' },
+      { id: 'prod-content-growth', label: 'Prod Content Growth' },
+      { id: 'sofia-telemetry', label: 'Sofia Telemetry' },
+      { id: 'prod-conversations', label: 'Prod Conversations' },
+    ];
+    
+    // Calculate per-batch last successful sync times
+    const batches = batchConfigs.map(config => {
+      // Find last successful push containing this batch
+      const lastPush = runs.find(run => 
+        run.direction === 'push' && 
+        (run.status === 'success' || run.status === 'partial') &&
+        run.completedBatches?.includes(config.id)
+      );
+      
+      // For advanced-intel-b, also check observationCount > 0 as additional validation
+      const lastPushWithData = config.id === 'advanced-intel-b' 
+        ? runs.find(run => 
+            run.direction === 'push' && 
+            (run.status === 'success' || run.status === 'partial') &&
+            (run.completedBatches?.includes(config.id) || (run.observationCount ?? 0) > 0)
+          )
+        : lastPush;
+      
+      // Find last successful pull containing this batch
+      const lastPull = runs.find(run => 
+        run.direction === 'pull' && 
+        (run.status === 'success' || run.status === 'partial') &&
+        run.completedBatches?.includes(config.id)
+      );
+      
+      const lastPullWithData = config.id === 'advanced-intel-b'
+        ? runs.find(run => 
+            run.direction === 'pull' && 
+            (run.status === 'success' || run.status === 'partial') &&
+            (run.completedBatches?.includes(config.id) || (run.observationCount ?? 0) > 0)
+          )
+        : lastPull;
+      
+      const now = new Date();
+      const pushTime = lastPushWithData?.completedAt ? new Date(lastPushWithData.completedAt) : null;
+      const pullTime = lastPullWithData?.completedAt ? new Date(lastPullWithData.completedAt) : null;
+      
+      const daysSinceLastPush = pushTime 
+        ? Math.floor((now.getTime() - pushTime.getTime()) / (1000 * 60 * 60 * 24))
+        : null;
+      const daysSinceLastPull = pullTime
+        ? Math.floor((now.getTime() - pullTime.getTime()) / (1000 * 60 * 60 * 24))
+        : null;
+      
+      // Status thresholds: healthy < 3 days, stale 3-7 days, critical > 7 days
+      const getStatus = (days: number | null): 'healthy' | 'stale' | 'critical' | 'never' => {
+        if (days === null) return 'never';
+        if (days <= 3) return 'healthy';
+        if (days <= 7) return 'stale';
+        return 'critical';
+      };
+      
+      return {
+        batchId: config.id,
+        label: config.label,
+        lastSuccessfulPush: pushTime?.toISOString() || null,
+        lastSuccessfulPull: pullTime?.toISOString() || null,
+        daysSinceLastPush,
+        daysSinceLastPull,
+        pushStatus: getStatus(daysSinceLastPush),
+        pullStatus: getStatus(daysSinceLastPull),
+      };
+    });
+    
+    return {
+      environment: CURRENT_ENVIRONMENT,
+      batches,
+      queriedAt: new Date().toISOString(),
+    };
+  }
+  
   async getLocalNightlyStatus(): Promise<{
     lastNightlySync: SyncRun | null;
     nextSyncTime: string;
