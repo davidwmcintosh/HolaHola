@@ -836,11 +836,16 @@ export const WHITEBOARD_PATTERNS = {
   VOCABULARY_TIMELINE: /\[VOCABULARY_TIMELINE\]([\s\S]*?)\[\/VOCABULARY_TIMELINE\]/gi,
   // Regular subtitle mode: [SUBTITLE off], [SUBTITLE on], [SUBTITLE target]
   SUBTITLE: /\[SUBTITLE\s*(off|on|target)\s*\]/gi,
+  // New simplified subtitle toggles (no closing tag needed)
+  SUBTITLE_TARGET: /\[SUBTITLE_TARGET\]/gi,
+  SUBTITLE_OFF: /\[SUBTITLE_OFF\]/gi,
   // Custom overlay: [SHOW: text] displays independent overlay, [HIDE] hides it
   SHOW: /\[SHOW:\s*([\s\S]*?)\s*\]/gi,
   HIDE: /\[HIDE\]/gi,
-  // Legacy pattern (deprecated - use SHOW instead)
-  SUBTITLE_TEXT: /\[SUBTITLE_TEXT:\s*([\s\S]*?)\s*\]/gi,
+  // Spoken + shown subtitle text: [SUBTITLE_TEXT]phrase[/SUBTITLE_TEXT] syncs with speech timing
+  SUBTITLE_TEXT: /\[SUBTITLE_TEXT\]([\s\S]*?)\[\/SUBTITLE_TEXT\]/gi,
+  // Legacy colon pattern (deprecated - use paired tags instead)
+  SUBTITLE_TEXT_LEGACY: /\[SUBTITLE_TEXT:\s*([\s\S]*?)\s*\]/gi,
   // Text input for writing practice during voice chat: [TEXT_INPUT:prompt]
   TEXT_INPUT: /\[TEXT_INPUT:([\s\S]*?)\]/gi,
   // Switch tutor mid-session: [SWITCH_TUTOR target="male|female" language="optional" role="optional"]
@@ -872,7 +877,7 @@ export const WHITEBOARD_PATTERNS = {
 /**
  * All whiteboard markup pattern (for stripping)
  * Updated to include all Phase 4 tags including Word Map and Culture
- * Also includes subtitle controls: SUBTITLE, SHOW, HIDE, SUBTITLE_TEXT (legacy)
+ * Subtitle controls: SUBTITLE (mode), SUBTITLE_TARGET, SUBTITLE_OFF, SUBTITLE_TEXT (paired), SHOW, HIDE
  * Includes ACTFL Neural Network commands: ACTFL_UPDATE, SYLLABUS_PROGRESS, PHASE_SHIFT
  * 
  * IMPORTANT: Includes catch-all patterns for common LLM mistakes:
@@ -880,7 +885,7 @@ export const WHITEBOARD_PATTERNS = {
  * - Any [SWITCH_TUTOR...] with wrong attributes
  */
 export const ALL_WHITEBOARD_MARKUP_PATTERN = 
-  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|TONE|WORD_MAP|CULTURE|SCENARIO|SUMMARY|ERROR_PATTERNS|VOCABULARY_TIMELINE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[PLAY(?:\s+speed="[^"]*")?\]([\s\S]*?)\[\/PLAY\]|\[SUBTITLE\s*(?:off|on|target)\s*\]|\[SHOW:\s*[\s\S]*?\s*\]|\[HIDE\]|\[SUBTITLE_TEXT:\s*[\s\S]*?\s*\]|\[TEXT_INPUT:[\s\S]*?\]|\[SWITCH_TUTOR\s+target="(?:male|female)"(?:\s+language="[^"]+")?(?:\s+role="(?:tutor|assistant)")?\]|\[SWITCH_TUTORS?\s+[^\]]+\]|\[(?:CALL_SUPPORT|CALL_SOFIA)\s+category="(?:technical|account|billing|content|feedback|other)"\s+reason="[^"]+"(?:\s+priority="(?:low|normal|high|critical)")?(?:\s+context="[^"]+")?\]|\[ACTFL_UPDATE\s+level="[^"]+"\s+confidence=[0-9.]+\s+reason="[^"]+"(?:\s+direction="(?:up|down|confirm)")?\]|\[SYLLABUS_PROGRESS\s+topic="[^"]+"\s+status="(?:demonstrated|needs_review|struggling)"\s+evidence="[^"]+"\]|\[PHASE_SHIFT\s+to="(?:warmup|active_teaching|challenge|reflection|drill|assessment)"\s+reason="[^"]+"\]|\[HIVE\s+category="(?:self_improvement|content_gap|ux_observation|teaching_insight|product_feature|technical_issue|student_pattern|tool_enhancement)"\s+title="[^"]+"\s+description="[^"]+"(?:\s+reasoning="[^"]+")?(?:\s+priority=\d+)?\]|\[(CLEAR|HOLD)\]/gi;
+  /\[(WRITE|PHONETIC|COMPARE|IMAGE|CONTEXT|GRAMMAR_TABLE|READING|STROKE|TONE|WORD_MAP|CULTURE|SCENARIO|SUMMARY|ERROR_PATTERNS|VOCABULARY_TIMELINE)\]([\s\S]*?)\[\/\1\]|\[DRILL(?:\s+type="[^"]*")?\]([\s\S]*?)\[\/DRILL\]|\[PLAY(?:\s+speed="[^"]*")?\]([\s\S]*?)\[\/PLAY\]|\[SUBTITLE\s*(?:off|on|target)\s*\]|\[SUBTITLE_TARGET\]|\[SUBTITLE_OFF\]|\[SUBTITLE_TEXT\]([\s\S]*?)\[\/SUBTITLE_TEXT\]|\[SHOW:\s*[\s\S]*?\s*\]|\[HIDE\]|\[SUBTITLE_TEXT:\s*[\s\S]*?\s*\]|\[TEXT_INPUT:[\s\S]*?\]|\[SWITCH_TUTOR\s+target="(?:male|female)"(?:\s+language="[^"]+")?(?:\s+role="(?:tutor|assistant)")?\]|\[SWITCH_TUTORS?\s+[^\]]+\]|\[(?:CALL_SUPPORT|CALL_SOFIA)\s+category="(?:technical|account|billing|content|feedback|other)"\s+reason="[^"]+"(?:\s+priority="(?:low|normal|high|critical)")?(?:\s+context="[^"]+")?\]|\[ACTFL_UPDATE\s+level="[^"]+"\s+confidence=[0-9.]+\s+reason="[^"]+"(?:\s+direction="(?:up|down|confirm)")?\]|\[SYLLABUS_PROGRESS\s+topic="[^"]+"\s+status="(?:demonstrated|needs_review|struggling)"\s+evidence="[^"]+"\]|\[PHASE_SHIFT\s+to="(?:warmup|active_teaching|challenge|reflection|drill|assessment)"\s+reason="[^"]+"\]|\[HIVE\s+category="(?:self_improvement|content_gap|ux_observation|teaching_insight|product_feature|technical_issue|student_pattern|tool_enhancement)"\s+title="[^"]+"\s+description="[^"]+"(?:\s+reasoning="[^"]+")?(?:\s+priority=\d+)?\]|\[(CLEAR|HOLD)\]/gi;
 
 /**
  * Generate unique ID for whiteboard items
