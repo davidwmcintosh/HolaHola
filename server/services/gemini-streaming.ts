@@ -183,6 +183,8 @@ export interface StreamingGenerationConfig {
   allowedFunctions?: string[];  // Optional allowlist of function names (e.g., ['subtitle', 'show_overlay'])
   onFunctionCall?: OnFunctionCallCallback;  // Callback when functions are called
   thinkingLevel?: ThinkingLevel;  // MINIMAL for voice speed, MEDIUM for complex decisions
+  // Context caching
+  enableContextCaching?: boolean;  // Enable system prompt caching (90% cost reduction)
 }
 
 /**
@@ -197,12 +199,144 @@ export interface StreamingGenerationResult {
 }
 
 /**
+ * Context cache entry for tracking cached system prompts
+ */
+interface ContextCacheEntry {
+  cacheName: string;
+  model: string;
+  promptHash: string;
+  createdAt: number;
+  expiresAt: number;
+  tokenCount?: number;
+}
+
+/**
+ * Failed cache attempt entry (to avoid retrying failed models)
+ */
+interface CacheFailureEntry {
+  model: string;
+  promptHash: string;
+  failedAt: number;
+  reason: string;
+}
+
+/**
+ * Minimum tokens required for context caching (Gemini requirement)
+ */
+const MIN_CACHE_TOKENS = 2048;
+
+/**
+ * Cache TTL in seconds (55 minutes to allow refresh before default 60min expiry)
+ */
+const CACHE_TTL_SECONDS = 55 * 60;
+
+/**
+ * Failure memoization TTL (retry after 10 minutes)
+ */
+const CACHE_FAILURE_TTL_MS = 10 * 60 * 1000;
+
+/**
+ * Models known to support context caching (must have version suffix)
+ * Context caching requires explicit version numbers like -001, -002
+ */
+const CACHE_COMPATIBLE_MODELS = [
+  'gemini-1.5-flash-001',
+  'gemini-1.5-flash-002', 
+  'gemini-1.5-pro-001',
+  'gemini-1.5-pro-002',
+  'gemini-2.0-flash-001',
+  'gemini-2.5-flash-001',
+  'gemini-2.5-pro-001',
+];
+
+/**
+ * Default cache-compatible model for when caching is enabled
+ * Used as fallback when the requested model doesn't support caching
+ */
+const DEFAULT_CACHE_MODEL = 'gemini-2.5-flash-001';
+
+/**
+ * Check if a model supports context caching
+ */
+function isCacheCompatibleModel(model: string): boolean {
+  // Check exact match first
+  if (CACHE_COMPATIBLE_MODELS.includes(model)) {
+    return true;
+  }
+  // Check if model has version suffix pattern (-NNN)
+  return /-\d{3}$/.test(model);
+}
+
+/**
+ * Get a cache-compatible version of a model
+ * Returns the original model if compatible, or a fallback versioned model
+ */
+function getCacheCompatibleModel(model: string): string {
+  if (isCacheCompatibleModel(model)) {
+    return model;
+  }
+  
+  // Map preview models to their versioned equivalents
+  if (model.includes('gemini-3') || model.includes('gemini-2.5')) {
+    return DEFAULT_CACHE_MODEL;  // Use 2.5 flash for caching
+  }
+  if (model.includes('gemini-2.0')) {
+    return 'gemini-2.0-flash-001';
+  }
+  if (model.includes('gemini-1.5-pro')) {
+    return 'gemini-1.5-pro-002';
+  }
+  if (model.includes('gemini-1.5-flash')) {
+    return 'gemini-1.5-flash-002';
+  }
+  
+  // Default fallback
+  return DEFAULT_CACHE_MODEL;
+}
+
+/**
+ * Simple hash function for cache keys
+ */
+function hashString(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return hash.toString(36);
+}
+
+/**
+ * Estimate token count (rough approximation: ~4 chars per token)
+ */
+function estimateTokenCount(text: string): number {
+  return Math.ceil(text.length / 4);
+}
+
+/**
  * Gemini Streaming Service
  * Handles streaming text generation with sentence-level chunking
  */
 export class GeminiStreamingService {
   private client: GoogleGenAI;
   private defaultModel: string;
+  
+  // Context cache registry: model+hash -> cache entry
+  private contextCacheRegistry: Map<string, ContextCacheEntry> = new Map();
+  
+  // Failed cache attempts: model+hash -> failure entry (to avoid retrying)
+  private cacheFailureRegistry: Map<string, CacheFailureEntry> = new Map();
+  
+  // Stats for monitoring
+  private cacheStats = {
+    hits: 0,
+    misses: 0,
+    creates: 0,
+    errors: 0,
+    skipped: 0,  // Skipped due to incompatible model or memoized failure
+    tokensSaved: 0,
+  };
   
   constructor() {
     this.client = new GoogleGenAI({
@@ -214,6 +348,138 @@ export class GeminiStreamingService {
     });
     // Using Gemini 3 Flash for fast responses (3x faster than 2.5)
     this.defaultModel = 'gemini-3-flash-preview';
+  }
+  
+  /**
+   * Get cache statistics for monitoring
+   */
+  getCacheStats() {
+    return {
+      ...this.cacheStats,
+      activeCaches: this.contextCacheRegistry.size,
+      hitRate: this.cacheStats.hits + this.cacheStats.misses > 0 
+        ? (this.cacheStats.hits / (this.cacheStats.hits + this.cacheStats.misses) * 100).toFixed(1) + '%'
+        : '0%',
+    };
+  }
+  
+  /**
+   * Get or create a context cache for the given system prompt
+   * Returns the cache name if successful, null if caching not possible
+   * 
+   * Note: Automatically maps to a cache-compatible model if the requested model
+   * doesn't support caching (e.g., gemini-3-flash-preview -> gemini-2.5-flash-001)
+   */
+  private async getOrCreateContextCache(
+    systemPrompt: string,
+    requestedModel: string
+  ): Promise<string | null> {
+    // Get a cache-compatible model (may differ from requested model)
+    const cacheModel = getCacheCompatibleModel(requestedModel);
+    const promptHash = hashString(systemPrompt);
+    const cacheKey = `${cacheModel}:${promptHash}`;
+    
+    // Log model mapping if different
+    if (cacheModel !== requestedModel) {
+      console.log(`[Gemini Cache] Mapping ${requestedModel} → ${cacheModel} for caching`);
+    }
+    
+    // Check for memoized failure
+    const failure = this.cacheFailureRegistry.get(cacheKey);
+    if (failure && (Date.now() - failure.failedAt) < CACHE_FAILURE_TTL_MS) {
+      this.cacheStats.skipped++;
+      return null;
+    }
+    
+    // Check if we have a valid cached entry
+    const existing = this.contextCacheRegistry.get(cacheKey);
+    if (existing && existing.expiresAt > Date.now()) {
+      this.cacheStats.hits++;
+      this.cacheStats.tokensSaved += existing.tokenCount || 0;
+      console.log(`[Gemini Cache] ✓ Cache hit for ${cacheKey.substring(0, 20)}... (saved ~${existing.tokenCount} tokens)`);
+      return existing.cacheName;
+    }
+    
+    // Check if prompt is large enough for caching
+    const estimatedTokens = estimateTokenCount(systemPrompt);
+    if (estimatedTokens < MIN_CACHE_TOKENS) {
+      console.log(`[Gemini Cache] Skip: prompt too small (${estimatedTokens} < ${MIN_CACHE_TOKENS} tokens)`);
+      return null;
+    }
+    
+    this.cacheStats.misses++;
+    
+    try {
+      // Create new context cache with the cache-compatible model
+      console.log(`[Gemini Cache] Creating cache for ~${estimatedTokens} tokens with model ${cacheModel}...`);
+      
+      const cache = await this.client.caches.create({
+        model: cacheModel,
+        config: {
+          systemInstruction: systemPrompt,
+          ttl: `${CACHE_TTL_SECONDS}s`,
+        },
+      });
+      
+      if (!cache.name) {
+        throw new Error('Cache created but no name returned');
+      }
+      
+      // Store in registry
+      const entry: ContextCacheEntry = {
+        cacheName: cache.name,
+        model: cacheModel,
+        promptHash,
+        createdAt: Date.now(),
+        expiresAt: Date.now() + (CACHE_TTL_SECONDS * 1000),
+        tokenCount: estimatedTokens,
+      };
+      
+      this.contextCacheRegistry.set(cacheKey, entry);
+      this.cacheStats.creates++;
+      
+      // Clear any previous failure for this key
+      this.cacheFailureRegistry.delete(cacheKey);
+      
+      console.log(`[Gemini Cache] ✓ Created cache: ${cache.name} (expires in ${CACHE_TTL_SECONDS}s)`);
+      return cache.name;
+      
+    } catch (error: any) {
+      this.cacheStats.errors++;
+      
+      // Memoize the failure to avoid retrying
+      this.cacheFailureRegistry.set(cacheKey, {
+        model: cacheModel,
+        promptHash,
+        failedAt: Date.now(),
+        reason: error.message,
+      });
+      
+      console.warn(`[Gemini Cache] Failed to create cache (memoized for ${CACHE_FAILURE_TTL_MS / 60000}min): ${error.message}`);
+      // Fall back to non-cached mode
+      return null;
+    }
+  }
+  
+  /**
+   * Clean up expired cache entries from registry
+   */
+  private cleanupExpiredCaches() {
+    const now = Date.now();
+    let cleaned = 0;
+    
+    // Use Array.from() to avoid downlevelIteration requirement
+    const entries = Array.from(this.contextCacheRegistry.entries());
+    for (const [key, entry] of entries) {
+      if (entry.expiresAt < now) {
+        this.contextCacheRegistry.delete(key);
+        cleaned++;
+      }
+    }
+    
+    if (cleaned > 0) {
+      console.log(`[Gemini Cache] Cleaned ${cleaned} expired cache entries`);
+    }
   }
   
   /**
@@ -267,9 +533,14 @@ export class GeminiStreamingService {
       enableFunctionCalling = false,
       onFunctionCall,
       thinkingLevel = 'MINIMAL',  // Default to fastest for voice
+      // Context caching
+      enableContextCaching = false,
     } = config;
     
-    console.log(`[Gemini Streaming] Starting with model: ${model}, thinking: ${thinkingLevel}, tools: ${enableFunctionCalling}`);
+    // Clean up expired caches periodically
+    this.cleanupExpiredCaches();
+    
+    console.log(`[Gemini Streaming] Starting with model: ${model}, thinking: ${thinkingLevel}, tools: ${enableFunctionCalling}, caching: ${enableContextCaching}`);
     
     // Build conversation contents in Gemini format
     const contents: Content[] = conversationHistory.map(msg => ({
@@ -339,14 +610,36 @@ export class GeminiStreamingService {
         try {
           // Build generation config with Gemini 3 features
           const generationConfig: Record<string, any> = {
-            systemInstruction: systemPrompt,
             temperature,
             maxOutputTokens,
           };
           
+          // Determine the model to use for this request
+          // May switch to cache-compatible model when caching is enabled
+          let requestModel = model;
+          
+          // Try to use context caching if enabled
+          let usingCachedContext = false;
+          if (enableContextCaching) {
+            const cacheName = await this.getOrCreateContextCache(systemPrompt, model);
+            if (cacheName) {
+              generationConfig.cachedContent = cacheName;
+              usingCachedContext = true;
+              // CRITICAL: Must use the cache-compatible model for the request
+              // Otherwise Gemini won't honor the cached content
+              requestModel = getCacheCompatibleModel(model);
+            } else {
+              // Fall back to inline system instruction
+              generationConfig.systemInstruction = systemPrompt;
+            }
+          } else {
+            // No caching - use inline system instruction
+            generationConfig.systemInstruction = systemPrompt;
+          }
+          
           // Add thinking level if model supports it (Gemini 3+)
           // Note: thinkingBudget must be >= 256 to enable any reasoning, 0 disables entirely
-          if (model.includes('gemini-3') || model.includes('gemini-2.5')) {
+          if (requestModel.includes('gemini-3') || requestModel.includes('gemini-2.5')) {
             generationConfig.thinkingConfig = { 
               thinkingBudget: thinkingLevel === 'MINIMAL' ? 256 : thinkingLevel === 'MEDIUM' ? 1024 : 4096 
             };
@@ -357,8 +650,12 @@ export class GeminiStreamingService {
             generationConfig.tools = createDanielaTools(config.allowedFunctions);
           }
           
+          if (usingCachedContext) {
+            console.log(`[Gemini Streaming] Using cached context with model ${requestModel} (90% cost savings)`);
+          }
+          
           result = await this.client.models.generateContentStream({
-            model,
+            model: requestModel,
             contents,
             config: generationConfig,
           });
