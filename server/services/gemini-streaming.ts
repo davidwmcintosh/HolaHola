@@ -714,20 +714,29 @@ export class GeminiStreamingService {
         
         // Filter chunks by part type: only use 'text' parts, skip 'thought' parts
         // Gemini 3's thinking mode outputs reasoning in 'thought' parts which shouldn't be spoken
+        // Process ALL candidates to ensure no thought content leaks through
         let text = '';
-        if (chunk.candidates?.[0]?.content?.parts) {
-          for (const part of chunk.candidates[0].content.parts) {
-            // Only include text parts, skip thought/thinking parts
-            if (part.text && !part.thought) {
-              text += part.text;
-            } else if (part.thought) {
-              // Log thought parts for debugging but don't include in output
-              console.log(`[Gemini Streaming] Thought part (filtered): "${String(part.thought).substring(0, 50)}..."`);
+        const candidates = chunk.candidates || [];
+        
+        if (candidates.length > 0) {
+          // Process all candidates (usually just 1, but be thorough)
+          for (const candidate of candidates) {
+            const parts = candidate?.content?.parts || [];
+            for (const part of parts) {
+              // Only include text parts where thought flag is false/undefined
+              // Gemini 3 thinking mode: part.thought is boolean, part.text has content
+              if (part.text && !part.thought) {
+                text += part.text;
+              } else if (part.thought && part.text) {
+                // Log thought content for debugging but don't include in spoken output
+                console.log(`[Gemini Streaming] Thought (filtered): "${part.text.substring(0, 80)}..."`);
+              }
             }
           }
-        } else {
-          // Fallback for non-Gemini 3 models or simpler responses
-          text = chunk.text || '';
+        } else if (chunk.text) {
+          // Fallback for non-Gemini 3 models - apply regex filter as safety net
+          // This catches any internal reasoning patterns that slip through
+          text = stripInternalNotationTags(chunk.text);
         }
         
         if (!text) continue;
@@ -759,15 +768,28 @@ export class GeminiStreamingService {
         }
         
         for (const sentence of sentences.complete) {
-          const chunk: SentenceChunk = {
-            index: sentenceIndex++,
-            text: sentence,
-            isComplete: true,
-            isFinal: false,
-          };
+          // TTS safety cap: split oversized sentences at clause breaks
+          const safeSentences = this.capSentenceForTTS(sentence);
+          const wasSplit = safeSentences.length > 1;
           
-          console.log(`[Gemini Streaming] Sentence ${chunk.index}: "${sentence.substring(0, 50)}..."`);
-          await onSentence(chunk);
+          for (let i = 0; i < safeSentences.length; i++) {
+            const safeSentence = safeSentences[i];
+            const isLastFragment = i === safeSentences.length - 1;
+            
+            const chunk: SentenceChunk = {
+              index: sentenceIndex++,
+              text: safeSentence,
+              // Only the final fragment of a split sentence (or unsplit) is "complete"
+              isComplete: wasSplit ? isLastFragment : true,
+              isFinal: false,
+            };
+            
+            // Telemetry: log sentence length for monitoring
+            const lenWarning = safeSentence.length > 400 ? ' [NEAR TTS LIMIT]' : '';
+            const splitInfo = wasSplit ? ` [SPLIT ${i + 1}/${safeSentences.length}]` : '';
+            console.log(`[Gemini Streaming] Sentence ${chunk.index} (${safeSentence.length} chars${lenWarning}${splitInfo}): "${safeSentence.substring(0, 50)}..."`);
+            await onSentence(chunk);
+          }
         }
         
         // Force chunk if buffer is too long (prevents long waits)
@@ -984,6 +1006,59 @@ export class GeminiStreamingService {
     const lastChar = trimmed.charAt(trimmed.length - 1);
     const endings: readonly string[] = SENTENCE_CHUNKING_CONFIG.SENTENCE_ENDINGS;
     return endings.includes(lastChar);
+  }
+  
+  /**
+   * Cap sentence length for TTS safety
+   * Cartesia rejects payloads >500 chars, so we split at clause breaks
+   * Returns array of sentence fragments (usually just 1 element)
+   */
+  private capSentenceForTTS(sentence: string): string[] {
+    const maxLen = SENTENCE_CHUNKING_CONFIG.TTS_SAFE_MAX_LENGTH;
+    
+    // Fast path: most sentences are under the limit
+    if (sentence.length <= maxLen) {
+      return [sentence];
+    }
+    
+    // Sentence is too long - split at clause breaks
+    console.log(`[Gemini Streaming] TTS safety split: ${sentence.length} chars exceeds ${maxLen} limit`);
+    
+    const result: string[] = [];
+    let remaining = sentence;
+    
+    while (remaining.length > maxLen) {
+      // Find best clause break within the safe range
+      const clauseBreaks = SENTENCE_CHUNKING_CONFIG.CLAUSE_BREAKS;
+      let bestBreak = -1;
+      
+      for (const breakChar of clauseBreaks) {
+        // Look for the last occurrence within the safe range
+        const idx = remaining.lastIndexOf(breakChar, maxLen - 1);
+        if (idx > SENTENCE_CHUNKING_CONFIG.MIN_SENTENCE_LENGTH) {
+          bestBreak = Math.max(bestBreak, idx + 1);
+        }
+      }
+      
+      if (bestBreak > 0) {
+        // Split at clause break
+        result.push(remaining.substring(0, bestBreak).trim());
+        remaining = remaining.substring(bestBreak).trim();
+      } else {
+        // No clause break found - force split at max length (rare edge case)
+        console.warn(`[Gemini Streaming] No clause break found, forcing split at ${maxLen} chars`);
+        result.push(remaining.substring(0, maxLen).trim());
+        remaining = remaining.substring(maxLen).trim();
+      }
+    }
+    
+    // Add any remaining text
+    if (remaining.trim()) {
+      result.push(remaining.trim());
+    }
+    
+    console.log(`[Gemini Streaming] Split into ${result.length} fragments: [${result.map(s => s.length).join(', ')}] chars`);
+    return result;
   }
   
   /**

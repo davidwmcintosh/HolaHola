@@ -4559,14 +4559,25 @@ Remember: David may reference things discussed in these recent text chats.
       } as StreamingSentenceEndMessage);
       
     } catch (error: any) {
-      console.error(`[Streaming] TTS error for sentence ${index}:`, error.message);
-      // Emit TTS error for diagnostics
+      // Extract status code and response body for telemetry
+      const statusCode = error.status || error.statusCode || error.code || 'unknown';
+      const textLength = displayText.length;
+      
+      console.error(`[Streaming] TTS error for sentence ${index} (${textLength} chars, status: ${statusCode}):`, error.message);
+      
+      // Emit TTS error for diagnostics with full context for debugging 4xx/5xx issues
       voiceDiagnostics.emit({
         sessionId: session.id,
         stage: 'tts',
         success: false,
         error: error.message,
-        metadata: { sentenceIndex: index }
+        metadata: { 
+          sentenceIndex: index,
+          mode: 'buffered',
+          statusCode,
+          textLength,
+          textPreview: displayText.substring(0, 100),
+        }
       });
       // Send error to client but don't throw - allows session to continue
       this.sendError(session.ws, 'TTS_ERROR', `Audio generation failed for sentence ${index}`, true);
@@ -4939,16 +4950,29 @@ Remember: David may reference things discussed in these recent text chats.
       );
       
     } catch (error: any) {
-      console.error(`[Progressive] TTS error for sentence ${index}:`, error.message);
-      // Emit TTS error for diagnostics (progressive mode)
+      // Extract status code and response body for telemetry
+      const statusCode = error.status || error.statusCode || error.code || 'unknown';
+      const errorBody = error.body || error.response?.data || error.message;
+      const textLength = displayText.length;
+      
+      console.error(`[Progressive] TTS error for sentence ${index} (${textLength} chars, status: ${statusCode}):`, error.message);
+      
+      // Emit TTS error for diagnostics with full context for debugging 4xx/5xx issues
       voiceDiagnostics.emit({
         sessionId: session.id,
         stage: 'tts',
         success: false,
         error: error.message,
-        metadata: { sentenceIndex: index, mode: 'progressive' }
+        metadata: { 
+          sentenceIndex: index, 
+          mode: 'progressive',
+          statusCode,
+          textLength,
+          // Include first 100 chars of text for debugging oversized payloads
+          textPreview: displayText.substring(0, 100),
+        }
       });
-      // Send error to client but don't throw - allows session to continue
+      // Send error to client but don't throw - allows session to continue with next sentence
       this.sendError(session.ws, 'TTS_ERROR', `Audio generation failed for sentence ${index}`, true);
     }
   }
