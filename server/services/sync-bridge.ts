@@ -3969,11 +3969,12 @@ class SyncBridgeService {
       }
       
       console.log(`[SYNC-BRIDGE v21] Push complete. Completed: ${completedBatchCount}/${expectedBatchCount}, Status: ${finalStatus}, Errors: ${allErrors.length}`);
+      console.log(`[SYNC-BRIDGE v31] Saving completedBatches: [${completedBatches.join(', ')}] for run ${syncRun.id}`);
       
       await db.update(syncRuns)
         .set({
           status: finalStatus,
-          completedBatches, // v28: Track completed batches for sync health
+          completedBatches: completedBatches.length > 0 ? completedBatches : null, // v31: Only set if non-empty (null preserved for empty)
           verificationResults: verificationResults.length > 0 ? verificationResults : null, // v28: Store verification results
           bestPracticesCount: allCounts.bestPractices || 0,
           idiomCount: allCounts.idioms || 0,
