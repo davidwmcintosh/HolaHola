@@ -652,12 +652,12 @@ export class GeminiStreamingService {
           }
           
           // Add thinking level if model supports it (Gemini 3+)
-          // Note: thinkingBudget 0 disables thinking entirely (fastest for voice streaming)
-          // MINIMAL = 0 (disabled) for voice latency, MEDIUM = 1024, else = 4096
-          // Disabled thinking also prevents internal reasoning from leaking into output
+          // Thinking is enabled for advanced reasoning; output is filtered by part type
+          // to separate 'thought' from 'text' parts (only text goes to TTS)
+          // MINIMAL = 256, MEDIUM = 1024, else = 4096
           if (requestModel.includes('gemini-3') || requestModel.includes('gemini-2.5')) {
             generationConfig.thinkingConfig = { 
-              thinkingBudget: thinkingLevel === 'MINIMAL' ? 0 : thinkingLevel === 'MEDIUM' ? 1024 : 4096 
+              thinkingBudget: thinkingLevel === 'MINIMAL' ? 256 : thinkingLevel === 'MEDIUM' ? 1024 : 4096 
             };
           }
           
@@ -712,7 +712,24 @@ export class GeminiStreamingService {
           }
         }
         
-        const text = chunk.text || '';
+        // Filter chunks by part type: only use 'text' parts, skip 'thought' parts
+        // Gemini 3's thinking mode outputs reasoning in 'thought' parts which shouldn't be spoken
+        let text = '';
+        if (chunk.candidates?.[0]?.content?.parts) {
+          for (const part of chunk.candidates[0].content.parts) {
+            // Only include text parts, skip thought/thinking parts
+            if (part.text && !part.thought) {
+              text += part.text;
+            } else if (part.thought) {
+              // Log thought parts for debugging but don't include in output
+              console.log(`[Gemini Streaming] Thought part (filtered): "${String(part.thought).substring(0, 50)}..."`);
+            }
+          }
+        } else {
+          // Fallback for non-Gemini 3 models or simpler responses
+          text = chunk.text || '';
+        }
+        
         if (!text) continue;
         
         buffer += text;
