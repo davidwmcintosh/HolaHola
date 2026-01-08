@@ -142,8 +142,9 @@ export interface SyncBundle {
   expressLaneMessages: any[];
   hiveSnapshots: any[];
   danielaGrowthMemories: any[];
-  // Product configuration (voices, tutors)
+  // Product configuration (voices, tutors, public classes)
   tutorVoices: any[];
+  catalogueClasses: any[];  // v33: Public catalogue classes (teacherClasses with isPublicCatalogue=true)
   // Curriculum content (templates/syllabi)
   curriculumPaths: any[];
   curriculumUnits: any[];
@@ -901,16 +902,25 @@ class SyncBridgeService {
       }
     }
     
-    // BATCH: product-config - Tutor voices (includes both main tutors and assistant tutors)
+    // BATCH: product-config - Tutor voices + public catalogue classes (v33)
     if (!batchType || batchType === 'product-config') {
       try {
         const voices = await this.exportTutorVoices();
         bundle.tutorVoices = voices;
+        
+        // v33: Include public catalogue classes (teacherClasses with isPublicCatalogue=true)
+        // These are official HolaHola syllabi that need to sync from dev to prod
+        const catalogueClasses = await db.select().from(teacherClasses).where(
+          eq(teacherClasses.isPublicCatalogue, true)
+        );
+        bundle.catalogueClasses = catalogueClasses;
+        console.log(`[SYNC-BRIDGE] product-config: ${voices.length} voices, ${catalogueClasses.length} catalogue classes`);
       } catch (err: any) {
         const errMsg = `product-config export failed: ${err.message}`;
         console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
         batchErrors.push(errMsg);
         bundle.tutorVoices = [];
+        bundle.catalogueClasses = [];
       }
     }
     
@@ -2671,6 +2681,60 @@ class SyncBridgeService {
     }
   }
   
+  /**
+   * v33: Import a public catalogue class with upsert logic
+   * These are official HolaHola syllabi synced from dev to prod
+   */
+  async importCatalogueClass(cls: any): Promise<{ success: boolean }> {
+    try {
+      // Upsert by id - if class exists, update it; otherwise insert
+      await db
+        .insert(teacherClasses)
+        .values({
+          id: cls.id,
+          teacherId: cls.teacherId,
+          name: cls.name,
+          description: cls.description,
+          language: cls.language,
+          classLevel: cls.classLevel ?? cls.difficultyLevel,
+          curriculumPathId: cls.curriculumPathId ?? cls.curriculumTemplateId,
+          syllabusId: cls.syllabusId,
+          joinCode: cls.joinCode || `CAT-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+          isActive: cls.isActive ?? true,
+          isPublicCatalogue: true, // Always set true since we only sync catalogue classes
+          classTypeId: cls.classTypeId,
+          maxStudents: cls.maxStudents,
+          enrollmentStart: cls.enrollmentStart ? new Date(cls.enrollmentStart) : null,
+          enrollmentEnd: cls.enrollmentEnd ? new Date(cls.enrollmentEnd) : null,
+          createdAt: cls.createdAt ? new Date(cls.createdAt) : new Date(),
+        })
+        .onConflictDoUpdate({
+          target: teacherClasses.id,
+          set: {
+            teacherId: cls.teacherId,
+            name: cls.name,
+            description: cls.description,
+            language: cls.language,
+            classLevel: cls.classLevel ?? cls.difficultyLevel,
+            curriculumPathId: cls.curriculumPathId ?? cls.curriculumTemplateId,
+            syllabusId: cls.syllabusId,
+            isActive: cls.isActive ?? true,
+            isPublicCatalogue: true,
+            classTypeId: cls.classTypeId,
+            maxStudents: cls.maxStudents,
+            enrollmentStart: cls.enrollmentStart ? new Date(cls.enrollmentStart) : null,
+            enrollmentEnd: cls.enrollmentEnd ? new Date(cls.enrollmentEnd) : null,
+            updatedAt: new Date(),
+          },
+        });
+      
+      return { success: true };
+    } catch (err: any) {
+      console.error(`[SYNC-BRIDGE] Failed to import catalogue class ${cls.id}:`, err.message);
+      return { success: false };
+    }
+  }
+  
   async applyImportBundle(bundle: SyncBundle): Promise<SyncResult> {
     const startTime = Date.now();
     const counts: Record<string, number> = {};
@@ -2685,7 +2749,7 @@ class SyncBridgeService {
       'creativityTemplates', 'suggestions', 'triggers', 'actions', 'observations', 'alerts',
       'observationsPagination', 'northStarPrinciples', 'northStarUnderstanding', 'northStarExamples',
       'founderUser', 'expressLaneSessions', 'expressLaneMessages', 'hiveSnapshots',
-      'danielaGrowthMemories', 'tutorVoices',
+      'danielaGrowthMemories', 'tutorVoices', 'catalogueClasses',
       // v18: New sync batches
       'curriculumPaths', 'curriculumUnits', 'curriculumLessons', 'topics',
       'curriculumDrillItems', 'grammarExercises', 'canDoStatements', 'culturalTips',
@@ -2954,6 +3018,13 @@ class SyncBridgeService {
       console.log(`[SYNC-BRIDGE] Importing ${bundle.tutorVoices.length} Tutor Voices...`);
       await importWithCount('tutorVoices', bundle.tutorVoices,
         (voice) => this.importTutorVoice(voice));
+    }
+    
+    // v33: Product Configuration: Public Catalogue Classes
+    if (bundle.catalogueClasses?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.catalogueClasses.length} Catalogue Classes...`);
+      await importWithCount('catalogueClasses', bundle.catalogueClasses,
+        (cls) => this.importCatalogueClass(cls));
     }
     
     // v18: Curriculum Core (paths, units, lessons, topics)
