@@ -19383,6 +19383,18 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
     }
   });
   
+  // v33: Compare record counts between DEV and PROD environments
+  app.get("/api/sync/compare-environments", isAuthenticated, loadAuthenticatedUser(storage), allowRoles(['admin', 'developer']), async (req: any, res) => {
+    try {
+      console.log('[SYNC API] Environment comparison requested');
+      const comparison = await syncBridge.compareEnvironments();
+      res.json(comparison);
+    } catch (error: any) {
+      console.error('[SYNC API] Comparison error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // Admin: Trigger push to peer environment
   app.post("/api/sync/push", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
