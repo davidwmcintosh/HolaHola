@@ -108,10 +108,13 @@ interface SyncHealthBatch {
   label: string;
   lastSuccessfulPush: string | null;
   lastSuccessfulPull: string | null;
+  lastReceivedImport: string | null; // v32: When peer pushed to us
   daysSinceLastPush: number | null;
   daysSinceLastPull: number | null;
+  daysSinceLastData: number | null; // v32: Combined (most recent of pull or import)
   pushStatus: 'healthy' | 'stale' | 'critical' | 'never';
   pullStatus: 'healthy' | 'stale' | 'critical' | 'never';
+  dataStatus: 'healthy' | 'stale' | 'critical' | 'never'; // v32: Overall data freshness
 }
 
 interface SyncHealth {
@@ -753,12 +756,13 @@ export default function SyncControlCenter() {
                     <Skeleton className="h-40" />
                   ) : syncHealth ? (
                     <div className="space-y-2">
-                      {/* Summary badges */}
+                      {/* Summary badges - v32: Use dataStatus (combines pull + import receipts) */}
                       <div className="flex flex-wrap gap-2 mb-4">
                         {(() => {
-                          const critical = syncHealth.batches.filter(b => b.pushStatus === 'critical' || b.pullStatus === 'critical');
-                          const stale = syncHealth.batches.filter(b => (b.pushStatus === 'stale' || b.pullStatus === 'stale') && b.pushStatus !== 'critical' && b.pullStatus !== 'critical');
-                          const never = syncHealth.batches.filter(b => b.pushStatus === 'never' || b.pullStatus === 'never');
+                          // v32: dataStatus reflects the most recent of local pull OR received import
+                          const critical = syncHealth.batches.filter(b => b.pushStatus === 'critical' || b.dataStatus === 'critical');
+                          const stale = syncHealth.batches.filter(b => (b.pushStatus === 'stale' || b.dataStatus === 'stale') && b.pushStatus !== 'critical' && b.dataStatus !== 'critical');
+                          const never = syncHealth.batches.filter(b => b.pushStatus === 'never' || b.dataStatus === 'never');
                           
                           return (
                             <>
@@ -791,7 +795,7 @@ export default function SyncControlCenter() {
                         })()}
                       </div>
                       
-                      {/* Batch table */}
+                      {/* Batch table - v32: Added Data column (combines pull + import receipts) */}
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
@@ -806,7 +810,7 @@ export default function SyncControlCenter() {
                               <th className="text-left py-2 px-2">
                                 <span className="flex items-center gap-1">
                                   <ArrowDownLeft className="h-3 w-3" />
-                                  Pull
+                                  Data
                                 </span>
                               </th>
                             </tr>
@@ -835,8 +839,8 @@ export default function SyncControlCenter() {
                                   <td className={`py-2 px-2 ${getStatusColor(batch.pushStatus)}`}>
                                     {formatLastSync(batch.daysSinceLastPush)}
                                   </td>
-                                  <td className={`py-2 px-2 ${getStatusColor(batch.pullStatus)}`}>
-                                    {formatLastSync(batch.daysSinceLastPull)}
+                                  <td className={`py-2 px-2 ${getStatusColor(batch.dataStatus)}`}>
+                                    {formatLastSync(batch.daysSinceLastData)}
                                   </td>
                                 </tr>
                               );
@@ -846,7 +850,7 @@ export default function SyncControlCenter() {
                       </div>
                       
                       <p className="text-xs text-muted-foreground mt-2">
-                        Healthy: &lt;3 days | Stale: 3-7 days | Critical: &gt;7 days
+                        Data = most recent of pull or received import | Healthy: &lt;3 days | Stale: 3-7 days | Critical: &gt;7 days
                       </p>
                     </div>
                   ) : (

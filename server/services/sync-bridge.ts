@@ -4755,6 +4755,7 @@ class SyncBridgeService {
   
   /**
    * v27: Per-batch sync health metrics
+   * v32: Now includes import receipts for freshness - when peer pushes to us, that counts as fresh data
    * Returns the last successful sync time for each batch type and staleness warnings
    */
   async getSyncHealth(): Promise<{
@@ -4764,10 +4765,13 @@ class SyncBridgeService {
       label: string;
       lastSuccessfulPush: string | null;
       lastSuccessfulPull: string | null;
+      lastReceivedImport: string | null;
       daysSinceLastPush: number | null;
       daysSinceLastPull: number | null;
+      daysSinceLastData: number | null; // v32: min(pull, import)
       pushStatus: 'healthy' | 'stale' | 'critical' | 'never';
       pullStatus: 'healthy' | 'stale' | 'critical' | 'never';
+      dataStatus: 'healthy' | 'stale' | 'critical' | 'never'; // v32: Combined status (most recent of pull or import)
     }>;
     queriedAt: string;
   }> {
@@ -4785,6 +4789,16 @@ class SyncBridgeService {
       .where(sql`${syncRuns.status} IN ('success', 'partial')`)
       .orderBy(desc(syncRuns.completedAt))
       .limit(500); // Limit for performance but no time restriction
+    
+    // v32: Also get import receipts - when peer pushes to us, that's fresh data too
+    const receipts = await db.select({
+      batchId: syncImportReceipts.batchId,
+      receivedAt: syncImportReceipts.receivedAt,
+      recordsReceived: syncImportReceipts.recordsReceived,
+    })
+      .from(syncImportReceipts)
+      .orderBy(desc(syncImportReceipts.receivedAt))
+      .limit(500);
     
     // All batch types we care about
     // v30: Environment-aware batch display
@@ -4849,15 +4863,28 @@ class SyncBridgeService {
           )
         : lastPull;
       
+      // v32: Find last import receipt for this batch (peer pushed to us)
+      const lastReceipt = receipts.find(r => r.batchId === config.id);
+      
       const now = new Date();
       const pushTime = lastPushWithData?.completedAt ? new Date(lastPushWithData.completedAt) : null;
       const pullTime = lastPullWithData?.completedAt ? new Date(lastPullWithData.completedAt) : null;
+      const receiptTime = lastReceipt?.receivedAt ? new Date(lastReceipt.receivedAt) : null;
+      
+      // v32: Data time is the most recent of pull or import receipt
+      // This reflects when we last received fresh data, regardless of who initiated
+      const dataTime = pullTime && receiptTime 
+        ? (pullTime > receiptTime ? pullTime : receiptTime)
+        : (pullTime || receiptTime);
       
       const daysSinceLastPush = pushTime 
         ? Math.floor((now.getTime() - pushTime.getTime()) / (1000 * 60 * 60 * 24))
         : null;
       const daysSinceLastPull = pullTime
         ? Math.floor((now.getTime() - pullTime.getTime()) / (1000 * 60 * 60 * 24))
+        : null;
+      const daysSinceLastData = dataTime
+        ? Math.floor((now.getTime() - dataTime.getTime()) / (1000 * 60 * 60 * 24))
         : null;
       
       // Status thresholds: healthy < 3 days, stale 3-7 days, critical > 7 days
@@ -4873,10 +4900,13 @@ class SyncBridgeService {
         label: config.label,
         lastSuccessfulPush: pushTime?.toISOString() || null,
         lastSuccessfulPull: pullTime?.toISOString() || null,
+        lastReceivedImport: receiptTime?.toISOString() || null,
         daysSinceLastPush,
         daysSinceLastPull,
+        daysSinceLastData, // v32: Combined freshness
         pushStatus: getStatus(daysSinceLastPush),
         pullStatus: getStatus(daysSinceLastPull),
+        dataStatus: getStatus(daysSinceLastData), // v32: Overall data freshness status
       };
     });
     
