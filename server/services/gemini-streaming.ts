@@ -35,6 +35,20 @@ function stripInternalNotationTags(text: string): string {
   // Strip COLLAB tags first (have closing tags)
   text = text.replace(/\[COLLAB:[A-Z_]+\][\s\S]*?\[\/COLLAB\]/gi, '');
   
+  // Strip Gemini 3 thinking/drafting patterns that shouldn't be spoken aloud
+  // These appear when thinkingConfig is enabled and model outputs its internal reasoning
+  // Pattern: "Draft 1:", "Draft 2:", "*Draft 1:*", "* *Draft 1:*" etc.
+  text = text.replace(/\*?\s*\*?Draft\s*\d+\s*(?:\([^)]*\))?\s*:?\s*\*?\s*:?/gi, '');
+  
+  // Pattern: "Tone:" followed by descriptors - internal voice planning
+  text = text.replace(/Tone:\s*[A-Za-z\s,]+(?:\.{3}|\.\s|$)/gi, '');
+  
+  // Pattern: Self-evaluation checklists "Natural? Yes." "Curious? Yes." "Authentic? Yes."
+  text = text.replace(/(?:Natural|Curious|Authentic|Revised|Teaching)\?\s*(?:Yes|No)\.?\s*/gi, '');
+  
+  // Pattern: "Not overly dramatic..." - internal tone instructions
+  text = text.replace(/Not\s+overly\s+[a-z]+[^.]*\.{3}/gi, '');
+  
   // Strip malformed LLM reasoning/planning patterns that shouldn't be spoken
   // Pattern: :["step1", "step2", ...] - internal thinking chains
   text = text.replace(/:\s*\[\s*"[^"]*"(?:\s*,?\s*"[^"]*")*\s*\]/g, '');
@@ -638,10 +652,12 @@ export class GeminiStreamingService {
           }
           
           // Add thinking level if model supports it (Gemini 3+)
-          // Note: thinkingBudget must be >= 256 to enable any reasoning, 0 disables entirely
+          // Note: thinkingBudget 0 disables thinking entirely (fastest for voice streaming)
+          // MINIMAL = 0 (disabled) for voice latency, MEDIUM = 1024, else = 4096
+          // Disabled thinking also prevents internal reasoning from leaking into output
           if (requestModel.includes('gemini-3') || requestModel.includes('gemini-2.5')) {
             generationConfig.thinkingConfig = { 
-              thinkingBudget: thinkingLevel === 'MINIMAL' ? 256 : thinkingLevel === 'MEDIUM' ? 1024 : 4096 
+              thinkingBudget: thinkingLevel === 'MINIMAL' ? 0 : thinkingLevel === 'MEDIUM' ? 1024 : 4096 
             };
           }
           
