@@ -2100,6 +2100,51 @@ const PronunciationItemDisplay = ({ item, index }: PronunciationItemDisplayProps
 };
 
 /**
+ * Parse markdown-like formatting (inner function - no size tags to prevent recursion)
+ * Used for nested content inside size tags like <lg>**bold**</lg>
+ */
+function parseFormattedTextInner(text: string): JSX.Element[] {
+  const elements: JSX.Element[] = [];
+  let keyIndex = 0;
+  
+  // Formatting patterns without size tags (prevents recursion)
+  const formatRegex = /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(__(.+?)__)|(\~\~(.+?)\~\~)|(`(.+?)`)/g;
+  
+  let lastIndex = 0;
+  let match;
+  
+  while ((match = formatRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      elements.push(<span key={keyIndex++}>{text.slice(lastIndex, match.index)}</span>);
+    }
+    
+    if (match[1]) {
+      elements.push(<strong key={keyIndex++} className="font-bold">{match[2]}</strong>);
+    } else if (match[3]) {
+      elements.push(<em key={keyIndex++} className="italic">{match[4]}</em>);
+    } else if (match[5]) {
+      elements.push(<span key={keyIndex++} className="underline decoration-2">{match[6]}</span>);
+    } else if (match[7]) {
+      elements.push(<span key={keyIndex++} className="line-through opacity-60">{match[8]}</span>);
+    } else if (match[9]) {
+      elements.push(<code key={keyIndex++} className="font-mono bg-muted px-1.5 py-0.5 rounded text-sm">{match[10]}</code>);
+    }
+    
+    lastIndex = match.index + match[0].length;
+  }
+  
+  if (lastIndex < text.length) {
+    elements.push(<span key={keyIndex++}>{text.slice(lastIndex)}</span>);
+  }
+  
+  if (elements.length === 0) {
+    elements.push(<span key={0}>{text}</span>);
+  }
+  
+  return elements;
+}
+
+/**
  * Parse markdown-like formatting in whiteboard text content
  * Supports: **bold**, *italic*, __underline__, ~~strikethrough~~, `code`
  * Inline sizes: <sm>small</sm>, <lg>large</lg>, <xl>extra large</xl>
@@ -2151,19 +2196,19 @@ function parseFormattedText(text: string): JSX.Element[] {
         <code key={keyIndex++} className="font-mono bg-muted px-1.5 py-0.5 rounded text-sm">{match[10]}</code>
       );
     } else if (match[11]) {
-      // <sm>small text</sm>
+      // <sm>small text</sm> - recursively parse inner content for nested formatting
       elements.push(
-        <span key={keyIndex++} className="text-sm">{match[12]}</span>
+        <span key={keyIndex++} className="text-sm">{parseFormattedTextInner(match[12])}</span>
       );
     } else if (match[13]) {
-      // <lg>large text</lg>
+      // <lg>large text</lg> - recursively parse inner content for nested formatting
       elements.push(
-        <span key={keyIndex++} className="text-lg">{match[14]}</span>
+        <span key={keyIndex++} className="text-lg">{parseFormattedTextInner(match[14])}</span>
       );
     } else if (match[15]) {
-      // <xl>extra large text</xl>
+      // <xl>extra large text</xl> - recursively parse inner content for nested formatting
       elements.push(
-        <span key={keyIndex++} className="text-xl font-semibold">{match[16]}</span>
+        <span key={keyIndex++} className="text-xl font-semibold">{parseFormattedTextInner(match[16])}</span>
       );
     }
     
