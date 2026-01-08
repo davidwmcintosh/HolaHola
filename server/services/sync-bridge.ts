@@ -4112,14 +4112,26 @@ class SyncBridgeService {
         else overallSuccess = false;
       }
       
-      // BATCH 6: Product config (tutor voices, feature flags)
+      // BATCH 6: Product config (tutor voices, catalogue classes, pricing packages)
       if (shouldRun('product-config')) {
         attemptedBatches.push('product-config');
         console.log('[SYNC-BRIDGE] Batch 6: Product config...');
+        
+        // v33: Export all product config tables
+        const voices = await this.exportTutorVoices();
+        const catalogueClasses = await db.select().from(teacherClasses).where(
+          eq(teacherClasses.isPublicCatalogue, true)
+        );
+        const hourPackages = await db.select().from(classHourPackages);
+        
+        console.log(`[SYNC-BRIDGE] product-config batch: ${voices.length} voices, ${catalogueClasses.length} catalogue classes, ${hourPackages.length} hour packages`);
+        
         const configBundle: Partial<SyncBundle> = {
           generatedAt: new Date().toISOString(),
           sourceEnvironment: CURRENT_ENVIRONMENT,
-          tutorVoices: await this.exportTutorVoices(),
+          tutorVoices: voices,
+          catalogueClasses: catalogueClasses,
+          classHourPackages: hourPackages,
         };
         const batch6 = await this.sendBatch(peerUrl, 'product-config', configBundle, 45000, sessionContext);
         Object.assign(allCounts, batch6.counts);
