@@ -43,6 +43,11 @@ export interface StreamingMetrics {
   totalTtfbMs: number;
   sentenceCount: number;
   totalDurationMs: number;
+  // Gemini 3 streaming function call metrics
+  earlyIntentDetectedAt?: number;      // Timestamp when function name first detected
+  functionCallStreamingMs?: number;    // Time from name detection to full args complete
+  functionCallCount?: number;          // Number of function calls in this turn
+  preloadedResources?: string[];       // Resources preloaded via early intent (e.g., ['voice:es-female'])
 }
 
 /**

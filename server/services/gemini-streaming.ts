@@ -238,42 +238,104 @@ export interface MultimodalFunctionResponse {
 /**
  * Helper to create a function response with multimodal content
  * Converts MultimodalFunctionResponse to Gemini-compatible format
+ * 
+ * Gemini 3 expects multimodal function responses with response.output as array of parts:
+ * {
+ *   name: "function_name",
+ *   response: {
+ *     output: [
+ *       { text: "summary text" },
+ *       { inlineData: { mimeType: "image/png", data: "base64..." } }
+ *     ]
+ *   }
+ * }
+ * 
+ * IMPORTANT: For history serialization, callers should be aware that large base64
+ * blobs may need truncation or separate storage for efficiency. Consider using
+ * createMultimodalFunctionResponseTextOnly() when replaying history.
+ * 
+ * @param fnName - The function name this response is for
+ * @param response - The multimodal response with text, images, PDFs, and/or data
+ * @returns Gemini-compatible function response ready for the API
  */
 export function createMultimodalFunctionResponse(
   fnName: string,
   response: MultimodalFunctionResponse
 ): { name: string; response: Record<string, unknown> } {
-  const parts: Record<string, unknown> = {};
+  // Build output parts array (Gemini's multimodal format uses "output" field)
+  const outputParts: Array<Record<string, unknown>> = [];
+  
+  // Text part first
+  if (response.text) {
+    outputParts.push({ text: response.text });
+  }
+  
+  // Structured data as text (JSON stringified)
+  if (response.data && Object.keys(response.data).length > 0) {
+    outputParts.push({ text: JSON.stringify(response.data) });
+  }
+  
+  // Image parts with inlineData format (Gemini's expected schema)
+  if (response.images && response.images.length > 0) {
+    for (const img of response.images) {
+      outputParts.push({
+        inlineData: {
+          mimeType: img.mimeType,
+          data: img.data
+        }
+      });
+    }
+  }
+  
+  // PDF parts with inlineData format
+  if (response.pdfs && response.pdfs.length > 0) {
+    for (const pdf of response.pdfs) {
+      outputParts.push({
+        inlineData: {
+          mimeType: pdf.mimeType,
+          data: pdf.data
+        }
+      });
+    }
+  }
+  
+  return {
+    name: fnName,
+    response: { output: outputParts }
+  };
+}
+
+/**
+ * Create a text-only version of a multimodal function response for history replay
+ * Strips inline data to avoid bloating conversation context
+ * 
+ * @param fnName - The function name this response is for
+ * @param response - The multimodal response 
+ * @returns Lightweight function response with media counts instead of blobs
+ */
+export function createMultimodalFunctionResponseTextOnly(
+  fnName: string,
+  response: MultimodalFunctionResponse
+): { name: string; response: Record<string, unknown> } {
+  const summary: string[] = [];
   
   if (response.text) {
-    parts.summary = response.text;
+    summary.push(response.text);
   }
   
-  if (response.data) {
-    Object.assign(parts, response.data);
-  }
-  
-  // Images and PDFs are included as inline_data in the response object
-  // Gemini 3 accepts multimodal content in function responses
   if (response.images && response.images.length > 0) {
-    parts.images = response.images.map(img => ({
-      inline_data: {
-        mime_type: img.mimeType,
-        data: img.data
-      }
-    }));
+    summary.push(`[${response.images.length} image(s) displayed]`);
   }
   
   if (response.pdfs && response.pdfs.length > 0) {
-    parts.documents = response.pdfs.map(pdf => ({
-      inline_data: {
-        mime_type: pdf.mimeType,
-        data: pdf.data
-      }
-    }));
+    summary.push(`[${response.pdfs.length} document(s) displayed]`);
   }
   
-  return { name: fnName, response: parts };
+  // For history replay, use output array with text-only content
+  return {
+    name: fnName,
+    response: { output: [{ text: summary.join(' ') }] }
+  };
 }
 
 /**
