@@ -702,6 +702,12 @@ export interface StreamingSession {
    * Gemini 3 requires: all FCs + signatures, then all FRs together
    */
   currentTurnFunctionCalls?: ExtractedFunctionCall[];
+  /**
+   * Dynamic context preamble entries for current turn (user/model exchange with dynamic sections + Express Lane)
+   * Stored at start of turn, used for continuation calls to rebuild context with updated session history
+   * MUST be cleared at start of each new turn to prevent stale context bleed
+   */
+  currentTurnPreamble?: ConversationHistoryEntry[];
   isLanguageSwitchHandoff?: boolean; // True when current handoff is a cross-language switch
   previousLanguage?: string;        // Previous language before cross-language switch
   switchTutorTriggered?: boolean;   // True when SWITCH_TUTOR detected - stops further sentence synthesis
@@ -1684,6 +1690,9 @@ export class StreamingVoiceOrchestrator {
       let expressLaneHistory: { role: 'user' | 'assistant'; content: string }[] = [];
       session.pendingArchitectNoteIds = [];
       
+      // CONTEXT CACHING: Clear previous turn's preamble to prevent stale context bleed
+      session.currentTurnPreamble = undefined;
+      
       // Build parallel fetch promises
       const contextPromises: Promise<void>[] = [];
       
@@ -1874,50 +1883,79 @@ Remember: David may reference things discussed in these recent text chats.
       await Promise.all(contextPromises);
       console.log(`[Context Fetch] All context fetched in ${Date.now() - contextStart}ms (parallel)`)
       
-      // Build enhanced system prompt with all context layers
-      let enhancedSystemPrompt = session.systemPrompt;
+      // CONTEXT CACHING OPTIMIZATION: Separate static base prompt from dynamic context
+      // The base system prompt (Daniela's personality, neural network) is STABLE and cacheable
+      // Dynamic context (student learning, hive, technical health) changes per-turn
       
-      // PROACTIVE STUDENT INTELLIGENCE: Include learning context for ALL sessions (not just Founder Mode)
+      // Build dynamic context preamble (injected as first message in history)
+      const dynamicContextParts: string[] = [];
+      
       if (studentLearningSection) {
-        enhancedSystemPrompt += studentLearningSection;
+        dynamicContextParts.push(studentLearningSection);
       }
-      
       if (hiveContextSection) {
-        enhancedSystemPrompt += hiveContextSection;
+        dynamicContextParts.push(hiveContextSection);
       }
       if (expressLaneSection) {
-        enhancedSystemPrompt += expressLaneSection;
+        dynamicContextParts.push(expressLaneSection);
       }
       if (textChatSection) {
-        enhancedSystemPrompt += textChatSection;
+        dynamicContextParts.push(textChatSection);
       }
       if (editorFeedbackSection) {
-        enhancedSystemPrompt += editorFeedbackSection;
+        dynamicContextParts.push(editorFeedbackSection);
       }
       
       // TECHNICAL HEALTH: Inject awareness of recent technical issues
-      // Enables Daniela to acknowledge audio problems or delays empathetically
       const technicalHealthContext = voiceDiagnostics.getTechnicalHealthContext();
       if (technicalHealthContext) {
-        enhancedSystemPrompt += `\n\n${technicalHealthContext}`;
+        dynamicContextParts.push(technicalHealthContext);
         console.log(`[Technical Health] Injecting technical awareness into context`);
       }
       
       const userMessageWithNote = transcript + contentRedirectNote + sttConfidenceNote + intelligenceContext + architectContext;
       
-      // EXPRESS LANE MEMORY: Use prefetched Express Lane history (already fetched in parallel above)
-      let conversationHistoryWithExpressLane = session.conversationHistory;
+      // CONTEXT CACHING: Build the conversation history with dynamic context preamble
+      // This approach keeps base system prompt stable for caching while injecting per-turn context
+      
+      // Start with base session history
+      let conversationHistoryWithContext: ConversationHistoryEntry[] = [];
+      
+      // STEP 1: Add dynamic context as first "user" message with model acknowledgment
+      // This goes at the very beginning so model has current session state
+      if (dynamicContextParts.length > 0) {
+        const dynamicContextMessage = `[CONTEXT UPDATE - Current Session State]\n${dynamicContextParts.join('\n')}`;
+        conversationHistoryWithContext.push(
+          { role: 'user', content: dynamicContextMessage },
+          { role: 'model', content: '[Context acknowledged. I will incorporate this information naturally into our conversation.]' }
+        );
+        console.log(`[Context Caching] Dynamic context (${dynamicContextParts.length} sections) added as preamble`);
+      }
+      
+      // STEP 2: Add Express Lane history (text chat memory) if in Founder Mode
       if (session.isFounderMode && expressLaneHistory.length > 0) {
-        // Prepend EXPRESS Lane history before voice conversation history
-        conversationHistoryWithExpressLane = [...expressLaneHistory, ...session.conversationHistory];
+        // Normalize Express Lane history to use Gemini roles ('model' not 'assistant')
+        const normalizedExpressLane: ConversationHistoryEntry[] = expressLaneHistory.map(entry => ({
+          role: entry.role === 'assistant' ? 'model' as const : entry.role as 'user' | 'model',
+          content: entry.content
+        }));
+        conversationHistoryWithContext.push(...normalizedExpressLane);
         console.log(`[EXPRESS Lane Memory] Injected ${expressLaneHistory.length} messages from text chat into voice context`);
       }
       
+      // Store preamble for continuation calls (before adding session history)
+      // Preamble = dynamic context + Express Lane entries
+      session.currentTurnPreamble = [...conversationHistoryWithContext];
+      
+      // STEP 3: Add the actual voice conversation history
+      conversationHistoryWithContext.push(...session.conversationHistory);
+      
       await this.geminiService.streamWithSentenceChunking({
-        systemPrompt: enhancedSystemPrompt,
-        conversationHistory: conversationHistoryWithExpressLane,
+        systemPrompt: session.systemPrompt,  // STATIC base prompt (cacheable)
+        conversationHistory: conversationHistoryWithContext,
         userMessage: userMessageWithNote,
         enableFunctionCalling: true,  // Enable native Gemini 3 function calling
+        enableContextCaching: true,   // Enable caching for stable system prompt
         streamFunctionCallArguments: true,  // Enable early intent detection for latency optimization
         onPartialFunctionCall: (partial: PartialFunctionCall) => {
           // EARLY INTENT DETECTION: Preload resources as soon as we know the function name
@@ -2858,13 +2896,18 @@ Remember: David may reference things discussed in these recent text chats.
         session.currentTurnThoughtSignatures = [];
         
         // Call Gemini again to get actual spoken text
-        // Using a simple continuation prompt to nudge the model
+        // Rebuild context fresh: stored preamble + current session history (with function responses)
+        const continuationHistory: ConversationHistoryEntry[] = session.currentTurnPreamble
+          ? [...session.currentTurnPreamble, ...session.conversationHistory]
+          : session.conversationHistory;
+        
         try {
           await this.geminiService.streamWithSentenceChunking({
-            systemPrompt: enhancedSystemPrompt,
-            conversationHistory: session.conversationHistory,
+            systemPrompt: session.systemPrompt,  // Use stable base prompt (cached)
+            conversationHistory: continuationHistory,  // Fresh: preamble + updated history
             userMessage: '', // Empty - we're continuing from function responses
             enableFunctionCalling: true,
+            enableContextCaching: true,  // Use cached system prompt
             onFunctionCall: async (newFunctionCalls: ExtractedFunctionCall[]) => {
               // Handle any additional function calls in continuation
               for (const fn of newFunctionCalls) {
@@ -3726,6 +3769,9 @@ Remember: David may reference things discussed in these recent text chats.
       let studentLearningSection = '';
       session.pendingArchitectNoteIds = [];  // Reset for this turn
       
+      // CONTEXT CACHING: Clear previous turn's preamble to prevent stale context bleed
+      session.currentTurnPreamble = undefined;
+      
       const contextPromises: Promise<void>[] = [];
       
       // Architect notes (if conversationId available)
@@ -3783,16 +3829,31 @@ Remember: David may reference things discussed in these recent text chats.
       
       const userMessageWithNote = transcript + architectContext + interruptContext;
       
-      // Build enhanced system prompt with student learning context
-      const enhancedSystemPrompt = studentLearningSection 
-        ? session.systemPrompt + studentLearningSection 
-        : session.systemPrompt;
+      // CONTEXT CACHING OPTIMIZATION (OpenMic): Separate static base from dynamic context
+      // Move student learning section to conversation history preamble for caching
+      let conversationHistoryWithContext: ConversationHistoryEntry[] = [];
+      
+      // STEP 1: Add dynamic context preamble (student learning profile)
+      if (studentLearningSection) {
+        conversationHistoryWithContext.push(
+          { role: 'user', content: `[CONTEXT UPDATE - Current Session State]\n${studentLearningSection}` },
+          { role: 'model', content: '[Context acknowledged. I will incorporate this information naturally into our conversation.]' }
+        );
+        console.log(`[Context Caching - OpenMic] Dynamic context added as preamble`);
+      }
+      
+      // Store preamble for continuation calls (before adding session history)
+      session.currentTurnPreamble = [...conversationHistoryWithContext];
+      
+      // STEP 2: Add conversation history
+      conversationHistoryWithContext.push(...session.conversationHistory);
       
       await this.geminiService.streamWithSentenceChunking({
-        systemPrompt: enhancedSystemPrompt,
-        conversationHistory: session.conversationHistory,
+        systemPrompt: session.systemPrompt,  // STATIC base prompt (cacheable)
+        conversationHistory: conversationHistoryWithContext,
         userMessage: userMessageWithNote,
         enableFunctionCalling: true,  // Enable native Gemini 3 function calling (open-mic)
+        enableContextCaching: true,   // Enable caching for stable system prompt
         streamFunctionCallArguments: true,  // Enable early intent detection (open-mic)
         onPartialFunctionCall: (partial: PartialFunctionCall) => {
           // EARLY INTENT DETECTION (open-mic mode)
@@ -4432,12 +4493,18 @@ Remember: David may reference things discussed in these recent text chats.
         session.currentTurnThoughtSignatures = [];
         
         // Call Gemini again to get actual spoken text
+        // Rebuild context fresh: stored preamble + current session history (with function responses)
+        const continuationHistory: ConversationHistoryEntry[] = session.currentTurnPreamble
+          ? [...session.currentTurnPreamble, ...session.conversationHistory]
+          : session.conversationHistory;
+        
         try {
           await this.geminiService.streamWithSentenceChunking({
-            systemPrompt: enhancedSystemPrompt,
-            conversationHistory: session.conversationHistory,
+            systemPrompt: session.systemPrompt,  // Use stable base prompt (cached)
+            conversationHistory: continuationHistory,  // Fresh: preamble + updated history
             userMessage: '', // Empty - continuing from function responses
             enableFunctionCalling: true,
+            enableContextCaching: true,  // Use cached system prompt
             onFunctionCall: async (newFCs: ExtractedFunctionCall[]) => {
               for (const fn of newFCs) {
                 console.log(`[Multi-Step FC Continuation - OpenMic] Additional function: ${fn.name}`);
