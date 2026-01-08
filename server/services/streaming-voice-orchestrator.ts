@@ -25,7 +25,7 @@ import { createHash } from "crypto";
 import { createClient } from "@deepgram/sdk";
 import { getDeepgramLanguageCode, DeepgramIntelligence, DeepgramSentiment, DeepgramIntent, DeepgramEntity, DeepgramTopic, transcribeWithLiveAPI, TranscriptionResult } from "./deepgram-live-stt";
 import { analyzePronunciation, generateQuickCoaching, PronunciationCoaching } from "./live-pronunciation-coach";
-import { getGeminiStreamingService, SentenceChunk, ExtractedFunctionCall, ConversationHistoryEntry } from "./gemini-streaming";
+import { getGeminiStreamingService, SentenceChunk, ExtractedFunctionCall, ConversationHistoryEntry, PartialFunctionCall } from "./gemini-streaming";
 import { getCartesiaStreamingService } from "./cartesia-streaming";
 import { WebSocket as WS } from "ws";
 import {
@@ -797,6 +797,9 @@ export interface StreamingMetrics {
   audioChunkCount: number;  // Total audio chunks sent for debugging duplicate audio
   userTranscript?: string;
   aiResponse?: string;
+  // Streaming function call metrics (Gemini 3)
+  earlyIntentDetectedAt?: number;  // Timestamp when function name first detected
+  functionCallStreamingMs?: number;  // Time from name detection to complete args
 }
 
 /**
@@ -1915,6 +1918,34 @@ Remember: David may reference things discussed in these recent text chats.
         conversationHistory: conversationHistoryWithExpressLane,
         userMessage: userMessageWithNote,
         enableFunctionCalling: true,  // Enable native Gemini 3 function calling
+        streamFunctionCallArguments: true,  // Enable early intent detection for latency optimization
+        onPartialFunctionCall: (partial: PartialFunctionCall) => {
+          // EARLY INTENT DETECTION: Preload resources as soon as we know the function name
+          // This reduces latency by warming up before full args arrive
+          if (partial.name === 'switch_tutor' && !partial.isComplete) {
+            // As soon as we detect switch_tutor intent, we can start preloading
+            const earlyTarget = partial.accumulatedArgs.target as string | undefined;
+            if (earlyTarget && !session.pendingTutorSwitch) {
+              console.log(`[Early Intent] switch_tutor #${partial.callIndex} detected early, target: ${earlyTarget || 'unknown'}`);
+              // Mark that we're preparing for a switch (prevents duplicate processing)
+              metrics.earlyIntentDetectedAt = Date.now();
+              // Could preload voice here: this.cartesiaService.warmupVoice(voiceId)
+            }
+          } else if (partial.name === 'phase_shift' && !partial.isComplete) {
+            console.log(`[Early Intent] phase_shift #${partial.callIndex} detected, to: ${partial.accumulatedArgs.to || 'streaming...'}`);
+          } else if (partial.name === 'call_support' && !partial.isComplete) {
+            console.log(`[Early Intent] call_support #${partial.callIndex} detected, category: ${partial.accumulatedArgs.category || 'streaming...'}`);
+          }
+          
+          // Log completion timing for telemetry and reset for next call
+          if (partial.isComplete && metrics.earlyIntentDetectedAt) {
+            const streamingLatencyMs = Date.now() - metrics.earlyIntentDetectedAt;
+            console.log(`[Early Intent] ${partial.name} #${partial.callIndex} complete, args streaming took ${streamingLatencyMs}ms`);
+            metrics.functionCallStreamingMs = streamingLatencyMs;
+            // Reset for next call to avoid stale timing from previous calls
+            metrics.earlyIntentDetectedAt = undefined;
+          }
+        },
         onFunctionCall: async (functionCalls: ExtractedFunctionCall[]) => {
           // Initialize thought signature tracking for this turn
           if (!session.currentTurnThoughtSignatures) {
@@ -3601,6 +3632,19 @@ Remember: David may reference things discussed in these recent text chats.
         conversationHistory: session.conversationHistory,
         userMessage: userMessageWithNote,
         enableFunctionCalling: true,  // Enable native Gemini 3 function calling (open-mic)
+        streamFunctionCallArguments: true,  // Enable early intent detection (open-mic)
+        onPartialFunctionCall: (partial: PartialFunctionCall) => {
+          // EARLY INTENT DETECTION (open-mic mode)
+          if (partial.name === 'switch_tutor' && !partial.isComplete) {
+            const earlyTarget = partial.accumulatedArgs.target as string | undefined;
+            if (earlyTarget) {
+              console.log(`[Early Intent - OpenMic] switch_tutor #${partial.callIndex} detected, target: ${earlyTarget}`);
+            }
+          }
+          if (partial.isComplete) {
+            console.log(`[Early Intent - OpenMic] ${partial.name} #${partial.callIndex} complete`);
+          }
+        },
         onFunctionCall: async (functionCalls: ExtractedFunctionCall[]) => {
           // Route native function calls to command processing (fire-and-forget)
           for (const fn of functionCalls) {

@@ -172,6 +172,33 @@ export type OnProgressCallback = (partialText: string, totalChars: number) => vo
 export type OnFunctionCallCallback = (calls: ExtractedFunctionCall[]) => Promise<void>;
 
 /**
+ * Partial function call during streaming - emitted before full args are ready
+ * Enables early intent detection for latency optimization (e.g., preload tutor voice)
+ * 
+ * @see https://docs.cloud.google.com/vertex-ai/generative-ai/docs/multimodal/function-calling#streaming-fc
+ */
+export interface PartialFunctionCall {
+  callIndex: number;               // Unique identifier (0-based, order in stream)
+  name: string;                    // Function name (available immediately)
+  willContinue: boolean;           // True if more args are coming
+  partialArgs?: Array<{
+    jsonPath: string;              // e.g., "$.location", "$.target"
+    stringValue: string;           // Current value
+    willContinue: boolean;         // More updates for this arg?
+  }>;
+  /** Accumulated args so far (built from partialArgs) */
+  accumulatedArgs: Record<string, unknown>;
+  /** True when this is the final chunk (function call complete) */
+  isComplete: boolean;
+}
+
+/**
+ * Callback for partial function calls during streaming
+ * Called immediately when function name is known, then as args stream in
+ */
+export type OnPartialFunctionCallCallback = (partial: PartialFunctionCall) => void;
+
+/**
  * Gemini 3 thinking levels for latency/quality tradeoff
  * - MINIMAL: Fastest responses, minimal reasoning (best for voice)
  * - MEDIUM: Balanced reasoning (good for complex pedagogical decisions)
@@ -228,6 +255,9 @@ export interface StreamingGenerationConfig {
   allowedFunctions?: string[];  // Optional allowlist of function names (e.g., ['subtitle', 'show_overlay'])
   onFunctionCall?: OnFunctionCallCallback;  // Callback when functions are called
   thinkingLevel?: ThinkingLevel;  // MINIMAL for voice speed, MEDIUM for complex decisions
+  // Streaming function calls (Gemini 3)
+  streamFunctionCallArguments?: boolean;  // Enable partial argument streaming
+  onPartialFunctionCall?: OnPartialFunctionCallCallback;  // Called as function name/args stream in
   // Context caching
   enableContextCaching?: boolean;  // Enable system prompt caching (90% cost reduction)
 }
@@ -578,6 +608,9 @@ export class GeminiStreamingService {
       enableFunctionCalling = false,
       onFunctionCall,
       thinkingLevel = 'MINIMAL',  // Default to fastest for voice
+      // Streaming function calls (Gemini 3)
+      streamFunctionCallArguments = false,
+      onPartialFunctionCall,
       // Context caching
       enableContextCaching = false,
     } = config;
@@ -734,6 +767,22 @@ export class GeminiStreamingService {
           // Add tools if function calling is enabled
           if (enableFunctionCalling) {
             generationConfig.tools = createDanielaTools(config.allowedFunctions);
+            
+            // Enable streaming function call arguments for early intent detection (Gemini 3 only)
+            // This allows us to know the function name BEFORE all args are ready
+            // IMPORTANT: Merge with existing toolConfig to preserve allowedFunctions/mode settings
+            if (streamFunctionCallArguments && requestModel.includes('gemini-3')) {
+              const existingToolConfig = generationConfig.toolConfig || {};
+              const existingFunctionCallingConfig = existingToolConfig.functionCallingConfig || {};
+              generationConfig.toolConfig = {
+                ...existingToolConfig,
+                functionCallingConfig: {
+                  ...existingFunctionCallingConfig,
+                  streamFunctionCallArguments: true,
+                },
+              };
+              console.log(`[Gemini Streaming] Streaming function call arguments ENABLED (merged with existing config)`);
+            }
           }
           
           if (usingCachedContext) {
@@ -766,19 +815,111 @@ export class GeminiStreamingService {
       // Track function calls across the stream
       let functionCallsProcessed = 0;
       
+      // Track streaming partial function calls (Gemini 3)
+      // Maps callIndex -> accumulated state as args stream in
+      // Using index instead of name to handle repeated calls to same function
+      let nextCallIndex = 0;
+      const partialFunctionCalls: Map<number, {
+        callIndex: number;
+        name: string;
+        accumulatedArgs: Record<string, unknown>;
+        firstSeenTime: number;
+      }> = new Map();
+      
       // Process streamed tokens
       for await (const chunk of result) {
         // Extract function calls from this chunk (Gemini 3 native tool calling)
         // Note: Function call handling is fire-and-forget to avoid blocking token streaming
-        if (enableFunctionCalling && onFunctionCall) {
-          const functionCalls = extractFunctionCalls(chunk);
-          if (functionCalls.length > 0) {
-            console.log(`[Gemini Streaming] Function calls detected: ${functionCalls.map(f => f.name).join(', ')}`);
-            // Non-blocking: queue the function call handler without awaiting
-            onFunctionCall(functionCalls).catch(err => 
-              console.error('[Gemini Streaming] Function call handler error:', err.message)
-            );
-            functionCallsProcessed += functionCalls.length;
+        if (enableFunctionCalling) {
+          // STREAMING FUNCTION CALLS: Handle partial arguments for early intent detection
+          // When streamFunctionCallArguments is enabled, we get:
+          // 1. Initial: { functionCall: { name: "...", willContinue: true } }
+          // 2. Partial: { functionCall: { partialArgs: [...], willContinue: true } }
+          // 3. Final: { functionCall: {} } (empty = complete)
+          if (streamFunctionCallArguments && onPartialFunctionCall) {
+            const candidates = chunk.candidates || [];
+            for (const candidate of candidates) {
+              const parts = candidate?.content?.parts || [];
+              for (const part of parts) {
+                const partAny = part as any;
+                if (partAny.functionCall) {
+                  const fc = partAny.functionCall;
+                  
+                  // Initial function name announcement (new call)
+                  if (fc.name && fc.willContinue) {
+                    const callIndex = nextCallIndex++;
+                    partialFunctionCalls.set(callIndex, {
+                      callIndex,
+                      name: fc.name,
+                      accumulatedArgs: {},
+                      firstSeenTime: Date.now(),
+                    });
+                    const partialCall: PartialFunctionCall = {
+                      callIndex,
+                      name: fc.name,
+                      willContinue: true,
+                      accumulatedArgs: {},
+                      isComplete: false,
+                    };
+                    console.log(`[Gemini Streaming] Partial FC #${callIndex}: ${fc.name} detected (early intent)`);
+                    onPartialFunctionCall(partialCall);
+                  }
+                  // Partial args streaming (applies to most recent call)
+                  else if (fc.partialArgs && Array.isArray(fc.partialArgs)) {
+                    // Get the most recent pending call (highest index)
+                    const pendingCalls = Array.from(partialFunctionCalls.values());
+                    const lastFn = pendingCalls[pendingCalls.length - 1];
+                    if (lastFn) {
+                      for (const arg of fc.partialArgs) {
+                        // Parse jsonPath like "$.location" -> "location"
+                        const key = arg.jsonPath?.replace(/^\$\./, '') || 'unknown';
+                        lastFn.accumulatedArgs[key] = arg.stringValue;
+                      }
+                      const partialCall: PartialFunctionCall = {
+                        callIndex: lastFn.callIndex,
+                        name: lastFn.name,
+                        willContinue: fc.willContinue !== false,
+                        partialArgs: fc.partialArgs,
+                        accumulatedArgs: { ...lastFn.accumulatedArgs },
+                        isComplete: false,
+                      };
+                      onPartialFunctionCall(partialCall);
+                    }
+                  }
+                  // Final empty function call = complete
+                  else if (Object.keys(fc).length === 0 || fc.willContinue === false) {
+                    const pendingCalls = Array.from(partialFunctionCalls.values());
+                    const lastFn = pendingCalls[pendingCalls.length - 1];
+                    if (lastFn) {
+                      const latencyMs = Date.now() - lastFn.firstSeenTime;
+                      console.log(`[Gemini Streaming] Partial FC #${lastFn.callIndex}: ${lastFn.name} complete (${latencyMs}ms streaming)`);
+                      const partialCall: PartialFunctionCall = {
+                        callIndex: lastFn.callIndex,
+                        name: lastFn.name,
+                        willContinue: false,
+                        accumulatedArgs: { ...lastFn.accumulatedArgs },
+                        isComplete: true,
+                      };
+                      onPartialFunctionCall(partialCall);
+                      partialFunctionCalls.delete(lastFn.callIndex);
+                    }
+                  }
+                }
+              }
+            }
+          }
+          
+          // Complete function calls (non-streaming or after streaming complete)
+          if (onFunctionCall) {
+            const functionCalls = extractFunctionCalls(chunk);
+            if (functionCalls.length > 0) {
+              console.log(`[Gemini Streaming] Function calls detected: ${functionCalls.map(f => f.name).join(', ')}`);
+              // Non-blocking: queue the function call handler without awaiting
+              onFunctionCall(functionCalls).catch(err => 
+                console.error('[Gemini Streaming] Function call handler error:', err.message)
+              );
+              functionCallsProcessed += functionCalls.length;
+            }
           }
         }
         
