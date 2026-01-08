@@ -186,7 +186,7 @@ export function VoiceChatViewManager({
       <div className="flex flex-col flex-1 min-h-0">
         {view === "live" ? (
           conversationId ? (
-            <div className="flex-1 min-h-0 overflow-y-auto">
+            <div className="flex-1 min-h-0 overflow-hidden">
               <ImmersiveTutor
                 messages={messages}
                 onRecordingStart={onRecordingStart}

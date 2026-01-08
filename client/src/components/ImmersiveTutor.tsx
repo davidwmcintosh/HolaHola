@@ -347,7 +347,7 @@ export function ImmersiveTutor({
   };
 
   return (
-    <div className="flex flex-col h-full bg-background overflow-y-auto items-center relative">
+    <div className="flex flex-col h-full bg-background overflow-hidden items-center relative">
       {/* Voice Switcher - Fixed at top-left for easy access */}
       {setTutorGender && (
         <div className="absolute top-4 left-4 z-20 flex items-center gap-1 bg-background/80 backdrop-blur-sm rounded-full p-1 shadow-lg border">
@@ -729,7 +729,7 @@ export function ImmersiveTutor({
       </div>
 
       {/* Floating Microphone Button - compact layout with safe bottom padding */}
-      <div className="flex-shrink-0 pt-2 pb-20 flex flex-col items-center gap-2">
+      <div className="flex-shrink-0 pt-2 pb-6 flex flex-col items-center gap-2">
         {/* Input Mode Toggle - Developer only (Open Mic still in development) */}
         {/* TODO: Unmask for all users when Open Mic is production-ready */}
         {/* See docs/batch-doc-updates.md for tracking */}
