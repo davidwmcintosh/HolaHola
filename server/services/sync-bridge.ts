@@ -414,27 +414,41 @@ class SyncBridgeService {
             enrollments = await db.select().from(classEnrollments).where(inArray(classEnrollments.studentId, testerIds));
           }
           
-          // Get classes (public + enrolled)
+          // v30: Count classes using same logic as collectExportBundle:
+          // 1. Public catalogue classes
+          // 2. Classes owned by beta testers (teacherClasses.teacherId)
+          // 3. Classes beta testers are enrolled in
+          const classIdSet = new Set<number>();
+          
+          // Public classes
           const publicClasses = await db.select().from(teacherClasses).where(
             eq(teacherClasses.isPublicCatalogue, true)
           );
-          const enrolledClassIds = [...new Set(enrollments.map(e => e.classId))];
-          let classCount = publicClasses.length;
-          if (enrolledClassIds.length > 0) {
-            const enrolledNonPublic = await db.select().from(teacherClasses).where(
-              and(
-                inArray(teacherClasses.id, enrolledClassIds),
-                eq(teacherClasses.isPublicCatalogue, false)
-              )
+          for (const c of publicClasses) {
+            classIdSet.add(c.id);
+          }
+          
+          // Classes owned by beta testers
+          if (testerIds.length > 0) {
+            const ownedClasses = await db.select().from(teacherClasses).where(
+              inArray(teacherClasses.teacherId, testerIds)
             );
-            classCount += enrolledNonPublic.length;
+            for (const c of ownedClasses) {
+              classIdSet.add(c.id);
+            }
+          }
+          
+          // Classes beta testers are enrolled in
+          const enrolledClassIds = [...new Set(enrollments.map(e => e.classId))];
+          for (const id of enrolledClassIds) {
+            classIdSet.add(id);
           }
           
           manifest.expected = {
             users: testers.length,
             credits: credits.length,
             enrollments: enrollments.length,
-            classes: classCount,
+            classes: classIdSet.size,
           };
           break;
         }
