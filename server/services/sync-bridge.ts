@@ -4549,7 +4549,13 @@ class SyncBridgeService {
       .limit(500); // Limit for performance but no time restriction
     
     // All batch types we care about
-    const batchConfigs: Array<{ id: string; label: string }> = [
+    // v30: Environment-aware batch display
+    // - "prod-*" and "sofia-telemetry" batches are pulled BY dev FROM production
+    // - In production, these should only show push status (when prod exported them)
+    // - In dev, these should only show pull status (when dev pulled them)
+    const DEV_PULL_ONLY_BATCHES = ['prod-content-growth', 'sofia-telemetry', 'prod-conversations', 'beta-testers'];
+    
+    const allBatchConfigs: Array<{ id: string; label: string; devPullOnly?: boolean }> = [
       { id: 'neural-core', label: 'Neural Core' },
       { id: 'advanced-intel-a', label: 'Advanced Intel A' },
       { id: 'advanced-intel-b', label: 'Advanced Intel B (Observations)' },
@@ -4557,14 +4563,20 @@ class SyncBridgeService {
       { id: 'hive-snapshots', label: 'Hive Snapshots' },
       { id: 'daniela-memories', label: 'Daniela Memories' },
       { id: 'product-config', label: 'Product Config' },
-      { id: 'beta-testers', label: 'Beta Testers' },
+      { id: 'beta-testers', label: 'Beta Testers', devPullOnly: true },
       { id: 'beta-usage', label: 'Beta Usage' },
       { id: 'founder-context', label: 'Founder Context' },
       { id: 'aggregate-analytics', label: 'Analytics' },
-      { id: 'prod-content-growth', label: 'Prod Content Growth' },
-      { id: 'sofia-telemetry', label: 'Sofia Telemetry' },
-      { id: 'prod-conversations', label: 'Prod Conversations' },
+      { id: 'prod-content-growth', label: 'Prod Content Growth', devPullOnly: true },
+      { id: 'sofia-telemetry', label: 'Sofia Telemetry', devPullOnly: true },
+      { id: 'prod-conversations', label: 'Prod Conversations', devPullOnly: true },
     ];
+    
+    // In production, filter out dev-pull-only batches from the main list
+    // These batches are only relevant for dev to pull from prod
+    const batchConfigs = CURRENT_ENVIRONMENT === 'production'
+      ? allBatchConfigs.filter(b => !DEV_PULL_ONLY_BATCHES.includes(b.id))
+      : allBatchConfigs;
     
     // Calculate per-batch last successful sync times
     const batches = batchConfigs.map(config => {
