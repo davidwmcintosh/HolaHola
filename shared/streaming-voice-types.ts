@@ -493,6 +493,9 @@ export const SENTENCE_CHUNKING_CONFIG = {
   /** Maximum characters before forcing a chunk (prevents long waits) */
   MAX_SENTENCE_LENGTH: 200,
   
+  /** Hard cap for TTS safety - Cartesia rejects payloads >500 chars */
+  TTS_SAFE_MAX_LENGTH: 450,
+  
   /** Punctuation that marks sentence boundaries */
   SENTENCE_ENDINGS: ['.', '!', '?', '。', '！', '？'],
   
