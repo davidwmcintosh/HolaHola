@@ -652,10 +652,15 @@ export class GeminiStreamingService {
           }
           
           // Add thinking level if model supports it (Gemini 3+)
-          // Thinking is enabled for advanced reasoning; output is filtered by part type
-          // to separate 'thought' from 'text' parts (only text goes to TTS)
-          // MINIMAL = 256, MEDIUM = 1024, else = 4096
-          if (requestModel.includes('gemini-3') || requestModel.includes('gemini-2.5')) {
+          // Gemini 3 uses thinkingLevel directly on generationConfig (not nested in thinkingConfig)
+          // Thinking output is hidden in thoughtSignature, not mixed into part.text
+          // MINIMAL = fastest for voice, LOW/MEDIUM for balanced, HIGH for complex reasoning
+          if (requestModel.includes('gemini-3')) {
+            // Gemini 3: Set thinkingLevel directly on generationConfig (not nested!)
+            generationConfig.thinkingLevel = thinkingLevel === 'MINIMAL' ? 'MINIMAL' : 
+                                             thinkingLevel === 'MEDIUM' ? 'MEDIUM' : 'HIGH';
+          } else if (requestModel.includes('gemini-2.5')) {
+            // Gemini 2.5 still uses deprecated thinkingBudget (numeric tokens) in nested object
             generationConfig.thinkingConfig = { 
               thinkingBudget: thinkingLevel === 'MINIMAL' ? 256 : thinkingLevel === 'MEDIUM' ? 1024 : 4096 
             };
@@ -713,7 +718,7 @@ export class GeminiStreamingService {
         }
         
         // Filter chunks by part type: only use 'text' parts, skip 'thought' parts
-        // Gemini 3's thinking mode outputs reasoning in 'thought' parts which shouldn't be spoken
+        // Gemini 3's thinking mode outputs reasoning that should NOT be spoken
         // Process ALL candidates to ensure no thought content leaks through
         let text = '';
         const candidates = chunk.candidates || [];
@@ -723,11 +728,27 @@ export class GeminiStreamingService {
           for (const candidate of candidates) {
             const parts = candidate?.content?.parts || [];
             for (const part of parts) {
-              // Only include text parts where thought flag is false/undefined
-              // Gemini 3 thinking mode: part.thought is boolean, part.text has content
-              if (part.text && !part.thought) {
+              // Skip thought/reasoning parts - check multiple possible locations:
+              // 1. Gemini 2.5: part.thought boolean
+              // 2. Gemini 3: part.metadata.thought or part.metadata.annotations array with {name: 'THOUGHT'/'REASONING'}
+              // Cast to any to access dynamic properties that may not be in SDK types yet
+              const partAny = part as any;
+              
+              // Check annotations array for thought/reasoning objects
+              // Gemini 3 uses annotation objects like {name: 'THOUGHT'} not plain strings
+              const hasThoughtAnnotation = Array.isArray(partAny.metadata?.annotations) && 
+                partAny.metadata.annotations.some((a: any) => 
+                  a?.name === 'THOUGHT' || a?.name === 'REASONING' || 
+                  a === 'THOUGHT' || a === 'REASONING' // Handle both object and string formats
+                );
+              
+              const isThought = partAny.thought || 
+                partAny.metadata?.thought || 
+                hasThoughtAnnotation;
+              
+              if (part.text && !isThought) {
                 text += part.text;
-              } else if (part.thought && part.text) {
+              } else if (isThought && part.text) {
                 // Log thought content for debugging but don't include in spoken output
                 console.log(`[Gemini Streaming] Thought (filtered): "${part.text.substring(0, 80)}..."`);
               }

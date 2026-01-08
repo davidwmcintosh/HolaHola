@@ -2692,6 +2692,53 @@ Remember: David may reference things discussed in these recent text chats.
       session.conversationHistory.push({ role: 'user', content: transcript });
       session.conversationHistory.push({ role: 'model', content: fullText.trim() });
       
+      // FALLBACK FOR SILENT RESPONSES: If all content was stripped (thinking/internal tags)
+      // Send a brief acknowledgment so Daniela doesn't appear unresponsive
+      if (metrics.sentenceCount === 0) {
+        console.warn(`[Streaming Orchestrator] Silent response detected - all content stripped. Sending fallback.`);
+        
+        // Generate a brief fallback acknowledgment based on language
+        const fallbackAcks: Record<string, string> = {
+          'spanish': 'Mmm, un momento...',
+          'french': 'Hmm, un instant...',
+          'german': 'Hmm, einen Moment...',
+          'italian': 'Hmm, un momento...',
+          'portuguese': 'Hmm, um momento...',
+          'japanese': 'えっと、ちょっと待ってね...',
+          'korean': '음, 잠깐만요...',
+          'mandarin chinese': '嗯，稍等一下...',
+          'english': 'Hmm, just a moment...',
+        };
+        const fallbackText = fallbackAcks[session.targetLanguage] || 'Hmm...';
+        
+        // Create a single fallback sentence chunk
+        const fallbackChunk: SentenceChunk = {
+          index: 0,
+          text: fallbackText,
+          isComplete: true,
+          isFinal: true,
+        };
+        
+        // Stream the fallback audio
+        try {
+          if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
+            await this.streamSentenceAudioProgressive(session, fallbackChunk, fallbackText, metrics, turnId);
+          } else {
+            await this.streamSentenceAudio(session, fallbackChunk, fallbackText, metrics, turnId);
+          }
+          fullText = fallbackText;
+          metrics.sentenceCount = 1;
+          
+          // Update the already-pushed conversation history entry with the fallback text
+          // (history was pushed before this fallback block)
+          if (session.conversationHistory.length >= 1) {
+            session.conversationHistory[session.conversationHistory.length - 1].content = fallbackText;
+          }
+        } catch (fallbackErr: any) {
+          console.error(`[Streaming Orchestrator] Fallback TTS also failed:`, fallbackErr.message);
+        }
+      }
+      
       // INCREMENTAL MEMORY CHECKPOINT: Persist student utterance immediately for crash recovery
       // This ensures memories aren't lost if session ends abruptly (network loss, navigation, etc)
       if (transcript.trim() && session.userId) {

@@ -8,6 +8,46 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: January 8, 2026 - Micro-Ack Parallel Response System (FUTURE IMPLEMENTATION)
+
+**Status**: NOT STARTED - Awaiting priority
+
+**Overview**: Reduce perceived latency by generating a quick verbal acknowledgment (micro-ack) from Daniela while the main AI response is being generated.
+
+#### Concept
+
+```
+User finishes speaking → STT transcribes
+                       ├─→ Micro-ack fires IMMEDIATELY (plays quick acknowledgment)
+                       └─→ Main response generation starts (in parallel)
+Main response streams normally after micro-ack completes
+```
+
+#### Implementation Options
+
+| Approach | Pros | Cons |
+|----------|------|------|
+| Pre-recorded audio snippets | Instant, no API latency | Limited variety, less natural |
+| Fast LLM (Flash) for 1-3 word ack | More natural, context-aware | Still ~200ms latency |
+| Hybrid: contextual selection from library | Best of both | More complexity |
+
+#### Micro-Ack Examples
+
+- Affirmative: "Okay...", "Right...", "Mm-hmm...", "Sí..."
+- Thinking: "Hmm...", "Let me think...", "A ver..."
+- Encouraging: "Good question!", "Interesante..."
+
+#### Key Files
+
+- `server/services/streaming-voice-orchestrator.ts` - Main orchestrator
+- `server/services/gemini-streaming.ts` - AI response generation
+
+#### Notes
+
+Previous attempt was rolled back due to breaking the main response flow. Need to implement as a separate parallel promise that doesn't interfere with the primary response pipeline.
+
+---
+
 ### Session: January 1, 2026 - Class Time Estimation with Drills
 
 **Status**: DOCUMENTED - Awaiting UI placement decision
