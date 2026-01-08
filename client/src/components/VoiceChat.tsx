@@ -76,7 +76,10 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
   const audioRecorderRef = useRef<AudioRecorder | null>(null);
   const audioPlayerRef = useRef<AudioPlayer | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isReconnectingRef = useRef<boolean>(false);
+  const initialLoadRef = useRef(true); // Track initial load to prevent auto-scroll on mount
+  const lastMessageCountRef = useRef(0); // Track message count to detect new messages
   
   // Track processed response IDs to prevent duplicate message saves
   const processedResponseIds = useRef<Set<string>>(new Set());
@@ -145,11 +148,31 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
     };
   }, []);
 
-  // Auto-scroll
+  // Auto-scroll to bottom when NEW messages arrive (not on initial load)
+  // Use container scrolling instead of scrollIntoView to avoid scrolling the entire page
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollIntoView({ behavior: "smooth" });
+    const allMessageCount = messages.length + transcript.length;
+    
+    // Skip scroll on initial load - just record the count
+    if (initialLoadRef.current) {
+      if (allMessageCount > 0) {
+        initialLoadRef.current = false;
+        lastMessageCountRef.current = allMessageCount;
+      }
+      return;
     }
+    
+    // Only scroll if message count increased (new message arrived)
+    if (allMessageCount > lastMessageCountRef.current) {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTo({
+          top: scrollContainerRef.current.scrollHeight,
+          behavior: "smooth"
+        });
+      }
+    }
+    
+    lastMessageCountRef.current = allMessageCount;
   }, [transcript, messages]);
 
   const connectToRealtimeAPI = useCallback(async (): Promise<void> => {
@@ -839,7 +862,7 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
 
       {/* Voice chat area - full height scrollable, mobile-optimized padding */}
       <Card className="flex flex-col flex-1 m-3 md:m-4 mt-0 overflow-hidden">
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar">
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar">
           <div className="space-y-3 md:space-y-4">
           {!conversationId ? (
             <div className="flex flex-col justify-center items-center h-full text-center text-muted-foreground p-6 md:p-8">

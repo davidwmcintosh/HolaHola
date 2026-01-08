@@ -274,7 +274,7 @@ export function StreamingVoiceChat({
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  // Note: Scroll is handled by VoiceChatViewManager - no scroll refs needed here
   const streamRef = useRef<MediaStream | null>(null);
   const currentConversationRef = useRef<string | null>(conversationId);
   const hasPlayedGreetingRef = useRef<string | null>(null); // Track which conversation's greeting was played
@@ -1082,12 +1082,7 @@ export function StreamingVoiceChat({
     };
   }, [conversationId]);
 
-  // Auto-scroll to bottom when messages change
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages]);
+  // Note: Auto-scroll is handled by VoiceChatViewManager which renders the message list
 
   // Process streaming text through whiteboard to extract markup
   // The tutor may include [WRITE]...[/WRITE] tags for visual teaching aids
