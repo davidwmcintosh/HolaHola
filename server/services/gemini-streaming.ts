@@ -199,6 +199,84 @@ export interface PartialFunctionCall {
 export type OnPartialFunctionCallCallback = (partial: PartialFunctionCall) => void;
 
 /**
+ * Multimodal data for function responses (Gemini 3)
+ * Allows returning images/PDFs alongside text in tool results
+ * 
+ * @see https://docs.cloud.google.com/vertex-ai/generative-ai/docs/multimodal/function-calling#multimodal-response
+ */
+export interface MultimodalData {
+  /** Base64-encoded data */
+  data: string;
+  /** MIME type: image/png, image/jpeg, application/pdf, etc. */
+  mimeType: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp' | 'application/pdf';
+}
+
+/**
+ * Multimodal function response for Gemini 3
+ * Can include text, images, and PDFs in the response to a tool call
+ * 
+ * Example usage:
+ *   const response: MultimodalFunctionResponse = {
+ *     text: "Here's a vocabulary card for 'gato' (cat)",
+ *     images: [{
+ *       data: base64ImageData,
+ *       mimeType: 'image/png'
+ *     }]
+ *   };
+ */
+export interface MultimodalFunctionResponse {
+  /** Text content - will be included in response.summary or similar */
+  text?: string;
+  /** Array of images (base64 encoded) */
+  images?: MultimodalData[];
+  /** Array of PDFs (base64 encoded) - tokens count under IMAGE modality */
+  pdfs?: MultimodalData[];
+  /** Structured data (JSON-serializable) */
+  data?: Record<string, unknown>;
+}
+
+/**
+ * Helper to create a function response with multimodal content
+ * Converts MultimodalFunctionResponse to Gemini-compatible format
+ */
+export function createMultimodalFunctionResponse(
+  fnName: string,
+  response: MultimodalFunctionResponse
+): { name: string; response: Record<string, unknown> } {
+  const parts: Record<string, unknown> = {};
+  
+  if (response.text) {
+    parts.summary = response.text;
+  }
+  
+  if (response.data) {
+    Object.assign(parts, response.data);
+  }
+  
+  // Images and PDFs are included as inline_data in the response object
+  // Gemini 3 accepts multimodal content in function responses
+  if (response.images && response.images.length > 0) {
+    parts.images = response.images.map(img => ({
+      inline_data: {
+        mime_type: img.mimeType,
+        data: img.data
+      }
+    }));
+  }
+  
+  if (response.pdfs && response.pdfs.length > 0) {
+    parts.documents = response.pdfs.map(pdf => ({
+      inline_data: {
+        mime_type: pdf.mimeType,
+        data: pdf.data
+      }
+    }));
+  }
+  
+  return { name: fnName, response: parts };
+}
+
+/**
  * Gemini 3 thinking levels for latency/quality tradeoff
  * - MINIMAL: Fastest responses, minimal reasoning (best for voice)
  * - MEDIUM: Balanced reasoning (good for complex pedagogical decisions)
