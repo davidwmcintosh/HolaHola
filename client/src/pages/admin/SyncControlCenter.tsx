@@ -1089,10 +1089,13 @@ export default function SyncControlCenter() {
                               <p className="text-xs text-muted-foreground">{run.recordsSynced} records</p>
                             )}
                           </div>
-                          {run.status === 'failed' && run.errorMessage && (
-                            <span title={run.errorMessage}>
-                              <AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />
-                            </span>
+                          {run.errorMessage && (
+                            <div className="flex items-center gap-1 shrink-0" title={run.errorMessage}>
+                              <AlertTriangle className={`h-4 w-4 shrink-0 ${run.status === 'failed' ? 'text-red-500' : 'text-yellow-500'}`} />
+                              <span className="text-xs text-muted-foreground max-w-[150px] truncate">
+                                {run.errorMessage.length > 40 ? run.errorMessage.substring(0, 40) + '...' : run.errorMessage}
+                              </span>
+                            </div>
                           )}
                         </div>
                       ))}
