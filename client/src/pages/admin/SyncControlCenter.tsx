@@ -426,10 +426,13 @@ export default function SyncControlCenter() {
     setIsRefreshing(false);
   };
 
-  // Find active sync run from recent runs
-  const activeSyncRun = status?.recentRuns?.find(r => r.status === 'running');
+  // Find active sync run from recent runs (check both local and peer environments)
+  const localActiveSyncRun = status?.recentRuns?.find(r => r.status === 'running');
+  const peerActiveSyncRun = peerSyncRuns?.syncRuns?.find(r => r.status === 'running');
+  const activeSyncRun = localActiveSyncRun || peerActiveSyncRun;
+  const activeSyncRunEnvironment = localActiveSyncRun ? (status?.currentEnvironment || 'local') : (peerSyncRuns?.environment || 'peer');
   
-  const isAnySyncRunning = activeSyncRun?.status === 'running' || 
+  const isAnySyncRunning = !!activeSyncRun || 
     pushMutation.isPending || pullMutation.isPending || fullSyncMutation.isPending;
 
   const currentEnv = status?.currentEnvironment || 'unknown';
@@ -509,7 +512,7 @@ export default function SyncControlCenter() {
                     ) : null}
                     {activeSyncRun?.status === 'running' && (
                       <div className="mt-3 text-sm text-muted-foreground">
-                        <p>Active: {activeSyncRun.direction} sync</p>
+                        <p>Active: {activeSyncRun.direction} sync {activeSyncRunEnvironment !== currentEnv && `(on ${activeSyncRunEnvironment})`}</p>
                         {activeSyncRun.lastCompletedPage !== undefined && (
                           <p>Progress: Page {activeSyncRun.lastCompletedPage + 1} / {activeSyncRun.totalPages || '?'}</p>
                         )}

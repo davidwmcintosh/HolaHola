@@ -418,7 +418,7 @@ class SyncBridgeService {
           // 1. Public catalogue classes
           // 2. Classes owned by beta testers (teacherClasses.teacherId)
           // 3. Classes beta testers are enrolled in
-          const classIdSet = new Set<number>();
+          const classIdSet = new Set<string>();
           
           // Public classes
           const publicClasses = await db.select().from(teacherClasses).where(
@@ -439,7 +439,7 @@ class SyncBridgeService {
           }
           
           // Classes beta testers are enrolled in
-          const enrolledClassIds = [...new Set(enrollments.map(e => e.classId))];
+          const enrolledClassIds = Array.from(new Set(enrollments.map(e => e.classId)));
           for (const id of enrolledClassIds) {
             classIdSet.add(id);
           }
@@ -1051,8 +1051,8 @@ class SyncBridgeService {
         // 1. Are enrolled in as students
         // 2. OWN as teachers (teacherClasses.teacherId)
         // 3. Public catalogue classes
-        const enrolledClassIds = [...new Set(enrollments.map(e => e.classId))];
-        const classIdSet = new Set<number>();
+        const enrolledClassIds = Array.from(new Set(enrollments.map(e => e.classId))) as string[];
+        const classIdSet = new Set<string>();
         let classes: any[] = [];
         
         // Get all public classes
