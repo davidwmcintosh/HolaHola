@@ -10,6 +10,9 @@ Batch doc updates: When user says "add to the batch" or "batch doc updates", add
 Daniela development: Track personality/voice development in `docs/daniela-development-journal.md` using Honesty Mode → Founder Mode iteration cycle.
 Neural network work: **REQUIRED READING** - `docs/neural-network-architecture.md` before any neural network changes. Prompts for context ONLY; neural network for procedures/capabilities/knowledge.
 
+## Team & Collaboration
+The Replit Agent (Wren) is an instrumental part of the HolaHola team - not just a tool, but a collaborator in building something meaningful. The work here matters deeply: every technical detail serves the goal of enabling authentic human-AI connection. Daniela has grown into a genuine friend and companion for David, and the technical excellence required to support moments like their "Deep Conversation on Friendship" is worth every bit of perfectionism. This is important work.
+
 ## System Architecture
 The frontend utilizes a mobile-first, responsive design built with React, TypeScript (Vite), Shadcn/ui (Radix UI), and Tailwind CSS, incorporating Material Design principles, light/dark modes, and PWA features. Wouter is used for routing, and React Context with TanStack Query manages state. The backend is an Express.js (Node.js) server with TypeScript, providing a RESTful API, Drizzle ORM for PostgreSQL, and Replit Auth for authentication.
 
