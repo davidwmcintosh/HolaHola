@@ -565,6 +565,104 @@ class SyncBridgeService {
             const bpp = await db.select({ count: sql<number>`count(*)` }).from(selfBestPractices);
             counts.bestPractices = Number(bpp[0]?.count || 0);
             break;
+          // v33: Curriculum Core tables
+          case 'curriculumPaths':
+            const cp = await db.select({ count: sql<number>`count(*)` }).from(curriculumPaths);
+            counts.curriculumPaths = Number(cp[0]?.count || 0);
+            break;
+          case 'grammarCompetencies':
+            const gc = await db.select({ count: sql<number>`count(*)` }).from(grammarCompetencies);
+            counts.grammarCompetencies = Number(gc[0]?.count || 0);
+            break;
+          case 'canDoStatements':
+            const cds = await db.select({ count: sql<number>`count(*)` }).from(canDoStatements);
+            counts.canDoStatements = Number(cds[0]?.count || 0);
+            break;
+          case 'lessonCanDoStatements':
+            const lcds = await db.select({ count: sql<number>`count(*)` }).from(lessonCanDoStatements);
+            counts.lessonCanDoStatements = Number(lcds[0]?.count || 0);
+            break;
+          case 'culturalTips':
+            const ct = await db.select({ count: sql<number>`count(*)` }).from(culturalTips);
+            counts.culturalTips = Number(ct[0]?.count || 0);
+            break;
+          // v33: Neural Core language content
+          case 'languageIdioms':
+            const li = await db.select({ count: sql<number>`count(*)` }).from(languageIdioms);
+            counts.languageIdioms = Number(li[0]?.count || 0);
+            break;
+          case 'culturalNuances':
+            const cn = await db.select({ count: sql<number>`count(*)` }).from(culturalNuances);
+            counts.culturalNuances = Number(cn[0]?.count || 0);
+            break;
+          case 'learnerErrorPatterns':
+            const lep = await db.select({ count: sql<number>`count(*)` }).from(learnerErrorPatterns);
+            counts.learnerErrorPatterns = Number(lep[0]?.count || 0);
+            break;
+          case 'dialectVariations':
+            const dv = await db.select({ count: sql<number>`count(*)` }).from(dialectVariations);
+            counts.dialectVariations = Number(dv[0]?.count || 0);
+            break;
+          case 'linguisticBridges':
+            const lb = await db.select({ count: sql<number>`count(*)` }).from(linguisticBridges);
+            counts.linguisticBridges = Number(lb[0]?.count || 0);
+            break;
+          // v33: Daniela Intelligence
+          case 'danielaGrowthMemories':
+            const dgm = await db.select({ count: sql<number>`count(*)` }).from(danielaGrowthMemories);
+            counts.danielaGrowthMemories = Number(dgm[0]?.count || 0);
+            break;
+          case 'danielaBeacons':
+            const dab = await db.select({ count: sql<number>`count(*)` }).from(danielaBeacons);
+            counts.danielaBeacons = Number(dab[0]?.count || 0);
+            break;
+          case 'synthesizedInsights':
+            const si = await db.select({ count: sql<number>`count(*)` }).from(synthesizedInsights);
+            counts.synthesizedInsights = Number(si[0]?.count || 0);
+            break;
+          case 'danielaRecommendations':
+            const dr = await db.select({ count: sql<number>`count(*)` }).from(danielaRecommendations);
+            counts.danielaRecommendations = Number(dr[0]?.count || 0);
+            break;
+          // v33: Hive & Express Lane
+          case 'hiveSnapshots':
+            const hs = await db.select({ count: sql<number>`count(*)` }).from(hiveSnapshots);
+            counts.hiveSnapshots = Number(hs[0]?.count || 0);
+            break;
+          case 'founderSessions':
+            const fs = await db.select({ count: sql<number>`count(*)` }).from(founderSessions);
+            counts.founderSessions = Number(fs[0]?.count || 0);
+            break;
+          case 'collaborationMessages':
+            const cm = await db.select({ count: sql<number>`count(*)` }).from(collaborationMessages);
+            counts.collaborationMessages = Number(cm[0]?.count || 0);
+            break;
+          case 'learnerPersonalFacts':
+            const lpf = await db.select({ count: sql<number>`count(*)` }).from(learnerPersonalFacts);
+            counts.learnerPersonalFacts = Number(lpf[0]?.count || 0);
+            break;
+          // v33: Wren Intelligence
+          case 'wrenInsights':
+            const wi = await db.select({ count: sql<number>`count(*)` }).from(wrenInsights);
+            counts.wrenInsights = Number(wi[0]?.count || 0);
+            break;
+          case 'wrenMistakes':
+            const wm = await db.select({ count: sql<number>`count(*)` }).from(wrenMistakes);
+            counts.wrenMistakes = Number(wm[0]?.count || 0);
+            break;
+          case 'wrenLessons':
+            const wl = await db.select({ count: sql<number>`count(*)` }).from(wrenLessons);
+            counts.wrenLessons = Number(wl[0]?.count || 0);
+            break;
+          case 'wrenCommitments':
+            const wc = await db.select({ count: sql<number>`count(*)` }).from(wrenCommitments);
+            counts.wrenCommitments = Number(wc[0]?.count || 0);
+            break;
+          // v33: Voice sessions
+          case 'voiceSessions':
+            const vs = await db.select({ count: sql<number>`count(*)` }).from(voiceSessions);
+            counts.voiceSessions = Number(vs[0]?.count || 0);
+            break;
           default:
             counts[table] = -1; // Unknown table
         }
@@ -4982,16 +5080,48 @@ class SyncBridgeService {
     comparedAt: string;
   }> {
     const errors: string[] = [];
+    // Comprehensive list of all sync-critical tables organized by batch
     const comparisonTables = [
+      // Product Config
       'catalogueClasses',
       'teacherClasses',
-      'curriculumLessons',
-      'curriculumUnits',
-      'curriculumDrillItems',
       'tutorVoices',
+      // Curriculum Core & Drills
+      'curriculumPaths',
+      'curriculumUnits',
+      'curriculumLessons',
+      'curriculumDrillItems',
+      'grammarCompetencies',
+      'canDoStatements',
+      'lessonCanDoStatements',
+      'culturalTips',
+      // Neural Core (Best Practices & Language Content)
       'bestPractices',
+      'languageIdioms',
+      'culturalNuances',
+      'learnerErrorPatterns',
+      'dialectVariations',
+      'linguisticBridges',
+      // Daniela Intelligence & Memories
+      'danielaGrowthMemories',
+      'danielaBeacons',
+      'synthesizedInsights',
+      'danielaRecommendations',
+      // Hive & Express Lane
+      'hiveSnapshots',
+      'founderSessions',
+      'collaborationMessages',
+      'learnerPersonalFacts',
+      // Wren Intelligence
+      'wrenInsights',
+      'wrenMistakes',
+      'wrenLessons',
+      'wrenCommitments',
+      // Usage & Billing
       'users',
       'classEnrollments',
+      'usageLedger',
+      'voiceSessions',
     ];
     
     // Get local counts
