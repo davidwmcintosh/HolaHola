@@ -908,21 +908,21 @@ export class GeminiStreamingService {
           if (enableFunctionCalling) {
             generationConfig.tools = createDanielaTools(config.allowedFunctions);
             
-            // Enable streaming function call arguments for early intent detection (Gemini 3 only)
-            // This allows us to know the function name BEFORE all args are ready
-            // IMPORTANT: Merge with existing toolConfig to preserve allowedFunctions/mode settings
-            if (streamFunctionCallArguments && requestModel.includes('gemini-3')) {
-              const existingToolConfig = generationConfig.toolConfig || {};
-              const existingFunctionCallingConfig = existingToolConfig.functionCallingConfig || {};
-              generationConfig.toolConfig = {
-                ...existingToolConfig,
-                functionCallingConfig: {
-                  ...existingFunctionCallingConfig,
-                  streamFunctionCallArguments: true,
-                },
-              };
-              console.log(`[Gemini Streaming] Streaming function call arguments ENABLED (merged with existing config)`);
-            }
+            // NOTE: streamFunctionCallArguments was planned for early intent detection but
+            // is NOT yet supported by the Gemini API (causes "parameter not supported" error)
+            // Keeping the code commented for future use when API support is added
+            // if (streamFunctionCallArguments && requestModel.includes('gemini-3')) {
+            //   const existingToolConfig = generationConfig.toolConfig || {};
+            //   const existingFunctionCallingConfig = existingToolConfig.functionCallingConfig || {};
+            //   generationConfig.toolConfig = {
+            //     ...existingToolConfig,
+            //     functionCallingConfig: {
+            //       ...existingFunctionCallingConfig,
+            //       streamFunctionCallArguments: true,
+            //     },
+            //   };
+            //   console.log(`[Gemini Streaming] Streaming function call arguments ENABLED`);
+            // }
           }
           
           if (usingCachedContext) {
