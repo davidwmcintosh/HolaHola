@@ -1899,74 +1899,7 @@ Remember: David may reference things discussed in these recent text chats.
         console.log(`[EXPRESS Lane Memory] Injected ${expressLaneHistory.length} messages from text chat into voice context`);
       }
       
-      // ═══════════════════════════════════════════════════════════════════
-      // DUAL-REQUEST PIPELINE: Fire micro-ack for instant response
-      // ═══════════════════════════════════════════════════════════════════
-      // The micro-ack provides near-instant time-to-first-audio (~200ms)
-      // while the full thinking response generates in parallel.
-      // Design: Natural, contextual reactions that feel like the START of Daniela's thought.
-      
-      let microAckSentenceOffset = 0;  // Offset for main response sentences (0 if no micro-ack)
-      
-      // Fire micro-ack in parallel with main response (don't await yet)
-      const microAckPromise = this.geminiService.generateMicroAck({
-        userInput: transcript,
-        tutorName: session.tutorName || 'Daniela',
-        language: session.targetLanguage,
-        isFounderMode: session.isFounderMode,
-        recentContext: session.conversationHistory.slice(-2).map(m => 
-          `${m.role === 'user' ? 'Student' : 'Tutor'}: ${m.content.substring(0, 50)}...`
-        ).join(' | '),
-      });
-      
-      // Start both requests in parallel
-      // The main response begins generating immediately, while we wait for the quick micro-ack
-      const mainResponsePromise = (async () => {
-        // Wait for micro-ack first (faster) and stream it
-        try {
-          const microAck = await microAckPromise;
-          
-          if (microAck.text && !session.isInterrupted) {
-            // Stream micro-ack as sentence 0 (instant TTS)
-            console.log(`[MicroAck Pipeline] Streaming micro-ack: "${microAck.text}" (${microAck.latencyMs}ms)`);
-            
-            // Mark first token received (micro-ack counts as first audio)
-            if (!firstTokenReceived) {
-              metrics.aiFirstTokenMs = microAck.latencyMs;
-              firstTokenReceived = true;
-              voiceDiagnostics.emit({
-                sessionId,
-                stage: 'llm',
-                success: true,
-                latencyMs: metrics.aiFirstTokenMs,
-                metadata: { event: 'micro_ack_first_token' }
-              });
-            }
-            
-            // Generate TTS for micro-ack and send to client
-            const microAckChunk: SentenceChunk = {
-              text: microAck.text,
-              index: 0,
-              isComplete: true,
-            };
-            
-            // Use progressive TTS for micro-ack (fastest path)
-            if (this.cartesiaService.isProgressiveSupported()) {
-              await this.streamSentenceAudioProgressive(session, microAckChunk, microAck.text, metrics, turnId);
-            } else {
-              await this.streamSentenceAudio(session, microAckChunk, microAck.text, metrics, turnId);
-            }
-            
-            fullText += microAck.text + ' ';
-            actualSentenceCount++;
-            microAckSentenceOffset = 1;  // Main response sentences start at index 1
-          }
-        } catch (err: any) {
-          console.warn(`[MicroAck Pipeline] Error (continuing with main response):`, err.message);
-        }
-        
-        // Now stream the main response (sentences offset by microAckSentenceOffset)
-        await this.geminiService.streamWithSentenceChunking({
+      await this.geminiService.streamWithSentenceChunking({
         systemPrompt: enhancedSystemPrompt,
         conversationHistory: conversationHistoryWithExpressLane,
         userMessage: userMessageWithNote,
