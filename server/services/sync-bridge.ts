@@ -3529,6 +3529,96 @@ class SyncBridgeService {
   }
   
   /**
+   * v31: Track received imports from peer
+   * When production pushes to dev, dev needs to record that it received data
+   * This makes the sync dashboard accurate for both directions
+   */
+  async recordReceivedImport(
+    sourceEnvironment: 'development' | 'production',
+    batchesReceived: string[],
+    counts: Record<string, number>,
+    durationMs: number
+  ): Promise<void> {
+    if (batchesReceived.length === 0) {
+      console.log('[SYNC-BRIDGE v31] No batches to record for received import');
+      return;
+    }
+    
+    try {
+      // Record as a "pull" from our perspective - we received data from peer
+      await db.insert(syncRuns).values({
+        direction: 'pull',
+        peerUrl: getSyncPeerUrl() || 'peer-push',
+        sourceEnvironment: sourceEnvironment,
+        targetEnvironment: CURRENT_ENVIRONMENT as 'development' | 'production',
+        status: 'success',
+        triggeredBy: `peer-push:${sourceEnvironment}`,
+        completedBatches: batchesReceived,
+        bestPracticesCount: counts.bestPractices || 0,
+        idiomCount: counts.idioms || 0,
+        nuanceCount: counts.nuances || 0,
+        errorPatternCount: counts.errorPatterns || 0,
+        observationCount: counts.observations || 0,
+        durationMs,
+        completedAt: new Date(),
+      });
+      
+      console.log(`[SYNC-BRIDGE v31] Recorded received import: ${batchesReceived.length} batches from ${sourceEnvironment}`);
+    } catch (err: any) {
+      console.warn(`[SYNC-BRIDGE v31] Failed to record received import: ${err.message}`);
+    }
+  }
+  
+  /**
+   * v31: Detect which batches were imported from a bundle
+   * Used to track received imports accurately
+   */
+  detectImportedBatches(bundle: Partial<SyncBundle>, counts: Record<string, number>): string[] {
+    const batches: string[] = [];
+    
+    // Map bundle properties to batch names
+    if (bundle.bestPractices?.length || bundle.idioms?.length || bundle.nuances?.length || 
+        bundle.errorPatterns?.length || bundle.dialects?.length || bundle.bridges?.length ||
+        bundle.tools?.length || bundle.procedures?.length || bundle.principles?.length ||
+        bundle.patterns?.length) {
+      batches.push('neural-core');
+    }
+    
+    if (bundle.subtletyCues?.length || bundle.emotionalPatterns?.length || 
+        bundle.creativityTemplates?.length || bundle.suggestions?.length) {
+      batches.push('advanced-intel-a');
+    }
+    
+    if (bundle.observations?.length || bundle.northStarPrinciples?.length ||
+        bundle.northStarUnderstanding?.length || bundle.northStarExamples?.length) {
+      batches.push('advanced-intel-b');
+    }
+    
+    if (bundle.expressLaneSessions?.length || bundle.expressLaneMessages?.length) {
+      batches.push('express-lane');
+    }
+    
+    if (bundle.hiveSnapshots?.length) {
+      batches.push('hive-snapshots');
+    }
+    
+    if (bundle.danielaGrowthMemories?.length) {
+      batches.push('daniela-memories');
+    }
+    
+    if (bundle.tutorVoices?.length) {
+      batches.push('product-config');
+    }
+    
+    if (bundle.founderUser) {
+      batches.push('founder-context');
+    }
+    
+    // v31: Add more batch detection as needed
+    return batches;
+  }
+  
+  /**
    * Send a single batch to the peer with timeout handling
    */
   private async sendBatch(

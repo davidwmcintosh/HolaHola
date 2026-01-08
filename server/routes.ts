@@ -19284,10 +19284,23 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   
   // Peer-to-peer: Import bundle (called by remote peer pushing to us)
   app.post("/api/sync/import", validateSyncRequest, async (req: any, res) => {
+    const startTime = Date.now();
     try {
       console.log('[SYNC API] Import request received from peer');
       const bundle = req.body;
       const result = await syncBridge.applyImportBundle(bundle);
+      
+      // v31: Track received imports so dashboard shows accurate sync status
+      if (result.success && bundle.sourceEnvironment) {
+        const batchesReceived = syncBridge.detectImportedBatches(bundle, result.counts);
+        await syncBridge.recordReceivedImport(
+          bundle.sourceEnvironment as 'development' | 'production',
+          batchesReceived,
+          result.counts,
+          Date.now() - startTime
+        );
+      }
+      
       res.json(result);
     } catch (error: any) {
       console.error('[SYNC API] Import error:', error);
