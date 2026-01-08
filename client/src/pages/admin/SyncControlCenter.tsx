@@ -759,13 +759,25 @@ export default function SyncControlCenter() {
                     <Skeleton className="h-40" />
                   ) : syncHealth ? (
                     <div className="space-y-2">
-                      {/* Summary badges - v32: Use dataStatus (combines pull + import receipts) */}
+                      {/* Summary badges - v33: Environment-aware status counts */}
                       <div className="flex flex-wrap gap-2 mb-4">
                         {(() => {
-                          // v32: dataStatus reflects the most recent of local pull OR received import
-                          const critical = syncHealth.batches.filter(b => b.pushStatus === 'critical' || b.dataStatus === 'critical');
-                          const stale = syncHealth.batches.filter(b => (b.pushStatus === 'stale' || b.dataStatus === 'stale') && b.pushStatus !== 'critical' && b.dataStatus !== 'critical');
-                          const never = syncHealth.batches.filter(b => b.pushStatus === 'never' || b.dataStatus === 'never');
+                          // v33: In dev, focus on dataStatus since dev primarily pulls from prod
+                          // In prod, check both push and data status
+                          const isDev = currentEnv === 'development';
+                          const critical = syncHealth.batches.filter(b => 
+                            isDev ? b.dataStatus === 'critical' : (b.pushStatus === 'critical' || b.dataStatus === 'critical')
+                          );
+                          const stale = syncHealth.batches.filter(b => {
+                            const isCritical = isDev ? b.dataStatus === 'critical' : (b.pushStatus === 'critical' || b.dataStatus === 'critical');
+                            const isStale = isDev ? b.dataStatus === 'stale' : (b.pushStatus === 'stale' || b.dataStatus === 'stale');
+                            return isStale && !isCritical;
+                          });
+                          // v33: "Never Synced" means no data at all - in dev, only count dataStatus='never' 
+                          // since dev doesn't push (pushStatus='never' is expected for most batches)
+                          const never = syncHealth.batches.filter(b => 
+                            isDev ? b.dataStatus === 'never' : (b.pushStatus === 'never' && b.dataStatus === 'never')
+                          );
                           
                           return (
                             <>
