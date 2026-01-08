@@ -415,8 +415,12 @@ export interface WhiteboardItemBase {
  * - __underline__ → underlined text
  * - ~~strikethrough~~ → strikethrough text
  * - `code` → monospace/code text
+ * - <sm>text</sm> → smaller text (inline)
+ * - <lg>text</lg> → larger text (inline)
+ * - <xl>text</xl> → extra large text (inline)
  * 
  * Example: [WRITE size="xl"]**¡Hola!** means *hello*[/WRITE]
+ * Example: Say <lg>**gracias**</lg> when someone helps you!
  */
 export type WriteItemSize = 'xs' | 'sm' | 'base' | 'lg' | 'xl' | '2xl' | '3xl';
 
@@ -1778,7 +1782,10 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
       .replace(/\*(.+?)\*/g, '$1')      // *italic* → italic
       .replace(/__(.+?)__/g, '$1')      // __underline__ → underline
       .replace(/~~(.+?)~~/g, '$1')      // ~~strike~~ → strike
-      .replace(/`(.+?)`/g, '$1');       // `code` → code
+      .replace(/`(.+?)`/g, '$1')        // `code` → code
+      .replace(/<sm>(.+?)<\/sm>/g, '$1')  // <sm>small</sm> → small
+      .replace(/<lg>(.+?)<\/lg>/g, '$1')  // <lg>large</lg> → large
+      .replace(/<xl>(.+?)<\/xl>/g, '$1'); // <xl>extra</xl> → extra
     vocabularyWords.push(cleanContent);
   }
 
@@ -2366,6 +2373,9 @@ export function hasWhiteboardMarkup(text: string): boolean {
  * - __underline__ → underline
  * - ~~strikethrough~~ → strikethrough
  * - `code` → code
+ * - <sm>small</sm> → small
+ * - <lg>large</lg> → large
+ * - <xl>extra large</xl> → extra large
  */
 export function stripInlineMarkdown(text: string): string {
   return text
@@ -2373,7 +2383,10 @@ export function stripInlineMarkdown(text: string): string {
     .replace(/\*(.+?)\*/g, '$1')      // *italic* → italic
     .replace(/__(.+?)__/g, '$1')      // __underline__ → underline
     .replace(/~~(.+?)~~/g, '$1')      // ~~strike~~ → strike
-    .replace(/`(.+?)`/g, '$1');       // `code` → code
+    .replace(/`(.+?)`/g, '$1')        // `code` → code
+    .replace(/<sm>(.+?)<\/sm>/g, '$1')  // <sm>small</sm> → small
+    .replace(/<lg>(.+?)<\/lg>/g, '$1')  // <lg>large</lg> → large
+    .replace(/<xl>(.+?)<\/xl>/g, '$1'); // <xl>extra</xl> → extra
 }
 
 /**

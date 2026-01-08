@@ -2102,6 +2102,7 @@ const PronunciationItemDisplay = ({ item, index }: PronunciationItemDisplayProps
 /**
  * Parse markdown-like formatting in whiteboard text content
  * Supports: **bold**, *italic*, __underline__, ~~strikethrough~~, `code`
+ * Inline sizes: <sm>small</sm>, <lg>large</lg>, <xl>extra large</xl>
  */
 function parseFormattedText(text: string): JSX.Element[] {
   const elements: JSX.Element[] = [];
@@ -2109,7 +2110,8 @@ function parseFormattedText(text: string): JSX.Element[] {
   
   // Combined regex for all formatting patterns
   // Order matters: check longer patterns first (** before *, __ before _)
-  const formatRegex = /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(__(.+?)__)|(\~\~(.+?)\~\~)|(`(.+?)`)/g;
+  // Also includes inline size tags: <sm>, <lg>, <xl>
+  const formatRegex = /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(__(.+?)__)|(\~\~(.+?)\~\~)|(`(.+?)`)|(<sm>(.+?)<\/sm>)|(<lg>(.+?)<\/lg>)|(<xl>(.+?)<\/xl>)/g;
   
   let lastIndex = 0;
   let match;
@@ -2147,6 +2149,21 @@ function parseFormattedText(text: string): JSX.Element[] {
       // `code`
       elements.push(
         <code key={keyIndex++} className="font-mono bg-muted px-1.5 py-0.5 rounded text-sm">{match[10]}</code>
+      );
+    } else if (match[11]) {
+      // <sm>small text</sm>
+      elements.push(
+        <span key={keyIndex++} className="text-sm">{match[12]}</span>
+      );
+    } else if (match[13]) {
+      // <lg>large text</lg>
+      elements.push(
+        <span key={keyIndex++} className="text-lg">{match[14]}</span>
+      );
+    } else if (match[15]) {
+      // <xl>extra large text</xl>
+      elements.push(
+        <span key={keyIndex++} className="text-xl font-semibold">{match[16]}</span>
       );
     }
     
