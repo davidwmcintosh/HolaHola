@@ -4965,6 +4965,92 @@ class SyncBridgeService {
   }
   
   /**
+   * v33: Compare record counts between DEV and PROD environments
+   * Fetches local counts and peer counts for key sync tables
+   */
+  async compareEnvironments(): Promise<{
+    localEnvironment: string;
+    peerEnvironment: string;
+    comparison: Array<{
+      table: string;
+      localCount: number;
+      peerCount: number;
+      difference: number;
+      status: 'match' | 'local-ahead' | 'peer-ahead' | 'error';
+    }>;
+    errors: string[];
+    comparedAt: string;
+  }> {
+    const errors: string[] = [];
+    const comparisonTables = [
+      'catalogueClasses',
+      'teacherClasses',
+      'curriculumLessons',
+      'curriculumUnits',
+      'curriculumDrillItems',
+      'tutorVoices',
+      'bestPractices',
+      'users',
+      'classEnrollments',
+    ];
+    
+    // Get local counts
+    const localCounts = await this.getRecordCounts(comparisonTables);
+    
+    // Get peer counts via API
+    let peerCounts: Record<string, number> = {};
+    const peerUrl = getSyncPeerUrl();
+    
+    if (isSyncConfigured() && peerUrl) {
+      try {
+        const verifyPayload = { tables: comparisonTables };
+        const response = await fetch(`${peerUrl}/api/sync/verify-counts`, {
+          method: 'POST',
+          headers: createSyncHeaders(verifyPayload),
+          body: JSON.stringify(verifyPayload),
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          peerCounts = data.counts || {};
+        } else {
+          errors.push(`Peer verification failed: ${response.status}`);
+        }
+      } catch (err: any) {
+        errors.push(`Could not reach peer: ${err.message}`);
+      }
+    } else {
+      errors.push('Sync not configured - cannot fetch peer counts');
+    }
+    
+    // Build comparison
+    const comparison = comparisonTables.map(table => {
+      const local = localCounts[table] ?? -1;
+      const peer = peerCounts[table] ?? -1;
+      const difference = local - peer;
+      
+      let status: 'match' | 'local-ahead' | 'peer-ahead' | 'error' = 'match';
+      if (local === -1 || peer === -1) {
+        status = 'error';
+      } else if (difference > 0) {
+        status = 'local-ahead';
+      } else if (difference < 0) {
+        status = 'peer-ahead';
+      }
+      
+      return { table, localCount: local, peerCount: peer, difference, status };
+    });
+    
+    return {
+      localEnvironment: CURRENT_ENVIRONMENT,
+      peerEnvironment: CURRENT_ENVIRONMENT === 'development' ? 'production' : 'development',
+      comparison,
+      errors,
+      comparedAt: new Date().toISOString(),
+    };
+  }
+  
+  /**
    * v27: Per-batch sync health metrics
    * v32: Now includes import receipts for freshness - when peer pushes to us, that counts as fresh data
    * Returns the last successful sync time for each batch type and staleness warnings
