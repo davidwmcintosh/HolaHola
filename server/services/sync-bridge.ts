@@ -4,7 +4,7 @@ import {
   users, tutorVoices, type SyncRun,
   // Curriculum tables
   curriculumPaths, curriculumUnits, curriculumLessons, topics,
-  curriculumDrillItems, grammarExercises, canDoStatements, culturalTips, lessonCanDoStatements,
+  curriculumDrillItems, grammarExercises, grammarCompetencies, canDoStatements, culturalTips, lessonCanDoStatements,
   // Neural network expansion tables (for prod-content-growth pull)
   languageIdioms, culturalNuances, learnerErrorPatterns, dialectVariations, linguisticBridges,
   // Best practices for verification
@@ -40,7 +40,7 @@ const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production'
 
 // Version identifier to verify which code is running on production
 // Increment this when making sync-related changes to verify deployment
-const SYNC_BRIDGE_CODE_VERSION = "2025-01-08-v32-sync-reliability";
+const SYNC_BRIDGE_CODE_VERSION = "2025-01-08-v33-curriculum-gaps";
 
 // Capability negotiation: List all batch types this version can import/export
 // When adding new batches, add them here so peers can gracefully handle version mismatches
@@ -152,6 +152,7 @@ export interface SyncBundle {
   topics: any[];
   curriculumDrillItems: any[];
   grammarExercises: any[];
+  grammarCompetencies: any[];  // v33: Grammar skill definitions per language
   canDoStatements: any[];
   culturalTips: any[];
   lessonCanDoStatements: any[];  // v33: Links lessons to ACTFL Can-Do statements (fluency wiring)
@@ -949,11 +950,13 @@ class SyncBridgeService {
       }
     }
     
-    // BATCH: curriculum-drills - Drill items, grammar exercises, can-do statements, cultural tips, lesson-can-do links
+    // BATCH: curriculum-drills - Drill items, grammar exercises, grammar competencies, can-do statements, cultural tips, lesson-can-do links
     if (!batchType || batchType === 'curriculum-drills') {
       try {
         const drills = await db.select().from(curriculumDrillItems);
         const grammar = await db.select().from(grammarExercises);
+        // v33: Grammar competencies (skill definitions per language)
+        const grammarComp = await db.select().from(grammarCompetencies);
         const canDo = await db.select().from(canDoStatements);
         const cultural = await db.select().from(culturalTips);
         // v33: Include lesson-to-CanDo links for fluency wiring
@@ -961,16 +964,18 @@ class SyncBridgeService {
         
         bundle.curriculumDrillItems = drills;
         bundle.grammarExercises = grammar;
+        bundle.grammarCompetencies = grammarComp;
         bundle.canDoStatements = canDo;
         bundle.culturalTips = cultural;
         bundle.lessonCanDoStatements = lessonCanDo;
-        console.log(`[SYNC-BRIDGE] curriculum-drills: ${drills.length} drills, ${grammar.length} grammar, ${canDo.length} can-do, ${cultural.length} cultural, ${lessonCanDo.length} lesson-can-do links`);
+        console.log(`[SYNC-BRIDGE] curriculum-drills: ${drills.length} drills, ${grammar.length} grammar, ${grammarComp.length} grammar-comp, ${canDo.length} can-do, ${cultural.length} cultural, ${lessonCanDo.length} lesson-can-do links`);
       } catch (err: any) {
         const errMsg = `curriculum-drills export failed: ${err.message}`;
         console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
         batchErrors.push(errMsg);
         bundle.curriculumDrillItems = [];
         bundle.grammarExercises = [];
+        bundle.grammarCompetencies = [];
         bundle.canDoStatements = [];
         bundle.culturalTips = [];
         bundle.lessonCanDoStatements = [];
@@ -2773,7 +2778,7 @@ class SyncBridgeService {
       'danielaGrowthMemories', 'tutorVoices', 'catalogueClasses',
       // v18: New sync batches
       'curriculumPaths', 'curriculumUnits', 'curriculumLessons', 'topics',
-      'curriculumDrillItems', 'grammarExercises', 'canDoStatements', 'culturalTips', 'lessonCanDoStatements',
+      'curriculumDrillItems', 'grammarExercises', 'grammarCompetencies', 'canDoStatements', 'culturalTips', 'lessonCanDoStatements',
       'wrenInsights', 'wrenProactiveTriggers', 'architecturalDecisionRecords',
       'wrenMistakes', 'wrenLessons', 'wrenCommitments',
       'danielaRecommendations', 'danielaFeatureFeedback',
@@ -3080,6 +3085,12 @@ class SyncBridgeService {
       console.log(`[SYNC-BRIDGE] Importing ${bundle.grammarExercises.length} Grammar Exercises...`);
       await importWithCount('grammarExercises', bundle.grammarExercises,
         (grammar) => this.importGrammarExercise(grammar));
+    }
+    // v33: Grammar competencies (skill definitions per language)
+    if (bundle.grammarCompetencies?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.grammarCompetencies.length} Grammar Competencies...`);
+      await importWithCount('grammarCompetencies', bundle.grammarCompetencies,
+        (comp) => this.importGrammarCompetency(comp));
     }
     if (bundle.canDoStatements?.length) {
       console.log(`[SYNC-BRIDGE] Importing ${bundle.canDoStatements.length} Can-Do Statements...`);
@@ -5658,6 +5669,41 @@ class SyncBridgeService {
         await db.insert(grammarExercises).values({
           ...grammar,
           createdAt: new Date(grammar.createdAt || new Date()),
+        });
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  }
+  
+  /**
+   * v33: Import grammar competency (skill definition per language)
+   */
+  async importGrammarCompetency(comp: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const existing = await db.select().from(grammarCompetencies).where(eq(grammarCompetencies.id, comp.id)).limit(1);
+      if (existing.length > 0) {
+        await db.update(grammarCompetencies).set({
+          language: comp.language,
+          category: comp.category,
+          name: comp.name,
+          slug: comp.slug,
+          subcategory: comp.subcategory,
+          description: comp.description,
+          shortExplanation: comp.shortExplanation,
+          actflLevel: comp.actflLevel,
+          actflLevelNumeric: comp.actflLevelNumeric,
+          examples: comp.examples,
+          commonMistakes: comp.commonMistakes,
+          prerequisiteIds: comp.prerequisiteIds,
+          difficultyScore: comp.difficultyScore,
+          estimatedMinutes: comp.estimatedMinutes,
+        }).where(eq(grammarCompetencies.id, comp.id));
+      } else {
+        await db.insert(grammarCompetencies).values({
+          ...comp,
+          createdAt: new Date(comp.createdAt || new Date()),
         });
       }
       return { success: true };
