@@ -11742,6 +11742,53 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // v32: Get enhanced sync health with received imports and anomaly count
+  app.get("/api/admin/sync/enhanced-health", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const health = await syncBridge.getEnhancedSyncHealth();
+      res.json(health);
+    } catch (error: any) {
+      console.error('[Admin Sync Enhanced Health] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // v32: Get unacknowledged sync anomalies
+  app.get("/api/admin/sync/anomalies", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const anomalies = await syncBridge.getUnacknowledgedAnomalies();
+      res.json({ anomalies, queriedAt: new Date().toISOString() });
+    } catch (error: any) {
+      console.error('[Admin Sync Anomalies] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // v32: Acknowledge a sync anomaly
+  app.post("/api/admin/sync/anomalies/:id/acknowledge", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const acknowledgedBy = req.user?.claims?.email || 'admin';
+      await syncBridge.acknowledgeAnomaly(id, acknowledgedBy);
+      res.json({ success: true, message: 'Anomaly acknowledged' });
+    } catch (error: any) {
+      console.error('[Admin Sync Acknowledge Anomaly] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // v32: Get recent import receipts
+  app.get("/api/admin/sync/import-receipts", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const receipts = await syncBridge.getRecentImportReceipts(limit);
+      res.json({ receipts, queriedAt: new Date().toISOString() });
+    } catch (error: any) {
+      console.error('[Admin Sync Import Receipts] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Get pending sync approval counts
   app.get("/api/admin/sync/pending", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {

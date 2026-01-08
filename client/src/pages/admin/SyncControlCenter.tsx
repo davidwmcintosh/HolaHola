@@ -146,6 +146,44 @@ interface SyncVerificationsData {
   queriedAt: string;
 }
 
+// v32: Enhanced health with received imports
+interface EnhancedSyncHealthBatch {
+  batchId: string;
+  label: string;
+  lastLocalPush: string | null;
+  lastLocalPull: string | null;
+  lastReceivedImport: string | null;
+  lastActivity: string | null;
+  daysSinceLastActivity: number | null;
+  status: 'healthy' | 'stale' | 'critical' | 'never';
+  recordsInLastSync: number;
+}
+
+interface EnhancedSyncHealth {
+  environment: string;
+  batches: EnhancedSyncHealthBatch[];
+  anomalyCount: number;
+  queriedAt: string;
+}
+
+// v32: Sync anomalies
+interface SyncAnomaly {
+  id: string;
+  type: 'zero-count-success' | 'stale-batch' | 'failed-sync' | 'missing-receipt' | 'checksum-mismatch';
+  severity: 'warning' | 'critical';
+  batchId?: string;
+  syncRunId?: string;
+  message: string;
+  metadata?: Record<string, any>;
+  acknowledged: boolean;
+  createdAt: string;
+}
+
+interface SyncAnomaliesData {
+  anomalies: SyncAnomaly[];
+  queriedAt: string;
+}
+
 function formatDuration(ms?: number): string {
   if (!ms) return '-';
   if (ms < 1000) return `${ms}ms`;
@@ -301,6 +339,19 @@ export default function SyncControlCenter() {
     retry: false,
   });
 
+  // v32: Enhanced sync health with received imports
+  const { data: enhancedHealth, refetch: refetchEnhancedHealth } = useQuery<EnhancedSyncHealth>({
+    queryKey: ["/api/admin/sync/enhanced-health"],
+    retry: false,
+  });
+
+  // v32: Sync anomalies
+  const { data: anomaliesData, refetch: refetchAnomalies } = useQuery<SyncAnomaliesData>({
+    queryKey: ["/api/admin/sync/anomalies"],
+    retry: false,
+    refetchInterval: 30000, // Auto-refresh every 30s
+  });
+
   const combinedHistory = (() => {
     const localRuns = (history?.syncRuns || []).map(run => ({
       ...run,
@@ -420,9 +471,26 @@ export default function SyncControlCenter() {
     }
   });
 
+  // v32: Acknowledge sync anomaly
+  const acknowledgeAnomalyMutation = useMutation({
+    mutationFn: (anomalyId: string) => apiRequest("POST", `/api/admin/sync/anomalies/${anomalyId}/acknowledge`),
+    onSuccess: () => {
+      toast({ title: "Anomaly Acknowledged", description: "The issue has been marked as reviewed" });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/sync/anomalies"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/sync/enhanced-health"] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to Acknowledge", description: err.message, variant: "destructive" });
+    }
+  });
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await Promise.all([refetchStatus(), refetchHistory(), refetchPeerStats(), refetchLocalStats(), refetchCapabilities(), refetchPeerSyncRuns(), refetchSyncHealth(), refetchPendingSync(), refetchVerifications()]);
+    await Promise.all([
+      refetchStatus(), refetchHistory(), refetchPeerStats(), refetchLocalStats(), 
+      refetchCapabilities(), refetchPeerSyncRuns(), refetchSyncHealth(), 
+      refetchPendingSync(), refetchVerifications(), refetchEnhancedHealth(), refetchAnomalies()
+    ]);
     setIsRefreshing(false);
   };
 
@@ -466,6 +534,82 @@ export default function SyncControlCenter() {
               Refresh
             </Button>
           </div>
+
+          {/* v32: Sync Anomaly Alert Banner */}
+          {anomaliesData && anomaliesData.anomalies.length > 0 && (
+            <Card className="border-orange-500 bg-orange-50 dark:bg-orange-950/20">
+              <CardContent className="py-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-orange-500 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <h4 className="font-medium text-orange-700 dark:text-orange-400 mb-2">
+                      Sync Issues Detected ({anomaliesData.anomalies.length})
+                    </h4>
+                    <div className="space-y-2">
+                      {anomaliesData.anomalies.slice(0, 3).map((anomaly) => (
+                        <div key={anomaly.id} className="flex items-center justify-between gap-2 text-sm">
+                          <div className="flex items-center gap-2">
+                            <Badge 
+                              variant="outline" 
+                              className={anomaly.severity === 'critical' ? 'border-red-500 text-red-600' : 'border-orange-500 text-orange-600'}
+                            >
+                              {anomaly.type.replace(/-/g, ' ')}
+                            </Badge>
+                            <span className="text-muted-foreground">{anomaly.message}</span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => acknowledgeAnomalyMutation.mutate(anomaly.id)}
+                            disabled={acknowledgeAnomalyMutation.isPending}
+                            data-testid={`button-acknowledge-${anomaly.id}`}
+                          >
+                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                            Acknowledge
+                          </Button>
+                        </div>
+                      ))}
+                      {anomaliesData.anomalies.length > 3 && (
+                        <p className="text-xs text-muted-foreground">
+                          + {anomaliesData.anomalies.length - 3} more issues
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* v32: Quick Stats from Enhanced Health */}
+          {enhancedHealth && (
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <span>Batch Health:</span>
+              <div className="flex gap-2">
+                {['healthy', 'stale', 'critical', 'never'].map(status => {
+                  const count = enhancedHealth.batches.filter(b => b.status === status).length;
+                  if (count === 0) return null;
+                  const colors = {
+                    healthy: 'bg-green-500',
+                    stale: 'bg-yellow-500',
+                    critical: 'bg-red-500',
+                    never: 'bg-gray-400'
+                  };
+                  return (
+                    <Badge key={status} className={`${colors[status as keyof typeof colors]} text-white`}>
+                      {count} {status}
+                    </Badge>
+                  );
+                })}
+              </div>
+              {enhancedHealth.anomalyCount > 0 && (
+                <Badge variant="outline" className="border-orange-500 text-orange-600">
+                  <AlertTriangle className="h-3 w-3 mr-1" />
+                  {enhancedHealth.anomalyCount} anomalies
+                </Badge>
+              )}
+            </div>
+          )}
 
           {statusLoading ? (
             <div className="grid gap-4 md:grid-cols-2">

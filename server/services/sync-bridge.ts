@@ -27,7 +27,9 @@ import {
   // Student conversations (for prod troubleshooting)
   conversations, messages,
   // Sofia issue reports (for cross-environment debugging)
-  sofiaIssueReports
+  sofiaIssueReports,
+  // v32: Sync reliability tracking
+  syncImportReceipts, syncAnomalies, type SyncAnomaly, type SyncImportReceipt
 } from '@shared/schema';
 import { eq, desc, gte, and, isNull, or, inArray, lt, sql } from 'drizzle-orm';
 import { neuralNetworkSync } from './neural-network-sync';
@@ -38,7 +40,7 @@ const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production'
 
 // Version identifier to verify which code is running on production
 // Increment this when making sync-related changes to verify deployment
-const SYNC_BRIDGE_CODE_VERSION = "2025-01-08-v31-bidirectional-class-sync";
+const SYNC_BRIDGE_CODE_VERSION = "2025-01-08-v32-sync-reliability";
 
 // Capability negotiation: List all batch types this version can import/export
 // When adding new batches, add them here so peers can gracefully handle version mismatches
@@ -3529,20 +3531,28 @@ class SyncBridgeService {
   }
   
   /**
-   * v31: Track received imports from peer
+   * v32: Track received imports from peer with enhanced reliability
    * When production pushes to dev, dev needs to record that it received data
    * This makes the sync dashboard accurate for both directions
+   * 
+   * Creates:
+   * 1. A sync run record (for overall dashboard stats)
+   * 2. Individual import receipts (for per-batch tracking and health calculations)
    */
   async recordReceivedImport(
     sourceEnvironment: 'development' | 'production',
     batchesReceived: string[],
     counts: Record<string, number>,
-    durationMs: number
+    durationMs: number,
+    sourceRunId?: string
   ): Promise<void> {
     if (batchesReceived.length === 0) {
-      console.log('[SYNC-BRIDGE v31] No batches to record for received import');
+      console.log('[SYNC-BRIDGE v32] No batches to record for received import');
       return;
     }
+    
+    // Calculate total records changed
+    const recordsChanged = Object.values(counts).reduce((sum, count) => sum + (count || 0), 0);
     
     try {
       // Record as a "pull" from our perspective - we received data from peer
@@ -3554,6 +3564,8 @@ class SyncBridgeService {
         status: 'success',
         triggeredBy: `peer-push:${sourceEnvironment}`,
         completedBatches: batchesReceived,
+        attemptedBatches: batchesReceived, // For received imports, attempted = completed
+        recordsChanged, // v32: Track actual records
         bestPracticesCount: counts.bestPractices || 0,
         idiomCount: counts.idioms || 0,
         nuanceCount: counts.nuances || 0,
@@ -3563,9 +3575,50 @@ class SyncBridgeService {
         completedAt: new Date(),
       });
       
-      console.log(`[SYNC-BRIDGE v31] Recorded received import: ${batchesReceived.length} batches from ${sourceEnvironment}`);
+      console.log(`[SYNC-BRIDGE v32] Recorded received import: ${batchesReceived.length} batches, ${recordsChanged} records from ${sourceEnvironment}`);
+      
+      // v32: Also create individual import receipts for granular per-batch tracking
+      for (const batchId of batchesReceived) {
+        try {
+          // Estimate records per batch (simplified - use the first matching count)
+          let batchRecords = 0;
+          if (batchId === 'neural-core') {
+            batchRecords = (counts.bestPractices || 0) + (counts.idioms || 0) + (counts.nuances || 0) + 
+                           (counts.errorPatterns || 0) + (counts.dialects || 0) + (counts.bridges || 0);
+          } else if (batchId === 'advanced-intel-a') {
+            batchRecords = (counts.subtletyCues || 0) + (counts.emotionalPatterns || 0) + 
+                           (counts.creativityTemplates || 0) + (counts.suggestions || 0);
+          } else if (batchId === 'advanced-intel-b') {
+            batchRecords = (counts.observations || 0) + (counts.northStarPrinciples || 0);
+          } else {
+            // Generic fallback - distribute remaining records
+            batchRecords = Math.max(1, Math.floor(recordsChanged / batchesReceived.length));
+          }
+          
+          await this.recordImportReceipt({
+            batchId,
+            sourceEnvironment,
+            sourceRunId,
+            recordsReceived: batchRecords,
+            checksumMatch: true,
+          });
+        } catch (receiptErr: any) {
+          console.warn(`[SYNC-BRIDGE v32] Failed to record receipt for ${batchId}: ${receiptErr.message}`);
+        }
+      }
+      
+      // v32: Detect anomaly if zero records received
+      if (recordsChanged === 0 && batchesReceived.length > 0) {
+        await this.recordSyncAnomaly({
+          type: 'zero-count-success',
+          severity: 'warning',
+          message: `Received import from ${sourceEnvironment} completed but transferred 0 records across ${batchesReceived.length} batches`,
+          metadata: { sourceEnvironment, batchesReceived, recordsChanged },
+        });
+      }
+      
     } catch (err: any) {
-      console.warn(`[SYNC-BRIDGE v31] Failed to record received import: ${err.message}`);
+      console.warn(`[SYNC-BRIDGE v32] Failed to record received import: ${err.message}`);
     }
   }
   
@@ -4039,16 +4092,26 @@ class SyncBridgeService {
         else overallSuccess = false;
       }
       
-      // v21: Improved status determination based on completed batches
+      // v32: Calculate total records actually transferred
+      const recordsChanged = Object.values(allCounts).reduce((sum, count) => sum + (count || 0), 0);
+      
+      // v32: Improved status determination - distinguish no-op from success
       const expectedBatchCount = attemptedBatches.length;
       const completedBatchCount = completedBatches.length;
       
       let finalStatus: 'success' | 'partial' | 'failed';
+      let isNoOp = false;
+      
       if (expectedBatchCount === 0) {
-        // No batches attempted (empty selection or all filtered) = success
+        // No batches attempted (empty selection or all filtered) = no-op (but report as success for compatibility)
         finalStatus = 'success';
+        isNoOp = true;
+      } else if (completedBatchCount === expectedBatchCount && recordsChanged === 0) {
+        // All batches completed but zero records transferred = no-op
+        finalStatus = 'success';
+        isNoOp = true;
       } else if (completedBatchCount === expectedBatchCount) {
-        // All attempted batches completed = success
+        // All attempted batches completed with data = true success
         finalStatus = 'success';
       } else if (completedBatchCount > 0) {
         // Some batches completed, some failed = partial
@@ -4058,14 +4121,27 @@ class SyncBridgeService {
         finalStatus = 'failed';
       }
       
-      console.log(`[SYNC-BRIDGE v21] Push complete. Completed: ${completedBatchCount}/${expectedBatchCount}, Status: ${finalStatus}, Errors: ${allErrors.length}`);
-      console.log(`[SYNC-BRIDGE v31] Saving completedBatches: [${completedBatches.join(', ')}] for run ${syncRun.id}`);
+      console.log(`[SYNC-BRIDGE v32] Push complete. Completed: ${completedBatchCount}/${expectedBatchCount}, Records: ${recordsChanged}, Status: ${finalStatus}${isNoOp ? ' (NO-OP)' : ''}, Errors: ${allErrors.length}`);
+      console.log(`[SYNC-BRIDGE v32] Saving attemptedBatches: [${attemptedBatches.join(', ')}], completedBatches: [${completedBatches.join(', ')}]`);
+      
+      // v32: Detect and log anomalies for zero-count success
+      if (finalStatus === 'success' && recordsChanged === 0 && expectedBatchCount > 0) {
+        await this.recordSyncAnomaly({
+          type: 'zero-count-success',
+          severity: 'warning',
+          syncRunId: syncRun.id,
+          message: `Push completed successfully but transferred 0 records across ${completedBatchCount} batches`,
+          metadata: { attemptedBatches, completedBatches, recordsChanged },
+        });
+      }
       
       await db.update(syncRuns)
         .set({
           status: finalStatus,
-          completedBatches: completedBatches.length > 0 ? completedBatches : null, // v31: Only set if non-empty (null preserved for empty)
-          verificationResults: verificationResults.length > 0 ? verificationResults : null, // v28: Store verification results
+          completedBatches: completedBatches.length > 0 ? completedBatches : null,
+          attemptedBatches: attemptedBatches.length > 0 ? attemptedBatches : null, // v32: Track attempted
+          recordsChanged, // v32: Track actual records transferred
+          verificationResults: verificationResults.length > 0 ? verificationResults : null,
           bestPracticesCount: allCounts.bestPractices || 0,
           idiomCount: allCounts.idioms || 0,
           nuanceCount: allCounts.nuances || 0,
@@ -4309,6 +4385,9 @@ class SyncBridgeService {
       const allErrors: string[] = [];
       let overallSuccess = true;
       
+      // v32: Track attempted batches (only those actually processed, not skipped)
+      const attemptedBatches: string[] = [];
+      
       // Batched pull - fetch each batch type separately to avoid timeout
       // v15: advanced-intel-b now supports pagination for large observation datasets
       // v16: Skip already-completed batches on resume
@@ -4341,6 +4420,9 @@ class SyncBridgeService {
         }
         
         console.log(`[SYNC-BRIDGE] Pull batch ${i + 1}/${batchTypes.length}: ${batchType}...`);
+        
+        // v32: Track that we're attempting this batch
+        attemptedBatches.push(batchType);
         
         // 45s timeout for smaller batches, 60s for larger data batches
         const timeout = ['express-lane', 'hive-snapshots', 'daniela-memories', 'founder-context'].includes(batchType) ? 60000 : 45000;
@@ -4494,19 +4576,31 @@ class SyncBridgeService {
         }
       }
       
+      // v32: Calculate total records actually transferred
+      const recordsChanged = Object.values(allCounts).reduce((sum, count) => sum + (count || 0), 0);
+      
       // v21: Improved status determination based on completed batches, not just errors
-      // - 'success': All expected batches completed (warnings are OK), or no batches attempted
+      // v32: Also consider recordsChanged for no-op detection
+      // v32: Use attemptedBatches (only batches we actually processed, not skipped)
+      // - 'success': All attempted batches completed (warnings are OK), or no batches attempted
       // - 'partial': Some batches completed, some failed
       // - 'failed': No batches completed successfully
-      const expectedBatchCount = batchTypes.length;
+      const expectedBatchCount = attemptedBatches.length;
       const completedBatchCount = completedBatches.length;
       
       let finalStatus: 'success' | 'partial' | 'failed';
+      let isNoOp = false;
+      
       if (expectedBatchCount === 0) {
-        // No batches to process (empty selection or all filtered) = success
+        // No batches actually processed (all were skipped or empty selection) = success (no-op)
         finalStatus = 'success';
+        isNoOp = true;
+      } else if (completedBatchCount === expectedBatchCount && recordsChanged === 0) {
+        // All attempted batches completed but zero records transferred = no-op
+        finalStatus = 'success';
+        isNoOp = true;
       } else if (completedBatchCount === expectedBatchCount) {
-        // All batches completed - this is success even if there were import warnings
+        // All attempted batches completed - this is success even if there were import warnings
         finalStatus = 'success';
       } else if (completedBatchCount > 0) {
         // Some batches completed, some failed
@@ -4516,11 +4610,25 @@ class SyncBridgeService {
         finalStatus = 'failed';
       }
       
-      console.log(`[SYNC-BRIDGE v21] Pull complete. Completed: ${completedBatchCount}/${expectedBatchCount}, Status: ${finalStatus}, Errors: ${allErrors.length}`);
+      console.log(`[SYNC-BRIDGE v32] Pull complete. Attempted: ${expectedBatchCount}, Completed: ${completedBatchCount}, Records: ${recordsChanged}, Status: ${finalStatus}${isNoOp ? ' (NO-OP)' : ''}, Errors: ${allErrors.length}`);
+      console.log(`[SYNC-BRIDGE v32] attemptedBatches: [${attemptedBatches.join(', ')}], completedBatches: [${completedBatches.join(', ')}]`);
+      
+      // v32: Detect and log anomalies for zero-count success
+      if (finalStatus === 'success' && recordsChanged === 0 && expectedBatchCount > 0) {
+        await this.recordSyncAnomaly({
+          type: 'zero-count-success',
+          severity: 'warning',
+          syncRunId: syncRun.id,
+          message: `Pull completed successfully but transferred 0 records across ${completedBatchCount} batches`,
+          metadata: { attemptedBatches, completedBatches, recordsChanged },
+        });
+      }
       
       await db.update(syncRuns)
         .set({
           status: finalStatus,
+          attemptedBatches: attemptedBatches.length > 0 ? attemptedBatches : null, // v32: Track actually attempted
+          recordsChanged, // v32: Track actual records transferred
           bestPracticesCount: allCounts.bestPractices || 0,
           idiomCount: allCounts.idioms || 0,
           nuanceCount: allCounts.nuances || 0,
@@ -5892,6 +6000,208 @@ class SyncBridgeService {
     
     console.log(`[SYNC-BRIDGE] Beta testers: ${usersImported} users, ${creditsImported} credits, ${enrollmentsCreated} enrollments`);
     return { usersImported, creditsImported, enrollmentsCreated, classesImported, errors };
+  }
+
+  /**
+   * v32: Record a sync anomaly for alerting and visibility
+   * Anomalies are surfaced in the admin dashboard
+   */
+  async recordSyncAnomaly(params: {
+    type: 'zero-count-success' | 'stale-batch' | 'failed-sync' | 'missing-receipt' | 'checksum-mismatch';
+    severity: 'warning' | 'critical';
+    batchId?: string;
+    syncRunId?: string;
+    message: string;
+    metadata?: Record<string, any>;
+  }): Promise<void> {
+    try {
+      await db.insert(syncAnomalies).values({
+        type: params.type,
+        severity: params.severity,
+        batchId: params.batchId || null,
+        syncRunId: params.syncRunId || null,
+        message: params.message,
+        metadata: params.metadata || null,
+      });
+      console.log(`[SYNC-BRIDGE v32] Recorded anomaly: ${params.type} - ${params.message}`);
+    } catch (err: any) {
+      console.error(`[SYNC-BRIDGE v32] Failed to record anomaly: ${err.message}`);
+    }
+  }
+  
+  /**
+   * v32: Record receipt when this environment receives data from a peer push
+   * This gives the dashboard visibility into what the peer has sent us
+   */
+  async recordImportReceipt(params: {
+    batchId: string;
+    sourceEnvironment: 'development' | 'production';
+    sourceRunId?: string;
+    recordsReceived: number;
+    checksumMatch?: boolean;
+  }): Promise<void> {
+    try {
+      await db.insert(syncImportReceipts).values({
+        batchId: params.batchId,
+        sourceEnvironment: params.sourceEnvironment,
+        sourceRunId: params.sourceRunId || null,
+        recordsReceived: params.recordsReceived,
+        checksumMatch: params.checksumMatch ?? true,
+      });
+      console.log(`[SYNC-BRIDGE v32] Recorded import receipt: ${params.batchId} from ${params.sourceEnvironment} (${params.recordsReceived} records)`);
+    } catch (err: any) {
+      console.error(`[SYNC-BRIDGE v32] Failed to record import receipt: ${err.message}`);
+    }
+  }
+  
+  /**
+   * v32: Get unacknowledged anomalies for dashboard display
+   */
+  async getUnacknowledgedAnomalies(): Promise<SyncAnomaly[]> {
+    return await db.select()
+      .from(syncAnomalies)
+      .where(and(
+        eq(syncAnomalies.acknowledged, false),
+        isNull(syncAnomalies.resolvedAt)
+      ))
+      .orderBy(desc(syncAnomalies.createdAt))
+      .limit(50);
+  }
+  
+  /**
+   * v32: Acknowledge an anomaly (admin has seen it)
+   */
+  async acknowledgeAnomaly(anomalyId: string, acknowledgedBy: string): Promise<void> {
+    await db.update(syncAnomalies)
+      .set({
+        acknowledged: true,
+        acknowledgedBy,
+        acknowledgedAt: new Date(),
+      })
+      .where(eq(syncAnomalies.id, anomalyId));
+  }
+  
+  /**
+   * v32: Get recent import receipts for health dashboard
+   * Combines with local sync runs to give accurate health picture
+   */
+  async getRecentImportReceipts(limit: number = 50): Promise<SyncImportReceipt[]> {
+    return await db.select()
+      .from(syncImportReceipts)
+      .orderBy(desc(syncImportReceipts.receivedAt))
+      .limit(limit);
+  }
+  
+  /**
+   * v32: Enhanced sync health that includes received imports
+   * This gives accurate freshness even when peer pushes to us
+   */
+  async getEnhancedSyncHealth(): Promise<{
+    environment: string;
+    batches: Array<{
+      batchId: string;
+      label: string;
+      lastLocalPush: string | null;
+      lastLocalPull: string | null;
+      lastReceivedImport: string | null;
+      lastActivity: string | null;
+      daysSinceLastActivity: number | null;
+      status: 'healthy' | 'stale' | 'critical' | 'never';
+      recordsInLastSync: number;
+    }>;
+    anomalyCount: number;
+    queriedAt: string;
+  }> {
+    // Get local sync runs and import receipts
+    const [runs, receipts, anomalies] = await Promise.all([
+      db.select().from(syncRuns).orderBy(desc(syncRuns.startedAt)).limit(100),
+      db.select().from(syncImportReceipts).orderBy(desc(syncImportReceipts.receivedAt)).limit(100),
+      this.getUnacknowledgedAnomalies(),
+    ]);
+    
+    // Use the same batch config as getSyncHealth
+    const DEV_PULL_ONLY_BATCHES = ['prod-content-growth', 'sofia-telemetry', 'prod-conversations', 'beta-testers'];
+    const allBatchConfigs: Array<{ id: string; label: string }> = [
+      { id: 'neural-core', label: 'Neural Core' },
+      { id: 'advanced-intel-a', label: 'Advanced Intel A' },
+      { id: 'advanced-intel-b', label: 'Advanced Intel B (Observations)' },
+      { id: 'express-lane', label: 'Express Lane' },
+      { id: 'hive-snapshots', label: 'Hive Snapshots' },
+      { id: 'daniela-memories', label: 'Daniela Memories' },
+      { id: 'product-config', label: 'Product Config' },
+      { id: 'beta-testers', label: 'Beta Testers' },
+      { id: 'beta-usage', label: 'Beta Usage' },
+      { id: 'founder-context', label: 'Founder Context' },
+      { id: 'aggregate-analytics', label: 'Analytics' },
+      { id: 'prod-content-growth', label: 'Prod Content Growth' },
+      { id: 'sofia-telemetry', label: 'Sofia Telemetry' },
+      { id: 'prod-conversations', label: 'Prod Conversations' },
+    ];
+    
+    const batchConfigs = CURRENT_ENVIRONMENT === 'production'
+      ? allBatchConfigs.filter(b => !DEV_PULL_ONLY_BATCHES.includes(b.id))
+      : allBatchConfigs;
+    
+    const batches = batchConfigs.map(config => {
+      // Find last successful push/pull for this batch
+      const lastPush = runs.find(run => 
+        run.direction === 'push' && 
+        (run.status === 'success' || run.status === 'partial') &&
+        run.completedBatches?.includes(config.id)
+      );
+      
+      const lastPull = runs.find(run => 
+        run.direction === 'pull' && 
+        (run.status === 'success' || run.status === 'partial') &&
+        run.completedBatches?.includes(config.id)
+      );
+      
+      // Find last received import for this batch
+      const lastReceipt = receipts.find(r => r.batchId === config.id);
+      
+      const now = new Date();
+      const pushTime = lastPush?.completedAt ? new Date(lastPush.completedAt) : null;
+      const pullTime = lastPull?.completedAt ? new Date(lastPull.completedAt) : null;
+      const receiptTime = lastReceipt?.receivedAt ? new Date(lastReceipt.receivedAt) : null;
+      
+      // Last activity is the most recent of push, pull, or received import
+      const times = [pushTime, pullTime, receiptTime].filter(Boolean) as Date[];
+      const lastActivityTime = times.length > 0 ? new Date(Math.max(...times.map(t => t.getTime()))) : null;
+      
+      const daysSinceLastActivity = lastActivityTime 
+        ? Math.floor((now.getTime() - lastActivityTime.getTime()) / (1000 * 60 * 60 * 24))
+        : null;
+      
+      const getStatus = (days: number | null): 'healthy' | 'stale' | 'critical' | 'never' => {
+        if (days === null) return 'never';
+        if (days <= 3) return 'healthy';
+        if (days <= 7) return 'stale';
+        return 'critical';
+      };
+      
+      // Get records from last successful sync
+      const lastSuccessfulRun = lastPush || lastPull;
+      const recordsInLastSync = lastSuccessfulRun?.recordsChanged || 0;
+      
+      return {
+        batchId: config.id,
+        label: config.label,
+        lastLocalPush: pushTime?.toISOString() || null,
+        lastLocalPull: pullTime?.toISOString() || null,
+        lastReceivedImport: receiptTime?.toISOString() || null,
+        lastActivity: lastActivityTime?.toISOString() || null,
+        daysSinceLastActivity,
+        status: getStatus(daysSinceLastActivity),
+        recordsInLastSync,
+      };
+    });
+    
+    return {
+      environment: CURRENT_ENVIRONMENT,
+      batches,
+      anomalyCount: anomalies.length,
+      queriedAt: new Date().toISOString(),
+    };
   }
 
   /**

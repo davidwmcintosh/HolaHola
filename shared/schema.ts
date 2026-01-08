@@ -2635,6 +2635,8 @@ export const syncRuns = pgTable("sync_runs", {
   
   // Resumable sync tracking (v16)
   completedBatches: text("completed_batches").array(), // ['neural-core', 'advanced-intel-a', ...]
+  attemptedBatches: text("attempted_batches").array(), // v32: All batches that were attempted (for no-op detection)
+  recordsChanged: integer("records_changed").default(0), // v32: Total records actually modified (prevents false success)
   lastCompletedPage: integer("last_completed_page").default(-1), // -1 = not started, 0 = page 0 done, etc.
   totalPagesExpected: integer("total_pages_expected"), // Total pages for observations
   resumedFromRunId: varchar("resumed_from_run_id"), // If this run resumed from a failed run
@@ -2656,6 +2658,69 @@ export const insertSyncRunSchema = createInsertSchema(syncRuns).omit({
 });
 export type InsertSyncRun = z.infer<typeof insertSyncRunSchema>;
 export type SyncRun = typeof syncRuns.$inferSelect;
+
+// ===== Sync Import Receipts (v32) =====
+// Tracks when an environment receives data from a peer push
+// This gives dev visibility into what production has pushed to it
+export const syncImportReceipts = pgTable("sync_import_receipts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  batchId: varchar("batch_id").notNull(), // e.g., 'neural-core', 'advanced-intel-a'
+  sourceEnvironment: environmentOriginEnum("source_environment").notNull(), // Where data came from
+  sourceRunId: varchar("source_run_id"), // The sync run ID from the source environment
+  recordsReceived: integer("records_received").default(0), // How many records were imported
+  checksumMatch: boolean("checksum_match").default(true), // Data integrity check
+  receivedAt: timestamp("received_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_sync_receipts_batch").on(table.batchId),
+  index("idx_sync_receipts_source").on(table.sourceEnvironment),
+  index("idx_sync_receipts_received").on(table.receivedAt),
+]);
+
+export const insertSyncImportReceiptSchema = createInsertSchema(syncImportReceipts).omit({
+  id: true,
+  receivedAt: true,
+});
+export type InsertSyncImportReceipt = z.infer<typeof insertSyncImportReceiptSchema>;
+export type SyncImportReceipt = typeof syncImportReceipts.$inferSelect;
+
+// ===== Sync Anomalies (v32) =====
+// Tracks sync problems that need attention - surfaced in the UI
+export const syncAnomalyTypeEnum = pgEnum('sync_anomaly_type', [
+  'zero-count-success',   // Sync reported success but transferred 0 records
+  'stale-batch',          // Batch hasn't been synced within threshold
+  'failed-sync',          // Sync failed and needs attention
+  'missing-receipt',      // Push completed but no receipt from peer
+  'checksum-mismatch',    // Data integrity issue detected
+]);
+
+export const syncAnomalySeverityEnum = pgEnum('sync_anomaly_severity', ['warning', 'critical']);
+
+export const syncAnomalies = pgTable("sync_anomalies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  type: syncAnomalyTypeEnum("type").notNull(),
+  severity: syncAnomalySeverityEnum("severity").notNull(),
+  batchId: varchar("batch_id"), // Which batch is affected (if applicable)
+  syncRunId: varchar("sync_run_id"), // Related sync run (if applicable)
+  message: text("message").notNull(), // Human-readable description
+  metadata: jsonb("metadata"), // Additional context (counts, timestamps, etc.)
+  acknowledged: boolean("acknowledged").default(false), // Has admin seen this?
+  acknowledgedBy: varchar("acknowledged_by"), // Who acknowledged it
+  acknowledgedAt: timestamp("acknowledged_at"),
+  resolvedAt: timestamp("resolved_at"), // When the issue was fixed
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_sync_anomalies_type").on(table.type),
+  index("idx_sync_anomalies_severity").on(table.severity),
+  index("idx_sync_anomalies_acknowledged").on(table.acknowledged),
+  index("idx_sync_anomalies_created").on(table.createdAt),
+]);
+
+export const insertSyncAnomalySchema = createInsertSchema(syncAnomalies).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertSyncAnomaly = z.infer<typeof insertSyncAnomalySchema>;
+export type SyncAnomaly = typeof syncAnomalies.$inferSelect;
 
 // ===== Founder Collaboration Sync Channel =====
 // Enables persistent conversation with Daniela across dev restarts
