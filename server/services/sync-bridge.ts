@@ -3532,6 +3532,7 @@ class SyncBridgeService {
   
   /**
    * v32: Track received imports from peer with enhanced reliability
+   * v33: Added syncSessionId and pageNumber for grouping paginated runs
    * When production pushes to dev, dev needs to record that it received data
    * This makes the sync dashboard accurate for both directions
    * 
@@ -3544,7 +3545,8 @@ class SyncBridgeService {
     batchesReceived: string[],
     counts: Record<string, number>,
     durationMs: number,
-    sourceRunId?: string
+    sourceRunId?: string,
+    sessionContext?: { syncSessionId?: string; pageNumber?: number }
   ): Promise<void> {
     if (batchesReceived.length === 0) {
       console.log('[SYNC-BRIDGE v32] No batches to record for received import');
@@ -3573,9 +3575,14 @@ class SyncBridgeService {
         observationCount: counts.observations || 0,
         durationMs,
         completedAt: new Date(),
+        // v33: Session grouping for paginated runs
+        syncSessionId: sessionContext?.syncSessionId,
+        pageNumber: sessionContext?.pageNumber,
       });
       
-      console.log(`[SYNC-BRIDGE v32] Recorded received import: ${batchesReceived.length} batches, ${recordsChanged} records from ${sourceEnvironment}`);
+      const pageInfo = sessionContext?.pageNumber !== undefined ? ` (page ${sessionContext.pageNumber})` : '';
+      const sessionInfo = sessionContext?.syncSessionId ? ` [session: ${sessionContext.syncSessionId.slice(0, 8)}...]` : '';
+      console.log(`[SYNC-BRIDGE v33] Recorded received import: ${batchesReceived.length} batches, ${recordsChanged} records from ${sourceEnvironment}${pageInfo}${sessionInfo}`);
       
       // v32: Also create individual import receipts for granular per-batch tracking
       for (const batchId of batchesReceived) {
@@ -3673,18 +3680,29 @@ class SyncBridgeService {
   
   /**
    * Send a single batch to the peer with timeout handling
+   * v33: Added syncSessionId and pageNumber for grouping paginated runs
    */
   private async sendBatch(
     peerUrl: string, 
     batchType: string, 
     bundle: any,
-    timeoutMs: number = 45000 // 45s to stay under Replit's ~60s proxy timeout
+    timeoutMs: number = 45000, // 45s to stay under Replit's ~60s proxy timeout
+    sessionContext?: { syncSessionId: string; pageNumber?: number }
   ): Promise<{ success: boolean; counts: Record<string, number>; errors: string[] }> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     
     try {
       const headers = createSyncHeaders(bundle);
+      
+      // v33: Add session context headers for grouping paginated runs
+      if (sessionContext?.syncSessionId) {
+        headers['X-Sync-Session-Id'] = sessionContext.syncSessionId;
+        if (sessionContext.pageNumber !== undefined) {
+          headers['X-Sync-Page-Number'] = sessionContext.pageNumber.toString();
+        }
+      }
+      
       const response = await fetch(`${peerUrl}/api/sync/import`, {
         method: 'POST',
         headers,
@@ -3736,6 +3754,9 @@ class SyncBridgeService {
     // Helper to check if a batch should run
     const shouldRun = (batch: string) => !selectedBatches || selectedBatches.includes(batch);
     
+    // v33: Generate sync session ID to group all paginated runs together
+    const syncSessionId = crypto.randomUUID();
+    
     const [syncRun] = await db.insert(syncRuns).values({
       direction: 'push',
       peerUrl,
@@ -3743,7 +3764,10 @@ class SyncBridgeService {
       targetEnvironment: CURRENT_ENVIRONMENT === 'production' ? 'development' : 'production',
       status: 'running',
       triggeredBy,
+      syncSessionId, // v33: Link all runs in this session
     }).returning();
+    
+    console.log(`[SYNC-BRIDGE v33] Push session started: ${syncSessionId}`);
     
     try {
       // Use incremental sync - only export items newer than last successful push
@@ -3762,6 +3786,9 @@ class SyncBridgeService {
       // v28: Collect verification results for UI display
       const verificationResults: SyncVerificationResult[] = [];
       
+      // v33: Session context for grouping runs on the receiver
+      const sessionContext = { syncSessionId };
+      
       // BATCH 1: Neural network core (small, fast)
       if (shouldRun('neural-core')) {
         attemptedBatches.push('neural-core');
@@ -3773,7 +3800,7 @@ class SyncBridgeService {
           ...await neuralNetworkSync.exportNeuralNetworkExpansion(),
           ...await neuralNetworkSync.exportProceduralMemory(),
         };
-        const batch1 = await this.sendBatch(peerUrl, 'neural-core', coreBundle);
+        const batch1 = await this.sendBatch(peerUrl, 'neural-core', coreBundle, 45000, sessionContext);
         Object.assign(allCounts, batch1.counts);
         allErrors.push(...batch1.errors);
         if (batch1.success) completedBatches.push('neural-core');
@@ -3790,7 +3817,7 @@ class SyncBridgeService {
           ...await neuralNetworkSync.exportAdvancedIntelligence(),
           ...await neuralNetworkSync.exportDanielaSuggestions(),
         };
-        const batch2a = await this.sendBatch(peerUrl, 'advanced-intel-a', advancedBundleA);
+        const batch2a = await this.sendBatch(peerUrl, 'advanced-intel-a', advancedBundleA, 45000, sessionContext);
         Object.assign(allCounts, batch2a.counts);
         allErrors.push(...batch2a.errors);
         if (batch2a.success) completedBatches.push('advanced-intel-a');
@@ -3809,7 +3836,7 @@ class SyncBridgeService {
           sourceEnvironment: CURRENT_ENVIRONMENT,
           ...await neuralNetworkSync.exportNorthStar(),
         };
-        const northStarResult = await this.sendBatch(peerUrl, 'advanced-intel-b-northstar', northStarBundle);
+        const northStarResult = await this.sendBatch(peerUrl, 'advanced-intel-b-northstar', northStarBundle, 45000, sessionContext);
         Object.assign(allCounts, northStarResult.counts);
         allErrors.push(...northStarResult.errors);
         if (!northStarResult.success) overallSuccess = false;
@@ -3843,7 +3870,8 @@ class SyncBridgeService {
             observationsPagination: triLane?.pagination || null,
           };
           
-          const pageResult = await this.sendBatch(peerUrl, `advanced-intel-b-p${page}`, pageBundle, 60000);
+          // v33: Include page number for paginated batches
+          const pageResult = await this.sendBatch(peerUrl, `advanced-intel-b-p${page}`, pageBundle, 60000, { syncSessionId, pageNumber: page });
           
           if (!pageResult.success) {
             allErrors.push(...pageResult.errors);
@@ -3885,7 +3913,7 @@ class SyncBridgeService {
           expressLaneSessions: expressLaneData.sessions,
           expressLaneMessages: expressLaneData.messages,
         };
-        const batch3 = await this.sendBatch(peerUrl, 'express-lane', expressBundle, 60000);
+        const batch3 = await this.sendBatch(peerUrl, 'express-lane', expressBundle, 60000, sessionContext);
         Object.assign(allCounts, batch3.counts);
         allErrors.push(...batch3.errors);
         if (batch3.success) completedBatches.push('express-lane');
@@ -3902,7 +3930,7 @@ class SyncBridgeService {
           sourceEnvironment: CURRENT_ENVIRONMENT,
           hiveSnapshots,
         };
-        const batch4 = await this.sendBatch(peerUrl, 'hive-snapshots', hiveBundle, 60000);
+        const batch4 = await this.sendBatch(peerUrl, 'hive-snapshots', hiveBundle, 60000, sessionContext);
         Object.assign(allCounts, batch4.counts);
         allErrors.push(...batch4.errors);
         if (batch4.success) completedBatches.push('hive-snapshots');
@@ -3919,7 +3947,7 @@ class SyncBridgeService {
           sourceEnvironment: CURRENT_ENVIRONMENT,
           danielaGrowthMemories: danielaMemories,
         };
-        const batch5 = await this.sendBatch(peerUrl, 'daniela-memories', memoriesBundle, 60000);
+        const batch5 = await this.sendBatch(peerUrl, 'daniela-memories', memoriesBundle, 60000, sessionContext);
         Object.assign(allCounts, batch5.counts);
         allErrors.push(...batch5.errors);
         if (batch5.success) completedBatches.push('daniela-memories');
@@ -3935,7 +3963,7 @@ class SyncBridgeService {
           sourceEnvironment: CURRENT_ENVIRONMENT,
           tutorVoices: await this.exportTutorVoices(),
         };
-        const batch6 = await this.sendBatch(peerUrl, 'product-config', configBundle);
+        const batch6 = await this.sendBatch(peerUrl, 'product-config', configBundle, 45000, sessionContext);
         Object.assign(allCounts, batch6.counts);
         allErrors.push(...batch6.errors);
         if (batch6.success) completedBatches.push('product-config');
@@ -3953,7 +3981,7 @@ class SyncBridgeService {
         console.log(`[SYNC-VERIFY] Pre-sync manifest: ${manifest.expected.users} users, ${manifest.expected.classes} classes, ${manifest.expected.credits} credits, ${manifest.expected.enrollments} enrollments`);
         
         const betaBundle = await this.collectExportBundle(null, 'beta-testers');
-        const batch7 = await this.sendBatch(peerUrl, 'beta-testers', betaBundle, 90000); // 90s for large credit/enrollment data
+        const batch7 = await this.sendBatch(peerUrl, 'beta-testers', betaBundle, 90000, sessionContext); // 90s for large credit/enrollment data
         Object.assign(allCounts, batch7.counts);
         allErrors.push(...batch7.errors);
         
@@ -3986,7 +4014,7 @@ class SyncBridgeService {
           sourceEnvironment: CURRENT_ENVIRONMENT,
           betaUsage,
         };
-        const batch8 = await this.sendBatch(peerUrl, 'beta-usage', betaUsageBundle, 90000); // 90s for 858+ sessions
+        const batch8 = await this.sendBatch(peerUrl, 'beta-usage', betaUsageBundle, 90000, sessionContext); // 90s for 858+ sessions
         Object.assign(allCounts, batch8.counts);
         allErrors.push(...batch8.errors);
         if (batch8.success) completedBatches.push('beta-usage');
@@ -4003,7 +4031,7 @@ class SyncBridgeService {
           sourceEnvironment: CURRENT_ENVIRONMENT,
           aggregateAnalytics,
         };
-        const batch9 = await this.sendBatch(peerUrl, 'aggregate-analytics', analyticsBundle);
+        const batch9 = await this.sendBatch(peerUrl, 'aggregate-analytics', analyticsBundle, 45000, sessionContext);
         Object.assign(allCounts, batch9.counts);
         allErrors.push(...batch9.errors);
         if (batch9.success) completedBatches.push('aggregate-analytics');
@@ -4015,7 +4043,7 @@ class SyncBridgeService {
         attemptedBatches.push('curriculum-core');
         console.log('[SYNC-BRIDGE] Batch 10: Curriculum core...');
         const curriculumBundle = await this.collectExportBundle(lastSuccessfulPush, 'curriculum-core');
-        const batch10 = await this.sendBatch(peerUrl, 'curriculum-core', curriculumBundle, 60000);
+        const batch10 = await this.sendBatch(peerUrl, 'curriculum-core', curriculumBundle, 60000, sessionContext);
         Object.assign(allCounts, batch10.counts);
         allErrors.push(...batch10.errors);
         if (batch10.success) completedBatches.push('curriculum-core');
@@ -4027,7 +4055,7 @@ class SyncBridgeService {
         attemptedBatches.push('curriculum-drills');
         console.log('[SYNC-BRIDGE] Batch 11: Curriculum drills...');
         const drillsBundle = await this.collectExportBundle(lastSuccessfulPush, 'curriculum-drills');
-        const batch11 = await this.sendBatch(peerUrl, 'curriculum-drills', drillsBundle, 60000);
+        const batch11 = await this.sendBatch(peerUrl, 'curriculum-drills', drillsBundle, 60000, sessionContext);
         Object.assign(allCounts, batch11.counts);
         allErrors.push(...batch11.errors);
         if (batch11.success) completedBatches.push('curriculum-drills');
@@ -4039,7 +4067,7 @@ class SyncBridgeService {
         attemptedBatches.push('wren-intel');
         console.log('[SYNC-BRIDGE] Batch 12: Wren intelligence...');
         const wrenBundle = await this.collectExportBundle(lastSuccessfulPush, 'wren-intel');
-        const batch12 = await this.sendBatch(peerUrl, 'wren-intel', wrenBundle, 60000);
+        const batch12 = await this.sendBatch(peerUrl, 'wren-intel', wrenBundle, 60000, sessionContext);
         Object.assign(allCounts, batch12.counts);
         allErrors.push(...batch12.errors);
         if (batch12.success) completedBatches.push('wren-intel');
@@ -4051,7 +4079,7 @@ class SyncBridgeService {
         attemptedBatches.push('daniela-intel');
         console.log('[SYNC-BRIDGE] Batch 13: Daniela intelligence...');
         const danielaBundle = await this.collectExportBundle(lastSuccessfulPush, 'daniela-intel');
-        const batch13 = await this.sendBatch(peerUrl, 'daniela-intel', danielaBundle);
+        const batch13 = await this.sendBatch(peerUrl, 'daniela-intel', danielaBundle, 45000, sessionContext);
         Object.assign(allCounts, batch13.counts);
         allErrors.push(...batch13.errors);
         if (batch13.success) completedBatches.push('daniela-intel');
@@ -4068,7 +4096,7 @@ class SyncBridgeService {
           sourceEnvironment: CURRENT_ENVIRONMENT,
           founderContext,
         };
-        const batch14 = await this.sendBatch(peerUrl, 'founder-context', contextBundle, 60000);
+        const batch14 = await this.sendBatch(peerUrl, 'founder-context', contextBundle, 60000, sessionContext);
         Object.assign(allCounts, batch14.counts);
         allErrors.push(...batch14.errors);
         if (batch14.success) completedBatches.push('founder-context');
@@ -4085,7 +4113,7 @@ class SyncBridgeService {
           sourceEnvironment: CURRENT_ENVIRONMENT,
           founderConversations: convData,
         };
-        const batch15 = await this.sendBatch(peerUrl, 'founder-conversations', convBundle, 90000);
+        const batch15 = await this.sendBatch(peerUrl, 'founder-conversations', convBundle, 90000, sessionContext);
         Object.assign(allCounts, batch15.counts);
         allErrors.push(...batch15.errors);
         if (batch15.success) completedBatches.push('founder-conversations');

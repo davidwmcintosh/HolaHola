@@ -19330,21 +19330,33 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Peer-to-peer: Import bundle (called by remote peer pushing to us)
+  // v33: Extract session headers for grouping paginated runs
   app.post("/api/sync/import", validateSyncRequest, async (req: any, res) => {
     const startTime = Date.now();
     try {
-      console.log('[SYNC API] Import request received from peer');
+      // v33: Extract session context from headers
+      const syncSessionId = req.headers['x-sync-session-id'] as string | undefined;
+      const pageNumberStr = req.headers['x-sync-page-number'] as string | undefined;
+      const pageNumber = pageNumberStr !== undefined ? parseInt(pageNumberStr, 10) : undefined;
+      
+      const sessionInfo = syncSessionId ? ` [session: ${syncSessionId.slice(0, 8)}...]` : '';
+      const pageInfo = pageNumber !== undefined ? ` (page ${pageNumber})` : '';
+      console.log(`[SYNC API v33] Import request received from peer${sessionInfo}${pageInfo}`);
+      
       const bundle = req.body;
       const result = await syncBridge.applyImportBundle(bundle);
       
       // v31: Track received imports so dashboard shows accurate sync status
+      // v33: Pass session context for grouping
       if (result.success && bundle.sourceEnvironment) {
         const batchesReceived = syncBridge.detectImportedBatches(bundle, result.counts);
         await syncBridge.recordReceivedImport(
           bundle.sourceEnvironment as 'development' | 'production',
           batchesReceived,
           result.counts,
-          Date.now() - startTime
+          Date.now() - startTime,
+          undefined, // sourceRunId
+          syncSessionId || pageNumber !== undefined ? { syncSessionId, pageNumber } : undefined
         );
       }
       

@@ -41,6 +41,9 @@ interface SyncRun {
   lastCompletedPage?: number;
   totalPages?: number;
   _fromEnvironment?: string;
+  // v33: Session grouping for paginated runs
+  syncSessionId?: string;
+  pageNumber?: number;
 }
 
 interface PeerSyncRunsResponse {
@@ -1225,10 +1228,18 @@ export default function SyncControlCenter() {
                           <div className="flex-1 min-w-0">
                             <p className="text-sm truncate">
                               {run.sourceEnvironment} → {run.targetEnvironment}
+                              {run.pageNumber !== undefined && (
+                                <span className="ml-1 text-xs text-muted-foreground">(page {run.pageNumber})</span>
+                              )}
                             </p>
                             <p className="text-xs text-muted-foreground">
                               {formatDate(run.startedAt)}
                               {run.triggeredBy && ` • by ${run.triggeredBy}`}
+                              {run.syncSessionId && (
+                                <span className="ml-1 font-mono text-[10px] opacity-60" title={`Session: ${run.syncSessionId}`}>
+                                  [{run.syncSessionId.slice(0, 6)}]
+                                </span>
+                              )}
                             </p>
                           </div>
                           <div className="text-right shrink-0">

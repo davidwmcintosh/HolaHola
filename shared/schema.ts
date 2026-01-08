@@ -2641,6 +2641,10 @@ export const syncRuns = pgTable("sync_runs", {
   totalPagesExpected: integer("total_pages_expected"), // Total pages for observations
   resumedFromRunId: varchar("resumed_from_run_id"), // If this run resumed from a failed run
   
+  // Sync session grouping (v33) - groups paginated chunks of a single logical sync operation
+  syncSessionId: varchar("sync_session_id"), // UUID shared by all runs in the same logical operation
+  pageNumber: integer("page_number"), // Which page of a paginated batch (0-indexed)
+  
   // Verification results (v28)
   verificationResults: jsonb("verification_results"), // Array of SyncVerificationResult per batch
   
@@ -2650,6 +2654,7 @@ export const syncRuns = pgTable("sync_runs", {
   index("idx_sync_runs_status").on(table.status),
   index("idx_sync_runs_direction").on(table.direction),
   index("idx_sync_runs_started").on(table.startedAt),
+  index("idx_sync_runs_session").on(table.syncSessionId), // v33: Group paginated runs
 ]);
 
 export const insertSyncRunSchema = createInsertSchema(syncRuns).omit({
