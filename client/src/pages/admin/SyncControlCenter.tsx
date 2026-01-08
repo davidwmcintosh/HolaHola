@@ -190,6 +190,23 @@ interface SyncAnomaliesData {
   queriedAt: string;
 }
 
+// v33: Environment comparison for comprehensive table counts
+interface EnvironmentComparisonRow {
+  table: string;
+  localCount: number;
+  peerCount: number;
+  difference: number;
+  status: 'match' | 'local-ahead' | 'peer-ahead' | 'error';
+}
+
+interface EnvironmentComparison {
+  localEnvironment: string;
+  peerEnvironment: string;
+  comparison: EnvironmentComparisonRow[];
+  errors: string[];
+  comparedAt: string;
+}
+
 function formatDuration(ms?: number): string {
   if (!ms) return '-';
   if (ms < 1000) return `${ms}ms`;
@@ -356,6 +373,13 @@ export default function SyncControlCenter() {
     queryKey: ["/api/admin/sync/anomalies"],
     retry: false,
     refetchInterval: 30000, // Auto-refresh every 30s
+  });
+
+  // v33: Environment comparison
+  const { data: envComparison, isLoading: envComparisonLoading, refetch: refetchEnvComparison } = useQuery<EnvironmentComparison>({
+    queryKey: ["/api/sync/compare-environments"],
+    retry: false,
+    enabled: false, // Manual trigger only (expensive)
   });
 
   const combinedHistory = (() => {
@@ -939,6 +963,97 @@ export default function SyncControlCenter() {
                       No verification results yet. Run a sync with beta-testers batch to see verification.
                     </p>
                   )}
+                </CardContent>
+              </Card>
+
+              {/* v33: Environment Comparison - Side-by-side table counts */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2">
+                    <Database className="h-5 w-5" />
+                    Environment Comparison
+                  </CardTitle>
+                  <CardDescription>
+                    Compare record counts across all sync tables between DEV and PROD
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => refetchEnvComparison()}
+                      disabled={envComparisonLoading}
+                      data-testid="button-compare-environments"
+                    >
+                      {envComparisonLoading ? (
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Database className="h-4 w-4 mr-2" />
+                      )}
+                      {envComparisonLoading ? 'Comparing...' : 'Compare Environments'}
+                    </Button>
+                    
+                    {envComparison ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                          <span>Compared at {formatDate(envComparison.comparedAt)}</span>
+                          <span className="font-medium">{envComparison.localEnvironment} ↔ {envComparison.peerEnvironment}</span>
+                        </div>
+                        
+                        {envComparison.errors.length > 0 && (
+                          <div className="p-2 bg-red-500/10 border border-red-500/30 rounded-lg">
+                            {envComparison.errors.map((e, i) => (
+                              <p key={i} className="text-xs text-red-600 dark:text-red-400">{e}</p>
+                            ))}
+                          </div>
+                        )}
+                        
+                        <div className="overflow-x-auto max-h-80 overflow-y-auto">
+                          <table className="w-full text-xs">
+                            <thead className="sticky top-0 bg-card">
+                              <tr className="border-b">
+                                <th className="text-left py-2 pr-2">Table</th>
+                                <th className="text-right py-2 px-2">{envComparison.localEnvironment === 'development' ? 'DEV' : 'PROD'}</th>
+                                <th className="text-right py-2 px-2">{envComparison.peerEnvironment === 'production' ? 'PROD' : 'DEV'}</th>
+                                <th className="text-right py-2 px-2">Diff</th>
+                                <th className="text-center py-2 pl-2">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {envComparison.comparison.map(row => (
+                                <tr key={row.table} className="border-b border-border/50 hover:bg-muted/30">
+                                  <td className="py-1 pr-2 font-mono">{row.table}</td>
+                                  <td className="py-1 px-2 text-right font-mono">{row.localCount >= 0 ? row.localCount.toLocaleString() : '-'}</td>
+                                  <td className="py-1 px-2 text-right font-mono">{row.peerCount >= 0 ? row.peerCount.toLocaleString() : '-'}</td>
+                                  <td className={`py-1 px-2 text-right font-mono ${row.difference > 0 ? 'text-green-600 dark:text-green-400' : row.difference < 0 ? 'text-red-600 dark:text-red-400' : ''}`}>
+                                    {row.difference > 0 ? '+' : ''}{row.difference}
+                                  </td>
+                                  <td className="py-1 pl-2 text-center">
+                                    {row.status === 'match' && <CheckCircle2 className="h-3 w-3 text-green-500 inline" />}
+                                    {row.status === 'local-ahead' && <ArrowUpRight className="h-3 w-3 text-blue-500 inline" />}
+                                    {row.status === 'peer-ahead' && <ArrowDownLeft className="h-3 w-3 text-orange-500 inline" />}
+                                    {row.status === 'error' && <XCircle className="h-3 w-3 text-red-500 inline" />}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        
+                        <div className="text-xs text-muted-foreground flex gap-4">
+                          <span><CheckCircle2 className="h-3 w-3 inline mr-1 text-green-500" />Match</span>
+                          <span><ArrowUpRight className="h-3 w-3 inline mr-1 text-blue-500" />Local ahead</span>
+                          <span><ArrowDownLeft className="h-3 w-3 inline mr-1 text-orange-500" />Peer ahead</span>
+                          <span><XCircle className="h-3 w-3 inline mr-1 text-red-500" />Error</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        Click "Compare Environments" to see side-by-side table counts
+                      </p>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
 
