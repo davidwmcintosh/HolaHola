@@ -25,7 +25,7 @@ import { createHash } from "crypto";
 import { createClient } from "@deepgram/sdk";
 import { getDeepgramLanguageCode, DeepgramIntelligence, DeepgramSentiment, DeepgramIntent, DeepgramEntity, DeepgramTopic, transcribeWithLiveAPI, TranscriptionResult } from "./deepgram-live-stt";
 import { analyzePronunciation, generateQuickCoaching, PronunciationCoaching } from "./live-pronunciation-coach";
-import { getGeminiStreamingService, SentenceChunk, ExtractedFunctionCall } from "./gemini-streaming";
+import { getGeminiStreamingService, SentenceChunk, ExtractedFunctionCall, ConversationHistoryEntry } from "./gemini-streaming";
 import { getCartesiaStreamingService } from "./cartesia-streaming";
 import { WebSocket as WS } from "ws";
 import {
@@ -670,7 +670,7 @@ export interface StreamingSession {
   tutorGender: 'male' | 'female';    // Current tutor gender for persona-aware responses
   tutorName: string;                 // Current tutor's first name (e.g., "Daniela", "Agustin")
   systemPrompt: string;
-  conversationHistory: Array<{ role: 'user' | 'model'; content: string }>;
+  conversationHistory: Array<ConversationHistoryEntry>;
   ws: WS;
   startTime: number;
   isActive: boolean;
@@ -691,6 +691,17 @@ export interface StreamingSession {
     targetRole?: 'tutor' | 'assistant'; // Optional: for assistant handoffs (practice partners)
   };
   previousTutorName?: string;       // Stored during handoff for natural intro by new tutor
+  /**
+   * Gemini 3 thought signatures from current turn's function calls
+   * MUST be passed back to API in subsequent requests for multi-step function calling
+   * @see https://docs.cloud.google.com/vertex-ai/generative-ai/docs/thought-signatures
+   */
+  currentTurnThoughtSignatures?: string[];
+  /**
+   * Function calls from current turn (for proper bundling of parallel function calls)
+   * Gemini 3 requires: all FCs + signatures, then all FRs together
+   */
+  currentTurnFunctionCalls?: ExtractedFunctionCall[];
   isLanguageSwitchHandoff?: boolean; // True when current handoff is a cross-language switch
   previousLanguage?: string;        // Previous language before cross-language switch
   switchTutorTriggered?: boolean;   // True when SWITCH_TUTOR detected - stops further sentence synthesis
@@ -1017,7 +1028,7 @@ export class StreamingVoiceOrchestrator {
     userId: number,
     config: ClientStartSessionMessage,
     systemPrompt: string,
-    conversationHistory: Array<{ role: 'user' | 'model'; content: string }>,
+    conversationHistory: Array<ConversationHistoryEntry>,
     voiceId?: string,
     isFounderMode: boolean = false,
     isRawHonestyMode: boolean = false,
@@ -1905,9 +1916,28 @@ Remember: David may reference things discussed in these recent text chats.
         userMessage: userMessageWithNote,
         enableFunctionCalling: true,  // Enable native Gemini 3 function calling
         onFunctionCall: async (functionCalls: ExtractedFunctionCall[]) => {
+          // Initialize thought signature tracking for this turn
+          if (!session.currentTurnThoughtSignatures) {
+            session.currentTurnThoughtSignatures = [];
+          }
+          if (!session.currentTurnFunctionCalls) {
+            session.currentTurnFunctionCalls = [];
+          }
+          
           // Route native function calls to command processing (fire-and-forget)
           for (const fn of functionCalls) {
             console.log(`[Native Function Call] ${fn.name}(${JSON.stringify(fn.args)})`);
+            
+            // GEMINI 3: Collect thought signatures for multi-step function calling
+            // These MUST be passed back in subsequent requests
+            if (fn.thoughtSignature) {
+              session.currentTurnThoughtSignatures.push(fn.thoughtSignature);
+              console.log(`[Thought Signature] Collected signature for ${fn.name} (${session.currentTurnThoughtSignatures.length} total)`);
+            }
+            
+            // Store function call for proper bundling
+            session.currentTurnFunctionCalls.push(fn);
+            
             // Map to legacy command processing (handled same as bracket commands)
             this.handleNativeFunctionCall(sessionId, session, fn).catch(err => {
               console.error(`[Native Function Call] Error handling ${fn.name}:`, err.message);
@@ -2690,7 +2720,47 @@ Remember: David may reference things discussed in these recent text chats.
       
       // Update conversation history
       session.conversationHistory.push({ role: 'user', content: transcript });
-      session.conversationHistory.push({ role: 'model', content: fullText.trim() });
+      
+      // GEMINI 3: Build model response with function calls + thought signatures if applicable
+      // This ensures multi-step function calling works correctly per docs
+      // @see https://docs.cloud.google.com/vertex-ai/generative-ai/docs/thought-signatures
+      if (session.currentTurnFunctionCalls && session.currentTurnFunctionCalls.length > 0) {
+        // Build parts array: function calls first (with signatures), then text
+        const modelParts: Array<{
+          text?: string;
+          functionCall?: { name: string; args: Record<string, unknown> };
+          thought_signature?: string;
+        }> = [];
+        
+        // Add function call parts with their thought signatures
+        for (const fc of session.currentTurnFunctionCalls) {
+          modelParts.push({
+            functionCall: { name: fc.name, args: fc.args },
+            thought_signature: fc.thoughtSignature,
+          });
+        }
+        
+        // Add text part for the spoken response
+        if (fullText.trim()) {
+          modelParts.push({ text: fullText.trim() });
+        }
+        
+        session.conversationHistory.push({
+          role: 'model',
+          parts: modelParts,
+          thoughtSignatures: session.currentTurnThoughtSignatures || [],
+        });
+        
+        const sigCount = session.currentTurnThoughtSignatures?.length || 0;
+        console.log(`[Conversation History] Saved model response with ${session.currentTurnFunctionCalls.length} function calls, ${sigCount} thought signatures`);
+        
+        // Clear turn-specific tracking
+        session.currentTurnFunctionCalls = [];
+        session.currentTurnThoughtSignatures = [];
+      } else {
+        // Simple text response (no function calls)
+        session.conversationHistory.push({ role: 'model', content: fullText.trim() });
+      }
       
       // FALLBACK FOR SILENT RESPONSES: If all content was stripped (thinking/internal tags)
       // Send a brief acknowledgment so Daniela doesn't appear unresponsive
