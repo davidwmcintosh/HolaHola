@@ -38,7 +38,7 @@ const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production'
 
 // Version identifier to verify which code is running on production
 // Increment this when making sync-related changes to verify deployment
-const SYNC_BRIDGE_CODE_VERSION = "2025-01-07-v28-fix-push-completed-batches";
+const SYNC_BRIDGE_CODE_VERSION = "2025-01-08-v31-bidirectional-class-sync";
 
 // Capability negotiation: List all batch types this version can import/export
 // When adding new batches, add them here so peers can gracefully handle version mismatches
@@ -2690,7 +2690,7 @@ class SyncBridgeService {
       'wrenInsights', 'wrenProactiveTriggers', 'architecturalDecisionRecords',
       'wrenMistakes', 'wrenLessons', 'wrenCommitments',
       'danielaRecommendations', 'danielaFeatureFeedback',
-      'betaTesters', 'betaTesterCredits', 'betaTesterEnrollments',
+      'betaTesters', 'betaTesterCredits', 'betaTesterEnrollments', 'betaTesterClasses',
       // v19: Prod → dev pull batches
       'betaUsage', 'aggregateAnalytics',
       // v20: Sofia telemetry for cross-env debugging
@@ -3124,11 +3124,13 @@ class SyncBridgeService {
       const betaResult = await this.importBetaTesters(
         bundle.betaTesters, 
         bundle.betaTesterCredits || [],
-        bundle.betaTesterEnrollments || []
+        bundle.betaTesterEnrollments || [],
+        bundle.betaTesterClasses || []
       );
       counts['betaTesters'] = betaResult.usersImported;
       counts['betaTesterCredits'] = betaResult.creditsImported;
       counts['betaTesterEnrollments'] = betaResult.enrollmentsCreated;
+      counts['betaTesterClasses'] = betaResult.classesImported;
       if (betaResult.errors.length) {
         errors.push(...betaResult.errors);
       }
@@ -5587,11 +5589,59 @@ class SyncBridgeService {
    * If user doesn't exist, create user and add credits
    * v23: Now supports direct enrollment sync (for Replit auth users who already exist)
    */
-  async importBetaTesters(testers: any[], credits: any[], directEnrollments: any[] = []): Promise<{ usersImported: number; creditsImported: number; enrollmentsCreated: number; errors: string[] }> {
+  async importBetaTesters(testers: any[], credits: any[], directEnrollments: any[] = [], classes: any[] = []): Promise<{ usersImported: number; creditsImported: number; enrollmentsCreated: number; classesImported: number; errors: string[] }> {
     let usersImported = 0;
     let creditsImported = 0;
     let enrollmentsCreated = 0;
+    let classesImported = 0;
     const errors: string[] = [];
+    
+    // v31: Import classes FIRST before users (classes are FK targets for enrollments)
+    if (classes.length > 0) {
+      console.log(`[SYNC-BRIDGE] Importing ${classes.length} beta tester classes...`);
+      for (const cls of classes) {
+        try {
+          // UPSERT class by ID
+          const existing = await db.select().from(teacherClasses).where(eq(teacherClasses.id, cls.id)).limit(1);
+          if (existing.length > 0) {
+            // Update existing class
+            await db.update(teacherClasses).set({
+              name: cls.name,
+              description: cls.description,
+              language: cls.language,
+              difficultyLevel: cls.difficultyLevel,
+              curriculumTemplateId: cls.curriculumTemplateId,
+              isActive: cls.isActive ?? true,
+              isPublicCatalogue: cls.isPublicCatalogue ?? false,
+              maxEnrollment: cls.maxEnrollment,
+              currentEnrollment: cls.currentEnrollment,
+              updatedAt: new Date(),
+            }).where(eq(teacherClasses.id, cls.id));
+          } else {
+            // Insert new class
+            await db.insert(teacherClasses).values({
+              id: cls.id,
+              teacherId: cls.teacherId,
+              name: cls.name,
+              description: cls.description,
+              language: cls.language,
+              difficultyLevel: cls.difficultyLevel,
+              curriculumTemplateId: cls.curriculumTemplateId,
+              isActive: cls.isActive ?? true,
+              isPublicCatalogue: cls.isPublicCatalogue ?? false,
+              maxEnrollment: cls.maxEnrollment,
+              currentEnrollment: cls.currentEnrollment || 0,
+              createdAt: cls.createdAt ? new Date(cls.createdAt) : new Date(),
+              updatedAt: new Date(),
+            });
+          }
+          classesImported++;
+        } catch (err: any) {
+          errors.push(`Class ${cls.id}: ${err.message}`);
+        }
+      }
+      console.log(`[SYNC-BRIDGE] Imported ${classesImported} classes`);
+    }
     
     // Build maps for quick lookup
     const creditsByUserId = new Map<string, any[]>();
@@ -5745,7 +5795,7 @@ class SyncBridgeService {
     }
     
     console.log(`[SYNC-BRIDGE] Beta testers: ${usersImported} users, ${creditsImported} credits, ${enrollmentsCreated} enrollments`);
-    return { usersImported, creditsImported, enrollmentsCreated, errors };
+    return { usersImported, creditsImported, enrollmentsCreated, classesImported, errors };
   }
 
   /**
