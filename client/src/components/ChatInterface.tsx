@@ -46,6 +46,8 @@ export function ChatInterface({ conversationId, setConversationId, setCurrentCon
   const previousAssistantCountRef = useRef(0);
   const lastStreakRecordDateRef = useRef<string | null>(null);
   const sendingRef = useRef(false); // Prevent double-submissions
+  const initialLoadRef = useRef(true); // Track initial load to prevent auto-scroll on mount
+  const lastMessageCountRef = useRef(0); // Track message count to detect new messages
   const { recordPractice } = useStreak();
   const { toast } = useToast();
 
@@ -188,16 +190,31 @@ export function ChatInterface({ conversationId, setConversationId, setCurrentCon
     previousAssistantCountRef.current = assistantMessageCount;
   }, [messages, waitingForResponse]);
 
-  // Auto-scroll to bottom when new messages arrive
+  // Auto-scroll to bottom when NEW messages arrive (not on initial load)
   useEffect(() => {
-    if (scrollViewportRef.current && messagesEndRef.current) {
-      // Smooth scroll the viewport to the bottom
-      const viewport = scrollViewportRef.current;
-      viewport.scrollTo({
-        top: viewport.scrollHeight,
-        behavior: "smooth"
-      });
+    const currentMessageCount = messages.length;
+    
+    // Skip scroll on initial load - just record the count
+    if (initialLoadRef.current) {
+      if (currentMessageCount > 0) {
+        initialLoadRef.current = false;
+        lastMessageCountRef.current = currentMessageCount;
+      }
+      return;
     }
+    
+    // Only scroll if message count increased (new message arrived)
+    if (currentMessageCount > lastMessageCountRef.current) {
+      if (scrollViewportRef.current) {
+        const viewport = scrollViewportRef.current;
+        viewport.scrollTo({
+          top: viewport.scrollHeight,
+          behavior: "smooth"
+        });
+      }
+    }
+    
+    lastMessageCountRef.current = currentMessageCount;
   }, [messages]);
 
   const handleSend = async () => {
