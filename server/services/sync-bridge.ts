@@ -583,14 +583,12 @@ class SyncBridgeService {
         return result;
       }
       
-      // Call peer's verification endpoint
+      // Call peer's verification endpoint with proper HMAC authentication (v30)
+      const verifyPayload = { tables: tablesToVerify };
       const response = await fetch(`${peerUrl}/api/sync/verify-counts`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Sync-Secret': process.env.SYNC_SHARED_SECRET || '',
-        },
-        body: JSON.stringify({ tables: tablesToVerify }),
+        headers: createSyncHeaders(verifyPayload),
+        body: JSON.stringify(verifyPayload),
       });
       
       if (!response.ok) {
