@@ -4,7 +4,10 @@ import {
   users, tutorVoices, type SyncRun,
   // Curriculum tables
   curriculumPaths, curriculumUnits, curriculumLessons, topics,
-  curriculumDrillItems, grammarExercises, grammarCompetencies, canDoStatements, culturalTips, lessonCanDoStatements,
+  curriculumDrillItems, grammarExercises, grammarCompetencies, canDoStatements, culturalTips, 
+  lessonCanDoStatements, lessonCulturalTips, lessonVisualAids, culturalTipMedia,
+  // Pricing tables
+  classHourPackages,
   // Neural network expansion tables (for prod-content-growth pull)
   languageIdioms, culturalNuances, learnerErrorPatterns, dialectVariations, linguisticBridges,
   // Best practices for verification
@@ -156,6 +159,10 @@ export interface SyncBundle {
   canDoStatements: any[];
   culturalTips: any[];
   lessonCanDoStatements: any[];  // v33: Links lessons to ACTFL Can-Do statements (fluency wiring)
+  lessonCulturalTips: any[];     // v33: Links lessons to cultural tips
+  lessonVisualAids: any[];       // v33: Visual aids per lesson
+  culturalTipMedia: any[];       // v33: Media attachments for cultural tips
+  classHourPackages: any[];      // v33: Pricing packages (bidirectional)
   // Wren intelligence
   wrenInsights: any[];
   wrenProactiveTriggers: any[];
@@ -904,7 +911,7 @@ class SyncBridgeService {
       }
     }
     
-    // BATCH: product-config - Tutor voices + public catalogue classes (v33)
+    // BATCH: product-config - Tutor voices + public catalogue classes + pricing packages (v33)
     if (!batchType || batchType === 'product-config') {
       try {
         const voices = await this.exportTutorVoices();
@@ -916,13 +923,18 @@ class SyncBridgeService {
           eq(teacherClasses.isPublicCatalogue, true)
         );
         bundle.catalogueClasses = catalogueClasses;
-        console.log(`[SYNC-BRIDGE] product-config: ${voices.length} voices, ${catalogueClasses.length} catalogue classes`);
+        
+        // v33: Include pricing packages (bidirectional sync)
+        const hourPackages = await db.select().from(classHourPackages);
+        bundle.classHourPackages = hourPackages;
+        console.log(`[SYNC-BRIDGE] product-config: ${voices.length} voices, ${catalogueClasses.length} catalogue classes, ${hourPackages.length} hour packages`);
       } catch (err: any) {
         const errMsg = `product-config export failed: ${err.message}`;
         console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
         batchErrors.push(errMsg);
         bundle.tutorVoices = [];
         bundle.catalogueClasses = [];
+        bundle.classHourPackages = [];
       }
     }
     
@@ -968,7 +980,14 @@ class SyncBridgeService {
         bundle.canDoStatements = canDo;
         bundle.culturalTips = cultural;
         bundle.lessonCanDoStatements = lessonCanDo;
-        console.log(`[SYNC-BRIDGE] curriculum-drills: ${drills.length} drills, ${grammar.length} grammar, ${grammarComp.length} grammar-comp, ${canDo.length} can-do, ${cultural.length} cultural, ${lessonCanDo.length} lesson-can-do links`);
+        // v33: Lesson-level attachments (must export after parent tables for FK ordering)
+        const lessonCultural = await db.select().from(lessonCulturalTips);
+        const lessonVisual = await db.select().from(lessonVisualAids);
+        const culturalMedia = await db.select().from(culturalTipMedia);
+        bundle.lessonCulturalTips = lessonCultural;
+        bundle.lessonVisualAids = lessonVisual;
+        bundle.culturalTipMedia = culturalMedia;
+        console.log(`[SYNC-BRIDGE] curriculum-drills: ${drills.length} drills, ${grammar.length} grammar, ${grammarComp.length} grammar-comp, ${canDo.length} can-do, ${cultural.length} cultural, ${lessonCanDo.length} lesson-can-do, ${lessonCultural.length} lesson-cultural, ${lessonVisual.length} lesson-visual, ${culturalMedia.length} cultural-media`);
       } catch (err: any) {
         const errMsg = `curriculum-drills export failed: ${err.message}`;
         console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
@@ -979,6 +998,9 @@ class SyncBridgeService {
         bundle.canDoStatements = [];
         bundle.culturalTips = [];
         bundle.lessonCanDoStatements = [];
+        bundle.lessonCulturalTips = [];
+        bundle.lessonVisualAids = [];
+        bundle.culturalTipMedia = [];
       }
     }
     
@@ -2778,7 +2800,9 @@ class SyncBridgeService {
       'danielaGrowthMemories', 'tutorVoices', 'catalogueClasses',
       // v18: New sync batches
       'curriculumPaths', 'curriculumUnits', 'curriculumLessons', 'topics',
-      'curriculumDrillItems', 'grammarExercises', 'grammarCompetencies', 'canDoStatements', 'culturalTips', 'lessonCanDoStatements',
+      'curriculumDrillItems', 'grammarExercises', 'grammarCompetencies', 'canDoStatements', 'culturalTips', 
+      'lessonCanDoStatements', 'lessonCulturalTips', 'lessonVisualAids', 'culturalTipMedia',
+      'classHourPackages',
       'wrenInsights', 'wrenProactiveTriggers', 'architecturalDecisionRecords',
       'wrenMistakes', 'wrenLessons', 'wrenCommitments',
       'danielaRecommendations', 'danielaFeatureFeedback',
@@ -3108,6 +3132,30 @@ class SyncBridgeService {
       console.log(`[SYNC-BRIDGE] Importing ${bundle.lessonCanDoStatements.length} Lesson Can-Do Links...`);
       await importWithCount('lessonCanDoStatements', bundle.lessonCanDoStatements,
         (link) => this.importLessonCanDoStatement(link));
+    }
+    // v33: Lesson-level cultural tips (FK: lessonId, culturalTipId)
+    if (bundle.lessonCulturalTips?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.lessonCulturalTips.length} Lesson Cultural Tips...`);
+      await importWithCount('lessonCulturalTips', bundle.lessonCulturalTips,
+        (link) => this.importLessonCulturalTip(link));
+    }
+    // v33: Lesson visual aids (FK: lessonId)
+    if (bundle.lessonVisualAids?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.lessonVisualAids.length} Lesson Visual Aids...`);
+      await importWithCount('lessonVisualAids', bundle.lessonVisualAids,
+        (aid) => this.importLessonVisualAid(aid));
+    }
+    // v33: Cultural tip media (FK: culturalTipId)
+    if (bundle.culturalTipMedia?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.culturalTipMedia.length} Cultural Tip Media...`);
+      await importWithCount('culturalTipMedia', bundle.culturalTipMedia,
+        (media) => this.importCulturalTipMedia(media));
+    }
+    // v33: Class hour packages (pricing)
+    if (bundle.classHourPackages?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.classHourPackages.length} Class Hour Packages...`);
+      await importWithCount('classHourPackages', bundle.classHourPackages,
+        (pkg) => this.importClassHourPackage(pkg));
     }
     
     // v18: Wren Intelligence
@@ -5778,6 +5826,147 @@ class SyncBridgeService {
       return { success: true };
     } catch (err: any) {
       // Skip duplicates silently (FK constraint or unique constraint)
+      if (err.message?.includes('duplicate') || err.message?.includes('violates')) {
+        return { success: true };
+      }
+      return { success: false, error: err.message };
+    }
+  }
+  
+  /**
+   * v33: Import lesson-to-cultural-tip link
+   */
+  async importLessonCulturalTip(link: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const existing = await db.select()
+        .from(lessonCulturalTips)
+        .where(eq(lessonCulturalTips.id, link.id))
+        .limit(1);
+      
+      if (existing.length === 0) {
+        await db.insert(lessonCulturalTips).values({
+          id: link.id,
+          lessonId: link.lessonId,
+          culturalTipId: link.culturalTipId,
+        });
+      }
+      return { success: true };
+    } catch (err: any) {
+      if (err.message?.includes('duplicate') || err.message?.includes('violates')) {
+        return { success: true };
+      }
+      return { success: false, error: err.message };
+    }
+  }
+  
+  /**
+   * v33: Import lesson visual aid
+   */
+  async importLessonVisualAid(aid: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const existing = await db.select()
+        .from(lessonVisualAids)
+        .where(eq(lessonVisualAids.id, aid.id))
+        .limit(1);
+      
+      if (existing.length > 0) {
+        await db.update(lessonVisualAids).set({
+          lessonId: aid.lessonId,
+          mediaFileId: aid.mediaFileId,
+          title: aid.title,
+          description: aid.description,
+          displayOrder: aid.displayOrder,
+          isRequired: aid.isRequired,
+        }).where(eq(lessonVisualAids.id, aid.id));
+      } else {
+        await db.insert(lessonVisualAids).values({
+          ...aid,
+          createdAt: new Date(aid.createdAt || new Date()),
+        });
+      }
+      return { success: true };
+    } catch (err: any) {
+      if (err.message?.includes('duplicate') || err.message?.includes('violates')) {
+        return { success: true };
+      }
+      return { success: false, error: err.message };
+    }
+  }
+  
+  /**
+   * v33: Import cultural tip media
+   */
+  async importCulturalTipMedia(media: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const existing = await db.select()
+        .from(culturalTipMedia)
+        .where(eq(culturalTipMedia.id, media.id))
+        .limit(1);
+      
+      if (existing.length > 0) {
+        await db.update(culturalTipMedia).set({
+          culturalTipId: media.culturalTipId,
+          language: media.language,
+          mediaFileId: media.mediaFileId,
+          title: media.title,
+          caption: media.caption,
+          category: media.category,
+          region: media.region,
+          tags: media.tags,
+          displayOrder: media.displayOrder,
+          isFeatured: media.isFeatured,
+        }).where(eq(culturalTipMedia.id, media.id));
+      } else {
+        await db.insert(culturalTipMedia).values({
+          ...media,
+          createdAt: new Date(media.createdAt || new Date()),
+        });
+      }
+      return { success: true };
+    } catch (err: any) {
+      if (err.message?.includes('duplicate') || err.message?.includes('violates')) {
+        return { success: true };
+      }
+      return { success: false, error: err.message };
+    }
+  }
+  
+  /**
+   * v33: Import class hour package (pricing)
+   */
+  async importClassHourPackage(pkg: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const existing = await db.select()
+        .from(classHourPackages)
+        .where(eq(classHourPackages.id, pkg.id))
+        .limit(1);
+      
+      if (existing.length > 0) {
+        await db.update(classHourPackages).set({
+          name: pkg.name,
+          hoursPerStudent: pkg.hoursPerStudent,
+          totalPurchasedHours: pkg.totalPurchasedHours,
+          usedHours: pkg.usedHours,
+          pricePerStudent: pkg.pricePerStudent,
+          purchasedAt: pkg.purchasedAt ? new Date(pkg.purchasedAt) : null,
+          expiresAt: pkg.expiresAt ? new Date(pkg.expiresAt) : null,
+          purchaserId: pkg.purchaserId,
+          status: pkg.status,
+          stripeSubscriptionId: pkg.stripeSubscriptionId,
+          metadata: pkg.metadata,
+          updatedAt: new Date(),
+        }).where(eq(classHourPackages.id, pkg.id));
+      } else {
+        await db.insert(classHourPackages).values({
+          ...pkg,
+          purchasedAt: pkg.purchasedAt ? new Date(pkg.purchasedAt) : new Date(),
+          expiresAt: pkg.expiresAt ? new Date(pkg.expiresAt) : null,
+          createdAt: new Date(pkg.createdAt || new Date()),
+          updatedAt: new Date(pkg.updatedAt || new Date()),
+        });
+      }
+      return { success: true };
+    } catch (err: any) {
       if (err.message?.includes('duplicate') || err.message?.includes('violates')) {
         return { success: true };
       }
