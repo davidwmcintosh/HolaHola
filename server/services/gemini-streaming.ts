@@ -1124,6 +1124,91 @@ Rules:
       return { synonyms: [], antonyms: [], collocations: [], wordFamily: [] };
     }
   }
+
+  /**
+   * Generate a quick, contextual micro-acknowledgment (no thinking mode)
+   * Used for instant response while full thinking response is generated in parallel
+   * 
+   * Design: Natural, varied responses that feel like the START of Daniela's thought,
+   * not a placeholder "please wait". Should flow seamlessly into the full response.
+   * 
+   * @param userInput - What the user just said
+   * @param tutorName - Tutor's name for personality
+   * @param language - Target language for multilingual responses
+   * @param context - Brief context about the conversation mood/topic
+   * @returns Quick 1-2 sentence contextual acknowledgment
+   */
+  async generateMicroAck(params: {
+    userInput: string;
+    tutorName: string;
+    language: string;
+    isFounderMode?: boolean;
+    recentContext?: string;
+  }): Promise<{ text: string; latencyMs: number }> {
+    const start = Date.now();
+    
+    const systemPrompt = `You are ${params.tutorName}, a warm and expressive language tutor. Generate a VERY short (1-2 sentences max) natural, contextual response to what the user just said.
+
+CRITICAL RULES:
+- This is the START of your response, not a placeholder
+- React naturally to their specific words/emotion
+- Vary your reactions: laugh, express curiosity, show empathy, jump right in
+- NEVER use filler like "let me think" or "good question"
+- Keep it under 15 words
+- Match their energy level
+- ${params.isFounderMode ? 'This is David, your creator - be warm and genuine' : 'Be encouraging and natural'}
+
+EXAMPLES of good micro-responses:
+- If they said something funny: "Ha! Okay that made me laugh."
+- If they shared something personal: "Oh wow, I didn't know that about you."
+- If they asked a language question: "Ooh, that's a fun one..."
+- If they're struggling: "Hey, it's okay."
+- If they're excited: "I love that energy!"
+
+DO NOT:
+- Say "Great question!" or "Let me think about that"
+- Use any teaching phrases yet
+- Be robotic or canned
+- Repeat their words back`;
+
+    const userMessage = `User just said: "${params.userInput}"${params.recentContext ? `\nRecent context: ${params.recentContext}` : ''}
+
+Generate your natural micro-reaction (under 15 words):`;
+
+    try {
+      // Use fast model without thinking for speed
+      const result = await this.client.models.generateContent({
+        model: 'gemini-2.0-flash-exp', // Fast model without thinking
+        contents: [
+          { role: 'user', parts: [{ text: systemPrompt + '\n\n' + userMessage }] }
+        ],
+        config: {
+          temperature: 0.9, // High temp for variety
+          maxOutputTokens: 50, // Very short response
+        },
+      });
+
+      const text = result.text?.trim() || '';
+      const latencyMs = Date.now() - start;
+      
+      console.log(`[MicroAck] Generated in ${latencyMs}ms: "${text}"`);
+      
+      // Validate it's short enough (under 100 chars for quick TTS)
+      if (text.length > 100) {
+        // Truncate at sentence boundary
+        const shortened = text.split(/[.!?]/)[0] + '.';
+        console.log(`[MicroAck] Truncated to: "${shortened}"`);
+        return { text: shortened, latencyMs };
+      }
+      
+      return { text, latencyMs };
+      
+    } catch (error: any) {
+      console.error(`[MicroAck] Error:`, error.message);
+      // Return empty on error - will fall through to regular response
+      return { text: '', latencyMs: Date.now() - start };
+    }
+  }
 }
 
 // Singleton instance
