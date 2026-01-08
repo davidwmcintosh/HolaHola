@@ -1035,25 +1035,50 @@ class SyncBridgeService {
           enrollments = await db.select().from(classEnrollments).where(inArray(classEnrollments.studentId, testerIds));
         }
         
-        // v27: Also export teacherClasses that beta testers are enrolled in OR public classes
-        // This ensures production has the classes needed for enrollments to work
+        // v30: Include classes that beta testers:
+        // 1. Are enrolled in as students
+        // 2. OWN as teachers (teacherClasses.teacherId)
+        // 3. Public catalogue classes
         const enrolledClassIds = [...new Set(enrollments.map(e => e.classId))];
+        const classIdSet = new Set<number>();
         let classes: any[] = [];
         
-        // Get all public classes plus any specific enrolled classes
+        // Get all public classes
         const publicClasses = await db.select().from(teacherClasses).where(
           eq(teacherClasses.isPublicCatalogue, true)
         );
-        const publicClassIds = new Set(publicClasses.map(c => c.id));
+        for (const c of publicClasses) {
+          if (!classIdSet.has(c.id)) {
+            classIdSet.add(c.id);
+            classes.push(c);
+          }
+        }
         
-        // Add any non-public classes that testers are enrolled in
+        // Add classes that beta testers OWN (they are the teacher)
+        if (testerIds.length > 0) {
+          const ownedClasses = await db.select().from(teacherClasses).where(
+            inArray(teacherClasses.teacherId, testerIds)
+          );
+          for (const c of ownedClasses) {
+            if (!classIdSet.has(c.id)) {
+              classIdSet.add(c.id);
+              classes.push(c);
+            }
+          }
+          console.log(`[SYNC-BRIDGE v30] beta-testers: found ${ownedClasses.length} classes owned by testers`);
+        }
+        
+        // Add classes that testers are enrolled in
         if (enrolledClassIds.length > 0) {
           const enrolledClasses = await db.select().from(teacherClasses).where(
             inArray(teacherClasses.id, enrolledClassIds)
           );
-          classes = [...publicClasses, ...enrolledClasses.filter(c => !publicClassIds.has(c.id))];
-        } else {
-          classes = publicClasses;
+          for (const c of enrolledClasses) {
+            if (!classIdSet.has(c.id)) {
+              classIdSet.add(c.id);
+              classes.push(c);
+            }
+          }
         }
         
         bundle.betaTesters = testers;
