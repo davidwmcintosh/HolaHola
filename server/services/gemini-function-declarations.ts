@@ -298,11 +298,20 @@ export interface ExtractedFunctionCall {
   name: string;
   args: Record<string, unknown>;
   legacyType: string;
+  /** Gemini 3 thought signature - MUST be passed back for multi-step function calling */
+  thoughtSignature?: string;
 }
 
 /**
  * Extract function calls from a streaming chunk
  * Gemini 3 provides function_call in content parts
+ * 
+ * IMPORTANT: Gemini 3 includes thought_signature on function call parts.
+ * For parallel function calls, only the FIRST functionCall part has the signature.
+ * For sequential function calls (multi-step), EACH step has a signature.
+ * These signatures MUST be passed back in subsequent requests.
+ * 
+ * @see https://docs.cloud.google.com/vertex-ai/generative-ai/docs/thought-signatures
  */
 export function extractFunctionCalls(chunk: any): ExtractedFunctionCall[] {
   const calls: ExtractedFunctionCall[] = [];
@@ -315,12 +324,27 @@ export function extractFunctionCalls(chunk: any): ExtractedFunctionCall[] {
         const name = part.functionCall.name;
         const args = part.functionCall.args || {};
         
+        // Extract thought_signature from part if present (Gemini 3+)
+        // The signature may be at part level or nested in metadata
+        const thoughtSignature = part.thought_signature || 
+                                  part.thoughtSignature || 
+                                  part.metadata?.thought_signature ||
+                                  part.metadata?.thoughtSignature ||
+                                  undefined;
+        
         calls.push({
           name,
           args,
           legacyType: FUNCTION_TO_COMMAND_MAP[name] || name.toUpperCase(),
+          thoughtSignature,
         });
       }
+    }
+    
+    // Log if we found signatures for debugging
+    const withSignatures = calls.filter(c => c.thoughtSignature);
+    if (withSignatures.length > 0) {
+      console.log(`[FunctionDeclarations] Extracted ${calls.length} function calls, ${withSignatures.length} with thought signatures`);
     }
   } catch (err) {
     console.error('[FunctionDeclarations] Error extracting function calls:', err);

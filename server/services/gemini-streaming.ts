@@ -180,11 +180,42 @@ export type OnFunctionCallCallback = (calls: ExtractedFunctionCall[]) => Promise
 export type ThinkingLevel = 'MINIMAL' | 'MEDIUM' | 'HIGH';
 
 /**
+ * Gemini 3 conversation history entry with support for thought signatures
+ * 
+ * Simple format (backwards compatible):
+ *   { role: 'user' | 'model', content: 'text' }
+ * 
+ * Rich format (for function calls with thought signatures):
+ *   { role: 'model', parts: [{ functionCall: {...}, thought_signature: '...' }] }
+ * 
+ * @see https://docs.cloud.google.com/vertex-ai/generative-ai/docs/thought-signatures
+ */
+export interface ConversationHistoryEntry {
+  role: 'user' | 'model' | 'tool';
+  content?: string;  // Simple text content
+  /** 
+   * Gemini-native parts array for rich content (function calls, responses, signatures)
+   * If provided, takes precedence over content field
+   */
+  parts?: Array<{
+    text?: string;
+    functionCall?: { name: string; args: Record<string, unknown> };
+    functionResponse?: { name: string; response: Record<string, unknown> };
+    thought_signature?: string;  // Gemini 3 thought signature - MUST pass back
+  }>;
+  /**
+   * Accumulated thought signatures from this turn (for multi-step function calling)
+   * Gemini 3 requires these to be passed back in subsequent requests
+   */
+  thoughtSignatures?: string[];
+}
+
+/**
  * Configuration for streaming generation
  */
 export interface StreamingGenerationConfig {
   systemPrompt: string;
-  conversationHistory: Array<{ role: 'user' | 'model'; content: string }>;
+  conversationHistory: Array<ConversationHistoryEntry>;
   userMessage: string;
   model?: string;  // Default: gemini-3-flash-preview
   temperature?: number;
@@ -557,10 +588,44 @@ export class GeminiStreamingService {
     console.log(`[Gemini Streaming] Starting with model: ${model}, thinking: ${thinkingLevel}, tools: ${enableFunctionCalling}, caching: ${enableContextCaching}`);
     
     // Build conversation contents in Gemini format
-    const contents: Content[] = conversationHistory.map(msg => ({
-      role: msg.role === 'user' ? 'user' : 'model',
-      parts: [{ text: msg.content }] as Part[],
-    }));
+    // Supports both simple text format and rich parts format (for function calls with thought signatures)
+    const contents: Content[] = conversationHistory.map(msg => {
+      // Rich format: use parts directly if provided
+      if (msg.parts && msg.parts.length > 0) {
+        // Convert our internal parts format to Gemini SDK format
+        const geminParts: Part[] = msg.parts.map(part => {
+          // Build the part object for Gemini SDK
+          const geminiPart: any = {};
+          
+          if (part.text) {
+            geminiPart.text = part.text;
+          }
+          if (part.functionCall) {
+            geminiPart.functionCall = part.functionCall;
+          }
+          if (part.functionResponse) {
+            geminiPart.functionResponse = part.functionResponse;
+          }
+          // CRITICAL: Include thought_signature for Gemini 3 multi-step function calling
+          if (part.thought_signature) {
+            geminiPart.thought_signature = part.thought_signature;
+          }
+          
+          return geminiPart as Part;
+        });
+        
+        return {
+          role: msg.role === 'tool' ? 'tool' : (msg.role === 'user' ? 'user' : 'model'),
+          parts: geminParts,
+        } as Content;
+      }
+      
+      // Simple format: wrap content in text part (backwards compatible)
+      return {
+        role: msg.role === 'user' ? 'user' : 'model',
+        parts: [{ text: msg.content || '' }] as Part[],
+      };
+    });
     
     // Add user's new message
     contents.push({
