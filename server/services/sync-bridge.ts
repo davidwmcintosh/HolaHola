@@ -5604,35 +5604,40 @@ class SyncBridgeService {
           // UPSERT class by ID
           const existing = await db.select().from(teacherClasses).where(eq(teacherClasses.id, cls.id)).limit(1);
           if (existing.length > 0) {
-            // Update existing class
+            // Update existing class - only update fields that exist in schema
             await db.update(teacherClasses).set({
               name: cls.name,
               description: cls.description,
               language: cls.language,
-              difficultyLevel: cls.difficultyLevel,
-              curriculumTemplateId: cls.curriculumTemplateId,
+              classLevel: cls.classLevel ?? cls.difficultyLevel, // Support legacy field name
+              curriculumPathId: cls.curriculumPathId ?? cls.curriculumTemplateId, // Support legacy field name
               isActive: cls.isActive ?? true,
               isPublicCatalogue: cls.isPublicCatalogue ?? false,
-              maxEnrollment: cls.maxEnrollment,
-              currentEnrollment: cls.currentEnrollment,
-              updatedAt: new Date(),
+              expectedActflMin: cls.expectedActflMin,
+              targetActflLevel: cls.targetActflLevel,
+              classTypeId: cls.classTypeId,
+              isFeatured: cls.isFeatured,
+              featuredOrder: cls.featuredOrder,
             }).where(eq(teacherClasses.id, cls.id));
           } else {
-            // Insert new class
+            // Insert new class - generate joinCode if not provided
+            const joinCode = cls.joinCode || Math.random().toString(36).substring(2, 8).toUpperCase();
             await db.insert(teacherClasses).values({
               id: cls.id,
               teacherId: cls.teacherId,
               name: cls.name,
               description: cls.description,
               language: cls.language,
-              difficultyLevel: cls.difficultyLevel,
-              curriculumTemplateId: cls.curriculumTemplateId,
+              classLevel: cls.classLevel ?? cls.difficultyLevel,
+              curriculumPathId: cls.curriculumPathId ?? cls.curriculumTemplateId,
+              joinCode: joinCode,
               isActive: cls.isActive ?? true,
               isPublicCatalogue: cls.isPublicCatalogue ?? false,
-              maxEnrollment: cls.maxEnrollment,
-              currentEnrollment: cls.currentEnrollment || 0,
-              createdAt: cls.createdAt ? new Date(cls.createdAt) : new Date(),
-              updatedAt: new Date(),
+              expectedActflMin: cls.expectedActflMin,
+              targetActflLevel: cls.targetActflLevel,
+              classTypeId: cls.classTypeId,
+              isFeatured: cls.isFeatured,
+              featuredOrder: cls.featuredOrder,
             });
           }
           classesImported++;
