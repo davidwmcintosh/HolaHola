@@ -4,7 +4,7 @@ import {
   users, tutorVoices, type SyncRun,
   // Curriculum tables
   curriculumPaths, curriculumUnits, curriculumLessons, topics,
-  curriculumDrillItems, grammarExercises, canDoStatements, culturalTips,
+  curriculumDrillItems, grammarExercises, canDoStatements, culturalTips, lessonCanDoStatements,
   // Neural network expansion tables (for prod-content-growth pull)
   languageIdioms, culturalNuances, learnerErrorPatterns, dialectVariations, linguisticBridges,
   // Best practices for verification
@@ -154,6 +154,7 @@ export interface SyncBundle {
   grammarExercises: any[];
   canDoStatements: any[];
   culturalTips: any[];
+  lessonCanDoStatements: any[];  // v33: Links lessons to ACTFL Can-Do statements (fluency wiring)
   // Wren intelligence
   wrenInsights: any[];
   wrenProactiveTriggers: any[];
@@ -948,19 +949,22 @@ class SyncBridgeService {
       }
     }
     
-    // BATCH: curriculum-drills - Drill items, grammar exercises, can-do statements, cultural tips
+    // BATCH: curriculum-drills - Drill items, grammar exercises, can-do statements, cultural tips, lesson-can-do links
     if (!batchType || batchType === 'curriculum-drills') {
       try {
         const drills = await db.select().from(curriculumDrillItems);
         const grammar = await db.select().from(grammarExercises);
         const canDo = await db.select().from(canDoStatements);
         const cultural = await db.select().from(culturalTips);
+        // v33: Include lesson-to-CanDo links for fluency wiring
+        const lessonCanDo = await db.select().from(lessonCanDoStatements);
         
         bundle.curriculumDrillItems = drills;
         bundle.grammarExercises = grammar;
         bundle.canDoStatements = canDo;
         bundle.culturalTips = cultural;
-        console.log(`[SYNC-BRIDGE] curriculum-drills: ${drills.length} drills, ${grammar.length} grammar, ${canDo.length} can-do, ${cultural.length} cultural`);
+        bundle.lessonCanDoStatements = lessonCanDo;
+        console.log(`[SYNC-BRIDGE] curriculum-drills: ${drills.length} drills, ${grammar.length} grammar, ${canDo.length} can-do, ${cultural.length} cultural, ${lessonCanDo.length} lesson-can-do links`);
       } catch (err: any) {
         const errMsg = `curriculum-drills export failed: ${err.message}`;
         console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
@@ -969,6 +973,7 @@ class SyncBridgeService {
         bundle.grammarExercises = [];
         bundle.canDoStatements = [];
         bundle.culturalTips = [];
+        bundle.lessonCanDoStatements = [];
       }
     }
     
@@ -2687,46 +2692,62 @@ class SyncBridgeService {
    */
   async importCatalogueClass(cls: any): Promise<{ success: boolean }> {
     try {
-      // Upsert by id - if class exists, update it; otherwise insert
-      await db
-        .insert(teacherClasses)
-        .values({
-          id: cls.id,
-          teacherId: cls.teacherId,
-          name: cls.name,
-          description: cls.description,
-          language: cls.language,
-          classLevel: cls.classLevel ?? cls.difficultyLevel,
-          curriculumPathId: cls.curriculumPathId ?? cls.curriculumTemplateId,
-          syllabusId: cls.syllabusId,
-          joinCode: cls.joinCode || `CAT-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
-          isActive: cls.isActive ?? true,
-          isPublicCatalogue: true, // Always set true since we only sync catalogue classes
-          classTypeId: cls.classTypeId,
-          maxStudents: cls.maxStudents,
-          enrollmentStart: cls.enrollmentStart ? new Date(cls.enrollmentStart) : null,
-          enrollmentEnd: cls.enrollmentEnd ? new Date(cls.enrollmentEnd) : null,
-          createdAt: cls.createdAt ? new Date(cls.createdAt) : new Date(),
-        })
-        .onConflictDoUpdate({
-          target: teacherClasses.id,
-          set: {
+      // Check if class already exists
+      const existing = await db.select({ id: teacherClasses.id })
+        .from(teacherClasses)
+        .where(eq(teacherClasses.id, cls.id))
+        .limit(1);
+      
+      if (existing.length > 0) {
+        // Update existing class
+        await db.update(teacherClasses)
+          .set({
             teacherId: cls.teacherId,
             name: cls.name,
             description: cls.description,
             language: cls.language,
-            classLevel: cls.classLevel ?? cls.difficultyLevel,
+            classLevel: cls.classLevel ?? cls.difficultyLevel ?? 1,
             curriculumPathId: cls.curriculumPathId ?? cls.curriculumTemplateId,
-            syllabusId: cls.syllabusId,
             isActive: cls.isActive ?? true,
             isPublicCatalogue: true,
             classTypeId: cls.classTypeId,
-            maxStudents: cls.maxStudents,
-            enrollmentStart: cls.enrollmentStart ? new Date(cls.enrollmentStart) : null,
-            enrollmentEnd: cls.enrollmentEnd ? new Date(cls.enrollmentEnd) : null,
+            isFeatured: cls.isFeatured ?? false,
+            featuredOrder: cls.featuredOrder,
+            tutorFreedomLevel: cls.tutorFreedomLevel,
+            expectedActflMin: cls.expectedActflMin,
+            targetActflLevel: cls.targetActflLevel,
             updatedAt: new Date(),
-          },
-        });
+          })
+          .where(eq(teacherClasses.id, cls.id));
+      } else {
+        // Insert new class with explicit ID using raw SQL
+        await db.execute(sql`
+          INSERT INTO teacher_classes (id, teacher_id, name, description, language, class_level,
+            curriculum_path_id, join_code, is_active, is_public_catalogue, class_type_id,
+            is_featured, featured_order, tutor_freedom_level, expected_actfl_min, target_actfl_level,
+            created_at, updated_at)
+          VALUES (
+            ${cls.id},
+            ${cls.teacherId},
+            ${cls.name},
+            ${cls.description || null},
+            ${cls.language},
+            ${cls.classLevel ?? cls.difficultyLevel ?? 1},
+            ${cls.curriculumPathId ?? cls.curriculumTemplateId ?? null},
+            ${cls.joinCode || `CAT-${Math.random().toString(36).substring(2, 8).toUpperCase()}`},
+            ${cls.isActive ?? true},
+            true,
+            ${cls.classTypeId || null},
+            ${cls.isFeatured ?? false},
+            ${cls.featuredOrder ?? null},
+            ${cls.tutorFreedomLevel || 'flexible_goals'},
+            ${cls.expectedActflMin || null},
+            ${cls.targetActflLevel || null},
+            ${cls.createdAt ? new Date(cls.createdAt) : new Date()},
+            NOW()
+          )
+        `);
+      }
       
       return { success: true };
     } catch (err: any) {
@@ -2752,7 +2773,7 @@ class SyncBridgeService {
       'danielaGrowthMemories', 'tutorVoices', 'catalogueClasses',
       // v18: New sync batches
       'curriculumPaths', 'curriculumUnits', 'curriculumLessons', 'topics',
-      'curriculumDrillItems', 'grammarExercises', 'canDoStatements', 'culturalTips',
+      'curriculumDrillItems', 'grammarExercises', 'canDoStatements', 'culturalTips', 'lessonCanDoStatements',
       'wrenInsights', 'wrenProactiveTriggers', 'architecturalDecisionRecords',
       'wrenMistakes', 'wrenLessons', 'wrenCommitments',
       'danielaRecommendations', 'danielaFeatureFeedback',
@@ -3069,6 +3090,13 @@ class SyncBridgeService {
       console.log(`[SYNC-BRIDGE] Importing ${bundle.culturalTips.length} Cultural Tips...`);
       await importWithCount('culturalTips', bundle.culturalTips,
         (tip) => this.importCulturalTip(tip));
+    }
+    
+    // v33: Lesson-to-CanDo links (fluency wiring) - must import AFTER canDoStatements and lessons
+    if (bundle.lessonCanDoStatements?.length) {
+      console.log(`[SYNC-BRIDGE] Importing ${bundle.lessonCanDoStatements.length} Lesson Can-Do Links...`);
+      await importWithCount('lessonCanDoStatements', bundle.lessonCanDoStatements,
+        (link) => this.importLessonCanDoStatement(link));
     }
     
     // v18: Wren Intelligence
@@ -5676,6 +5704,37 @@ class SyncBridgeService {
       }
       return { success: true };
     } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  }
+  
+  /**
+   * v33: Import lesson-to-CanDo link (fluency wiring)
+   * These link curriculum lessons to ACTFL Can-Do statements
+   */
+  async importLessonCanDoStatement(link: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Check if this link already exists
+      const existing = await db.select()
+        .from(lessonCanDoStatements)
+        .where(eq(lessonCanDoStatements.id, link.id))
+        .limit(1);
+      
+      if (existing.length === 0) {
+        // Insert new link
+        await db.insert(lessonCanDoStatements).values({
+          id: link.id,
+          lessonId: link.lessonId,
+          canDoStatementId: link.canDoStatementId,
+        });
+      }
+      // Links don't need updates - they're just ID relationships
+      return { success: true };
+    } catch (err: any) {
+      // Skip duplicates silently (FK constraint or unique constraint)
+      if (err.message?.includes('duplicate') || err.message?.includes('violates')) {
+        return { success: true };
+      }
       return { success: false, error: err.message };
     }
   }
