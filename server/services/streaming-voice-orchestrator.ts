@@ -2752,10 +2752,16 @@ Remember: David may reference things discussed in these recent text chats.
       // Update conversation history
       session.conversationHistory.push({ role: 'user', content: transcript });
       
+      // MULTI-STEP FUNCTION CALLING: Track if we need to continue after function execution
+      // Gemini may call functions WITHOUT producing text - we need to send results back and continue
+      const hadFunctionCalls = session.currentTurnFunctionCalls && session.currentTurnFunctionCalls.length > 0;
+      const functionCallsCopy: ExtractedFunctionCall[] = hadFunctionCalls ? [...session.currentTurnFunctionCalls!] : [];
+      const thoughtSignaturesCopy: string[] = session.currentTurnThoughtSignatures ? [...session.currentTurnThoughtSignatures] : [];
+      
       // GEMINI 3: Build model response with function calls + thought signatures if applicable
       // This ensures multi-step function calling works correctly per docs
       // @see https://docs.cloud.google.com/vertex-ai/generative-ai/docs/thought-signatures
-      if (session.currentTurnFunctionCalls && session.currentTurnFunctionCalls.length > 0) {
+      if (hadFunctionCalls) {
         // Build parts array: function calls first (with signatures), then text
         const modelParts: Array<{
           text?: string;
@@ -2764,7 +2770,7 @@ Remember: David may reference things discussed in these recent text chats.
         }> = [];
         
         // Add function call parts with their thought signatures
-        for (const fc of session.currentTurnFunctionCalls) {
+        for (const fc of session.currentTurnFunctionCalls!) {
           modelParts.push({
             functionCall: { name: fc.name, args: fc.args },
             thought_signature: fc.thoughtSignature,
@@ -2783,7 +2789,7 @@ Remember: David may reference things discussed in these recent text chats.
         });
         
         const sigCount = session.currentTurnThoughtSignatures?.length || 0;
-        console.log(`[Conversation History] Saved model response with ${session.currentTurnFunctionCalls.length} function calls, ${sigCount} thought signatures`);
+        console.log(`[Conversation History] Saved model response with ${session.currentTurnFunctionCalls!.length} function calls, ${sigCount} thought signatures`);
         
         // Clear turn-specific tracking
         session.currentTurnFunctionCalls = [];
@@ -2793,10 +2799,165 @@ Remember: David may reference things discussed in these recent text chats.
         session.conversationHistory.push({ role: 'model', content: fullText.trim() });
       }
       
-      // FALLBACK FOR SILENT RESPONSES: If all content was stripped (thinking/internal tags)
+      // MULTI-STEP FUNCTION CALLING CONTINUATION
+      // If Gemini called functions but produced no text, we need to continue the conversation
+      // This sends function results back to Gemini and gets actual spoken text
+      if (metrics.sentenceCount === 0 && hadFunctionCalls && functionCallsCopy.length > 0) {
+        console.log(`[Multi-Step FC] Function calls with no text detected - continuing conversation`);
+        console.log(`[Multi-Step FC] Functions executed: ${functionCallsCopy.map(fc => fc.name).join(', ')}`);
+        
+        // Build function response parts for each executed function
+        // These tell Gemini what happened when we executed its function calls
+        // Note: Use 'tool' role and multimodal response format per Gemini 3 requirements
+        const functionResponseParts: Array<{
+          functionResponse: { name: string; response: { output: Array<{ text: string }> } };
+        }> = [];
+        
+        for (const fc of functionCallsCopy) {
+          // Generate appropriate response based on function type
+          let responseText = 'Function executed successfully.';
+          
+          switch (fc.legacyType) {
+            case 'VOICE_ADJUST':
+              responseText = `Voice adjusted: speed=${fc.args.speed || 'unchanged'}, emotion=${fc.args.emotion || 'unchanged'}, personality=${fc.args.personality || 'unchanged'}. Voice settings applied - continue speaking naturally.`;
+              break;
+            case 'VOICE_RESET':
+              responseText = 'Voice reset to default settings. Continue speaking naturally.';
+              break;
+            case 'PHASE_SHIFT':
+              responseText = `Phase shifted to ${fc.args.to}. Continue the lesson in this new phase.`;
+              break;
+            case 'SWITCH_TUTOR':
+              responseText = `Tutor switch to ${fc.args.target} initiated. Handoff will occur after your response.`;
+              break;
+            default:
+              responseText = `${fc.name} executed successfully. Continue the conversation.`;
+          }
+          
+          functionResponseParts.push({
+            functionResponse: {
+              name: fc.name,
+              response: { output: [{ text: responseText }] },
+            },
+          });
+        }
+        
+        // Add function response to conversation history
+        // Use 'tool' role for proper Gemini 3 multi-step function calling
+        session.conversationHistory.push({
+          role: 'tool',
+          parts: functionResponseParts,
+          thoughtSignatures: thoughtSignaturesCopy,
+        });
+        
+        console.log(`[Multi-Step FC] Added ${functionResponseParts.length} function responses to history`);
+        console.log(`[Multi-Step FC] Continuing with ${thoughtSignaturesCopy.length} thought signatures`);
+        
+        // Re-initialize tracking for continuation turn
+        session.currentTurnFunctionCalls = [];
+        session.currentTurnThoughtSignatures = [];
+        
+        // Call Gemini again to get actual spoken text
+        // Using a simple continuation prompt to nudge the model
+        try {
+          await this.geminiService.streamWithSentenceChunking({
+            systemPrompt: enhancedSystemPrompt,
+            conversationHistory: session.conversationHistory,
+            userMessage: '', // Empty - we're continuing from function responses
+            enableFunctionCalling: true,
+            onFunctionCall: async (newFunctionCalls: ExtractedFunctionCall[]) => {
+              // Handle any additional function calls in continuation
+              for (const fn of newFunctionCalls) {
+                console.log(`[Multi-Step FC Continuation] Additional function: ${fn.name}`);
+                if (fn.thoughtSignature) {
+                  session.currentTurnThoughtSignatures?.push(fn.thoughtSignature);
+                }
+                session.currentTurnFunctionCalls?.push(fn);
+                this.handleNativeFunctionCall(sessionId, session, fn).catch(err => {
+                  console.error(`[Multi-Step FC] Error handling ${fn.name}:`, err.message);
+                });
+              }
+            },
+            onSentence: async (chunk: SentenceChunk) => {
+              // BARGE-IN CHECK
+              if (session.isInterrupted) {
+                console.log(`[Multi-Step FC] Skipping sentence ${chunk.index} - user barged in`);
+                return;
+              }
+              
+              // Clean and synthesize
+              const displayText = cleanTextForDisplay(chunk.text);
+              if (!displayText) return;
+              
+              // Deduplication
+              const normalizedText = displayText.toLowerCase().trim();
+              if (seenSentences.has(normalizedText)) return;
+              seenSentences.add(normalizedText);
+              
+              if (actualSentenceCount >= MAX_SENTENCES) return;
+              actualSentenceCount++;
+              
+              console.log(`[Multi-Step FC] Continuation sentence ${chunk.index}: "${displayText.substring(0, 50)}..."`);
+              
+              // Stream TTS
+              if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
+                await this.streamSentenceAudioProgressive(session, chunk, displayText, metrics, turnId);
+              } else {
+                await this.streamSentenceAudio(session, chunk, displayText, metrics, turnId);
+              }
+              
+              fullText += displayText + ' ';
+              rawFullText += chunk.text + ' ';
+              metrics.sentenceCount++;
+            },
+            onError: (error) => {
+              console.error(`[Multi-Step FC] Continuation error:`, error.message);
+            },
+          });
+          
+          // Update conversation history with continuation response
+          if (fullText.trim()) {
+            // Build model parts for continuation (may have additional function calls)
+            if (session.currentTurnFunctionCalls && session.currentTurnFunctionCalls.length > 0) {
+              const contModelParts: Array<{
+                text?: string;
+                functionCall?: { name: string; args: Record<string, unknown> };
+                thought_signature?: string;
+              }> = [];
+              
+              for (const fc of session.currentTurnFunctionCalls) {
+                contModelParts.push({
+                  functionCall: { name: fc.name, args: fc.args },
+                  thought_signature: fc.thoughtSignature,
+                });
+              }
+              contModelParts.push({ text: fullText.trim() });
+              
+              session.conversationHistory.push({
+                role: 'model',
+                parts: contModelParts,
+                thoughtSignatures: session.currentTurnThoughtSignatures || [],
+              });
+            } else {
+              session.conversationHistory.push({ role: 'model', content: fullText.trim() });
+            }
+            console.log(`[Multi-Step FC] Continuation complete: ${metrics.sentenceCount} sentences`);
+          }
+          
+          // Clear continuation tracking
+          session.currentTurnFunctionCalls = [];
+          session.currentTurnThoughtSignatures = [];
+          
+        } catch (contErr: any) {
+          console.error(`[Multi-Step FC] Continuation failed:`, contErr.message);
+          // Fall through to fallback below
+        }
+      }
+      
+      // FALLBACK FOR SILENT RESPONSES: If still no sentences after continuation attempts
       // Send a brief acknowledgment so Daniela doesn't appear unresponsive
       if (metrics.sentenceCount === 0) {
-        console.warn(`[Streaming Orchestrator] Silent response detected - all content stripped. Sending fallback.`);
+        console.warn(`[Streaming Orchestrator] Silent response detected - sending fallback.`);
         
         // Generate a brief fallback acknowledgment based on language
         const fallbackAcks: Record<string, string> = {
@@ -3646,9 +3807,27 @@ Remember: David may reference things discussed in these recent text chats.
           }
         },
         onFunctionCall: async (functionCalls: ExtractedFunctionCall[]) => {
-          // Route native function calls to command processing (fire-and-forget)
+          // Initialize thought signature tracking for this turn (same as PTT path)
+          if (!session.currentTurnThoughtSignatures) {
+            session.currentTurnThoughtSignatures = [];
+          }
+          if (!session.currentTurnFunctionCalls) {
+            session.currentTurnFunctionCalls = [];
+          }
+          
+          // Route native function calls to command processing
           for (const fn of functionCalls) {
             console.log(`[Native Function Call - OpenMic] ${fn.name}(${JSON.stringify(fn.args)})`);
+            
+            // GEMINI 3: Collect thought signatures for multi-step function calling
+            if (fn.thoughtSignature) {
+              session.currentTurnThoughtSignatures.push(fn.thoughtSignature);
+              console.log(`[Thought Signature - OpenMic] Collected signature for ${fn.name} (${session.currentTurnThoughtSignatures.length} total)`);
+            }
+            
+            // Store function call for proper bundling
+            session.currentTurnFunctionCalls.push(fn);
+            
             this.handleNativeFunctionCall(sessionId, session, fn).catch(err => {
               console.error(`[Native Function Call - OpenMic] Error handling ${fn.name}:`, err.message);
             });
@@ -4161,8 +4340,179 @@ Remember: David may reference things discussed in these recent text chats.
           });
         }
       }
-      if (fullText.trim()) {
+      
+      // MULTI-STEP FUNCTION CALLING: Track if we need to continue after function execution
+      const hadFunctionCallsOpenMic = session.currentTurnFunctionCalls && session.currentTurnFunctionCalls.length > 0;
+      const functionCallsCopyOpenMic: ExtractedFunctionCall[] = hadFunctionCallsOpenMic ? [...session.currentTurnFunctionCalls!] : [];
+      const thoughtSignaturesCopyOpenMic: string[] = session.currentTurnThoughtSignatures ? [...session.currentTurnThoughtSignatures] : [];
+      
+      // Build model response with function calls + thought signatures if applicable
+      if (hadFunctionCallsOpenMic) {
+        const modelParts: Array<{
+          text?: string;
+          functionCall?: { name: string; args: Record<string, unknown> };
+          thought_signature?: string;
+        }> = [];
+        
+        for (const fc of session.currentTurnFunctionCalls!) {
+          modelParts.push({
+            functionCall: { name: fc.name, args: fc.args },
+            thought_signature: fc.thoughtSignature,
+          });
+        }
+        
+        if (fullText.trim()) {
+          modelParts.push({ text: fullText.trim() });
+        }
+        
+        session.conversationHistory.push({
+          role: 'model',
+          parts: modelParts,
+          thoughtSignatures: session.currentTurnThoughtSignatures || [],
+        });
+        
+        console.log(`[Conversation History - OpenMic] Saved model response with ${session.currentTurnFunctionCalls!.length} function calls`);
+        session.currentTurnFunctionCalls = [];
+        session.currentTurnThoughtSignatures = [];
+      } else if (fullText.trim()) {
         session.conversationHistory.push({ role: 'model', content: fullText.trim() });
+      }
+      
+      // MULTI-STEP FUNCTION CALLING CONTINUATION (Open Mic path)
+      // If Gemini called functions but produced no text, continue the conversation
+      if (metrics.sentenceCount === 0 && hadFunctionCallsOpenMic && functionCallsCopyOpenMic.length > 0) {
+        console.log(`[Multi-Step FC - OpenMic] Function calls with no text detected - continuing conversation`);
+        console.log(`[Multi-Step FC - OpenMic] Functions executed: ${functionCallsCopyOpenMic.map(fc => fc.name).join(', ')}`);
+        
+        // Build function response parts
+        // Note: Use 'tool' role and multimodal response format per Gemini 3 requirements
+        const functionResponsePartsOpenMic: Array<{
+          functionResponse: { name: string; response: { output: Array<{ text: string }> } };
+        }> = [];
+        
+        for (const fc of functionCallsCopyOpenMic) {
+          let responseText = 'Function executed successfully.';
+          switch (fc.legacyType) {
+            case 'VOICE_ADJUST':
+              responseText = `Voice adjusted: speed=${fc.args.speed || 'unchanged'}, emotion=${fc.args.emotion || 'unchanged'}. Continue speaking naturally.`;
+              break;
+            case 'VOICE_RESET':
+              responseText = 'Voice reset to default settings. Continue speaking naturally.';
+              break;
+            case 'PHASE_SHIFT':
+              responseText = `Phase shifted to ${fc.args.to}. Continue the lesson in this new phase.`;
+              break;
+            case 'SWITCH_TUTOR':
+              responseText = `Tutor switch to ${fc.args.target} initiated. Handoff will occur after your response.`;
+              break;
+            default:
+              responseText = `${fc.name} executed successfully. Continue the conversation.`;
+          }
+          
+          functionResponsePartsOpenMic.push({
+            functionResponse: {
+              name: fc.name,
+              response: { output: [{ text: responseText }] },
+            },
+          });
+        }
+        
+        // Add function response to conversation history
+        // Use 'tool' role for proper Gemini 3 multi-step function calling
+        session.conversationHistory.push({
+          role: 'tool',
+          parts: functionResponsePartsOpenMic,
+          thoughtSignatures: thoughtSignaturesCopyOpenMic,
+        });
+        
+        console.log(`[Multi-Step FC - OpenMic] Added ${functionResponsePartsOpenMic.length} function responses to history`);
+        
+        // Re-initialize tracking for continuation
+        session.currentTurnFunctionCalls = [];
+        session.currentTurnThoughtSignatures = [];
+        
+        // Call Gemini again to get actual spoken text
+        try {
+          await this.geminiService.streamWithSentenceChunking({
+            systemPrompt: enhancedSystemPrompt,
+            conversationHistory: session.conversationHistory,
+            userMessage: '', // Empty - continuing from function responses
+            enableFunctionCalling: true,
+            onFunctionCall: async (newFCs: ExtractedFunctionCall[]) => {
+              for (const fn of newFCs) {
+                console.log(`[Multi-Step FC Continuation - OpenMic] Additional function: ${fn.name}`);
+                if (fn.thoughtSignature) {
+                  session.currentTurnThoughtSignatures?.push(fn.thoughtSignature);
+                }
+                session.currentTurnFunctionCalls?.push(fn);
+                this.handleNativeFunctionCall(sessionId, session, fn).catch(err => {
+                  console.error(`[Multi-Step FC - OpenMic] Error handling ${fn.name}:`, err.message);
+                });
+              }
+            },
+            onSentence: async (chunk: SentenceChunk) => {
+              if (session.isInterrupted) return;
+              
+              const contDisplayText = cleanTextForDisplay(chunk.text);
+              if (!contDisplayText) return;
+              
+              const contNormalizedText = contDisplayText.toLowerCase().trim();
+              if (seenSentences.has(contNormalizedText)) return;
+              seenSentences.add(contNormalizedText);
+              
+              if (actualSentenceCount >= MAX_SENTENCES) return;
+              actualSentenceCount++;
+              
+              console.log(`[Multi-Step FC - OpenMic] Continuation sentence ${chunk.index}: "${contDisplayText.substring(0, 50)}..."`);
+              
+              if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
+                await this.streamSentenceAudioProgressive(session, chunk, contDisplayText, metrics, turnId);
+              } else {
+                await this.streamSentenceAudio(session, chunk, contDisplayText, metrics, turnId);
+              }
+              
+              fullText += contDisplayText + ' ';
+              metrics.sentenceCount++;
+            },
+            onError: (error) => {
+              console.error(`[Multi-Step FC - OpenMic] Continuation error:`, error.message);
+            },
+          });
+          
+          // Update conversation history with continuation response
+          if (fullText.trim() && metrics.sentenceCount > 0) {
+            if (session.currentTurnFunctionCalls && session.currentTurnFunctionCalls.length > 0) {
+              const contModelParts: Array<{
+                text?: string;
+                functionCall?: { name: string; args: Record<string, unknown> };
+                thought_signature?: string;
+              }> = [];
+              
+              for (const fc of session.currentTurnFunctionCalls) {
+                contModelParts.push({
+                  functionCall: { name: fc.name, args: fc.args },
+                  thought_signature: fc.thoughtSignature,
+                });
+              }
+              contModelParts.push({ text: fullText.trim() });
+              
+              session.conversationHistory.push({
+                role: 'model',
+                parts: contModelParts,
+                thoughtSignatures: session.currentTurnThoughtSignatures || [],
+              });
+            } else {
+              session.conversationHistory.push({ role: 'model', content: fullText.trim() });
+            }
+            console.log(`[Multi-Step FC - OpenMic] Continuation complete: ${metrics.sentenceCount} sentences`);
+          }
+          
+          session.currentTurnFunctionCalls = [];
+          session.currentTurnThoughtSignatures = [];
+          
+        } catch (contErr: any) {
+          console.error(`[Multi-Step FC - OpenMic] Continuation failed:`, contErr.message);
+        }
       }
       
       // Clear generating flag - response complete
