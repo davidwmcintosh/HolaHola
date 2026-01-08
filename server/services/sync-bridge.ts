@@ -490,8 +490,13 @@ class SyncBridgeService {
         
         case 'product-config': {
           const voices = await db.select({ count: sql<number>`count(*)` }).from(tutorVoices);
+          // v33: Include catalogue classes and hour packages in manifest
+          const classes = await db.select({ count: sql<number>`count(*)` }).from(teacherClasses).where(eq(teacherClasses.isPublicCatalogue, true));
+          const packages = await db.select({ count: sql<number>`count(*)` }).from(classHourPackages);
           manifest.expected = {
             tutorVoices: Number(voices[0]?.count || 0),
+            catalogueClasses: Number(classes[0]?.count || 0),
+            classHourPackages: Number(packages[0]?.count || 0),
           };
           break;
         }
@@ -552,6 +557,10 @@ class SyncBridgeService {
             const tv = await db.select({ count: sql<number>`count(*)` }).from(tutorVoices);
             counts.tutorVoices = Number(tv[0]?.count || 0);
             break;
+          case 'catalogueClasses':
+            const cc = await db.select({ count: sql<number>`count(*)` }).from(teacherClasses).where(eq(teacherClasses.isPublicCatalogue, true));
+            counts.catalogueClasses = Number(cc[0]?.count || 0);
+            break;
           case 'bestPractices':
             const bpp = await db.select({ count: sql<number>`count(*)` }).from(selfBestPractices);
             counts.bestPractices = Number(bpp[0]?.count || 0);
@@ -597,6 +606,7 @@ class SyncBridgeService {
           break;
         case 'product-config':
           tablesToVerify.push('tutorVoices');
+          tablesToVerify.push('catalogueClasses'); // v33: Public syllabi
           break;
         case 'neural-core':
           tablesToVerify.push('bestPractices');
@@ -641,6 +651,7 @@ class SyncBridgeService {
         },
         'product-config': {
           'tutorVoices': 'tutorVoices',
+          'catalogueClasses': 'catalogueClasses',
         },
         'neural-core': {
           'bestPractices': 'bestPractices',
@@ -2720,13 +2731,14 @@ class SyncBridgeService {
   async importCatalogueClass(cls: any): Promise<{ success: boolean }> {
     try {
       // Check if class already exists
-      const existing = await db.select({ id: teacherClasses.id })
+      const existing = await db.select({ id: teacherClasses.id, name: teacherClasses.name })
         .from(teacherClasses)
         .where(eq(teacherClasses.id, cls.id))
         .limit(1);
       
       if (existing.length > 0) {
         // Update existing class
+        console.log(`[SYNC-BRIDGE] Updating catalogue class: ${cls.id} (${cls.name}) - was: ${existing[0].name}`);
         await db.update(teacherClasses)
           .set({
             teacherId: cls.teacherId,
@@ -2747,6 +2759,7 @@ class SyncBridgeService {
           })
           .where(eq(teacherClasses.id, cls.id));
       } else {
+        console.log(`[SYNC-BRIDGE] Inserting new catalogue class: ${cls.id} (${cls.name})`);
         // Insert new class with explicit ID using raw SQL
         await db.execute(sql`
           INSERT INTO teacher_classes (id, teacher_id, name, description, language, class_level,
