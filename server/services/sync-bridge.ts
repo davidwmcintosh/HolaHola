@@ -43,7 +43,7 @@ const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production'
 
 // Version identifier to verify which code is running on production
 // Increment this when making sync-related changes to verify deployment
-const SYNC_BRIDGE_CODE_VERSION = "2025-01-09-v35-curriculum-pull";
+const SYNC_BRIDGE_CODE_VERSION = "2025-01-09-v35-full-pull-parity";
 
 // Capability negotiation: List all batch types this version can import/export
 // When adding new batches, add them here so peers can gracefully handle version mismatches
@@ -4813,14 +4813,21 @@ class SyncBridgeService {
       // v16: Skip already-completed batches on resume
       // v19: Support selective batch pulling for beta analytics
       // v20: Added prod-to-dev diagnostic batches (sofia-telemetry, prod-conversations, prod-content-growth)
-      // v35: Added curriculum batches (curriculum-core, curriculum-drills, all-classes) for full bidirectional sync
+      // v35: Added ALL missing batches for true bidirectional sync parity with push
       const allBatchTypes = [
-        'neural-core', 'advanced-intel-a', 'advanced-intel-b', 'express-lane', 
-        'hive-snapshots', 'daniela-memories', 'product-config', 'founder-context', 
-        'beta-usage', 'aggregate-analytics',
-        // v35: Curriculum data (dev → prod sync for syllabi/classes)
+        // Core neural network and AI intelligence
+        'neural-core', 'advanced-intel-a', 'advanced-intel-b', 
+        // Hive collaboration and memories
+        'express-lane', 'hive-snapshots', 'daniela-memories', 'founder-context', 'founder-conversations',
+        // Product configuration
+        'product-config', 
+        // Beta testers and usage data
+        'beta-testers', 'beta-usage', 'aggregate-analytics',
+        // Curriculum data (dev → prod sync for syllabi/classes)
         'curriculum-core', 'curriculum-drills', 'all-classes',
-        // v20: Production diagnostics - only pulled by dev from prod
+        // Wren and Daniela intelligence
+        'wren-intel', 'daniela-intel',
+        // Production diagnostics - only pulled by dev from prod
         'sofia-telemetry', 'prod-conversations', 'prod-content-growth'
       ];
       // v26: No default excludes - all batches use pagination + delta sync
@@ -4849,7 +4856,7 @@ class SyncBridgeService {
         
         // 45s timeout for smaller batches, 60s for larger data batches, 120s for very large curriculum batches
         const timeout = ['curriculum-drills'].includes(batchType) ? 120000 
-          : ['express-lane', 'hive-snapshots', 'daniela-memories', 'founder-context', 'curriculum-core', 'all-classes'].includes(batchType) ? 60000 
+          : ['express-lane', 'hive-snapshots', 'daniela-memories', 'founder-context', 'founder-conversations', 'curriculum-core', 'all-classes', 'beta-testers', 'wren-intel', 'daniela-intel'].includes(batchType) ? 60000 
           : 45000;
         
         // Special handling for advanced-intel-b: paginated fetching
