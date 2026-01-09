@@ -787,6 +787,10 @@ export interface StreamingSession {
     drillsProvisioned: boolean;     // True if auto-provision has run
     provisionedDrillCount?: number; // Number of drills created for this lesson
   };
+  // Message checkpointing: Track if user message was pre-saved before Gemini call
+  // This ensures messages are saved even if Gemini fails, preventing data loss
+  checkpointedUserMessageId?: string;  // ID of pre-saved user message (cleared after AI response)
+  checkpointedUserTranscript?: string; // Transcript that was checkpointed (for matching)
 }
 
 /**
@@ -1955,6 +1959,11 @@ Remember: David may reference things discussed in these recent text chats.
       
       // STEP 3: Add the actual voice conversation history
       conversationHistoryWithContext.push(...session.conversationHistory);
+      
+      // MESSAGE CHECKPOINTING: Save user message BEFORE Gemini call
+      // This ensures user messages are preserved even if Gemini fails/times out
+      // Latency impact: ~5-10ms (negligible vs 1-2s LLM response time)
+      await this.checkpointUserMessage(session, transcript);
       
       await this.geminiService.streamWithSentenceChunking({
         systemPrompt: session.systemPrompt,  // STATIC base prompt (cacheable)
@@ -3666,7 +3675,33 @@ Remember: David may reference things discussed in these recent text chats.
     } catch (error: any) {
       // Clear generating flag on error
       session.isGenerating = false;
-      console.error(`[Streaming Orchestrator] Error:`, error.message);
+      
+      // STRUCTURED ERROR LOGGING: Capture Gemini failure patterns for debugging
+      const isGeminiError = error.message?.includes('Gemini') || 
+                           error.message?.includes('API') ||
+                           error.message?.includes('timeout') ||
+                           error.message?.includes('rate limit') ||
+                           error.message?.includes('429') ||
+                           error.message?.includes('503') ||
+                           error.message?.includes('500');
+      
+      const errorType = isGeminiError ? 'GEMINI_API_ERROR' : 'VOICE_PROCESSING_ERROR';
+      const elapsedMs = Date.now() - startTime;
+      
+      console.error(`[Streaming Orchestrator] ${errorType}:`, {
+        sessionId,
+        conversationId: session.conversationId,
+        userId: session.userId,
+        error: error.message,
+        errorStack: error.stack?.split('\n').slice(0, 3).join(' -> '),
+        elapsedMs,
+        aiFirstTokenReceived: metrics.aiFirstTokenMs > 0,
+        sttMs: metrics.sttLatencyMs || 0,
+        aiMs: metrics.aiFirstTokenMs || 0,
+        transcriptLength: transcript.length,
+        // Checkpoint status - was user message saved before failure?
+        userMessageCheckpointed: !!session.checkpointedUserMessageId,
+      });
       
       // Emit error diagnostic for analytics
       voiceDiagnostics.emit({
@@ -3676,8 +3711,11 @@ Remember: David may reference things discussed in these recent text chats.
         error: error.message,
         metadata: { 
           phase: 'processUserAudio',
+          errorType,
           sttMs: metrics.sttLatencyMs || 0,
-          aiMs: metrics.aiFirstTokenMs || 0 
+          aiMs: metrics.aiFirstTokenMs || 0,
+          elapsedMs,
+          checkpointed: !!session.checkpointedUserMessageId,
         }
       });
       
@@ -3961,6 +3999,10 @@ Remember: David may reference things discussed in these recent text chats.
       
       // STEP 2: Add conversation history
       conversationHistoryWithContext.push(...session.conversationHistory);
+      
+      // MESSAGE CHECKPOINTING (OpenMic): Save user message BEFORE Gemini call
+      // This ensures user messages are preserved even if Gemini fails/times out
+      await this.checkpointUserMessage(session, transcript);
       
       await this.geminiService.streamWithSentenceChunking({
         systemPrompt: session.systemPrompt,  // STATIC base prompt (cacheable)
@@ -4928,7 +4970,33 @@ Remember: David may reference things discussed in these recent text chats.
       session.isGenerating = false;
       // ECHO SUPPRESSION: Re-enable OpenMic transcription on error too
       session.onTtsStateChange?.(false);
-      console.error(`[Streaming Orchestrator] Open mic error:`, error.message);
+      
+      // STRUCTURED ERROR LOGGING: Capture Gemini failure patterns for debugging
+      const isGeminiError = error.message?.includes('Gemini') || 
+                           error.message?.includes('API') ||
+                           error.message?.includes('timeout') ||
+                           error.message?.includes('rate limit') ||
+                           error.message?.includes('429') ||
+                           error.message?.includes('503') ||
+                           error.message?.includes('500');
+      
+      const errorType = isGeminiError ? 'GEMINI_API_ERROR' : 'VOICE_PROCESSING_ERROR';
+      const elapsedMs = Date.now() - startTime;
+      
+      console.error(`[Streaming Orchestrator] ${errorType} (OpenMic):`, {
+        sessionId,
+        conversationId: session.conversationId,
+        userId: session.userId,
+        error: error.message,
+        errorStack: error.stack?.split('\n').slice(0, 3).join(' -> '),
+        elapsedMs,
+        aiFirstTokenReceived: metrics.aiFirstTokenMs > 0,
+        sttMs: metrics.sttLatencyMs || 0,
+        aiMs: metrics.aiFirstTokenMs || 0,
+        transcriptLength: transcript.length,
+        // Checkpoint status - was user message saved before failure?
+        userMessageCheckpointed: !!session.checkpointedUserMessageId,
+      });
       
       // Emit error diagnostic for analytics
       voiceDiagnostics.emit({
@@ -4936,7 +5004,14 @@ Remember: David may reference things discussed in these recent text chats.
         stage: 'error',
         success: false,
         error: error.message,
-        metadata: { phase: 'processOpenMicTranscript' }
+        metadata: { 
+          phase: 'processOpenMicTranscript',
+          errorType,
+          sttMs: metrics.sttLatencyMs || 0,
+          aiMs: metrics.aiFirstTokenMs || 0,
+          elapsedMs,
+          checkpointed: !!session.checkpointedUserMessageId,
+        }
       });
       
       this.sendError(session.ws, 'UNKNOWN', error.message, true);
@@ -5842,6 +5917,63 @@ Remember: David may reference things discussed in these recent text chats.
   }
   
   /**
+   * Normalize transcript for checkpoint matching (same logic as dedupe)
+   * This ensures checkpoint comparison works even with slight variations
+   */
+  private normalizeTranscriptForCheckpoint(transcript: string): string {
+    return transcript
+      .trim()
+      .toLowerCase()
+      .replace(/[.,!?;:'"""''…\-—–]/g, '') // Strip punctuation
+      .replace(/\s+/g, ' ') // Collapse whitespace
+      .substring(0, 100); // Limit to first 100 chars for matching
+  }
+  
+  /**
+   * Checkpoint user message BEFORE calling Gemini API
+   * This ensures user messages are saved even if Gemini fails/times out
+   * Latency impact: ~5-10ms (negligible vs 1-2s LLM response)
+   */
+  private async checkpointUserMessage(
+    session: StreamingSession,
+    transcript: string
+  ): Promise<void> {
+    try {
+      // Normalize for reliable matching (same as dedupe logic)
+      const normalizedTranscript = this.normalizeTranscriptForCheckpoint(transcript);
+      
+      // Skip if already checkpointed for this turn (idempotent)
+      if (session.checkpointedUserTranscript === normalizedTranscript && session.checkpointedUserMessageId) {
+        console.log(`[Checkpoint] User message already saved, skipping duplicate`);
+        return;
+      }
+      
+      const userMessage = await storage.createMessage({
+        conversationId: session.conversationId,
+        role: 'user',
+        content: transcript,
+      });
+      
+      // Track checkpoint for this turn (store normalized for matching)
+      session.checkpointedUserMessageId = userMessage.id;
+      session.checkpointedUserTranscript = normalizedTranscript;
+      
+      console.log(`[Checkpoint] User message pre-saved: ${userMessage.id.substring(0, 8)}... (${transcript.length} chars)`);
+    } catch (error: any) {
+      // Non-fatal - log and continue with Gemini call
+      console.error(`[Checkpoint] Failed to save user message (continuing anyway):`, error.message);
+    }
+  }
+  
+  /**
+   * Clear checkpoint after successful AI response (prevents duplicate on next turn)
+   */
+  private clearMessageCheckpoint(session: StreamingSession): void {
+    session.checkpointedUserMessageId = undefined;
+    session.checkpointedUserTranscript = undefined;
+  }
+  
+  /**
    * Persist user and AI messages to database
    */
   private async persistMessages(
@@ -5852,12 +5984,26 @@ Remember: David may reference things discussed in these recent text chats.
     pronunciationConfidence: number = 0
   ): Promise<void> {
     try {
-      // Save user message
-      await storage.createMessage({
-        conversationId,
-        role: 'user',
-        content: userTranscript,
-      });
+      // CHECKPOINT CHECK: Skip user message if already saved via checkpoint
+      // This prevents duplicate user messages when Gemini succeeds
+      // Use normalized comparison to match checkpoint storage (handles trim/whitespace differences)
+      const normalizedUserTranscript = this.normalizeTranscriptForCheckpoint(userTranscript);
+      const wasCheckpointed = session.checkpointedUserMessageId && 
+                              session.checkpointedUserTranscript === normalizedUserTranscript;
+      
+      if (!wasCheckpointed) {
+        // No checkpoint for this transcript - save user message normally
+        await storage.createMessage({
+          conversationId,
+          role: 'user',
+          content: userTranscript,
+        });
+      } else {
+        console.log(`[Persist] User message already checkpointed, saving AI response only`);
+      }
+      
+      // Clear checkpoint after successful processing
+      this.clearMessageCheckpoint(session);
       
       // Extract target language text for the AI response
       const targetLanguageText = extractTargetLanguageText(aiResponse);
