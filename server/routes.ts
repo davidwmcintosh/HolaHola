@@ -19608,8 +19608,9 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   app.post("/api/sync/push", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const triggeredBy = req.user?.claims?.sub || 'admin';
-      console.log('[SYNC API] Manual push triggered by', triggeredBy);
-      const result = await syncBridge.pushToPeer(triggeredBy);
+      const selectedBatches = Array.isArray(req.body?.selectedBatches) ? req.body.selectedBatches : undefined;
+      console.log(`[SYNC API] Manual push triggered by ${triggeredBy}${selectedBatches ? ` (batches: ${selectedBatches.join(', ')})` : ''}`);
+      const result = await syncBridge.pushToPeer(triggeredBy, selectedBatches);
       res.json(result);
     } catch (error: any) {
       console.error('[SYNC API] Push error:', error);
