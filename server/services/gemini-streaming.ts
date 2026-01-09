@@ -559,6 +559,8 @@ export class GeminiStreamingService {
       httpOptions: {
         apiVersion: "",
         baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '',
+        // Extended timeout for complex AI responses (default is 60s which can timeout on long conversations)
+        timeout: 180000, // 3 minutes in milliseconds
       },
     });
     // Using Gemini 3 Flash for fast responses (3x faster than 2.5)
