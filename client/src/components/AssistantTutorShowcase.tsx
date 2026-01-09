@@ -83,10 +83,10 @@ interface AssistantCardProps {
 function AssistantCard({ assistant, onSelect }: AssistantCardProps) {
   return (
     <Card
-      className="relative flex flex-col items-center p-3 pt-2 cursor-pointer transition-all duration-200 ease-out hover-elevate hover:scale-[1.03] shrink-0"
+      className="relative flex flex-col items-center p-2 pt-1.5 cursor-pointer transition-all duration-200 ease-out hover-elevate hover:scale-[1.03] shrink-0"
       style={{ 
-        width: 100,
-        height: 110,
+        width: 72,
+        height: 80,
       }}
       onClick={onSelect}
       onKeyDown={(e) => e.key === 'Enter' && onSelect()}
@@ -95,33 +95,26 @@ function AssistantCard({ assistant, onSelect }: AssistantCardProps) {
       aria-label={`Practice drills with ${assistant.name}`}
       data-testid={`card-assistant-${assistant.language}-${assistant.gender}`}
     >
-      <span 
-        className="text-[9px] font-medium uppercase tracking-wide mb-1"
-        style={{ color: assistant.accentColor }}
-      >
-        Practice
-      </span>
-      
       <div 
-        className="rounded-full p-0.5 mb-2"
+        className="rounded-full p-0.5 mb-1.5"
         style={{ 
           background: `linear-gradient(135deg, ${assistant.accentColor}80, ${assistant.accentColor}40)` 
         }}
       >
         <Avatar 
-          className="border-2 border-background"
-          style={{ width: 48, height: 48 }}
+          className="border border-background"
+          style={{ width: 36, height: 36 }}
         >
           <AvatarFallback 
-            className="text-sm font-semibold"
+            className="text-xs font-semibold"
             style={{ backgroundColor: assistant.accentColor + '20', color: assistant.accentColor }}
           >
-            <Dumbbell className="h-5 w-5" />
+            <Dumbbell className="h-4 w-4" />
           </AvatarFallback>
         </Avatar>
       </div>
       
-      <span className="text-xs font-semibold text-center leading-tight">
+      <span className="text-[10px] font-semibold text-center leading-tight">
         {assistant.name}
       </span>
     </Card>
