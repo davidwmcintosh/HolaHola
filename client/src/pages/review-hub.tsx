@@ -49,6 +49,7 @@ import { SyllabusMindMap } from "@/components/SyllabusMindMap";
 import { DanielaLearningInsights } from "@/components/DanielaLearningInsights";
 import { getTutorName } from "@/lib/tutor-avatars";
 import { TutorShowcase, type TutorSelection } from "@/components/TutorShowcase";
+import { AssistantTutorShowcase } from "@/components/AssistantTutorShowcase";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { VocabularyWord, Conversation, CulturalTip, UserLesson, Topic } from "@shared/schema";
@@ -563,6 +564,9 @@ export default function ReviewHub() {
         filterSlot={<LearningContextFilter />}
         className="py-2"
       />
+
+      {/* Practice Partners - Assistant tutors for drills */}
+      <AssistantTutorShowcase className="py-2" />
 
       {/* Daily Plan Section */}
       <Card data-testid="section-daily-plan">
