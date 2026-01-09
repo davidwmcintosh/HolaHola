@@ -298,40 +298,66 @@ POST /api/pronunciation/batch-analyze (for rhythm drills)
 
 ## Phased Implementation
 
-### Phase 1: Foundation (Current Sprint)
-- [ ] Create this functional spec document
-- [ ] Restructure Language Hub navigation
-- [ ] Build Interactive Textbook page skeleton
-- [ ] Connect to existing syllabus/curriculum data
+### Phase 1: Foundation ✅ COMPLETE
+- [x] Create this functional spec document
+- [x] Restructure Language Hub navigation
+- [x] Build Interactive Textbook page skeleton
+- [x] Connect to existing syllabus/curriculum data (8 chapters from Spanish 1)
 
-### Phase 2: Content Experience
-- [ ] Rich section renderer component
-- [ ] Content and vocabulary section types
-- [ ] Basic drill embedding
-- [ ] Chapter navigation and progress
+### Phase 2: Content Experience ✅ COMPLETE
+- [x] Rich section renderer component (TextbookSectionRenderer)
+- [x] Content and vocabulary section types
+- [x] Basic drill embedding
+- [x] Chapter navigation and progress
 
-### Phase 3: Rhythm Drills
-- [ ] Rhythm drill component
-- [ ] Batch pronunciation analysis
+### Phase 3: Rhythm Drills ✅ COMPONENT BUILT
+- [x] Rhythm drill component (RhythmDrill)
+- [x] Batch pronunciation analysis wired
 - [ ] Targeted feedback for specific items
 - [ ] Configuration system for drill groupings
 
-### Phase 4: Visual Assets
-- [ ] Asset library and storage
-- [ ] Image integration in sections
-- [ ] Whiteboard connection for voice sessions
-- [ ] Menu, scene, and scenario assets
+---
 
-### Phase 5: Mind Map Integration
-- [ ] Chapter nodes in mind map
-- [ ] Progress visualization
-- [ ] Learning journey paths
+## Remaining Work (Consolidated Next Steps)
 
-### Phase 6: Polish & Content
-- [ ] Mobile optimization
-- [ ] Animations and transitions
-- [ ] Content authoring for all chapters
-- [ ] Teacher customization options
+### 1. Chapter Recap & Practice
+- Add end-of-chapter summary sections
+- "Practice with Daniela" button (launches voice session on topic)
+- "Review Flashcards" button (filtered to chapter vocabulary)
+- Achievement badges for chapter completion
+
+### 2. Visual Assets Library
+- Asset storage table (curriculum_assets)
+- Image integration in content sections
+- Stock photos and AI-generated contextual images
+- Menu, scene, and scenario assets for realistic practice
+
+### 3. Whiteboard Connection
+- Connect textbook visual assets to Daniela's voice sessions
+- She can reference images you just studied in the textbook
+- Shared context between reading and speaking practice
+
+### 4. Mind Map Integration
+- Chapter nodes visible in mind map visualization
+- Progress reflected in learning journey
+- Visual paths showing completed vs. upcoming content
+
+### 5. Progress Tracking & Replay
+- Remember where you left off in each chapter
+- Section completion status (viewed, drills completed)
+- Replay any section for more repetitions
+- Score tracking on rhythm drills
+
+### 6. Mobile Optimization
+- Polish scrolling experience for phones
+- Touch-friendly drill interactions
+- Responsive layouts for all screen sizes
+
+### 7. Content Authoring
+- Rich content for all chapters (not just skeleton)
+- Vocabulary cards with images and audio
+- Cultural notes and example dialogues
+- Teacher customization options
 
 ---
 
@@ -388,4 +414,4 @@ POST /api/pronunciation/batch-analyze (for rhythm drills)
 
 ---
 
-*This document will be updated as the feature evolves. Last updated: January 9, 2026*
+*This document will be updated as the feature evolves. Last updated: January 9, 2026 (Progress updated)*
