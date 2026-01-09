@@ -1933,6 +1933,17 @@ export function StreamingVoiceChat({
         // Check if conversation changed by comparing to current ref value
         const currentConv = currentConversationRef.current;
         
+        // CRITICAL FIX: Skip audio blob processing if ptt_release was already sent
+        // This prevents double AI response (one from transcript, one from audio blob)
+        if (pttReleaseSentRef.current) {
+          console.log('[PUSH-TO-TALK] SKIP audio blob - ptt_release already sent transcript to server');
+          pttReleaseSentRef.current = false; // Reset for next turn
+          // Clean up state without triggering another AI response
+          setIsProcessing(false);
+          isProcessingRef.current = false;
+          return;
+        }
+        
         if (recordingConversationId === currentConv && recordingConversationId && isActiveSession) {
           console.log('[PUSH-TO-TALK] Processing audio for conversation:', recordingConversationId);
           await processRecording(audioBlob, recordingConversationId);
@@ -1969,6 +1980,7 @@ export function StreamingVoiceChat({
         pttStreamingActiveRef.current = true;
         pttStreamingSequenceIdRef.current = 0;
         pttInterimTranscriptRef.current = '';
+        pttReleaseSentRef.current = false; // Reset for new PTT session
         
         processor.onaudioprocess = (event) => {
           if (!pttStreamingActiveRef.current) return;
@@ -2062,8 +2074,11 @@ export function StreamingVoiceChat({
     }
     
     // Send ptt_release to server to finalize the speculative transcript
+    // Mark that we sent ptt_release so onstop skips sending audio_data blob
+    // This prevents double AI response (one from ptt_release transcript, one from audio blob)
+    pttReleaseSentRef.current = true;
     streamingVoice.sendPttRelease();
-    console.log('[SpeculativePTT] Stopped streaming and sent ptt_release');
+    console.log('[SpeculativePTT] Stopped streaming and sent ptt_release (skipping audio blob)');
     
     // IMMEDIATELY reset subtitles to prevent phantom flash during the gap
     // between stop() being called and onstop callback firing
@@ -2093,6 +2108,8 @@ export function StreamingVoiceChat({
   const pttStreamingProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const pttStreamingActiveRef = useRef(false);
   const pttInterimTranscriptRef = useRef('');
+  // Flag to track if ptt_release was sent - prevents double response from audio_data blob
+  const pttReleaseSentRef = useRef(false);
   
   // Refs for open mic functions - used by callbacks that can't access the functions directly
   const startOpenMicRecordingRef = useRef<(() => Promise<void>) | null>(null);
