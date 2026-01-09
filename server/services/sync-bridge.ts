@@ -4142,19 +4142,18 @@ class SyncBridgeService {
     
     console.log(`[SYNC-BRIDGE v33] Push session started: ${syncSessionId}`);
     
+    // v35: Move batch tracking outside try block so they persist on failure
+    const allCounts: Record<string, number> = {};
+    const allErrors: string[] = [];
+    let overallSuccess = true;
+    const completedBatches: string[] = [];
+    const attemptedBatches: string[] = [];
+    
     try {
       // Use incremental sync - only export items newer than last successful push
       const lastSuccessfulPush = await this.getLastSuccessfulPushTime();
       const batchInfo = selectedBatches ? `selected batches: ${selectedBatches.join(', ')}` : 'all batches';
       console.log(`[SYNC-BRIDGE] Batched incremental sync since: ${lastSuccessfulPush?.toISOString() || 'never (full sync)'} (${batchInfo})`);
-      
-      const allCounts: Record<string, number> = {};
-      const allErrors: string[] = [];
-      let overallSuccess = true;
-      
-      // v21: Track completed batches for accurate status determination
-      const completedBatches: string[] = [];
-      const attemptedBatches: string[] = [];
       
       // v28: Collect verification results for UI display
       const verificationResults: SyncVerificationResult[] = [];
@@ -4594,20 +4593,28 @@ class SyncBridgeService {
       const errorMessage = err.message;
       console.error(`[SYNC-BRIDGE] Push failed: ${errorMessage}`);
       
+      // v35.1: Save batch tracking on failure, but only current run's errors (not accumulated)
+      // The main exception message is the critical one; allErrors may have partial batch failures
+      const runErrors = allErrors.length > 0 ? allErrors.slice() : [];
+      runErrors.push(errorMessage);
+      
       await db.update(syncRuns)
         .set({
           status: 'failed',
-          errorMessage,
+          errorMessage: runErrors.join('; ').slice(0, 2000), // Truncate to prevent overflow
           durationMs: Date.now() - startTime,
           completedAt: new Date(),
+          attemptedBatches: attemptedBatches.length > 0 ? attemptedBatches : null,
+          completedBatches: completedBatches.length > 0 ? completedBatches : null,
+          recordsChanged: Object.values(allCounts).reduce((a, b) => a + b, 0),
         })
         .where(eq(syncRuns.id, syncRun.id));
       
       return {
         success: false,
         syncRunId: syncRun.id,
-        counts: {},
-        errors: [errorMessage],
+        counts: allCounts,
+        errors: runErrors,
         durationMs: Date.now() - startTime,
       };
     } finally {
@@ -6555,41 +6562,58 @@ class SyncBridgeService {
    * If user exists in production (same email), merge credits and enrollments
    * If user doesn't exist, create user and add credits
    * v23: Now supports direct enrollment sync (for Replit auth users who already exist)
+   * v35: OPTIMIZED - Uses bulk preload and batched inserts to reduce ~2000 queries to ~20
+   * v35.1: FIXES - Preserve joinCode, correct enrollment preload timing, accurate counts
    */
   async importBetaTesters(testers: any[], credits: any[], directEnrollments: any[] = [], classes: any[] = []): Promise<{ usersImported: number; creditsImported: number; enrollmentsCreated: number; classesImported: number; errors: string[] }> {
+    const startTime = Date.now();
     let usersImported = 0;
     let creditsImported = 0;
     let enrollmentsCreated = 0;
     let classesImported = 0;
     const errors: string[] = [];
     
-    // v31: Import classes FIRST before users (classes are FK targets for enrollments)
+    console.log(`[SYNC-BRIDGE v35.1] Starting optimized beta tester import: ${testers.length} testers, ${credits.length} credits, ${directEnrollments.length} enrollments, ${classes.length} classes`);
+    
+    // STEP 1: Bulk preload existing data (3 queries - enrollments done later after user mapping)
+    const classIds = classes.map(c => c.id).filter(Boolean);
+    const testerEmails = testers.map(t => t.email).filter(Boolean);
+    const creditIds = credits.map(c => c.id).filter(Boolean);
+    
+    // Preload existing classes (full row to preserve joinCode on update)
+    const existingClassesFullData = classIds.length > 0 
+      ? await db.select().from(teacherClasses).where(inArray(teacherClasses.id, classIds))
+      : [];
+    const existingClassIds = new Set(existingClassesFullData.map(c => c.id));
+    const existingClassJoinCodes = new Map(existingClassesFullData.map(c => [c.id, c.joinCode]));
+    
+    // Preload existing users by email (for merge logic)
+    const existingUsers = testerEmails.length > 0
+      ? await db.select({ id: users.id, email: users.email }).from(users).where(inArray(users.email, testerEmails))
+      : [];
+    const existingUsersByEmail = new Map(existingUsers.map(u => [u.email, u.id]));
+    
+    // Preload existing credits
+    const existingCredits = creditIds.length > 0
+      ? await db.select({ id: usageLedger.id }).from(usageLedger).where(inArray(usageLedger.id, creditIds))
+      : [];
+    const existingCreditIds = new Set(existingCredits.map(c => c.id));
+    
+    console.log(`[SYNC-BRIDGE v35.1] Preloaded: ${existingClassIds.size} classes, ${existingUsersByEmail.size} users, ${existingCreditIds.size} credits`);
+    
+    // STEP 2: Bulk import classes (split into insert/update batches)
+    // v35.1: Preserve existing joinCode when updating
     if (classes.length > 0) {
-      console.log(`[SYNC-BRIDGE] Importing ${classes.length} beta tester classes...`);
-      for (const cls of classes) {
-        try {
-          // UPSERT class by ID
-          const existing = await db.select().from(teacherClasses).where(eq(teacherClasses.id, cls.id)).limit(1);
-          if (existing.length > 0) {
-            // Update existing class - only update fields that exist in schema
-            await db.update(teacherClasses).set({
-              name: cls.name,
-              description: cls.description,
-              language: cls.language,
-              classLevel: cls.classLevel ?? cls.difficultyLevel, // Support legacy field name
-              curriculumPathId: cls.curriculumPathId ?? cls.curriculumTemplateId, // Support legacy field name
-              isActive: cls.isActive ?? true,
-              isPublicCatalogue: cls.isPublicCatalogue ?? false,
-              expectedActflMin: cls.expectedActflMin,
-              targetActflLevel: cls.targetActflLevel,
-              classTypeId: cls.classTypeId,
-              isFeatured: cls.isFeatured,
-              featuredOrder: cls.featuredOrder,
-            }).where(eq(teacherClasses.id, cls.id));
-          } else {
-            // Insert new class - generate joinCode if not provided
-            const joinCode = cls.joinCode || Math.random().toString(36).substring(2, 8).toUpperCase();
-            await db.insert(teacherClasses).values({
+      const classesToInsert = classes.filter(c => !existingClassIds.has(c.id));
+      const classesToUpdate = classes.filter(c => existingClassIds.has(c.id));
+      
+      // Bulk insert new classes
+      if (classesToInsert.length > 0) {
+        const CHUNK_SIZE = 100;
+        for (let i = 0; i < classesToInsert.length; i += CHUNK_SIZE) {
+          const chunk = classesToInsert.slice(i, i + CHUNK_SIZE);
+          try {
+            await db.insert(teacherClasses).values(chunk.map(cls => ({
               id: cls.id,
               teacherId: cls.teacherId,
               name: cls.name,
@@ -6597,7 +6621,7 @@ class SyncBridgeService {
               language: cls.language,
               classLevel: cls.classLevel ?? cls.difficultyLevel,
               curriculumPathId: cls.curriculumPathId ?? cls.curriculumTemplateId,
-              joinCode: joinCode,
+              joinCode: cls.joinCode || Math.random().toString(36).substring(2, 8).toUpperCase(),
               isActive: cls.isActive ?? true,
               isPublicCatalogue: cls.isPublicCatalogue ?? false,
               expectedActflMin: cls.expectedActflMin,
@@ -6605,62 +6629,63 @@ class SyncBridgeService {
               classTypeId: cls.classTypeId,
               isFeatured: cls.isFeatured,
               featuredOrder: cls.featuredOrder,
-            });
+            }))).onConflictDoNothing();
+            classesImported += chunk.length;
+          } catch (err: any) {
+            errors.push(`Bulk class insert: ${err.message}`);
           }
-          classesImported++;
-        } catch (err: any) {
-          errors.push(`Class ${cls.id}: ${err.message}`);
         }
       }
-      console.log(`[SYNC-BRIDGE] Imported ${classesImported} classes`);
+      
+      // Update existing classes - v35.1: DO NOT overwrite joinCode
+      for (const cls of classesToUpdate) {
+        try {
+          await db.update(teacherClasses).set({
+            name: cls.name,
+            description: cls.description,
+            language: cls.language,
+            classLevel: cls.classLevel ?? cls.difficultyLevel,
+            curriculumPathId: cls.curriculumPathId ?? cls.curriculumTemplateId,
+            isActive: cls.isActive ?? true,
+            isPublicCatalogue: cls.isPublicCatalogue ?? false,
+            expectedActflMin: cls.expectedActflMin,
+            targetActflLevel: cls.targetActflLevel,
+            classTypeId: cls.classTypeId,
+            isFeatured: cls.isFeatured,
+            featuredOrder: cls.featuredOrder,
+            // v35.1: Preserve existing joinCode - only update if explicitly provided and different
+            ...(cls.joinCode && cls.joinCode !== existingClassJoinCodes.get(cls.id) ? { joinCode: cls.joinCode } : {}),
+          }).where(eq(teacherClasses.id, cls.id));
+          classesImported++;
+        } catch (err: any) {
+          errors.push(`Class update ${cls.id}: ${err.message}`);
+        }
+      }
+      console.log(`[SYNC-BRIDGE v35.1] Classes: ${classesToInsert.length} inserted, ${classesToUpdate.length} updated`);
     }
     
-    // Build maps for quick lookup
-    const creditsByUserId = new Map<string, any[]>();
-    for (const credit of credits) {
-      const userCredits = creditsByUserId.get(credit.userId) || [];
-      userCredits.push(credit);
-      creditsByUserId.set(credit.userId, userCredits);
-    }
+    // STEP 3: Process users and build ID mapping (source → target)
+    const userIdMapping = new Map<string, string>(); // sourceId → targetId
     
-    const enrollmentsByUserId = new Map<string, any[]>();
-    for (const enrollment of directEnrollments) {
-      const userEnrollments = enrollmentsByUserId.get(enrollment.studentId) || [];
-      userEnrollments.push(enrollment);
-      enrollmentsByUserId.set(enrollment.studentId, userEnrollments);
-    }
+    // Build mapping for existing users first (they already exist, just need mapping)
+    testers.forEach(t => {
+      if (existingUsersByEmail.has(t.email)) {
+        userIdMapping.set(t.id, existingUsersByEmail.get(t.email)!);
+      } else {
+        // New users will use their source ID
+        userIdMapping.set(t.id, t.id);
+      }
+    });
     
-    // Get all public classes for auto-enrollment (fallback for users without direct enrollments)
-    const publicClasses = await db
-      .select()
-      .from(teacherClasses)
-      .where(and(
-        eq(teacherClasses.isPublicCatalogue, true),
-        eq(teacherClasses.isActive, true)
-      ));
-    
-    console.log(`[SYNC-BRIDGE] Found ${publicClasses.length} public classes, ${directEnrollments.length} direct enrollments`);
-    
-    for (const tester of testers) {
-      try {
-        // Check if user exists by email (merge logic)
-        const existing = await db.select().from(users).where(eq(users.email, tester.email)).limit(1);
-        
-        let targetUserId: string;
-        const sourceUserId = tester.id;
-        
-        if (existing.length > 0) {
-          // User exists - update beta tester flag
-          targetUserId = existing[0].id;
-          await db.update(users)
-            .set({ isBetaTester: true })
-            .where(eq(users.id, targetUserId));
-          console.log(`[SYNC-BRIDGE] Marked existing user as beta tester: ${tester.email} (target: ${targetUserId})`);
-        } else {
-          // Create new user with source ID (password-based users)
-          targetUserId = sourceUserId;
-          await db.insert(users).values({
-            id: targetUserId,
+    // Insert new users in bulk
+    const usersToInsert = testers.filter(t => !existingUsersByEmail.has(t.email));
+    if (usersToInsert.length > 0) {
+      const CHUNK_SIZE = 100;
+      for (let i = 0; i < usersToInsert.length; i += CHUNK_SIZE) {
+        const chunk = usersToInsert.slice(i, i + CHUNK_SIZE);
+        try {
+          await db.insert(users).values(chunk.map(tester => ({
+            id: tester.id,
             email: tester.email,
             firstName: tester.firstName,
             lastName: tester.lastName,
@@ -6669,104 +6694,135 @@ class SyncBridgeService {
             authProvider: tester.authProvider || 'password',
             createdAt: new Date(tester.createdAt),
             updatedAt: new Date(),
-          });
-          console.log(`[SYNC-BRIDGE] Created beta tester: ${tester.email}`);
+          }))).onConflictDoNothing();
+          usersImported += chunk.length;
+        } catch (err: any) {
+          errors.push(`Bulk user insert: ${err.message}`);
         }
-        usersImported++;
-        
-        // Check for direct enrollments from source (preferred over auto-enrollment)
-        const userDirectEnrollments = enrollmentsByUserId.get(sourceUserId) || [];
-        
-        if (userDirectEnrollments.length > 0) {
-          // v23: Use direct enrollments from dev (exact class assignments)
-          for (const enrollment of userDirectEnrollments) {
-            try {
-              // Check if already enrolled
-              const existingEnrollment = await db
-                .select()
-                .from(classEnrollments)
-                .where(and(
-                  eq(classEnrollments.classId, enrollment.classId),
-                  eq(classEnrollments.studentId, targetUserId)
-                ))
-                .limit(1);
-              
-              if (existingEnrollment.length === 0) {
-                await db.insert(classEnrollments).values({
-                  classId: enrollment.classId,
-                  studentId: targetUserId,
-                  isActive: enrollment.isActive ?? true,
-                  allocatedSeconds: enrollment.allocatedSeconds,
-                  usedSeconds: enrollment.usedSeconds,
-                });
-                enrollmentsCreated++;
-                console.log(`[SYNC-BRIDGE] Direct enrolled ${tester.email} in class ${enrollment.classId}`);
-              }
-            } catch (enrollErr: any) {
-              console.warn(`[SYNC-BRIDGE] Failed direct enrollment for ${tester.email}: ${enrollErr.message}`);
-            }
-          }
-        } else {
-          // Fallback: Auto-enroll in all public classes (for users without explicit enrollments)
-          for (const publicClass of publicClasses) {
-            try {
-              const existingEnrollment = await db
-                .select()
-                .from(classEnrollments)
-                .where(and(
-                  eq(classEnrollments.classId, publicClass.id),
-                  eq(classEnrollments.studentId, targetUserId)
-                ))
-                .limit(1);
-              
-              if (existingEnrollment.length === 0) {
-                await db.insert(classEnrollments).values({
-                  classId: publicClass.id,
-                  studentId: targetUserId,
-                  isActive: true,
-                });
-                enrollmentsCreated++;
-                console.log(`[SYNC-BRIDGE] Auto-enrolled ${tester.email} in "${publicClass.name}"`);
-              }
-            } catch (enrollErr: any) {
-              console.warn(`[SYNC-BRIDGE] Failed to enroll ${tester.email} in ${publicClass.name}: ${enrollErr.message}`);
-            }
-          }
-        }
-        
-        // Import credits for this user
-        // Note: Skip foreign key references (classId, voiceSessionId) as those records
-        // may not exist in the target environment
-        const userCredits = creditsByUserId.get(sourceUserId) || [];
-        for (const credit of userCredits) {
-          try {
-            const existingCredit = await db.select().from(usageLedger).where(eq(usageLedger.id, credit.id)).limit(1);
-            if (existingCredit.length === 0) {
-              await db.insert(usageLedger).values({
-                id: credit.id,
-                userId: targetUserId,
-                creditSeconds: credit.creditSeconds,
-                entitlementType: credit.entitlementType,
-                description: credit.description,
-                stripePaymentId: credit.stripePaymentId,
-                // Skip classId and voiceSessionId - they reference records that may not exist
-                classId: null,
-                voiceSessionId: null,
-                createdAt: new Date(credit.createdAt),
-                expiresAt: credit.expiresAt ? new Date(credit.expiresAt) : null,
-              });
-              creditsImported++;
-            }
-          } catch (creditErr: any) {
-            errors.push(`credit for ${tester.email}: ${creditErr.message}`);
-          }
-        }
-      } catch (err: any) {
-        errors.push(`beta tester ${tester.email}: ${err.message}`);
       }
     }
     
-    console.log(`[SYNC-BRIDGE] Beta testers: ${usersImported} users, ${creditsImported} credits, ${enrollmentsCreated} enrollments`);
+    // Update existing users to have beta tester flag
+    const usersToUpdate = testers.filter(t => existingUsersByEmail.has(t.email));
+    if (usersToUpdate.length > 0) {
+      const targetIds = usersToUpdate.map(t => existingUsersByEmail.get(t.email)!);
+      try {
+        await db.update(users).set({ isBetaTester: true }).where(inArray(users.id, targetIds));
+        usersImported += usersToUpdate.length;
+      } catch (err: any) {
+        errors.push(`Bulk user update: ${err.message}`);
+      }
+    }
+    
+    console.log(`[SYNC-BRIDGE v35.1] Users: ${usersToInsert.length} inserted, ${usersToUpdate.length} updated, ${userIdMapping.size} mapped`);
+    
+    // STEP 4: Preload existing enrollments AFTER we know target user IDs
+    // v35.1: Query with resolved target IDs for accurate duplicate detection
+    const allTargetUserIds = Array.from(new Set(Array.from(userIdMapping.values())));
+    const existingEnrollments = allTargetUserIds.length > 0
+      ? await db.select({ classId: classEnrollments.classId, studentId: classEnrollments.studentId })
+          .from(classEnrollments).where(inArray(classEnrollments.studentId, allTargetUserIds))
+      : [];
+    const existingEnrollmentKeys = new Set(existingEnrollments.map(e => `${e.classId}:${e.studentId}`));
+    console.log(`[SYNC-BRIDGE v35.1] Preloaded ${existingEnrollmentKeys.size} existing enrollments for ${allTargetUserIds.length} target users`);
+    
+    // STEP 5: Bulk import enrollments
+    // Build maps for quick lookup
+    const enrollmentsByUserId = new Map<string, any[]>();
+    for (const enrollment of directEnrollments) {
+      const userEnrollments = enrollmentsByUserId.get(enrollment.studentId) || [];
+      userEnrollments.push(enrollment);
+      enrollmentsByUserId.set(enrollment.studentId, userEnrollments);
+    }
+    
+    // Get public classes for auto-enrollment fallback
+    const publicClasses = await db.select().from(teacherClasses)
+      .where(and(eq(teacherClasses.isPublicCatalogue, true), eq(teacherClasses.isActive, true)));
+    
+    // Collect all enrollments to insert (using target user IDs)
+    const enrollmentsToInsert: Array<{ classId: string; studentId: string; isActive: boolean; allocatedSeconds?: number; usedSeconds?: number }> = [];
+    
+    for (const tester of testers) {
+      const targetUserId = userIdMapping.get(tester.id)!;
+      const userDirectEnrollments = enrollmentsByUserId.get(tester.id) || [];
+      
+      if (userDirectEnrollments.length > 0) {
+        for (const enrollment of userDirectEnrollments) {
+          const key = `${enrollment.classId}:${targetUserId}`;
+          if (!existingEnrollmentKeys.has(key)) {
+            enrollmentsToInsert.push({
+              classId: enrollment.classId,
+              studentId: targetUserId,
+              isActive: enrollment.isActive ?? true,
+              allocatedSeconds: enrollment.allocatedSeconds,
+              usedSeconds: enrollment.usedSeconds,
+            });
+            existingEnrollmentKeys.add(key); // Prevent duplicates within batch
+          }
+        }
+      } else {
+        // Auto-enroll in public classes
+        for (const publicClass of publicClasses) {
+          const key = `${publicClass.id}:${targetUserId}`;
+          if (!existingEnrollmentKeys.has(key)) {
+            enrollmentsToInsert.push({
+              classId: publicClass.id,
+              studentId: targetUserId,
+              isActive: true,
+            });
+            existingEnrollmentKeys.add(key);
+          }
+        }
+      }
+    }
+    
+    // Bulk insert enrollments
+    if (enrollmentsToInsert.length > 0) {
+      const CHUNK_SIZE = 200;
+      for (let i = 0; i < enrollmentsToInsert.length; i += CHUNK_SIZE) {
+        const chunk = enrollmentsToInsert.slice(i, i + CHUNK_SIZE);
+        try {
+          await db.insert(classEnrollments).values(chunk).onConflictDoNothing();
+          enrollmentsCreated += chunk.length;
+        } catch (err: any) {
+          errors.push(`Bulk enrollment insert: ${err.message}`);
+        }
+      }
+    }
+    console.log(`[SYNC-BRIDGE v35.1] Enrollments: ${enrollmentsToInsert.length} inserted`);
+    
+    // STEP 6: Bulk import credits (with remapped user IDs)
+    const creditsToInsert = credits.filter(c => !existingCreditIds.has(c.id));
+    if (creditsToInsert.length > 0) {
+      const CHUNK_SIZE = 200;
+      for (let i = 0; i < creditsToInsert.length; i += CHUNK_SIZE) {
+        const chunk = creditsToInsert.slice(i, i + CHUNK_SIZE);
+        try {
+          await db.insert(usageLedger).values(chunk.map(credit => {
+            // v35.1: Use mapped target user ID for correct ownership
+            const targetUserId = userIdMapping.get(credit.userId) || credit.userId;
+            return {
+              id: credit.id,
+              userId: targetUserId,
+              creditSeconds: credit.creditSeconds,
+              entitlementType: credit.entitlementType,
+              description: credit.description,
+              stripePaymentId: credit.stripePaymentId,
+              classId: null, // Skip FK references
+              voiceSessionId: null,
+              createdAt: new Date(credit.createdAt),
+              expiresAt: credit.expiresAt ? new Date(credit.expiresAt) : null,
+            };
+          })).onConflictDoNothing();
+          creditsImported += chunk.length;
+        } catch (err: any) {
+          errors.push(`Bulk credit insert: ${err.message}`);
+        }
+      }
+    }
+    
+    const duration = Date.now() - startTime;
+    console.log(`[SYNC-BRIDGE v35.1] Beta testers import complete in ${duration}ms: ${usersImported} users, ${creditsImported} credits, ${enrollmentsCreated} enrollments, ${classesImported} classes`);
     return { usersImported, creditsImported, enrollmentsCreated, classesImported, errors };
   }
 
