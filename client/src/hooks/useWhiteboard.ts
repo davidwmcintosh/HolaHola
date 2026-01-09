@@ -232,22 +232,55 @@ export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn
    * Add or update items from streaming client (pre-parsed items with IDs)
    * If an item with the same ID exists, it will be replaced (for enrichment updates)
    * Enforces max items limit to prevent tool stacking
+   * 
+   * Also handles control items:
+   * - { type: 'clear' } - Clears the whiteboard (then continues with any visual items)
+   * - { type: 'hold', hold: boolean } - Prevents/allows auto-clear
    */
   const addOrUpdateItems = useCallback((newItems: WhiteboardItem[], shouldClear = false) => {
-    if (shouldClear) {
-      setItems(enforceMaxItems(newItems, maxItems));
+    // Check for control items (from native function calls like CLEAR, HOLD)
+    const hasClearItem = newItems.some((item: any) => item.type === 'clear');
+    const holdItem = newItems.find((item: any) => item.type === 'hold');
+    
+    // Process HOLD command (sets state but continues with other items)
+    if (holdItem) {
+      const holdValue = (holdItem as any).hold !== false;
+      setIsHolding(holdValue);
+      console.log('[WHITEBOARD] Hold command received via item:', holdValue);
+    }
+    
+    // Filter out control items from visual processing
+    const visualItems = newItems.filter((item: any) => 
+      item.type !== 'clear' && item.type !== 'hold'
+    );
+    
+    // Process CLEAR command - clear existing items, then add any new visual items
+    // (This handles mixed control/content payloads where CLEAR + new items arrive together)
+    if (hasClearItem || shouldClear) {
+      setItems(enforceMaxItems(visualItems, maxItems));
       setIsHolding(false);
       setActiveDrill(null);
-      console.log('[WHITEBOARD] Cleared and set items from streaming:', newItems.length);
+      console.log('[WHITEBOARD] Cleared and set items:', visualItems.length, hasClearItem ? '(via clear item)' : '(via shouldClear flag)');
+      
+      // Still need to handle drill activation after clear
+      const drillItems = visualItems.filter(isDrillItem);
+      if (drillItems.length > 0) {
+        const newDrill = drillItems[drillItems.length - 1];
+        setActiveDrill(newDrill);
+        configRef.current?.onDrillStart?.(newDrill);
+        console.log('[WHITEBOARD] New drill activated after clear:', newDrill.data.drillType);
+      }
       return;
     }
+    
+    if (visualItems.length === 0) return;
     
     setItems(prev => {
       // Create a map of existing items by ID for quick lookup
       const itemMap = new Map(prev.map(item => [item.id, item]));
       
       // Process new items - update existing or add new
-      for (const newItem of newItems) {
+      for (const newItem of visualItems) {
         if (newItem.id && itemMap.has(newItem.id)) {
           // Update existing item (e.g., WORD_MAP with enriched data)
           itemMap.set(newItem.id, newItem);
@@ -264,7 +297,7 @@ export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn
     });
     
     // Handle drill activation
-    const drillItems = newItems.filter(isDrillItem);
+    const drillItems = visualItems.filter(isDrillItem);
     if (drillItems.length > 0) {
       const newDrill = drillItems[drillItems.length - 1];
       setActiveDrill(newDrill);
