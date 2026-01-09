@@ -822,7 +822,15 @@ export function StreamingVoiceChat({
           // Handle server-initiated subtitle mode change (tutor [SUBTITLE on/off/target] command)
           onSubtitleModeChange: (mode) => {
             console.log('[SUBTITLE] Server command to change subtitle mode to:', mode);
+            // Update whiteboard's regularSubtitleMode (used by FloatingSubtitleOverlay)
+            whiteboard.setRegularSubtitleMode(mode);
+            // Also update context for persistence
             setSubtitleMode(mode);
+          },
+          // Handle server-initiated custom overlay (tutor [SHOW: text] / [HIDE] commands)
+          onCustomOverlay: (action, text) => {
+            console.log('[OVERLAY] Server command:', action, text?.substring(0, 50));
+            whiteboard.setCustomOverlayText(action === 'show' ? (text || null) : null);
           },
         });
         streamingConnectedRef.current = true;
@@ -2537,7 +2545,15 @@ export function StreamingVoiceChat({
               // Handle server-initiated subtitle mode change (tutor [SUBTITLE on/off/target] command)
               onSubtitleModeChange: (mode) => {
                 console.log('[SUBTITLE] Server command to change subtitle mode to:', mode, '(reconnect context)');
+                // Update whiteboard's regularSubtitleMode (used by FloatingSubtitleOverlay)
+                whiteboard.setRegularSubtitleMode(mode);
+                // Also update context for persistence
                 setSubtitleMode(mode);
+              },
+              // Handle server-initiated custom overlay (tutor [SHOW: text] / [HIDE] commands)
+              onCustomOverlay: (action, text) => {
+                console.log('[OVERLAY] Server command:', action, text?.substring(0, 50), '(reconnect context)');
+                whiteboard.setCustomOverlayText(action === 'show' ? (text || null) : null);
               },
             });
             streamingConnectedRef.current = true;
