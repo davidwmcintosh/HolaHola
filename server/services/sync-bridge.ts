@@ -43,7 +43,7 @@ const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production'
 
 // Version identifier to verify which code is running on production
 // Increment this when making sync-related changes to verify deployment
-const SYNC_BRIDGE_CODE_VERSION = "2025-01-08-v33-curriculum-gaps";
+const SYNC_BRIDGE_CODE_VERSION = "2025-01-09-v34-all-classes";
 
 // Capability negotiation: List all batch types this version can import/export
 // When adding new batches, add them here so peers can gracefully handle version mismatches
@@ -67,6 +67,7 @@ const SUPPORTED_BATCHES = [
   'founder-context',   // Bidirectional sync of founder's personal facts (same Daniela in dev/prod)
   'prod-conversations', // Pull recent conversation transcripts from prod for troubleshooting
   'sofia-telemetry',   // Pull Sofia runtime faults and issue reports from prod for debugging
+  'all-classes',       // v34: Full sync of ALL teacher classes and enrollments
 ] as const;
 
 // Capability map for fine-grained feature support
@@ -185,6 +186,8 @@ export interface SyncBundle {
   betaTesterCredits: any[];
   betaTesterEnrollments: any[];  // Direct enrollments for beta testers (including Replit auth users)
   betaTesterClasses: any[];  // v27: Teacher classes needed for beta tester enrollments
+  allTeacherClasses: any[];  // v34: ALL teacher classes (for full class sync)
+  allEnrollments: any[];     // v34: ALL class enrollments (for full enrollment sync)
   // Beta usage (prod → dev pull)
   // v25: Added pagination support (hasMore, page) and conversations for FK satisfaction
   betaUsage?: {
@@ -501,6 +504,17 @@ class SyncBridgeService {
           break;
         }
         
+        case 'all-classes': {
+          // v34: Full class sync - ALL teacher classes and enrollments
+          const allClasses = await db.select({ count: sql<number>`count(*)` }).from(teacherClasses);
+          const allEnrolls = await db.select({ count: sql<number>`count(*)` }).from(classEnrollments);
+          manifest.expected = {
+            teacherClasses: Number(allClasses[0]?.count || 0),
+            classEnrollments: Number(allEnrolls[0]?.count || 0),
+          };
+          break;
+        }
+        
         default:
           manifest.expected = { note: 'Manifest not implemented for this batch type' };
       }
@@ -709,6 +723,10 @@ class SyncBridgeService {
         case 'neural-core':
           tablesToVerify.push('bestPractices');
           break;
+        case 'all-classes':
+          // v34: Full class sync verification
+          tablesToVerify.push('teacherClasses', 'classEnrollments');
+          break;
       }
       
       if (tablesToVerify.length === 0) {
@@ -753,6 +771,10 @@ class SyncBridgeService {
         },
         'neural-core': {
           'bestPractices': 'bestPractices',
+        },
+        'all-classes': {
+          'teacherClasses': 'teacherClasses',
+          'classEnrollments': 'classEnrollments',
         },
       };
       
@@ -1259,6 +1281,25 @@ class SyncBridgeService {
         bundle.betaTesterCredits = [];
         bundle.betaTesterEnrollments = [];
         bundle.betaTesterClasses = [];
+      }
+    }
+    
+    // BATCH: all-classes - ALL teacher classes and enrollments (v34: full class sync for teachers)
+    // This syncs ALL classes regardless of beta tester status - needed for teacher class management
+    if (batchType === 'all-classes') {
+      try {
+        const allClasses = await db.select().from(teacherClasses);
+        const allEnrolls = await db.select().from(classEnrollments);
+        
+        bundle.allTeacherClasses = allClasses;
+        bundle.allEnrollments = allEnrolls;
+        console.log(`[SYNC-BRIDGE v34] all-classes: ${allClasses.length} teacher classes, ${allEnrolls.length} enrollments`);
+      } catch (err: any) {
+        const errMsg = `all-classes export failed: ${err.message}`;
+        console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
+        batchErrors.push(errMsg);
+        bundle.allTeacherClasses = [];
+        bundle.allEnrollments = [];
       }
     }
     
@@ -3388,6 +3429,69 @@ class SyncBridgeService {
         }
       }
       counts['betaTesterClasses'] = classesImported;
+    }
+    
+    // v34: ALL Teacher Classes (full class sync - imports ALL classes regardless of beta tester status)
+    if (bundle.allTeacherClasses?.length) {
+      console.log(`[SYNC-BRIDGE v34] Importing ${bundle.allTeacherClasses.length} ALL Teacher Classes...`);
+      let classesImported = 0;
+      for (const cls of bundle.allTeacherClasses) {
+        try {
+          const existing = await db.select().from(teacherClasses).where(eq(teacherClasses.id, cls.id)).limit(1);
+          if (existing.length === 0) {
+            await db.insert(teacherClasses).values({
+              ...cls,
+              createdAt: cls.createdAt ? new Date(cls.createdAt) : new Date(),
+              updatedAt: cls.updatedAt ? new Date(cls.updatedAt) : new Date(),
+            });
+            classesImported++;
+            console.log(`[SYNC-BRIDGE v34] Created class: "${cls.name}" (${cls.language})`);
+          } else {
+            // Update existing class to match source
+            await db.update(teacherClasses)
+              .set({
+                name: cls.name,
+                language: cls.language,
+                classLevel: cls.classLevel,
+                isPublicCatalogue: cls.isPublicCatalogue,
+                isActive: cls.isActive,
+                description: cls.description,
+                curriculumPathId: cls.curriculumPathId,
+                teacherId: cls.teacherId,
+                updatedAt: new Date(),
+              })
+              .where(eq(teacherClasses.id, cls.id));
+            console.log(`[SYNC-BRIDGE v34] Updated class: "${cls.name}" (${cls.language})`);
+          }
+        } catch (err: any) {
+          console.warn(`[SYNC-BRIDGE v34] Failed to import class ${cls.name}: ${err.message}`);
+          errors.push(`AllClass ${cls.name}: ${err.message}`);
+        }
+      }
+      counts['allTeacherClasses'] = classesImported;
+    }
+    
+    // v34: ALL Enrollments (full enrollment sync)
+    if (bundle.allEnrollments?.length) {
+      console.log(`[SYNC-BRIDGE v34] Importing ${bundle.allEnrollments.length} ALL Enrollments...`);
+      let enrollmentsImported = 0;
+      for (const enr of bundle.allEnrollments) {
+        try {
+          const existing = await db.select().from(classEnrollments).where(eq(classEnrollments.id, enr.id)).limit(1);
+          if (existing.length === 0) {
+            await db.insert(classEnrollments).values({
+              ...enr,
+              enrolledAt: enr.enrolledAt ? new Date(enr.enrolledAt) : new Date(),
+              createdAt: enr.createdAt ? new Date(enr.createdAt) : new Date(),
+            });
+            enrollmentsImported++;
+          }
+        } catch (err: any) {
+          console.warn(`[SYNC-BRIDGE v34] Failed to import enrollment ${enr.id}: ${err.message}`);
+          errors.push(`AllEnrollment ${enr.id}: ${err.message}`);
+        }
+      }
+      counts['allEnrollments'] = enrollmentsImported;
     }
     
     if (bundle.betaTesters?.length) {
