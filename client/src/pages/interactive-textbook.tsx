@@ -1,18 +1,61 @@
+import { useState, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { 
   BookOpen, 
   ChevronRight, 
   ChevronLeft,
+  ChevronDown,
   Play,
   CheckCircle2,
   Lock,
-  Sparkles
+  Sparkles,
+  MessageSquare,
+  Dumbbell,
+  Book,
+  GraduationCap,
+  X,
+  RotateCcw
 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
+import { TextbookSectionRenderer } from "@/components/TextbookSectionRenderer";
+import { RhythmDrill } from "@/components/RhythmDrill";
+
+interface DrillItem {
+  id: string;
+  itemType: string;
+  prompt: string;
+  targetText: string;
+  difficulty: number;
+  mastered: boolean;
+  attempts: number;
+}
+
+interface Section {
+  id: string;
+  name: string;
+  description: string;
+  lessonType: string;
+  estimatedMinutes: number;
+  progress: number;
+  isComplete: boolean;
+  hasDrills: boolean;
+  drillCount: number;
+  objectives?: string[];
+  conversationTopic?: string;
+  drills?: DrillItem[];
+}
 
 interface Chapter {
   id: string;
@@ -23,62 +66,110 @@ interface Chapter {
   isLocked: boolean;
   sectionsCount: number;
   completedSections: number;
+  sections: Section[];
+  culturalTheme?: string;
+  actflLevel?: string;
 }
 
-const SAMPLE_CHAPTERS: Chapter[] = [
-  {
-    id: "ch1",
-    number: 1,
-    title: "Greetings & Introductions",
-    description: "Learn to say hello, introduce yourself, and make a great first impression",
-    progress: 75,
-    isLocked: false,
-    sectionsCount: 5,
-    completedSections: 4,
-  },
-  {
-    id: "ch2",
-    number: 2,
-    title: "Numbers & Counting",
-    description: "Master numbers 1-100 with rhythm drills and real-world practice",
-    progress: 30,
-    isLocked: false,
-    sectionsCount: 6,
-    completedSections: 2,
-  },
-  {
-    id: "ch3",
-    number: 3,
-    title: "Days, Months & Time",
-    description: "Tell time, schedule appointments, and talk about your week",
-    progress: 0,
-    isLocked: false,
-    sectionsCount: 4,
-    completedSections: 0,
-  },
-  {
-    id: "ch4",
-    number: 4,
-    title: "Family & Relationships",
-    description: "Describe your family and talk about the people in your life",
-    progress: 0,
-    isLocked: true,
-    sectionsCount: 5,
-    completedSections: 0,
-  },
-  {
-    id: "ch5",
-    number: 5,
-    title: "At the Restaurant",
-    description: "Order food, ask for the check, and navigate dining experiences",
-    progress: 0,
-    isLocked: true,
-    sectionsCount: 6,
-    completedSections: 0,
-  },
-];
+interface TextbookData {
+  language: string;
+  curriculumPath?: {
+    id: string;
+    name: string;
+    description: string;
+    startLevel: string;
+    endLevel: string;
+  };
+  chapters: Chapter[];
+  totalChapters: number;
+  completedChapters: number;
+  message?: string;
+}
 
-function ChapterCard({ chapter }: { chapter: Chapter }) {
+interface ChapterDetail {
+  chapter: Chapter;
+  sections: Section[];
+}
+
+function getLessonTypeIcon(type: string) {
+  switch (type) {
+    case 'conversation':
+      return <MessageSquare className="h-4 w-4" />;
+    case 'drill':
+      return <Dumbbell className="h-4 w-4" />;
+    case 'vocabulary':
+      return <Book className="h-4 w-4" />;
+    case 'grammar':
+      return <GraduationCap className="h-4 w-4" />;
+    default:
+      return <BookOpen className="h-4 w-4" />;
+  }
+}
+
+function SectionCard({ 
+  section, 
+  chapterLocked,
+  onOpen 
+}: { 
+  section: Section; 
+  chapterLocked: boolean;
+  onOpen: () => void;
+}) {
+  const isDisabled = chapterLocked;
+  
+  return (
+    <div 
+      className={`flex items-center gap-3 p-3 rounded-md border bg-background/50 ${isDisabled ? 'opacity-50' : 'hover-elevate cursor-pointer'}`}
+      data-testid={`section-${section.id}`}
+      onClick={() => !isDisabled && onOpen()}
+    >
+      <div className={`p-2 rounded-full ${section.isComplete ? 'bg-green-500/20' : 'bg-muted'}`}>
+        {section.isComplete ? (
+          <CheckCircle2 className="h-4 w-4 text-green-500" />
+        ) : (
+          getLessonTypeIcon(section.lessonType)
+        )}
+      </div>
+      
+      <div className="flex-1 min-w-0">
+        <p className="font-medium text-sm truncate">{section.name}</p>
+        <div className="flex items-center gap-2 mt-0.5">
+          <Badge variant="outline" className="text-xs">
+            {section.lessonType}
+          </Badge>
+          <span className="text-xs text-muted-foreground">
+            {section.estimatedMinutes} min
+          </span>
+          {section.hasDrills && (
+            <span className="text-xs text-muted-foreground">
+              {section.drillCount} drills
+            </span>
+          )}
+        </div>
+      </div>
+      
+      {section.progress > 0 && section.progress < 100 && (
+        <div className="w-12">
+          <Progress value={section.progress} className="h-1.5" />
+        </div>
+      )}
+      
+      {!isDisabled && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+    </div>
+  );
+}
+
+function ChapterCard({ 
+  chapter, 
+  isExpanded, 
+  onToggle,
+  onOpenSection
+}: { 
+  chapter: Chapter; 
+  isExpanded: boolean;
+  onToggle: () => void;
+  onOpenSection: (section: Section) => void;
+}) {
   const progressColor = chapter.progress >= 75 
     ? "text-green-500" 
     : chapter.progress >= 25 
@@ -87,11 +178,14 @@ function ChapterCard({ chapter }: { chapter: Chapter }) {
 
   return (
     <Card 
-      className={`hover-elevate cursor-pointer transition-all ${chapter.isLocked ? 'opacity-60' : ''}`}
+      className={`transition-all ${chapter.isLocked ? 'opacity-60' : ''}`}
       data-testid={`card-chapter-${chapter.number}`}
     >
       <CardContent className="p-4 md:p-6">
-        <div className="flex items-start gap-4">
+        <div 
+          className={`flex items-start gap-4 ${!chapter.isLocked ? 'cursor-pointer' : ''}`}
+          onClick={() => !chapter.isLocked && onToggle()}
+        >
           <div className="flex-shrink-0 w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
             {chapter.isLocked ? (
               <Lock className="h-5 w-5 text-muted-foreground" />
@@ -133,25 +227,177 @@ function ChapterCard({ chapter }: { chapter: Chapter }) {
             </p>
           </div>
           
-          <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
+          {chapter.isLocked ? (
+            <Lock className="h-5 w-5 text-muted-foreground shrink-0" />
+          ) : (
+            <ChevronDown className={`h-5 w-5 text-muted-foreground shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+          )}
+        </div>
+        
+        {isExpanded && !chapter.isLocked && chapter.sections.length > 0 && (
+          <div className="mt-4 pt-4 border-t space-y-2">
+            {chapter.sections.map((section) => (
+              <SectionCard 
+                key={section.id} 
+                section={section} 
+                chapterLocked={chapter.isLocked}
+                onOpen={() => onOpenSection(section)}
+              />
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ChapterSkeleton() {
+  return (
+    <Card>
+      <CardContent className="p-4 md:p-6">
+        <div className="flex items-start gap-4">
+          <Skeleton className="w-12 h-12 rounded-full" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-5 w-48" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-2 w-full mt-2" />
+            <Skeleton className="h-3 w-24 mt-1" />
+          </div>
         </div>
       </CardContent>
     </Card>
   );
 }
 
+function SectionDetailView({
+  section,
+  chapterId,
+  language,
+  onClose,
+  onStartConversation
+}: {
+  section: Section;
+  chapterId: string;
+  language: string;
+  onClose: () => void;
+  onStartConversation: () => void;
+}) {
+  const [showDrillMode, setShowDrillMode] = useState(false);
+  
+  const { data: detailData, isLoading } = useQuery<ChapterDetail>({
+    queryKey: ['/api/textbook', language, 'chapter', chapterId],
+    enabled: !!chapterId,
+  });
+  
+  const sectionWithDrills = detailData?.sections?.find(s => s.id === section.id) || section;
+  
+  const drillItems = sectionWithDrills.drills?.map(d => ({
+    id: d.id,
+    prompt: d.prompt,
+    targetText: d.targetText,
+    difficulty: d.difficulty
+  })) || [];
+
+  if (showDrillMode && drillItems.length > 0) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setShowDrillMode(false)}
+            data-testid="button-back-to-section"
+          >
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            Back to Section
+          </Button>
+        </div>
+        
+        <RhythmDrill
+          title={`${section.name} Drills`}
+          description={`Practice the key phrases and vocabulary from this section`}
+          items={drillItems}
+          onComplete={(results) => {
+            console.log('Drill results:', results);
+            setShowDrillMode(false);
+          }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {isLoading ? (
+        <div className="space-y-3">
+          <Skeleton className="h-6 w-48" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-20 w-full" />
+        </div>
+      ) : (
+        <TextbookSectionRenderer
+          section={{
+            ...sectionWithDrills,
+            objectives: sectionWithDrills.objectives || null,
+            conversationTopic: sectionWithDrills.conversationTopic || null,
+            conversationPrompt: null,
+            drills: sectionWithDrills.drills || []
+          }}
+          onStartDrill={() => setShowDrillMode(true)}
+          onStartConversation={onStartConversation}
+        />
+      )}
+      
+      {!showDrillMode && drillItems.length > 0 && (
+        <div className="pt-4 border-t">
+          <Button 
+            className="w-full" 
+            onClick={() => setShowDrillMode(true)}
+            data-testid="button-start-section-drill"
+          >
+            <Dumbbell className="h-4 w-4 mr-2" />
+            Start Practice Drills ({drillItems.length} items)
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function InteractiveTextbook() {
   const { language } = useLanguage();
+  const [, setLocation] = useLocation();
+  const [expandedChapter, setExpandedChapter] = useState<string | null>(null);
+  const [selectedSection, setSelectedSection] = useState<{
+    section: Section;
+    chapterId: string;
+  } | null>(null);
   
   const languageDisplayName = language.charAt(0).toUpperCase() + language.slice(1);
   
-  const totalProgress = Math.round(
-    SAMPLE_CHAPTERS.reduce((acc, ch) => acc + ch.progress, 0) / SAMPLE_CHAPTERS.length
-  );
+  const { data: textbookData, isLoading, error } = useQuery<TextbookData>({
+    queryKey: ['/api/textbook', language],
+  });
+  
+  const chapters = textbookData?.chapters || [];
+  
+  const totalProgress = chapters.length > 0
+    ? Math.round(chapters.reduce((acc, ch) => acc + ch.progress, 0) / chapters.length)
+    : 0;
+  
+  const continueChapter = chapters.find(ch => !ch.isLocked && ch.progress < 100 && ch.progress > 0)
+    || chapters.find(ch => !ch.isLocked && ch.progress === 0);
+
+  const handleOpenSection = useCallback((section: Section, chapterId: string) => {
+    setSelectedSection({ section, chapterId });
+  }, []);
+  
+  const handleStartConversation = useCallback(() => {
+    setLocation('/chat');
+  }, [setLocation]);
 
   return (
     <div className="space-y-6 w-full max-w-4xl mx-auto">
-      {/* Back to Language Hub */}
       <Link href="/">
         <Button variant="ghost" size="sm" className="gap-1 -ml-2" data-testid="button-back-to-hub">
           <ChevronLeft className="h-4 w-4" />
@@ -168,6 +414,11 @@ export default function InteractiveTextbook() {
           <p className="text-muted-foreground mt-1">
             Your {languageDisplayName} learning journey, chapter by chapter
           </p>
+          {textbookData?.curriculumPath && (
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {textbookData.curriculumPath.name}
+            </p>
+          )}
         </div>
         
         <div className="flex items-center gap-3">
@@ -181,40 +432,102 @@ export default function InteractiveTextbook() {
         </div>
       </div>
       
-      <Card className="p-4 bg-gradient-to-r from-primary/10 via-primary/5 to-background border-primary/20">
-        <div className="flex items-center gap-4">
-          <div className="p-3 rounded-full bg-primary/20">
-            <Play className="h-5 w-5 text-primary" />
+      {continueChapter && (
+        <Card className="p-4 bg-gradient-to-r from-primary/10 via-primary/5 to-background border-primary/20">
+          <div className="flex items-center gap-4">
+            <div className="p-3 rounded-full bg-primary/20">
+              <Play className="h-5 w-5 text-primary" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold">Continue Learning</h3>
+              <p className="text-sm text-muted-foreground">
+                Pick up where you left off in Chapter {continueChapter.number}: {continueChapter.title}
+              </p>
+            </div>
+            <Button 
+              data-testid="button-continue-learning"
+              onClick={() => setExpandedChapter(continueChapter.id)}
+            >
+              Continue
+              <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
           </div>
-          <div className="flex-1">
-            <h3 className="font-semibold">Continue Learning</h3>
-            <p className="text-sm text-muted-foreground">
-              Pick up where you left off in Chapter 2: Numbers & Counting
-            </p>
-          </div>
-          <Button data-testid="button-continue-learning">
-            Continue
-            <ChevronRight className="h-4 w-4 ml-1" />
-          </Button>
-        </div>
-      </Card>
+        </Card>
+      )}
       
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold">Chapters</h2>
+      {error ? (
+        <Card className="p-6 text-center">
+          <p className="text-muted-foreground">
+            Unable to load textbook content. Please try again.
+          </p>
+        </Card>
+      ) : isLoading ? (
         <div className="space-y-3">
-          {SAMPLE_CHAPTERS.map((chapter) => (
-            <ChapterCard key={chapter.id} chapter={chapter} />
-          ))}
+          <h2 className="text-lg font-semibold">Chapters</h2>
+          <div className="space-y-3">
+            {[1, 2, 3, 4].map((i) => (
+              <ChapterSkeleton key={i} />
+            ))}
+          </div>
         </div>
-      </div>
+      ) : chapters.length === 0 ? (
+        <Card className="p-6 text-center bg-muted/30">
+          <BookOpen className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+          <h3 className="font-semibold mb-2">No Chapters Available Yet</h3>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto">
+            {textbookData?.message || `The Interactive Textbook for ${languageDisplayName} is coming soon!`}
+          </p>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          <h2 className="text-lg font-semibold">Chapters</h2>
+          <div className="space-y-3">
+            {chapters.map((chapter) => (
+              <ChapterCard 
+                key={chapter.id} 
+                chapter={chapter}
+                isExpanded={expandedChapter === chapter.id}
+                onToggle={() => setExpandedChapter(
+                  expandedChapter === chapter.id ? null : chapter.id
+                )}
+                onOpenSection={(section) => handleOpenSection(section, chapter.id)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
       
       <Card className="p-6 text-center bg-muted/30">
         <Sparkles className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
-        <h3 className="font-semibold mb-2">More Chapters Coming Soon</h3>
+        <h3 className="font-semibold mb-2">More Content Coming Soon</h3>
         <p className="text-sm text-muted-foreground max-w-md mx-auto">
           We're actively building new chapters with engaging content, embedded drills, and visual learning experiences.
         </p>
       </Card>
+      
+      <Dialog 
+        open={selectedSection !== null} 
+        onOpenChange={(open) => !open && setSelectedSection(null)}
+      >
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {selectedSection && getLessonTypeIcon(selectedSection.section.lessonType)}
+              {selectedSection?.section.name || 'Section Details'}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedSection && (
+            <SectionDetailView
+              section={selectedSection.section}
+              chapterId={selectedSection.chapterId}
+              language={language}
+              onClose={() => setSelectedSection(null)}
+              onStartConversation={handleStartConversation}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

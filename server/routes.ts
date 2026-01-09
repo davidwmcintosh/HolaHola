@@ -8708,6 +8708,172 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // ===== Interactive Textbook API =====
+  // Get full textbook structure for a language (chapters, sections, progress)
+  app.get("/api/textbook/:language", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { language } = req.params;
+      
+      // Normalize language to match database format
+      const normalizedLanguage = language.toLowerCase().trim();
+      
+      console.log('[Textbook API] Fetching for language:', normalizedLanguage, 'userId:', userId);
+      
+      // Get curriculum paths for this language
+      const paths = await storage.getCurriculumPaths(normalizedLanguage);
+      
+      console.log('[Textbook API] Found paths:', paths.length, paths.map(p => p.name));
+      
+      // Find the primary curriculum path (usually "Language 1" for beginners)
+      const primaryPath = paths.find(p => 
+        p.name.toLowerCase().includes('1') || 
+        p.startLevel?.toLowerCase().includes('novice')
+      ) || paths[0];
+      
+      console.log('[Textbook API] Primary path:', primaryPath?.name || 'none');
+      
+      if (!primaryPath) {
+        return res.json({
+          language: normalizedLanguage,
+          chapters: [],
+          message: "No curriculum available for this language yet"
+        });
+      }
+      
+      // Get all units (chapters) for this path
+      const units = await storage.getCurriculumUnits(primaryPath.id);
+      
+      console.log('[Textbook API] Found units:', units.length);
+      
+      // Build chapter structure with lessons (sections)
+      // For performance, we skip individual drill progress checks on the overview
+      // and only load detailed progress when a chapter is opened
+      const chapters = await Promise.all(units.map(async (unit, index) => {
+        const lessons = await storage.getCurriculumLessons(unit.id);
+        
+        // Build sections without expensive progress queries
+        const sections = lessons.map((lesson) => ({
+          id: lesson.id,
+          name: lesson.name,
+          description: lesson.description || '',
+          lessonType: lesson.lessonType || 'lesson',
+          estimatedMinutes: lesson.estimatedMinutes || 10,
+          progress: 0, // Progress computed on demand in chapter detail view
+          isComplete: false,
+          hasDrills: lesson.lessonType === 'drill',
+          drillCount: 0, // Computed on demand
+        }));
+        
+        // Chapter is locked if previous chapter is not at least 50% complete (except first)
+        const isLocked = index > 0; // Updated below based on actual progress
+        
+        return {
+          id: unit.id,
+          number: index + 1,
+          title: unit.name,
+          description: unit.description || '',
+          progress: 0, // Overview shows 0 for simplicity; detailed view shows actual
+          isLocked,
+          sectionsCount: sections.length,
+          completedSections: 0,
+          sections,
+          culturalTheme: unit.culturalTheme,
+          actflLevel: unit.actflLevel,
+        };
+      }));
+      
+      console.log('[Textbook API] Built chapters:', chapters.length);
+      
+      // For simplicity in the textbook overview, keep all chapters unlocked
+      // (progressive unlocking can be added later with user progress tracking)
+      for (let i = 1; i < chapters.length; i++) {
+        chapters[i].isLocked = false;
+      }
+      
+      res.json({
+        language: normalizedLanguage,
+        curriculumPath: {
+          id: primaryPath.id,
+          name: primaryPath.name,
+          description: primaryPath.description,
+          startLevel: primaryPath.startLevel,
+          endLevel: primaryPath.endLevel,
+        },
+        chapters,
+        totalChapters: chapters.length,
+        completedChapters: chapters.filter(c => c.progress === 100).length,
+      });
+    } catch (error: any) {
+      console.error('Error fetching textbook data:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get specific chapter content with full section details
+  app.get("/api/textbook/:language/chapter/:chapterId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { chapterId } = req.params;
+      
+      const unit = await storage.getCurriculumUnit(chapterId);
+      if (!unit) {
+        return res.status(404).json({ error: "Chapter not found" });
+      }
+      
+      const lessons = await storage.getCurriculumLessons(chapterId);
+      
+      const sections = await Promise.all(lessons.map(async (lesson) => {
+        const drillItems = await storage.getDrillItems(lesson.id);
+        
+        // Get progress for each drill
+        const drillsWithProgress = await Promise.all(drillItems.map(async (item) => {
+          const progress = await storage.getDrillProgress(userId, item.id);
+          return {
+            id: item.id,
+            itemType: item.itemType,
+            prompt: item.prompt,
+            targetText: item.targetText,
+            difficulty: item.difficulty,
+            mastered: progress?.masteryLevel ? progress.masteryLevel >= 3 : false,
+            attempts: progress?.totalAttempts || 0,
+          };
+        }));
+        
+        const completedDrills = drillsWithProgress.filter(d => d.mastered).length;
+        const progressPercent = drillItems.length > 0 
+          ? Math.round((completedDrills / drillItems.length) * 100)
+          : 0;
+        
+        return {
+          id: lesson.id,
+          name: lesson.name,
+          description: lesson.description,
+          lessonType: lesson.lessonType,
+          objectives: lesson.objectives,
+          estimatedMinutes: lesson.estimatedMinutes,
+          progress: progressPercent,
+          isComplete: progressPercent === 100,
+          drills: drillsWithProgress,
+          conversationTopic: lesson.conversationTopic,
+          conversationPrompt: lesson.conversationPrompt,
+        };
+      }));
+      
+      res.json({
+        id: unit.id,
+        title: unit.name,
+        description: unit.description,
+        culturalTheme: unit.culturalTheme,
+        actflLevel: unit.actflLevel,
+        sections,
+      });
+    } catch (error: any) {
+      console.error('Error fetching chapter:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Create curriculum unit
   app.post("/api/curriculum/units", isAuthenticated, async (req: any, res) => {
     try {
