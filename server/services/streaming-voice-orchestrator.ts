@@ -3670,15 +3670,39 @@ Remember: David may reference things discussed in these recent text chats.
       };
     }
     
+    // IN-FLIGHT GUARD: If AI is currently generating a response, check if new transcript
+    // is an extension of what we're already processing. If so, skip to prevent double response.
+    // This catches the case where UtteranceEnd fires with partial, then full transcript.
+    if (session.isGenerating && session.lastProcessedTranscriptHash) {
+      // Check if new transcript CONTAINS the previous one (extension/continuation)
+      const prevHash = session.lastProcessedTranscriptHash;
+      const isExtension = transcriptHash.startsWith(prevHash) || 
+                          prevHash.startsWith(transcriptHash) ||
+                          // Also check word overlap - if >60% words are shared, likely same utterance
+                          this.calculateWordOverlap(transcriptHash, prevHash) > 0.6;
+      
+      if (isExtension) {
+        console.log(`[DEDUP] Skipping extension transcript while generating (overlap detected): "${transcript.slice(0, 50)}..."`);
+        return {
+          sessionId,
+          sttLatencyMs: 0,
+          aiFirstTokenMs: 0,
+          ttsFirstByteMs: 0,
+          totalLatencyMs: 0,
+          sentenceCount: 0,
+          audioBytes: 0,
+          audioChunkCount: 0,
+        };
+      }
+      
+      // Different enough to be a real barge-in - interrupt and continue
+      console.log(`[Streaming Orchestrator] BARGE-IN (open mic): User spoke different content while AI generating - interrupting`);
+      this.handleInterrupt(sessionId);
+    }
+    
     // Record this transcript as processed
     session.lastProcessedTranscriptHash = transcriptHash;
     session.lastProcessedTranscriptTime = now;
-    
-    // BARGE-IN DETECTION: If AI is currently generating a response, interrupt it
-    if (session.isGenerating) {
-      console.log(`[Streaming Orchestrator] BARGE-IN (open mic): User spoke while AI generating - interrupting`);
-      this.handleInterrupt(sessionId);
-    }
     
     // Mark that we're now generating a response
     session.isGenerating = true;
@@ -8067,6 +8091,27 @@ Using this context, speak first to the student with a natural opening message. O
     if (session && session.isActive) {
       this.resetIdleTimeout(session);
     }
+  }
+  
+  /**
+   * Calculate word overlap between two normalized transcript hashes
+   * Used to detect if two transcripts are variations of the same utterance
+   * Returns value between 0 (no overlap) and 1 (identical words)
+   */
+  private calculateWordOverlap(hash1: string, hash2: string): number {
+    const words1 = new Set(hash1.split(' ').filter(w => w.length > 0));
+    const words2 = new Set(hash2.split(' ').filter(w => w.length > 0));
+    
+    if (words1.size === 0 || words2.size === 0) return 0;
+    
+    let intersection = 0;
+    for (const word of words1) {
+      if (words2.has(word)) intersection++;
+    }
+    
+    // Jaccard similarity: intersection / union
+    const union = words1.size + words2.size - intersection;
+    return union > 0 ? intersection / union : 0;
   }
   
   // Context refresh interval: 15 minutes for long voice sessions
