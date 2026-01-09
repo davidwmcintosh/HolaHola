@@ -762,13 +762,17 @@ export class StreamingAudioPlayer {
     isLast: boolean,
     sampleRate: number = 24000
   ): Promise<void> {
-    // CRITICAL FIX (Jan 3, 2026): Detect new turn BEFORE deduplication check
+    // CRITICAL FIX (Jan 3/9, 2026): Detect new turn BEFORE deduplication check
     // Previously, the order was: check dedup → add to set → detect new turn → clear set
     // This caused double audio: first chunk was added then immediately cleared, allowing duplicate through
-    // New order: detect new turn → clear set if needed → check dedup → add to set
-    const isNewTurnStarting = sentenceIndex === 0 && chunkIndex === 0 && !this.progressiveFirstChunkStarted;
+    // 
+    // Updated (Jan 9): Now checks sentenceIndex only, NOT chunkIndex
+    // This handles edge case where Cartesia sends empty marker at chunkIndex=0, 
+    // then real audio at chunkIndex=1 - we still need to detect this as new turn
+    const isNewTurnStarting = sentenceIndex === 0 && !this.progressiveFirstChunkStarted;
     
     // For new turn, clear the deduplication set BEFORE checking for duplicates
+    // BUT don't set progressiveFirstChunkStarted yet - wait until we confirm this isn't an empty marker chunk
     if (isNewTurnStarting) {
       console.log(`[AUDIO PLAYER] New turn detected - clearing deduplication state`);
       this.processedChunks.clear();
@@ -822,25 +826,16 @@ export class StreamingAudioPlayer {
       }
     }
     
+    // DEDUP CHECK ONLY - don't add to set yet (wait until after empty check)
     if (this.processedChunks.has(chunkKey)) {
       console.log(`[AUDIO PLAYER] DEDUP: Skipping duplicate chunk ${chunkKey}`);
       return;
-    }
-    this.processedChunks.add(chunkKey);
-    
-    // Track chunk count per sentence for telemetry
-    const currentCounter = this.sentenceChunkCounters.get(sentenceIndex) || 0;
-    this.sentenceChunkCounters.set(sentenceIndex, currentCounter + 1);
-    
-    // Telemetry: Warn if chunkIndex suggests normalization occurred (0 when counter > 0)
-    // This shouldn't happen since server sends proper indices, but log for debugging
-    if (chunkIndex === 0 && currentCounter > 0) {
-      console.warn(`[AUDIO PLAYER] DEDUP WARNING: chunkIndex=0 received after ${currentCounter} chunks for sentence ${sentenceIndex}`);
     }
     
     console.log(`[AUDIO PLAYER] enqueueProgressivePcmChunk: sentence=${sentenceIndex}, chunk=${chunkIndex}, size=${audio.byteLength}, held=${this.playbackHeld}`);
     
     // HOLD PLAYBACK: If held, buffer the chunk for later as a StreamingAudioChunk
+    // NOTE: Held chunks are NOT added to dedup set - they'll be processed later
     if (this.playbackHeld) {
       console.log(`[AUDIO PLAYER] Progressive chunk held for later playback`);
       this.heldChunks.push({
@@ -857,6 +852,7 @@ export class StreamingAudioPlayer {
     
     // Handle empty audio chunks (isLast=true marker chunks)
     // These chunks have 0 audio data but signal sentence completion
+    // NOTE: Empty chunks are NOT added to dedup set - they don't block real audio
     if (audio.byteLength === 0) {
       if (isLast) {
         // Set the endCtxTime in the sentence schedule
@@ -874,6 +870,28 @@ export class StreamingAudioPlayer {
         this.finalizeProgressiveSentence(sentenceIndex);
       }
       return;
+    }
+    
+    // === ONLY NOW add to dedup set - after confirming this is real audio ===
+    // This ensures empty/marker chunks don't block subsequent real audio
+    this.processedChunks.add(chunkKey);
+    
+    // Track chunk count per sentence for telemetry
+    const currentCounter = this.sentenceChunkCounters.get(sentenceIndex) || 0;
+    this.sentenceChunkCounters.set(sentenceIndex, currentCounter + 1);
+    
+    // Telemetry: Warn if chunkIndex suggests normalization occurred (0 when counter > 0)
+    // This shouldn't happen since server sends proper indices, but log for debugging
+    if (chunkIndex === 0 && currentCounter > 0) {
+      console.warn(`[AUDIO PLAYER] DEDUP WARNING: chunkIndex=0 received after ${currentCounter} chunks for sentence ${sentenceIndex}`);
+    }
+    
+    // CRITICAL FIX (Jan 9, 2026): Set flag HERE after empty chunk check
+    // This prevents race condition where second chunk clears dedup set
+    // The flag is set AFTER: dedup check passes AND chunk is not empty
+    // This ensures only real audio chunks mark the turn as started
+    if (isNewTurnStarting) {
+      this.progressiveFirstChunkStarted = true;
     }
     
     const ctx = this.getAudioContext();
@@ -899,7 +917,8 @@ export class StreamingAudioPlayer {
       
       // For new turn, reset timing state (dedup already cleared above)
       if (isNewTurnStarting) {
-        this.progressiveFirstChunkStarted = false;
+        // NOTE: progressiveFirstChunkStarted is set at line ~888 AFTER empty chunk check
+        // This prevents race condition while also handling empty marker chunks correctly
         this.sentenceSchedule.clear();
         this.wordSchedule.clear();
         // NOTE: processedChunks already cleared above BEFORE dedup check
@@ -974,7 +993,9 @@ export class StreamingAudioPlayer {
     }
     
     // Register sentence in schedule if this is its first chunk
-    if (!this.sentenceSchedule.has(sentenceIndex)) {
+    // Capture BEFORE modifying for loop restart logic below
+    const isFirstChunkForSentence = !this.sentenceSchedule.has(sentenceIndex);
+    if (isFirstChunkForSentence) {
       this.sentenceSchedule.set(sentenceIndex, {
         startCtxTime: playTime,
         totalDuration: 0,
@@ -991,15 +1012,17 @@ export class StreamingAudioPlayer {
     scheduleEntry.totalDuration += chunkDuration;
     
     // Start or restart the timing loop when needed
-    // - For first chunk of first sentence of a turn: always start
+    // - For first REAL audio of first sentence of a turn: always start
     // - For first chunk of any sentence after loop was stopped: restart
     // CRITICAL: Use wasPlayingBeforeThisChunk, NOT this.isPlaying
     // because isPlaying gets set to true earlier in this function for new sentences
-    const shouldStartLoop = !this.progressiveFirstChunkStarted && chunkIndex === 0 && sentenceIndex === 0;
-    const shouldRestartLoop = !wasPlayingBeforeThisChunk && chunkIndex === 0;
+    // NOTE: isNewTurnStarting is computed BEFORE progressiveFirstChunkStarted is set
+    // NOTE (Jan 9): Loop starts for first real audio regardless of chunkIndex, handling empty-first scenarios
+    const shouldStartLoop = isNewTurnStarting;
+    const shouldRestartLoop = !wasPlayingBeforeThisChunk && isFirstChunkForSentence;
     
     if (shouldStartLoop || shouldRestartLoop) {
-      this.progressiveFirstChunkStarted = true;
+      // NOTE: progressiveFirstChunkStarted is now set early (line ~782) for race condition fix
       this.playbackStartTime = performance.now();
       this.isPlaying = true;
       this.setState('playing');
