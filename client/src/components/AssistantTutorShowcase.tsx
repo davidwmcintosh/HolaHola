@@ -148,10 +148,10 @@ export function AssistantTutorShowcase({ className = '' }: AssistantTutorShowcas
   };
 
   return (
-    <div className={`w-full ${className}`} data-testid="assistant-tutor-showcase">
-      <div className="flex items-start justify-start gap-6 flex-wrap">
-        <div className="flex flex-col items-center gap-2 pt-4">
-          <h3 className="text-base md:text-lg font-semibold text-muted-foreground">
+    <div className={`w-full pl-6 md:pl-10 ${className}`} data-testid="assistant-tutor-showcase">
+      <div className="flex items-start justify-start gap-4 flex-wrap">
+        <div className="flex flex-col items-start gap-1 pt-2">
+          <h3 className="text-sm font-semibold text-muted-foreground">
             Practice Partners
           </h3>
           <p className="text-xs text-muted-foreground">Drill & Review</p>
