@@ -1760,6 +1760,7 @@ TEACHING GUIDANCE:
       
       // Founder Mode context fetches (all parallel)
       if (session.isFounderMode) {
+        console.log(`[EXPRESS Lane] Founder Mode active - fetching Hive + Express Lane context for user ${session.userId}`);
         // 2. Hive context
         contextPromises.push(
           hiveContextService.getSummary()
@@ -1877,6 +1878,9 @@ Remember: David may reference things discussed in these recent text chats.
             })
             .catch(err => console.warn(`[EXPRESS Lane Memory] Failed to prefetch:`, err.message))
         );
+      } else {
+        // Log when Founder Mode is NOT active - helps diagnose Express Lane visibility issues
+        console.log(`[EXPRESS Lane] Founder Mode NOT active for user ${session.userId} - skipping Hive/Express Lane context. User role may need to be developer/admin.`);
       }
       
       // Wait for all context fetches in parallel

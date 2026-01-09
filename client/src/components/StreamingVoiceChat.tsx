@@ -1938,9 +1938,11 @@ export function StreamingVoiceChat({
         if (pttReleaseSentRef.current) {
           console.log('[PUSH-TO-TALK] SKIP audio blob - ptt_release already sent transcript to server');
           pttReleaseSentRef.current = false; // Reset for next turn
-          // Clean up state without triggering another AI response
-          setIsProcessing(false);
-          isProcessingRef.current = false;
+          // DON'T reset isProcessing here - let onResponseComplete handle it
+          // This ensures the "thinking" animation shows while waiting for AI response
+          // The server will send sentence_ready/audio_chunk which triggers playback,
+          // and onResponseComplete will reset isProcessing when the response is done
+          console.log('[PUSH-TO-TALK] Keeping isProcessing=true for thinking animation');
           return;
         }
         
