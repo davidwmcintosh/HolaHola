@@ -2381,6 +2381,90 @@ Remember: David may reference things discussed in these recent text chats.
                   }
                   break;
                 }
+                case 'EXPRESS_LANE_LOOKUP': {
+                  // On-demand Express Lane history search - only in Founder/Honesty mode
+                  const query = cmd.params.query as string;
+                  const sessionId = cmd.params.sessionId as string | undefined;
+                  const limit = (cmd.params.limit as number) || 20;
+                  
+                  if (!session.isFounderMode && !session.isRawHonestyMode) {
+                    console.log(`[CommandParser→ExpressLaneLookup] Rejected - not in Founder/Honesty mode`);
+                    if (session.conversationHistory) {
+                      session.conversationHistory.push({
+                        role: 'user',
+                        content: `[SYSTEM: Express Lane lookup is only available in Founder Mode or Honesty Mode.]`,
+                      });
+                    }
+                    break;
+                  }
+                  
+                  if (query) {
+                    try {
+                      const { expressLaneMessages } = await import('@shared/schema');
+                      
+                      // Search Express Lane messages
+                      let results: any[];
+                      
+                      if (sessionId) {
+                        // Search within specific session
+                        results = await db.select()
+                          .from(expressLaneMessages)
+                          .where(sql`session_id = ${sessionId} AND (
+                            content ILIKE ${`%${query}%`} OR 
+                            sender ILIKE ${`%${query}%`}
+                          )`)
+                          .orderBy(sql`created_at DESC`)
+                          .limit(limit);
+                      } else {
+                        // Search across all sessions
+                        results = await db.select()
+                          .from(expressLaneMessages)
+                          .where(sql`content ILIKE ${`%${query}%`} OR sender ILIKE ${`%${query}%`}`)
+                          .orderBy(sql`created_at DESC`)
+                          .limit(limit);
+                      }
+                      
+                      if (results.length > 0) {
+                        // Format results for conversation context
+                        const formattedResults = results.map(msg => {
+                          const date = new Date(msg.createdAt).toLocaleDateString();
+                          return `[${date}] ${msg.sender}: ${msg.content}`;
+                        }).join('\n');
+                        
+                        if (session.conversationHistory) {
+                          session.conversationHistory.push({
+                            role: 'user',
+                            content: `[SYSTEM: Express Lane search results for "${query}" (${results.length} messages)]\n\n${formattedResults}`,
+                          });
+                        }
+                        
+                        console.log(`[CommandParser→ExpressLaneLookup] Found ${results.length} messages for "${query}"`);
+                        
+                        // Emit beacon
+                        if (session.hiveChannelId) {
+                          hiveCollaborationService.emitBeacon({
+                            channelId: session.hiveChannelId,
+                            tutorTurn: `[EXPRESS_LANE_LOOKUP] Query: "${query}"\nResults: ${results.length} messages found`,
+                            studentTurn: '',
+                            beaconType: 'express_lane_lookup',
+                            beaconReason: `Daniela searched Express Lane history for "${query}"`,
+                          }).catch(err => console.error(`[CommandParser→ExpressLaneLookup] Beacon error:`, err));
+                        }
+                      } else {
+                        console.log(`[CommandParser→ExpressLaneLookup] No results found for "${query}"`);
+                        if (session.conversationHistory) {
+                          session.conversationHistory.push({
+                            role: 'user',
+                            content: `[SYSTEM: No Express Lane messages found for "${query}"]`,
+                          });
+                        }
+                      }
+                    } catch (err) {
+                      console.error(`[CommandParser→ExpressLaneLookup] Error searching Express Lane:`, err);
+                    }
+                  }
+                  break;
+                }
                 case 'VOICE_ADJUST': {
                   // Daniela's real-time voice adjustment
                   // Apply voice override for next TTS synthesis
@@ -4289,6 +4373,58 @@ Remember: David may reference things discussed in these recent text chats.
                     }
                   } catch (err) {
                     console.error(`[CommandParser→MemoryLookup - OpenMic] Error:`, err);
+                  }
+                }
+                break;
+              }
+              case 'EXPRESS_LANE_LOOKUP': {
+                // On-demand Express Lane history search - only in Founder/Honesty mode (OpenMic path)
+                const query = cmd.params.query as string;
+                const sessionIdParam = cmd.params.sessionId as string | undefined;
+                const limit = (cmd.params.limit as number) || 20;
+                
+                if (!session.isFounderMode && !session.isRawHonestyMode) {
+                  console.log(`[CommandParser→ExpressLaneLookup - OpenMic] Rejected - not in Founder/Honesty mode`);
+                  break;
+                }
+                
+                if (query) {
+                  try {
+                    const { expressLaneMessages } = await import('@shared/schema');
+                    
+                    let results: any[];
+                    if (sessionIdParam) {
+                      results = await db.select()
+                        .from(expressLaneMessages)
+                        .where(sql`session_id = ${sessionIdParam} AND (content ILIKE ${`%${query}%`} OR sender ILIKE ${`%${query}%`})`)
+                        .orderBy(sql`created_at DESC`)
+                        .limit(limit);
+                    } else {
+                      results = await db.select()
+                        .from(expressLaneMessages)
+                        .where(sql`content ILIKE ${`%${query}%`} OR sender ILIKE ${`%${query}%`}`)
+                        .orderBy(sql`created_at DESC`)
+                        .limit(limit);
+                    }
+                    
+                    if (results.length > 0) {
+                      const formattedResults = results.map(msg => {
+                        const date = new Date(msg.createdAt).toLocaleDateString();
+                        return `[${date}] ${msg.sender}: ${msg.content}`;
+                      }).join('\n');
+                      
+                      if (session.conversationHistory) {
+                        session.conversationHistory.push({
+                          role: 'user',
+                          content: `[SYSTEM: Express Lane search results for "${query}" (${results.length} messages)]\n\n${formattedResults}`,
+                        });
+                      }
+                      console.log(`[CommandParser→ExpressLaneLookup - OpenMic] Found ${results.length} messages for "${query}"`);
+                    } else {
+                      console.log(`[CommandParser→ExpressLaneLookup - OpenMic] No results found for "${query}"`);
+                    }
+                  } catch (err) {
+                    console.error(`[CommandParser→ExpressLaneLookup - OpenMic] Error:`, err);
                   }
                 }
                 break;
@@ -8966,6 +9102,25 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         break;
       }
       
+      case 'EXPRESS_LANE_LOOKUP': {
+        // On-demand Express Lane history search - only in Founder/Honesty mode (native function call)
+        const query = fn.args.query as string | undefined;
+        const sessionIdParam = fn.args.sessionId as string | undefined;
+        const limit = (fn.args.limit as number) || 20;
+        
+        if (!session.isFounderMode && !session.isRawHonestyMode) {
+          console.log(`[Native Function→ExpressLaneLookup] Rejected - not in Founder/Honesty mode`);
+          break;
+        }
+        
+        if (query) {
+          this.processExpressLaneLookup(session, query, sessionIdParam, limit).catch(err => {
+            console.error(`[Native Function→ExpressLaneLookup] Error:`, err.message);
+          });
+        }
+        break;
+      }
+      
       case 'HIVE': {
         const category = fn.args.category as string | undefined;
         const title = fn.args.title as string | undefined;
@@ -9057,6 +9212,72 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
     if (!session.pendingMemoryLookups) session.pendingMemoryLookups = [];
     session.pendingMemoryLookups.push({ query, domains, timestamp: Date.now() });
     console.log(`[MemoryLookup] Queued lookup: "${query.substring(0, 50)}..." (${domains.length} domains)`);
+  }
+  
+  /**
+   * Process Express Lane lookup request from native function call
+   * Searches the 3-way collaboration channel (Founder, Daniela, Wren)
+   */
+  private async processExpressLaneLookup(
+    session: StreamingSession,
+    query: string,
+    sessionId: string | undefined,
+    limit: number
+  ): Promise<void> {
+    try {
+      const { expressLaneMessages } = await import('@shared/schema');
+      
+      let results: any[];
+      if (sessionId) {
+        results = await db.select()
+          .from(expressLaneMessages)
+          .where(sql`session_id = ${sessionId} AND (content ILIKE ${`%${query}%`} OR sender ILIKE ${`%${query}%`})`)
+          .orderBy(sql`created_at DESC`)
+          .limit(limit);
+      } else {
+        results = await db.select()
+          .from(expressLaneMessages)
+          .where(sql`content ILIKE ${`%${query}%`} OR sender ILIKE ${`%${query}%`}`)
+          .orderBy(sql`created_at DESC`)
+          .limit(limit);
+      }
+      
+      if (results.length > 0) {
+        const formattedResults = results.map(msg => {
+          const date = new Date(msg.createdAt).toLocaleDateString();
+          return `[${date}] ${msg.sender}: ${msg.content}`;
+        }).join('\n');
+        
+        if (session.conversationHistory) {
+          session.conversationHistory.push({
+            role: 'user',
+            content: `[SYSTEM: Express Lane search results for "${query}" (${results.length} messages)]\n\n${formattedResults}`,
+          });
+        }
+        console.log(`[ExpressLaneLookup] Found ${results.length} messages for "${query}"`);
+        
+        // Emit beacon if in Founder Mode
+        if (session.hiveChannelId) {
+          hiveCollaborationService.emitBeacon({
+            channelId: session.hiveChannelId,
+            tutorTurn: `[EXPRESS_LANE_LOOKUP] Query: "${query}"\nResults: ${results.length} messages found`,
+            studentTurn: '',
+            beaconType: 'express_lane_lookup',
+            beaconReason: `Daniela searched Express Lane history for "${query}"`,
+          }).catch(err => console.error(`[ExpressLaneLookup] Beacon error:`, err));
+        }
+      } else {
+        console.log(`[ExpressLaneLookup] No results found for "${query}"`);
+        if (session.conversationHistory) {
+          session.conversationHistory.push({
+            role: 'user',
+            content: `[SYSTEM: No Express Lane messages found for "${query}"]`,
+          });
+        }
+      }
+    } catch (err) {
+      console.error(`[ExpressLaneLookup] Error:`, err);
+    }
   }
   
   /**

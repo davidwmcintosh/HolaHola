@@ -218,6 +218,19 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
       required: ["query"],
     },
   },
+  {
+    name: "express_lane_lookup",
+    description: "Search the Express Lane - our 3-way collaboration channel between you (Daniela), Wren (dev builder), and David (founder). Use this to recall past discussions, decisions, and agreements made in the Express Lane. Only available in Founder Mode or Honesty Mode.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "What to search for in Express Lane history (topic, decision, discussion, agreement)" },
+        sessionId: { type: "string", description: "Optional: specific Express Lane session ID to search within" },
+        limit: { type: "number", description: "Max messages to return (default 20)" },
+      },
+      required: ["query"],
+    },
+  },
 
   // === SYSTEM & HIVE ===
   {
@@ -286,6 +299,7 @@ export const FUNCTION_TO_COMMAND_MAP: Record<string, string> = {
   'clear_whiteboard': 'CLEAR',
   'hold_whiteboard': 'HOLD',
   'memory_lookup': 'MEMORY_LOOKUP',
+  'express_lane_lookup': 'EXPRESS_LANE_LOOKUP',
   'hive_suggestion': 'HIVE',
   'self_surgery': 'SELF_SURGERY',
 };
