@@ -5040,6 +5040,23 @@ ${memoryContext}
       // TEXT MODE: Full structured response with vocabulary and images (existing behavior)
       console.log('[TEXT MODE] Using full structured response path (Gemini)');
       
+      // Helper function to strip internal COLLAB markers from AI responses
+      // These are internal collaboration signals that should never be shown to users
+      const stripCollabMarkers = (text: string): string => {
+        return text
+          // Strip [COLLAB:TYPE]...[/COLLAB] blocks
+          .replace(/\[COLLAB:(SUGGESTION|PAIN_POINT|QUESTION|INSIGHT|MISSING_TOOL|FEATURE_REQUEST|KNOWLEDGE_PING|EXPRESS_INSIGHT|NORTH_STAR_OBSERVATION)\][\s\S]*?\[\/COLLAB\]/gi, '')
+          // Strip [ADOPT_INSIGHT:uuid] markers
+          .replace(/\[ADOPT_INSIGHT:[a-f0-9-]+\]/gi, '')
+          // Strip [THOUGHTS]...[/THOUGHTS] blocks (internal reasoning)
+          .replace(/\[THOUGHTS\][\s\S]*?\[\/THOUGHTS\]/gi, '')
+          // Strip [INTERNAL]...[/INTERNAL] blocks
+          .replace(/\[INTERNAL\][\s\S]*?\[\/INTERNAL\]/gi, '')
+          // Clean up multiple newlines left behind
+          .replace(/\n{3,}/g, '\n\n')
+          .trim();
+      };
+      
       // Define JSON schema for structured output (Gemini format)
       const tutorResponseSchema = {
         type: "object",
@@ -5080,12 +5097,20 @@ ${memoryContext}
         required: ["message", "vocabulary", "media"]
       };
       
-      // Generate AI response with Gemini
+      // Generate AI response with Gemini (with 25s timeout to prevent 504s)
       let parsedResponse: { message?: string; target?: string; native?: string; vocabulary?: any[]; media?: any[] } = {};
       let aiResponse = "I'm sorry, I couldn't generate a response.";
+      const TEXT_CHAT_TIMEOUT_MS = 25000; // 25 seconds (production LB is ~30s)
 
       try {
-        parsedResponse = await callGeminiWithSchema(
+        // Create timeout promise with cleanup to prevent orphan rejections
+        let timeoutHandle: NodeJS.Timeout | null = null;
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          timeoutHandle = setTimeout(() => reject(new Error('TEXT_CHAT_TIMEOUT')), TEXT_CHAT_TIMEOUT_MS);
+        });
+        
+        // Wrap Gemini call to clear timeout on completion
+        const geminiCall = callGeminiWithSchema(
           model,
           [
             { role: "system", content: enrichedSystemPrompt },
@@ -5096,6 +5121,14 @@ ${memoryContext}
           ],
           tutorResponseSchema
         );
+        
+        // Race the Gemini call against timeout
+        try {
+          parsedResponse = await Promise.race([geminiCall, timeoutPromise]);
+        } finally {
+          // CRITICAL: Clear timeout to prevent orphan rejection when Gemini succeeds
+          if (timeoutHandle) clearTimeout(timeoutHandle);
+        }
         
         // Handle both structured (target+native) and standard (message) formats
         if (parsedResponse.target !== undefined && parsedResponse.native !== undefined) {
@@ -5114,10 +5147,16 @@ ${memoryContext}
           vocabularyCount: parsedResponse.vocabulary?.length || 0,
           mediaCount: parsedResponse.media?.length || 0
         });
-      } catch (parseError) {
-        // Fallback if generation fails
-        console.error("[TEXT MODE] Failed to generate AI response:", parseError);
-        aiResponse = "I'm sorry, I couldn't generate a response.";
+      } catch (parseError: any) {
+        // Handle timeout specifically
+        if (parseError?.message === 'TEXT_CHAT_TIMEOUT') {
+          console.error("[TEXT MODE] Gemini call timed out after", TEXT_CHAT_TIMEOUT_MS, "ms");
+          aiResponse = "I'm taking too long to think! Could you try again with a simpler question?";
+        } else {
+          // Fallback if generation fails
+          console.error("[TEXT MODE] Failed to generate AI response:", parseError);
+          aiResponse = "I'm sorry, I couldn't generate a response.";
+        }
       }
       
       // Process media requests from AI (fetch stock images or generate AI images)
@@ -5384,6 +5423,10 @@ ${memoryContext}
         }
       }
 
+      // CRITICAL: Strip internal COLLAB/THOUGHTS markers before saving
+      // These are internal collaboration signals that should never leak to users
+      aiResponse = stripCollabMarkers(aiResponse);
+      
       // Save AI message with media
       const aiMessage = await storage.createMessage({
         conversationId,
