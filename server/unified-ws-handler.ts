@@ -179,7 +179,7 @@ class SocketIOWebSocketAdapter {
     } else {
       // Debug: log when socket is not connected
       try {
-        const parsed = JSON.parse(data);
+        const parsed = JSON.parse(data.toString());
         if (parsed.type === 'audio_chunk' || parsed.type === 'word_timing') {
           console.log(`[SOCKET EMIT] SKIPPED ${parsed.type}: socket not connected`);
         }
@@ -1021,7 +1021,7 @@ Reference past discussions when relevant, but don't force it.
             undefined, // editorConversationContext
             undefined, // surgeryContext
             studentMemoryContext, // Student memory for neural network
-            user.firstName || user.username || undefined, // Student display name for memory section
+            user.firstName || user.email || undefined, // Student display name for memory section
             predictiveTeachingContext, // Predictive teaching from neural network tables
             tutorPersona, // Pedagogical persona - each tutor's unique teaching style
             studentSnapshotContext // Student snapshot for session continuity (last lesson, streak, personal follow-ups)
@@ -2008,8 +2008,9 @@ Reference past discussions when relevant, but don't force it.
             return;
           }
           
-          // Check admin privileges
-          if (!user?.role || !['admin', 'founder', 'developer'].includes(user.role)) {
+          // Check admin privileges - fetch user to verify role
+          const overrideUser = userId ? await storage.getUser(userId) : null;
+          if (!overrideUser?.role || !['admin', 'founder', 'developer'].includes(overrideUser.role)) {
             console.warn('[Streaming Voice] voice_override rejected - not admin');
             return;
           }
@@ -2429,7 +2430,7 @@ export function recordServerEmit(sessionId: string, sentenceIndex: number, chunk
   
   // Clean up old records (older than 60 seconds)
   const cutoff = Date.now() - 60000;
-  for (const [k, v] of pendingServerEmits.entries()) {
+  for (const [k, v] of Array.from(pendingServerEmits.entries())) {
     if (v.emitTime < cutoff) {
       pendingServerEmits.delete(k);
     }
@@ -2735,7 +2736,7 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
             // Get user and conversation
             const user = userId ? await storage.getUser(userId) : null;
             const userName = user?.firstName || 'friend';
-            const conversation = conversationId ? await storage.getConversation(conversationId) : null;
+            const conversation = (conversationId && userId) ? await storage.getConversation(conversationId, userId) : null;
             
             // Calculate Founder Mode (enables hive collaboration)
             const isDeveloper = await usageService.checkDeveloperBypass(userId!);
@@ -2846,11 +2847,8 @@ This is a voice conversation. Speak naturally, as you would.`;
               dbSessionId // Database voice_sessions.id for usage tracking and memory extraction
             );
             
-            // Store tutorDirectory on session for prompt regeneration after tutor handoffs
-            // Note: This HTTP-based path may need to fetch tutorDirectory if switching is supported
-            if (typeof tutorDirectory !== 'undefined') {
-              session.tutorDirectory = tutorDirectory;
-            }
+            // Note: tutorDirectory is built dynamically by Socket.io path
+            // HTTP WebSocket path doesn't support tutor handoffs, so we skip this
             
             pendingVoiceUpdate = tutorGender;
             console.log(`[Streaming Voice] Session created: ${session.id}${dbSessionId ? ` (db: ${dbSessionId.substring(0, 8)}...)` : ' (no db session)'}`);
