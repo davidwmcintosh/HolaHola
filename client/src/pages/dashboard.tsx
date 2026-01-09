@@ -3,6 +3,8 @@ import { WelcomeHero } from "@/components/WelcomeHero";
 import { LearningAlerts } from "@/components/LearningAlerts";
 import { SyllabusMindMap } from "@/components/SyllabusMindMap";
 import { TutorShowcase, type TutorSelection } from "@/components/TutorShowcase";
+import { AssistantTutorShowcase } from "@/components/AssistantTutorShowcase";
+import { InteractiveTextbookCard } from "@/components/InteractiveTextbookCard";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLocation, Link } from "wouter";
@@ -43,13 +45,22 @@ export default function Dashboard() {
         ctaText={ctaText}
       />
       
-      {/* Tutor Showcase */}
-      <TutorShowcase 
-        onTutorSelect={handleTutorSelect}
-        selectedLanguage={selectedTutor?.language}
-        selectedGender={selectedTutor?.gender}
-        className="py-2"
-      />
+      {/* Meet Your Tutors Section */}
+      <div className="space-y-4">
+        {/* Main Tutors */}
+        <TutorShowcase 
+          onTutorSelect={handleTutorSelect}
+          selectedLanguage={selectedTutor?.language}
+          selectedGender={selectedTutor?.gender}
+          className="py-2"
+        />
+        
+        {/* Assistant Tutors / Practice Partners */}
+        <AssistantTutorShowcase className="py-2" />
+      </div>
+      
+      {/* Interactive Textbook Entry */}
+      <InteractiveTextbookCard />
       
       {/* Learning Alerts */}
       <LearningAlerts language={displayLanguage} />

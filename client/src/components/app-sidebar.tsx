@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, Languages, History, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Shield, X, Target, Search, Sparkles, Dumbbell, HelpCircle } from "lucide-react";
+import { BookOpen, Languages, History, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Shield, X, Target, Search, Sparkles, HelpCircle } from "lucide-react";
 import holaholaLogo from "@assets/holaholamainlogoBackgroundRemoved_1765308837223.png";
 import { Link, useLocation } from "wouter";
 import {
@@ -23,13 +23,12 @@ import { SupportAssistModal } from "@/components/SupportAssistModal";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/hooks/useAuth";
 import { hasTeacherAccess, hasAdminAccess } from "@shared/permissions";
-import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
 const dashboardItem = { title: "Language Hub", url: "/", icon: Target };
 
-// Static menu items (practice item will be dynamic)
-const staticLibraryMenuItems = [
+// Library menu items - Practice with Assistant moved to Language Hub
+const libraryMenuItems = [
   { title: "Vocabulary", url: "/vocabulary", icon: BookOpen },
   { title: "Grammar", url: "/grammar", icon: Languages },
   { title: "Past Chats", url: "/history", icon: History },
@@ -54,7 +53,7 @@ const adminMenuItems = [
 
 export function AppSidebar() {
   const [location] = useLocation();
-  const { userName, language, tutorGender } = useLanguage();
+  const { userName } = useLanguage();
   const { user } = useAuth();
   const { setOpenMobile, setOpen, isMobile } = useSidebar();
   
@@ -102,29 +101,6 @@ export function AppSidebar() {
       setIsLoadingSupport(false);
     }
   };
-  
-  // Fetch assistant name for the user's current language
-  const { data: assistantData } = useQuery<{ name: string; language: string; gender: string }>({
-    queryKey: ['/api/assistant/name', language, tutorGender],
-    queryFn: async () => {
-      const response = await fetch(`/api/assistant/name/${encodeURIComponent(language)}/${encodeURIComponent(tutorGender)}`, {
-        credentials: 'include',
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch assistant name');
-      }
-      return response.json();
-    },
-    enabled: !!user && !!language && !!tutorGender,
-    staleTime: 60000, // Cache for 1 minute
-  });
-  
-  // Build library menu items with dynamic assistant name
-  const assistantName = assistantData?.name || 'Aris';
-  const libraryMenuItems = [
-    { title: `Practice with ${assistantName}`, url: "/practice", icon: Dumbbell },
-    ...staticLibraryMenuItems,
-  ];
   
   // Auto-close sidebar when a menu item is clicked (both mobile and desktop)
   const closeSidebar = () => {
