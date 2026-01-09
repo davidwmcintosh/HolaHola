@@ -5,12 +5,14 @@ import { Progress } from "@/components/ui/progress";
 import { 
   BookOpen, 
   ChevronRight, 
+  ChevronLeft,
   Play,
   CheckCircle2,
   Lock,
   Sparkles
 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { Link } from "wouter";
 
 interface Chapter {
   id: string;
@@ -149,6 +151,14 @@ export default function InteractiveTextbook() {
 
   return (
     <div className="space-y-6 w-full max-w-4xl mx-auto">
+      {/* Back to Language Hub */}
+      <Link href="/">
+        <Button variant="ghost" size="sm" className="gap-1 -ml-2" data-testid="button-back-to-hub">
+          <ChevronLeft className="h-4 w-4" />
+          Language Hub
+        </Button>
+      </Link>
+
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
