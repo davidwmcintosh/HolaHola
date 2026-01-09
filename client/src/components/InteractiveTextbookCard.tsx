@@ -14,7 +14,7 @@ export function InteractiveTextbookCard({ className = '' }: InteractiveTextbookC
   const languageDisplayName = language.charAt(0).toUpperCase() + language.slice(1);
 
   return (
-    <Link href="/textbook">
+    <Link href="/interactive-textbook">
       <Card 
         className={`p-4 md:p-6 bg-gradient-to-r from-accent/20 via-accent/10 to-background border-accent/30 hover-elevate cursor-pointer ${className}`}
         data-testid="card-interactive-textbook"
