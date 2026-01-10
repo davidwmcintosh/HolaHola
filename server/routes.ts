@@ -52,6 +52,7 @@ import {
   sofiaIssueReports,
   selfPracticeSessions,
   neuralNetworkTelemetry,
+  tutorVoices,
 } from "@shared/schema";
 import { hasTeacherAccess, hasDeveloperAccess } from "@shared/permissions";
 import OpenAI, { toFile } from "openai";
