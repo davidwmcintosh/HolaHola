@@ -1881,39 +1881,41 @@ class SyncBridgeService {
   }> {
     // Export entries created in this environment with local syncStatus
     // These are new entries that haven't been synced yet
+    // v35: Include NULL origin_environment as valid for export (backwards compatibility)
+    // Records without origin_environment tag are assumed to belong to current environment
     const [idioms, nuances, errorPatterns, dialects, bridges, tips] = await Promise.all([
       db.select().from(languageIdioms).where(
         and(
           eq(languageIdioms.syncStatus, 'local'),
-          eq(languageIdioms.originEnvironment, CURRENT_ENVIRONMENT),
+          or(eq(languageIdioms.originEnvironment, CURRENT_ENVIRONMENT), isNull(languageIdioms.originEnvironment)),
           eq(languageIdioms.isActive, true)
         )
       ),
       db.select().from(culturalNuances).where(
         and(
           eq(culturalNuances.syncStatus, 'local'),
-          eq(culturalNuances.originEnvironment, CURRENT_ENVIRONMENT),
+          or(eq(culturalNuances.originEnvironment, CURRENT_ENVIRONMENT), isNull(culturalNuances.originEnvironment)),
           eq(culturalNuances.isActive, true)
         )
       ),
       db.select().from(learnerErrorPatterns).where(
         and(
           eq(learnerErrorPatterns.syncStatus, 'local'),
-          eq(learnerErrorPatterns.originEnvironment, CURRENT_ENVIRONMENT),
+          or(eq(learnerErrorPatterns.originEnvironment, CURRENT_ENVIRONMENT), isNull(learnerErrorPatterns.originEnvironment)),
           eq(learnerErrorPatterns.isActive, true)
         )
       ),
       db.select().from(dialectVariations).where(
         and(
           eq(dialectVariations.syncStatus, 'local'),
-          eq(dialectVariations.originEnvironment, CURRENT_ENVIRONMENT),
+          or(eq(dialectVariations.originEnvironment, CURRENT_ENVIRONMENT), isNull(dialectVariations.originEnvironment)),
           eq(dialectVariations.isActive, true)
         )
       ),
       db.select().from(linguisticBridges).where(
         and(
           eq(linguisticBridges.syncStatus, 'local'),
-          eq(linguisticBridges.originEnvironment, CURRENT_ENVIRONMENT),
+          or(eq(linguisticBridges.originEnvironment, CURRENT_ENVIRONMENT), isNull(linguisticBridges.originEnvironment)),
           eq(linguisticBridges.isActive, true)
         )
       ),
