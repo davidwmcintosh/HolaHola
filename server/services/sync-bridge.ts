@@ -43,7 +43,7 @@ const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production'
 
 // Version identifier to verify which code is running on production
 // Increment this when making sync-related changes to verify deployment
-const SYNC_BRIDGE_CODE_VERSION = "2025-01-09-v35-full-pull-parity";
+const SYNC_BRIDGE_CODE_VERSION = "2025-01-13-v36-peer-wakeup";
 
 // Capability negotiation: List all batch types this version can import/export
 // When adding new batches, add them here so peers can gracefully handle version mismatches
@@ -85,6 +85,110 @@ const SYNC_CAPABILITIES = {
 } as const;
 
 export type SyncCapabilities = typeof SYNC_CAPABILITIES;
+
+// v36: Peer Wake-Up Configuration
+// When production pulls from dev (or vice versa), the peer may be sleeping
+// We send a lightweight ping to wake it, then retry with exponential backoff
+const WAKE_UP_CONFIG = {
+  initialPingTimeoutMs: 5000,     // Quick timeout for initial ping
+  postWakeDelayMs: 5000,          // Short delay after wake for container to fully start (only when actually waking)
+  maxRetries: 3,                  // Retry up to 3 times
+  baseBackoffMs: 10000,           // Start with 10s backoff
+  maxBackoffMs: 60000,            // Cap at 60s backoff
+} as const;
+
+/**
+ * v36: Wake up a sleeping peer environment before sync
+ * Repls go to sleep after inactivity - this sends a lightweight ping to wake them
+ * Returns true if peer is reachable, false if still unreachable after retries
+ * 
+ * Flow:
+ * 1. Quick ping to check if already awake (no delay if successful)
+ * 2. If sleeping, retry with exponential backoff
+ * 3. Only apply initialization delay when peer was actually sleeping
+ */
+async function wakePeerEnvironment(peerUrl: string): Promise<{ 
+  awake: boolean; 
+  attempts: number; 
+  message: string;
+  wakeTimeMs?: number;
+}> {
+  const startTime = Date.now();
+  
+  // First, try a quick ping to see if peer is already awake
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), WAKE_UP_CONFIG.initialPingTimeoutMs);
+    
+    const response = await fetch(`${peerUrl}/api/health`, {
+      method: 'GET',
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    
+    if (response.ok) {
+      console.log(`[SYNC-BRIDGE] Peer ${peerUrl} is already awake`);
+      return { awake: true, attempts: 1, message: 'Peer already awake' };
+    }
+  } catch (err: any) {
+    // Peer is likely sleeping, continue to wake-up flow
+    console.log(`[SYNC-BRIDGE] Peer appears to be sleeping, initiating wake-up sequence...`);
+  }
+  
+  // Send wake-up pings with exponential backoff (peer was sleeping)
+  for (let retry = 0; retry < WAKE_UP_CONFIG.maxRetries; retry++) {
+    const backoff = Math.min(
+      WAKE_UP_CONFIG.baseBackoffMs * Math.pow(2, retry),
+      WAKE_UP_CONFIG.maxBackoffMs
+    );
+    
+    console.log(`[SYNC-BRIDGE] Wake-up attempt ${retry + 1}/${WAKE_UP_CONFIG.maxRetries}, waiting ${backoff / 1000}s...`);
+    
+    // Wait for backoff period
+    await new Promise(resolve => setTimeout(resolve, backoff));
+    
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // Longer timeout for wake attempt
+      
+      const response = await fetch(`${peerUrl}/api/health`, {
+        method: 'GET',
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      
+      if (response.ok) {
+        const wakeTimeMs = Date.now() - startTime;
+        const attempts = retry + 2; // +1 for initial ping, +1 for current attempt
+        console.log(`[SYNC-BRIDGE] Peer woke up after ${wakeTimeMs}ms (${attempts} attempts)`);
+        
+        // Only wait for initialization if peer was actually sleeping
+        // Use a shorter delay (5s) for the container to fully initialize
+        const initDelay = 5000;
+        console.log(`[SYNC-BRIDGE] Waiting ${initDelay / 1000}s for peer to fully initialize...`);
+        await new Promise(resolve => setTimeout(resolve, initDelay));
+        
+        return { 
+          awake: true, 
+          attempts, 
+          message: `Peer woke up after ${wakeTimeMs}ms`,
+          wakeTimeMs 
+        };
+      }
+    } catch (err: any) {
+      console.log(`[SYNC-BRIDGE] Wake attempt ${retry + 1} failed: ${err.message}`);
+    }
+  }
+  
+  const totalTimeMs = Date.now() - startTime;
+  const attempts = WAKE_UP_CONFIG.maxRetries + 1; // +1 for initial ping
+  console.error(`[SYNC-BRIDGE] Failed to wake peer after ${attempts} attempts (${totalTimeMs}ms)`);
+  return { 
+    awake: false, 
+    attempts, 
+    message: `Peer unreachable after ${attempts} wake-up attempts (${totalTimeMs}ms)` 
+  };
+}
 
 // Sync Verification Types (v28)
 export interface SyncManifest {
@@ -4116,6 +4220,18 @@ class SyncBridgeService {
       };
     }
     
+    // v36: Wake up peer if sleeping before attempting sync
+    console.log(`[SYNC-BRIDGE] Checking if peer is awake before push...`);
+    const wakeResult = await wakePeerEnvironment(peerUrl);
+    if (!wakeResult.awake) {
+      return {
+        success: false,
+        counts: {},
+        errors: [`Peer unreachable: ${wakeResult.message}. The peer environment may be offline or experiencing issues.`],
+        durationMs: Date.now() - startTime,
+      };
+    }
+    
     // v27: Acquire concurrency lock to prevent parallel sync runs
     if (!this.acquireLock(triggeredBy, 'push')) {
       return {
@@ -4697,6 +4813,18 @@ class SyncBridgeService {
         success: false,
         counts: {},
         errors: ['Sync not configured - set SYNC_PEER_URL and SYNC_SHARED_SECRET'],
+        durationMs: Date.now() - startTime,
+      };
+    }
+    
+    // v36: Wake up peer if sleeping before attempting sync
+    console.log(`[SYNC-BRIDGE] Checking if peer is awake before pull...`);
+    const wakeResult = await wakePeerEnvironment(peerUrl);
+    if (!wakeResult.awake) {
+      return {
+        success: false,
+        counts: {},
+        errors: [`Peer unreachable: ${wakeResult.message}. The peer environment may be offline or experiencing issues.`],
         durationMs: Date.now() - startTime,
       };
     }
