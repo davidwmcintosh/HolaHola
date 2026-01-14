@@ -43,7 +43,7 @@ const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production'
 
 // Version identifier to verify which code is running on production
 // Increment this when making sync-related changes to verify deployment
-const SYNC_BRIDGE_CODE_VERSION = "2025-01-13-v36-peer-wakeup";
+const SYNC_BRIDGE_CODE_VERSION = "2025-01-14-v37-resumable-sync";
 
 // Capability negotiation: List all batch types this version can import/export
 // When adding new batches, add them here so peers can gracefully handle version mismatches
@@ -4839,38 +4839,76 @@ class SyncBridgeService {
       };
     }
     
-    // v16: Check for interrupted sync runs to resume
-    // Normal mode: Look for 'running' pulls that started more than 3 HOURS ago
-    // Force mode: Find ANY 'running' pull to resume immediately (use after confirmed timeout)
+    // v37: Enhanced resume logic - find interrupted, failed, or partial syncs with incomplete pages
+    // Looks for both 'running' syncs that timed out AND recent 'failed'/'partial' syncs that have progress
     let interruptedRun: SyncRun | undefined;
     
     if (forceResume) {
-      console.log(`[SYNC-BRIDGE v16] FORCE RESUME requested by ${triggeredBy}`);
+      console.log(`[SYNC-BRIDGE v37] FORCE RESUME requested by ${triggeredBy}`);
+      // Force resume: look for ANY recent pull with progress (running, failed, or partial)
       const [staleRun] = await db.select()
         .from(syncRuns)
         .where(and(
           eq(syncRuns.direction, 'pull'),
-          eq(syncRuns.status, 'running')
+          or(
+            eq(syncRuns.status, 'running'),
+            eq(syncRuns.status, 'failed'),
+            eq(syncRuns.status, 'partial')
+          )
         ))
         .orderBy(desc(syncRuns.startedAt))
         .limit(1);
-      interruptedRun = staleRun;
-      if (interruptedRun) {
-        console.log(`[SYNC-BRIDGE v16] Force resuming from run ${interruptedRun.id} (page ${interruptedRun.lastCompletedPage ?? -1})`);
+      
+      // Only resume if there's actual progress to resume from
+      if (staleRun && ((staleRun.lastCompletedPage ?? -1) >= 0 || (staleRun.completedBatches?.length ?? 0) > 0)) {
+        interruptedRun = staleRun;
+        console.log(`[SYNC-BRIDGE v37] Force resuming from run ${interruptedRun.id} (status=${interruptedRun.status}, page=${interruptedRun.lastCompletedPage ?? -1}, batches=${interruptedRun.completedBatches?.join(',') || 'none'})`);
       }
     } else {
-      // Normal mode: auto-resume if 90+ seconds old (gateway timeout is 60s, so 90s means definitely timed out)
-      const resumeThreshold = new Date(Date.now() - 90 * 1000);
-      const [staleRun] = await db.select()
+      // Normal mode: auto-resume from recent failed/partial syncs (within last 10 minutes)
+      // Also check for stuck 'running' syncs older than 90 seconds
+      const recentThreshold = new Date(Date.now() - 10 * 60 * 1000); // 10 minutes
+      const runningThreshold = new Date(Date.now() - 90 * 1000); // 90 seconds for running syncs
+      
+      // First, check for stuck 'running' syncs WITH progress
+      const [stuckRun] = await db.select()
         .from(syncRuns)
         .where(and(
           eq(syncRuns.direction, 'pull'),
           eq(syncRuns.status, 'running'),
-          lt(syncRuns.startedAt, resumeThreshold)
+          lt(syncRuns.startedAt, runningThreshold)
         ))
         .orderBy(desc(syncRuns.startedAt))
         .limit(1);
-      interruptedRun = staleRun;
+      
+      // v37 fix: Only resume stuck runs if they have meaningful progress
+      if (stuckRun && ((stuckRun.lastCompletedPage ?? -1) >= 0 || (stuckRun.completedBatches?.length ?? 0) > 0)) {
+        interruptedRun = stuckRun;
+        console.log(`[SYNC-BRIDGE v37] Found stuck running sync ${stuckRun.id} with progress to resume`);
+      } else if (stuckRun) {
+        // Stuck but no progress - just mark as failed, don't resume
+        console.log(`[SYNC-BRIDGE v37] Found stuck running sync ${stuckRun.id} but no progress - marking as failed`);
+        await db.update(syncRuns)
+          .set({ status: 'failed', errorMessage: 'Stuck with no progress - auto-cleaned', completedAt: new Date() })
+          .where(eq(syncRuns.id, stuckRun.id));
+      } else {
+        // Check for recent failed/partial syncs with progress (use completedAt for recency)
+        const [failedRun] = await db.select()
+          .from(syncRuns)
+          .where(and(
+            eq(syncRuns.direction, 'pull'),
+            or(eq(syncRuns.status, 'failed'), eq(syncRuns.status, 'partial')),
+            gte(syncRuns.completedAt, recentThreshold)
+          ))
+          .orderBy(desc(syncRuns.completedAt))
+          .limit(1);
+        
+        // Only resume if there's significant progress (at least 1 completed batch or page)
+        if (failedRun && ((failedRun.lastCompletedPage ?? -1) >= 0 || (failedRun.completedBatches?.length ?? 0) > 0)) {
+          interruptedRun = failedRun;
+          console.log(`[SYNC-BRIDGE v37] Found recent ${failedRun.status} sync ${failedRun.id} with progress to resume`);
+        }
+      }
     }
     
     let syncRun: SyncRun;
@@ -5312,6 +5350,90 @@ class SyncBridgeService {
       recentRuns,
       peerNightlyStatus,
       lockStatus: this.getLockStatus(),
+    };
+  }
+  
+  /**
+   * v37: Get resumable sync status - check if there's a sync that can be resumed
+   * Used by the UI to show resume options
+   */
+  async getResumableStatus(): Promise<{
+    hasResumable: boolean;
+    resumableRun: SyncRun | null;
+    resumeInfo: {
+      completedBatches: string[];
+      lastCompletedPage: number;
+      totalPagesExpected: number | null;
+      startedAt: string;
+      status: string;
+      errorMessage: string | null;
+    } | null;
+  }> {
+    // Look for recent failed/partial syncs with progress
+    // Use a longer window (1 hour) since long syncs can start early but fail late
+    const recentThreshold = new Date(Date.now() - 60 * 60 * 1000); // 1 hour
+    
+    // First check for stuck running syncs (older than 90 seconds = definitely stale)
+    const runningThreshold = new Date(Date.now() - 90 * 1000);
+    const [stuckRunning] = await db.select()
+      .from(syncRuns)
+      .where(and(
+        eq(syncRuns.direction, 'pull'),
+        eq(syncRuns.status, 'running'),
+        lt(syncRuns.startedAt, runningThreshold)
+      ))
+      .orderBy(desc(syncRuns.startedAt))
+      .limit(1);
+    
+    if (stuckRunning && ((stuckRunning.lastCompletedPage ?? -1) >= 0 || (stuckRunning.completedBatches?.length ?? 0) > 0)) {
+      return {
+        hasResumable: true,
+        resumableRun: stuckRunning,
+        resumeInfo: {
+          completedBatches: stuckRunning.completedBatches || [],
+          lastCompletedPage: stuckRunning.lastCompletedPage ?? -1,
+          totalPagesExpected: stuckRunning.totalPagesExpected ?? null,
+          startedAt: stuckRunning.startedAt.toISOString(),
+          status: stuckRunning.status,
+          errorMessage: stuckRunning.errorMessage ?? null,
+        },
+      };
+    }
+    
+    // Check for recent failed/partial syncs with progress (use completedAt for recency)
+    const [resumableRun] = await db.select()
+      .from(syncRuns)
+      .where(and(
+        eq(syncRuns.direction, 'pull'),
+        or(
+          eq(syncRuns.status, 'failed'),
+          eq(syncRuns.status, 'partial')
+        ),
+        gte(syncRuns.completedAt, recentThreshold)
+      ))
+      .orderBy(desc(syncRuns.completedAt))
+      .limit(1);
+    
+    // Only consider it resumable if there's actual progress
+    if (resumableRun && ((resumableRun.lastCompletedPage ?? -1) >= 0 || (resumableRun.completedBatches?.length ?? 0) > 0)) {
+      return {
+        hasResumable: true,
+        resumableRun,
+        resumeInfo: {
+          completedBatches: resumableRun.completedBatches || [],
+          lastCompletedPage: resumableRun.lastCompletedPage ?? -1,
+          totalPagesExpected: resumableRun.totalPagesExpected ?? null,
+          startedAt: resumableRun.startedAt.toISOString(),
+          status: resumableRun.status,
+          errorMessage: resumableRun.errorMessage ?? null,
+        },
+      };
+    }
+    
+    return {
+      hasResumable: false,
+      resumableRun: null,
+      resumeInfo: null,
     };
   }
   

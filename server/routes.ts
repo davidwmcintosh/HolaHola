@@ -11789,6 +11789,17 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  // v37: Get resumable sync status - check if there's a sync that can be resumed
+  app.get("/api/admin/sync/resumable", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const resumableStatus = await syncBridge.getResumableStatus();
+      res.json(resumableStatus);
+    } catch (error: any) {
+      console.error('[Admin Sync Resumable] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // Trigger push to peer (dev→prod or prod→dev depending on current env)
   app.post("/api/admin/sync/push", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {

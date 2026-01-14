@@ -207,6 +207,20 @@ interface EnvironmentComparison {
   comparedAt: string;
 }
 
+// v37: Resumable sync status
+interface ResumableStatus {
+  hasResumable: boolean;
+  resumableRun: SyncRun | null;
+  resumeInfo: {
+    completedBatches: string[];
+    lastCompletedPage: number;
+    totalPagesExpected: number | null;
+    startedAt: string;
+    status: string;
+    errorMessage: string | null;
+  } | null;
+}
+
 function formatDuration(ms?: number): string {
   if (!ms) return '-';
   if (ms < 1000) return `${ms}ms`;
@@ -382,6 +396,12 @@ export default function SyncControlCenter() {
     enabled: false, // Manual trigger only (expensive)
   });
 
+  // v37: Resumable sync status
+  const { data: resumableStatus, refetch: refetchResumable } = useQuery<ResumableStatus>({
+    queryKey: ["/api/admin/sync/resumable"],
+    refetchInterval: 10000, // Check every 10s
+  });
+
   const combinedHistory = (() => {
     const localRuns = (history?.syncRuns || []).map(run => ({
       ...run,
@@ -435,6 +455,7 @@ export default function SyncControlCenter() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/sync/status"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/sync/history"] });
       queryClient.invalidateQueries({ queryKey: ["/api/sync/peer-sync-runs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/sync/resumable"] }); // v37
       setSelectedPullBatches([]); // Clear selection after pull
     },
     onError: (err: any) => {
@@ -1307,16 +1328,29 @@ export default function SyncControlCenter() {
                       <RotateCcw className="h-4 w-4 mr-2" />
                       Reset Stuck Syncs (Peer)
                     </Button>
-                    {activeSyncRun?.status === 'running' && (
+                    {/* v37: Show resume button for running OR resumable failed/partial syncs */}
+                    {(activeSyncRun?.status === 'running' || resumableStatus?.hasResumable) && (
                       <Button
                         onClick={() => pullMutation.mutate({ forceResume: true })}
                         disabled={pullMutation.isPending}
-                        variant="outline"
+                        variant={resumableStatus?.hasResumable ? "destructive" : "outline"}
                         size="sm"
                         data-testid="button-force-resume"
                       >
-                        Force Resume
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        {resumableStatus?.hasResumable && resumableStatus.resumeInfo 
+                          ? `Resume (${resumableStatus.resumeInfo.completedBatches.length} batches done)`
+                          : 'Force Resume'}
                       </Button>
+                    )}
+                    {resumableStatus?.hasResumable && resumableStatus.resumeInfo && (
+                      <span className="text-xs text-muted-foreground">
+                        Last attempt: {resumableStatus.resumeInfo.status}
+                        {resumableStatus.resumeInfo.lastCompletedPage >= 0 && (
+                          <> • Page {resumableStatus.resumeInfo.lastCompletedPage + 1}
+                          {resumableStatus.resumeInfo.totalPagesExpected && ` of ~${resumableStatus.resumeInfo.totalPagesExpected}`}</>
+                        )}
+                      </span>
                     )}
                   </div>
                 </CardContent>
