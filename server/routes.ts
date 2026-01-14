@@ -11814,6 +11814,44 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  // Dev-only internal sync trigger (secured by SYNC_SHARED_SECRET, no auth required)
+  // This allows triggering syncs via curl without user authentication
+  app.post("/api/internal/dev-sync/push", async (req, res) => {
+    // Only allow in development
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({ error: 'Dev-only endpoint' });
+    }
+    
+    // Verify shared secret
+    const secret = req.headers['x-sync-secret'] || req.body?.secret;
+    const expectedSecret = process.env.SYNC_SHARED_SECRET;
+    if (!expectedSecret || secret !== expectedSecret) {
+      return res.status(401).json({ error: 'Invalid or missing sync secret' });
+    }
+    
+    try {
+      const triggeredBy = 'internal-dev-trigger';
+      console.log(`[Internal Sync] Dev push triggered via internal endpoint`);
+      
+      // Start async and return immediately - don't wait for completion
+      res.json({ 
+        success: true, 
+        message: 'Sync started in background. Check logs for progress.',
+        startedAt: new Date().toISOString()
+      });
+      
+      // Run sync after response sent
+      syncBridge.pushToPeer(triggeredBy).then(result => {
+        console.log(`[Internal Sync] Dev push completed:`, JSON.stringify(result, null, 2));
+      }).catch(err => {
+        console.error(`[Internal Sync] Dev push failed:`, err.message);
+      });
+    } catch (error: any) {
+      console.error('[Internal Sync] Error starting push:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // Trigger pull from peer
   app.post("/api/admin/sync/pull", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {
