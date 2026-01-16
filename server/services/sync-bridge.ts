@@ -5583,20 +5583,36 @@ class SyncBridgeService {
       
       try {
         const verifyPayload = { tables: comparisonTables };
+        
+        // Add timeout for the verify-counts request (30 seconds)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+        
+        console.log(`[SYNC-BRIDGE v38] Calling verify-counts for ${comparisonTables.length} tables...`);
         const response = await fetch(`${peerUrl}/api/sync/verify-counts`, {
           method: 'POST',
           headers: createSyncHeaders(verifyPayload),
           body: JSON.stringify(verifyPayload),
+          signal: controller.signal,
         });
+        clearTimeout(timeoutId);
         
         if (response.ok) {
           const data = await response.json();
           peerCounts = data.counts || {};
+          const peerCountValues = Object.values(peerCounts).filter(v => v >= 0);
+          console.log(`[SYNC-BRIDGE v38] Got ${peerCountValues.length} peer counts, sample: ${JSON.stringify(Object.entries(peerCounts).slice(0, 3))}`);
         } else {
-          errors.push(`Peer verification failed: ${response.status}`);
+          const errorText = await response.text().catch(() => 'no body');
+          errors.push(`Peer verification failed: ${response.status} - ${errorText}`);
+          console.error(`[SYNC-BRIDGE v38] Peer verification failed: ${response.status} - ${errorText}`);
         }
       } catch (err: any) {
-        errors.push(`Could not reach peer: ${err.message}`);
+        const errorMessage = err.name === 'AbortError' 
+          ? 'Request timed out after 30 seconds' 
+          : err.message;
+        errors.push(`Could not reach peer: ${errorMessage}`);
+        console.error(`[SYNC-BRIDGE v38] Peer fetch error: ${errorMessage}`);
       }
     } else {
       errors.push('Sync not configured - cannot fetch peer counts');
