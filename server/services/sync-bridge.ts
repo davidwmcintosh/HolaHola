@@ -57,6 +57,7 @@ const SUPPORTED_BATCHES = [
   'founder-conversations', // Push founder's dev conversations to prod for Daniela continuity
   'product-config',
   'curriculum-core',
+  'actfl-core',        // v39: ACTFL tables only (grammarCompetencies, canDoStatements, lessonCanDoStatements) - split from curriculum-drills for size
   'curriculum-drills',
   'wren-intel',
   'daniela-intel',
@@ -1207,45 +1208,84 @@ class SyncBridgeService {
       }
     }
     
-    // BATCH: curriculum-drills - Drill items, grammar exercises, grammar competencies, can-do statements, cultural tips, lesson-can-do links
-    if (!batchType || batchType === 'curriculum-drills') {
+    // BATCH: actfl-core - ACTFL tables only (small, ~3K records) - split from curriculum-drills for reliability
+    // v39: Separated to ensure ACTFL data syncs even when drills are too large
+    if (!batchType || batchType === 'actfl-core') {
       try {
-        const drills = await db.select().from(curriculumDrillItems);
-        const grammar = await db.select().from(grammarExercises);
-        // v33: Grammar competencies (skill definitions per language)
         const grammarComp = await db.select().from(grammarCompetencies);
         const canDo = await db.select().from(canDoStatements);
-        const cultural = await db.select().from(culturalTips);
-        // v33: Include lesson-to-CanDo links for fluency wiring
         const lessonCanDo = await db.select().from(lessonCanDoStatements);
+        const cultural = await db.select().from(culturalTips);
+        const lessonCultural = await db.select().from(lessonCulturalTips);
+        const culturalMedia = await db.select().from(culturalTipMedia);
+        
+        bundle.grammarCompetencies = grammarComp;
+        bundle.canDoStatements = canDo;
+        bundle.lessonCanDoStatements = lessonCanDo;
+        bundle.culturalTips = cultural;
+        bundle.lessonCulturalTips = lessonCultural;
+        bundle.culturalTipMedia = culturalMedia;
+        console.log(`[SYNC-BRIDGE] actfl-core: ${grammarComp.length} grammar-comp, ${canDo.length} can-do, ${lessonCanDo.length} lesson-can-do, ${cultural.length} cultural, ${lessonCultural.length} lesson-cultural, ${culturalMedia.length} cultural-media`);
+      } catch (err: any) {
+        const errMsg = `actfl-core export failed: ${err.message}`;
+        console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
+        batchErrors.push(errMsg);
+        bundle.grammarCompetencies = [];
+        bundle.canDoStatements = [];
+        bundle.lessonCanDoStatements = [];
+        bundle.culturalTips = [];
+        bundle.lessonCulturalTips = [];
+        bundle.culturalTipMedia = [];
+      }
+    }
+    
+    // BATCH: curriculum-drills - Drill items and grammar exercises only (ACTFL tables moved to actfl-core)
+    // v39: Supports pagination via curriculum-drills-pN format for large datasets
+    if (!batchType || batchType === 'curriculum-drills' || batchType.startsWith('curriculum-drills-p')) {
+      try {
+        // Parse page number if paginated request
+        const pageMatch = batchType?.match(/curriculum-drills-p(\d+)/);
+        const page = pageMatch ? parseInt(pageMatch[1], 10) : 0;
+        const pageSize = 500; // 500 drills per page
+        const offset = page * pageSize;
+        
+        // Get total count for pagination info
+        const totalResult = await db.select({ count: sql<number>`count(*)` }).from(curriculumDrillItems);
+        const totalDrills = Number(totalResult[0]?.count || 0);
+        const totalPages = Math.ceil(totalDrills / pageSize);
+        
+        // Fetch paginated drills
+        const drills = await db.select().from(curriculumDrillItems)
+          .orderBy(curriculumDrillItems.id)
+          .limit(pageSize)
+          .offset(offset);
+        
+        // Grammar exercises are small (~100), fetch all
+        const grammar = await db.select().from(grammarExercises);
+        // Lesson visual aids are small, fetch all
+        const lessonVisual = await db.select().from(lessonVisualAids);
         
         bundle.curriculumDrillItems = drills;
         bundle.grammarExercises = grammar;
-        bundle.grammarCompetencies = grammarComp;
-        bundle.canDoStatements = canDo;
-        bundle.culturalTips = cultural;
-        bundle.lessonCanDoStatements = lessonCanDo;
-        // v33: Lesson-level attachments (must export after parent tables for FK ordering)
-        const lessonCultural = await db.select().from(lessonCulturalTips);
-        const lessonVisual = await db.select().from(lessonVisualAids);
-        const culturalMedia = await db.select().from(culturalTipMedia);
-        bundle.lessonCulturalTips = lessonCultural;
         bundle.lessonVisualAids = lessonVisual;
-        bundle.culturalTipMedia = culturalMedia;
-        console.log(`[SYNC-BRIDGE] curriculum-drills: ${drills.length} drills, ${grammar.length} grammar, ${grammarComp.length} grammar-comp, ${canDo.length} can-do, ${cultural.length} cultural, ${lessonCanDo.length} lesson-can-do, ${lessonCultural.length} lesson-cultural, ${lessonVisual.length} lesson-visual, ${culturalMedia.length} cultural-media`);
+        
+        // Add pagination metadata
+        (bundle as any)._drillsPagination = {
+          page,
+          pageSize,
+          totalDrills,
+          totalPages,
+          hasMore: page < totalPages - 1,
+        };
+        
+        console.log(`[SYNC-BRIDGE] curriculum-drills page ${page}: ${drills.length} drills (${offset}-${offset + drills.length} of ${totalDrills}), ${grammar.length} grammar, ${lessonVisual.length} lesson-visual, hasMore=${page < totalPages - 1}`);
       } catch (err: any) {
         const errMsg = `curriculum-drills export failed: ${err.message}`;
         console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
         batchErrors.push(errMsg);
         bundle.curriculumDrillItems = [];
         bundle.grammarExercises = [];
-        bundle.grammarCompetencies = [];
-        bundle.canDoStatements = [];
-        bundle.culturalTips = [];
-        bundle.lessonCanDoStatements = [];
-        bundle.lessonCulturalTips = [];
         bundle.lessonVisualAids = [];
-        bundle.culturalTipMedia = [];
       }
     }
     
@@ -4588,15 +4628,70 @@ class SyncBridgeService {
         else overallSuccess = false;
       }
       
-      // BATCH 11: Curriculum drills (drill items, grammar, can-do statements)
+      // BATCH 10b: ACTFL core (grammar competencies, can-do statements, lesson links)
+      // v39: Split from curriculum-drills to ensure reliable sync of ACTFL tables
+      if (shouldRun('actfl-core')) {
+        attemptedBatches.push('actfl-core');
+        console.log('[SYNC-BRIDGE] Batch 10b: ACTFL core...');
+        const actflBundle = await this.collectExportBundle(lastSuccessfulPush, 'actfl-core');
+        const batch10b = await this.sendBatch(peerUrl, 'actfl-core', actflBundle, 60000, sessionContext);
+        Object.assign(allCounts, batch10b.counts);
+        allErrors.push(...batch10b.errors);
+        if (batch10b.success) completedBatches.push('actfl-core');
+        else overallSuccess = false;
+      }
+      
+      // BATCH 11: Curriculum drills (paginated - 500 drills per page)
+      // v39: Paginated to handle 98K+ drills without 413 errors
+      // Note: Delta sync not supported for curriculum tables (no timestamps) - relies on upsert behavior
       if (shouldRun('curriculum-drills')) {
         attemptedBatches.push('curriculum-drills');
-        console.log('[SYNC-BRIDGE] Batch 11: Curriculum drills...');
-        const drillsBundle = await this.collectExportBundle(lastSuccessfulPush, 'curriculum-drills');
-        const batch11 = await this.sendBatch(peerUrl, 'curriculum-drills', drillsBundle, 60000, sessionContext);
-        Object.assign(allCounts, batch11.counts);
-        allErrors.push(...batch11.errors);
-        if (batch11.success) completedBatches.push('curriculum-drills');
+        console.log('[SYNC-BRIDGE v39] Batch 11: Curriculum drills (paginated)...');
+        
+        // Resume from last completed page if resuming
+        let page = syncRun.lastCompletedPage ? syncRun.lastCompletedPage + 1 : 0;
+        let hasMore = true;
+        let batch11Success = true;
+        let totalDrillsSent = 0;
+        
+        if (page > 0) {
+          console.log(`[SYNC-BRIDGE v39] Resuming curriculum-drills from page ${page}`);
+        }
+        
+        while (hasMore) {
+          try {
+            // Use consistent naming: curriculum-drills-p0, curriculum-drills-p1, etc.
+            const batchName = `curriculum-drills-p${page}`;
+            const drillsBundle = await this.collectExportBundle(lastSuccessfulPush, batchName);
+            const pagination = (drillsBundle as any)._drillsPagination;
+            
+            const pageResult = await this.sendBatch(peerUrl, batchName, drillsBundle, 60000, sessionContext);
+            
+            if (pageResult.success) {
+              totalDrillsSent += drillsBundle.curriculumDrillItems?.length || 0;
+              hasMore = pagination?.hasMore ?? false;
+              console.log(`[SYNC-BRIDGE v39] Drills page ${page}: ${drillsBundle.curriculumDrillItems?.length || 0} drills sent (${totalDrillsSent} total). hasMore=${hasMore}`);
+              
+              // Update sync run progress
+              await db.update(syncRuns)
+                .set({ lastCompletedPage: page })
+                .where(eq(syncRuns.id, syncRun.id));
+              
+              page++;
+            } else {
+              batch11Success = false;
+              allErrors.push(...pageResult.errors);
+              hasMore = false; // Stop on error
+            }
+          } catch (err: any) {
+            batch11Success = false;
+            allErrors.push(`curriculum-drills page ${page}: ${err.message}`);
+            hasMore = false;
+          }
+        }
+        
+        allCounts.curriculumDrillItems = totalDrillsSent;
+        if (batch11Success) completedBatches.push('curriculum-drills');
         else overallSuccess = false;
       }
       
@@ -5058,7 +5153,8 @@ class SyncBridgeService {
         // Beta testers and usage data
         'beta-testers', 'beta-usage', 'aggregate-analytics',
         // Curriculum data (dev → prod sync for syllabi/classes)
-        'curriculum-core', 'curriculum-drills', 'all-classes',
+        // v39: actfl-core split from curriculum-drills; curriculum-drills now paginated
+        'curriculum-core', 'actfl-core', 'curriculum-drills', 'all-classes',
         // Wren and Daniela intelligence
         'wren-intel', 'daniela-intel',
         // Production diagnostics - only pulled by dev from prod
@@ -5088,9 +5184,9 @@ class SyncBridgeService {
         // v32: Track that we're attempting this batch
         attemptedBatches.push(batchType);
         
-        // 45s timeout for smaller batches, 60s for larger data batches, 120s for very large curriculum batches
-        const timeout = ['curriculum-drills'].includes(batchType) ? 120000 
-          : ['express-lane', 'hive-snapshots', 'daniela-memories', 'founder-context', 'founder-conversations', 'curriculum-core', 'all-classes', 'beta-testers', 'wren-intel', 'daniela-intel'].includes(batchType) ? 60000 
+        // 45s timeout for smaller batches, 60s for larger data batches, 120s for paginated curriculum batches
+        // v39: curriculum-drills now paginated (60s per page), actfl-core is 60s
+        const timeout = ['express-lane', 'hive-snapshots', 'daniela-memories', 'founder-context', 'founder-conversations', 'curriculum-core', 'actfl-core', 'curriculum-drills', 'all-classes', 'beta-testers', 'wren-intel', 'daniela-intel'].includes(batchType) ? 60000 
           : 45000;
         
         // Special handling for advanced-intel-b: paginated fetching
