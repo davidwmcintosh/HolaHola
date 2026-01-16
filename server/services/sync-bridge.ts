@@ -636,6 +636,7 @@ class SyncBridgeService {
    */
   async getRecordCounts(tables: string[]): Promise<Record<string, number>> {
     const counts: Record<string, number> = {};
+    console.log(`[SYNC-VERIFY] getRecordCounts called for ${tables.length} tables`);
     
     for (const table of tables) {
       try {
@@ -791,6 +792,7 @@ class SyncBridgeService {
       }
     }
     
+    console.log(`[SYNC-VERIFY] getRecordCounts completed: ${Object.keys(counts).length} tables counted`);
     return counts;
   }
   
@@ -5564,7 +5566,12 @@ class SyncBridgeService {
     ];
     
     // Get local counts
+    console.log(`[SYNC-BRIDGE v38] Getting local counts for ${comparisonTables.length} tables...`);
     const localCounts = await this.getRecordCounts(comparisonTables);
+    const localCountValues = Object.values(localCounts).filter(v => v >= 0);
+    const localCountSum = localCountValues.reduce((a, b) => a + b, 0);
+    console.log(`[SYNC-BRIDGE v38] Local counts: ${localCountValues.length} tables with ${localCountSum} total records`);
+    console.log(`[SYNC-BRIDGE v38] Sample local counts: ${JSON.stringify(Object.entries(localCounts).slice(0, 5))}`);
     
     // Get peer counts via API
     let peerCounts: Record<string, number> = {};
