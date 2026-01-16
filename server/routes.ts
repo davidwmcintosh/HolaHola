@@ -19654,6 +19654,18 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
     }
   });
   
+  // v38: Debug endpoint - query peer's verify-counts from this environment
+  app.get("/api/sync/query-peer-counts", isAuthenticated, loadAuthenticatedUser(storage), allowRoles(['admin', 'developer']), async (req: any, res) => {
+    try {
+      console.log('[SYNC API] Querying peer counts for debugging...');
+      const result = await syncBridge.queryPeerCounts();
+      res.json(result);
+    } catch (error: any) {
+      console.error('[SYNC API] Query peer counts error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // Admin: Trigger push to peer environment
   app.post("/api/sync/push", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {

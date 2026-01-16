@@ -5653,6 +5653,101 @@ class SyncBridgeService {
   }
   
   /**
+   * v38: Query peer's counts directly for debugging
+   * Used to diagnose what production reports for its own counts
+   */
+  async queryPeerCounts(): Promise<{
+    success: boolean;
+    peerEnvironment: string;
+    counts: Record<string, number>;
+    error?: string;
+    queriedAt: string;
+  }> {
+    const peerUrl = getSyncPeerUrl();
+    const peerEnv = CURRENT_ENVIRONMENT === 'development' ? 'production' : 'development';
+    
+    if (!isSyncConfigured() || !peerUrl) {
+      return {
+        success: false,
+        peerEnvironment: peerEnv,
+        counts: {},
+        error: 'Sync not configured - set SYNC_PEER_URL and SYNC_SHARED_SECRET',
+        queriedAt: new Date().toISOString(),
+      };
+    }
+    
+    // Same tables as compareEnvironments
+    const comparisonTables = [
+      'catalogueClasses', 'teacherClasses', 'tutorVoices',
+      'curriculumPaths', 'curriculumUnits', 'curriculumLessons', 'curriculumDrillItems',
+      'grammarCompetencies', 'canDoStatements', 'lessonCanDoStatements', 'culturalTips',
+      'bestPractices', 'languageIdioms', 'culturalNuances', 'learnerErrorPatterns',
+      'dialectVariations', 'linguisticBridges',
+      'danielaGrowthMemories', 'danielaBeacons', 'synthesizedInsights', 'danielaRecommendations',
+      'hiveSnapshots', 'founderSessions', 'collaborationMessages', 'learnerPersonalFacts',
+      'wrenInsights', 'wrenMistakes', 'wrenLessons', 'wrenCommitments',
+      'users', 'classEnrollments', 'usageLedger', 'voiceSessions',
+    ];
+    
+    try {
+      console.log(`[SYNC-BRIDGE v38] Querying ${peerEnv} counts for ${comparisonTables.length} tables...`);
+      
+      // Wake peer first
+      const wakeResult = await wakePeerEnvironment(peerUrl);
+      if (!wakeResult.awake) {
+        return {
+          success: false,
+          peerEnvironment: peerEnv,
+          counts: {},
+          error: `Peer unreachable: ${wakeResult.message}`,
+          queriedAt: new Date().toISOString(),
+        };
+      }
+      
+      const verifyPayload = { tables: comparisonTables };
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      
+      const response = await fetch(`${peerUrl}/api/sync/verify-counts`, {
+        method: 'POST',
+        headers: createSyncHeaders(verifyPayload),
+        body: JSON.stringify(verifyPayload),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`[SYNC-BRIDGE v38] Got ${peerEnv} counts: ${Object.keys(data.counts || {}).length} tables`);
+        return {
+          success: true,
+          peerEnvironment: peerEnv,
+          counts: data.counts || {},
+          queriedAt: new Date().toISOString(),
+        };
+      } else {
+        const errorText = await response.text().catch(() => 'no body');
+        return {
+          success: false,
+          peerEnvironment: peerEnv,
+          counts: {},
+          error: `HTTP ${response.status}: ${errorText}`,
+          queriedAt: new Date().toISOString(),
+        };
+      }
+    } catch (err: any) {
+      const errorMessage = err.name === 'AbortError' ? 'Request timed out after 30 seconds' : err.message;
+      return {
+        success: false,
+        peerEnvironment: peerEnv,
+        counts: {},
+        error: errorMessage,
+        queriedAt: new Date().toISOString(),
+      };
+    }
+  }
+  
+  /**
    * v27: Per-batch sync health metrics
    * v32: Now includes import receipts for freshness - when peer pushes to us, that counts as fresh data
    * Returns the last successful sync time for each batch type and staleness warnings
