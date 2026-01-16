@@ -43,7 +43,7 @@ const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production'
 
 // Version identifier to verify which code is running on production
 // Increment this when making sync-related changes to verify deployment
-const SYNC_BRIDGE_CODE_VERSION = "2025-01-16-v38-fk-fix-pagination";
+const SYNC_BRIDGE_CODE_VERSION = "2025-01-16-v39-paginated-drills";
 
 // Capability negotiation: List all batch types this version can import/export
 // When adding new batches, add them here so peers can gracefully handle version mismatches
@@ -4648,8 +4648,10 @@ class SyncBridgeService {
         attemptedBatches.push('curriculum-drills');
         console.log('[SYNC-BRIDGE v39] Batch 11: Curriculum drills (paginated)...');
         
-        // Resume from last completed page if resuming
-        let page = syncRun.lastCompletedPage ? syncRun.lastCompletedPage + 1 : 0;
+        // Resume from last completed page if resuming (handle page 0 correctly)
+        let page = (syncRun.lastCompletedPage !== null && syncRun.lastCompletedPage !== undefined) 
+          ? syncRun.lastCompletedPage + 1 
+          : 0;
         let hasMore = true;
         let batch11Success = true;
         let totalDrillsSent = 0;
