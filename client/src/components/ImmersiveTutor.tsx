@@ -248,47 +248,60 @@ export function ImmersiveTutor({
     }
   }, [isCollabOpen, collabEvents.length]);
 
-  // Track touch-based PTT separately from pointer (mouse)
-  const isTouchRecordingRef = useRef(false);
+  // Track current pointer type for PTT ('touch' | 'mouse' | null)
+  const pttPointerTypeRef = useRef<'touch' | 'mouse' | null>(null);
   
-  // Global mouse-up listener for PTT - fixes trackpad issues where cursor leaves button while holding
-  // This ensures releasing the mouse ANYWHERE stops recording
-  // Uses refs to keep listener stable (no re-attachment on re-renders)
+  // Global pointer-up listener for PTT - works consistently on both mobile and desktop
+  // Pointer Events are the modern unified API that works across touch/mouse/pen
+  // This fixes iOS Safari issues where touchend events don't bubble correctly
   useEffect(() => {
-    const handleGlobalMouseUp = () => {
-      console.log('[PTT-GLOBAL-DEBUG] Global mouseup fired, isPointerRecordingRef=', isPointerRecordingRef.current);
+    const handleGlobalPointerUp = (e: PointerEvent) => {
+      console.log('[PTT-POINTER-DEBUG] Global pointerup fired, pointerType:', e.pointerType, 
+        'isPointerRecordingRef:', isPointerRecordingRef.current, 
+        'pttPointerTypeRef:', pttPointerTypeRef.current);
+      
+      // Only stop if we were actively recording with this pointer type
       if (isPointerRecordingRef.current) {
-        console.log('[MIC BUTTON] Global mouse up - stopping recording');
+        console.log('[MIC BUTTON] Global pointer up - stopping recording');
+        const pointerType = pttPointerTypeRef.current || 'mouse';
         isPointerRecordingRef.current = false;
-        onRecordingStopRef.current('mouse');
+        pttPointerTypeRef.current = null;
+        onRecordingStopRef.current(pointerType);
       }
     };
     
-    window.addEventListener('mouseup', handleGlobalMouseUp);
-    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
-  }, []); // Empty deps - listener is stable, uses refs for current values
-  
-  // Global touch-end listener for PTT - fixes issue where finger moves off button bounds
-  // while still pressing down, causing premature touchend on the button element
-  // Uses refs to keep listener stable (no re-attachment on re-renders)
-  useEffect(() => {
+    const handleGlobalPointerCancel = (e: PointerEvent) => {
+      console.log('[PTT-POINTER-DEBUG] Global pointercancel fired, pointerType:', e.pointerType);
+      if (isPointerRecordingRef.current) {
+        console.log('[MIC BUTTON] Global pointer cancel - stopping recording');
+        const pointerType = pttPointerTypeRef.current || 'mouse';
+        isPointerRecordingRef.current = false;
+        pttPointerTypeRef.current = null;
+        onRecordingStopRef.current(pointerType);
+      }
+    };
+    
+    // Pointer events work consistently across all platforms
+    window.addEventListener('pointerup', handleGlobalPointerUp);
+    window.addEventListener('pointercancel', handleGlobalPointerCancel);
+    
+    // Also add touch events as fallback for older iOS Safari versions
     const handleGlobalTouchEnd = (e: TouchEvent) => {
-      console.log('[PTT-TOUCH-DEBUG] Global touchend fired, touches.length:', e.touches.length, 'isTouchRecordingRef:', isTouchRecordingRef.current, 'playbackState:', playbackStateRef.current);
-      // Only stop if ALL touches are released (no fingers left on screen)
-      if (e.touches.length === 0) {
-        if (isTouchRecordingRef.current) {
-          // ALWAYS stop recording on release - the guard should be on START not STOP
-          // We want to let the user release normally even during speculative PTT
-          console.log('[MIC BUTTON] Global touch end - stopping recording');
-          isTouchRecordingRef.current = false;
-          onRecordingStopRef.current('touch');
-        }
+      console.log('[PTT-TOUCH-FALLBACK] Global touchend fired, touches.length:', e.touches.length);
+      if (e.touches.length === 0 && isPointerRecordingRef.current) {
+        console.log('[MIC BUTTON] Touch fallback - stopping recording');
+        isPointerRecordingRef.current = false;
+        pttPointerTypeRef.current = null;
+        onRecordingStopRef.current('touch');
       }
     };
     
     window.addEventListener('touchend', handleGlobalTouchEnd);
     window.addEventListener('touchcancel', handleGlobalTouchEnd);
+    
     return () => {
+      window.removeEventListener('pointerup', handleGlobalPointerUp);
+      window.removeEventListener('pointercancel', handleGlobalPointerCancel);
       window.removeEventListener('touchend', handleGlobalTouchEnd);
       window.removeEventListener('touchcancel', handleGlobalTouchEnd);
     };
@@ -876,63 +889,47 @@ export function ImmersiveTutor({
             </Button>
           ) : (
             // Push-to-Talk Mode: Hold button
+            // Using unified Pointer Events for consistent behavior across mobile/desktop
             <Button
               variant={isRecording ? "destructive" : isMicPreparing ? "secondary" : "default"}
               size="icon"
-              onTouchStart={(e) => {
+              onPointerDown={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('[PTT-TOUCH-DEBUG] Touch start, isUsersTurn:', isUsersTurn, 'playbackState:', playbackState, 'isPointerRecordingRef:', isPointerRecordingRef.current, 'isTouchRecordingRef:', isTouchRecordingRef.current);
+                const pointerType = e.pointerType === 'touch' ? 'touch' : 'mouse';
+                console.log('[PTT-POINTER-DEBUG] Pointer down, pointerType:', pointerType, 
+                  'isUsersTurn:', isUsersTurn, 'playbackState:', playbackState, 
+                  'isPointerRecordingRef:', isPointerRecordingRef.current);
+                
                 // INTERRUPT: If audio is playing, send interrupt signal first
                 if (playbackState !== 'idle' && onInterrupt) {
-                  console.log(`[PTT-TOUCH-DEBUG] Sending interrupt - playbackState='${playbackState}' (user barge-in)`);
+                  console.log(`[PTT-POINTER-DEBUG] Sending interrupt - playbackState='${playbackState}' (user barge-in)`);
                   onInterrupt();
-                  // Don't start recording immediately - let interrupt handler reset state
                   return;
                 }
-                if (isUsersTurn && !isRecording && !isMicPreparing && !isTouchRecordingRef.current) {
-                  isTouchRecordingRef.current = true;
-                  onRecordingStart('touch');
-                }
-              }}
-              onTouchEnd={(e) => {
-                // Prevent default but DON'T stop recording here - let global handler do it
-                // This fixes premature touchend when finger moves off button bounds
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('[MIC BUTTON] Touch end on button (global handler will process)');
-              }}
-              onTouchCancel={(e) => {
-                // Prevent default but DON'T stop recording here - let global handler do it
-                e.preventDefault();
-                console.log('[MIC BUTTON] Touch cancel on button (global handler will process)');
-              }}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                console.log('[MIC BUTTON] Mouse down, isUsersTurn:', isUsersTurn, 'playbackState:', playbackState);
-                // INTERRUPT: If audio is playing, send interrupt signal first
-                if (playbackState !== 'idle' && onInterrupt) {
-                  console.log(`[MIC BUTTON] Sending interrupt - playbackState='${playbackState}' (user barge-in)`);
-                  onInterrupt();
-                  // Don't start recording immediately - let interrupt handler reset state
-                  return;
-                }
+                
                 if (isUsersTurn && !isRecording && !isMicPreparing && !isPointerRecordingRef.current) {
                   isPointerRecordingRef.current = true;
-                  onRecordingStart('mouse');
+                  pttPointerTypeRef.current = pointerType;
+                  onRecordingStart(pointerType);
                 }
               }}
-              onMouseUp={(e) => {
-                // Let global mouseup handler manage this - prevents double-calls
+              onPointerUp={(e) => {
+                // Let global pointerup handler manage this - prevents double-calls
                 e.preventDefault();
-                console.log('[MIC BUTTON] Mouse up on button (global handler will process)');
+                console.log('[MIC BUTTON] Pointer up on button (global handler will process)');
               }}
-              onMouseLeave={(e) => {
-                // NOTE: We intentionally do NOT stop recording on mouse leave
+              onPointerCancel={(e) => {
+                // Let global pointercancel handler manage this
+                e.preventDefault();
+                console.log('[MIC BUTTON] Pointer cancel on button (global handler will process)');
+              }}
+              onPointerLeave={(e) => {
+                // NOTE: We intentionally do NOT stop recording on pointer leave
                 // This fixes trackpad issues where slight finger movement triggers leave
-                // The global mouseup listener handles stopping when user releases anywhere
+                // The global pointerup listener handles stopping when user releases anywhere
                 if (isPointerRecordingRef.current || isMicPreparing) {
-                  console.log('[MIC BUTTON] Mouse leave - continuing recording (global mouseup will handle stop)');
+                  console.log('[MIC BUTTON] Pointer leave - continuing recording (global pointerup will handle stop)');
                 }
               }}
               disabled={!isUsersTurn && !isRecording && playbackState === 'idle'}
