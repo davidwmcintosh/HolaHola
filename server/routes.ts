@@ -11831,7 +11831,8 @@ Return ONLY the ${targetLanguage} phrase:`;
     
     try {
       const triggeredBy = 'internal-dev-trigger';
-      console.log(`[Internal Sync] Dev push triggered via internal endpoint`);
+      const selectedBatches = Array.isArray(req.body?.selectedBatches) ? req.body.selectedBatches : undefined;
+      console.log(`[Internal Sync] Dev push triggered via internal endpoint${selectedBatches ? ` (batches: ${selectedBatches.join(', ')})` : ' (all batches)'}`);
       
       // Start async and return immediately - don't wait for completion
       res.json({ 
@@ -11840,8 +11841,8 @@ Return ONLY the ${targetLanguage} phrase:`;
         startedAt: new Date().toISOString()
       });
       
-      // Run sync after response sent
-      syncBridge.pushToPeer(triggeredBy).then(result => {
+      // Run sync after response sent - now passing selectedBatches!
+      syncBridge.pushToPeer(triggeredBy, selectedBatches).then(result => {
         console.log(`[Internal Sync] Dev push completed:`, JSON.stringify(result, null, 2));
       }).catch(err => {
         console.error(`[Internal Sync] Dev push failed:`, err.message);
