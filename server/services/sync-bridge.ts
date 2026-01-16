@@ -290,6 +290,7 @@ export interface SyncBundle {
   betaTesterCredits: any[];
   betaTesterEnrollments: any[];  // Direct enrollments for beta testers (including Replit auth users)
   betaTesterClasses: any[];  // v27: Teacher classes needed for beta tester enrollments
+  classTeachers: any[];  // v38: Teacher users who own classes (for FK constraint)
   allTeacherClasses: any[];  // v34: ALL teacher classes (for full class sync)
   allEnrollments: any[];     // v34: ALL class enrollments (for full enrollment sync)
   // Beta usage (prod → dev pull)
@@ -5570,6 +5571,16 @@ class SyncBridgeService {
     const peerUrl = getSyncPeerUrl();
     
     if (isSyncConfigured() && peerUrl) {
+      // v38: Wake up peer if sleeping before making comparison request
+      console.log(`[SYNC-BRIDGE v38] Waking peer environment before comparison...`);
+      const wakeResult = await wakePeerEnvironment(peerUrl);
+      if (!wakeResult.awake) {
+        errors.push(`Peer unreachable: ${wakeResult.message}`);
+        // Continue anyway - we'll report local counts with peer as error
+      } else {
+        console.log(`[SYNC-BRIDGE v38] Peer awake, fetching counts...`);
+      }
+      
       try {
         const verifyPayload = { tables: comparisonTables };
         const response = await fetch(`${peerUrl}/api/sync/verify-counts`, {
