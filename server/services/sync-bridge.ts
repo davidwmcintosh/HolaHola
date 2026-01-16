@@ -43,7 +43,7 @@ const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production'
 
 // Version identifier to verify which code is running on production
 // Increment this when making sync-related changes to verify deployment
-const SYNC_BRIDGE_CODE_VERSION = "2025-01-14-v37-resumable-sync";
+const SYNC_BRIDGE_CODE_VERSION = "2025-01-16-v38-fk-fix-pagination";
 
 // Capability negotiation: List all batch types this version can import/export
 // When adding new batches, add them here so peers can gracefully handle version mismatches
@@ -1133,11 +1133,18 @@ class SyncBridgeService {
     }
     
     // BATCH: founder-conversations - Push founder's dev conversations to prod for Daniela continuity
-    if (!batchType || batchType === 'founder-conversations') {
+    // v38: Now paginated - this exports first page only (for collectExportBundle compatibility)
+    // Full paginated export handled in pushToProd loop
+    if (!batchType || batchType === 'founder-conversations' || batchType?.startsWith('founder-conversations-p')) {
       try {
-        const convData = await this.exportFounderConversations();
+        // Parse page number from batch type (e.g., founder-conversations-p2 -> page 2)
+        let page = 0;
+        if (batchType?.startsWith('founder-conversations-p')) {
+          page = parseInt(batchType.replace('founder-conversations-p', ''), 10) || 0;
+        }
+        const convData = await this.exportFounderConversations({ page });
         bundle.founderConversations = convData;
-        console.log(`[SYNC-BRIDGE] founder-conversations: ${convData.conversations?.length || 0} conversations, ${convData.messages?.length || 0} messages`);
+        console.log(`[SYNC-BRIDGE v38] founder-conversations page ${page}: ${convData.conversations?.length || 0} conversations, ${convData.messages?.length || 0} messages${convData.hasMore ? ' [MORE]' : ' [DONE]'}`);
       } catch (err: any) {
         const errMsg = `founder-conversations export failed: ${err.message}`;
         console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
@@ -1372,11 +1379,24 @@ class SyncBridgeService {
           }
         }
         
+        // v38: Also include teacher users who OWN the classes (not just beta testers)
+        // This ensures FK constraint satisfaction: teachers must exist before their classes
+        const teacherIdsFromClasses = Array.from(new Set(classes.map(c => c.teacherId).filter(Boolean)));
+        const testerIdSet = new Set(testerIds);
+        const nonTesterTeacherIds = teacherIdsFromClasses.filter(id => !testerIdSet.has(id));
+        
+        let classTeachers: any[] = [];
+        if (nonTesterTeacherIds.length > 0) {
+          classTeachers = await db.select().from(users).where(inArray(users.id, nonTesterTeacherIds));
+          console.log(`[SYNC-BRIDGE v38] beta-testers: including ${classTeachers.length} non-beta teacher users for FK satisfaction`);
+        }
+        
         bundle.betaTesters = testers;
         bundle.betaTesterCredits = credits;
         bundle.betaTesterEnrollments = enrollments;
         bundle.betaTesterClasses = classes;
-        console.log(`[SYNC-BRIDGE] beta-testers: ${testers.length} testers, ${credits.length} credits, ${enrollments.length} enrollments, ${classes.length} classes`);
+        bundle.classTeachers = classTeachers; // v38: Teacher users for FK constraint
+        console.log(`[SYNC-BRIDGE v38] beta-testers: ${testers.length} testers, ${classTeachers.length} class teachers, ${credits.length} credits, ${enrollments.length} enrollments, ${classes.length} classes`);
       } catch (err: any) {
         const errMsg = `beta-testers export failed: ${err.message}`;
         console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
@@ -2244,14 +2264,21 @@ class SyncBridgeService {
   
   /**
    * Export founder's conversations for dev→prod sync
+   * v38: Added pagination to avoid timeout with large message counts
    * Enables Daniela in production to have access to dev conversation history
    * for continuity and restarting previous conversations
    */
-  async exportFounderConversations(): Promise<{
+  async exportFounderConversations(options?: { page?: number }): Promise<{
     conversations: any[];
     messages: any[];
     exportedAt: string;
+    hasMore: boolean;
+    page: number;
   }> {
+    const PAGE_SIZE = 50; // Conversations per page
+    const page = options?.page || 0;
+    const offset = page * PAGE_SIZE;
+    
     // Get founder user ID
     const FOUNDER_EMAIL = process.env.FOUNDER_EMAIL || 'davidwmcintosh@gmail.com';
     
@@ -2263,41 +2290,43 @@ class SyncBridgeService {
     
     if (founderUser.length === 0) {
       console.log('[SYNC-BRIDGE] Founder not found for founder-conversations export');
-      return { conversations: [], messages: [], exportedAt: new Date().toISOString() };
+      return { conversations: [], messages: [], exportedAt: new Date().toISOString(), hasMore: false, page };
     }
     
     const founderId = founderUser[0].id;
     
-    // Get all founder conversations (no time limit - full history for Daniela continuity)
-    // Note: Only selecting columns that exist in current schema
+    // v38: Paginated export - get PAGE_SIZE conversations per page
     const founderConversations = await db
       .select({
         id: conversations.id,
         userId: conversations.userId,
         language: conversations.language,
-        learningContext: conversations.learningContext, // Maps to mode in older schemas
+        learningContext: conversations.learningContext,
         topic: conversations.topic,
         actflLevel: conversations.actflLevel,
-        title: conversations.title, // Maps to summary in older schemas
+        title: conversations.title,
         messageCount: conversations.messageCount,
-        duration: conversations.duration, // Maps to durationSeconds in older schemas
+        duration: conversations.duration,
         classId: conversations.classId,
         createdAt: conversations.createdAt,
       })
       .from(conversations)
       .where(eq(conversations.userId, founderId))
       .orderBy(desc(conversations.createdAt))
-      .limit(200);  // Limit to 200 most recent conversations for manageable sync
+      .limit(PAGE_SIZE + 1) // Fetch one extra to check hasMore
+      .offset(offset);
     
-    if (founderConversations.length === 0) {
-      console.log('[SYNC-BRIDGE] No founder conversations found for export');
-      return { conversations: [], messages: [], exportedAt: new Date().toISOString() };
+    const hasMore = founderConversations.length > PAGE_SIZE;
+    const conversationsToExport = founderConversations.slice(0, PAGE_SIZE);
+    
+    if (conversationsToExport.length === 0) {
+      console.log(`[SYNC-BRIDGE v38] No founder conversations found for page ${page}`);
+      return { conversations: [], messages: [], exportedAt: new Date().toISOString(), hasMore: false, page };
     }
     
-    const conversationIds = founderConversations.map(c => c.id);
+    const conversationIds = conversationsToExport.map(c => c.id);
     
-    // Get all messages for these conversations
-    // Note: Only selecting columns that exist in current schema
+    // Get messages only for this page's conversations
     const founderMessages = await db
       .select({
         id: messages.id,
@@ -2313,12 +2342,14 @@ class SyncBridgeService {
       .where(inArray(messages.conversationId, conversationIds))
       .orderBy(messages.createdAt);
     
-    console.log(`[SYNC-BRIDGE] Exporting founder-conversations: ${founderConversations.length} conversations, ${founderMessages.length} messages`);
+    console.log(`[SYNC-BRIDGE v38] Exporting founder-conversations page ${page}: ${conversationsToExport.length} conversations, ${founderMessages.length} messages${hasMore ? ' [MORE]' : ' [DONE]'}`);
     
     return {
-      conversations: founderConversations,
+      conversations: conversationsToExport,
       messages: founderMessages,
-      exportedAt: new Date().toISOString()
+      exportedAt: new Date().toISOString(),
+      hasMore,
+      page
     };
   }
   
@@ -3606,12 +3637,14 @@ class SyncBridgeService {
         bundle.betaTesters, 
         bundle.betaTesterCredits || [],
         bundle.betaTesterEnrollments || [],
-        bundle.betaTesterClasses || []
+        bundle.betaTesterClasses || [],
+        bundle.classTeachers || [] // v38: Teacher users for FK constraint
       );
       counts['betaTesters'] = betaResult.usersImported;
       counts['betaTesterCredits'] = betaResult.creditsImported;
       counts['betaTesterEnrollments'] = betaResult.enrollmentsCreated;
       counts['betaTesterClasses'] = betaResult.classesImported;
+      counts['classTeachers'] = betaResult.teachersImported || 0; // v38
       if (betaResult.errors.length) {
         errors.push(...betaResult.errors);
       }
@@ -4606,19 +4639,49 @@ class SyncBridgeService {
       }
       
       // BATCH 15: Founder conversations (dev conversations for Daniela continuity)
+      // v38: Added pagination to handle large conversation histories without timeout
       if (shouldRun('founder-conversations')) {
         attemptedBatches.push('founder-conversations');
-        console.log('[SYNC-BRIDGE] Batch 15: Founder conversations...');
-        const convData = await this.exportFounderConversations();
-        const convBundle: Partial<SyncBundle> = {
-          generatedAt: new Date().toISOString(),
-          sourceEnvironment: CURRENT_ENVIRONMENT,
-          founderConversations: convData,
-        };
-        const batch15 = await this.sendBatch(peerUrl, 'founder-conversations', convBundle, 90000, sessionContext);
-        Object.assign(allCounts, batch15.counts);
-        allErrors.push(...batch15.errors);
-        if (batch15.success) completedBatches.push('founder-conversations');
+        console.log('[SYNC-BRIDGE v38] Batch 15: Founder conversations (paginated)...');
+        
+        let page = 0;
+        let hasMore = true;
+        let batch15Success = true;
+        let totalConvs = 0;
+        let totalMsgs = 0;
+        
+        while (hasMore) {
+          try {
+            const convData = await this.exportFounderConversations({ page });
+            totalConvs += convData.conversations.length;
+            totalMsgs += convData.messages.length;
+            hasMore = convData.hasMore;
+            
+            if (convData.conversations.length > 0) {
+              const convBundle: Partial<SyncBundle> = {
+                generatedAt: new Date().toISOString(),
+                sourceEnvironment: CURRENT_ENVIRONMENT,
+                founderConversations: convData,
+              };
+              const batchResult = await this.sendBatch(peerUrl, `founder-conversations-p${page}`, convBundle, 60000, sessionContext);
+              Object.assign(allCounts, batchResult.counts);
+              allErrors.push(...batchResult.errors);
+              
+              if (!batchResult.success) {
+                batch15Success = false;
+                break;
+              }
+            }
+            page++;
+          } catch (err: any) {
+            allErrors.push(`founder-conversations page ${page}: ${err.message}`);
+            batch15Success = false;
+            break;
+          }
+        }
+        
+        console.log(`[SYNC-BRIDGE v38] Founder conversations complete: ${totalConvs} conversations, ${totalMsgs} messages in ${page} pages`);
+        if (batch15Success) completedBatches.push('founder-conversations');
         else overallSuccess = false;
       }
       
@@ -6828,16 +6891,18 @@ class SyncBridgeService {
    * v23: Now supports direct enrollment sync (for Replit auth users who already exist)
    * v35: OPTIMIZED - Uses bulk preload and batched inserts to reduce ~2000 queries to ~20
    * v35.1: FIXES - Preserve joinCode, correct enrollment preload timing, accurate counts
+   * v38: FIXES - Import class teachers BEFORE classes to satisfy FK constraint
    */
-  async importBetaTesters(testers: any[], credits: any[], directEnrollments: any[] = [], classes: any[] = []): Promise<{ usersImported: number; creditsImported: number; enrollmentsCreated: number; classesImported: number; errors: string[] }> {
+  async importBetaTesters(testers: any[], credits: any[], directEnrollments: any[] = [], classes: any[] = [], classTeachers: any[] = []): Promise<{ usersImported: number; creditsImported: number; enrollmentsCreated: number; classesImported: number; teachersImported: number; errors: string[] }> {
     const startTime = Date.now();
     let usersImported = 0;
     let creditsImported = 0;
     let enrollmentsCreated = 0;
     let classesImported = 0;
+    let teachersImported = 0;
     const errors: string[] = [];
     
-    console.log(`[SYNC-BRIDGE v35.1] Starting optimized beta tester import: ${testers.length} testers, ${credits.length} credits, ${directEnrollments.length} enrollments, ${classes.length} classes`);
+    console.log(`[SYNC-BRIDGE v38] Starting optimized beta tester import: ${testers.length} testers, ${classTeachers.length} class teachers, ${credits.length} credits, ${directEnrollments.length} enrollments, ${classes.length} classes`);
     
     // STEP 1: Bulk preload existing data (3 queries - enrollments done later after user mapping)
     const classIds = classes.map(c => c.id).filter(Boolean);
@@ -6863,72 +6928,45 @@ class SyncBridgeService {
       : [];
     const existingCreditIds = new Set(existingCredits.map(c => c.id));
     
-    console.log(`[SYNC-BRIDGE v35.1] Preloaded: ${existingClassIds.size} classes, ${existingUsersByEmail.size} users, ${existingCreditIds.size} credits`);
+    console.log(`[SYNC-BRIDGE v38] Preloaded: ${existingClassIds.size} classes, ${existingUsersByEmail.size} users, ${existingCreditIds.size} credits`);
     
-    // STEP 2: Bulk import classes (split into insert/update batches)
-    // v35.1: Preserve existing joinCode when updating
-    if (classes.length > 0) {
-      const classesToInsert = classes.filter(c => !existingClassIds.has(c.id));
-      const classesToUpdate = classes.filter(c => existingClassIds.has(c.id));
+    // v38: STEP 1B - Import class teachers FIRST (FK constraint: teachers must exist before classes)
+    if (classTeachers.length > 0) {
+      // Check which teachers already exist
+      const teacherIds = classTeachers.map(t => t.id).filter(Boolean);
+      const existingTeachers = teacherIds.length > 0
+        ? await db.select({ id: users.id }).from(users).where(inArray(users.id, teacherIds))
+        : [];
+      const existingTeacherIdSet = new Set(existingTeachers.map(t => t.id));
       
-      // Bulk insert new classes
-      if (classesToInsert.length > 0) {
+      const teachersToInsert = classTeachers.filter(t => !existingTeacherIdSet.has(t.id));
+      if (teachersToInsert.length > 0) {
         const CHUNK_SIZE = 100;
-        for (let i = 0; i < classesToInsert.length; i += CHUNK_SIZE) {
-          const chunk = classesToInsert.slice(i, i + CHUNK_SIZE);
+        for (let i = 0; i < teachersToInsert.length; i += CHUNK_SIZE) {
+          const chunk = teachersToInsert.slice(i, i + CHUNK_SIZE);
           try {
-            await db.insert(teacherClasses).values(chunk.map(cls => ({
-              id: cls.id,
-              teacherId: cls.teacherId,
-              name: cls.name,
-              description: cls.description,
-              language: cls.language,
-              classLevel: cls.classLevel ?? cls.difficultyLevel,
-              curriculumPathId: cls.curriculumPathId ?? cls.curriculumTemplateId,
-              joinCode: cls.joinCode || Math.random().toString(36).substring(2, 8).toUpperCase(),
-              isActive: cls.isActive ?? true,
-              isPublicCatalogue: cls.isPublicCatalogue ?? false,
-              expectedActflMin: cls.expectedActflMin,
-              targetActflLevel: cls.targetActflLevel,
-              classTypeId: cls.classTypeId,
-              isFeatured: cls.isFeatured,
-              featuredOrder: cls.featuredOrder,
+            await db.insert(users).values(chunk.map(teacher => ({
+              id: teacher.id,
+              email: teacher.email,
+              firstName: teacher.firstName,
+              lastName: teacher.lastName,
+              profileImageUrl: teacher.profileImageUrl,
+              isBetaTester: teacher.isBetaTester || false, // Preserve original beta status
+              authProvider: teacher.authProvider || 'replit',
+              createdAt: new Date(teacher.createdAt),
+              updatedAt: new Date(),
             }))).onConflictDoNothing();
-            classesImported += chunk.length;
+            teachersImported += chunk.length;
           } catch (err: any) {
-            errors.push(`Bulk class insert: ${err.message}`);
+            console.warn(`[SYNC-BRIDGE v38] Failed to insert teacher chunk: ${err.message}`);
+            errors.push(`Class teacher insert: ${err.message}`);
           }
         }
       }
-      
-      // Update existing classes - v35.1: DO NOT overwrite joinCode
-      for (const cls of classesToUpdate) {
-        try {
-          await db.update(teacherClasses).set({
-            name: cls.name,
-            description: cls.description,
-            language: cls.language,
-            classLevel: cls.classLevel ?? cls.difficultyLevel,
-            curriculumPathId: cls.curriculumPathId ?? cls.curriculumTemplateId,
-            isActive: cls.isActive ?? true,
-            isPublicCatalogue: cls.isPublicCatalogue ?? false,
-            expectedActflMin: cls.expectedActflMin,
-            targetActflLevel: cls.targetActflLevel,
-            classTypeId: cls.classTypeId,
-            isFeatured: cls.isFeatured,
-            featuredOrder: cls.featuredOrder,
-            // v35.1: Preserve existing joinCode - only update if explicitly provided and different
-            ...(cls.joinCode && cls.joinCode !== existingClassJoinCodes.get(cls.id) ? { joinCode: cls.joinCode } : {}),
-          }).where(eq(teacherClasses.id, cls.id));
-          classesImported++;
-        } catch (err: any) {
-          errors.push(`Class update ${cls.id}: ${err.message}`);
-        }
-      }
-      console.log(`[SYNC-BRIDGE v35.1] Classes: ${classesToInsert.length} inserted, ${classesToUpdate.length} updated`);
+      console.log(`[SYNC-BRIDGE v38] Class teachers: ${teachersToInsert.length} inserted, ${existingTeacherIdSet.size} already existed`);
     }
     
-    // STEP 3: Process users and build ID mapping (source → target)
+    // v38: STEP 2 - Process beta testers and build ID mapping (source → target)
     const userIdMapping = new Map<string, string>(); // sourceId → targetId
     
     // Build mapping for existing users first (they already exist, just need mapping)
@@ -6978,7 +7016,92 @@ class SyncBridgeService {
       }
     }
     
-    console.log(`[SYNC-BRIDGE v35.1] Users: ${usersToInsert.length} inserted, ${usersToUpdate.length} updated, ${userIdMapping.size} mapped`);
+    console.log(`[SYNC-BRIDGE v38] Users: ${usersToInsert.length} inserted, ${usersToUpdate.length} updated, ${userIdMapping.size} mapped`);
+    
+    // v38: STEP 3 (was STEP 2) - NOW import classes after users exist (FK constraint satisfied)
+    // Bulk import classes (split into insert/update batches)
+    if (classes.length > 0) {
+      const classesToInsert = classes.filter(c => !existingClassIds.has(c.id));
+      const classesToUpdate = classes.filter(c => existingClassIds.has(c.id));
+      
+      // v38: FALLBACK - Verify class teachers exist before inserting classes
+      // (Teachers should have been imported in STEP 1B, this is a safety check)
+      const teacherIdsNeeded = new Set(classesToInsert.map(c => c.teacherId).filter(Boolean));
+      const existingTeacherIds = teacherIdsNeeded.size > 0
+        ? new Set(
+            (await db.select({ id: users.id }).from(users).where(
+              inArray(users.id, Array.from(teacherIdsNeeded))
+            )).map(u => u.id)
+          )
+        : new Set<string>();
+      
+      // Filter out classes whose teachers still don't exist (fallback safety)
+      const classesWithValidTeachers = classesToInsert.filter(c => existingTeacherIds.has(c.teacherId));
+      const classesWithMissingTeachers = classesToInsert.filter(c => !existingTeacherIds.has(c.teacherId));
+      
+      if (classesWithMissingTeachers.length > 0) {
+        // This should rarely happen now that we import classTeachers first
+        console.warn(`[SYNC-BRIDGE v38] FALLBACK: Skipping ${classesWithMissingTeachers.length} classes (teachers not in classTeachers bundle)`);
+        for (const cls of classesWithMissingTeachers) {
+          errors.push(`Class ${cls.name}: teacher ${cls.teacherId} not found (missing from classTeachers bundle?)`);
+        }
+      }
+      
+      // Bulk insert new classes (only those with valid teachers)
+      if (classesWithValidTeachers.length > 0) {
+        const CHUNK_SIZE = 100;
+        for (let i = 0; i < classesWithValidTeachers.length; i += CHUNK_SIZE) {
+          const chunk = classesWithValidTeachers.slice(i, i + CHUNK_SIZE);
+          try {
+            await db.insert(teacherClasses).values(chunk.map(cls => ({
+              id: cls.id,
+              teacherId: cls.teacherId,
+              name: cls.name,
+              description: cls.description,
+              language: cls.language,
+              classLevel: cls.classLevel ?? cls.difficultyLevel,
+              curriculumPathId: cls.curriculumPathId ?? cls.curriculumTemplateId,
+              joinCode: cls.joinCode || Math.random().toString(36).substring(2, 8).toUpperCase(),
+              isActive: cls.isActive ?? true,
+              isPublicCatalogue: cls.isPublicCatalogue ?? false,
+              expectedActflMin: cls.expectedActflMin,
+              targetActflLevel: cls.targetActflLevel,
+              classTypeId: cls.classTypeId,
+              isFeatured: cls.isFeatured,
+              featuredOrder: cls.featuredOrder,
+            }))).onConflictDoNothing();
+            classesImported += chunk.length;
+          } catch (err: any) {
+            errors.push(`Bulk class insert: ${err.message}`);
+          }
+        }
+      }
+      
+      // Update existing classes - preserve existing joinCode
+      for (const cls of classesToUpdate) {
+        try {
+          await db.update(teacherClasses).set({
+            name: cls.name,
+            description: cls.description,
+            language: cls.language,
+            classLevel: cls.classLevel ?? cls.difficultyLevel,
+            curriculumPathId: cls.curriculumPathId ?? cls.curriculumTemplateId,
+            isActive: cls.isActive ?? true,
+            isPublicCatalogue: cls.isPublicCatalogue ?? false,
+            expectedActflMin: cls.expectedActflMin,
+            targetActflLevel: cls.targetActflLevel,
+            classTypeId: cls.classTypeId,
+            isFeatured: cls.isFeatured,
+            featuredOrder: cls.featuredOrder,
+            ...(cls.joinCode && cls.joinCode !== existingClassJoinCodes.get(cls.id) ? { joinCode: cls.joinCode } : {}),
+          }).where(eq(teacherClasses.id, cls.id));
+          classesImported++;
+        } catch (err: any) {
+          errors.push(`Class update ${cls.id}: ${err.message}`);
+        }
+      }
+      console.log(`[SYNC-BRIDGE v38] Classes: ${classesWithValidTeachers.length} inserted, ${classesToUpdate.length} updated, ${classesWithMissingTeachers.length} skipped (missing teacher)`);
+    }
     
     // STEP 4: Preload existing enrollments AFTER we know target user IDs
     // v35.1: Query with resolved target IDs for accurate duplicate detection
@@ -7086,8 +7209,8 @@ class SyncBridgeService {
     }
     
     const duration = Date.now() - startTime;
-    console.log(`[SYNC-BRIDGE v35.1] Beta testers import complete in ${duration}ms: ${usersImported} users, ${creditsImported} credits, ${enrollmentsCreated} enrollments, ${classesImported} classes`);
-    return { usersImported, creditsImported, enrollmentsCreated, classesImported, errors };
+    console.log(`[SYNC-BRIDGE v38] Beta testers import complete in ${duration}ms: ${usersImported} users, ${teachersImported} class teachers, ${creditsImported} credits, ${enrollmentsCreated} enrollments, ${classesImported} classes`);
+    return { usersImported, creditsImported, enrollmentsCreated, classesImported, teachersImported, errors };
   }
 
   /**
