@@ -6621,13 +6621,13 @@ class SyncBridgeService {
           acceptableAlternatives: drill.acceptableAlternatives,
           difficulty: drill.difficulty,
           tags: drill.tags,
-          updatedAt: new Date(),
+          updatedAt: drill.updatedAt ? new Date(drill.updatedAt) : new Date(),
         }).where(eq(curriculumDrillItems.id, drill.id));
       } else {
         await db.insert(curriculumDrillItems).values({
           ...drill,
-          createdAt: new Date(drill.createdAt || new Date()),
-          updatedAt: new Date(),
+          createdAt: drill.createdAt ? new Date(drill.createdAt) : new Date(),
+          updatedAt: drill.updatedAt ? new Date(drill.updatedAt) : new Date(),
         });
       }
       return { success: true };
@@ -6688,11 +6688,13 @@ class SyncBridgeService {
           prerequisiteIds: comp.prerequisiteIds,
           difficultyScore: comp.difficultyScore,
           estimatedMinutes: comp.estimatedMinutes,
+          updatedAt: comp.updatedAt ? new Date(comp.updatedAt) : new Date(),
         }).where(eq(grammarCompetencies.id, comp.id));
       } else {
         await db.insert(grammarCompetencies).values({
           ...comp,
-          createdAt: new Date(comp.createdAt || new Date()),
+          createdAt: comp.createdAt ? new Date(comp.createdAt) : new Date(),
+          updatedAt: comp.updatedAt ? new Date(comp.updatedAt) : new Date(),
         });
       }
       return { success: true };
