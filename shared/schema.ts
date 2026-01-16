@@ -523,6 +523,7 @@ export const grammarExercises = pgTable("grammar_exercises", {
   // Hint for micro-coaching
   hint: text("hint"), // Optional hint for struggling learners
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => [
   index("idx_grammar_exercises_language").on(table.language),
   index("idx_grammar_exercises_competency").on(table.competencyId),
@@ -855,6 +856,8 @@ export const culturalTips = pgTable("cultural_tips", {
   context: text("context").notNull(), // When/where this applies
   relatedTopics: text("related_topics").array(), // Optional topic associations
   icon: text("icon").notNull(), // Lucide icon name
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 // ===== Dual-Path Learning System: Institutional Features =====
@@ -868,6 +871,8 @@ export const canDoStatements = pgTable("can_do_statements", {
   mode: text("mode"), // speaking, listening, reading, writing
   statement: text("statement").notNull(), // "I can greet someone and introduce myself"
   description: text("description"), // Additional context/examples
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 // Student progress on Can-Do statements
@@ -1523,6 +1528,8 @@ export const lessonCanDoStatements = pgTable("lesson_can_do_statements", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   lessonId: varchar("lesson_id").notNull().references(() => curriculumLessons.id),
   canDoStatementId: varchar("can_do_statement_id").notNull().references(() => canDoStatements.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 // Links lessons to cultural tips
@@ -1530,6 +1537,8 @@ export const lessonCulturalTips = pgTable("lesson_cultural_tips", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   lessonId: varchar("lesson_id").notNull().references(() => curriculumLessons.id),
   culturalTipId: varchar("cultural_tip_id").notNull().references(() => culturalTips.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 // Links assignments to vocabulary words
@@ -1674,6 +1683,7 @@ export const lessonVisualAids = pgTable("lesson_visual_aids", {
   displayOrder: integer("display_order").notNull().default(0), // Order within the lesson
   isRequired: boolean("is_required").default(false), // Is this required viewing?
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 // Cultural media gallery (photos/videos for cultural context)
@@ -1690,6 +1700,7 @@ export const culturalTipMedia = pgTable("cultural_tip_media", {
   displayOrder: integer("display_order").default(0),
   isFeatured: boolean("is_featured").default(false), // Highlight in gallery
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 // ===== Organization System (Phases 2 & 3) =====

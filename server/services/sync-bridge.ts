@@ -34,7 +34,7 @@ import {
   // v32: Sync reliability tracking
   syncImportReceipts, syncAnomalies, type SyncAnomaly, type SyncImportReceipt
 } from '@shared/schema';
-import { eq, desc, gte, and, isNull, or, inArray, lt, sql } from 'drizzle-orm';
+import { eq, desc, gte, gt, and, isNull, or, inArray, lt, sql } from 'drizzle-orm';
 import { neuralNetworkSync } from './neural-network-sync';
 import { createSyncHeaders, isSyncConfigured, getSyncPeerUrl } from '../middleware/sync-auth';
 import crypto from 'crypto';
@@ -43,7 +43,7 @@ const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production'
 
 // Version identifier to verify which code is running on production
 // Increment this when making sync-related changes to verify deployment
-const SYNC_BRIDGE_CODE_VERSION = "2025-01-16-v39-paginated-drills";
+const SYNC_BRIDGE_CODE_VERSION = "2025-01-16-v40-delta-sync-all";
 
 // Capability negotiation: List all batch types this version can import/export
 // When adding new batches, add them here so peers can gracefully handle version mismatches
@@ -1210,14 +1210,30 @@ class SyncBridgeService {
     
     // BATCH: actfl-core - ACTFL tables only (small, ~3K records) - split from curriculum-drills for reliability
     // v39: Separated to ensure ACTFL data syncs even when drills are too large
+    // v40: Delta sync support via updatedAt column
     if (!batchType || batchType === 'actfl-core') {
       try {
-        const grammarComp = await db.select().from(grammarCompetencies);
-        const canDo = await db.select().from(canDoStatements);
-        const lessonCanDo = await db.select().from(lessonCanDoStatements);
-        const cultural = await db.select().from(culturalTips);
-        const lessonCultural = await db.select().from(lessonCulturalTips);
-        const culturalMedia = await db.select().from(culturalTipMedia);
+        // Delta sync: filter by updatedAt > incrementalSince if available
+        const deltaMode = incrementalSince ? 'delta' : 'full';
+        
+        const grammarComp = incrementalSince 
+          ? await db.select().from(grammarCompetencies).where(gt(grammarCompetencies.updatedAt, incrementalSince))
+          : await db.select().from(grammarCompetencies);
+        const canDo = incrementalSince
+          ? await db.select().from(canDoStatements).where(gt(canDoStatements.updatedAt, incrementalSince))
+          : await db.select().from(canDoStatements);
+        const lessonCanDo = incrementalSince
+          ? await db.select().from(lessonCanDoStatements).where(gt(lessonCanDoStatements.updatedAt, incrementalSince))
+          : await db.select().from(lessonCanDoStatements);
+        const cultural = incrementalSince
+          ? await db.select().from(culturalTips).where(gt(culturalTips.updatedAt, incrementalSince))
+          : await db.select().from(culturalTips);
+        const lessonCultural = incrementalSince
+          ? await db.select().from(lessonCulturalTips).where(gt(lessonCulturalTips.updatedAt, incrementalSince))
+          : await db.select().from(lessonCulturalTips);
+        const culturalMedia = incrementalSince
+          ? await db.select().from(culturalTipMedia).where(gt(culturalTipMedia.updatedAt, incrementalSince))
+          : await db.select().from(culturalTipMedia);
         
         bundle.grammarCompetencies = grammarComp;
         bundle.canDoStatements = canDo;
@@ -1225,7 +1241,7 @@ class SyncBridgeService {
         bundle.culturalTips = cultural;
         bundle.lessonCulturalTips = lessonCultural;
         bundle.culturalTipMedia = culturalMedia;
-        console.log(`[SYNC-BRIDGE] actfl-core: ${grammarComp.length} grammar-comp, ${canDo.length} can-do, ${lessonCanDo.length} lesson-can-do, ${cultural.length} cultural, ${lessonCultural.length} lesson-cultural, ${culturalMedia.length} cultural-media`);
+        console.log(`[SYNC-BRIDGE] actfl-core (${deltaMode}): ${grammarComp.length} grammar-comp, ${canDo.length} can-do, ${lessonCanDo.length} lesson-can-do, ${cultural.length} cultural, ${lessonCultural.length} lesson-cultural, ${culturalMedia.length} cultural-media`);
       } catch (err: any) {
         const errMsg = `actfl-core export failed: ${err.message}`;
         console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
@@ -1241,6 +1257,7 @@ class SyncBridgeService {
     
     // BATCH: curriculum-drills - Drill items and grammar exercises only (ACTFL tables moved to actfl-core)
     // v39: Supports pagination via curriculum-drills-pN format for large datasets
+    // v40: Delta sync support via updatedAt column
     if (!batchType || batchType === 'curriculum-drills' || batchType.startsWith('curriculum-drills-p')) {
       try {
         // Parse page number if paginated request
@@ -1249,21 +1266,37 @@ class SyncBridgeService {
         const pageSize = 500; // 500 drills per page
         const offset = page * pageSize;
         
-        // Get total count for pagination info
-        const totalResult = await db.select({ count: sql<number>`count(*)` }).from(curriculumDrillItems);
+        // Delta sync: filter by updatedAt > incrementalSince if available
+        const deltaMode = incrementalSince ? 'delta' : 'full';
+        
+        // Get total count for pagination info (respects delta filter)
+        const totalResult = incrementalSince
+          ? await db.select({ count: sql<number>`count(*)` }).from(curriculumDrillItems)
+              .where(gt(curriculumDrillItems.updatedAt, incrementalSince))
+          : await db.select({ count: sql<number>`count(*)` }).from(curriculumDrillItems);
         const totalDrills = Number(totalResult[0]?.count || 0);
         const totalPages = Math.ceil(totalDrills / pageSize);
         
-        // Fetch paginated drills
-        const drills = await db.select().from(curriculumDrillItems)
-          .orderBy(curriculumDrillItems.id)
-          .limit(pageSize)
-          .offset(offset);
+        // Fetch paginated drills with delta filter
+        const drills = incrementalSince
+          ? await db.select().from(curriculumDrillItems)
+              .where(gt(curriculumDrillItems.updatedAt, incrementalSince))
+              .orderBy(curriculumDrillItems.id)
+              .limit(pageSize)
+              .offset(offset)
+          : await db.select().from(curriculumDrillItems)
+              .orderBy(curriculumDrillItems.id)
+              .limit(pageSize)
+              .offset(offset);
         
-        // Grammar exercises are small (~100), fetch all
-        const grammar = await db.select().from(grammarExercises);
-        // Lesson visual aids are small, fetch all
-        const lessonVisual = await db.select().from(lessonVisualAids);
+        // Grammar exercises are small (~100), fetch with delta filter
+        const grammar = incrementalSince
+          ? await db.select().from(grammarExercises).where(gt(grammarExercises.updatedAt, incrementalSince))
+          : await db.select().from(grammarExercises);
+        // Lesson visual aids are small, fetch with delta filter
+        const lessonVisual = incrementalSince
+          ? await db.select().from(lessonVisualAids).where(gt(lessonVisualAids.updatedAt, incrementalSince))
+          : await db.select().from(lessonVisualAids);
         
         bundle.curriculumDrillItems = drills;
         bundle.grammarExercises = grammar;
@@ -1278,7 +1311,7 @@ class SyncBridgeService {
           hasMore: page < totalPages - 1,
         };
         
-        console.log(`[SYNC-BRIDGE] curriculum-drills page ${page}: ${drills.length} drills (${offset}-${offset + drills.length} of ${totalDrills}), ${grammar.length} grammar, ${lessonVisual.length} lesson-visual, hasMore=${page < totalPages - 1}`);
+        console.log(`[SYNC-BRIDGE] curriculum-drills page ${page} (${deltaMode}): ${drills.length} drills (${offset}-${offset + drills.length} of ${totalDrills}), ${grammar.length} grammar, ${lessonVisual.length} lesson-visual, hasMore=${page < totalPages - 1}`);
       } catch (err: any) {
         const errMsg = `curriculum-drills export failed: ${err.message}`;
         console.error(`[SYNC-BRIDGE] ${errMsg}`, err);
@@ -6618,11 +6651,13 @@ class SyncBridgeService {
           explanation: grammar.explanation,
           exerciseType: grammar.exerciseType,
           hint: grammar.hint,
+          updatedAt: grammar.updatedAt ? new Date(grammar.updatedAt) : new Date(),
         }).where(eq(grammarExercises.id, grammar.id));
       } else {
         await db.insert(grammarExercises).values({
           ...grammar,
-          createdAt: new Date(grammar.createdAt || new Date()),
+          createdAt: grammar.createdAt ? new Date(grammar.createdAt) : new Date(),
+          updatedAt: grammar.updatedAt ? new Date(grammar.updatedAt) : new Date(),
         });
       }
       return { success: true };
@@ -6677,9 +6712,14 @@ class SyncBridgeService {
           mode: canDo.mode,
           statement: canDo.statement,
           description: canDo.description,
+          updatedAt: canDo.updatedAt ? new Date(canDo.updatedAt) : new Date(),
         }).where(eq(canDoStatements.id, canDo.id));
       } else {
-        await db.insert(canDoStatements).values(canDo);
+        await db.insert(canDoStatements).values({
+          ...canDo,
+          createdAt: canDo.createdAt ? new Date(canDo.createdAt) : new Date(),
+          updatedAt: canDo.updatedAt ? new Date(canDo.updatedAt) : new Date(),
+        });
       }
       return { success: true };
     } catch (err: any) {
@@ -6698,9 +6738,15 @@ class SyncBridgeService {
           content: tip.content,
           context: tip.context,
           relatedTopics: tip.relatedTopics,
+          icon: tip.icon,
+          updatedAt: tip.updatedAt ? new Date(tip.updatedAt) : new Date(),
         }).where(eq(culturalTips.id, tip.id));
       } else {
-        await db.insert(culturalTips).values(tip);
+        await db.insert(culturalTips).values({
+          ...tip,
+          createdAt: tip.createdAt ? new Date(tip.createdAt) : new Date(),
+          updatedAt: tip.updatedAt ? new Date(tip.updatedAt) : new Date(),
+        });
       }
       return { success: true };
     } catch (err: any) {
@@ -6721,14 +6767,22 @@ class SyncBridgeService {
         .limit(1);
       
       if (existing.length === 0) {
-        // Insert new link
+        // Insert new link with timestamps for delta sync support
         await db.insert(lessonCanDoStatements).values({
           id: link.id,
           lessonId: link.lessonId,
           canDoStatementId: link.canDoStatementId,
+          createdAt: link.createdAt ? new Date(link.createdAt) : new Date(),
+          updatedAt: link.updatedAt ? new Date(link.updatedAt) : new Date(),
         });
+      } else {
+        // Update existing link with updatedAt for delta sync
+        await db.update(lessonCanDoStatements).set({
+          lessonId: link.lessonId,
+          canDoStatementId: link.canDoStatementId,
+          updatedAt: link.updatedAt ? new Date(link.updatedAt) : new Date(),
+        }).where(eq(lessonCanDoStatements.id, link.id));
       }
-      // Links don't need updates - they're just ID relationships
       return { success: true };
     } catch (err: any) {
       // Skip duplicates silently (FK constraint or unique constraint)
@@ -6754,7 +6808,16 @@ class SyncBridgeService {
           id: link.id,
           lessonId: link.lessonId,
           culturalTipId: link.culturalTipId,
+          createdAt: link.createdAt ? new Date(link.createdAt) : new Date(),
+          updatedAt: link.updatedAt ? new Date(link.updatedAt) : new Date(),
         });
+      } else {
+        // Update existing link with updatedAt for delta sync
+        await db.update(lessonCulturalTips).set({
+          lessonId: link.lessonId,
+          culturalTipId: link.culturalTipId,
+          updatedAt: link.updatedAt ? new Date(link.updatedAt) : new Date(),
+        }).where(eq(lessonCulturalTips.id, link.id));
       }
       return { success: true };
     } catch (err: any) {
@@ -6783,11 +6846,13 @@ class SyncBridgeService {
           description: aid.description,
           displayOrder: aid.displayOrder,
           isRequired: aid.isRequired,
+          updatedAt: aid.updatedAt ? new Date(aid.updatedAt) : new Date(),
         }).where(eq(lessonVisualAids.id, aid.id));
       } else {
         await db.insert(lessonVisualAids).values({
           ...aid,
-          createdAt: new Date(aid.createdAt || new Date()),
+          createdAt: aid.createdAt ? new Date(aid.createdAt) : new Date(),
+          updatedAt: aid.updatedAt ? new Date(aid.updatedAt) : new Date(),
         });
       }
       return { success: true };
@@ -6821,11 +6886,13 @@ class SyncBridgeService {
           tags: media.tags,
           displayOrder: media.displayOrder,
           isFeatured: media.isFeatured,
+          updatedAt: media.updatedAt ? new Date(media.updatedAt) : new Date(),
         }).where(eq(culturalTipMedia.id, media.id));
       } else {
         await db.insert(culturalTipMedia).values({
           ...media,
-          createdAt: new Date(media.createdAt || new Date()),
+          createdAt: media.createdAt ? new Date(media.createdAt) : new Date(),
+          updatedAt: media.updatedAt ? new Date(media.updatedAt) : new Date(),
         });
       }
       return { success: true };
