@@ -2,8 +2,44 @@
 ## From Sync-Bridge to Shared Database Architecture
 
 **Created**: January 17, 2026  
-**Status**: Planning  
+**Status**: Phase 2 - Data Migration IN PROGRESS  
 **Goal**: Replace 8000-line HTTP sync system with database-native sharing
+
+---
+
+## Migration Progress
+
+### Completed ✅
+
+| Database | Table | Rows | Status |
+|----------|-------|------|--------|
+| SHARED | curriculum_paths | 45 | ✅ Migrated |
+| SHARED | curriculum_units | 161 | ✅ Migrated |
+| SHARED | curriculum_lessons | 1,242 | ✅ Migrated |
+| SHARED | curriculum_drill_items | 127,132 | ✅ Migrated |
+| SHARED | can_do_statements | 1,053 | ✅ Migrated |
+| SHARED | cultural_tips | 124 | ✅ Migrated |
+| SHARED | grammar_competencies | 89 | ✅ Migrated |
+| SHARED | tutor_procedures | 181 | ✅ Migrated |
+| SHARED | self_best_practices | 311 | ✅ Migrated |
+| SHARED | lesson_can_do_statements | 2,135 | ✅ Migrated |
+| USER | users | 246 | ✅ Migrated |
+| USER | conversations | 1,313 | ✅ Migrated |
+| USER | messages | 8,130 | ✅ Migrated |
+| USER | vocabulary_words | 1,493 | ✅ Migrated |
+| USER | student_insights | 766 | ✅ Migrated |
+
+### Fresh Start (Not Migrated)
+
+- **agent_observations** (2.3M historical records): Accepted fresh start - Daniela's learning will rebuild from new interactions
+- Other Daniela intelligence tables: Start fresh with empty schema
+
+### Next Steps
+
+1. **Phase 3**: Configure neon-db.ts to use dual-database connections
+2. **Phase 4**: Modify storage layer to route queries appropriately
+3. **Phase 5**: Remove sync-bridge code (8,000+ lines)
+4. **Phase 6**: Production cutover with rollback plan
 
 ---
 
