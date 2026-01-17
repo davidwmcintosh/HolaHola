@@ -29,10 +29,13 @@
 | USER | vocabulary_words | 1,493 | ✅ Migrated |
 | USER | student_insights | 766 | ✅ Migrated |
 
-### Fresh Start (Not Migrated)
+### Daniela Intelligence (Migrated!)
 
-- **agent_observations** (2.3M historical records): Accepted fresh start - Daniela's learning will rebuild from new interactions
-- Other Daniela intelligence tables: Start fresh with empty schema
+| Database | Table | Rows | Status |
+|----------|-------|------|--------|
+| SHARED | agent_observations | 2,319,265 | ✅ Migrated |
+
+Daniela's complete learning history has been preserved.
 
 ### Next Steps
 
