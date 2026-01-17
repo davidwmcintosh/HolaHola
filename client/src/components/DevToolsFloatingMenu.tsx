@@ -8,7 +8,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Wrench, RefreshCw, Trash2, Loader2 } from "lucide-react";
+import { Wrench, RefreshCw, Trash2, Loader2, Database, ExternalLink } from "lucide-react";
+import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -173,6 +174,34 @@ export function DevToolsFloatingMenu({
             <span className="text-xs opacity-70">Clear all vocabulary, grammar, progress</span>
           </div>
         </DropdownMenuItem>
+
+        <DropdownMenuSeparator />
+
+        <Link href="/admin/developer?tab=neon">
+          <DropdownMenuItem
+            className="cursor-pointer"
+            data-testid="link-neon-migration"
+          >
+            <Database className="h-4 w-4 mr-2" />
+            <div className="flex flex-col">
+              <span>Database Migration</span>
+              <span className="text-xs text-muted-foreground">Migrate to Neon</span>
+            </div>
+          </DropdownMenuItem>
+        </Link>
+
+        <Link href="/admin/developer">
+          <DropdownMenuItem
+            className="cursor-pointer"
+            data-testid="link-developer-dashboard"
+          >
+            <ExternalLink className="h-4 w-4 mr-2" />
+            <div className="flex flex-col">
+              <span>Developer Dashboard</span>
+              <span className="text-xs text-muted-foreground">Analytics & tools</span>
+            </div>
+          </DropdownMenuItem>
+        </Link>
       </DropdownMenuContent>
       </DropdownMenu>
     </div>
