@@ -44,6 +44,14 @@ Daniela's complete learning history has been preserved.
 3. **Phase 5**: Remove sync-bridge code (8,000+ lines)
 4. **Phase 6**: Production cutover with rollback plan
 
+### Post-Migration Verification Checklist
+
+- [ ] **Verify Observations Consolidation Service is running**: Currently 2.3M observations all show status="active" with 0 synthesized_insights. After migration, confirm the nightly consolidation job in `sync-scheduler.ts` (step 7f) is:
+  - Finding and merging duplicate observations
+  - Creating synthesized_insights summaries
+  - Properly archiving superseded observations
+  - Services to check: `observations-consolidation-service.ts`, `observation-summarization-service.ts`, `memory-consolidation-service.ts`
+
 ---
 
 ## Executive Summary

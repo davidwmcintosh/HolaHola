@@ -8,6 +8,187 @@ neonConfig.webSocketConstructor = ws;
 const NEON_SHARED_URL = process.env.NEON_SHARED_DATABASE_URL;
 const NEON_USER_URL = process.env.NEON_USER_DATABASE_URL;
 
+/**
+ * Table Routing for Dual-Database Architecture
+ * 
+ * SHARED DATABASE: Daniela's intelligence, curriculum, Wren insights
+ * - Both dev and prod environments connect here
+ * - "One Daniela Everywhere"
+ * 
+ * USER DATABASE: Per-environment user data
+ * - Isolated between dev/prod
+ * - User accounts, conversations, progress
+ */
+
+// Tables that go to SHARED database (Daniela + Curriculum + Wren)
+export const SHARED_TABLES = new Set([
+  // Daniela Intelligence
+  'agent_observations',
+  'support_observations', 
+  'system_alerts',
+  'self_best_practices',
+  'tutor_procedures',
+  'teaching_principles',
+  'tool_knowledge',
+  'situational_patterns',
+  'linguistic_bridges',
+  'language_idioms',
+  'cultural_nuances',
+  'learner_error_patterns',
+  'dialect_variations',
+  'subtlety_cues',
+  'emotional_patterns',
+  'creativity_templates',
+  'compass_principles',
+  'compass_understanding',
+  'compass_examples',
+  'daniela_growth_memories',
+  'daniela_recommendations',
+  'daniela_beacons',
+  'daniela_suggestions',
+  'daniela_suggestion_actions',
+  'synthesized_insights',
+  'pedagogical_insights',
+  'reflection_triggers',
+  'ai_suggestions',
+  
+  // Wren Intelligence
+  'wren_insights',
+  'wren_proactive_triggers',
+  'wren_mistakes',
+  'wren_lessons',
+  'wren_commitments',
+  'wren_mistake_resolutions',
+  'wren_session_notes',
+  'wren_predictions',
+  'wren_confidence_records',
+  'wren_calibration_stats',
+  'architectural_decision_records',
+  
+  // Curriculum Content
+  'curriculum_paths',
+  'curriculum_units',
+  'curriculum_lessons',
+  'curriculum_drill_items',
+  'can_do_statements',
+  'grammar_competencies',
+  'cultural_tips',
+  'cultural_tip_media',
+  'lesson_can_do_statements',
+  'lesson_cultural_tips',
+  'lesson_visual_aids',
+  'topics',
+  'class_types',
+  'tutor_voices',
+  'grammar_exercises',
+  'lesson_drafts',
+  
+  // Hive/Collaboration
+  'hive_snapshots',
+  'agent_collab_messages',
+  'agent_collab_threads',
+  'founder_sessions',
+  'express_lane_sessions',
+  'express_lane_messages',
+  
+  // Daniela's learner memory (shared so she remembers students across envs)
+  'learner_personal_facts',
+  'learner_memory_candidates',
+  
+  // Post-flight reports and beacons
+  'post_flight_reports',
+  'topic_competency_observations',
+]);
+
+// Tables that go to USER database (per-environment)
+export const USER_TABLES = new Set([
+  // User & Authentication
+  'users',
+  'user_credentials',
+  'auth_tokens',
+  'pending_invites',
+  'sessions',
+  
+  // Conversations & Voice Sessions
+  'conversations',
+  'messages',
+  'message_media',
+  'voice_sessions',
+  'tutor_sessions',
+  'tutor_session_topics',
+  'surgery_sessions',
+  'surgery_turns',
+  'consultation_threads',
+  'consultation_messages',
+  
+  // Progress & Learning
+  'user_progress',
+  'user_lesson_items',
+  'user_lessons',
+  'user_drill_progress',
+  'user_grammar_progress',
+  'student_insights',
+  'student_can_do_progress',
+  'student_lesson_progress',
+  'student_tier_signals',
+  'syllabus_progress',
+  'vocabulary_words',
+  'vocabulary_word_topics',
+  'pronunciation_scores',
+  'pronunciation_audio',
+  
+  // Teacher/Class Management
+  'teacher_classes',
+  'class_enrollments',
+  'class_curriculum_units',
+  'class_curriculum_lessons',
+  'class_hour_packages',
+  'usage_ledger',
+  
+  // Self-practice
+  'self_practice_sessions',
+  
+  // Stripe/Billing (user-specific)
+  'stripe_customers',
+  'stripe_subscriptions',
+  'stripe_invoices',
+  'stripe_charges',
+  'stripe_payment_intents',
+  'stripe_payment_methods',
+  'stripe_setup_intents',
+  'stripe_disputes',
+  'stripe_refunds',
+  'stripe_credit_notes',
+  'stripe_checkout_sessions',
+  'stripe_early_fraud_warnings',
+  'stripe_tax_ids',
+  
+  // Sync infrastructure (will be removed post-migration)
+  'sync_runs',
+  'sync_cursors',
+  'sync_conflicts',
+  'sync_verification_results',
+]);
+
+/**
+ * Get the database type for a given table name
+ */
+export function getTableDatabase(tableName: string): 'shared' | 'user' | 'unknown' {
+  if (SHARED_TABLES.has(tableName)) return 'shared';
+  if (USER_TABLES.has(tableName)) return 'user';
+  return 'unknown';
+}
+
+/**
+ * Get the appropriate Drizzle db instance for a table
+ */
+export function getDbForTable(tableName: string) {
+  const dbType = getTableDatabase(tableName);
+  if (dbType === 'shared') return getSharedDb();
+  if (dbType === 'user') return getUserDb();
+  throw new Error(`Unknown table routing for: ${tableName}. Add it to SHARED_TABLES or USER_TABLES in neon-db.ts`);
+}
+
 let sharedPool: Pool | null = null;
 let userPool: Pool | null = null;
 let sharedDb: ReturnType<typeof drizzle> | null = null;
