@@ -2,7 +2,7 @@
 ## From Sync-Bridge to Shared Database Architecture
 
 **Created**: January 17, 2026  
-**Status**: Phase 2 - Data Migration IN PROGRESS  
+**Status**: Phase 3 - Application Wiring IN PROGRESS  
 **Goal**: Replace 8000-line HTTP sync system with database-native sharing
 
 ---
@@ -37,12 +37,19 @@
 
 Daniela's complete learning history has been preserved.
 
+### Phase 3 Progress (Application Wiring)
+
+- ✅ Dual-database connections in `neon-db.ts`
+- ✅ Table routing logic (`SHARED_TABLES` and `USER_TABLES` sets)
+- ✅ Helper functions: `getTableDatabase()`, `getDbForTable()`, `getSharedDb()`, `getUserDb()`
+- ✅ Connection test: Both databases responding (159 tables each)
+- ⏳ Wire storage layer to use Neon instead of Replit database
+
 ### Next Steps
 
-1. **Phase 3**: Configure neon-db.ts to use dual-database connections
-2. **Phase 4**: Modify storage layer to route queries appropriately
-3. **Phase 5**: Remove sync-bridge code (8,000+ lines)
-4. **Phase 6**: Production cutover with rollback plan
+1. **Phase 4**: Modify storage layer to route queries appropriately
+2. **Phase 5**: Remove sync-bridge code (8,000+ lines)
+3. **Phase 6**: Production cutover with rollback plan
 
 ### Post-Migration Verification Checklist
 
