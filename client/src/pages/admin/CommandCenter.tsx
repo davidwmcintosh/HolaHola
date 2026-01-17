@@ -5174,8 +5174,156 @@ function DevToolsTab() {
         </div>
       </CollapsibleSection>
 
+      <NeonMigrationSection />
+
       <CrossEnvSyncSection />
     </div>
+  );
+}
+
+function NeonMigrationSection() {
+  const { toast } = useToast();
+  const [migrationResult, setMigrationResult] = useState<any>(null);
+
+  const { data: neonStatus, isLoading: statusLoading, refetch: refetchStatus } = useQuery<{
+    neonConfigured: boolean;
+    sharedConnected: boolean;
+    userConnected: boolean;
+    sharedUrl: string | null;
+    userUrl: string | null;
+    error: string | null;
+  }>({
+    queryKey: ["/api/admin/neon/status"],
+    refetchInterval: false,
+  });
+
+  const migrateMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/admin/neon/migrate");
+    },
+    onSuccess: (data: any) => {
+      setMigrationResult(data);
+      refetchStatus();
+      toast({
+        title: data.success ? "Migration Successful" : "Migration Failed",
+        description: data.success 
+          ? `Migrated ${data.totalRecords || 0} records in ${((data.duration || 0) / 1000).toFixed(1)}s`
+          : data.error || "Unknown error",
+        variant: data.success ? "default" : "destructive",
+      });
+    },
+    onError: (error: any) => {
+      toast({ title: "Migration Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  return (
+    <CollapsibleSection 
+      title="Neon Database Migration" 
+      icon={<Database className="h-5 w-5 text-primary" />}
+      defaultOpen={true}
+    >
+      <div className="mt-4 space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Database className="h-4 w-4" />
+              Dual-Database Architecture
+            </CardTitle>
+            <CardDescription>
+              Migrate to Neon PostgreSQL with separate SHARED (Daniela/curriculum) and USER (accounts/progress) databases
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {statusLoading ? (
+              <Skeleton className="h-24" />
+            ) : !neonStatus?.neonConfigured ? (
+              <div className="text-center py-4">
+                <p className="text-muted-foreground mb-2">Neon database not configured</p>
+                <p className="text-sm text-muted-foreground">Set NEON_SHARED_DATABASE_URL and NEON_USER_DATABASE_URL environment variables</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 rounded-md border">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className={`h-2 w-2 rounded-full ${neonStatus.sharedConnected ? "bg-green-500" : "bg-red-500"}`} />
+                      <span className="font-medium text-sm">SHARED Database</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Daniela's intelligence, curriculum, Wren insights</p>
+                    {neonStatus.sharedUrl && (
+                      <p className="text-xs text-muted-foreground mt-1 truncate">{neonStatus.sharedUrl}</p>
+                    )}
+                  </div>
+                  <div className="p-3 rounded-md border">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className={`h-2 w-2 rounded-full ${neonStatus.userConnected ? "bg-green-500" : "bg-red-500"}`} />
+                      <span className="font-medium text-sm">USER Database</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">User accounts, sessions, conversations, progress</p>
+                    {neonStatus.userUrl && (
+                      <p className="text-xs text-muted-foreground mt-1 truncate">{neonStatus.userUrl}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => migrateMutation.mutate()}
+                    disabled={migrateMutation.isPending || !neonStatus.sharedConnected || !neonStatus.userConnected}
+                    data-testid="button-run-neon-migration"
+                  >
+                    {migrateMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Play className="h-4 w-4 mr-2" />
+                    )}
+                    Run Migration
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => refetchStatus()}
+                    data-testid="button-refresh-neon-status"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Refresh Status
+                  </Button>
+                </div>
+
+                {migrationResult && (
+                  <div className={`p-3 rounded-md border ${migrationResult.success ? "bg-green-500/10 border-green-500/30" : "bg-red-500/10 border-red-500/30"}`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      {migrationResult.success ? (
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <AlertCircle className="h-4 w-4 text-red-500" />
+                      )}
+                      <span className="font-medium text-sm">
+                        {migrationResult.success ? "Migration Complete" : "Migration Failed"}
+                      </span>
+                    </div>
+                    {migrationResult.success ? (
+                      <div className="text-xs space-y-1">
+                        <p>Total records: {migrationResult.totalRecords}</p>
+                        <p>Duration: {((migrationResult.duration || 0) / 1000).toFixed(1)}s</p>
+                        {migrationResult.sharedTables && (
+                          <p>Shared tables: {Object.keys(migrationResult.sharedTables).length}</p>
+                        )}
+                        {migrationResult.userTables && (
+                          <p>User tables: {Object.keys(migrationResult.userTables).length}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-red-500">{migrationResult.error}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </CollapsibleSection>
   );
 }
 
