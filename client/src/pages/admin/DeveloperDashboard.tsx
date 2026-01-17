@@ -23,7 +23,10 @@ import {
   Plus,
   Activity,
   AlertTriangle,
-  Globe
+  Globe,
+  Database,
+  CheckCircle,
+  XCircle
 } from "lucide-react";
 
 interface AnalyticsData {
@@ -199,6 +202,7 @@ export default function DeveloperDashboard() {
               <TabsTrigger value="testing" data-testid="tab-testing">Testing Tools</TabsTrigger>
               <TabsTrigger value="analytics" data-testid="tab-analytics">Usage Analytics</TabsTrigger>
               <TabsTrigger value="platform" data-testid="tab-platform">Platform Stats</TabsTrigger>
+              <TabsTrigger value="neon" data-testid="tab-neon">Database Migration</TabsTrigger>
             </TabsList>
 
             {/* Testing Tools Tab */}
@@ -746,9 +750,202 @@ export default function DeveloperDashboard() {
                 </CardContent>
               </Card>
             </TabsContent>
+
+            {/* Neon Database Migration Tab */}
+            <TabsContent value="neon" className="space-y-6">
+              <NeonMigrationPanel />
+            </TabsContent>
           </Tabs>
         </div>
       </AdminLayout>
     </RoleGuard>
+  );
+}
+
+function NeonMigrationPanel() {
+  const { toast } = useToast();
+  const [isMigrating, setIsMigrating] = useState(false);
+  const [migrationResult, setMigrationResult] = useState<any>(null);
+
+  const { data: neonStatus, isLoading: statusLoading, refetch: refetchStatus } = useQuery<{
+    configured: boolean;
+    connectionStatus: {
+      shared: { success: boolean; message: string };
+      user: { success: boolean; message: string };
+    } | null;
+    environment: string;
+  }>({
+    queryKey: ["/api/admin/neon/status"],
+  });
+
+  const handleMigrate = async () => {
+    if (!confirm("This will migrate data from the current Replit database to Neon. Continue?")) {
+      return;
+    }
+
+    setIsMigrating(true);
+    setMigrationResult(null);
+
+    try {
+      const response = await apiRequest("POST", "/api/admin/neon/migrate");
+      const result = await response.json();
+      
+      if (result.success) {
+        setMigrationResult(result.result);
+        toast({
+          title: "Migration Complete",
+          description: `Migrated ${result.result.shared.rows + result.result.user.rows} total rows`,
+        });
+      } else {
+        throw new Error(result.error || "Migration failed");
+      }
+    } catch (error: any) {
+      toast({
+        title: "Migration Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsMigrating(false);
+      refetchStatus();
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5" />
+            Neon Database Migration
+          </CardTitle>
+          <CardDescription>
+            Migrate data from Replit PostgreSQL to Neon for dual-database architecture
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {statusLoading ? (
+            <Skeleton className="h-24" />
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 rounded-lg border">
+                  <div className="flex items-center gap-2 mb-2">
+                    {neonStatus?.connectionStatus?.shared.success ? (
+                      <CheckCircle className="h-5 w-5 text-green-500" />
+                    ) : (
+                      <XCircle className="h-5 w-5 text-red-500" />
+                    )}
+                    <span className="font-medium">SHARED Database</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {neonStatus?.connectionStatus?.shared.message || "Not configured"}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Daniela intelligence, curriculum, Wren insights
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-lg border">
+                  <div className="flex items-center gap-2 mb-2">
+                    {neonStatus?.connectionStatus?.user.success ? (
+                      <CheckCircle className="h-5 w-5 text-green-500" />
+                    ) : (
+                      <XCircle className="h-5 w-5 text-red-500" />
+                    )}
+                    <span className="font-medium">USER Database</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {neonStatus?.connectionStatus?.user.message || "Not configured"}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    User accounts, conversations, progress
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Badge variant={neonStatus?.configured ? "default" : "secondary"}>
+                  {neonStatus?.environment || "unknown"} environment
+                </Badge>
+                {neonStatus?.configured && (
+                  <Badge variant="outline">Neon Configured</Badge>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleMigrate}
+                  disabled={!neonStatus?.configured || isMigrating}
+                  data-testid="button-neon-migrate"
+                >
+                  {isMigrating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Migrating...
+                    </>
+                  ) : (
+                    <>
+                      <Database className="h-4 w-4 mr-2" />
+                      Run Migration
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => refetchStatus()}
+                  data-testid="button-neon-refresh"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh Status
+                </Button>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {migrationResult && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-500" />
+              Migration Results
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-4 rounded-lg bg-muted">
+                <div className="font-medium mb-2">SHARED Database</div>
+                <div className="text-2xl font-bold">{migrationResult.shared.rows.toLocaleString()}</div>
+                <div className="text-sm text-muted-foreground">rows migrated</div>
+                <div className="text-sm mt-2">
+                  {migrationResult.shared.success} tables successful
+                  {migrationResult.shared.failed > 0 && (
+                    <span className="text-red-500 ml-2">
+                      ({migrationResult.shared.failed} failed)
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-4 rounded-lg bg-muted">
+                <div className="font-medium mb-2">USER Database</div>
+                <div className="text-2xl font-bold">{migrationResult.user.rows.toLocaleString()}</div>
+                <div className="text-sm text-muted-foreground">rows migrated</div>
+                <div className="text-sm mt-2">
+                  {migrationResult.user.success} tables successful
+                  {migrationResult.user.failed > 0 && (
+                    <span className="text-red-500 ml-2">
+                      ({migrationResult.user.failed} failed)
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 }
