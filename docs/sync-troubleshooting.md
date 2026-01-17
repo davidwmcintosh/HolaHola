@@ -4,35 +4,60 @@ Last Updated: January 17, 2025
 
 ---
 
+## January 17, 2025 - RESOLVED: FK Constraint Failures (v41)
+
+### Problem Discovered
+Push from dev to production was **silently failing** for most batches. The UI showed "success" but only `neural-core` was actually completing. All other batches failed with FK constraint errors.
+
+### Root Cause
+The `product-config` batch was pushing `catalogueClasses` (teacher_classes records) **before** the teacher users existed in production. This caused:
+```
+insert or update on table "teacher_classes" violates foreign key constraint "teacher_classes_teacher_id_users_id_fk"
+```
+
+### Fix Implemented (v41)
+1. **Export**: The `product-config` batch now includes `classTeachers` - the teacher users who own the catalogue classes
+2. **Import**: Teachers are imported BEFORE classes in `applyImportBundle()`
+3. **New method**: `importClassTeacher()` upserts teacher users with proper conflict handling
+
+### Key Code Changes
+```typescript
+// Export: Include teachers in product-config batch
+const teacherIdSet = new Set(catalogueClasses.map(c => c.teacherId).filter(Boolean));
+const teacherIds = Array.from(teacherIdSet);
+if (teacherIds.length > 0) {
+  const teachers = await db.select().from(users).where(inArray(users.id, teacherIds as string[]));
+  bundle.classTeachers = teachers;
+}
+
+// Import: Process teachers BEFORE classes
+if (bundle.classTeachers?.length) {
+  await importWithCount('classTeachers', bundle.classTeachers,
+    (teacher) => this.importClassTeacher(teacher));
+}
+// Then import catalogueClasses...
+```
+
+### Verification
+After deploying v41, push operations should show teacher imports in logs:
+```
+[SYNC-BRIDGE v41] product-config: including 22 teachers for FK constraint
+[SYNC-BRIDGE v41] Importing 22 Class Teachers (for FK constraint)...
+```
+
+---
+
 ## January 17, 2025 - Investigation: Production Not Receiving All Batches
 
-### Symptoms
-The Sync Control Center shows:
-- **Push**: All green (Today) - Development successfully pushing TO production
-- **Data**: Some batches show "2 days ago" or "Never" - Production NOT pushing back
+### Initial Symptoms (Before v41 Fix)
+The Sync Control Center showed:
+- **Push**: All green (Today) - But this was misleading!
+- **Data**: Some batches show "2 days ago" or "Never"
 
-### Batches Receiving Data (Working)
-| Batch | Last Received |
-|-------|---------------|
-| `product-config` | Today 16:56 |
-| `hive-snapshots` | Today 16:56 |
-| `advanced-intel-b` | Today 16:56 |
-| `founder-context` | Today 11:44 |
-| `express-lane` | Today 11:44 |
-| `neural-core` | Today 11:00 |
-
-### Batches NOT Receiving Data (Problem)
-| Batch | Status |
-|-------|--------|
-| `daniela-memories` | Never received |
-| `beta-usage` | Never received |
-| `aggregate-analytics` | Never received |
-| `advanced-intel-a` | Stale (not in recent imports) |
-
-### Root Cause Analysis
-1. **Production scheduler may not include all batches** - The sync scheduler on production might only push certain batches
-2. **Some batches may be empty on production** - If production has no data for a batch, it won't push anything
-3. **Schema mismatch** - Production may not have v40 schema changes yet (needs `db:push`)
+### Actual Issue
+Looking at `sync_runs` table:
+- Last "successful" push only completed `neural-core`
+- All other batches had FK constraint errors logged in `error_message`
 
 ### Diagnostic Queries
 ```sql
@@ -42,24 +67,23 @@ FROM sync_import_receipts
 GROUP BY batch_id
 ORDER BY last_received DESC;
 
--- Check recent sync runs
-SELECT id, direction, status, started_at, completed_batches, error_message
+-- Check recent sync runs INCLUDING error_message
+SELECT id, direction, status, started_at, completed_batches, 
+       LEFT(error_message, 200) as error_preview
 FROM sync_runs 
+WHERE direction = 'push'
 ORDER BY started_at DESC 
 LIMIT 10;
 ```
 
-### Resolution Steps
-1. **Verify production is awake**: `curl https://holahola.replit.app/api/sync/health`
-2. **Check production code version**: Should be `2025-01-16-v40-delta-sync-all`
-3. **Push schema to production**: Run `npm run db:push` on production
-4. **Manually trigger full sync from production**: Use Sync Control Center on production to push all batches
+### Lesson Learned
+Always check `error_message` in sync_runs - the UI can show "success" even when batches fail.
 
 ---
 
 ## Current Version
 
-**SYNC_BRIDGE_CODE_VERSION**: `2025-01-16-v40-delta-sync-all`
+**SYNC_BRIDGE_CODE_VERSION**: `2025-01-17-v41-fk-constraint-fix`
 
 ## Recent Changes (v40 - Delta Sync All)
 

@@ -43,7 +43,7 @@ const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production'
 
 // Version identifier to verify which code is running on production
 // Increment this when making sync-related changes to verify deployment
-const SYNC_BRIDGE_CODE_VERSION = "2025-01-16-v40-delta-sync-all";
+const SYNC_BRIDGE_CODE_VERSION = "2025-01-17-v41-fk-constraint-fix";
 
 // Capability negotiation: List all batch types this version can import/export
 // When adding new batches, add them here so peers can gracefully handle version mismatches
@@ -1158,6 +1158,7 @@ class SyncBridgeService {
     }
     
     // BATCH: product-config - Tutor voices + public catalogue classes + pricing packages (v33)
+    // v41: Also includes teacher users for FK constraint satisfaction
     if (!batchType || batchType === 'product-config') {
       try {
         const voices = await this.exportTutorVoices();
@@ -1170,6 +1171,18 @@ class SyncBridgeService {
         );
         bundle.catalogueClasses = catalogueClasses;
         
+        // v41: Include teachers who own these catalogue classes (FK constraint fix)
+        // Without this, importing classes fails with: "violates foreign key constraint teacher_classes_teacher_id_users_id_fk"
+        const teacherIdSet = new Set(catalogueClasses.map(c => c.teacherId).filter(Boolean));
+        const teacherIds = Array.from(teacherIdSet);
+        if (teacherIds.length > 0) {
+          const teachers = await db.select().from(users).where(inArray(users.id, teacherIds as string[]));
+          bundle.classTeachers = teachers;
+          console.log(`[SYNC-BRIDGE v41] product-config: including ${teachers.length} teachers for FK constraint`);
+        } else {
+          bundle.classTeachers = [];
+        }
+        
         // v33: Include pricing packages (bidirectional sync)
         const hourPackages = await db.select().from(classHourPackages);
         bundle.classHourPackages = hourPackages;
@@ -1181,6 +1194,7 @@ class SyncBridgeService {
         bundle.tutorVoices = [];
         bundle.catalogueClasses = [];
         bundle.classHourPackages = [];
+        bundle.classTeachers = [];
       }
     }
     
@@ -3435,6 +3449,14 @@ class SyncBridgeService {
         (voice) => this.importTutorVoice(voice));
     }
     
+    // v41: Import class teachers BEFORE catalogue classes (FK constraint fix)
+    // Without this order, catalogue classes fail with: "violates foreign key constraint teacher_classes_teacher_id_users_id_fk"
+    if (bundle.classTeachers?.length) {
+      console.log(`[SYNC-BRIDGE v41] Importing ${bundle.classTeachers.length} Class Teachers (for FK constraint)...`);
+      await importWithCount('classTeachers', bundle.classTeachers,
+        (teacher) => this.importClassTeacher(teacher));
+    }
+    
     // v33: Product Configuration: Public Catalogue Classes
     if (bundle.catalogueClasses?.length) {
       console.log(`[SYNC-BRIDGE] Importing ${bundle.catalogueClasses.length} Catalogue Classes...`);
@@ -3886,6 +3908,47 @@ class SyncBridgeService {
       return { success: true };
     } catch (err: any) {
       console.error(`[SYNC-BRIDGE] Failed to import founder user:`, err.message);
+      return { success: false, error: err.message };
+    }
+  }
+  
+  /**
+   * v41: Import class teacher user for FK constraint satisfaction
+   * Used by product-config batch to ensure teacher exists before importing catalogue classes
+   */
+  async importClassTeacher(teacher: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const existing = await db.select().from(users).where(eq(users.id, teacher.id)).limit(1);
+      
+      if (existing.length > 0) {
+        // User already exists - skip or update if newer
+        if (teacher.updatedAt && new Date(teacher.updatedAt) > new Date(existing[0].updatedAt || 0)) {
+          await db.update(users)
+            .set({
+              firstName: teacher.firstName || existing[0].firstName,
+              lastName: teacher.lastName || existing[0].lastName,
+              profileImageUrl: teacher.profileImageUrl || existing[0].profileImageUrl,
+              updatedAt: new Date(),
+            })
+            .where(eq(users.id, teacher.id));
+        }
+        return { success: true };
+      }
+      
+      // Insert new teacher user
+      await db.insert(users).values({
+        id: teacher.id,
+        email: teacher.email,
+        firstName: teacher.firstName || null,
+        lastName: teacher.lastName || null,
+        profileImageUrl: teacher.profileImageUrl || null,
+        createdAt: teacher.createdAt ? new Date(teacher.createdAt) : new Date(),
+        updatedAt: new Date(),
+      });
+      
+      return { success: true };
+    } catch (err: any) {
+      console.error(`[SYNC-BRIDGE v41] Failed to import class teacher ${teacher.email}:`, err.message);
       return { success: false, error: err.message };
     }
   }
@@ -4554,9 +4617,10 @@ class SyncBridgeService {
       }
       
       // BATCH 6: Product config (tutor voices, catalogue classes, pricing packages)
+      // v41: Now includes teacher users for FK constraint satisfaction
       if (shouldRun('product-config')) {
         attemptedBatches.push('product-config');
-        console.log('[SYNC-BRIDGE] Batch 6: Product config...');
+        console.log('[SYNC-BRIDGE v41] Batch 6: Product config (with teachers for FK)...');
         
         // v33: Export all product config tables
         const voices = await this.exportTutorVoices();
@@ -4565,7 +4629,16 @@ class SyncBridgeService {
         );
         const hourPackages = await db.select().from(classHourPackages);
         
-        console.log(`[SYNC-BRIDGE] product-config batch: ${voices.length} voices, ${catalogueClasses.length} catalogue classes, ${hourPackages.length} hour packages`);
+        // v41: Include teacher users who own these catalogue classes (FK constraint fix)
+        const teacherIdSet = new Set(catalogueClasses.map(c => c.teacherId).filter(Boolean));
+        const teacherIds = Array.from(teacherIdSet);
+        let classTeachers: any[] = [];
+        if (teacherIds.length > 0) {
+          classTeachers = await db.select().from(users).where(inArray(users.id, teacherIds as string[]));
+          console.log(`[SYNC-BRIDGE v41] product-config: including ${classTeachers.length} teachers for FK constraint`);
+        }
+        
+        console.log(`[SYNC-BRIDGE] product-config batch: ${voices.length} voices, ${catalogueClasses.length} catalogue classes, ${hourPackages.length} hour packages, ${classTeachers.length} teachers`);
         
         const configBundle: Partial<SyncBundle> = {
           generatedAt: new Date().toISOString(),
@@ -4573,6 +4646,7 @@ class SyncBridgeService {
           tutorVoices: voices,
           catalogueClasses: catalogueClasses,
           classHourPackages: hourPackages,
+          classTeachers: classTeachers, // v41: Teachers for FK constraint
         };
         const batch6 = await this.sendBatch(peerUrl, 'product-config', configBundle, 45000, sessionContext);
         Object.assign(allCounts, batch6.counts);
