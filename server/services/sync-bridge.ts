@@ -43,7 +43,7 @@ const CURRENT_ENVIRONMENT = process.env.NODE_ENV === 'production' ? 'production'
 
 // Version identifier to verify which code is running on production
 // Increment this when making sync-related changes to verify deployment
-const SYNC_BRIDGE_CODE_VERSION = "2025-01-17-v41-fk-constraint-fix";
+const SYNC_BRIDGE_CODE_VERSION = "2025-01-17-v42-loud-failures";
 
 // Capability negotiation: List all batch types this version can import/export
 // When adding new batches, add them here so peers can gracefully handle version mismatches
@@ -361,6 +361,8 @@ export interface SyncResult {
   counts: Record<string, number>;
   errors: string[];
   durationMs: number;
+  // v42: Import verification results for pull/full operations
+  verificationResults?: Array<{ table: string; expected: number; actual: number; discrepancy: number }>;
 }
 
 class SyncBridgeService {
@@ -3219,6 +3221,9 @@ class SyncBridgeService {
     // Process items in parallel batches for speed (25 concurrent, prevents DB connection exhaustion)
     const BATCH_CONCURRENCY = 25;
     
+    // v42: Track expected vs actual for verification gating
+    const verificationResults: Array<{ table: string; expected: number; actual: number; discrepancy: number }> = [];
+    
     const importWithCount = async (
       name: string,
       items: any[] | undefined,
@@ -3228,6 +3233,7 @@ class SyncBridgeService {
       if (!items || !Array.isArray(items) || items.length === 0) {
         return;
       }
+      const expectedCount = items.length;
       let successCount = 0;
       
       // Process in parallel batches of BATCH_CONCURRENCY
@@ -3246,6 +3252,13 @@ class SyncBridgeService {
         }
       }
       counts[name] = successCount;
+      
+      // v42: Track discrepancy for verification
+      const discrepancy = expectedCount - successCount;
+      if (discrepancy > 0) {
+        verificationResults.push({ table: name, expected: expectedCount, actual: successCount, discrepancy });
+        console.warn(`[SYNC-BRIDGE v42] Import verification: ${name} expected ${expectedCount}, got ${successCount} (${discrepancy} failed)`);
+      }
     };
     
     await importWithCount('bestPractices', bundle.bestPractices, 
@@ -3854,6 +3867,14 @@ class SyncBridgeService {
     }
     
     // Log final sync result summary
+    // v42: Include verification discrepancies in error summary
+    if (verificationResults.length > 0) {
+      const totalDiscrepancy = verificationResults.reduce((sum, v) => sum + v.discrepancy, 0);
+      const verificationError = `Import verification: ${totalDiscrepancy} items failed across ${verificationResults.length} tables: ${verificationResults.map(v => `${v.table}(${v.discrepancy}/${v.expected})`).join(', ')}`;
+      errors.push(verificationError);
+      console.error(`[SYNC-BRIDGE v42] ${verificationError}`);
+    }
+    
     if (errors.length > 0) {
       console.error(`[SYNC-BRIDGE] Import completed with ${errors.length} errors:`, errors);
     } else {
@@ -3865,6 +3886,8 @@ class SyncBridgeService {
       counts,
       errors,
       durationMs: Date.now() - startTime,
+      // v42: Return verification results for caller to check
+      verificationResults: verificationResults.length > 0 ? verificationResults : undefined,
     };
   }
   
@@ -4895,6 +4918,23 @@ class SyncBridgeService {
       // v32: Calculate total records actually transferred
       const recordsChanged = Object.values(allCounts).reduce((sum, count) => sum + (count || 0), 0);
       
+      // v42: Check verification results for critical discrepancies
+      let verificationFailed = false;
+      const criticalDiscrepancies: string[] = [];
+      
+      for (const verification of verificationResults) {
+        if (!verification.success && verification.discrepancies?.length > 0) {
+          verificationFailed = true;
+          criticalDiscrepancies.push(...verification.discrepancies);
+        }
+      }
+      
+      if (verificationFailed) {
+        console.error(`[SYNC-BRIDGE v42] VERIFICATION FAILED: ${criticalDiscrepancies.length} discrepancies found`);
+        criticalDiscrepancies.forEach(d => console.error(`[SYNC-BRIDGE v42]   - ${d}`));
+        allErrors.push(`Verification failed: ${criticalDiscrepancies.join('; ')}`);
+      }
+      
       // v32: Improved status determination - distinguish no-op from success
       const expectedBatchCount = attemptedBatches.length;
       const completedBatchCount = completedBatches.length;
@@ -4910,9 +4950,13 @@ class SyncBridgeService {
         // All batches completed but zero records transferred = no-op
         finalStatus = 'success';
         isNoOp = true;
-      } else if (completedBatchCount === expectedBatchCount) {
-        // All attempted batches completed with data = true success
+      } else if (completedBatchCount === expectedBatchCount && !verificationFailed) {
+        // v42: All attempted batches completed with data AND verification passed = true success
         finalStatus = 'success';
+      } else if (completedBatchCount === expectedBatchCount && verificationFailed) {
+        // v42: All batches completed BUT verification failed = partial (data mismatch)
+        finalStatus = 'partial';
+        console.warn(`[SYNC-BRIDGE v42] Downgrading SUCCESS to PARTIAL due to verification failure`);
       } else if (completedBatchCount > 0) {
         // Some batches completed, some failed = partial
         finalStatus = 'partial';
@@ -4921,7 +4965,7 @@ class SyncBridgeService {
         finalStatus = 'failed';
       }
       
-      console.log(`[SYNC-BRIDGE v32] Push complete. Completed: ${completedBatchCount}/${expectedBatchCount}, Records: ${recordsChanged}, Status: ${finalStatus}${isNoOp ? ' (NO-OP)' : ''}, Errors: ${allErrors.length}`);
+      console.log(`[SYNC-BRIDGE v42] Push complete. Completed: ${completedBatchCount}/${expectedBatchCount}, Records: ${recordsChanged}, Status: ${finalStatus}${isNoOp ? ' (NO-OP)' : ''}${verificationFailed ? ' (VERIFICATION FAILED)' : ''}, Errors: ${allErrors.length}`);
       console.log(`[SYNC-BRIDGE v32] Saving attemptedBatches: [${attemptedBatches.join(', ')}], completedBatches: [${completedBatches.join(', ')}]`);
       
       // v32: Detect and log anomalies for zero-count success
@@ -5450,6 +5494,14 @@ class SyncBridgeService {
       // v32: Calculate total records actually transferred
       const recordsChanged = Object.values(allCounts).reduce((sum, count) => sum + (count || 0), 0);
       
+      // v42: Check for import verification failures (expected vs actual count discrepancies)
+      // Now uses structured verification results from applyImportBundle
+      let verificationFailed = false;
+      if (allErrors.some(e => e.includes('Import verification:') || e.includes('violates foreign key'))) {
+        verificationFailed = true;
+        console.error(`[SYNC-BRIDGE v42] Pull verification failed - import discrepancies or FK errors detected`);
+      }
+      
       // v21: Improved status determination based on completed batches, not just errors
       // v32: Also consider recordsChanged for no-op detection
       // v32: Use attemptedBatches (only batches we actually processed, not skipped)
@@ -5470,9 +5522,13 @@ class SyncBridgeService {
         // All attempted batches completed but zero records transferred = no-op
         finalStatus = 'success';
         isNoOp = true;
-      } else if (completedBatchCount === expectedBatchCount) {
-        // All attempted batches completed - this is success even if there were import warnings
+      } else if (completedBatchCount === expectedBatchCount && !verificationFailed) {
+        // v42: All attempted batches completed AND no verification issues
         finalStatus = 'success';
+      } else if (completedBatchCount === expectedBatchCount && verificationFailed) {
+        // v42: All batches completed BUT verification failed = partial
+        finalStatus = 'partial';
+        console.warn(`[SYNC-BRIDGE v42] Downgrading pull SUCCESS to PARTIAL due to import/verification errors`);
       } else if (completedBatchCount > 0) {
         // Some batches completed, some failed
         finalStatus = 'partial';
@@ -5481,7 +5537,7 @@ class SyncBridgeService {
         finalStatus = 'failed';
       }
       
-      console.log(`[SYNC-BRIDGE v32] Pull complete. Attempted: ${expectedBatchCount}, Completed: ${completedBatchCount}, Records: ${recordsChanged}, Status: ${finalStatus}${isNoOp ? ' (NO-OP)' : ''}, Errors: ${allErrors.length}`);
+      console.log(`[SYNC-BRIDGE v42] Pull complete. Attempted: ${expectedBatchCount}, Completed: ${completedBatchCount}, Records: ${recordsChanged}, Status: ${finalStatus}${isNoOp ? ' (NO-OP)' : ''}${verificationFailed ? ' (VERIFICATION FAILED)' : ''}, Errors: ${allErrors.length}`);
       console.log(`[SYNC-BRIDGE v32] attemptedBatches: [${attemptedBatches.join(', ')}], completedBatches: [${completedBatches.join(', ')}]`);
       
       // v32: Detect and log anomalies for zero-count success

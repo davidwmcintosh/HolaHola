@@ -237,18 +237,18 @@ function formatDate(dateStr?: string): string {
 function StatusBadge({ status }: { status: string }) {
   const variants: Record<string, { color: string; icon: any }> = {
     running: { color: 'bg-yellow-500', icon: RefreshCw },
-    success: { color: 'bg-blue-500', icon: CheckCircle2 },
-    completed: { color: 'bg-blue-500', icon: CheckCircle2 },
-    failed: { color: 'bg-red-500', icon: XCircle },
-    partial: { color: 'bg-orange-500', icon: AlertTriangle },
+    success: { color: 'bg-green-600', icon: CheckCircle2 },
+    completed: { color: 'bg-green-600', icon: CheckCircle2 },
+    failed: { color: 'bg-red-600', icon: XCircle },
+    partial: { color: 'bg-orange-600', icon: AlertTriangle },
   };
   
   const { color, icon: Icon } = variants[status] || variants.failed;
   
   return (
-    <Badge className={`${color} text-white gap-1`}>
+    <Badge className={`${color} text-white gap-1 font-semibold`}>
       <Icon className={`h-3 w-3 ${status === 'running' ? 'animate-spin' : ''}`} />
-      {status}
+      {status.toUpperCase()}
     </Badge>
   );
 }
@@ -316,6 +316,7 @@ export default function SyncControlCenter() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedBatches, setSelectedBatches] = useState<string[]>([]);
   const [selectedPullBatches, setSelectedPullBatches] = useState<string[]>([]);
+  const [expandedErrors, setExpandedErrors] = useState<Set<string>>(new Set());
 
   const toggleBatch = (batchId: string) => {
     setSelectedBatches(prev => 
@@ -426,6 +427,24 @@ export default function SyncControlCenter() {
       new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
     );
   })();
+
+  // v42: Find recent failed/partial syncs for prominent banner
+  // Show failures regardless of errorMessage presence - status alone indicates failure
+  const recentFailures = combinedHistory.slice(0, 10).filter(
+    run => run.status === 'failed' || run.status === 'partial'
+  );
+
+  const toggleErrorExpanded = (runId: string) => {
+    setExpandedErrors(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(runId)) {
+        newSet.delete(runId);
+      } else {
+        newSet.add(runId);
+      }
+      return newSet;
+    });
+  };
 
   const pushMutation = useMutation({
     mutationFn: (batches?: string[]) => 
@@ -625,6 +644,55 @@ export default function SyncControlCenter() {
                           + {anomaliesData.anomalies.length - 3} more issues
                         </p>
                       )}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* v42: PROMINENT FAILURE BANNER - Make sync failures LOUD */}
+          {recentFailures.length > 0 && (
+            <Card className="border-red-500 border-2 bg-red-50 dark:bg-red-950/30" data-testid="card-sync-failure-banner">
+              <CardContent className="py-4">
+                <div className="flex items-start gap-3">
+                  <XCircle className="h-6 w-6 text-red-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <h4 className="font-bold text-red-700 dark:text-red-400 mb-3 text-lg" data-testid="text-failure-count">
+                      SYNC FAILURE - {recentFailures.length} Recent {recentFailures.length === 1 ? 'Sync' : 'Syncs'} Failed
+                    </h4>
+                    <div className="space-y-3">
+                      {recentFailures.map((failure) => (
+                        <div key={failure.id} className="p-3 bg-white/50 dark:bg-black/20 rounded-lg border border-red-300 dark:border-red-800">
+                          <div className="flex items-center gap-2 mb-2">
+                            <StatusBadge status={failure.status} />
+                            <DirectionBadge direction={failure.direction} />
+                            <span className="text-sm text-muted-foreground">
+                              {formatDate(failure.startedAt)}
+                            </span>
+                          </div>
+                          {failure.errorMessage ? (
+                            <div 
+                              className="text-sm text-red-800 dark:text-red-300 font-mono bg-red-100 dark:bg-red-900/30 p-2 rounded cursor-pointer"
+                              onClick={() => toggleErrorExpanded(failure.id)}
+                              data-testid={`button-error-expand-${failure.id}`}
+                            >
+                              {expandedErrors.has(failure.id) ? (
+                                <div className="whitespace-pre-wrap break-words" data-testid={`text-error-full-${failure.id}`}>{failure.errorMessage}</div>
+                              ) : (
+                                <div className="flex items-center justify-between">
+                                  <span className="truncate" data-testid={`text-error-truncated-${failure.id}`}>{failure.errorMessage.substring(0, 100)}...</span>
+                                  <span className="text-xs text-red-600 ml-2 flex-shrink-0">Click to expand</span>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="text-sm text-red-600 dark:text-red-400 italic" data-testid={`text-error-empty-${failure.id}`}>
+                              No error details recorded - check server logs
+                            </div>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -1410,11 +1478,22 @@ export default function SyncControlCenter() {
                             )}
                           </div>
                           {run.errorMessage && (
-                            <div className="flex items-center gap-1 shrink-0" title={run.errorMessage}>
-                              <AlertTriangle className={`h-4 w-4 shrink-0 ${run.status === 'failed' ? 'text-red-500' : 'text-yellow-500'}`} />
-                              <span className="text-xs text-muted-foreground max-w-[150px] truncate">
-                                {run.errorMessage.length > 40 ? run.errorMessage.substring(0, 40) + '...' : run.errorMessage}
-                              </span>
+                            <div 
+                              className={`flex items-start gap-1 cursor-pointer hover:bg-muted/50 rounded p-1 ${expandedErrors.has(run.id) ? 'max-w-full' : 'shrink-0 max-w-[200px]'}`}
+                              onClick={() => toggleErrorExpanded(run.id)}
+                              title={expandedErrors.has(run.id) ? "Click to collapse" : "Click to expand error details"}
+                              data-testid={`error-toggle-${run.id}`}
+                            >
+                              <AlertTriangle className={`h-4 w-4 shrink-0 mt-0.5 ${run.status === 'failed' ? 'text-red-500' : 'text-yellow-500'}`} />
+                              {expandedErrors.has(run.id) ? (
+                                <span className="text-xs text-red-600 dark:text-red-400 font-mono whitespace-pre-wrap break-all">
+                                  {run.errorMessage}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground truncate">
+                                  {run.errorMessage.length > 50 ? run.errorMessage.substring(0, 50) + '...' : run.errorMessage}
+                                </span>
+                              )}
                             </div>
                           )}
                         </div>
