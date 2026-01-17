@@ -24141,6 +24141,67 @@ You have full access to your neural network knowledge.
     }
   });
 
+  // ============================================
+  // NEON DATABASE MIGRATION ENDPOINTS
+  // ============================================
+  
+  // Run Neon migration (Admin/Founder only)
+  app.post("/api/admin/neon/migrate", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { isNeonConfigured, testNeonConnection } = await import('./neon-db');
+      
+      if (!isNeonConfigured()) {
+        return res.status(400).json({ 
+          error: 'Neon not configured', 
+          message: 'Set NEON_SHARED_DATABASE_URL and NEON_USER_DATABASE_URL secrets' 
+        });
+      }
+      
+      // Test connections first
+      const connectionTest = await testNeonConnection();
+      if (!connectionTest.shared.success || !connectionTest.user.success) {
+        return res.status(500).json({ 
+          error: 'Neon connection failed',
+          details: connectionTest 
+        });
+      }
+      
+      // Import and run migration
+      console.log('[NEON-MIGRATE] Starting migration from admin endpoint...');
+      const { runMigration } = await import('../scripts/neon-data-migration');
+      const result = await runMigration();
+      
+      console.log('[NEON-MIGRATE] Migration complete:', result);
+      res.json({ success: true, result });
+    } catch (error: any) {
+      console.error('[NEON-MIGRATE] Migration error:', error);
+      res.status(500).json({ error: error.message, stack: error.stack });
+    }
+  });
+  
+  // Check Neon status (Admin/Founder only)
+  app.get("/api/admin/neon/status", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { isNeonConfigured, testNeonConnection } = await import('./neon-db');
+      
+      const configured = isNeonConfigured();
+      let connectionStatus = null;
+      
+      if (configured) {
+        connectionStatus = await testNeonConnection();
+      }
+      
+      res.json({ 
+        configured, 
+        connectionStatus,
+        environment: process.env.NODE_ENV 
+      });
+    } catch (error: any) {
+      console.error('[NEON] Status check error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Server is now passed in from index.ts where WebSocket handler is attached first
   // This ensures WS upgrade handler runs BEFORE Express/Vite middleware interferes
 }

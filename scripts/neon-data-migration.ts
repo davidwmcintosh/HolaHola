@@ -354,6 +354,28 @@ async function runMigration() {
   await userPool.end();
 
   console.log('\n✓ Migration complete!');
+  
+  return {
+    shared: {
+      success: sharedSuccess.length,
+      failed: sharedFailed.length,
+      rows: sharedRows,
+      failedTables: sharedFailed.map(r => r.table)
+    },
+    user: {
+      success: userSuccess.length,
+      failed: userFailed.length,
+      rows: userRows,
+      failedTables: userFailed.map(r => r.table)
+    },
+    retired: RETIRE_TABLES
+  };
 }
 
-runMigration().catch(console.error);
+// Export for API use
+export { runMigration };
+
+// Only run directly when called as script (not when imported)
+if (require.main === module) {
+  runMigration().catch(console.error);
+}
