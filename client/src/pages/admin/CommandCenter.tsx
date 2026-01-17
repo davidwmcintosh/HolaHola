@@ -5204,10 +5204,13 @@ function NeonMigrationSection() {
     onSuccess: (data: any) => {
       setMigrationResult(data);
       refetchStatus();
+      const hasFailures = (data.failedTables || 0) > 0;
       toast({
-        title: data.success ? "Migration Successful" : "Migration Failed",
+        title: data.success 
+          ? (hasFailures ? "Migration Partial Success" : "Migration Successful")
+          : "Migration Failed",
         description: data.success 
-          ? `Migrated ${data.totalRecords || 0} records in ${((data.duration || 0) / 1000).toFixed(1)}s`
+          ? `Migrated ${data.totalRecords?.toLocaleString() || 0} records across ${data.totalTables || 0} tables in ${((data.duration || 0) / 1000).toFixed(1)}s${hasFailures ? ` (${data.failedTables} tables need retry)` : ''}`
           : data.error || "Unknown error",
         variant: data.success ? "default" : "destructive",
       });
@@ -5291,26 +5294,31 @@ function NeonMigrationSection() {
                 </div>
 
                 {migrationResult && (
-                  <div className={`p-3 rounded-md border ${migrationResult.success ? "bg-green-500/10 border-green-500/30" : "bg-red-500/10 border-red-500/30"}`}>
+                  <div className={`p-3 rounded-md border ${migrationResult.success ? (migrationResult.failedTables > 0 ? "bg-yellow-500/10 border-yellow-500/30" : "bg-green-500/10 border-green-500/30") : "bg-red-500/10 border-red-500/30"}`}>
                     <div className="flex items-center gap-2 mb-2">
                       {migrationResult.success ? (
-                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        migrationResult.failedTables > 0 ? (
+                          <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                        ) : (
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                        )
                       ) : (
                         <AlertCircle className="h-4 w-4 text-red-500" />
                       )}
                       <span className="font-medium text-sm">
-                        {migrationResult.success ? "Migration Complete" : "Migration Failed"}
+                        {migrationResult.success 
+                          ? (migrationResult.failedTables > 0 ? "Migration Partial Success" : "Migration Complete")
+                          : "Migration Failed"}
                       </span>
                     </div>
                     {migrationResult.success ? (
                       <div className="text-xs space-y-1">
-                        <p>Total records: {migrationResult.totalRecords}</p>
+                        <p>Total records: {migrationResult.totalRecords?.toLocaleString()}</p>
                         <p>Duration: {((migrationResult.duration || 0) / 1000).toFixed(1)}s</p>
-                        {migrationResult.sharedTables && (
-                          <p>Shared tables: {Object.keys(migrationResult.sharedTables).length}</p>
-                        )}
-                        {migrationResult.userTables && (
-                          <p>User tables: {Object.keys(migrationResult.userTables).length}</p>
+                        <p>SHARED: {migrationResult.sharedTables?.success || 0} tables, {migrationResult.sharedTables?.rows?.toLocaleString() || 0} rows{migrationResult.sharedTables?.failed > 0 && <span className="text-yellow-600"> ({migrationResult.sharedTables.failed} failed)</span>}</p>
+                        <p>USER: {migrationResult.userTables?.success || 0} tables, {migrationResult.userTables?.rows?.toLocaleString() || 0} rows{migrationResult.userTables?.failed > 0 && <span className="text-yellow-600"> ({migrationResult.userTables.failed} failed)</span>}</p>
+                        {migrationResult.failedTables > 0 && (
+                          <p className="text-yellow-600 mt-2">Some tables need retry due to batch size limits or foreign key order</p>
                         )}
                       </div>
                     ) : (

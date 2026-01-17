@@ -24168,11 +24168,27 @@ You have full access to your neural network knowledge.
       
       // Import and run migration
       console.log('[NEON-MIGRATE] Starting migration from admin endpoint...');
+      const startTime = Date.now();
       const { runMigration } = await import('../scripts/neon-data-migration');
       const result = await runMigration();
+      const duration = Date.now() - startTime;
+      
+      // Calculate totals for UI
+      const totalRecords = (result.shared?.rows || 0) + (result.user?.rows || 0);
+      const totalTables = (result.shared?.success || 0) + (result.user?.success || 0);
+      const failedTables = (result.shared?.failed || 0) + (result.user?.failed || 0);
       
       console.log('[NEON-MIGRATE] Migration complete:', result);
-      res.json({ success: true, result });
+      res.json({ 
+        success: true, 
+        totalRecords,
+        totalTables,
+        failedTables,
+        duration,
+        sharedTables: result.shared,
+        userTables: result.user,
+        retired: result.retired
+      });
     } catch (error: any) {
       console.error('[NEON-MIGRATE] Migration error:', error);
       res.status(500).json({ error: error.message, stack: error.stack });
