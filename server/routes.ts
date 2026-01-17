@@ -24184,21 +24184,49 @@ You have full access to your neural network knowledge.
     try {
       const { isNeonConfigured, testNeonConnection } = await import('./neon-db');
       
-      const configured = isNeonConfigured();
-      let connectionStatus = null;
+      const neonConfigured = isNeonConfigured();
+      let sharedConnected = false;
+      let userConnected = false;
+      let sharedUrl: string | null = null;
+      let userUrl: string | null = null;
       
-      if (configured) {
-        connectionStatus = await testNeonConnection();
+      if (neonConfigured) {
+        const connectionStatus = await testNeonConnection();
+        sharedConnected = connectionStatus.shared.success;
+        userConnected = connectionStatus.user.success;
+        // Mask URLs for security (show host only)
+        if (process.env.NEON_SHARED_DATABASE_URL) {
+          try {
+            const url = new URL(process.env.NEON_SHARED_DATABASE_URL);
+            sharedUrl = url.host;
+          } catch { sharedUrl = "configured"; }
+        }
+        if (process.env.NEON_USER_DATABASE_URL) {
+          try {
+            const url = new URL(process.env.NEON_USER_DATABASE_URL);
+            userUrl = url.host;
+          } catch { userUrl = "configured"; }
+        }
       }
       
       res.json({ 
-        configured, 
-        connectionStatus,
-        environment: process.env.NODE_ENV 
+        neonConfigured, 
+        sharedConnected,
+        userConnected,
+        sharedUrl,
+        userUrl,
+        error: null
       });
     } catch (error: any) {
       console.error('[NEON] Status check error:', error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ 
+        neonConfigured: false,
+        sharedConnected: false,
+        userConnected: false,
+        sharedUrl: null,
+        userUrl: null,
+        error: error.message 
+      });
     }
   });
 
