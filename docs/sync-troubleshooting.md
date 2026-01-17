@@ -1,6 +1,61 @@
 # Sync Troubleshooting Guide
 
-Last Updated: January 16, 2025
+Last Updated: January 17, 2025
+
+---
+
+## January 17, 2025 - Investigation: Production Not Receiving All Batches
+
+### Symptoms
+The Sync Control Center shows:
+- **Push**: All green (Today) - Development successfully pushing TO production
+- **Data**: Some batches show "2 days ago" or "Never" - Production NOT pushing back
+
+### Batches Receiving Data (Working)
+| Batch | Last Received |
+|-------|---------------|
+| `product-config` | Today 16:56 |
+| `hive-snapshots` | Today 16:56 |
+| `advanced-intel-b` | Today 16:56 |
+| `founder-context` | Today 11:44 |
+| `express-lane` | Today 11:44 |
+| `neural-core` | Today 11:00 |
+
+### Batches NOT Receiving Data (Problem)
+| Batch | Status |
+|-------|--------|
+| `daniela-memories` | Never received |
+| `beta-usage` | Never received |
+| `aggregate-analytics` | Never received |
+| `advanced-intel-a` | Stale (not in recent imports) |
+
+### Root Cause Analysis
+1. **Production scheduler may not include all batches** - The sync scheduler on production might only push certain batches
+2. **Some batches may be empty on production** - If production has no data for a batch, it won't push anything
+3. **Schema mismatch** - Production may not have v40 schema changes yet (needs `db:push`)
+
+### Diagnostic Queries
+```sql
+-- Check last received time per batch
+SELECT DISTINCT batch_id, MAX(received_at) as last_received
+FROM sync_import_receipts 
+GROUP BY batch_id
+ORDER BY last_received DESC;
+
+-- Check recent sync runs
+SELECT id, direction, status, started_at, completed_batches, error_message
+FROM sync_runs 
+ORDER BY started_at DESC 
+LIMIT 10;
+```
+
+### Resolution Steps
+1. **Verify production is awake**: `curl https://holahola.replit.app/api/sync/health`
+2. **Check production code version**: Should be `2025-01-16-v40-delta-sync-all`
+3. **Push schema to production**: Run `npm run db:push` on production
+4. **Manually trigger full sync from production**: Use Sync Control Center on production to push all batches
+
+---
 
 ## Current Version
 
