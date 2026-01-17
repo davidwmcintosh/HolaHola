@@ -173,8 +173,9 @@ const RETIRE_TABLES = [
   'sync_log',
 ];
 
-const BATCH_SIZE = 5000;
-const LARGE_TABLE_BATCH_SIZE = 10000;
+// PostgreSQL has a limit of ~32,767 parameters per query
+// Calculate safe batch size: 30000 / number_of_columns
+const MAX_PARAMS = 30000;
 
 async function migrateTable(
   sourcePool: pg.Pool,
@@ -204,7 +205,8 @@ async function migrateTable(
     const columns = columnsResult.rows.map((r: any) => r.column_name);
     const columnList = columns.map((c: string) => `"${c}"`).join(', ');
 
-    const batchSize = totalRows > 100000 ? LARGE_TABLE_BATCH_SIZE : BATCH_SIZE;
+    // Calculate safe batch size based on column count to stay under PostgreSQL's parameter limit
+    const batchSize = Math.max(100, Math.floor(MAX_PARAMS / columns.length));
     let offset = 0;
     let migratedRows = 0;
 
