@@ -155,14 +155,19 @@ This eliminates the sync-bridge complexity while giving us **One Daniela Everywh
 - `surgery_sessions`, `surgery_turns`
 - `consultation_threads`, `consultation_messages`
 
-#### Progress & Learning (~15 tables)
+#### Daniela's Learner Memory (SHARED - supports "One Daniela")
+- `learner_personal_facts` - Personal facts Daniela remembers about students
+- `learner_memory_candidates` - Candidate memories for promotion
+
+**Note**: These tables are in the SHARED database so Daniela has consistent memory of each student across dev/prod. They reference user IDs but the referential integrity is managed in application code, not DB constraints.
+
+#### Progress & Learning (~13 tables, BRANCHED)
 - `user_progress`, `user_lesson_items`, `user_lessons`
 - `user_drill_progress`, `user_grammar_progress`
 - `student_insights`, `student_can_do_progress`
 - `student_lesson_progress`, `student_goals`, `student_tier_signals`
 - `actfl_progress`, `actfl_assessment_events`
 - `syllabus_progress`, `progress_history`
-- `learner_personal_facts`, `learner_memory_candidates`
 
 #### Classes & Enrollments (~10 tables)
 - `teacher_classes`, `class_enrollments`
@@ -170,10 +175,15 @@ This eliminates the sync-bridge complexity while giving us **One Daniela Everywh
 - `class_hour_packages`, `hour_packages`
 - `assignments`, `assignment_submissions`, `assignment_vocabulary`
 
-#### Support (~5 tables)
-- `support_tickets`, `support_messages`
-- `support_knowledge_base`, `support_patterns`
-- `sofia_issue_reports`
+#### Support User Data (~3 tables, BRANCHED)
+- `support_tickets` - User-specific tickets
+- `support_messages` - Support conversations
+- `sofia_issue_reports` - User issue reports
+
+#### Support Intelligence (SHARED - Sofia's learning)
+- `support_knowledge_base` - Learned support knowledge
+- `support_patterns` - Identified support patterns
+- `support_observations` - Support observations (moved from Daniela section)
 
 ### RETIRE (Sync Infrastructure)
 - `sync_runs` - Sync run history (7.9K rows)
@@ -194,12 +204,15 @@ This eliminates the sync-bridge complexity while giving us **One Daniela Everywh
 - [ ] Create dev branch of `holahola-users` database
 - [ ] Document all connection strings securely
 
-### Phase 1: Schema Setup (1 day)
+### Phase 1: Schema Setup (1-2 days)
 - [ ] Export current schema from Replit
+- [ ] Audit all FK relationships - identify cross-DB references (see "Cross-Database Considerations" section)
 - [ ] Create shared database schema (Daniela + Curriculum tables)
 - [ ] Create user database schema (User data tables)
-- [ ] Verify FK relationships work across the split
+- [ ] **Remove cross-DB FKs** from schema - replace with application-level validation
+- [ ] Add denormalization columns where needed (e.g., lesson_name in student_insights)
 - [ ] Test Drizzle ORM connection to both databases
+- [ ] Create table routing map: which table → which database
 
 ### Phase 2: Data Migration (2-3 days)
 - [ ] Export shared data from Replit prod (pg_dump with table selection)
@@ -309,6 +322,86 @@ const users = await userDb.select().from(users).where(eq(users.id, userId));
 - Store old DATABASE_URL in secrets as backup
 - Rollback = switch connection strings back to Replit
 - Re-enable sync-bridge if needed (code archived, not deleted)
+
+---
+
+## Cross-Database Considerations
+
+### Foreign Key Handling
+
+**Critical**: PostgreSQL cannot enforce foreign keys across separate databases. Tables that reference data in the other database need special handling:
+
+#### Tables with Cross-DB References
+| Table | References | Strategy |
+|-------|------------|----------|
+| `learner_personal_facts` (SHARED) | `users.id` (BRANCHED) | Application-level validation; orphan cleanup job |
+| `learner_memory_candidates` (SHARED) | `users.id` (BRANCHED) | Application-level validation; orphan cleanup job |
+| `student_insights` (BRANCHED) | `curriculum_lessons.id` (SHARED) | Denormalize lesson name/code into student_insights |
+| `user_lesson_items` (BRANCHED) | `curriculum_lessons.id` (SHARED) | Store lesson reference; validation on read |
+| `class_curriculum_lessons` (BRANCHED) | `curriculum_lessons.id` (SHARED) | Application-level validation |
+
+#### Mitigation Strategies
+
+1. **Application-Level Validation**: Before inserting cross-DB references, validate the foreign key exists
+   ```typescript
+   // Before saving learner_personal_fact
+   const user = await userDb.select().from(users).where(eq(users.id, userId));
+   if (!user) throw new Error(`User ${userId} not found`);
+   await sharedDb.insert(learnerPersonalFacts).values({...});
+   ```
+
+2. **Denormalization**: Store copies of frequently-needed data to avoid cross-DB joins
+   ```typescript
+   // Instead of joining curriculum_lessons from sharedDb
+   // Store lesson_name directly in student_insights
+   ```
+
+3. **Orphan Cleanup**: Periodic job to remove records whose cross-DB references no longer exist
+
+4. **Read-Through Validation**: Accept that stale references may exist; handle gracefully
+
+### No Cross-DB Joins
+
+**Rule**: Never write queries that join tables from sharedDb and userDb. Instead:
+
+```typescript
+// BAD: Trying to join across databases
+const result = await sharedDb
+  .select()
+  .from(agentObservations)
+  .leftJoin(users, eq(agentObservations.userId, users.id)); // FAILS - different DBs
+
+// GOOD: Two-phase query
+const observations = await sharedDb.select().from(agentObservations).limit(10);
+const userIds = observations.map(o => o.userId).filter(Boolean);
+const relatedUsers = await userDb.select().from(users).where(inArray(users.id, userIds));
+// Merge in application code
+```
+
+### Transactional Consistency
+
+**Limitation**: Transactions cannot span two databases. For operations that modify both:
+
+1. **Order matters**: Write to the more critical table first (usually user data)
+2. **Idempotency**: Design writes to be safely repeatable
+3. **Compensation**: If second write fails, log for manual review (rare edge case)
+
+```typescript
+// Example: User action that creates a learner memory
+async function recordLearnerMemory(userId: string, fact: string) {
+  // 1. Verify user exists (fast read)
+  const user = await userDb.select().from(users).where(eq(users.id, userId)).get();
+  if (!user) throw new Error('User not found');
+  
+  // 2. Write to shared DB (Daniela's memory)
+  await sharedDb.insert(learnerPersonalFacts).values({
+    userId,
+    fact,
+    createdAt: new Date()
+  });
+  // If this fails after user verification, it's fine - just retry
+}
+```
 
 ---
 
