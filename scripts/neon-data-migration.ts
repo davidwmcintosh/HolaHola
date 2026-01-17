@@ -375,7 +375,8 @@ async function runMigration() {
 // Export for API use
 export { runMigration };
 
-// Only run directly when called as script (not when imported)
-if (require.main === module) {
+// ES module: detect if running directly via import.meta.url
+const isMainModule = import.meta.url === `file://${process.argv[1]}`;
+if (isMainModule) {
   runMigration().catch(console.error);
 }
