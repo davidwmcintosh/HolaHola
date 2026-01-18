@@ -239,7 +239,7 @@ import {
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
-import { db } from "./db";
+import { db, getSharedDb } from "./db";
 import { eq, and, desc, asc, gte, lte, gt, ne, sql, isNull, inArray, or } from "drizzle-orm";
 
 export interface IStorage {
@@ -6196,14 +6196,16 @@ export class DatabaseStorage implements IStorage {
       .limit(options?.limit || 100);
   }
   
-  // Agent Observations (Development Agent's Neural Network)
+  // Agent Observations (Development Agent's Neural Network) - Routes to Neon shared DB
   async createAgentObservation(data: InsertAgentObservation): Promise<AgentObservation> {
-    const [observation] = await db.insert(agentObservations).values(data).returning();
+    const sharedDb = getSharedDb();
+    const [observation] = await sharedDb.insert(agentObservations).values(data).returning();
     return observation;
   }
   
   async getAgentObservations(options?: { category?: string; status?: string; limit?: number }): Promise<AgentObservation[]> {
     const conditions: any[] = [];
+    const sharedDb = getSharedDb();
     
     if (options?.category) {
       conditions.push(eq(agentObservations.category, options.category as any));
@@ -6212,7 +6214,7 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(agentObservations.status, options.status));
     }
     
-    const query = db.select().from(agentObservations);
+    const query = sharedDb.select().from(agentObservations);
     
     if (conditions.length > 0) {
       return query
@@ -6227,21 +6229,24 @@ export class DatabaseStorage implements IStorage {
   }
   
   async updateAgentObservation(id: string, data: Partial<AgentObservation>): Promise<AgentObservation | undefined> {
-    const [updated] = await db.update(agentObservations)
+    const sharedDb = getSharedDb();
+    const [updated] = await sharedDb.update(agentObservations)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(agentObservations.id, id))
       .returning();
     return updated;
   }
   
-  // ===== Support Observations (Support Agent's Neural Network) =====
+  // ===== Support Observations (Support Agent's Neural Network) - Routes to Neon shared DB =====
   async createSupportObservation(data: InsertSupportObservation): Promise<SupportObservation> {
-    const [observation] = await db.insert(supportObservations).values(data).returning();
+    const sharedDb = getSharedDb();
+    const [observation] = await sharedDb.insert(supportObservations).values(data).returning();
     return observation;
   }
   
   async getSupportObservations(options?: { category?: string; status?: string; escalationNeeded?: boolean; limit?: number }): Promise<SupportObservation[]> {
     const conditions: any[] = [];
+    const sharedDb = getSharedDb();
     
     if (options?.category) {
       conditions.push(eq(supportObservations.category, options.category as any));
@@ -6253,7 +6258,7 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(supportObservations.escalationNeeded, options.escalationNeeded));
     }
     
-    const query = db.select().from(supportObservations);
+    const query = sharedDb.select().from(supportObservations);
     
     if (conditions.length > 0) {
       return query
@@ -6268,7 +6273,8 @@ export class DatabaseStorage implements IStorage {
   }
   
   async updateSupportObservation(id: string, data: Partial<SupportObservation>): Promise<SupportObservation | undefined> {
-    const [updated] = await db.update(supportObservations)
+    const sharedDb = getSharedDb();
+    const [updated] = await sharedDb.update(supportObservations)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(supportObservations.id, id))
       .returning();
@@ -6483,21 +6489,22 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
   
-  // ===== Tri-Lane Hive Collaboration APIs =====
+  // ===== Tri-Lane Hive Collaboration APIs - Routes to Neon shared DB =====
   async getCollaborationContext(options?: { domainTags?: string[]; originRole?: string; limit?: number }): Promise<{
     danielaSuggestions: any[];
     agentObservations: AgentObservation[];
     supportObservations: SupportObservation[];
   }> {
     const limit = options?.limit || 20;
+    const sharedDb = getSharedDb();
     
     // Get active entries from all three tables
     const [agentObs, supportObs] = await Promise.all([
-      db.select().from(agentObservations)
+      sharedDb.select().from(agentObservations)
         .where(eq(agentObservations.status, 'active'))
         .orderBy(desc(agentObservations.priority))
         .limit(limit),
-      db.select().from(supportObservations)
+      sharedDb.select().from(supportObservations)
         .where(eq(supportObservations.status, 'active'))
         .orderBy(desc(supportObservations.priority))
         .limit(limit),
@@ -6524,12 +6531,13 @@ export class DatabaseStorage implements IStorage {
     supportObservations: SupportObservation[];
   }> {
     // Get observations that need acknowledgment from this role
+    const sharedDb = getSharedDb();
     let agentObs: AgentObservation[] = [];
     let supportObs: SupportObservation[] = [];
     
     if (forRole === 'daniela') {
       // Daniela needs to acknowledge Editor and Support observations that affect pedagogy
-      agentObs = await db.select().from(agentObservations)
+      agentObs = await sharedDb.select().from(agentObservations)
         .where(and(
           eq(agentObservations.status, 'active'),
           eq(agentObservations.acknowledgedByDaniela, false)
@@ -6537,7 +6545,7 @@ export class DatabaseStorage implements IStorage {
         .orderBy(desc(agentObservations.priority))
         .limit(20);
       
-      supportObs = await db.select().from(supportObservations)
+      supportObs = await sharedDb.select().from(supportObservations)
         .where(and(
           eq(supportObservations.status, 'active'),
           eq(supportObservations.acknowledgedByDaniela, false)
@@ -6546,7 +6554,7 @@ export class DatabaseStorage implements IStorage {
         .limit(20);
     } else if (forRole === 'editor') {
       // Editor needs to acknowledge Support observations that need technical attention
-      supportObs = await db.select().from(supportObservations)
+      supportObs = await sharedDb.select().from(supportObservations)
         .where(and(
           eq(supportObservations.status, 'active'),
           eq(supportObservations.acknowledgedByEditor, false),
@@ -6556,7 +6564,7 @@ export class DatabaseStorage implements IStorage {
         .limit(20);
     } else if (forRole === 'support') {
       // Support needs to acknowledge Editor observations that affect operations
-      agentObs = await db.select().from(agentObservations)
+      agentObs = await sharedDb.select().from(agentObservations)
         .where(and(
           eq(agentObservations.status, 'active'),
           eq(agentObservations.acknowledgedBySupport, false)
