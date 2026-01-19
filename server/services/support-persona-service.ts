@@ -21,6 +21,7 @@ import {
   supportKnowledgeBase,
   supportPatterns,
   sofiaIssueReports,
+  systemAlerts,
   type SupportTicket,
   type SupportMessage,
   type SupportKnowledgeBase,
@@ -383,6 +384,10 @@ class SupportPersonaService {
   /**
    * Get recent runtime faults for Sofia's self-diagnosis capability
    * Used to inject fault context into Sofia's prompt so she can explain her own failures
+   * 
+   * Queries TWO sources:
+   * 1. sofiaIssueReports (USER db) - User-reported issues in current environment
+   * 2. systemAlerts (SHARED db) - Cross-environment telemetry from production
    */
   async getRecentRuntimeFaults(limit: number = 5): Promise<Array<{
     id: string;
@@ -394,11 +399,8 @@ class SupportPersonaService {
   }>> {
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     
-    // Get runtime faults and voice issues from last 24 hours
-    // - runtime_fault:* prefix for programmatic fault reports from Sofia
-    // - voice_fault:* prefix for voice-related issues
-    // - Direct voice issue types: no_audio, connection, double_audio, latency
-    const faults = await getUserDb().select({
+    // Get runtime faults from USER database (current environment)
+    const userFaults = await getUserDb().select({
       id: sofiaIssueReports.id,
       issueType: sofiaIssueReports.issueType,
       userDescription: sofiaIssueReports.userDescription,
@@ -418,7 +420,48 @@ class SupportPersonaService {
       .orderBy(desc(sofiaIssueReports.createdAt))
       .limit(limit);
     
-    return faults;
+    // Get cross-environment alerts from SHARED database (production telemetry)
+    let sharedAlerts: Array<{
+      id: string;
+      issueType: string;
+      userDescription: string;
+      environment: string | null;
+      status: string | null;
+      createdAt: Date;
+    }> = [];
+    
+    try {
+      const alerts = await getSharedDb().select({
+        id: systemAlerts.id,
+        title: systemAlerts.title,
+        message: systemAlerts.message,
+        environment: systemAlerts.originEnvironment,
+        severity: systemAlerts.severity,
+        createdAt: systemAlerts.createdAt,
+      })
+        .from(systemAlerts)
+        .where(sql`${systemAlerts.createdAt} > ${oneDayAgo}`)
+        .orderBy(desc(systemAlerts.createdAt))
+        .limit(limit);
+      
+      sharedAlerts = alerts.map(a => ({
+        id: String(a.id),
+        issueType: `telemetry:${a.title}`,
+        userDescription: a.message || a.title,
+        environment: a.environment,
+        status: a.severity === 'outage' ? 'pending' : 'info',
+        createdAt: a.createdAt!,
+      }));
+    } catch (err) {
+      console.warn('[Sofia] Failed to query shared telemetry:', err);
+    }
+    
+    // Merge and sort by timestamp, newest first
+    const allFaults = [...userFaults, ...sharedAlerts]
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, limit);
+    
+    return allFaults;
   }
   
   /**
