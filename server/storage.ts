@@ -841,6 +841,7 @@ export interface IStorage {
   updateSystemAlert(id: string, data: Partial<SystemAlert>): Promise<SystemAlert | undefined>;
   incrementAlertView(id: string): Promise<void>;
   incrementAlertDismiss(id: string): Promise<void>;
+  getRecentSystemAlerts(options?: { limit?: number; environment?: string }): Promise<SystemAlert[]>;
   
   // Support Tickets (Tri-Lane Hive - Support Agent escalations)
   createSupportTicket(data: InsertSupportTicket): Promise<SupportTicket>;
@@ -6293,11 +6294,13 @@ export class DatabaseStorage implements IStorage {
   
   // ===== System Alerts (Proactive Support Communications) =====
   async createSystemAlert(data: InsertSystemAlert): Promise<SystemAlert> {
-    const [alert] = await db.insert(systemAlerts).values(data).returning();
+    const sharedDb = getSharedDb();
+    const [alert] = await sharedDb.insert(systemAlerts).values(data).returning();
     return alert;
   }
   
   async getActiveSystemAlerts(options?: { target?: string; severity?: string }): Promise<SystemAlert[]> {
+    const sharedDb = getSharedDb();
     const now = new Date();
     const conditions: any[] = [
       eq(systemAlerts.isActive, true),
@@ -6311,14 +6314,15 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(systemAlerts.severity, options.severity as any));
     }
     
-    return db.select().from(systemAlerts)
+    return sharedDb.select().from(systemAlerts)
       .where(and(...conditions))
       .orderBy(desc(systemAlerts.startsAt))
       .limit(20);
   }
   
   async updateSystemAlert(id: string, data: Partial<SystemAlert>): Promise<SystemAlert | undefined> {
-    const [updated] = await db.update(systemAlerts)
+    const sharedDb = getSharedDb();
+    const [updated] = await sharedDb.update(systemAlerts)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(systemAlerts.id, id))
       .returning();
@@ -6326,15 +6330,36 @@ export class DatabaseStorage implements IStorage {
   }
   
   async incrementAlertView(id: string): Promise<void> {
-    await db.update(systemAlerts)
+    const sharedDb = getSharedDb();
+    await sharedDb.update(systemAlerts)
       .set({ viewCount: sql`${systemAlerts.viewCount} + 1` })
       .where(eq(systemAlerts.id, id));
   }
   
   async incrementAlertDismiss(id: string): Promise<void> {
-    await db.update(systemAlerts)
+    const sharedDb = getSharedDb();
+    await sharedDb.update(systemAlerts)
       .set({ dismissCount: sql`${systemAlerts.dismissCount} + 1` })
       .where(eq(systemAlerts.id, id));
+  }
+  
+  async getRecentSystemAlerts(options?: { limit?: number; environment?: string }): Promise<SystemAlert[]> {
+    const sharedDb = getSharedDb();
+    const conditions: any[] = [];
+    
+    if (options?.environment) {
+      conditions.push(eq(systemAlerts.originEnvironment, options.environment));
+    }
+    
+    const query = sharedDb.select().from(systemAlerts);
+    
+    if (conditions.length > 0) {
+      return query.where(and(...conditions))
+        .orderBy(desc(systemAlerts.createdAt))
+        .limit(options?.limit || 50);
+    }
+    
+    return query.orderBy(desc(systemAlerts.createdAt)).limit(options?.limit || 50);
   }
   
   // ===== Support Tickets (Tri-Lane Hive - Support Agent escalations) =====

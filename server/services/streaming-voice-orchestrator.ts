@@ -85,6 +85,7 @@ import { memoryCheckpointService } from "./memory-checkpoint-service";
 import { phonemeAnalyticsService } from "./phoneme-analytics-service";
 import { supportPersonaService } from "./support-persona-service";
 import { db, getSharedDb } from "../db";
+import { logVoiceOrchestratorError } from "./production-telemetry";
 import { 
   tutorProcedures, 
   teachingPrinciples, 
@@ -3777,6 +3778,14 @@ Remember: David may reference things discussed in these recent text chats.
           checkpointed: !!session.checkpointedUserMessageId,
         }
       });
+      
+      // Log to shared database for cross-environment visibility
+      logVoiceOrchestratorError(error, {
+        userId: session.userId,
+        sessionId,
+        stage: errorType,
+        turnId: String(turnId),
+      }).catch(err => console.error('[Telemetry] Failed to log error:', err.message));
       
       this.sendError(session.ws, 'UNKNOWN', error.message, true);
       // Return metrics instead of throwing to prevent socket disconnect

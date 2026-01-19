@@ -15640,6 +15640,29 @@ Current conversation context:
       res.status(500).json({ error: error.message });
     }
   });
+  
+  // Admin: Production Telemetry - Get recent errors from all environments
+  app.get("/api/admin/telemetry/errors", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const environment = req.query.environment as string | undefined;
+      
+      const errors = await storage.getRecentSystemAlerts({
+        limit,
+        environment,
+      });
+      
+      res.json({
+        count: errors.length,
+        environment: environment || 'all',
+        currentEnvironment: process.env.NODE_ENV === 'production' ? 'production' : 'development',
+        errors,
+      });
+    } catch (error: any) {
+      console.error('[API] Error getting telemetry errors:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   // ============================================================================
   // SUPPORT AGENT API ROUTES (Tri-Lane Hive)
