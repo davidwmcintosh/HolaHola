@@ -118,7 +118,7 @@ export class SessionCompassService {
 
     try {
       // Load student context
-      const user = await db
+      const user = await getUserDb()
         .select()
         .from(users)
         .where(eq(users.id, userId))
@@ -130,7 +130,7 @@ export class SessionCompassService {
       // Get last session summary for continuity
       // Query for sessions that actually have a summary (completed sessions)
       // This prevents finding active sessions without summaries
-      const lastSessions = await db
+      const lastSessions = await getUserDb()
         .select()
         .from(tutorSessions)
         .where(
@@ -157,7 +157,7 @@ export class SessionCompassService {
 
       if (classId) {
         // Get class info for context
-        const classInfo = await db
+        const classInfo = await getUserDb()
           .select()
           .from(teacherClasses)
           .where(eq(teacherClasses.id, classId))
@@ -187,14 +187,14 @@ export class SessionCompassService {
         legacyFreedomLevel,
       };
 
-      const [session] = await db
+      const [session] = await getUserDb()
         .insert(tutorSessions)
         .values(sessionData)
         .returning();
 
       // Load any unresolved parking items from this user's previous sessions only
       // SECURITY: Must filter by userId to prevent data leakage
-      const previousParkingItems = await db
+      const previousParkingItems = await getUserDb()
         .select({
           item: tutorParkingItems,
         })
@@ -258,7 +258,7 @@ export class SessionCompassService {
         (Date.now() - cached.creditBalanceUpdated.getTime()) >= CREDIT_BALANCE_TTL_MS;
     } else {
       // Cache miss or stale - load from DB
-      const sessions = await db
+      const sessions = await getUserDb()
         .select()
         .from(tutorSessions)
         .where(eq(tutorSessions.conversationId, conversationId))
@@ -269,13 +269,13 @@ export class SessionCompassService {
       if (!session) return null;
 
       // Load topics and parking items
-      const topics = await db
+      const topics = await getUserDb()
         .select()
         .from(tutorSessionTopics)
         .where(eq(tutorSessionTopics.sessionId, session.id))
         .orderBy(tutorSessionTopics.sortOrder);
 
-      const parkingItems = await db
+      const parkingItems = await getUserDb()
         .select()
         .from(tutorParkingItems)
         .where(
@@ -286,7 +286,7 @@ export class SessionCompassService {
         );
 
       // Load user's ACTFL proficiency for emergent neural network awareness
-      const userResult = await db
+      const userResult = await getUserDb()
         .select({
           actflLevel: users.actflLevel,
           actflAssessed: users.actflAssessed,
@@ -512,13 +512,13 @@ export class SessionCompassService {
    */
   async addTopic(params: InsertTutorSessionTopic): Promise<TutorSessionTopic | null> {
     try {
-      const [topic] = await db
+      const [topic] = await getUserDb()
         .insert(tutorSessionTopics)
         .values(params)
         .returning();
 
       // Update cache
-      const sessionResult = await db
+      const sessionResult = await getUserDb()
         .select()
         .from(tutorSessions)
         .where(eq(tutorSessions.id, params.sessionId))
@@ -545,7 +545,7 @@ export class SessionCompassService {
    */
   async updateTopicStatus(topicId: string, status: TopicCoverageStatus, notes?: string): Promise<void> {
     try {
-      await db
+      await getUserDb()
         .update(tutorSessionTopics)
         .set({ 
           status, 
@@ -584,13 +584,13 @@ export class SessionCompassService {
       : sessionIdOrParams;
 
     try {
-      const [item] = await db
+      const [item] = await getUserDb()
         .insert(tutorParkingItems)
         .values(params)
         .returning();
 
       // Update cache
-      const sessionResult = await db
+      const sessionResult = await getUserDb()
         .select()
         .from(tutorSessions)
         .where(eq(tutorSessions.id, params.sessionId))
@@ -618,7 +618,7 @@ export class SessionCompassService {
    */
   async resolveParkingItem(itemId: string, resolvedInSessionId?: string): Promise<void> {
     try {
-      await db
+      await getUserDb()
         .update(tutorParkingItems)
         .set({
           resolvedAt: new Date(),
@@ -648,7 +648,7 @@ export class SessionCompassService {
   async generateSessionSummary(conversationId: string): Promise<string | null> {
     try {
       // Get conversation messages
-      const conversationMessages = await db
+      const conversationMessages = await getUserDb()
         .select()
         .from(messages)
         .where(eq(messages.conversationId, conversationId))
@@ -659,7 +659,7 @@ export class SessionCompassService {
       }
       
       // Get conversation details for context
-      const [conversation] = await db
+      const [conversation] = await getUserDb()
         .select()
         .from(conversations)
         .where(eq(conversations.id, conversationId))
@@ -723,7 +723,7 @@ Summary (2-3 sentences):`;
         .filter(t => t.status === 'pending' || t.status === 'partial')
         .map(t => t.title);
 
-      await db
+      await getUserDb()
         .update(tutorSessions)
         .set({
           status: 'completed',
@@ -753,7 +753,7 @@ Summary (2-3 sentences):`;
       return cached.session;
     }
 
-    const sessions = await db
+    const sessions = await getUserDb()
       .select()
       .from(tutorSessions)
       .where(
@@ -771,7 +771,7 @@ Summary (2-3 sentences):`;
    * Get session by ID
    */
   async getSessionById(sessionId: string): Promise<TutorSession | null> {
-    const sessions = await db
+    const sessions = await getUserDb()
       .select()
       .from(tutorSessions)
       .where(eq(tutorSessions.id, sessionId))
@@ -784,7 +784,7 @@ Summary (2-3 sentences):`;
    * Get topic by ID
    */
   async getTopicById(topicId: string): Promise<TutorSessionTopic | null> {
-    const topics = await db
+    const topics = await getUserDb()
       .select()
       .from(tutorSessionTopics)
       .where(eq(tutorSessionTopics.id, topicId))
