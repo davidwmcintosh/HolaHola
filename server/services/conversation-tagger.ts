@@ -1,5 +1,5 @@
 import { callGeminiWithSchema, GEMINI_MODELS } from "../gemini-utils";
-import { db, getSharedDb, getUserDb } from "../db";
+import { getSharedDb, getUserDb } from "../db";
 import { topics, conversations, conversationTopics } from "@shared/schema";
 import { eq, inArray } from "drizzle-orm";
 
@@ -177,7 +177,7 @@ export async function tagConversation(
 }
 
 export async function getConversationTopics(conversationId: string) {
-  const links = await db
+  const links = await getUserDb()
     .select()
     .from(conversationTopics)
     .where(eq(conversationTopics.conversationId, conversationId));
