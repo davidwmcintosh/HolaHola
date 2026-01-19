@@ -9363,8 +9363,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
   /**
    * Process Express Lane lookup request from native function call
    * Searches the 3-way collaboration channel (Founder, Daniela, Wren)
-   * NOTE: The expressLaneMessages table is not yet implemented - this function
-   * currently returns empty results until the table is created in the schema.
+   * Data is stored in collaboration_messages table (linked to founder_sessions)
    */
   private async processExpressLaneLookup(
     session: StreamingSession,
@@ -9373,15 +9372,56 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
     limit: number
   ): Promise<void> {
     try {
-      // The expressLaneMessages table is not yet defined in the schema.
-      // For now, we log and return empty results gracefully.
-      console.log(`[ExpressLaneLookup] Table not yet implemented - returning empty for query: "${query.substring(0, 50)}..."`);
+      const { collaborationMessages, founderSessions } = await import('@shared/schema');
+      const sharedDb = getSharedDb();
       
-      if (session.conversationHistory) {
-        session.conversationHistory.push({
-          role: 'user',
-          content: `[SYSTEM: Express Lane history search is not yet available. Query: "${query}"]`,
-        });
+      let results: any[];
+      if (sessionId) {
+        results = await sharedDb.select()
+          .from(collaborationMessages)
+          .where(sql`session_id = ${sessionId} AND (content ILIKE ${`%${query}%`} OR role ILIKE ${`%${query}%`})`)
+          .orderBy(sql`created_at DESC`)
+          .limit(limit);
+      } else {
+        results = await sharedDb.select()
+          .from(collaborationMessages)
+          .where(sql`content ILIKE ${`%${query}%`} OR role ILIKE ${`%${query}%`}`)
+          .orderBy(sql`created_at DESC`)
+          .limit(limit);
+      }
+      
+      if (results.length > 0) {
+        const formattedResults = results.map(msg => {
+          const date = new Date(msg.createdAt).toLocaleDateString();
+          return `[${date}] ${msg.role}: ${msg.content}`;
+        }).join('\n');
+        
+        if (session.conversationHistory) {
+          session.conversationHistory.push({
+            role: 'user',
+            content: `[SYSTEM: Express Lane search results for "${query}" (${results.length} messages)]\n\n${formattedResults}`,
+          });
+        }
+        console.log(`[ExpressLaneLookup] Found ${results.length} messages for "${query}"`);
+        
+        // Emit beacon if in Founder Mode
+        if (session.hiveChannelId) {
+          hiveCollaborationService.emitBeacon({
+            channelId: session.hiveChannelId,
+            tutorTurn: `[EXPRESS_LANE_LOOKUP] Query: "${query}"\nResults: ${results.length} messages found`,
+            studentTurn: '',
+            beaconType: 'express_lane_lookup',
+            beaconReason: `Daniela searched Express Lane history for "${query}"`,
+          }).catch(err => console.error(`[ExpressLaneLookup] Beacon error:`, err));
+        }
+      } else {
+        console.log(`[ExpressLaneLookup] No results found for "${query}"`);
+        if (session.conversationHistory) {
+          session.conversationHistory.push({
+            role: 'user',
+            content: `[SYSTEM: No Express Lane messages found for "${query}"]`,
+          });
+        }
       }
     } catch (err) {
       console.error(`[ExpressLaneLookup] Error:`, err);
