@@ -108,6 +108,13 @@ export const SHARED_TABLES = new Set([
   // Post-flight reports and beacons
   'post_flight_reports',
   'topic_competency_observations',
+  
+  // Teacher/Class Management (shared so classes work across dev/prod)
+  'teacher_classes',
+  'class_enrollments',
+  'class_curriculum_units',
+  'class_curriculum_lessons',
+  'class_hour_packages',
 ]);
 
 // Tables that go to USER database (per-environment)
@@ -165,12 +172,7 @@ export const USER_TABLES = new Set([
   'predicted_struggles',
   'user_motivation_alerts',
   
-  // Teacher/Class Management
-  'teacher_classes',
-  'class_enrollments',
-  'class_curriculum_units',
-  'class_curriculum_lessons',
-  'class_hour_packages',
+  // Usage tracking (user-specific)
   'usage_ledger',
   
   // Self-practice
