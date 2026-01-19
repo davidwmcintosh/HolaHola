@@ -794,6 +794,11 @@ export interface StreamingSession {
   checkpointedUserTranscript?: string; // Transcript that was checkpointed (for matching)
   // Memory lookup results: Stores results from processMemoryLookup for multi-step FC to use
   memoryLookupResults?: Record<string, string>;  // Key: query, Value: formatted results
+  // Image recall results: Stores multimodal image data for RECALL_EXPRESS_LANE_IMAGE
+  imageRecallResults?: Record<string, { 
+    text: string; 
+    images: Array<{ mimeType: string; data: string }>;
+  }>;  // Key: imageQuery, Value: text + images
   // Pending memory lookup promises: Awaited by multi-step FC before building function responses
   pendingMemoryLookupPromises?: Promise<void>[];
 }
@@ -2991,6 +2996,36 @@ Remember: David may reference things discussed in these recent text chats.
               }
               break;
             }
+            case 'RECALL_EXPRESS_LANE_IMAGE': {
+              // Use actual image recall results (multimodal) if available
+              const imgQuery = fc.args.imageQuery as string;
+              const imgResult = session.imageRecallResults?.[imgQuery];
+              if (imgResult && imgResult.images.length > 0) {
+                // Build multimodal output parts
+                const outputParts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [
+                  { text: imgResult.text }
+                ];
+                for (const img of imgResult.images) {
+                  outputParts.push({
+                    inlineData: {
+                      mimeType: img.mimeType,
+                      data: img.data,
+                    }
+                  });
+                }
+                // Push multimodal response and skip default text-only push
+                functionResponseParts.push({
+                  functionResponse: {
+                    name: fc.name,
+                    response: { output: outputParts },
+                  },
+                } as any);
+                continue; // Skip the default push below
+              } else {
+                responseText = `No images found for "${imgQuery}". Respond naturally and mention that you cannot currently see those images.`;
+              }
+              break;
+            }
             default:
               responseText = `${fc.name} executed successfully. Continue the conversation.`;
           }
@@ -4714,6 +4749,36 @@ Remember: David may reference things discussed in these recent text chats.
                 responseText = `Memory lookup results for "${query}":\n${lookupResult}\n\nNow respond to the student using this information.`;
               } else {
                 responseText = `No memories found for "${query}". Respond naturally based on what you know about the conversation.`;
+              }
+              break;
+            }
+            case 'RECALL_EXPRESS_LANE_IMAGE': {
+              // Use actual image recall results (multimodal) if available
+              const imgQuery = fc.args.imageQuery as string;
+              const imgResult = session.imageRecallResults?.[imgQuery];
+              if (imgResult && imgResult.images.length > 0) {
+                // Build multimodal output parts
+                const outputParts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [
+                  { text: imgResult.text }
+                ];
+                for (const img of imgResult.images) {
+                  outputParts.push({
+                    inlineData: {
+                      mimeType: img.mimeType,
+                      data: img.data,
+                    }
+                  });
+                }
+                // Push multimodal response and skip default text-only push
+                functionResponsePartsOpenMic.push({
+                  functionResponse: {
+                    name: fc.name,
+                    response: { output: outputParts },
+                  },
+                } as any);
+                continue; // Skip the default push below
+              } else {
+                responseText = `No images found for "${imgQuery}". Respond naturally and mention that you cannot currently see those images.`;
               }
               break;
             }
@@ -9628,37 +9693,19 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         `- "${img.imageName}" (shared with message: "${img.messageContent.substring(0, 50)}...")`
       ).join('\n');
       
-      const textContent = `[SYSTEM: Found ${images.length} image(s) matching "${imageQuery}":\n${imageDescriptions}\n\nThe actual image(s) are now visible to you. Look at them and describe what you see.]`;
+      const textContent = `Found ${images.length} image(s) matching "${imageQuery}":\n${imageDescriptions}\n\nThe actual image(s) are now visible. Look at them and describe what you see to David.`;
       
-      // Add function response with images directly in the response
-      // Now that images are resized (<200KB each), they fit in function responses
-      if (session.conversationHistory) {
-        // Build output parts: text + images
-        const outputParts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [
-          { text: textContent }
-        ];
-        
-        for (const img of images) {
-          outputParts.push({
-            inlineData: {
-              mimeType: img.imageType,
-              data: img.base64Data,
-            }
-          });
-        }
-        
-        session.conversationHistory.push({
-          role: 'tool' as const,
-          parts: [{
-            functionResponse: {
-              name: fnName,
-              response: { output: outputParts }
-            }
-          }]
-        });
-      }
+      // Store results for multi-step FC to use (don't add to history directly)
+      if (!session.imageRecallResults) session.imageRecallResults = {};
+      session.imageRecallResults[imageQuery] = {
+        text: textContent,
+        images: images.map(img => ({
+          mimeType: img.imageType,
+          data: img.base64Data,
+        })),
+      };
       
-      console.log(`[RecallImage] Injected ${images.length} image(s) into conversation context`);
+      console.log(`[RecallImage] Stored ${images.length} image(s) for multi-step FC (query: "${imageQuery}")`);
       
       // Emit beacon
       if (session.hiveChannelId) {
