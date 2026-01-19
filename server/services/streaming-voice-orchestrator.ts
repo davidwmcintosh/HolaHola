@@ -8034,9 +8034,16 @@ Only include observations you can clearly justify from the exchange. Return empt
       let firstTokenReceived = false;
       let fullText = '';
       
+      // CRITICAL FIX: For resumed conversations, include conversation history
+      // This gives Daniela full context of the past conversation, not just a text snippet
+      const greetingHistory = isResumed ? session.conversationHistory : [];
+      if (isResumed && greetingHistory.length > 0) {
+        console.log(`[Streaming Greeting] Including ${greetingHistory.length} history entries for resumed conversation`);
+      }
+      
       await this.geminiService.streamWithSentenceChunking({
         systemPrompt: session.systemPrompt,
-        conversationHistory: [],  // Fresh greeting, no history
+        conversationHistory: greetingHistory,  // Include history for resumed conversations
         userMessage: greetingPrompt,
         onSentence: async (chunk: SentenceChunk) => {
           if (!firstTokenReceived) {
