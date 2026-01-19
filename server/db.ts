@@ -17,20 +17,17 @@ export const db = drizzle({ client: pool, schema });
 
 const NEON_SHARED_URL = process.env.NEON_SHARED_DATABASE_URL;
 const NEON_USER_URL = process.env.NEON_USER_DATABASE_URL;
-const USE_NEON_ROUTING = process.env.USE_NEON_ROUTING === 'true';
 
-// Startup health check for Neon routing
-if (USE_NEON_ROUTING) {
-  if (!NEON_SHARED_URL) {
-    console.warn("[DB] ⚠️ USE_NEON_ROUTING=true but NEON_SHARED_DATABASE_URL is missing - falling back to Replit DB for shared tables");
-  } else {
-    console.log("[DB] ✓ Neon routing ENABLED for shared tables (lazy init)");
-  }
-  if (!NEON_USER_URL) {
-    console.log("[DB] Note: NEON_USER_DATABASE_URL not set - user tables use Replit DB");
-  }
+// Neon is now the permanent default - no routing flag needed
+if (!NEON_SHARED_URL) {
+  console.error("[DB] ⚠️ NEON_SHARED_DATABASE_URL missing - shared tables will fail!");
 } else {
-  console.log("[DB] Neon routing DISABLED - all queries use Replit DB");
+  console.log("[DB] ✓ Neon SHARED database configured");
+}
+if (NEON_USER_URL) {
+  console.log("[DB] ✓ Neon USER database configured");
+} else {
+  console.log("[DB] Note: USER tables use Replit DB (NEON_USER_DATABASE_URL not set)");
 }
 
 let neonSharedPool: Pool | null = null;
@@ -39,7 +36,7 @@ let _neonSharedDb: ReturnType<typeof drizzle> | null = null;
 let _neonUserDb: ReturnType<typeof drizzle> | null = null;
 
 export function isNeonRoutingEnabled(): boolean {
-  return USE_NEON_ROUTING && Boolean(NEON_SHARED_URL);
+  return Boolean(NEON_SHARED_URL);
 }
 
 export function getNeonSharedDb() {
@@ -71,10 +68,6 @@ export function getNeonUserDb() {
 }
 
 export function getDbForTable(tableName: string) {
-  if (!USE_NEON_ROUTING) {
-    return db;
-  }
-  
   const dbType = getTableDatabase(tableName);
   if (dbType === 'shared' && NEON_SHARED_URL) {
     return getNeonSharedDb();
@@ -83,20 +76,24 @@ export function getDbForTable(tableName: string) {
     return getNeonUserDb();
   }
   
+  // Fallback to Replit DB for user tables when NEON_USER_URL not set
   return db;
 }
 
 export function getSharedDb() {
-  if (USE_NEON_ROUTING && NEON_SHARED_URL) {
+  if (NEON_SHARED_URL) {
     return getNeonSharedDb();
   }
+  // Should not happen in production - Neon is required
+  console.warn("[DB] getSharedDb() called but NEON_SHARED_DATABASE_URL not set!");
   return db;
 }
 
 export function getUserDb() {
-  if (USE_NEON_ROUTING && NEON_USER_URL) {
+  if (NEON_USER_URL) {
     return getNeonUserDb();
   }
+  // User tables fall back to Replit DB if Neon user URL not configured
   return db;
 }
 

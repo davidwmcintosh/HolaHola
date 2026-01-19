@@ -2052,8 +2052,8 @@ export async function registerRoutes(app: Express): Promise<void> {
   app.get('/api/sync/scheduler-status', isAuthenticated, async (req: any, res) => {
     res.json({
       deprecated: true,
-      message: 'Sync scheduler retired - shared tables now route directly to Neon database',
-      neonRoutingEnabled: process.env.USE_NEON_ROUTING === 'true',
+      message: 'Sync scheduler retired - shared tables route directly to Neon (permanent)',
+      neonEnabled: true,
     });
   });
 
