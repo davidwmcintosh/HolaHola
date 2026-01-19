@@ -124,6 +124,22 @@ export async function tagConversation(
     const uniqueTopicIds = Array.from(new Set(matchedTopicIds));
 
     if (uniqueTopicIds.length > 0) {
+      // Verify conversation exists before inserting (race condition protection)
+      const conversationExists = await getUserDb()
+        .select({ id: conversations.id })
+        .from(conversations)
+        .where(eq(conversations.id, conversationId))
+        .limit(1);
+      
+      if (conversationExists.length === 0) {
+        console.log(`[TAGGER] Conversation ${conversationId} not yet committed, skipping topic links`);
+        return {
+          success: false,
+          topicsAdded: 0,
+          title: detection.suggestedTitle || "Conversation",
+        };
+      }
+      
       const existingLinks = await getUserDb()
         .select()
         .from(conversationTopics)
