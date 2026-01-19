@@ -115,6 +115,15 @@ export const SHARED_TABLES = new Set([
   'class_curriculum_units',
   'class_curriculum_lessons',
   'class_hour_packages',
+  
+  // Conversations (shared so Daniela remembers all conversations across envs)
+  'conversations',
+  'messages',
+  'message_media',
+  'voice_sessions',
+  'tutor_sessions',
+  'tutor_session_topics',
+  'conversation_topics',
 ]);
 
 // Tables that go to USER database (per-environment)
@@ -126,18 +135,11 @@ export const USER_TABLES = new Set([
   'pending_invites',
   'sessions',
   
-  // Conversations & Voice Sessions
-  'conversations',
-  'messages',
-  'message_media',
-  'voice_sessions',
-  'tutor_sessions',
-  'tutor_session_topics',
+  // Conversations & Voice Sessions (moved to SHARED for cross-env memory)
   'surgery_sessions',
   'surgery_turns',
   'consultation_threads',
   'consultation_messages',
-  'conversation_topics',
   
   // Editor/Collaboration (per-environment user data)
   'collaboration_events',
