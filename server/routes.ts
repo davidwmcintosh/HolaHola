@@ -1337,7 +1337,7 @@ export async function registerRoutes(app: Express): Promise<void> {
       }
       
       // Verify conversation exists (architect has special access to any conversation)
-      const [conversation] = await getUserDb().select().from(conversations).where(eq(conversations.id, conversationId));
+      const [conversation] = await getSharedDb().select().from(conversations).where(eq(conversations.id, conversationId));
       if (!conversation) {
         return res.status(404).json({ message: "Conversation not found" });
       }
@@ -13758,7 +13758,7 @@ Return ONLY the ${targetLanguage} phrase:`;
     try {
       const userId = req.user?.claims?.sub || req.session?.userId;
       
-      const editorConversations = await getUserDb().select()
+      const editorConversations = await getSharedDb().select()
         .from(conversations)
         .where(and(
           eq(conversations.userId, userId),
@@ -13785,7 +13785,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       const { messages: msgs } = await import("@shared/schema");
       
       // First verify the conversation belongs to the current user and is an editor conversation
-      const [conversation] = await getUserDb().select()
+      const [conversation] = await getSharedDb().select()
         .from(conversations)
         .where(and(
           eq(conversations.id, conversationId),
@@ -13797,7 +13797,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         return res.status(404).json({ error: "Conversation not found" });
       }
       
-      const conversationMessages = await getUserDb().select()
+      const conversationMessages = await getSharedDb().select()
         .from(msgs)
         .where(eq(msgs.conversationId, conversationId))
         .orderBy(msgs.createdAt);
@@ -13815,7 +13815,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       const userId = req.user?.claims?.sub || req.session?.userId;
       const { title } = req.body;
       
-      const [newConversation] = await getUserDb().insert(conversations).values({
+      const [newConversation] = await getSharedDb().insert(conversations).values({
         userId,
         language: 'english',
         nativeLanguage: 'english',
@@ -13840,7 +13840,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       const { messages: msgs } = await import("@shared/schema");
       
       // Verify conversation exists and belongs to user
-      const [conv] = await getUserDb().select()
+      const [conv] = await getSharedDb().select()
         .from(conversations)
         .where(and(
           eq(conversations.id, conversationId),
@@ -13853,14 +13853,14 @@ Return ONLY the ${targetLanguage} phrase:`;
       }
       
       // Save user message
-      const [userMessage] = await getUserDb().insert(msgs).values({
+      const [userMessage] = await getSharedDb().insert(msgs).values({
         conversationId,
         role: 'user',
         content,
       }).returning();
       
       // Get conversation history for context
-      const history = await getUserDb().select()
+      const history = await getSharedDb().select()
         .from(msgs)
         .where(eq(msgs.conversationId, conversationId))
         .orderBy(msgs.createdAt);
@@ -13906,14 +13906,14 @@ Current conversation context:
       const responseText = await callGemini(model, geminiMessages);
       
       // Save Daniela's response
-      const [assistantMessage] = await getUserDb().insert(msgs).values({
+      const [assistantMessage] = await getSharedDb().insert(msgs).values({
         conversationId,
         role: 'assistant',
         content: responseText,
       }).returning();
       
       // Update message count
-      await getUserDb().update(conversations)
+      await getSharedDb().update(conversations)
         .set({ messageCount: history.length + 2 })
         .where(eq(conversations.id, conversationId));
       
@@ -13934,7 +13934,7 @@ Current conversation context:
       const { messages: msgs } = await import("@shared/schema");
       
       // Get last 10 conversations with their recent messages
-      const recentConversations = await getUserDb().select()
+      const recentConversations = await getSharedDb().select()
         .from(conversations)
         .where(and(
           eq(conversations.userId, userId),
@@ -13945,7 +13945,7 @@ Current conversation context:
       
       const memoryContext = await Promise.all(
         recentConversations.map(async (conv) => {
-          const recentMsgs = await getUserDb().select()
+          const recentMsgs = await getSharedDb().select()
             .from(msgs)
             .where(eq(msgs.conversationId, conv.id))
             .orderBy(desc(msgs.createdAt))
