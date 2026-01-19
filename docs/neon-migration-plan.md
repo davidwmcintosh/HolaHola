@@ -2,7 +2,8 @@
 ## From Sync-Bridge to Shared Database Architecture
 
 **Created**: January 17, 2026  
-**Status**: Phase 3 - Application Wiring IN PROGRESS  
+**Updated**: January 19, 2026  
+**Status**: Phase 4 - Application Wiring COMPLETE ✅  
 **Goal**: Replace 8000-line HTTP sync system with database-native sharing
 
 ---
@@ -37,19 +38,91 @@
 
 Daniela's complete learning history has been preserved.
 
-### Phase 3 Progress (Application Wiring)
+### Phase 3-4 Progress (Application Wiring) ✅ COMPLETE
 
 - ✅ Dual-database connections in `neon-db.ts`
 - ✅ Table routing logic (`SHARED_TABLES` and `USER_TABLES` sets)
 - ✅ Helper functions: `getTableDatabase()`, `getDbForTable()`, `getSharedDb()`, `getUserDb()`
 - ✅ Connection test: Both databases responding (159 tables each)
-- ⏳ Wire storage layer to use Neon instead of Replit database
+- ✅ Storage layer wired to use Neon (`server/storage.ts` - 48+ queries updated)
+- ✅ 25+ service files updated to route shared tables via `getSharedDb()`
+- ✅ Startup health check logs Neon routing status
+- ✅ Architect review: PASS (January 19, 2026)
+
+### Services Updated for Neon Routing
+
+| Category | Services |
+|----------|----------|
+| Wren Intelligence | wren-intelligence-service, wren-proactive-intelligence, wren-commitments, wren-dreams |
+| Daniela Intelligence | daniela-memory, daniela-reflection, observation-summarization |
+| Hive/Collaboration | hive-consciousness, hive-context, hive-bridge, founder-collaboration, agent-collaboration |
+| Neural Network | procedural-memory-retrieval, neural-network-sync, neural-memory-search |
+| Curriculum | fluency-wiring, curriculum-sync, ai-lesson-generator, lesson-publishing, drill-lifecycle |
+| Student Learning | student-learning, teaching-suggestions, competency-verifier |
+| Voice/Diagnostics | voice-diagnostics, voice-intelligence |
+| Other | beacon-sync, pedagogical-insights, conversation-tagger, memory-checkpoint |
 
 ### Next Steps
 
-1. **Phase 4**: Modify storage layer to route queries appropriately
-2. **Phase 5**: Remove sync-bridge code (8,000+ lines)
+1. ~~**Phase 4**: Modify storage layer to route queries appropriately~~ ✅ COMPLETE
+2. **Phase 5**: Remove sync-bridge code (8,000+ lines) - Can now be safely deprecated
 3. **Phase 6**: Production cutover with rollback plan
+
+---
+
+## Database Access & Visibility
+
+### Who Has Access?
+
+| Role | Shared DB | User DB (Dev) | User DB (Prod) |
+|------|-----------|---------------|----------------|
+| David (Founder) | ✅ Full via Neon Console | ✅ Full via Neon Console | ✅ Full via Neon Console |
+| Wren (Replit Agent) | ✅ Read/Write via getSharedDb() | ✅ Read/Write via getUserDb() | ❌ No access (prod-only) |
+| Daniela (AI) | ✅ Reads her observations | ❌ No direct access | ❌ No direct access |
+
+### Wren's Database Capabilities
+
+The Replit Agent (Wren) can:
+- **Query development databases** using the execute_sql tool (for debugging)
+- **Read/write shared data** through application code (`getSharedDb()`)
+- **Read/write dev user data** through application code (`getUserDb()`)
+- **Monitor health** via startup logs and application telemetry
+
+Wren **cannot**:
+- Access production user database directly (safety protection)
+- Modify Neon configuration or branch settings
+- See connection credentials (environment variables hidden)
+
+### Neon Dashboard Access
+
+David has full access to the Neon Console at https://console.neon.tech for:
+- Viewing all databases and branches
+- Running SQL queries on any database
+- Managing branch sync/reset operations
+- Monitoring connection metrics and query performance
+- Creating/deleting branches for testing
+
+### Branch Sync Operations
+
+| Operation | How | When to Use |
+|-----------|-----|-------------|
+| Reset dev from prod | Neon Console → Branches → Reset | Get fresh production data for testing |
+| Create test branch | Neon Console → Branches → Create | Isolated testing without affecting dev |
+| Schema migration | `npm run db:push` in Replit | Apply schema changes to connected DB |
+
+### Environment Variables
+
+```
+# Shared Database (Daniela's Intelligence)
+NEON_SHARED_DATABASE_URL=postgres://...@shared-db.neon.tech/shared
+
+# User Database (Branched per environment)
+NEON_USER_DATABASE_URL=postgres://...@user-db.neon.tech/dev-branch
+```
+
+When `USE_NEON_ROUTING=true`:
+- Shared table queries → NEON_SHARED_DATABASE_URL
+- User table queries → NEON_USER_DATABASE_URL (or falls back to DATABASE_URL)
 
 ### Post-Migration Verification Checklist
 
