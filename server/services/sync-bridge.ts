@@ -1,3 +1,29 @@
+/**
+ * @deprecated DEPRECATED - Sync Bridge System
+ * 
+ * This 8,000-line sync system is being replaced by Neon PostgreSQL dual-database architecture.
+ * 
+ * REPLACEMENT: 
+ * - Shared tables (Daniela intelligence, curriculum, Wren) → getSharedDb() routes to Neon Shared
+ * - User tables (accounts, conversations, progress) → getUserDb() routes to Neon User (branched)
+ * 
+ * WHY DEPRECATED:
+ * - Complex bidirectional sync was fragile and caused data inconsistencies
+ * - Neon provides native database branching for dev/prod isolation
+ * - "One Daniela Everywhere" achieved through shared database, not sync
+ * 
+ * REMOVAL TIMELINE:
+ * - Phase 1 (DONE): Neon routing implemented in db.ts, storage.ts, and key services
+ * - Phase 2 (IN PROGRESS): Validate all services use proper routing
+ * - Phase 3 (PLANNED): Remove sync-bridge.ts, sync-scheduler.ts, and related routes
+ * 
+ * DO NOT add new features to this file. Fix issues in the Neon routing layer instead.
+ * 
+ * @see server/db.ts - getSharedDb(), getUserDb() functions
+ * @see server/neon-db.ts - SHARED_TABLES and USER_TABLES definitions
+ * @see docs/neon-migration-plan.md - Full migration documentation
+ */
+
 import { db } from '../db';
 import { 
   syncRuns, founderSessions, collaborationMessages, hiveSnapshots, danielaGrowthMemories, 

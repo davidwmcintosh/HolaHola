@@ -1,3 +1,19 @@
+/**
+ * @deprecated DEPRECATED - Sync Scheduler System
+ * 
+ * This scheduler coordinates the sync-bridge system which is being replaced
+ * by Neon PostgreSQL dual-database architecture.
+ * 
+ * REPLACEMENT: Direct database connections via getSharedDb()/getUserDb()
+ * - No more scheduled syncs needed - shared data is always available
+ * - User data isolation handled by Neon branching, not sync
+ * 
+ * REMOVAL TIMELINE: Phase 3 (after all services migrated to Neon routing)
+ * 
+ * @see sync-bridge.ts for full deprecation details
+ * @see server/db.ts - getSharedDb(), getUserDb() functions
+ */
+
 import { neuralNetworkSync } from './neural-network-sync';
 import { syncBridge, type SyncResult } from './sync-bridge';
 import { isSyncConfigured } from '../middleware/sync-auth';
