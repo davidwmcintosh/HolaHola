@@ -489,12 +489,12 @@ export function StreamingVoiceChat({
       // Play initial ring
       playRingCycle();
       
-      // Ring pattern: ring for 0.4s, pause for 2s, repeat
+      // Ring pattern: ring for 0.4s, pause for 1.1s, repeat (faster pacing)
       ringingAudioRef.current.oscillatorInterval = setInterval(() => {
         if (ringingAudioRef.current?.isPlaying) {
           playRingCycle();
         }
-      }, 2400);
+      }, 1500);
       
       console.log('[RINGING] Started telephone ring sound');
     } catch (err) {
@@ -522,7 +522,7 @@ export function StreamingVoiceChat({
   };
   
   // Play ringing sound during voice connection
-  // Ringing should continue through 'connecting' → 'connected' → 'reconnecting' → until 'ready' (session started)
+  // Ringing should continue through 'connecting' → 'connected' → 'ready' → until AUDIO PLAYS
   // IMPORTANT: Don't ring on reconnects if Daniela has already spoken (prevents mid-call ringing)
   useEffect(() => {
     if (!useStreamingMode) return;
@@ -534,16 +534,16 @@ export function StreamingVoiceChat({
     if (connectionState === 'connecting' && !hasDanielaSpokeOnceRef.current) {
       startRinging();
     }
-    // Continue ringing during 'connected' and 'reconnecting' states
-    // This is intentional - no action needed, ringing continues
+    // Continue ringing during 'connected', 'ready', and 'reconnecting' states
+    // Ringing continues until audio actually starts playing (hasDanielaSpokeOnceRef becomes true)
     
-    // Stop ringing when session is ready (tutor has "picked up") or connection ends
-    if (connectionState === 'ready' || connectionState === 'disconnected' || connectionState === 'error') {
+    // Stop ringing on connection failure only (not on 'ready' - wait for audio)
+    if (connectionState === 'disconnected' || connectionState === 'error') {
       stopRinging();
     }
     
     // Note: We only cleanup on unmount, NOT on state changes
-    // This allows ringing to continue through state transitions
+    // This allows ringing to continue through state transitions until audio plays
   }, [streamingVoice.state.connectionState, useStreamingMode]);
   
   // Connection timeout: If stuck ringing/connecting for too long, redirect to language hub
@@ -952,6 +952,8 @@ export function StreamingVoiceChat({
       
       // Mark that Daniela has spoken at least once this session
       hasDanielaSpokeOnceRef.current = true;
+      // Stop ringing when audio starts playing (Daniela "picks up")
+      stopRinging();
       // TRUE DUPLEX: Keep green light ON while Daniela speaks
       // Don't check openMicActiveRef - just show green if we're in open-mic mode
       if (inputModeRef.current === 'open-mic' && openMicState !== 'ready') {
