@@ -64,6 +64,7 @@ function logMetric(type: string, data: Record<string, number | string | boolean>
 import { constrainEmotion, TutorPersonality, CartesiaEmotion, getTTSService, getAssistantVoice, getDefaultEmotion } from "./tts-service";
 import { extractTargetLanguageText, extractTargetLanguageWithMapping, hasSignificantTargetLanguageContent } from "../text-utils";
 import { storage } from "../storage";
+import { generateConversationTitle } from "../conversation-utils";
 import { validateOneUnitRule, UnitValidationResult } from "../phrase-detection";
 import { GoogleGenAI } from "@google/genai";
 import { assessAdvancementReadiness, formatLevel } from "../actfl-advancement";
@@ -8433,6 +8434,33 @@ Using this context, speak first to the student with a natural opening message. O
         }).catch((err: Error) => {
           console.warn(`[Streaming Orchestrator] Memory extraction failed:`, err.message);
         });
+      }
+      
+      // TITLE GENERATION: Auto-generate title for voice conversations without one
+      // Runs in background after session ends - helps users find conversations later
+      if (sessionData.history.length >= 4 && sessionData.conversationId) {
+        (async () => {
+          try {
+            const conversation = await storage.getConversation(sessionData.conversationId, sessionData.userId);
+            if (conversation && !conversation.title) {
+              console.log(`[TITLE GEN] Voice session ended without title, generating...`);
+              const generatedTitle = await generateConversationTitle(
+                sessionData.history.map(h => ({ role: h.role, content: h.content })),
+                sessionData.language
+              );
+              if (generatedTitle) {
+                await storage.updateConversation(sessionData.conversationId, sessionData.userId, {
+                  title: generatedTitle
+                });
+                console.log(`[TITLE GEN] ✓ Voice session title saved: "${generatedTitle}"`);
+              } else {
+                console.log(`[TITLE GEN] No title generated (low confidence or error)`);
+              }
+            }
+          } catch (err: any) {
+            console.warn(`[Streaming Orchestrator] Title generation failed:`, err.message);
+          }
+        })();
       }
       
       // PHONEME ANALYTICS: Async analysis of word-level pronunciation data
