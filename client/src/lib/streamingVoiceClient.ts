@@ -238,6 +238,7 @@ export class StreamingVoiceClient {
   
   // Auto-reconnect state
   private lastConversationId: string | null = null;
+  private lastSessionConfig: StreamingSessionConfig | null = null;  // Store for reconnect
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private intentionalDisconnect = false;  // Track if disconnect was user-initiated
   
@@ -309,6 +310,7 @@ export class StreamingVoiceClient {
       connectionId: this.connectionId,
       sessionId: this.sessionId,
       hasActiveSession: !!this.sessionId,
+      hasStoredSessionConfig: !!this.lastSessionConfig,  // For reconnect diagnostics
       reconnectCount: this.reconnectAttempts,
       intentionalDisconnect: this.intentionalDisconnect,
       lastConversationId: this.lastConversationId,
@@ -486,6 +488,9 @@ export class StreamingVoiceClient {
     if (!this.isReady()) {
       throw new Error('Socket.io not connected');
     }
+    
+    // Store config for potential reconnection
+    this.lastSessionConfig = config;
     
     const message: ClientStartSessionMessage = {
       type: 'start_session',
@@ -709,6 +714,9 @@ export class StreamingVoiceClient {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    
+    // Clear stored session config to prevent stale reconnection
+    this.lastSessionConfig = null;
     
     if (this.socket) {
       // Send end session message
@@ -1267,6 +1275,13 @@ export class StreamingVoiceClient {
           await this.connect(this.lastConversationId!);
           this.reconnectAttempts = 0;
           this.intentionalDisconnect = false;
+          
+          // CRITICAL: Reinitialize the server-side session after reconnection
+          // Without this, audio chunks are rejected with "Session not ready for streaming"
+          if (this.lastSessionConfig) {
+            console.log('[StreamingVoice] Reconnected - reinitializing session');
+            this.startSession(this.lastSessionConfig);
+          }
         } catch (err) {
           // handleDisconnect will be called again, triggering next attempt
         }

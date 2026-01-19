@@ -1,0 +1,1326 @@
+7[Deprecation] The ScriptProcessorNode is deprecated. Use AudioWorkletNode instead. (<URL>)
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_speech_started HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_speech_started data: {"type":"ptt_speech_started","timestamp":1768859152387}
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859152917,"text":"I think you've said it very","wor
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859153943,"text":"I think you've said it very, very
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859154969,"text":"I think you've said it very, very
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859156003,"text":"I think you've said it very, very
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_speech_started HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_speech_started data: {"type":"ptt_speech_started","timestamp":1768859156737}
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859156779,"text":"I think you've said it very, very
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859156779,"text":"I think you've said it very, very
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859157832,"text":"I think you've said it very, very
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859158905,"text":"I think you've said it very, very
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_speech_started HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_speech_started data: {"type":"ptt_speech_started","timestamp":1768859159046}
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859159853,"text":"I think you've said it very, very
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859160880,"text":"I think you've said it very, very
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859161172,"text":"I think you've said it very, very
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_speech_started HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_speech_started data: {"type":"ptt_speech_started","timestamp":1768859161345}
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859162154,"text":"I think you've said it very, very
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859163187,"text":"I think you've said it very, very
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859164218,"text":"I think you've said it very, very
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859165290,"text":"I think you've said it very, very
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_speech_started HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_speech_started data: {"type":"ptt_speech_started","timestamp":1768859165446}
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859166259,"text":"I think you've said it very, very
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859167272,"text":"I think you've said it very, very
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859167821,"text":"I think you've said it very, very
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_speech_started HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_speech_started data: {"type":"ptt_speech_started","timestamp":1768859168008}
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859168828,"text":"I think you've said it very, very
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859169618,"text":"I think you've said it very, very
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_speech_started HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_speech_started data: {"type":"ptt_speech_started","timestamp":1768859169796}
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859170584,"text":"I think you've said it very, very
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859171616,"text":"I think you've said it very, very
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_speech_started HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_speech_started data: {"type":"ptt_speech_started","timestamp":1768859172618}
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859172701,"text":"I think you've said it very, very
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859173670,"text":"I think you've said it very, very
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859174683,"text":"I think you've said it very, very
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859175726,"text":"I think you've said it very, very
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859176756,"text":"I think you've said it very, very
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_speech_started HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_speech_started data: {"type":"ptt_speech_started","timestamp":1768859177476}
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859177574,"text":"I think you've said it very, very
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859178027,"text":"I think you've said it very, very
+ [MIC BUTTON] Pointer up on button (global handler will process)
+ [PTT-POINTER-DEBUG] Global pointerup fired, pointerType: mouse isPointerRecordingRef: true pttPointerTypeRef: mouse
+ [MIC BUTTON] Global pointer up - stopping recording
+ [PTT-STOP-DEBUG] Stop requested, inputType: mouse activeInputType: mouse isHeld: true
+ [PTT-STOP-DEBUG] Guard passed, proceeding...
+ [PUSH-TO-TALK] Releasing button, stopping recording...
+ [PTT-STATE-DEBUG] Setting isPttButtonHeld=FALSE at 2026-01-19T21:46:14.121Z call stack: Error
+    at Object.qt [as current] (https://getholahola.com/assets/chat-BCE06nbC.js:9:82679)
+    at r (https://getholahola.com/assets/chat-BCE06nbC.js:9:3850)
+ [StreamingAudioPlayer] Playback released - processing 0 buffered chunks
+ [SpeculativePTT] Stopped streaming and sent ptt_release (skipping audio blob)
+ [PUSH-TO-TALK] Resetting subtitles immediately on button release
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=false isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+ [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+ [AVATAR SYNC DEBUG] Object
+ [PTT DIAGNOSTIC] ondataavailable #1: size=475646 bytes, type=audio/webm;codecs=opus
+ [PTT DIAGNOSTIC] Recording stopped: Object
+ [PUSH-TO-TALK] Stopped, processing audio...
+ [PUSH-TO-TALK] Resetting subtitles immediately
+ [PTT DIAGNOSTIC] Final blob: Object
+ [PUSH-TO-TALK] SKIP audio blob - ptt_release already sent transcript to server
+ [PUSH-TO-TALK] Keeping isProcessing=true for thinking animation
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=true
+ [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+ [AVATAR SYNC DEBUG] Object
+ [SOCKET.IO onAny] EVENT: message TYPE: processing HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: processing data: {"type":"processing","timestamp":1768859179047,"turnId":5,"userTranscript":"I think you've said it v
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=true
+ [Voice Lab] Sent voice override to server: null
+ [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+ [AVATAR SYNC DEBUG] Object
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_final_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_final_transcript data: {"type":"ptt_final_transcript","timestamp":1768859179048,"text":"I think you've said it very, very a
+ [SOCKET.IO onAny] EVENT: message TYPE: voice_override_applied HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: voice_override_applied data: {"type":"voice_override_applied","timestamp":1768859179102,"override":null}
+ [MIC WARMUP] Re-warmed for next recording
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859179185,"text":"I think you've said it very, very
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":0,"chunkIndex":0,"partIndex":0,"totalParts":10,"audio":"o
+ [AUDIO CHUNK PART] sentence=0, chunk=0, part=0/10
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":0,"chunkIndex":0,"partIndex":1,"totalParts":10,"audio":"C
+ [AUDIO CHUNK PART] sentence=0, chunk=0, part=1/10
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":0,"chunkIndex":0,"partIndex":2,"totalParts":10,"audio":"k
+ [AUDIO CHUNK PART] sentence=0, chunk=0, part=2/10
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":0,"chunkIndex":0,"partIndex":3,"totalParts":10,"audio":"T
+ [AUDIO CHUNK PART] sentence=0, chunk=0, part=3/10
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":0,"chunkIndex":0,"partIndex":4,"totalParts":10,"audio":"4
+ [AUDIO CHUNK PART] sentence=0, chunk=0, part=4/10
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":0,"chunkIndex":0,"partIndex":5,"totalParts":10,"audio":"Z
+ [AUDIO CHUNK PART] sentence=0, chunk=0, part=5/10
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":0,"chunkIndex":0,"partIndex":6,"totalParts":10,"audio":"5
+ [AUDIO CHUNK PART] sentence=0, chunk=0, part=6/10
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":0,"chunkIndex":0,"partIndex":7,"totalParts":10,"audio":"z
+ [AUDIO CHUNK PART] sentence=0, chunk=0, part=7/10
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":0,"chunkIndex":0,"partIndex":8,"totalParts":10,"audio":"h
+ [AUDIO CHUNK PART] sentence=0, chunk=0, part=8/10
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":0,"chunkIndex":0,"partIndex":9,"totalParts":10,"audio":"x
+ [AUDIO CHUNK PART] sentence=0, chunk=0, part=9/10
+ [AUDIO CHUNK PART] REASSEMBLED: 469600 bytes from 10 parts
+ [TELEMETRY] audio_chunk_reassembled Object
+ [TELEMETRY] audio_chunk_received Object
+ [HOOK handleAudioChunk] CALLED! sentence= 0 chunk= 0 audioLen= 469600
+ [AUDIO PLAYER] New turn detected - clearing deduplication state
+ [AUDIO PLAYER] enqueueProgressivePcmChunk: sentence=0, chunk=0, size=352200, held=false
+ [AUDIO PLAYER] State change: idle -> buffering (subscribers: 1)
+ [GLOBAL PLAYBACK STORE] State change: idle -> buffering (listeners: 1)
+ [TELEMETRY] playback_state_change Object
+ [DOM EVENT BRIDGE] Received state: buffering, subscribers: 1, ts: 1768859185966
+ [DOM EVENT DISPATCH] buffering (subscribers: 1)
+ [AUDIO PLAYER] notifyStateChange: buffering to 1 subscribers: [cb_1768858919226_pnqo]
+ [PLAYBACK CALLBACK cb_1768858919226_pnqo] onStateChange: buffering Object
+ [AUDIO PLAYER] State change: buffering -> playing (subscribers: 1)
+ [GLOBAL PLAYBACK STORE] State change: buffering -> playing (listeners: 1)
+ [TELEMETRY] playback_state_change Object
+ [DOM EVENT BRIDGE] Received state: playing, subscribers: 1, ts: 1768859185970
+ [DOM EVENT DISPATCH] playing (subscribers: 1)
+ [AUDIO PLAYER] notifyStateChange: playing to 1 subscribers: [cb_1768858919226_pnqo]
+ [PLAYBACK CALLBACK cb_1768858919226_pnqo] onStateChange: playing Object
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=true
+ [IMMERSIVE TUTOR STATE] playbackState: playing (global: playing , prop: idle )
+ [SOCKET.IO onAny] EVENT: message TYPE: sentence_end HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: sentence_end data: {"type":"sentence_end","timestamp":1768859190615,"turnId":5,"sentenceIndex":0,"totalDurationMs":3668
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=true
+ [IMMERSIVE TUTOR STATE] playbackState: playing (global: playing , prop: playing )
+ [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [STREAMING VOICE CHAT DEBUG] playbackState changed: playing
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=true
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 10: entries=[S0(end=252.65)] now=248.98
+n @ index-BzusWBC_.js:343
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=true
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 20: entries=[S0(end=252.65)] now=249.02
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 30: entries=[S0(end=252.65)] now=249.19
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 40: entries=[S0(end=252.65)] now=249.35
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 50: entries=[S0(end=252.65)] now=249.53
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 60: entries=[S0(end=252.65)] now=249.70
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 70: entries=[S0(end=252.65)] now=249.86
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 80: entries=[S0(end=252.65)] now=250.03
+n @ index-BzusWBC_.js:343
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":1,"chunkIndex":0,"partIndex":0,"totalParts":12,"audio":"/
+ [AUDIO CHUNK PART] sentence=1, chunk=0, part=0/12
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":1,"chunkIndex":0,"partIndex":1,"totalParts":12,"audio":"f
+ [AUDIO CHUNK PART] sentence=1, chunk=0, part=1/12
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":1,"chunkIndex":0,"partIndex":2,"totalParts":12,"audio":"S
+ [AUDIO CHUNK PART] sentence=1, chunk=0, part=2/12
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":1,"chunkIndex":0,"partIndex":3,"totalParts":12,"audio":"7
+ [AUDIO CHUNK PART] sentence=1, chunk=0, part=3/12
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":1,"chunkIndex":0,"partIndex":4,"totalParts":12,"audio":"3
+ [AUDIO CHUNK PART] sentence=1, chunk=0, part=4/12
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":1,"chunkIndex":0,"partIndex":5,"totalParts":12,"audio":"J
+ [AUDIO CHUNK PART] sentence=1, chunk=0, part=5/12
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":1,"chunkIndex":0,"partIndex":6,"totalParts":12,"audio":"X
+ [AUDIO CHUNK PART] sentence=1, chunk=0, part=6/12
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":1,"chunkIndex":0,"partIndex":7,"totalParts":12,"audio":"D
+ [AUDIO CHUNK PART] sentence=1, chunk=0, part=7/12
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":1,"chunkIndex":0,"partIndex":8,"totalParts":12,"audio":"3
+ [AUDIO CHUNK PART] sentence=1, chunk=0, part=8/12
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":1,"chunkIndex":0,"partIndex":9,"totalParts":12,"audio":"t
+ [AUDIO CHUNK PART] sentence=1, chunk=0, part=9/12
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":1,"chunkIndex":0,"partIndex":10,"totalParts":12,"audio":"
+ [AUDIO CHUNK PART] sentence=1, chunk=0, part=10/12
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":1,"chunkIndex":0,"partIndex":11,"totalParts":12,"audio":"
+ [AUDIO CHUNK PART] sentence=1, chunk=0, part=11/12
+ [AUDIO CHUNK PART] REASSEMBLED: 558764 bytes from 12 parts
+ [TELEMETRY] audio_chunk_reassembled Object
+ [TELEMETRY] audio_chunk_received Object
+ [HOOK handleAudioChunk] CALLED! sentence= 1 chunk= 0 audioLen= 558764
+ [AUDIO PLAYER] enqueueProgressivePcmChunk: sentence=1, chunk=0, size=419072, held=false
+ [AUDIO PLAYER] State change: playing -> buffering (subscribers: 1)
+ [GLOBAL PLAYBACK STORE] State change: playing -> buffering (listeners: 1)
+ [TELEMETRY] playback_state_change Object
+ [DOM EVENT BRIDGE] Received state: buffering, subscribers: 1, ts: 1768859187405
+ [DOM EVENT DISPATCH] buffering (subscribers: 1)
+ [AUDIO PLAYER] notifyStateChange: buffering to 1 subscribers: [cb_1768858919226_pnqo]
+ [PLAYBACK CALLBACK cb_1768858919226_pnqo] onStateChange: buffering Object
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=true
+ [IMMERSIVE TUTOR STATE] playbackState: buffering (global: buffering , prop: playing )
+ [SOCKET.IO onAny] EVENT: message TYPE: sentence_end HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: sentence_end data: {"type":"sentence_end","timestamp":1768859192051,"turnId":5,"sentenceIndex":1,"totalDurationMs":4365
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=true
+ [IMMERSIVE TUTOR STATE] playbackState: buffering (global: buffering , prop: buffering )
+ [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [STREAMING VOICE CHAT DEBUG] playbackState changed: buffering
+ [LOOP] Frame 90: entries=[S0(end=252.65), S1(end=257.02)] now=250.19
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 100: entries=[S0(end=252.65), S1(end=257.02)] now=250.35
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 110: entries=[S0(end=252.65), S1(end=257.02)] now=250.52
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 120: entries=[S0(end=252.65), S1(end=257.02)] now=250.69
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 130: entries=[S0(end=252.65), S1(end=257.02)] now=250.85
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 140: entries=[S0(end=252.65), S1(end=257.02)] now=251.02
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 150: entries=[S0(end=252.65), S1(end=257.02)] now=251.19
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 160: entries=[S0(end=252.65), S1(end=257.02)] now=251.35
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 170: entries=[S0(end=252.65), S1(end=257.02)] now=251.53
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 180: entries=[S0(end=252.65), S1(end=257.02)] now=251.70
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 190: entries=[S0(end=252.65), S1(end=257.02)] now=251.86
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 200: entries=[S0(end=252.65), S1(end=257.02)] now=252.03
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 210: entries=[S0(end=252.65), S1(end=257.02)] now=252.19
+n @ index-BzusWBC_.js:343
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":0,"totalParts":18,"audio":"S
+ [AUDIO CHUNK PART] sentence=2, chunk=0, part=0/18
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":1,"totalParts":18,"audio":"U
+ [AUDIO CHUNK PART] sentence=2, chunk=0, part=1/18
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":2,"totalParts":18,"audio":"u
+ [AUDIO CHUNK PART] sentence=2, chunk=0, part=2/18
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":3,"totalParts":18,"audio":"L
+ [AUDIO CHUNK PART] sentence=2, chunk=0, part=3/18
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":4,"totalParts":18,"audio":"n
+ [AUDIO CHUNK PART] sentence=2, chunk=0, part=4/18
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":5,"totalParts":18,"audio":"U
+ [AUDIO CHUNK PART] sentence=2, chunk=0, part=5/18
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":6,"totalParts":18,"audio":"H
+ [AUDIO CHUNK PART] sentence=2, chunk=0, part=6/18
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":7,"totalParts":18,"audio":"y
+ [AUDIO CHUNK PART] sentence=2, chunk=0, part=7/18
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":8,"totalParts":18,"audio":"9
+ [AUDIO CHUNK PART] sentence=2, chunk=0, part=8/18
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":9,"totalParts":18,"audio":"C
+ [AUDIO CHUNK PART] sentence=2, chunk=0, part=9/18
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":10,"totalParts":18,"audio":"
+ [AUDIO CHUNK PART] sentence=2, chunk=0, part=10/18
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":11,"totalParts":18,"audio":"
+ [AUDIO CHUNK PART] sentence=2, chunk=0, part=11/18
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":12,"totalParts":18,"audio":"
+ [AUDIO CHUNK PART] sentence=2, chunk=0, part=12/18
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":13,"totalParts":18,"audio":"
+ [AUDIO CHUNK PART] sentence=2, chunk=0, part=13/18
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":14,"totalParts":18,"audio":"
+ [AUDIO CHUNK PART] sentence=2, chunk=0, part=14/18
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":15,"totalParts":18,"audio":"
+ [AUDIO CHUNK PART] sentence=2, chunk=0, part=15/18
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":16,"totalParts":18,"audio":"
+ [AUDIO CHUNK PART] sentence=2, chunk=0, part=16/18
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":17,"totalParts":18,"audio":"
+ [AUDIO CHUNK PART] sentence=2, chunk=0, part=17/18
+ [AUDIO CHUNK PART] REASSEMBLED: 879756 bytes from 18 parts
+ [TELEMETRY] audio_chunk_reassembled Object
+ [TELEMETRY] audio_chunk_received Object
+ [HOOK handleAudioChunk] CALLED! sentence= 2 chunk= 0 audioLen= 879756
+ [AUDIO PLAYER] enqueueProgressivePcmChunk: sentence=2, chunk=0, size=659816, held=false
+ [SOCKET.IO onAny] EVENT: message TYPE: sentence_end HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: sentence_end data: {"type":"sentence_end","timestamp":1768859194277,"turnId":5,"sentenceIndex":2,"totalDurationMs":6873
+ [LOOP] Frame 220: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89)] now=252.35
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 230: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89)] now=252.52
+n @ index-BzusWBC_.js:343
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=true
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=true
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 240: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89)] now=252.69
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 250: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89)] now=252.85
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 260: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89)] now=253.02
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 270: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89)] now=253.19
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 280: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89)] now=253.35
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 290: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89)] now=253.53
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 300: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89)] now=253.70
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 310: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89)] now=253.86
+n @ index-BzusWBC_.js:343
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":3,"chunkIndex":0,"partIndex":0,"totalParts":13,"audio":"q
+ [AUDIO CHUNK PART] sentence=3, chunk=0, part=0/13
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":3,"chunkIndex":0,"partIndex":1,"totalParts":13,"audio":"R
+ [AUDIO CHUNK PART] sentence=3, chunk=0, part=1/13
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":3,"chunkIndex":0,"partIndex":2,"totalParts":13,"audio":"v
+ [AUDIO CHUNK PART] sentence=3, chunk=0, part=2/13
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":3,"chunkIndex":0,"partIndex":3,"totalParts":13,"audio":"f
+ [AUDIO CHUNK PART] sentence=3, chunk=0, part=3/13
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":3,"chunkIndex":0,"partIndex":4,"totalParts":13,"audio":"f
+ [AUDIO CHUNK PART] sentence=3, chunk=0, part=4/13
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":3,"chunkIndex":0,"partIndex":5,"totalParts":13,"audio":"Y
+ [AUDIO CHUNK PART] sentence=3, chunk=0, part=5/13
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":3,"chunkIndex":0,"partIndex":6,"totalParts":13,"audio":"d
+ [AUDIO CHUNK PART] sentence=3, chunk=0, part=6/13
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":3,"chunkIndex":0,"partIndex":7,"totalParts":13,"audio":"s
+ [AUDIO CHUNK PART] sentence=3, chunk=0, part=7/13
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":3,"chunkIndex":0,"partIndex":8,"totalParts":13,"audio":"0
+ [AUDIO CHUNK PART] sentence=3, chunk=0, part=8/13
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":3,"chunkIndex":0,"partIndex":9,"totalParts":13,"audio":"i
+ [AUDIO CHUNK PART] sentence=3, chunk=0, part=9/13
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":3,"chunkIndex":0,"partIndex":10,"totalParts":13,"audio":"
+ [AUDIO CHUNK PART] sentence=3, chunk=0, part=10/13
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":3,"chunkIndex":0,"partIndex":11,"totalParts":13,"audio":"
+ [AUDIO CHUNK PART] sentence=3, chunk=0, part=11/13
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":3,"chunkIndex":0,"partIndex":12,"totalParts":13,"audio":"
+ [AUDIO CHUNK PART] sentence=3, chunk=0, part=12/13
+ [AUDIO CHUNK PART] REASSEMBLED: 618204 bytes from 13 parts
+ [TELEMETRY] audio_chunk_reassembled Object
+ [TELEMETRY] audio_chunk_received Object
+ [HOOK handleAudioChunk] CALLED! sentence= 3 chunk= 0 audioLen= 618204
+ [AUDIO PLAYER] enqueueProgressivePcmChunk: sentence=3, chunk=0, size=463652, held=false
+ [SOCKET.IO onAny] EVENT: message TYPE: sentence_end HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: sentence_end data: {"type":"sentence_end","timestamp":1768859195832,"turnId":5,"sentenceIndex":3,"totalDurationMs":4829
+ [LOOP] Frame 320: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72)] now=254.04
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 330: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72)] now=254.20
+n @ index-BzusWBC_.js:343
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":4,"chunkIndex":0,"partIndex":0,"totalParts":4,"audio":"H1
+ [AUDIO CHUNK PART] sentence=4, chunk=0, part=0/4
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":4,"chunkIndex":0,"partIndex":1,"totalParts":4,"audio":"VM
+ [AUDIO CHUNK PART] sentence=4, chunk=0, part=1/4
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":4,"chunkIndex":0,"partIndex":2,"totalParts":4,"audio":"K9
+ [AUDIO CHUNK PART] sentence=4, chunk=0, part=2/4
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":4,"chunkIndex":0,"partIndex":3,"totalParts":4,"audio":"OJ
+ [AUDIO CHUNK PART] sentence=4, chunk=0, part=3/4
+ [AUDIO CHUNK PART] REASSEMBLED: 190216 bytes from 4 parts
+ [TELEMETRY] audio_chunk_reassembled Object
+ [TELEMETRY] audio_chunk_received Object
+ [HOOK handleAudioChunk] CALLED! sentence= 4 chunk= 0 audioLen= 190216
+ [AUDIO PLAYER] enqueueProgressivePcmChunk: sentence=4, chunk=0, size=142660, held=false
+ [SOCKET.IO onAny] EVENT: message TYPE: sentence_end HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: sentence_end data: {"type":"sentence_end","timestamp":1768859196296,"turnId":5,"sentenceIndex":4,"totalDurationMs":1486
+ [SOCKET.IO onAny] EVENT: message TYPE: response_complete HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: response_complete data: {"type":"response_complete","timestamp":1768859196299,"turnId":5,"totalSentences":5,"totalDurationMs
+ [STREAMING] Response complete - refreshing messages for d7a32fc9-dc0d-47b3-8001-bc847aa67557
+ [STREAMING] Storing combined audio for replay: 2037400 bytes
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [Voice Lab] Sent voice override to server: null
+ [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [SOCKET.IO onAny] EVENT: message TYPE: voice_override_applied HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: voice_override_applied data: {"type":"voice_override_applied","timestamp":1768859196360,"override":null}
+ [LOOP] Frame 340: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=254.41
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 350: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=254.55
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 360: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=254.73
+n @ index-BzusWBC_.js:343
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 370: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=254.90
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 380: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=255.06
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 390: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=255.23
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 400: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=255.39
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 410: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=255.55
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 420: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=255.72
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 430: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=255.89
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 440: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=256.05
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 450: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=256.22
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 460: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=256.39
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 470: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=256.55
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 480: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=256.73
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 490: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=256.90
+n @ index-BzusWBC_.js:343
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 500: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=257.06
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 510: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=257.23
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 520: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=257.39
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 530: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=257.55
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 540: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=257.72
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 550: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=257.89
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 560: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=258.05
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 570: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=258.22
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 580: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=258.39
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 590: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=258.55
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 600: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=258.73
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 610: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=258.90
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 620: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=259.06
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 630: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=259.23
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 640: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=259.39
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 650: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=259.55
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 660: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=259.72
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 670: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=259.89
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 680: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=260.05
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 690: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=260.22
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 700: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=260.39
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 710: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=260.55
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 720: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=260.73
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 730: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=260.90
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 740: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=261.06
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 750: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=261.23
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 760: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=261.39
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 770: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=261.55
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 780: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=261.72
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 790: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=261.89
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 800: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=262.05
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 810: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=262.22
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 820: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=262.39
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 830: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=262.55
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 840: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=262.73
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 850: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=262.90
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 860: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=263.06
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 870: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=263.23
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 880: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=263.39
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 890: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=263.55
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 900: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=263.72
+n @ index-BzusWBC_.js:343
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 910: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=263.89
+n @ index-BzusWBC_.js:343
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 920: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=264.05
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 930: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=264.22
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 940: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=264.39
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 950: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=264.55
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 960: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=264.73
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 970: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=264.90
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 980: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=265.06
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 990: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=265.23
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 1000: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=265.39
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 1010: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=265.55
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 1020: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=265.72
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 1030: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=265.89
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 1040: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=266.05
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 1050: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=266.22
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 1060: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=266.39
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 1070: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=266.55
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 1080: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=266.73
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 1090: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=266.90
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 1100: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=267.06
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 1110: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=267.23
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 1120: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=267.39
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 1130: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=267.55
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 1140: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=267.72
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 1150: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=267.89
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 1160: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=268.05
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 1170: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=268.22
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 1180: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=268.39
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 1190: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=268.55
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 1200: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=268.73
+n @ index-BzusWBC_.js:343
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 1210: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=268.90
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 1220: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=269.06
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 1230: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=269.23
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 1240: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=269.39
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 1250: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=269.55
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 1260: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=269.72
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 1270: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=269.89
+n @ index-BzusWBC_.js:343
+ [LOOP] Frame 1280: entries=[S0(end=252.65), S1(end=257.02), S2(end=263.89), S3(end=268.72), S4(end=270.21)] now=270.05
+n @ index-BzusWBC_.js:343
+ [AUDIO PLAYER] State change: buffering -> idle (subscribers: 1)
+ [GLOBAL PLAYBACK STORE] State change: buffering -> idle (listeners: 1)
+ [TELEMETRY] playback_state_change Object
+ [DOM EVENT BRIDGE] Received state: idle, subscribers: 1, ts: 1768859207497
+ [DOM EVENT DISPATCH] idle (subscribers: 1)
+ [AUDIO PLAYER] notifyStateChange: idle to 1 subscribers: [cb_1768858919226_pnqo]
+ [PLAYBACK CALLBACK cb_1768858919226_pnqo] onStateChange: idle Object
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [IMMERSIVE TUTOR STATE] playbackState: buffering (global: idle , prop: buffering )
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Hold to speak" isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=false
+ [IMMERSIVE TUTOR STATE] playbackState: idle (global: idle , prop: idle )
+ [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+ [AVATAR SYNC DEBUG] Object
+ [STREAMING VOICE CHAT DEBUG] playbackState changed: idle
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Hold to speak" isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [PTT-POINTER-DEBUG] Pointer down, pointerType: mouse isUsersTurn: true playbackState: idle isPointerRecordingRef: false
+ [PUSH-TO-TALK] Button pressed at 303544 ms, inputType: mouse
+ [PTT-STATE-DEBUG] Setting isPttButtonHeld=TRUE at 2026-01-19T21:46:49.182Z
+ [PUSH-TO-TALK] Cached stream status: Object
+ [PUSH-TO-TALK] Using cached stream - INSTANT start! (+0ms)
+ [PTT DIAGNOSTIC] Audio tracks: 1
+ [PTT DIAGNOSTIC] Track 0 settings: Object
+ [PTT DIAGNOSTIC] Track 0 constraints: Object
+ [PTT DIAGNOSTIC] Track 0 capabilities: Object
+ [PTT DIAGNOSTIC] Track 0 state: Object
+ [RECORDING] Using audio codec: audio/webm;codecs=opus
+ [PTT DIAGNOSTIC] MediaRecorder created: Object
+ [StreamingAudioPlayer] Playback held - buffering audio
+ [SpeculativePTT] AudioContext sample rate: 16000Hz (target: 16000Hz, resampling: false)
+ [SpeculativePTT] Real-time streaming started
+ [PUSH-TO-TALK] Recording started - release to stop
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=true isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+ [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+ [AVATAR SYNC DEBUG] Object
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=true isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_speech_started HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_speech_started data: {"type":"ptt_speech_started","timestamp":1768859214489}
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859215004,"text":"Right, dear.","wordCount":2}
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859216158,"text":"Right. If the student","wordCount
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859217081,"text":"Right. If the student isn't curio
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859218111,"text":"Right. If the student isn't curio
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_speech_started HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_speech_started data: {"type":"ptt_speech_started","timestamp":1768859219077}
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859219158,"text":"Right. If the student isn't curio
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859220397,"text":"Right. If the student isn't curio
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859221419,"text":"Right. If the student isn't curio
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859222452,"text":"Right. If the student isn't curio
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_speech_started HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_speech_started data: {"type":"ptt_speech_started","timestamp":1768859223166}
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859223242,"text":"Right. If the student isn't curio
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859223976,"text":"Right. If the student isn't curio
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859225032,"text":"Right. If the student isn't curio
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768859226035,"text":"Right. If the student isn't curio
+ [StreamingVoice] Socket.io disconnect: transport close
+ [StreamingVoice] Error: Object
+(anonymous) @ chat-BCE06nbC.js:9
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Calling Daniela..." isPttButtonHeld=true isRecording=true isPlaying=false isUsersTurn=false isProcessing=false
+ [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+ [AVATAR SYNC DEBUG] Object
+ [STREAMING] Error: Connection lost. Reconnecting... (1/3)
+(anonymous) @ chat-BCE06nbC.js:9
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Calling Daniela..." isPttButtonHeld=true isRecording=true isPlaying=false isUsersTurn=false isProcessing=false
+chat-BCE06nbC.js:9 [AVATAR SYNC DEBUG] Object
+chat-BCE06nbC.js:9 [STREAMING] Error: Connection lost. Reconnecting... (1/3)
+(anonymous) @ chat-BCE06nbC.js:9
+index-BzusWBC_.js:343 [StreamingVoice] Creating Socket.io connection to /voice namespace...
+chat-BCE06nbC.js:9 [IMMERSIVE AVATAR DEBUG] Object
+chat-BCE06nbC.js:9 [INSTRUCTION DEBUG] text="Calling Daniela..." isPttButtonHeld=true isRecording=true isPlaying=false isUsersTurn=false isProcessing=false
+chat-BCE06nbC.js:9 [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+chat-BCE06nbC.js:9 [AVATAR SYNC DEBUG] Object
+chat-BCE06nbC.js:9 [STREAMING] Error: Connection lost. Reconnecting... (1/3)
+(anonymous) @ chat-BCE06nbC.js:9
+index-BzusWBC_.js:343 [StreamingVoice] Socket.io connect event fired!
+index-BzusWBC_.js:343 [StreamingVoice] Connection complete via: connect
+chat-BCE06nbC.js:9 [IMMERSIVE AVATAR DEBUG] Object
+chat-BCE06nbC.js:9 [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=true isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+chat-BCE06nbC.js:9 [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+chat-BCE06nbC.js:9 [AVATAR SYNC DEBUG] Object
+chat-BCE06nbC.js:9 [STREAMING] Error: Connection lost. Reconnecting... (1/3)
+(anonymous) @ chat-BCE06nbC.js:9
+index-BzusWBC_.js:343 [SOCKET.IO onAny] EVENT: message TYPE: connected HAS AUDIO: false
+index-BzusWBC_.js:343 [WS SOCKET ON MESSAGE] Received: connected data: {"type":"connected","timestamp":1768859227564}
+index-BzusWBC_.js:343 [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+index-BzusWBC_.js:343 [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859227769,"code":"UNKNOWN","message":"Session not ready for streamin
+chat-BCE06nbC.js:9 [StreamingVoice] Error: Error: Session not ready for streaming
+    at c0.handleError (index-BzusWBC_.js:343:94334)
+    at c0.handleSocketMessage (index-BzusWBC_.js:343:89856)
+    at JE.<anonymous> (index-BzusWBC_.js:343:84563)
+    at _e.emit (index-BzusWBC_.js:343:12085)
+    at JE.emitEvent (index-BzusWBC_.js:343:41327)
+    at JE.onevent (index-BzusWBC_.js:343:41130)
+    at JE.onpacket (index-BzusWBC_.js:343:40798)
+    at _e.emit (index-BzusWBC_.js:343:12085)
+    at index-BzusWBC_.js:343:46861
+(anonymous) @ chat-BCE06nbC.js:9
+chat-BCE06nbC.js:9 [IMMERSIVE AVATAR DEBUG] Object
+chat-BCE06nbC.js:9 [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=true isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+chat-BCE06nbC.js:9 [Voice Lab] Sent voice override to server: null
+chat-BCE06nbC.js:9 [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+chat-BCE06nbC.js:9 [AVATAR SYNC DEBUG] Object
+chat-BCE06nbC.js:9 [STREAMING] Error: Session not ready for streaming
+(anonymous) @ chat-BCE06nbC.js:9
+chat-BCE06nbC.js:9 [IMMERSIVE AVATAR DEBUG] Object
+chat-BCE06nbC.js:9 [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=true isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+chat-BCE06nbC.js:9 [AVATAR SYNC DEBUG] Object
+chat-BCE06nbC.js:9 [STREAMING] Error: Session not ready for streaming
+(anonymous) @ chat-BCE06nbC.js:9
+index-BzusWBC_.js:343 [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+index-BzusWBC_.js:343 [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859228026,"code":"UNKNOWN","message":"Session not ready for streamin
+chat-BCE06nbC.js:9 [StreamingVoice] Error: Error: Session not ready for streaming
+    at c0.handleError (index-BzusWBC_.js:343:94334)
+    at c0.handleSocketMessage (index-BzusWBC_.js:343:89856)
+    at JE.<anonymous> (index-BzusWBC_.js:343:84563)
+    at _e.emit (index-BzusWBC_.js:343:12085)
+    at JE.emitEvent (index-BzusWBC_.js:343:41327)
+    at JE.onevent (index-BzusWBC_.js:343:41130)
+    at JE.onpacket (index-BzusWBC_.js:343:40798)
+    at _e.emit (index-BzusWBC_.js:343:12085)
+    at index-BzusWBC_.js:343:46861
+(anonymous) @ chat-BCE06nbC.js:9
+index-BzusWBC_.js:343 [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+index-BzusWBC_.js:343 [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859228274,"code":"UNKNOWN","message":"Session not ready for streamin
+chat-BCE06nbC.js:9 [StreamingVoice] Error: Error: Session not ready for streaming
+    at c0.handleError (index-BzusWBC_.js:343:94334)
+    at c0.handleSocketMessage (index-BzusWBC_.js:343:89856)
+    at JE.<anonymous> (index-BzusWBC_.js:343:84563)
+    at _e.emit (index-BzusWBC_.js:343:12085)
+    at JE.emitEvent (index-BzusWBC_.js:343:41327)
+    at JE.onevent (index-BzusWBC_.js:343:41130)
+    at JE.onpacket (index-BzusWBC_.js:343:40798)
+    at _e.emit (index-BzusWBC_.js:343:12085)
+    at index-BzusWBC_.js:343:46861
+(anonymous) @ chat-BCE06nbC.js:9
+index-BzusWBC_.js:343 [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+index-BzusWBC_.js:343 [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859228534,"code":"UNKNOWN","message":"Session not ready for streamin
+chat-BCE06nbC.js:9 [StreamingVoice] Error: Error: Session not ready for streaming
+    at c0.handleError (index-BzusWBC_.js:343:94334)
+    at c0.handleSocketMessage (index-BzusWBC_.js:343:89856)
+    at JE.<anonymous> (index-BzusWBC_.js:343:84563)
+    at _e.emit (index-BzusWBC_.js:343:12085)
+    at JE.emitEvent (index-BzusWBC_.js:343:41327)
+    at JE.onevent (index-BzusWBC_.js:343:41130)
+    at JE.onpacket (index-BzusWBC_.js:343:40798)
+    at _e.emit (index-BzusWBC_.js:343:12085)
+    at index-BzusWBC_.js:343:46861
+(anonymous) @ chat-BCE06nbC.js:9
+index-BzusWBC_.js:343 [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+index-BzusWBC_.js:343 [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859228783,"code":"UNKNOWN","message":"Session not ready for streamin
+chat-BCE06nbC.js:9 [StreamingVoice] Error: Error: Session not ready for streaming
+    at c0.handleError (index-BzusWBC_.js:343:94334)
+    at c0.handleSocketMessage (index-BzusWBC_.js:343:89856)
+    at JE.<anonymous> (index-BzusWBC_.js:343:84563)
+    at _e.emit (index-BzusWBC_.js:343:12085)
+    at JE.emitEvent (index-BzusWBC_.js:343:41327)
+    at JE.onevent (index-BzusWBC_.js:343:41130)
+    at JE.onpacket (index-BzusWBC_.js:343:40798)
+    at _e.emit (index-BzusWBC_.js:343:12085)
+    at index-BzusWBC_.js:343:46861
+(anonymous) @ chat-BCE06nbC.js:9
+index-BzusWBC_.js:343 [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+index-BzusWBC_.js:343 [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859229044,"code":"UNKNOWN","message":"Session not ready for streamin
+chat-BCE06nbC.js:9 [StreamingVoice] Error: Error: Session not ready for streaming
+    at c0.handleError (index-BzusWBC_.js:343:94334)
+    at c0.handleSocketMessage (index-BzusWBC_.js:343:89856)
+    at JE.<anonymous> (index-BzusWBC_.js:343:84563)
+    at _e.emit (index-BzusWBC_.js:343:12085)
+    at JE.emitEvent (index-BzusWBC_.js:343:41327)
+    at JE.onevent (index-BzusWBC_.js:343:41130)
+    at JE.onpacket (index-BzusWBC_.js:343:40798)
+    at _e.emit (index-BzusWBC_.js:343:12085)
+    at index-BzusWBC_.js:343:46861
+(anonymous) @ chat-BCE06nbC.js:9
+index-BzusWBC_.js:343 [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+index-BzusWBC_.js:343 [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859229304,"code":"UNKNOWN","message":"Session not ready for streamin
+chat-BCE06nbC.js:9 [StreamingVoice] Error: Error: Session not ready for streaming
+    at c0.handleError (index-BzusWBC_.js:343:94334)
+    at c0.handleSocketMessage (index-BzusWBC_.js:343:89856)
+    at JE.<anonymous> (index-BzusWBC_.js:343:84563)
+    at _e.emit (index-BzusWBC_.js:343:12085)
+    at JE.emitEvent (index-BzusWBC_.js:343:41327)
+    at JE.onevent (index-BzusWBC_.js:343:41130)
+    at JE.onpacket (index-BzusWBC_.js:343:40798)
+    at _e.emit (index-BzusWBC_.js:343:12085)
+    at index-BzusWBC_.js:343:46861
+(anonymous) @ chat-BCE06nbC.js:9
+index-BzusWBC_.js:343 [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+index-BzusWBC_.js:343 [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859229554,"code":"UNKNOWN","message":"Session not ready for streamin
+chat-BCE06nbC.js:9 [StreamingVoice] Error: Error: Session not ready for streaming
+    at c0.handleError (index-BzusWBC_.js:343:94334)
+    at c0.handleSocketMessage (index-BzusWBC_.js:343:89856)
+    at JE.<anonymous> (index-BzusWBC_.js:343:84563)
+    at _e.emit (index-BzusWBC_.js:343:12085)
+    at JE.emitEvent (index-BzusWBC_.js:343:41327)
+    at JE.onevent (index-BzusWBC_.js:343:41130)
+    at JE.onpacket (index-BzusWBC_.js:343:40798)
+    at _e.emit (index-BzusWBC_.js:343:12085)
+    at index-BzusWBC_.js:343:46861
+(anonymous) @ chat-BCE06nbC.js:9
+index-BzusWBC_.js:343 [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+index-BzusWBC_.js:343 [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859229813,"code":"UNKNOWN","message":"Session not ready for streamin
+chat-BCE06nbC.js:9 [StreamingVoice] Error: Error: Session not ready for streaming
+    at c0.handleError (index-BzusWBC_.js:343:94334)
+    at c0.handleSocketMessage (index-BzusWBC_.js:343:89856)
+    at JE.<anonymous> (index-BzusWBC_.js:343:84563)
+    at _e.emit (index-BzusWBC_.js:343:12085)
+    at JE.emitEvent (index-BzusWBC_.js:343:41327)
+    at JE.onevent (index-BzusWBC_.js:343:41130)
+    at JE.onpacket (index-BzusWBC_.js:343:40798)
+    at _e.emit (index-BzusWBC_.js:343:12085)
+    at index-BzusWBC_.js:343:46861
+(anonymous) @ chat-BCE06nbC.js:9
+ [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859230063,"code":"UNKNOWN","message":"Session not ready for streamin
+ [StreamingVoice] Error: 
+(anonymous) @ chat-BCE06nbC.js:9
+ [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859230324,"code":"UNKNOWN","message":"Session not ready for streamin
+ [StreamingVoice] Error: 
+(anonymous) @ chat-BCE06nbC.js:9
+ [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859230583,"code":"UNKNOWN","message":"Session not ready for streamin
+ [StreamingVoice] Error: 
+(anonymous) @ chat-BCE06nbC.js:9
+ [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859230834,"code":"UNKNOWN","message":"Session not ready for streamin
+ [StreamingVoice] Error: 
+(anonymous) @ chat-BCE06nbC.js:9
+ [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859231093,"code":"UNKNOWN","message":"Session not ready for streamin
+ [StreamingVoice] Error: 
+(anonymous) @ chat-BCE06nbC.js:9
+ [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859231343,"code":"UNKNOWN","message":"Session not ready for streamin
+ [StreamingVoice] Error: 
+(anonymous) @ chat-BCE06nbC.js:9
+ [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859231605,"code":"UNKNOWN","message":"Session not ready for streamin
+ [StreamingVoice] Error: 
+(anonymous) @ chat-BCE06nbC.js:9
+ [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859231864,"code":"UNKNOWN","message":"Session not ready for streamin
+ [StreamingVoice] Error: 
+(anonymous) @ chat-BCE06nbC.js:9
+ [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859232117,"code":"UNKNOWN","message":"Session not ready for streamin
+ [StreamingVoice] Error: 
+(anonymous) @ chat-BCE06nbC.js:9
+ [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859232374,"code":"UNKNOWN","message":"Session not ready for streamin
+ [StreamingVoice] Error: 
+(anonymous) @ chat-BCE06nbC.js:9
+ [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859232624,"code":"UNKNOWN","message":"Session not ready for streamin
+ [StreamingVoice] Error: 
+(anonymous) @ chat-BCE06nbC.js:9
+ [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859232884,"code":"UNKNOWN","message":"Session not ready for streamin
+ [StreamingVoice] Error: 
+(anonymous) @ chat-BCE06nbC.js:9
+ [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859233144,"code":"UNKNOWN","message":"Session not ready for streamin
+ [StreamingVoice] Error: 
+(anonymous) @ chat-BCE06nbC.js:9
+ [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859233394,"code":"UNKNOWN","message":"Session not ready for streamin
+ [StreamingVoice] Error: 
+(anonymous) @ chat-BCE06nbC.js:9
+ [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859233654,"code":"UNKNOWN","message":"Session not ready for streamin
+ [StreamingVoice] Error: 
+(anonymous) @ chat-BCE06nbC.js:9
+ [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859233904,"code":"UNKNOWN","message":"Session not ready for streamin
+ [StreamingVoice] Error: 
+(anonymous) @ chat-BCE06nbC.js:9
+ [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859234165,"code":"UNKNOWN","message":"Session not ready for streamin
+ [StreamingVoice] Error: 
+(anonymous) @ chat-BCE06nbC.js:9
+ [MIC BUTTON] Pointer up on button (global handler will process)
+ [PTT-POINTER-DEBUG] Global pointerup fired, pointerType: mouse isPointerRecordingRef: true pttPointerTypeRef: mouse
+ [MIC BUTTON] Global pointer up - stopping recording
+ [PTT-STOP-DEBUG] Stop requested, inputType: mouse activeInputType: mouse isHeld: true
+ [PTT-STOP-DEBUG] Guard passed, proceeding...
+ [PUSH-TO-TALK] Releasing button, stopping recording...
+ [PTT-STATE-DEBUG] Setting isPttButtonHeld=FALSE at 2026-01-19T21:47:09.572Z call stack: Error
+    at Object.qt [as current] (https://getholahola.com/assets/chat-BCE06nbC.js:9:82679)
+    at r (https://getholahola.com/assets/chat-BCE06nbC.js:9:3850)
+ [StreamingAudioPlayer] Playback released - processing 0 buffered chunks
+ [SpeculativePTT] Stopped streaming and sent ptt_release (skipping audio blob)
+ [PUSH-TO-TALK] Resetting subtitles immediately on button release
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=false isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+ [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+ [AVATAR SYNC DEBUG] Object
+ [STREAMING] Error: Session not ready for streaming
+(anonymous) @ chat-BCE06nbC.js:9
+ [PTT DIAGNOSTIC] ondataavailable #1: size=329746 bytes, type=audio/webm;codecs=opus
+ [PTT DIAGNOSTIC] Recording stopped: Object
+ [PUSH-TO-TALK] Stopped, processing audio...
+ [PUSH-TO-TALK] Resetting subtitles immediately
+ [PTT DIAGNOSTIC] Final blob: Object
+ [PUSH-TO-TALK] SKIP audio blob - ptt_release already sent transcript to server
+ [PUSH-TO-TALK] Keeping isProcessing=true for thinking animation
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=true
+ [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+ [AVATAR SYNC DEBUG] Object
+ [STREAMING] Error: Session not ready for streaming
+(anonymous) @ chat-BCE06nbC.js:9
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Hold to speak" isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=false
+ [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+ [AVATAR SYNC DEBUG] Object
+ [STREAMING] Error: Session not ready for streaming
+(anonymous) @ chat-BCE06nbC.js:9
+ [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859234308,"code":"UNKNOWN","message":"Session not ready","recoverabl
+ [StreamingVoice] Error: 
+(anonymous) @ chat-BCE06nbC.js:9
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Hold to speak" isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=false
+ [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+ [AVATAR SYNC DEBUG] Object
+ [STREAMING] Error: Session not ready
+(anonymous) @ chat-BCE06nbC.js:9
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Hold to speak" isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [STREAMING] Error: Session not ready
+(anonymous) @ chat-BCE06nbC.js:9
+ [MIC WARMUP] Re-warmed for next recording
+ [PTT-POINTER-DEBUG] Pointer down, pointerType: mouse isUsersTurn: true playbackState: idle isPointerRecordingRef: false
+ [PUSH-TO-TALK] Button pressed at 329900 ms, inputType: mouse
+ [PTT-STATE-DEBUG] Setting isPttButtonHeld=TRUE at 2026-01-19T21:47:15.538Z
+ [PUSH-TO-TALK] Cached stream status: Object
+ [PUSH-TO-TALK] Using cached stream - INSTANT start! (+0ms)
+ [PTT DIAGNOSTIC] Audio tracks: 1
+ [PTT DIAGNOSTIC] Track 0 settings: Object
+ [PTT DIAGNOSTIC] Track 0 constraints: Object
+ [PTT DIAGNOSTIC] Track 0 capabilities: Object
+ [PTT DIAGNOSTIC] Track 0 state: Object
+ [RECORDING] Using audio codec: audio/webm;codecs=opus
+ [PTT DIAGNOSTIC] MediaRecorder created: Object
+ [StreamingAudioPlayer] Playback held - buffering audio
+ [SpeculativePTT] AudioContext sample rate: 16000Hz (target: 16000Hz, resampling: false)
+ [SpeculativePTT] Real-time streaming started
+ [PUSH-TO-TALK] Recording started - release to stop
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=true isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+ [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+ [AVATAR SYNC DEBUG] Object
+ [STREAMING] Error: Session not ready
+(anonymous) @ chat-BCE06nbC.js:9
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=true isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [STREAMING] Error: Session not ready
+(anonymous) @ chat-BCE06nbC.js:9
+ [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859240575,"code":"UNKNOWN","message":"Session not ready for streamin
+ [StreamingVoice] Error: 
+(anonymous) @ chat-BCE06nbC.js:9
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=true isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+ [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+ [AVATAR SYNC DEBUG] Object
+ [STREAMING] Error: Session not ready for streaming
+(anonymous) @ chat-BCE06nbC.js:9
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=true isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [STREAMING] Error: Session not ready for streaming
+(anonymous) @ chat-BCE06nbC.js:9
+ [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859240833,"code":"UNKNOWN","message":"Session not ready for streamin
+ [StreamingVoice] Error: 
+(anonymous) @ chat-BCE06nbC.js:9
+ [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859241083,"code":"UNKNOWN","message":"Session not ready for streamin
+ [StreamingVoice] Error: 
+(anonymous) @ chat-BCE06nbC.js:9
+ [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859241343,"code":"UNKNOWN","message":"Session not ready for streamin
+ [StreamingVoice] Error: 
+(anonymous) @ chat-BCE06nbC.js:9
+ [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859241604,"code":"UNKNOWN","message":"Session not ready for streamin
+ [StreamingVoice] Error: 
+(anonymous) @ chat-BCE06nbC.js:9
+ [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859241854,"code":"UNKNOWN","message":"Session not ready for streamin
+ [StreamingVoice] Error: 
+(anonymous) @ chat-BCE06nbC.js:9
+ [MIC BUTTON] Pointer up on button (global handler will process)
+ [PTT-POINTER-DEBUG] Global pointerup fired, pointerType: mouse isPointerRecordingRef: true pttPointerTypeRef: mouse
+ [MIC BUTTON] Global pointer up - stopping recording
+ [PTT-STOP-DEBUG] Stop requested, inputType: mouse activeInputType: mouse isHeld: true
+ [PTT-STOP-DEBUG] Guard passed, proceeding...
+ [PUSH-TO-TALK] Releasing button, stopping recording...
+ [PTT-STATE-DEBUG] Setting isPttButtonHeld=FALSE at 2026-01-19T21:47:17.185Z call stack: Error
+    at Object.qt [as current] (https://getholahola.com/assets/chat-BCE06nbC.js:9:82679)
+    at r (https://getholahola.com/assets/chat-BCE06nbC.js:9:3850)
+ [StreamingAudioPlayer] Playback released - processing 0 buffered chunks
+ [SpeculativePTT] Stopped streaming and sent ptt_release (skipping audio blob)
+ [PUSH-TO-TALK] Resetting subtitles immediately on button release
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=false isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+ [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+ [AVATAR SYNC DEBUG] Object
+ [STREAMING] Error: Session not ready for streaming
+(anonymous) @ chat-BCE06nbC.js:9
+ [PTT DIAGNOSTIC] ondataavailable #1: size=26542 bytes, type=audio/webm;codecs=opus
+ [PTT DIAGNOSTIC] Recording stopped: Object
+ [PUSH-TO-TALK] Stopped, processing audio...
+ [PUSH-TO-TALK] Resetting subtitles immediately
+ [PTT DIAGNOSTIC] Final blob: Object
+ [PUSH-TO-TALK] SKIP audio blob - ptt_release already sent transcript to server
+ [PUSH-TO-TALK] Keeping isProcessing=true for thinking animation
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=true
+ [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+ [AVATAR SYNC DEBUG] Object
+ [STREAMING] Error: Session not ready for streaming
+(anonymous) @ chat-BCE06nbC.js:9
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Hold to speak" isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=false
+ [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+ [AVATAR SYNC DEBUG] Object
+ [STREAMING] Error: Session not ready for streaming
+(anonymous) @ chat-BCE06nbC.js:9
+ [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859241920,"code":"UNKNOWN","message":"Session not ready","recoverabl
+ [StreamingVoice] Error: 
+(anonymous) @ chat-BCE06nbC.js:9
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Hold to speak" isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=false
+ [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+ [AVATAR SYNC DEBUG] Object
+ [STREAMING] Error: Session not ready
+(anonymous) @ chat-BCE06nbC.js:9
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Hold to speak" isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [STREAMING] Error: Session not ready
+(anonymous) @ chat-BCE06nbC.js:9
+ [MIC WARMUP] Re-warmed for next recording
+6chat:1 Uncaught (in promise) 
+ [StreamingVoice] Socket.io disconnect: transport close
+ [StreamingVoice] Error: Object
+(anonymous) @ chat-BCE06nbC.js:9
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Calling Daniela..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=false
+ [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+ [AVATAR SYNC DEBUG] Object
+ [STREAMING] Error: Connection lost. Reconnecting... (1/3)
+(anonymous) @ chat-BCE06nbC.js:9
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Calling Daniela..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [STREAMING] Error: Connection lost. Reconnecting... (1/3)
+(anonymous) @ chat-BCE06nbC.js:9
+ [StreamingVoice] Creating Socket.io connection to /voice namespace...
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Calling Daniela..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=false
+ [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+ [AVATAR SYNC DEBUG] Object
+ [STREAMING] Error: Connection lost. Reconnecting... (1/3)
+(anonymous) @ chat-BCE06nbC.js:9
+ [StreamingVoice] Socket.io connect event fired!
+ [StreamingVoice] Connection complete via: connect
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Hold to speak" isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=false
+ [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+ [AVATAR SYNC DEBUG] Object
+ [STREAMING] Error: Connection lost. Reconnecting... (1/3)
+(anonymous) @ chat-BCE06nbC.js:9
+ [SOCKET.IO onAny] EVENT: message TYPE: connected HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: connected data: {"type":"connected","timestamp":1768859309301}
+ [PTT-POINTER-DEBUG] Pointer down, pointerType: mouse isUsersTurn: true playbackState: idle isPointerRecordingRef: false
+ [PUSH-TO-TALK] Button pressed at 450490 ms, inputType: mouse
+ [PTT-STATE-DEBUG] Setting isPttButtonHeld=TRUE at 2026-01-19T21:49:16.133Z
+ [PUSH-TO-TALK] Cached stream status: Object
+ [PUSH-TO-TALK] Using cached stream - INSTANT start! (+0ms)
+ [PTT DIAGNOSTIC] Audio tracks: 1
+ [PTT DIAGNOSTIC] Track 0 settings: Object
+ [PTT DIAGNOSTIC] Track 0 constraints: Object
+ [PTT DIAGNOSTIC] Track 0 capabilities: Object
+ [PTT DIAGNOSTIC] Track 0 state: Object
+ [RECORDING] Using audio codec: audio/webm;codecs=opus
+ [PTT DIAGNOSTIC] MediaRecorder created: Object
+ [StreamingAudioPlayer] Playback held - buffering audio
+ [SpeculativePTT] AudioContext sample rate: 16000Hz (target: 16000Hz, resampling: false)
+ [SpeculativePTT] Real-time streaming started
+ [PUSH-TO-TALK] Recording started - release to stop
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=true isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+ [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+ [AVATAR SYNC DEBUG] Object
+ [STREAMING] Error: Connection lost. Reconnecting... (1/3)
+(anonymous) @ chat-BCE06nbC.js:9
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=true isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [STREAMING] Error: Connection lost. Reconnecting... (1/3)
+(anonymous) @ chat-BCE06nbC.js:9
+ [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859361165,"code":"UNKNOWN","message":"Session not ready for streamin
+ [StreamingVoice] Error: 
+(anonymous) @ chat-BCE06nbC.js:9
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=true isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+ [Voice Lab] Sent voice override to server: null
+ [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+ [AVATAR SYNC DEBUG] Object
+ [STREAMING] Error: Session not ready for streaming
+(anonymous) @ chat-BCE06nbC.js:9
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=true isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [STREAMING] Error: Session not ready for streaming
+(anonymous) @ chat-BCE06nbC.js:9
+ [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859361422,"code":"UNKNOWN","message":"Session not ready for streamin
+ [StreamingVoice] Error: 
+(anonymous) @ chat-BCE06nbC.js:9
+ [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859361672,"code":"UNKNOWN","message":"Session not ready for streamin
+ [StreamingVoice] Error: 
+(anonymous) @ chat-BCE06nbC.js:9
+ [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859361931,"code":"UNKNOWN","message":"Session not ready for streamin
+ [StreamingVoice] Error: 
+(anonymous) @ chat-BCE06nbC.js:9
+index-BzusWBC_.js:343 [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+index-BzusWBC_.js:343 [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859362191,"code":"UNKNOWN","message":"Session not ready for streamin
+chat-BCE06nbC.js:9 [StreamingVoice] Error: Error: Session not ready for streaming
+    at c0.handleError (index-BzusWBC_.js:343:94334)
+    at c0.handleSocketMessage (index-BzusWBC_.js:343:89856)
+    at JE.<anonymous> (index-BzusWBC_.js:343:84563)
+    at _e.emit (index-BzusWBC_.js:343:12085)
+    at JE.emitEvent (index-BzusWBC_.js:343:41327)
+    at JE.onevent (index-BzusWBC_.js:343:41130)
+    at JE.onpacket (index-BzusWBC_.js:343:40798)
+    at _e.emit (index-BzusWBC_.js:343:12085)
+    at index-BzusWBC_.js:343:46861
+(anonymous) @ chat-BCE06nbC.js:9
+index-BzusWBC_.js:343 [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+index-BzusWBC_.js:343 [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859362439,"code":"UNKNOWN","message":"Session not ready for streamin
+chat-BCE06nbC.js:9 [StreamingVoice] Error: Error: Session not ready for streaming
+    at c0.handleError (index-BzusWBC_.js:343:94334)
+    at c0.handleSocketMessage (index-BzusWBC_.js:343:89856)
+    at JE.<anonymous> (index-BzusWBC_.js:343:84563)
+    at _e.emit (index-BzusWBC_.js:343:12085)
+    at JE.emitEvent (index-BzusWBC_.js:343:41327)
+    at JE.onevent (index-BzusWBC_.js:343:41130)
+    at JE.onpacket (index-BzusWBC_.js:343:40798)
+    at _e.emit (index-BzusWBC_.js:343:12085)
+    at index-BzusWBC_.js:343:46861
+(anonymous) @ chat-BCE06nbC.js:9
+chat-BCE06nbC.js:9 [MIC BUTTON] Pointer up on button (global handler will process)
+chat-BCE06nbC.js:9 [PTT-POINTER-DEBUG] Global pointerup fired, pointerType: mouse isPointerRecordingRef: true pttPointerTypeRef: mouse
+chat-BCE06nbC.js:9 [MIC BUTTON] Global pointer up - stopping recording
+chat-BCE06nbC.js:9 [PTT-STOP-DEBUG] Stop requested, inputType: mouse activeInputType: mouse isHeld: true
+chat-BCE06nbC.js:9 [PTT-STOP-DEBUG] Guard passed, proceeding...
+chat-BCE06nbC.js:9 [PUSH-TO-TALK] Releasing button, stopping recording...
+chat-BCE06nbC.js:9 [PTT-STATE-DEBUG] Setting isPttButtonHeld=FALSE at 2026-01-19T21:49:17.971Z call stack: Error
+    at Object.qt [as current] (https://getholahola.com/assets/chat-BCE06nbC.js:9:82679)
+    at r (https://getholahola.com/assets/chat-BCE06nbC.js:9:3850)
+index-BzusWBC_.js:343 [StreamingAudioPlayer] Playback released - processing 0 buffered chunks
+chat-BCE06nbC.js:9 [SpeculativePTT] Stopped streaming and sent ptt_release (skipping audio blob)
+chat-BCE06nbC.js:9 [PUSH-TO-TALK] Resetting subtitles immediately on button release
+chat-BCE06nbC.js:9 [IMMERSIVE AVATAR DEBUG] Object
+chat-BCE06nbC.js:9 [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=false isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+chat-BCE06nbC.js:9 [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+chat-BCE06nbC.js:9 [AVATAR SYNC DEBUG] Object
+chat-BCE06nbC.js:9 [STREAMING] Error: Session not ready for streaming
+(anonymous) @ chat-BCE06nbC.js:9
+chat-BCE06nbC.js:9 [PTT DIAGNOSTIC] ondataavailable #1: size=29385 bytes, type=audio/webm;codecs=opus
+chat-BCE06nbC.js:9 [PTT DIAGNOSTIC] Recording stopped: Object
+chat-BCE06nbC.js:9 [PUSH-TO-TALK] Stopped, processing audio...
+chat-BCE06nbC.js:9 [PUSH-TO-TALK] Resetting subtitles immediately
+chat-BCE06nbC.js:9 [PTT DIAGNOSTIC] Final blob: Object
+chat-BCE06nbC.js:9 [PUSH-TO-TALK] SKIP audio blob - ptt_release already sent transcript to server
+chat-BCE06nbC.js:9 [PUSH-TO-TALK] Keeping isProcessing=true for thinking animation
+chat-BCE06nbC.js:9 [IMMERSIVE AVATAR DEBUG] Object
+chat-BCE06nbC.js:9 [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=true
+chat-BCE06nbC.js:9 [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+chat-BCE06nbC.js:9 [AVATAR SYNC DEBUG] Object
+chat-BCE06nbC.js:9 [STREAMING] Error: Session not ready for streaming
+(anonymous) @ chat-BCE06nbC.js:9
+chat-BCE06nbC.js:9 [IMMERSIVE AVATAR DEBUG] Object
+chat-BCE06nbC.js:9 [INSTRUCTION DEBUG] text="Hold to speak" isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=false
+chat-BCE06nbC.js:9 [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+chat-BCE06nbC.js:9 [AVATAR SYNC DEBUG] Object
+chat-BCE06nbC.js:9 [STREAMING] Error: Session not ready for streaming
+(anonymous) @ chat-BCE06nbC.js:9
+index-BzusWBC_.js:343 [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+index-BzusWBC_.js:343 [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859362700,"code":"UNKNOWN","message":"Session not ready for streamin
+chat-BCE06nbC.js:9 [StreamingVoice] Error: Error: Session not ready for streaming
+    at c0.handleError (index-BzusWBC_.js:343:94334)
+    at c0.handleSocketMessage (index-BzusWBC_.js:343:89856)
+    at JE.<anonymous> (index-BzusWBC_.js:343:84563)
+    at _e.emit (index-BzusWBC_.js:343:12085)
+    at JE.emitEvent (index-BzusWBC_.js:343:41327)
+    at JE.onevent (index-BzusWBC_.js:343:41130)
+    at JE.onpacket (index-BzusWBC_.js:343:40798)
+    at _e.emit (index-BzusWBC_.js:343:12085)
+    at index-BzusWBC_.js:343:46861
+(anonymous) @ chat-BCE06nbC.js:9
+index-BzusWBC_.js:343 [SOCKET.IO onAny] EVENT: message TYPE: error HAS AUDIO: false
+index-BzusWBC_.js:343 [WS SOCKET ON MESSAGE] Received: error data: {"type":"error","timestamp":1768859362702,"code":"UNKNOWN","message":"Session not ready","recoverabl
+chat-BCE06nbC.js:9 [StreamingVoice] Error: Error: Session not ready
+    at c0.handleError (index-BzusWBC_.js:343:94334)
+    at c0.handleSocketMessage (index-BzusWBC_.js:343:89856)
+    at JE.<anonymous> (index-BzusWBC_.js:343:84563)
+    at _e.emit (index-BzusWBC_.js:343:12085)
+    at JE.emitEvent (index-BzusWBC_.js:343:41327)
+    at JE.onevent (index-BzusWBC_.js:343:41130)
+    at JE.onpacket (index-BzusWBC_.js:343:40798)
+    at _e.emit (index-BzusWBC_.js:343:12085)
+    at index-BzusWBC_.js:343:46861
+(anonymous) @ chat-BCE06nbC.js:9
+chat-BCE06nbC.js:9 [IMMERSIVE AVATAR DEBUG] Object
+chat-BCE06nbC.js:9 [INSTRUCTION DEBUG] text="Hold to speak" isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=false
+chat-BCE06nbC.js:9 [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+chat-BCE06nbC.js:9 [AVATAR SYNC DEBUG] Object
+chat-BCE06nbC.js:9 [STREAMING] Error: Session not ready
+(anonymous) @ chat-BCE06nbC.js:9
+chat-BCE06nbC.js:9 [IMMERSIVE AVATAR DEBUG] Object
+chat-BCE06nbC.js:9 [INSTRUCTION DEBUG] text="Hold to speak" isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=false
+chat-BCE06nbC.js:9 [AVATAR SYNC DEBUG] Object
+chat-BCE06nbC.js:9 [STREAMING] Error: Session not ready
+(anonymous) @ chat-BCE06nbC.js:9
+chat-BCE06nbC.js:9 [MIC WARMUP] Re-warmed for next recording
