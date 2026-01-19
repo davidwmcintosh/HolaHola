@@ -9,7 +9,7 @@
  * This is the central orchestration point for all collaboration events.
  */
 
-import { db } from "../db";
+import { db, getSharedDb } from "../db";
 import { 
   collaborationEvents, 
   collaborationParticipants,

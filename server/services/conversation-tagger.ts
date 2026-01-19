@@ -1,5 +1,5 @@
 import { callGeminiWithSchema, GEMINI_MODELS } from "../gemini-utils";
-import { db } from "../db";
+import { db, getSharedDb } from "../db";
 import { topics, conversations, conversationTopics } from "@shared/schema";
 import { eq, inArray } from "drizzle-orm";
 
@@ -99,7 +99,7 @@ export async function tagConversation(
   console.log(`[TAGGER] Analyzing conversation ${conversationId}...`);
 
   try {
-    const allTopics = await db.select().from(topics);
+    const allTopics = await getSharedDb().select().from(topics);
     const topicNames = allTopics.map((t) => t.name);
     const topicsByName = new Map(allTopics.map((t) => [t.name.toLowerCase(), t]));
 
@@ -187,7 +187,7 @@ export async function getConversationTopics(conversationId: string) {
   }
 
   const topicIds = links.map((l) => l.topicId);
-  const matchedTopics = await db
+  const matchedTopics = await getSharedDb()
     .select()
     .from(topics)
     .where(inArray(topics.id, topicIds));

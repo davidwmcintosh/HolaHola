@@ -13,7 +13,7 @@
  * by either the session end handler or background recovery worker.
  */
 
-import { db } from '../db';
+import { db, getSharedDb } from '../db';
 import { learnerMemoryCandidates, learnerPersonalFacts } from '@shared/schema';
 import { eq, and, inArray, sql, isNull, lt, desc } from 'drizzle-orm';
 import crypto from 'crypto';
@@ -80,7 +80,7 @@ class MemoryCheckpointService {
     const contentHash = this.generateContentHash(studentId, utterance);
     
     // Check for duplicate in same session (exact same utterance)
-    const [existing] = await db
+    const [existing] = await getSharedDb()
       .select({ id: learnerMemoryCandidates.id })
       .from(learnerMemoryCandidates)
       .where(and(
@@ -99,7 +99,7 @@ class MemoryCheckpointService {
     }
     
     // Insert new candidate
-    const [inserted] = await db
+    const [inserted] = await getSharedDb()
       .insert(learnerMemoryCandidates)
       .values({
         studentId,
@@ -127,7 +127,7 @@ class MemoryCheckpointService {
    * Used when session ends normally to process accumulated utterances
    */
   async getPendingForSession(sessionId: string): Promise<PendingCandidate[]> {
-    const candidates = await db
+    const candidates = await getSharedDb()
       .select()
       .from(learnerMemoryCandidates)
       .where(and(
@@ -146,7 +146,7 @@ class MemoryCheckpointService {
   async getOrphanedCandidates(maxAgeMinutes: number = 30): Promise<PendingCandidate[]> {
     const cutoff = new Date(Date.now() - maxAgeMinutes * 60 * 1000);
     
-    const candidates = await db
+    const candidates = await getSharedDb()
       .select()
       .from(learnerMemoryCandidates)
       .where(and(
@@ -165,7 +165,7 @@ class MemoryCheckpointService {
   async markProcessing(candidateIds: string[]): Promise<void> {
     if (candidateIds.length === 0) return;
     
-    await db
+    await getSharedDb()
       .update(learnerMemoryCandidates)
       .set({ status: 'processing' })
       .where(inArray(learnerMemoryCandidates.id, candidateIds));
@@ -177,7 +177,7 @@ class MemoryCheckpointService {
   async markExtracted(candidateIds: string[], extractedFactIds: string[]): Promise<void> {
     if (candidateIds.length === 0) return;
     
-    await db
+    await getSharedDb()
       .update(learnerMemoryCandidates)
       .set({ 
         status: 'extracted',
@@ -193,7 +193,7 @@ class MemoryCheckpointService {
   async markSkipped(candidateIds: string[]): Promise<void> {
     if (candidateIds.length === 0) return;
     
-    await db
+    await getSharedDb()
       .update(learnerMemoryCandidates)
       .set({ 
         status: 'skipped',
@@ -209,7 +209,7 @@ class MemoryCheckpointService {
   async resetStuckProcessing(maxAgeMinutes: number = 10): Promise<number> {
     const cutoff = new Date(Date.now() - maxAgeMinutes * 60 * 1000);
     
-    const result = await db
+    const result = await getSharedDb()
       .update(learnerMemoryCandidates)
       .set({ status: 'pending' })
       .where(and(
@@ -225,7 +225,7 @@ class MemoryCheckpointService {
    * Check if a fact already exists (for idempotent upserts)
    */
   async factExists(factHash: string): Promise<{ exists: boolean; id?: string }> {
-    const [existing] = await db
+    const [existing] = await getSharedDb()
       .select({ id: learnerPersonalFacts.id })
       .from(learnerPersonalFacts)
       .where(eq(learnerPersonalFacts.factHash, factHash))
@@ -238,7 +238,7 @@ class MemoryCheckpointService {
    * Increment mention count for existing fact (when re-mentioned)
    */
   async incrementFactMention(factId: string): Promise<void> {
-    await db
+    await getSharedDb()
       .update(learnerPersonalFacts)
       .set({
         mentionCount: sql`${learnerPersonalFacts.mentionCount} + 1`,
@@ -258,7 +258,7 @@ class MemoryCheckpointService {
     totalSkipped: number;
     oldestPending: Date | null;
   }> {
-    const stats = await db
+    const stats = await getSharedDb()
       .select({
         status: learnerMemoryCandidates.status,
         count: sql<number>`count(*)::int`,
@@ -266,7 +266,7 @@ class MemoryCheckpointService {
       .from(learnerMemoryCandidates)
       .groupBy(learnerMemoryCandidates.status);
     
-    const [oldest] = await db
+    const [oldest] = await getSharedDb()
       .select({ createdAt: learnerMemoryCandidates.createdAt })
       .from(learnerMemoryCandidates)
       .where(eq(learnerMemoryCandidates.status, 'pending'))
@@ -293,7 +293,7 @@ class MemoryCheckpointService {
   async cleanupOldCandidates(maxAgeDays: number = 7): Promise<number> {
     const cutoff = new Date(Date.now() - maxAgeDays * 24 * 60 * 60 * 1000);
     
-    await db
+    await getSharedDb()
       .delete(learnerMemoryCandidates)
       .where(and(
         inArray(learnerMemoryCandidates.status, ['extracted', 'skipped']),

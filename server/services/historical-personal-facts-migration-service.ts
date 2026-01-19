@@ -12,7 +12,7 @@
  * 4. Store as learnerPersonalFacts with deduplication
  */
 
-import { db } from "../db";
+import { db, getSharedDb } from "../db";
 import { conversations, messages, hiveSnapshots } from "@shared/schema";
 import type { HiveSnapshotType } from "@shared/schema";
 import { desc, eq, and, sql, asc } from "drizzle-orm";

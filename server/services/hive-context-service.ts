@@ -15,7 +15,7 @@
  * Both agents see the same "state of the hive" automatically.
  */
 
-import { db } from "../db";
+import { db, getSharedDb } from "../db";
 import { eq, desc, and, sql, gt, isNull, asc } from "drizzle-orm";
 import {
   editorListeningSnapshots,
@@ -382,7 +382,7 @@ class HiveContextService {
       const cutoff = new Date();
       cutoff.setDate(cutoff.getDate() - 7); // Last week
       
-      const sessions = await db.select()
+      const sessions = await getSharedDb().select()
         .from(founderSessions)
         .where(gt(founderSessions.updatedAt, cutoff))
         .orderBy(desc(founderSessions.updatedAt))
@@ -667,7 +667,7 @@ class HiveContextService {
    */
   async getSessionTranscript(sessionId: string, limit = 100): Promise<CollaborationMessage[]> {
     try {
-      const messages = await db.select()
+      const messages = await getSharedDb().select()
         .from(collaborationMessages)
         .where(eq(collaborationMessages.sessionId, sessionId))
         .orderBy(asc(collaborationMessages.cursor))
@@ -685,7 +685,7 @@ class HiveContextService {
    */
   async getRecentMessages(limit = 20): Promise<CollaborationMessage[]> {
     try {
-      const messages = await db.select()
+      const messages = await getSharedDb().select()
         .from(collaborationMessages)
         .orderBy(desc(collaborationMessages.createdAt))
         .limit(limit);

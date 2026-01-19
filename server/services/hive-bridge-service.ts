@@ -14,7 +14,7 @@
  * INTERNAL SERVICE - No external API exposure
  */
 
-import { db } from '../db';
+import { db, getSharedDb } from '../db';
 import { founderSessions, collaborationMessages } from '@shared/schema';
 import type { CollaborationMessage, FounderSession } from '@shared/schema';
 import { eq, and, gt, desc } from 'drizzle-orm';
@@ -107,7 +107,7 @@ async function pollForDanielaResponse(
   
   while (Date.now() - startTime < POLL_TIMEOUT_MS) {
     // Check for new Daniela messages after our cursor
-    const messages = await db.select()
+    const messages = await getSharedDb().select()
       .from(collaborationMessages)
       .where(and(
         eq(collaborationMessages.sessionId, sessionId),

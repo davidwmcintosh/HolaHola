@@ -86,7 +86,7 @@ export interface RemediationStatus {
   currentProvider: 'cartesia' | 'google';
 }
 
-import { db } from "../db";
+import { db, getSharedDb } from "../db";
 import { hiveSnapshots } from "@shared/schema";
 import { eq, desc, gte, and } from "drizzle-orm";
 
@@ -288,7 +288,7 @@ class VoiceDiagnosticsService {
       const now = new Date();
       const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7-day expiry
       
-      await db.insert(hiveSnapshots).values({
+      await getSharedDb().insert(hiveSnapshots).values({
         snapshotType: 'voice_diagnostic',
         title: `Voice Pipeline: ${eventsToFlush.length} events (${failureCount} failures)`,
         content: JSON.stringify({
@@ -349,7 +349,7 @@ class VoiceDiagnosticsService {
     const since = new Date();
     since.setDate(since.getDate() - daysBack);
     
-    const results = await db.select({
+    const results = await getSharedDb().select({
       id: hiveSnapshots.id,
       title: hiveSnapshots.title,
       content: hiveSnapshots.content,
@@ -847,7 +847,7 @@ class VoiceDiagnosticsService {
     console.log(`[Auto-Remediation] ⚠️ ALERT: TTS degradation for ${persona} - ${this.consecutiveFailures} failures`);
     
     try {
-      await db.insert(hiveSnapshots).values({
+      await getSharedDb().insert(hiveSnapshots).values({
         snapshotType: 'voice_diagnostic', // Use existing type, alert info in content
         title: `⚠️ TTS Degradation Alert (${persona})`,
         content: JSON.stringify(alertContent),

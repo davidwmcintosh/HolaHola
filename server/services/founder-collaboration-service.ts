@@ -24,7 +24,7 @@
  * which helps with debugging and audit trails.
  */
 
-import { db } from "../db";
+import { db, getSharedDb } from "../db";
 import { 
   founderSessions, 
   collaborationMessages, 
@@ -66,7 +66,7 @@ class FounderCollaborationService {
    * Create a new founder collaboration session
    */
   async createSession(founderId: string, title?: string): Promise<FounderSession> {
-    const [session] = await db.insert(founderSessions).values({
+    const [session] = await getSharedDb().insert(founderSessions).values({
       founderId,
       environment: CURRENT_ENVIRONMENT,
       title: title || `Collaboration ${new Date().toLocaleDateString()}`,
@@ -85,7 +85,7 @@ class FounderCollaborationService {
    */
   async getOrCreateActiveSession(founderId: string): Promise<FounderSession> {
     // Find active sessions ordered by last message activity (not creation date)
-    const sessionsWithActivity = await db.execute(sql`
+    const sessionsWithActivity = await getSharedDb().execute(sql`
       SELECT fs.*, 
         COALESCE(
           (SELECT MAX(cm.created_at) FROM collaboration_messages cm WHERE cm.session_id = fs.id),
@@ -118,7 +118,7 @@ class FounderCollaborationService {
    * Get session by ID
    */
   async getSession(sessionId: string): Promise<FounderSession | null> {
-    const [session] = await db.select()
+    const [session] = await getSharedDb().select()
       .from(founderSessions)
       .where(eq(founderSessions.id, sessionId))
       .limit(1);
@@ -130,7 +130,7 @@ class FounderCollaborationService {
    * Get all sessions for a founder
    */
   async getFounderSessions(founderId: string, limit = 20): Promise<FounderSession[]> {
-    return db.select()
+    return getSharedDb().select()
       .from(founderSessions)
       .where(eq(founderSessions.founderId, founderId))
       .orderBy(desc(founderSessions.updatedAt))
@@ -144,7 +144,7 @@ class FounderCollaborationService {
     sessionId: string, 
     status: 'active' | 'paused' | 'completed'
   ): Promise<FounderSession | null> {
-    const [updated] = await db.update(founderSessions)
+    const [updated] = await getSharedDb().update(founderSessions)
       .set({ 
         status, 
         updatedAt: new Date() 
@@ -187,7 +187,7 @@ class FounderCollaborationService {
   private async generateCursor(sessionId: string): Promise<string> {
     const timestamp = Date.now();
     
-    const [result] = await db.select({ 
+    const [result] = await getSharedDb().select({ 
       count: sql<number>`COUNT(*)` 
     })
       .from(collaborationMessages)
@@ -208,7 +208,7 @@ class FounderCollaborationService {
   ): Promise<CollaborationMessage> {
     const cursor = await this.generateCursor(sessionId);
     
-    const [message] = await db.insert(collaborationMessages).values({
+    const [message] = await getSharedDb().insert(collaborationMessages).values({
       sessionId,
       role: input.role,
       messageType: input.messageType || 'text',
@@ -221,7 +221,7 @@ class FounderCollaborationService {
       synced: false,
     }).returning();
     
-    await db.update(founderSessions)
+    await getSharedDb().update(founderSessions)
       .set({ 
         lastCursor: cursor,
         messageCount: sql`${founderSessions.messageCount} + 1`,
@@ -251,7 +251,7 @@ class FounderCollaborationService {
     sessionId: string, 
     limit = 100
   ): Promise<CollaborationMessage[]> {
-    return db.select()
+    return getSharedDb().select()
       .from(collaborationMessages)
       .where(eq(collaborationMessages.sessionId, sessionId))
       .orderBy(collaborationMessages.cursor)
@@ -266,7 +266,7 @@ class FounderCollaborationService {
     afterCursor: string,
     limit = 100
   ): Promise<MessageReplayResult> {
-    const messages = await db.select()
+    const messages = await getSharedDb().select()
       .from(collaborationMessages)
       .where(and(
         eq(collaborationMessages.sessionId, sessionId),
@@ -295,7 +295,7 @@ class FounderCollaborationService {
     sessionId: string,
     limit = 50
   ): Promise<CollaborationMessage[]> {
-    const messages = await db.select()
+    const messages = await getSharedDb().select()
       .from(collaborationMessages)
       .where(eq(collaborationMessages.sessionId, sessionId))
       .orderBy(desc(collaborationMessages.cursor))
@@ -320,7 +320,7 @@ class FounderCollaborationService {
       conditions.push(eq(collaborationMessages.sessionId, sessionId));
     }
     
-    const messages = await db.select()
+    const messages = await getSharedDb().select()
       .from(collaborationMessages)
       .where(and(...conditions))
       .orderBy(desc(collaborationMessages.createdAt))
@@ -465,7 +465,7 @@ class FounderCollaborationService {
    * Used by the WebSocket broker to ensure delivery
    */
   async getUnpushedMessages(limit = 100): Promise<CollaborationMessage[]> {
-    return db.select()
+    return getSharedDb().select()
       .from(collaborationMessages)
       .where(eq(collaborationMessages.synced, false))
       .orderBy(collaborationMessages.cursor)
@@ -479,7 +479,7 @@ class FounderCollaborationService {
     if (messageIds.length === 0) return;
     
     for (const id of messageIds) {
-      await db.update(collaborationMessages)
+      await getSharedDb().update(collaborationMessages)
         .set({ 
           synced: true, 
           syncedAt: new Date() 
@@ -507,14 +507,14 @@ class FounderCollaborationService {
       : undefined;
     
     // Get total count
-    const [totalResult] = await db.select({ 
+    const [totalResult] = await getSharedDb().select({ 
       count: sql<number>`COUNT(*)` 
     })
       .from(collaborationMessages)
       .where(sessionFilter);
     
     // Get counts by environment
-    const envCounts = await db.select({
+    const envCounts = await getSharedDb().select({
       environment: collaborationMessages.environment,
       count: sql<number>`COUNT(*)`
     })
@@ -527,7 +527,7 @@ class FounderCollaborationService {
       ? and(eq(collaborationMessages.sessionId, sessionId), eq(collaborationMessages.synced, false))
       : eq(collaborationMessages.synced, false);
     
-    const [pendingResult] = await db.select({
+    const [pendingResult] = await getSharedDb().select({
       count: sql<number>`COUNT(*)`
     })
       .from(collaborationMessages)
@@ -571,7 +571,7 @@ class FounderCollaborationService {
     lastMessageAt: Date | null;
     environment: string;
   }> {
-    const messages = await db.select()
+    const messages = await getSharedDb().select()
       .from(collaborationMessages)
       .where(eq(collaborationMessages.sessionId, sessionId))
       .orderBy(collaborationMessages.createdAt);
@@ -596,7 +596,7 @@ class FounderCollaborationService {
     activeSessionCount: number;
   }> {
     try {
-      const [result] = await db.select({ 
+      const [result] = await getSharedDb().select({ 
         count: sql<number>`COUNT(*)` 
       })
         .from(founderSessions)
@@ -720,13 +720,13 @@ class FounderCollaborationService {
       // PRIORITY 1: Language-specific voice insight sessions
       if (targetLanguage) {
         const langTitle = `Voice Insights - ${targetLanguage}`;
-        const langSessions = await db.select()
+        const langSessions = await getSharedDb().select()
           .from(founderSessions)
           .where(eq(founderSessions.title, langTitle))
           .limit(1);
         
         if (langSessions.length > 0) {
-          const langMessages = await db.select({
+          const langMessages = await getSharedDb().select({
             role: collaborationMessages.role,
             content: collaborationMessages.content,
             createdAt: collaborationMessages.createdAt,
@@ -748,7 +748,7 @@ class FounderCollaborationService {
       
       // PRIORITY 2: Messages with matching metadata.targetLanguage from voice_chat_sync
       if (allMessages.length < limit) {
-        const metadataMessages = await db.select({
+        const metadataMessages = await getSharedDb().select({
           role: collaborationMessages.role,
           content: collaborationMessages.content,
           createdAt: collaborationMessages.createdAt,
@@ -773,7 +773,7 @@ class FounderCollaborationService {
       // PRIORITY 3: Recent Hive conversations (Founder, Daniela, Wren) with language keyword matching
       if (allMessages.length < limit && targetLanguage) {
         const langLower = targetLanguage.toLowerCase();
-        const generalMessages = await db.select({
+        const generalMessages = await getSharedDb().select({
           role: collaborationMessages.role,
           content: collaborationMessages.content,
           createdAt: collaborationMessages.createdAt,
@@ -796,7 +796,7 @@ class FounderCollaborationService {
       
       // PRIORITY 4: Recent Hive discussions (no language filter) - catches board meetings, North Star reviews, etc.
       if (allMessages.length < limit) {
-        const hiveMessages = await db.select({
+        const hiveMessages = await getSharedDb().select({
           role: collaborationMessages.role,
           content: collaborationMessages.content,
           createdAt: collaborationMessages.createdAt,
@@ -915,7 +915,7 @@ class FounderCollaborationService {
    */
   private async findOrCreateSessionByTitle(founderId: string, title: string): Promise<FounderSession> {
     // Look for existing session with this exact title
-    const [existing] = await db.select()
+    const [existing] = await getSharedDb().select()
       .from(founderSessions)
       .where(and(
         eq(founderSessions.title, title),
@@ -929,7 +929,7 @@ class FounderCollaborationService {
     }
     
     // Create new session with this title
-    const [session] = await db.insert(founderSessions).values({
+    const [session] = await getSharedDb().insert(founderSessions).values({
       founderId,
       environment: CURRENT_ENVIRONMENT,
       title,
@@ -995,7 +995,7 @@ to your current teaching session. Apply relevant guidance naturally.
       dateThreshold.setDate(dateThreshold.getDate() - daysBack);
       
       // Get recent messages across all sessions
-      const messages = await db.select({
+      const messages = await getSharedDb().select({
         role: collaborationMessages.role,
         content: collaborationMessages.content,
         createdAt: collaborationMessages.createdAt,
@@ -1062,7 +1062,7 @@ ${formattedMessages.join('\n')}
    * Get active Express Lane sessions that Wren can participate in
    */
   async getActiveSessions(limit = 5): Promise<FounderSession[]> {
-    return db.select()
+    return getSharedDb().select()
       .from(founderSessions)
       .where(eq(founderSessions.status, 'active'))
       .orderBy(desc(founderSessions.updatedAt))
@@ -1122,7 +1122,7 @@ ${formattedMessages.join('\n')}
     confidence: number;
     sharedAt: string;
   }>> {
-    let query = db.select()
+    let query = getSharedDb().select()
       .from(collaborationMessages)
       .where(sql`${collaborationMessages.metadata}->>'sharedInsight' = 'true' AND ${collaborationMessages.metadata}->>'toAgent' = ${params.toAgent}`)
       .orderBy(desc(collaborationMessages.createdAt))
@@ -1200,7 +1200,7 @@ ${formattedMessages.join('\n')}
   }> {
     const dateThreshold = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000);
     
-    const allShared = await db.select()
+    const allShared = await getSharedDb().select()
       .from(collaborationMessages)
       .where(
         and(

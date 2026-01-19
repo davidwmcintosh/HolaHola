@@ -83,7 +83,7 @@ import { studentLearningService } from "./student-learning-service";
 import { memoryCheckpointService } from "./memory-checkpoint-service";
 import { phonemeAnalyticsService } from "./phoneme-analytics-service";
 import { supportPersonaService } from "./support-persona-service";
-import { db } from "../db";
+import { db, getSharedDb } from "../db";
 import { 
   tutorProcedures, 
   teachingPrinciples, 

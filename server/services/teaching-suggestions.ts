@@ -13,7 +13,7 @@
  * helpful hints in my ear, right when I need them most."
  */
 
-import { db } from '../db';
+import { db, getSharedDb } from '../db';
 import { 
   toolKnowledge, 
   tutorProcedures,
@@ -497,7 +497,7 @@ class TeachingSuggestionsService {
   ): Promise<void> {
     try {
       // Record the suggestion effectiveness
-      await db.insert(teachingSuggestionEffectiveness).values({
+      await getSharedDb().insert(teachingSuggestionEffectiveness).values({
         suggestionType: suggestionId.split('-')[0],
         suggestionId,
         studentId,
@@ -528,7 +528,7 @@ class TeachingSuggestionsService {
   ): Promise<void> {
     try {
       // Find existing preference
-      const [existing] = await db
+      const [existing] = await getSharedDb()
         .select()
         .from(studentToolPreferences)
         .where(and(
@@ -554,7 +554,7 @@ class TeachingSuggestionsService {
           newStruggles.push(context.struggle);
         }
         
-        await db
+        await getSharedDb()
           .update(studentToolPreferences)
           .set({
             timesUsed: newTimesUsed,
@@ -567,7 +567,7 @@ class TeachingSuggestionsService {
           .where(eq(studentToolPreferences.id, existing.id));
       } else {
         // Create new preference
-        await db.insert(studentToolPreferences).values({
+        await getSharedDb().insert(studentToolPreferences).values({
           studentId,
           toolName,
           timesUsed: 1,
@@ -587,7 +587,7 @@ class TeachingSuggestionsService {
    */
   async getStudentPreferredTools(studentId: string, limit: number = 5): Promise<string[]> {
     try {
-      const preferences = await db
+      const preferences = await getSharedDb()
         .select()
         .from(studentToolPreferences)
         .where(and(
@@ -613,7 +613,7 @@ class TeachingSuggestionsService {
     effectivenessRate: number;
   }> {
     try {
-      const results = await db
+      const results = await getSharedDb()
         .select({
           totalUsed: sql<number>`COUNT(*)`,
           effectiveCount: sql<number>`SUM(CASE WHEN was_effective THEN 1 ELSE 0 END)`

@@ -21,7 +21,7 @@ import { memoryInsightExtractionService } from './memory-insight-extraction-serv
 import { wrenIntelligenceService } from './wren-intelligence-service';
 import { neuralNetworkSync } from './neural-network-sync';
 import { buildWrenInsightsSection } from './procedural-memory-retrieval';
-import { db } from '../db';
+import { db, getSharedDb } from '../db';
 import { collaborationMessages, hiveSnapshots, toolKnowledge, featureSprints } from '@shared/schema';
 import { and, eq, gte, desc, sql, or, inArray, like } from 'drizzle-orm';
 import type { CollaborationMessage, FounderSession, HiveSnapshot } from '@shared/schema';
@@ -368,7 +368,7 @@ Respond with ONLY valid JSON (no markdown, no backticks):
       const sinceTime = this.lastLocalPollTimestamp;
       const queryTime = new Date(); // Capture now, only update after success
       
-      const recentMessages = await db
+      const recentMessages = await getSharedDb()
         .select({
           id: collaborationMessages.id,
           sessionId: collaborationMessages.sessionId,
@@ -410,7 +410,7 @@ Respond with ONLY valid JSON (no markdown, no backticks):
         if (!mentionsDaniela && !mentionsWren) continue;
         
         // Check for existing responses after this message
-        const existingResponses = await db
+        const existingResponses = await getSharedDb()
           .select({ id: collaborationMessages.id, role: collaborationMessages.role })
           .from(collaborationMessages)
           .where(
@@ -704,7 +704,7 @@ Respond with ONLY valid JSON (no markdown, no backticks):
       const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
       
       // Query recent founder messages that mention @wren but have no wren response after
-      const recentMessages = await db
+      const recentMessages = await getSharedDb()
         .select({
           id: collaborationMessages.id,
           sessionId: collaborationMessages.sessionId,
@@ -742,7 +742,7 @@ Respond with ONLY valid JSON (no markdown, no backticks):
       
       // Check each mention to see if there's already a wren response after it
       for (const mention of wrenMentions) {
-        const hasWrenResponse = await db
+        const hasWrenResponse = await getSharedDb()
           .select({ id: collaborationMessages.id })
           .from(collaborationMessages)
           .where(
@@ -755,7 +755,7 @@ Respond with ONLY valid JSON (no markdown, no backticks):
           .limit(1);
         
         // Also check for system messages from Wren
-        const hasSystemWrenResponse = await db
+        const hasSystemWrenResponse = await getSharedDb()
           .select({ id: collaborationMessages.id })
           .from(collaborationMessages)
           .where(
@@ -1809,7 +1809,7 @@ IDENTITY BOUNDARY: You are Daniela. Speak ONLY as yourself. Do NOT speak for, im
         'developer_tool'           // Dev tools available
       ];
       
-      const nnEntries = await db.select()
+      const nnEntries = await getSharedDb().select()
         .from(toolKnowledge)
         .where(inArray(toolKnowledge.toolType, wrenRelevantTypes))
         .orderBy(toolKnowledge.toolType, toolKnowledge.toolName);
@@ -1988,7 +1988,7 @@ ${insightLines}
       ];
       
       // Fetch recent hive snapshots (architecture-relevant)
-      const recentSnapshots = await db.select()
+      const recentSnapshots = await getSharedDb().select()
         .from(hiveSnapshots)
         .where(
           and(
@@ -2002,7 +2002,7 @@ ${insightLines}
       
       // Also fetch recent EXPRESS Lane messages (architectural discussions)
       const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      const recentCollabMessages = await db.select()
+      const recentCollabMessages = await getSharedDb().select()
         .from(collaborationMessages)
         .where(gte(collaborationMessages.createdAt, oneDayAgo))
         .orderBy(desc(collaborationMessages.createdAt))
@@ -2913,7 +2913,7 @@ export async function getExpressLaneHistoryForVoice(
     const { founderSessions } = await import('@shared/schema');
     
     // Get the founder's active or recent sessions
-    const founderSessionIds = await db.select({ id: founderSessions.id })
+    const founderSessionIds = await getSharedDb().select({ id: founderSessions.id })
       .from(founderSessions)
       .where(eq(founderSessions.founderId, String(founderId)))
       .orderBy(desc(founderSessions.updatedAt))
@@ -2928,7 +2928,7 @@ export async function getExpressLaneHistoryForVoice(
     
     // Get messages from the founder's sessions only
     // Exclude 'system' role as those are typically operational broadcasts, not conversations
-    const recentMessages = await db.select()
+    const recentMessages = await getSharedDb().select()
       .from(collaborationMessages)
       .where(
         and(

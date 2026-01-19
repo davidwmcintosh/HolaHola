@@ -11,7 +11,7 @@
  * WHICH specific aspects of subjunctive for THIS student"
  */
 
-import { db } from '../db';
+import { db, getSharedDb } from '../db';
 import { 
   recurringStruggles, 
   studentInsights, 
@@ -225,7 +225,7 @@ export class StudentLearningService {
    */
   async recordError(event: StudentErrorEvent): Promise<RecurringStruggle> {
     // Check for existing struggle with same area and description
-    const existing = await db
+    const existing = await getSharedDb()
       .select()
       .from(recurringStruggles)
       .where(
@@ -245,7 +245,7 @@ export class StudentLearningService {
         ? `${struggle.specificExamples}\n• ${event.studentUtterance || event.description}`
         : `• ${event.studentUtterance || event.description}`;
       
-      const [updated] = await db
+      const [updated] = await getSharedDb()
         .update(recurringStruggles)
         .set({
           occurrenceCount: sql`${recurringStruggles.occurrenceCount} + 1`,
@@ -274,7 +274,7 @@ export class StudentLearningService {
           );
           
           // Store root cause analysis in the struggle record
-          await db
+          await getSharedDb()
             .update(recurringStruggles)
             .set({
               rootCauseAnalysis: JSON.stringify(rootCauseResult),
@@ -292,7 +292,7 @@ export class StudentLearningService {
     }
     
     // Create new struggle
-    const [created] = await db
+    const [created] = await getSharedDb()
       .insert(recurringStruggles)
       .values({
         studentId: event.studentId,
@@ -318,7 +318,7 @@ export class StudentLearningService {
    */
   async recordStrategyOutcome(outcome: StrategyOutcome): Promise<void> {
     // Find the related struggle (include 'improving' to allow breakthrough detection)
-    const struggles = await db
+    const struggles = await getSharedDb()
       .select()
       .from(recurringStruggles)
       .where(
@@ -353,7 +353,7 @@ export class StudentLearningService {
       if (successfulApproaches.size >= 3) {
         // First, persist the successful strategy to the database
         // This ensures the snapshot includes the winning strategy
-        await db
+        await getSharedDb()
           .update(recurringStruggles)
           .set({
             approachesAttempted: Array.from(attemptedApproaches),
@@ -371,7 +371,7 @@ export class StudentLearningService {
       // Check if we should mark as improving
       const newStatus = successfulApproaches.size >= 2 ? 'improving' : 'active';
       
-      await db
+      await getSharedDb()
         .update(recurringStruggles)
         .set({
           approachesAttempted: Array.from(attemptedApproaches),
@@ -383,7 +383,7 @@ export class StudentLearningService {
       
       console.log(`[StudentLearning] Strategy ${outcome.strategy} worked! Status: ${newStatus}`);
     } else {
-      await db
+      await getSharedDb()
         .update(recurringStruggles)
         .set({
           approachesAttempted: Array.from(attemptedApproaches),
@@ -406,7 +406,7 @@ export class StudentLearningService {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     
     // Get active struggles for this language
-    const struggles = await db
+    const struggles = await getSharedDb()
       .select()
       .from(recurringStruggles)
       .where(
@@ -422,7 +422,7 @@ export class StudentLearningService {
       .orderBy(desc(recurringStruggles.occurrenceCount));
     
     // Get general insights about this student
-    const insights = await db
+    const insights = await getSharedDb()
       .select()
       .from(studentInsights)
       .where(
@@ -438,7 +438,7 @@ export class StudentLearningService {
       .orderBy(desc(studentInsights.confidenceScore));
     
     // Get personal facts about this student (permanent memories)
-    const personalFacts = await db
+    const personalFacts = await getSharedDb()
       .select()
       .from(learnerPersonalFacts)
       .where(
@@ -592,7 +592,7 @@ export class StudentLearningService {
     language?: string
   ): Promise<StudentInsight> {
     // Check for existing similar insight
-    const existing = await db
+    const existing = await getSharedDb()
       .select()
       .from(studentInsights)
       .where(
@@ -606,7 +606,7 @@ export class StudentLearningService {
     
     if (existing.length > 0) {
       // Reinforce existing insight
-      const [updated] = await db
+      const [updated] = await getSharedDb()
         .update(studentInsights)
         .set({
           confidenceScore: sql`LEAST(${studentInsights.confidenceScore} + 0.1, 1.0)`,
@@ -622,7 +622,7 @@ export class StudentLearningService {
     }
     
     // Create new insight
-    const [created] = await db
+    const [created] = await getSharedDb()
       .insert(studentInsights)
       .values({
         studentId,
@@ -646,7 +646,7 @@ export class StudentLearningService {
    */
   async resolveStruggle(struggleId: string, resolutionNotes?: string): Promise<RecurringStruggle | null> {
     // Get the struggle first for breakthrough recording
-    const [struggle] = await db
+    const [struggle] = await getSharedDb()
       .select()
       .from(recurringStruggles)
       .where(eq(recurringStruggles.id, struggleId))
@@ -663,7 +663,7 @@ export class StudentLearningService {
     const timeToMasteryDays = Math.ceil((now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
     
     // Update struggle status with velocity metrics
-    const [resolved] = await db
+    const [resolved] = await getSharedDb()
       .update(recurringStruggles)
       .set({
         status: 'resolved',
@@ -716,7 +716,7 @@ export class StudentLearningService {
       resolutionNotes ? `Notes: ${resolutionNotes}` : '',
     ].filter(Boolean).join('\n');
     
-    await db.insert(hiveSnapshots).values({
+    await getSharedDb().insert(hiveSnapshots).values({
       snapshotType: 'breakthrough',
       userId: studentId,
       language,
@@ -747,7 +747,7 @@ export class StudentLearningService {
   }>> {
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     
-    const breakthroughs = await db
+    const breakthroughs = await getSharedDb()
       .select()
       .from(hiveSnapshots)
       .where(
@@ -917,7 +917,7 @@ export class StudentLearningService {
     language: string,
     errorCategory: string
   ): Promise<{ recommended: string[]; avoid: string[] }> {
-    const struggles = await db
+    const struggles = await getSharedDb()
       .select()
       .from(recurringStruggles)
       .where(
@@ -1021,7 +1021,7 @@ export class StudentLearningService {
     }> = [];
     
     // Get current struggles for this student
-    const currentStruggles = await db
+    const currentStruggles = await getSharedDb()
       .select()
       .from(recurringStruggles)
       .where(
@@ -1137,7 +1137,7 @@ export class StudentLearningService {
     // Get most common struggles across all students for this language
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     
-    const allStruggles = await db
+    const allStruggles = await getSharedDb()
       .select({
         struggleArea: recurringStruggles.struggleArea,
         description: recurringStruggles.description,
@@ -1222,7 +1222,7 @@ export class StudentLearningService {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     
     // Get all struggles with teaching outcomes
-    const allStruggles = await db
+    const allStruggles = await getSharedDb()
       .select()
       .from(recurringStruggles)
       .where(
@@ -1609,7 +1609,7 @@ export class StudentLearningService {
     }
     
     // Check error rate trend
-    const struggles = await db
+    const struggles = await getSharedDb()
       .select()
       .from(recurringStruggles)
       .where(
@@ -1757,7 +1757,7 @@ export class StudentLearningService {
     const twoWeeksAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
     
     // Get struggles that haven't improved
-    const stagnantStruggles = await db
+    const stagnantStruggles = await getSharedDb()
       .select()
       .from(recurringStruggles)
       .where(
@@ -1776,7 +1776,7 @@ export class StudentLearningService {
     }
     
     // Check for repetitive error patterns
-    const recentStruggles = await db
+    const recentStruggles = await getSharedDb()
       .select()
       .from(recurringStruggles)
       .where(
@@ -1897,7 +1897,7 @@ export class StudentLearningService {
     
     // Expire old predictions for this student
     const now = new Date();
-    await db
+    await getSharedDb()
       .update(predictedStruggles)
       .set({ isActive: false })
       .where(
@@ -1915,7 +1915,7 @@ export class StudentLearningService {
     for (const pred of predictions) {
       const [area, topic] = pred.predictedStruggle.split(':');
       
-      const [inserted] = await db
+      const [inserted] = await getSharedDb()
         .insert(predictedStruggles)
         .values({
           studentId,
@@ -1957,7 +1957,7 @@ export class StudentLearningService {
     }
     
     // Check for existing active alert
-    const existingAlerts = await db
+    const existingAlerts = await getSharedDb()
       .select()
       .from(userMotivationAlerts)
       .where(
@@ -1971,7 +1971,7 @@ export class StudentLearningService {
     
     if (existingAlerts.length > 0) {
       // Update existing alert with new data
-      const [updated] = await db
+      const [updated] = await getSharedDb()
         .update(userMotivationAlerts)
         .set({
           severity: motivation.riskLevel,
@@ -1987,7 +1987,7 @@ export class StudentLearningService {
     }
     
     // Create new alert
-    const [alert] = await db
+    const [alert] = await getSharedDb()
       .insert(userMotivationAlerts)
       .values({
         studentId,
@@ -2017,7 +2017,7 @@ export class StudentLearningService {
   ): Promise<string> {
     const now = new Date();
     
-    const activePredictions = await db
+    const activePredictions = await getSharedDb()
       .select()
       .from(predictedStruggles)
       .where(
@@ -2058,7 +2058,7 @@ export class StudentLearningService {
     studentId: string,
     language: string
   ): Promise<string> {
-    const activeAlerts = await db
+    const activeAlerts = await getSharedDb()
       .select()
       .from(userMotivationAlerts)
       .where(
@@ -2099,7 +2099,7 @@ export class StudentLearningService {
     language: string,
     observedStruggles: string[]
   ): Promise<void> {
-    const activePredictions = await db
+    const activePredictions = await getSharedDb()
       .select()
       .from(predictedStruggles)
       .where(
@@ -2118,7 +2118,7 @@ export class StudentLearningService {
         (pred.predictedTopic && obs.toLowerCase().includes(pred.predictedTopic.toLowerCase()))
       );
       
-      await db
+      await getSharedDb()
         .update(predictedStruggles)
         .set({
           wasAccurate,
@@ -2140,7 +2140,7 @@ export class StudentLearningService {
     language: string,
     since: Date
   ): Promise<string[]> {
-    const recentStruggles = await db
+    const recentStruggles = await getSharedDb()
       .select()
       .from(recurringStruggles)
       .where(
@@ -2172,7 +2172,7 @@ export class StudentLearningService {
     await this.validatePredictions(studentId, language, strugglesObserved);
     
     // Count how many were validated
-    const validated = await db
+    const validated = await getSharedDb()
       .select({ count: sql<number>`count(*)::int` })
       .from(predictedStruggles)
       .where(
@@ -2194,7 +2194,7 @@ export class StudentLearningService {
    * Mark a motivation alert as addressed
    */
   async markAlertAddressed(alertId: string, notes?: string): Promise<void> {
-    await db
+    await getSharedDb()
       .update(userMotivationAlerts)
       .set({
         status: 'addressed',
@@ -2248,7 +2248,7 @@ export class StudentLearningService {
     const normalizedFact = normalizeForFingerprint(input.fact);
     
     // Get all existing facts of same type for this student
-    const existingFacts = await db
+    const existingFacts = await getSharedDb()
       .select()
       .from(learnerPersonalFacts)
       .where(
@@ -2278,7 +2278,7 @@ export class StudentLearningService {
     
     if (existing.length > 0) {
       // Update existing fact - bump mention count and update timestamp
-      const [updated] = await db
+      const [updated] = await getSharedDb()
         .update(learnerPersonalFacts)
         .set({
           mentionCount: sql`${learnerPersonalFacts.mentionCount} + 1`,
@@ -2299,7 +2299,7 @@ export class StudentLearningService {
     // Generate fact hash for deduplication (used by recovery worker for idempotent upserts)
     const factHash = this.generateFactHash(input.studentId, input.factType, input.fact);
     
-    const [created] = await db
+    const [created] = await getSharedDb()
       .insert(learnerPersonalFacts)
       .values({
         studentId: input.studentId,
@@ -2341,7 +2341,7 @@ export class StudentLearningService {
       // Set expiry to 30 days from now (hive snapshots are decaying)
       const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
       
-      await db.insert(hiveSnapshots).values({
+      await getSharedDb().insert(hiveSnapshots).values({
         snapshotType: 'life_context',
         userId: fact.studentId,
         conversationId: fact.sourceConversationId,
@@ -2386,7 +2386,7 @@ export class StudentLearningService {
       );
     }
     
-    return db
+    return getSharedDb()
       .select()
       .from(learnerPersonalFacts)
       .where(and(...conditions))
@@ -2400,7 +2400,7 @@ export class StudentLearningService {
     const now = new Date();
     const threeMonthsFromNow = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
     
-    return db
+    return getSharedDb()
       .select()
       .from(learnerPersonalFacts)
       .where(
@@ -2418,7 +2418,7 @@ export class StudentLearningService {
    * Deactivate a personal fact (soft delete)
    */
   async deactivatePersonalFact(factId: string): Promise<void> {
-    await db
+    await getSharedDb()
       .update(learnerPersonalFacts)
       .set({
         isActive: false,
@@ -2484,7 +2484,7 @@ export class StudentLearningService {
           eq(recurringStruggles.status, 'resolved')
         );
     
-    const resolved = await db
+    const resolved = await getSharedDb()
       .select()
       .from(recurringStruggles)
       .where(whereClause)
@@ -2502,7 +2502,7 @@ export class StudentLearningService {
           eq(recurringStruggles.status, 'active')
         );
     
-    const active = await db
+    const active = await getSharedDb()
       .select()
       .from(recurringStruggles)
       .where(activeWhereClause);
@@ -2587,7 +2587,7 @@ export class StudentLearningService {
           sql`${recurringStruggles.timeToMasteryDays} IS NOT NULL`
         );
     
-    const result = await db
+    const result = await getSharedDb()
       .select({
         avgDays: sql<number>`AVG(${recurringStruggles.timeToMasteryDays})::integer`,
       })
@@ -2613,7 +2613,7 @@ export class StudentLearningService {
           sql`${recurringStruggles.timeToMasteryDays} IS NOT NULL`
         );
     
-    const result = await db
+    const result = await getSharedDb()
       .select({
         studentId: recurringStruggles.studentId,
         avgDays: sql<number>`AVG(${recurringStruggles.timeToMasteryDays})::integer`,
@@ -2642,19 +2642,19 @@ export class StudentLearningService {
    */
   async getVelocityAnalytics(): Promise<VelocityAnalytics> {
     // Total resolved struggles
-    const [totalResolved] = await db
+    const [totalResolved] = await getSharedDb()
       .select({ count: sql<number>`COUNT(*)::integer` })
       .from(recurringStruggles)
       .where(eq(recurringStruggles.status, 'resolved'));
     
     // Total active struggles
-    const [totalActive] = await db
+    const [totalActive] = await getSharedDb()
       .select({ count: sql<number>`COUNT(*)::integer` })
       .from(recurringStruggles)
       .where(eq(recurringStruggles.status, 'active'));
     
     // Average time to mastery
-    const [avgMastery] = await db
+    const [avgMastery] = await getSharedDb()
       .select({ avg: sql<number>`AVG(${recurringStruggles.timeToMasteryDays})::integer` })
       .from(recurringStruggles)
       .where(and(
@@ -2663,7 +2663,7 @@ export class StudentLearningService {
       ));
     
     // Breakthroughs by struggle area
-    const byArea = await db
+    const byArea = await getSharedDb()
       .select({
         area: recurringStruggles.struggleArea,
         count: sql<number>`COUNT(*)::integer`,
@@ -2676,7 +2676,7 @@ export class StudentLearningService {
     
     // Recent breakthroughs (last 7 days)
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const [recentBreakthroughs] = await db
+    const [recentBreakthroughs] = await getSharedDb()
       .select({ count: sql<number>`COUNT(*)::integer` })
       .from(recurringStruggles)
       .where(and(
@@ -2721,7 +2721,7 @@ export class StudentLearningService {
       endOfDay.setHours(23, 59, 59, 999);
       
       // Count breakthroughs for this day
-      const [dayBreakthroughs] = await db
+      const [dayBreakthroughs] = await getSharedDb()
         .select({ 
           count: sql<number>`COUNT(*)::integer`,
           avgDays: sql<number>`AVG(${recurringStruggles.timeToMasteryDays})::integer`
@@ -2774,7 +2774,7 @@ export class StudentLearningService {
     const recommendations: DrillRecommendation[] = [];
     
     // Get active pronunciation struggles for this student
-    const pronunciationStruggles = await db
+    const pronunciationStruggles = await getSharedDb()
       .select()
       .from(recurringStruggles)
       .where(
@@ -2789,7 +2789,7 @@ export class StudentLearningService {
       .limit(limit);
     
     // Get common struggles across all students for this language (cross-student patterns)
-    const commonStruggles = await db
+    const commonStruggles = await getSharedDb()
       .select({
         description: recurringStruggles.description,
         struggleArea: recurringStruggles.struggleArea,
@@ -2880,7 +2880,7 @@ export class StudentLearningService {
     phoneme?: string
   ): Promise<DrillProgressEntry[]> {
     // Get resolved struggles (breakthroughs) with time to mastery
-    const breakthroughs = await db
+    const breakthroughs = await getSharedDb()
       .select()
       .from(recurringStruggles)
       .where(
@@ -2895,7 +2895,7 @@ export class StudentLearningService {
       .orderBy(desc(recurringStruggles.resolvedAt));
     
     // Get active struggles for current state
-    const activeStruggles = await db
+    const activeStruggles = await getSharedDb()
       .select()
       .from(recurringStruggles)
       .where(

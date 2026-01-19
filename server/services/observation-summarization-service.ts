@@ -1,4 +1,4 @@
-import { db } from "../db";
+import { db, getSharedDb } from "../db";
 import { agentObservations, supportObservations, systemAlerts, synthesizedInsights, type InsertSynthesizedInsight } from "../../shared/schema";
 import { desc, and, gte, lte, sql, eq, isNull } from "drizzle-orm";
 import { GoogleGenAI } from "@google/genai";
@@ -30,14 +30,14 @@ export class ObservationSummarizationService {
     support: any[];
     alerts: any[];
   }> {
-    const agent = await db
+    const agent = await getSharedDb()
       .select()
       .from(agentObservations)
       .where(eq(agentObservations.status, 'active'))
       .orderBy(desc(agentObservations.createdAt))
       .limit(limit);
     
-    const support = await db
+    const support = await getSharedDb()
       .select()
       .from(supportObservations)
       .where(eq(supportObservations.status, 'active'))
@@ -279,7 +279,7 @@ Only output valid JSON, no other text.`;
           try {
             const insight = await this.synthesizeObservations(chunk, category);
             if (insight) {
-              await db.insert(synthesizedInsights).values(insight);
+              await getSharedDb().insert(synthesizedInsights).values(insight);
               result.insightsCreated++;
               result.observationsProcessed += chunk.length;
               console.log(`[SUMMARIZATION] Created insight: ${insight.title}`);
@@ -315,10 +315,10 @@ Only output valid JSON, no other text.`;
     unsynthesizedCount: number;
     lastSynthesisAt: Date | null;
   }> {
-    const [agentCount] = await db.select({ count: sql<number>`count(*)` }).from(agentObservations);
-    const [supportCount] = await db.select({ count: sql<number>`count(*)` }).from(supportObservations);
-    const [insightCount] = await db.select({ count: sql<number>`count(*)` }).from(synthesizedInsights);
-    const [latestInsight] = await db.select().from(synthesizedInsights).orderBy(desc(synthesizedInsights.createdAt)).limit(1);
+    const [agentCount] = await getSharedDb().select({ count: sql<number>`count(*)` }).from(agentObservations);
+    const [supportCount] = await getSharedDb().select({ count: sql<number>`count(*)` }).from(supportObservations);
+    const [insightCount] = await getSharedDb().select({ count: sql<number>`count(*)` }).from(synthesizedInsights);
+    const [latestInsight] = await getSharedDb().select().from(synthesizedInsights).orderBy(desc(synthesizedInsights.createdAt)).limit(1);
     
     return {
       totalObservations: Number(agentCount?.count || 0) + Number(supportCount?.count || 0),

@@ -12,7 +12,7 @@
  * 4. Privacy-safe (no student identifiers in suggestions)
  */
 
-import { db } from "../db";
+import { db, getSharedDb } from "../db";
 import { eq, and, desc, sql, gte, or } from "drizzle-orm";
 import {
   danielaSuggestions,
@@ -174,7 +174,7 @@ export async function reflect(context: ReflectionContext): Promise<ReflectionOut
 // ===== Trigger Management =====
 
 async function getActiveReflectionTriggers(context: ReflectionContext): Promise<ReflectionTrigger[]> {
-  const triggers = await db.select()
+  const triggers = await getSharedDb().select()
     .from(reflectionTriggers)
     .where(eq(reflectionTriggers.isActive, true))
     .orderBy(desc(reflectionTriggers.priority));
@@ -578,7 +578,7 @@ export async function exportDanielaSuggestions(): Promise<{
       eq(danielaSuggestions.status, 'implemented') // Implemented suggestions are valuable to sync
     ));
   
-  const triggers = await db.select()
+  const triggers = await getSharedDb().select()
     .from(reflectionTriggers)
     .where(eq(reflectionTriggers.syncStatus, 'approved'));
   
@@ -596,7 +596,7 @@ export async function autoApproveSuggestions(): Promise<{ approved: number }> {
     ));
   
   // Also approve triggers
-  await db.update(reflectionTriggers)
+  await getSharedDb().update(reflectionTriggers)
     .set({ syncStatus: 'approved' })
     .where(eq(reflectionTriggers.syncStatus, 'local'));
   

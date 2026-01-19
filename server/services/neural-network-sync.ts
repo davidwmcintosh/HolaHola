@@ -1,4 +1,4 @@
-import { db } from '../db';
+import { db, getSharedDb } from '../db';
 import { 
   selfBestPractices, 
   promotionQueue, 
@@ -65,7 +65,7 @@ export class NeuralNetworkSyncService {
     submittedBy: string
   ): Promise<{ success: boolean; queueItem?: PromotionQueue; error?: string }> {
     try {
-      const [bestPractice] = await db
+      const [bestPractice] = await getSharedDb()
         .select()
         .from(selfBestPractices)
         .where(eq(selfBestPractices.id, bestPracticeId))
@@ -81,7 +81,7 @@ export class NeuralNetworkSyncService {
       
       const targetEnv = CURRENT_ENVIRONMENT === 'production' ? 'development' : 'production';
       
-      const [queueItem] = await db.insert(promotionQueue).values({
+      const [queueItem] = await getSharedDb().insert(promotionQueue).values({
         bestPracticeId,
         sourceEnvironment: CURRENT_ENVIRONMENT as 'development' | 'production',
         targetEnvironment: targetEnv as 'development' | 'production',
@@ -89,7 +89,7 @@ export class NeuralNetworkSyncService {
         submittedBy,
       }).returning();
       
-      await db
+      await getSharedDb()
         .update(selfBestPractices)
         .set({ 
           syncStatus: 'pending_review',
@@ -111,7 +111,7 @@ export class NeuralNetworkSyncService {
     reviewNotes?: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const [queueItem] = await db
+      const [queueItem] = await getSharedDb()
         .select()
         .from(promotionQueue)
         .where(eq(promotionQueue.id, queueItemId))
@@ -128,7 +128,7 @@ export class NeuralNetworkSyncService {
       const newStatus = approved ? 'approved' : 'rejected';
       const syncStatus = approved ? 'approved' : 'rejected';
       
-      await db
+      await getSharedDb()
         .update(promotionQueue)
         .set({
           status: newStatus,
@@ -138,7 +138,7 @@ export class NeuralNetworkSyncService {
         })
         .where(eq(promotionQueue.id, queueItemId));
       
-      await db
+      await getSharedDb()
         .update(selfBestPractices)
         .set({
           syncStatus: syncStatus as 'approved' | 'rejected',
@@ -171,7 +171,7 @@ export class NeuralNetworkSyncService {
   }
   
   async getPendingPromotions(): Promise<Array<PromotionQueue & { bestPractice: SelfBestPractice }>> {
-    const pending = await db
+    const pending = await getSharedDb()
       .select()
       .from(promotionQueue)
       .where(eq(promotionQueue.status, 'pending'))
@@ -179,7 +179,7 @@ export class NeuralNetworkSyncService {
     
     const result = [];
     for (const item of pending) {
-      const [bp] = await db
+      const [bp] = await getSharedDb()
         .select()
         .from(selfBestPractices)
         .where(eq(selfBestPractices.id, item.bestPracticeId))
@@ -193,7 +193,7 @@ export class NeuralNetworkSyncService {
   }
   
   async getPromotionHistory(limit = 50): Promise<PromotionQueue[]> {
-    return db
+    return getSharedDb()
       .select()
       .from(promotionQueue)
       .orderBy(desc(promotionQueue.submittedAt))
@@ -201,7 +201,7 @@ export class NeuralNetworkSyncService {
   }
   
   async getBestPracticesForExport(): Promise<SelfBestPractice[]> {
-    return db
+    return getSharedDb()
       .select()
       .from(selfBestPractices)
       .where(
@@ -218,7 +218,7 @@ export class NeuralNetworkSyncService {
   ): Promise<{ success: boolean; id?: string; error?: string }> {
     try {
       const existingOrigin = practice.originId 
-        ? await db.select().from(selfBestPractices).where(eq(selfBestPractices.originId, practice.originId)).limit(1)
+        ? await getSharedDb().select().from(selfBestPractices).where(eq(selfBestPractices.originId, practice.originId)).limit(1)
         : [];
       
       if (existingOrigin.length > 0) {
@@ -227,7 +227,7 @@ export class NeuralNetworkSyncService {
         const incomingVersion = practice.version || 1;
         
         if (incomingVersion > existingVersion) {
-          await db
+          await getSharedDb()
             .update(selfBestPractices)
             .set({
               insight: practice.insight,
@@ -245,7 +245,7 @@ export class NeuralNetworkSyncService {
         }
       }
       
-      const [imported] = await db.insert(selfBestPractices).values({
+      const [imported] = await getSharedDb().insert(selfBestPractices).values({
         category: practice.category!,
         insight: practice.insight!,
         context: practice.context,
@@ -266,14 +266,14 @@ export class NeuralNetworkSyncService {
   
   async logSyncOperation(log: InsertSyncLog): Promise<void> {
     try {
-      await db.insert(syncLog).values(log);
+      await getSharedDb().insert(syncLog).values(log);
     } catch (error) {
       console.error('[SYNC] Error logging sync operation:', error);
     }
   }
   
   async getSyncLogs(limit = 100): Promise<typeof syncLog.$inferSelect[]> {
-    return db
+    return getSharedDb()
       .select()
       .from(syncLog)
       .orderBy(desc(syncLog.createdAt))
@@ -286,7 +286,7 @@ export class NeuralNetworkSyncService {
     lastSyncTime: Date | null;
     currentEnvironment: string;
   }> {
-    const pending = await db
+    const pending = await getSharedDb()
       .select()
       .from(promotionQueue)
       .where(eq(promotionQueue.status, 'pending'));
@@ -294,7 +294,7 @@ export class NeuralNetworkSyncService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    const approved = await db
+    const approved = await getSharedDb()
       .select()
       .from(promotionQueue)
       .where(eq(promotionQueue.status, 'approved'));
@@ -303,7 +303,7 @@ export class NeuralNetworkSyncService {
       a.reviewedAt && a.reviewedAt >= today
     ).length;
     
-    const [lastLog] = await db
+    const [lastLog] = await getSharedDb()
       .select()
       .from(syncLog)
       .orderBy(desc(syncLog.createdAt))
@@ -465,7 +465,7 @@ export class NeuralNetworkSyncService {
   }> {
     const { pedagogicalInsights } = await import('@shared/schema');
     
-    const allInsights = await db
+    const allInsights = await getSharedDb()
       .select()
       .from(pedagogicalInsights)
       .orderBy(desc(pedagogicalInsights.createdAt))
@@ -507,7 +507,7 @@ export class NeuralNetworkSyncService {
   }> {
     const { pedagogicalInsights } = await import('@shared/schema');
     
-    const allInsights = await db
+    const allInsights = await getSharedDb()
       .select()
       .from(pedagogicalInsights);
     
@@ -580,7 +580,7 @@ export class NeuralNetworkSyncService {
   }> {
     try {
       // Get all unsynced best practices that are active
-      const unsyncedPractices = await db
+      const unsyncedPractices = await getSharedDb()
         .select()
         .from(selfBestPractices)
         .where(
@@ -597,7 +597,7 @@ export class NeuralNetworkSyncService {
       // Auto-approve and mark as synced
       const syncedIds: string[] = [];
       for (const practice of unsyncedPractices) {
-        await db
+        await getSharedDb()
           .update(selfBestPractices)
           .set({
             syncStatus: 'synced',
@@ -611,7 +611,7 @@ export class NeuralNetworkSyncService {
       
       // Log the sync operation (skip if no performedBy to avoid FK issues)
       if (performedBy) {
-        const [logEntry] = await db.insert(syncLog).values({
+        const [logEntry] = await getSharedDb().insert(syncLog).values({
           operation: 'auto_sync',
           tableName: 'self_best_practices',
           recordCount: syncedIds.length,
@@ -671,7 +671,7 @@ export class NeuralNetworkSyncService {
     reason?: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const [practice] = await db
+      const [practice] = await getSharedDb()
         .select()
         .from(selfBestPractices)
         .where(eq(selfBestPractices.id, bestPracticeId))
@@ -682,7 +682,7 @@ export class NeuralNetworkSyncService {
       }
       
       // Mark as retracted (using 'rejected' status to indicate retraction)
-      await db
+      await getSharedDb()
         .update(selfBestPractices)
         .set({
           syncStatus: 'rejected',
@@ -726,7 +726,7 @@ export class NeuralNetworkSyncService {
   } = {}): Promise<Array<typeof syncLog.$inferSelect & { canRetract: boolean }>> {
     const { limit = 50, operation } = options;
     
-    let query = db
+    let query = getSharedDb()
       .select()
       .from(syncLog)
       .orderBy(desc(syncLog.createdAt))
@@ -766,14 +766,14 @@ export class NeuralNetworkSyncService {
     lastAutoSync: Date | null;
     pendingCount: number;
   }> {
-    const [lastAutoSyncLog] = await db
+    const [lastAutoSyncLog] = await getSharedDb()
       .select()
       .from(syncLog)
       .where(eq(syncLog.operation, 'auto_sync'))
       .orderBy(desc(syncLog.createdAt))
       .limit(1);
     
-    const pendingPractices = await db
+    const pendingPractices = await getSharedDb()
       .select()
       .from(selfBestPractices)
       .where(
@@ -811,19 +811,19 @@ export class NeuralNetworkSyncService {
   }> {
     // Get all approved items from each table
     const [idioms, nuances, errorPatterns, dialects, bridges] = await Promise.all([
-      db.select().from(languageIdioms).where(
+      getSharedDb().select().from(languageIdioms).where(
         and(eq(languageIdioms.isActive, true), eq(languageIdioms.syncStatus, 'approved'))
       ),
-      db.select().from(culturalNuances).where(
+      getSharedDb().select().from(culturalNuances).where(
         and(eq(culturalNuances.isActive, true), eq(culturalNuances.syncStatus, 'approved'))
       ),
-      db.select().from(learnerErrorPatterns).where(
+      getSharedDb().select().from(learnerErrorPatterns).where(
         and(eq(learnerErrorPatterns.isActive, true), eq(learnerErrorPatterns.syncStatus, 'approved'))
       ),
-      db.select().from(dialectVariations).where(
+      getSharedDb().select().from(dialectVariations).where(
         and(eq(dialectVariations.isActive, true), eq(dialectVariations.syncStatus, 'approved'))
       ),
-      db.select().from(linguisticBridges).where(
+      getSharedDb().select().from(linguisticBridges).where(
         and(eq(linguisticBridges.isActive, true), eq(linguisticBridges.syncStatus, 'approved'))
       ),
     ]);
@@ -860,7 +860,7 @@ export class NeuralNetworkSyncService {
         ? or(eq(languageIdioms.originId, idiom.originId), uniqueKeyMatch)
         : uniqueKeyMatch;
       
-      const existing = await db.select().from(languageIdioms).where(whereClause).limit(1);
+      const existing = await getSharedDb().select().from(languageIdioms).where(whereClause).limit(1);
       
       if (existing.length > 0) {
         // Already exists - skip (could add version comparison for updates)
@@ -868,7 +868,7 @@ export class NeuralNetworkSyncService {
       }
       
       // Insert new idiom
-      const [imported] = await db.insert(languageIdioms).values({
+      const [imported] = await getSharedDb().insert(languageIdioms).values({
         language: idiom.language!,
         idiom: idiom.idiom!,
         literalTranslation: idiom.literalTranslation,
@@ -916,13 +916,13 @@ export class NeuralNetworkSyncService {
         ? or(eq(culturalNuances.originId, nuance.originId), uniqueKeyMatch)
         : uniqueKeyMatch;
       
-      const existing = await db.select().from(culturalNuances).where(whereClause).limit(1);
+      const existing = await getSharedDb().select().from(culturalNuances).where(whereClause).limit(1);
       
       if (existing.length > 0) {
         return { success: true, id: existing[0].id, action: 'skipped' };
       }
       
-      const [imported] = await db.insert(culturalNuances).values({
+      const [imported] = await getSharedDb().insert(culturalNuances).values({
         language: nuance.language!,
         category: nuance.category!,
         situation: nuance.situation!,
@@ -968,13 +968,13 @@ export class NeuralNetworkSyncService {
         ? or(eq(learnerErrorPatterns.originId, pattern.originId), uniqueKeyMatch)
         : uniqueKeyMatch;
       
-      const existing = await db.select().from(learnerErrorPatterns).where(whereClause).limit(1);
+      const existing = await getSharedDb().select().from(learnerErrorPatterns).where(whereClause).limit(1);
       
       if (existing.length > 0) {
         return { success: true, id: existing[0].id, action: 'skipped' };
       }
       
-      const [imported] = await db.insert(learnerErrorPatterns).values({
+      const [imported] = await getSharedDb().insert(learnerErrorPatterns).values({
         targetLanguage: pattern.targetLanguage!,
         sourceLanguage: pattern.sourceLanguage!,
         errorCategory: pattern.errorCategory!,
@@ -1022,13 +1022,13 @@ export class NeuralNetworkSyncService {
         ? or(eq(dialectVariations.originId, dialect.originId), uniqueKeyMatch)
         : uniqueKeyMatch;
       
-      const existing = await db.select().from(dialectVariations).where(whereClause).limit(1);
+      const existing = await getSharedDb().select().from(dialectVariations).where(whereClause).limit(1);
       
       if (existing.length > 0) {
         return { success: true, id: existing[0].id, action: 'skipped' };
       }
       
-      const [imported] = await db.insert(dialectVariations).values({
+      const [imported] = await getSharedDb().insert(dialectVariations).values({
         language: dialect.language!,
         region: dialect.region!,
         category: dialect.category!,
@@ -1077,13 +1077,13 @@ export class NeuralNetworkSyncService {
         ? or(eq(linguisticBridges.originId, bridge.originId), uniqueKeyMatch)
         : uniqueKeyMatch;
       
-      const existing = await db.select().from(linguisticBridges).where(whereClause).limit(1);
+      const existing = await getSharedDb().select().from(linguisticBridges).where(whereClause).limit(1);
       
       if (existing.length > 0) {
         return { success: true, id: existing[0].id, action: 'skipped' };
       }
       
-      const [imported] = await db.insert(linguisticBridges).values({
+      const [imported] = await getSharedDb().insert(linguisticBridges).values({
         sourceLanguage: bridge.sourceLanguage!,
         targetLanguage: bridge.targetLanguage!,
         bridgeType: bridge.bridgeType!,
@@ -1203,19 +1203,19 @@ export class NeuralNetworkSyncService {
     totalCount: number;
   }> {
     const [idioms, nuances, errorPatterns, dialects, bridges] = await Promise.all([
-      db.select().from(languageIdioms).where(
+      getSharedDb().select().from(languageIdioms).where(
         and(eq(languageIdioms.isActive, true), eq(languageIdioms.syncStatus, 'local'))
       ),
-      db.select().from(culturalNuances).where(
+      getSharedDb().select().from(culturalNuances).where(
         and(eq(culturalNuances.isActive, true), eq(culturalNuances.syncStatus, 'local'))
       ),
-      db.select().from(learnerErrorPatterns).where(
+      getSharedDb().select().from(learnerErrorPatterns).where(
         and(eq(learnerErrorPatterns.isActive, true), eq(learnerErrorPatterns.syncStatus, 'local'))
       ),
-      db.select().from(dialectVariations).where(
+      getSharedDb().select().from(dialectVariations).where(
         and(eq(dialectVariations.isActive, true), eq(dialectVariations.syncStatus, 'local'))
       ),
-      db.select().from(linguisticBridges).where(
+      getSharedDb().select().from(linguisticBridges).where(
         and(eq(linguisticBridges.isActive, true), eq(linguisticBridges.syncStatus, 'local'))
       ),
     ]);
@@ -1251,7 +1251,7 @@ export class NeuralNetworkSyncService {
       
       const table = tableMap[tableName];
       
-      await db.update(table).set({
+      await getSharedDb().update(table).set({
         syncStatus: 'approved',
       }).where(eq(table.id, itemId));
       
@@ -1283,16 +1283,16 @@ export class NeuralNetworkSyncService {
     patterns: SituationalPattern[];
   }> {
     const [tools, procedures, principles, patterns] = await Promise.all([
-      db.select().from(toolKnowledge).where(
+      getSharedDb().select().from(toolKnowledge).where(
         and(eq(toolKnowledge.isActive, true), eq(toolKnowledge.syncStatus, 'approved'))
       ),
-      db.select().from(tutorProcedures).where(
+      getSharedDb().select().from(tutorProcedures).where(
         and(eq(tutorProcedures.isActive, true), eq(tutorProcedures.syncStatus, 'approved'))
       ),
-      db.select().from(teachingPrinciples).where(
+      getSharedDb().select().from(teachingPrinciples).where(
         and(eq(teachingPrinciples.isActive, true), eq(teachingPrinciples.syncStatus, 'approved'))
       ),
-      db.select().from(situationalPatterns).where(
+      getSharedDb().select().from(situationalPatterns).where(
         and(eq(situationalPatterns.isActive, true), eq(situationalPatterns.syncStatus, 'approved'))
       ),
     ]);
@@ -1321,13 +1321,13 @@ export class NeuralNetworkSyncService {
         ? or(eq(toolKnowledge.originId, tool.originId), eq(toolKnowledge.toolName, tool.toolName))
         : eq(toolKnowledge.toolName, tool.toolName);
       
-      const existing = await db.select().from(toolKnowledge).where(whereClause).limit(1);
+      const existing = await getSharedDb().select().from(toolKnowledge).where(whereClause).limit(1);
       
       if (existing.length > 0) {
         return { success: true, id: existing[0].id, action: 'skipped' };
       }
       
-      const [imported] = await db.insert(toolKnowledge).values({
+      const [imported] = await getSharedDb().insert(toolKnowledge).values({
         toolName: tool.toolName!,
         toolType: tool.toolType!,
         purpose: tool.purpose!,
@@ -1369,13 +1369,13 @@ export class NeuralNetworkSyncService {
         ? or(eq(tutorProcedures.originId, procedure.originId), uniqueKeyMatch)
         : uniqueKeyMatch;
       
-      const existing = await db.select().from(tutorProcedures).where(whereClause).limit(1);
+      const existing = await getSharedDb().select().from(tutorProcedures).where(whereClause).limit(1);
       
       if (existing.length > 0) {
         return { success: true, id: existing[0].id, action: 'skipped' };
       }
       
-      const [imported] = await db.insert(tutorProcedures).values({
+      const [imported] = await getSharedDb().insert(tutorProcedures).values({
         category: procedure.category!,
         trigger: procedure.trigger!,
         title: procedure.title!,
@@ -1417,13 +1417,13 @@ export class NeuralNetworkSyncService {
         ? or(eq(teachingPrinciples.originId, principle.originId), uniqueKeyMatch)
         : uniqueKeyMatch;
       
-      const existing = await db.select().from(teachingPrinciples).where(whereClause).limit(1);
+      const existing = await getSharedDb().select().from(teachingPrinciples).where(whereClause).limit(1);
       
       if (existing.length > 0) {
         return { success: true, id: existing[0].id, action: 'skipped' };
       }
       
-      const [imported] = await db.insert(teachingPrinciples).values({
+      const [imported] = await getSharedDb().insert(teachingPrinciples).values({
         category: principle.category!,
         principle: principle.principle!,
         application: principle.application,
@@ -1457,13 +1457,13 @@ export class NeuralNetworkSyncService {
         ? or(eq(situationalPatterns.originId, pattern.originId), eq(situationalPatterns.patternName, pattern.patternName))
         : eq(situationalPatterns.patternName, pattern.patternName);
       
-      const existing = await db.select().from(situationalPatterns).where(whereClause).limit(1);
+      const existing = await getSharedDb().select().from(situationalPatterns).where(whereClause).limit(1);
       
       if (existing.length > 0) {
         return { success: true, id: existing[0].id, action: 'skipped' };
       }
       
-      const [imported] = await db.insert(situationalPatterns).values({
+      const [imported] = await getSharedDb().insert(situationalPatterns).values({
         patternName: pattern.patternName!,
         description: pattern.description,
         compassConditions: pattern.compassConditions,
@@ -1568,16 +1568,16 @@ export class NeuralNetworkSyncService {
     totalCount: number;
   }> {
     const [tools, procedures, principles, patterns] = await Promise.all([
-      db.select().from(toolKnowledge).where(
+      getSharedDb().select().from(toolKnowledge).where(
         and(eq(toolKnowledge.isActive, true), eq(toolKnowledge.syncStatus, 'local'))
       ),
-      db.select().from(tutorProcedures).where(
+      getSharedDb().select().from(tutorProcedures).where(
         and(eq(tutorProcedures.isActive, true), eq(tutorProcedures.syncStatus, 'local'))
       ),
-      db.select().from(teachingPrinciples).where(
+      getSharedDb().select().from(teachingPrinciples).where(
         and(eq(teachingPrinciples.isActive, true), eq(teachingPrinciples.syncStatus, 'local'))
       ),
-      db.select().from(situationalPatterns).where(
+      getSharedDb().select().from(situationalPatterns).where(
         and(eq(situationalPatterns.isActive, true), eq(situationalPatterns.syncStatus, 'local'))
       ),
     ]);
@@ -1609,7 +1609,7 @@ export class NeuralNetworkSyncService {
       
       const table = tableMap[tableName];
       
-      await db.update(table).set({
+      await getSharedDb().update(table).set({
         syncStatus: 'approved',
       }).where(eq(table.id, itemId));
       
@@ -1632,19 +1632,19 @@ export class NeuralNetworkSyncService {
   }> {
     try {
       const [toolsResult, proceduresResult, principlesResult, patternsResult] = await Promise.all([
-        db.update(toolKnowledge)
+        getSharedDb().update(toolKnowledge)
           .set({ syncStatus: 'approved' })
           .where(and(eq(toolKnowledge.isActive, true), eq(toolKnowledge.syncStatus, 'local')))
           .returning(),
-        db.update(tutorProcedures)
+        getSharedDb().update(tutorProcedures)
           .set({ syncStatus: 'approved' })
           .where(and(eq(tutorProcedures.isActive, true), eq(tutorProcedures.syncStatus, 'local')))
           .returning(),
-        db.update(teachingPrinciples)
+        getSharedDb().update(teachingPrinciples)
           .set({ syncStatus: 'approved' })
           .where(and(eq(teachingPrinciples.isActive, true), eq(teachingPrinciples.syncStatus, 'local')))
           .returning(),
-        db.update(situationalPatterns)
+        getSharedDb().update(situationalPatterns)
           .set({ syncStatus: 'approved' })
           .where(and(eq(situationalPatterns.isActive, true), eq(situationalPatterns.syncStatus, 'local')))
           .returning(),
@@ -1705,31 +1705,31 @@ export class NeuralNetworkSyncService {
       approvedTools, approvedProcedures, approvedPrinciples, approvedPatterns,
       totalTools, totalProcedures, totalPrinciples, totalPatterns
     ] = await Promise.all([
-      db.select().from(languageIdioms).where(eq(languageIdioms.syncStatus, 'local')),
-      db.select().from(culturalNuances).where(eq(culturalNuances.syncStatus, 'local')),
-      db.select().from(learnerErrorPatterns).where(eq(learnerErrorPatterns.syncStatus, 'local')),
-      db.select().from(dialectVariations).where(eq(dialectVariations.syncStatus, 'local')),
-      db.select().from(linguisticBridges).where(eq(linguisticBridges.syncStatus, 'local')),
-      db.select().from(languageIdioms).where(eq(languageIdioms.syncStatus, 'approved')),
-      db.select().from(culturalNuances).where(eq(culturalNuances.syncStatus, 'approved')),
-      db.select().from(learnerErrorPatterns).where(eq(learnerErrorPatterns.syncStatus, 'approved')),
-      db.select().from(dialectVariations).where(eq(dialectVariations.syncStatus, 'approved')),
-      db.select().from(linguisticBridges).where(eq(linguisticBridges.syncStatus, 'approved')),
-      db.select().from(toolKnowledge).where(eq(toolKnowledge.syncStatus, 'local')),
-      db.select().from(tutorProcedures).where(eq(tutorProcedures.syncStatus, 'local')),
-      db.select().from(teachingPrinciples).where(eq(teachingPrinciples.syncStatus, 'local')),
-      db.select().from(situationalPatterns).where(eq(situationalPatterns.syncStatus, 'local')),
-      db.select().from(toolKnowledge).where(eq(toolKnowledge.syncStatus, 'approved')),
-      db.select().from(tutorProcedures).where(eq(tutorProcedures.syncStatus, 'approved')),
-      db.select().from(teachingPrinciples).where(eq(teachingPrinciples.syncStatus, 'approved')),
-      db.select().from(situationalPatterns).where(eq(situationalPatterns.syncStatus, 'approved')),
-      db.select().from(toolKnowledge),
-      db.select().from(tutorProcedures),
-      db.select().from(teachingPrinciples),
-      db.select().from(situationalPatterns),
+      getSharedDb().select().from(languageIdioms).where(eq(languageIdioms.syncStatus, 'local')),
+      getSharedDb().select().from(culturalNuances).where(eq(culturalNuances.syncStatus, 'local')),
+      getSharedDb().select().from(learnerErrorPatterns).where(eq(learnerErrorPatterns.syncStatus, 'local')),
+      getSharedDb().select().from(dialectVariations).where(eq(dialectVariations.syncStatus, 'local')),
+      getSharedDb().select().from(linguisticBridges).where(eq(linguisticBridges.syncStatus, 'local')),
+      getSharedDb().select().from(languageIdioms).where(eq(languageIdioms.syncStatus, 'approved')),
+      getSharedDb().select().from(culturalNuances).where(eq(culturalNuances.syncStatus, 'approved')),
+      getSharedDb().select().from(learnerErrorPatterns).where(eq(learnerErrorPatterns.syncStatus, 'approved')),
+      getSharedDb().select().from(dialectVariations).where(eq(dialectVariations.syncStatus, 'approved')),
+      getSharedDb().select().from(linguisticBridges).where(eq(linguisticBridges.syncStatus, 'approved')),
+      getSharedDb().select().from(toolKnowledge).where(eq(toolKnowledge.syncStatus, 'local')),
+      getSharedDb().select().from(tutorProcedures).where(eq(tutorProcedures.syncStatus, 'local')),
+      getSharedDb().select().from(teachingPrinciples).where(eq(teachingPrinciples.syncStatus, 'local')),
+      getSharedDb().select().from(situationalPatterns).where(eq(situationalPatterns.syncStatus, 'local')),
+      getSharedDb().select().from(toolKnowledge).where(eq(toolKnowledge.syncStatus, 'approved')),
+      getSharedDb().select().from(tutorProcedures).where(eq(tutorProcedures.syncStatus, 'approved')),
+      getSharedDb().select().from(teachingPrinciples).where(eq(teachingPrinciples.syncStatus, 'approved')),
+      getSharedDb().select().from(situationalPatterns).where(eq(situationalPatterns.syncStatus, 'approved')),
+      getSharedDb().select().from(toolKnowledge),
+      getSharedDb().select().from(tutorProcedures),
+      getSharedDb().select().from(teachingPrinciples),
+      getSharedDb().select().from(situationalPatterns),
     ]);
     
-    const [lastLog] = await db
+    const [lastLog] = await getSharedDb()
       .select()
       .from(syncLog)
       .orderBy(desc(syncLog.createdAt))
@@ -1771,19 +1771,19 @@ export class NeuralNetworkSyncService {
     let creativity: CreativityTemplate[] = [];
     
     try {
-      cues = await db.select().from(subtletyCues).where(eq(subtletyCues.syncStatus, 'approved'));
+      cues = await getSharedDb().select().from(subtletyCues).where(eq(subtletyCues.syncStatus, 'approved'));
     } catch (err: any) {
       console.warn('[NEURAL-SYNC] subtlety_cues table query failed (may not exist):', err.message);
     }
     
     try {
-      emotions = await db.select().from(emotionalPatterns).where(eq(emotionalPatterns.syncStatus, 'approved'));
+      emotions = await getSharedDb().select().from(emotionalPatterns).where(eq(emotionalPatterns.syncStatus, 'approved'));
     } catch (err: any) {
       console.warn('[NEURAL-SYNC] emotional_patterns table query failed (may not exist):', err.message);
     }
     
     try {
-      creativity = await db.select().from(creativityTemplates).where(eq(creativityTemplates.syncStatus, 'approved'));
+      creativity = await getSharedDb().select().from(creativityTemplates).where(eq(creativityTemplates.syncStatus, 'approved'));
     } catch (err: any) {
       console.warn('[NEURAL-SYNC] creativity_templates table query failed (may not exist):', err.message);
     }
@@ -1820,11 +1820,11 @@ export class NeuralNetworkSyncService {
       if (data.subtletyCues) {
         for (const cue of data.subtletyCues) {
           if (cue.originId) {
-            const existing = await db.select().from(subtletyCues).where(eq(subtletyCues.originId, cue.originId)).limit(1);
+            const existing = await getSharedDb().select().from(subtletyCues).where(eq(subtletyCues.originId, cue.originId)).limit(1);
             if (existing.length > 0) { counts.cues.skipped++; continue; }
           }
           
-          await db.insert(subtletyCues).values({
+          await getSharedDb().insert(subtletyCues).values({
             ...cue,
             id: undefined,
             syncStatus: 'synced',
@@ -1839,11 +1839,11 @@ export class NeuralNetworkSyncService {
       if (data.emotionalPatterns) {
         for (const pattern of data.emotionalPatterns) {
           if (pattern.originId) {
-            const existing = await db.select().from(emotionalPatterns).where(eq(emotionalPatterns.originId, pattern.originId)).limit(1);
+            const existing = await getSharedDb().select().from(emotionalPatterns).where(eq(emotionalPatterns.originId, pattern.originId)).limit(1);
             if (existing.length > 0) { counts.emotions.skipped++; continue; }
           }
           
-          await db.insert(emotionalPatterns).values({
+          await getSharedDb().insert(emotionalPatterns).values({
             ...pattern,
             id: undefined,
             syncStatus: 'synced',
@@ -1858,11 +1858,11 @@ export class NeuralNetworkSyncService {
       if (data.creativityTemplates) {
         for (const template of data.creativityTemplates) {
           if (template.originId) {
-            const existing = await db.select().from(creativityTemplates).where(eq(creativityTemplates.originId, template.originId)).limit(1);
+            const existing = await getSharedDb().select().from(creativityTemplates).where(eq(creativityTemplates.originId, template.originId)).limit(1);
             if (existing.length > 0) { counts.creativity.skipped++; continue; }
           }
           
-          await db.insert(creativityTemplates).values({
+          await getSharedDb().insert(creativityTemplates).values({
             ...template,
             id: undefined,
             syncStatus: 'synced',
@@ -1904,15 +1904,15 @@ export class NeuralNetworkSyncService {
   }> {
     try {
       const [cuesResult, emotionsResult, creativityResult] = await Promise.all([
-        db.update(subtletyCues)
+        getSharedDb().update(subtletyCues)
           .set({ syncStatus: 'approved' })
           .where(and(eq(subtletyCues.isActive, true), eq(subtletyCues.syncStatus, 'local')))
           .returning(),
-        db.update(emotionalPatterns)
+        getSharedDb().update(emotionalPatterns)
           .set({ syncStatus: 'approved' })
           .where(and(eq(emotionalPatterns.isActive, true), eq(emotionalPatterns.syncStatus, 'local')))
           .returning(),
-        db.update(creativityTemplates)
+        getSharedDb().update(creativityTemplates)
           .set({ syncStatus: 'approved' })
           .where(and(eq(creativityTemplates.isActive, true), eq(creativityTemplates.syncStatus, 'local')))
           .returning(),
@@ -2128,9 +2128,9 @@ export class NeuralNetworkSyncService {
     const [effectivenessRecords, toolPrefs, suggestions, triggers, actions] = await Promise.all([
       db.select().from(teachingSuggestionEffectiveness),
       db.select().from(studentToolPreferences),
-      db.select().from(danielaSuggestions),
-      db.select().from(reflectionTriggers),
-      db.select().from(danielaSuggestionActions)
+      getSharedDb().select().from(danielaSuggestions),
+      getSharedDb().select().from(reflectionTriggers),
+      getSharedDb().select().from(danielaSuggestionActions)
     ]);
     
     return {
@@ -2166,7 +2166,7 @@ export class NeuralNetworkSyncService {
     let actions: DanielaSuggestionAction[] = [];
     
     try {
-      suggestions = await db.select()
+      suggestions = await getSharedDb().select()
         .from(danielaSuggestions)
         .where(or(
           eq(danielaSuggestions.syncStatus, 'approved'),
@@ -2177,7 +2177,7 @@ export class NeuralNetworkSyncService {
     }
     
     try {
-      triggers = await db.select()
+      triggers = await getSharedDb().select()
         .from(reflectionTriggers)
         .where(eq(reflectionTriggers.syncStatus, 'approved'));
     } catch (err: any) {
@@ -2185,7 +2185,7 @@ export class NeuralNetworkSyncService {
     }
     
     try {
-      actions = await db.select()
+      actions = await getSharedDb().select()
         .from(danielaSuggestionActions);
     } catch (err: any) {
       console.warn('[NEURAL-SYNC] daniela_suggestion_actions table query failed (may not exist):', err.message);
@@ -2205,17 +2205,17 @@ export class NeuralNetworkSyncService {
     try {
       // Check for existing by originId or trigger name
       const existing = trigger.originId 
-        ? await db.select().from(reflectionTriggers)
+        ? await getSharedDb().select().from(reflectionTriggers)
             .where(eq(reflectionTriggers.originId, trigger.originId))
             .limit(1)
-        : await db.select().from(reflectionTriggers)
+        : await getSharedDb().select().from(reflectionTriggers)
             .where(eq(reflectionTriggers.triggerName, trigger.triggerName || ''))
             .limit(1);
       
       if (existing.length > 0) {
         // Update if from different environment
         if (trigger.originEnvironment !== CURRENT_ENVIRONMENT) {
-          await db.update(reflectionTriggers)
+          await getSharedDb().update(reflectionTriggers)
             .set({
               analysisPrompt: trigger.analysisPrompt,
               compassConditions: trigger.compassConditions,
@@ -2231,7 +2231,7 @@ export class NeuralNetworkSyncService {
       }
       
       // Create new
-      const [created] = await db.insert(reflectionTriggers).values({
+      const [created] = await getSharedDb().insert(reflectionTriggers).values({
         triggerName: trigger.triggerName || 'Imported Trigger',
         triggerType: trigger.triggerType || 'pattern_based',
         compassConditions: trigger.compassConditions,
@@ -2263,7 +2263,7 @@ export class NeuralNetworkSyncService {
     let approved = 0;
     
     // Approve ready suggestions with evidence >= 3
-    const readySuggestions = await db.select()
+    const readySuggestions = await getSharedDb().select()
       .from(danielaSuggestions)
       .where(and(
         eq(danielaSuggestions.syncStatus, 'local'),
@@ -2275,7 +2275,7 @@ export class NeuralNetworkSyncService {
     
     for (const suggestion of readySuggestions) {
       if ((suggestion.evidenceCount || 0) >= 3 || suggestion.status === 'implemented') {
-        await db.update(danielaSuggestions)
+        await getSharedDb().update(danielaSuggestions)
           .set({ syncStatus: 'approved' })
           .where(eq(danielaSuggestions.id, suggestion.id));
         approved++;
@@ -2283,7 +2283,7 @@ export class NeuralNetworkSyncService {
     }
     
     // Approve all local reflection triggers
-    await db.update(reflectionTriggers)
+    await getSharedDb().update(reflectionTriggers)
       .set({ syncStatus: 'approved' })
       .where(eq(reflectionTriggers.syncStatus, 'local'));
     
@@ -2320,14 +2320,14 @@ export class NeuralNetworkSyncService {
     if (importData.actions && importData.actions.length > 0) {
       for (const action of importData.actions) {
         // Check if action already exists
-        const existing = await db.select()
+        const existing = await getSharedDb().select()
           .from(danielaSuggestionActions)
           .where(eq(danielaSuggestionActions.id, action.id))
           .limit(1);
         
         if (existing.length === 0) {
           try {
-            await db.insert(danielaSuggestionActions).values({
+            await getSharedDb().insert(danielaSuggestionActions).values({
               suggestionId: action.suggestionId,
               actionType: action.actionType,
               actionBy: action.actionBy,
@@ -2406,12 +2406,12 @@ export class NeuralNetworkSyncService {
         : baseCondition;
       
       // Get total count for pagination info
-      const countResult = await db.select({ count: sql<number>`count(*)::int` })
+      const countResult = await getSharedDb().select({ count: sql<number>`count(*)::int` })
         .from(agentObservations)
         .where(condition);
       agentTotal = countResult[0]?.count || 0;
       
-      agentObs = await db.select().from(agentObservations)
+      agentObs = await getSharedDb().select().from(agentObservations)
         .where(condition)
         .orderBy(desc(agentObservations.priority), agentObservations.id)
         .limit(PAGE_SIZE)
@@ -2427,12 +2427,12 @@ export class NeuralNetworkSyncService {
         ? and(baseCondition, gte(supportObservations.createdAt, sinceTs))
         : baseCondition;
       
-      const countResult = await db.select({ count: sql<number>`count(*)::int` })
+      const countResult = await getSharedDb().select({ count: sql<number>`count(*)::int` })
         .from(supportObservations)
         .where(condition);
       supportTotal = countResult[0]?.count || 0;
       
-      supportObs = await db.select().from(supportObservations)
+      supportObs = await getSharedDb().select().from(supportObservations)
         .where(condition)
         .orderBy(desc(supportObservations.priority), supportObservations.id)
         .limit(PAGE_SIZE)
@@ -2448,12 +2448,12 @@ export class NeuralNetworkSyncService {
         ? and(baseCondition, gte(systemAlerts.createdAt, sinceTs))
         : baseCondition;
       
-      const countResult = await db.select({ count: sql<number>`count(*)::int` })
+      const countResult = await getSharedDb().select({ count: sql<number>`count(*)::int` })
         .from(systemAlerts)
         .where(condition);
       alertsTotal = countResult[0]?.count || 0;
       
-      alerts = await db.select().from(systemAlerts)
+      alerts = await getSharedDb().select().from(systemAlerts)
         .where(condition)
         .orderBy(desc(systemAlerts.createdAt), systemAlerts.id)
         .limit(PAGE_SIZE)
@@ -2498,7 +2498,7 @@ export class NeuralNetworkSyncService {
       let existing: AgentObservation | null = null;
       
       if (data.intentHash) {
-        const results = await db.select()
+        const results = await getSharedDb().select()
           .from(agentObservations)
           .where(eq(agentObservations.intentHash, data.intentHash))
           .limit(1);
@@ -2506,7 +2506,7 @@ export class NeuralNetworkSyncService {
       }
       
       if (!existing && data.originId) {
-        const results = await db.select()
+        const results = await getSharedDb().select()
           .from(agentObservations)
           .where(eq(agentObservations.originId, data.originId))
           .limit(1);
@@ -2526,7 +2526,7 @@ export class NeuralNetworkSyncService {
           return existing ?? undefined;
         };
         
-        await db.update(agentObservations)
+        await getSharedDb().update(agentObservations)
           .set({
             // Priority/evidence: only update if explicitly provided in incoming payload
             priority: data.priority !== undefined && incomingIsNewer ? data.priority : existing.priority,
@@ -2558,7 +2558,7 @@ export class NeuralNetworkSyncService {
       }
       
       // Create new observation
-      const [created] = await db.insert(agentObservations).values({
+      const [created] = await getSharedDb().insert(agentObservations).values({
         category: data.category || 'improvement' as any,
         priority: data.priority || 50,
         title: data.title || 'Imported Observation',
@@ -2598,7 +2598,7 @@ export class NeuralNetworkSyncService {
       let existing: SupportObservation | null = null;
       
       if (data.intentHash) {
-        const results = await db.select()
+        const results = await getSharedDb().select()
           .from(supportObservations)
           .where(eq(supportObservations.intentHash, data.intentHash))
           .limit(1);
@@ -2606,7 +2606,7 @@ export class NeuralNetworkSyncService {
       }
       
       if (!existing && data.originId) {
-        const results = await db.select()
+        const results = await getSharedDb().select()
           .from(supportObservations)
           .where(eq(supportObservations.originId, data.originId))
           .limit(1);
@@ -2626,7 +2626,7 @@ export class NeuralNetworkSyncService {
           return existing ?? undefined;
         };
         
-        await db.update(supportObservations)
+        await getSharedDb().update(supportObservations)
           .set({
             // Priority/evidence: only update if explicitly provided in incoming payload
             priority: data.priority !== undefined && incomingIsNewer ? data.priority : existing.priority,
@@ -2669,7 +2669,7 @@ export class NeuralNetworkSyncService {
       }
       
       // Create new observation
-      const [created] = await db.insert(supportObservations).values({
+      const [created] = await getSharedDb().insert(supportObservations).values({
         category: data.category || 'user_friction' as any,
         priority: data.priority || 50,
         title: data.title || 'Imported Observation',
@@ -2709,7 +2709,7 @@ export class NeuralNetworkSyncService {
       let existing: SystemAlert | null = null;
       
       if (data.originId) {
-        const results = await db.select()
+        const results = await getSharedDb().select()
           .from(systemAlerts)
           .where(eq(systemAlerts.originId, data.originId))
           .limit(1);
@@ -2729,7 +2729,7 @@ export class NeuralNetworkSyncService {
           return existing ?? undefined;
         };
         
-        await db.update(systemAlerts)
+        await getSharedDb().update(systemAlerts)
           .set({
             // Content fields: only overwrite if explicitly provided AND newer
             severity: mergeField(data.severity, existing.severity),
@@ -2759,7 +2759,7 @@ export class NeuralNetworkSyncService {
       }
       
       // Create new alert
-      const [created] = await db.insert(systemAlerts).values({
+      const [created] = await getSharedDb().insert(systemAlerts).values({
         severity: data.severity || 'info' as any,
         title: data.title || 'System Alert',
         message: data.message || '',
@@ -2880,19 +2880,19 @@ export class NeuralNetworkSyncService {
     let examples: NorthStarExample[] = [];
     
     try {
-      principles = await db.select().from(northStarPrinciples).where(eq(northStarPrinciples.isActive, true));
+      principles = await getSharedDb().select().from(northStarPrinciples).where(eq(northStarPrinciples.isActive, true));
     } catch (err: any) {
       console.warn('[NEURAL-SYNC] north_star_principles table query failed (may not exist):', err.message);
     }
     
     try {
-      understanding = await db.select().from(northStarUnderstanding);
+      understanding = await getSharedDb().select().from(northStarUnderstanding);
     } catch (err: any) {
       console.warn('[NEURAL-SYNC] north_star_understanding table query failed (may not exist):', err.message);
     }
     
     try {
-      examples = await db.select().from(northStarExamples);
+      examples = await getSharedDb().select().from(northStarExamples);
     } catch (err: any) {
       console.warn('[NEURAL-SYNC] north_star_examples table query failed (may not exist):', err.message);
     }
@@ -2920,7 +2920,7 @@ export class NeuralNetworkSyncService {
       const sourceId = principle.id; // Preserve source ID for mapping
       
       // Check for existing by principle text (the actual truth is the dedup key)
-      const existing = await db.select().from(northStarPrinciples)
+      const existing = await getSharedDb().select().from(northStarPrinciples)
         .where(eq(northStarPrinciples.principle, principle.principle))
         .limit(1);
       
@@ -2928,7 +2928,7 @@ export class NeuralNetworkSyncService {
         return { success: true, id: existing[0].id, sourceId, action: 'skipped' };
       }
       
-      const [imported] = await db.insert(northStarPrinciples).values({
+      const [imported] = await getSharedDb().insert(northStarPrinciples).values({
         principle: principle.principle,
         category: principle.category,
         originalContext: principle.originalContext,
@@ -2962,7 +2962,7 @@ export class NeuralNetworkSyncService {
       }
       
       // Verify principle exists in this environment
-      const principleExists = await db.select().from(northStarPrinciples)
+      const principleExists = await getSharedDb().select().from(northStarPrinciples)
         .where(eq(northStarPrinciples.id, targetPrincipleId))
         .limit(1);
       
@@ -2971,14 +2971,14 @@ export class NeuralNetworkSyncService {
       }
       
       // Check for existing understanding for this principle
-      const existing = await db.select().from(northStarUnderstanding)
+      const existing = await getSharedDb().select().from(northStarUnderstanding)
         .where(eq(northStarUnderstanding.principleId, targetPrincipleId))
         .limit(1);
       
       if (existing.length > 0) {
         // Update existing understanding if newer
         if (understanding.lastDeepened && understanding.lastDeepened > existing[0].lastDeepened) {
-          await db.update(northStarUnderstanding)
+          await getSharedDb().update(northStarUnderstanding)
             .set({
               reflection: understanding.reflection,
               depth: understanding.depth,
@@ -2991,7 +2991,7 @@ export class NeuralNetworkSyncService {
         return { success: true, id: existing[0].id, action: 'skipped' };
       }
       
-      const [imported] = await db.insert(northStarUnderstanding).values({
+      const [imported] = await getSharedDb().insert(northStarUnderstanding).values({
         principleId: targetPrincipleId,
         reflection: understanding.reflection,
         depth: understanding.depth ?? 'surface',
@@ -3024,7 +3024,7 @@ export class NeuralNetworkSyncService {
       }
       
       // Verify principle exists in this environment
-      const principleExists = await db.select().from(northStarPrinciples)
+      const principleExists = await getSharedDb().select().from(northStarPrinciples)
         .where(eq(northStarPrinciples.id, targetPrincipleId))
         .limit(1);
       
@@ -3033,7 +3033,7 @@ export class NeuralNetworkSyncService {
       }
       
       // Check for existing by principle + example text
-      const existing = await db.select().from(northStarExamples)
+      const existing = await getSharedDb().select().from(northStarExamples)
         .where(and(
           eq(northStarExamples.principleId, targetPrincipleId),
           eq(northStarExamples.example, example.example)
@@ -3044,7 +3044,7 @@ export class NeuralNetworkSyncService {
         return { success: true, id: existing[0].id, action: 'skipped' };
       }
       
-      const [imported] = await db.insert(northStarExamples).values({
+      const [imported] = await getSharedDb().insert(northStarExamples).values({
         principleId: targetPrincipleId,
         example: example.example,
         source: example.source ?? 'founder_original',
@@ -3096,7 +3096,7 @@ export class NeuralNetworkSyncService {
         originEnvironment: CURRENT_ENVIRONMENT,
       };
 
-      const [procedure] = await db.insert(tutorProcedures).values(procedureData).returning();
+      const [procedure] = await getSharedDb().insert(tutorProcedures).values(procedureData).returning();
       
       console.log(`[NeuralSync] Shared Wren insight "${params.title}" with Daniela as procedure ${procedure.id}`);
       
@@ -3134,7 +3134,7 @@ export class NeuralNetworkSyncService {
         lastUsedAt: null,
       };
 
-      const [insight] = await db.insert(wrenInsights).values(insightData).returning();
+      const [insight] = await getSharedDb().insert(wrenInsights).values(insightData).returning();
       
       console.log(`[NeuralSync] Shared Daniela insight "${params.title}" with Wren as insight ${insight.id}`);
       
@@ -3149,7 +3149,7 @@ export class NeuralNetworkSyncService {
    * Get all insights shared from Wren to Daniela
    */
   async getWrenSharedInsights(): Promise<any[]> {
-    return db.select()
+    return getSharedDb().select()
       .from(tutorProcedures)
       .where(eq(tutorProcedures.trigger, 'wren_insight_shared'))
       .orderBy(desc(tutorProcedures.createdAt))
@@ -3160,7 +3160,7 @@ export class NeuralNetworkSyncService {
    * Get all insights shared from Daniela to Wren
    */
   async getDanielaSharedInsights(): Promise<any[]> {
-    return db.select()
+    return getSharedDb().select()
       .from(wrenInsights)
       .where(sql`${wrenInsights.tags}::text[] @> ARRAY['daniela_shared']::text[]`)
       .orderBy(desc(wrenInsights.createdAt))
@@ -3187,16 +3187,16 @@ export class NeuralNetworkSyncService {
         emotionsLocal, emotionsApproved,
         creativityLocal, creativityApproved,
       ] = await Promise.all([
-        db.select({ count: sql<number>`count(*)::int` }).from(situationalPatterns).where(eq(situationalPatterns.syncStatus, 'local')),
-        db.select({ count: sql<number>`count(*)::int` }).from(situationalPatterns).where(eq(situationalPatterns.syncStatus, 'approved')),
-        db.select({ count: sql<number>`count(*)::int` }).from(teachingPrinciples).where(eq(teachingPrinciples.syncStatus, 'local')),
-        db.select({ count: sql<number>`count(*)::int` }).from(teachingPrinciples).where(eq(teachingPrinciples.syncStatus, 'approved')),
-        db.select({ count: sql<number>`count(*)::int` }).from(subtletyCues).where(eq(subtletyCues.syncStatus, 'local')),
-        db.select({ count: sql<number>`count(*)::int` }).from(subtletyCues).where(eq(subtletyCues.syncStatus, 'approved')),
-        db.select({ count: sql<number>`count(*)::int` }).from(emotionalPatterns).where(eq(emotionalPatterns.syncStatus, 'local')),
-        db.select({ count: sql<number>`count(*)::int` }).from(emotionalPatterns).where(eq(emotionalPatterns.syncStatus, 'approved')),
-        db.select({ count: sql<number>`count(*)::int` }).from(creativityTemplates).where(eq(creativityTemplates.syncStatus, 'local')),
-        db.select({ count: sql<number>`count(*)::int` }).from(creativityTemplates).where(eq(creativityTemplates.syncStatus, 'approved')),
+        getSharedDb().select({ count: sql<number>`count(*)::int` }).from(situationalPatterns).where(eq(situationalPatterns.syncStatus, 'local')),
+        getSharedDb().select({ count: sql<number>`count(*)::int` }).from(situationalPatterns).where(eq(situationalPatterns.syncStatus, 'approved')),
+        getSharedDb().select({ count: sql<number>`count(*)::int` }).from(teachingPrinciples).where(eq(teachingPrinciples.syncStatus, 'local')),
+        getSharedDb().select({ count: sql<number>`count(*)::int` }).from(teachingPrinciples).where(eq(teachingPrinciples.syncStatus, 'approved')),
+        getSharedDb().select({ count: sql<number>`count(*)::int` }).from(subtletyCues).where(eq(subtletyCues.syncStatus, 'local')),
+        getSharedDb().select({ count: sql<number>`count(*)::int` }).from(subtletyCues).where(eq(subtletyCues.syncStatus, 'approved')),
+        getSharedDb().select({ count: sql<number>`count(*)::int` }).from(emotionalPatterns).where(eq(emotionalPatterns.syncStatus, 'local')),
+        getSharedDb().select({ count: sql<number>`count(*)::int` }).from(emotionalPatterns).where(eq(emotionalPatterns.syncStatus, 'approved')),
+        getSharedDb().select({ count: sql<number>`count(*)::int` }).from(creativityTemplates).where(eq(creativityTemplates.syncStatus, 'local')),
+        getSharedDb().select({ count: sql<number>`count(*)::int` }).from(creativityTemplates).where(eq(creativityTemplates.syncStatus, 'approved')),
       ]);
 
       const tables = [
@@ -3229,31 +3229,31 @@ export class NeuralNetworkSyncService {
       
       switch (tableName) {
         case 'situational_patterns':
-          result = await db.update(situationalPatterns)
+          result = await getSharedDb().update(situationalPatterns)
             .set({ syncStatus: 'approved' })
             .where(eq(situationalPatterns.syncStatus, 'local'))
             .returning();
           break;
         case 'teaching_principles':
-          result = await db.update(teachingPrinciples)
+          result = await getSharedDb().update(teachingPrinciples)
             .set({ syncStatus: 'approved' })
             .where(eq(teachingPrinciples.syncStatus, 'local'))
             .returning();
           break;
         case 'subtlety_cues':
-          result = await db.update(subtletyCues)
+          result = await getSharedDb().update(subtletyCues)
             .set({ syncStatus: 'approved' })
             .where(eq(subtletyCues.syncStatus, 'local'))
             .returning();
           break;
         case 'emotional_patterns':
-          result = await db.update(emotionalPatterns)
+          result = await getSharedDb().update(emotionalPatterns)
             .set({ syncStatus: 'approved' })
             .where(eq(emotionalPatterns.syncStatus, 'local'))
             .returning();
           break;
         case 'creativity_templates':
-          result = await db.update(creativityTemplates)
+          result = await getSharedDb().update(creativityTemplates)
             .set({ syncStatus: 'approved' })
             .where(eq(creativityTemplates.syncStatus, 'local'))
             .returning();

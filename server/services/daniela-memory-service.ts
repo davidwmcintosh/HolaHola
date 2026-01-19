@@ -19,7 +19,7 @@
  * handles extracting Tier 1 (growth memories) from these observations.
  */
 
-import { db } from "../db";
+import { db, getSharedDb } from "../db";
 import { hiveSnapshots } from "@shared/schema";
 import type { HiveSnapshotType, InsertHiveSnapshot } from "@shared/schema";
 import { desc, eq, or, isNull, gte, and, sql, lte } from "drizzle-orm";
@@ -102,7 +102,7 @@ class DanielaMemoryService {
     try {
       const expiresAt = this.calculateExpiresAt(memory, isFounderInteraction);
       
-      const result = await db.insert(hiveSnapshots).values({
+      const result = await getSharedDb().insert(hiveSnapshots).values({
         snapshotType: memory.type as HiveSnapshotType,
         title: memory.title,
         content: memory.content,
@@ -136,7 +136,7 @@ class DanielaMemoryService {
   async cleanupExpiredPatterns(): Promise<number> {
     try {
       const now = new Date();
-      const result = await db
+      const result = await getSharedDb()
         .delete(hiveSnapshots)
         .where(
           and(
@@ -374,7 +374,7 @@ Only include non-empty arrays. Return {} if no memorable personal moments.`;
           (summary.jokesOrHumor && summary.jokesOrHumor.length > 0) ||
           (summary.lessonsLearned && summary.lessonsLearned.length > 0)) {
         
-        await db.insert(hiveSnapshots).values({
+        await getSharedDb().insert(hiveSnapshots).values({
           snapshotType: 'session_summary',
           sessionId,
           userId: context.userId,
@@ -410,7 +410,7 @@ Only include non-empty arrays. Return {} if no memorable personal moments.`;
       // Get personal memory snapshots
       const personalTypes: HiveSnapshotType[] = ['relationship_moment', 'role_reversal', 'humor_shared'];
       
-      let query = db
+      let query = getSharedDb()
         .select({
           snapshotType: hiveSnapshots.snapshotType,
           title: hiveSnapshots.title,
@@ -460,7 +460,7 @@ Only include non-empty arrays. Return {} if no memorable personal moments.`;
     limit: number = 3
   ): Promise<SessionSummary[]> {
     try {
-      const summaries = await db
+      const summaries = await getSharedDb()
         .select({
           content: hiveSnapshots.content,
           sessionId: hiveSnapshots.sessionId,

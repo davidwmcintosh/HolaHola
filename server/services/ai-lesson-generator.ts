@@ -5,7 +5,7 @@
  * using Gemini AI. Creates comprehensive lesson drafts for founder review.
  */
 
-import { db } from "../db";
+import { db, getSharedDb } from "../db";
 import { 
   canDoStatements,
   lessonCanDoStatements,
@@ -205,7 +205,7 @@ export async function generateLessonFromCanDo(
 ): Promise<{ success: boolean; lesson?: GeneratedLesson; error?: string }> {
   try {
     // Fetch the Can-Do statement
-    const [canDo] = await db
+    const [canDo] = await getSharedDb()
       .select()
       .from(canDoStatements)
       .where(eq(canDoStatements.id, request.canDoStatementId));
@@ -273,7 +273,7 @@ export async function generateAndSaveLessonDraft(
 ): Promise<{ success: boolean; draftId?: string; error?: string }> {
   try {
     // Fetch the Can-Do statement
-    const [canDo] = await db
+    const [canDo] = await getSharedDb()
       .select()
       .from(canDoStatements)
       .where(eq(canDoStatements.id, canDoStatementId));
@@ -298,7 +298,7 @@ export async function generateAndSaveLessonDraft(
     }
 
     // Save as draft
-    const [draft] = await db
+    const [draft] = await getSharedDb()
       .insert(lessonDrafts)
       .values({
         canDoStatementId,
@@ -341,7 +341,7 @@ export async function getLessonDrafts(
   status?: string,
   language?: string
 ) {
-  let query = db
+  let query = getSharedDb()
     .select({
       draft: lessonDrafts,
       canDo: canDoStatements
@@ -369,7 +369,7 @@ export async function updateDraftStatus(
   reviewedBy: string,
   reviewNotes?: string
 ) {
-  const [updated] = await db
+  const [updated] = await getSharedDb()
     .update(lessonDrafts)
     .set({
       status,
@@ -389,17 +389,17 @@ export async function generateLessonsForGaps(
   createdBy?: string
 ): Promise<{ generated: number; draftIds: string[]; errors: string[] }> {
   // Get uncovered Can-Do statements for this language
-  const allCanDos = await db
+  const allCanDos = await getSharedDb()
     .select()
     .from(canDoStatements)
     .where(eq(canDoStatements.language, language));
 
   // Check both published lessons AND existing drafts to avoid duplicates
-  const coveredByLessons = await db
+  const coveredByLessons = await getSharedDb()
     .select({ id: lessonCanDoStatements.canDoStatementId })
     .from(lessonCanDoStatements);
 
-  const coveredByDrafts = await db
+  const coveredByDrafts = await getSharedDb()
     .select({ id: lessonDrafts.canDoStatementId })
     .from(lessonDrafts);
 
@@ -454,14 +454,14 @@ export async function getAllCoverageGaps(): Promise<{
   byLanguage: Record<string, number>;
   gaps: Array<{ id: string; language: string; actflLevel: string; category: string; statement: string }>;
 }> {
-  const allCanDos = await db.select().from(canDoStatements);
+  const allCanDos = await getSharedDb().select().from(canDoStatements);
   
   // Check both published lessons AND existing drafts
-  const coveredIds = await db
+  const coveredIds = await getSharedDb()
     .select({ id: lessonCanDoStatements.canDoStatementId })
     .from(lessonCanDoStatements);
   
-  const draftIds = await db
+  const draftIds = await getSharedDb()
     .select({ id: lessonDrafts.canDoStatementId })
     .from(lessonDrafts);
   

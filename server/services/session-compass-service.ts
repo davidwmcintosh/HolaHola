@@ -10,7 +10,7 @@
  * for fast prompt assembly (no DB reads per turn).
  */
 
-import { db } from "../db";
+import { db, getSharedDb } from "../db";
 import { eq, and, isNull, isNotNull, desc } from "drizzle-orm";
 import {
   tutorSessions,

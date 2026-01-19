@@ -15,7 +15,7 @@
  * - daniela_manual: Created by Daniela during conversation
  */
 
-import { db } from '../db';
+import { db, getSharedDb } from '../db';
 import { 
   arisDrillAssignments, 
   curriculumLessons, 
@@ -54,7 +54,7 @@ export async function autoProvisionDrillsFromBundle(
 ): Promise<AutoProvisionResult> {
   try {
     // Get the lesson and check for linked drill
-    const [lesson] = await db
+    const [lesson] = await getSharedDb()
       .select()
       .from(curriculumLessons)
       .where(eq(curriculumLessons.id, lessonId));
@@ -86,7 +86,7 @@ export async function autoProvisionDrillsFromBundle(
     }
 
     // Get drill items from the linked drill lesson
-    const drillItems = await db
+    const drillItems = await getSharedDb()
       .select()
       .from(curriculumDrillItems)
       .where(eq(curriculumDrillItems.lessonId, lesson.linkedDrillLessonId))

@@ -1,5 +1,5 @@
 import { callGeminiWithSchema, GEMINI_MODELS } from "../gemini-utils";
-import { db } from "../db";
+import { db, getSharedDb } from "../db";
 import { 
   curriculumLessons, 
   vocabularyWords, 
@@ -106,7 +106,7 @@ export async function checkLessonCompetency(
 ): Promise<CompetencyCheckResult> {
   console.log(`[COMPETENCY] Checking competency for student ${studentId}, lesson ${lessonId}`);
 
-  const [lesson] = await db
+  const [lesson] = await getSharedDb()
     .select()
     .from(curriculumLessons)
     .where(eq(curriculumLessons.id, lessonId))
@@ -309,7 +309,7 @@ export async function checkUpcomingLessonsForEarlyCompletion(
 
   const completedLessonIds = new Set(existingProgress.map(p => p.lessonId));
 
-  const allLessons = await db
+  const allLessons = await getSharedDb()
     .select()
     .from(curriculumLessons);
 
@@ -435,7 +435,7 @@ export async function checkIfStudentAheadOfSyllabus(
   }
 
   try {
-    const earlyCompletions = await db
+    const earlyCompletions = await getSharedDb()
       .select({
         id: syllabusProgress.id,
         lessonId: syllabusProgress.lessonId,

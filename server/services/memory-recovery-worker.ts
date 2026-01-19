@@ -14,7 +14,7 @@
 
 import { memoryCheckpointService } from './memory-checkpoint-service';
 import { learnerMemoryExtractionService } from './learner-memory-extraction-service';
-import { db } from '../db';
+import { db, getSharedDb } from '../db';
 import { learnerPersonalFacts } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 
@@ -234,7 +234,7 @@ class MemoryRecoveryWorker {
         } else {
           // Add hash to the fact (if not already set)
           if (!fact.factHash) {
-            await db
+            await getSharedDb()
               .update(learnerPersonalFacts)
               .set({ factHash })
               .where(eq(learnerPersonalFacts.id, fact.id));

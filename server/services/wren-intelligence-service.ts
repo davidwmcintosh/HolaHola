@@ -10,7 +10,7 @@
  * 3. Cross-session threading - link related insights for knowledge graphs
  */
 
-import { db } from '../db';
+import { db, getSharedDb } from '../db';
 import { wrenInsights, type WrenInsight, type InsertWrenInsight } from '@shared/schema';
 import { eq, desc, sql, and, gte, lte, or, ilike } from 'drizzle-orm';
 import { storage } from '../storage';
@@ -204,7 +204,7 @@ export class WrenIntelligenceService {
    * Increment the use count for an insight (reinforcement)
    */
   async reinforceInsight(insightId: string): Promise<WrenInsight | null> {
-    const [updated] = await db
+    const [updated] = await getSharedDb()
       .update(wrenInsights)
       .set({
         useCount: sql`${wrenInsights.useCount} + 1`,
@@ -224,7 +224,7 @@ export class WrenIntelligenceService {
     // Score = useCount * 10 + recency_bonus (days since last use, inverted)
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     
-    return db
+    return getSharedDb()
       .select()
       .from(wrenInsights)
       .orderBy(
@@ -241,7 +241,7 @@ export class WrenIntelligenceService {
   async getStaleInsights(daysSinceUse: number = 30): Promise<WrenInsight[]> {
     const cutoff = new Date(Date.now() - daysSinceUse * 24 * 60 * 60 * 1000);
     
-    return db
+    return getSharedDb()
       .select()
       .from(wrenInsights)
       .where(
@@ -260,7 +260,7 @@ export class WrenIntelligenceService {
    * Get top insights by category
    */
   async getTopInsightsByCategory(category: string, limit: number = 5): Promise<WrenInsight[]> {
-    return db
+    return getSharedDb()
       .select()
       .from(wrenInsights)
       .where(eq(wrenInsights.category, category as any))
@@ -277,7 +277,7 @@ export class WrenIntelligenceService {
     const cutoff = new Date(Date.now() - daysSinceUse * 24 * 60 * 60 * 1000);
     
     // Find insights that haven't been used recently and have a use count > 0
-    const staleInsights = await db
+    const staleInsights = await getSharedDb()
       .select()
       .from(wrenInsights)
       .where(
@@ -298,7 +298,7 @@ export class WrenIntelligenceService {
     }
     
     // Decay: reduce use count by 1 for each stale insight
-    await db
+    await getSharedDb()
       .update(wrenInsights)
       .set({
         useCount: sql`GREATEST(0, ${wrenInsights.useCount} - 1)`,
@@ -337,7 +337,7 @@ export class WrenIntelligenceService {
     // Find by shared files
     if (insight.relatedFiles?.length) {
       for (const file of insight.relatedFiles.slice(0, 3)) {
-        const fileRelated = await db
+        const fileRelated = await getSharedDb()
           .select()
           .from(wrenInsights)
           .where(
@@ -360,7 +360,7 @@ export class WrenIntelligenceService {
     // Find by shared tags
     if (insight.tags?.length) {
       for (const tag of insight.tags.slice(0, 3)) {
-        const tagRelated = await db
+        const tagRelated = await getSharedDb()
           .select()
           .from(wrenInsights)
           .where(
@@ -382,7 +382,7 @@ export class WrenIntelligenceService {
     
     // Find by same category
     if (related.length < limit) {
-      const categoryRelated = await db
+      const categoryRelated = await getSharedDb()
         .select()
         .from(wrenInsights)
         .where(
@@ -477,7 +477,7 @@ export class WrenIntelligenceService {
       conditions.push(eq(wrenInsights.category, options.category as any));
     }
     
-    return db
+    return getSharedDb()
       .select()
       .from(wrenInsights)
       .where(and(...conditions))
@@ -588,13 +588,13 @@ export class WrenIntelligenceService {
    */
   async generateSessionSummary(): Promise<string> {
     const [total, byCategory, topUsed, recent] = await Promise.all([
-      db.select({ count: sql<number>`count(*)` }).from(wrenInsights),
-      db.select({
+      getSharedDb().select({ count: sql<number>`count(*)` }).from(wrenInsights),
+      getSharedDb().select({
         category: wrenInsights.category,
         count: sql<number>`count(*)`
       }).from(wrenInsights).groupBy(wrenInsights.category),
       this.getRankedInsights(5),
-      db.select().from(wrenInsights)
+      getSharedDb().select().from(wrenInsights)
         .orderBy(desc(wrenInsights.createdAt))
         .limit(5)
     ]);

@@ -24,7 +24,7 @@ import { getGeminiStreamingService, type SentenceChunk } from "./gemini-streamin
 import { editorPersonaService } from "./editor-persona-service";
 import { danielaMemoryService } from "./daniela-memory-service";
 import { memoryInsightExtractionService } from "./memory-insight-extraction-service";
-import { db } from "../db";
+import { db, getSharedDb } from "../db";
 import { desc, gte, or, isNull } from "drizzle-orm";
 
 // Types for brain surgery

@@ -18,7 +18,7 @@
  * @deprecated Use EXPRESS Lane (FounderCollaborationService) instead
  */
 
-import { db } from "../db";
+import { db, getSharedDb } from "../db";
 import { 
   agentCollabThreads, 
   agentCollabMessages,
@@ -69,7 +69,7 @@ class AgentCollaborationService {
     const awaitingStatus: ThreadStatus = initiator === 'daniela' ? 'awaiting_wren' : 
                                           initiator === 'wren' ? 'awaiting_daniela' : 'active';
 
-    const [thread] = await db.insert(agentCollabThreads).values({
+    const [thread] = await getSharedDb().insert(agentCollabThreads).values({
       title,
       status: awaitingStatus,
       originBeaconId,
@@ -83,7 +83,7 @@ class AgentCollaborationService {
       lastMessageBy: initiator,
     }).returning();
 
-    const [message] = await db.insert(agentCollabMessages).values({
+    const [message] = await getSharedDb().insert(agentCollabMessages).values({
       threadId: thread.id,
       author: initiator,
       messageType,
@@ -123,7 +123,7 @@ class AgentCollaborationService {
       replyToId,
     } = params;
 
-    const [message] = await db.insert(agentCollabMessages).values({
+    const [message] = await getSharedDb().insert(agentCollabMessages).values({
       threadId,
       author,
       messageType,
@@ -141,7 +141,7 @@ class AgentCollaborationService {
     const newStatus: ThreadStatus = author === 'daniela' ? 'awaiting_wren' : 
                                      author === 'wren' ? 'awaiting_daniela' : 'active';
 
-    await db.update(agentCollabThreads)
+    await getSharedDb().update(agentCollabThreads)
       .set({
         messageCount: sql`${agentCollabThreads.messageCount} + 1`,
         lastMessageAt: new Date(),
@@ -248,7 +248,7 @@ class AgentCollaborationService {
       messageType: 'escalation',
     });
 
-    await db.update(agentCollabThreads)
+    await getSharedDb().update(agentCollabThreads)
       .set({
         status: 'awaiting_founder',
         updatedAt: new Date(),
@@ -273,7 +273,7 @@ class AgentCollaborationService {
     const newStatus: ThreadStatus = params.assignTo === 'wren' ? 'awaiting_wren' :
                                      params.assignTo === 'daniela' ? 'awaiting_daniela' : 'active';
 
-    await db.update(agentCollabThreads)
+    await getSharedDb().update(agentCollabThreads)
       .set({
         status: newStatus,
         updatedAt: new Date(),
@@ -284,7 +284,7 @@ class AgentCollaborationService {
   }
 
   async resolveThread(threadId: string, resolution: string): Promise<void> {
-    await db.update(agentCollabThreads)
+    await getSharedDb().update(agentCollabThreads)
       .set({
         status: 'resolved',
         resolution,
@@ -297,7 +297,7 @@ class AgentCollaborationService {
   }
 
   async getThreadsForWren(limit = 10): Promise<AgentCollabThread[]> {
-    return db.select()
+    return getSharedDb().select()
       .from(agentCollabThreads)
       .where(
         or(
@@ -310,7 +310,7 @@ class AgentCollaborationService {
   }
 
   async getThreadsForDaniela(limit = 10): Promise<AgentCollabThread[]> {
-    return db.select()
+    return getSharedDb().select()
       .from(agentCollabThreads)
       .where(
         or(
@@ -323,7 +323,7 @@ class AgentCollaborationService {
   }
 
   async getThreadsForFounder(limit = 20): Promise<AgentCollabThread[]> {
-    return db.select()
+    return getSharedDb().select()
       .from(agentCollabThreads)
       .where(
         or(
@@ -338,7 +338,7 @@ class AgentCollaborationService {
   }
 
   async getThread(threadId: string): Promise<AgentCollabThread | null> {
-    const [thread] = await db.select()
+    const [thread] = await getSharedDb().select()
       .from(agentCollabThreads)
       .where(eq(agentCollabThreads.id, threadId))
       .limit(1);
@@ -346,21 +346,21 @@ class AgentCollaborationService {
   }
 
   async getThreadMessages(threadId: string): Promise<AgentCollabMessage[]> {
-    return db.select()
+    return getSharedDb().select()
       .from(agentCollabMessages)
       .where(eq(agentCollabMessages.threadId, threadId))
       .orderBy(agentCollabMessages.createdAt);
   }
 
   async getUnreadForWren(): Promise<AgentCollabMessage[]> {
-    return db.select()
+    return getSharedDb().select()
       .from(agentCollabMessages)
       .where(eq(agentCollabMessages.readByWren, false))
       .orderBy(agentCollabMessages.createdAt);
   }
 
   async getUnreadForDaniela(): Promise<AgentCollabMessage[]> {
-    return db.select()
+    return getSharedDb().select()
       .from(agentCollabMessages)
       .where(eq(agentCollabMessages.readByDaniela, false))
       .orderBy(agentCollabMessages.createdAt);
@@ -369,7 +369,7 @@ class AgentCollaborationService {
   async markReadByWren(messageIds: string[]): Promise<void> {
     if (messageIds.length === 0) return;
     
-    await db.update(agentCollabMessages)
+    await getSharedDb().update(agentCollabMessages)
       .set({ readByWren: true })
       .where(sql`${agentCollabMessages.id} = ANY(${messageIds})`);
   }
@@ -377,13 +377,13 @@ class AgentCollaborationService {
   async markReadByDaniela(messageIds: string[]): Promise<void> {
     if (messageIds.length === 0) return;
     
-    await db.update(agentCollabMessages)
+    await getSharedDb().update(agentCollabMessages)
       .set({ readByDaniela: true })
       .where(sql`${agentCollabMessages.id} = ANY(${messageIds})`);
   }
 
   async rateHelpfulness(messageId: string, wasHelpful: boolean, notes?: string): Promise<void> {
-    await db.update(agentCollabMessages)
+    await getSharedDb().update(agentCollabMessages)
       .set({
         wasHelpful,
         helpfulnessNotes: notes,
@@ -392,7 +392,7 @@ class AgentCollaborationService {
   }
 
   async createThreadFromBeacon(beaconId: string, overrideTitle?: string): Promise<{ thread: AgentCollabThread; message: AgentCollabMessage } | null> {
-    const [beacon] = await db.select()
+    const [beacon] = await getSharedDb().select()
       .from(danielaBeacons)
       .where(eq(danielaBeacons.id, beaconId))
       .limit(1);

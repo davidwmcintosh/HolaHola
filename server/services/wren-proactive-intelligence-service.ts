@@ -9,7 +9,7 @@
  * 5. Project Health Awareness - Detect hot spots and technical debt
  */
 
-import { db } from '../db';
+import { db, getSharedDb } from '../db';
 import { 
   wrenProactiveTriggers, 
   architecturalDecisionRecords,
@@ -99,7 +99,7 @@ export class WrenProactiveIntelligenceService {
     suggestedAction?: string;
   }): Promise<WrenProactiveTrigger> {
     // Check for existing similar trigger
-    const existing = await db
+    const existing = await getSharedDb()
       .select()
       .from(wrenProactiveTriggers)
       .where(
@@ -125,7 +125,7 @@ export class WrenProactiveIntelligenceService {
       
       const newUrgency = this.calculateUrgency(newCount, trigger.firstOccurredAt!);
       
-      const [updated] = await db
+      const [updated] = await getSharedDb()
         .update(wrenProactiveTriggers)
         .set({
           occurrenceCount: newCount,
@@ -142,7 +142,7 @@ export class WrenProactiveIntelligenceService {
     }
     
     // Create new trigger
-    const [created] = await db
+    const [created] = await getSharedDb()
       .insert(wrenProactiveTriggers)
       .values({
         triggerType: params.triggerType,
@@ -166,7 +166,7 @@ export class WrenProactiveIntelligenceService {
    * Get pending triggers for surfacing
    */
   async getPendingTriggers(limit: number = 10): Promise<WrenProactiveTrigger[]> {
-    return db
+    return getSharedDb()
       .select()
       .from(wrenProactiveTriggers)
       .where(eq(wrenProactiveTriggers.status, 'pending'))
@@ -181,7 +181,7 @@ export class WrenProactiveIntelligenceService {
    * Surface triggers to founder (mark as surfaced)
    */
   async surfaceTriggers(triggerIds: string[]): Promise<void> {
-    await db
+    await getSharedDb()
       .update(wrenProactiveTriggers)
       .set({ status: 'surfaced', updatedAt: new Date() })
       .where(inArray(wrenProactiveTriggers.id, triggerIds));
@@ -191,7 +191,7 @@ export class WrenProactiveIntelligenceService {
    * Resolve a trigger
    */
   async resolveTrigger(triggerId: string, resolutionNotes?: string): Promise<void> {
-    await db
+    await getSharedDb()
       .update(wrenProactiveTriggers)
       .set({
         status: 'resolved',
@@ -684,8 +684,8 @@ export class WrenProactiveIntelligenceService {
     
     // Get both insights
     const [source, target] = await Promise.all([
-      db.select().from(wrenInsights).where(eq(wrenInsights.id, params.sourceInsightId)).limit(1),
-      db.select().from(wrenInsights).where(eq(wrenInsights.id, params.targetInsightId)).limit(1),
+      getSharedDb().select().from(wrenInsights).where(eq(wrenInsights.id, params.sourceInsightId)).limit(1),
+      getSharedDb().select().from(wrenInsights).where(eq(wrenInsights.id, params.targetInsightId)).limit(1),
     ]);
     
     if (!source[0] || !target[0]) {
@@ -698,8 +698,8 @@ export class WrenProactiveIntelligenceService {
     const targetTags = [...(target[0].tags || []), relationshipTag, `ref:${params.sourceInsightId}`];
     
     await Promise.all([
-      db.update(wrenInsights).set({ tags: sourceTags }).where(eq(wrenInsights.id, params.sourceInsightId)),
-      db.update(wrenInsights).set({ tags: targetTags }).where(eq(wrenInsights.id, params.targetInsightId)),
+      getSharedDb().update(wrenInsights).set({ tags: sourceTags }).where(eq(wrenInsights.id, params.sourceInsightId)),
+      getSharedDb().update(wrenInsights).set({ tags: targetTags }).where(eq(wrenInsights.id, params.targetInsightId)),
     ]);
     
     console.log(`[MemoryThread] Linked insight ${params.sourceInsightId} <-> ${params.targetInsightId} (${params.relationshipType})`);
@@ -718,7 +718,7 @@ export class WrenProactiveIntelligenceService {
     useCount: number;
     tags: string[];
   }>> {
-    const insights = await db
+    const insights = await getSharedDb()
       .select({
         id: wrenInsights.id,
         content: wrenInsights.content,
@@ -757,7 +757,7 @@ export class WrenProactiveIntelligenceService {
       if (currentDepth > depth || visited.has(id)) return;
       visited.add(id);
       
-      const insight = await db.select()
+      const insight = await getSharedDb().select()
         .from(wrenInsights)
         .where(eq(wrenInsights.id, id))
         .limit(1);
@@ -771,7 +771,7 @@ export class WrenProactiveIntelligenceService {
       for (const refTag of refTags) {
         const relatedId = refTag.replace('ref:', '');
         if (!visited.has(relatedId)) {
-          const relatedInsight = await db.select()
+          const relatedInsight = await getSharedDb().select()
             .from(wrenInsights)
             .where(eq(wrenInsights.id, relatedId))
             .limit(1);
@@ -793,7 +793,7 @@ export class WrenProactiveIntelligenceService {
       }
     };
     
-    const centerInsight = await db.select()
+    const centerInsight = await getSharedDb().select()
       .from(wrenInsights)
       .where(eq(wrenInsights.id, insightId))
       .limit(1);
@@ -824,7 +824,7 @@ export class WrenProactiveIntelligenceService {
     confidence: number;
     additionalContext?: string;
   }): Promise<string> {
-    const [result] = await db.insert(wrenInsights).values({
+    const [result] = await getSharedDb().insert(wrenInsights).values({
       title: `Prediction: ${params.domain}`,
       content: `[PREDICTION] ${params.prediction}`,
       category: 'pattern', // Use existing enum
@@ -851,7 +851,7 @@ export class WrenProactiveIntelligenceService {
     wasCorrect: boolean,
     actualOutcome?: string
   ): Promise<void> {
-    const prediction = await db.select()
+    const prediction = await getSharedDb().select()
       .from(wrenInsights)
       .where(eq(wrenInsights.id, predictionId))
       .limit(1);
@@ -864,7 +864,7 @@ export class WrenProactiveIntelligenceService {
     ctx.actualOutcome = actualOutcome;
     ctx.verifiedAt = new Date().toISOString();
     
-    await db.update(wrenInsights)
+    await getSharedDb().update(wrenInsights)
       .set({ context: JSON.stringify(ctx) })
       .where(eq(wrenInsights.id, predictionId));
     
@@ -885,7 +885,7 @@ export class WrenProactiveIntelligenceService {
     calibrationError: number;
     suggestion: 'increase_confidence' | 'decrease_confidence' | 'well_calibrated';
   }> {
-    const predictions = await db.select()
+    const predictions = await getSharedDb().select()
       .from(wrenInsights)
       .where(ilike(wrenInsights.context, `%"domain":"${domain}"%`));
     
@@ -969,7 +969,7 @@ export class WrenProactiveIntelligenceService {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     
     // Find insights that haven't been used in 30 days
-    const staleInsights = await db
+    const staleInsights = await getSharedDb()
       .select()
       .from(wrenInsights)
       .where(
@@ -993,14 +993,14 @@ export class WrenProactiveIntelligenceService {
       // Insights with low use count get deactivated
       if (useCount < 2) {
         const newTags = [...tags.filter(t => !t.startsWith('status:')), 'status:inactive'];
-        await db.update(wrenInsights)
+        await getSharedDb().update(wrenInsights)
           .set({ tags: newTags })
           .where(eq(wrenInsights.id, insight.id));
         deactivated++;
       } else if (!tags.includes('status:stale')) {
         // Mark as stale but not inactive
         const newTags = [...tags.filter(t => !t.startsWith('status:')), 'status:stale'];
-        await db.update(wrenInsights)
+        await getSharedDb().update(wrenInsights)
           .set({ tags: newTags })
           .where(eq(wrenInsights.id, insight.id));
         decayed++;
@@ -1018,7 +1018,7 @@ export class WrenProactiveIntelligenceService {
     insightId: string,
     successLevel: 'low' | 'medium' | 'high' = 'medium'
   ): Promise<void> {
-    const insight = await db.select()
+    const insight = await getSharedDb().select()
       .from(wrenInsights)
       .where(eq(wrenInsights.id, insightId))
       .limit(1);
@@ -1032,7 +1032,7 @@ export class WrenProactiveIntelligenceService {
     const updatedTags = tags.filter(t => !t.startsWith('status:'));
     updatedTags.push('status:active');
     
-    await db.update(wrenInsights)
+    await getSharedDb().update(wrenInsights)
       .set({
         useCount: currentUseCount + 1,
         lastUsedAt: new Date(),
@@ -1054,11 +1054,11 @@ export class WrenProactiveIntelligenceService {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     
     const [totalResult, recentResult] = await Promise.all([
-      db.select({ count: count() }).from(wrenInsights),
-      db.select({ count: count() }).from(wrenInsights).where(gte(wrenInsights.lastUsedAt, sevenDaysAgo)),
+      getSharedDb().select({ count: count() }).from(wrenInsights),
+      getSharedDb().select({ count: count() }).from(wrenInsights).where(gte(wrenInsights.lastUsedAt, sevenDaysAgo)),
     ]);
     
-    const categoryStats = await db
+    const categoryStats = await getSharedDb()
       .select({
         category: wrenInsights.category,
         count: count(),

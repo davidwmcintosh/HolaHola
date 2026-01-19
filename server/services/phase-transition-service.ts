@@ -16,7 +16,7 @@
  */
 
 import { GoogleGenAI } from "@google/genai";
-import { db } from "../db";
+import { db, getSharedDb } from "../db";
 import { hiveSnapshots, conversations, messages, hiveSnapshotTypeEnum, learnerPersonalFacts } from "@shared/schema";
 import { studentLearningService } from "./student-learning-service";
 

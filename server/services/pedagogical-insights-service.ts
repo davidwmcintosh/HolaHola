@@ -12,7 +12,7 @@
  * 4. Provides insights that inform future teaching decisions
  */
 
-import { db } from '../db';
+import { db, getSharedDb } from '../db';
 import { 
   teachingToolEvents, 
   pedagogicalInsights,
@@ -212,7 +212,7 @@ export async function addInsight(params: {
       lastValidatedAt: new Date(),
     };
 
-    const [inserted] = await db.insert(pedagogicalInsights).values(insight).returning();
+    const [inserted] = await getSharedDb().insert(pedagogicalInsights).values(insight).returning();
     console.log('[PEDAGOGICAL] Added insight:', params.patternDescription.substring(0, 50));
     return inserted;
   } catch (error) {
@@ -239,7 +239,7 @@ export async function getInsightsForContext(params: {
       );
     }
     
-    const insights = await db.select()
+    const insights = await getSharedDb().select()
       .from(pedagogicalInsights)
       .where(and(...conditions))
       .orderBy(desc(pedagogicalInsights.confidenceScore))

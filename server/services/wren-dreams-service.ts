@@ -9,7 +9,7 @@
  * Dream #5: Confidence Calibration - Know when guessing vs certain
  */
 
-import { db } from '../db';
+import { db, getSharedDb } from '../db';
 import {
   wrenMistakes,
   wrenMistakeResolutions,
@@ -328,7 +328,7 @@ export class AnticipatoryDevelopmentService {
     supportingEvidence?: Array<{ type: string; source: string; detail: string }>;
     relatedBeaconId?: string;
   }): Promise<WrenPrediction> {
-    const [prediction] = await db.insert(wrenPredictions).values({
+    const [prediction] = await getSharedDb().insert(wrenPredictions).values({
       predictionType: params.predictionType,
       title: params.title,
       description: params.description,
@@ -349,7 +349,7 @@ export class AnticipatoryDevelopmentService {
     outcomeNotes: string;
     relatedFeatureId?: string;
   }): Promise<void> {
-    await db.update(wrenPredictions)
+    await getSharedDb().update(wrenPredictions)
       .set({
         status: params.wasCorrect ? 'validated' : 'invalidated',
         wasCorrect: params.wasCorrect,
@@ -362,7 +362,7 @@ export class AnticipatoryDevelopmentService {
   }
   
   async markPredictionAddressed(predictionId: string, featureId: string): Promise<void> {
-    await db.update(wrenPredictions)
+    await getSharedDb().update(wrenPredictions)
       .set({
         status: 'addressed',
         relatedFeatureId: featureId,
@@ -393,7 +393,7 @@ export class AnticipatoryDevelopmentService {
     
     for (const [type, count] of Object.entries(beaconsByType)) {
       if (count >= 3) {
-        const existingPrediction = await db.select().from(wrenPredictions)
+        const existingPrediction = await getSharedDb().select().from(wrenPredictions)
           .where(and(
             eq(wrenPredictions.predictionType, 'capability_need'),
             sql`${wrenPredictions.title} ILIKE ${'%' + type + '%'}`,
@@ -425,13 +425,13 @@ export class AnticipatoryDevelopmentService {
   }
   
   async getActivePredictions(): Promise<WrenPrediction[]> {
-    return await db.select().from(wrenPredictions)
+    return await getSharedDb().select().from(wrenPredictions)
       .where(eq(wrenPredictions.status, 'predicted'))
       .orderBy(desc(wrenPredictions.confidence));
   }
   
   async getPredictionAccuracy(): Promise<{ total: number; correct: number; accuracy: number }> {
-    const validated = await db.select().from(wrenPredictions)
+    const validated = await getSharedDb().select().from(wrenPredictions)
       .where(or(
         eq(wrenPredictions.status, 'validated'),
         eq(wrenPredictions.status, 'invalidated')

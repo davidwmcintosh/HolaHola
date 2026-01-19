@@ -1,4 +1,4 @@
-import { db } from "../db";
+import { db, getSharedDb } from "../db";
 import { 
   teacherClasses,
   curriculumPaths,
@@ -37,7 +37,7 @@ export async function previewClassSync(classId: string): Promise<SyncPreview | n
     return null;
   }
   
-  const masterUnits = await db
+  const masterUnits = await getSharedDb()
     .select()
     .from(curriculumUnits)
     .where(eq(curriculumUnits.curriculumPathId, teacherClass.curriculumPathId));
@@ -57,7 +57,7 @@ export async function previewClassSync(classId: string): Promise<SyncPreview | n
   
   for (const masterUnit of masterUnits) {
     if (!existingSourceUnitIds.has(masterUnit.id)) {
-      const lessons = await db
+      const lessons = await getSharedDb()
         .select({ count: sql<number>`count(*)::int` })
         .from(curriculumLessons)
         .where(eq(curriculumLessons.curriculumUnitId, masterUnit.id));
@@ -71,7 +71,7 @@ export async function previewClassSync(classId: string): Promise<SyncPreview | n
       const classUnit = activeClassUnits.find(u => u.sourceUnitId === masterUnit.id);
       if (!classUnit) continue; // Unit exists but is removed - skip
       
-      const masterLessons = await db
+      const masterLessons = await getSharedDb()
         .select()
         .from(curriculumLessons)
         .where(eq(curriculumLessons.curriculumUnitId, masterUnit.id));
@@ -106,7 +106,7 @@ export async function previewClassSync(classId: string): Promise<SyncPreview | n
       eq(classCurriculumLessons.isRemoved, false)
     ));
   
-  const availableLessonsCount = await db
+  const availableLessonsCount = await getSharedDb()
     .select({ count: sql<number>`count(*)::int` })
     .from(curriculumLessons)
     .innerJoin(curriculumUnits, eq(curriculumLessons.curriculumUnitId, curriculumUnits.id))
@@ -150,7 +150,7 @@ export async function syncClassWithMaster(classId: string): Promise<SyncResult> 
       return result;
     }
     
-    const masterUnits = await db
+    const masterUnits = await getSharedDb()
       .select()
       .from(curriculumUnits)
       .where(eq(curriculumUnits.curriculumPathId, teacherClass.curriculumPathId))
@@ -191,7 +191,7 @@ export async function syncClassWithMaster(classId: string): Promise<SyncResult> 
         continue;
       }
       
-      const masterLessons = await db
+      const masterLessons = await getSharedDb()
         .select()
         .from(curriculumLessons)
         .where(eq(curriculumLessons.curriculumUnitId, masterUnit.id))

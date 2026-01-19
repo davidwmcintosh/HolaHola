@@ -12,7 +12,7 @@
  * This file is kept for reference and potential rollback, but is no longer imported.
  */
 
-import { db } from "../db";
+import { db, getSharedDb } from "../db";
 import { 
   wrenCommitments, 
   InsertWrenCommitment, 
@@ -57,7 +57,7 @@ class WrenCommitmentsService {
       metadata: params.metadata,
     };
 
-    const [result] = await db.insert(wrenCommitments)
+    const [result] = await getSharedDb().insert(wrenCommitments)
       .values([commitment as any])
       .returning();
 
@@ -66,7 +66,7 @@ class WrenCommitmentsService {
   }
 
   async getPendingCommitments(): Promise<WrenCommitment[]> {
-    return db.select()
+    return getSharedDb().select()
       .from(wrenCommitments)
       .where(
         inArray(wrenCommitments.status, ['pending', 'in_progress'])
@@ -84,14 +84,14 @@ class WrenCommitmentsService {
   }
 
   async getCommitmentsByStatus(status: CommitmentStatus): Promise<WrenCommitment[]> {
-    return db.select()
+    return getSharedDb().select()
       .from(wrenCommitments)
       .where(eq(wrenCommitments.status, status))
       .orderBy(desc(wrenCommitments.createdAt));
   }
 
   async getRecentCommitments(limit: number = 20): Promise<WrenCommitment[]> {
-    return db.select()
+    return getSharedDb().select()
       .from(wrenCommitments)
       .orderBy(desc(wrenCommitments.createdAt))
       .limit(limit);
@@ -101,7 +101,7 @@ class WrenCommitmentsService {
     commitmentId: string, 
     progressNotes?: string
   ): Promise<WrenCommitment | null> {
-    const [result] = await db.update(wrenCommitments)
+    const [result] = await getSharedDb().update(wrenCommitments)
       .set({
         status: 'in_progress',
         startedAt: new Date(),
@@ -123,7 +123,7 @@ class WrenCommitmentsService {
     relatedEntityType?: string,
     relatedEntityId?: string
   ): Promise<WrenCommitment | null> {
-    const [result] = await db.update(wrenCommitments)
+    const [result] = await getSharedDb().update(wrenCommitments)
       .set({
         status: 'completed',
         completedAt: new Date(),
@@ -152,7 +152,7 @@ class WrenCommitmentsService {
     metadata.failureReason = failureReason;
     metadata.retryCount = ((metadata.retryCount as number) || 0) + 1;
 
-    const [result] = await db.update(wrenCommitments)
+    const [result] = await getSharedDb().update(wrenCommitments)
       .set({
         status: 'failed',
         completedAt: new Date(),
@@ -172,7 +172,7 @@ class WrenCommitmentsService {
     commitmentId: string,
     reason?: string
   ): Promise<WrenCommitment | null> {
-    const [result] = await db.update(wrenCommitments)
+    const [result] = await getSharedDb().update(wrenCommitments)
       .set({
         status: 'cancelled',
         progressNotes: reason ? `Cancelled: ${reason}` : 'Cancelled',
@@ -188,7 +188,7 @@ class WrenCommitmentsService {
   }
 
   async getById(commitmentId: string): Promise<WrenCommitment | null> {
-    const [result] = await db.select()
+    const [result] = await getSharedDb().select()
       .from(wrenCommitments)
       .where(eq(wrenCommitments.id, commitmentId))
       .limit(1);
@@ -202,7 +202,7 @@ class WrenCommitmentsService {
     failed: number;
     cancelled: number;
   }> {
-    const results = await db.select({
+    const results = await getSharedDb().select({
       status: wrenCommitments.status,
       count: sql<number>`COUNT(*)::int`,
     })

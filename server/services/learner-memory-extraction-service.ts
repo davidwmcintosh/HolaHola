@@ -14,7 +14,7 @@
 import { callGemini, GEMINI_MODELS } from '../gemini-utils';
 import { studentLearningService, type PersonalFactType, PERSONAL_FACT_TYPES } from './student-learning-service';
 import type { LearnerPersonalFact, MemoryPrivacySettings } from '@shared/schema';
-import { db } from '../db';
+import { db, getSharedDb } from '../db';
 import { users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 

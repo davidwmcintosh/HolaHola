@@ -11,7 +11,7 @@
  * to actual student progress tracking.
  */
 
-import { db } from "../db";
+import { db, getSharedDb } from "../db";
 import { 
   lessonCanDoStatements,
   canDoStatements,
@@ -82,7 +82,7 @@ export async function mapLessonToCanDoStatements(
 
   const relevantLevels = levelMap[actflLevel] || [actflLevel];
 
-  const statements = await db
+  const statements = await getSharedDb()
     .select()
     .from(canDoStatements)
     .where(
@@ -268,7 +268,7 @@ export async function mapAllLessonsInClass(classId: string): Promise<{
     .where(eq(classCurriculumUnits.classId, classId));
 
   // Get already-linked source lessons to skip (for resumability)
-  const alreadyLinked = await db
+  const alreadyLinked = await getSharedDb()
     .select({ lessonId: lessonCanDoStatements.lessonId })
     .from(lessonCanDoStatements);
   const linkedLessonIds = new Set(alreadyLinked.map(l => l.lessonId));
@@ -294,7 +294,7 @@ export async function mapAllLessonsInClass(classId: string): Promise<{
 
       // Insert the links using source template lesson ID
       for (const canDoId of mapping.canDoStatementIds) {
-        await db.insert(lessonCanDoStatements).values({
+        await getSharedDb().insert(lessonCanDoStatements).values({
           lessonId: sourceLessonId,
           canDoStatementId: canDoId
         }).onConflictDoNothing();
@@ -509,7 +509,7 @@ export async function getStudentCanDoProgress(
   percentComplete: number;
 }> {
   // Get all Can-Do statements for this language
-  const allStatements = await db
+  const allStatements = await getSharedDb()
     .select()
     .from(canDoStatements)
     .where(eq(canDoStatements.language, language));
@@ -560,7 +560,7 @@ export async function getLessonCanDoStatements(lessonId: string): Promise<Array<
   category: string;
   level: string;
 }>> {
-  const linked = await db
+  const linked = await getSharedDb()
     .select({
       id: canDoStatements.id,
       statement: canDoStatements.statement,
@@ -643,16 +643,16 @@ export async function getCoverageAnalysis(language?: string): Promise<{
   // Get all Can-Do statements (optionally filtered by language)
   let allStatements;
   if (language) {
-    allStatements = await db
+    allStatements = await getSharedDb()
       .select()
       .from(canDoStatements)
       .where(eq(canDoStatements.language, language));
   } else {
-    allStatements = await db.select().from(canDoStatements);
+    allStatements = await getSharedDb().select().from(canDoStatements);
   }
 
   // Get all lesson-statement links
-  const allLinks = await db
+  const allLinks = await getSharedDb()
     .select({
       canDoId: lessonCanDoStatements.canDoStatementId,
       lessonId: lessonCanDoStatements.lessonId
@@ -669,7 +669,7 @@ export async function getCoverageAnalysis(language?: string): Promise<{
   const linkedStatementIds = new Set(allLinks.map(l => l.canDoId));
 
   // Get total lessons and linked lessons
-  const allLessons = await db.select({ id: curriculumLessons.id }).from(curriculumLessons);
+  const allLessons = await getSharedDb().select({ id: curriculumLessons.id }).from(curriculumLessons);
   const linkedLessonIds = new Set(allLinks.map(l => l.lessonId));
 
   // Categorize by level
@@ -832,7 +832,7 @@ export async function getClassCoverageAnalysis(classId: string): Promise<{
   // Get links for source lessons
   const sourceLessonIds = lessons.filter(l => l.sourceLessonId).map(l => l.sourceLessonId!);
   
-  const links = sourceLessonIds.length > 0 ? await db
+  const links = sourceLessonIds.length > 0 ? await getSharedDb()
     .select({
       lessonId: lessonCanDoStatements.lessonId,
       canDoId: lessonCanDoStatements.canDoStatementId

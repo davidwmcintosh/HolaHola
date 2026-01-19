@@ -11,7 +11,7 @@
  * Pipeline: Memory → Insight → Validation → Neural Network
  */
 
-import { db } from "../db";
+import { db, getSharedDb } from "../db";
 import { hiveSnapshots, danielaGrowthMemories, founderSessions, tutorProcedures, northStarPrinciples } from "@shared/schema";
 import type { HiveSnapshotType, InsertDanielaGrowthMemory, GrowthMemoryCategory, NorthStarPrinciple } from "@shared/schema";
 import { desc, eq, and, sql, gte, lte, isNull, or, asc } from "drizzle-orm";
@@ -267,7 +267,7 @@ Format as JSON:
     try {
       // Find snapshots that haven't been extracted yet
       // We check by looking for snapshots without corresponding growth memories
-      const unprocessed = await db
+      const unprocessed = await getSharedDb()
         .select({
           id: hiveSnapshots.id,
           snapshotType: hiveSnapshots.snapshotType,

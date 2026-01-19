@@ -13,7 +13,7 @@
  * - Real-time monitoring with alert notifications
  */
 
-import { db } from '../db';
+import { db, getSharedDb } from '../db';
 import { hiveSnapshots, wrenInsights, users } from '@shared/schema';
 import { eq, and, gte, lte, desc, sql, like } from 'drizzle-orm';
 
@@ -147,7 +147,7 @@ let cachedBaselines: HistoricalBaselines | null = null;
 async function fetchVoiceDiagnostics(daysBack: number, environment?: string): Promise<DiagnosticSnapshot[]> {
   const since = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000);
   
-  const snapshots = await db
+  const snapshots = await getSharedDb()
     .select()
     .from(hiveSnapshots)
     .where(
@@ -192,7 +192,7 @@ async function fetchBaselines(): Promise<HistoricalBaselines> {
   }
   
   // Try to load from hiveSnapshots
-  const [stored] = await db
+  const [stored] = await getSharedDb()
     .select()
     .from(hiveSnapshots)
     .where(eq(hiveSnapshots.snapshotType, 'voice_baselines'))
@@ -769,7 +769,7 @@ export async function updateBaselines(report: VoiceIntelligenceReport): Promise<
   }
   
   // Store to hiveSnapshots
-  await db.insert(hiveSnapshots).values({
+  await getSharedDb().insert(hiveSnapshots).values({
     snapshotType: 'voice_baselines',
     title: 'Voice Intelligence Baselines',
     content: JSON.stringify(newBaselines),
@@ -790,7 +790,7 @@ export async function createAlertInsights(alerts: VoiceAlert[]): Promise<number>
   
   for (const alert of criticalAlerts.slice(0, 10)) {
     try {
-      await db.insert(wrenInsights).values({
+      await getSharedDb().insert(wrenInsights).values({
         category: 'integration',
         title: `Voice Alert: ${alert.category}`,
         content: alert.message,

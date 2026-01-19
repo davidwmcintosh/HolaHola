@@ -10,7 +10,7 @@
  * only what's relevant for the current situation.
  */
 
-import { db } from '../db';
+import { db, getSharedDb } from '../db';
 import { CROSS_LANGUAGE_TRANSFERS_ENABLED } from './streaming-voice-orchestrator';
 import { 
   toolKnowledge, 
@@ -695,22 +695,22 @@ export async function initToolKnowledgeCache(): Promise<void> {
       ] = await Promise.all([
         // Core procedural memory
         getAllToolKnowledge(),
-        db.select().from(tutorProcedures).where(eq(tutorProcedures.isActive, true)),
-        db.select().from(teachingPrinciples).where(eq(teachingPrinciples.isActive, true)),
-        db.select().from(situationalPatterns).where(eq(situationalPatterns.isActive, true)),
-        db.select().from(selfBestPractices).where(eq(selfBestPractices.isActive, true)).orderBy(desc(selfBestPractices.confidenceScore)),
+        getSharedDb().select().from(tutorProcedures).where(eq(tutorProcedures.isActive, true)),
+        getSharedDb().select().from(teachingPrinciples).where(eq(teachingPrinciples.isActive, true)),
+        getSharedDb().select().from(situationalPatterns).where(eq(situationalPatterns.isActive, true)),
+        getSharedDb().select().from(selfBestPractices).where(eq(selfBestPractices.isActive, true)).orderBy(desc(selfBestPractices.confidenceScore)),
         // Expansion sets - language-specific content
-        db.select().from(languageIdioms),
-        db.select().from(culturalNuances),
-        db.select().from(learnerErrorPatterns),
-        db.select().from(dialectVariations),
-        db.select().from(linguisticBridges),
+        getSharedDb().select().from(languageIdioms),
+        getSharedDb().select().from(culturalNuances),
+        getSharedDb().select().from(learnerErrorPatterns),
+        getSharedDb().select().from(dialectVariations),
+        getSharedDb().select().from(linguisticBridges),
         // Advanced intelligence
-        db.select().from(subtletyCues).where(eq(subtletyCues.isActive, true)),
-        db.select().from(emotionalPatterns).where(eq(emotionalPatterns.isActive, true)),
-        db.select().from(creativityTemplates).where(eq(creativityTemplates.isActive, true)),
+        getSharedDb().select().from(subtletyCues).where(eq(subtletyCues.isActive, true)),
+        getSharedDb().select().from(emotionalPatterns).where(eq(emotionalPatterns.isActive, true)),
+        getSharedDb().select().from(creativityTemplates).where(eq(creativityTemplates.isActive, true)),
         // Wren insights
-        db.select().from(wrenInsights).orderBy(desc(wrenInsights.useCount), desc(wrenInsights.createdAt)),
+        getSharedDb().select().from(wrenInsights).orderBy(desc(wrenInsights.useCount), desc(wrenInsights.createdAt)),
       ]);
       
       // Core procedural memory
@@ -797,7 +797,7 @@ export function getCachedSelfBestPractices(): SelfBestPractice[] {
  * Force refresh the self best practices cache
  */
 export async function refreshSelfBestPracticesCache(): Promise<void> {
-  selfBestPracticesCache = await db
+  selfBestPracticesCache = await getSharedDb()
     .select()
     .from(selfBestPractices)
     .where(eq(selfBestPractices.isActive, true))
@@ -1968,7 +1968,7 @@ export async function getProceduralKnowledge(
  * This replaces the giant tool documentation in system prompt
  */
 export async function getAllToolKnowledge(): Promise<ToolKnowledge[]> {
-  return db.select()
+  return getSharedDb().select()
     .from(toolKnowledge)
     .where(eq(toolKnowledge.isActive, true))
     .orderBy(toolKnowledge.toolType, toolKnowledge.toolName);
@@ -1978,7 +1978,7 @@ export async function getAllToolKnowledge(): Promise<ToolKnowledge[]> {
  * Get core teaching principles
  */
 export async function getCoreTeachingPrinciples(): Promise<TeachingPrinciple[]> {
-  return db.select()
+  return getSharedDb().select()
     .from(teachingPrinciples)
     .where(eq(teachingPrinciples.isActive, true))
     .orderBy(sql`${teachingPrinciples.priority} DESC`)
@@ -2035,7 +2035,7 @@ async function getProceduresForTriggers(
 ): Promise<TutorProcedure[]> {
   if (triggers.length === 0) return [];
   
-  const procedures = await db.select()
+  const procedures = await getSharedDb().select()
     .from(tutorProcedures)
     .where(eq(tutorProcedures.isActive, true));
   
@@ -2063,7 +2063,7 @@ async function getProceduresForTriggers(
 async function getPrinciplesForContext(
   context: SessionContext
 ): Promise<TeachingPrinciple[]> {
-  const allPrinciples = await db.select()
+  const allPrinciples = await getSharedDb().select()
     .from(teachingPrinciples)
     .where(eq(teachingPrinciples.isActive, true));
   
@@ -2091,7 +2091,7 @@ async function getActivePatterns(
   compass: CompassContext | null,
   context: SessionContext
 ): Promise<SituationalPattern[]> {
-  const allPatterns = await db.select()
+  const allPatterns = await getSharedDb().select()
     .from(situationalPatterns)
     .where(eq(situationalPatterns.isActive, true));
   
@@ -2170,7 +2170,7 @@ function evaluatePattern(
 async function getToolsByNames(names: string[]): Promise<ToolKnowledge[]> {
   if (names.length === 0) return [];
   
-  return db.select()
+  return getSharedDb().select()
     .from(toolKnowledge)
     .where(inArray(toolKnowledge.toolName, names));
 }

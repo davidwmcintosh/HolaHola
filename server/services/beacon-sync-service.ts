@@ -9,7 +9,7 @@
  * 2. Both Editor AND Daniela become aware of what shipped
  */
 
-import { db } from '../db';
+import { db, getSharedDb } from '../db';
 import { 
   danielaBeacons, 
   toolKnowledge,
@@ -88,7 +88,7 @@ class BeaconSyncService {
       isActive: true,
     };
     
-    const [created] = await db.insert(toolKnowledge).values(toolData).returning();
+    const [created] = await getSharedDb().insert(toolKnowledge).values(toolData).returning();
     
     console.log(`[BeaconSync] Created tool knowledge: ${toolName} (${created.id})`);
     
@@ -121,7 +121,7 @@ class BeaconSyncService {
       isActive: true,
     };
     
-    const [created] = await db.insert(tutorProcedures).values(procedureData).returning();
+    const [created] = await getSharedDb().insert(tutorProcedures).values(procedureData).returning();
     
     console.log(`[BeaconSync] Created procedure: ${procedureTitle} (${created.id})`);
     
@@ -495,7 +495,7 @@ class BeaconSyncService {
           const toolName = `SHIPPED_${entry.date.replace(/[^a-zA-Z0-9]/g, '_')}_${entry.feature.substring(0, 30).replace(/[^a-zA-Z0-9]/g, '_')}`;
           
           // Check if already exists
-          const existing = await db.select()
+          const existing = await getSharedDb().select()
             .from(toolKnowledge)
             .where(eq(toolKnowledge.toolName, toolName))
             .limit(1);
@@ -506,7 +506,7 @@ class BeaconSyncService {
           }
           
           // Create new entry
-          await db.insert(toolKnowledge).values({
+          await getSharedDb().insert(toolKnowledge).values({
             toolName,
             toolType: 'shipped_feature',
             purpose: `[${entry.date}] ${entry.feature}`,
@@ -652,7 +652,7 @@ class BeaconSyncService {
                                sprint.priority === 'medium' ? '🟡 MEDIUM' : '🟢 LOW';
           
           // Check if already exists
-          const existing = await db.select()
+          const existing = await getSharedDb().select()
             .from(toolKnowledge)
             .where(eq(toolKnowledge.toolName, toolName))
             .limit(1);
@@ -663,7 +663,7 @@ class BeaconSyncService {
             const newPurpose = `[${stageLabel}] ${priorityLabel} - ${sprint.title}${sprint.description ? `: ${sprint.description.substring(0, 100)}` : ''}`;
             
             if (existingPurpose !== newPurpose) {
-              await db.update(toolKnowledge)
+              await getSharedDb().update(toolKnowledge)
                 .set({ purpose: newPurpose })
                 .where(eq(toolKnowledge.toolName, toolName));
               result.synced++;
@@ -672,7 +672,7 @@ class BeaconSyncService {
             }
           } else {
             // Create new entry
-            await db.insert(toolKnowledge).values({
+            await getSharedDb().insert(toolKnowledge).values({
               toolName,
               toolType: 'roadmap_item',
               purpose: `[${stageLabel}] ${priorityLabel} - ${sprint.title}${sprint.description ? `: ${sprint.description.substring(0, 100)}` : ''}`,
@@ -691,13 +691,13 @@ class BeaconSyncService {
       }
       
       // Clean up roadmap items that are no longer active
-      const allRoadmapItems = await db.select()
+      const allRoadmapItems = await getSharedDb().select()
         .from(toolKnowledge)
         .where(eq(toolKnowledge.toolType, 'roadmap_item'));
       
       for (const item of allRoadmapItems) {
         if (!activeSprintIds.has(item.toolName)) {
-          await db.delete(toolKnowledge).where(eq(toolKnowledge.id, item.id));
+          await getSharedDb().delete(toolKnowledge).where(eq(toolKnowledge.id, item.id));
           result.cleaned++;
         }
       }
@@ -763,7 +763,7 @@ class BeaconSyncService {
           const purpose = this.buildBeaconPurpose(beacon, statusEmoji, typeEmoji);
           
           // Check if already exists
-          const existing = await db.select()
+          const existing = await getSharedDb().select()
             .from(toolKnowledge)
             .where(eq(toolKnowledge.toolName, toolName))
             .limit(1);
@@ -771,14 +771,14 @@ class BeaconSyncService {
           if (existing.length > 0) {
             // Update if status changed
             if (existing[0].purpose !== purpose) {
-              await db.update(toolKnowledge)
+              await getSharedDb().update(toolKnowledge)
                 .set({ purpose })
                 .where(eq(toolKnowledge.toolName, toolName));
               result.synced++;
             }
           } else {
             // Create new entry
-            await db.insert(toolKnowledge).values({
+            await getSharedDb().insert(toolKnowledge).values({
               toolName,
               toolType: 'beacon_status',
               purpose,
@@ -799,13 +799,13 @@ class BeaconSyncService {
       await this.syncBeaconSummaryEntry(statusCounts);
       
       // Clean up beacon status entries for deleted beacons
-      const allBeaconStatusItems = await db.select()
+      const allBeaconStatusItems = await getSharedDb().select()
         .from(toolKnowledge)
         .where(eq(toolKnowledge.toolType, 'beacon_status'));
       
       for (const item of allBeaconStatusItems) {
         if (!activeBeaconIds.has(item.toolName) && item.toolName !== 'BEACON_STATUS_SUMMARY') {
-          await db.delete(toolKnowledge).where(eq(toolKnowledge.id, item.id));
+          await getSharedDb().delete(toolKnowledge).where(eq(toolKnowledge.id, item.id));
           result.cleaned++;
         }
       }
@@ -854,17 +854,17 @@ class BeaconSyncService {
     
     const purpose = summaryParts.join('\n');
     
-    const existing = await db.select()
+    const existing = await getSharedDb().select()
       .from(toolKnowledge)
       .where(eq(toolKnowledge.toolName, summaryToolName))
       .limit(1);
     
     if (existing.length > 0) {
-      await db.update(toolKnowledge)
+      await getSharedDb().update(toolKnowledge)
         .set({ purpose })
         .where(eq(toolKnowledge.toolName, summaryToolName));
     } else {
-      await db.insert(toolKnowledge).values({
+      await getSharedDb().insert(toolKnowledge).values({
         toolName: summaryToolName,
         toolType: 'beacon_status',
         purpose,
@@ -1028,7 +1028,7 @@ class BeaconSyncService {
           const toolName = `ARCH_BASELINE_${section.name}`;
           
           // Check if already exists
-          const existing = await db.select()
+          const existing = await getSharedDb().select()
             .from(toolKnowledge)
             .where(eq(toolKnowledge.toolName, toolName))
             .limit(1);
@@ -1040,7 +1040,7 @@ class BeaconSyncService {
           if (existing.length > 0) {
             // Update if content changed
             if (existing[0].purpose !== truncatedContent) {
-              await db.update(toolKnowledge)
+              await getSharedDb().update(toolKnowledge)
                 .set({ 
                   purpose: truncatedContent,
                   syntax: `Architectural baseline from replit.md - ${section.name.replace(/_/g, ' ')}`
@@ -1053,7 +1053,7 @@ class BeaconSyncService {
             }
           } else {
             // Create new entry
-            await db.insert(toolKnowledge).values({
+            await getSharedDb().insert(toolKnowledge).values({
               toolName,
               toolType: 'architecture_baseline',
               purpose: truncatedContent,
@@ -1098,7 +1098,7 @@ class BeaconSyncService {
     
     try {
       // Query all active North Star principles from database
-      const principles = await db.select()
+      const principles = await getSharedDb().select()
         .from(northStarPrinciples)
         .where(eq(northStarPrinciples.isActive, true))
         .orderBy(northStarPrinciples.category, northStarPrinciples.orderIndex);
@@ -1118,7 +1118,7 @@ class BeaconSyncService {
           const toolName = `NORTH_STAR_${categoryUpper}_${principle.orderIndex}`;
           
           // Check if already exists
-          const existing = await db.select()
+          const existing = await getSharedDb().select()
             .from(toolKnowledge)
             .where(eq(toolKnowledge.toolName, toolName))
             .limit(1);
@@ -1135,7 +1135,7 @@ class BeaconSyncService {
           if (existing.length > 0) {
             // Update if content changed
             if (existing[0].purpose !== purposeContent || existing[0].syntax !== syntaxContent) {
-              await db.update(toolKnowledge)
+              await getSharedDb().update(toolKnowledge)
                 .set({ 
                   purpose: purposeContent,
                   syntax: syntaxContent
@@ -1147,7 +1147,7 @@ class BeaconSyncService {
             }
           } else {
             // Create new entry
-            await db.insert(toolKnowledge).values({
+            await getSharedDb().insert(toolKnowledge).values({
               toolName,
               toolType: 'north_star_principle',
               purpose: purposeContent,

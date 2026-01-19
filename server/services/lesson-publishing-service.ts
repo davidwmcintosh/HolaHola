@@ -1,4 +1,4 @@
-import { db } from "../db";
+import { db, getSharedDb } from "../db";
 import { 
   lessonDrafts, 
   curriculumPaths, 
@@ -179,13 +179,13 @@ async function createDrillsFromTasks(
     difficulty: Math.min(task.taskNumber || 1, 5)
   }));
   
-  await db.insert(curriculumDrillItems).values(drillItems);
+  await getSharedDb().insert(curriculumDrillItems).values(drillItems);
   return drillItems.length;
 }
 
 export async function publishDraft(draftId: string): Promise<PublishResult> {
   try {
-    const [draft] = await db
+    const [draft] = await getSharedDb()
       .select()
       .from(lessonDrafts)
       .where(eq(lessonDrafts.id, draftId));
@@ -207,14 +207,14 @@ export async function publishDraft(draftId: string): Promise<PublishResult> {
     const pathId = await findOrCreatePath(draft.language, draft.actflLevel);
     const unitId = await findOrCreateUnit(pathId, draft.actflLevel, draft.language);
     
-    const existingLessons = await db
+    const existingLessons = await getSharedDb()
       .select({ count: sql<number>`count(*)::int` })
       .from(curriculumLessons)
       .where(eq(curriculumLessons.curriculumUnitId, unitId));
     
     const orderIndex = (existingLessons[0]?.count || 0) + 1;
     
-    const [newLesson] = await db
+    const [newLesson] = await getSharedDb()
       .insert(curriculumLessons)
       .values({
         curriculumUnitId: unitId,
@@ -233,7 +233,7 @@ export async function publishDraft(draftId: string): Promise<PublishResult> {
       .returning();
     
     if (draft.canDoStatementId) {
-      await db.insert(lessonCanDoStatements).values({
+      await getSharedDb().insert(lessonCanDoStatements).values({
         lessonId: newLesson.id,
         canDoStatementId: draft.canDoStatementId
       });
@@ -248,7 +248,7 @@ export async function publishDraft(draftId: string): Promise<PublishResult> {
       );
     }
     
-    await db
+    await getSharedDb()
       .update(lessonDrafts)
       .set({
         status: 'published',
@@ -280,7 +280,7 @@ export async function publishBatch(
     conditions.push(eq(lessonDrafts.language, language));
   }
   
-  const drafts = await db
+  const drafts = await getSharedDb()
     .select({ id: lessonDrafts.id })
     .from(lessonDrafts)
     .where(and(...conditions))
@@ -307,7 +307,7 @@ export async function publishBatch(
 }
 
 export async function getPublishPreview(language?: string) {
-  let query = db
+  let query = getSharedDb()
     .select({
       id: lessonDrafts.id,
       name: lessonDrafts.name,
@@ -331,7 +331,7 @@ export async function getPublishPreview(language?: string) {
 }
 
 export async function getPublishStats() {
-  const stats = await db
+  const stats = await getSharedDb()
     .select({
       language: lessonDrafts.language,
       status: lessonDrafts.status,

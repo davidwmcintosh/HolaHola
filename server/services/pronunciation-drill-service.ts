@@ -10,7 +10,7 @@
  */
 
 import { GoogleGenAI } from '@google/genai';
-import { db } from '../db';
+import { db, getSharedDb } from '../db';
 import { recurringStruggles, hiveSnapshots } from '@shared/schema';
 import { eq, and, desc, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';

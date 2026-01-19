@@ -10,7 +10,7 @@
  * Daniela can recall it when directly asked or when it becomes relevant.
  */
 
-import { db } from '../db';
+import { db, getSharedDb } from '../db';
 import { storage } from '../storage';
 import {
   peopleConnections,
@@ -520,7 +520,7 @@ export async function searchTeachingKnowledge(
           whereClause = and(whereClause, eq(languageIdioms.language, language));
         }
         
-        const idioms = await db.select().from(languageIdioms)
+        const idioms = await getSharedDb().select().from(languageIdioms)
           .where(whereClause)
           .orderBy(desc(languageIdioms.createdAt))
           .limit(10);
@@ -566,7 +566,7 @@ export async function searchTeachingKnowledge(
           whereClause = and(whereClause, eq(culturalNuances.language, language));
         }
         
-        const nuances = await db.select().from(culturalNuances)
+        const nuances = await getSharedDb().select().from(culturalNuances)
           .where(whereClause)
           .orderBy(desc(culturalNuances.createdAt))
           .limit(10);
@@ -618,7 +618,7 @@ export async function searchTeachingKnowledge(
           );
         }
         
-        const procedures = await db.select().from(tutorProcedures)
+        const procedures = await getSharedDb().select().from(tutorProcedures)
           .where(whereClause)
           .orderBy(desc(tutorProcedures.priority))
           .limit(10);
@@ -658,7 +658,7 @@ export async function searchTeachingKnowledge(
           )
         );
         
-        const principles = await db.select().from(teachingPrinciples)
+        const principles = await getSharedDb().select().from(teachingPrinciples)
           .where(whereClause)
           .orderBy(desc(teachingPrinciples.priority))
           .limit(10);
@@ -702,7 +702,7 @@ export async function searchTeachingKnowledge(
           whereClause = and(whereClause, eq(learnerErrorPatterns.targetLanguage, language));
         }
         
-        const errors = await db.select().from(learnerErrorPatterns)
+        const errors = await getSharedDb().select().from(learnerErrorPatterns)
           .where(whereClause)
           .orderBy(desc(learnerErrorPatterns.createdAt))
           .limit(10);
@@ -742,7 +742,7 @@ export async function searchTeachingKnowledge(
           )
         );
         
-        const patterns = await db.select().from(situationalPatterns)
+        const patterns = await getSharedDb().select().from(situationalPatterns)
           .where(whereClause)
           .orderBy(desc(situationalPatterns.priority))
           .limit(10);
@@ -794,7 +794,7 @@ export async function searchTeachingKnowledge(
           );
         }
         
-        const cues = await db.select().from(subtletyCues)
+        const cues = await getSharedDb().select().from(subtletyCues)
           .where(whereClause)
           .orderBy(desc(subtletyCues.priority))
           .limit(10);
@@ -836,7 +836,7 @@ export async function searchTeachingKnowledge(
           )
         );
         
-        const patterns = await db.select().from(emotionalPatterns)
+        const patterns = await getSharedDb().select().from(emotionalPatterns)
           .where(whereClause)
           .orderBy(desc(emotionalPatterns.priority))
           .limit(10);
@@ -881,7 +881,7 @@ export async function searchTeachingKnowledge(
           )
         );
         
-        const templates = await db.select().from(creativityTemplates)
+        const templates = await getSharedDb().select().from(creativityTemplates)
           .where(whereClause)
           .orderBy(desc(creativityTemplates.priority))
           .limit(10);

@@ -2324,36 +2324,36 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTopics(): Promise<Topic[]> {
-    return await db.select().from(topicsTable);
+    return await getSharedDb().select().from(topicsTable);
   }
 
   async getTopic(id: string): Promise<Topic | undefined> {
-    const result = await db.select().from(topicsTable).where(eq(topicsTable.id, id));
+    const result = await getSharedDb().select().from(topicsTable).where(eq(topicsTable.id, id));
     return result[0];
   }
 
   async createTopic(data: InsertTopic): Promise<Topic> {
-    const [topic] = await db.insert(topicsTable).values(data).returning();
+    const [topic] = await getSharedDb().insert(topicsTable).values(data).returning();
     return topic;
   }
 
   async getCulturalTips(language: string): Promise<CulturalTip[]> {
-    return await db.select().from(culturalTipsTable)
+    return await getSharedDb().select().from(culturalTipsTable)
       .where(eq(culturalTipsTable.language, language));
   }
 
   async getCulturalTip(id: string): Promise<CulturalTip | undefined> {
-    const result = await db.select().from(culturalTipsTable).where(eq(culturalTipsTable.id, id));
+    const result = await getSharedDb().select().from(culturalTipsTable).where(eq(culturalTipsTable.id, id));
     return result[0];
   }
 
   async createCulturalTip(data: InsertCulturalTip): Promise<CulturalTip> {
-    const [culturalTip] = await db.insert(culturalTipsTable).values(data).returning();
+    const [culturalTip] = await getSharedDb().insert(culturalTipsTable).values(data).returning();
     return culturalTip;
   }
 
   async updateCulturalTip(id: string, data: Partial<InsertCulturalTip>): Promise<CulturalTip> {
-    const [updated] = await db.update(culturalTipsTable)
+    const [updated] = await getSharedDb().update(culturalTipsTable)
       .set(data)
       .where(eq(culturalTipsTable.id, id))
       .returning();
@@ -2513,7 +2513,7 @@ export class DatabaseStorage implements IStorage {
 
   // ACTFL Can-Do Statements
   async getCanDoStatements(language?: string, actflLevel?: string, category?: string): Promise<CanDoStatement[]> {
-    let query = db.select().from(canDoStatements);
+    let query = getSharedDb().select().from(canDoStatements);
     
     const conditions = [];
     if (language) {
@@ -2534,7 +2534,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCanDoStatement(id: string): Promise<CanDoStatement | undefined> {
-    const result = await db.select().from(canDoStatements).where(eq(canDoStatements.id, id));
+    const result = await getSharedDb().select().from(canDoStatements).where(eq(canDoStatements.id, id));
     return result[0];
   }
 
@@ -2542,13 +2542,13 @@ export class DatabaseStorage implements IStorage {
     const { getAllCanDoStatements } = await import('./actfl-can-do-statements');
     const allStatements = getAllCanDoStatements();
     
-    const existing = await db.select().from(canDoStatements).limit(1);
+    const existing = await getSharedDb().select().from(canDoStatements).limit(1);
     if (existing.length > 0) {
       return;
     }
     
     for (const stmt of allStatements) {
-      await db.insert(canDoStatements).values(stmt);
+      await getSharedDb().insert(canDoStatements).values(stmt);
     }
   }
 
@@ -2904,27 +2904,27 @@ export class DatabaseStorage implements IStorage {
   // ===== Curriculum Paths =====
   
   async createCurriculumPath(data: InsertCurriculumPath): Promise<CurriculumPath> {
-    const [path] = await db.insert(curriculumPaths).values(data).returning();
+    const [path] = await getSharedDb().insert(curriculumPaths).values(data).returning();
     return path;
   }
 
   async getCurriculumPath(id: string): Promise<CurriculumPath | undefined> {
-    const result = await db.select().from(curriculumPaths).where(eq(curriculumPaths.id, id));
+    const result = await getSharedDb().select().from(curriculumPaths).where(eq(curriculumPaths.id, id));
     return result[0];
   }
 
   async getCurriculumPaths(language?: string): Promise<CurriculumPath[]> {
     if (language) {
-      return await db.select().from(curriculumPaths).where(eq(curriculumPaths.language, language));
+      return await getSharedDb().select().from(curriculumPaths).where(eq(curriculumPaths.language, language));
     }
-    return await db.select().from(curriculumPaths);
+    return await getSharedDb().select().from(curriculumPaths);
   }
 
   async getCurriculumStats(): Promise<{ pathCount: number; unitCount: number; lessonCount: number; languageCount: number }> {
-    const [pathResult] = await db.select({ count: sql<number>`count(*)::int` }).from(curriculumPaths);
-    const [unitResult] = await db.select({ count: sql<number>`count(*)::int` }).from(curriculumUnits);
-    const [lessonResult] = await db.select({ count: sql<number>`count(*)::int` }).from(curriculumLessons);
-    const [languageResult] = await db.select({ count: sql<number>`count(distinct ${curriculumPaths.language})::int` }).from(curriculumPaths);
+    const [pathResult] = await getSharedDb().select({ count: sql<number>`count(*)::int` }).from(curriculumPaths);
+    const [unitResult] = await getSharedDb().select({ count: sql<number>`count(*)::int` }).from(curriculumUnits);
+    const [lessonResult] = await getSharedDb().select({ count: sql<number>`count(*)::int` }).from(curriculumLessons);
+    const [languageResult] = await getSharedDb().select({ count: sql<number>`count(distinct ${curriculumPaths.language})::int` }).from(curriculumPaths);
     
     return {
       pathCount: pathResult?.count || 0,
@@ -2935,7 +2935,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateCurriculumPath(id: string, data: Partial<CurriculumPath>): Promise<CurriculumPath | undefined> {
-    const [updated] = await db
+    const [updated] = await getSharedDb()
       .update(curriculumPaths)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(curriculumPaths.id, id))
@@ -2946,12 +2946,12 @@ export class DatabaseStorage implements IStorage {
   // ===== Curriculum Units =====
   
   async createCurriculumUnit(data: InsertCurriculumUnit): Promise<CurriculumUnit> {
-    const [unit] = await db.insert(curriculumUnits).values(data).returning();
+    const [unit] = await getSharedDb().insert(curriculumUnits).values(data).returning();
     return unit;
   }
 
   async getCurriculumUnits(curriculumPathId: string): Promise<CurriculumUnit[]> {
-    return await db
+    return await getSharedDb()
       .select()
       .from(curriculumUnits)
       .where(eq(curriculumUnits.curriculumPathId, curriculumPathId))
@@ -2959,19 +2959,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCurriculumUnit(id: string): Promise<CurriculumUnit | undefined> {
-    const result = await db.select().from(curriculumUnits).where(eq(curriculumUnits.id, id));
+    const result = await getSharedDb().select().from(curriculumUnits).where(eq(curriculumUnits.id, id));
     return result[0];
   }
 
   // ===== Curriculum Lessons =====
   
   async createCurriculumLesson(data: InsertCurriculumLesson): Promise<CurriculumLesson> {
-    const [lesson] = await db.insert(curriculumLessons).values(data).returning();
+    const [lesson] = await getSharedDb().insert(curriculumLessons).values(data).returning();
     return lesson;
   }
 
   async getCurriculumLessons(curriculumUnitId: string): Promise<CurriculumLesson[]> {
-    return await db
+    return await getSharedDb()
       .select()
       .from(curriculumLessons)
       .where(eq(curriculumLessons.curriculumUnitId, curriculumUnitId))
@@ -2979,19 +2979,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCurriculumLesson(id: string): Promise<CurriculumLesson | undefined> {
-    const result = await db.select().from(curriculumLessons).where(eq(curriculumLessons.id, id));
+    const result = await getSharedDb().select().from(curriculumLessons).where(eq(curriculumLessons.id, id));
     return result[0];
   }
 
   // ===== Drill Items =====
 
   async createDrillItem(data: InsertCurriculumDrillItem): Promise<CurriculumDrillItem> {
-    const [item] = await db.insert(curriculumDrillItems).values(data).returning();
+    const [item] = await getSharedDb().insert(curriculumDrillItems).values(data).returning();
     return item;
   }
 
   async getDrillItems(lessonId: string): Promise<CurriculumDrillItem[]> {
-    return await db
+    return await getSharedDb()
       .select()
       .from(curriculumDrillItems)
       .where(eq(curriculumDrillItems.lessonId, lessonId))
@@ -2999,12 +2999,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getDrillItem(id: string): Promise<CurriculumDrillItem | undefined> {
-    const result = await db.select().from(curriculumDrillItems).where(eq(curriculumDrillItems.id, id));
+    const result = await getSharedDb().select().from(curriculumDrillItems).where(eq(curriculumDrillItems.id, id));
     return result[0];
   }
 
   async updateDrillItem(id: string, data: Partial<CurriculumDrillItem>): Promise<CurriculumDrillItem | undefined> {
-    const [updated] = await db
+    const [updated] = await getSharedDb()
       .update(curriculumDrillItems)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(curriculumDrillItems.id, id))
@@ -3013,7 +3013,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteDrillItem(id: string): Promise<boolean> {
-    const result = await db.delete(curriculumDrillItems).where(eq(curriculumDrillItems.id, id));
+    const result = await getSharedDb().delete(curriculumDrillItems).where(eq(curriculumDrillItems.id, id));
     return (result.rowCount ?? 0) > 0;
   }
 
@@ -3022,7 +3022,7 @@ export class DatabaseStorage implements IStorage {
     if (audioDurationMs !== undefined) {
       updateData.audioDurationMs = audioDurationMs;
     }
-    const [updated] = await db
+    const [updated] = await getSharedDb()
       .update(curriculumDrillItems)
       .set(updateData)
       .where(eq(curriculumDrillItems.id, id))
@@ -3039,7 +3039,7 @@ export class DatabaseStorage implements IStorage {
       updateData.audioUrlMale = audioUrl;
       updateData.audioDurationMsMale = audioDurationMs;
     }
-    const [updated] = await db
+    const [updated] = await getSharedDb()
       .update(curriculumDrillItems)
       .set(updateData)
       .where(eq(curriculumDrillItems.id, id))
@@ -3389,7 +3389,7 @@ export class DatabaseStorage implements IStorage {
   // ===== Can-Do Statements =====
   
   async getCanDoStatementsByLanguage(language: string): Promise<CanDoStatement[]> {
-    return await db
+    return await getSharedDb()
       .select()
       .from(canDoStatements)
       .where(eq(canDoStatements.language, language))
@@ -3398,7 +3398,7 @@ export class DatabaseStorage implements IStorage {
 
   async getLessonCanDoStatements(lessonIds: string[]): Promise<LessonCanDoStatement[]> {
     if (lessonIds.length === 0) return [];
-    return await db
+    return await getSharedDb()
       .select()
       .from(lessonCanDoStatements)
       .where(inArray(lessonCanDoStatements.lessonId, lessonIds));
@@ -3577,7 +3577,7 @@ export class DatabaseStorage implements IStorage {
     coveredTopics: string[]
   ): Promise<{ covered: boolean; coveragePercent: number; missingTopics: string[] }> {
     // Get the lesson's required topics
-    const lessonResult = await db
+    const lessonResult = await getSharedDb()
       .select()
       .from(curriculumLessons)
       .where(eq(curriculumLessons.id, lessonId))
@@ -3603,12 +3603,12 @@ export class DatabaseStorage implements IStorage {
   // ===== Topic Competency Observations (Daniela's SYLLABUS_PROGRESS command) =====
 
   async createTopicCompetencyObservation(data: InsertTopicCompetencyObservation): Promise<TopicCompetencyObservation> {
-    const [observation] = await db.insert(topicCompetencyObservations).values(data).returning();
+    const [observation] = await getSharedDb().insert(topicCompetencyObservations).values(data).returning();
     return observation;
   }
 
   async getTopicCompetencyObservations(userId: string, language: string): Promise<TopicCompetencyObservation[]> {
-    return await db
+    return await getSharedDb()
       .select()
       .from(topicCompetencyObservations)
       .where(and(
@@ -3619,7 +3619,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserTopicCompetencyByName(userId: string, language: string, topicName: string): Promise<TopicCompetencyObservation | undefined> {
-    const result = await db
+    const result = await getSharedDb()
       .select()
       .from(topicCompetencyObservations)
       .where(and(
@@ -3635,7 +3635,7 @@ export class DatabaseStorage implements IStorage {
   // ===== Daniela Recommendation Queue =====
 
   async createDanielaRecommendation(data: InsertDanielaRecommendation): Promise<DanielaRecommendation> {
-    const [recommendation] = await db.insert(danielaRecommendations).values(data).returning();
+    const [recommendation] = await getSharedDb().insert(danielaRecommendations).values(data).returning();
     return recommendation;
   }
 
@@ -3665,7 +3665,7 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    return await db
+    return await getSharedDb()
       .select()
       .from(danielaRecommendations)
       .where(and(...conditions))
@@ -3673,7 +3673,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateDanielaRecommendation(id: string, data: Partial<DanielaRecommendation>): Promise<DanielaRecommendation | undefined> {
-    const [updated] = await db
+    const [updated] = await getSharedDb()
       .update(danielaRecommendations)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(danielaRecommendations.id, id))
@@ -4580,7 +4580,7 @@ export class DatabaseStorage implements IStorage {
     danielaObservation?: { status: string; evidence: string | null; observedAt: Date };
   }>> {
     // Get all topics (topics are language-agnostic)
-    const allTopics = await db.select().from(topicsTable);
+    const allTopics = await getSharedDb().select().from(topicsTable);
     
     // Get user's conversations for this language
     const userConvs = await db.select({ id: conversations.id, createdAt: conversations.createdAt })
@@ -4613,7 +4613,7 @@ export class DatabaseStorage implements IStorage {
     ]));
     
     // Get Daniela's competency observations for this user/language
-    const danielaObservations = await db
+    const danielaObservations = await getSharedDb()
       .select()
       .from(topicCompetencyObservations)
       .where(and(
@@ -5389,7 +5389,7 @@ export class DatabaseStorage implements IStorage {
 
   async getTutorVoice(language: string, gender: 'male' | 'female'): Promise<TutorVoice | undefined> {
     // IMPORTANT: Filter by role='tutor' to get main Cartesia tutor, not Google assistant
-    const result = await db.select().from(tutorVoices).where(
+    const result = await getSharedDb().select().from(tutorVoices).where(
       and(
         eq(tutorVoices.language, language),
         eq(tutorVoices.gender, gender),
@@ -5401,7 +5401,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllTutorVoices(): Promise<TutorVoice[]> {
-    return db.select().from(tutorVoices).orderBy(tutorVoices.language, tutorVoices.gender);
+    return getSharedDb().select().from(tutorVoices).orderBy(tutorVoices.language, tutorVoices.gender);
   }
 
   async upsertTutorVoice(data: InsertTutorVoice): Promise<TutorVoice> {
@@ -5419,7 +5419,7 @@ export class DatabaseStorage implements IStorage {
     }
     
     // Check if voice already exists for this language, gender, AND role
-    const existing = await db.select().from(tutorVoices).where(
+    const existing = await getSharedDb().select().from(tutorVoices).where(
       and(
         eq(tutorVoices.language, data.language),
         eq(tutorVoices.gender, data.gender),
@@ -5429,26 +5429,26 @@ export class DatabaseStorage implements IStorage {
 
     if (existing[0]) {
       // Update existing
-      const updated = await db.update(tutorVoices)
+      const updated = await getSharedDb().update(tutorVoices)
         .set({ ...data, role, updatedAt: new Date() })
         .where(eq(tutorVoices.id, existing[0].id))
         .returning();
       return updated[0];
     } else {
       // Create new
-      const created = await db.insert(tutorVoices).values({ ...data, role }).returning();
+      const created = await getSharedDb().insert(tutorVoices).values({ ...data, role }).returning();
       return created[0];
     }
   }
 
   async deleteTutorVoice(id: string): Promise<boolean> {
-    const result = await db.delete(tutorVoices).where(eq(tutorVoices.id, id)).returning();
+    const result = await getSharedDb().delete(tutorVoices).where(eq(tutorVoices.id, id)).returning();
     return result.length > 0;
   }
 
   async seedDefaultTutorVoices(): Promise<void> {
     // Check if voices already exist
-    const existing = await db.select().from(tutorVoices).limit(1);
+    const existing = await getSharedDb().select().from(tutorVoices).limit(1);
     if (existing.length > 0) {
       console.log('[Voice Seed] Voices already exist, skipping seed');
       return;
@@ -5488,7 +5488,7 @@ export class DatabaseStorage implements IStorage {
     ];
 
     for (const voice of defaultVoices) {
-      await db.insert(tutorVoices).values(voice);
+      await getSharedDb().insert(tutorVoices).values(voice);
     }
 
     console.log(`[Voice Seed] ✓ Seeded ${defaultVoices.length} default tutor voices`);
@@ -5503,7 +5503,7 @@ export class DatabaseStorage implements IStorage {
    */
   async seedSupportVoices(): Promise<void> {
     // Check if support voices already exist
-    const existing = await db.select().from(tutorVoices).where(eq(tutorVoices.role, 'support')).limit(1);
+    const existing = await getSharedDb().select().from(tutorVoices).where(eq(tutorVoices.role, 'support')).limit(1);
     if (existing.length > 0) {
       console.log('[Voice Seed] Support voices already exist, skipping seed');
       return;
@@ -5543,7 +5543,7 @@ export class DatabaseStorage implements IStorage {
     ];
 
     for (const voice of supportVoices) {
-      await db.insert(tutorVoices).values(voice);
+      await getSharedDb().insert(tutorVoices).values(voice);
     }
 
     console.log(`[Voice Seed] ✓ Seeded ${supportVoices.length} Sofia support voices`);
@@ -5730,7 +5730,7 @@ export class DatabaseStorage implements IStorage {
   
   // Self Best Practices - Universal teaching wisdom
   async createBestPractice(data: InsertSelfBestPractice): Promise<SelfBestPractice> {
-    const [practice] = await db.insert(selfBestPractices).values(data).returning();
+    const [practice] = await getSharedDb().insert(selfBestPractices).values(data).returning();
     return practice;
   }
 
@@ -5744,21 +5744,21 @@ export class DatabaseStorage implements IStorage {
     }
     
     if (conditions.length === 0) {
-      return db.select().from(selfBestPractices).orderBy(desc(selfBestPractices.confidenceScore));
+      return getSharedDb().select().from(selfBestPractices).orderBy(desc(selfBestPractices.confidenceScore));
     }
     
-    return db.select().from(selfBestPractices)
+    return getSharedDb().select().from(selfBestPractices)
       .where(conditions.length === 1 ? conditions[0] : and(...conditions))
       .orderBy(desc(selfBestPractices.confidenceScore));
   }
 
   async getBestPractice(id: string): Promise<SelfBestPractice | undefined> {
-    const [practice] = await db.select().from(selfBestPractices).where(eq(selfBestPractices.id, id));
+    const [practice] = await getSharedDb().select().from(selfBestPractices).where(eq(selfBestPractices.id, id));
     return practice;
   }
 
   async updateBestPractice(id: string, data: Partial<SelfBestPractice>): Promise<SelfBestPractice | undefined> {
-    const [updated] = await db.update(selfBestPractices)
+    const [updated] = await getSharedDb().update(selfBestPractices)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(selfBestPractices.id, id))
       .returning();
@@ -5766,7 +5766,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async incrementBestPracticeUsage(id: string): Promise<void> {
-    await db.update(selfBestPractices)
+    await getSharedDb().update(selfBestPractices)
       .set({ 
         timesApplied: sql`${selfBestPractices.timesApplied} + 1`,
         updatedAt: new Date()
@@ -5776,7 +5776,7 @@ export class DatabaseStorage implements IStorage {
 
   async upsertBestPractice(category: BestPracticeCategory, insight: string, context?: string, source: string = 'experience'): Promise<SelfBestPractice> {
     // Check for similar existing insight in same category
-    const existing = await db.select().from(selfBestPractices)
+    const existing = await getSharedDb().select().from(selfBestPractices)
       .where(and(
         eq(selfBestPractices.category, category),
         eq(selfBestPractices.isActive, true)
@@ -5794,7 +5794,7 @@ export class DatabaseStorage implements IStorage {
       if (overlap >= 3 || existingLower.includes(insightLower.slice(0, 30)) || insightLower.includes(existingLower.slice(0, 30))) {
         // Similar insight exists - increment confidence and update
         const newConfidence = Math.min((practice.confidenceScore || 0.5) + 0.1, 1.0);
-        const [updated] = await db.update(selfBestPractices)
+        const [updated] = await getSharedDb().update(selfBestPractices)
           .set({
             confidenceScore: newConfidence,
             timesApplied: (practice.timesApplied || 0) + 1,
@@ -5807,7 +5807,7 @@ export class DatabaseStorage implements IStorage {
     }
     
     // No similar insight - create new one
-    const [created] = await db.insert(selfBestPractices).values({
+    const [created] = await getSharedDb().insert(selfBestPractices).values({
       category,
       insight,
       context,
