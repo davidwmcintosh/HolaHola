@@ -1,4 +1,4 @@
-import { db } from "../db";
+import { db, getUserDb } from "../db";
 import { voiceSessions, usageLedger, classEnrollments, users, hourPackages, classHourPackages, teacherClasses } from "@shared/schema";
 import { eq, and, sql, gt, isNull, or, desc, sum } from "drizzle-orm";
 import type { VoiceSession, UsageLedger, InsertVoiceSession, InsertUsageLedger } from "@shared/schema";
@@ -1121,7 +1121,7 @@ export class UsageService {
     const purchasedMap = new Map(purchasedUsage.map(p => [p.userId, Number(p.totalSeconds)]));
     
     // Get lesson completion per student
-    const lessonCounts = await db.execute(sql`
+    const lessonCounts = await getUserDb().execute(sql`
       SELECT 
         sp.student_id,
         COUNT(CASE WHEN sp.status IN ('completed_early', 'completed_assigned') THEN 1 END) as completed,

@@ -1,5 +1,5 @@
 import { callGeminiWithSchema, GEMINI_MODELS } from "../gemini-utils";
-import { db, getSharedDb } from "../db";
+import { db, getSharedDb, getUserDb } from "../db";
 import { topics, conversations, conversationTopics } from "@shared/schema";
 import { eq, inArray } from "drizzle-orm";
 
@@ -124,7 +124,7 @@ export async function tagConversation(
     const uniqueTopicIds = Array.from(new Set(matchedTopicIds));
 
     if (uniqueTopicIds.length > 0) {
-      const existingLinks = await db
+      const existingLinks = await getUserDb()
         .select()
         .from(conversationTopics)
         .where(eq(conversationTopics.conversationId, conversationId));
@@ -133,7 +133,7 @@ export async function tagConversation(
       const newTopicIds = uniqueTopicIds.filter((id) => !existingTopicIds.has(id));
 
       if (newTopicIds.length > 0) {
-        await db.insert(conversationTopics).values(
+        await getUserDb().insert(conversationTopics).values(
           newTopicIds.map((topicId) => ({
             conversationId,
             topicId,
@@ -154,7 +154,7 @@ export async function tagConversation(
     }
 
     if (Object.keys(updateData).length > 0) {
-      await db
+      await getUserDb()
         .update(conversations)
         .set(updateData)
         .where(eq(conversations.id, conversationId));

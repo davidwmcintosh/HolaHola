@@ -1,5 +1,5 @@
 import * as sdk from "microsoft-cognitiveservices-speech-sdk";
-import { db } from "../db";
+import { db, getUserDb } from "../db";
 import { phonemeStruggles, type InsertPhonemeStruggle } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 
@@ -281,7 +281,7 @@ class AzurePronunciationService {
       const confidence = avgScore / 100;
 
       try {
-        const existing = await db.select()
+        const existing = await getUserDb().select()
           .from(phonemeStruggles)
           .where(and(
             eq(phonemeStruggles.studentId, studentId),
@@ -306,7 +306,7 @@ class AzurePronunciationService {
             ? Array.from(new Set([...existingSessions, sessionId])).slice(-20)
             : existingSessions;
 
-          await db.update(phonemeStruggles)
+          await getUserDb().update(phonemeStruggles)
             .set({
               averageConfidence: newAvgConfidence,
               lowestConfidence: Math.min(record.lowestConfidence || 1, minScore / 100),
@@ -338,7 +338,7 @@ class AzurePronunciationService {
             classId: classId || undefined, // Learning source tracking
           };
 
-          await db.insert(phonemeStruggles).values(insertData);
+          await getUserDb().insert(phonemeStruggles).values(insertData);
         }
       } catch (error) {
         console.error(`[Azure Pronunciation] Error storing phoneme ${phoneme}:`, error);

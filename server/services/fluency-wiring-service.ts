@@ -11,7 +11,7 @@
  * to actual student progress tracking.
  */
 
-import { db, getSharedDb } from "../db";
+import { db, getSharedDb, getUserDb } from "../db";
 import { 
   lessonCanDoStatements,
   canDoStatements,
@@ -380,7 +380,7 @@ export async function recordStudentCanDoProgress(
   console.log(`[FLUENCY-WIRING] Recording Can-Do progress for user ${userId}: ${canDoStatementId}`);
 
   // Check if already exists
-  const existing = await db
+  const existing = await getUserDb()
     .select()
     .from(studentCanDoProgress)
     .where(
@@ -393,7 +393,7 @@ export async function recordStudentCanDoProgress(
 
   if (existing.length > 0) {
     // Update existing record
-    await db
+    await getUserDb()
       .update(studentCanDoProgress)
       .set({
         aiDetected: options.aiDetected ?? existing[0].aiDetected,
@@ -405,7 +405,7 @@ export async function recordStudentCanDoProgress(
       .where(eq(studentCanDoProgress.id, existing[0].id));
   } else {
     // Insert new record
-    await db.insert(studentCanDoProgress).values({
+    await getUserDb().insert(studentCanDoProgress).values({
       userId,
       canDoStatementId,
       selfAssessed: options.selfAssessed ?? false,
@@ -468,7 +468,7 @@ export async function recordActflAssessment(
 ): Promise<string> {
   console.log(`[FLUENCY-WIRING] Recording ACTFL assessment: ${userId} ${previousLevel} → ${newLevel} (${direction})`);
 
-  const [inserted] = await db.insert(actflAssessmentEvents).values({
+  const [inserted] = await getUserDb().insert(actflAssessmentEvents).values({
     userId,
     language,
     previousLevel,

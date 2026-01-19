@@ -39,28 +39,23 @@ These services have been updated to use `getSharedDb()`/`getUserDb()`:
 - `wren-proactive-intelligence-service.ts`
 - `syllabus-analytics-service.ts` (FIXED Jan 2026)
 - `streaming-voice-orchestrator.ts` (FIXED Jan 2026 - MEMORY_LOOKUP, EXPRESS_LANE_LOOKUP)
+- `competency-verifier.ts` (FIXED Jan 2026 - syllabusProgress to getUserDb)
+- `fluency-wiring-service.ts` (FIXED Jan 2026 - studentCanDoProgress, actflAssessmentEvents to getUserDb)
+- `conversation-tagger.ts` (FIXED Jan 2026 - conversationTopics, conversations to getUserDb)
+- `usage-service.ts` (FIXED Jan 2026 - syllabus_progress query to getUserDb)
+- `azure-pronunciation-service.ts` (FIXED Jan 2026 - phonemeStruggles to getUserDb)
 
 ## Services Needing Routing Review ⚠️
 
-### High Priority (Actively Used in Teaching/Revenue)
+### High Priority (Actively Used in Teaching/Revenue) ✅ COMPLETE
 
-1. **competency-verifier.ts**
-   - `db.insert(syllabusProgress)` → should use `getUserDb()`
-   
-2. **fluency-wiring-service.ts** 
-   - `db.insert(studentCanDoProgress)` → `getUserDb()`
-   - `db.insert(actflAssessmentEvents)` → `getUserDb()`
+All high-priority services have been fixed (Jan 2026):
 
-3. **conversation-tagger.ts**
-   - `db.insert(conversationTopics)` → `getUserDb()`
-
-4. **usage-service.ts**
-   - Billing/usage tables - user data, affects revenue reporting
-   - `db.execute()` calls → needs `getUserDb()`
-
-5. **azure-pronunciation-service.ts**
-   - `phonemeStruggles` - affects learning feedback loops
-   - `db.select/insert/update()` → needs `getUserDb()`
+1. ~~**competency-verifier.ts**~~ → FIXED
+2. ~~**fluency-wiring-service.ts**~~ → FIXED
+3. ~~**conversation-tagger.ts**~~ → FIXED
+4. ~~**usage-service.ts**~~ → FIXED
+5. ~~**azure-pronunciation-service.ts**~~ → FIXED
 
 ### Medium Priority (Editor/Collaboration Features)
 

@@ -1,5 +1,5 @@
 import { callGeminiWithSchema, GEMINI_MODELS } from "../gemini-utils";
-import { db, getSharedDb } from "../db";
+import { db, getSharedDb, getUserDb } from "../db";
 import { 
   curriculumLessons, 
   vocabularyWords, 
@@ -378,12 +378,12 @@ export async function markLessonAsOrganicallyCompleted(
     };
 
     if (existingProgress.length > 0) {
-      await db
+      await getUserDb()
         .update(syllabusProgress)
         .set(progressData)
         .where(eq(syllabusProgress.id, existingProgress[0].id));
     } else {
-      await db.insert(syllabusProgress).values({
+      await getUserDb().insert(syllabusProgress).values({
         id: crypto.randomUUID(),
         ...progressData,
       });
