@@ -231,6 +231,18 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
       required: ["query"],
     },
   },
+  {
+    name: "recall_express_lane_image",
+    description: "Look at an image that was shared in the Express Lane. Use this when David mentions photos or images he shared with you, or when you want to see/describe a specific image from your conversations. You will actually SEE the image and can describe what's in it. Only available in Founder Mode or Honesty Mode.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        imageQuery: { type: "string", description: "Description of which image to recall (e.g., 'the house photo', 'family picture', 'Grand Canyon', 'Daniela portrait')" },
+        reason: { type: "string", description: "Why you want to see this image (for context)" },
+      },
+      required: ["imageQuery"],
+    },
+  },
 
   // === SYSTEM & HIVE ===
   {
@@ -300,6 +312,7 @@ export const FUNCTION_TO_COMMAND_MAP: Record<string, string> = {
   'hold_whiteboard': 'HOLD',
   'memory_lookup': 'MEMORY_LOOKUP',
   'express_lane_lookup': 'EXPRESS_LANE_LOOKUP',
+  'recall_express_lane_image': 'RECALL_EXPRESS_LANE_IMAGE',
   'hive_suggestion': 'HIVE',
   'self_surgery': 'SELF_SURGERY',
 };

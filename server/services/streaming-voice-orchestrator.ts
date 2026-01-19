@@ -9336,6 +9336,29 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         break;
       }
       
+      case 'RECALL_EXPRESS_LANE_IMAGE': {
+        // Multimodal image recall from Express Lane - only in Founder/Honesty mode
+        const imageQuery = fn.args.imageQuery as string | undefined;
+        const reason = fn.args.reason as string | undefined;
+        
+        if (!session.isFounderMode && !session.isRawHonestyMode) {
+          console.log(`[Native Function→RecallImage] Rejected - not in Founder/Honesty mode`);
+          break;
+        }
+        
+        if (imageQuery) {
+          // Execute image recall and store promise for multi-step FC
+          const recallPromise = this.processExpressLaneImageRecall(session, imageQuery, reason, fn.name).catch(err => {
+            console.error(`[Native Function→RecallImage] Error:`, err.message);
+          });
+          
+          // Store promise so multi-step FC can await it before continuing
+          if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+          session.pendingMemoryLookupPromises.push(recallPromise);
+        }
+        break;
+      }
+      
       case 'HIVE': {
         const category = fn.args.category as string | undefined;
         const title = fn.args.title as string | undefined;
@@ -9567,6 +9590,87 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       }
     } catch (err) {
       console.error(`[ExpressLaneLookup] Error:`, err);
+    }
+  }
+  
+  /**
+   * Process Express Lane image recall request with multimodal response
+   * Loads actual image files and injects them into Gemini for visual understanding
+   */
+  private async processExpressLaneImageRecall(
+    session: StreamingSession,
+    imageQuery: string,
+    reason: string | undefined,
+    fnName: string
+  ): Promise<void> {
+    try {
+      const { findExpressLaneImages } = await import('./express-lane-image-loader');
+      const { createMultimodalFunctionResponse } = await import('./gemini-streaming');
+      
+      console.log(`[RecallImage] Searching for images matching: "${imageQuery}" (reason: ${reason || 'none'})`);
+      
+      // Find matching images
+      const userId = parseInt(session.userId, 10);
+      const images = await findExpressLaneImages(userId, imageQuery, 3);
+      
+      if (images.length === 0) {
+        console.log(`[RecallImage] No images found for "${imageQuery}"`);
+        if (session.conversationHistory) {
+          session.conversationHistory.push({
+            role: 'user',
+            content: `[SYSTEM: No images found in Express Lane matching "${imageQuery}". Available images may include: house photos, family pictures, Grand Canyon, Daniela portrait.]`,
+          });
+        }
+        return;
+      }
+      
+      // Build multimodal response with actual image data
+      const imageDescriptions = images.map(img => 
+        `- "${img.imageName}" (shared with message: "${img.messageContent.substring(0, 50)}...")`
+      ).join('\n');
+      
+      const textContent = `[SYSTEM: Found ${images.length} image(s) matching "${imageQuery}":\n${imageDescriptions}\n\nThe actual image(s) are now visible to you. Look at them and describe what you see.]`;
+      
+      // Create multimodal function response with images
+      const multimodalResponse = createMultimodalFunctionResponse(fnName, {
+        text: textContent,
+        images: images.map(img => ({
+          mimeType: img.imageType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
+          data: img.base64Data,
+        })),
+      });
+      
+      // Add to conversation history as a tool response with images
+      if (session.conversationHistory) {
+        session.conversationHistory.push({
+          role: 'tool' as const,
+          parts: [{
+            functionResponse: multimodalResponse
+          }]
+        });
+      }
+      
+      console.log(`[RecallImage] Injected ${images.length} image(s) into conversation context`);
+      
+      // Emit beacon
+      if (session.hiveChannelId) {
+        hiveCollaborationService.emitBeacon({
+          channelId: session.hiveChannelId,
+          tutorTurn: `[RECALL_IMAGE] Query: "${imageQuery}"\nFound: ${images.map(i => i.imageName).join(', ')}`,
+          studentTurn: '',
+          beaconType: 'express_lane_lookup',
+          beaconReason: `Daniela recalled Express Lane image(s) for "${imageQuery}"`,
+        }).catch(err => console.error(`[RecallImage] Beacon error:`, err));
+      }
+      
+    } catch (err) {
+      console.error(`[RecallImage] Error:`, err);
+      if (session.conversationHistory) {
+        session.conversationHistory.push({
+          role: 'user',
+          content: `[SYSTEM: Error recalling image: ${(err as Error).message}]`,
+        });
+      }
     }
   }
   
