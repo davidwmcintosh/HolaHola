@@ -11,7 +11,7 @@
  * Pipeline: Memory → Insight → Validation → Neural Network
  */
 
-import { db, getSharedDb } from "../db";
+import { getSharedDb } from "../db";
 import { hiveSnapshots, danielaGrowthMemories, founderSessions, tutorProcedures, northStarPrinciples } from "@shared/schema";
 import type { HiveSnapshotType, InsertDanielaGrowthMemory, GrowthMemoryCategory, NorthStarPrinciple } from "@shared/schema";
 import { desc, eq, and, sql, gte, lte, isNull, or, asc } from "drizzle-orm";
@@ -164,7 +164,7 @@ Format as JSON:
         metadata: initialMetadata,
       };
       
-      const result = await db.insert(danielaGrowthMemories)
+      const result = await getSharedDb().insert(danielaGrowthMemories)
         .values([growthMemory])
         .returning({ id: danielaGrowthMemories.id });
       
@@ -246,7 +246,7 @@ Format as JSON:
         metadata: humorMetadata,
       };
       
-      const result = await db.insert(danielaGrowthMemories)
+      const result = await getSharedDb().insert(danielaGrowthMemories)
         .values([growthMemory])
         .returning({ id: danielaGrowthMemories.id });
       

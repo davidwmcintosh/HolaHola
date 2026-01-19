@@ -16,7 +16,7 @@
  */
 
 import { GoogleGenAI } from "@google/genai";
-import { db, getSharedDb } from "../db";
+import { getSharedDb } from "../db";
 import { hiveSnapshots, conversations, messages, hiveSnapshotTypeEnum, learnerPersonalFacts } from "@shared/schema";
 import { studentLearningService } from "./student-learning-service";
 
@@ -307,7 +307,7 @@ class PhaseTransitionService {
     event: PhaseTransitionEvent
   ): Promise<void> {
     try {
-      await db.insert(hiveSnapshots).values({
+      await getSharedDb().insert(hiveSnapshots).values({
         userId,
         language,
         snapshotType: 'session_summary',
@@ -388,7 +388,7 @@ Be concise - this summary will be injected into the next phase's context.`;
     const relevantTypes = phaseDef.snapshotTypes;
 
     try {
-      const snapshots = await db.select()
+      const snapshots = await getSharedDb().select()
         .from(hiveSnapshots)
         .where(and(
           eq(hiveSnapshots.userId, userId),

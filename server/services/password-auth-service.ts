@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
-import { db } from '../db';
+import { db, getUserDb } from '../db';
 import { 
   users, 
   userCredentials, 
@@ -42,7 +42,7 @@ export class PasswordAuthService {
   }
   
   async getUserByEmail(email: string): Promise<User | null> {
-    const [user] = await db
+    const [user] = await getUserDb()
       .select()
       .from(users)
       .where(eq(users.email, email.toLowerCase()))
@@ -51,7 +51,7 @@ export class PasswordAuthService {
   }
   
   async getUserCredentials(userId: string): Promise<UserCredentials | null> {
-    const [creds] = await db
+    const [creds] = await getUserDb()
       .select()
       .from(userCredentials)
       .where(eq(userCredentials.userId, userId))
@@ -65,7 +65,7 @@ export class PasswordAuthService {
     lastName?: string;
     role: 'student' | 'teacher';
   }): Promise<User> {
-    const [user] = await db
+    const [user] = await getUserDb()
       .insert(users)
       .values({
         email: data.email.toLowerCase(),
@@ -84,7 +84,7 @@ export class PasswordAuthService {
     const existingCreds = await this.getUserCredentials(userId);
     
     if (existingCreds) {
-      await db
+      await getUserDb()
         .update(userCredentials)
         .set({
           passwordHash,
@@ -97,13 +97,13 @@ export class PasswordAuthService {
         })
         .where(eq(userCredentials.userId, userId));
     } else {
-      await db.insert(userCredentials).values({
+      await getUserDb().insert(userCredentials).values({
         userId,
         passwordHash,
       });
     }
     
-    await db
+    await getUserDb()
       .update(users)
       .set({ authProvider: 'password', updatedAt: new Date() })
       .where(eq(users.id, userId));
@@ -148,7 +148,7 @@ export class PasswordAuthService {
         updates.lockedUntil = new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000);
       }
       
-      await db
+      await getUserDb()
         .update(userCredentials)
         .set(updates)
         .where(eq(userCredentials.id, creds.id));
@@ -157,7 +157,7 @@ export class PasswordAuthService {
     }
     
     if (creds.failedLoginAttempts > 0) {
-      await db
+      await getUserDb()
         .update(userCredentials)
         .set({ failedLoginAttempts: 0, lockedUntil: null, updatedAt: new Date() })
         .where(eq(userCredentials.id, creds.id));
@@ -177,7 +177,7 @@ export class PasswordAuthService {
       return { success: true };
     }
     
-    await db
+    await getUserDb()
       .delete(authTokens)
       .where(
         and(
@@ -190,7 +190,7 @@ export class PasswordAuthService {
     const { token, hash } = this.generateToken();
     const expiresAt = new Date(Date.now() + PASSWORD_RESET_EXPIRY_HOURS * 60 * 60 * 1000);
     
-    await db.insert(authTokens).values({
+    await getUserDb().insert(authTokens).values({
       userId: user.id,
       tokenHash: hash,
       tokenType: 'password_reset',
@@ -203,7 +203,7 @@ export class PasswordAuthService {
   async validateToken(token: string, type: 'password_reset' | 'invitation'): Promise<{ valid: boolean; userId?: string; error?: string }> {
     const tokenHash = this.hashToken(token);
     
-    const [authToken] = await db
+    const [authToken] = await getUserDb()
       .select()
       .from(authTokens)
       .where(
@@ -226,7 +226,7 @@ export class PasswordAuthService {
   async consumeToken(token: string): Promise<boolean> {
     const tokenHash = this.hashToken(token);
     
-    const result = await db
+    const result = await getUserDb()
       .update(authTokens)
       .set({ consumedAt: new Date() })
       .where(
@@ -241,7 +241,7 @@ export class PasswordAuthService {
   }
   
   async invalidateAllUserTokens(userId: string, tokenType: 'password_reset' | 'invitation'): Promise<void> {
-    await db
+    await getUserDb()
       .update(authTokens)
       .set({ consumedAt: new Date() })
       .where(
@@ -265,7 +265,7 @@ export class PasswordAuthService {
     let user: User;
     if (existingUser) {
       user = existingUser;
-      await db
+      await getUserDb()
         .update(users)
         .set({
           firstName: invitation.firstName || existingUser.firstName,
@@ -283,7 +283,7 @@ export class PasswordAuthService {
       });
     }
     
-    await db
+    await getUserDb()
       .delete(authTokens)
       .where(
         and(
@@ -296,7 +296,7 @@ export class PasswordAuthService {
     const { token, hash } = this.generateToken();
     const expiresAt = new Date(Date.now() + INVITATION_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
     
-    const [authToken] = await db.insert(authTokens).values({
+    const [authToken] = await getUserDb().insert(authTokens).values({
       userId: user.id,
       tokenHash: hash,
       tokenType: 'invitation',
@@ -305,7 +305,7 @@ export class PasswordAuthService {
       metadata: { classId: invitation.classId, initialCreditsSeconds: invitation.initialCreditsSeconds },
     }).returning();
     
-    await db.insert(pendingInvites).values({
+    await getUserDb().insert(pendingInvites).values({
       email: invitation.email.toLowerCase(),
       role: invitation.role,
       invitedBy,
@@ -329,7 +329,7 @@ export class PasswordAuthService {
       return { success: false, error: validation.error || 'Invalid token' };
     }
     
-    const [user] = await db
+    const [user] = await getUserDb()
       .select()
       .from(users)
       .where(eq(users.id, validation.userId))
@@ -342,7 +342,7 @@ export class PasswordAuthService {
     await this.setUserPassword(user.id, password);
     
     const tokenHash = this.hashToken(token);
-    const [authToken] = await db
+    const [authToken] = await getUserDb()
       .select()
       .from(authTokens)
       .where(eq(authTokens.tokenHash, tokenHash))
@@ -360,7 +360,7 @@ export class PasswordAuthService {
         );
       }
       
-      await db
+      await getUserDb()
         .update(pendingInvites)
         .set({
           acceptedAt: new Date(),
@@ -371,7 +371,7 @@ export class PasswordAuthService {
     
     await this.invalidateAllUserTokens(user.id, 'invitation');
     
-    const [updatedUser] = await db
+    const [updatedUser] = await getUserDb()
       .select()
       .from(users)
       .where(eq(users.id, user.id))
@@ -390,7 +390,7 @@ export class PasswordAuthService {
     
     await this.invalidateAllUserTokens(validation.userId, 'password_reset');
     
-    const [user] = await db
+    const [user] = await getUserDb()
       .select()
       .from(users)
       .where(eq(users.id, validation.userId))
@@ -401,7 +401,7 @@ export class PasswordAuthService {
   
   async getPendingInvites(invitedBy?: string): Promise<PendingInvite[]> {
     if (invitedBy) {
-      return db
+      return getUserDb()
         .select()
         .from(pendingInvites)
         .where(
@@ -413,7 +413,7 @@ export class PasswordAuthService {
         .orderBy(pendingInvites.createdAt);
     }
     
-    return db
+    return getUserDb()
       .select()
       .from(pendingInvites)
       .where(isNull(pendingInvites.acceptedAt))
@@ -423,7 +423,7 @@ export class PasswordAuthService {
   async getInviteByToken(token: string): Promise<PendingInvite | null> {
     const tokenHash = this.hashToken(token);
     
-    const [authToken] = await db
+    const [authToken] = await getUserDb()
       .select()
       .from(authTokens)
       .where(eq(authTokens.tokenHash, tokenHash))
@@ -431,7 +431,7 @@ export class PasswordAuthService {
     
     if (!authToken) return null;
     
-    const [invite] = await db
+    const [invite] = await getUserDb()
       .select()
       .from(pendingInvites)
       .where(eq(pendingInvites.tokenId, authToken.id))

@@ -11,7 +11,7 @@
  * 4. Store as danielaGrowthMemories for permanent recall
  */
 
-import { db } from "../db";
+import { getSharedDb } from "../db";
 import { conversations, messages, danielaGrowthMemories, hiveSnapshots } from "@shared/schema";
 import type { InsertDanielaGrowthMemory, GrowthMemoryCategory, HiveSnapshotType } from "@shared/schema";
 import { desc, eq, and, sql, gte, lte, asc, isNull, or } from "drizzle-orm";
@@ -266,7 +266,7 @@ Return {"memories": []} if no significant growth moments found.`;
           } as any,
         };
         
-        await db.insert(danielaGrowthMemories).values([growthMemory as any]);
+        await getSharedDb().insert(danielaGrowthMemories).values([growthMemory as any]);
         stored++;
       } catch (err: any) {
         console.error(`[Memory Migration] Failed to store memory "${memory.title}": ${err.message}`);
@@ -280,7 +280,7 @@ Return {"memories": []} if no significant growth moments found.`;
    * Mark a conversation as migrated by creating a hive snapshot
    */
   async markConversationMigrated(conv: ConversationSummary, memoriesExtracted: number): Promise<void> {
-    await db.insert(hiveSnapshots).values({
+    await getSharedDb().insert(hiveSnapshots).values({
       snapshotType: 'session_summary' as HiveSnapshotType,
       title: `Historical migration: ${conv.language} conversation`,
       content: `Migrated conversation from ${conv.createdAt.toISOString()}. Extracted ${memoriesExtracted} growth memories.`,

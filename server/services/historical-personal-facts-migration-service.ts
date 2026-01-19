@@ -12,7 +12,7 @@
  * 4. Store as learnerPersonalFacts with deduplication
  */
 
-import { db, getSharedDb } from "../db";
+import { getSharedDb } from "../db";
 import { conversations, messages, hiveSnapshots } from "@shared/schema";
 import type { HiveSnapshotType } from "@shared/schema";
 import { desc, eq, and, sql, asc } from "drizzle-orm";
@@ -361,7 +361,7 @@ ${conversationText.slice(0, MAX_TOTAL_CHARS)}`;
    * Mark a conversation as migrated by creating a hive snapshot
    */
   async markConversationMigrated(userId: string, conv: ConversationSummary, factsExtracted: number): Promise<void> {
-    await db.insert(hiveSnapshots).values({
+    await getSharedDb().insert(hiveSnapshots).values({
       snapshotType: 'session_summary' as HiveSnapshotType,
       title: `Personal facts migration: ${conv.language} conversation`,
       content: `Migrated conversation from ${conv.createdAt.toISOString()}. Extracted ${factsExtracted} personal facts.`,

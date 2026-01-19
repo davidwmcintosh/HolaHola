@@ -1,4 +1,4 @@
-import { db } from '../db';
+import { db, getUserDb } from '../db';
 import { phonemeStruggles, type InsertPhonemeStruggle, type PhonemeStruggle } from '@shared/schema';
 import { eq, and, inArray, desc, sql } from 'drizzle-orm';
 
@@ -158,7 +158,7 @@ export class PhonemeAnalyticsService {
       const maxConfidence = Math.max(...data.confidences);
       const severity = this.calculateSeverity(avgConfidence);
 
-      const existing = await db.select()
+      const existing = await getUserDb().select()
         .from(phonemeStruggles)
         .where(and(
           eq(phonemeStruggles.studentId, studentId),
@@ -180,7 +180,7 @@ export class PhonemeAnalyticsService {
           ? Array.from(new Set([...existingSessions, sessionId])).slice(-20)
           : existingSessions;
 
-        const [updated] = await db.update(phonemeStruggles)
+        const [updated] = await getUserDb().update(phonemeStruggles)
           .set({
             averageConfidence: newAvgConfidence,
             lowestConfidence: Math.min(record.lowestConfidence || 1, minConfidence),
@@ -214,7 +214,7 @@ export class PhonemeAnalyticsService {
           status: 'active',
         };
 
-        const [inserted] = await db.insert(phonemeStruggles)
+        const [inserted] = await getUserDb().insert(phonemeStruggles)
           .values(insertData)
           .returning();
         
@@ -240,7 +240,7 @@ export class PhonemeAnalyticsService {
       conditions.push(eq(phonemeStruggles.status, status));
     }
 
-    return db.select()
+    return getUserDb().select()
       .from(phonemeStruggles)
       .where(and(...conditions))
       .orderBy(desc(phonemeStruggles.occurrenceCount));
@@ -262,7 +262,7 @@ export class PhonemeAnalyticsService {
   }[]> {
     if (studentIds.length === 0) return [];
 
-    const struggles = await db.select()
+    const struggles = await getUserDb().select()
       .from(phonemeStruggles)
       .where(and(
         inArray(phonemeStruggles.studentId, studentIds),
@@ -326,7 +326,7 @@ export class PhonemeAnalyticsService {
     language: string,
     phoneme: string
   ): Promise<PhonemeStruggle | null> {
-    const [updated] = await db.update(phonemeStruggles)
+    const [updated] = await getUserDb().update(phonemeStruggles)
       .set({
         status: 'mastered',
         masteredAt: new Date(),

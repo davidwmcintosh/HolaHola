@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
 import { storage } from "./storage";
-import { db } from "./db";
+import { db, getUserDb, getSharedDb } from "./db";
 import { eq, and, gte, desc, sql, isNotNull, inArray } from "drizzle-orm";
 import { stripeService } from "./stripeService";
 import { aiLimiter, voiceLimiter, authLimiter, mutationLimiter, hiveExternalLimiter } from "./middleware/rate-limiter";
@@ -1336,7 +1336,7 @@ export async function registerRoutes(app: Express): Promise<void> {
       }
       
       // Verify conversation exists (architect has special access to any conversation)
-      const [conversation] = await db.select().from(conversations).where(eq(conversations.id, conversationId));
+      const [conversation] = await getUserDb().select().from(conversations).where(eq(conversations.id, conversationId));
       if (!conversation) {
         return res.status(404).json({ message: "Conversation not found" });
       }
@@ -6759,7 +6759,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         return res.status(400).json({ error: "Missing required fields: language, title, content" });
       }
       
-      const [created] = await db.insert(culturalTips).values({
+      const [created] = await getSharedDb().insert(culturalTips).values({
         language,
         title,
         content,
@@ -6788,7 +6788,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         return res.status(400).json({ error: "Missing required fields: language, idiom, meaning" });
       }
       
-      const [created] = await db.insert(languageIdioms).values({
+      const [created] = await getSharedDb().insert(languageIdioms).values({
         language,
         idiom,
         literalTranslation,
@@ -6823,7 +6823,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         return res.status(400).json({ error: "Missing required fields: language, category, situation, nuance" });
       }
       
-      const [created] = await db.insert(culturalNuances).values({
+      const [created] = await getSharedDb().insert(culturalNuances).values({
         language,
         category,
         situation,
@@ -6857,7 +6857,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         return res.status(400).json({ error: "Missing required fields: targetLanguage, errorCategory, specificError" });
       }
       
-      const [created] = await db.insert(learnerErrorPatterns).values({
+      const [created] = await getSharedDb().insert(learnerErrorPatterns).values({
         targetLanguage,
         sourceLanguage: sourceLanguage || 'english',
         errorCategory,
@@ -6893,7 +6893,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         return res.status(400).json({ error: "Missing required fields: language, region, category, standardForm, regionalForm" });
       }
       
-      const [created] = await db.insert(dialectVariations).values({
+      const [created] = await getSharedDb().insert(dialectVariations).values({
         language,
         region,
         category,
@@ -6926,7 +6926,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         return res.status(400).json({ error: "Missing required fields: sourceLanguage, targetLanguage, bridgeType, sourceWord, targetWord, relationship" });
       }
       
-      const [created] = await db.insert(linguisticBridges).values({
+      const [created] = await getSharedDb().insert(linguisticBridges).values({
         sourceLanguage,
         targetLanguage,
         bridgeType,
@@ -6951,35 +6951,35 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get content growth stats (for admin monitoring)
   app.get("/api/daniela/content/stats", isAuthenticated, requireFounder, async (req: any, res) => {
     try {
-      const [idiomStats] = await db.select({ 
+      const [idiomStats] = await getSharedDb().select({ 
         total: sql<number>`count(*)`,
         local: sql<number>`count(*) filter (where sync_status = 'local')`,
         approved: sql<number>`count(*) filter (where sync_status = 'approved')`,
         prodCreated: sql<number>`count(*) filter (where origin_environment = 'production')`
       }).from(languageIdioms);
       
-      const [nuanceStats] = await db.select({ 
+      const [nuanceStats] = await getSharedDb().select({ 
         total: sql<number>`count(*)`,
         local: sql<number>`count(*) filter (where sync_status = 'local')`,
         approved: sql<number>`count(*) filter (where sync_status = 'approved')`,
         prodCreated: sql<number>`count(*) filter (where origin_environment = 'production')`
       }).from(culturalNuances);
       
-      const [errorStats] = await db.select({ 
+      const [errorStats] = await getSharedDb().select({ 
         total: sql<number>`count(*)`,
         local: sql<number>`count(*) filter (where sync_status = 'local')`,
         approved: sql<number>`count(*) filter (where sync_status = 'approved')`,
         prodCreated: sql<number>`count(*) filter (where origin_environment = 'production')`
       }).from(learnerErrorPatterns);
       
-      const [dialectStats] = await db.select({ 
+      const [dialectStats] = await getSharedDb().select({ 
         total: sql<number>`count(*)`,
         local: sql<number>`count(*) filter (where sync_status = 'local')`,
         approved: sql<number>`count(*) filter (where sync_status = 'approved')`,
         prodCreated: sql<number>`count(*) filter (where origin_environment = 'production')`
       }).from(dialectVariations);
       
-      const [bridgeStats] = await db.select({ 
+      const [bridgeStats] = await getSharedDb().select({ 
         total: sql<number>`count(*)`,
         local: sql<number>`count(*) filter (where sync_status = 'local')`,
         approved: sql<number>`count(*) filter (where sync_status = 'approved')`,
@@ -8232,17 +8232,17 @@ Return ONLY the ${targetLanguage} phrase:`;
       // Fetch syllabus if class has a curriculum path
       let syllabus = null;
       if (cls.curriculumPathId) {
-        const units = await db.select().from(curriculumUnits).where(eq(curriculumUnits.curriculumPathId, cls.curriculumPathId)).orderBy(curriculumUnits.orderIndex);
+        const units = await getSharedDb().select().from(curriculumUnits).where(eq(curriculumUnits.curriculumPathId, cls.curriculumPathId)).orderBy(curriculumUnits.orderIndex);
         
         const unitsWithLessons = await Promise.all(units.map(async (unit) => {
-          const lessons = await db.select().from(curriculumLessons).where(eq(curriculumLessons.curriculumUnitId, unit.id)).orderBy(curriculumLessons.orderIndex);
+          const lessons = await getSharedDb().select().from(curriculumLessons).where(eq(curriculumLessons.curriculumUnitId, unit.id)).orderBy(curriculumLessons.orderIndex);
           
           // Enrich lessons with drill information if applicable
           const enrichedLessons = await Promise.all(lessons.map(async (lesson) => {
             let drillCount = 0;
             let drillType = null;
             if (lesson.lessonType === 'drill') {
-              const drillItems = await db.select().from(curriculumDrillItems).where(eq(curriculumDrillItems.lessonId, lesson.id));
+              const drillItems = await getSharedDb().select().from(curriculumDrillItems).where(eq(curriculumDrillItems.lessonId, lesson.id));
               drillCount = drillItems.length;
               if (drillItems.length > 0) {
                 // Determine the predominant drill type for display
@@ -10993,7 +10993,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       // Get all public classes if enrollInAllPublic is true
       let publicClasses: any[] = [];
       if (enrollInAllPublic) {
-        const allClasses = await db.select()
+        const allClasses = await getUserDb().select()
           .from(teacherClasses)
           .where(eq(teacherClasses.isPublicCatalogue, true));
         publicClasses = allClasses;
@@ -11342,7 +11342,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       }
       
       // Get sessions with user info
-      const sessionsQuery = db.select({
+      const sessionsQuery = getUserDb().select({
         id: voiceSessions.id,
         userId: voiceSessions.userId,
         startedAt: voiceSessions.startedAt,
@@ -11370,7 +11370,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       const sessions = await sessionsQuery;
       
       // Get aggregate statistics
-      const aggregateQuery = db.select({
+      const aggregateQuery = getUserDb().select({
         totalSessions: sql<number>`COUNT(*)`,
         totalDurationSeconds: sql<number>`COALESCE(SUM(${voiceSessions.durationSeconds}), 0)`,
         totalTtsCharacters: sql<number>`COALESCE(SUM(${voiceSessions.ttsCharacters}), 0)`,
@@ -11887,13 +11887,13 @@ Return ONLY the ${targetLanguage} phrase:`;
       const triggeredBy = req.authenticatedUser?.email || 'founder';
       console.log(`[Admin Sync] Force-reset triggered by ${triggeredBy}`);
       
-      const runningRuns = await db.select()
+      const runningRuns = await getUserDb().select()
         .from(syncRuns)
         .where(eq(syncRuns.status, 'running'));
       
       let resetCount = 0;
       for (const run of runningRuns) {
-        await db.update(syncRuns)
+        await getUserDb().update(syncRuns)
           .set({
             status: 'failed',
             errorMessage: `Force-reset by ${triggeredBy} via Control Center`,
@@ -11955,9 +11955,9 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get local stats for comparison
   app.get("/api/admin/sync/local-stats", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {
-      const [userStats] = await db.select({ count: sql<number>`count(*)` }).from(users);
-      const [snapshotStats] = await db.select({ count: sql<number>`count(*)` }).from(hiveSnapshots);
-      const [voiceStats] = await db.select({ count: sql<number>`count(*)` }).from(tutorVoices);
+      const [userStats] = await getUserDb().select({ count: sql<number>`count(*)` }).from(users);
+      const [snapshotStats] = await getSharedDb().select({ count: sql<number>`count(*)` }).from(hiveSnapshots);
+      const [voiceStats] = await getSharedDb().select({ count: sql<number>`count(*)` }).from(tutorVoices);
       res.json({
         users: Number(userStats.count),
         hiveSnapshots: Number(snapshotStats.count),
@@ -12089,7 +12089,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       // Try full query first, fall back to minimal query if columns missing
       let runs;
       try {
-        runs = await db.execute(sql`
+        runs = await getUserDb().execute(sql`
           SELECT 
             id, direction, peer_url, source_environment, target_environment,
             status, error_message, triggered_by, duration_ms,
@@ -12112,7 +12112,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       } catch (fullQueryError) {
         // Fallback to minimal query if some columns don't exist
         console.warn('[Admin Sync History] Full query failed, using minimal query:', fullQueryError);
-        runs = await db.execute(sql`
+        runs = await getUserDb().execute(sql`
           SELECT 
             id, direction, peer_url, source_environment, target_environment,
             status, error_message, triggered_by, duration_ms,
@@ -12193,11 +12193,11 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get fluency wiring status - how many lessons are linked to Can-Do statements
   app.get("/api/admin/fluency-wiring/status", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {
-      const [lessonCount] = await db.select({ count: sql<number>`count(*)` }).from(classCurriculumLessons);
-      const [linkCount] = await db.select({ count: sql<number>`count(*)` }).from(lessonCanDoStatements);
-      const [canDoCount] = await db.select({ count: sql<number>`count(*)` }).from(canDoStatements);
-      const [progressCount] = await db.select({ count: sql<number>`count(*)` }).from(studentCanDoProgress);
-      const [assessmentCount] = await db.select({ count: sql<number>`count(*)` }).from(actflAssessmentEvents);
+      const [lessonCount] = await getSharedDb().select({ count: sql<number>`count(*)` }).from(classCurriculumLessons);
+      const [linkCount] = await getSharedDb().select({ count: sql<number>`count(*)` }).from(lessonCanDoStatements);
+      const [canDoCount] = await getSharedDb().select({ count: sql<number>`count(*)` }).from(canDoStatements);
+      const [progressCount] = await getUserDb().select({ count: sql<number>`count(*)` }).from(studentCanDoProgress);
+      const [assessmentCount] = await getUserDb().select({ count: sql<number>`count(*)` }).from(actflAssessmentEvents);
       
       res.json({
         totalLessons: Number(lessonCount.count),
@@ -12852,7 +12852,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       }
       
       // Get voice sessions with conversation details
-      let query = db.select({
+      let query = getUserDb().select({
         id: voiceSessions.id,
         conversationId: voiceSessions.conversationId,
         startedAt: voiceSessions.startedAt,
@@ -12874,7 +12874,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       
       // Filter by language if specified
       if (language) {
-        query = db.select({
+        query = getUserDb().select({
           id: voiceSessions.id,
           conversationId: voiceSessions.conversationId,
           startedAt: voiceSessions.startedAt,
@@ -12917,7 +12917,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       }
       
       // Get session
-      const [session] = await db.select()
+      const [session] = await getUserDb().select()
         .from(voiceSessions)
         .where(and(
           eq(voiceSessions.id, sessionId),
@@ -12932,7 +12932,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       // Get conversation messages if available
       let sessionMessages: any[] = [];
       if (session.conversationId) {
-        sessionMessages = await db.select({
+        sessionMessages = await getUserDb().select({
           id: messages.id,
           role: messages.role,
           content: messages.content,
@@ -12980,7 +12980,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       }
       
       // Get all students in the class
-      const enrollments = await db.select({
+      const enrollments = await getUserDb().select({
         userId: classEnrollments.studentId,
       })
       .from(classEnrollments)
@@ -13111,7 +13111,7 @@ Return ONLY the ${targetLanguage} phrase:`;
     try {
       const { reviewStatus, migrationType, limit = '50' } = req.query;
       
-      let query = db.select().from(danielaGrowthMemories);
+      let query = getSharedDb().select().from(danielaGrowthMemories);
       
       const conditions: any[] = [];
       
@@ -13132,7 +13132,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         .limit(parseInt(limit as string));
       
       // Get total count
-      let countQuery = db.select({ count: sql<number>`COUNT(*)::int` }).from(danielaGrowthMemories);
+      let countQuery = getSharedDb().select({ count: sql<number>`COUNT(*)::int` }).from(danielaGrowthMemories);
       if (conditions.length > 0) {
         countQuery = countQuery.where(and(...conditions)) as any;
       }
@@ -13184,7 +13184,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         return res.status(400).json({ error: "No valid fields to update" });
       }
       
-      await db.update(danielaGrowthMemories)
+      await getSharedDb().update(danielaGrowthMemories)
         .set(updates)
         .where(eq(danielaGrowthMemories.id, id));
       
@@ -13199,7 +13199,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   app.post("/api/admin/growth-memories/batch-approve", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {
       // Update all pending memories to approved_founder and commit to neural network
-      const result = await db.update(danielaGrowthMemories)
+      const result = await getSharedDb().update(danielaGrowthMemories)
         .set({ 
           reviewStatus: 'approved_founder',
           validated: true,
@@ -13266,7 +13266,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         conditions.push(eq(learnerPersonalFacts.language, language));
       }
       
-      const facts = await db.select({
+      const facts = await getSharedDb().select({
         id: learnerPersonalFacts.id,
         studentId: learnerPersonalFacts.studentId,
         factType: learnerPersonalFacts.factType,
@@ -13287,12 +13287,12 @@ Return ONLY the ${targetLanguage} phrase:`;
         .offset(parseInt(offset as string));
       
       // Get total count
-      const countResult = await db.select({ count: sql<number>`COUNT(*)::int` })
+      const countResult = await getSharedDb().select({ count: sql<number>`COUNT(*)::int` })
         .from(learnerPersonalFacts)
         .where(and(...conditions));
       
       // Get stats by fact type
-      const statsResult = await db.select({
+      const statsResult = await getSharedDb().select({
         factType: learnerPersonalFacts.factType,
         count: sql<number>`COUNT(*)::int`,
       })
@@ -13321,7 +13321,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       if (fact !== undefined) updateData.fact = fact;
       if (isActive !== undefined) updateData.isActive = isActive;
       
-      const [updated] = await db.update(learnerPersonalFacts)
+      const [updated] = await getSharedDb().update(learnerPersonalFacts)
         .set(updateData)
         .where(eq(learnerPersonalFacts.id, id))
         .returning();
@@ -13341,7 +13341,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get unique students with personal facts (for filter dropdown)
   app.get("/api/admin/personal-facts/students", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const students = await db.selectDistinct({ studentId: learnerPersonalFacts.studentId })
+      const students = await getSharedDb().selectDistinct({ studentId: learnerPersonalFacts.studentId })
         .from(learnerPersonalFacts)
         .where(eq(learnerPersonalFacts.isActive, true));
       
@@ -13351,7 +13351,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         return res.json({ students: [] });
       }
       
-      const usersWithFacts = await db.select({
+      const usersWithFacts = await getUserDb().select({
         id: users.id,
         firstName: users.firstName,
         lastName: users.lastName,
@@ -13397,7 +13397,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       const isAdmin = user.role === 'admin' || user.role === 'developer';
       if (!isAdmin) {
         // Verify teacher relationship to student
-        const teacherClassList = await db.select({ classId: teacherClasses.id })
+        const teacherClassList = await getUserDb().select({ classId: teacherClasses.id })
           .from(teacherClasses)
           .where(eq(teacherClasses.teacherId, user.id));
         
@@ -13406,7 +13406,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         }
         
         const classIds = teacherClassList.map(c => c.classId);
-        const studentEnrollment = await db.select()
+        const studentEnrollment = await getUserDb().select()
           .from(classEnrollments)
           .where(and(
             eq(classEnrollments.studentId, studentId),
@@ -13420,13 +13420,13 @@ Return ONLY the ${targetLanguage} phrase:`;
       }
       
       // Get all personal facts Daniela knows about this student
-      const facts = await db.select()
+      const facts = await getSharedDb().select()
         .from(learnerPersonalFacts)
         .where(eq(learnerPersonalFacts.studentId, studentId))
         .orderBy(desc(learnerPersonalFacts.lastMentionedAt));
       
       // Get related hive snapshots (life_context type) that synced from personal facts
-      const lifeContextSnapshots = await db.select()
+      const lifeContextSnapshots = await getSharedDb().select()
         .from(hiveSnapshots)
         .where(and(
           eq(hiveSnapshots.userId, studentId),
@@ -13436,7 +13436,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         .limit(20);
       
       // Get student info
-      const [student] = await db.select({
+      const [student] = await getUserDb().select({
         id: users.id,
         firstName: users.firstName,
         lastName: users.lastName,
@@ -13818,7 +13818,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       daysAgo.setDate(daysAgo.getDate() - parseInt(days as string));
       
       // Get tool usage counts and effectiveness
-      const toolStats = await db.select({
+      const toolStats = await getUserDb().select({
         toolType: teachingToolEvents.toolType,
         count: sql<number>`count(*)`,
         uniqueStudents: sql<number>`count(distinct ${teachingToolEvents.userId})`,
@@ -13832,7 +13832,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         .orderBy(sql`count(*) desc`);
       
       // Get daily trend
-      const dailyTrend = await db.select({
+      const dailyTrend = await getUserDb().select({
         date: sql<string>`date(${teachingToolEvents.occurredAt})`,
         count: sql<number>`count(*)`,
       })
@@ -13846,7 +13846,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       const uniqueStudentIds = new Set<string>();
       
       // Get actual unique students by querying distinct userIds
-      const uniqueStudentsResult = await db.selectDistinct({ userId: teachingToolEvents.userId })
+      const uniqueStudentsResult = await getUserDb().selectDistinct({ userId: teachingToolEvents.userId })
         .from(teachingToolEvents)
         .where(and(
           gte(teachingToolEvents.occurredAt, daysAgo),
@@ -13894,7 +13894,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       daysAgo.setDate(daysAgo.getDate() - parseInt(days as string));
       
       // Get per-student tool usage breakdown
-      const studentStats = await db.select({
+      const studentStats = await getUserDb().select({
         userId: teachingToolEvents.userId,
         language: teachingToolEvents.language,
         toolType: teachingToolEvents.toolType,
@@ -13967,7 +13967,7 @@ Return ONLY the ${targetLanguage} phrase:`;
     try {
       const { limit = '100' } = req.query;
       
-      const events = await db.select()
+      const events = await getUserDb().select()
         .from(teachingToolEvents)
         .orderBy(desc(teachingToolEvents.occurredAt))
         .limit(parseInt(limit as string));
@@ -13987,7 +13987,7 @@ Return ONLY the ${targetLanguage} phrase:`;
     try {
       const { status, type, priority, limit = '100' } = req.query;
       
-      let query = db.select().from(danielaBeacons);
+      let query = getSharedDb().select().from(danielaBeacons);
       
       // Build conditions array
       const conditions: any[] = [];
@@ -14001,14 +14001,14 @@ Return ONLY the ${targetLanguage} phrase:`;
         conditions.push(eq(danielaBeacons.priority, priority as any));
       }
       
-      const beacons = await db.select()
+      const beacons = await getSharedDb().select()
         .from(danielaBeacons)
         .where(conditions.length > 0 ? and(...conditions) : undefined)
         .orderBy(desc(danielaBeacons.createdAt))
         .limit(parseInt(limit as string));
       
       // Get counts by status for dashboard
-      const statusCounts = await db.select({
+      const statusCounts = await getSharedDb().select({
         status: danielaBeacons.status,
         count: sql<number>`count(*)`,
       })
@@ -14047,7 +14047,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         }
       }
       
-      const [updated] = await db.update(danielaBeacons)
+      const [updated] = await getSharedDb().update(danielaBeacons)
         .set(updateData)
         .where(eq(danielaBeacons.id, id))
         .returning();
@@ -14072,7 +14072,7 @@ Return ONLY the ${targetLanguage} phrase:`;
     try {
       const userId = req.user?.claims?.sub || req.session?.userId;
       
-      const editorConversations = await db.select()
+      const editorConversations = await getUserDb().select()
         .from(conversations)
         .where(and(
           eq(conversations.userId, userId),
@@ -14099,7 +14099,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       const { messages: msgs } = await import("@shared/schema");
       
       // First verify the conversation belongs to the current user and is an editor conversation
-      const [conversation] = await db.select()
+      const [conversation] = await getUserDb().select()
         .from(conversations)
         .where(and(
           eq(conversations.id, conversationId),
@@ -14111,7 +14111,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         return res.status(404).json({ error: "Conversation not found" });
       }
       
-      const conversationMessages = await db.select()
+      const conversationMessages = await getUserDb().select()
         .from(msgs)
         .where(eq(msgs.conversationId, conversationId))
         .orderBy(msgs.createdAt);
@@ -14129,7 +14129,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       const userId = req.user?.claims?.sub || req.session?.userId;
       const { title } = req.body;
       
-      const [newConversation] = await db.insert(conversations).values({
+      const [newConversation] = await getUserDb().insert(conversations).values({
         userId,
         language: 'english',
         nativeLanguage: 'english',
@@ -14154,7 +14154,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       const { messages: msgs } = await import("@shared/schema");
       
       // Verify conversation exists and belongs to user
-      const [conv] = await db.select()
+      const [conv] = await getUserDb().select()
         .from(conversations)
         .where(and(
           eq(conversations.id, conversationId),
@@ -14167,14 +14167,14 @@ Return ONLY the ${targetLanguage} phrase:`;
       }
       
       // Save user message
-      const [userMessage] = await db.insert(msgs).values({
+      const [userMessage] = await getUserDb().insert(msgs).values({
         conversationId,
         role: 'user',
         content,
       }).returning();
       
       // Get conversation history for context
-      const history = await db.select()
+      const history = await getUserDb().select()
         .from(msgs)
         .where(eq(msgs.conversationId, conversationId))
         .orderBy(msgs.createdAt);
@@ -14220,14 +14220,14 @@ Current conversation context:
       const responseText = await callGemini(model, geminiMessages);
       
       // Save Daniela's response
-      const [assistantMessage] = await db.insert(msgs).values({
+      const [assistantMessage] = await getUserDb().insert(msgs).values({
         conversationId,
         role: 'assistant',
         content: responseText,
       }).returning();
       
       // Update message count
-      await db.update(conversations)
+      await getUserDb().update(conversations)
         .set({ messageCount: history.length + 2 })
         .where(eq(conversations.id, conversationId));
       
@@ -14248,7 +14248,7 @@ Current conversation context:
       const { messages: msgs } = await import("@shared/schema");
       
       // Get last 10 conversations with their recent messages
-      const recentConversations = await db.select()
+      const recentConversations = await getUserDb().select()
         .from(conversations)
         .where(and(
           eq(conversations.userId, userId),
@@ -14259,7 +14259,7 @@ Current conversation context:
       
       const memoryContext = await Promise.all(
         recentConversations.map(async (conv) => {
-          const recentMsgs = await db.select()
+          const recentMsgs = await getUserDb().select()
             .from(msgs)
             .where(eq(msgs.conversationId, conv.id))
             .orderBy(desc(msgs.createdAt))
@@ -16433,7 +16433,7 @@ Current conversation context:
       const { status = 'pending', limit = '100' } = req.query;
       
       // Get all reports to compute counts
-      const allReports = await db.select()
+      const allReports = await getUserDb().select()
         .from(sofiaIssueReports)
         .orderBy(desc(sofiaIssueReports.createdAt))
         .limit(500);
@@ -16472,7 +16472,7 @@ Current conversation context:
         return res.status(400).json({ error: 'Valid status required: pending, reviewed, actionable, resolved, duplicate' });
       }
       
-      const [updated] = await db.update(sofiaIssueReports)
+      const [updated] = await getUserDb().update(sofiaIssueReports)
         .set({ 
           status,
           founderNotes: founderNotes || null,
@@ -16508,7 +16508,7 @@ Current conversation context:
       const remediationStatus = voiceDiagnostics.getRemediationStatus();
       
       // Sofia issues - get counts by status
-      const allReports = await db.select()
+      const allReports = await getUserDb().select()
         .from(sofiaIssueReports)
         .orderBy(desc(sofiaIssueReports.createdAt))
         .limit(500);
@@ -19728,14 +19728,14 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
       const { syncRuns } = await import('@shared/schema');
       
       // Find all running sync runs
-      const runningRuns = await db.select()
+      const runningRuns = await getUserDb().select()
         .from(syncRuns)
         .where(eq(syncRuns.status, 'running'));
       
       // Mark them all as failed
       let resetCount = 0;
       for (const run of runningRuns) {
-        await db.update(syncRuns)
+        await getUserDb().update(syncRuns)
           .set({
             status: 'failed',
             errorMessage: 'Force-reset by admin - cleared to allow fresh sync',
@@ -19792,13 +19792,13 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
       
       const { syncRuns } = await import('@shared/schema');
       
-      const runningRuns = await db.select()
+      const runningRuns = await getUserDb().select()
         .from(syncRuns)
         .where(eq(syncRuns.status, 'running'));
       
       let resetCount = 0;
       for (const run of runningRuns) {
-        await db.update(syncRuns)
+        await getUserDb().update(syncRuns)
           .set({
             status: 'failed',
             errorMessage: `Force-reset by remote peer ${triggeredBy}`,
@@ -19848,11 +19848,11 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   app.post("/api/sync/peer-stats", validateSyncRequest, async (req: any, res) => {
     try {
       const { danielaGrowthMemories, hiveSnapshots, collaborationMessages, users, tutorVoices } = await import('@shared/schema');
-      const [memoryStats] = await db.select({ count: sql<number>`count(*)` }).from(danielaGrowthMemories);
-      const [snapshotStats] = await db.select({ count: sql<number>`count(*)` }).from(hiveSnapshots);
-      const [messageStats] = await db.select({ count: sql<number>`count(*)` }).from(collaborationMessages);
-      const [userStats] = await db.select({ count: sql<number>`count(*)` }).from(users);
-      const [voiceStats] = await db.select({ count: sql<number>`count(*)` }).from(tutorVoices);
+      const [memoryStats] = await getSharedDb().select({ count: sql<number>`count(*)` }).from(danielaGrowthMemories);
+      const [snapshotStats] = await getSharedDb().select({ count: sql<number>`count(*)` }).from(hiveSnapshots);
+      const [messageStats] = await getSharedDb().select({ count: sql<number>`count(*)` }).from(collaborationMessages);
+      const [userStats] = await getUserDb().select({ count: sql<number>`count(*)` }).from(users);
+      const [voiceStats] = await getSharedDb().select({ count: sql<number>`count(*)` }).from(tutorVoices);
       
       res.json({
         environment: process.env.NODE_ENV === 'production' ? 'production' : 'development',
@@ -19970,13 +19970,13 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
       
       const { syncRuns } = await import('@shared/schema');
       
-      const runningRuns = await db.select()
+      const runningRuns = await getUserDb().select()
         .from(syncRuns)
         .where(eq(syncRuns.status, 'running'));
       
       let resetCount = 0;
       for (const run of runningRuns) {
-        await db.update(syncRuns)
+        await getUserDb().update(syncRuns)
           .set({
             status: 'failed',
             errorMessage: `Force-reset by agent ${agentId} - cleared to allow fresh sync`,
@@ -23282,7 +23282,7 @@ You have full access to your neural network knowledge.
       const statusFilter = req.query.status as string || 'pending';
       
       // Build query conditionally - Drizzle doesn't accept undefined in where()
-      let query = db.select().from(agendaQueue);
+      let query = getSharedDb().select().from(agendaQueue);
       if (statusFilter !== 'all') {
         query = query.where(eq(agendaQueue.status, statusFilter as any)) as any;
       }
@@ -23323,7 +23323,7 @@ You have full access to your neural network knowledge.
         return res.status(400).json({ error: 'Invalid request', details: validation.error.errors });
       }
 
-      const [item] = await db
+      const [item] = await getSharedDb()
         .insert(agendaQueue)
         .values(validation.data)
         .returning();

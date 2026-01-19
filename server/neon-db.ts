@@ -95,6 +95,12 @@ export const SHARED_TABLES = new Set([
   // Architect/Wren Notes
   'architect_notes',
   
+  // Support Knowledge (global)
+  'support_knowledge_base',
+  'support_patterns',
+  'neural_network_telemetry',
+  'feature_sprints',
+  
   // Daniela's learner memory (shared so she remembers students across envs)
   'learner_personal_facts',
   'learner_memory_candidates',
@@ -151,6 +157,14 @@ export const USER_TABLES = new Set([
   'phoneme_struggles',
   'actfl_assessment_events',
   
+  // Student Memory (per-user, but historical data)
+  'people_connections',
+  'learning_motivations',
+  'recurring_struggles',
+  'session_notes',
+  'predicted_struggles',
+  'user_motivation_alerts',
+  
   // Teacher/Class Management
   'teacher_classes',
   'class_enrollments',
@@ -161,6 +175,11 @@ export const USER_TABLES = new Set([
   
   // Self-practice
   'self_practice_sessions',
+  
+  // Support (per-user data)
+  'support_tickets',
+  'support_messages',
+  'sofia_issue_reports',
   
   // Stripe/Billing (user-specific)
   'stripe_customers',

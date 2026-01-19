@@ -50,7 +50,7 @@ export class MistakeLearningService {
     relatedComponent?: string;
     whatWentWrong?: string;
   }): Promise<WrenMistake> {
-    const [mistake] = await db.insert(wrenMistakes).values({
+    const [mistake] = await getSharedDb().insert(wrenMistakes).values({
       title: params.title,
       description: params.description,
       mistakeType: params.mistakeType,
@@ -77,7 +77,7 @@ export class MistakeLearningService {
     commitHash?: string;
     timeToResolveMinutes?: number;
   }): Promise<WrenMistakeResolution> {
-    await db.update(wrenMistakes)
+    await getSharedDb().update(wrenMistakes)
       .set({
         status: 'resolved',
         rootCause: params.rootCause,
@@ -86,7 +86,7 @@ export class MistakeLearningService {
       })
       .where(eq(wrenMistakes.id, params.mistakeId));
     
-    const [resolution] = await db.insert(wrenMistakeResolutions).values({
+    const [resolution] = await getSharedDb().insert(wrenMistakeResolutions).values({
       mistakeId: params.mistakeId,
       whatFixed: params.whatFixed,
       howFixed: params.howFixed,
@@ -110,12 +110,12 @@ export class MistakeLearningService {
     applicablePatterns?: string[];
   }): Promise<WrenLesson> {
     for (const mistakeId of params.fromMistakeIds) {
-      await db.update(wrenMistakes)
+      await getSharedDb().update(wrenMistakes)
         .set({ status: 'documented', updatedAt: new Date() })
         .where(eq(wrenMistakes.id, mistakeId));
     }
     
-    const [lesson] = await db.insert(wrenLessons).values({
+    const [lesson] = await getSharedDb().insert(wrenLessons).values({
       title: params.title,
       lessonType: params.lessonType,
       triggerCondition: params.triggerCondition,
@@ -133,7 +133,7 @@ export class MistakeLearningService {
     patterns?: string[];
     action?: string;
   }): Promise<WrenLesson[]> {
-    const lessons = await db.select().from(wrenLessons)
+    const lessons = await getSharedDb().select().from(wrenLessons)
       .where(eq(wrenLessons.isActive, true));
     
     const applicable: WrenLesson[] = [];
@@ -162,7 +162,7 @@ export class MistakeLearningService {
       }
       
       if (matches) {
-        await db.update(wrenLessons)
+        await getSharedDb().update(wrenLessons)
           .set({
             timesTriggered: sql`${wrenLessons.timesTriggered} + 1`,
             updatedAt: new Date(),
@@ -177,13 +177,13 @@ export class MistakeLearningService {
   }
   
   async getRecentMistakes(limit: number = 10): Promise<WrenMistake[]> {
-    return await db.select().from(wrenMistakes)
+    return await getSharedDb().select().from(wrenMistakes)
       .orderBy(desc(wrenMistakes.createdAt))
       .limit(limit);
   }
   
   async getUnresolvedMistakes(): Promise<WrenMistake[]> {
-    return await db.select().from(wrenMistakes)
+    return await getSharedDb().select().from(wrenMistakes)
       .where(and(
         ne(wrenMistakes.status, 'resolved'),
         ne(wrenMistakes.status, 'documented')
@@ -192,7 +192,7 @@ export class MistakeLearningService {
   }
   
   async getActiveLessons(): Promise<WrenLesson[]> {
-    return await db.select().from(wrenLessons)
+    return await getSharedDb().select().from(wrenLessons)
       .where(eq(wrenLessons.isActive, true))
       .orderBy(desc(wrenLessons.timesTriggered));
   }
@@ -241,7 +241,7 @@ export class SessionNotesService {
     relatedFiles?: string[];
     relatedTasks?: string[];
   }): Promise<WrenSessionNote> {
-    const [note] = await db.insert(wrenSessionNotes).values({
+    const [note] = await getSharedDb().insert(wrenSessionNotes).values({
       sessionId: params.sessionId,
       noteType: params.noteType,
       priority: params.priority || 'normal',
@@ -259,7 +259,7 @@ export class SessionNotesService {
   async getNotesForSession(): Promise<WrenSessionNote[]> {
     const now = new Date();
     
-    return await db.select().from(wrenSessionNotes)
+    return await getSharedDb().select().from(wrenSessionNotes)
       .where(and(
         eq(wrenSessionNotes.forNextSession, true),
         eq(wrenSessionNotes.wasRead, false),
@@ -273,7 +273,7 @@ export class SessionNotesService {
   
   async markNotesRead(noteIds: string[]): Promise<void> {
     for (const noteId of noteIds) {
-      await db.update(wrenSessionNotes)
+      await getSharedDb().update(wrenSessionNotes)
         .set({
           wasRead: true,
           readAt: new Date(),
@@ -375,7 +375,7 @@ export class AnticipatoryDevelopmentService {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     
-    const recentBeacons = await db.select().from(danielaBeacons)
+    const recentBeacons = await getSharedDb().select().from(danielaBeacons)
       .where(gte(danielaBeacons.createdAt, thirtyDaysAgo))
       .orderBy(desc(danielaBeacons.createdAt));
     
@@ -481,7 +481,7 @@ export class ConfidenceCalibrationService {
     reasoning?: string;
     uncertaintyFactors?: string[];
   }): Promise<WrenConfidenceRecord> {
-    const [record] = await db.insert(wrenConfidenceRecords).values({
+    const [record] = await getSharedDb().insert(wrenConfidenceRecords).values({
       domain: params.domain,
       claimOrAction: params.claimOrAction,
       statedConfidence: params.statedConfidence,
@@ -498,7 +498,7 @@ export class ConfidenceCalibrationService {
     actualOutcome: string;
     verifiedBy: 'system' | 'founder' | 'daniela' | 'test';
   }): Promise<void> {
-    const [record] = await db.select().from(wrenConfidenceRecords)
+    const [record] = await getSharedDb().select().from(wrenConfidenceRecords)
       .where(eq(wrenConfidenceRecords.id, params.recordId));
     
     if (!record) return;
@@ -507,7 +507,7 @@ export class ConfidenceCalibrationService {
       1 - Math.abs(record.statedConfidence - 1) :
       1 - Math.abs(record.statedConfidence - 0);
     
-    await db.update(wrenConfidenceRecords)
+    await getSharedDb().update(wrenConfidenceRecords)
       .set({
         wasCorrect: params.wasCorrect,
         actualOutcome: params.actualOutcome,
@@ -521,7 +521,7 @@ export class ConfidenceCalibrationService {
   }
   
   async updateCalibrationStats(domain: string): Promise<void> {
-    const records = await db.select().from(wrenConfidenceRecords)
+    const records = await getSharedDb().select().from(wrenConfidenceRecords)
       .where(and(
         eq(wrenConfidenceRecords.domain, domain),
         sql`${wrenConfidenceRecords.wasCorrect} IS NOT NULL`
@@ -535,12 +535,12 @@ export class ConfidenceCalibrationService {
     const avgActualAccuracy = correct / total;
     const calibrationGap = avgStatedConfidence - avgActualAccuracy;
     
-    const existingStat = await db.select().from(wrenCalibrationStats)
+    const existingStat = await getSharedDb().select().from(wrenCalibrationStats)
       .where(eq(wrenCalibrationStats.domain, domain))
       .limit(1);
     
     if (existingStat.length > 0) {
-      await db.update(wrenCalibrationStats)
+      await getSharedDb().update(wrenCalibrationStats)
         .set({
           totalPredictions: total,
           correctPredictions: correct,
@@ -554,7 +554,7 @@ export class ConfidenceCalibrationService {
         })
         .where(eq(wrenCalibrationStats.domain, domain));
     } else {
-      await db.insert(wrenCalibrationStats).values({
+      await getSharedDb().insert(wrenCalibrationStats).values({
         domain,
         totalPredictions: total,
         correctPredictions: correct,
@@ -568,7 +568,7 @@ export class ConfidenceCalibrationService {
   }
   
   async getCalibrationStats(): Promise<WrenCalibrationStat[]> {
-    return await db.select().from(wrenCalibrationStats);
+    return await getSharedDb().select().from(wrenCalibrationStats);
   }
   
   async getCalibrationContext(): Promise<string> {
@@ -600,7 +600,7 @@ export class ConfidenceCalibrationService {
   }
   
   async getSuggestedConfidenceAdjustment(domain: string): Promise<number> {
-    const [stat] = await db.select().from(wrenCalibrationStats)
+    const [stat] = await getSharedDb().select().from(wrenCalibrationStats)
       .where(eq(wrenCalibrationStats.domain, domain));
     
     if (!stat || stat.calibrationGap === null) return 0;

@@ -10,7 +10,7 @@
  * for fast prompt assembly (no DB reads per turn).
  */
 
-import { db, getSharedDb } from "../db";
+import { getUserDb } from "../db";
 import { eq, and, isNull, isNotNull, desc } from "drizzle-orm";
 import {
   tutorSessions,
@@ -500,7 +500,7 @@ export class SessionCompassService {
     cached.lastUpdated = new Date();
 
     // Async DB update (non-blocking)
-    db.update(tutorSessions)
+    getUserDb().update(tutorSessions)
       .set({ elapsedSeconds, updatedAt: new Date() })
       .where(eq(tutorSessions.id, cached.session.id))
       .execute()

@@ -2255,7 +2255,7 @@ If no commitment: {"hasCommitment": false}`;
         const sprintPriority = priorityMap[parsed.priority] || 'medium';
         
         // Create a sprint item at 'idea' stage from Wren's commitment
-        const [sprintItem] = await db.insert(featureSprints).values({
+        const [sprintItem] = await getSharedDb().insert(featureSprints).values({
           title: parsed.task,
           description: `${parsed.description || ''}\n\n---\n**Origin:** EXPRESS Lane commitment\n**Estimated Effort:** ${parsed.estimatedEffort || 'unknown'}\n**Type:** ${parsed.type || 'general'}`,
           stage: 'idea',
@@ -2374,7 +2374,7 @@ Keep it conversational - you're in a team chat with the founder and Wren (the bu
       }
       
       // First, check current stage to ensure monotonic progression (never regress stages)
-      const [currentSprint] = await db.select({ stage: featureSprints.stage })
+      const [currentSprint] = await getSharedDb().select({ stage: featureSprints.stage })
         .from(featureSprints)
         .where(eq(featureSprints.id, sprintId))
         .limit(1);
@@ -2383,7 +2383,7 @@ Keep it conversational - you're in a team chat with the founder and Wren (the bu
       const shouldAdvanceStage = currentSprint?.stage === 'idea';
       
       // Update the sprint record with pedagogy spec (and stage only if appropriate)
-      await db.update(featureSprints)
+      await getSharedDb().update(featureSprints)
         .set({ 
           pedagogySpec,
           ...(shouldAdvanceStage ? { stage: 'pedagogy_spec' as const } : {}), // Only advance from 'idea'
@@ -2491,7 +2491,7 @@ Keep it conversational - you're in a team chat. The structured tag will be parse
       }
       
       // Update the sprint record with build plan
-      await db.update(featureSprints)
+      await getSharedDb().update(featureSprints)
         .set({ 
           buildPlan,
           updatedAt: new Date(),
@@ -2513,7 +2513,7 @@ Keep it conversational - you're in a team chat. The structured tag will be parse
    */
   private async checkAndAdvanceSprintReadiness(sprintId: string): Promise<void> {
     try {
-      const [sprint] = await db.select()
+      const [sprint] = await getSharedDb().select()
         .from(featureSprints)
         .where(eq(featureSprints.id, sprintId))
         .limit(1);
@@ -2535,7 +2535,7 @@ Keep it conversational - you're in a team chat. The structured tag will be parse
       if (hasPedagogySpec && hasBuildPlan && (sprint.stage === 'idea' || sprint.stage === 'pedagogy_spec')) {
         const previousStage = sprint.stage;
         
-        await db.update(featureSprints)
+        await getSharedDb().update(featureSprints)
           .set({ 
             stage: 'build_plan',
             updatedAt: new Date(),
@@ -2575,7 +2575,7 @@ Keep it conversational - you're in a team chat. The structured tag will be parse
       } 
       // Stage 2: If already at build_plan with both specs → advance to in_progress
       else if (hasPedagogySpec && hasBuildPlan && sprint.stage === 'build_plan') {
-        await db.update(featureSprints)
+        await getSharedDb().update(featureSprints)
           .set({ 
             stage: 'in_progress',
             updatedAt: new Date(),
@@ -2850,7 +2850,7 @@ IDENTITY BOUNDARY: You are Wren. Speak ONLY as yourself. Do NOT speak for, imper
   ): Promise<{ success: boolean; message: string }> {
     try {
       // Get the sprint details
-      const [sprint] = await db.select({
+      const [sprint] = await getSharedDb().select({
         id: featureSprints.id,
         title: featureSprints.title,
         description: featureSprints.description,

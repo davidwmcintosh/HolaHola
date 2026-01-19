@@ -1,4 +1,4 @@
-import { db } from "../db";
+import { db, getSharedDb } from "../db";
 import { eq, and, sql } from "drizzle-orm";
 import {
   learnerErrorPatterns,
@@ -30,7 +30,7 @@ export async function getNeuralNetworkContext(
   // Note: Idioms and cultural nuances are now ON-DEMAND via MEMORY_LOOKUP (Phase 1)
   const [errors, dialects, bridges] = await Promise.all([
     // Error patterns for this language pair (kept pre-loaded - small and critical)
-    db.select()
+    getSharedDb().select()
       .from(learnerErrorPatterns)
       .where(and(
         eq(learnerErrorPatterns.targetLanguage, targetLanguage),
@@ -40,7 +40,7 @@ export async function getNeuralNetworkContext(
       .limit(limit),
     
     // Dialect variations (kept pre-loaded - small and useful)
-    db.select()
+    getSharedDb().select()
       .from(dialectVariations)
       .where(and(
         eq(dialectVariations.language, targetLanguage),
@@ -50,7 +50,7 @@ export async function getNeuralNetworkContext(
       .limit(limit),
     
     // Linguistic bridges (kept pre-loaded - critical for false friends warnings)
-    db.select()
+    getSharedDb().select()
       .from(linguisticBridges)
       .where(and(
         eq(linguisticBridges.sourceLanguage, nativeLanguage),

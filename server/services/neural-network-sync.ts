@@ -1971,7 +1971,7 @@ export class NeuralNetworkSyncService {
   }> {
     try {
       // Use SQL aggregation to avoid loading individual records
-      const aggregatedResult = await db.execute(sql`
+      const aggregatedResult = await getSharedDb().execute(sql`
         SELECT 
           suggestion_type,
           suggestion_id,
@@ -2017,7 +2017,7 @@ export class NeuralNetworkSyncService {
   }> {
     try {
       // Use SQL aggregation to anonymize data
-      const aggregatedResult = await db.execute(sql`
+      const aggregatedResult = await getSharedDb().execute(sql`
         SELECT 
           tool_name,
           AVG(effectiveness_rate) as avg_rate,
@@ -2063,7 +2063,7 @@ export class NeuralNetworkSyncService {
       
       for (const data of toolEffectiveness) {
         // Find matching tool knowledge
-        const [tool] = await db
+        const [tool] = await getSharedDb()
           .select()
           .from(toolKnowledge)
           .where(eq(toolKnowledge.toolName, data.toolName))
@@ -2077,7 +2077,7 @@ export class NeuralNetworkSyncService {
             ...data.commonStruggles
           ].filter((v, i, a) => a.indexOf(v) === i); // Deduplicate
           
-          await db
+          await getSharedDb()
             .update(toolKnowledge)
             .set({ bestUsedFor: newBestUsedFor })
             .where(eq(toolKnowledge.id, tool.id));
@@ -2126,8 +2126,8 @@ export class NeuralNetworkSyncService {
     const baseStatus = await this.getCompleteSyncStatus();
     
     const [effectivenessRecords, toolPrefs, suggestions, triggers, actions] = await Promise.all([
-      db.select().from(teachingSuggestionEffectiveness),
-      db.select().from(studentToolPreferences),
+      getSharedDb().select().from(teachingSuggestionEffectiveness),
+      getSharedDb().select().from(studentToolPreferences),
       getSharedDb().select().from(danielaSuggestions),
       getSharedDb().select().from(reflectionTriggers),
       getSharedDb().select().from(danielaSuggestionActions)

@@ -10,7 +10,7 @@
  * The Editor doesn't observe teaching - the Editor responds to what Daniela needs.
  */
 
-import { db } from "../db";
+import { db, getUserDb } from "../db";
 import { 
   collaborationChannels,
   editorListeningSnapshots,
@@ -85,7 +85,7 @@ class HiveCollaborationService {
       heartbeatAt: new Date(),
     };
     
-    const [channel] = await db.insert(collaborationChannels)
+    const [channel] = await getUserDb().insert(collaborationChannels)
       .values(channelData as any)
       .returning();
     
@@ -110,7 +110,7 @@ class HiveCollaborationService {
    */
   async getOrCreateChannel(params: CreateChannelParams): Promise<CollaborationChannel> {
     // Check for existing active channel
-    const existing = await db.select()
+    const existing = await getUserDb().select()
       .from(collaborationChannels)
       .where(
         and(
@@ -133,7 +133,7 @@ class HiveCollaborationService {
    * Update channel heartbeat (Editor pings to show listening)
    */
   async heartbeat(channelId: string): Promise<void> {
-    await db.update(collaborationChannels)
+    await getUserDb().update(collaborationChannels)
       .set({ heartbeatAt: new Date() })
       .where(eq(collaborationChannels.id, channelId));
   }
@@ -142,7 +142,7 @@ class HiveCollaborationService {
    * Transition channel to post_session mode (after hang-up)
    */
   async endSession(channelId: string): Promise<CollaborationChannel> {
-    const [updated] = await db.update(collaborationChannels)
+    const [updated] = await getUserDb().update(collaborationChannels)
       .set({ 
         sessionPhase: 'post_session',
         endedAt: new Date(),
@@ -173,7 +173,7 @@ class HiveCollaborationService {
     editorNotes?: string[];
     teachingObservations?: string[];
   }): Promise<CollaborationChannel> {
-    const [updated] = await db.update(collaborationChannels)
+    const [updated] = await getUserDb().update(collaborationChannels)
       .set({ 
         sessionPhase: 'completed',
         summaryJson: summary,
@@ -204,7 +204,7 @@ class HiveCollaborationService {
       conversationHistory: params.conversationHistory,
     };
     
-    const [snapshot] = await db.insert(editorListeningSnapshots)
+    const [snapshot] = await getUserDb().insert(editorListeningSnapshots)
       .values(snapshotData as any)
       .returning();
     
@@ -225,7 +225,7 @@ class HiveCollaborationService {
   private async enqueueBeaconForProcessing(snapshotId: string): Promise<void> {
     try {
       // Check if already queued to avoid duplicates
-      const existing = await db.select({ id: editorBeaconQueue.id })
+      const existing = await getUserDb().select({ id: editorBeaconQueue.id })
         .from(editorBeaconQueue)
         .where(eq(editorBeaconQueue.snapshotId, snapshotId))
         .limit(1);
@@ -242,7 +242,7 @@ class HiveCollaborationService {
         maxAttempts: 3,
       };
       
-      await db.insert(editorBeaconQueue)
+      await getUserDb().insert(editorBeaconQueue)
         .values(queueEntry);
       
       console.log(`[Hive] Beacon queued for processing: ${snapshotId}`);
@@ -256,7 +256,7 @@ class HiveCollaborationService {
    * Helper: Emit beacon as collaboration event for real-time feed
    */
   private async emitBeaconToHub(channelId: string, snapshot: EditorListeningSnapshot): Promise<void> {
-    const channel = await db.select()
+    const channel = await getUserDb().select()
       .from(collaborationChannels)
       .where(eq(collaborationChannels.id, channelId))
       .limit(1);
@@ -279,7 +279,7 @@ class HiveCollaborationService {
       },
     };
     
-    await db.insert(collaborationEvents)
+    await getUserDb().insert(collaborationEvents)
       .values(event as any)
       .returning();
   }
@@ -330,7 +330,7 @@ class HiveCollaborationService {
    * Get channel by ID
    */
   async getChannel(channelId: string): Promise<CollaborationChannel | null> {
-    const [channel] = await db.select()
+    const [channel] = await getUserDb().select()
       .from(collaborationChannels)
       .where(eq(collaborationChannels.id, channelId));
     return channel || null;
@@ -340,7 +340,7 @@ class HiveCollaborationService {
    * Get active channel for conversation
    */
   async getActiveChannelForConversation(conversationId: string): Promise<CollaborationChannel | null> {
-    const [channel] = await db.select()
+    const [channel] = await getUserDb().select()
       .from(collaborationChannels)
       .where(
         and(
@@ -355,7 +355,7 @@ class HiveCollaborationService {
    * Get snapshots for a channel
    */
   async getChannelSnapshots(channelId: string): Promise<EditorListeningSnapshot[]> {
-    return db.select()
+    return getUserDb().select()
       .from(editorListeningSnapshots)
       .where(eq(editorListeningSnapshots.channelId, channelId))
       .orderBy(editorListeningSnapshots.createdAt);
@@ -372,7 +372,7 @@ class HiveCollaborationService {
       conditions.push(eq(editorListeningSnapshots.channelId, channelId));
     }
     
-    return db.select()
+    return getUserDb().select()
       .from(editorListeningSnapshots)
       .where(and(...conditions))
       .orderBy(editorListeningSnapshots.createdAt)
@@ -383,7 +383,7 @@ class HiveCollaborationService {
    * Record Editor's response to a snapshot
    */
   async recordEditorResponse(snapshotId: string, response: string): Promise<EditorListeningSnapshot> {
-    const [updated] = await db.update(editorListeningSnapshots)
+    const [updated] = await getUserDb().update(editorListeningSnapshots)
       .set({ 
         editorResponse: response,
         editorRespondedAt: new Date(),
@@ -400,7 +400,7 @@ class HiveCollaborationService {
    * Get recent channels for a user (for feed display)
    */
   async getUserChannels(userId: string, limit: number = 10): Promise<CollaborationChannel[]> {
-    return db.select()
+    return getUserDb().select()
       .from(collaborationChannels)
       .where(eq(collaborationChannels.userId, userId))
       .orderBy(desc(collaborationChannels.startedAt))
@@ -412,7 +412,7 @@ class HiveCollaborationService {
    * @param limit - Max channels to return (default 10, for throttling)
    */
   async getPostSessionChannels(limit: number = 10): Promise<CollaborationChannel[]> {
-    return db.select()
+    return getUserDb().select()
       .from(collaborationChannels)
       .where(eq(collaborationChannels.sessionPhase, 'post_session'))
       .orderBy(collaborationChannels.endedAt)
@@ -423,7 +423,7 @@ class HiveCollaborationService {
    * Get feed events for a specific channel
    */
   async getChannelFeed(channelId: string, limit: number = 50): Promise<any[]> {
-    return db.select()
+    return getUserDb().select()
       .from(collaborationEvents)
       .where(sql`${collaborationEvents.metadata}->>'channelId' = ${channelId}`)
       .orderBy(desc(collaborationEvents.createdAt))

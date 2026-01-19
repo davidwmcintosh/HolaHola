@@ -14,7 +14,7 @@
  */
 
 import { GoogleGenAI } from "@google/genai";
-import { db } from "../db";
+import { db, getUserDb, getSharedDb } from "../db";
 import { 
   supportTickets,
   supportMessages,
@@ -80,7 +80,7 @@ class SupportPersonaService {
       return this.knowledgeCache.articles;
     }
 
-    const articles = await db.select()
+    const articles = await getSharedDb().select()
       .from(supportKnowledgeBase)
       .where(eq(supportKnowledgeBase.isActive, true))
       .orderBy(desc(supportKnowledgeBase.useCount))
@@ -127,7 +127,7 @@ class SupportPersonaService {
   }
 
   async trackArticleUsage(articleId: string): Promise<void> {
-    await db.update(supportKnowledgeBase)
+    await getSharedDb().update(supportKnowledgeBase)
       .set({ 
         useCount: sql`${supportKnowledgeBase.useCount} + 1`,
         updatedAt: new Date(),
@@ -184,7 +184,7 @@ class SupportPersonaService {
     generateAnalysis?: boolean;
     mode?: 'user' | 'dev';
   }): Promise<{ id: string; sofiaAnalysis?: string }> {
-    const [report] = await db.insert(sofiaIssueReports)
+    const [report] = await getUserDb().insert(sofiaIssueReports)
       .values({
         userId: params.userId,
         ticketId: params.ticketId,
@@ -218,7 +218,7 @@ class SupportPersonaService {
         
         // Update the report with the analysis
         if (sofiaAnalysis) {
-          await db.update(sofiaIssueReports)
+          await getUserDb().update(sofiaIssueReports)
             .set({ sofiaAnalysis })
             .where(eq(sofiaIssueReports.id, report.id));
           console.log(`[Sofia] Generated analysis for report ${report.id}`);
@@ -268,7 +268,7 @@ class SupportPersonaService {
     
     try {
       // Create an issue report for this runtime fault
-      const [report] = await db.insert(sofiaIssueReports)
+      const [report] = await getUserDb().insert(sofiaIssueReports)
         .values({
           userId: params.userId || 'system',
           ticketId: params.ticketId,
@@ -342,7 +342,7 @@ class SupportPersonaService {
       ? sql`1=1`
       : sql`${sofiaIssueReports.status} IN ('pending', 'actionable')`;
     
-    const faults = await db.select({
+    const faults = await getUserDb().select({
       id: sofiaIssueReports.id,
       issueType: sofiaIssueReports.issueType,
       userDescription: sofiaIssueReports.userDescription,
@@ -361,7 +361,7 @@ class SupportPersonaService {
       .limit(limit);
     
     // Get summary counts
-    const [counts] = await db.select({
+    const [counts] = await getUserDb().select({
       totalPending: sql<number>`COUNT(*) FILTER (WHERE ${sofiaIssueReports.status} = 'pending')`,
       runtimeFaults: sql<number>`COUNT(*) FILTER (WHERE ${sofiaIssueReports.issueType} LIKE 'runtime_fault:%')`,
     })
@@ -398,7 +398,7 @@ class SupportPersonaService {
     // - runtime_fault:* prefix for programmatic fault reports from Sofia
     // - voice_fault:* prefix for voice-related issues
     // - Direct voice issue types: no_audio, connection, double_audio, latency
-    const faults = await db.select({
+    const faults = await getUserDb().select({
       id: sofiaIssueReports.id,
       issueType: sofiaIssueReports.issueType,
       userDescription: sofiaIssueReports.userDescription,
@@ -497,7 +497,7 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
    * Get pending issue reports for founder review
    */
   async getPendingIssueReports(limit: number = 50): Promise<any[]> {
-    return db.select()
+    return getUserDb().select()
       .from(sofiaIssueReports)
       .where(eq(sofiaIssueReports.status, 'pending'))
       .orderBy(desc(sofiaIssueReports.createdAt))
@@ -525,7 +525,7 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
     };
   }): Promise<SupportTicket> {
     // Check active conversation limit
-    const activeCount = await db.select({ count: sql<number>`count(*)` })
+    const activeCount = await getUserDb().select({ count: sql<number>`count(*)` })
       .from(supportTickets)
       .where(eq(supportTickets.status, 'active'));
 
@@ -534,7 +534,7 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
       throw new Error('Support system is at capacity. Please try again in a few minutes.');
     }
 
-    const [ticket] = await db.insert(supportTickets)
+    const [ticket] = await getUserDb().insert(supportTickets)
       .values({
         userId: params.userId,
         category: params.category,
@@ -555,14 +555,14 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
   }
 
   async getTicket(ticketId: string): Promise<SupportTicket | null> {
-    const [ticket] = await db.select()
+    const [ticket] = await getUserDb().select()
       .from(supportTickets)
       .where(eq(supportTickets.id, ticketId));
     return ticket || null;
   }
 
   async getActiveTicket(userId: string): Promise<SupportTicket | null> {
-    const [ticket] = await db.select()
+    const [ticket] = await getUserDb().select()
       .from(supportTickets)
       .where(and(
         eq(supportTickets.userId, userId),
@@ -577,7 +577,7 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
   }
 
   async getMessages(ticketId: string): Promise<SupportMessage[]> {
-    return db.select()
+    return getUserDb().select()
       .from(supportMessages)
       .where(eq(supportMessages.ticketId, ticketId))
       .orderBy(supportMessages.createdAt);
@@ -588,7 +588,7 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
     role: 'user' | 'support_agent' | 'system';
     content: string;
   }): Promise<SupportMessage> {
-    const messageCount = await db.select({ count: sql<number>`count(*)` })
+    const messageCount = await getUserDb().select({ count: sql<number>`count(*)` })
       .from(supportMessages)
       .where(eq(supportMessages.ticketId, params.ticketId));
 
@@ -597,7 +597,7 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
       throw new Error('Conversation limit reached. Please start a new support session.');
     }
 
-    const [message] = await db.insert(supportMessages)
+    const [message] = await getUserDb().insert(supportMessages)
       .values({
         ticketId: params.ticketId,
         role: params.role,
@@ -607,7 +607,7 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
 
     // Update ticket status to active if first response
     if (params.role === 'support_agent') {
-      await db.update(supportTickets)
+      await getUserDb().update(supportTickets)
         .set({ 
           status: 'active',
           firstResponseAt: sql`COALESCE(first_response_at, NOW())`,
@@ -691,7 +691,7 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
     }
 
     const ticket = await this.getTicket(params.ticketId);
-    const previousTickets = await db.select({
+    const previousTickets = await getUserDb().select({
       category: supportTickets.category,
       status: supportTickets.status,
     })
@@ -867,7 +867,7 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
   // ============================================================================
 
   async resolveTicket(ticketId: string, resolution: string): Promise<void> {
-    await db.update(supportTickets)
+    await getUserDb().update(supportTickets)
       .set({
         status: 'resolved',
         resolution,
@@ -879,7 +879,7 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
   }
 
   async escalateTicket(ticketId: string, reason: string): Promise<void> {
-    await db.update(supportTickets)
+    await getUserDb().update(supportTickets)
       .set({
         status: 'escalated',
         priority: 'critical',
@@ -908,7 +908,7 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
       return { success: false };
     }
 
-    await db.update(supportTickets)
+    await getUserDb().update(supportTickets)
       .set({
         status: 'resolved',
         resolution: 'Returned to Daniela',
@@ -934,7 +934,7 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
     affectedBrowsers?: string[];
     affectedDevices?: string[];
   }): Promise<void> {
-    const [existing] = await db.select()
+    const [existing] = await getSharedDb().select()
       .from(supportPatterns)
       .where(and(
         eq(supportPatterns.patternType, params.patternType),
@@ -950,7 +950,7 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
         ? Array.from(new Set([...(existing.affectedDevices || []), ...params.affectedDevices]))
         : existing.affectedDevices;
         
-      await db.update(supportPatterns)
+      await getSharedDb().update(supportPatterns)
         .set({
           occurrenceCount: sql`${supportPatterns.occurrenceCount} + 1`,
           lastSeen: new Date(),
@@ -959,7 +959,7 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
         })
         .where(eq(supportPatterns.id, existing.id));
     } else {
-      await db.insert(supportPatterns)
+      await getSharedDb().insert(supportPatterns)
         .values({
           patternType: params.patternType,
           description: params.description,
@@ -1178,7 +1178,7 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
       
       // Get all reports from the last hour for pattern detection
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-      const recentReports = await db.select()
+      const recentReports = await getUserDb().select()
         .from(sofiaIssueReports)
         .where(sql`${sofiaIssueReports.createdAt} > ${oneHourAgo}`)
         .orderBy(desc(sofiaIssueReports.createdAt));
@@ -1190,11 +1190,11 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
       
-      const allPending = await db.select()
+      const allPending = await getUserDb().select()
         .from(sofiaIssueReports)
         .where(eq(sofiaIssueReports.status, 'pending'));
       
-      const resolvedToday = await db.select({ count: sql<number>`count(*)` })
+      const resolvedToday = await getUserDb().select({ count: sql<number>`count(*)` })
         .from(sofiaIssueReports)
         .where(and(
           eq(sofiaIssueReports.status, 'resolved'),

@@ -24,7 +24,7 @@
  * which helps with debugging and audit trails.
  */
 
-import { db, getSharedDb } from "../db";
+import { getSharedDb, getUserDb } from "../db";
 import { 
   founderSessions, 
   collaborationMessages, 
@@ -340,7 +340,7 @@ class FounderCollaborationService {
     clientId: string, 
     sessionId: string
   ): Promise<SyncCursor> {
-    const [existing] = await db.select()
+    const [existing] = await getUserDb().select()
       .from(syncCursors)
       .where(and(
         eq(syncCursors.clientId, clientId),
@@ -349,7 +349,7 @@ class FounderCollaborationService {
       .limit(1);
     
     if (existing) {
-      const [updated] = await db.update(syncCursors)
+      const [updated] = await getUserDb().update(syncCursors)
         .set({ 
           connectedAt: new Date(),
           disconnectedAt: null,
@@ -362,7 +362,7 @@ class FounderCollaborationService {
       return updated;
     }
     
-    const [cursor] = await db.insert(syncCursors).values({
+    const [cursor] = await getUserDb().insert(syncCursors).values({
       clientId,
       sessionId,
       environment: CURRENT_ENVIRONMENT,
@@ -381,7 +381,7 @@ class FounderCollaborationService {
     sessionId: string, 
     cursor: string
   ): Promise<void> {
-    await db.update(syncCursors)
+    await getUserDb().update(syncCursors)
       .set({ lastProcessedCursor: cursor })
       .where(and(
         eq(syncCursors.clientId, clientId),
@@ -393,7 +393,7 @@ class FounderCollaborationService {
    * Mark client as disconnected
    */
   async disconnectClient(clientId: string, sessionId: string): Promise<void> {
-    await db.update(syncCursors)
+    await getUserDb().update(syncCursors)
       .set({ disconnectedAt: new Date() })
       .where(and(
         eq(syncCursors.clientId, clientId),
@@ -414,7 +414,7 @@ class FounderCollaborationService {
     sessionId: string,
     minRecentMessages = 500  // Increased from 100 to preserve more conversation history
   ): Promise<MessageReplayResult> {
-    const [syncCursor] = await db.select()
+    const [syncCursor] = await getUserDb().select()
       .from(syncCursors)
       .where(and(
         eq(syncCursors.clientId, clientId),
@@ -647,7 +647,7 @@ class FounderCollaborationService {
       };
     }
     
-    const [syncCursor] = await db.select()
+    const [syncCursor] = await getUserDb().select()
       .from(syncCursors)
       .where(and(
         eq(syncCursors.clientId, clientId),

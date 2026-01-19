@@ -95,7 +95,7 @@ export async function trackToolEvent(params: {
       occurredAt: new Date(),
     };
 
-    const [inserted] = await db.insert(teachingToolEvents).values(event).returning();
+    const [inserted] = await getSharedDb().insert(teachingToolEvents).values(event).returning();
     console.log('[PEDAGOGICAL] Tracked tool event:', params.toolType, params.toolContent?.substring(0, 30));
     return inserted;
   } catch (error) {
@@ -116,7 +116,7 @@ export async function updateToolEventEngagement(
   }
 ): Promise<void> {
   try {
-    await db.update(teachingToolEvents)
+    await getSharedDb().update(teachingToolEvents)
       .set({
         studentResponseTime: params.studentResponseTime,
         drillResult: params.drillResult,
@@ -138,7 +138,7 @@ export async function getSessionToolStats(voiceSessionId: string): Promise<{
   averageResponseTime: number | null;
 }> {
   try {
-    const events = await db.select()
+    const events = await getSharedDb().select()
       .from(teachingToolEvents)
       .where(eq(teachingToolEvents.voiceSessionId, voiceSessionId))
       .orderBy(teachingToolEvents.sequencePosition);
@@ -261,7 +261,7 @@ export async function analyzeAndGenerateInsights(language: string): Promise<numb
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const events = await db.select()
+    const events = await getSharedDb().select()
       .from(teachingToolEvents)
       .where(and(
         eq(teachingToolEvents.language, language),
@@ -347,7 +347,7 @@ export async function getUserTeachingEffectiveness(userId: string): Promise<{
   drillSuccessRate: number | null;
 }> {
   try {
-    const events = await db.select()
+    const events = await getSharedDb().select()
       .from(teachingToolEvents)
       .where(eq(teachingToolEvents.userId, userId));
 

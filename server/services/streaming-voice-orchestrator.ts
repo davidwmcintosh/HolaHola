@@ -2329,7 +2329,7 @@ Remember: David may reference things discussed in these recent text chats.
                           return acc;
                         }, {} as Record<string, number>);
                         
-                        db.insert(neuralNetworkTelemetry).values({
+                        getSharedDb().insert(neuralNetworkTelemetry).values({
                           voiceSessionId: session.id,
                           userId: session.userId,
                           targetLanguage: session.targetLanguage || null,
@@ -4391,7 +4391,7 @@ Remember: David may reference things discussed in these recent text chats.
                         return acc;
                       }, {} as Record<string, number>);
                       
-                      db.insert(neuralNetworkTelemetry).values({
+                      getSharedDb().insert(neuralNetworkTelemetry).values({
                         voiceSessionId: session.id,
                         userId: session.userId,
                         targetLanguage: session.targetLanguage || null,
@@ -6260,7 +6260,7 @@ Remember: David may reference things discussed in these recent text chats.
       const culturalContext = idiomMatch[4] || '';
       
       try {
-        await db.insert(languageIdioms).values({
+        await getSharedDb().insert(languageIdioms).values({
           language,
           idiom,
           meaning,
@@ -6289,7 +6289,7 @@ Remember: David may reference things discussed in these recent text chats.
       const nuance = nuanceMatch[4];
       
       try {
-        await db.insert(culturalNuances).values({
+        await getSharedDb().insert(culturalNuances).values({
           language,
           category,
           situation,
@@ -6316,7 +6316,7 @@ Remember: David may reference things discussed in these recent text chats.
       const whyItHappens = errorMatch[4] || '';
       
       try {
-        await db.insert(learnerErrorPatterns).values({
+        await getSharedDb().insert(learnerErrorPatterns).values({
           targetLanguage,
           specificError,
           errorCategory,
@@ -6346,7 +6346,7 @@ Remember: David may reference things discussed in these recent text chats.
       const relationship = bridgeMatch[6];
       
       try {
-        await db.insert(linguisticBridges).values({
+        await getSharedDb().insert(linguisticBridges).values({
           sourceLanguage,
           targetLanguage,
           sourceWord,
@@ -6375,7 +6375,7 @@ Remember: David may reference things discussed in these recent text chats.
       const regionalForm = dialectMatch[5];
       
       try {
-        await db.insert(dialectVariations).values({
+        await getSharedDb().insert(dialectVariations).values({
           language,
           region,
           category,
@@ -6419,7 +6419,7 @@ Remember: David may reference things discussed in these recent text chats.
         
         // Create the actual featureSprint record
         // Using 'ai_suggestion' source since Daniela is an AI suggesting from teaching observations
-        const [createdSprint] = await db.insert(featureSprints).values({
+        const [createdSprint] = await getSharedDb().insert(featureSprints).values({
           title: parsed.title,
           description: `${parsed.description}\n\n---\n**Origin:** Daniela voice suggestion\n**Context:** During voice chat with student`,
           stage: 'idea',

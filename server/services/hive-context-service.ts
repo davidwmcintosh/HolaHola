@@ -305,7 +305,7 @@ class HiveContextService {
   
   private async getPendingBeacons(): Promise<ActiveBeacon[]> {
     try {
-      const snapshots = await db.select()
+      const snapshots = await getSharedDb().select()
         .from(editorListeningSnapshots)
         .where(isNull(editorListeningSnapshots.editorResponse))
         .orderBy(desc(editorListeningSnapshots.createdAt))
@@ -332,7 +332,7 @@ class HiveContextService {
       const cutoff = new Date();
       cutoff.setDate(cutoff.getDate() - 14); // Last 2 weeks
       
-      const reports = await db.select()
+      const reports = await getSharedDb().select()
         .from(postFlightReports)
         .where(gt(postFlightReports.createdAt, cutoff))
         .orderBy(desc(postFlightReports.createdAt))
@@ -358,7 +358,7 @@ class HiveContextService {
   private async getActiveSprints(): Promise<SprintStatus[]> {
     try {
       // Get sprints that are in active stages (not shipped, not idea)
-      const sprints = await db.select()
+      const sprints = await getSharedDb().select()
         .from(featureSprints)
         .where(eq(featureSprints.stage, 'in_progress'))
         .orderBy(desc(featureSprints.createdAt))
@@ -517,7 +517,7 @@ class HiveContextService {
   private async getLanguageOverview(): Promise<LanguageOverview[]> {
     try {
       // Get classes grouped by language
-      const classes = await db.select()
+      const classes = await getUserDb().select()
         .from(teacherClasses)
         .where(eq(teacherClasses.isActive, true));
       
@@ -548,7 +548,7 @@ class HiveContextService {
   
   private async getCurriculaOverview(): Promise<CurriculumOverview[]> {
     try {
-      const paths = await db.select()
+      const paths = await getSharedDb().select()
         .from(curriculumPaths)
         .orderBy(asc(curriculumPaths.language), asc(curriculumPaths.name))
         .limit(20);
@@ -568,7 +568,7 @@ class HiveContextService {
   
   private async getTopicCategories(): Promise<TopicCategory[]> {
     try {
-      const allTopics = await db.select()
+      const allTopics = await getSharedDb().select()
         .from(topics);
       
       const categoryMap = new Map<string, number>();
@@ -588,7 +588,7 @@ class HiveContextService {
   
   private async getGrammarByLanguage(): Promise<GrammarOverview[]> {
     try {
-      const competencies = await db.select()
+      const competencies = await getSharedDb().select()
         .from(grammarCompetencies);
       
       const languageMap = new Map<string, { count: number; levels: Set<string> }>();
@@ -618,7 +618,7 @@ class HiveContextService {
   
   private async getAgendaItems(): Promise<AgendaItem[]> {
     try {
-      const items = await db.select()
+      const items = await getSharedDb().select()
         .from(agendaQueue)
         .where(eq(agendaQueue.status, 'pending'))
         .orderBy(desc(agendaQueue.createdAt))
@@ -639,7 +639,7 @@ class HiveContextService {
   
   private async getOpenConsultations(): Promise<ConsultationSummary[]> {
     try {
-      const threads = await db.select()
+      const threads = await getSharedDb().select()
         .from(consultationThreads)
         .where(eq(consultationThreads.isResolved, false))
         .orderBy(desc(consultationThreads.updatedAt))
@@ -707,7 +707,7 @@ class HiveContextService {
    */
   private async getWrenInsights(): Promise<WrenInsightSummary[]> {
     try {
-      const insights = await db.select()
+      const insights = await getSharedDb().select()
         .from(wrenInsights)
         .orderBy(desc(wrenInsights.useCount), desc(wrenInsights.createdAt))
         .limit(30);
@@ -734,7 +734,7 @@ class HiveContextService {
    */
   async searchInsightsByFile(filePath: string): Promise<WrenInsightSummary[]> {
     try {
-      const insights = await db.select()
+      const insights = await getSharedDb().select()
         .from(wrenInsights)
         .where(sql`${filePath} = ANY(${wrenInsights.relatedFiles})`)
         .orderBy(desc(wrenInsights.useCount))

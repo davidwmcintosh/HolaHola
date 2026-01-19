@@ -1,8 +1,8 @@
 # Neon Database Routing Audit
 
 **Date:** January 2026  
-**Status:** Phase 2 - Routing Validation  
-**Scope:** This audit covers `server/services/*.ts` only. Additional directories (`server/`, `server/scripts/`, `server/middleware/`) need separate review.
+**Status:** Phase 2 - COMPLETE ✅  
+**Scope:** All `server/services/*.ts`, `server/routes.ts`, `server/reporting-service.ts` have been migrated. Seed/migration/test scripts use direct `db` access (acceptable for dev-only files).
 
 ## Architecture Summary
 
@@ -50,35 +50,40 @@ These services have been updated to use `getSharedDb()`/`getUserDb()`:
 - `editor-feedback-service.ts` (FIXED Jan 2026 - editorListeningSnapshots, collaborationChannels to getUserDb) [DEPRECATED]
 - `editor-realtime-dispatcher.ts` (FIXED Jan 2026 - editorBeaconQueue, editorListeningSnapshots to getUserDb) [DEPRECATED]
 - `architect-voice-service.ts` (FIXED Jan 2026 - architectNotes to getSharedDb)
+- `hive-collaboration-service.ts` (FIXED Jan 2026 - collaborationChannels, editorListeningSnapshots, editorBeaconQueue, collaborationEvents to getUserDb)
+- `support-persona-service.ts` (FIXED Jan 2026 - supportKnowledgeBase, supportPatterns to getSharedDb; supportTickets, supportMessages, sofiaIssueReports to getUserDb)
+- `neural-memory-search.ts` (FIXED Jan 2026 - student memory tables to getUserDb, curriculum tables to getSharedDb)
+- `procedural-memory-retrieval.ts` (FIXED Jan 2026 - voiceSessions, userProgress to getUserDb; learnerPersonalFacts to getSharedDb)
+- `hive-consciousness-service.ts` (FIXED Jan 2026 - featureSprints to getSharedDb)
+- `hive-context-service.ts` (FIXED Jan 2026 - teacherClasses to getUserDb, curriculum/insights to getSharedDb)
+- `founder-collaboration-service.ts` (FIXED Jan 2026 - syncCursors to getUserDb)
+- `phoneme-analytics-service.ts` (FIXED Jan 2026 - phonemeStruggles to getUserDb)
+- `pedagogical-insights-service.ts` (FIXED Jan 2026 - teachingToolEvents to getSharedDb)
+- `observations-consolidation-service.ts` (FIXED Jan 2026 - agentObservations, supportObservations to getSharedDb)
+- `password-auth-service.ts` (FIXED Jan 2026 - users, userCredentials, authTokens to getUserDb)
+- `neural-network-sync.ts` (FIXED Jan 2026 - toolKnowledge, teachingSuggestionEffectiveness to getSharedDb)
+- `memory-consolidation-service.ts` (FIXED Jan 2026 - danielaGrowthMemories to getSharedDb)
+- `pronunciation-drill-service.ts` (FIXED Jan 2026 - hiveSnapshots to getSharedDb, recurringStruggles to getUserDb)
+- `phase-transition-service.ts` (FIXED Jan 2026 - hiveSnapshots to getSharedDb)
+- `memory-insight-extraction-service.ts` (FIXED Jan 2026 - danielaGrowthMemories to getSharedDb)
+- `historical-memory-migration-service.ts` (FIXED Jan 2026 - danielaGrowthMemories, hiveSnapshots to getSharedDb)
+- `historical-personal-facts-migration-service.ts` (FIXED Jan 2026 - hiveSnapshots to getSharedDb)
+- `session-compass-service.ts` (FIXED Jan 2026 - tutorSessions to getUserDb)
 
-## Services Needing Routing Review ⚠️
+## Additional Files Fixed (Jan 2026)
 
-### High Priority (Actively Used in Teaching/Revenue) ✅ COMPLETE
+- **routes.ts** - All 85+ db usages routed properly
+- **reporting-service.ts** - All db usages routed properly
 
-All high-priority services have been fixed (Jan 2026):
+## Services Needing No Changes ✅
 
-1. ~~**competency-verifier.ts**~~ → FIXED
-2. ~~**fluency-wiring-service.ts**~~ → FIXED
-3. ~~**conversation-tagger.ts**~~ → FIXED
-4. ~~**usage-service.ts**~~ → FIXED
-5. ~~**azure-pronunciation-service.ts**~~ → FIXED
+All services in `server/services/*.ts` now use proper Neon routing.
 
-### Medium Priority (Editor/Collaboration Features) ✅ COMPLETE
+### Deprecated (Will Be Removed in Phase 3)
 
-4. ~~**collaboration-hub-service.ts**~~ → FIXED (getUserDb for collaborationEvents, collaborationParticipants)
-5. ~~**editor-feedback-service.ts**~~ → FIXED (getUserDb for editor tables) [DEPRECATED]
-6. ~~**editor-realtime-dispatcher.ts**~~ → FIXED (getUserDb for editor tables) [DEPRECATED]
-7. ~~**architect-voice-service.ts**~~ → FIXED (getSharedDb for architectNotes)
-
-### Lower Priority (Admin/Surgery Features) ✅ COMPLETE
-
-6. ~~**daniela-reflection.ts**~~ → FIXED (getSharedDb for danielaSuggestions)
-7. ~~**surgery-insight-service.ts**~~ → FIXED (getSharedDb for neural network tables)
-8. ~~**architect-voice-service.ts**~~ → FIXED (getSharedDb for architectNotes)
-
-### Deprecated (No Routing Changes Needed)
-
-- **editor-persona-service.ts** - Marked deprecated in code. Will be removed with editor system.
+- **sync-bridge.ts** - 286 db usages, deprecated (replaced by Neon routing)
+- **sync-scheduler.ts** - 4 db usages, deprecated
+- **editor-persona-service.ts** - 11 db usages, deprecated
 
 ## Deprecated (No Fix Needed) 🗑️
 
@@ -96,9 +101,21 @@ See `server/neon-db.ts` for authoritative table lists:
 
 ## Next Steps
 
-1. **Phase 2 (Current)**: Fix remaining ~12 services
-2. **Phase 3**: Remove sync-bridge system
+1. ~~**Phase 2 (Complete)**~~: All services and routes now use proper Neon routing ✅
+2. **Phase 3 (Next)**: Remove deprecated sync-bridge system (sync-bridge.ts, sync-scheduler.ts, editor-persona-service.ts)
 3. **Phase 4**: Disable `USE_NEON_ROUTING` flag (always use Neon)
+
+## Files Using Direct `db` Access (Acceptable)
+
+These files are development/seed scripts and can retain direct `db` access:
+
+- `server/seed-*.ts` - Database seed scripts
+- `server/curriculum-seed.ts` - Curriculum seed data
+- `server/topic-seed.ts` - Topic seed data
+- `server/seeds/*.ts` - Additional seed scripts
+- `server/migrations/*.ts` - Migration orchestrators
+- `server/tests/*.ts` - Test files
+- `server/scripts/*.ts` - Admin scripts
 
 ## Phase 3 Exit Criteria
 

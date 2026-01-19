@@ -10,7 +10,7 @@
  * Daniela can recall it when directly asked or when it becomes relevant.
  */
 
-import { db, getSharedDb } from '../db';
+import { db, getSharedDb, getUserDb } from '../db';
 import { storage } from '../storage';
 import {
   peopleConnections,
@@ -106,7 +106,7 @@ export async function searchMemory(
     searchedDomains.push('person');
     searchPromises.push((async () => {
       try {
-        const connections = await db.select().from(peopleConnections)
+        const connections = await getUserDb().select().from(peopleConnections)
           .where(and(
             eq(peopleConnections.isActive, true),
             or(
@@ -147,7 +147,7 @@ export async function searchMemory(
     searchedDomains.push('insight');
     searchPromises.push((async () => {
       try {
-        const insights = await db.select().from(studentInsights)
+        const insights = await getUserDb().select().from(studentInsights)
           .where(and(
             eq(studentInsights.studentId, studentId),
             eq(studentInsights.isActive, true),
@@ -181,7 +181,7 @@ export async function searchMemory(
     searchedDomains.push('motivation');
     searchPromises.push((async () => {
       try {
-        const motivations = await db.select().from(learningMotivations)
+        const motivations = await getUserDb().select().from(learningMotivations)
           .where(and(
             eq(learningMotivations.studentId, studentId),
             eq(learningMotivations.status, 'active'),
@@ -215,7 +215,7 @@ export async function searchMemory(
     searchedDomains.push('struggle');
     searchPromises.push((async () => {
       try {
-        const struggles = await db.select().from(recurringStruggles)
+        const struggles = await getUserDb().select().from(recurringStruggles)
           .where(and(
             eq(recurringStruggles.studentId, studentId),
             or(
@@ -248,7 +248,7 @@ export async function searchMemory(
     searchedDomains.push('session');
     searchPromises.push((async () => {
       try {
-        const notes = await db.select().from(sessionNotes)
+        const notes = await getUserDb().select().from(sessionNotes)
           .where(and(
             eq(sessionNotes.studentId, studentId),
             or(
@@ -288,7 +288,7 @@ export async function searchMemory(
     searchedDomains.push('progress');
     searchPromises.push((async () => {
       try {
-        const assessments = await db.select().from(actflAssessmentEvents)
+        const assessments = await getUserDb().select().from(actflAssessmentEvents)
           .where(eq(actflAssessmentEvents.userId, studentId))
           .orderBy(desc(actflAssessmentEvents.createdAt))
           .limit(5);
@@ -396,7 +396,7 @@ export async function lookupPerson(
  */
 export async function getStudentMemorySummary(studentId: string): Promise<string> {
   const [people, insights, motivations, struggles] = await Promise.all([
-    db.select().from(peopleConnections)
+    getUserDb().select().from(peopleConnections)
       .where(and(
         eq(peopleConnections.isActive, true),
         or(
@@ -405,19 +405,19 @@ export async function getStudentMemorySummary(studentId: string): Promise<string
         )
       ))
       .limit(100),
-    db.select().from(studentInsights)
+    getUserDb().select().from(studentInsights)
       .where(and(
         eq(studentInsights.studentId, studentId),
         eq(studentInsights.isActive, true)
       ))
       .limit(100),
-    db.select().from(learningMotivations)
+    getUserDb().select().from(learningMotivations)
       .where(and(
         eq(learningMotivations.studentId, studentId),
         eq(learningMotivations.status, 'active')
       ))
       .limit(20),
-    db.select().from(recurringStruggles)
+    getUserDb().select().from(recurringStruggles)
       .where(eq(recurringStruggles.studentId, studentId))
       .limit(20),
   ]);
@@ -976,7 +976,7 @@ export async function searchSyllabi(
   
   try {
     // === CURRICULUM PATHS (Syllabi) ===
-    const paths = await db.select().from(curriculumPaths)
+    const paths = await getSharedDb().select().from(curriculumPaths)
       .where(
         and(
           language ? eq(curriculumPaths.language, language) : sql`true`,
@@ -1004,7 +1004,7 @@ export async function searchSyllabi(
     }
     
     // === CURRICULUM UNITS ===
-    const unitsWithPath = await db
+    const unitsWithPath = await getSharedDb()
       .select({
         unit: curriculumUnits,
         pathName: curriculumPaths.name,
@@ -1042,7 +1042,7 @@ export async function searchSyllabi(
     }
     
     // === CURRICULUM LESSONS ===
-    const lessonsWithContext = await db
+    const lessonsWithContext = await getSharedDb()
       .select({
         lesson: curriculumLessons,
         unitName: curriculumUnits.name,
@@ -1083,7 +1083,7 @@ export async function searchSyllabi(
     }
     
     // === CURRICULUM DRILLS ===
-    const drillsWithContext = await db
+    const drillsWithContext = await getSharedDb()
       .select({
         drill: curriculumDrillItems,
         lessonName: curriculumLessons.name,

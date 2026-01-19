@@ -10,7 +10,7 @@
  */
 
 import { GoogleGenAI } from '@google/genai';
-import { db, getSharedDb } from '../db';
+import { getSharedDb, getUserDb } from '../db';
 import { recurringStruggles, hiveSnapshots } from '@shared/schema';
 import { eq, and, desc, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
@@ -463,7 +463,7 @@ Guidelines:
       console.log(`  - Accuracy: ${Math.round(accuracy)}% (${session.correctCount} correct, ${session.incorrectCount} incorrect)`);
       console.log(`  - Duration: ${duration}s`);
       
-      await db.insert(hiveSnapshots).values({
+      await getSharedDb().insert(hiveSnapshots).values({
         snapshotType: 'teaching_moment',
         userId: session.studentId,
         language: session.language,
@@ -513,7 +513,7 @@ Guidelines:
         
         // Check for existing pronunciation struggle containing this phoneme
         // Use LIKE pattern to find struggles that mention this phoneme
-        const existingStruggles = await db
+        const existingStruggles = await getUserDb()
           .select()
           .from(recurringStruggles)
           .where(and(
@@ -533,7 +533,7 @@ Guidelines:
               ? Math.round((Date.now() - new Date(struggle.createdAt).getTime()) / (1000 * 60 * 60 * 24))
               : null;
             
-            await db
+            await getUserDb()
               .update(recurringStruggles)
               .set({
                 status: 'resolved',
@@ -546,7 +546,7 @@ Guidelines:
             console.log(`[PronunciationDrill] BREAKTHROUGH: ${phoneme} mastered by ${session.studentId}`);
             
             // Record breakthrough in hiveSnapshots
-            await db.insert(hiveSnapshots).values({
+            await getSharedDb().insert(hiveSnapshots).values({
               snapshotType: 'breakthrough',
               userId: session.studentId,
               language: session.language,
@@ -567,7 +567,7 @@ Guidelines:
           // Low accuracy = record or reinforce the struggle
           if (existingStruggles.length === 0) {
             // Create new struggle record with all required fields
-            await db.insert(recurringStruggles).values({
+            await getUserDb().insert(recurringStruggles).values({
               studentId: session.studentId,
               language: session.language,
               struggleArea: 'pronunciation',
@@ -582,7 +582,7 @@ Guidelines:
           } else {
             // Increment occurrence count
             const struggle = existingStruggles[0];
-            await db
+            await getUserDb()
               .update(recurringStruggles)
               .set({
                 occurrenceCount: (struggle.occurrenceCount || 0) + 1,
@@ -595,7 +595,7 @@ Guidelines:
           }
         } else if (existingStruggles.length > 0) {
           // Medium accuracy - update last seen to track progress
-          await db
+          await getUserDb()
             .update(recurringStruggles)
             .set({
               lastOccurredAt: new Date(),

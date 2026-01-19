@@ -13,7 +13,7 @@
  * - Preserves source references for audit trail
  */
 
-import { db } from '../db';
+import { getSharedDb } from '../db';
 import { danielaGrowthMemories } from '@shared/schema';
 import type { DanielaGrowthMemory, GrowthMemoryCategory } from '@shared/schema';
 import { eq, and, isNull, desc } from 'drizzle-orm';
@@ -108,7 +108,7 @@ Rules:
 async function mergeCluster(cluster: SimilarityCluster): Promise<boolean> {
   try {
     // Get the canonical memory
-    const [canonical] = await db
+    const [canonical] = await getSharedDb()
       .select()
       .from(danielaGrowthMemories)
       .where(eq(danielaGrowthMemories.id, cluster.canonicalId))
@@ -129,7 +129,7 @@ async function mergeCluster(cluster: SimilarityCluster): Promise<boolean> {
     const existingCount = canonical.consolidatedFromCount || 1;
     
     // Update canonical memory with consolidation info
-    await db.update(danielaGrowthMemories)
+    await getSharedDb().update(danielaGrowthMemories)
       .set({
         importance: newImportance,
         consolidatedFromCount: existingCount + cluster.memberIds.length,
@@ -140,7 +140,7 @@ async function mergeCluster(cluster: SimilarityCluster): Promise<boolean> {
     
     // Mark member memories as superseded and inactive
     for (const memberId of cluster.memberIds) {
-      await db.update(danielaGrowthMemories)
+      await getSharedDb().update(danielaGrowthMemories)
         .set({
           supersededBy: cluster.canonicalId,
           isActive: false,
@@ -184,7 +184,7 @@ export async function runMemoryConsolidation(): Promise<ConsolidationResult> {
   for (const category of categories) {
     try {
       // Get active, non-superseded memories in this category
-      const memories = await db
+      const memories = await getSharedDb()
         .select()
         .from(danielaGrowthMemories)
         .where(
@@ -246,7 +246,7 @@ export async function getConsolidationStats(): Promise<{
   totalConsolidated: number;
   byCategory: Record<string, { active: number; superseded: number }>;
 }> {
-  const allMemories = await db.select().from(danielaGrowthMemories);
+  const allMemories = await getSharedDb().select().from(danielaGrowthMemories);
   
   const stats = {
     totalActive: 0,

@@ -10,7 +10,7 @@
  * 3. Cross-session threading - link related insights for knowledge graphs
  */
 
-import { db, getSharedDb } from '../db';
+import { getSharedDb, getUserDb } from '../db';
 import { wrenInsights, type WrenInsight, type InsertWrenInsight } from '@shared/schema';
 import { eq, desc, sql, and, gte, lte, or, ilike } from 'drizzle-orm';
 import { storage } from '../storage';
@@ -649,7 +649,7 @@ export class WrenIntelligenceService {
       const { learnerPersonalFacts, recurringStruggles, users } = await import('@shared/schema');
       
       // 1. Aggregate anonymized fact patterns by type and language
-      const factPatterns = await db.select({
+      const factPatterns = await getSharedDb().select({
         factType: learnerPersonalFacts.factType,
         language: learnerPersonalFacts.language,
         count: sql<number>`count(*)`,
@@ -661,7 +661,7 @@ export class WrenIntelligenceService {
       .groupBy(learnerPersonalFacts.factType, learnerPersonalFacts.language);
       
       // 2. Aggregate struggle patterns by language
-      const strugglePatterns = await db.select({
+      const strugglePatterns = await getUserDb().select({
         language: recurringStruggles.language,
         struggleArea: recurringStruggles.struggleArea,
         count: sql<number>`count(*)`,

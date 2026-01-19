@@ -1,4 +1,4 @@
-import { db } from "./db";
+import { getUserDb, getSharedDb } from "./db";
 import {
   users,
   userProgress,
@@ -148,13 +148,13 @@ export async function generateStudentProgressReport(
   userId: string
 ): Promise<StudentProgressReport> {
   // Fetch user data
-  const [user] = await db.select().from(users).where(eq(users.id, userId));
+  const [user] = await getUserDb().select().from(users).where(eq(users.id, userId));
   if (!user) {
     throw new Error("User not found");
   }
 
   // Fetch language-specific progress
-  const [progress] = await db
+  const [progress] = await getUserDb()
     .select()
     .from(userProgress)
     .where(
@@ -165,13 +165,13 @@ export async function generateStudentProgressReport(
     );
 
   // Fetch conversations for overall count
-  const userConversations = await db
+  const userConversations = await getUserDb()
     .select()
     .from(conversations)
     .where(eq(conversations.userId, userId));
 
   // Fetch Can-Do achievements
-  const canDoProgress = await db
+  const canDoProgress = await getUserDb()
     .select({
       id: studentCanDoProgress.id,
       selfAssessed: studentCanDoProgress.selfAssessed,
@@ -191,7 +191,7 @@ export async function generateStudentProgressReport(
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-  const recentHistory = await db
+  const recentHistory = await getUserDb()
     .select()
     .from(progressHistory)
     .where(
@@ -318,7 +318,7 @@ export async function generateClassSummaryReport(
   teacherId: string
 ): Promise<ClassSummaryReport> {
   // Verify teacher owns this class
-  const [teacherClass] = await db
+  const [teacherClass] = await getUserDb()
     .select()
     .from(teacherClasses)
     .where(
@@ -333,13 +333,13 @@ export async function generateClassSummaryReport(
   }
 
   // Fetch teacher info
-  const [teacher] = await db
+  const [teacher] = await getUserDb()
     .select()
     .from(users)
     .where(eq(users.id, teacherId));
 
   // Fetch all enrolled students
-  const enrollments = await db
+  const enrollments = await getUserDb()
     .select({
       studentId: classEnrollments.studentId,
       student: users,
@@ -357,7 +357,7 @@ export async function generateClassSummaryReport(
   const studentProgresses = await Promise.all(
     enrollments.map(async (enrollment) => {
       if (!enrollment.student) return null;
-      const [progress] = await db
+      const [progress] = await getUserDb()
         .select()
         .from(userProgress)
         .where(
@@ -433,7 +433,7 @@ export async function generateClassSummaryReport(
     }));
 
   // Fetch assignment completion stats
-  const classAssignments = await db
+  const classAssignments = await getUserDb()
     .select()
     .from(assignments)
     .where(eq(assignments.classId, classId));
@@ -444,7 +444,7 @@ export async function generateClassSummaryReport(
   let scoredSubmissions = 0;
 
   for (const assignment of classAssignments) {
-    const submissionsForAssignment = await db
+    const submissionsForAssignment = await getUserDb()
       .select()
       .from(assignmentSubmissions)
       .where(eq(assignmentSubmissions.assignmentId, assignment.id));

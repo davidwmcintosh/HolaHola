@@ -10,7 +10,7 @@
  * only what's relevant for the current situation.
  */
 
-import { db, getSharedDb } from '../db';
+import { db, getSharedDb, getUserDb } from '../db';
 import { CROSS_LANGUAGE_TRANSFERS_ENABLED } from './streaming-voice-orchestrator';
 import { 
   toolKnowledge, 
@@ -192,7 +192,7 @@ export async function getStudentSnapshotData(
   
   try {
     // 1. Get last session info by joining voiceSessions with conversations for topic
-    const recentSessions = await db.select({
+    const recentSessions = await getUserDb().select({
       sessionId: voiceSessions.id,
       startedAt: voiceSessions.startedAt,
       topic: sql<string>`COALESCE(${conversations.topic}, 'Practice session')`,
@@ -219,7 +219,7 @@ export async function getStudentSnapshotData(
     }
     
     // 2. Get progress/streak from userProgress
-    const progress = await db.select()
+    const progress = await getUserDb().select()
       .from(userProgress)
       .where(
         and(
@@ -245,7 +245,7 @@ export async function getStudentSnapshotData(
     
     // 3. Get recent personal facts for follow-up
     // Prioritize: recent mentions, time-sensitive facts, high confidence
-    const personalFacts = await db.select()
+    const personalFacts = await getSharedDb().select()
       .from(learnerPersonalFacts)
       .where(
         and(
@@ -559,7 +559,7 @@ export async function getPredictiveTeachingContext(
   
   const [predictions, alerts] = await Promise.all([
     // Get active, non-expired predictions
-    db.select()
+    getSharedDb().select()
       .from(predictedStruggles)
       .where(
         and(
@@ -573,7 +573,7 @@ export async function getPredictiveTeachingContext(
       .limit(3),
     
     // Get active motivation/engagement alerts
-    db.select()
+    getSharedDb().select()
       .from(userMotivationAlerts)
       .where(
         and(

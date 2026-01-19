@@ -13,7 +13,7 @@
  * - Runs nightly as part of the sync scheduler
  */
 
-import { db } from '../db';
+import { db, getSharedDb } from '../db';
 import { agentObservations, supportObservations } from '@shared/schema';
 import type { AgentObservation, SupportObservation } from '@shared/schema';
 import { eq, and, ne, desc, inArray } from 'drizzle-orm';
@@ -112,7 +112,7 @@ async function consolidateAgentObservations(): Promise<{ clustersFound: number; 
   let totalArchived = 0;
   
   // Get all active (non-archived) observations grouped by category
-  const activeObservations = await db
+  const activeObservations = await getSharedDb()
     .select()
     .from(agentObservations)
     .where(ne(agentObservations.status, 'archived'))
@@ -150,7 +150,7 @@ async function consolidateAgentObservations(): Promise<{ clustersFound: number; 
           if (canonical) {
             const newPriority = Math.min((canonical.priority || 50) + priorityBoost, 100);
             
-            await db.update(agentObservations)
+            await getSharedDb().update(agentObservations)
               .set({ 
                 priority: newPriority,
                 updatedAt: new Date(),
@@ -159,7 +159,7 @@ async function consolidateAgentObservations(): Promise<{ clustersFound: number; 
           }
           
           // Archive the duplicates with reference to canonical
-          await db.update(agentObservations)
+          await getSharedDb().update(agentObservations)
             .set({
               status: 'archived',
               reasoning: `Consolidated into ${cluster.canonicalId}: ${cluster.sharedConcept}`,
@@ -187,7 +187,7 @@ async function consolidateSupportObservations(): Promise<{ clustersFound: number
   let totalClusters = 0;
   let totalArchived = 0;
   
-  const activeObservations = await db
+  const activeObservations = await getSharedDb()
     .select()
     .from(supportObservations)
     .where(ne(supportObservations.status, 'archived'))
@@ -222,7 +222,7 @@ async function consolidateSupportObservations(): Promise<{ clustersFound: number
           if (canonical) {
             const newPriority = Math.min((canonical.priority || 50) + priorityBoost, 100);
             
-            await db.update(supportObservations)
+            await getSharedDb().update(supportObservations)
               .set({ 
                 priority: newPriority,
                 updatedAt: new Date(),
@@ -230,7 +230,7 @@ async function consolidateSupportObservations(): Promise<{ clustersFound: number
               .where(eq(supportObservations.id, cluster.canonicalId));
           }
           
-          await db.update(supportObservations)
+          await getSharedDb().update(supportObservations)
             .set({
               status: 'archived',
               reasoning: `Consolidated into ${cluster.canonicalId}: ${cluster.sharedConcept}`,
