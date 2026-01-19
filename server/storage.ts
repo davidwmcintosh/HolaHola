@@ -1731,35 +1731,35 @@ export class DatabaseStorage implements IStorage {
       learningContext: data.classId ? 'class_assigned' : 'self_directed',
     } as typeof conversations.$inferInsert;
     
-    const [conversation] = await db.insert(conversations).values(conversationData).returning();
+    const [conversation] = await getSharedDb().insert(conversations).values(conversationData).returning();
     return conversation;
   }
 
   async getConversation(id: string, userId: string): Promise<Conversation | undefined> {
-    const result = await db.select().from(conversations)
+    const result = await getSharedDb().select().from(conversations)
       .where(and(eq(conversations.id, id), eq(conversations.userId, userId)));
     return result[0];
   }
 
   async getUserConversations(userId: string): Promise<Conversation[]> {
-    return await db.select().from(conversations)
+    return await getSharedDb().select().from(conversations)
       .where(eq(conversations.userId, userId))
       .orderBy(desc(conversations.createdAt));
   }
 
   private async getConversationById(id: string): Promise<Conversation | undefined> {
-    const result = await db.select().from(conversations).where(eq(conversations.id, id));
+    const result = await getSharedDb().select().from(conversations).where(eq(conversations.id, id));
     return result[0];
   }
 
   async getConversationsByLanguage(language: string, userId: string): Promise<Conversation[]> {
-    return await db.select().from(conversations)
+    return await getSharedDb().select().from(conversations)
       .where(and(eq(conversations.language, language), eq(conversations.userId, userId)))
       .orderBy(desc(conversations.createdAt));
   }
 
   async getConversationByLanguageAndDifficulty(language: string, difficulty: string, userId: string): Promise<Conversation | undefined> {
-    const result = await db.select().from(conversations)
+    const result = await getSharedDb().select().from(conversations)
       .where(and(
         eq(conversations.language, language),
         eq(conversations.difficulty, difficulty),
@@ -1773,7 +1773,7 @@ export class DatabaseStorage implements IStorage {
       Object.entries(data).filter(([_, value]) => value !== undefined)
     );
     
-    const [updated] = await db.update(conversations)
+    const [updated] = await getSharedDb().update(conversations)
       .set(filteredData)
       .where(and(eq(conversations.id, id), eq(conversations.userId, userId)))
       .returning();
@@ -1786,7 +1786,7 @@ export class DatabaseStorage implements IStorage {
       Object.entries(data).filter(([_, value]) => value !== undefined)
     );
     
-    const [updated] = await db.update(conversations)
+    const [updated] = await getSharedDb().update(conversations)
       .set(filteredData)
       .where(eq(conversations.id, id))
       .returning();
@@ -1796,7 +1796,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateConversationLanguage(conversationId: string, language: string): Promise<void> {
     // Update conversation language - used during cross-language tutor handoffs
-    await db.update(conversations)
+    await getSharedDb().update(conversations)
       .set({ language: language.toLowerCase() })
       .where(eq(conversations.id, conversationId));
   }
@@ -1807,16 +1807,16 @@ export class DatabaseStorage implements IStorage {
       return false;
     }
     
-    await db.delete(messages).where(eq(messages.conversationId, id));
+    await getSharedDb().delete(messages).where(eq(messages.conversationId, id));
     await db.delete(pronunciationScores).where(eq(pronunciationScores.conversationId, id));
-    const result = await db.delete(conversations)
+    const result = await getSharedDb().delete(conversations)
       .where(and(eq(conversations.id, id), eq(conversations.userId, userId)))
       .returning();
     return result.length > 0;
   }
 
   async createMessage(data: InsertMessage): Promise<Message> {
-    const [message] = await db.insert(messages).values(data).returning();
+    const [message] = await getSharedDb().insert(messages).values(data).returning();
 
     const conversation = await this.getConversationById(data.conversationId);
     if (conversation) {
@@ -1840,7 +1840,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getMessage(messageId: string, userId: string): Promise<Message | undefined> {
-    const result = await db.select({
+    const result = await getSharedDb().select({
       id: messages.id,
       conversationId: messages.conversationId,
       role: messages.role,
@@ -1866,13 +1866,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getMessagesByConversation(conversationId: string): Promise<Message[]> {
-    return await db.select().from(messages)
+    return await getSharedDb().select().from(messages)
       .where(eq(messages.conversationId, conversationId))
       .orderBy(messages.createdAt);
   }
 
   async updateMessage(id: string, data: Partial<Message>): Promise<Message | undefined> {
-    const [updated] = await db.update(messages)
+    const [updated] = await getSharedDb().update(messages)
       .set(data)
       .where(eq(messages.id, id))
       .returning();
@@ -1881,7 +1881,7 @@ export class DatabaseStorage implements IStorage {
 
   async searchMessages(userId: string, query: string, limit: number = 20): Promise<Array<Message & { conversationTitle: string | null }>> {
     // Week 1 Feature: Smart search across all user conversations
-    const results = await db
+    const results = await getSharedDb()
       .select({
         // Message fields
         id: messages.id,
@@ -2696,25 +2696,25 @@ export class DatabaseStorage implements IStorage {
   // ===== Teacher Classes =====
   
   async createTeacherClass(data: InsertTeacherClass): Promise<TeacherClass> {
-    const [teacherClass] = await db.insert(teacherClasses).values(data).returning();
+    const [teacherClass] = await getSharedDb().insert(teacherClasses).values(data).returning();
     return teacherClass;
   }
 
   async getTeacherClass(id: string): Promise<TeacherClass | undefined> {
-    const result = await db.select().from(teacherClasses).where(eq(teacherClasses.id, id));
+    const result = await getSharedDb().select().from(teacherClasses).where(eq(teacherClasses.id, id));
     return result[0];
   }
 
   async getTeacherClasses(teacherId: string): Promise<TeacherClass[]> {
-    return await db.select().from(teacherClasses).where(eq(teacherClasses.teacherId, teacherId));
+    return await getSharedDb().select().from(teacherClasses).where(eq(teacherClasses.teacherId, teacherId));
   }
 
   async getAllActiveClasses(): Promise<TeacherClass[]> {
-    return await db.select().from(teacherClasses).where(eq(teacherClasses.isActive, true));
+    return await getSharedDb().select().from(teacherClasses).where(eq(teacherClasses.isActive, true));
   }
 
   async getFeaturedClasses(): Promise<Array<TeacherClass & { classType?: ClassType }>> {
-    const result = await db
+    const result = await getSharedDb()
       .select({
         teacherClass: teacherClasses,
         classType: classTypes,
@@ -2737,7 +2737,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateTeacherClass(id: string, data: Partial<TeacherClass>): Promise<TeacherClass | undefined> {
-    const [updated] = await db
+    const [updated] = await getSharedDb()
       .update(teacherClasses)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(teacherClasses.id, id))
@@ -2746,36 +2746,36 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteTeacherClass(id: string): Promise<boolean> {
-    const result = await db.delete(teacherClasses).where(eq(teacherClasses.id, id));
+    const result = await getSharedDb().delete(teacherClasses).where(eq(teacherClasses.id, id));
     return result.rowCount ? result.rowCount > 0 : false;
   }
 
   async getClassByJoinCode(joinCode: string): Promise<TeacherClass | undefined> {
-    const result = await db.select().from(teacherClasses).where(eq(teacherClasses.joinCode, joinCode));
+    const result = await getSharedDb().select().from(teacherClasses).where(eq(teacherClasses.joinCode, joinCode));
     return result[0];
   }
   
   // ===== Class Hour Packages (Institutional) =====
   
   async createClassHourPackage(data: InsertClassHourPackage): Promise<ClassHourPackage> {
-    const [pkg] = await db.insert(classHourPackages).values(data).returning();
+    const [pkg] = await getSharedDb().insert(classHourPackages).values(data).returning();
     return pkg;
   }
   
   async getClassHourPackage(id: string): Promise<ClassHourPackage | undefined> {
-    const result = await db.select().from(classHourPackages).where(eq(classHourPackages.id, id));
+    const result = await getSharedDb().select().from(classHourPackages).where(eq(classHourPackages.id, id));
     return result[0];
   }
   
   async getClassHourPackages(purchaserId?: string): Promise<ClassHourPackage[]> {
     if (purchaserId) {
-      return await db.select().from(classHourPackages).where(eq(classHourPackages.purchaserId, purchaserId));
+      return await getSharedDb().select().from(classHourPackages).where(eq(classHourPackages.purchaserId, purchaserId));
     }
-    return await db.select().from(classHourPackages);
+    return await getSharedDb().select().from(classHourPackages);
   }
   
   async updateClassHourPackage(id: string, data: Partial<ClassHourPackage>): Promise<ClassHourPackage | undefined> {
-    const [updated] = await db
+    const [updated] = await getSharedDb()
       .update(classHourPackages)
       .set(data)
       .where(eq(classHourPackages.id, id))
@@ -2784,7 +2784,7 @@ export class DatabaseStorage implements IStorage {
   }
   
   async deleteClassHourPackage(id: string): Promise<boolean> {
-    const result = await db.delete(classHourPackages).where(eq(classHourPackages.id, id));
+    const result = await getSharedDb().delete(classHourPackages).where(eq(classHourPackages.id, id));
     return result.rowCount ? result.rowCount > 0 : false;
   }
 
@@ -2792,7 +2792,7 @@ export class DatabaseStorage implements IStorage {
   
   async enrollStudent(classId: string, studentId: string): Promise<ClassEnrollment> {
     // Check if already enrolled to prevent duplicates
-    const existing = await db
+    const existing = await getSharedDb()
       .select()
       .from(classEnrollments)
       .where(
@@ -2806,7 +2806,7 @@ export class DatabaseStorage implements IStorage {
     if (existing.length > 0) {
       // If enrollment exists but was deactivated, reactivate it
       if (!existing[0].isActive) {
-        const [updated] = await db
+        const [updated] = await getSharedDb()
           .update(classEnrollments)
           .set({ isActive: true, enrolledAt: new Date() })
           .where(eq(classEnrollments.id, existing[0].id))
@@ -2818,7 +2818,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Create new enrollment
-    const [enrollment] = await db
+    const [enrollment] = await getSharedDb()
       .insert(classEnrollments)
       .values({ classId, studentId })
       .returning();
@@ -2826,7 +2826,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getClassEnrollments(classId: string): Promise<Array<ClassEnrollment & { student: User }>> {
-    const result = await db
+    const result = await getSharedDb()
       .select()
       .from(classEnrollments)
       .leftJoin(users, eq(classEnrollments.studentId, users.id))
@@ -2839,7 +2839,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getStudentEnrollments(studentId: string): Promise<Array<ClassEnrollment & { class: TeacherClass }>> {
-    const result = await db
+    const result = await getSharedDb()
       .select()
       .from(classEnrollments)
       .leftJoin(teacherClasses, eq(classEnrollments.classId, teacherClasses.id))
@@ -2852,7 +2852,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getStudentEnrollment(studentId: string, classId: string): Promise<ClassEnrollment | undefined> {
-    const result = await db
+    const result = await getSharedDb()
       .select()
       .from(classEnrollments)
       .where(
@@ -2866,7 +2866,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async unenrollStudent(classId: string, studentId: string): Promise<boolean> {
-    const result = await db
+    const result = await getSharedDb()
       .delete(classEnrollments)
       .where(
         and(
@@ -2878,7 +2878,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async isStudentEnrolled(classId: string, studentId: string): Promise<boolean> {
-    const result = await db
+    const result = await getSharedDb()
       .select()
       .from(classEnrollments)
       .where(
@@ -3951,7 +3951,7 @@ export class DatabaseStorage implements IStorage {
     const limit = options?.limit || 50;
     const offset = options?.offset || 0;
     
-    const result = await db
+    const result = await getSharedDb()
       .select({
         class: teacherClasses,
         teacher: users,
@@ -3964,7 +3964,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(teacherClasses.createdAt));
     
     // Get total count
-    const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(teacherClasses) as any;
+    const [{ count }] = await getSharedDb().select({ count: sql<number>`count(*)` }).from(teacherClasses) as any;
     
     return {
       classes: result.map(row => ({
@@ -3977,7 +3977,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getClassWithDetails(classId: string): Promise<(TeacherClass & { teacher: User; enrollmentCount: number; assignmentCount: number }) | undefined> {
-    const result = await db
+    const result = await getSharedDb()
       .select({
         class: teacherClasses,
         teacher: users,
@@ -4785,7 +4785,7 @@ export class DatabaseStorage implements IStorage {
       let vocabularyWord: VocabularyWord | undefined;
       
       if (item.conversationId) {
-        const [conv] = await db.select().from(conversations).where(eq(conversations.id, item.conversationId));
+        const [conv] = await getSharedDb().select().from(conversations).where(eq(conversations.id, item.conversationId));
         conversation = conv;
       }
       if (item.vocabularyWordId) {
@@ -4809,7 +4809,7 @@ export class DatabaseStorage implements IStorage {
     const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
     
     // Get conversations from this week
-    const weekConversations = await db
+    const weekConversations = await getSharedDb()
       .select()
       .from(conversations)
       .where(and(
