@@ -7,7 +7,7 @@
  * - Credit consumption per lesson
  */
 
-import { db } from "../db";
+import { getUserDb } from "../db";
 import { 
   syllabusProgress, 
   curriculumLessons, 
@@ -74,7 +74,7 @@ class SyllabusAnalyticsService {
   ): Promise<StudentSyllabusTimeData | null> {
     try {
       // Get class info
-      const classInfo = await db
+      const classInfo = await getUserDb()
         .select({
           id: teacherClasses.id,
           name: teacherClasses.name,
@@ -90,7 +90,7 @@ class SyllabusAnalyticsService {
       }
 
       // Get class syllabus structure (units and lessons)
-      const syllabusUnits = await db
+      const syllabusUnits = await getUserDb()
         .select({
           unitId: classCurriculumUnits.id,
           unitName: classCurriculumUnits.name,
@@ -122,7 +122,7 @@ class SyllabusAnalyticsService {
       const unitIds = syllabusUnits.map(u => u.unitId);
 
       // Get lessons for all units with their progress
-      const lessonsWithProgress = await db
+      const lessonsWithProgress = await getUserDb()
         .select({
           lessonId: classCurriculumLessons.id,
           lessonName: classCurriculumLessons.name,
@@ -159,7 +159,7 @@ class SyllabusAnalyticsService {
 
       let conversationTimes: Map<string, number> = new Map();
       if (conversationIds.length > 0) {
-        const sessionTimes = await db
+        const sessionTimes = await getUserDb()
           .select({
             conversationId: voiceSessions.conversationId,
             totalSeconds: sql<number>`SUM(COALESCE(${voiceSessions.durationSeconds}, 0))`.as('total_seconds'),
@@ -301,7 +301,7 @@ class SyllabusAnalyticsService {
   } | null> {
     try {
       // Get completed lessons count
-      const completedQuery = db
+      const completedQuery = getUserDb()
         .select({
           count: sql<number>`COUNT(*)`.as('count'),
         })
@@ -318,7 +318,7 @@ class SyllabusAnalyticsService {
       const totalLessonsCompleted = completed[0]?.count || 0;
 
       // Get total minutes from voice sessions
-      const sessionsQuery = await db
+      const sessionsQuery = await getUserDb()
         .select({
           totalSeconds: sql<number>`SUM(COALESCE(${voiceSessions.durationSeconds}, 0))`.as('total'),
         })
@@ -336,7 +336,7 @@ class SyllabusAnalyticsService {
         : 0;
 
       // Get weekly minutes (last 8 weeks)
-      const weeklyData = await db
+      const weeklyData = await getUserDb()
         .select({
           weekStart: sql<Date>`DATE_TRUNC('week', ${voiceSessions.startedAt})`.as('week_start'),
           minutes: sql<number>`ROUND(SUM(COALESCE(${voiceSessions.durationSeconds}, 0)) / 60)`.as('minutes'),
@@ -355,7 +355,7 @@ class SyllabusAnalyticsService {
       const weeklyMinutes = weeklyData.map(w => w.minutes);
 
       // Simple streak calculation (days with any activity in last 30 days)
-      const streakData = await db
+      const streakData = await getUserDb()
         .select({
           activityDate: sql<Date>`DATE(${voiceSessions.startedAt})`.as('activity_date'),
         })
