@@ -121,8 +121,65 @@ These files are development/seed scripts and can retain direct `db` access:
 
 Before removing sync-bridge.ts and sync-scheduler.ts:
 
-1. **Zero direct `db` usage** for shared/user tables in all server code
+1. ✅ **Zero direct `db` usage** for shared/user tables in all server code (COMPLETE)
 2. **Verification scripts pass**: `scripts/check-neon-full-status.ts`, `scripts/check-all-shared-tables.ts`
 3. **Production shadow run** confirms no writes to Replit DB when `USE_NEON_ROUTING=true`
 4. **Operational tests** cover teaching, usage/billing, and pronunciation flows
 5. **One week soak period** with no data inconsistencies reported
+
+## Phase 3 Actions (Deprecated Code Removal)
+
+Files to remove:
+- `server/services/sync-bridge.ts` (~8,000 lines) - Replaced by Neon routing
+- `server/services/sync-scheduler.ts` (~200 lines) - Coordinated sync-bridge
+- `server/services/editor-persona-service.ts` (~500 lines) - Editor system deprecated
+
+Related cleanup:
+- Remove sync-bridge imports from `server/routes.ts`
+- Remove sync-bridge initialization from server startup
+- Remove sync-related API routes (if any)
+
+## Phase 4 Preparation
+
+**Goal**: Remove `USE_NEON_ROUTING` flag and always use Neon
+
+**Prerequisites**:
+1. Phase 3 deprecated code removal complete
+2. All verification scripts passing
+3. Production running on Neon for 2+ weeks without issues
+4. Data consistency verified between shared/user databases
+
+**Actions**:
+1. Remove `USE_NEON_ROUTING` environment variable check from `server/db.ts`
+2. Simplify `getSharedDb()` and `getUserDb()` to always return Neon pools
+3. Remove legacy Replit DB connection from `db.ts`
+4. Update all documentation to reflect Neon-only architecture
+5. Archive sync-bridge documentation
+
+**Environment Changes**:
+- Remove `USE_NEON_ROUTING` from dev/prod secrets
+- Ensure `NEON_SHARED_DATABASE_URL` and `NEON_USER_DATABASE_URL` are set
+- Update deployment documentation
+
+## Migration Verification Commands
+
+```bash
+# Check for remaining direct db usage (excluding deprecated/seeds)
+grep -r "\bdb\." server/services/*.ts | grep -v "sync-bridge\|sync-scheduler\|editor-persona"
+
+# Verify Neon routing is enabled at startup
+# Look for: [DB] ✓ Neon routing ENABLED for shared tables
+
+# Run verification scripts
+npx tsx scripts/check-neon-full-status.ts
+npx tsx scripts/check-all-shared-tables.ts
+```
+
+## Current Status Summary
+
+| Phase | Status | Description |
+|-------|--------|-------------|
+| Phase 1 | ✅ Complete | Infrastructure setup (neon-db.ts, db.ts routing) |
+| Phase 2 | ✅ Complete | All services migrated to getUserDb/getSharedDb |
+| Phase 3 | 🔜 Next | Remove deprecated sync-bridge system |
+| Phase 4 | Pending | Disable USE_NEON_ROUTING flag (always Neon) |

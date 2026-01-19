@@ -273,7 +273,7 @@ export async function generateStudentProgressReport(
       email: user.email || "",
       targetLanguage: user.targetLanguage || "",
       nativeLanguage: user.nativeLanguage || "english",
-      currentActflLevel: toExternalActflLevel(user.actflLevel || "novice_low"),
+      currentActflLevel: toExternalActflLevel(user.actflLevel || "novice_low") || "Novice Low",
       subscriptionTier: user.subscriptionTier || "free",
     },
     overallProgress: {
@@ -287,8 +287,8 @@ export async function generateStudentProgressReport(
     },
     proficiencyTrajectory: {
       startLevel: "Novice Low", // TODO: track actual start level
-      currentLevel: toExternalActflLevel(currentLevel),
-      nextLevel: toExternalActflLevel(nextLevel),
+      currentLevel: toExternalActflLevel(currentLevel) || "Novice Low",
+      nextLevel: toExternalActflLevel(nextLevel) || "Novice Low",
       progressPercent: calculateProgressPercent(currentLevel),
       timeInCurrentLevel: progress?.totalPracticeDays || 0,
     },
@@ -539,7 +539,7 @@ export async function generateParentReport(
   return {
     student: {
       name: fullReport.student.name,
-      targetLanguage: fullReport.student.targetLanguage,
+      targetLanguage: fullReport.student.targetLanguage || "spanish",
       currentActflLevel: fullReport.student.currentActflLevel,
     },
     summary: {
