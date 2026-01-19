@@ -9605,7 +9605,6 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
   ): Promise<void> {
     try {
       const { findExpressLaneImages } = await import('./express-lane-image-loader');
-      const { createMultimodalFunctionResponse } = await import('./gemini-streaming');
       
       console.log(`[RecallImage] Searching for images matching: "${imageQuery}" (reason: ${reason || 'none'})`);
       
@@ -9631,22 +9630,37 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       
       const textContent = `[SYSTEM: Found ${images.length} image(s) matching "${imageQuery}":\n${imageDescriptions}\n\nThe actual image(s) are now visible to you. Look at them and describe what you see.]`;
       
-      // Create multimodal function response with images
-      const multimodalResponse = createMultimodalFunctionResponse(fnName, {
-        text: textContent,
-        images: images.map(img => ({
-          mimeType: img.imageType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
-          data: img.base64Data,
-        })),
-      });
-      
-      // Add to conversation history as a tool response with images
+      // Add function response (text only) to conversation history
+      // Images go in a separate user message (Gemini doesn't support images in function responses)
       if (session.conversationHistory) {
+        // First: Add function response with text only
         session.conversationHistory.push({
           role: 'tool' as const,
           parts: [{
-            functionResponse: multimodalResponse
+            functionResponse: {
+              name: fnName,
+              response: { output: [{ text: `Found ${images.length} image(s). Loading them now...` }] }
+            }
           }]
+        });
+        
+        // Second: Add images as user message with multimodal content
+        const imageParts: Array<{ inlineData: { mimeType: string; data: string } } | { text: string }> = [
+          { text: textContent }
+        ];
+        
+        for (const img of images) {
+          imageParts.push({
+            inlineData: {
+              mimeType: img.imageType,
+              data: img.base64Data,
+            }
+          });
+        }
+        
+        session.conversationHistory.push({
+          role: 'user' as const,
+          parts: imageParts,
         });
       }
       
