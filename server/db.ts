@@ -18,6 +18,10 @@ export const db = drizzle({ client: pool, schema });
 const NEON_SHARED_URL = process.env.NEON_SHARED_DATABASE_URL;
 const NEON_USER_URL = process.env.NEON_USER_DATABASE_URL;
 
+// NEON_STRICT_MODE: When enabled, throws errors instead of falling back to Replit DB
+// This exposes any remaining incorrect usages during development
+const NEON_STRICT_MODE = process.env.NEON_STRICT_MODE === 'true';
+
 // Neon is now the permanent default - no routing flag needed
 if (!NEON_SHARED_URL) {
   console.error("[DB] ⚠️ NEON_SHARED_DATABASE_URL missing - shared tables will fail!");
@@ -28,6 +32,9 @@ if (NEON_USER_URL) {
   console.log("[DB] ✓ Neon USER database configured");
 } else {
   console.log("[DB] Note: USER tables use Replit DB (NEON_USER_DATABASE_URL not set)");
+}
+if (NEON_STRICT_MODE) {
+  console.log("[DB] ⚠️ NEON_STRICT_MODE enabled - will throw on Replit DB fallback");
 }
 
 let neonSharedPool: Pool | null = null;
@@ -76,6 +83,11 @@ export function getDbForTable(tableName: string) {
     return getNeonUserDb();
   }
   
+  // Strict mode: throw instead of falling back to Replit DB
+  if (NEON_STRICT_MODE) {
+    throw new Error(`[DB STRICT] Attempted to use Replit DB fallback for table "${tableName}" (type: ${dbType}). Configure NEON_USER_DATABASE_URL or fix routing.`);
+  }
+  
   // Fallback to Replit DB for user tables when NEON_USER_URL not set
   return db;
 }
@@ -84,6 +96,12 @@ export function getSharedDb() {
   if (NEON_SHARED_URL) {
     return getNeonSharedDb();
   }
+  
+  // Strict mode: throw instead of falling back
+  if (NEON_STRICT_MODE) {
+    throw new Error("[DB STRICT] getSharedDb() called but NEON_SHARED_DATABASE_URL not set!");
+  }
+  
   // Should not happen in production - Neon is required
   console.warn("[DB] getSharedDb() called but NEON_SHARED_DATABASE_URL not set!");
   return db;
@@ -93,6 +111,12 @@ export function getUserDb() {
   if (NEON_USER_URL) {
     return getNeonUserDb();
   }
+  
+  // Strict mode: throw instead of falling back
+  if (NEON_STRICT_MODE) {
+    throw new Error("[DB STRICT] getUserDb() called but NEON_USER_DATABASE_URL not set!");
+  }
+  
   // User tables fall back to Replit DB if Neon user URL not configured
   return db;
 }
