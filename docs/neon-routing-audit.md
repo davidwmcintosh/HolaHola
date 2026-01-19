@@ -44,6 +44,8 @@ These services have been updated to use `getSharedDb()`/`getUserDb()`:
 - `conversation-tagger.ts` (FIXED Jan 2026 - conversationTopics, conversations to getUserDb)
 - `usage-service.ts` (FIXED Jan 2026 - syllabus_progress query to getUserDb)
 - `azure-pronunciation-service.ts` (FIXED Jan 2026 - phonemeStruggles to getUserDb)
+- `daniela-reflection.ts` (FIXED Jan 2026 - danielaSuggestions to getSharedDb)
+- `surgery-insight-service.ts` (FIXED Jan 2026 - tutorProcedures, teachingPrinciples, toolKnowledge, situationalPatterns to getSharedDb)
 
 ## Services Needing Routing Review ⚠️
 
@@ -57,30 +59,27 @@ All high-priority services have been fixed (Jan 2026):
 4. ~~**usage-service.ts**~~ → FIXED
 5. ~~**azure-pronunciation-service.ts**~~ → FIXED
 
-### Medium Priority (Editor/Collaboration Features)
+### Medium Priority (Editor/Collaboration Features) - BLOCKED
 
-4. **collaboration-hub-service.ts**
-   - `collaborationEvents` table - check if shared or user
+These services use tables not yet classified in `server/neon-db.ts`:
 
-5. **editor-feedback-service.ts**
-   - Various editor tables - likely user data
+4. **collaboration-hub-service.ts** - `collaboration_events`, `collaboration_participants` (need classification)
+5. **editor-feedback-service.ts** - `collaboration_channels`, `editor_listening_snapshots` (need classification)
+6. **editor-realtime-dispatcher.ts** - `editor_beacon_queue`, `editor_listening_snapshots` (need classification)
+7. **architect-voice-service.ts** - `architect_notes` (need classification)
 
-6. **editor-persona-service.ts**
-   - Mixed tables - needs audit
+**ACTION REQUIRED**: Add these tables to SHARED_TABLES or USER_TABLES in `server/neon-db.ts` before routing can proceed.
 
-7. **editor-realtime-dispatcher.ts**
-   - Beacon queue tables - likely user data
+### Lower Priority (Admin/Surgery Features) ✅ MOSTLY COMPLETE
 
-### Lower Priority (Admin/Surgery Features)
+6. ~~**daniela-reflection.ts**~~ → FIXED (getSharedDb for danielaSuggestions)
+7. ~~**surgery-insight-service.ts**~~ → FIXED (getSharedDb for neural network tables)
 
-6. **architect-voice-service.ts**
-   - `architectNotes` - check table classification
+8. **architect-voice-service.ts** - `architectNotes` table not yet classified in neon-db.ts
 
-7. **daniela-reflection.ts**
-   - `danielaSuggestions` - shared (Daniela intelligence), needs `getSharedDb()`
+### Deprecated (No Routing Changes Needed)
 
-8. **surgery-insight-service.ts**
-   - Neural network tables - shared, needs `getSharedDb()`
+- **editor-persona-service.ts** - Marked deprecated in code, uses unclassified editor tables. Will be removed with editor system.
 
 ## Deprecated (No Fix Needed) 🗑️
 

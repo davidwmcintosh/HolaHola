@@ -15,7 +15,7 @@
  * system to include them naturally alongside manually-curated knowledge.
  */
 
-import { db } from "../db";
+import { db, getSharedDb } from "../db";
 import {
   tutorProcedures,
   toolKnowledge,
@@ -168,7 +168,7 @@ async function insertTutorProcedure(proposalId: string, insight: ParsedInsight):
     originProposalId: proposalId,
   };
   
-  const [inserted] = await db.insert(tutorProcedures)
+  const [inserted] = await getSharedDb().insert(tutorProcedures)
     .values(data)
     .returning();
   
@@ -188,7 +188,7 @@ async function insertTeachingPrinciple(proposalId: string, insight: ParsedInsigh
     originProposalId: proposalId,
   };
   
-  const [inserted] = await db.insert(teachingPrinciples)
+  const [inserted] = await getSharedDb().insert(teachingPrinciples)
     .values(data)
     .returning();
   
@@ -209,7 +209,7 @@ async function insertToolKnowledge(proposalId: string, insight: ParsedInsight): 
     originProposalId: proposalId,
   };
   
-  const [inserted] = await db.insert(toolKnowledge)
+  const [inserted] = await getSharedDb().insert(toolKnowledge)
     .values(data)
     .returning();
   
@@ -228,7 +228,7 @@ async function insertSituationalPattern(proposalId: string, insight: ParsedInsig
     originProposalId: proposalId,
   };
   
-  const [inserted] = await db.insert(situationalPatterns)
+  const [inserted] = await getSharedDb().insert(situationalPatterns)
     .values(data)
     .returning();
   
@@ -245,10 +245,10 @@ export async function getSurgeryOriginatedInsights(): Promise<{
   patterns: SituationalPattern[];
 }> {
   const [procedures, principles, tools, patterns] = await Promise.all([
-    db.select().from(tutorProcedures).where(isNotNull(tutorProcedures.originProposalId)),
-    db.select().from(teachingPrinciples).where(isNotNull(teachingPrinciples.originProposalId)),
-    db.select().from(toolKnowledge).where(isNotNull(toolKnowledge.originProposalId)),
-    db.select().from(situationalPatterns).where(isNotNull(situationalPatterns.originProposalId)),
+    getSharedDb().select().from(tutorProcedures).where(isNotNull(tutorProcedures.originProposalId)),
+    getSharedDb().select().from(teachingPrinciples).where(isNotNull(teachingPrinciples.originProposalId)),
+    getSharedDb().select().from(toolKnowledge).where(isNotNull(toolKnowledge.originProposalId)),
+    getSharedDb().select().from(situationalPatterns).where(isNotNull(situationalPatterns.originProposalId)),
   ]);
   
   return { procedures, principles, tools, patterns };
@@ -264,22 +264,22 @@ export async function retractSurgeryInsight(
   try {
     switch (insightType) {
       case 'procedure':
-        await db.update(tutorProcedures)
+        await getSharedDb().update(tutorProcedures)
           .set({ isActive: false })
           .where(eq(tutorProcedures.id, insightId));
         break;
       case 'principle':
-        await db.update(teachingPrinciples)
+        await getSharedDb().update(teachingPrinciples)
           .set({ isActive: false })
           .where(eq(teachingPrinciples.id, insightId));
         break;
       case 'tool':
-        await db.update(toolKnowledge)
+        await getSharedDb().update(toolKnowledge)
           .set({ isActive: false })
           .where(eq(toolKnowledge.id, insightId));
         break;
       case 'pattern':
-        await db.update(situationalPatterns)
+        await getSharedDb().update(situationalPatterns)
           .set({ isActive: false })
           .where(eq(situationalPatterns.id, insightId));
         break;
@@ -303,22 +303,22 @@ export async function reactivateSurgeryInsight(
   try {
     switch (insightType) {
       case 'procedure':
-        await db.update(tutorProcedures)
+        await getSharedDb().update(tutorProcedures)
           .set({ isActive: true })
           .where(eq(tutorProcedures.id, insightId));
         break;
       case 'principle':
-        await db.update(teachingPrinciples)
+        await getSharedDb().update(teachingPrinciples)
           .set({ isActive: true })
           .where(eq(teachingPrinciples.id, insightId));
         break;
       case 'tool':
-        await db.update(toolKnowledge)
+        await getSharedDb().update(toolKnowledge)
           .set({ isActive: true })
           .where(eq(toolKnowledge.id, insightId));
         break;
       case 'pattern':
-        await db.update(situationalPatterns)
+        await getSharedDb().update(situationalPatterns)
           .set({ isActive: true })
           .where(eq(situationalPatterns.id, insightId));
         break;
@@ -337,25 +337,25 @@ export async function reactivateSurgeryInsight(
  */
 export async function countSurgeryInsights(): Promise<Record<SurgeryInsightType, { active: number; inactive: number }>> {
   const [procedures, principles, tools, patterns] = await Promise.all([
-    db.select({
+    getSharedDb().select({
       active: sql<number>`count(*) filter (where is_active = true)`,
       inactive: sql<number>`count(*) filter (where is_active = false)`,
     })
       .from(tutorProcedures)
       .where(isNotNull(tutorProcedures.originProposalId)),
-    db.select({
+    getSharedDb().select({
       active: sql<number>`count(*) filter (where is_active = true)`,
       inactive: sql<number>`count(*) filter (where is_active = false)`,
     })
       .from(teachingPrinciples)
       .where(isNotNull(teachingPrinciples.originProposalId)),
-    db.select({
+    getSharedDb().select({
       active: sql<number>`count(*) filter (where is_active = true)`,
       inactive: sql<number>`count(*) filter (where is_active = false)`,
     })
       .from(toolKnowledge)
       .where(isNotNull(toolKnowledge.originProposalId)),
-    db.select({
+    getSharedDb().select({
       active: sql<number>`count(*) filter (where is_active = true)`,
       inactive: sql<number>`count(*) filter (where is_active = false)`,
     })

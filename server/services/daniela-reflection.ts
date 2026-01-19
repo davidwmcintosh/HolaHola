@@ -469,7 +469,7 @@ async function storeSignificantInsights(
     if (existing) {
       // Increment evidence count and calculate promotion in SQL to prevent race conditions
       // Use CASE expression: promote to 'ready' only when evidence_count + 1 >= threshold
-      await db.update(danielaSuggestions)
+      await getSharedDb().update(danielaSuggestions)
         .set({
           evidenceCount: sql`${danielaSuggestions.evidenceCount} + 1`,
           lastObservedAt: new Date(),
@@ -508,13 +508,13 @@ async function storeSignificantInsights(
         syncStatus: 'local',
       };
       
-      await db.insert(danielaSuggestions).values(suggestion);
+      await getSharedDb().insert(danielaSuggestions).values(suggestion);
     }
   }
 }
 
 async function findSimilarSuggestion(title: string, category: string): Promise<DanielaSuggestion | null> {
-  const results = await db.select()
+  const results = await getSharedDb().select()
     .from(danielaSuggestions)
     .where(and(
       eq(danielaSuggestions.title, title),
@@ -532,7 +532,7 @@ async function findSimilarSuggestion(title: string, category: string): Promise<D
 // ===== Query Functions =====
 
 export async function getPendingSuggestions(limit: number = 10): Promise<DanielaSuggestion[]> {
-  return db.select()
+  return getSharedDb().select()
     .from(danielaSuggestions)
     .where(or(
       eq(danielaSuggestions.status, 'ready'),
@@ -543,7 +543,7 @@ export async function getPendingSuggestions(limit: number = 10): Promise<Daniela
 }
 
 export async function getSuggestionsByCategory(category: string): Promise<DanielaSuggestion[]> {
-  return db.select()
+  return getSharedDb().select()
     .from(danielaSuggestions)
     .where(eq(danielaSuggestions.category, category as any))
     .orderBy(desc(danielaSuggestions.createdAt));
@@ -555,7 +555,7 @@ export async function markSuggestionReviewed(
   notes?: string,
   newStatus?: 'implemented' | 'deferred' | 'rejected'
 ): Promise<void> {
-  await db.update(danielaSuggestions)
+  await getSharedDb().update(danielaSuggestions)
     .set({
       status: newStatus || 'reviewed',
       reviewedAt: new Date(),
@@ -571,7 +571,7 @@ export async function exportDanielaSuggestions(): Promise<{
   suggestions: DanielaSuggestion[];
   triggers: ReflectionTrigger[];
 }> {
-  const suggestions = await db.select()
+  const suggestions = await getSharedDb().select()
     .from(danielaSuggestions)
     .where(or(
       eq(danielaSuggestions.syncStatus, 'approved'),
@@ -587,7 +587,7 @@ export async function exportDanielaSuggestions(): Promise<{
 
 export async function autoApproveSuggestions(): Promise<{ approved: number }> {
   // Auto-approve ready suggestions with enough evidence
-  const result = await db.update(danielaSuggestions)
+  const result = await getSharedDb().update(danielaSuggestions)
     .set({ syncStatus: 'approved' })
     .where(and(
       eq(danielaSuggestions.syncStatus, 'local'),
