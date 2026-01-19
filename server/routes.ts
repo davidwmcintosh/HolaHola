@@ -3279,9 +3279,21 @@ export async function registerRoutes(app: Express): Promise<void> {
   app.get("/api/conversations", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const email = req.user.claims.email;
+      console.log('[CONVERSATIONS GET] Fetching for userId:', userId, 'email:', email, 'env:', process.env.NODE_ENV);
       const conversations = await storage.getUserConversations(userId);
+      console.log('[CONVERSATIONS GET] Found', conversations.length, 'conversations for userId:', userId);
+      
+      // Debug: If no conversations found, check what userIds exist in shared DB
+      if (conversations.length === 0) {
+        const sampleConvs = await storage.debugGetSampleConversations();
+        console.log('[CONVERSATIONS GET] Sample conversation userIds in shared DB:', 
+          sampleConvs.map(c => ({ userId: c.userId, id: c.id.substring(0, 8) })).slice(0, 5));
+      }
+      
       res.json(conversations);
     } catch (error: any) {
+      console.error('[CONVERSATIONS GET] Error:', error.message);
       res.status(500).json({ error: error.message });
     }
   });
@@ -11424,6 +11436,56 @@ Return ONLY the ${targetLanguage} phrase:`;
       });
     } catch (error: any) {
       console.error('Error fetching voice session reports:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // ===== Database Routing Diagnostics (Founder Only) =====
+  // Diagnose Neon migration issues - shows user identity and sample conversation data
+  app.get("/api/admin/db-routing-diagnostic", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const email = req.user.claims.email;
+      const env = process.env.NODE_ENV || 'unknown';
+      
+      // Get user's conversations count
+      const userConversations = await storage.getUserConversations(userId);
+      
+      // Get sample conversations from shared DB (any user)
+      const sampleConvs = await storage.debugGetSampleConversations();
+      
+      // Check if Neon shared URL is configured
+      const hasNeonShared = !!process.env.NEON_SHARED_DATABASE_URL;
+      const hasNeonUser = !!process.env.NEON_USER_DATABASE_URL;
+      
+      res.json({
+        environment: env,
+        currentUser: {
+          userId,
+          email,
+          conversationCount: userConversations.length,
+        },
+        sharedDatabase: {
+          neonConfigured: hasNeonShared,
+          sampleConversationUserIds: sampleConvs.slice(0, 10).map(c => ({
+            conversationId: c.id.substring(0, 8),
+            userId: c.userId,
+            language: c.language,
+            createdAt: c.createdAt,
+          })),
+          totalSampleCount: sampleConvs.length,
+        },
+        userDatabase: {
+          neonConfigured: hasNeonUser,
+        },
+        diagnosis: userConversations.length === 0 && sampleConvs.length > 0
+          ? `No conversations found for userId ${userId}. Sample userIds in DB: ${[...new Set(sampleConvs.map(c => c.userId))].slice(0, 5).join(', ')}`
+          : userConversations.length > 0
+            ? 'Conversations found for current user - routing appears correct'
+            : 'No conversations in shared database at all',
+      });
+    } catch (error: any) {
+      console.error('[DB Routing Diagnostic] Error:', error);
       res.status(500).json({ error: error.message });
     }
   });

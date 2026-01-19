@@ -1742,9 +1742,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserConversations(userId: string): Promise<Conversation[]> {
-    return await getSharedDb().select().from(conversations)
+    console.log('[STORAGE] getUserConversations - querying shared DB for userId:', userId);
+    const result = await getSharedDb().select().from(conversations)
       .where(eq(conversations.userId, userId))
       .orderBy(desc(conversations.createdAt));
+    console.log('[STORAGE] getUserConversations - found', result.length, 'conversations');
+    return result;
+  }
+
+  async debugGetSampleConversations(): Promise<Conversation[]> {
+    // Debug method to see what userIds exist in the shared conversations table
+    return await getSharedDb().select().from(conversations)
+      .orderBy(desc(conversations.createdAt))
+      .limit(10);
   }
 
   private async getConversationById(id: string): Promise<Conversation | undefined> {
