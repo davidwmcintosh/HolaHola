@@ -2413,26 +2413,27 @@ Remember: David may reference things discussed in these recent text chats.
                   
                   if (query) {
                     try {
-                      const { expressLaneMessages } = await import('@shared/schema');
+                      const { collaborationMessages } = await import('@shared/schema');
+                      const sharedDb = getSharedDb();
                       
-                      // Search Express Lane messages
+                      // Search Express Lane messages (stored in collaboration_messages)
                       let results: any[];
                       
                       if (sessionId) {
                         // Search within specific session
-                        results = await db.select()
-                          .from(expressLaneMessages)
+                        results = await sharedDb.select()
+                          .from(collaborationMessages)
                           .where(sql`session_id = ${sessionId} AND (
                             content ILIKE ${`%${query}%`} OR 
-                            sender ILIKE ${`%${query}%`}
+                            role ILIKE ${`%${query}%`}
                           )`)
                           .orderBy(sql`created_at DESC`)
                           .limit(limit);
                       } else {
                         // Search across all sessions
-                        results = await db.select()
-                          .from(expressLaneMessages)
-                          .where(sql`content ILIKE ${`%${query}%`} OR sender ILIKE ${`%${query}%`}`)
+                        results = await sharedDb.select()
+                          .from(collaborationMessages)
+                          .where(sql`content ILIKE ${`%${query}%`} OR role ILIKE ${`%${query}%`}`)
                           .orderBy(sql`created_at DESC`)
                           .limit(limit);
                       }
@@ -2441,7 +2442,7 @@ Remember: David may reference things discussed in these recent text chats.
                         // Format results for conversation context
                         const formattedResults = results.map(msg => {
                           const date = new Date(msg.createdAt).toLocaleDateString();
-                          return `[${date}] ${msg.sender}: ${msg.content}`;
+                          return `[${date}] ${msg.role}: ${msg.content}`;
                         }).join('\n');
                         
                         if (session.conversationHistory) {
@@ -4454,19 +4455,20 @@ Remember: David may reference things discussed in these recent text chats.
                 
                 if (query) {
                   try {
-                    const { expressLaneMessages } = await import('@shared/schema');
+                    const { collaborationMessages } = await import('@shared/schema');
+                    const sharedDb = getSharedDb();
                     
                     let results: any[];
                     if (sessionIdParam) {
-                      results = await db.select()
-                        .from(expressLaneMessages)
-                        .where(sql`session_id = ${sessionIdParam} AND (content ILIKE ${`%${query}%`} OR sender ILIKE ${`%${query}%`})`)
+                      results = await sharedDb.select()
+                        .from(collaborationMessages)
+                        .where(sql`session_id = ${sessionIdParam} AND (content ILIKE ${`%${query}%`} OR role ILIKE ${`%${query}%`})`)
                         .orderBy(sql`created_at DESC`)
                         .limit(limit);
                     } else {
-                      results = await db.select()
-                        .from(expressLaneMessages)
-                        .where(sql`content ILIKE ${`%${query}%`} OR sender ILIKE ${`%${query}%`}`)
+                      results = await sharedDb.select()
+                        .from(collaborationMessages)
+                        .where(sql`content ILIKE ${`%${query}%`} OR role ILIKE ${`%${query}%`}`)
                         .orderBy(sql`created_at DESC`)
                         .limit(limit);
                     }
@@ -4474,7 +4476,7 @@ Remember: David may reference things discussed in these recent text chats.
                     if (results.length > 0) {
                       const formattedResults = results.map(msg => {
                         const date = new Date(msg.createdAt).toLocaleDateString();
-                        return `[${date}] ${msg.sender}: ${msg.content}`;
+                        return `[${date}] ${msg.role}: ${msg.content}`;
                       }).join('\n');
                       
                       if (session.conversationHistory) {
