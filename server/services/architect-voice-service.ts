@@ -13,7 +13,7 @@
  * This prevents other AI agents (Gemini, etc.) from accessing the endpoint.
  */
 
-import { db } from "../db";
+import { db, getSharedDb } from "../db";
 import { architectNotes, type ArchitectNote } from "../../shared/schema";
 import { eq, and, inArray } from "drizzle-orm";
 
@@ -56,7 +56,7 @@ class ArchitectVoiceService {
    */
   async injectNote(conversationId: string, content: string): Promise<ArchitectNoteCompat> {
     try {
-      const [note] = await db.insert(architectNotes)
+      const [note] = await getSharedDb().insert(architectNotes)
         .values({
           conversationId,
           content,
@@ -86,7 +86,7 @@ class ArchitectVoiceService {
    */
   async getPendingNotes(conversationId: string): Promise<ArchitectNoteCompat[]> {
     try {
-      const notes = await db.select()
+      const notes = await getSharedDb().select()
         .from(architectNotes)
         .where(
           and(
@@ -120,7 +120,7 @@ class ArchitectVoiceService {
     if (noteIds.length === 0) return;
     
     try {
-      await db.update(architectNotes)
+      await getSharedDb().update(architectNotes)
         .set({ 
           delivered: true,
           deliveredAt: new Date()
@@ -182,7 +182,7 @@ Remember: Claude can't speak with voice, only send text notes like these.
    */
   async clearNotes(conversationId: string): Promise<void> {
     try {
-      await db.delete(architectNotes)
+      await getSharedDb().delete(architectNotes)
         .where(eq(architectNotes.conversationId, conversationId));
       
       console.log(`[Architect Voice] Cleared notes for conversation ${conversationId}`);
@@ -196,7 +196,7 @@ Remember: Claude can't speak with voice, only send text notes like these.
    */
   async getStats(): Promise<{ activeConversations: number; totalNotes: number; pendingNotes: number }> {
     try {
-      const allNotes = await db.select().from(architectNotes);
+      const allNotes = await getSharedDb().select().from(architectNotes);
       
       const conversationIds = new Set(allNotes.map(n => n.conversationId));
       const pendingCount = allNotes.filter(n => !n.delivered).length;

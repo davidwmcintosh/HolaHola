@@ -13,7 +13,7 @@
  * @deprecated Editor retired - use EXPRESS Lane and Wren instead
  */
 
-import { db } from "../db";
+import { db, getUserDb } from "../db";
 import { 
   editorBeaconQueue, 
   editorListeningSnapshots,
@@ -62,7 +62,7 @@ async function acquireBeacons(limit: number): Promise<EditorBeaconQueue[]> {
   
   // Use raw SQL for FOR UPDATE SKIP LOCKED - not fully supported in Drizzle yet
   // For pending items, lockedAt is used as "next attempt after" timestamp for backoff
-  const result = await db.execute(sql`
+  const result = await getUserDb().execute(sql`
     UPDATE editor_beacon_queue
     SET 
       status = 'processing',
@@ -104,7 +104,7 @@ async function acquireBeacons(limit: number): Promise<EditorBeaconQueue[]> {
  * Mark beacon as completed
  */
 async function markCompleted(beaconId: string): Promise<void> {
-  await db.update(editorBeaconQueue)
+  await getUserDb().update(editorBeaconQueue)
     .set({
       status: 'completed',
       processedAt: new Date(),
@@ -119,7 +119,7 @@ async function markCompleted(beaconId: string): Promise<void> {
  * Uses lockedAt as "next attempt after" timestamp to enforce backoff
  */
 async function markFailed(beaconId: string, error: string, attempts: number): Promise<void> {
-  const [beacon] = await db.select()
+  const [beacon] = await getUserDb().select()
     .from(editorBeaconQueue)
     .where(eq(editorBeaconQueue.id, beaconId));
   
@@ -130,7 +130,7 @@ async function markFailed(beaconId: string, error: string, attempts: number): Pr
   const backoffMs = isPermanentFailure ? 0 : getBackoffDelay(attempts);
   const nextAttemptAt = isPermanentFailure ? null : new Date(Date.now() + backoffMs);
   
-  await db.update(editorBeaconQueue)
+  await getUserDb().update(editorBeaconQueue)
     .set({
       status: newStatus,
       lastError: error,
@@ -164,7 +164,7 @@ function getBackoffDelay(attempts: number): number {
  * Validate that snapshot exists before processing
  */
 async function validateSnapshotExists(snapshotId: string): Promise<boolean> {
-  const [snapshot] = await db.select({ id: editorListeningSnapshots.id })
+  const [snapshot] = await getUserDb().select({ id: editorListeningSnapshots.id })
     .from(editorListeningSnapshots)
     .where(eq(editorListeningSnapshots.id, snapshotId))
     .limit(1);
@@ -180,7 +180,7 @@ async function processBeacon(beacon: EditorBeaconQueue): Promise<boolean> {
     const snapshotExists = await validateSnapshotExists(beacon.snapshotId);
     if (!snapshotExists) {
       console.warn(`[Realtime Dispatcher] Snapshot ${beacon.snapshotId} not found - marking beacon as permanently failed`);
-      await db.update(editorBeaconQueue)
+      await getUserDb().update(editorBeaconQueue)
         .set({
           status: 'failed',
           lastError: 'Snapshot not found (deleted or never existed)',
@@ -349,7 +349,7 @@ export async function enqueueBeacon(snapshotId: string): Promise<EditorBeaconQue
     maxAttempts: 3,
   };
   
-  const [inserted] = await db.insert(editorBeaconQueue)
+  const [inserted] = await getUserDb().insert(editorBeaconQueue)
     .values(queueEntry)
     .returning();
   
@@ -362,7 +362,7 @@ export async function enqueueBeacon(snapshotId: string): Promise<EditorBeaconQue
  * Get queue depth (pending beacons)
  */
 export async function getQueueDepth(): Promise<number> {
-  const result = await db.select({ count: sql<number>`count(*)` })
+  const result = await getUserDb().select({ count: sql<number>`count(*)` })
     .from(editorBeaconQueue)
     .where(eq(editorBeaconQueue.status, 'pending'));
   

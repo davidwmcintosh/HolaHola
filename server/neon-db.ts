@@ -90,6 +90,10 @@ export const SHARED_TABLES = new Set([
   'founder_sessions',
   'express_lane_sessions',
   'express_lane_messages',
+  'collaboration_messages',  // Express Lane collaboration history
+  
+  // Architect/Wren Notes
+  'architect_notes',
   
   // Daniela's learner memory (shared so she remembers students across envs)
   'learner_personal_facts',
@@ -120,6 +124,14 @@ export const USER_TABLES = new Set([
   'surgery_turns',
   'consultation_threads',
   'consultation_messages',
+  'conversation_topics',
+  
+  // Editor/Collaboration (per-environment user data)
+  'collaboration_events',
+  'collaboration_participants',
+  'collaboration_channels',
+  'editor_listening_snapshots',
+  'editor_beacon_queue',
   
   // Progress & Learning
   'user_progress',
@@ -136,6 +148,8 @@ export const USER_TABLES = new Set([
   'vocabulary_word_topics',
   'pronunciation_scores',
   'pronunciation_audio',
+  'phoneme_struggles',
+  'actfl_assessment_events',
   
   // Teacher/Class Management
   'teacher_classes',

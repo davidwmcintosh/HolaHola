@@ -9,7 +9,7 @@
  * This is the central orchestration point for all collaboration events.
  */
 
-import { db, getSharedDb } from "../db";
+import { db, getSharedDb, getUserDb } from "../db";
 import { 
   collaborationEvents, 
   collaborationParticipants,
@@ -157,7 +157,7 @@ class CollaborationHubService {
     };
     
     // Mark the original event as read
-    await db.update(collaborationEvents)
+    await getUserDb().update(collaborationEvents)
       .set({ isRead: true })
       .where(eq(collaborationEvents.id, params.replyToEventId));
     
@@ -192,7 +192,7 @@ class CollaborationHubService {
   // ============================================================================
   
   private async createEvent(event: InsertCollaborationEvent): Promise<CollaborationEvent> {
-    const [created] = await db.insert(collaborationEvents)
+    const [created] = await getUserDb().insert(collaborationEvents)
       .values(event as any)
       .returning();
     
@@ -222,7 +222,7 @@ class CollaborationHubService {
    * Get pending suggestions for Editor (unread, action-required)
    */
   async getPendingSuggestionsForEditor(): Promise<CollaborationEvent[]> {
-    return db.select()
+    return getUserDb().select()
       .from(collaborationEvents)
       .where(
         and(
@@ -239,7 +239,7 @@ class CollaborationHubService {
    * Get recent collaboration feed (for Founder observation)
    */
   async getRecentFeed(limit: number = 50): Promise<CollaborationEvent[]> {
-    return db.select()
+    return getUserDb().select()
       .from(collaborationEvents)
       .orderBy(desc(collaborationEvents.createdAt))
       .limit(limit);
@@ -250,14 +250,14 @@ class CollaborationHubService {
    */
   async getEventThread(eventId: string): Promise<CollaborationEvent[]> {
     // Get original event
-    const [original] = await db.select()
+    const [original] = await getUserDb().select()
       .from(collaborationEvents)
       .where(eq(collaborationEvents.id, eventId));
     
     if (!original) return [];
     
     // Get all replies
-    const replies = await db.select()
+    const replies = await getUserDb().select()
       .from(collaborationEvents)
       .where(sql`${collaborationEvents.metadata}->>'replyToEventId' = ${eventId}`)
       .orderBy(collaborationEvents.createdAt);
@@ -279,7 +279,7 @@ class CollaborationHubService {
       updateData.metadata = sql`COALESCE(${collaborationEvents.metadata}, '{}'::jsonb) || ${JSON.stringify({ convertedToSprintId })}::jsonb`;
     }
     
-    await db.update(collaborationEvents)
+    await getUserDb().update(collaborationEvents)
       .set(updateData)
       .where(eq(collaborationEvents.id, eventId));
     
@@ -298,10 +298,10 @@ class CollaborationHubService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    const [totalResult] = await db.select({ count: sql<number>`count(*)` })
+    const [totalResult] = await getUserDb().select({ count: sql<number>`count(*)` })
       .from(collaborationEvents);
     
-    const [pendingResult] = await db.select({ count: sql<number>`count(*)` })
+    const [pendingResult] = await getUserDb().select({ count: sql<number>`count(*)` })
       .from(collaborationEvents)
       .where(
         and(
@@ -310,7 +310,7 @@ class CollaborationHubService {
         )
       );
     
-    const [questionsResult] = await db.select({ count: sql<number>`count(*)` })
+    const [questionsResult] = await getUserDb().select({ count: sql<number>`count(*)` })
       .from(collaborationEvents)
       .where(
         and(
@@ -319,7 +319,7 @@ class CollaborationHubService {
         )
       );
     
-    const [todayResult] = await db.select({ count: sql<number>`count(*)` })
+    const [todayResult] = await getUserDb().select({ count: sql<number>`count(*)` })
       .from(collaborationEvents)
       .where(sql`${collaborationEvents.createdAt} >= ${today}`);
     
@@ -344,7 +344,7 @@ class CollaborationHubService {
     displayName: string;
   }): Promise<CollaborationParticipant> {
     // Check if already exists
-    const existing = await db.select()
+    const existing = await getUserDb().select()
       .from(collaborationParticipants)
       .where(
         and(
@@ -358,14 +358,14 @@ class CollaborationHubService {
     
     if (existing.length > 0) {
       // Update last seen
-      await db.update(collaborationParticipants)
+      await getUserDb().update(collaborationParticipants)
         .set({ lastSeen: new Date(), isOnline: true })
         .where(eq(collaborationParticipants.id, existing[0].id));
       return existing[0];
     }
     
     // Create new
-    const [created] = await db.insert(collaborationParticipants)
+    const [created] = await getUserDb().insert(collaborationParticipants)
       .values({
         role: params.role,
         userId: params.userId,
@@ -382,7 +382,7 @@ class CollaborationHubService {
    * Mark participant offline
    */
   async setParticipantOffline(participantId: string): Promise<void> {
-    await db.update(collaborationParticipants)
+    await getUserDb().update(collaborationParticipants)
       .set({ isOnline: false, lastSeen: new Date() })
       .where(eq(collaborationParticipants.id, participantId));
   }
@@ -391,7 +391,7 @@ class CollaborationHubService {
    * Get online participants
    */
   async getOnlineParticipants(): Promise<CollaborationParticipant[]> {
-    return db.select()
+    return getUserDb().select()
       .from(collaborationParticipants)
       .where(eq(collaborationParticipants.isOnline, true));
   }
@@ -431,7 +431,7 @@ class CollaborationHubService {
    */
   async buildDanielaContext(conversationId?: string): Promise<string> {
     // Get recent editor responses that haven't been surfaced
-    const recentResponses = await db.select()
+    const recentResponses = await getUserDb().select()
       .from(collaborationEvents)
       .where(
         and(
@@ -448,7 +448,7 @@ class CollaborationHubService {
     
     // Mark as read
     for (const response of recentResponses) {
-      await db.update(collaborationEvents)
+      await getUserDb().update(collaborationEvents)
         .set({ isRead: true })
         .where(eq(collaborationEvents.id, response.id));
     }

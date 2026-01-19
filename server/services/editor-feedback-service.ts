@@ -14,7 +14,7 @@
  * @deprecated Editor retired - use EXPRESS Lane and Wren instead
  */
 
-import { db } from "../db";
+import { db, getUserDb } from "../db";
 import { 
   editorListeningSnapshots,
   collaborationChannels,
@@ -58,7 +58,7 @@ class EditorFeedbackService {
    */
   async getUnsurfacedFeedback(userId: string, limit: number = 5): Promise<FeedbackSummary> {
     // Get channels for this user
-    const userChannels = await db.select({ id: collaborationChannels.id, conversationId: collaborationChannels.conversationId })
+    const userChannels = await getUserDb().select({ id: collaborationChannels.id, conversationId: collaborationChannels.conversationId })
       .from(collaborationChannels)
       .where(eq(collaborationChannels.userId, userId));
     
@@ -70,7 +70,7 @@ class EditorFeedbackService {
     const channelConversationMap = new Map(userChannels.map(c => [c.id, c.conversationId]));
     
     // Get unsurfaced feedback with Editor responses
-    const snapshots = await db.select()
+    const snapshots = await getUserDb().select()
       .from(editorListeningSnapshots)
       .where(
         and(
@@ -86,7 +86,7 @@ class EditorFeedbackService {
       .limit(limit);
     
     // Count total unsurfaced
-    const countResult = await db.select({ count: sql<number>`count(*)` })
+    const countResult = await getUserDb().select({ count: sql<number>`count(*)` })
       .from(editorListeningSnapshots)
       .where(
         and(
@@ -124,7 +124,7 @@ class EditorFeedbackService {
    */
   async getFeedbackForConversation(conversationId: string, limit: number = 5): Promise<FeedbackSummary> {
     // Find channel for this conversation
-    const channels = await db.select()
+    const channels = await getUserDb().select()
       .from(collaborationChannels)
       .where(eq(collaborationChannels.conversationId, conversationId));
     
@@ -135,7 +135,7 @@ class EditorFeedbackService {
     const channelIds = channels.map(c => c.id);
     
     // Get feedback with Editor responses
-    const snapshots = await db.select()
+    const snapshots = await getUserDb().select()
       .from(editorListeningSnapshots)
       .where(
         and(
@@ -175,7 +175,7 @@ class EditorFeedbackService {
   async markAsSurfaced(snapshotIds: string[]): Promise<void> {
     if (snapshotIds.length === 0) return;
     
-    await db.update(editorListeningSnapshots)
+    await getUserDb().update(editorListeningSnapshots)
       .set({ 
         surfacedToDaniela: true,
         surfacedAt: new Date(),
@@ -190,7 +190,7 @@ class EditorFeedbackService {
    * Called when Daniela uses [ADOPT_INSIGHT:id] marker
    */
   async markAsAdopted(snapshotId: string, adoptionContext?: string): Promise<void> {
-    await db.update(editorListeningSnapshots)
+    await getUserDb().update(editorListeningSnapshots)
       .set({ 
         adoptedByDaniela: true,
         adoptedAt: new Date(),
@@ -255,7 +255,7 @@ This helps us track which suggestions improve teaching effectiveness.
       context: string | null;
     }>;
   }> {
-    let baseQuery = db.select()
+    let baseQuery = getUserDb().select()
       .from(editorListeningSnapshots)
       .innerJoin(collaborationChannels, eq(editorListeningSnapshots.channelId, collaborationChannels.id));
     
@@ -265,7 +265,7 @@ This helps us track which suggestions improve teaching effectiveness.
       : sql`1=1`;
     
     // Count surfaced
-    const surfacedResult = await db.select({ count: sql<number>`count(*)` })
+    const surfacedResult = await getUserDb().select({ count: sql<number>`count(*)` })
       .from(editorListeningSnapshots)
       .innerJoin(collaborationChannels, eq(editorListeningSnapshots.channelId, collaborationChannels.id))
       .where(and(whereClause, eq(editorListeningSnapshots.surfacedToDaniela, true)));
@@ -273,7 +273,7 @@ This helps us track which suggestions improve teaching effectiveness.
     const totalSurfaced = Number(surfacedResult[0]?.count || 0);
     
     // Count adopted
-    const adoptedResult = await db.select({ count: sql<number>`count(*)` })
+    const adoptedResult = await getUserDb().select({ count: sql<number>`count(*)` })
       .from(editorListeningSnapshots)
       .innerJoin(collaborationChannels, eq(editorListeningSnapshots.channelId, collaborationChannels.id))
       .where(and(whereClause, eq(editorListeningSnapshots.adoptedByDaniela, true)));
@@ -281,7 +281,7 @@ This helps us track which suggestions improve teaching effectiveness.
     const totalAdopted = Number(adoptedResult[0]?.count || 0);
     
     // Recent adoptions
-    const recentAdoptions = await db.select({
+    const recentAdoptions = await getUserDb().select({
       id: editorListeningSnapshots.id,
       beaconType: editorListeningSnapshots.beaconType,
       adoptedAt: editorListeningSnapshots.adoptedAt,
