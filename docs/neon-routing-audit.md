@@ -1,8 +1,8 @@
 # Neon Database Routing Audit
 
 **Date:** January 2026  
-**Status:** Phase 2 - COMPLETE ✅  
-**Scope:** All `server/services/*.ts`, `server/routes.ts`, `server/reporting-service.ts` have been migrated. Seed/migration/test scripts use direct `db` access (acceptable for dev-only files).
+**Status:** Phase 3 - COMPLETE ✅  
+**Scope:** All services migrated to Neon routing. Deprecated code removed: sync-bridge.ts (8,000 lines), sync-scheduler.ts (200 lines), editor-persona-service.ts (500 lines). Seed/migration/test scripts use direct `db` access (acceptable for dev-only files).
 
 ## Architecture Summary
 
@@ -79,18 +79,15 @@ These services have been updated to use `getSharedDb()`/`getUserDb()`:
 
 All services in `server/services/*.ts` now use proper Neon routing.
 
-### Deprecated (Will Be Removed in Phase 3)
+### Deprecated Files (REMOVED in Phase 3) ✅
 
-- **sync-bridge.ts** - 286 db usages, deprecated (replaced by Neon routing)
-- **sync-scheduler.ts** - 4 db usages, deprecated
-- **editor-persona-service.ts** - 11 db usages, deprecated
+These files were removed in Phase 3 (January 2026):
 
-## Deprecated (No Fix Needed) 🗑️
+- **sync-bridge.ts** - 8,000 lines DELETED - Replaced by Neon routing
+- **sync-scheduler.ts** - 200 lines DELETED - Coordinated sync-bridge
+- **editor-persona-service.ts** - 500 lines DELETED - Editor system deprecated
 
-These files are marked for removal in Phase 3:
-
-- `sync-bridge.ts` - 8,000 lines, replaced by Neon routing
-- `sync-scheduler.ts` - Coordinates sync-bridge, no longer needed
+Total: ~8,700 lines of deprecated code removed
 
 ## Table Classification Reference
 
@@ -102,8 +99,8 @@ See `server/neon-db.ts` for authoritative table lists:
 ## Next Steps
 
 1. ~~**Phase 2 (Complete)**~~: All services and routes now use proper Neon routing ✅
-2. **Phase 3 (Next)**: Remove deprecated sync-bridge system (sync-bridge.ts, sync-scheduler.ts, editor-persona-service.ts)
-3. **Phase 4**: Disable `USE_NEON_ROUTING` flag (always use Neon)
+2. ~~**Phase 3 (Complete)**~~: Removed deprecated sync-bridge system (8,700+ lines) ✅
+3. **Phase 4 (Next)**: Disable `USE_NEON_ROUTING` flag (always use Neon) - After 2+ week soak period
 
 ## Files Using Direct `db` Access (Acceptable)
 
@@ -127,17 +124,20 @@ Before removing sync-bridge.ts and sync-scheduler.ts:
 4. **Operational tests** cover teaching, usage/billing, and pronunciation flows
 5. **One week soak period** with no data inconsistencies reported
 
-## Phase 3 Actions (Deprecated Code Removal)
+## Phase 3 Actions (COMPLETE ✅)
 
-Files to remove:
-- `server/services/sync-bridge.ts` (~8,000 lines) - Replaced by Neon routing
-- `server/services/sync-scheduler.ts` (~200 lines) - Coordinated sync-bridge
-- `server/services/editor-persona-service.ts` (~500 lines) - Editor system deprecated
+Files removed (January 2026):
+- `server/services/sync-bridge.ts` (~8,000 lines) - DELETED
+- `server/services/sync-scheduler.ts` (~200 lines) - DELETED
+- `server/services/editor-persona-service.ts` (~500 lines) - DELETED
+- Helper scripts: `scripts/sync-bridge-helper.ts`, `scripts/sync-health-reporter.ts` - DELETED
 
-Related cleanup:
-- Remove sync-bridge imports from `server/routes.ts`
-- Remove sync-bridge initialization from server startup
-- Remove sync-related API routes (if any)
+Related cleanup completed:
+- Removed sync-bridge imports from `server/routes.ts`
+- Removed sync-scheduler initialization from `server/index.ts`
+- Stubbed 50+ sync API routes with 410 Gone responses
+- Replaced editor persona routes with deprecation handlers
+- Kept Express Lane bridge routes for Hive collaboration
 
 ## Phase 4 Preparation
 
@@ -181,5 +181,19 @@ npx tsx scripts/check-all-shared-tables.ts
 |-------|--------|-------------|
 | Phase 1 | ✅ Complete | Infrastructure setup (neon-db.ts, db.ts routing) |
 | Phase 2 | ✅ Complete | All services migrated to getUserDb/getSharedDb |
-| Phase 3 | 🔜 Next | Remove deprecated sync-bridge system |
-| Phase 4 | Pending | Disable USE_NEON_ROUTING flag (always Neon) |
+| Phase 3 | ✅ Complete | Removed 8,700+ lines deprecated code (sync-bridge, editor-persona) |
+| Phase 4 | 🔜 Next | Disable USE_NEON_ROUTING flag (after 2+ week soak) |
+
+## Phase 3 Completion Summary (January 2026)
+
+**Lines of code removed:** ~8,700
+- sync-bridge.ts: 8,000 lines
+- sync-scheduler.ts: 200 lines
+- editor-persona-service.ts: 500 lines
+
+**API Routes Stubbed:** 50+ routes now return 410 Gone with migration guidance
+
+**Verification Status:**
+- 36/36 shared tables verified via Neon
+- Application running with `[CONSOLIDATION] Sync-bridge retired - Neon routing is primary`
+- Express Lane bridge preserved for Hive collaboration

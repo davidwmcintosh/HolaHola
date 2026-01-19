@@ -467,19 +467,12 @@ app.use((req, res, next) => {
   }, async () => {
     log(`serving on port ${port}`);
     
-    // Start the nightly sync scheduler
-    try {
-      const { startSyncScheduler } = await import('./services/sync-scheduler');
-      startSyncScheduler();
-    } catch (error) {
-      console.error('[SYNC-SCHEDULER] Failed to start:', error);
-    }
+    // RETIRED: Sync-bridge and sync-scheduler (Jan 2026 - Neon Phase 3)
+    // Replaced by direct Neon database routing - shared tables go to NEON_DATABASE_URL_SHARED
+    // See docs/neon-routing-audit.md for migration details
     
     // RETIRED: Editor Worker and Beacon systems (Dec 2025 - Option A Consolidation)
-    // Express Lane is now the sole collaboration channel. These are kept for reference:
-    // - editor-background-worker.ts (beacon polling)
-    // - editor-realtime-dispatcher.ts (fast beacon polling)
-    // - hive-collaboration-service.ts (beacon emission)
-    console.log('[CONSOLIDATION] Editor Worker & Beacon systems retired - Express Lane is primary');
+    // Express Lane is now the sole collaboration channel
+    console.log('[CONSOLIDATION] Sync-bridge retired - Neon routing is primary');
   });
 })();

@@ -71,7 +71,6 @@ import { setupAuth, isAuthenticated, getSession } from "./replitAuth";
 import { passwordAuthService } from "./services/password-auth-service";
 import { emailService } from "./services/email-service";
 import { neuralNetworkSync } from "./services/neural-network-sync";
-import { getLastSyncResult, getNextSyncTime } from "./services/sync-scheduler";
 import { passwordLoginSchema, passwordResetRequestSchema, setNewPasswordSchema, completeRegistrationSchema, createInvitationSchema } from "@shared/schema";
 import passport from "passport";
 import { generateConversationTitle, generateConversationContextSummary } from "./conversation-utils";
@@ -91,7 +90,9 @@ import { wrenProactiveService } from "./services/wren-proactive-intelligence-ser
 import { wrenDreamsService } from "./services/wren-dreams-service";
 import { agentCollaborationService } from "./services/agent-collaboration-service";
 import { studentLearningService, TEACHING_STRATEGIES, ERROR_CATEGORIES } from "./services/student-learning-service";
-import { editorPersonaService, validateEditorSecret } from "./services/editor-persona-service";
+// RETIRED (Jan 2026 - Neon Phase 3): Editor persona service replaced by direct Hive collaboration
+// import { editorPersonaService, validateEditorSecret } from "./services/editor-persona-service";
+const validateEditorSecret = (req: any, res: any, next: any) => next(); // Stub for compatibility
 import { supportPersonaService } from "./services/support-persona-service";
 import { founderCollabService } from "./services/founder-collaboration-service";
 import { founderCollabWSBroker } from "./services/founder-collab-ws-broker";
@@ -1602,32 +1603,22 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
-  // Trigger Editor proactive suggestions (analyze patterns and suggest improvements)
+  // RETIRED (Jan 2026 - Neon Phase 3): Editor persona service replaced by Hive collaboration
   app.post('/api/self-surgery/proactive-suggestions', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
-    try {
-      const { editorPersonaService } = await import('./services/editor-persona-service');
-      const result = await editorPersonaService.generateProactiveSuggestions();
-      
-      console.log(`[Self-Surgery] Proactive suggestions: ${result.suggestions.length} suggestions, ${result.surgeryProposals.length} proposals`);
-      res.json(result);
-    } catch (error: any) {
-      console.error("Error generating proactive suggestions:", error);
-      res.status(500).json({ message: "Failed to generate proactive suggestions" });
-    }
+    res.status(410).json({
+      error: 'Endpoint retired',
+      message: 'Editor persona service retired - use Hive collaboration for AI-assisted improvements',
+      migration: 'See docs/neon-routing-audit.md',
+    });
   });
 
-  // Audit neural network for incomplete/vague entries
+  // RETIRED (Jan 2026): Audit network - use Wren Intelligence service instead
   app.post('/api/self-surgery/audit-network', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
-    try {
-      const { editorPersonaService } = await import('./services/editor-persona-service');
-      const result = await editorPersonaService.auditNeuralNetwork();
-      
-      console.log(`[Self-Surgery] Neural network audit: ${result.issues.length} issues, ${result.surgeryProposals.length} proposals`);
-      res.json(result);
-    } catch (error: any) {
-      console.error("Error auditing neural network:", error);
-      res.status(500).json({ message: "Failed to audit neural network" });
-    }
+    res.status(410).json({
+      error: 'Endpoint retired',
+      message: 'Editor persona service retired - use Wren Intelligence for neural network auditing',
+      migration: 'See docs/neon-routing-audit.md',
+    });
   });
 
   // Get student memory context (insights, motivations, struggles, notes, connections)
@@ -2056,35 +2047,14 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
-  // Get sync scheduler status (next sync time, last result)
+  // DEPRECATED: Sync scheduler retired (Jan 2026 - Neon Phase 3)
+  // Shared tables now route directly to Neon database
   app.get('/api/sync/scheduler-status', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      
-      if (user?.role !== 'developer' && user?.role !== 'admin') {
-        return res.status(403).json({ message: "Developer or admin access required" });
-      }
-      
-      const lastResult = getLastSyncResult();
-      const nextSyncTime = getNextSyncTime();
-      
-      res.json({
-        nextSyncTime: nextSyncTime.toISOString(),
-        nextSyncTimeLocal: nextSyncTime.toLocaleString('en-US', { timeZone: 'America/Denver' }),
-        lastSync: lastResult ? {
-          timestamp: lastResult.timestamp.toISOString(),
-          success: lastResult.success,
-          syncedCount: lastResult.syncedCount,
-          error: lastResult.error,
-        } : null,
-        schedulerTimezone: 'MST (Mountain Standard Time)',
-        scheduledHour: '3:00 AM MST',
-      });
-    } catch (error: any) {
-      console.error("Error getting scheduler status:", error);
-      res.status(500).json({ message: "Failed to get scheduler status" });
-    }
+    res.json({
+      deprecated: true,
+      message: 'Sync scheduler retired - shared tables now route directly to Neon database',
+      neonRoutingEnabled: process.env.USE_NEON_ROUTING === 'true',
+    });
   });
 
   // Manual sync trigger (developer/admin only)
@@ -11046,22 +11016,12 @@ Return ONLY the ${targetLanguage} phrase:`;
         console.log(`[Quick Enroll] Granted ${creditHours} hours to ${email}`);
       }
       
-      // 4. Sync user to production BEFORE sending email
-      // This ensures the account exists in prod when tester clicks the invitation link
+      // 4. Sync retired (Jan 2026 - Neon Phase 3)
+      // With Neon routing, user data automatically routes to the correct database
+      // No cross-environment sync needed - direct database access replaces sync-bridge
       let syncedToProd = false;
-      let syncError = null;
-      try {
-        const { syncBridge } = await import('./services/sync-bridge');
-        const syncResult = await syncBridge.syncSingleUserToProd(newUser.id);
-        syncedToProd = syncResult.success;
-        if (!syncResult.success) {
-          syncError = syncResult.error;
-          console.warn(`[Quick Enroll] Failed to sync user to prod: ${syncError}`);
-        }
-      } catch (err: any) {
-        syncError = err.message;
-        console.warn(`[Quick Enroll] Sync error (non-fatal): ${err.message}`);
-      }
+      let syncError = 'Sync retired - Neon routing is primary';
+      console.log(`[Quick Enroll] Sync skipped (Neon routing handles data routing)`)
       
       // 5. Send invitation email
       if (sendEmail) {
@@ -11771,280 +11731,6 @@ Return ONLY the ${targetLanguage} phrase:`;
       });
     } catch (error: any) {
       console.error('[Observation Summarization Run] Error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // ===== SYNC CONTROL CENTER =====
-  // Founder-only UI for managing dev-prod synchronization
-  
-  // Get sync status for control center
-  app.get("/api/admin/sync/status", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
-    try {
-      const status = await syncBridge.getSyncStatus();
-      res.json(status);
-    } catch (error: any) {
-      console.error('[Admin Sync Status] Error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // v37: Get resumable sync status - check if there's a sync that can be resumed
-  app.get("/api/admin/sync/resumable", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
-    try {
-      const resumableStatus = await syncBridge.getResumableStatus();
-      res.json(resumableStatus);
-    } catch (error: any) {
-      console.error('[Admin Sync Resumable] Error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Trigger push to peer (dev→prod or prod→dev depending on current env)
-  app.post("/api/admin/sync/push", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
-    try {
-      const triggeredBy = req.authenticatedUser?.email || 'founder';
-      const selectedBatches = req.body?.selectedBatches as string[] | undefined;
-      console.log(`[Admin Sync] Push triggered by ${triggeredBy}`, selectedBatches ? `batches: ${selectedBatches.join(', ')}` : '(all batches)');
-      const result = await syncBridge.pushToPeer(triggeredBy, selectedBatches);
-      res.json(result);
-    } catch (error: any) {
-      console.error('[Admin Sync Push] Error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Dev-only internal sync trigger (secured by SYNC_SHARED_SECRET, no auth required)
-  // This allows triggering syncs via curl without user authentication
-  app.post("/api/internal/dev-sync/push", async (req, res) => {
-    // Only allow in development
-    if (process.env.NODE_ENV === 'production') {
-      return res.status(403).json({ error: 'Dev-only endpoint' });
-    }
-    
-    // Verify shared secret
-    const secret = req.headers['x-sync-secret'] || req.body?.secret;
-    const expectedSecret = process.env.SYNC_SHARED_SECRET;
-    if (!expectedSecret || secret !== expectedSecret) {
-      return res.status(401).json({ error: 'Invalid or missing sync secret' });
-    }
-    
-    try {
-      const triggeredBy = 'internal-dev-trigger';
-      const selectedBatches = Array.isArray(req.body?.selectedBatches) ? req.body.selectedBatches : undefined;
-      console.log(`[Internal Sync] Dev push triggered via internal endpoint${selectedBatches ? ` (batches: ${selectedBatches.join(', ')})` : ' (all batches)'}`);
-      
-      // Start async and return immediately - don't wait for completion
-      res.json({ 
-        success: true, 
-        message: 'Sync started in background. Check logs for progress.',
-        startedAt: new Date().toISOString()
-      });
-      
-      // Run sync after response sent - now passing selectedBatches!
-      syncBridge.pushToPeer(triggeredBy, selectedBatches).then(result => {
-        console.log(`[Internal Sync] Dev push completed:`, JSON.stringify(result, null, 2));
-      }).catch(err => {
-        console.error(`[Internal Sync] Dev push failed:`, err.message);
-      });
-    } catch (error: any) {
-      console.error('[Internal Sync] Error starting push:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Trigger pull from peer
-  app.post("/api/admin/sync/pull", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
-    try {
-      const triggeredBy = req.authenticatedUser?.email || 'founder';
-      const forceResume = req.body.forceResume === true;
-      const selectedBatches = Array.isArray(req.body.selectedBatches) ? req.body.selectedBatches : undefined;
-      console.log(`[Admin Sync] Pull triggered by ${triggeredBy}${forceResume ? ' (FORCE RESUME)' : ''}${selectedBatches ? ` (batches: ${selectedBatches.join(', ')})` : ''}`);
-      const result = await syncBridge.pullFromPeer(triggeredBy, { forceResume, selectedBatches });
-      res.json(result);
-    } catch (error: any) {
-      console.error('[Admin Sync Pull] Error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Trigger full bidirectional sync
-  app.post("/api/admin/sync/full", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
-    try {
-      const triggeredBy = req.authenticatedUser?.email || 'founder';
-      console.log(`[Admin Sync] Full sync triggered by ${triggeredBy}`);
-      const result = await syncBridge.performFullSync(triggeredBy);
-      res.json(result);
-    } catch (error: any) {
-      console.error('[Admin Sync Full] Error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Force-reset stuck sync runs (LOCAL)
-  app.post("/api/admin/sync/force-reset", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
-    try {
-      const triggeredBy = req.authenticatedUser?.email || 'founder';
-      console.log(`[Admin Sync] Force-reset triggered by ${triggeredBy}`);
-      
-      const runningRuns = await getUserDb().select()
-        .from(syncRuns)
-        .where(eq(syncRuns.status, 'running'));
-      
-      let resetCount = 0;
-      for (const run of runningRuns) {
-        await getUserDb().update(syncRuns)
-          .set({
-            status: 'failed',
-            errorMessage: `Force-reset by ${triggeredBy} via Control Center`,
-            completedAt: new Date(),
-            durationMs: Date.now() - new Date(run.startedAt).getTime(),
-          })
-          .where(eq(syncRuns.id, run.id));
-        resetCount++;
-      }
-      
-      res.json({ 
-        success: true, 
-        resetCount,
-        message: `Force-reset ${resetCount} running sync run(s).`
-      });
-    } catch (error: any) {
-      console.error('[Admin Sync Force-Reset] Error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Trigger PEER to pull from us (bidirectional remote trigger)
-  app.post("/api/admin/sync/trigger-peer-pull", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
-    try {
-      const triggeredBy = req.authenticatedUser?.email || 'founder';
-      console.log(`[Admin Sync] Trigger peer pull by ${triggeredBy}`);
-      const result = await syncBridge.triggerPeerPull(triggeredBy);
-      res.json(result);
-    } catch (error: any) {
-      console.error('[Admin Sync Trigger Peer Pull] Error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Force-reset PEER's stuck syncs
-  app.post("/api/admin/sync/trigger-peer-reset", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
-    try {
-      const triggeredBy = req.authenticatedUser?.email || 'founder';
-      console.log(`[Admin Sync] Trigger peer reset by ${triggeredBy}`);
-      const result = await syncBridge.triggerPeerForceReset(triggeredBy);
-      res.json(result);
-    } catch (error: any) {
-      console.error('[Admin Sync Trigger Peer Reset] Error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Get peer sync stats
-  app.get("/api/admin/sync/peer-stats", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
-    try {
-      const stats = await syncBridge.fetchPeerStats();
-      res.json(stats);
-    } catch (error: any) {
-      console.error('[Admin Sync Peer Stats] Error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Get local stats for comparison
-  app.get("/api/admin/sync/local-stats", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
-    try {
-      const [userStats] = await getUserDb().select({ count: sql<number>`count(*)` }).from(users);
-      const [snapshotStats] = await getSharedDb().select({ count: sql<number>`count(*)` }).from(hiveSnapshots);
-      const [voiceStats] = await getSharedDb().select({ count: sql<number>`count(*)` }).from(tutorVoices);
-      res.json({
-        users: Number(userStats.count),
-        hiveSnapshots: Number(snapshotStats.count),
-        tutorVoices: Number(voiceStats.count),
-      });
-    } catch (error: any) {
-      console.error('[Admin Sync Local Stats] Error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Get capability comparison between local and peer
-  app.get("/api/admin/sync/capabilities", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
-    try {
-      const comparison = await syncBridge.compareCapabilities();
-      res.json(comparison);
-    } catch (error: any) {
-      console.error('[Admin Sync Capabilities] Error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // v27: Get per-batch sync health metrics
-  app.get("/api/admin/sync/health", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
-    try {
-      const health = await syncBridge.getSyncHealth();
-      res.json(health);
-    } catch (error: any) {
-      console.error('[Admin Sync Health] Error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // v28: Get recent verification results
-  app.get("/api/admin/sync/verifications", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
-    try {
-      const verifications = await syncBridge.getRecentVerifications();
-      res.json(verifications);
-    } catch (error: any) {
-      console.error('[Admin Sync Verifications] Error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // v32: Get enhanced sync health with received imports and anomaly count
-  app.get("/api/admin/sync/enhanced-health", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
-    try {
-      const health = await syncBridge.getEnhancedSyncHealth();
-      res.json(health);
-    } catch (error: any) {
-      console.error('[Admin Sync Enhanced Health] Error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // v32: Get unacknowledged sync anomalies
-  app.get("/api/admin/sync/anomalies", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
-    try {
-      const anomalies = await syncBridge.getUnacknowledgedAnomalies();
-      res.json({ anomalies, queriedAt: new Date().toISOString() });
-    } catch (error: any) {
-      console.error('[Admin Sync Anomalies] Error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // v32: Acknowledge a sync anomaly
-  app.post("/api/admin/sync/anomalies/:id/acknowledge", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
-    try {
-      const { id } = req.params;
-      const acknowledgedBy = req.user?.claims?.email || 'admin';
-      await syncBridge.acknowledgeAnomaly(id, acknowledgedBy);
-      res.json({ success: true, message: 'Anomaly acknowledged' });
-    } catch (error: any) {
-      console.error('[Admin Sync Acknowledge Anomaly] Error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // v32: Get recent import receipts
-  app.get("/api/admin/sync/import-receipts", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
-    try {
-      const limit = parseInt(req.query.limit as string) || 50;
-      const receipts = await syncBridge.getRecentImportReceipts(limit);
-      res.json({ receipts, queriedAt: new Date().toISOString() });
-    } catch (error: any) {
-      console.error('[Admin Sync Import Receipts] Error:', error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -18800,105 +18486,21 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
     }
   });
   
-  // Editor responds to a specific beacon (ARCHITECT_SECRET protected)
-  app.post("/api/collaboration/editor/respond/:snapshotId", async (req: any, res) => {
-    try {
-      const secret = req.headers['x-architect-secret'] as string;
-      if (!validateEditorSecret(secret)) {
-        return res.status(401).json({ error: "Unauthorized - invalid or missing ARCHITECT_SECRET" });
-      }
-      
-      const result = await editorPersonaService.processBeacon(req.params.snapshotId);
-      if (!result) {
-        return res.status(404).json({ error: "Snapshot not found" });
-      }
-      res.json(result);
-    } catch (error: any) {
-      console.error('[API] Error processing editor beacon response:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
+  // RETIRED (Jan 2026 - Neon Phase 3): Editor persona service routes deprecated
+  // Use Hive collaboration and Wren Intelligence instead
+  const editorDeprecatedHandler = (req: any, res: any) => {
+    res.status(410).json({
+      error: 'Endpoint retired',
+      message: 'Editor persona service retired - use Hive collaboration via Express Lane',
+      migration: 'See docs/neon-routing-audit.md',
+    });
+  };
   
-  // Direct question to Editor (ARCHITECT_SECRET protected)
-  app.post("/api/collaboration/editor/ask", async (req: any, res) => {
-    try {
-      const secret = req.headers['x-architect-secret'] as string;
-      if (!validateEditorSecret(secret)) {
-        return res.status(401).json({ error: "Unauthorized - invalid or missing ARCHITECT_SECRET" });
-      }
-      
-      const { question, conversationId, targetLanguage, additionalContext } = req.body;
-      if (!question) {
-        return res.status(400).json({ error: "question is required" });
-      }
-      
-      const response = await editorPersonaService.askEditor(question, {
-        conversationId,
-        targetLanguage,
-        additionalContext,
-      });
-      res.json({ response });
-    } catch (error: any) {
-      console.error('[API] Error asking editor:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Process all pending beacons (ARCHITECT_SECRET protected, for background worker)
-  app.post("/api/collaboration/editor/process-pending", async (req: any, res) => {
-    try {
-      const secret = req.headers['x-architect-secret'] as string;
-      if (!validateEditorSecret(secret)) {
-        return res.status(401).json({ error: "Unauthorized - invalid or missing ARCHITECT_SECRET" });
-      }
-      
-      const { channelId } = req.body;
-      let processed: number;
-      
-      if (channelId) {
-        processed = await editorPersonaService.processChannelBeacons(channelId);
-      } else {
-        processed = await editorPersonaService.processAllPendingBeacons();
-      }
-      
-      res.json({ processed });
-    } catch (error: any) {
-      console.error('[API] Error processing pending beacons:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Generate post-session reflection for a channel (ARCHITECT_SECRET protected)
-  app.post("/api/collaboration/editor/reflect/:channelId", async (req: any, res) => {
-    try {
-      const secret = req.headers['x-architect-secret'] as string;
-      if (!validateEditorSecret(secret)) {
-        return res.status(401).json({ error: "Unauthorized - invalid or missing ARCHITECT_SECRET" });
-      }
-      
-      const reflection = await editorPersonaService.generatePostSessionReflection(req.params.channelId);
-      res.json({ reflection });
-    } catch (error: any) {
-      console.error('[API] Error generating post-session reflection:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Process all post-session channels (ARCHITECT_SECRET protected, for background worker)
-  app.post("/api/collaboration/editor/process-post-sessions", async (req: any, res) => {
-    try {
-      const secret = req.headers['x-architect-secret'] as string;
-      if (!validateEditorSecret(secret)) {
-        return res.status(401).json({ error: "Unauthorized - invalid or missing ARCHITECT_SECRET" });
-      }
-      
-      const processed = await editorPersonaService.processPostSessionChannels();
-      res.json({ processed });
-    } catch (error: any) {
-      console.error('[API] Error processing post-session channels:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
+  app.post("/api/collaboration/editor/respond/:snapshotId", editorDeprecatedHandler);
+  app.post("/api/collaboration/editor/ask", editorDeprecatedHandler);
+  app.post("/api/collaboration/editor/process-pending", editorDeprecatedHandler);
+  app.post("/api/collaboration/editor/reflect/:channelId", editorDeprecatedHandler);
+  app.post("/api/collaboration/editor/process-post-sessions", editorDeprecatedHandler);
 
   // ============================================================================
   // RETIRED: EDITOR BACKGROUND WORKER API (Dec 2025 - Option A Consolidation)
@@ -19468,15 +19070,56 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   END OF ARCHIVED ROUTES */
 
   // ============================================================================
-  // CROSS-ENVIRONMENT SYNC API
-  // Peer-to-peer routes use HMAC auth, admin routes use session auth
+  // CROSS-ENVIRONMENT SYNC API - RETIRED (Jan 2026 - Neon Phase 3)
+  // Replaced by direct Neon database routing - shared tables go to NEON_DATABASE_URL_SHARED
+  // User tables go to NEON_DATABASE_URL_USER (branched per environment)
   // ============================================================================
   
-  // Import sync services
+  // Import sync auth middleware (kept for express lane bridge)
   const { validateSyncRequest } = await import('./middleware/sync-auth');
-  const { syncBridge } = await import('./services/sync-bridge');
   
-  // Health check: Migration status (for verifying schema parity across dev/prod)
+  // RETIRED: syncBridge removed - Neon routing is primary
+  // const { syncBridge } = await import('./services/sync-bridge');
+  
+  // Deprecated sync routes - return 410 Gone
+  const syncDeprecatedHandler = (req: any, res: any) => {
+    res.status(410).json({
+      error: 'Sync API retired',
+      message: 'Cross-environment sync replaced by Neon database routing (Jan 2026)',
+      migration: 'See docs/neon-routing-audit.md for details',
+    });
+  };
+  
+  // Stub all sync routes with deprecation notice
+  app.post('/api/sync/export', validateSyncRequest, syncDeprecatedHandler);
+  app.post('/api/sync/import', validateSyncRequest, syncDeprecatedHandler);
+  app.post('/api/sync/verify-counts', validateSyncRequest, syncDeprecatedHandler);
+  app.get('/api/sync/compare-environments', isAuthenticated, syncDeprecatedHandler);
+  app.get('/api/sync/query-peer-counts', isAuthenticated, syncDeprecatedHandler);
+  app.post('/api/sync/push', isAuthenticated, syncDeprecatedHandler);
+  app.post('/api/sync/pull', isAuthenticated, syncDeprecatedHandler);
+  app.post('/api/sync/full', isAuthenticated, syncDeprecatedHandler);
+  app.get('/api/sync/status', isAuthenticated, syncDeprecatedHandler);
+  app.post('/api/sync/force-reset', isAuthenticated, syncDeprecatedHandler);
+  app.get('/api/sync/peer-stats', isAuthenticated, syncDeprecatedHandler);
+  app.post('/api/sync/trigger-pull', validateSyncRequest, syncDeprecatedHandler);
+  app.post('/api/sync/trigger-force-reset', validateSyncRequest, syncDeprecatedHandler);
+  app.get('/api/sync/nightly-status', validateSyncRequest, syncDeprecatedHandler);
+  app.post('/api/sync/capabilities', validateSyncRequest, syncDeprecatedHandler);
+  app.post('/api/sync/peer-stats', validateSyncRequest, syncDeprecatedHandler);
+  app.post('/api/sync/peer-sync-runs', validateSyncRequest, syncDeprecatedHandler);
+  app.get('/api/sync/peer-sync-runs', isAuthenticated, syncDeprecatedHandler);
+  
+  // Agent sync routes - deprecated
+  app.post('/api/agent/sync/push', requireAgentToken, syncDeprecatedHandler);
+  app.post('/api/agent/sync/pull', requireAgentToken, syncDeprecatedHandler);
+  app.post('/api/agent/sync/full', requireAgentToken, syncDeprecatedHandler);
+  app.get('/api/agent/sync/status', requireAgentToken, syncDeprecatedHandler);
+  app.post('/api/agent/sync/trigger-peer-push', requireAgentToken, syncDeprecatedHandler);
+  app.post('/api/agent/sync/trigger-peer-pull', requireAgentToken, syncDeprecatedHandler);
+  app.post('/api/agent/sync/trigger-peer-force-reset', requireAgentToken, syncDeprecatedHandler);
+  
+  // Health check: Migration status (still active - doesn't depend on syncBridge)
   app.get('/api/health/migrations', async (req: any, res) => {
     try {
       const { migrationOrchestrator } = await import('./migrations/migration-orchestrator');
@@ -19499,536 +19142,6 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
       res.json(status);
     } catch (error: any) {
       console.error('[HEALTH] Migration status check failed:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Peer-to-peer: Export bundle (called by remote peer pulling from us)
-  // Supports optional batchType parameter for batched sync
-  // v23: Added sinceTimestamp for delta sync support
-  app.post("/api/sync/export", validateSyncRequest, async (req: any, res) => {
-    const batchType = req.body?.batchType || 'full';
-    // v23: Parse sinceTimestamp for delta sync (only export records created after this time)
-    const sinceTimestamp = req.body?.sinceTimestamp ? new Date(req.body.sinceTimestamp) : null;
-    const startTime = Date.now();
-    const deltaInfo = sinceTimestamp ? ` (delta since ${sinceTimestamp.toISOString()})` : '';
-    console.log(`[SYNC API v23] Export handler entered for batch: ${batchType}${deltaInfo} at ${new Date().toISOString()}`);
-    
-    // Track if we've sent a response
-    let responseSent = false;
-    
-    // Add error handler for unexpected response issues
-    res.on('error', (err: any) => {
-      console.error(`[SYNC API v12] Response error for batch ${batchType}:`, err.message);
-    });
-    
-    // Add close handler to detect premature connection close
-    res.on('close', () => {
-      if (!responseSent) {
-        console.error(`[SYNC API v12] Connection closed BEFORE response sent for batch: ${batchType} after ${Date.now() - startTime}ms`);
-      }
-    });
-    
-    // Add timeout handler - if no response in 40s, send error
-    const timeoutId = setTimeout(() => {
-      if (!responseSent) {
-        console.error(`[SYNC API v12] TIMEOUT for batch: ${batchType} after ${Date.now() - startTime}ms`);
-        responseSent = true;
-        res.status(504).json({ 
-          error: `Export timeout for batch ${batchType} after 40s`, 
-          batch: batchType,
-          _syncVersion: 12 
-        });
-      }
-    }, 40000);
-    
-    try {
-      console.log(`[SYNC API v23] Step 1: Calling collectExportBundle for ${batchType}${deltaInfo}`);
-      // v23: Pass sinceTimestamp for delta sync
-      const bundle = await syncBridge.collectExportBundle(sinceTimestamp, batchType);
-      console.log(`[SYNC API v23] Step 1.5: collectExportBundle returned for ${batchType} after ${Date.now() - startTime}ms`);
-      
-      console.log(`[SYNC API v12] Step 2: Bundle collected, serializing to JSON string first`);
-      const response = Object.assign({}, bundle, { _syncVersion: 12 });
-      
-      // Serialize to string first to catch any serialization errors
-      let jsonString: string;
-      try {
-        jsonString = JSON.stringify(response);
-        console.log(`[SYNC API v12] Step 3: JSON serialized, size: ${jsonString.length} bytes for batch: ${batchType}`);
-      } catch (serializeErr: any) {
-        console.error(`[SYNC API v12] JSON serialization failed for batch ${batchType}:`, serializeErr.message);
-        responseSent = true;
-        return res.status(500).json({ 
-          error: `Serialization failed: ${serializeErr.message}`, 
-          batch: batchType,
-          _syncVersion: 12 
-        });
-      }
-      
-      console.log(`[SYNC API v12] Step 4: Sending response for batch: ${batchType} after ${Date.now() - startTime}ms`);
-      clearTimeout(timeoutId);
-      res.setHeader('Content-Type', 'application/json');
-      responseSent = true;
-      res.send(jsonString);
-      console.log(`[SYNC API v12] Step 5: Response sent for batch: ${batchType} after ${Date.now() - startTime}ms`);
-    } catch (error: any) {
-      clearTimeout(timeoutId);
-      const errorMsg = error?.message || error?.toString() || 'Unknown export error';
-      console.error(`[SYNC API v12] Export error for batch ${batchType} after ${Date.now() - startTime}ms:`, errorMsg);
-      console.error(`[SYNC API v12] Stack:`, error?.stack || 'no stack');
-      if (!responseSent) {
-        responseSent = true;
-        res.status(500).json({ 
-          error: errorMsg, 
-          batch: batchType,
-          _syncVersion: 12,
-          stack: process.env.NODE_ENV === 'development' ? error?.stack : undefined 
-        });
-      }
-    }
-  });
-  
-  // Peer-to-peer: Import bundle (called by remote peer pushing to us)
-  // v33: Extract session headers for grouping paginated runs
-  app.post("/api/sync/import", validateSyncRequest, async (req: any, res) => {
-    const startTime = Date.now();
-    try {
-      // v33: Extract session context from headers
-      const syncSessionId = req.headers['x-sync-session-id'] as string | undefined;
-      const pageNumberStr = req.headers['x-sync-page-number'] as string | undefined;
-      const pageNumber = pageNumberStr !== undefined ? parseInt(pageNumberStr, 10) : undefined;
-      
-      const sessionInfo = syncSessionId ? ` [session: ${syncSessionId.slice(0, 8)}...]` : '';
-      const pageInfo = pageNumber !== undefined ? ` (page ${pageNumber})` : '';
-      console.log(`[SYNC API v33] Import request received from peer${sessionInfo}${pageInfo}`);
-      
-      const bundle = req.body;
-      const result = await syncBridge.applyImportBundle(bundle);
-      
-      // v31: Track received imports so dashboard shows accurate sync status
-      // v33: Pass session context for grouping
-      if (result.success && bundle.sourceEnvironment) {
-        const batchesReceived = syncBridge.detectImportedBatches(bundle, result.counts);
-        await syncBridge.recordReceivedImport(
-          bundle.sourceEnvironment as 'development' | 'production',
-          batchesReceived,
-          result.counts,
-          Date.now() - startTime,
-          undefined, // sourceRunId
-          syncSessionId || pageNumber !== undefined ? { syncSessionId, pageNumber } : undefined
-        );
-      }
-      
-      res.json(result);
-    } catch (error: any) {
-      console.error('[SYNC API] Import error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Peer-to-peer: Verify record counts (v28 - called by peer after sync to verify data arrived)
-  app.post("/api/sync/verify-counts", validateSyncRequest, async (req: any, res) => {
-    try {
-      const { tables } = req.body;
-      if (!tables || !Array.isArray(tables)) {
-        return res.status(400).json({ error: 'tables array required' });
-      }
-      console.log('[SYNC-VERIFY] Count verification requested for:', tables.join(', '));
-      const counts = await syncBridge.getRecordCounts(tables);
-      res.json({ counts, verifiedAt: new Date().toISOString() });
-    } catch (error: any) {
-      console.error('[SYNC-VERIFY] Verification error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // v33: Compare record counts between DEV and PROD environments
-  app.get("/api/sync/compare-environments", isAuthenticated, loadAuthenticatedUser(storage), allowRoles(['admin', 'developer']), async (req: any, res) => {
-    try {
-      console.log('[SYNC API] Environment comparison requested');
-      const comparison = await syncBridge.compareEnvironments();
-      res.json(comparison);
-    } catch (error: any) {
-      console.error('[SYNC API] Comparison error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // v38: Debug endpoint - query peer's verify-counts from this environment
-  app.get("/api/sync/query-peer-counts", isAuthenticated, loadAuthenticatedUser(storage), allowRoles(['admin', 'developer']), async (req: any, res) => {
-    try {
-      console.log('[SYNC API] Querying peer counts for debugging...');
-      const result = await syncBridge.queryPeerCounts();
-      res.json(result);
-    } catch (error: any) {
-      console.error('[SYNC API] Query peer counts error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Admin: Trigger push to peer environment
-  app.post("/api/sync/push", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
-    try {
-      const triggeredBy = req.user?.claims?.sub || 'admin';
-      const selectedBatches = Array.isArray(req.body?.selectedBatches) ? req.body.selectedBatches : undefined;
-      console.log(`[SYNC API] Manual push triggered by ${triggeredBy}${selectedBatches ? ` (batches: ${selectedBatches.join(', ')})` : ''}`);
-      const result = await syncBridge.pushToPeer(triggeredBy, selectedBatches);
-      res.json(result);
-    } catch (error: any) {
-      console.error('[SYNC API] Push error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Admin: Trigger pull from peer environment
-  // Query params: ?forceResume=true - immediately resume from last interrupted run (use after confirmed timeout)
-  app.post("/api/sync/pull", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
-    try {
-      const triggeredBy = req.user?.claims?.sub || 'admin';
-      const forceResume = req.query.forceResume === 'true';
-      console.log(`[SYNC API] Manual pull triggered by ${triggeredBy}${forceResume ? ' (FORCE RESUME)' : ''}`);
-      const result = await syncBridge.pullFromPeer(triggeredBy, { forceResume });
-      res.json(result);
-    } catch (error: any) {
-      console.error('[SYNC API] Pull error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Admin: Trigger full bidirectional sync
-  app.post("/api/sync/full", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
-    try {
-      const triggeredBy = req.user?.claims?.sub || 'admin';
-      console.log('[SYNC API] Manual full sync triggered by', triggeredBy);
-      const result = await syncBridge.performFullSync(triggeredBy);
-      res.json(result);
-    } catch (error: any) {
-      console.error('[SYNC API] Full sync error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Admin/Developer: Get sync status and history
-  app.get("/api/sync/status", isAuthenticated, loadAuthenticatedUser(storage), allowRoles(['admin', 'developer']), async (req: any, res) => {
-    try {
-      const status = await syncBridge.getSyncStatus();
-      res.json(status);
-    } catch (error: any) {
-      console.error('[SYNC API] Status error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Admin: Force-reset all running sync runs to 'failed' status
-  // Use this to clear stuck sync runs and start fresh
-  app.post("/api/sync/force-reset", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
-    try {
-      console.log('[SYNC API] Force-resetting all running sync runs...');
-      const { syncRuns } = await import('@shared/schema');
-      
-      // Find all running sync runs
-      const runningRuns = await getUserDb().select()
-        .from(syncRuns)
-        .where(eq(syncRuns.status, 'running'));
-      
-      // Mark them all as failed
-      let resetCount = 0;
-      for (const run of runningRuns) {
-        await getUserDb().update(syncRuns)
-          .set({
-            status: 'failed',
-            errorMessage: 'Force-reset by admin - cleared to allow fresh sync',
-            completedAt: new Date(),
-            durationMs: Date.now() - new Date(run.startedAt).getTime(),
-          })
-          .where(eq(syncRuns.id, run.id));
-        resetCount++;
-        console.log(`[SYNC API] Force-reset sync run ${run.id} (direction: ${run.direction}, started: ${run.startedAt})`);
-      }
-      
-      res.json({ 
-        success: true, 
-        resetCount,
-        message: `Force-reset ${resetCount} running sync run(s). You can now start a fresh sync.`
-      });
-    } catch (error: any) {
-      console.error('[SYNC API] Force-reset error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Admin: Query peer environment's database stats
-  app.get("/api/sync/peer-stats", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
-    try {
-      console.log('[SYNC API] Fetching peer stats...');
-      const stats = await syncBridge.fetchPeerStats();
-      res.json(stats);
-    } catch (error: any) {
-      console.error('[SYNC API] Peer stats error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Peer-accessible: Trigger local pull from peer (called by remote to initiate sync)
-  // This enables full bidirectional: dev can tell prod "pull from me now"
-  app.post("/api/sync/trigger-pull", validateSyncRequest, async (req: any, res) => {
-    try {
-      const triggeredBy = req.body.triggeredBy || 'remote-peer';
-      console.log(`[SYNC API] Remote trigger-pull received from peer (triggered by: ${triggeredBy})`);
-      const result = await syncBridge.pullFromPeer(`remote-trigger:${triggeredBy}`);
-      res.json(result);
-    } catch (error: any) {
-      console.error('[SYNC API] Trigger-pull error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Peer-accessible: Trigger local force-reset (called by remote to clear stuck syncs)
-  app.post("/api/sync/trigger-force-reset", validateSyncRequest, async (req: any, res) => {
-    try {
-      const triggeredBy = req.body.triggeredBy || 'remote-peer';
-      console.log(`[SYNC API] Remote trigger-force-reset received (triggered by: ${triggeredBy})`);
-      
-      const { syncRuns } = await import('@shared/schema');
-      
-      const runningRuns = await getUserDb().select()
-        .from(syncRuns)
-        .where(eq(syncRuns.status, 'running'));
-      
-      let resetCount = 0;
-      for (const run of runningRuns) {
-        await getUserDb().update(syncRuns)
-          .set({
-            status: 'failed',
-            errorMessage: `Force-reset by remote peer ${triggeredBy}`,
-            completedAt: new Date(),
-            durationMs: Date.now() - new Date(run.startedAt).getTime(),
-          })
-          .where(eq(syncRuns.id, run.id));
-        resetCount++;
-      }
-      
-      res.json({ 
-        success: true, 
-        resetCount,
-        message: `Force-reset ${resetCount} running sync run(s).`
-      });
-    } catch (error: any) {
-      console.error('[SYNC API] Trigger-force-reset error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Peer-accessible: Get local nightly sync status (for cross-env status display)
-  // This endpoint is called by the peer environment to check production's nightly sync status
-  app.get("/api/sync/nightly-status", validateSyncRequest, async (req: any, res) => {
-    try {
-      const status = await syncBridge.getLocalNightlyStatus();
-      res.json(status);
-    } catch (error: any) {
-      console.error('[SYNC API] Nightly status error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Peer-accessible: Get sync capabilities for version negotiation
-  // This enables graceful handling of version mismatches between environments
-  app.post("/api/sync/capabilities", validateSyncRequest, async (req: any, res) => {
-    try {
-      const capabilities = syncBridge.getCapabilities();
-      res.json(capabilities);
-    } catch (error: any) {
-      console.error('[SYNC API] Capabilities error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Peer-accessible: Get database stats for cross-environment verification
-  app.post("/api/sync/peer-stats", validateSyncRequest, async (req: any, res) => {
-    try {
-      const { danielaGrowthMemories, hiveSnapshots, collaborationMessages, users, tutorVoices } = await import('@shared/schema');
-      const [memoryStats] = await getSharedDb().select({ count: sql<number>`count(*)` }).from(danielaGrowthMemories);
-      const [snapshotStats] = await getSharedDb().select({ count: sql<number>`count(*)` }).from(hiveSnapshots);
-      const [messageStats] = await getSharedDb().select({ count: sql<number>`count(*)` }).from(collaborationMessages);
-      const [userStats] = await getUserDb().select({ count: sql<number>`count(*)` }).from(users);
-      const [voiceStats] = await getSharedDb().select({ count: sql<number>`count(*)` }).from(tutorVoices);
-      
-      res.json({
-        environment: process.env.NODE_ENV === 'production' ? 'production' : 'development',
-        counts: {
-          danielaGrowthMemories: Number(memoryStats.count),
-          hiveSnapshots: Number(snapshotStats.count),
-          collaborationMessages: Number(messageStats.count),
-          users: Number(userStats.count),
-          tutorVoices: Number(voiceStats.count),
-        },
-        queriedAt: new Date().toISOString(),
-      });
-    } catch (error: any) {
-      console.error('[SYNC API] Peer stats error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Peer-accessible: Get sync runs for cross-environment debugging
-  // Allows dev to query production's sync history and see errors
-  app.post("/api/sync/peer-sync-runs", validateSyncRequest, async (req: any, res) => {
-    try {
-      const { limit = 10 } = req.body;
-      console.log(`[SYNC API] Peer sync runs request received, limit: ${limit}`);
-      const result = await syncBridge.getLocalSyncRuns(Math.min(limit, 50)); // Cap at 50
-      res.json(result);
-    } catch (error: any) {
-      console.error('[SYNC API] Peer sync runs error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Admin: Fetch sync runs from peer environment (for debugging)
-  app.get("/api/sync/peer-sync-runs", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
-    try {
-      const limit = parseInt(req.query.limit as string) || 10;
-      console.log(`[SYNC API] Admin requesting peer sync runs, limit: ${limit}`);
-      const result = await syncBridge.fetchPeerSyncRuns(Math.min(limit, 50));
-      res.json(result);
-    } catch (error: any) {
-      console.error('[SYNC API] Fetch peer sync runs error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // ============================================================================
-  // AGENT-AUTHENTICATED SYNC ENDPOINTS (for Replit Agent bidirectional control)
-  // ============================================================================
-  // These endpoints allow the Replit Agent (running in dev) to trigger sync 
-  // operations on both dev and production environments programmatically.
-  
-  // Agent: Trigger push to peer environment
-  app.post("/api/agent/sync/push", requireAgentToken, async (req: any, res) => {
-    try {
-      const agentId = req.agentId || 'replit-agent';
-      console.log(`[AGENT-SYNC] Push triggered by agent: ${agentId}`);
-      logAgentAction('sync_push', '/api/agent/sync/push', true, `Triggered by ${agentId}`);
-      const result = await syncBridge.pushToPeer(agentId);
-      res.json(result);
-    } catch (error: any) {
-      console.error('[AGENT-SYNC] Push error:', error);
-      logAgentAction('sync_push', '/api/agent/sync/push', false, error.message);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Agent: Trigger pull from peer environment
-  app.post("/api/agent/sync/pull", requireAgentToken, async (req: any, res) => {
-    try {
-      const agentId = req.agentId || 'replit-agent';
-      const forceResume = req.query.forceResume === 'true' || req.body.forceResume === true;
-      console.log(`[AGENT-SYNC] Pull triggered by agent: ${agentId}${forceResume ? ' (FORCE RESUME)' : ''}`);
-      logAgentAction('sync_pull', '/api/agent/sync/pull', true, `Triggered by ${agentId}`);
-      const result = await syncBridge.pullFromPeer(agentId, { forceResume });
-      res.json(result);
-    } catch (error: any) {
-      console.error('[AGENT-SYNC] Pull error:', error);
-      logAgentAction('sync_pull', '/api/agent/sync/pull', false, error.message);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Agent: Trigger full bidirectional sync
-  app.post("/api/agent/sync/full", requireAgentToken, async (req: any, res) => {
-    try {
-      const agentId = req.agentId || 'replit-agent';
-      console.log(`[AGENT-SYNC] Full sync triggered by agent: ${agentId}`);
-      logAgentAction('sync_full', '/api/agent/sync/full', true, `Triggered by ${agentId}`);
-      const result = await syncBridge.performFullSync(agentId);
-      res.json(result);
-    } catch (error: any) {
-      console.error('[AGENT-SYNC] Full sync error:', error);
-      logAgentAction('sync_full', '/api/agent/sync/full', false, error.message);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Agent: Get sync status
-  app.get("/api/agent/sync/status", requireAgentToken, async (req: any, res) => {
-    try {
-      const status = await syncBridge.getSyncStatus();
-      res.json(status);
-    } catch (error: any) {
-      console.error('[AGENT-SYNC] Status error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Agent: Force-reset stuck sync runs (LOCAL)
-  app.post("/api/agent/sync/force-reset", requireAgentToken, async (req: any, res) => {
-    try {
-      const agentId = req.agentId || 'replit-agent';
-      console.log(`[AGENT-SYNC] Force-reset triggered by agent: ${agentId}`);
-      logAgentAction('sync_force_reset', '/api/agent/sync/force-reset', true, `Triggered by ${agentId}`);
-      
-      const { syncRuns } = await import('@shared/schema');
-      
-      const runningRuns = await getUserDb().select()
-        .from(syncRuns)
-        .where(eq(syncRuns.status, 'running'));
-      
-      let resetCount = 0;
-      for (const run of runningRuns) {
-        await getUserDb().update(syncRuns)
-          .set({
-            status: 'failed',
-            errorMessage: `Force-reset by agent ${agentId} - cleared to allow fresh sync`,
-            completedAt: new Date(),
-            durationMs: Date.now() - new Date(run.startedAt).getTime(),
-          })
-          .where(eq(syncRuns.id, run.id));
-        resetCount++;
-        console.log(`[AGENT-SYNC] Force-reset sync run ${run.id} (direction: ${run.direction})`);
-      }
-      
-      res.json({ 
-        success: true, 
-        resetCount,
-        message: `Force-reset ${resetCount} running sync run(s). Ready for fresh sync.`
-      });
-    } catch (error: any) {
-      console.error('[AGENT-SYNC] Force-reset error:', error);
-      logAgentAction('sync_force_reset', '/api/agent/sync/force-reset', false, error.message);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Agent: Trigger PEER to pull from us (full bidirectional)
-  // This calls prod's /api/sync/trigger-pull which makes prod pull from dev
-  app.post("/api/agent/sync/trigger-peer-pull", requireAgentToken, async (req: any, res) => {
-    try {
-      const agentId = req.agentId || 'replit-agent';
-      console.log(`[AGENT-SYNC] Triggering peer pull by agent: ${agentId}`);
-      logAgentAction('trigger_peer_pull', '/api/agent/sync/trigger-peer-pull', true, `Triggered by ${agentId}`);
-      
-      const result = await syncBridge.triggerPeerPull(agentId);
-      res.json(result);
-    } catch (error: any) {
-      console.error('[AGENT-SYNC] Trigger peer pull error:', error);
-      logAgentAction('trigger_peer_pull', '/api/agent/sync/trigger-peer-pull', false, error.message);
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
-  // Agent: Force-reset PEER's stuck syncs (full bidirectional)
-  app.post("/api/agent/sync/trigger-peer-reset", requireAgentToken, async (req: any, res) => {
-    try {
-      const agentId = req.agentId || 'replit-agent';
-      console.log(`[AGENT-SYNC] Triggering peer reset by agent: ${agentId}`);
-      logAgentAction('trigger_peer_reset', '/api/agent/sync/trigger-peer-reset', true, `Triggered by ${agentId}`);
-      
-      const result = await syncBridge.triggerPeerForceReset(agentId);
-      res.json(result);
-    } catch (error: any) {
-      console.error('[AGENT-SYNC] Trigger peer reset error:', error);
-      logAgentAction('trigger_peer_reset', '/api/agent/sync/trigger-peer-reset', false, error.message);
       res.status(500).json({ error: error.message });
     }
   });
