@@ -536,12 +536,18 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
             console.log(`[Streaming Voice] Language mismatch detected: conversation=${conversationLang}, target=${targetLang} - clearing history`);
             conversationHistory = [];
           } else {
+            // CRITICAL: Map 'assistant' role to 'model' for Gemini API compatibility
+            // Database stores 'assistant' but Gemini expects 'user' | 'model'
             conversationHistory = messages
               .slice(-20)
               .map((m: { role: string; content: string }) => ({
-                role: m.role as 'user' | 'model',
+                role: (m.role === 'assistant' ? 'model' : m.role) as 'user' | 'model',
                 content: m.content,
               }));
+            
+            if (conversationHistory.length > 0) {
+              console.log(`[Streaming Voice] Loaded ${conversationHistory.length} messages from conversation history`);
+            }
           }
 
           // Build curriculum context if user is enrolled in classes
@@ -2806,10 +2812,16 @@ This is a voice conversation. Speak naturally, as you would.`;
               console.log(`[Streaming Voice] Language mismatch detected: conversation=${conversationLang}, target=${targetLang} - clearing history`);
               conversationHistory = [];
             } else {
+              // CRITICAL: Map 'assistant' role to 'model' for Gemini API compatibility
+              // Database stores 'assistant' but Gemini expects 'user' | 'model'
               conversationHistory = messages.map(m => ({
                 role: m.role === 'user' ? 'user' as const : 'model' as const,
                 content: m.content,
               }));
+              
+              if (conversationHistory.length > 0) {
+                console.log(`[Streaming Voice] Loaded ${conversationHistory.length} messages from conversation history`);
+              }
             }
             
             // IMPORTANT: Start usage tracking session BEFORE orchestrator session
