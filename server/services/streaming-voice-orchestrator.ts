@@ -791,6 +791,10 @@ export interface StreamingSession {
   // This ensures messages are saved even if Gemini fails, preventing data loss
   checkpointedUserMessageId?: string;  // ID of pre-saved user message (cleared after AI response)
   checkpointedUserTranscript?: string; // Transcript that was checkpointed (for matching)
+  // Memory lookup results: Stores results from processMemoryLookup for multi-step FC to use
+  memoryLookupResults?: Record<string, string>;  // Key: query, Value: formatted results
+  // Pending memory lookup promises: Awaited by multi-step FC before building function responses
+  pendingMemoryLookupPromises?: Promise<void>[];
 }
 
 /**
@@ -2943,6 +2947,13 @@ Remember: David may reference things discussed in these recent text chats.
         console.log(`[Multi-Step FC] Function calls with no text detected - continuing conversation`);
         console.log(`[Multi-Step FC] Functions executed: ${functionCallsCopy.map(fc => fc.name).join(', ')}`);
         
+        // Await any pending memory lookups before building responses
+        if (session.pendingMemoryLookupPromises?.length) {
+          console.log(`[Multi-Step FC] Awaiting ${session.pendingMemoryLookupPromises.length} pending memory lookups...`);
+          await Promise.all(session.pendingMemoryLookupPromises);
+          session.pendingMemoryLookupPromises = [];
+        }
+        
         // Build function response parts for each executed function
         // These tell Gemini what happened when we executed its function calls
         // Note: Use 'tool' role and multimodal response format per Gemini 3 requirements
@@ -2967,6 +2978,17 @@ Remember: David may reference things discussed in these recent text chats.
             case 'SWITCH_TUTOR':
               responseText = `Tutor switch to ${fc.args.target} initiated. Handoff will occur after your response.`;
               break;
+            case 'MEMORY_LOOKUP': {
+              // Use actual memory lookup results if available
+              const query = fc.args.query as string;
+              const lookupResult = session.memoryLookupResults?.[query];
+              if (lookupResult) {
+                responseText = `Memory lookup results for "${query}":\n${lookupResult}\n\nNow respond to the student using this information.`;
+              } else {
+                responseText = `No memories found for "${query}". Respond naturally based on what you know about the conversation.`;
+              }
+              break;
+            }
             default:
               responseText = `${fc.name} executed successfully. Continue the conversation.`;
           }
@@ -4653,6 +4675,13 @@ Remember: David may reference things discussed in these recent text chats.
         console.log(`[Multi-Step FC - OpenMic] Function calls with no text detected - continuing conversation`);
         console.log(`[Multi-Step FC - OpenMic] Functions executed: ${functionCallsCopyOpenMic.map(fc => fc.name).join(', ')}`);
         
+        // Await any pending memory lookups before building responses
+        if (session.pendingMemoryLookupPromises?.length) {
+          console.log(`[Multi-Step FC - OpenMic] Awaiting ${session.pendingMemoryLookupPromises.length} pending memory lookups...`);
+          await Promise.all(session.pendingMemoryLookupPromises);
+          session.pendingMemoryLookupPromises = [];
+        }
+        
         // Build function response parts
         // Note: Use 'tool' role and multimodal response format per Gemini 3 requirements
         const functionResponsePartsOpenMic: Array<{
@@ -4674,6 +4703,17 @@ Remember: David may reference things discussed in these recent text chats.
             case 'SWITCH_TUTOR':
               responseText = `Tutor switch to ${fc.args.target} initiated. Handoff will occur after your response.`;
               break;
+            case 'MEMORY_LOOKUP': {
+              // Use actual memory lookup results if available
+              const query = fc.args.query as string;
+              const lookupResult = session.memoryLookupResults?.[query];
+              if (lookupResult) {
+                responseText = `Memory lookup results for "${query}":\n${lookupResult}\n\nNow respond to the student using this information.`;
+              } else {
+                responseText = `No memories found for "${query}". Respond naturally based on what you know about the conversation.`;
+              }
+              break;
+            }
             default:
               responseText = `${fc.name} executed successfully. Continue the conversation.`;
           }
@@ -9239,11 +9279,14 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           
           console.log(`[Native Function→MemoryLookup] Query: "${query.substring(0, 50)}..." domains: ${rawDomains.length > 0 ? rawDomains.join(',') : 'all'}`);
           
-          // Trigger memory lookup - results will be injected into context for next turn
-          // The actual lookup is handled by the procedural memory service
-          this.processMemoryLookup(session, query, rawDomains).catch(err => {
+          // Execute memory lookup immediately and store promise for multi-step FC to await
+          const lookupPromise = this.processMemoryLookup(session, query, rawDomains).catch(err => {
             console.error(`[Native Function→MemoryLookup] Error:`, err.message);
           });
+          
+          // Store promise so multi-step FC can await it before using results
+          if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+          session.pendingMemoryLookupPromises.push(lookupPromise);
         }
         break;
       }
@@ -9348,16 +9391,89 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
   
   /**
    * Process memory lookup request from native function call
+   * Executes the lookup immediately and stores results for multi-step FC response
    */
   private async processMemoryLookup(
     session: StreamingSession, 
     query: string, 
-    domains: string[]
+    rawDomains: string[]
   ): Promise<void> {
-    // Store the lookup request for injection into next turn context
-    if (!session.pendingMemoryLookups) session.pendingMemoryLookups = [];
-    session.pendingMemoryLookups.push({ query, domains, timestamp: Date.now() });
-    console.log(`[MemoryLookup] Queued lookup: "${query.substring(0, 50)}..." (${domains.length} domains)`);
+    try {
+      const { searchMemory, formatMemoryForConversation, searchTeachingKnowledge: searchTeaching, formatTeachingKnowledge, searchSyllabi: searchSyllabiFunc, formatSyllabusSearch } = await import('./neural-memory-search');
+      
+      // Parse domain types
+      const studentDomains = ['person', 'motivation', 'insight', 'struggle', 'session', 'progress'];
+      const teachingDomains = ['idiom', 'cultural', 'procedure', 'principle', 'error-pattern', 'situational-pattern', 'subtlety-cue', 'emotional-pattern', 'creativity-template'];
+      const syllabusDomains = ['syllabus'];
+      
+      const requestedStudentDomains = rawDomains.filter(d => studentDomains.includes(d)) as ('person' | 'motivation' | 'insight' | 'struggle' | 'session' | 'progress')[];
+      const requestedTeachingDomains = rawDomains.filter(d => teachingDomains.includes(d)) as ('idiom' | 'cultural' | 'procedure' | 'principle' | 'error-pattern' | 'situational-pattern' | 'subtlety-cue' | 'emotional-pattern' | 'creativity-template')[];
+      const requestedSyllabusDomains = rawDomains.filter(d => syllabusDomains.includes(d));
+      
+      // If no specific domains, search all
+      const searchStudentMemory = requestedStudentDomains.length > 0 || rawDomains.length === 0;
+      const searchTeachingKnowledge = requestedTeachingDomains.length > 0 || rawDomains.length === 0;
+      const searchSyllabi = requestedSyllabusDomains.length > 0 || rawDomains.length === 0;
+      
+      const results: string[] = [];
+      let totalFound = 0;
+      
+      // Search student memory
+      if (searchStudentMemory && session.studentId) {
+        const studentDomainFilter = requestedStudentDomains.length > 0 ? requestedStudentDomains : undefined;
+        const memoryResults = await searchMemory(session.studentId, query, studentDomainFilter);
+        if (memoryResults.results.length > 0) {
+          results.push(formatMemoryForConversation(memoryResults));
+          totalFound += memoryResults.results.length;
+        }
+      }
+      
+      // Search teaching knowledge
+      if (searchTeachingKnowledge) {
+        const teachingDomainFilter = requestedTeachingDomains.length > 0 ? requestedTeachingDomains : undefined;
+        const teachingResults = await searchTeaching(query, session.targetLanguage || undefined, teachingDomainFilter);
+        if (teachingResults.results.length > 0) {
+          results.push(formatTeachingKnowledge(teachingResults));
+          totalFound += teachingResults.results.length;
+        }
+      }
+      
+      // Search syllabi
+      if (searchSyllabi) {
+        const syllabusResults = await searchSyllabiFunc(query, session.targetLanguage || undefined);
+        if (syllabusResults.results.length > 0) {
+          results.push(formatSyllabusSearch(syllabusResults));
+          totalFound += syllabusResults.results.length;
+        }
+      }
+      
+      // Store results for multi-step FC to use in tool response
+      if (!session.memoryLookupResults) session.memoryLookupResults = {};
+      
+      if (results.length > 0) {
+        const combinedResults = results.join('\n\n');
+        session.memoryLookupResults[query] = combinedResults;
+        console.log(`[MemoryLookup] Found ${totalFound} results for "${query.substring(0, 50)}..."`);
+        
+        // Emit beacon for founder visibility
+        if (session.hiveChannelId) {
+          hiveCollaborationService.emitBeacon({
+            channelId: session.hiveChannelId,
+            tutorTurn: `[MEMORY_LOOKUP] Query: "${query}"\nDomains: ${rawDomains.join(', ') || 'all'}\nResults: ${totalFound} found`,
+            studentTurn: '',
+            beaconType: 'memory_lookup',
+            beaconReason: `Daniela searched neural memory for "${query}"`,
+          }).catch(err => console.error(`[MemoryLookup] Beacon error:`, err));
+        }
+      } else {
+        session.memoryLookupResults[query] = `No memories found for "${query}". Respond naturally based on what you know.`;
+        console.log(`[MemoryLookup] No results found for "${query.substring(0, 50)}..."`);
+      }
+    } catch (err: any) {
+      console.error(`[MemoryLookup] Error:`, err.message);
+      if (!session.memoryLookupResults) session.memoryLookupResults = {};
+      session.memoryLookupResults[query] = `Memory lookup failed. Respond naturally based on what you know.`;
+    }
   }
   
   /**
