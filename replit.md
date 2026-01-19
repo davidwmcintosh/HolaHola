@@ -32,7 +32,11 @@ An Observation Summarization System condenses observations into insights using G
 
 The Voice Intelligence System provides commercial-grade voice analytics and production-priority alerting. A Tutor Naming Architecture supports 36 tutors (18 main, 18 assistants) with flexible naming. The Voice Lab System offers real-time voice tuning for admin users.
 
-The Sofia Support Agent System provides dual-mode technical support (Dev Mode for debugging, User Mode for troubleshooting) and integrates with production telemetry for self-diagnosis. A Memory Recovery System checkpoints utterances to survive session interruptions, and a Historical Personal Facts Migration system backfills personal facts from past conversations.
+The Sofia Support Agent System provides dual-mode technical support (Dev Mode for debugging, User Mode for troubleshooting) and integrates with production telemetry for self-diagnosis.
+
+**Production Telemetry System (Jan 19, 2026)**: Cross-environment error monitoring via the shared Neon database. When voice sessions encounter errors (Gemini API failures, timeouts, "stuck thinking"), they're automatically logged to the `system_alerts` table in the SHARED database with full context: user/session IDs, error type, environment, timestamp, and stack trace. The `logVoiceOrchestratorError()` function in `server/services/production-telemetry.ts` handles error capture. Admin endpoint `GET /api/admin/telemetry/errors?limit=20&environment=production` allows querying production errors from development (requires admin auth). NEON_STRICT_MODE environment variable enforces proper database routing - when enabled, throws errors instead of falling back to Replit DB.
+
+A Memory Recovery System checkpoints utterances to survive session interruptions, and a Historical Personal Facts Migration system backfills personal facts from past conversations.
 
 **Message Checkpointing System**: The voice orchestrator implements pre-Gemini message checkpointing to prevent user message loss when the Gemini API fails or times out. User messages are saved to the database BEFORE calling Gemini (~5-10ms latency impact), ensuring they persist even if Gemini fails. The system uses normalized transcript matching (lowercase, punctuation-stripped, whitespace-collapsed) to detect duplicates, and `persistMessages` skips the user message if already checkpointed. Structured error logging captures Gemini-specific failures with errorType, elapsedMs, checkpointed status, and stack traces for debugging production issues.
 
