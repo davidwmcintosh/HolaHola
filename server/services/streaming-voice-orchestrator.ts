@@ -9630,27 +9630,16 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       
       const textContent = `[SYSTEM: Found ${images.length} image(s) matching "${imageQuery}":\n${imageDescriptions}\n\nThe actual image(s) are now visible to you. Look at them and describe what you see.]`;
       
-      // Add function response (text only) to conversation history
-      // Images go in a separate user message (Gemini doesn't support images in function responses)
+      // Add function response with images directly in the response
+      // Now that images are resized (<200KB each), they fit in function responses
       if (session.conversationHistory) {
-        // First: Add function response with text only
-        session.conversationHistory.push({
-          role: 'tool' as const,
-          parts: [{
-            functionResponse: {
-              name: fnName,
-              response: { output: [{ text: `Found ${images.length} image(s). Loading them now...` }] }
-            }
-          }]
-        });
-        
-        // Second: Add images as user message with multimodal content
-        const imageParts: Array<{ inlineData: { mimeType: string; data: string } } | { text: string }> = [
+        // Build output parts: text + images
+        const outputParts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [
           { text: textContent }
         ];
         
         for (const img of images) {
-          imageParts.push({
+          outputParts.push({
             inlineData: {
               mimeType: img.imageType,
               data: img.base64Data,
@@ -9659,8 +9648,13 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         }
         
         session.conversationHistory.push({
-          role: 'user' as const,
-          parts: imageParts,
+          role: 'tool' as const,
+          parts: [{
+            functionResponse: {
+              name: fnName,
+              response: { output: outputParts }
+            }
+          }]
         });
       }
       
