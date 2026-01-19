@@ -2962,9 +2962,24 @@ export async function getExpressLaneHistoryForVoice(
         : msg.role === 'daniela' ? 'Daniela' 
         : 'Wren';
       
+      // Include image attachments in the content so Daniela can "see" them
+      let contentWithAttachments = msg.content || '';
+      const metadata = msg.metadata as { attachments?: Array<{ name: string; type: string; url: string }> } | null;
+      if (metadata?.attachments && metadata.attachments.length > 0) {
+        const attachmentDescriptions = metadata.attachments
+          .filter(a => a.type?.startsWith('image/'))
+          .map(a => `[Image: ${a.name}]`)
+          .join(' ');
+        if (attachmentDescriptions) {
+          contentWithAttachments = contentWithAttachments 
+            ? `${contentWithAttachments} ${attachmentDescriptions}`
+            : attachmentDescriptions;
+        }
+      }
+      
       return {
         role,
-        content: `[EXPRESS Lane - ${roleLabel}]: ${msg.content}`
+        content: `[EXPRESS Lane - ${roleLabel}]: ${contentWithAttachments}`
       };
     });
   } catch (error) {
