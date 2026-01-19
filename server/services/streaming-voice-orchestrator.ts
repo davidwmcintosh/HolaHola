@@ -22,6 +22,7 @@
  */
 
 import { createHash } from "crypto";
+import { sql } from "drizzle-orm";
 import { createClient } from "@deepgram/sdk";
 import { getDeepgramLanguageCode, DeepgramIntelligence, DeepgramSentiment, DeepgramIntent, DeepgramEntity, DeepgramTopic, transcribeWithLiveAPI, TranscriptionResult } from "./deepgram-live-stt";
 import { analyzePronunciation, generateQuickCoaching, PronunciationCoaching } from "./live-pronunciation-coach";
