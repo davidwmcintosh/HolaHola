@@ -4396,7 +4396,7 @@ export class DatabaseStorage implements IStorage {
     const conversation = await this.getConversation(id, userId);
     if (!conversation) return undefined;
     
-    const [updated] = await db
+    const [updated] = await getSharedDb()
       .update(conversations)
       .set({ isStarred: !conversation.isStarred })
       .where(and(eq(conversations.id, id), eq(conversations.userId, userId)))
@@ -4445,7 +4445,7 @@ export class DatabaseStorage implements IStorage {
     
     // Topic filter (requires join)
     if (filter.topicId) {
-      const convIds = await db
+      const convIds = await getSharedDb()
         .select({ conversationId: conversationTopics.conversationId })
         .from(conversationTopics)
         .where(eq(conversationTopics.topicId, filter.topicId));
@@ -4457,7 +4457,7 @@ export class DatabaseStorage implements IStorage {
       }
     }
     
-    return await db
+    return await getSharedDb()
       .select()
       .from(conversations)
       .where(and(...conditions))
@@ -4593,7 +4593,7 @@ export class DatabaseStorage implements IStorage {
     const allTopics = await getSharedDb().select().from(topicsTable);
     
     // Get user's conversations for this language
-    const userConvs = await db.select({ id: conversations.id, createdAt: conversations.createdAt })
+    const userConvs = await getSharedDb().select({ id: conversations.id, createdAt: conversations.createdAt })
       .from(conversations)
       .where(and(
         eq(conversations.userId, userId),
@@ -4604,7 +4604,7 @@ export class DatabaseStorage implements IStorage {
     
     // Get topic usage counts from conversation_topics
     const topicUsage = convIds.length > 0 
-      ? await db.select({
+      ? await getSharedDb().select({
           topicId: conversationTopics.topicId,
           count: sql<string>`count(*)::int`.as('count'),
           lastUsed: sql<string>`max(${conversationTopics.createdAt})`.as('last_used'),
@@ -5605,19 +5605,19 @@ export class DatabaseStorage implements IStorage {
     // Delete conversations and their associated data
     if (opts.resetConversations) {
       // Get all user conversations
-      const userConvs = await db.select({ id: conversations.id })
+      const userConvs = await getSharedDb().select({ id: conversations.id })
         .from(conversations)
         .where(eq(conversations.userId, userId));
       
       for (const conv of userConvs) {
         // Delete messages
-        await db.delete(messages).where(eq(messages.conversationId, conv.id));
+        await getSharedDb().delete(messages).where(eq(messages.conversationId, conv.id));
         // Delete conversation topics
-        await db.delete(conversationTopics).where(eq(conversationTopics.conversationId, conv.id));
+        await getSharedDb().delete(conversationTopics).where(eq(conversationTopics.conversationId, conv.id));
       }
       
       // Delete conversations
-      const convResult = await db.delete(conversations)
+      const convResult = await getSharedDb().delete(conversations)
         .where(eq(conversations.userId, userId))
         .returning();
       conversationsDeleted = convResult.length;
@@ -5677,7 +5677,7 @@ export class DatabaseStorage implements IStorage {
     vocabularyDeleted = vocabResult.length;
 
     // Delete class-specific conversations and their messages
-    const classConvs = await db.select({ id: conversations.id })
+    const classConvs = await getSharedDb().select({ id: conversations.id })
       .from(conversations)
       .where(and(
         eq(conversations.userId, studentId),
@@ -5685,11 +5685,11 @@ export class DatabaseStorage implements IStorage {
       ));
     
     for (const conv of classConvs) {
-      await db.delete(messages).where(eq(messages.conversationId, conv.id));
-      await db.delete(conversationTopics).where(eq(conversationTopics.conversationId, conv.id));
+      await getSharedDb().delete(messages).where(eq(messages.conversationId, conv.id));
+      await getSharedDb().delete(conversationTopics).where(eq(conversationTopics.conversationId, conv.id));
     }
     
-    const convResult = await db.delete(conversations)
+    const convResult = await getSharedDb().delete(conversations)
       .where(and(
         eq(conversations.userId, studentId),
         eq(conversations.classId, classId)
