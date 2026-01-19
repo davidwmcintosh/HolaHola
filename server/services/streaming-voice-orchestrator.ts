@@ -9609,13 +9609,13 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       if (sessionId) {
         results = await sharedDb.select()
           .from(collaborationMessages)
-          .where(sql`session_id = ${sessionId} AND (content ILIKE ${`%${query}%`} OR role ILIKE ${`%${query}%`})`)
+          .where(sql`session_id = ${sessionId} AND (content ILIKE ${`%${query}%`} OR role::text ILIKE ${`%${query}%`})`)
           .orderBy(sql`created_at DESC`)
           .limit(limit);
       } else {
         results = await sharedDb.select()
           .from(collaborationMessages)
-          .where(sql`content ILIKE ${`%${query}%`} OR role ILIKE ${`%${query}%`}`)
+          .where(sql`content ILIKE ${`%${query}%`} OR role::text ILIKE ${`%${query}%`}`)
           .orderBy(sql`created_at DESC`)
           .limit(limit);
       }
