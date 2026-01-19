@@ -7716,6 +7716,8 @@ Only include observations you can clearly justify from the exchange. Return empt
     
     try {
       console.log(`[Streaming Greeting] Generating personalized greeting for user ${session.userId}`);
+      const greetingTimings: Record<string, number> = {};
+      const timingStart = Date.now();
       
       // PARALLEL DATA FETCH: Run all independent DB queries concurrently
       // This reduces greeting latency by ~500-800ms compared to sequential fetches
@@ -7726,6 +7728,7 @@ Only include observations you can clearly justify from the exchange. Return empt
       let connectionsAboutStudent: { mentioner: string; relationship: string; context: string }[] = [];
       
       try {
+        const parallelFetchStart = Date.now();
         const [actflProgress, userProgress, enrollments, recentConversations, user] = await Promise.all([
           storage.getOrCreateActflProgress(session.targetLanguage, String(session.userId))
             .catch(() => null),
@@ -7738,11 +7741,13 @@ Only include observations you can clearly justify from the exchange. Return empt
           storage.getUser(String(session.userId))
             .catch(() => null),
         ]);
+        greetingTimings.parallelDbFetch = Date.now() - parallelFetchStart;
         
         // Look up connections about this student (where others mentioned them)
         // This enables "warm introductions" - e.g., "I know you're David's friend from graduate school!"
         if (user?.firstName) {
           try {
+            const connectionsStart = Date.now();
             const connections = await storage.getConnectionsAboutPerson(
               String(session.userId),
               user.firstName,
@@ -7763,6 +7768,7 @@ Only include observations you can clearly justify from the exchange. Return empt
               }
             }
             
+            greetingTimings.connectionsLookup = Date.now() - connectionsStart;
             if (connectionsAboutStudent.length > 0) {
               console.log(`[Streaming Greeting] Found ${connectionsAboutStudent.length} connection(s) about student`);
             }
@@ -7869,6 +7875,7 @@ Only include observations you can clearly justify from the exchange. Return empt
       // This enables "Your colleague Aris told me..." moments for team continuity
       let colleagueFeedback: { agent: string; subject: string; summary: string }[] = [];
       try {
+        const collabFetchStart = Date.now();
         const recentCollab = await storage.getCollaborationEventsToAgent('daniela', String(session.userId), 10);
         // Include feedback, delegation_complete, and status_update events from colleagues
         const feedbackTypes = ['feedback', 'delegation_complete', 'status_update'];
@@ -7881,12 +7888,15 @@ Only include observations you can clearly justify from the exchange. Return empt
             summary: e.content.substring(0, 300),
           }));
         
+        greetingTimings.colleagueFeedbackFetch = Date.now() - collabFetchStart;
         if (colleagueFeedback.length > 0) {
           console.log(`[Streaming Greeting] Found ${colleagueFeedback.length} colleague insights to include`);
         }
       } catch (collabError: any) {
         console.log(`[Streaming Greeting] Could not fetch colleague feedback: ${collabError.message}`);
       }
+      
+      greetingTimings.totalDbQueries = Date.now() - timingStart;
       
       // Build greeting prompt with full context
       // DEBUG: Log context being passed to greeting prompt
@@ -7906,6 +7916,7 @@ Only include observations you can clearly justify from the exchange. Return empt
         colleagueFeedbackCount: colleagueFeedback.length,
       });
       
+      const promptBuildStart = Date.now();
       const greetingPrompt = this.buildGreetingPrompt(
         session,
         userName,
@@ -7917,6 +7928,18 @@ Only include observations you can clearly justify from the exchange. Return empt
         connectionsAboutStudent,
         colleagueFeedback
       );
+      greetingTimings.promptBuild = Date.now() - promptBuildStart;
+      greetingTimings.preGeminiTotal = Date.now() - timingStart;
+      
+      // Log detailed timing breakdown for diagnostics
+      console.log(`[Streaming Greeting] ⏱️ TIMING BREAKDOWN:`, {
+        parallelDbFetch: `${greetingTimings.parallelDbFetch || 0}ms`,
+        connectionsLookup: `${greetingTimings.connectionsLookup || 0}ms`,
+        colleagueFeedbackFetch: `${greetingTimings.colleagueFeedbackFetch || 0}ms`,
+        totalDbQueries: `${greetingTimings.totalDbQueries}ms`,
+        promptBuild: `${greetingTimings.promptBuild}ms`,
+        preGeminiTotal: `${greetingTimings.preGeminiTotal}ms`,
+      });
       
       // NEW TURN: Increment turnId for this greeting response
       session.currentTurnId++;
