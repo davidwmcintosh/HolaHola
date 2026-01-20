@@ -796,6 +796,8 @@ export interface StreamingSession {
   checkpointedUserTranscript?: string; // Transcript that was checkpointed (for matching)
   // Memory lookup results: Stores results from processMemoryLookup for multi-step FC to use
   memoryLookupResults?: Record<string, string>;  // Key: query, Value: formatted results
+  // Express Lane lookup results: Stores results from processExpressLaneLookup for multi-step FC
+  expressLaneLookupResults?: Record<string, string>;  // Key: query, Value: formatted results
   // Image recall results: Stores multimodal image data for RECALL_EXPRESS_LANE_IMAGE
   imageRecallResults?: Record<string, { 
     text: string; 
@@ -4768,6 +4770,17 @@ Remember: David may reference things discussed in these recent text chats.
               }
               break;
             }
+            case 'EXPRESS_LANE_LOOKUP': {
+              // Use actual Express Lane lookup results if available
+              const query = fc.args.query as string;
+              const lookupResult = session.expressLaneLookupResults?.[query];
+              if (lookupResult) {
+                responseText = `Express Lane search results for "${query}":\n${lookupResult}\n\nNow respond to the student using this information.`;
+              } else {
+                responseText = `No Express Lane messages found for "${query}". Respond naturally based on what you know.`;
+              }
+              break;
+            }
             case 'RECALL_EXPRESS_LANE_IMAGE': {
               // Use actual image recall results (multimodal) if available
               const imgQuery = fc.args.imageQuery as string;
@@ -4877,6 +4890,144 @@ Remember: David may reference things discussed in these recent text chats.
               console.error(`[Multi-Step FC - OpenMic] Continuation error:`, error.message);
             },
           });
+          
+          // RECURSIVE MULTI-STEP FC: If continuation also produced 0 sentences + more function calls, continue again
+          // This handles chains like: memory_lookup → express_lane_lookup → actual response
+          let recursiveDepth = 0;
+          const MAX_RECURSIVE_FC_DEPTH = 5; // Safety limit
+          
+          while (metrics.sentenceCount === 0 && 
+                 session.currentTurnFunctionCalls && 
+                 session.currentTurnFunctionCalls.length > 0 &&
+                 recursiveDepth < MAX_RECURSIVE_FC_DEPTH) {
+            recursiveDepth++;
+            console.log(`[Multi-Step FC - OpenMic] Recursive continuation depth ${recursiveDepth} - ${session.currentTurnFunctionCalls.length} new function calls`);
+            
+            // Await any pending lookups from this round
+            if (session.pendingMemoryLookupPromises?.length) {
+              console.log(`[Multi-Step FC - OpenMic] Awaiting ${session.pendingMemoryLookupPromises.length} pending lookups (depth ${recursiveDepth})...`);
+              await Promise.all(session.pendingMemoryLookupPromises);
+              session.pendingMemoryLookupPromises = [];
+            }
+            
+            // Save current function calls for response building
+            const recursiveFCs = [...session.currentTurnFunctionCalls];
+            const recursiveThoughts = session.currentTurnThoughtSignatures ? [...session.currentTurnThoughtSignatures] : [];
+            
+            // Add model turn with function calls to history
+            const recursiveModelParts: Array<{
+              text?: string;
+              functionCall?: { name: string; args: Record<string, unknown> };
+              thought_signature?: string;
+            }> = recursiveFCs.map(fc => ({
+              functionCall: { name: fc.name, args: fc.args },
+              thought_signature: fc.thoughtSignature,
+            }));
+            session.conversationHistory.push({
+              role: 'model',
+              parts: recursiveModelParts,
+              thoughtSignatures: recursiveThoughts,
+            });
+            
+            // Build function responses
+            const recursiveResponseParts: Array<{
+              functionResponse: { name: string; response: { output: Array<{ text: string }> } };
+            }> = [];
+            
+            for (const fc of recursiveFCs) {
+              let responseText = 'Function executed successfully.';
+              if (fc.legacyType === 'MEMORY_LOOKUP') {
+                const query = fc.args.query as string;
+                const lookupResult = session.memoryLookupResults?.[query];
+                responseText = lookupResult 
+                  ? `Memory lookup results for "${query}":\n${lookupResult}\n\nNow respond using this information.`
+                  : `No memories found for "${query}". Respond naturally.`;
+              } else if (fc.legacyType === 'EXPRESS_LANE_LOOKUP') {
+                const query = fc.args.query as string;
+                const lookupResult = session.expressLaneLookupResults?.[query];
+                responseText = lookupResult
+                  ? `Express Lane search results for "${query}":\n${lookupResult}\n\nNow respond using this information.`
+                  : `No Express Lane messages found for "${query}". Respond naturally.`;
+              } else {
+                responseText = `${fc.name} executed successfully. Continue the conversation.`;
+              }
+              recursiveResponseParts.push({
+                functionResponse: {
+                  name: fc.name,
+                  response: { output: [{ text: responseText }] },
+                },
+              });
+            }
+            
+            // Add tool response to history
+            session.conversationHistory.push({
+              role: 'tool',
+              parts: recursiveResponseParts,
+              thoughtSignatures: recursiveThoughts,
+            });
+            
+            console.log(`[Multi-Step FC - OpenMic] Added ${recursiveResponseParts.length} function responses (depth ${recursiveDepth})`);
+            
+            // Reset tracking for next round
+            session.currentTurnFunctionCalls = [];
+            session.currentTurnThoughtSignatures = [];
+            
+            // Call Gemini again
+            const recursiveHistory: ConversationHistoryEntry[] = session.currentTurnPreamble
+              ? [...session.currentTurnPreamble, ...session.conversationHistory]
+              : session.conversationHistory;
+            
+            await this.geminiService.streamWithSentenceChunking({
+              systemPrompt: session.systemPrompt,
+              conversationHistory: recursiveHistory,
+              userMessage: '',
+              enableFunctionCalling: true,
+              enableContextCaching: true,
+              onFunctionCall: async (newFCs: ExtractedFunctionCall[]) => {
+                for (const fn of newFCs) {
+                  console.log(`[Multi-Step FC - OpenMic] Recursive function (depth ${recursiveDepth}): ${fn.name}`);
+                  if (fn.thoughtSignature) {
+                    session.currentTurnThoughtSignatures?.push(fn.thoughtSignature);
+                  }
+                  session.currentTurnFunctionCalls?.push(fn);
+                  this.handleNativeFunctionCall(sessionId, session, fn).catch(err => {
+                    console.error(`[Multi-Step FC - OpenMic] Error handling ${fn.name}:`, err.message);
+                  });
+                }
+              },
+              onSentence: async (chunk: SentenceChunk) => {
+                if (session.isInterrupted) return;
+                
+                const recursiveDisplayText = cleanTextForDisplay(chunk.text);
+                if (!recursiveDisplayText) return;
+                
+                const recursiveNormalized = recursiveDisplayText.toLowerCase().trim();
+                if (seenSentences.has(recursiveNormalized)) return;
+                seenSentences.add(recursiveNormalized);
+                
+                if (actualSentenceCount >= MAX_SENTENCES) return;
+                actualSentenceCount++;
+                
+                console.log(`[Multi-Step FC - OpenMic] Recursive sentence (depth ${recursiveDepth}): "${recursiveDisplayText.substring(0, 50)}..."`);
+                
+                if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
+                  await this.streamSentenceAudioProgressive(session, chunk, recursiveDisplayText, metrics, turnId);
+                } else {
+                  await this.streamSentenceAudio(session, chunk, recursiveDisplayText, metrics, turnId);
+                }
+                
+                fullText += recursiveDisplayText + ' ';
+                metrics.sentenceCount++;
+              },
+              onError: (error) => {
+                console.error(`[Multi-Step FC - OpenMic] Recursive error (depth ${recursiveDepth}):`, error.message);
+              },
+            });
+          }
+          
+          if (recursiveDepth >= MAX_RECURSIVE_FC_DEPTH) {
+            console.warn(`[Multi-Step FC - OpenMic] Hit max recursive depth (${MAX_RECURSIVE_FC_DEPTH}), stopping function chain`);
+          }
           
           // Update conversation history with continuation response
           if (fullText.trim() && metrics.sentenceCount > 0) {
@@ -9445,9 +9596,14 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         }
         
         if (query) {
-          this.processExpressLaneLookup(session, query, sessionIdParam, limit).catch(err => {
+          // Execute lookup and store promise for multi-step FC to await
+          const lookupPromise = this.processExpressLaneLookup(session, query, sessionIdParam, limit).catch(err => {
             console.error(`[Native Function→ExpressLaneLookup] Error:`, err.message);
           });
+          
+          // Store promise so multi-step FC can await it before continuing
+          if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+          session.pendingMemoryLookupPromises.push(lookupPromise);
         }
         break;
       }
@@ -9653,8 +9809,11 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
     limit: number
   ): Promise<void> {
     try {
-      const { collaborationMessages, founderSessions } = await import('@shared/schema');
+      const { collaborationMessages } = await import('@shared/schema');
       const sharedDb = getSharedDb();
+      
+      // Initialize lookup results storage
+      if (!session.expressLaneLookupResults) session.expressLaneLookupResults = {};
       
       let results: any[];
       if (sessionId) {
@@ -9677,12 +9836,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           return `[${date}] ${msg.role}: ${msg.content}`;
         }).join('\n');
         
-        if (session.conversationHistory) {
-          session.conversationHistory.push({
-            role: 'user',
-            content: `[SYSTEM: Express Lane search results for "${query}" (${results.length} messages)]\n\n${formattedResults}`,
-          });
-        }
+        // Store results for multi-step FC to use (like memoryLookupResults)
+        session.expressLaneLookupResults[query] = formattedResults;
         console.log(`[ExpressLaneLookup] Found ${results.length} messages for "${query}"`);
         
         // Emit beacon if in Founder Mode
@@ -9696,16 +9851,14 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           }).catch(err => console.error(`[ExpressLaneLookup] Beacon error:`, err));
         }
       } else {
+        // Store "no results" for multi-step FC to use
+        session.expressLaneLookupResults[query] = `No Express Lane messages found for "${query}". Respond naturally based on what you know.`;
         console.log(`[ExpressLaneLookup] No results found for "${query}"`);
-        if (session.conversationHistory) {
-          session.conversationHistory.push({
-            role: 'user',
-            content: `[SYSTEM: No Express Lane messages found for "${query}"]`,
-          });
-        }
       }
     } catch (err) {
       console.error(`[ExpressLaneLookup] Error:`, err);
+      if (!session.expressLaneLookupResults) session.expressLaneLookupResults = {};
+      session.expressLaneLookupResults[query] = `Express Lane lookup failed. Respond naturally based on what you know.`;
     }
   }
   
