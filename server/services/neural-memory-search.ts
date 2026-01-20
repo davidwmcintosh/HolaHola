@@ -54,6 +54,44 @@ import {
 import { eq, sql, desc, and, or, ilike } from 'drizzle-orm';
 
 /**
+ * Tutor name to language mapping
+ * Used to search conversations by tutor name (e.g., "What did I tell Isabel?" → search Portuguese)
+ */
+const TUTOR_NAME_TO_LANGUAGE: Record<string, string> = {
+  'daniela': 'spanish',
+  'agustin': 'spanish',
+  'isabel': 'portuguese',
+  'camilo': 'portuguese',
+  'juliette': 'french',
+  'vincent': 'french',
+  'greta': 'german',
+  'lukas': 'german',
+  'liv': 'italian',
+  'luca': 'italian',
+  'yuki': 'japanese',
+  'daisuke': 'japanese',
+  'jihyun': 'korean',
+  'minho': 'korean',
+  'hua': 'mandarin chinese',
+  'tao': 'mandarin chinese',
+  'blake': 'english',
+  'cindy': 'english',
+};
+
+/**
+ * Extract tutor name from query and return corresponding language
+ */
+function extractTutorLanguage(query: string): string | null {
+  const normalizedQuery = query.toLowerCase();
+  for (const [tutorName, language] of Object.entries(TUTOR_NAME_TO_LANGUAGE)) {
+    if (normalizedQuery.includes(tutorName)) {
+      return language;
+    }
+  }
+  return null;
+}
+
+/**
  * Memory search result with source attribution
  */
 export interface MemorySearchResult {
@@ -322,34 +360,75 @@ export async function searchMemory(
     searchedDomains.push('conversation');
     searchPromises.push((async () => {
       try {
-        // Search recent conversation messages across ALL languages/tutors
-        // This enables cross-tutor memory recall (e.g., "What did I tell Isabel?")
-        const recentConvos = await getSharedDb()
-          .select({
-            messageId: messages.id,
-            content: messages.content,
-            role: messages.role,
-            conversationId: messages.conversationId,
-            language: conversations.language,
-            conversationTitle: conversations.title,
-            createdAt: conversations.createdAt,
-          })
-          .from(messages)
-          .innerJoin(conversations, eq(messages.conversationId, conversations.id))
-          .where(and(
-            eq(conversations.userId, studentId),
-            ilike(messages.content, searchPattern)
-          ))
-          .orderBy(desc(conversations.createdAt))
-          .limit(10);
+        // Check if query mentions a specific tutor by name
+        // e.g., "What did I tell Isabel?" → search Portuguese conversations
+        const tutorLanguage = extractTutorLanguage(query);
+        const tutorName = tutorLanguage ? 
+          Object.entries(TUTOR_NAME_TO_LANGUAGE).find(([_, lang]) => lang === tutorLanguage)?.[0] : null;
+        
+        let recentConvos;
+        
+        if (tutorLanguage) {
+          // Search by tutor's language - get recent conversations with that tutor
+          console.log(`[NeuralMemory] Detected tutor name in query, searching ${tutorLanguage} conversations`);
+          recentConvos = await getSharedDb()
+            .select({
+              messageId: messages.id,
+              content: messages.content,
+              role: messages.role,
+              conversationId: messages.conversationId,
+              language: conversations.language,
+              conversationTitle: conversations.title,
+              createdAt: messages.createdAt,
+            })
+            .from(messages)
+            .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+            .where(and(
+              eq(conversations.userId, studentId),
+              eq(conversations.language, tutorLanguage)
+            ))
+            .orderBy(desc(messages.createdAt))
+            .limit(20);
+        } else {
+          // Search by content match across ALL languages/tutors
+          recentConvos = await getSharedDb()
+            .select({
+              messageId: messages.id,
+              content: messages.content,
+              role: messages.role,
+              conversationId: messages.conversationId,
+              language: conversations.language,
+              conversationTitle: conversations.title,
+              createdAt: messages.createdAt,
+            })
+            .from(messages)
+            .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+            .where(and(
+              eq(conversations.userId, studentId),
+              ilike(messages.content, searchPattern)
+            ))
+            .orderBy(desc(messages.createdAt))
+            .limit(10);
+        }
+        
+        // Get tutor display name for the language
+        const getTutorDisplayName = (lang: string): string => {
+          const tutorEntry = Object.entries(TUTOR_NAME_TO_LANGUAGE)
+            .find(([name, language]) => language === lang && name.charAt(0) === name.charAt(0).toLowerCase());
+          if (tutorEntry) {
+            return tutorEntry[0].charAt(0).toUpperCase() + tutorEntry[0].slice(1);
+          }
+          return lang;
+        };
         
         for (const msg of recentConvos) {
-          const roleLabel = msg.role === 'user' ? 'You said' : 'Tutor said';
+          const tutorDisplayName = msg.language ? getTutorDisplayName(msg.language) : 'Tutor';
+          const roleLabel = msg.role === 'user' ? 'You said to ' + tutorDisplayName : tutorDisplayName + ' said';
           const langLabel = msg.language ? `[${msg.language}]` : '';
           
           results.push({
             domain: 'conversation',
-            relevance: 0.8, // High relevance for direct message matches
+            relevance: tutorLanguage ? 0.95 : 0.8, // Higher relevance for tutor-specific searches
             summary: `${langLabel} ${roleLabel}: "${msg.content?.substring(0, 80)}..."`,
             details: msg.content || '',
             timestamp: msg.createdAt,
@@ -357,7 +436,7 @@ export async function searchMemory(
           });
         }
         
-        console.log(`[NeuralMemory] Conversation search found ${recentConvos.length} messages for "${query}"`);
+        console.log(`[NeuralMemory] Conversation search found ${recentConvos.length} messages for "${query}"${tutorLanguage ? ` (tutor: ${tutorLanguage})` : ''}`);
       } catch (err: any) {
         console.error('[NeuralMemory] Error searching conversations:', err.message);
       }
