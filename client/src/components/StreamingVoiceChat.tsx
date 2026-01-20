@@ -489,12 +489,12 @@ export function StreamingVoiceChat({
       // Play initial ring
       playRingCycle();
       
-      // Ring pattern: ring for 0.4s, pause for 1.1s, repeat (faster pacing)
+      // Ring pattern: ring for 0.4s, pause for 2.1s, repeat (relaxed pacing - feels shorter wait)
       ringingAudioRef.current.oscillatorInterval = setInterval(() => {
         if (ringingAudioRef.current?.isPlaying) {
           playRingCycle();
         }
-      }, 1500);
+      }, 2500);
       
       console.log('[RINGING] Started telephone ring sound');
     } catch (err) {
