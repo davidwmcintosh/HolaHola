@@ -360,6 +360,8 @@ export async function searchMemory(
     searchedDomains.push('conversation');
     searchPromises.push((async () => {
       try {
+        console.log(`[NeuralMemory] Starting conversation search for student ${studentId}, query: "${query}"`);
+        
         // Check if query mentions a specific tutor by name
         // e.g., "What did I tell Isabel?" → search Portuguese conversations
         const tutorLanguage = extractTutorLanguage(query);
