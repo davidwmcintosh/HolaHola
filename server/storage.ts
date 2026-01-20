@@ -1924,12 +1924,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createVocabularyWord(data: InsertVocabularyWord): Promise<VocabularyWord> {
-    const [word] = await db.insert(vocabularyWords).values(data).returning();
+    // vocabulary_words is in SHARED database (FK to conversations which is also in SHARED)
+    const [word] = await getSharedDb().insert(vocabularyWords).values(data).returning();
     return word;
   }
 
   async getVocabularyWord(id: string): Promise<VocabularyWord | undefined> {
-    const [word] = await db
+    const [word] = await getSharedDb()
       .select()
       .from(vocabularyWords)
       .where(eq(vocabularyWords.id, id))
@@ -1939,14 +1940,14 @@ export class DatabaseStorage implements IStorage {
 
   async getVocabularyWords(language: string, userId: string, difficulty?: string): Promise<VocabularyWord[]> {
     if (difficulty) {
-      return await db.select().from(vocabularyWords)
+      return await getSharedDb().select().from(vocabularyWords)
         .where(and(
           eq(vocabularyWords.language, language),
           eq(vocabularyWords.userId, userId),
           eq(vocabularyWords.difficulty, difficulty)
         ));
     }
-    return await db.select().from(vocabularyWords)
+    return await getSharedDb().select().from(vocabularyWords)
       .where(and(eq(vocabularyWords.language, language), eq(vocabularyWords.userId, userId)));
   }
 
@@ -1964,7 +1965,7 @@ export class DatabaseStorage implements IStorage {
       return this.getVocabularyWord(id);
     }
     
-    const [updated] = await db.update(vocabularyWords)
+    const [updated] = await getSharedDb().update(vocabularyWords)
       .set(safeFields)
       .where(eq(vocabularyWords.id, id))
       .returning();
@@ -1972,7 +1973,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateVocabularyReview(id: string, isCorrect: boolean): Promise<VocabularyWord | undefined> {
-    const result = await db.select().from(vocabularyWords).where(eq(vocabularyWords.id, id));
+    const result = await getSharedDb().select().from(vocabularyWords).where(eq(vocabularyWords.id, id));
     const word = result[0];
     if (!word) return undefined;
 
@@ -1986,7 +1987,7 @@ export class DatabaseStorage implements IStorage {
 
     const reviewResult = isCorrect ? markCorrect(currentState) : markIncorrect(currentState);
 
-    const [updated] = await db.update(vocabularyWords)
+    const [updated] = await getSharedDb().update(vocabularyWords)
       .set({
         nextReviewDate: reviewResult.nextReviewDate,
         easeFactor: reviewResult.easeFactor,
@@ -2013,7 +2014,7 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(vocabularyWords.difficulty, difficulty));
     }
 
-    return await db.select().from(vocabularyWords)
+    return await getSharedDb().select().from(vocabularyWords)
       .where(and(...conditions))
       .orderBy(vocabularyWords.nextReviewDate)
       .limit(limit);
@@ -4828,7 +4829,7 @@ export class DatabaseStorage implements IStorage {
         conversation = conv;
       }
       if (item.vocabularyWordId) {
-        const [word] = await db.select().from(vocabularyWords).where(eq(vocabularyWords.id, item.vocabularyWordId));
+        const [word] = await getSharedDb().select().from(vocabularyWords).where(eq(vocabularyWords.id, item.vocabularyWordId));
         vocabularyWord = word;
       }
       
@@ -4859,8 +4860,8 @@ export class DatabaseStorage implements IStorage {
       ))
       .orderBy(conversations.createdAt);
     
-    // Get vocabulary from this week
-    const weekVocabulary = await db
+    // Get vocabulary from this week (vocabulary_words is in SHARED)
+    const weekVocabulary = await getSharedDb()
       .select()
       .from(vocabularyWords)
       .where(and(
@@ -5613,19 +5614,19 @@ export class DatabaseStorage implements IStorage {
     let progressReset = false;
     let lessonsDeleted = 0;
 
-    // Delete vocabulary words and their topic associations
+    // Delete vocabulary words and their topic associations (vocabulary_words is in SHARED)
     if (opts.resetVocabulary) {
       // First delete vocabulary word topics
-      const userVocab = await db.select({ id: vocabularyWords.id })
+      const userVocab = await getSharedDb().select({ id: vocabularyWords.id })
         .from(vocabularyWords)
         .where(eq(vocabularyWords.userId, userId));
       
       for (const word of userVocab) {
-        await db.delete(vocabularyWordTopics).where(eq(vocabularyWordTopics.vocabularyWordId, word.id));
+        await getSharedDb().delete(vocabularyWordTopics).where(eq(vocabularyWordTopics.vocabularyWordId, word.id));
       }
       
       // Then delete vocabulary words
-      const vocabResult = await db.delete(vocabularyWords)
+      const vocabResult = await getSharedDb().delete(vocabularyWords)
         .where(eq(vocabularyWords.userId, userId))
         .returning();
       vocabularyDeleted = vocabResult.length;
@@ -5696,8 +5697,8 @@ export class DatabaseStorage implements IStorage {
     let assignmentSubmissionsDeleted = 0;
     let placementReset = false;
 
-    // Delete class-specific vocabulary words
-    const vocabResult = await db.delete(vocabularyWords)
+    // Delete class-specific vocabulary words (vocabulary_words is in SHARED)
+    const vocabResult = await getSharedDb().delete(vocabularyWords)
       .where(and(
         eq(vocabularyWords.userId, studentId),
         eq(vocabularyWords.classId, classId)
