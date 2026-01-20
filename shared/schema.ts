@@ -5847,12 +5847,14 @@ export const sessionPhaseEnum = pgEnum("session_phase", [
 ]);
 
 // Collaboration channels - groups events by voice session
+// NOTE: No FK constraints on conversationId/userId - these reference tables across databases
+// (conversations in SHARED, users in USER) - use app-level validation instead
 export const collaborationChannels = pgTable("collaboration_channels", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
-  // Link to voice conversation
-  conversationId: varchar("conversation_id").references(() => conversations.id),
-  userId: varchar("user_id").references(() => users.id),
+  // Link to voice conversation (soft reference - no FK due to cross-db architecture)
+  conversationId: varchar("conversation_id"),
+  userId: varchar("user_id"),
   
   // Channel lifecycle
   sessionPhase: sessionPhaseEnum("session_phase").notNull().default("active"),
