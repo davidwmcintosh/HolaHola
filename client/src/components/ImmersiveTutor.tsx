@@ -322,19 +322,20 @@ export function ImmersiveTutor({
   const getTutorImage = () => {
     // Map tutor state to avatar state
     // CRITICAL: Use playbackState directly for immediate avatar response
-    // - 'playing' = audio is actually playing = show talking avatar
-    // - 'buffering' = audio chunks arriving but not playing yet = show thinking if processing
+    // - 'playing' OR 'buffering' = audio is streaming = show talking avatar
+    //   (buffering happens between sentences during multi-sentence responses)
+    // - Only show 'thinking' when isProcessing AND not in any playback state
     // - Don't rely on isPlaying prop which goes through extra React state cycle
     let avatarState: TutorState = 'idle';
-    const isActuallyPlaying = playbackState === 'playing';
-    if (isActuallyPlaying) avatarState = 'talking';
-    else if (isProcessing || playbackState === 'buffering') avatarState = 'thinking';
+    const isStreamingAudio = playbackState === 'playing' || playbackState === 'buffering';
+    if (isStreamingAudio) avatarState = 'talking';
+    else if (isProcessing) avatarState = 'thinking';
     else if (isRecording) avatarState = 'listening';
     
     // DEBUG: Log avatar state derivation
     console.log('[IMMERSIVE AVATAR DEBUG]', {
       playbackState,
-      isActuallyPlaying,
+      isStreamingAudio,
       isProcessing,
       isRecording,
       derivedAvatarState: avatarState,
@@ -349,12 +350,13 @@ export function ImmersiveTutor({
   
   // Get the current avatar state for test IDs and animation
   const getAvatarState = (): "idle" | "listening" | "speaking" | "thinking" => {
-    // Speaking = audio actually playing (not just buffering)
+    // Speaking = audio is streaming (playing OR buffering between sentences)
     // CRITICAL: Use playbackState directly for immediate response
-    const isActuallyPlaying = playbackState === 'playing';
-    if (isActuallyPlaying) return "speaking";
-    // Thinking = processing user input OR buffering audio before playback
-    if (isProcessing || playbackState === 'buffering') return "thinking";
+    // Buffering happens between sentences during multi-sentence responses
+    const isStreamingAudio = playbackState === 'playing' || playbackState === 'buffering';
+    if (isStreamingAudio) return "speaking";
+    // Thinking = processing user input (and NOT in any playback state)
+    if (isProcessing) return "thinking";
     // Listening = user is recording/speaking
     if (isRecording) return "listening";
     return "idle";
