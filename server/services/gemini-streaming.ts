@@ -904,10 +904,10 @@ export class GeminiStreamingService {
           // MINIMAL = fastest for voice, LOW/MEDIUM for balanced, HIGH for complex reasoning
           if (requestModel.includes('gemini-3')) {
             // Gemini 3: Use thinkingConfig with nested thinkingLevel
-            generationConfig.thinkingConfig = {
-              thinkingLevel: thinkingLevel === 'MINIMAL' ? 'MINIMAL' : 
-                            thinkingLevel === 'MEDIUM' ? 'MEDIUM' : 'HIGH'
-            };
+            const level = thinkingLevel === 'MINIMAL' ? 'MINIMAL' : 
+                         thinkingLevel === 'MEDIUM' ? 'MEDIUM' : 'HIGH';
+            generationConfig.thinkingConfig = { thinkingLevel: level };
+            console.log(`[Gemini Streaming] ThinkingConfig set: { thinkingLevel: ${level} }`);
           } else if (requestModel.includes('gemini-2.5')) {
             // Gemini 2.5 still uses deprecated thinkingBudget (numeric tokens) in nested object
             generationConfig.thinkingConfig = { 
