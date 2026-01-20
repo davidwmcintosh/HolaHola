@@ -899,13 +899,15 @@ export class GeminiStreamingService {
           }
           
           // Add thinking level if model supports it (Gemini 3+)
-          // Gemini 3 uses thinkingLevel directly on generationConfig (not nested in thinkingConfig)
+          // Gemini 3 uses thinkingConfig with thinkingLevel (nested object)
           // Thinking output is hidden in thoughtSignature, not mixed into part.text
           // MINIMAL = fastest for voice, LOW/MEDIUM for balanced, HIGH for complex reasoning
           if (requestModel.includes('gemini-3')) {
-            // Gemini 3: Set thinkingLevel directly on generationConfig (not nested!)
-            generationConfig.thinkingLevel = thinkingLevel === 'MINIMAL' ? 'MINIMAL' : 
-                                             thinkingLevel === 'MEDIUM' ? 'MEDIUM' : 'HIGH';
+            // Gemini 3: Use thinkingConfig with nested thinkingLevel
+            generationConfig.thinkingConfig = {
+              thinkingLevel: thinkingLevel === 'MINIMAL' ? 'MINIMAL' : 
+                            thinkingLevel === 'MEDIUM' ? 'MEDIUM' : 'HIGH'
+            };
           } else if (requestModel.includes('gemini-2.5')) {
             // Gemini 2.5 still uses deprecated thinkingBudget (numeric tokens) in nested object
             generationConfig.thinkingConfig = { 
