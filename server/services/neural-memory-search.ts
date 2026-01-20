@@ -390,25 +390,49 @@ export async function searchMemory(
             .orderBy(desc(messages.createdAt))
             .limit(20);
         } else {
-          // Search by content match across ALL languages/tutors
-          recentConvos = await getSharedDb()
-            .select({
-              messageId: messages.id,
-              content: messages.content,
-              role: messages.role,
-              conversationId: messages.conversationId,
-              language: conversations.language,
-              conversationTitle: conversations.title,
-              createdAt: messages.createdAt,
-            })
-            .from(messages)
-            .innerJoin(conversations, eq(messages.conversationId, conversations.id))
-            .where(and(
-              eq(conversations.userId, studentId),
-              ilike(messages.content, searchPattern)
-            ))
-            .orderBy(desc(messages.createdAt))
-            .limit(10);
+          // Check if this is a "recent/today" query that should just return recent messages
+          const recentTerms = ['recent', 'today', 'earlier', 'last', 'previous', 'past', 'before', 'ago', 'just', 'chat', 'conversation', 'talked', 'said', 'told', 'discussed', 'mentioned'];
+          const isRecentQuery = recentTerms.some(term => normalizedQuery.includes(term));
+          
+          if (isRecentQuery) {
+            // Just return recent messages without content filtering
+            console.log(`[NeuralMemory] Detected "recent conversations" query - returning recent messages`);
+            recentConvos = await getSharedDb()
+              .select({
+                messageId: messages.id,
+                content: messages.content,
+                role: messages.role,
+                conversationId: messages.conversationId,
+                language: conversations.language,
+                conversationTitle: conversations.title,
+                createdAt: messages.createdAt,
+              })
+              .from(messages)
+              .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+              .where(eq(conversations.userId, studentId))
+              .orderBy(desc(messages.createdAt))
+              .limit(30); // Get more messages for context
+          } else {
+            // Search by content match across ALL languages/tutors
+            recentConvos = await getSharedDb()
+              .select({
+                messageId: messages.id,
+                content: messages.content,
+                role: messages.role,
+                conversationId: messages.conversationId,
+                language: conversations.language,
+                conversationTitle: conversations.title,
+                createdAt: messages.createdAt,
+              })
+              .from(messages)
+              .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+              .where(and(
+                eq(conversations.userId, studentId),
+                ilike(messages.content, searchPattern)
+              ))
+              .orderBy(desc(messages.createdAt))
+              .limit(10);
+          }
         }
         
         // Get tutor display name for the language
