@@ -9,7 +9,7 @@ const gemini = new GoogleGenAI({
 });
 
 export const GEMINI_MODELS = {
-  FLASH: "gemini-3-flash",
+  FLASH: "gemini-3-flash-preview",
   PRO: "gemini-3-pro-preview",
 } as const;
 
