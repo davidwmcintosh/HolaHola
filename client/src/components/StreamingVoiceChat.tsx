@@ -27,6 +27,7 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { VoiceChatViewManager } from "@/components/VoiceChatViewManager";
 import { useStreamingVoice } from "@/hooks/useStreamingVoice";
+import { usePlaybackState } from "@/lib/playbackStateStore";
 import { useUser } from "@/lib/auth";
 import { useLearningFilter } from "@/contexts/LearningFilterContext";
 import { useToast } from "@/hooks/use-toast";
@@ -291,6 +292,7 @@ export function StreamingVoiceChat({
   
   // Streaming voice mode for low-latency responses
   const streamingVoice = useStreamingVoice();
+  const globalPlaybackState = usePlaybackState(); // Global store - reliable during HMR
   const streamingConnectedRef = useRef(false);
   const useStreamingMode = ENABLE_STREAMING_MODE && streamingVoice.isSupported();
   // Keep connectionStateRef in sync (must be after streamingVoice is defined)
@@ -870,18 +872,18 @@ export function StreamingVoiceChat({
   }, [conversationId, useStreamingMode, user, language, difficulty, subtitleMode, onLanguageHandoffComplete]);
   
   // DEBUG: Log mic lockout state changes
-  // CRITICAL: Use playbackState directly for accurate mic lock timing
+  // CRITICAL: Use globalPlaybackState for accurate mic lock timing (avoids stale closure issues)
   useEffect(() => {
     const connValid = streamingVoice.state.connectionState === 'ready' || streamingVoice.state.connectionState === 'connected';
-    const isAudioActive = streamingVoice.state.playbackState === 'playing' || streamingVoice.state.playbackState === 'buffering';
+    const isAudioActive = globalPlaybackState === 'playing' || globalPlaybackState === 'buffering';
     const isUsersTurn = connValid &&
       !streamingVoice.state.isSwitchingTutor &&
       (
         // PTT ACTIVE: If user is holding PTT button, keep mic active regardless of audio state
         isPttButtonHeld ||
-        // Normal case: not processing and playback is idle (using playbackState for immediate response)
+        // Normal case: not processing and playback is idle (using globalPlaybackState for immediate response)
         (!isProcessing && !streamingVoice.state.isProcessing && !isAudioActive) ||
-        (!!streamingVoice.state.error && !streamingVoice.state.isProcessing && streamingVoice.state.playbackState === 'idle')
+        (!!streamingVoice.state.error && !streamingVoice.state.isProcessing && globalPlaybackState === 'idle')
       );
     
     console.log(`[MIC LOCKOUT DEBUG] isUsersTurn=${isUsersTurn}`, {
@@ -890,29 +892,34 @@ export function StreamingVoiceChat({
       isSwitchingTutor: streamingVoice.state.isSwitchingTutor,
       isProcessing,
       streamIsProcessing: streamingVoice.state.isProcessing,
-      playbackState: streamingVoice.state.playbackState,
+      globalPlaybackState,
+      hookPlaybackState: streamingVoice.state.playbackState,
       isAudioActive,
       error: !!streamingVoice.state.error,
       isPttButtonHeld,
     });
   }, [isProcessing, streamingVoice.state.connectionState, streamingVoice.state.isProcessing, 
-      streamingVoice.state.playbackState, streamingVoice.state.isSwitchingTutor, streamingVoice.state.error, isPttButtonHeld]);
+      globalPlaybackState, streamingVoice.state.isSwitchingTutor, streamingVoice.state.error, isPttButtonHeld]);
   
   // Sync streaming voice state with component state
+  // CRITICAL: Use globalPlaybackState from the global store, NOT streamingVoice.state.playbackState
+  // The hook's internal useState has stale closure issues during HMR - global store is reliable
   useEffect(() => {
     if (!useStreamingMode) return;
     
-    const { isProcessing: streamProcessing, playbackState, error: streamError, connectionState } = streamingVoice.state;
+    const { isProcessing: streamProcessing, error: streamError, connectionState } = streamingVoice.state;
     
     // Update avatar state based on streaming state
     // Only show speaking when audio is ACTUALLY playing (not just processing)
     // Processing state should show a "thinking" indicator, not speaking avatar
     // NOTE: Don't override avatar state if greeting is currently playing (via REST)
-    const isStreamingPlaying = playbackState === 'playing' || playbackState === 'buffering';
+    // USING GLOBAL PLAYBACK STATE - reliable source of truth that updates during HMR
+    const isStreamingPlaying = globalPlaybackState === 'playing' || globalPlaybackState === 'buffering';
     
     // Debug: Log every time this effect runs with playback state changes
-    console.log('[AVATAR SYNC DEBUG]', {
-      playbackState,
+    console.log('[AVATAR SYNC DEBUG - GLOBAL STORE]', {
+      globalPlaybackState,
+      hookPlaybackState: streamingVoice.state.playbackState,
       isStreamingPlaying,
       avatarState,
       streamProcessing,
@@ -1027,7 +1034,7 @@ export function StreamingVoiceChat({
       streamingConnectedRef.current = true;
       setError(null);
     }
-  }, [streamingVoice.state, useStreamingMode]);
+  }, [streamingVoice.state, useStreamingMode, globalPlaybackState]);
   
   // Update lastMessageId for replay when streaming completes and messages are refreshed
   useEffect(() => {
@@ -1371,11 +1378,12 @@ export function StreamingVoiceChat({
   
   // Track playbackState for guards - 'buffering' happens before 'playing'
   // This catches speculative PTT audio earlier than avatarState
+  // CRITICAL: Use globalPlaybackState for reliability during HMR
   const playbackStateRef = useRef<string>('idle');
   useEffect(() => { 
-    console.log('[STREAMING VOICE CHAT DEBUG] playbackState changed:', streamingVoice.state.playbackState);
-    playbackStateRef.current = streamingVoice.state.playbackState; 
-  }, [streamingVoice.state.playbackState]);
+    console.log('[STREAMING VOICE CHAT DEBUG] playbackState changed:', globalPlaybackState);
+    playbackStateRef.current = globalPlaybackState; 
+  }, [globalPlaybackState]);
   
   // Stable keyboard handlers that use refs instead of state (no dependency churn)
   useEffect(() => {
@@ -2928,19 +2936,18 @@ export function StreamingVoiceChat({
           isRecording={isRecording}
           isMicPreparing={isMicPreparing}
           isProcessing={isProcessing}
-          isPlaying={streamingVoice.state.playbackState === 'playing' || streamingVoice.state.playbackState === 'buffering'}
+          isPlaying={globalPlaybackState === 'playing' || globalPlaybackState === 'buffering'}
           isConnecting={useStreamingMode && (streamingVoice.state.connectionState === 'connecting' || streamingVoice.state.connectionState === 'reconnecting')}
           isUsersTurn={
             // Mic is ONLY unlocked when ALL of these are true:
             // 1. Connection is 'ready' OR 'connected' (both are valid working states)
             // 2. Not processing (not waiting for AI response)
-            // 3. Not playing/speaking (AI not talking) - use playbackState directly for immediate response
+            // 3. Not playing/speaking (AI not talking) - use globalPlaybackState for reliable immediate response
             // 4. Not connecting/reconnecting
             // 5. NOT switching tutors (mic stays locked during handoff)
             // 
-            // CRITICAL: Use playbackState directly instead of avatarState to avoid React state lag
-            // playbackState updates immediately from audio player callback
-            // avatarState updates one render cycle later via useEffect
+            // CRITICAL: Use globalPlaybackState from the global store instead of hook's internal state
+            // The global store is reliable during HMR whereas hook state may have stale closures
             // 
             // SPECIAL CASE: If user is HOLDING PTT (isPttButtonHeld), keep mic active!
             // This allows speculative PTT to play audio while user still has control.
@@ -2952,10 +2959,10 @@ export function StreamingVoiceChat({
               // PTT ACTIVE: If user is holding PTT button, keep mic active regardless of audio state
               // This is critical for speculative PTT - user maintains control while holding
               isPttButtonHeld ||
-              // Normal case: not processing and playback is idle (using playbackState for immediate response)
-              (!isProcessing && !streamingVoice.state.isProcessing && streamingVoice.state.playbackState === 'idle') ||
+              // Normal case: not processing and playback is idle (using globalPlaybackState for reliability)
+              (!isProcessing && !streamingVoice.state.isProcessing && globalPlaybackState === 'idle') ||
               // Error recovery: server says not processing even if local state got stuck
-              (!!streamingVoice.state.error && !streamingVoice.state.isProcessing && streamingVoice.state.playbackState === 'idle')
+              (!!streamingVoice.state.error && !streamingVoice.state.isProcessing && globalPlaybackState === 'idle')
             )
           }
           onEndCall={handleEndCall}
@@ -2998,7 +3005,7 @@ export function StreamingVoiceChat({
           setInputMode={setInputMode}
           openMicState={openMicState}
           isPttButtonHeld={isPttButtonHeld}
-          playbackState={streamingVoice.state.playbackState}
+          playbackState={globalPlaybackState}
           onInterrupt={streamingVoice.sendInterrupt}
           voiceOverride={voiceOverride}
           onVoiceOverrideChange={setVoiceOverride}
