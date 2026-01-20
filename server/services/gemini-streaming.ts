@@ -901,8 +901,9 @@ export class GeminiStreamingService {
                                              thinkingLevel === 'MEDIUM' ? 'MEDIUM' : 'HIGH';
           } else if (requestModel.includes('gemini-2.5')) {
             // Gemini 2.5 still uses deprecated thinkingBudget (numeric tokens) in nested object
+            // Use 0 for MINIMAL (no thinking overhead) to maximize voice latency
             generationConfig.thinkingConfig = { 
-              thinkingBudget: thinkingLevel === 'MINIMAL' ? 256 : thinkingLevel === 'MEDIUM' ? 1024 : 4096 
+              thinkingBudget: thinkingLevel === 'MINIMAL' ? 0 : thinkingLevel === 'MEDIUM' ? 1024 : 4096 
             };
           }
           
