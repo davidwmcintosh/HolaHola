@@ -628,6 +628,27 @@ export function StreamingVoiceChat({
     enabled: !!conversationId,
   });
   
+  // FIX: Stop ringing when 'ready' AND this is an existing conversation that won't get a greeting
+  // For existing conversations with user messages, no auto-greeting plays, so we must stop ringing
+  useEffect(() => {
+    if (!useStreamingMode) return;
+    
+    const { connectionState } = streamingVoice.state;
+    
+    if (connectionState === 'ready' && messages.length > 0) {
+      const userMessages = messages.filter(m => m.role === 'user');
+      const aiMessages = messages.filter(m => m.role === 'assistant');
+      const isNewConversation = userMessages.length === 0 && aiMessages.length <= 1;
+      const willGreet = isNewConversation || isResumedConversation;
+      
+      // If no greeting will play, stop ringing immediately (call is "connected")
+      if (!willGreet) {
+        console.log('[RINGING] Stopping ring - existing conversation with no greeting');
+        stopRinging();
+      }
+    }
+  }, [streamingVoice.state.connectionState, useStreamingMode, messages, isResumedConversation]);
+  
   // Fetch user details to get tutor gender preference
   const { data: userDetails } = useQuery<User>({
     queryKey: ["/api/auth/user"],
