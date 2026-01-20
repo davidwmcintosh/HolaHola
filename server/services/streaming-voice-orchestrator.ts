@@ -9748,12 +9748,12 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
     try {
       const { searchMemory, formatMemoryForConversation, searchTeachingKnowledge: searchTeaching, formatTeachingKnowledge, searchSyllabi: searchSyllabiFunc, formatSyllabusSearch } = await import('./neural-memory-search');
       
-      // Parse domain types
-      const studentDomains = ['person', 'motivation', 'insight', 'struggle', 'session', 'progress'];
+      // Parse domain types - IMPORTANT: 'conversation' is critical for cross-tutor memory recall
+      const studentDomains = ['person', 'motivation', 'insight', 'struggle', 'session', 'progress', 'conversation'];
       const teachingDomains = ['idiom', 'cultural', 'procedure', 'principle', 'error-pattern', 'situational-pattern', 'subtlety-cue', 'emotional-pattern', 'creativity-template'];
       const syllabusDomains = ['syllabus'];
       
-      const requestedStudentDomains = rawDomains.filter(d => studentDomains.includes(d)) as ('person' | 'motivation' | 'insight' | 'struggle' | 'session' | 'progress')[];
+      const requestedStudentDomains = rawDomains.filter(d => studentDomains.includes(d)) as ('person' | 'motivation' | 'insight' | 'struggle' | 'session' | 'progress' | 'conversation')[];
       const requestedTeachingDomains = rawDomains.filter(d => teachingDomains.includes(d)) as ('idiom' | 'cultural' | 'procedure' | 'principle' | 'error-pattern' | 'situational-pattern' | 'subtlety-cue' | 'emotional-pattern' | 'creativity-template')[];
       const requestedSyllabusDomains = rawDomains.filter(d => syllabusDomains.includes(d));
       
