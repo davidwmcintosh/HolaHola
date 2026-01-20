@@ -485,14 +485,21 @@ function isCacheCompatibleModel(model: string): boolean {
 /**
  * Get a cache-compatible version of a model
  * Returns the original model if compatible, or a fallback versioned model
+ * IMPORTANT: Never downgrade Gemini 3 to 2.5 - we need Gemini 3's thinking capabilities
  */
 function getCacheCompatibleModel(model: string): string {
   if (isCacheCompatibleModel(model)) {
     return model;
   }
   
+  // Gemini 3 Flash: Stay on Gemini 3, don't downgrade to 2.5
+  // We'll skip caching for Gemini 3 preview models rather than lose thinking quality
+  if (model.includes('gemini-3')) {
+    return model;  // Keep Gemini 3, caching will be skipped
+  }
+  
   // Map preview models to their versioned equivalents
-  if (model.includes('gemini-3') || model.includes('gemini-2.5')) {
+  if (model.includes('gemini-2.5')) {
     return DEFAULT_CACHE_MODEL;  // Use 2.5 flash for caching
   }
   if (model.includes('gemini-2.0')) {
@@ -901,9 +908,8 @@ export class GeminiStreamingService {
                                              thinkingLevel === 'MEDIUM' ? 'MEDIUM' : 'HIGH';
           } else if (requestModel.includes('gemini-2.5')) {
             // Gemini 2.5 still uses deprecated thinkingBudget (numeric tokens) in nested object
-            // Use 0 for MINIMAL (no thinking overhead) to maximize voice latency
             generationConfig.thinkingConfig = { 
-              thinkingBudget: thinkingLevel === 'MINIMAL' ? 0 : thinkingLevel === 'MEDIUM' ? 1024 : 4096 
+              thinkingBudget: thinkingLevel === 'MINIMAL' ? 256 : thinkingLevel === 'MEDIUM' ? 1024 : 4096 
             };
           }
           
