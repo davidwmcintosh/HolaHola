@@ -2183,7 +2183,11 @@ Reference past discussions when relevant, but don't force it.
           ttsCharacters,
         });
         const endedSession = await usageService.endSession(usageSession.id);
-        console.log(`[Streaming Voice] Usage session ended on disconnect: ${endedSession.durationSeconds}s, ${exchangeCount} exchanges`);
+        if (endedSession) {
+          console.log(`[Streaming Voice] Usage session ended on disconnect: ${endedSession.durationSeconds}s, ${exchangeCount} exchanges`);
+        } else {
+          console.log(`[Streaming Voice] Usage session ended on disconnect (no metrics returned)`);
+        }
       } catch (endErr: any) {
         console.error('[Streaming Voice] Could not end usage session:', endErr.message);
       }
@@ -3623,7 +3627,11 @@ This is a voice conversation. Speak naturally, as you would.`;
                   sttSeconds,
                 }).then(() => usageService.endSession(usageSession!.id))
                   .then((endedSession) => {
-                    console.log(`[Streaming Voice] Usage session ended: ${endedSession.durationSeconds}s, ${exchangeCount} exchanges`);
+                    if (endedSession) {
+                      console.log(`[Streaming Voice] Usage session ended: ${endedSession.durationSeconds}s, ${exchangeCount} exchanges`);
+                    } else {
+                      console.log(`[Streaming Voice] Usage session ended (no metrics returned)`);
+                    }
                   })
                   .catch(err => console.error('[Streaming Voice] Failed to end usage session:', err.message));
               } catch (err: any) {
@@ -3682,7 +3690,11 @@ This is a voice conversation. Speak naturally, as you would.`;
         sttSeconds,
       }).then(() => usageService.endSession(usageSession!.id))
         .then((endedSession) => {
-          console.log(`[Streaming Voice] Usage session ended on disconnect: ${endedSession.durationSeconds}s, ${exchangeCount} exchanges`);
+          if (endedSession) {
+            console.log(`[Streaming Voice] Usage session ended on disconnect: ${endedSession.durationSeconds}s, ${exchangeCount} exchanges`);
+          } else {
+            console.log(`[Streaming Voice] Usage session ended on disconnect (no metrics returned)`);
+          }
         })
         .catch(err => console.error('[Streaming Voice] Failed to end usage session on disconnect:', err.message));
       usageSession = null;
@@ -3727,7 +3739,11 @@ This is a voice conversation. Speak naturally, as you would.`;
         sttSeconds,
       }).then(() => usageService.endSession(usageSession!.id))
         .then((endedSession) => {
-          console.log(`[Streaming Voice] Usage session ended on error: ${endedSession.durationSeconds}s, ${exchangeCount} exchanges`);
+          if (endedSession) {
+            console.log(`[Streaming Voice] Usage session ended on error: ${endedSession.durationSeconds}s, ${exchangeCount} exchanges`);
+          } else {
+            console.log(`[Streaming Voice] Usage session ended on error (no metrics returned)`);
+          }
         })
         .catch(err => console.error('[Streaming Voice] Failed to end usage session on error:', err.message));
       usageSession = null;

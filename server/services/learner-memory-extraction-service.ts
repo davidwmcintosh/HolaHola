@@ -221,12 +221,18 @@ class LearnerMemoryExtractionService {
   private async summarizeChunk(
     messages: Array<{ role: string; content: string }>
   ): Promise<string> {
+    // Guard against undefined/null messages array
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      return '';
+    }
+    
     const transcript = messages
+      .filter(m => m && m.content) // Filter out messages with undefined content
       .map(m => {
         const role = m.role === 'user' ? 'Student' : 'Tutor';
-        const content = m.content.length > this.MAX_CHARS_PER_MESSAGE 
+        const content = (m.content || '').length > this.MAX_CHARS_PER_MESSAGE 
           ? m.content.slice(0, this.MAX_CHARS_PER_MESSAGE) + '...'
-          : m.content;
+          : (m.content || '');
         return `${role}: ${content}`;
       })
       .join('\n');
@@ -250,21 +256,29 @@ class LearnerMemoryExtractionService {
   private async buildOptimizedTranscript(
     messages: Array<{ role: string; content: string }>
   ): Promise<string> {
+    // Guard against undefined/null messages array
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      return '';
+    }
+    
+    // Filter out messages with undefined content
+    const validMessages = messages.filter(m => m && m.content);
+    
     // For short conversations, use full transcript
-    if (messages.length <= this.MESSAGES_PER_WINDOW * 2) {
-      return messages
+    if (validMessages.length <= this.MESSAGES_PER_WINDOW * 2) {
+      return validMessages
         .map(m => {
           const role = m.role === 'user' ? 'Student' : 'Tutor';
-          const content = m.content.length > this.MAX_CHARS_PER_MESSAGE 
+          const content = (m.content || '').length > this.MAX_CHARS_PER_MESSAGE 
             ? m.content.slice(0, this.MAX_CHARS_PER_MESSAGE) + '...'
-            : m.content;
+            : (m.content || '');
           return `${role}: ${content}`;
         })
         .join('\n');
     }
     
     // For long sessions: summarize earlier chunks, keep recent in full
-    const chunks = this.chunkMessages(messages);
+    const chunks = this.chunkMessages(validMessages);
     const parts: string[] = [];
     
     // Summarize earlier chunks (all except last 2)
@@ -288,11 +302,12 @@ class LearnerMemoryExtractionService {
     // Keep last 2 chunks in full detail
     const recentChunks = chunks.slice(-2);
     const recentTranscript = recentChunks.flat()
+      .filter(m => m && m.content) // Filter out undefined content
       .map(m => {
         const role = m.role === 'user' ? 'Student' : 'Tutor';
-        const content = m.content.length > this.MAX_CHARS_PER_MESSAGE 
+        const content = (m.content || '').length > this.MAX_CHARS_PER_MESSAGE 
           ? m.content.slice(0, this.MAX_CHARS_PER_MESSAGE) + '...'
-          : m.content;
+          : (m.content || '');
         return `${role}: ${content}`;
       })
       .join('\n');
@@ -323,9 +338,16 @@ class LearnerMemoryExtractionService {
     this.metrics.totalExtractions++;
     
     try {
-      // Filter to just get the conversation content
+      // Guard against undefined/null messages
+      if (!messages || !Array.isArray(messages) || messages.length === 0) {
+        console.log('[MemoryExtraction] No messages provided for extraction');
+        this.recordLatency(Date.now() - startTime);
+        return { saved: [] };
+      }
+      
+      // Filter to just get the conversation content (guard against undefined content)
       const userMessages = messages
-        .filter(m => m.role === 'user')
+        .filter(m => m && m.role === 'user' && m.content)
         .map(m => m.content)
         .join('\n');
       

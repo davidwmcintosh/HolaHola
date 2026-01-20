@@ -124,6 +124,9 @@ export const SHARED_TABLES = new Set([
   'tutor_sessions',
   'tutor_session_topics',
   'conversation_topics',
+  // Vocabulary (shared so Daniela tracks all words learned across envs, FK to conversations)
+  'vocabulary_words',
+  'vocabulary_word_topics',
 ]);
 
 // Tables that go to USER database (per-environment)
@@ -159,8 +162,6 @@ export const USER_TABLES = new Set([
   'student_lesson_progress',
   'student_tier_signals',
   'syllabus_progress',
-  'vocabulary_words',
-  'vocabulary_word_topics',
   'pronunciation_scores',
   'pronunciation_audio',
   'phoneme_struggles',
