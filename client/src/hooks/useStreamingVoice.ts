@@ -927,6 +927,17 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     // Update difficulty level for ACTFL-aware subtitle timing
     setDifficultyLevel(config.difficultyLevel);
     
+    // CRITICAL: Pre-warm AudioContext in user gesture context
+    // This MUST happen during the click handler, not later when audio chunks arrive
+    // Otherwise browsers will block audio playback due to autoplay policy
+    try {
+      const player = getStreamingAudioPlayer();
+      await player.resumeAudioContext();
+      console.log('[StreamingVoice] AudioContext pre-warmed during user gesture');
+    } catch (warmErr) {
+      console.warn('[StreamingVoice] Failed to pre-warm AudioContext:', warmErr);
+    }
+    
     try {
       // Get or create client
       clientRef.current = getStreamingVoiceClient();
