@@ -22,7 +22,7 @@
  */
 
 import { createHash } from "crypto";
-import { sql } from "drizzle-orm";
+import { sql, eq, and, desc } from "drizzle-orm";
 import { createClient } from "@deepgram/sdk";
 import { getDeepgramLanguageCode, DeepgramIntelligence, DeepgramSentiment, DeepgramIntent, DeepgramEntity, DeepgramTopic, transcribeWithLiveAPI, TranscriptionResult } from "./deepgram-live-stt";
 import { analyzePronunciation, generateQuickCoaching, PronunciationCoaching } from "./live-pronunciation-coach";
@@ -99,6 +99,8 @@ import {
   linguisticBridges,
   featureSprints,
   neuralNetworkTelemetry,
+  messages,
+  conversations,
 } from "@shared/schema";
 
 /**
@@ -8146,6 +8148,44 @@ Only include observations you can clearly justify from the exchange. Return empt
         console.log(`[Streaming Greeting] Could not fetch colleague feedback: ${collabError.message}`);
       }
       
+      // Fetch today's earlier chats - gives instant recall without memory_lookup
+      // This includes messages from all conversations with this student from today
+      let todaysEarlierChats: { role: string; content: string; language: string }[] = [];
+      try {
+        const todaysFetchStart = Date.now();
+        const startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
+        
+        // Query Neon shared DB for today's messages from this user
+        const todaysMessages = await getSharedDb()
+          .select({
+            role: messages.role,
+            content: messages.content,
+            language: conversations.language,
+            createdAt: messages.createdAt,
+          })
+          .from(messages)
+          .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+          .where(and(
+            eq(conversations.userId, String(session.userId)),
+            sql`${messages.createdAt} >= ${startOfToday}`,
+            // Exclude current conversation to avoid duplication
+            sql`${conversations.id} != ${session.conversationId}`
+          ))
+          .orderBy(desc(messages.createdAt))
+          .limit(15);
+        
+        todaysEarlierChats = todaysMessages.map(m => ({
+          role: m.role || 'user',
+          content: m.content || '',
+          language: m.language || session.targetLanguage,
+        }));
+        
+        console.log(`[Streaming Greeting] Found ${todaysEarlierChats.length} earlier messages from today (${Date.now() - todaysFetchStart}ms)`);
+      } catch (todaysError: any) {
+        console.log(`[Streaming Greeting] Could not fetch today's earlier chats: ${todaysError.message}`);
+      }
+      
       greetingTimings.totalDbQueries = Date.now() - timingStart;
       
       // Build greeting prompt with full context
@@ -8164,6 +8204,7 @@ Only include observations you can clearly justify from the exchange. Return empt
         isResumed,
         connectionsCount: connectionsAboutStudent.length,
         colleagueFeedbackCount: colleagueFeedback.length,
+        todaysEarlierChatsCount: todaysEarlierChats.length,
       });
       
       const promptBuildStart = Date.now();
@@ -8176,7 +8217,8 @@ Only include observations you can clearly justify from the exchange. Return empt
         classEnrollment,
         isResumed,
         connectionsAboutStudent,
-        colleagueFeedback
+        colleagueFeedback,
+        todaysEarlierChats
       );
       greetingTimings.promptBuild = Date.now() - promptBuildStart;
       greetingTimings.preGeminiTotal = Date.now() - timingStart;
@@ -8353,7 +8395,8 @@ Only include observations you can clearly justify from the exchange. Return empt
     classEnrollment: { className: string; curriculumLesson?: string; curriculumUnit?: string } | null,
     isResumed?: boolean,
     connectionsAboutStudent?: { mentioner: string; relationship: string; context: string }[],
-    colleagueFeedback?: { agent: string; subject: string; summary: string }[]
+    colleagueFeedback?: { agent: string; subject: string; summary: string }[],
+    todaysEarlierChats?: { role: string; content: string; language: string }[]
   ): string {
     // RAW HONESTY MODE: Minimal prompting for authentic conversation exploration
     // Skip all the normal tutor context and let Daniela respond authentically
@@ -8398,6 +8441,19 @@ Just a real conversation between two people.`;
     if (session.lastSessionSummary) {
       contextParts.push(`\n*** LAST SESSION MEMORY ***`);
       contextParts.push(`${session.lastSessionSummary}`);
+    }
+    
+    // TODAY'S EARLIER CHATS - What you talked about earlier today
+    // This gives instant recall of today's conversations without needing memory_lookup
+    if (todaysEarlierChats && todaysEarlierChats.length > 0) {
+      contextParts.push(`\n*** EARLIER CHATS TODAY ***`);
+      contextParts.push(`You've already chatted with this student today. Here's what was discussed:`);
+      for (const msg of todaysEarlierChats.slice(0, 10)) { // Limit to 10 snippets
+        const roleLabel = msg.role === 'user' ? `${userName || 'Student'}` : 'You';
+        const langNote = msg.language !== session.targetLanguage ? ` [${msg.language}]` : '';
+        contextParts.push(`- ${roleLabel}${langNote}: "${msg.content.substring(0, 100)}${msg.content.length > 100 ? '...' : ''}"`);
+      }
+      contextParts.push(`Use this memory naturally - you remember what you talked about today!`);
     }
     
     // STUDENT GOALS (from Compass or class context)
