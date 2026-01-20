@@ -373,7 +373,7 @@ export async function searchMemory(
         if (tutorLanguage) {
           // Search by tutor's language - get recent conversations with that tutor
           console.log(`[NeuralMemory] Detected tutor name in query, searching ${tutorLanguage} conversations`);
-          recentConvos = await getSharedDb()
+          const tutorConvos = await getSharedDb()
             .select({
               messageId: messages.id,
               content: messages.content,
@@ -391,6 +391,39 @@ export async function searchMemory(
             ))
             .orderBy(desc(messages.createdAt))
             .limit(20);
+          
+          // ALSO search across ALL conversations for content mentioning the tutor or related topics
+          // This catches cross-tutor references like "I told Isabel about reggaeton" in a Spanish chat
+          const tutorNameForSearch = tutorName || '';
+          const crossTutorConvos = await getSharedDb()
+            .select({
+              messageId: messages.id,
+              content: messages.content,
+              role: messages.role,
+              conversationId: messages.conversationId,
+              language: conversations.language,
+              conversationTitle: conversations.title,
+              createdAt: messages.createdAt,
+            })
+            .from(messages)
+            .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+            .where(and(
+              eq(conversations.userId, studentId),
+              ilike(messages.content, `%${tutorNameForSearch}%`)
+            ))
+            .orderBy(desc(messages.createdAt))
+            .limit(10);
+          
+          // Merge results, deduplicate by message ID
+          const seenIds = new Set<string>();
+          recentConvos = [];
+          for (const msg of [...tutorConvos, ...crossTutorConvos]) {
+            if (!seenIds.has(msg.messageId)) {
+              seenIds.add(msg.messageId);
+              recentConvos.push(msg);
+            }
+          }
+          console.log(`[NeuralMemory] Tutor search: ${tutorConvos.length} from ${tutorLanguage}, ${crossTutorConvos.length} cross-tutor mentions`);
         } else {
           // Check if this is a "recent/today" query that should just return recent messages
           const recentTerms = ['recent', 'today', 'earlier', 'last', 'previous', 'past', 'before', 'ago', 'just', 'chat', 'conversation', 'talked', 'said', 'told', 'discussed', 'mentioned'];
