@@ -7942,10 +7942,12 @@ Only include observations you can clearly justify from the exchange. Return empt
       throw new Error(`Session not found or inactive: ${sessionId}`);
     }
     
-    // CRITICAL: Await warmup completion before generating greeting
-    // This ensures Gemini + Cartesia are pre-warmed, avoiding cold-start penalty
+    // Await warmup with timeout - don't block forever if Gemini is slow
+    // If warmup takes longer than 3 seconds, proceed without waiting
     if (session.warmupPromise) {
-      await session.warmupPromise;
+      const WARMUP_TIMEOUT_MS = 3000;
+      const warmupTimeout = new Promise<void>(resolve => setTimeout(resolve, WARMUP_TIMEOUT_MS));
+      await Promise.race([session.warmupPromise, warmupTimeout]);
     }
     
     const startTime = Date.now();
