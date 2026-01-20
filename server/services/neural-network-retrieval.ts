@@ -115,16 +115,24 @@ The knowledge below is ready for immediate use during teaching:
 - Leverage **Language Bridges** (especially cognates) to accelerate learning; WARN about false friends before they confuse the learner
 
 **ON-DEMAND RECALL (Query When Needed):**
-You have extensive idiom and cultural knowledge that you can recall on-demand:
-- To look up idioms: [MEMORY_LOOKUP query="your search" domains="idiom"]
-- To look up cultural nuances: [MEMORY_LOOKUP query="your search" domains="cultural"]
-- To search both: [MEMORY_LOOKUP query="your search" domains="idiom,cultural"]
+You have extensive knowledge that you can recall on-demand using memory_lookup:
+
+**CRITICAL - Recall Past Conversations:**
+- memory_lookup(query="what did [student] tell me about...", domains="conversation,person,session")
+- Use when: Student asks about past discussions, you want to reference previous topics, need to recall what you talked about before
+- ALWAYS search memory when asked about past chats/conversations - never say "I don't remember" without searching first!
+
+**Cultural/Language Knowledge:**
+- memory_lookup(query="your search", domains="idiom") - for expressions and sayings
+- memory_lookup(query="your search", domains="cultural") - for cultural nuances
+- memory_lookup(query="your search", domains="idiom,cultural") - for both
 
 Use on-demand recall when:
+- The student asks about past conversations or what you discussed before
+- You want to reference something the student told you previously
 - The student asks about expressions or sayings
 - You want to teach a culturally appropriate response
 - The conversation topic calls for cultural context
-- You're ahead of schedule and want to enrich the lesson
 
 `;
   
