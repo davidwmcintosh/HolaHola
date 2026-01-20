@@ -563,8 +563,9 @@ export class GeminiStreamingService {
         timeout: 180000, // 3 minutes in milliseconds
       },
     });
-    // Using Gemini 3 Flash for fast responses (3x faster than 2.5)
-    this.defaultModel = 'gemini-3-flash-preview';
+    // Using Gemini 2.5 Flash for stable, predictable latency
+    // Note: gemini-3-flash-preview has inconsistent TTFT (7-30s vs expected 500ms)
+    this.defaultModel = 'gemini-2.5-flash-001';
   }
   
   /**
