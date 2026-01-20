@@ -32,6 +32,8 @@ import {
   curriculumUnits,
   curriculumLessons,
   curriculumDrillItems,
+  messages,
+  conversations,
   type PeopleConnection,
   type StudentInsight,
   type LearningMotivation,
@@ -55,7 +57,7 @@ import { eq, sql, desc, and, or, ilike } from 'drizzle-orm';
  * Memory search result with source attribution
  */
 export interface MemorySearchResult {
-  domain: 'person' | 'motivation' | 'insight' | 'struggle' | 'session' | 'progress';
+  domain: 'person' | 'motivation' | 'insight' | 'struggle' | 'session' | 'progress' | 'conversation';
   relevance: number; // 0-1 score
   summary: string; // Human-readable summary for Daniela
   details: string; // Full context
@@ -84,7 +86,7 @@ export interface MemorySearchResponse {
 export async function searchMemory(
   studentId: string,
   query: string,
-  domains?: ('person' | 'motivation' | 'insight' | 'struggle' | 'session' | 'progress')[]
+  domains?: ('person' | 'motivation' | 'insight' | 'struggle' | 'session' | 'progress' | 'conversation')[]
 ): Promise<MemorySearchResponse> {
   const results: MemorySearchResult[] = [];
   const searchedDomains: string[] = [];
@@ -96,7 +98,7 @@ export async function searchMemory(
   // Build search pattern for SQL ILIKE
   const searchPattern = `%${normalizedQuery}%`;
   
-  const domainsToSearch = domains || ['person', 'motivation', 'insight', 'struggle', 'session', 'progress'];
+  const domainsToSearch = domains || ['person', 'motivation', 'insight', 'struggle', 'session', 'progress', 'conversation'];
   
   // Search each domain in parallel
   const searchPromises: Promise<void>[] = [];
@@ -315,6 +317,53 @@ export async function searchMemory(
     })());
   }
   
+  // === CONVERSATION HISTORY (Cross-tutor memory) ===
+  if (domainsToSearch.includes('conversation')) {
+    searchedDomains.push('conversation');
+    searchPromises.push((async () => {
+      try {
+        // Search recent conversation messages across ALL languages/tutors
+        // This enables cross-tutor memory recall (e.g., "What did I tell Isabel?")
+        const recentConvos = await getSharedDb()
+          .select({
+            messageId: messages.id,
+            content: messages.content,
+            role: messages.role,
+            conversationId: messages.conversationId,
+            language: conversations.language,
+            conversationTitle: conversations.title,
+            createdAt: conversations.createdAt,
+          })
+          .from(messages)
+          .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+          .where(and(
+            eq(conversations.userId, studentId),
+            ilike(messages.content, searchPattern)
+          ))
+          .orderBy(desc(conversations.createdAt))
+          .limit(10);
+        
+        for (const msg of recentConvos) {
+          const roleLabel = msg.role === 'user' ? 'You said' : 'Tutor said';
+          const langLabel = msg.language ? `[${msg.language}]` : '';
+          
+          results.push({
+            domain: 'conversation',
+            relevance: 0.8, // High relevance for direct message matches
+            summary: `${langLabel} ${roleLabel}: "${msg.content?.substring(0, 80)}..."`,
+            details: msg.content || '',
+            timestamp: msg.createdAt,
+            source: `conversation:${msg.conversationId}`,
+          });
+        }
+        
+        console.log(`[NeuralMemory] Conversation search found ${recentConvos.length} messages for "${query}"`);
+      } catch (err: any) {
+        console.error('[NeuralMemory] Error searching conversations:', err.message);
+      }
+    })());
+  }
+  
   // Wait for all searches to complete
   await Promise.all(searchPromises);
   
@@ -359,6 +408,7 @@ export function formatMemoryForConversation(response: MemorySearchResponse): str
     struggle: '⚠️ Struggles',
     session: '📝 Past Sessions',
     progress: '📈 Progress',
+    conversation: '💬 Past Conversations',
   };
   
   for (const [domain, domainResults] of Array.from(byDomain)) {

@@ -213,7 +213,7 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
       type: "object",
       properties: {
         query: { type: "string", description: "What to search for (name, topic, question)" },
-        domains: { type: "string", description: "Comma-separated domains to search: person,motivation,insight,struggle,session,progress,syllabus" },
+        domains: { type: "string", description: "Comma-separated domains to search: person,motivation,insight,struggle,session,progress,conversation,syllabus" },
       },
       required: ["query"],
     },

@@ -2632,7 +2632,7 @@ export function buildNativeFunctionCallingSection(): string {
   lines.push('memory_lookup(query, domains?)');
   lines.push('  Search neural memory for student information.');
   lines.push('  - query (required): what to search for (name, topic, question)');
-  lines.push('  - domains (optional): comma-separated: "person", "motivation", "insight", "struggle", "session", "progress", "syllabus"');
+  lines.push('  - domains (optional): comma-separated: "person", "motivation", "insight", "struggle", "session", "progress", "conversation", "syllabus"');
   lines.push('');
   lines.push('hive_suggestion(category, title, description, reasoning?, priority?)');
   lines.push('  Contribute insight to the hive mind.');
