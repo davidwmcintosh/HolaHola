@@ -208,19 +208,19 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   // === MEMORY ===
   {
     name: "memory_lookup",
-    description: "Search your neural memory for information about the student, past conversations, or topics.",
+    description: "Search your memory of past tutoring sessions and conversations with students. When asked about 'previous chats', 'what we talked about', 'our conversations', or 'earlier today' - use this with domains='conversation'. Also searches across ALL tutors (you, Isabel, Sofia, etc.) so you can recall what the student discussed with other tutors too.",
     parametersJsonSchema: {
       type: "object",
       properties: {
-        query: { type: "string", description: "What to search for (name, topic, question)" },
-        domains: { type: "string", description: "Comma-separated domains to search: person,motivation,insight,struggle,session,progress,conversation,syllabus" },
+        query: { type: "string", description: "What to search for (topic, phrase, what was discussed)" },
+        domains: { type: "string", description: "Include 'conversation' for past chats. Options: conversation (student lessons), person, motivation, insight, struggle, session, progress, syllabus" },
       },
       required: ["query"],
     },
   },
   {
     name: "express_lane_lookup",
-    description: "Search the Express Lane - our 3-way collaboration channel between you (Daniela), Wren (dev builder), and David (founder). Use this to recall past discussions, decisions, and agreements made in the Express Lane. Only available in Founder Mode or Honesty Mode.",
+    description: "Search Express Lane ONLY - the developer collaboration channel with Wren and David. NOT for student lesson history - use memory_lookup with domains='conversation' for that. Only available in Founder Mode or Honesty Mode.",
     parametersJsonSchema: {
       type: "object",
       properties: {
