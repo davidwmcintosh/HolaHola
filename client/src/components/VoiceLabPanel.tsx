@@ -272,11 +272,24 @@ export function VoiceLabPanel({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/voices'] });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/voices/current'] });
-      onOverrideChange(null); // Clear override since it's now saved
+      // Apply saved settings as override for current session
+      // (Session voiceDefaults are loaded at start and won't update mid-session)
+      // This ensures the saved settings apply immediately to current session
+      const override: VoiceOverride = {
+        speakingRate,
+        personality,
+        expressiveness,
+        emotion,
+        pedagogicalFocus,
+        teachingStyle,
+        errorTolerance,
+        ...(selectedVoiceId && selectedVoiceId !== currentVoice?.voiceId ? { voiceId: selectedVoiceId } : {}),
+      };
+      onOverrideChange(override);
       setHasChanges(false);
       toast({
         title: "Voice saved",
-        description: "Settings permanently saved to database.",
+        description: "Settings saved and applied to current session.",
       });
     },
     onError: (error: any) => {
