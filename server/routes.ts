@@ -15664,6 +15664,82 @@ Current conversation context:
     }
   });
 
+  // Admin: Backfill conversation titles for untitled conversations
+  // Run once to generate titles for existing voice chats that never got titles
+  app.post("/api/admin/backfill-conversation-titles", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const dryRun = req.query.dryRun === 'true';
+      
+      console.log(`[BACKFILL] Starting conversation title backfill (limit: ${limit}, dryRun: ${dryRun})`);
+      
+      // Find conversations without titles that have at least 4 messages
+      const untitledConversations = await getSharedDb()
+        .select({
+          id: conversations.id,
+          userId: conversations.userId,
+          language: conversations.language,
+          messageCount: conversations.messageCount,
+        })
+        .from(conversations)
+        .where(sql`${conversations.title} IS NULL AND ${conversations.messageCount} >= 4 AND ${conversations.isOnboarding} = false`)
+        .orderBy(sql`${conversations.createdAt} DESC`)
+        .limit(limit);
+      
+      console.log(`[BACKFILL] Found ${untitledConversations.length} untitled conversations`);
+      
+      const results: Array<{ id: number; title: string | null; error?: string }> = [];
+      
+      for (const conv of untitledConversations) {
+        try {
+          const messages = await storage.getMessagesByConversation(conv.id);
+          
+          if (messages.length < 4) {
+            results.push({ id: conv.id, title: null, error: 'Not enough messages' });
+            continue;
+          }
+          
+          if (dryRun) {
+            results.push({ id: conv.id, title: '[DRY RUN - would generate]' });
+            continue;
+          }
+          
+          const generatedTitle = await generateConversationTitle(
+            messages.map(m => ({ role: m.role, content: m.content })),
+            conv.language
+          );
+          
+          if (generatedTitle) {
+            await storage.updateConversation(conv.id, conv.userId, { title: generatedTitle });
+            console.log(`[BACKFILL] ✓ Generated title for #${conv.id}: "${generatedTitle}"`);
+            results.push({ id: conv.id, title: generatedTitle });
+          } else {
+            results.push({ id: conv.id, title: null, error: 'Title generation returned null' });
+          }
+          
+          // Small delay to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (err: any) {
+          console.warn(`[BACKFILL] Failed for #${conv.id}:`, err.message);
+          results.push({ id: conv.id, title: null, error: err.message });
+        }
+      }
+      
+      const successCount = results.filter(r => r.title && !r.error).length;
+      
+      res.json({
+        total: untitledConversations.length,
+        processed: results.length,
+        success: successCount,
+        dryRun,
+        results,
+      });
+    } catch (error: any) {
+      console.error('[BACKFILL] Error backfilling conversation titles:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ============================================================================
   // SUPPORT AGENT API ROUTES (Tri-Lane Hive)
   // Voice + Text based support for live handoffs and offline drills
