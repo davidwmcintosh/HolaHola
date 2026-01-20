@@ -451,8 +451,9 @@ const CACHE_TTL_SECONDS = 55 * 60;
 const CACHE_FAILURE_TTL_MS = 10 * 60 * 1000;
 
 /**
- * Models known to support context caching (must have version suffix)
- * Context caching requires explicit version numbers like -001, -002
+ * Models known to support context caching
+ * Includes versioned models (-001, -002) and preview models
+ * Gemini 3 Flash Preview supports caching per Google documentation (Dec 2025)
  */
 const CACHE_COMPATIBLE_MODELS = [
   'gemini-1.5-flash-001',
@@ -462,6 +463,7 @@ const CACHE_COMPATIBLE_MODELS = [
   'gemini-2.0-flash-001',
   'gemini-2.5-flash-001',
   'gemini-2.5-pro-001',
+  'gemini-3-flash-preview',  // Confirmed cache support (Dec 2025)
 ];
 
 /**
@@ -485,17 +487,17 @@ function isCacheCompatibleModel(model: string): boolean {
 /**
  * Get a cache-compatible version of a model
  * Returns the original model if compatible, or a fallback versioned model
- * IMPORTANT: Never downgrade Gemini 3 to 2.5 - we need Gemini 3's thinking capabilities
+ * Gemini 3 Flash Preview now supports caching (Dec 2025) - no downgrade needed
  */
 function getCacheCompatibleModel(model: string): string {
   if (isCacheCompatibleModel(model)) {
     return model;
   }
   
-  // Gemini 3 Flash: Stay on Gemini 3, don't downgrade to 2.5
-  // We'll skip caching for Gemini 3 preview models rather than lose thinking quality
+  // Gemini 3 Flash: Now in CACHE_COMPATIBLE_MODELS, so this is a fallback
+  // for any future Gemini 3 variant not yet listed
   if (model.includes('gemini-3')) {
-    return model;  // Keep Gemini 3, caching will be skipped
+    return 'gemini-3-flash-preview';  // Use preview which supports caching
   }
   
   // Map preview models to their versioned equivalents
