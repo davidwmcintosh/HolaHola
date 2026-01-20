@@ -8217,6 +8217,7 @@ Only include observations you can clearly justify from the exchange. Return empt
         systemPrompt: session.systemPrompt,
         conversationHistory: greetingHistory,  // Include history for resumed conversations
         userMessage: greetingPrompt,
+        enableContextCaching: true,  // Cache system prompt for faster response
         onSentence: async (chunk: SentenceChunk) => {
           if (!firstTokenReceived) {
             metrics.aiFirstTokenMs = Date.now() - aiStart;
@@ -9024,6 +9025,7 @@ DON'T:
         systemPrompt: session.systemPrompt,
         conversationHistory: session.conversationHistory,
         userMessage: switchPrompt,
+        enableContextCaching: true,  // Cache system prompt for faster response
         onSentence: async (chunk: SentenceChunk) => {
           // Clean text for display
           const displayText = cleanTextForDisplay(chunk.text);
@@ -9176,6 +9178,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         systemPrompt: session.systemPrompt + architectContext,
         conversationHistory: session.conversationHistory,
         userMessage: triggerPrompt,
+        enableContextCaching: true,  // Cache system prompt for faster response
         onSentence: async (chunk: SentenceChunk) => {
           // Check for interrupt
           if (session.isInterrupted) {
