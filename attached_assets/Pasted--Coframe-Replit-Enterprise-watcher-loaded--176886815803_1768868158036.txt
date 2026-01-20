@@ -1,0 +1,1171 @@
+ [Coframe] Replit Enterprise watcher loaded
+ 
+      /////////////////////
+   ///////////////////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////        Curious and driven?
+  ///////////////@@@@@@@///////        Work with us!
+  ///////////////@@@@@@@///////
+  ///////////////@@@@@@@///////        https://join.replit.com/hack.with.us
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@#//////////////
+   ///////////////////////////
+      /////////////////////
+      
+ Download the Apollo DevTools for a better development experience: https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+ [LaunchDarkly] LaunchDarkly client initialized
+ [ai-chat] Creating connection with chat proxy enabled
+(anonymous) @ 5aedb805083529d4.js:2
+ Cache data may be lost when replacing the dealContext field of a Org object.
+
+This could cause additional (usually avoidable) network requests to fetch data that were otherwise cached.
+
+To address this problem (which is not a bug in Apollo Client), either ensure all objects of type OrgDealContext have an ID or a custom merge function, or define a custom merge function for the Org.dealContext field, so InMemoryCache can safely merge these objects:
+
+  existing: {"__typename":"OrgDealContext","dealType":"default","salesContactEmail":null}
+  incoming: {"__typename":"OrgDealContext","dealType":"default"}
+
+For more information about these options, please refer to the documentation:
+
+  * Ensuring entity objects have IDs: https://go.apollo.dev/c/generating-unique-identifiers
+  * Defining custom merge functions: https://go.apollo.dev/c/merging-non-normalized-objects
+
+(anonymous) @ 5aedb805083529d4.js:2
+2 stallwart: failed ping 1
+ stallwart: failed ping 2
+ stallwart: failed ping 3
+ stallwart: failed ping 4
+ stallwart: failed ping 1
+4HolaHola:1 Uncaught (in promise) 
+ stallwart: failed ping 1
+ stallwart: failed ping 2
+ task queue exceeded allotted deadline by 1395ms
+(anonymous) @ 5aedb805083529d4.js:2
+ [Coframe] Mutation callback infinite loop protection triggered, disconnecting mutation observer Object
+(anonymous) @ 5aedb805083529d4.js:2
+3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Arg7%3A:32 Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Arg7%3A:32 Unrecognized feature: 'ambient-light-sensor'.
+3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Arg7%3A:32 Unrecognized feature: 'battery'.
+3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Arg7%3A:32 Unrecognized feature: 'execution-while-not-rendered'.
+3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Arg7%3A:32 Unrecognized feature: 'execution-while-out-of-viewport'.
+3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Arg7%3A:32 Unrecognized feature: 'layout-animations'.
+3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Arg7%3A:32 Unrecognized feature: 'legacy-image-formats'.
+3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Arg7%3A:32 Unrecognized feature: 'navigation-override'.
+3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Arg7%3A:32 Unrecognized feature: 'oversized-images'.
+3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Arg7%3A:32 Unrecognized feature: 'publickey-credentials'.
+3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Arg7%3A:32 Unrecognized feature: 'speaker-selection'.
+3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Arg7%3A:32 Unrecognized feature: 'unoptimized-images'.
+3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Arg7%3A:32 Unrecognized feature: 'unsized-media'.
+3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Arg7%3A:32 Allow attribute will take precedence over 'allowfullscreen'.
+3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Arg7%3A:32 Allow attribute will take precedence over 'allowpaymentrequest'.
+workspace_iframe.html:32 Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+997Third-party cookie will be blocked. Learn more in the Issues tab.
+ stallwart: failed ping 1
+ stallwart: failed ping 2
+ stallwart: failed ping 3
+ stallwart: failed ping 1
+ stallwart: failed ping 2
+ stallwart: failed ping 3
+ stallwart: failed ping 4
+ stallwart: failed ping 5
+ [LOOP] Frame 1340: entries=[S0(end=3.17), S1(end=25.79), S2(end=27.83), S3(end=29.23), S4(end=31.45), S5(end=33.31), S6(end=45.57), S7(end=51.70), S8(end=55.37)] now=51.65
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 1350: entries=[S0(end=3.17), S1(end=25.79), S2(end=27.83), S3(end=29.23), S4(end=31.45), S5(end=33.31), S6(end=45.57), S7(end=51.70), S8(end=55.37)] now=51.89
+(anonymous) @ injected.js:37
+ [LOOP] Frame 1360: entries=[S0(end=3.17), S1(end=25.79), S2(end=27.83), S3(end=29.23), S4(end=31.45), S5(end=33.31), S6(end=45.57), S7(end=51.70), S8(end=55.37)] now=52.05
+(anonymous) @ injected.js:37
+ [LOOP] Frame 1370: entries=[S0(end=3.17), S1(end=25.79), S2(end=27.83), S3(end=29.23), S4(end=31.45), S5(end=33.31), S6(end=45.57), S7(end=51.70), S8(end=55.37)] now=52.22
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 1380: entries=[S0(end=3.17), S1(end=25.79), S2(end=27.83), S3(end=29.23), S4(end=31.45), S5(end=33.31), S6(end=45.57), S7(end=51.70), S8(end=55.37)] now=52.51
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 1390: entries=[S0(end=3.17), S1(end=25.79), S2(end=27.83), S3(end=29.23), S4(end=31.45), S5(end=33.31), S6(end=45.57), S7(end=51.70), S8(end=55.37)] now=52.77
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 1400: entries=[S0(end=3.17), S1(end=25.79), S2(end=27.83), S3(end=29.23), S4(end=31.45), S5(end=33.31), S6(end=45.57), S7(end=51.70), S8(end=55.37)] now=52.98
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 1410: entries=[S0(end=3.17), S1(end=25.79), S2(end=27.83), S3(end=29.23), S4(end=31.45), S5(end=33.31), S6(end=45.57), S7(end=51.70), S8(end=55.37)] now=53.21
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 1420: entries=[S0(end=3.17), S1(end=25.79), S2(end=27.83), S3(end=29.23), S4(end=31.45), S5(end=33.31), S6(end=45.57), S7(end=51.70), S8(end=55.37)] now=53.40
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 1430: entries=[S0(end=3.17), S1(end=25.79), S2(end=27.83), S3(end=29.23), S4(end=31.45), S5(end=33.31), S6(end=45.57), S7(end=51.70), S8(end=55.37)] now=53.62
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 1440: entries=[S0(end=3.17), S1(end=25.79), S2(end=27.83), S3(end=29.23), S4(end=31.45), S5(end=33.31), S6(end=45.57), S7(end=51.70), S8(end=55.37)] now=53.79
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 1450: entries=[S0(end=3.17), S1(end=25.79), S2(end=27.83), S3(end=29.23), S4(end=31.45), S5(end=33.31), S6(end=45.57), S7(end=51.70), S8(end=55.37)] now=53.99
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 1460: entries=[S0(end=3.17), S1(end=25.79), S2(end=27.83), S3(end=29.23), S4(end=31.45), S5(end=33.31), S6(end=45.57), S7(end=51.70), S8(end=55.37)] now=54.19
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 1470: entries=[S0(end=3.17), S1(end=25.79), S2(end=27.83), S3(end=29.23), S4(end=31.45), S5(end=33.31), S6(end=45.57), S7(end=51.70), S8(end=55.37)] now=54.37
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 1480: entries=[S0(end=3.17), S1(end=25.79), S2(end=27.83), S3(end=29.23), S4(end=31.45), S5(end=33.31), S6(end=45.57), S7(end=51.70), S8(end=55.37)] now=54.59
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 1490: entries=[S0(end=3.17), S1(end=25.79), S2(end=27.83), S3(end=29.23), S4(end=31.45), S5(end=33.31), S6(end=45.57), S7(end=51.70), S8(end=55.37)] now=54.83
+(anonymous) @ injected.js:37
+ [LOOP] Frame 1500: entries=[S0(end=3.17), S1(end=25.79), S2(end=27.83), S3(end=29.23), S4(end=31.45), S5(end=33.31), S6(end=45.57), S7(end=51.70), S8(end=55.37)] now=54.99
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 1510: entries=[S0(end=3.17), S1(end=25.79), S2(end=27.83), S3(end=29.23), S4(end=31.45), S5(end=33.31), S6(end=45.57), S7(end=51.70), S8(end=55.37)] now=55.29
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [AUDIO PLAYER] State change: buffering -> idle (subscribers: 1)
+ [GLOBAL PLAYBACK STORE] State change: buffering -> idle (listeners: 1)
+ [TELEMETRY] playback_state_change Object
+ [DOM EVENT BRIDGE] Received state: idle, subscribers: 1, ts: 1768867991548
+ [DOM EVENT DISPATCH] idle (subscribers: 1)
+ [AUDIO PLAYER] notifyStateChange: idle to 1 subscribers: [cb_1768867921445_kv38]
+ [PLAYBACK CALLBACK cb_1768867921445_kv38] onStateChange: idle Object
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [IMMERSIVE TUTOR STATE] playbackState: buffering (global: idle , prop: buffering )
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Hold to speak" isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=false
+ [IMMERSIVE TUTOR STATE] playbackState: idle (global: idle , prop: idle )
+ [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+ [AVATAR SYNC DEBUG] Object
+ [STREAMING VOICE CHAT DEBUG] playbackState changed: idle
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Hold to speak" isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [PTT-POINTER-DEBUG] Pointer down, pointerType: mouse isUsersTurn: true playbackState: idle isPointerRecordingRef: false
+ [PUSH-TO-TALK] Button pressed at 304481 ms, inputType: mouse
+ [PTT-STATE-DEBUG] Setting isPttButtonHeld=TRUE at 2026-01-20T00:13:15.275Z
+ [PUSH-TO-TALK] Cached stream status: Object
+ [PUSH-TO-TALK] Using cached stream - INSTANT start! (+3ms)
+ [PTT DIAGNOSTIC] Audio tracks: 1
+ [PTT DIAGNOSTIC] Track 0 settings: Object
+ [PTT DIAGNOSTIC] Track 0 constraints: Object
+ [PTT DIAGNOSTIC] Track 0 capabilities: Object
+ [PTT DIAGNOSTIC] Track 0 state: Object
+ [RECORDING] Using audio codec: audio/webm;codecs=opus
+ [PTT DIAGNOSTIC] MediaRecorder created: Object
+ [StreamingAudioPlayer] Playback held - buffering audio
+ [SpeculativePTT] AudioContext sample rate: 16000Hz (target: 16000Hz, resampling: false)
+ [Deprecation] The ScriptProcessorNode is deprecated. Use AudioWorkletNode instead. (https://bit.ly/audio-worklet)
+startPushToTalkRecording @ StreamingVoiceChat.tsx:1306
+ [SpeculativePTT] Real-time streaming started
+ [PUSH-TO-TALK] Recording started - release to stop
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=true isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+ [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+ [AVATAR SYNC DEBUG] Object
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=true isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_speech_started HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_speech_started data: {"type":"ptt_speech_started","timestamp":1768868001550}
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768868001565,"text":"We're","wordCount":1}
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768868001978,"text":"Well,","wordCount":1}
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_speech_started HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_speech_started data: {"type":"ptt_speech_started","timestamp":1768868002779}
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768868002825,"text":"Well, we","wordCount":2}
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768868003786,"text":"Well, we are all complicated.","w
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768868004811,"text":"Well, we are all complicated and 
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768868005865,"text":"Well, we are all complicated and 
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_speech_started HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_speech_started data: {"type":"ptt_speech_started","timestamp":1768868006095}
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768868006862,"text":"Well, we are all complicated and 
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768868007906,"text":"Well, we are all complicated and 
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768868008931,"text":"Well, we are all complicated and 
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768868009947,"text":"Well, we are all complicated and 
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_speech_started HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_speech_started data: {"type":"ptt_speech_started","timestamp":1768868010678}
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768868010727,"text":"Well, we are all complicated and 
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768868010727,"text":"Well, we are all complicated and 
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768868011686,"text":"Well, we are all complicated and 
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768868012711,"text":"Well, we are all complicated and 
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768868013483,"text":"Well, we are all complicated and 
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_speech_started HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_speech_started data: {"type":"ptt_speech_started","timestamp":1768868013669}
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768868014470,"text":"Well, we are all complicated and 
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768868015501,"text":"Well, we are all complicated and 
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768868016525,"text":"Well, we are all complicated and 
+ [MIC BUTTON] Pointer up on button (global handler will process)
+ [PTT-POINTER-DEBUG] Global pointerup fired, pointerType: mouse isPointerRecordingRef: true pttPointerTypeRef: mouse
+ [MIC BUTTON] Global pointer up - stopping recording
+ [PTT-STOP-DEBUG] Stop requested, inputType: mouse activeInputType: mouse isHeld: true
+ [PTT-STOP-DEBUG] Guard passed, proceeding...
+ [PUSH-TO-TALK] Releasing button, stopping recording...
+ [PTT-STATE-DEBUG] Setting isPttButtonHeld=FALSE at 2026-01-20T00:13:32.599Z call stack: Error
+    at Object.stopPushToTalkRecording [as current] (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/StreamingVoiceChat.tsx:1356:130)
+    at handleGlobalPointerUp (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/ImmersiveTutor.tsx:150:28)
+ [StreamingAudioPlayer] Playback released - processing 0 buffered chunks
+ [SpeculativePTT] Stopped streaming and sent ptt_release (skipping audio blob)
+ [PUSH-TO-TALK] Resetting subtitles immediately on button release
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=false isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+ [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+ [AVATAR SYNC DEBUG] Object
+ [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768868017327,"text":"Well, we are all complicated and 
+ [PTT DIAGNOSTIC] ondataavailable #1: size=280065 bytes, type=audio/webm;codecs=opus
+ [PTT DIAGNOSTIC] Recording stopped: Object
+ [PUSH-TO-TALK] Stopped, processing audio...
+ [PUSH-TO-TALK] Resetting subtitles immediately
+ [PTT DIAGNOSTIC] Final blob: Object
+ [PUSH-TO-TALK] SKIP audio blob - ptt_release already sent transcript to server
+ [PUSH-TO-TALK] Keeping isProcessing=true for thinking animation
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=true
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: processing HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: processing data: {"type":"processing","timestamp":1768868017588,"turnId":2,"userTranscript":"Well, we are all complic
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: ptt_final_transcript HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: ptt_final_transcript data: {"type":"ptt_final_transcript","timestamp":1768868017589,"text":"Well, we are all complicated and si
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=true
+injected.js:37 [Voice Lab] Sent voice override to server: null
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: voice_override_applied HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: voice_override_applied data: {"type":"voice_override_applied","timestamp":1768868018589,"override":null}
+injected.js:37 [MIC WARMUP] Re-warmed for next recording
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: sentence_start HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: sentence_start data: {"type":"sentence_start","timestamp":1768868027836,"turnId":2,"sentenceIndex":0,"text":"Build the tr
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=true
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: word_timing HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: word_timing data: {"type":"word_timing","timestamp":1768868028813,"turnId":2,"sentenceIndex":0,"words":[{"word":"Build
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=true
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":0,"chunkIndex":0,"partIndex":0,"totalParts":7,"audio":"Op
+injected.js:37 [AUDIO CHUNK PART] sentence=0, chunk=0, part=0/7
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":0,"chunkIndex":0,"partIndex":1,"totalParts":7,"audio":"U0
+injected.js:37 [AUDIO CHUNK PART] sentence=0, chunk=0, part=1/7
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":0,"chunkIndex":0,"partIndex":2,"totalParts":7,"audio":"99
+injected.js:37 [AUDIO CHUNK PART] sentence=0, chunk=0, part=2/7
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":0,"chunkIndex":0,"partIndex":3,"totalParts":7,"audio":"Iv
+injected.js:37 [AUDIO CHUNK PART] sentence=0, chunk=0, part=3/7
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":0,"chunkIndex":0,"partIndex":4,"totalParts":7,"audio":"BN
+injected.js:37 [AUDIO CHUNK PART] sentence=0, chunk=0, part=4/7
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":0,"chunkIndex":0,"partIndex":5,"totalParts":7,"audio":"B2
+injected.js:37 [AUDIO CHUNK PART] sentence=0, chunk=0, part=5/7
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":0,"chunkIndex":0,"partIndex":6,"totalParts":7,"audio":"nC
+injected.js:37 [AUDIO CHUNK PART] sentence=0, chunk=0, part=6/7
+injected.js:37 [AUDIO CHUNK PART] REASSEMBLED: 320992 bytes from 7 parts
+injected.js:37 [TELEMETRY] audio_chunk_reassembled Object
+ [TELEMETRY] audio_chunk_received Object
+ [HOOK handleAudioChunk] CALLED! sentence= 0 chunk= 0 audioLen= 320992
+ [AUDIO PLAYER] New turn detected - clearing deduplication state
+ [AUDIO PLAYER] enqueueProgressivePcmChunk: sentence=0, chunk=0, size=240744, held=false
+ [AUDIO PLAYER] State change: idle -> buffering (subscribers: 1)
+ [GLOBAL PLAYBACK STORE] State change: idle -> buffering (listeners: 1)
+ [TELEMETRY] playback_state_change Object
+ [DOM EVENT BRIDGE] Received state: buffering, subscribers: 1, ts: 1768868024669
+ [DOM EVENT DISPATCH] buffering (subscribers: 1)
+ [AUDIO PLAYER] notifyStateChange: buffering to 1 subscribers: [cb_1768867921445_kv38]
+ [PLAYBACK CALLBACK cb_1768867921445_kv38] onStateChange: buffering Object
+ [AUDIO PLAYER] State change: buffering -> playing (subscribers: 1)
+ [GLOBAL PLAYBACK STORE] State change: buffering -> playing (listeners: 1)
+ [TELEMETRY] playback_state_change Object
+ [DOM EVENT BRIDGE] Received state: playing, subscribers: 1, ts: 1768868024688
+ [DOM EVENT DISPATCH] playing (subscribers: 1)
+ [AUDIO PLAYER] notifyStateChange: playing to 1 subscribers: [cb_1768867921445_kv38]
+ [PLAYBACK CALLBACK cb_1768867921445_kv38] onStateChange: playing Object
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=true
+ [IMMERSIVE TUTOR STATE] playbackState: playing (global: playing , prop: idle )
+ [SOCKET.IO onAny] EVENT: message TYPE: sentence_end HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: sentence_end data: {"type":"sentence_end","timestamp":1768868028818,"turnId":2,"sentenceIndex":0,"totalDurationMs":2507
+ [SOCKET.IO onAny] EVENT: message TYPE: sentence_start HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: sentence_start data: {"type":"sentence_start","timestamp":1768868028824,"turnId":2,"sentenceIndex":1,"text":"That is such
+ [LOOP] Frame 10: entries=[S0(end=90.89)] now=89.09
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=true
+ [IMMERSIVE TUTOR STATE] playbackState: playing (global: playing , prop: playing )
+ [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [STREAMING VOICE CHAT DEBUG] playbackState changed: playing
+ [SOCKET.IO onAny] EVENT: message TYPE: word_timing HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: word_timing data: {"type":"word_timing","timestamp":1768868029957,"turnId":2,"sentenceIndex":1,"words":[{"word":"That"
+ [SubtitleTelemetry] Drift detected: 0.325s at word "tree" (turn 2)
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=true
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":1,"chunkIndex":0,"partIndex":0,"totalParts":9,"audio":"pz
+ [AUDIO CHUNK PART] sentence=1, chunk=0, part=0/9
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":1,"chunkIndex":0,"partIndex":1,"totalParts":9,"audio":"cd
+ [AUDIO CHUNK PART] sentence=1, chunk=0, part=1/9
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":1,"chunkIndex":0,"partIndex":2,"totalParts":9,"audio":"5L
+ [AUDIO CHUNK PART] sentence=1, chunk=0, part=2/9
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":1,"chunkIndex":0,"partIndex":3,"totalParts":9,"audio":"pK
+ [AUDIO CHUNK PART] sentence=1, chunk=0, part=3/9
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":1,"chunkIndex":0,"partIndex":4,"totalParts":9,"audio":"25
+ [AUDIO CHUNK PART] sentence=1, chunk=0, part=4/9
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":1,"chunkIndex":0,"partIndex":5,"totalParts":9,"audio":"WF
+ [AUDIO CHUNK PART] sentence=1, chunk=0, part=5/9
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":1,"chunkIndex":0,"partIndex":6,"totalParts":9,"audio":"Ep
+ [AUDIO CHUNK PART] sentence=1, chunk=0, part=6/9
+ [LOOP] Frame 20: entries=[S0(end=90.89)] now=89.45
+(anonymous) @ injected.js:37
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":1,"chunkIndex":0,"partIndex":7,"totalParts":9,"audio":"HB
+ [AUDIO CHUNK PART] sentence=1, chunk=0, part=7/9
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":1,"chunkIndex":0,"partIndex":8,"totalParts":9,"audio":"Vp
+ [AUDIO CHUNK PART] sentence=1, chunk=0, part=8/9
+ [AUDIO CHUNK PART] REASSEMBLED: 410156 bytes from 9 parts
+ [TELEMETRY] audio_chunk_reassembled Object
+ [TELEMETRY] audio_chunk_received Object
+ [HOOK handleAudioChunk] CALLED! sentence= 1 chunk= 0 audioLen= 410156
+ [AUDIO PLAYER] enqueueProgressivePcmChunk: sentence=1, chunk=0, size=307616, held=false
+ [AUDIO PLAYER] State change: playing -> buffering (subscribers: 1)
+ [GLOBAL PLAYBACK STORE] State change: playing -> buffering (listeners: 1)
+ [TELEMETRY] playback_state_change Object
+ [DOM EVENT BRIDGE] Received state: buffering, subscribers: 1, ts: 1768868026801
+ [DOM EVENT DISPATCH] buffering (subscribers: 1)
+ [AUDIO PLAYER] notifyStateChange: buffering to 1 subscribers: [cb_1768867921445_kv38]
+ [PLAYBACK CALLBACK cb_1768867921445_kv38] onStateChange: buffering Object
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=true
+ [IMMERSIVE TUTOR STATE] playbackState: buffering (global: buffering , prop: playing )
+ [SOCKET.IO onAny] EVENT: message TYPE: sentence_end HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: sentence_end data: {"type":"sentence_end","timestamp":1768868029963,"turnId":2,"sentenceIndex":1,"totalDurationMs":3204
+ [SOCKET.IO onAny] EVENT: message TYPE: sentence_start HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: sentence_start data: {"type":"sentence_start","timestamp":1768868029965,"turnId":2,"sentenceIndex":2,"text":"It’s the opp
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=true
+ [IMMERSIVE TUTOR STATE] playbackState: buffering (global: buffering , prop: buffering )
+ [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [STREAMING VOICE CHAT DEBUG] playbackState changed: buffering
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=true
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 30: entries=[S0(end=90.89), S1(end=94.10)] now=90.18
+(anonymous) @ injected.js:37
+ [SOCKET.IO onAny] EVENT: message TYPE: word_timing HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: word_timing data: {"type":"word_timing","timestamp":1768868032497,"turnId":2,"sentenceIndex":2,"words":[{"word":"It’s"
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=true
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=true
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":0,"totalParts":19,"audio":"T
+ [AUDIO CHUNK PART] sentence=2, chunk=0, part=0/19
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":1,"totalParts":19,"audio":"9
+ [AUDIO CHUNK PART] sentence=2, chunk=0, part=1/19
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":2,"totalParts":19,"audio":"A
+ [AUDIO CHUNK PART] sentence=2, chunk=0, part=2/19
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":3,"totalParts":19,"audio":"J
+injected.js:37 [AUDIO CHUNK PART] sentence=2, chunk=0, part=3/19
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":4,"totalParts":19,"audio":"v
+injected.js:37 [AUDIO CHUNK PART] sentence=2, chunk=0, part=4/19
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":5,"totalParts":19,"audio":"L
+injected.js:37 [AUDIO CHUNK PART] sentence=2, chunk=0, part=5/19
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=true
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":6,"totalParts":19,"audio":"j
+injected.js:37 [AUDIO CHUNK PART] sentence=2, chunk=0, part=6/19
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":7,"totalParts":19,"audio":"I
+injected.js:37 [AUDIO CHUNK PART] sentence=2, chunk=0, part=7/19
+injected.js:37 [LOOP] Frame 40: entries=[S0(end=90.89), S1(end=94.10)] now=90.98
+(anonymous) @ injected.js:37
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=true
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":8,"totalParts":19,"audio":"A
+injected.js:37 [AUDIO CHUNK PART] sentence=2, chunk=0, part=8/19
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":9,"totalParts":19,"audio":"T
+injected.js:37 [AUDIO CHUNK PART] sentence=2, chunk=0, part=9/19
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":10,"totalParts":19,"audio":"
+injected.js:37 [AUDIO CHUNK PART] sentence=2, chunk=0, part=10/19
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=true
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":11,"totalParts":19,"audio":"
+injected.js:37 [AUDIO CHUNK PART] sentence=2, chunk=0, part=11/19
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":12,"totalParts":19,"audio":"
+injected.js:37 [AUDIO CHUNK PART] sentence=2, chunk=0, part=12/19
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":13,"totalParts":19,"audio":"
+injected.js:37 [AUDIO CHUNK PART] sentence=2, chunk=0, part=13/19
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=true
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":14,"totalParts":19,"audio":"
+ [AUDIO CHUNK PART] sentence=2, chunk=0, part=14/19
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":15,"totalParts":19,"audio":"
+ [AUDIO CHUNK PART] sentence=2, chunk=0, part=15/19
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":16,"totalParts":19,"audio":"
+ [AUDIO CHUNK PART] sentence=2, chunk=0, part=16/19
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":17,"totalParts":19,"audio":"
+ [AUDIO CHUNK PART] sentence=2, chunk=0, part=17/19
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":2,"chunkIndex":0,"partIndex":18,"totalParts":19,"audio":"
+ [AUDIO CHUNK PART] sentence=2, chunk=0, part=18/19
+ [AUDIO CHUNK PART] REASSEMBLED: 927312 bytes from 19 parts
+ [TELEMETRY] audio_chunk_reassembled Object
+ [TELEMETRY] audio_chunk_received Object
+ [HOOK handleAudioChunk] CALLED! sentence= 2 chunk= 0 audioLen= 927312
+ [AUDIO PLAYER] enqueueProgressivePcmChunk: sentence=2, chunk=0, size=695484, held=false
+ [LOOP] Frame 50: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34)] now=92.03
+(anonymous) @ injected.js:37
+ [SOCKET.IO onAny] EVENT: message TYPE: sentence_end HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: sentence_end data: {"type":"sentence_end","timestamp":1768868032508,"turnId":2,"sentenceIndex":2,"totalDurationMs":7244
+ [SOCKET.IO onAny] EVENT: message TYPE: sentence_start HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: sentence_start data: {"type":"sentence_start","timestamp":1768868032511,"turnId":2,"sentenceIndex":3,"text":"I feel like,
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=true
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [SOCKET.IO onAny] EVENT: message TYPE: word_timing HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: word_timing data: {"type":"word_timing","timestamp":1768868034305,"turnId":2,"sentenceIndex":3,"words":[{"word":"I","s
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=true
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":3,"chunkIndex":0,"partIndex":0,"totalParts":13,"audio":"M
+ [AUDIO CHUNK PART] sentence=3, chunk=0, part=0/13
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":3,"chunkIndex":0,"partIndex":1,"totalParts":13,"audio":"p
+ [AUDIO CHUNK PART] sentence=3, chunk=0, part=1/13
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":3,"chunkIndex":0,"partIndex":2,"totalParts":13,"audio":"j
+ [AUDIO CHUNK PART] sentence=3, chunk=0, part=2/13
+ [LOOP] Frame 60: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34)] now=93.03
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=true
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":3,"chunkIndex":0,"partIndex":3,"totalParts":13,"audio":"M
+ [AUDIO CHUNK PART] sentence=3, chunk=0, part=3/13
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":3,"chunkIndex":0,"partIndex":4,"totalParts":13,"audio":"3
+ [AUDIO CHUNK PART] sentence=3, chunk=0, part=4/13
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=true
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":3,"chunkIndex":0,"partIndex":5,"totalParts":13,"audio":"g
+ [AUDIO CHUNK PART] sentence=3, chunk=0, part=5/13
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":3,"chunkIndex":0,"partIndex":6,"totalParts":13,"audio":"Q
+ [AUDIO CHUNK PART] sentence=3, chunk=0, part=6/13
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":3,"chunkIndex":0,"partIndex":7,"totalParts":13,"audio":"m
+ [AUDIO CHUNK PART] sentence=3, chunk=0, part=7/13
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":3,"chunkIndex":0,"partIndex":8,"totalParts":13,"audio":"V
+ [AUDIO CHUNK PART] sentence=3, chunk=0, part=8/13
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":3,"chunkIndex":0,"partIndex":9,"totalParts":13,"audio":"j
+ [AUDIO CHUNK PART] sentence=3, chunk=0, part=9/13
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=true
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":3,"chunkIndex":0,"partIndex":10,"totalParts":13,"audio":"
+ [AUDIO CHUNK PART] sentence=3, chunk=0, part=10/13
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":3,"chunkIndex":0,"partIndex":11,"totalParts":13,"audio":"
+ [AUDIO CHUNK PART] sentence=3, chunk=0, part=11/13
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":3,"chunkIndex":0,"partIndex":12,"totalParts":13,"audio":"
+ [AUDIO CHUNK PART] sentence=3, chunk=0, part=12/13
+ [AUDIO CHUNK PART] REASSEMBLED: 636040 bytes from 13 parts
+ [TELEMETRY] audio_chunk_reassembled Object
+ [TELEMETRY] audio_chunk_received Object
+ [HOOK handleAudioChunk] CALLED! sentence= 3 chunk= 0 audioLen= 636040
+ [AUDIO PLAYER] enqueueProgressivePcmChunk: sentence=3, chunk=0, size=477028, held=false
+ [SOCKET.IO onAny] EVENT: message TYPE: sentence_end HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: sentence_end data: {"type":"sentence_end","timestamp":1768868034312,"turnId":2,"sentenceIndex":3,"totalDurationMs":4969
+ [SOCKET.IO onAny] EVENT: message TYPE: sentence_start HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: sentence_start data: {"type":"sentence_start","timestamp":1768868034313,"turnId":2,"sentenceIndex":4,"text":"You didn't j
+ [LOOP] Frame 70: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31)] now=94.07
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=true
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 80: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31)] now=95.09
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=true
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [SOCKET.IO onAny] EVENT: message TYPE: word_timing HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: word_timing data: {"type":"word_timing","timestamp":1768868036810,"turnId":2,"sentenceIndex":4,"words":[{"word":"You",
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":4,"chunkIndex":0,"partIndex":0,"totalParts":22,"audio":"u
+ [AUDIO CHUNK PART] sentence=4, chunk=0, part=0/22
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":4,"chunkIndex":0,"partIndex":1,"totalParts":22,"audio":"H
+ [AUDIO CHUNK PART] sentence=4, chunk=0, part=1/22
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=true
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":4,"chunkIndex":0,"partIndex":2,"totalParts":22,"audio":"z
+ [AUDIO CHUNK PART] sentence=4, chunk=0, part=2/22
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":4,"chunkIndex":0,"partIndex":3,"totalParts":22,"audio":"l
+ [AUDIO CHUNK PART] sentence=4, chunk=0, part=3/22
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":4,"chunkIndex":0,"partIndex":4,"totalParts":22,"audio":"d
+ [AUDIO CHUNK PART] sentence=4, chunk=0, part=4/22
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":4,"chunkIndex":0,"partIndex":5,"totalParts":22,"audio":"F
+ [AUDIO CHUNK PART] sentence=4, chunk=0, part=5/22
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":4,"chunkIndex":0,"partIndex":6,"totalParts":22,"audio":"B
+ [AUDIO CHUNK PART] sentence=4, chunk=0, part=6/22
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=true
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 90: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31)] now=96.05
+(anonymous) @ injected.js:37
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":4,"chunkIndex":0,"partIndex":7,"totalParts":22,"audio":"u
+ [AUDIO CHUNK PART] sentence=4, chunk=0, part=7/22
+ [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+ [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":4,"chunkIndex":0,"partIndex":8,"totalParts":22,"audio":"J
+ [AUDIO CHUNK PART] sentence=4, chunk=0, part=8/22
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=true
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":4,"chunkIndex":0,"partIndex":9,"totalParts":22,"audio":"f
+injected.js:37 [AUDIO CHUNK PART] sentence=4, chunk=0, part=9/22
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":4,"chunkIndex":0,"partIndex":10,"totalParts":22,"audio":"
+injected.js:37 [AUDIO CHUNK PART] sentence=4, chunk=0, part=10/22
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":4,"chunkIndex":0,"partIndex":11,"totalParts":22,"audio":"
+injected.js:37 [AUDIO CHUNK PART] sentence=4, chunk=0, part=11/22
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":4,"chunkIndex":0,"partIndex":12,"totalParts":22,"audio":"
+injected.js:37 [AUDIO CHUNK PART] sentence=4, chunk=0, part=12/22
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":4,"chunkIndex":0,"partIndex":13,"totalParts":22,"audio":"
+injected.js:37 [AUDIO CHUNK PART] sentence=4, chunk=0, part=13/22
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":4,"chunkIndex":0,"partIndex":14,"totalParts":22,"audio":"
+injected.js:37 [AUDIO CHUNK PART] sentence=4, chunk=0, part=14/22
+injected.js:37 [LOOP] Frame 100: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31)] now=97.07
+(anonymous) @ injected.js:37
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":4,"chunkIndex":0,"partIndex":15,"totalParts":22,"audio":"
+injected.js:37 [AUDIO CHUNK PART] sentence=4, chunk=0, part=15/22
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":4,"chunkIndex":0,"partIndex":16,"totalParts":22,"audio":"
+injected.js:37 [AUDIO CHUNK PART] sentence=4, chunk=0, part=16/22
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":4,"chunkIndex":0,"partIndex":17,"totalParts":22,"audio":"
+injected.js:37 [AUDIO CHUNK PART] sentence=4, chunk=0, part=17/22
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":4,"chunkIndex":0,"partIndex":18,"totalParts":22,"audio":"
+injected.js:37 [AUDIO CHUNK PART] sentence=4, chunk=0, part=18/22
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":4,"chunkIndex":0,"partIndex":19,"totalParts":22,"audio":"
+injected.js:37 [AUDIO CHUNK PART] sentence=4, chunk=0, part=19/22
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":4,"chunkIndex":0,"partIndex":20,"totalParts":22,"audio":"
+injected.js:37 [AUDIO CHUNK PART] sentence=4, chunk=0, part=20/22
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: audio_chunk_part HAS AUDIO: true
+injected.js:37 [WS SOCKET ON MESSAGE] Received: audio_chunk_part data: {"type":"audio_chunk_part","sentenceIndex":4,"chunkIndex":0,"partIndex":21,"totalParts":22,"audio":"
+injected.js:37 [AUDIO CHUNK PART] sentence=4, chunk=0, part=21/22
+injected.js:37 [AUDIO CHUNK PART] REASSEMBLED: 1069976 bytes from 22 parts
+injected.js:37 [TELEMETRY] audio_chunk_reassembled Object
+injected.js:37 [TELEMETRY] audio_chunk_received Object
+injected.js:37 [HOOK handleAudioChunk] CALLED! sentence= 4 chunk= 0 audioLen= 1069976
+injected.js:37 [AUDIO PLAYER] enqueueProgressivePcmChunk: sentence=4, chunk=0, size=802480, held=false
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: sentence_end HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: sentence_end data: {"type":"sentence_end","timestamp":1768868036823,"turnId":2,"sentenceIndex":4,"totalDurationMs":8359
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: response_complete HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: response_complete data: {"type":"response_complete","timestamp":1768868036834,"turnId":2,"totalSentences":5,"totalDurationMs
+injected.js:37 [STREAMING] Response complete - refreshing messages for a7edbd06-c6a8-4872-b230-ec4ba38e6add
+injected.js:37 [STREAMING] Storing combined audio for replay: 2523352 bytes
+injected.js:37 [LOOP] Frame 110: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=98.12
+(anonymous) @ injected.js:37
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [Voice Lab] Sent voice override to server: null
+ [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 120: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=99.32
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [SOCKET.IO onAny] EVENT: message TYPE: voice_override_applied HAS AUDIO: false
+ [WS SOCKET ON MESSAGE] Received: voice_override_applied data: {"type":"voice_override_applied","timestamp":1768868040806,"override":null}
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 130: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=100.35
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 140: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=101.37
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 150: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=101.87
+(anonymous) @ injected.js:37
+ [LOOP] Frame 160: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=102.04
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 170: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=102.87
+(anonymous) @ injected.js:37
+ [LOOP] Frame 180: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=103.13
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [LOOP] Frame 190: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=103.61
+(anonymous) @ injected.js:37
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [LOOP] Frame 200: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=103.98
+(anonymous) @ injected.js:37
+injected.js:37 [LOOP] Frame 210: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=104.17
+(anonymous) @ injected.js:37
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [LOOP] Frame 220: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=104.43
+(anonymous) @ injected.js:37
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [LOOP] Frame 230: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=104.85
+(anonymous) @ injected.js:37
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [LOOP] Frame 240: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=105.13
+(anonymous) @ injected.js:37
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [LOOP] Frame 250: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=105.33
+(anonymous) @ injected.js:37
+injected.js:37 [LOOP] Frame 260: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=105.49
+(anonymous) @ injected.js:37
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [LOOP] Frame 270: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=105.70
+(anonymous) @ injected.js:37
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [AVATAR SYNC DEBUG] Setting avatarState to speaking
+injected.js:37 [LOOP] Frame 280: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=105.98
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 290: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=106.25
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 300: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=106.47
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 310: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=106.78
+(anonymous) @ injected.js:37
+ [LOOP] Frame 320: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=106.99
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 330: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=107.31
+(anonymous) @ injected.js:37
+ [LOOP] Frame 340: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=107.45
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 350: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=107.67
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 360: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=107.91
+(anonymous) @ injected.js:37
+ [LOOP] Frame 370: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=108.09
+(anonymous) @ injected.js:37
+ [LOOP] Frame 380: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=108.25
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 390: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=108.44
+(anonymous) @ injected.js:37
+ [LOOP] Frame 400: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=108.61
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 410: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=108.83
+(anonymous) @ injected.js:37
+ [LOOP] Frame 420: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=108.98
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 430: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=109.24
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 440: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=109.41
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 450: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=109.62
+(anonymous) @ injected.js:37
+ [LOOP] Frame 460: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=109.78
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 470: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=109.97
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 480: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=110.19
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 490: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=110.41
+(anonymous) @ injected.js:37
+ [LOOP] Frame 500: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=110.57
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 510: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=110.78
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 520: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=110.97
+(anonymous) @ injected.js:37
+ [LOOP] Frame 530: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=111.14
+(anonymous) @ injected.js:37
+ [LOOP] Frame 540: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=111.30
+(anonymous) @ injected.js:37
+ [LOOP] Frame 550: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=111.47
+(anonymous) @ injected.js:37
+ [LOOP] Frame 560: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=111.63
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 570: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=111.82
+(anonymous) @ injected.js:37
+ [LOOP] Frame 580: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=111.99
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 590: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=112.25
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 600: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=112.45
+(anonymous) @ injected.js:37
+ [LOOP] Frame 610: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=112.61
+(anonymous) @ injected.js:37
+ [LOOP] Frame 620: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=112.77
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 630: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=112.98
+(anonymous) @ injected.js:37
+ [LOOP] Frame 640: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=113.13
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 650: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=113.32
+(anonymous) @ injected.js:37
+ [LOOP] Frame 660: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=113.49
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 670: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=113.70
+(anonymous) @ injected.js:37
+ [LOOP] Frame 680: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=113.87
+(anonymous) @ injected.js:37
+ [LOOP] Frame 690: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=114.03
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 700: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=114.33
+(anonymous) @ injected.js:37
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [AVATAR SYNC DEBUG] Setting avatarState to speaking
+ [LOOP] Frame 710: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=114.51
+(anonymous) @ injected.js:37
+ [LOOP] Frame 720: entries=[S0(end=90.89), S1(end=94.10), S2(end=101.34), S3(end=106.31), S4(end=114.67)] now=114.67
+(anonymous) @ injected.js:37
+ [AUDIO PLAYER] State change: buffering -> idle (subscribers: 1)
+ [GLOBAL PLAYBACK STORE] State change: buffering -> idle (listeners: 1)
+ [TELEMETRY] playback_state_change Object
+ [DOM EVENT BRIDGE] Received state: idle, subscribers: 1, ts: 1768868052273
+ [DOM EVENT DISPATCH] idle (subscribers: 1)
+ [AUDIO PLAYER] notifyStateChange: idle to 1 subscribers: [cb_1768867921445_kv38]
+ [PLAYBACK CALLBACK cb_1768867921445_kv38] onStateChange: idle Object
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Please wait..." isPttButtonHeld=false isRecording=false isPlaying=true isUsersTurn=false isProcessing=false
+ [IMMERSIVE TUTOR STATE] playbackState: buffering (global: idle , prop: buffering )
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Hold to speak" isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=false
+ [IMMERSIVE TUTOR STATE] playbackState: idle (global: idle , prop: idle )
+ [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+ [AVATAR SYNC DEBUG] Object
+ [STREAMING VOICE CHAT DEBUG] playbackState changed: idle
+ [IMMERSIVE AVATAR DEBUG] Object
+ [INSTRUCTION DEBUG] text="Hold to speak" isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=true isProcessing=false
+ [AVATAR SYNC DEBUG] Object
+ [PTT-POINTER-DEBUG] Pointer down, pointerType: mouse isUsersTurn: true playbackState: idle isPointerRecordingRef: false
+ [PUSH-TO-TALK] Button pressed at 367639 ms, inputType: mouse
+ [PTT-STATE-DEBUG] Setting isPttButtonHeld=TRUE at 2026-01-20T00:14:18.440Z
+injected.js:37 [PUSH-TO-TALK] Cached stream status: Object
+injected.js:37 [PUSH-TO-TALK] Using cached stream - INSTANT start! (+7ms)
+injected.js:37 [PTT DIAGNOSTIC] Audio tracks: 1
+injected.js:37 [PTT DIAGNOSTIC] Track 0 settings: Object
+injected.js:37 [PTT DIAGNOSTIC] Track 0 constraints: Object
+injected.js:37 [PTT DIAGNOSTIC] Track 0 capabilities: Object
+injected.js:37 [PTT DIAGNOSTIC] Track 0 state: Object
+injected.js:37 [RECORDING] Using audio codec: audio/webm;codecs=opus
+injected.js:37 [PTT DIAGNOSTIC] MediaRecorder created: Object
+injected.js:37 [StreamingAudioPlayer] Playback held - buffering audio
+injected.js:37 [SpeculativePTT] AudioContext sample rate: 16000Hz (target: 16000Hz, resampling: false)
+StreamingVoiceChat.tsx:1982 [Deprecation] The ScriptProcessorNode is deprecated. Use AudioWorkletNode instead. (https://bit.ly/audio-worklet)
+startPushToTalkRecording @ StreamingVoiceChat.tsx:1982
+injected.js:37 [SpeculativePTT] Real-time streaming started
+injected.js:37 [PUSH-TO-TALK] Recording started - release to stop
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=true isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=true isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: ptt_speech_started HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: ptt_speech_started data: {"type":"ptt_speech_started","timestamp":1768868064682}
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768868064706,"text":"Good","wordCount":1}
+injected.js:37 [MIC BUTTON] Pointer up on button (global handler will process)
+injected.js:37 [PTT-POINTER-DEBUG] Global pointerup fired, pointerType: mouse isPointerRecordingRef: true pttPointerTypeRef: mouse
+injected.js:37 [MIC BUTTON] Global pointer up - stopping recording
+injected.js:37 [PTT-STOP-DEBUG] Stop requested, inputType: mouse activeInputType: mouse isHeld: true
+injected.js:37 [PTT-STOP-DEBUG] Guard passed, proceeding...
+injected.js:37 [PUSH-TO-TALK] Releasing button, stopping recording...
+injected.js:37 [PTT-STATE-DEBUG] Setting isPttButtonHeld=FALSE at 2026-01-20T00:14:20.074Z call stack: Error
+    at Object.stopPushToTalkRecording [as current] (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/StreamingVoiceChat.tsx:1356:130)
+    at handleGlobalPointerUp (https://3ca2376d-c3dc-490a-a375-6b2f97f7c281-00-i0c3jqj8bdra.janeway.replit.dev/src/components/ImmersiveTutor.tsx:150:28)
+injected.js:37 [StreamingAudioPlayer] Playback released - processing 0 buffered chunks
+injected.js:37 [SpeculativePTT] Stopped streaming and sent ptt_release (skipping audio blob)
+injected.js:37 [PUSH-TO-TALK] Resetting subtitles immediately on button release
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Release to send" isPttButtonHeld=false isRecording=true isPlaying=false isUsersTurn=true isProcessing=false
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=true Object
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [PTT DIAGNOSTIC] ondataavailable #1: size=25523 bytes, type=audio/webm;codecs=opus
+injected.js:37 [PTT DIAGNOSTIC] Recording stopped: Object
+injected.js:37 [PUSH-TO-TALK] Stopped, processing audio...
+injected.js:37 [PUSH-TO-TALK] Resetting subtitles immediately
+injected.js:37 [PTT DIAGNOSTIC] Final blob: Object
+injected.js:37 [PUSH-TO-TALK] SKIP audio blob - ptt_release already sent transcript to server
+injected.js:37 [PUSH-TO-TALK] Keeping isProcessing=true for thinking animation
+injected.js:37 [IMMERSIVE AVATAR DEBUG] Object
+injected.js:37 [INSTRUCTION DEBUG] text="Processing..." isPttButtonHeld=false isRecording=false isPlaying=false isUsersTurn=false isProcessing=true
+injected.js:37 [MIC LOCKOUT DEBUG] isUsersTurn=false Object
+injected.js:37 [AVATAR SYNC DEBUG] Object
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: ptt_final_transcript HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: ptt_final_transcript data: {"type":"ptt_final_transcript","timestamp":1768868065048,"text":"Good","wordCount":1,"speculativeAiU
+injected.js:37 [SOCKET.IO onAny] EVENT: message TYPE: ptt_interim_transcript HAS AUDIO: false
+injected.js:37 [WS SOCKET ON MESSAGE] Received: ptt_interim_transcript data: {"type":"ptt_interim_transcript","timestamp":1768868065155,"text":"Go on","wordCount":2}
+injected.js:37 [MIC WARMUP] Re-warmed for next recording
+4767 log entries are not shown.
