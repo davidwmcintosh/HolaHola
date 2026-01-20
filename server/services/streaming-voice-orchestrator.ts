@@ -9765,6 +9765,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       const results: string[] = [];
       let totalFound = 0;
       
+      console.log(`[MemoryLookup DEBUG] rawDomains=${JSON.stringify(rawDomains)}, requestedStudentDomains=${JSON.stringify(requestedStudentDomains)}, searchStudentMemory=${searchStudentMemory}, session.studentId="${session.studentId}"`);
+      
       // Search student memory
       if (searchStudentMemory && session.studentId) {
         const studentDomainFilter = requestedStudentDomains.length > 0 ? requestedStudentDomains : undefined;
