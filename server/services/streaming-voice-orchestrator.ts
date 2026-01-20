@@ -3982,7 +3982,10 @@ Remember: David may reference things discussed in these recent text chats.
       
       // DEDUPLICATION GUARD: Track seen sentences to prevent LLM repetition loops
       const seenSentences = new Set<string>();
-      const MAX_SENTENCES = 5;
+      // INCREASED: Match sentence limits to session mode
+      // Founder/Honesty Mode: 15 sentences for detailed explanations
+      // Normal mode: 10 sentences (was 5, causing mid-sentence cutoffs)
+      const MAX_SENTENCES = (session.isFounderMode || session.isRawHonestyMode) ? 15 : 10;
       let actualSentenceCount = 0;
       
       // Check for architect notes and student learning context in parallel
