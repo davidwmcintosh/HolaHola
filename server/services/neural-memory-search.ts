@@ -392,10 +392,32 @@ export async function searchMemory(
             .orderBy(desc(messages.createdAt))
             .limit(20);
           
-          // ALSO search across ALL conversations for content mentioning the tutor or related topics
-          // This catches cross-tutor references like "I told Isabel about reggaeton" in a Spanish chat
-          const tutorNameForSearch = tutorName || '';
-          const crossTutorConvos = await getSharedDb()
+          // Also search for tutor name mentions across ALL conversations (if tutorName is valid)
+          let crossTutorByName: typeof tutorConvos = [];
+          if (tutorName && tutorName.length > 0) {
+            crossTutorByName = await getSharedDb()
+              .select({
+                messageId: messages.id,
+                content: messages.content,
+                role: messages.role,
+                conversationId: messages.conversationId,
+                language: conversations.language,
+                conversationTitle: conversations.title,
+                createdAt: messages.createdAt,
+              })
+              .from(messages)
+              .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+              .where(and(
+                eq(conversations.userId, studentId),
+                ilike(messages.content, `%${tutorName}%`)
+              ))
+              .orderBy(desc(messages.createdAt))
+              .limit(10);
+          }
+          
+          // Also search for the actual query content across ALL languages
+          // This catches the topic itself (e.g., "reggaeton") regardless of which tutor session it was in
+          const crossTutorByContent = await getSharedDb()
             .select({
               messageId: messages.id,
               content: messages.content,
@@ -409,21 +431,28 @@ export async function searchMemory(
             .innerJoin(conversations, eq(messages.conversationId, conversations.id))
             .where(and(
               eq(conversations.userId, studentId),
-              ilike(messages.content, `%${tutorNameForSearch}%`)
+              ilike(messages.content, searchPattern)
             ))
             .orderBy(desc(messages.createdAt))
             .limit(10);
           
-          // Merge results, deduplicate by message ID
+          // Merge results, deduplicate by message ID, and sort by recency
           const seenIds = new Set<string>();
+          const allMessages = [...tutorConvos, ...crossTutorByName, ...crossTutorByContent];
           recentConvos = [];
-          for (const msg of [...tutorConvos, ...crossTutorConvos]) {
+          for (const msg of allMessages) {
             if (!seenIds.has(msg.messageId)) {
               seenIds.add(msg.messageId);
               recentConvos.push(msg);
             }
           }
-          console.log(`[NeuralMemory] Tutor search: ${tutorConvos.length} from ${tutorLanguage}, ${crossTutorConvos.length} cross-tutor mentions`);
+          // Re-sort by recency (most recent first)
+          recentConvos.sort((a, b) => {
+            const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return bTime - aTime;
+          });
+          console.log(`[NeuralMemory] Tutor search: ${tutorConvos.length} from ${tutorLanguage}, ${crossTutorByName.length} name mentions, ${crossTutorByContent.length} content matches`);
         } else {
           // Check if this is a "recent/today" query that should just return recent messages
           const recentTerms = ['recent', 'today', 'earlier', 'last', 'previous', 'past', 'before', 'ago', 'just', 'chat', 'conversation', 'talked', 'said', 'told', 'discussed', 'mentioned'];
