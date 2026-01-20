@@ -631,6 +631,7 @@ export interface IStorage {
   // Phase 2: Conversation topic tagging
   addConversationTopic(conversationId: string, topicId: string, confidence?: number): Promise<ConversationTopic>;
   getConversationTopics(conversationId: string): Promise<Array<ConversationTopic & { topic: Topic }>>;
+  getConversationTopicsBatch(conversationIds: string[]): Promise<Record<string, Array<ConversationTopic & { topic: Topic }>>>;
   removeConversationTopic(conversationId: string, topicId: string): Promise<boolean>;
   
   // Mind Map: Aggregated topic mastery for visualization
@@ -4568,6 +4569,33 @@ export class DatabaseStorage implements IStorage {
       .where(eq(conversationTopics.conversationId, conversationId));
     
     return result.map(r => ({ ...r.conversationTopic, topic: r.topic }));
+  }
+
+  // BATCH: Get topics for multiple conversations in a single query (fixes N+1 problem)
+  async getConversationTopicsBatch(conversationIds: string[]): Promise<Record<string, Array<ConversationTopic & { topic: Topic }>>> {
+    if (conversationIds.length === 0) return {};
+    
+    const result = await db
+      .select({
+        conversationTopic: conversationTopics,
+        topic: topicsTable
+      })
+      .from(conversationTopics)
+      .innerJoin(topicsTable, eq(conversationTopics.topicId, topicsTable.id))
+      .where(inArray(conversationTopics.conversationId, conversationIds));
+    
+    // Group by conversationId
+    const grouped: Record<string, Array<ConversationTopic & { topic: Topic }>> = {};
+    for (const id of conversationIds) {
+      grouped[id] = [];
+    }
+    for (const r of result) {
+      const convId = r.conversationTopic.conversationId;
+      if (!grouped[convId]) grouped[convId] = [];
+      grouped[convId].push({ ...r.conversationTopic, topic: r.topic });
+    }
+    
+    return grouped;
   }
 
   async removeConversationTopic(conversationId: string, topicId: string): Promise<boolean> {

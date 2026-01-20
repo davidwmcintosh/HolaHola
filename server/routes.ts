@@ -6197,6 +6197,22 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // BATCH: Get topics for multiple conversations in one request (fixes N+1 problem)
+  app.post("/api/conversations/topics/batch", isAuthenticated, async (req: any, res) => {
+    try {
+      const { conversationIds } = req.body;
+      if (!Array.isArray(conversationIds)) {
+        return res.status(400).json({ error: "conversationIds must be an array" });
+      }
+      // Limit batch size to prevent abuse
+      const limitedIds = conversationIds.slice(0, 200);
+      const topicsByConversation = await storage.getConversationTopicsBatch(limitedIds);
+      res.json(topicsByConversation);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Phase 2: Add topic to conversation
   app.post("/api/conversations/:id/topics", isAuthenticated, async (req: any, res) => {
     try {

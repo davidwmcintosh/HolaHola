@@ -43,11 +43,12 @@ interface ConversationTopicWithDetails {
   topic: Topic;
 }
 
-function ConversationTopicTags({ conversationId }: { conversationId: string }) {
-  const { data: topicLinks = [] } = useQuery<ConversationTopicWithDetails[]>({
-    queryKey: ["/api/conversations", conversationId, "topics"],
-    enabled: !!conversationId,
-  });
+// Batch topics map type - keyed by conversationId
+type TopicsBatchMap = Record<string, ConversationTopicWithDetails[]>;
+
+function ConversationTopicTags({ conversationId, topicsData }: { conversationId: string; topicsData?: TopicsBatchMap }) {
+  // Use pre-fetched batch data if available, otherwise empty (no individual fetch)
+  const topicLinks = topicsData?.[conversationId] || [];
 
   if (topicLinks.length === 0) return null;
 
@@ -118,6 +119,25 @@ export function ConversationHistory({
       if (!response.ok) throw new Error('Failed to fetch conversations');
       return response.json();
     },
+  });
+
+  // BATCH: Fetch topics for all visible conversations in ONE request (fixes N+1 problem)
+  const conversationIds = useMemo(() => conversations.map(c => c.id), [conversations]);
+  const { data: topicsBatch = {} } = useQuery<TopicsBatchMap>({
+    queryKey: ["/api/conversations/topics/batch", conversationIds],
+    queryFn: async () => {
+      if (conversationIds.length === 0) return {};
+      const response = await fetch('/api/conversations/topics/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ conversationIds }),
+      });
+      if (!response.ok) throw new Error('Failed to fetch topics batch');
+      return response.json();
+    },
+    enabled: conversationIds.length > 0,
+    staleTime: 60000, // Cache for 1 minute
   });
 
   const { data: searchResults = [], isLoading: isSearchLoading } = useQuery<SearchResult[]>({
@@ -433,7 +453,7 @@ export function ConversationHistory({
                     </span>
                     <span>{conversation.messageCount} messages</span>
                   </div>
-                  <ConversationTopicTags conversationId={conversation.id} />
+                  <ConversationTopicTags conversationId={conversation.id} topicsData={topicsBatch} />
                 </div>
                 <Button
                   variant="outline"
