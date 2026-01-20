@@ -798,7 +798,7 @@ export async function orchestrate(
     const { prompt: systemPrompt, surfacedFeedbackIds } = await buildSystemPrompt(request);
 
     // 2. Determine model and parameters based on mode
-    const modelName = "gemini-3-flash-preview";
+    const modelName = "gemini-3-flash";
     const temperature =
       request.options?.temperature ??
       (request.mode === "drill" ? 0.3 : 0.7);
