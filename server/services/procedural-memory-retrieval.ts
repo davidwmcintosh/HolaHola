@@ -192,7 +192,8 @@ export async function getStudentSnapshotData(
   
   try {
     // 1. Get last session info by joining voiceSessions with conversations for topic
-    const recentSessions = await getUserDb().select({
+    // Both voice_sessions and conversations are in SHARED database for cross-environment access
+    const recentSessions = await getSharedDb().select({
       sessionId: voiceSessions.id,
       startedAt: voiceSessions.startedAt,
       topic: sql<string>`COALESCE(${conversations.topic}, 'Practice session')`,
@@ -218,8 +219,8 @@ export async function getStudentSnapshotData(
       };
     }
     
-    // 2. Get progress/streak from userProgress
-    const progress = await getUserDb().select()
+    // 2. Get progress/streak from userProgress (SHARED database)
+    const progress = await getSharedDb().select()
       .from(userProgress)
       .where(
         and(
