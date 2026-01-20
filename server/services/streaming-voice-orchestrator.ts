@@ -1687,7 +1687,9 @@ export class StreamingVoiceOrchestrator {
       
       // DEDUPLICATION GUARD: Track seen sentences to prevent LLM repetition loops
       const seenSentences = new Set<string>();
-      const MAX_SENTENCES = 15; // Increased for Founder Mode detailed explanations
+      // SAFETY NET: High limit to catch runaway LLM loops, not to cut off natural conversation
+      // Founder Mode sessions use this path - 30 sentences for authentic conversation
+      const MAX_SENTENCES = 30;
       let actualSentenceCount = 0;
       
       // Process sentences as they arrive from Gemini
@@ -3982,10 +3984,11 @@ Remember: David may reference things discussed in these recent text chats.
       
       // DEDUPLICATION GUARD: Track seen sentences to prevent LLM repetition loops
       const seenSentences = new Set<string>();
-      // INCREASED: Match sentence limits to session mode
-      // Founder/Honesty Mode: 15 sentences for detailed explanations
-      // Normal mode: 10 sentences (was 5, causing mid-sentence cutoffs)
-      const MAX_SENTENCES = (session.isFounderMode || session.isRawHonestyMode) ? 15 : 10;
+      // SAFETY NET: High limit to catch runaway LLM loops, not to cut off natural conversation
+      // Daniela should complete her thoughts naturally - this is just a safety limit
+      // Founder/Honesty Mode: 30 sentences (essentially unlimited for authentic conversation)
+      // Normal mode: 20 sentences (enough for any reasonable explanation)
+      const MAX_SENTENCES = (session.isFounderMode || session.isRawHonestyMode) ? 30 : 20;
       let actualSentenceCount = 0;
       
       // Check for architect notes and student learning context in parallel
@@ -8960,7 +8963,8 @@ DON'T:
       let currentSentenceIndex = 0;
       
       const seenSentences = new Set<string>();
-      const MAX_SENTENCES = 15;
+      // SAFETY NET: High limit for architect responses in Founder Mode
+      const MAX_SENTENCES = 30;
       let actualSentenceCount = 0;
       
       // Build the architect context - the note we just received
