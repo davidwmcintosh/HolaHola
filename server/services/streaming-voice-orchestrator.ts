@@ -2309,11 +2309,12 @@ Remember: David may reference things discussed in these recent text chats.
                       
                       const results: string[] = [];
                       let totalFound = 0;
+                      const studentId = String(session.userId);
                       
                       // Search student memory if applicable
-                      if (searchStudentMemory && session.studentId) {
+                      if (searchStudentMemory && studentId) {
                         const studentDomainFilter = requestedStudentDomains.length > 0 ? requestedStudentDomains : undefined;
-                        const memoryResults = await searchMemory(session.studentId, query, studentDomainFilter);
+                        const memoryResults = await searchMemory(studentId, query, studentDomainFilter);
                         if (memoryResults.results.length > 0) {
                           results.push(formatMemoryForConversation(memoryResults));
                           totalFound += memoryResults.results.length;
@@ -4421,10 +4422,11 @@ Remember: David may reference things discussed in these recent text chats.
                     
                     const results: string[] = [];
                     let totalFound = 0;
+                    const studentId = String(session.userId);
                     
-                    if (searchStudentMemory && session.studentId) {
+                    if (searchStudentMemory && studentId) {
                       const studentDomainFilter = requestedStudentDomains.length > 0 ? requestedStudentDomains : undefined;
-                      const memoryResults = await searchMemory(session.studentId, query, studentDomainFilter);
+                      const memoryResults = await searchMemory(studentId, query, studentDomainFilter);
                       if (memoryResults.results.length > 0) {
                         results.push(formatMemoryForConversation(memoryResults));
                         totalFound += memoryResults.results.length;
@@ -9765,12 +9767,13 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       const results: string[] = [];
       let totalFound = 0;
       
-      console.log(`[MemoryLookup DEBUG] rawDomains=${JSON.stringify(rawDomains)}, requestedStudentDomains=${JSON.stringify(requestedStudentDomains)}, searchStudentMemory=${searchStudentMemory}, session.studentId="${session.studentId}"`);
+      const studentId = String(session.userId);
+      console.log(`[MemoryLookup DEBUG] rawDomains=${JSON.stringify(rawDomains)}, requestedStudentDomains=${JSON.stringify(requestedStudentDomains)}, searchStudentMemory=${searchStudentMemory}, studentId="${studentId}"`);
       
       // Search student memory
-      if (searchStudentMemory && session.studentId) {
+      if (searchStudentMemory && studentId) {
         const studentDomainFilter = requestedStudentDomains.length > 0 ? requestedStudentDomains : undefined;
-        const memoryResults = await searchMemory(session.studentId, query, studentDomainFilter);
+        const memoryResults = await searchMemory(studentId, query, studentDomainFilter);
         if (memoryResults.results.length > 0) {
           results.push(formatMemoryForConversation(memoryResults));
           totalFound += memoryResults.results.length;
