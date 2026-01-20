@@ -125,7 +125,8 @@ export async function tagConversation(
 
     if (uniqueTopicIds.length > 0) {
       // Verify conversation exists before inserting (race condition protection)
-      const conversationExists = await getUserDb()
+      // NOTE: conversations table migrated to SHARED database (Jan 2026)
+      const conversationExists = await getSharedDb()
         .select({ id: conversations.id })
         .from(conversations)
         .where(eq(conversations.id, conversationId))
@@ -140,7 +141,8 @@ export async function tagConversation(
         };
       }
       
-      const existingLinks = await getUserDb()
+      // conversation_topics is in SHARED database with conversations
+      const existingLinks = await getSharedDb()
         .select()
         .from(conversationTopics)
         .where(eq(conversationTopics.conversationId, conversationId));
@@ -149,7 +151,7 @@ export async function tagConversation(
       const newTopicIds = uniqueTopicIds.filter((id) => !existingTopicIds.has(id));
 
       if (newTopicIds.length > 0) {
-        await getUserDb().insert(conversationTopics).values(
+        await getSharedDb().insert(conversationTopics).values(
           newTopicIds.map((topicId) => ({
             conversationId,
             topicId,
@@ -170,7 +172,8 @@ export async function tagConversation(
     }
 
     if (Object.keys(updateData).length > 0) {
-      await getUserDb()
+      // conversations table is in SHARED database
+      await getSharedDb()
         .update(conversations)
         .set(updateData)
         .where(eq(conversations.id, conversationId));
@@ -193,7 +196,8 @@ export async function tagConversation(
 }
 
 export async function getConversationTopics(conversationId: string) {
-  const links = await getUserDb()
+  // conversation_topics is in SHARED database with conversations
+  const links = await getSharedDb()
     .select()
     .from(conversationTopics)
     .where(eq(conversationTopics.conversationId, conversationId));

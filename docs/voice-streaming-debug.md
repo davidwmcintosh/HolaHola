@@ -385,10 +385,56 @@ useEffect(() => {
 
 ---
 
+## Resolved Issues (January 2026)
+
+### "Stuck Thinking" Bug - Multi-Step Function Call Chain
+
+**Date Resolved:** January 20, 2026
+
+**Symptoms:**
+- User speaks, UI shows "Processing..." indefinitely
+- Logs show `[Gemini Streaming] Complete: 0 sentences, 0 chars, 1 function calls`
+- Happens when Daniela calls multiple lookup functions in sequence
+
+**Root Cause:**
+When Gemini called functions in a chain (e.g., `memory_lookup` → `express_lane_lookup`), the multi-step function call continuation logic only ran ONCE. If the continuation call also returned 0 sentences + more function calls, there was no recursive handling.
+
+Additionally, `EXPRESS_LANE_LOOKUP` wasn't tracking its promise in `pendingMemoryLookupPromises`, so the multi-step FC didn't await its results before calling Gemini again.
+
+**Fixes Applied:**
+
+1. **EXPRESS_LANE_LOOKUP Promise Tracking** (streaming-voice-orchestrator.ts):
+   ```typescript
+   case 'EXPRESS_LANE_LOOKUP': {
+     const lookupPromise = this.processExpressLaneLookup(...);
+     if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+     session.pendingMemoryLookupPromises.push(lookupPromise);
+   }
+   ```
+
+2. **Recursive Multi-Step FC Continuation**:
+   ```typescript
+   while (metrics.sentenceCount === 0 && 
+          session.currentTurnFunctionCalls?.length > 0 &&
+          recursiveDepth < MAX_RECURSIVE_FC_DEPTH) {
+     // Await pending lookups, build function responses, call Gemini again
+     recursiveDepth++;
+   }
+   ```
+
+3. **expressLaneLookupResults Session Property**:
+   Added `expressLaneLookupResults?: Record<string, string>` to store lookup results for multi-step FC response building.
+
+**Files Changed:**
+- `server/services/streaming-voice-orchestrator.ts` - Promise tracking, recursive continuation, session interface
+
+---
+
 ## Version History
 
 | Date | Change |
 |------|--------|
+| Jan 20, 2026 | Fixed multi-step FC chain "stuck thinking" bug |
 | Dec 24, 2025 | Created consolidated debug doc |
 | Dec 24, 2025 | Multi-subscriber pattern implemented |
 | Dec 24, 2025 | DOM event bridge proposed |
