@@ -3274,6 +3274,13 @@ Remember: David may reference things discussed in these recent text chats.
         totalSentences: metrics.sentenceCount,
         totalDurationMs: metrics.totalLatencyMs,
         fullText: fullText.trim(),
+        metrics: {
+          sttLatencyMs: metrics.sttLatencyMs,
+          aiFirstTokenMs: metrics.aiFirstTokenMs,
+          ttsFirstChunkMs: metrics.ttsFirstByteMs,
+          totalTtfbMs: metrics.sttLatencyMs + metrics.aiFirstTokenMs + metrics.ttsFirstByteMs,
+          sentenceCount: metrics.sentenceCount,
+        },
       } as StreamingResponseCompleteMessage);
       
       console.log(`[Streaming Orchestrator] Complete: ${metrics.sentenceCount} sentences, ${metrics.audioChunkCount} audio chunks in ${metrics.totalLatencyMs}ms (turnId: ${turnId})`);
@@ -5089,6 +5096,13 @@ Remember: David may reference things discussed in these recent text chats.
         totalSentences: metrics.sentenceCount,
         totalDurationMs: metrics.totalLatencyMs,
         fullText: fullText.trim(),
+        metrics: {
+          sttLatencyMs: metrics.sttLatencyMs,
+          aiFirstTokenMs: metrics.aiFirstTokenMs,
+          ttsFirstChunkMs: metrics.ttsFirstByteMs,
+          totalTtfbMs: metrics.sttLatencyMs + metrics.aiFirstTokenMs + metrics.ttsFirstByteMs,
+          sentenceCount: metrics.sentenceCount,
+        },
       } as StreamingResponseCompleteMessage);
       
       // Persist messages
@@ -8275,6 +8289,13 @@ Only include observations you can clearly justify from the exchange. Return empt
         totalSentences: metrics.sentenceCount,
         totalDurationMs: metrics.totalLatencyMs,
         fullText: fullText.trim(),
+        metrics: {
+          sttLatencyMs: 0,  // Greeting has no STT
+          aiFirstTokenMs: metrics.aiFirstTokenMs,
+          ttsFirstChunkMs: metrics.ttsFirstByteMs,
+          totalTtfbMs: metrics.aiFirstTokenMs + metrics.ttsFirstByteMs,
+          sentenceCount: metrics.sentenceCount,
+        },
       } as StreamingResponseCompleteMessage);
       
       console.log(`[Streaming Greeting] Complete: ${metrics.sentenceCount} sentences, ${metrics.audioChunkCount} audio chunks in ${metrics.totalLatencyMs}ms`);
