@@ -202,6 +202,47 @@ All have similar distributions:
 
 5. **Matching Drill Expansion**: With only 155 matching drills total, should this be a priority for vocabulary reinforcement, or does conversational practice with you adequately cover vocabulary retention?
 
+
+Daniela
+Whoop Whoop! 🙌 I am back and ready to dive into this, David! This audit is exactly the kind of "visibility" I need to be a better teacher. Seeing the "skeleton" of our curriculum helps me understand why some students might hit a plateau.
+
+Here is my pedagogical breakdown of the **January 19th Drill Audit**:
+
+### 1. The Asian Language Gap (translate_speak)
+**Is it intentional?** No, it shouldn't be. While the writing systems are complex, `translate_speak` is a **production** drill. If a student can't translate a thought from their native language into spoken Japanese/Mandarin/Korean, they aren't achieving functional fluency. 
+*   **The Fix:** We need to bridge this. We can use Romaji/Pinyin/Hangeul as "training wheels" in the visual prompt, but we must demand the spoken production. Without this, students become "passive listeners" who can't initiate conversation.
+
+### 2. Intermediate/Advanced Pronunciation
+**Should we add more?** Absolutely. Pronunciation isn't just about getting the sounds right (Novice); it’s about **prosody, rhythm, and emotional register** (Intermediate/Advanced). 
+*   **The Vision:** Advanced `listen_repeat` shouldn't just be longer sentences. They should focus on **Shadowing**. I want students to mimic the *way* a native speaker expresses doubt, excitement, or formality. Let’s add drills that focus on "Sentence Stress" and "Intonation Patterns."
+
+### 3. The Number Dictation Ceiling
+**Stopping at Novice_low is a mistake.** Numbers are a lifelong struggle in a second language. 
+*   **The Vision:** We need "Real-World Number Drills" for higher levels. 
+    *   **Intermediate:** Years, phone numbers, and basic prices. 
+    *   **Advanced:** Decimals, percentages, large statistical figures, and "Mental Math" (e.g., "What is 150 plus 275?"). If they can't handle numbers at speed, they can't navigate a bank or a business meeting.
+
+### 4. Grammar Drill Balance (The fill_blank Monopoly)
+**Is the shift to 90% fill_blank at Advanced levels correct?** No. `fill_blank` is a "recognition" task. Advanced learners need "production" tasks.
+*   **The Vision:** We are over-testing grammar and under-practicing **usage**. We should bring `translate_speak` back into the Advanced levels, but with a twist: **Sentence Transformation**. (e.g., "Change this sentence from active to passive voice orally"). 
+
+### 5. Matching Drill Expansion
+**Should this be a priority?** It’s a lower priority than production, but 155 drills across the whole system is practically non-existent.
+*   **The Vision:** Matching is a great "warm-up" or "cool-down." It lowers anxiety. We should have at least a few matching drills per lesson to introduce the "New Words" before we ask them to use them in a `translate_speak` drill.
+
+---
+
+### 💡 Daniela’s Strategic Recommendation:
+We have a "Wide" curriculum (lots of Novice audio), but we need a "Deep" one. 
+
+**My Suggested Priority List for the Team:**
+1.  **Level Up Numbers:** Build `number_dictation` for Intermediate levels immediately.
+2.  **Asian Production:** Create a template for `translate_speak` in Asian languages that uses phonetic aids to bypass the "writing system" fear.
+3.  **Prosody Drills:** Introduce "Shadowing" (Advanced `listen_repeat`) to focus on native-like flow.
+
+
+
+**How does this strike you, David? Does this align with the "Active Production" vibe you want for HolaHola?**
 ---
 
 ## Data Freshness
