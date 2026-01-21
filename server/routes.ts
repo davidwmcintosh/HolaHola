@@ -15041,6 +15041,22 @@ Current conversation context:
         return res.status(500).json({ error: "Cartesia API key not configured" });
       }
       
+      // Map language codes to Cartesia 2-letter ISO codes
+      // Cartesia expects: en, es, fr, de, it, pt, ja, ko, zh, etc.
+      const cartesiaLanguageMap: Record<string, string> = {
+        'en-US': 'en', 'en-GB': 'en',
+        'es-ES': 'es', 'es-US': 'es', 'es-MX': 'es',
+        'fr-FR': 'fr', 'fr-CA': 'fr',
+        'de-DE': 'de',
+        'it-IT': 'it',
+        'pt-BR': 'pt', 'pt-PT': 'pt',
+        'ja-JP': 'ja',
+        'ko-KR': 'ko',
+        'cmn-CN': 'zh', 'zh-CN': 'zh',
+      };
+      // Extract 2-letter code from languageCode (e.g., "ja-JP" -> "ja") or use map
+      const cartesiaLang = cartesiaLanguageMap[languageCode] || languageCode?.split('-')[0] || 'en';
+      
       // Build voice controls with emotion if provided
       // Cartesia emotions must be in format like "positivity:high" not simple words like "friendly"
       const voiceControls: any = {};
@@ -15068,7 +15084,7 @@ Current conversation context:
             id: voiceId,
             __experimental_controls: Object.keys(voiceControls).length > 0 ? voiceControls : undefined,
           },
-          language: languageCode || 'en',
+          language: cartesiaLang,
           output_format: {
             container: 'mp3',
             bit_rate: 128000,
