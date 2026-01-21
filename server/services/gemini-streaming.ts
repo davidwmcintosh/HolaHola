@@ -828,6 +828,7 @@ export class GeminiStreamingService {
     let fullText = '';
     let lastTokenTime = Date.now();
     let flushTimeoutId: NodeJS.Timeout | null = null;
+    let firstSentenceEmitted = false;
     
     // Helper to flush buffer if it has enough content
     const flushBufferIfNeeded = async () => {
@@ -992,8 +993,18 @@ export class GeminiStreamingService {
         firstSeenTime: number;
       }> = new Map();
       
+      // TTFB tracking: Time from request to first chunk
+      const geminiRequestTime = Date.now();
+      let firstChunkReceived = false;
+      
       // Process streamed tokens
       for await (const chunk of result) {
+        // Log TTFB on first chunk
+        if (!firstChunkReceived) {
+          firstChunkReceived = true;
+          const ttfb = Date.now() - geminiRequestTime;
+          console.log(`[Gemini Streaming] TTFB: ${ttfb}ms (time-to-first-token from Gemini)`);
+        }
         // Extract function calls from this chunk (Gemini 3 native tool calling)
         // Note: Function call handling is fire-and-forget to avoid blocking token streaming
         if (enableFunctionCalling) {
@@ -1181,6 +1192,13 @@ export class GeminiStreamingService {
             const lenWarning = safeSentence.length > 400 ? ' [NEAR TTS LIMIT]' : '';
             const splitInfo = wasSplit ? ` [SPLIT ${i + 1}/${safeSentences.length}]` : '';
             console.log(`[Gemini Streaming] Sentence ${chunk.index} (${safeSentence.length} chars${lenWarning}${splitInfo}): "${safeSentence.substring(0, 50)}..."`);
+            
+            // Log first sentence latency (total time from request to first speakable content)
+            if (!firstSentenceEmitted) {
+              firstSentenceEmitted = true;
+              const firstSentenceTime = Date.now() - startTime;
+              console.log(`[Gemini Streaming] First sentence ready in ${firstSentenceTime}ms (total request → speakable content)`);
+            }
             await onSentence(chunk);
           }
         }
