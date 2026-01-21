@@ -517,12 +517,14 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
           }
 
           const conversation = await storage.getConversation(conversationId!, userId!);
+          console.log(`[Streaming Voice] getConversation(${conversationId}) result:`, conversation ? `found (${conversation.title?.substring(0, 30) || 'untitled'})` : 'NOT FOUND');
           if (!conversation) {
             sendError(ws, 'UNKNOWN', 'Conversation not found', false);
             return;
           }
 
           const messages = await storage.getMessagesByConversation(conversationId!);
+          console.log(`[Streaming Voice] getMessagesByConversation(${conversationId}) - found ${messages.length} messages`);
           
           // CRITICAL: Check if conversation language matches target language
           // If user switched languages (e.g., reused French conversation but now wants Spanish),
