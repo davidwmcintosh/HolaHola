@@ -340,7 +340,7 @@ class FounderCollaborationService {
     clientId: string, 
     sessionId: string
   ): Promise<SyncCursor> {
-    const [existing] = await getUserDb().select()
+    const [existing] = await getSharedDb().select()
       .from(syncCursors)
       .where(and(
         eq(syncCursors.clientId, clientId),
@@ -349,7 +349,7 @@ class FounderCollaborationService {
       .limit(1);
     
     if (existing) {
-      const [updated] = await getUserDb().update(syncCursors)
+      const [updated] = await getSharedDb().update(syncCursors)
         .set({ 
           connectedAt: new Date(),
           disconnectedAt: null,
@@ -362,7 +362,7 @@ class FounderCollaborationService {
       return updated;
     }
     
-    const [cursor] = await getUserDb().insert(syncCursors).values({
+    const [cursor] = await getSharedDb().insert(syncCursors).values({
       clientId,
       sessionId,
       environment: CURRENT_ENVIRONMENT,
@@ -381,7 +381,7 @@ class FounderCollaborationService {
     sessionId: string, 
     cursor: string
   ): Promise<void> {
-    await getUserDb().update(syncCursors)
+    await getSharedDb().update(syncCursors)
       .set({ lastProcessedCursor: cursor })
       .where(and(
         eq(syncCursors.clientId, clientId),
@@ -393,7 +393,7 @@ class FounderCollaborationService {
    * Mark client as disconnected
    */
   async disconnectClient(clientId: string, sessionId: string): Promise<void> {
-    await getUserDb().update(syncCursors)
+    await getSharedDb().update(syncCursors)
       .set({ disconnectedAt: new Date() })
       .where(and(
         eq(syncCursors.clientId, clientId),
