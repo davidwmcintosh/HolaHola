@@ -340,11 +340,16 @@ export function createMultimodalFunctionResponseTextOnly(
 
 /**
  * Gemini 3 thinking levels for latency/quality tradeoff
- * - MINIMAL: Fastest responses, minimal reasoning (best for voice)
- * - MEDIUM: Balanced reasoning (good for complex pedagogical decisions)
- * - HIGH: Maximum reasoning depth (for assessment/planning)
+ * 
+ * NOTE: The @google/genai SDK only supports LOW and HIGH.
+ * 'MINIMAL' and 'MEDIUM' are aliases that map to these values:
+ * - MINIMAL/LOW: Fastest responses, low reasoning depth (best for voice)
+ * - MEDIUM/HIGH: Maximum reasoning depth (for complex decisions, assessment)
+ * 
+ * If you pass 'MINIMAL', it will be mapped to 'LOW' for the API.
+ * If you pass 'MEDIUM', it will be mapped to 'HIGH' for the API.
  */
-export type ThinkingLevel = 'MINIMAL' | 'MEDIUM' | 'HIGH';
+export type ThinkingLevel = 'MINIMAL' | 'LOW' | 'MEDIUM' | 'HIGH';
 
 /**
  * Gemini 3 conversation history entry with support for thought signatures
@@ -903,17 +908,18 @@ export class GeminiStreamingService {
           // Add thinking level if model supports it (Gemini 3+)
           // Gemini 3 uses thinkingConfig with thinkingLevel (nested object)
           // Thinking output is hidden in thoughtSignature, not mixed into part.text
-          // MINIMAL = fastest for voice, LOW/MEDIUM for balanced, HIGH for complex reasoning
+          // SDK only supports LOW and HIGH - map MINIMAL→LOW, MEDIUM→HIGH
           if (requestModel.includes('gemini-3')) {
             // Gemini 3: Use thinkingConfig with nested thinkingLevel
-            const level = thinkingLevel === 'MINIMAL' ? 'MINIMAL' : 
-                         thinkingLevel === 'MEDIUM' ? 'MEDIUM' : 'HIGH';
+            // Map our internal levels to SDK-supported values (LOW or HIGH only)
+            const level = (thinkingLevel === 'MINIMAL' || thinkingLevel === 'LOW') ? 'LOW' : 'HIGH';
             generationConfig.thinkingConfig = { thinkingLevel: level };
-            console.log(`[Gemini Streaming] ThinkingConfig set: { thinkingLevel: ${level} }`);
+            console.log(`[Gemini Streaming] ThinkingConfig set: { thinkingLevel: ${level} } (requested: ${thinkingLevel})`);
           } else if (requestModel.includes('gemini-2.5')) {
             // Gemini 2.5 still uses deprecated thinkingBudget (numeric tokens) in nested object
             generationConfig.thinkingConfig = { 
-              thinkingBudget: thinkingLevel === 'MINIMAL' ? 256 : thinkingLevel === 'MEDIUM' ? 1024 : 4096 
+              thinkingBudget: (thinkingLevel === 'MINIMAL' || thinkingLevel === 'LOW') ? 256 : 
+                             thinkingLevel === 'MEDIUM' ? 1024 : 4096 
             };
           }
           
