@@ -50,6 +50,8 @@ Gemini 3 Streaming Function Calling enables reduced latency through early intent
 
 The Fluency Wiring System connects ACTFL Can-Do statements to lessons for competency-based advancement. An AI Lesson Generation System automatically creates structured lesson drafts using Gemini Flash, ensuring 100% ACTFL Can-Do statement coverage across all languages. A Lesson Publishing Service converts approved drafts into curriculum lessons, extracting drills and linking Can-Do statements. The Drill System supports multiple interactive drill types (e.g., fill-in-the-blank, multiple choice). The Practice Explorer System enables self-directed drill practice with a browsable catalog and separate session tracking.
 
+**Interactive Textbook (Jan 21, 2026)**: A visual quick-reference companion to voice sessions with Daniela. Magazine-like flat page structure shows all lessons within a chapter on one scrollable page. Infographics display real curriculum data: drill distribution charts, vocabulary previews, conversation topics, and grammar focus. See `docs/interactive-textbook.md` for architecture details and Daniela's curriculum insights (drill audit analysis identifying gaps in number drills, Asian language production, and prosody/shadowing).
+
 ## External Dependencies
 - Stripe: Payment processing and subscription management.
 - Replit Auth: OIDC authentication.
