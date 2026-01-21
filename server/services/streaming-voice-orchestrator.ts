@@ -61,6 +61,58 @@ import { commandParserService, ParsedCommand } from "./command-parser";
 function logMetric(type: string, data: Record<string, number | string | boolean>) {
   console.log(`[METRICS] ${JSON.stringify({ type, ...data, ts: Date.now() })}`);
 }
+
+/**
+ * Retry helper with exponential backoff for Gemini API rate limiting (429 errors)
+ * Retries up to maxRetries times with exponential backoff starting at baseDelayMs
+ */
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  options: {
+    maxRetries?: number;
+    baseDelayMs?: number;
+    maxDelayMs?: number;
+    onRetry?: (attempt: number, error: Error, delayMs: number) => void;
+  } = {}
+): Promise<T> {
+  const { 
+    maxRetries = 3, 
+    baseDelayMs = 500, 
+    maxDelayMs = 4000,
+    onRetry 
+  } = options;
+  
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+      
+      // Only retry on rate limiting (429) errors
+      const is429 = error?.message?.includes('429') || 
+                    error?.message?.includes('RESOURCE_EXHAUSTED') ||
+                    error?.code === 429;
+      
+      if (!is429 || attempt >= maxRetries) {
+        throw error;
+      }
+      
+      // Exponential backoff with jitter
+      const delayMs = Math.min(
+        baseDelayMs * Math.pow(2, attempt) + Math.random() * 200,
+        maxDelayMs
+      );
+      
+      onRetry?.(attempt + 1, error, delayMs);
+      
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  }
+  
+  throw lastError;
+}
 import { constrainEmotion, TutorPersonality, CartesiaEmotion, getTTSService, getAssistantVoice, getDefaultEmotion } from "./tts-service";
 import { extractTargetLanguageText, extractTargetLanguageWithMapping, hasSignificantTargetLanguageContent } from "../text-utils";
 import { storage } from "../storage";
@@ -3069,61 +3121,72 @@ Remember: David may reference things discussed in these recent text chats.
           : session.conversationHistory;
         
         try {
-          await this.geminiService.streamWithSentenceChunking({
-            systemPrompt: session.systemPrompt,  // Use stable base prompt (cached)
-            conversationHistory: continuationHistory,  // Fresh: preamble + updated history
-            userMessage: '', // Empty - we're continuing from function responses
-            enableFunctionCalling: true,
-            enableContextCaching: true,  // Use cached system prompt
-            onFunctionCall: async (newFunctionCalls: ExtractedFunctionCall[]) => {
-              // Handle any additional function calls in continuation
-              for (const fn of newFunctionCalls) {
-                console.log(`[Multi-Step FC Continuation] Additional function: ${fn.name}`);
-                if (fn.thoughtSignature) {
-                  session.currentTurnThoughtSignatures?.push(fn.thoughtSignature);
+          // Wrap in retry with exponential backoff for 429 rate limiting
+          await retryWithBackoff(
+            () => this.geminiService.streamWithSentenceChunking({
+              systemPrompt: session.systemPrompt,  // Use stable base prompt (cached)
+              conversationHistory: continuationHistory,  // Fresh: preamble + updated history
+              userMessage: '', // Empty - we're continuing from function responses
+              enableFunctionCalling: true,
+              enableContextCaching: true,  // Use cached system prompt
+              onFunctionCall: async (newFunctionCalls: ExtractedFunctionCall[]) => {
+                // Handle any additional function calls in continuation
+                for (const fn of newFunctionCalls) {
+                  console.log(`[Multi-Step FC Continuation] Additional function: ${fn.name}`);
+                  if (fn.thoughtSignature) {
+                    session.currentTurnThoughtSignatures?.push(fn.thoughtSignature);
+                  }
+                  session.currentTurnFunctionCalls?.push(fn);
+                  this.handleNativeFunctionCall(sessionId, session, fn).catch(err => {
+                    console.error(`[Multi-Step FC] Error handling ${fn.name}:`, err.message);
+                  });
                 }
-                session.currentTurnFunctionCalls?.push(fn);
-                this.handleNativeFunctionCall(sessionId, session, fn).catch(err => {
-                  console.error(`[Multi-Step FC] Error handling ${fn.name}:`, err.message);
-                });
+              },
+              onSentence: async (chunk: SentenceChunk) => {
+                // BARGE-IN CHECK
+                if (session.isInterrupted) {
+                  console.log(`[Multi-Step FC] Skipping sentence ${chunk.index} - user barged in`);
+                  return;
+                }
+                
+                // Clean and synthesize
+                const displayText = cleanTextForDisplay(chunk.text);
+                if (!displayText) return;
+                
+                // Deduplication
+                const normalizedText = displayText.toLowerCase().trim();
+                if (seenSentences.has(normalizedText)) return;
+                seenSentences.add(normalizedText);
+                
+                if (actualSentenceCount >= MAX_SENTENCES) return;
+                actualSentenceCount++;
+                
+                console.log(`[Multi-Step FC] Continuation sentence ${chunk.index}: "${displayText.substring(0, 50)}..."`);
+                
+                // Stream TTS
+                if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
+                  await this.streamSentenceAudioProgressive(session, chunk, displayText, metrics, turnId);
+                } else {
+                  await this.streamSentenceAudio(session, chunk, displayText, metrics, turnId);
+                }
+                
+                fullText += displayText + ' ';
+                rawFullText += chunk.text + ' ';
+                metrics.sentenceCount++;
+              },
+              onError: (error) => {
+                console.error(`[Multi-Step FC] Continuation error:`, error.message);
+              },
+            }),
+            {
+              maxRetries: 3,
+              baseDelayMs: 500,
+              maxDelayMs: 4000,
+              onRetry: (attempt, error, delayMs) => {
+                console.log(`[Multi-Step FC] Rate limited, retry ${attempt}/3 after ${delayMs}ms`);
               }
-            },
-            onSentence: async (chunk: SentenceChunk) => {
-              // BARGE-IN CHECK
-              if (session.isInterrupted) {
-                console.log(`[Multi-Step FC] Skipping sentence ${chunk.index} - user barged in`);
-                return;
-              }
-              
-              // Clean and synthesize
-              const displayText = cleanTextForDisplay(chunk.text);
-              if (!displayText) return;
-              
-              // Deduplication
-              const normalizedText = displayText.toLowerCase().trim();
-              if (seenSentences.has(normalizedText)) return;
-              seenSentences.add(normalizedText);
-              
-              if (actualSentenceCount >= MAX_SENTENCES) return;
-              actualSentenceCount++;
-              
-              console.log(`[Multi-Step FC] Continuation sentence ${chunk.index}: "${displayText.substring(0, 50)}..."`);
-              
-              // Stream TTS
-              if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
-                await this.streamSentenceAudioProgressive(session, chunk, displayText, metrics, turnId);
-              } else {
-                await this.streamSentenceAudio(session, chunk, displayText, metrics, turnId);
-              }
-              
-              fullText += displayText + ' ';
-              rawFullText += chunk.text + ' ';
-              metrics.sentenceCount++;
-            },
-            onError: (error) => {
-              console.error(`[Multi-Step FC] Continuation error:`, error.message);
-            },
-          });
+            }
+          );
           
           // Update conversation history with continuation response
           if (fullText.trim()) {
@@ -4855,52 +4918,63 @@ Remember: David may reference things discussed in these recent text chats.
           : session.conversationHistory;
         
         try {
-          await this.geminiService.streamWithSentenceChunking({
-            systemPrompt: session.systemPrompt,  // Use stable base prompt (cached)
-            conversationHistory: continuationHistory,  // Fresh: preamble + updated history
-            userMessage: '', // Empty - continuing from function responses
-            enableFunctionCalling: true,
-            enableContextCaching: true,  // Use cached system prompt
-            onFunctionCall: async (newFCs: ExtractedFunctionCall[]) => {
-              for (const fn of newFCs) {
-                console.log(`[Multi-Step FC Continuation - OpenMic] Additional function: ${fn.name}`);
-                if (fn.thoughtSignature) {
-                  session.currentTurnThoughtSignatures?.push(fn.thoughtSignature);
+          // Wrap in retry with exponential backoff for 429 rate limiting
+          await retryWithBackoff(
+            () => this.geminiService.streamWithSentenceChunking({
+              systemPrompt: session.systemPrompt,  // Use stable base prompt (cached)
+              conversationHistory: continuationHistory,  // Fresh: preamble + updated history
+              userMessage: '', // Empty - continuing from function responses
+              enableFunctionCalling: true,
+              enableContextCaching: true,  // Use cached system prompt
+              onFunctionCall: async (newFCs: ExtractedFunctionCall[]) => {
+                for (const fn of newFCs) {
+                  console.log(`[Multi-Step FC Continuation - OpenMic] Additional function: ${fn.name}`);
+                  if (fn.thoughtSignature) {
+                    session.currentTurnThoughtSignatures?.push(fn.thoughtSignature);
+                  }
+                  session.currentTurnFunctionCalls?.push(fn);
+                  this.handleNativeFunctionCall(sessionId, session, fn).catch(err => {
+                    console.error(`[Multi-Step FC - OpenMic] Error handling ${fn.name}:`, err.message);
+                  });
                 }
-                session.currentTurnFunctionCalls?.push(fn);
-                this.handleNativeFunctionCall(sessionId, session, fn).catch(err => {
-                  console.error(`[Multi-Step FC - OpenMic] Error handling ${fn.name}:`, err.message);
-                });
+              },
+              onSentence: async (chunk: SentenceChunk) => {
+                if (session.isInterrupted) return;
+                
+                const contDisplayText = cleanTextForDisplay(chunk.text);
+                if (!contDisplayText) return;
+                
+                const contNormalizedText = contDisplayText.toLowerCase().trim();
+                if (seenSentences.has(contNormalizedText)) return;
+                seenSentences.add(contNormalizedText);
+                
+                if (actualSentenceCount >= MAX_SENTENCES) return;
+                actualSentenceCount++;
+                
+                console.log(`[Multi-Step FC - OpenMic] Continuation sentence ${chunk.index}: "${contDisplayText.substring(0, 50)}..."`);
+                
+                if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
+                  await this.streamSentenceAudioProgressive(session, chunk, contDisplayText, metrics, turnId);
+                } else {
+                  await this.streamSentenceAudio(session, chunk, contDisplayText, metrics, turnId);
+                }
+                
+                fullText += contDisplayText + ' ';
+                metrics.sentenceCount++;
+              },
+              onError: (error) => {
+                console.error(`[Multi-Step FC - OpenMic] Continuation error:`, error.message);
+              },
+            }),
+            {
+              maxRetries: 3,
+              baseDelayMs: 500,
+              maxDelayMs: 4000,
+              onRetry: (attempt, error, delayMs) => {
+                console.log(`[Multi-Step FC - OpenMic] Rate limited, retry ${attempt}/3 after ${delayMs}ms`);
               }
-            },
-            onSentence: async (chunk: SentenceChunk) => {
-              if (session.isInterrupted) return;
-              
-              const contDisplayText = cleanTextForDisplay(chunk.text);
-              if (!contDisplayText) return;
-              
-              const contNormalizedText = contDisplayText.toLowerCase().trim();
-              if (seenSentences.has(contNormalizedText)) return;
-              seenSentences.add(contNormalizedText);
-              
-              if (actualSentenceCount >= MAX_SENTENCES) return;
-              actualSentenceCount++;
-              
-              console.log(`[Multi-Step FC - OpenMic] Continuation sentence ${chunk.index}: "${contDisplayText.substring(0, 50)}..."`);
-              
-              if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
-                await this.streamSentenceAudioProgressive(session, chunk, contDisplayText, metrics, turnId);
-              } else {
-                await this.streamSentenceAudio(session, chunk, contDisplayText, metrics, turnId);
-              }
-              
-              fullText += contDisplayText + ' ';
-              metrics.sentenceCount++;
-            },
-            onError: (error) => {
-              console.error(`[Multi-Step FC - OpenMic] Continuation error:`, error.message);
-            },
-          });
+            }
+          );
           
           // RECURSIVE MULTI-STEP FC: If continuation also produced 0 sentences + more function calls, continue again
           // This handles chains like: memory_lookup → express_lane_lookup → actual response
@@ -4983,57 +5057,67 @@ Remember: David may reference things discussed in these recent text chats.
             session.currentTurnFunctionCalls = [];
             session.currentTurnThoughtSignatures = [];
             
-            // Call Gemini again
+            // Call Gemini again with retry for rate limiting
             const recursiveHistory: ConversationHistoryEntry[] = session.currentTurnPreamble
               ? [...session.currentTurnPreamble, ...session.conversationHistory]
               : session.conversationHistory;
             
-            await this.geminiService.streamWithSentenceChunking({
-              systemPrompt: session.systemPrompt,
-              conversationHistory: recursiveHistory,
-              userMessage: '',
-              enableFunctionCalling: true,
-              enableContextCaching: true,
-              onFunctionCall: async (newFCs: ExtractedFunctionCall[]) => {
-                for (const fn of newFCs) {
-                  console.log(`[Multi-Step FC - OpenMic] Recursive function (depth ${recursiveDepth}): ${fn.name}`);
-                  if (fn.thoughtSignature) {
-                    session.currentTurnThoughtSignatures?.push(fn.thoughtSignature);
+            await retryWithBackoff(
+              () => this.geminiService.streamWithSentenceChunking({
+                systemPrompt: session.systemPrompt,
+                conversationHistory: recursiveHistory,
+                userMessage: '',
+                enableFunctionCalling: true,
+                enableContextCaching: true,
+                onFunctionCall: async (newFCs: ExtractedFunctionCall[]) => {
+                  for (const fn of newFCs) {
+                    console.log(`[Multi-Step FC - OpenMic] Recursive function (depth ${recursiveDepth}): ${fn.name}`);
+                    if (fn.thoughtSignature) {
+                      session.currentTurnThoughtSignatures?.push(fn.thoughtSignature);
+                    }
+                    session.currentTurnFunctionCalls?.push(fn);
+                    this.handleNativeFunctionCall(sessionId, session, fn).catch(err => {
+                      console.error(`[Multi-Step FC - OpenMic] Error handling ${fn.name}:`, err.message);
+                    });
                   }
-                  session.currentTurnFunctionCalls?.push(fn);
-                  this.handleNativeFunctionCall(sessionId, session, fn).catch(err => {
-                    console.error(`[Multi-Step FC - OpenMic] Error handling ${fn.name}:`, err.message);
-                  });
+                },
+                onSentence: async (chunk: SentenceChunk) => {
+                  if (session.isInterrupted) return;
+                  
+                  const recursiveDisplayText = cleanTextForDisplay(chunk.text);
+                  if (!recursiveDisplayText) return;
+                  
+                  const recursiveNormalized = recursiveDisplayText.toLowerCase().trim();
+                  if (seenSentences.has(recursiveNormalized)) return;
+                  seenSentences.add(recursiveNormalized);
+                  
+                  if (actualSentenceCount >= MAX_SENTENCES) return;
+                  actualSentenceCount++;
+                  
+                  console.log(`[Multi-Step FC - OpenMic] Recursive sentence (depth ${recursiveDepth}): "${recursiveDisplayText.substring(0, 50)}..."`);
+                  
+                  if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
+                    await this.streamSentenceAudioProgressive(session, chunk, recursiveDisplayText, metrics, turnId);
+                  } else {
+                    await this.streamSentenceAudio(session, chunk, recursiveDisplayText, metrics, turnId);
+                  }
+                  
+                  fullText += recursiveDisplayText + ' ';
+                  metrics.sentenceCount++;
+                },
+                onError: (error) => {
+                  console.error(`[Multi-Step FC - OpenMic] Recursive error (depth ${recursiveDepth}):`, error.message);
+                },
+              }),
+              {
+                maxRetries: 3,
+                baseDelayMs: 500,
+                maxDelayMs: 4000,
+                onRetry: (attempt, error, delayMs) => {
+                  console.log(`[Multi-Step FC - OpenMic] Rate limited (depth ${recursiveDepth}), retry ${attempt}/3 after ${delayMs}ms`);
                 }
-              },
-              onSentence: async (chunk: SentenceChunk) => {
-                if (session.isInterrupted) return;
-                
-                const recursiveDisplayText = cleanTextForDisplay(chunk.text);
-                if (!recursiveDisplayText) return;
-                
-                const recursiveNormalized = recursiveDisplayText.toLowerCase().trim();
-                if (seenSentences.has(recursiveNormalized)) return;
-                seenSentences.add(recursiveNormalized);
-                
-                if (actualSentenceCount >= MAX_SENTENCES) return;
-                actualSentenceCount++;
-                
-                console.log(`[Multi-Step FC - OpenMic] Recursive sentence (depth ${recursiveDepth}): "${recursiveDisplayText.substring(0, 50)}..."`);
-                
-                if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
-                  await this.streamSentenceAudioProgressive(session, chunk, recursiveDisplayText, metrics, turnId);
-                } else {
-                  await this.streamSentenceAudio(session, chunk, recursiveDisplayText, metrics, turnId);
-                }
-                
-                fullText += recursiveDisplayText + ' ';
-                metrics.sentenceCount++;
-              },
-              onError: (error) => {
-                console.error(`[Multi-Step FC - OpenMic] Recursive error (depth ${recursiveDepth}):`, error.message);
-              },
-            });
+              }
+            );
           }
           
           if (recursiveDepth >= MAX_RECURSIVE_FC_DEPTH) {
