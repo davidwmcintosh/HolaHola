@@ -121,38 +121,9 @@ function getInfographicForSection(sectionName: string, lessonType: string, secti
     );
   }
   
-  // Fallback: cycle through infographics based on section index for visual variety
-  const infographicCycle = sectionIndex % 4;
-  switch (infographicCycle) {
-    case 0:
-      return <SunArcGreetings className="mb-4" />;
-    case 1:
-      return (
-        <FormalInformalComparison 
-          items={SAMPLE_GREETINGS_DATA.formalInformal}
-          className="mb-4"
-        />
-      );
-    case 2:
-      return (
-        <ConversationFlow
-          exchanges={SAMPLE_GREETINGS_DATA.nameExchange}
-          speakerALabel="You"
-          speakerBLabel="Partner"
-          className="mb-4"
-        />
-      );
-    case 3:
-      return (
-        <QuickPhraseGrid
-          phrases={SAMPLE_GREETINGS_DATA.quickPhrases}
-          columns={3}
-          className="mb-4"
-        />
-      );
-    default:
-      return <SunArcGreetings className="mb-4" />;
-  }
+  // No fallback - only show infographics when content matches
+  // Other lessons will show the objectives list instead
+  return null;
 }
 
 function VisualLessonCard({
