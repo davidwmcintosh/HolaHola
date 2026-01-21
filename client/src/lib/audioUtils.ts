@@ -1301,6 +1301,9 @@ export class StreamingAudioPlayer {
         let allEnded = true;
         let anyStarted = false;
         const entries = Array.from(this.sentenceSchedule.entries());
+        // CRITICAL FIX: Add 150ms grace period to prevent premature "ended" detection
+        // AudioContext.currentTime can slightly lead actual audio buffer playback due to buffering
+        const AUDIO_END_GRACE_PERIOD = 0.15; // 150ms
         for (const [index, entry] of entries) {
           const endTime = entry.endCtxTime ?? (entry.startCtxTime + entry.totalDuration);
           
@@ -1311,9 +1314,9 @@ export class StreamingAudioPlayer {
             this.notifySentenceStart(index);
           }
           
-          // Mark sentences as ended when their time passes
+          // Mark sentences as ended when their time passes (with grace period)
           // Note: endTime is already calculated with fallback, so no need to check endCtxTime
-          if (entry.started && !entry.ended && now >= endTime) {
+          if (entry.started && !entry.ended && now >= endTime + AUDIO_END_GRACE_PERIOD) {
             entry.ended = true;
             this.notifySentenceEnd(index);
           }
@@ -1541,7 +1544,11 @@ export class StreamingAudioPlayer {
           const [index, entry] = endCheckEntries[k];
           if (entry.endCtxTime === undefined) continue;
           
-          if (now >= entry.endCtxTime && entry.started && !entry.ended) {
+          // CRITICAL FIX: Add 150ms grace period to prevent premature "ended" detection
+          // AudioContext.currentTime can slightly lead actual audio buffer playback due to buffering
+          // This prevents avatar returning to listening while audio is still playing
+          const AUDIO_END_GRACE_PERIOD = 0.15; // 150ms
+          if (now >= entry.endCtxTime + AUDIO_END_GRACE_PERIOD && entry.started && !entry.ended) {
             entry.ended = true;
             anyEndedThisTick = true;
             
