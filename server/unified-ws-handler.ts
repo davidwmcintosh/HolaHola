@@ -486,26 +486,43 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
           }
 
           // Check if user has sufficient credits before starting session
-          const isDeveloper = await usageService.checkDeveloperBypass(userId!);
+          // FAIL-SECURE: If credit check throws, block session (don't allow through on error)
+          let isDeveloper = false;
+          try {
+            isDeveloper = await usageService.checkDeveloperBypass(userId!);
+          } catch (bypassErr: any) {
+            console.error(`[Streaming Voice] Developer bypass check failed - blocking session:`, bypassErr.message);
+            sendError(ws, 'CREDIT_CHECK_FAILED', 'Unable to verify account status', false);
+            ws.close(4500, 'Credit check failed');
+            return;
+          }
+          
           if (!isDeveloper) {
-            const creditCheck = await usageService.checkSufficientCredits(userId!);
-            if (!creditCheck.allowed) {
-              console.log(`[Streaming Voice] Insufficient credits for user ${userId}`);
-              sendError(ws, 'INSUFFICIENT_CREDITS', creditCheck.message || 'Insufficient tutoring hours', false);
-              
-              // Send specific message for frontend to handle
-              if (ws.readyState === WS.OPEN) {
-                ws.send(JSON.stringify({
-                  type: 'credits_exhausted',
-                  timestamp: Date.now(),
-                  remainingSeconds: creditCheck.remainingSeconds,
-                  message: creditCheck.message,
-                }));
+            try {
+              const creditCheck = await usageService.checkSufficientCredits(userId!);
+              if (!creditCheck.allowed) {
+                console.log(`[Streaming Voice] Insufficient credits for user ${userId}`);
+                sendError(ws, 'INSUFFICIENT_CREDITS', creditCheck.message || 'Insufficient tutoring hours', false);
+                
+                // Send specific message for frontend to handle
+                if (ws.readyState === WS.OPEN) {
+                  ws.send(JSON.stringify({
+                    type: 'credits_exhausted',
+                    timestamp: Date.now(),
+                    remainingSeconds: creditCheck.remainingSeconds,
+                    message: creditCheck.message,
+                  }));
+                }
+                ws.close(4402, 'Insufficient credits');
+                return;
               }
-              ws.close(4402, 'Insufficient credits');
+              console.log(`[Streaming Voice] Credits check passed: ${Math.round(creditCheck.remainingSeconds / 60)} minutes remaining`);
+            } catch (creditErr: any) {
+              console.error(`[Streaming Voice] Credit check failed - blocking session:`, creditErr.message);
+              sendError(ws, 'CREDIT_CHECK_FAILED', 'Unable to verify credit balance', false);
+              ws.close(4500, 'Credit check failed');
               return;
             }
-            console.log(`[Streaming Voice] Credits check passed: ${Math.round(creditCheck.remainingSeconds / 60)} minutes remaining`);
           } else {
             console.log('[Streaming Voice] Developer mode - credits check bypassed');
           }

@@ -1,4 +1,4 @@
-import { db, getUserDb } from "../db";
+import { db, getUserDb, getSharedDb } from "../db";
 import { voiceSessions, usageLedger, classEnrollments, users, hourPackages, classHourPackages, teacherClasses } from "@shared/schema";
 import { eq, and, sql, gt, isNull, or, desc, sum } from "drizzle-orm";
 import type { VoiceSession, UsageLedger, InsertVoiceSession, InsertUsageLedger } from "@shared/schema";
@@ -110,9 +110,10 @@ export class UsageService {
    */
   async getPurchasedBalance(userId: string): Promise<{ remainingSeconds: number; remainingHours: number }> {
     const now = new Date();
+    const userDb = getUserDb();
     
     // Get all purchased and bonus credits (positive entries)
-    const earnedResult = await db
+    const earnedResult = await userDb
       .select({
         totalSeconds: sql<number>`COALESCE(SUM(${usageLedger.creditSeconds}), 0)`,
       })
@@ -134,7 +135,7 @@ export class UsageService {
       );
     
     // Get consumption from purchased hours (negative entries without classId OR marked as 'purchase' type)
-    const consumedResult = await db
+    const consumedResult = await userDb
       .select({
         totalConsumed: sql<number>`COALESCE(SUM(ABS(${usageLedger.creditSeconds})), 0)`,
       })
@@ -166,10 +167,11 @@ export class UsageService {
    */
   async getBalance(userId: string): Promise<UsageBalance> {
     const now = new Date();
+    const userDb = getUserDb();
     
     // Sum all credits (positive = earned, negative = consumed)
     // Only include non-expired credits
-    const ledgerEntries = await db
+    const ledgerEntries = await userDb
       .select({
         entitlementType: usageLedger.entitlementType,
         totalSeconds: sql<number>`COALESCE(SUM(${usageLedger.creditSeconds}), 0)`,
@@ -215,7 +217,7 @@ export class UsageService {
     }
     
     // Also get consumption that might have different entitlement type tracking
-    const consumptionResult = await db
+    const consumptionResult = await userDb
       .select({
         totalConsumed: sql<number>`COALESCE(SUM(ABS(${usageLedger.creditSeconds})), 0)`,
       })
@@ -511,7 +513,7 @@ export class UsageService {
    * Check if a payment has already been processed (idempotency check)
    */
   async checkExistingPayment(stripePaymentId: string): Promise<UsageLedger | null> {
-    const [existing] = await db
+    const [existing] = await getUserDb()
       .select()
       .from(usageLedger)
       .where(eq(usageLedger.stripePaymentId, stripePaymentId))
@@ -535,7 +537,7 @@ export class UsageService {
       packageId?: string | null; // For tracking which package the hours came from
     }
   ): Promise<UsageLedger> {
-    const [entry] = await db
+    const [entry] = await getUserDb()
       .insert(usageLedger)
       .values({
         userId,
@@ -681,7 +683,7 @@ export class UsageService {
    * Get usage history for a user
    */
   async getUsageHistory(userId: string, limit = 20): Promise<UsageLedger[]> {
-    return db
+    return getUserDb()
       .select()
       .from(usageLedger)
       .where(eq(usageLedger.userId, userId))
@@ -1103,7 +1105,7 @@ export class UsageService {
       );
     
     // Get purchased hours usage per student for this class
-    const purchasedUsage = await db
+    const purchasedUsage = await getUserDb()
       .select({
         userId: usageLedger.userId,
         totalSeconds: sql<number>`COALESCE(SUM(ABS(${usageLedger.creditSeconds})), 0)`,
