@@ -1682,43 +1682,25 @@ export class StreamingAudioPlayer {
   /**
    * Finalize a progressive sentence (called when last chunk ends)
    * NOTE: With the unified timing loop, onSentenceEnd is now fired there.
-   * This method handles cleanup only if not already handled.
+   * This method NO LONGER marks sentences as ended - only the timing loop does that
+   * with proper grace period to prevent premature "all sentences ended" detection.
+   * 
+   * CRITICAL FIX (Jan 2026): Previously this method would mark entry.ended=true
+   * immediately when the setTimeout fired, racing ahead of the timing loop's
+   * grace period check. This caused the avatar to return to listening state
+   * 4-5 seconds before audio actually finished playing.
    */
   private finalizeProgressiveSentence(sentenceIndex: number): void {
-    // Check if unified loop already fired onSentenceEnd via the schedule
-    const scheduleEntry = this.sentenceSchedule.get(sentenceIndex);
-    if (scheduleEntry && !scheduleEntry.ended) {
-      scheduleEntry.ended = true;
-      
-      // Update debug panel with sentences ended count
-      const endedCount = Array.from(this.sentenceSchedule.values()).filter(e => e.ended).length;
-      updateDebugTimingState({
-        sentencesEnded: endedCount,
-      });
-      
-      this.notifySentenceEnd(sentenceIndex);
-    } else {
-      // Still update ended count in case timing loop set ended=true but didn't update counter
-      const endedCount = Array.from(this.sentenceSchedule.values()).filter(e => e.ended).length;
-      updateDebugTimingState({
-        sentencesEnded: endedCount,
-      });
-    }
+    // Just update the debug panel with current ended count
+    // DON'T mark entry.ended=true here - let the timing loop handle it
+    // with proper grace period to ensure audio has actually finished
+    const endedCount = Array.from(this.sentenceSchedule.values()).filter(e => e.ended).length;
+    updateDebugTimingState({
+      sentencesEnded: endedCount,
+    });
     
-    // FIX: Check if ALL sentences in the schedule have completed
-    // Only stop playback when every scheduled sentence has ended
-    // This fixes the bug where sentence 0's timeout would kill playback
-    // before sentences 1 and 2 could be processed by the timing loop
-    const allSentencesEnded = this.checkAllSentencesEnded();
-    
-    if (allSentencesEnded && this.queue.length === 0) {
-      this.progressiveSentenceIndex = -1;
-      this.isPlaying = false;
-      this.setState('idle');
-      this.stopPrecisionTiming();
-      this.notifyComplete();
-    }
-    // If not all sentences ended, keep the timing loop running
+    // DON'T check allSentencesEnded here - the timing loop handles this
+    // with proper grace period checks
   }
   
   /**
