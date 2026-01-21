@@ -83,14 +83,15 @@ function getLessonTypeIcon(type: string) {
   }
 }
 
-function getInfographicForSection(sectionName: string, lessonType: string) {
+function getInfographicForSection(sectionName: string, lessonType: string, sectionIndex: number) {
   const lowerName = sectionName.toLowerCase();
   
-  if (lowerName.includes('time') || lowerName.includes('greeting') || lowerName.includes('hello') || lowerName.includes('day')) {
+  // Keyword-based matching for specific content
+  if (lowerName.includes('time') || lowerName.includes('greeting') || lowerName.includes('hello') || lowerName.includes('day') || lowerName.includes('buenos') || lowerName.includes('hola')) {
     return <SunArcGreetings className="mb-4" />;
   }
   
-  if (lowerName.includes('formal') || lowerName.includes('polite') || lowerName.includes('respect')) {
+  if (lowerName.includes('formal') || lowerName.includes('polite') || lowerName.includes('respect') || lowerName.includes('usted')) {
     return (
       <FormalInformalComparison 
         items={SAMPLE_GREETINGS_DATA.formalInformal}
@@ -110,7 +111,7 @@ function getInfographicForSection(sectionName: string, lessonType: string) {
     );
   }
   
-  if (lowerName.includes('chat') || lowerName.includes('basic') || lowerName.includes('essential')) {
+  if (lowerName.includes('chat') || lowerName.includes('basic') || lowerName.includes('essential') || lowerName.includes('phrase') || lowerName.includes('vocabulary')) {
     return (
       <QuickPhraseGrid
         phrases={SAMPLE_GREETINGS_DATA.quickPhrases}
@@ -120,7 +121,38 @@ function getInfographicForSection(sectionName: string, lessonType: string) {
     );
   }
   
-  return null;
+  // Fallback: cycle through infographics based on section index for visual variety
+  const infographicCycle = sectionIndex % 4;
+  switch (infographicCycle) {
+    case 0:
+      return <SunArcGreetings className="mb-4" />;
+    case 1:
+      return (
+        <FormalInformalComparison 
+          items={SAMPLE_GREETINGS_DATA.formalInformal}
+          className="mb-4"
+        />
+      );
+    case 2:
+      return (
+        <ConversationFlow
+          exchanges={SAMPLE_GREETINGS_DATA.nameExchange}
+          speakerALabel="You"
+          speakerBLabel="Partner"
+          className="mb-4"
+        />
+      );
+    case 3:
+      return (
+        <QuickPhraseGrid
+          phrases={SAMPLE_GREETINGS_DATA.quickPhrases}
+          columns={3}
+          className="mb-4"
+        />
+      );
+    default:
+      return <SunArcGreetings className="mb-4" />;
+  }
 }
 
 function VisualLessonCard({
@@ -134,7 +166,7 @@ function VisualLessonCard({
   onStartConversation: () => void;
   onStartDrill: () => void;
 }) {
-  const infographic = getInfographicForSection(section.name, section.lessonType);
+  const infographic = getInfographicForSection(section.name, section.lessonType, index);
   
   return (
     <Card 
