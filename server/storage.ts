@@ -4367,7 +4367,7 @@ export class DatabaseStorage implements IStorage {
     if (filters.category) conditions.push(eq(supportTickets.category, filters.category as any));
     
     // Get tickets with user info
-    const ticketsQuery = db
+    const ticketsQuery = getUserDb()
       .select({
         ticket: supportTickets,
         userName: users.firstName,
@@ -4385,15 +4385,15 @@ export class DatabaseStorage implements IStorage {
     
     // Get total count
     const countQuery = conditions.length > 0
-      ? db.select({ count: sql<number>`count(*)` }).from(supportTickets).where(and(...conditions))
-      : db.select({ count: sql<number>`count(*)` }).from(supportTickets);
+      ? getUserDb().select({ count: sql<number>`count(*)` }).from(supportTickets).where(and(...conditions))
+      : getUserDb().select({ count: sql<number>`count(*)` }).from(supportTickets);
     const countResult = await countQuery;
     
     // Get stats
-    const pendingCount = await db.select({ count: sql<number>`count(*)` }).from(supportTickets).where(eq(supportTickets.status, 'pending'));
-    const activeCount = await db.select({ count: sql<number>`count(*)` }).from(supportTickets).where(eq(supportTickets.status, 'active'));
-    const resolvedCount = await db.select({ count: sql<number>`count(*)` }).from(supportTickets).where(eq(supportTickets.status, 'resolved'));
-    const escalatedCount = await db.select({ count: sql<number>`count(*)` }).from(supportTickets).where(eq(supportTickets.status, 'escalated'));
+    const pendingCount = await getUserDb().select({ count: sql<number>`count(*)` }).from(supportTickets).where(eq(supportTickets.status, 'pending'));
+    const activeCount = await getUserDb().select({ count: sql<number>`count(*)` }).from(supportTickets).where(eq(supportTickets.status, 'active'));
+    const resolvedCount = await getUserDb().select({ count: sql<number>`count(*)` }).from(supportTickets).where(eq(supportTickets.status, 'resolved'));
+    const escalatedCount = await getUserDb().select({ count: sql<number>`count(*)` }).from(supportTickets).where(eq(supportTickets.status, 'escalated'));
     
     return {
       tickets: tickets.map(t => ({
@@ -5934,14 +5934,14 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  // People Connections - Relationship awareness
+  // People Connections - Relationship awareness (USER database - per-user data)
   async createPeopleConnection(data: InsertPeopleConnection): Promise<PeopleConnection> {
-    const [connection] = await db.insert(peopleConnections).values(data).returning();
+    const [connection] = await getUserDb().insert(peopleConnections).values(data).returning();
     return connection;
   }
 
   async getPeopleConnections(personId: string): Promise<PeopleConnection[]> {
-    return db.select().from(peopleConnections)
+    return getUserDb().select().from(peopleConnections)
       .where(and(
         eq(peopleConnections.isActive, true),
         sql`(${peopleConnections.personAId} = ${personId} OR ${peopleConnections.personBId} = ${personId})`
@@ -5950,13 +5950,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllPeopleConnections(): Promise<PeopleConnection[]> {
-    return db.select().from(peopleConnections)
+    return getUserDb().select().from(peopleConnections)
       .where(eq(peopleConnections.isActive, true))
       .orderBy(desc(peopleConnections.createdAt));
   }
 
   async updatePeopleConnection(id: string, data: Partial<PeopleConnection>): Promise<PeopleConnection | undefined> {
-    const [updated] = await db.update(peopleConnections)
+    const [updated] = await getUserDb().update(peopleConnections)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(peopleConnections.id, id))
       .returning();
@@ -5968,7 +5968,7 @@ export class DatabaseStorage implements IStorage {
     const fullName = lastName ? `${firstName} ${lastName}` : firstName;
     const searchPattern = `%${fullName}%`;
     
-    return db.select().from(peopleConnections)
+    return getUserDb().select().from(peopleConnections)
       .where(and(
         eq(peopleConnections.isActive, true),
         eq(peopleConnections.status, 'pending_match'),
@@ -5993,13 +5993,13 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(peopleConnections.personBId, personId));
     }
     
-    return db.select().from(peopleConnections)
+    return getUserDb().select().from(peopleConnections)
       .where(and(...conditions))
       .orderBy(desc(peopleConnections.confidenceScore));
   }
 
   async linkPendingConnection(connectionId: string, personBId: string): Promise<PeopleConnection | undefined> {
-    const [updated] = await db.update(peopleConnections)
+    const [updated] = await getUserDb().update(peopleConnections)
       .set({
         personBId: personBId,
         status: 'confirmed',
@@ -6052,9 +6052,9 @@ export class DatabaseStorage implements IStorage {
       .where(eq(studentInsights.id, id));
   }
 
-  // Learning Motivations - Why students are learning
+  // Learning Motivations - Why students are learning (USER database - per-user data)
   async createLearningMotivation(data: InsertLearningMotivation): Promise<LearningMotivation> {
-    const [motivation] = await db.insert(learningMotivations).values(data).returning();
+    const [motivation] = await getUserDb().insert(learningMotivations).values(data).returning();
     return motivation;
   }
 
@@ -6068,22 +6068,22 @@ export class DatabaseStorage implements IStorage {
       conditions.push(sql`(${learningMotivations.language} = ${language} OR ${learningMotivations.language} IS NULL)`);
     }
     
-    return db.select().from(learningMotivations)
+    return getUserDb().select().from(learningMotivations)
       .where(and(...conditions))
       .orderBy(desc(learningMotivations.createdAt));
   }
 
   async updateLearningMotivation(id: string, data: Partial<LearningMotivation>): Promise<LearningMotivation | undefined> {
-    const [updated] = await db.update(learningMotivations)
+    const [updated] = await getUserDb().update(learningMotivations)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(learningMotivations.id, id))
       .returning();
     return updated;
   }
 
-  // Recurring Struggles - Persistent challenges
+  // Recurring Struggles - Persistent challenges (USER database - per-user data)
   async createRecurringStruggle(data: InsertRecurringStruggle): Promise<RecurringStruggle> {
-    const [struggle] = await db.insert(recurringStruggles).values(data).returning();
+    const [struggle] = await getUserDb().insert(recurringStruggles).values(data).returning();
     return struggle;
   }
 
@@ -6097,13 +6097,13 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(recurringStruggles.language, language));
     }
     
-    return db.select().from(recurringStruggles)
+    return getUserDb().select().from(recurringStruggles)
       .where(and(...conditions))
       .orderBy(desc(recurringStruggles.occurrenceCount));
   }
 
   async updateRecurringStruggle(id: string, data: Partial<RecurringStruggle>): Promise<RecurringStruggle | undefined> {
-    const [updated] = await db.update(recurringStruggles)
+    const [updated] = await getUserDb().update(recurringStruggles)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(recurringStruggles.id, id))
       .returning();
@@ -6111,7 +6111,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async incrementStruggleOccurrence(id: string): Promise<void> {
-    await db.update(recurringStruggles)
+    await getUserDb().update(recurringStruggles)
       .set({ 
         occurrenceCount: sql`${recurringStruggles.occurrenceCount} + 1`,
         lastOccurredAt: new Date(),
@@ -6238,21 +6238,21 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  // Session Notes - Post-session reflections
+  // Session Notes - Post-session reflections (USER database - per-user data)
   async createSessionNote(data: InsertSessionNote): Promise<SessionNote> {
-    const [note] = await db.insert(sessionNotes).values(data).returning();
+    const [note] = await getUserDb().insert(sessionNotes).values(data).returning();
     return note;
   }
 
   async getSessionNotes(studentId: string, limit: number = 10): Promise<SessionNote[]> {
-    return db.select().from(sessionNotes)
+    return getUserDb().select().from(sessionNotes)
       .where(eq(sessionNotes.studentId, studentId))
       .orderBy(desc(sessionNotes.createdAt))
       .limit(limit);
   }
 
   async getSessionNoteByConversation(conversationId: string): Promise<SessionNote | undefined> {
-    const [note] = await db.select().from(sessionNotes)
+    const [note] = await getUserDb().select().from(sessionNotes)
       .where(eq(sessionNotes.conversationId, conversationId));
     return note;
   }
@@ -6282,9 +6282,9 @@ export class DatabaseStorage implements IStorage {
     };
   }
   
-  // ACTFL Assessment Events (for analytics/effectiveness tracking)
+  // ACTFL Assessment Events (for analytics/effectiveness tracking) - USER database
   async createActflAssessmentEvent(data: InsertActflAssessmentEvent): Promise<ActflAssessmentEvent> {
-    const [event] = await db.insert(actflAssessmentEvents).values(data).returning();
+    const [event] = await getUserDb().insert(actflAssessmentEvents).values(data).returning();
     return event;
   }
   
@@ -6298,7 +6298,7 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(actflAssessmentEvents.language, options.language));
     }
     
-    const query = db.select().from(actflAssessmentEvents);
+    const query = getUserDb().select().from(actflAssessmentEvents);
     
     if (conditions.length > 0) {
       return query
@@ -6467,15 +6467,15 @@ export class DatabaseStorage implements IStorage {
     return query.orderBy(desc(systemAlerts.createdAt)).limit(options?.limit || 50);
   }
   
-  // ===== Support Tickets (Tri-Lane Hive - Support Agent escalations) =====
+  // ===== Support Tickets (Tri-Lane Hive - Support Agent escalations) - USER database =====
   
   async createSupportTicket(data: InsertSupportTicket): Promise<SupportTicket> {
-    const [ticket] = await db.insert(supportTickets).values(data).returning();
+    const [ticket] = await getUserDb().insert(supportTickets).values(data).returning();
     return ticket;
   }
   
   async getSupportTicket(id: string): Promise<SupportTicket | undefined> {
-    const [ticket] = await db.select().from(supportTickets).where(eq(supportTickets.id, id));
+    const [ticket] = await getUserDb().select().from(supportTickets).where(eq(supportTickets.id, id));
     return ticket;
   }
   
@@ -6492,7 +6492,7 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(supportTickets.category, options.category as any));
     }
     
-    const query = db.select().from(supportTickets);
+    const query = getUserDb().select().from(supportTickets);
     
     if (conditions.length > 0) {
       return query.where(and(...conditions))
@@ -6504,7 +6504,7 @@ export class DatabaseStorage implements IStorage {
   }
   
   async updateSupportTicket(id: string, data: Partial<SupportTicket>): Promise<SupportTicket | undefined> {
-    const [updated] = await db.update(supportTickets)
+    const [updated] = await getUserDb().update(supportTickets)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(supportTickets.id, id))
       .returning();
@@ -6512,10 +6512,10 @@ export class DatabaseStorage implements IStorage {
   }
   
   async createSupportMessage(data: InsertSupportMessage): Promise<SupportMessage> {
-    const [message] = await db.insert(supportMessages).values(data).returning();
+    const [message] = await getUserDb().insert(supportMessages).values(data).returning();
     
     // Increment message count on ticket
-    await db.update(supportTickets)
+    await getUserDb().update(supportTickets)
       .set({ 
         messageCount: sql`${supportTickets.messageCount} + 1`,
         updatedAt: new Date(),
@@ -6526,7 +6526,7 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getSupportMessages(ticketId: string): Promise<SupportMessage[]> {
-    return db.select().from(supportMessages)
+    return getUserDb().select().from(supportMessages)
       .where(eq(supportMessages.ticketId, ticketId))
       .orderBy(supportMessages.createdAt);
   }
@@ -6542,10 +6542,10 @@ export class DatabaseStorage implements IStorage {
     });
   }
   
-  // ===== Sofia Issue Reports (Production voice debugging) =====
+  // ===== Sofia Issue Reports (Production voice debugging) - USER database =====
   
   async createSofiaIssueReport(data: InsertSofiaIssueReport): Promise<SofiaIssueReport> {
-    const [report] = await db.insert(sofiaIssueReports).values(data).returning();
+    const [report] = await getUserDb().insert(sofiaIssueReports).values(data).returning();
     return report;
   }
   
@@ -6562,7 +6562,7 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(sofiaIssueReports.userId, options.userId));
     }
     
-    const query = db.select().from(sofiaIssueReports);
+    const query = getUserDb().select().from(sofiaIssueReports);
     
     if (conditions.length > 0) {
       return query.where(and(...conditions))
@@ -6574,7 +6574,7 @@ export class DatabaseStorage implements IStorage {
   }
   
   async updateSofiaIssueReport(id: string, data: Partial<SofiaIssueReport>): Promise<SofiaIssueReport | undefined> {
-    const [updated] = await db.update(sofiaIssueReports)
+    const [updated] = await getUserDb().update(sofiaIssueReports)
       .set(data)
       .where(eq(sofiaIssueReports.id, id))
       .returning();

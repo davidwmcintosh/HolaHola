@@ -13,7 +13,7 @@
  * - Real-time monitoring with alert notifications
  */
 
-import { db, getSharedDb } from '../db';
+import { db, getSharedDb, getUserDb } from '../db';
 import { hiveSnapshots, wrenInsights, users } from '@shared/schema';
 import { eq, and, gte, lte, desc, sql, like } from 'drizzle-orm';
 
@@ -433,7 +433,7 @@ async function analyzeStudentIssues(snapshots: DiagnosticSnapshot[]): Promise<St
   const userMap: Map<string, string> = new Map();
   
   if (userIds.length > 0) {
-    const usersData = await db
+    const usersData = await getUserDb()
       .select({ id: users.id, email: users.email })
       .from(users)
       .where(sql`${users.id} IN ${userIds.slice(0, 100)}`);

@@ -560,7 +560,7 @@ export async function getPredictiveTeachingContext(
   
   const [predictions, alerts] = await Promise.all([
     // Get active, non-expired predictions
-    getSharedDb().select()
+    getUserDb().select()
       .from(predictedStruggles)
       .where(
         and(
@@ -574,7 +574,7 @@ export async function getPredictiveTeachingContext(
       .limit(3),
     
     // Get active motivation/engagement alerts
-    getSharedDb().select()
+    getUserDb().select()
       .from(userMotivationAlerts)
       .where(
         and(

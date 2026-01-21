@@ -141,12 +141,12 @@ export async function searchMemory(
   // Search each domain in parallel
   const searchPromises: Promise<void>[] = [];
   
-  // === PEOPLE CONNECTIONS (SHARED database) ===
+  // === PEOPLE CONNECTIONS (USER database - per-user data) ===
   if (domainsToSearch.includes('person')) {
     searchedDomains.push('person');
     searchPromises.push((async () => {
       try {
-        const connections = await getSharedDb().select().from(peopleConnections)
+        const connections = await getUserDb().select().from(peopleConnections)
           .where(and(
             eq(peopleConnections.isActive, true),
             or(
@@ -216,12 +216,12 @@ export async function searchMemory(
     })());
   }
   
-  // === LEARNING MOTIVATIONS (SHARED database) ===
+  // === LEARNING MOTIVATIONS (USER database - per-user data) ===
   if (domainsToSearch.includes('motivation')) {
     searchedDomains.push('motivation');
     searchPromises.push((async () => {
       try {
-        const motivations = await getSharedDb().select().from(learningMotivations)
+        const motivations = await getUserDb().select().from(learningMotivations)
           .where(and(
             eq(learningMotivations.studentId, studentId),
             eq(learningMotivations.status, 'active'),
@@ -250,12 +250,12 @@ export async function searchMemory(
     })());
   }
   
-  // === RECURRING STRUGGLES (SHARED database) ===
+  // === RECURRING STRUGGLES (USER database - per-user data) ===
   if (domainsToSearch.includes('struggle')) {
     searchedDomains.push('struggle');
     searchPromises.push((async () => {
       try {
-        const struggles = await getSharedDb().select().from(recurringStruggles)
+        const struggles = await getUserDb().select().from(recurringStruggles)
           .where(and(
             eq(recurringStruggles.studentId, studentId),
             or(
@@ -283,12 +283,12 @@ export async function searchMemory(
     })());
   }
   
-  // === SESSION NOTES (SHARED database) ===
+  // === SESSION NOTES (USER database - per-user data) ===
   if (domainsToSearch.includes('session')) {
     searchedDomains.push('session');
     searchPromises.push((async () => {
       try {
-        const notes = await getSharedDb().select().from(sessionNotes)
+        const notes = await getUserDb().select().from(sessionNotes)
           .where(and(
             eq(sessionNotes.studentId, studentId),
             or(
@@ -323,12 +323,12 @@ export async function searchMemory(
     })());
   }
   
-  // === PROGRESS (ACTFL Assessments) - SHARED database ===
+  // === PROGRESS (ACTFL Assessments) - USER database ===
   if (domainsToSearch.includes('progress')) {
     searchedDomains.push('progress');
     searchPromises.push((async () => {
       try {
-        const assessments = await getSharedDb().select().from(actflAssessmentEvents)
+        const assessments = await getUserDb().select().from(actflAssessmentEvents)
           .where(eq(actflAssessmentEvents.userId, studentId))
           .orderBy(desc(actflAssessmentEvents.createdAt))
           .limit(5);
@@ -612,9 +612,10 @@ export async function lookupPerson(
  * Useful for "What do you know about me?" type questions
  */
 export async function getStudentMemorySummary(studentId: string): Promise<string> {
-  // All memory tables are in SHARED database for cross-environment access
+  // Student memory tables are in USER database (per-user data)
+  // studentInsights is in SHARED database (Daniela's intelligence)
   const [people, insights, motivations, struggles] = await Promise.all([
-    getSharedDb().select().from(peopleConnections)
+    getUserDb().select().from(peopleConnections)
       .where(and(
         eq(peopleConnections.isActive, true),
         or(
@@ -629,13 +630,13 @@ export async function getStudentMemorySummary(studentId: string): Promise<string
         eq(studentInsights.isActive, true)
       ))
       .limit(100),
-    getSharedDb().select().from(learningMotivations)
+    getUserDb().select().from(learningMotivations)
       .where(and(
         eq(learningMotivations.studentId, studentId),
         eq(learningMotivations.status, 'active')
       ))
       .limit(20),
-    getSharedDb().select().from(recurringStruggles)
+    getUserDb().select().from(recurringStruggles)
       .where(eq(recurringStruggles.studentId, studentId))
       .limit(20),
   ]);

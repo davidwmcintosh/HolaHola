@@ -2270,8 +2270,8 @@ export async function registerRoutes(app: Express): Promise<void> {
         .where(gte(voiceSessions.startedAt, monthAgo));
       const mau = new Set(monthSessions.map(s => s.userId)).size;
       
-      // Total registered users by role
-      const userCounts = await db
+      // Total registered users by role (USER database)
+      const userCounts = await getUserDb()
         .select({ role: users.role, count: sql<number>`count(*)` })
         .from(users)
         .groupBy(users.role);
@@ -9147,8 +9147,8 @@ Return ONLY the ${targetLanguage} phrase:`;
             allTypes.add(item.itemType);
           });
           
-          // Check user's completion status for this lesson
-          const userProgress = await db
+          // Check user's completion status for this lesson (USER database)
+          const userProgress = await getUserDb()
             .select()
             .from(selfPracticeSessions)
             .where(
@@ -9261,8 +9261,8 @@ Return ONLY the ${targetLanguage} phrase:`;
       const { sessionId } = req.params;
       const { completedItems, correctItems, averageScore, totalTimeSpentMs } = req.body;
       
-      // Get the session and verify ownership
-      const [session] = await db
+      // Get the session and verify ownership (USER database)
+      const [session] = await getUserDb()
         .select()
         .from(selfPracticeSessions)
         .where(
@@ -9311,7 +9311,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       const userId = req.user.claims.sub;
       const { language, limit } = req.query;
       
-      let query = db
+      let query = getUserDb()
         .select()
         .from(selfPracticeSessions)
         .where(
@@ -11957,9 +11957,11 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get fluency wiring status - how many lessons are linked to Can-Do statements
   app.get("/api/admin/fluency-wiring/status", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {
+      // SHARED tables - curriculum content
       const [lessonCount] = await getSharedDb().select({ count: sql<number>`count(*)` }).from(classCurriculumLessons);
       const [linkCount] = await getSharedDb().select({ count: sql<number>`count(*)` }).from(lessonCanDoStatements);
       const [canDoCount] = await getSharedDb().select({ count: sql<number>`count(*)` }).from(canDoStatements);
+      // USER tables - student progress data
       const [progressCount] = await getUserDb().select({ count: sql<number>`count(*)` }).from(studentCanDoProgress);
       const [assessmentCount] = await getUserDb().select({ count: sql<number>`count(*)` }).from(actflAssessmentEvents);
       

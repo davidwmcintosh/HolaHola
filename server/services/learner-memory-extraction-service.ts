@@ -14,7 +14,7 @@
 import { callGemini, GEMINI_MODELS } from '../gemini-utils';
 import { studentLearningService, type PersonalFactType, PERSONAL_FACT_TYPES } from './student-learning-service';
 import type { LearnerPersonalFact, MemoryPrivacySettings } from '@shared/schema';
-import { db, getSharedDb } from '../db';
+import { db, getSharedDb, getUserDb } from '../db';
 import { users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 
@@ -159,7 +159,7 @@ class LearnerMemoryExtractionService {
    */
   private async getPrivacySettings(studentId: string): Promise<MemoryPrivacySettings> {
     try {
-      const [user] = await db
+      const [user] = await getUserDb()
         .select({ memoryPrivacySettings: users.memoryPrivacySettings })
         .from(users)
         .where(eq(users.id, studentId));

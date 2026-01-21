@@ -133,7 +133,7 @@ export class PronunciationDrillService {
    * Get student's pronunciation struggle patterns from learning service
    */
   async getStudentPronunciationStruggles(studentId: string, language: string): Promise<PhonemeChallenge[]> {
-    const struggles = await db
+    const struggles = await getUserDb()
       .select()
       .from(recurringStruggles)
       .where(and(
