@@ -389,7 +389,7 @@ export class UsageService {
     await this.endAllActiveSessions(userId);
     
     // Check if this is a test account or beta tester session (both excluded from production analytics)
-    const [user] = await db
+    const [user] = await getUserDb()
       .select({ isTestAccount: users.isTestAccount, isBetaTester: users.isBetaTester })
       .from(users)
       .where(eq(users.id, userId));
@@ -887,7 +887,7 @@ export class UsageService {
    * Test accounts (isTestAccount=true) also bypass credit checks to enable automated testing
    */
   async checkDeveloperBypass(userId: string): Promise<boolean> {
-    const [user] = await db
+    const [user] = await getUserDb()
       .select({ role: users.role, isTestAccount: users.isTestAccount })
       .from(users)
       .where(eq(users.id, userId))
