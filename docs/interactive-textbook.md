@@ -78,20 +78,36 @@ Daniela reviewed the full curriculum (187,638 drills across 9 languages) and ide
 | translate_speak | 46,098 | Good for European languages |
 | fill_blank | 42,814 | Grammar coverage |
 | multiple_choice | 4,938 | Comprehension checks |
-| number_dictation | 2,706 | 99% at novice_low only |
+| number_dictation | ~3,200+ | **IMPROVED Jan 2026** - Added 513 intermediate/advanced drills |
 | matching | 155 | Underutilized |
 
-### Priority Improvements
+### Number Drill Expansion (January 2026)
 
-#### Priority 1: Level Up Numbers
-**Problem**: 99%+ of number drills are at novice_low only.
+**513 new number drills added** across all 9 languages at intermediate levels:
 
-**Solution**: Build `number_dictation` drills for Intermediate levels with:
-- Years and dates
-- Phone numbers
-- Prices and currency
-- Decimals and percentages (advanced)
-- Mental math challenges (advanced)
+| Level | Content | Drills per Language |
+|-------|---------|---------------------|
+| Intermediate Low | Numbers 21-99, hundreds, years (1990-2025), thousands | 31 |
+| Intermediate Mid | Large numbers (10K-2.5M), prices with decimals, percentages, ordinals | 26 |
+
+**Languages covered:** English, Spanish, French, German, Italian, Portuguese, Japanese, Korean, Mandarin
+
+**New drill categories:**
+- **Tens & Combinations**: 21-99 with proper pronunciation patterns
+- **Hundreds**: 100-750 in spoken form
+- **Years**: 1990, 1999, 2000, 2010, 2024, 2025
+- **Thousands**: 1,000 to 5,000+
+- **Large Numbers**: 10,000 to 2.5 million
+- **Prices**: Currency-appropriate decimals ($9.99, €15.50, ¥999, ₩1500)
+- **Percentages**: 10% to 100%
+- **Ordinals**: 1st through 100th in each language
+
+### Remaining Priority Improvements
+
+#### ~~Priority 1: Level Up Numbers~~ ✅ COMPLETED (Jan 2026)
+~~**Problem**: 99%+ of number drills are at novice_low only.~~
+
+**Solution implemented**: Added 513 intermediate number drills covering years, prices, percentages, and ordinals across all 9 languages. See "Number Drill Expansion" section above.
 
 #### Priority 2: Asian Language Production
 **Problem**: Japanese, Korean, and Mandarin have only 18-40 `translate_speak` drills vs ~3,600 for European languages.
