@@ -290,3 +290,215 @@ export const SAMPLE_GREETINGS_DATA = {
     { phrase: "Perdón", meaning: "Excuse me/Sorry" },
   ]
 };
+
+interface DrillItem {
+  id: string;
+  itemType: string;
+  prompt: string;
+  targetText: string;
+  difficulty: number;
+  mastered: boolean;
+  attempts: number;
+}
+
+const DRILL_TYPE_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
+  listen_repeat: { label: 'Listen & Repeat', color: 'bg-blue-500', icon: 'headphones' },
+  number_dictation: { label: 'Number Dictation', color: 'bg-purple-500', icon: 'hash' },
+  translate_speak: { label: 'Translate & Speak', color: 'bg-green-500', icon: 'languages' },
+  fill_blank: { label: 'Fill in the Blank', color: 'bg-amber-500', icon: 'text-cursor' },
+  matching: { label: 'Matching', color: 'bg-pink-500', icon: 'shuffle' },
+};
+
+interface DrillDistributionChartProps {
+  drills: DrillItem[];
+  className?: string;
+}
+
+export function DrillDistributionChart({ drills, className = '' }: DrillDistributionChartProps) {
+  const distribution = drills.reduce((acc, drill) => {
+    acc[drill.itemType] = (acc[drill.itemType] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const total = drills.length;
+  const types = Object.entries(distribution).sort((a, b) => b[1] - a[1]);
+
+  if (total === 0) return null;
+
+  return (
+    <div className={`rounded-lg bg-muted/30 p-4 ${className}`} data-testid="drill-distribution-chart">
+      <p className="text-xs font-medium text-muted-foreground mb-3">Practice Activities</p>
+      <div className="flex h-3 rounded-full overflow-hidden mb-3">
+        {types.map(([type, count]) => {
+          const config = DRILL_TYPE_CONFIG[type] || { color: 'bg-gray-400', label: type };
+          const percentage = (count / total) * 100;
+          return (
+            <div
+              key={type}
+              className={`${config.color}`}
+              style={{ width: `${percentage}%` }}
+              title={`${config.label}: ${count} (${Math.round(percentage)}%)`}
+            />
+          );
+        })}
+      </div>
+      <div className="flex flex-wrap gap-x-4 gap-y-1">
+        {types.map(([type, count]) => {
+          const config = DRILL_TYPE_CONFIG[type] || { color: 'bg-gray-400', label: type };
+          return (
+            <div key={type} className="flex items-center gap-1.5 text-xs">
+              <div className={`w-2 h-2 rounded-full ${config.color}`} />
+              <span className="text-muted-foreground">{config.label}</span>
+              <span className="font-medium">{count}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+interface VocabularyPreviewProps {
+  drills: DrillItem[];
+  maxItems?: number;
+  className?: string;
+}
+
+export function VocabularyPreview({ drills, maxItems = 6, className = '' }: VocabularyPreviewProps) {
+  const vocabDrills = drills
+    .filter(d => d.itemType === 'translate_speak' || d.itemType === 'matching' || d.itemType === 'listen_repeat')
+    .filter(d => d.targetText && d.targetText.length < 50)
+    .slice(0, maxItems);
+
+  if (vocabDrills.length === 0) return null;
+
+  return (
+    <div className={`rounded-lg bg-muted/30 p-4 ${className}`} data-testid="vocabulary-preview">
+      <p className="text-xs font-medium text-muted-foreground mb-3">Key Vocabulary</p>
+      <div className="grid grid-cols-2 gap-2">
+        {vocabDrills.map((drill, i) => (
+          <div 
+            key={drill.id || i} 
+            className="bg-background rounded-md p-2 border border-border/50"
+          >
+            <p className="font-medium text-sm truncate">{drill.targetText}</p>
+            {drill.prompt && (
+              <p className="text-xs text-muted-foreground truncate">{drill.prompt}</p>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+interface ConversationPreviewProps {
+  topic: string;
+  prompts?: string[];
+  className?: string;
+}
+
+export function ConversationPreview({ topic, prompts = [], className = '' }: ConversationPreviewProps) {
+  return (
+    <div className={`rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 p-4 border border-primary/20 ${className}`} data-testid="conversation-preview">
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+          <svg className="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-medium text-muted-foreground">Conversation Topic</p>
+          <p className="font-semibold text-sm mt-0.5">{topic}</p>
+          {prompts.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {prompts.slice(0, 2).map((prompt, i) => (
+                <p key={i} className="text-xs text-muted-foreground line-clamp-2">
+                  {prompt}
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface GrammarFocusProps {
+  drills: DrillItem[];
+  className?: string;
+}
+
+export function GrammarFocus({ drills, className = '' }: GrammarFocusProps) {
+  const grammarDrills = drills
+    .filter(d => d.itemType === 'fill_blank')
+    .slice(0, 3);
+
+  if (grammarDrills.length === 0) return null;
+
+  return (
+    <div className={`rounded-lg bg-muted/30 p-4 ${className}`} data-testid="grammar-focus">
+      <p className="text-xs font-medium text-muted-foreground mb-3">Grammar Practice</p>
+      <div className="space-y-2">
+        {grammarDrills.map((drill, i) => (
+          <div key={drill.id || i} className="bg-background rounded-md p-3 border border-border/50">
+            <p className="text-sm line-clamp-2">{drill.prompt}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+interface LessonSnapshotProps {
+  lessonType: string;
+  drills: DrillItem[];
+  conversationTopic?: string;
+  objectives?: string[];
+  className?: string;
+}
+
+export function LessonSnapshot({ 
+  lessonType, 
+  drills, 
+  conversationTopic, 
+  objectives,
+  className = '' 
+}: LessonSnapshotProps) {
+  const hasConversation = lessonType === 'conversation' && conversationTopic;
+  const hasVocab = drills.some(d => d.itemType === 'translate_speak' || d.itemType === 'matching' || d.itemType === 'listen_repeat');
+  const hasGrammar = drills.some(d => d.itemType === 'fill_blank');
+  const hasDrills = drills.length > 0;
+
+  return (
+    <div className={`space-y-3 ${className}`}>
+      {hasConversation && (
+        <ConversationPreview 
+          topic={conversationTopic} 
+          prompts={drills.filter(d => d.prompt).slice(0, 2).map(d => d.prompt)}
+        />
+      )}
+      
+      {hasDrills && <DrillDistributionChart drills={drills} />}
+      
+      {hasVocab && <VocabularyPreview drills={drills} />}
+      
+      {hasGrammar && !hasVocab && <GrammarFocus drills={drills} />}
+      
+      {!hasConversation && !hasDrills && objectives && objectives.length > 0 && (
+        <div className="bg-muted/30 rounded-lg p-3">
+          <p className="text-xs font-medium text-muted-foreground mb-2">What you'll learn:</p>
+          <ul className="space-y-1">
+            {objectives.slice(0, 3).map((obj, i) => (
+              <li key={i} className="text-sm flex items-start gap-2">
+                <span className="text-primary mt-0.5">-</span>
+                <span>{obj}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}

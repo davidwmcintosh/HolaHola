@@ -14,11 +14,7 @@ import {
   Play
 } from "lucide-react";
 import { 
-  SunArcGreetings, 
-  FormalInformalComparison, 
-  ConversationFlow,
-  QuickPhraseGrid,
-  SAMPLE_GREETINGS_DATA
+  LessonSnapshot
 } from "./TextbookInfographics";
 
 interface DrillItem {
@@ -83,49 +79,6 @@ function getLessonTypeIcon(type: string) {
   }
 }
 
-function getInfographicForSection(sectionName: string, lessonType: string, sectionIndex: number) {
-  const lowerName = sectionName.toLowerCase();
-  
-  // Keyword-based matching for specific content
-  if (lowerName.includes('time') || lowerName.includes('greeting') || lowerName.includes('hello') || lowerName.includes('day') || lowerName.includes('buenos') || lowerName.includes('hola')) {
-    return <SunArcGreetings className="mb-4" />;
-  }
-  
-  if (lowerName.includes('formal') || lowerName.includes('polite') || lowerName.includes('respect') || lowerName.includes('usted')) {
-    return (
-      <FormalInformalComparison 
-        items={SAMPLE_GREETINGS_DATA.formalInformal}
-        className="mb-4"
-      />
-    );
-  }
-  
-  if (lowerName.includes('name') || lowerName.includes('introduce') || lowerName.includes('meet')) {
-    return (
-      <ConversationFlow
-        exchanges={SAMPLE_GREETINGS_DATA.nameExchange}
-        speakerALabel="You"
-        speakerBLabel="New friend"
-        className="mb-4"
-      />
-    );
-  }
-  
-  if (lowerName.includes('chat') || lowerName.includes('basic') || lowerName.includes('essential') || lowerName.includes('phrase') || lowerName.includes('vocabulary')) {
-    return (
-      <QuickPhraseGrid
-        phrases={SAMPLE_GREETINGS_DATA.quickPhrases}
-        columns={3}
-        className="mb-4"
-      />
-    );
-  }
-  
-  // No fallback - only show infographics when content matches
-  // Other lessons will show the objectives list instead
-  return null;
-}
-
 function VisualLessonCard({
   section,
   index,
@@ -137,8 +90,6 @@ function VisualLessonCard({
   onStartConversation: () => void;
   onStartDrill: () => void;
 }) {
-  const infographic = getInfographicForSection(section.name, section.lessonType, index);
-  
   return (
     <Card 
       className="overflow-hidden"
@@ -181,21 +132,13 @@ function VisualLessonCard({
             <p className="text-sm text-muted-foreground mb-4">{section.description}</p>
           )}
           
-          {infographic}
-          
-          {!infographic && section.objectives && section.objectives.length > 0 && (
-            <div className="bg-muted/30 rounded-lg p-3 mb-4">
-              <p className="text-xs font-medium text-muted-foreground mb-2">What you'll learn:</p>
-              <ul className="space-y-1">
-                {section.objectives.slice(0, 3).map((obj, i) => (
-                  <li key={i} className="text-sm flex items-start gap-2">
-                    <Sparkles className="h-3 w-3 mt-1 text-primary shrink-0" />
-                    <span>{obj}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          <LessonSnapshot 
+            lessonType={section.lessonType}
+            drills={section.drills || []}
+            conversationTopic={section.conversationTopic}
+            objectives={section.objectives}
+            className="mb-4"
+          />
           
           <div className="flex gap-2">
             {section.conversationTopic && (

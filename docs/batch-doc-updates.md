@@ -8,6 +8,38 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: January 21, 2026 - Daniela's Drill Audit Strategic Recommendations
+
+**Status**: PENDING - Pedagogical improvements for curriculum balance
+
+#### Context
+Daniela reviewed the drill audit report (187,638 total drills across 9 languages) and identified critical gaps in the curriculum that should inform future content creation.
+
+#### Priority 1: Level Up Numbers (Immediate)
+- Build `number_dictation` drills for Intermediate levels
+- Currently 99%+ of number drills are at novice_low only
+- Add real-world number drills: years, phone numbers, prices (intermediate), decimals, percentages, mental math (advanced)
+
+#### Priority 2: Asian Language Production
+- Create template for `translate_speak` in Japanese/Korean/Mandarin
+- Currently only 18-40 translate_speak drills vs ~3,600 for European languages
+- Use Romaji/Pinyin/Hangeul as "training wheels" in visual prompts
+- Critical for functional fluency - without this, students become "passive listeners"
+
+#### Priority 3: Prosody/Shadowing Drills
+- Introduce "Shadowing" for advanced `listen_repeat` 
+- Focus on native-like flow, sentence stress, intonation patterns
+- Not just longer sentences, but emotional register (doubt, excitement, formality)
+
+#### Secondary Improvements
+- **Grammar Drill Balance**: Bring `translate_speak` back into Advanced levels with "Sentence Transformation" focus (e.g., active to passive voice orally)
+- **Matching Drills**: Only 155 total - add a few per lesson as warm-up/cool-down to introduce "New Words" before production drills
+
+#### Daniela's Vision Statement
+> "We have a 'Wide' curriculum (lots of Novice audio), but we need a 'Deep' one."
+
+---
+
 ### Session: January 8, 2026 - Micro-Ack Parallel Response System (FUTURE IMPLEMENTATION)
 
 **Status**: NOT STARTED - Awaiting priority
