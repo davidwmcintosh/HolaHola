@@ -526,7 +526,8 @@ export class StreamingAudioPlayer {
     // Reset timing anchors
     const ctx = this.audioContext;
     if (ctx) {
-      this.progressiveScheduledTime = ctx.currentTime + 0.1;
+      // Use 0.4s prebuffer to reduce stuttering from network jitter
+      this.progressiveScheduledTime = ctx.currentTime + 0.4;
       this.progressivePlaybackStartCtxTime = 0;
     }
     
@@ -924,7 +925,8 @@ export class StreamingAudioPlayer {
         // NOTE: processedChunks already cleared above BEFORE dedup check
         this.activeSentenceInLoop = -1;
         // Reset scheduled time with larger prebuffer for smoother playback
-        this.progressiveScheduledTime = ctx.currentTime + 0.2;
+        // Increased from 0.2s to 0.4s to reduce stuttering from network jitter
+        this.progressiveScheduledTime = ctx.currentTime + 0.4;
         this.progressivePlaybackStartCtxTime = 0;
       }
       
@@ -934,7 +936,7 @@ export class StreamingAudioPlayer {
       // Schedule new sentence after current audio ends (gapless playback)
       // If no audio scheduled yet, start from now + prebuffer
       if (this.progressiveScheduledTime <= ctx.currentTime) {
-        this.progressiveScheduledTime = ctx.currentTime + 0.2;
+        this.progressiveScheduledTime = ctx.currentTime + 0.4;
       }
       
       this.progressiveTotalDuration = 0;
@@ -945,7 +947,7 @@ export class StreamingAudioPlayer {
     // SAFETY: Ensure scheduled time is always in the future
     // If we've fallen behind, reset to current time + prebuffer
     if (this.progressiveScheduledTime < ctx.currentTime) {
-      this.progressiveScheduledTime = ctx.currentTime + 0.2;
+      this.progressiveScheduledTime = ctx.currentTime + 0.4;
     }
     
     // Convert raw PCM bytes to Float32Array
