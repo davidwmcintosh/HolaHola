@@ -1583,6 +1583,94 @@ export const studentGoals = pgTable("student_goals", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// ===== Interactive Textbook Progress =====
+
+// Tracks user progress through the interactive textbook sections
+export const textbookSectionProgress = pgTable("textbook_section_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  lessonId: varchar("lesson_id").notNull().references(() => curriculumLessons.id),
+  sectionType: text("section_type").notNull().default('content'), // 'content' | 'drill' | 'rhythm' | 'recap'
+  viewed: boolean("viewed").default(false),
+  completed: boolean("completed").default(false),
+  drillScore: integer("drill_score"), // For drill sections: percentage score
+  drillsCompleted: integer("drills_completed").default(0),
+  drillsTotal: integer("drills_total").default(0),
+  timeSpentSeconds: integer("time_spent_seconds").default(0),
+  lastViewedAt: timestamp("last_viewed_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_textbook_section_progress_user").on(table.userId),
+  index("idx_textbook_section_progress_user_lesson").on(table.userId, table.lessonId),
+]);
+
+// Tracks user's last position in the textbook for "continue where you left off"
+export const textbookUserPosition = pgTable("textbook_user_position", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  language: text("language").notNull(),
+  lastChapterId: varchar("last_chapter_id").references(() => curriculumUnits.id),
+  lastLessonId: varchar("last_lesson_id").references(() => curriculumLessons.id),
+  scrollPosition: integer("scroll_position").default(0), // Percentage scrolled in chapter
+  lastAccessedAt: timestamp("last_accessed_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_textbook_user_position_user").on(table.userId),
+  index("idx_textbook_user_position_user_lang").on(table.userId, table.language),
+]);
+
+export const insertTextbookSectionProgressSchema = createInsertSchema(textbookSectionProgress).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertTextbookSectionProgress = z.infer<typeof insertTextbookSectionProgressSchema>;
+export type TextbookSectionProgress = typeof textbookSectionProgress.$inferSelect;
+
+export const insertTextbookUserPositionSchema = createInsertSchema(textbookUserPosition).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertTextbookUserPosition = z.infer<typeof insertTextbookUserPositionSchema>;
+export type TextbookUserPosition = typeof textbookUserPosition.$inferSelect;
+
+// Visual assets for Interactive Textbook - links images to chapters/lessons
+export const textbookVisualAssets = pgTable("textbook_visual_assets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  chapterId: varchar("chapter_id").references(() => curriculumUnits.id), // Can be chapter-level
+  lessonId: varchar("lesson_id").references(() => curriculumLessons.id), // Or lesson-level
+  language: text("language").notNull(),
+  assetType: text("asset_type").notNull(), // hero, infographic, vocabulary, cultural, grammar, concept
+  title: text("title"),
+  description: text("description"),
+  imageUrl: text("image_url").notNull(),
+  thumbnailUrl: text("thumbnail_url"),
+  imageSource: text("image_source").notNull(), // stock (Unsplash), ai_generated (DALL-E/Gemini), upload
+  searchQuery: text("search_query"), // For stock images - the search term used
+  aiPrompt: text("ai_prompt"), // For AI-generated images - the prompt used
+  attribution: text("attribution"), // Credit for stock images
+  sortOrder: integer("sort_order").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_textbook_visual_assets_chapter").on(table.chapterId),
+  index("idx_textbook_visual_assets_lesson").on(table.lessonId),
+  index("idx_textbook_visual_assets_language").on(table.language),
+]);
+
+export const insertTextbookVisualAssetSchema = createInsertSchema(textbookVisualAssets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertTextbookVisualAsset = z.infer<typeof insertTextbookVisualAssetSchema>;
+export type TextbookVisualAsset = typeof textbookVisualAssets.$inferSelect;
+
 // ===== Multimedia Content System =====
 
 // Core media files table - stores all images, videos, and audio

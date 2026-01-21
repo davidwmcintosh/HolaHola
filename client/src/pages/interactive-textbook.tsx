@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useCallback, useEffect } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,7 @@ import {
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Link, useLocation } from "wouter";
 import { TextbookChapterView } from "@/components/TextbookChapterView";
+import { apiRequest } from "@/lib/queryClient";
 
 interface DrillItem {
   id: string;
@@ -303,11 +304,43 @@ export default function InteractiveTextbook() {
     queryKey: ['/api/textbook', language],
   });
   
+  // Fetch user's last position in the textbook
+  const { data: positionData } = useQuery<{ position: { lastChapterId?: string } | null }>({
+    queryKey: ['/api/textbook', language, 'position'],
+    enabled: !!language,
+  });
+  
+  // Mutation to save user's position
+  const savePositionMutation = useMutation({
+    mutationFn: async (data: { chapterId: string; lessonId?: string }) => {
+      return apiRequest(`/api/textbook/${language}/position`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+  });
+  
   const chapters = textbookData?.chapters || [];
   
   const totalProgress = chapters.length > 0
     ? Math.round(chapters.reduce((acc, ch) => acc + ch.progress, 0) / chapters.length)
     : 0;
+  
+  // Auto-select last chapter if user has a saved position
+  useEffect(() => {
+    if (positionData?.position?.lastChapterId && chapters.length > 0 && !selectedChapter) {
+      const lastChapter = chapters.find(ch => ch.id === positionData.position?.lastChapterId);
+      if (lastChapter) {
+        // Don't auto-select, but we could show a "Continue" prompt
+      }
+    }
+  }, [positionData, chapters, selectedChapter]);
+
+  const handleOpenChapter = useCallback((chapter: Chapter) => {
+    setSelectedChapter(chapter);
+    // Save position when opening a chapter
+    savePositionMutation.mutate({ chapterId: chapter.id });
+  }, [savePositionMutation]);
 
   const handleStartConversation = useCallback(() => {
     setLocation('/chat');
@@ -315,7 +348,15 @@ export default function InteractiveTextbook() {
 
   const handleStartDrill = useCallback((sectionId: string) => {
     console.log('Start drill for section:', sectionId);
-  }, []);
+    // Save position when starting a drill
+    if (selectedChapter) {
+      savePositionMutation.mutate({ chapterId: selectedChapter.id, lessonId: sectionId });
+    }
+  }, [selectedChapter, savePositionMutation]);
+
+  const handleReviewFlashcards = useCallback(() => {
+    setLocation('/review');
+  }, [setLocation]);
 
   if (selectedChapter) {
     return (
@@ -325,6 +366,7 @@ export default function InteractiveTextbook() {
         onBack={() => setSelectedChapter(null)}
         onStartConversation={handleStartConversation}
         onStartDrill={handleStartDrill}
+        onReviewFlashcards={handleReviewFlashcards}
       />
     );
   }
@@ -337,7 +379,7 @@ export default function InteractiveTextbook() {
       totalProgress={totalProgress}
       isLoading={isLoading}
       error={error as Error | null}
-      onOpenChapter={setSelectedChapter}
+      onOpenChapter={handleOpenChapter}
     />
   );
 }

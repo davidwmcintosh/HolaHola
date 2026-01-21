@@ -53,6 +53,9 @@ import {
   selfPracticeSessions,
   neuralNetworkTelemetry,
   tutorVoices,
+  textbookSectionProgress,
+  textbookUserPosition,
+  textbookVisualAssets,
 } from "@shared/schema";
 import { hasTeacherAccess, hasDeveloperAccess } from "@shared/permissions";
 import OpenAI, { toFile } from "openai";
@@ -8873,6 +8876,311 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // ===== Textbook Progress Tracking =====
+  
+  // Get user's textbook position (last chapter/lesson they were viewing)
+  app.get("/api/textbook/:language/position", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { language } = req.params;
+      
+      const [position] = await getUserDb()
+        .select()
+        .from(textbookUserPosition)
+        .where(
+          and(
+            eq(textbookUserPosition.userId, userId),
+            eq(textbookUserPosition.language, language.toLowerCase())
+          )
+        );
+      
+      res.json({ position: position || null });
+    } catch (error: any) {
+      console.error('Error fetching textbook position:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Validation schemas for textbook endpoints
+  const textbookPositionSchema = z.object({
+    chapterId: z.string().optional(),
+    lessonId: z.string().optional(),
+    scrollPosition: z.number().int().min(0).max(100).optional(),
+  });
+  
+  const textbookProgressSchema = z.object({
+    sectionType: z.string().optional().default('content'),
+    viewed: z.boolean().optional(),
+    completed: z.boolean().optional(),
+    drillScore: z.number().min(0).max(100).optional(),
+    drillsCompleted: z.number().int().min(0).optional(),
+    drillsTotal: z.number().int().min(0).optional(),
+    timeSpentSeconds: z.number().int().min(0).optional(),
+  });
+  
+  // Update user's textbook position
+  app.post("/api/textbook/:language/position", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { language } = req.params;
+      
+      const parsed = textbookPositionSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request body", details: parsed.error.errors });
+      }
+      
+      const { chapterId, lessonId, scrollPosition } = parsed.data;
+      
+      const normalizedLanguage = language.toLowerCase();
+      
+      // Check if position record exists
+      const [existing] = await getUserDb()
+        .select()
+        .from(textbookUserPosition)
+        .where(
+          and(
+            eq(textbookUserPosition.userId, userId),
+            eq(textbookUserPosition.language, normalizedLanguage)
+          )
+        );
+      
+      if (existing) {
+        await getUserDb()
+          .update(textbookUserPosition)
+          .set({
+            lastChapterId: chapterId,
+            lastLessonId: lessonId,
+            scrollPosition: scrollPosition || 0,
+            lastAccessedAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(textbookUserPosition.id, existing.id));
+      } else {
+        await getUserDb()
+          .insert(textbookUserPosition)
+          .values({
+            userId,
+            language: normalizedLanguage,
+            lastChapterId: chapterId,
+            lastLessonId: lessonId,
+            scrollPosition: scrollPosition || 0,
+            lastAccessedAt: new Date(),
+          });
+      }
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error updating textbook position:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get progress for a specific section/lesson
+  app.get("/api/textbook/progress/:lessonId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { lessonId } = req.params;
+      
+      const [progress] = await getUserDb()
+        .select()
+        .from(textbookSectionProgress)
+        .where(
+          and(
+            eq(textbookSectionProgress.userId, userId),
+            eq(textbookSectionProgress.lessonId, lessonId)
+          )
+        );
+      
+      res.json({ progress: progress || null });
+    } catch (error: any) {
+      console.error('Error fetching section progress:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Update section progress (view, complete, drill scores)
+  app.post("/api/textbook/progress/:lessonId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { lessonId } = req.params;
+      
+      const parsed = textbookProgressSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request body", details: parsed.error.errors });
+      }
+      
+      const { 
+        sectionType,
+        viewed,
+        completed,
+        drillScore,
+        drillsCompleted,
+        drillsTotal,
+        timeSpentSeconds
+      } = parsed.data;
+      
+      // Check if progress record exists
+      const [existing] = await getUserDb()
+        .select()
+        .from(textbookSectionProgress)
+        .where(
+          and(
+            eq(textbookSectionProgress.userId, userId),
+            eq(textbookSectionProgress.lessonId, lessonId)
+          )
+        );
+      
+      const now = new Date();
+      
+      if (existing) {
+        const updates: any = { updatedAt: now };
+        if (viewed !== undefined) {
+          updates.viewed = viewed;
+          updates.lastViewedAt = now;
+        }
+        if (completed !== undefined) {
+          updates.completed = completed;
+          if (completed) updates.completedAt = now;
+        }
+        if (drillScore !== undefined) updates.drillScore = drillScore;
+        if (drillsCompleted !== undefined) updates.drillsCompleted = drillsCompleted;
+        if (drillsTotal !== undefined) updates.drillsTotal = drillsTotal;
+        if (timeSpentSeconds !== undefined) {
+          updates.timeSpentSeconds = (existing.timeSpentSeconds || 0) + timeSpentSeconds;
+        }
+        
+        await getUserDb()
+          .update(textbookSectionProgress)
+          .set(updates)
+          .where(eq(textbookSectionProgress.id, existing.id));
+        
+        res.json({ success: true, updated: true });
+      } else {
+        await getUserDb()
+          .insert(textbookSectionProgress)
+          .values({
+            userId,
+            lessonId,
+            sectionType,
+            viewed: viewed || false,
+            completed: completed || false,
+            drillScore,
+            drillsCompleted: drillsCompleted || 0,
+            drillsTotal: drillsTotal || 0,
+            timeSpentSeconds: timeSpentSeconds || 0,
+            lastViewedAt: viewed ? now : null,
+            completedAt: completed ? now : null,
+          });
+        
+        res.json({ success: true, created: true });
+      }
+    } catch (error: any) {
+      console.error('Error updating section progress:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get chapter progress summary (aggregated from all sections)
+  app.get("/api/textbook/:language/chapter/:chapterId/progress", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { chapterId } = req.params;
+      
+      // Get all lessons in this chapter
+      const lessons = await storage.getCurriculumLessons(chapterId);
+      const lessonIds = lessons.map(l => l.id);
+      
+      if (lessonIds.length === 0) {
+        return res.json({
+          chapterId,
+          totalSections: 0,
+          viewedSections: 0,
+          completedSections: 0,
+          progress: 0,
+        });
+      }
+      
+      // Get progress for all sections
+      const progressRecords = await getUserDb()
+        .select()
+        .from(textbookSectionProgress)
+        .where(
+          and(
+            eq(textbookSectionProgress.userId, userId),
+            inArray(textbookSectionProgress.lessonId, lessonIds)
+          )
+        );
+      
+      const viewedCount = progressRecords.filter(p => p.viewed).length;
+      const completedCount = progressRecords.filter(p => p.completed).length;
+      const totalTime = progressRecords.reduce((acc, p) => acc + (p.timeSpentSeconds || 0), 0);
+      
+      res.json({
+        chapterId,
+        totalSections: lessons.length,
+        viewedSections: viewedCount,
+        completedSections: completedCount,
+        progress: Math.round((completedCount / lessons.length) * 100),
+        totalTimeSpentSeconds: totalTime,
+        sectionProgress: progressRecords,
+      });
+    } catch (error: any) {
+      console.error('Error fetching chapter progress:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get visual assets for textbook chapter/lesson
+  app.get("/api/textbook/visual-assets", isAuthenticated, async (req: any, res) => {
+    try {
+      const { language, chapterId, lessonId } = req.query;
+      
+      if (!language) {
+        return res.status(400).json({ error: "Language is required" });
+      }
+      
+      let query = getSharedDb()
+        .select()
+        .from(textbookVisualAssets)
+        .where(
+          and(
+            eq(textbookVisualAssets.language, language as string),
+            eq(textbookVisualAssets.isActive, true)
+          )
+        );
+      
+      if (chapterId) {
+        query = getSharedDb()
+          .select()
+          .from(textbookVisualAssets)
+          .where(
+            and(
+              eq(textbookVisualAssets.language, language as string),
+              eq(textbookVisualAssets.chapterId, chapterId as string),
+              eq(textbookVisualAssets.isActive, true)
+            )
+          );
+      } else if (lessonId) {
+        query = getSharedDb()
+          .select()
+          .from(textbookVisualAssets)
+          .where(
+            and(
+              eq(textbookVisualAssets.language, language as string),
+              eq(textbookVisualAssets.lessonId, lessonId as string),
+              eq(textbookVisualAssets.isActive, true)
+            )
+          );
+      }
+      
+      const assets = await query;
+      res.json(assets);
+    } catch (error: any) {
+      console.error('Error fetching visual assets:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // Create curriculum unit
   app.post("/api/curriculum/units", isAuthenticated, async (req: any, res) => {
     try {

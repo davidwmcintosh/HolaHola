@@ -1,3 +1,5 @@
+import { useCallback, useEffect } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +18,8 @@ import {
 import { 
   LessonSnapshot
 } from "./TextbookInfographics";
+import { ChapterRecap } from "./ChapterRecap";
+import { apiRequest } from "@/lib/queryClient";
 
 interface DrillItem {
   id: string;
@@ -62,6 +66,7 @@ interface TextbookChapterViewProps {
   onBack: () => void;
   onStartConversation: () => void;
   onStartDrill: (sectionId: string) => void;
+  onReviewFlashcards?: () => void;
 }
 
 function getLessonTypeIcon(type: string) {
@@ -92,7 +97,7 @@ function VisualLessonCard({
 }) {
   return (
     <Card 
-      className="overflow-hidden"
+      className="overflow-hidden touch-manipulation"
       data-testid={`visual-lesson-card-${section.id}`}
     >
       <CardContent className="p-0">
@@ -140,10 +145,10 @@ function VisualLessonCard({
             className="mb-4"
           />
           
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap sm:flex-nowrap">
             {section.conversationTopic && (
               <Button 
-                className="flex-1" 
+                className="flex-1 min-h-[44px] touch-manipulation" 
                 onClick={onStartConversation}
                 data-testid={`button-practice-daniela-${section.id}`}
               >
@@ -154,7 +159,7 @@ function VisualLessonCard({
             {section.hasDrills && section.drillCount > 0 && (
               <Button 
                 variant={section.conversationTopic ? "outline" : "default"}
-                className={section.conversationTopic ? "" : "flex-1"}
+                className={`min-h-[44px] touch-manipulation ${section.conversationTopic ? "" : "flex-1"}`}
                 onClick={onStartDrill}
                 data-testid={`button-start-drill-${section.id}`}
               >
@@ -164,7 +169,7 @@ function VisualLessonCard({
             )}
             {!section.conversationTopic && !section.hasDrills && (
               <Button 
-                className="flex-1" 
+                className="flex-1 min-h-[44px] touch-manipulation" 
                 variant="secondary"
                 data-testid={`button-start-lesson-${section.id}`}
               >
@@ -184,13 +189,45 @@ export function TextbookChapterView({
   language,
   onBack,
   onStartConversation,
-  onStartDrill
+  onStartDrill,
+  onReviewFlashcards
 }: TextbookChapterViewProps) {
   const completedCount = chapter.sections.filter(s => s.isComplete).length;
   
+  const saveProgressMutation = useMutation({
+    mutationFn: async (data: { lessonId: string; viewed?: boolean; completed?: boolean; drillScore?: number }) => {
+      return apiRequest(`/api/textbook/progress/${data.lessonId}`, {
+        method: 'POST',
+        body: JSON.stringify({
+          viewed: data.viewed,
+          completed: data.completed,
+          drillScore: data.drillScore,
+        }),
+      });
+    },
+  });
+  
+  const markSectionViewed = useCallback((lessonId: string) => {
+    saveProgressMutation.mutate({ lessonId, viewed: true });
+  }, [saveProgressMutation]);
+  
+  useEffect(() => {
+    if (chapter.sections.length > 0) {
+      chapter.sections.forEach(section => {
+        markSectionViewed(section.id);
+      });
+    }
+  }, [chapter.id, chapter.sections, markSectionViewed]);
+  
+  const handleReviewFlashcards = () => {
+    if (onReviewFlashcards) {
+      onReviewFlashcards();
+    }
+  };
+  
   return (
-    <div className="space-y-6 w-full max-w-4xl mx-auto pb-12">
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-3 -mx-4 px-4 border-b">
+    <div className="space-y-6 w-full max-w-4xl mx-auto pb-12 touch-pan-y overscroll-contain">
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-3 -mx-4 px-4 border-b supports-[backdrop-filter]:bg-background/80">
         <div className="flex items-center justify-between gap-4">
           <Button 
             variant="ghost" 
@@ -245,6 +282,15 @@ export function TextbookChapterView({
             This chapter's visual lessons are being prepared. Check back soon!
           </p>
         </Card>
+      )}
+      
+      {chapter.sections.length > 0 && (
+        <ChapterRecap
+          chapter={chapter}
+          language={language}
+          onPracticeWithDaniela={onStartConversation}
+          onReviewFlashcards={handleReviewFlashcards}
+        />
       )}
     </div>
   );

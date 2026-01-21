@@ -130,6 +130,9 @@ export const SHARED_TABLES = new Set([
   // Vocabulary (shared so Daniela tracks all words learned across envs, FK to conversations)
   'vocabulary_words',
   'vocabulary_word_topics',
+  
+  // Textbook Visual Assets (shared curriculum content)
+  'textbook_visual_assets',
 ]);
 
 // Tables that go to USER database (per-environment)
@@ -183,6 +186,10 @@ export const USER_TABLES = new Set([
   
   // Self-practice
   'self_practice_sessions',
+  
+  // Interactive Textbook Progress
+  'textbook_section_progress',
+  'textbook_user_position',
   
   // Support (per-user data)
   'support_tickets',
