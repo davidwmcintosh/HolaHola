@@ -239,7 +239,7 @@ import {
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { markCorrect, markIncorrect } from "./spaced-repetition";
-import { db, getSharedDb } from "./db";
+import { db, getSharedDb, getUserDb } from "./db";
 import { eq, and, desc, asc, gte, lte, gt, ne, sql, isNull, inArray, or } from "drizzle-orm";
 
 export interface IStorage {
@@ -1314,17 +1314,17 @@ export class DatabaseStorage implements IStorage {
   // }
 
   async getUser(id: string): Promise<User | undefined> {
-    const result = await db.select().from(users).where(eq(users.id, id));
+    const result = await getUserDb().select().from(users).where(eq(users.id, id));
     return result[0];
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const result = await db.select().from(users).where(eq(users.email, email.toLowerCase()));
+    const result = await getUserDb().select().from(users).where(eq(users.email, email.toLowerCase()));
     return result[0];
   }
 
   async createUser(userData: { email: string; firstName?: string | null; lastName?: string | null; role?: string; authProvider?: string }): Promise<User> {
-    const [created] = await db.insert(users).values({
+    const [created] = await getUserDb().insert(users).values({
       email: userData.email.toLowerCase(),
       firstName: userData.firstName || null,
       lastName: userData.lastName || null,
@@ -3970,13 +3970,13 @@ export class DatabaseStorage implements IStorage {
     const offset = options?.offset || 0;
     
     const allUsers = options?.role
-      ? await db.select().from(users).where(eq(users.role, options.role as any)).limit(limit).offset(offset).orderBy(desc(users.createdAt))
-      : await db.select().from(users).limit(limit).offset(offset).orderBy(desc(users.createdAt));
+      ? await getUserDb().select().from(users).where(eq(users.role, options.role as any)).limit(limit).offset(offset).orderBy(desc(users.createdAt))
+      : await getUserDb().select().from(users).limit(limit).offset(offset).orderBy(desc(users.createdAt));
     
     // Get total count
     const countResult = options?.role 
-      ? await db.select({ count: sql<number>`count(*)` }).from(users).where(eq(users.role, options.role as any))
-      : await db.select({ count: sql<number>`count(*)` }).from(users);
+      ? await getUserDb().select({ count: sql<number>`count(*)` }).from(users).where(eq(users.role, options.role as any))
+      : await getUserDb().select({ count: sql<number>`count(*)` }).from(users);
     
     return {
       users: allUsers,
@@ -4159,15 +4159,15 @@ export class DatabaseStorage implements IStorage {
       { totalSubmissions },
       { totalConversations }
     ] = await Promise.all([
-      db.select({ totalUsers: sql<number>`count(*)` }).from(users).then(r => r[0] as any),
-      db.select({ totalStudents: sql<number>`count(*)` }).from(users).where(eq(users.role, 'student' as any)).then(r => r[0] as any),
-      db.select({ totalTeachers: sql<number>`count(*)` }).from(users).where(eq(users.role, 'teacher' as any)).then(r => r[0] as any),
-      db.select({ totalDevelopers: sql<number>`count(*)` }).from(users).where(eq(users.role, 'developer' as any)).then(r => r[0] as any),
-      db.select({ totalAdmins: sql<number>`count(*)` }).from(users).where(eq(users.role, 'admin' as any)).then(r => r[0] as any),
-      db.select({ totalClasses: sql<number>`count(*)` }).from(teacherClasses).then(r => r[0] as any),
+      getUserDb().select({ totalUsers: sql<number>`count(*)` }).from(users).then(r => r[0] as any),
+      getUserDb().select({ totalStudents: sql<number>`count(*)` }).from(users).where(eq(users.role, 'student' as any)).then(r => r[0] as any),
+      getUserDb().select({ totalTeachers: sql<number>`count(*)` }).from(users).where(eq(users.role, 'teacher' as any)).then(r => r[0] as any),
+      getUserDb().select({ totalDevelopers: sql<number>`count(*)` }).from(users).where(eq(users.role, 'developer' as any)).then(r => r[0] as any),
+      getUserDb().select({ totalAdmins: sql<number>`count(*)` }).from(users).where(eq(users.role, 'admin' as any)).then(r => r[0] as any),
+      getSharedDb().select({ totalClasses: sql<number>`count(*)` }).from(teacherClasses).then(r => r[0] as any),
       db.select({ totalAssignments: sql<number>`count(*)` }).from(assignments).then(r => r[0] as any),
       db.select({ totalSubmissions: sql<number>`count(*)` }).from(assignmentSubmissions).then(r => r[0] as any),
-      db.select({ totalConversations: sql<number>`count(*)` }).from(conversations).then(r => r[0] as any),
+      getSharedDb().select({ totalConversations: sql<number>`count(*)` }).from(conversations).then(r => r[0] as any),
     ]);
     
     return {
@@ -4193,7 +4193,7 @@ export class DatabaseStorage implements IStorage {
     startDate.setDate(startDate.getDate() - days);
     
     const [newUsers, newClasses, newAssignments] = await Promise.all([
-      db
+      getUserDb()
         .select({
           date: sql<string>`DATE(${users.createdAt})`,
           count: sql<number>`count(*)`
@@ -4203,7 +4203,7 @@ export class DatabaseStorage implements IStorage {
         .groupBy(sql`DATE(${users.createdAt})`)
         .orderBy(sql`DATE(${users.createdAt})`),
       
-      db
+      getSharedDb()
         .select({
           date: sql<string>`DATE(${teacherClasses.createdAt})`,
           count: sql<number>`count(*)`
@@ -4233,25 +4233,37 @@ export class DatabaseStorage implements IStorage {
   
   // Top Performers
   async getTopTeachers(limit: number): Promise<Array<User & { classCount: number; studentCount: number }>> {
-    const result = await db
-      .select({
-        teacher: users,
-        classCount: sql<number>`COUNT(DISTINCT ${teacherClasses.id})`,
-        studentCount: sql<number>`COUNT(DISTINCT ${classEnrollments.studentId})`
-      })
+    // Note: This requires a cross-database join which is complex
+    // For now, fetch teachers from USER db, then count classes separately from SHARED db
+    const teachers = await getUserDb()
+      .select()
       .from(users)
-      .leftJoin(teacherClasses, eq(users.id, teacherClasses.teacherId))
-      .leftJoin(classEnrollments, eq(teacherClasses.id, classEnrollments.classId))
       .where(eq(users.role, 'teacher' as any))
-      .groupBy(users.id)
-      .orderBy(desc(sql`COUNT(DISTINCT ${teacherClasses.id})`))
+      .orderBy(desc(users.createdAt))
       .limit(limit);
     
-    return result.map(row => ({
-      ...row.teacher,
-      classCount: Number(row.classCount),
-      studentCount: Number(row.studentCount)
+    // Get class counts for each teacher
+    const result = await Promise.all(teachers.map(async (teacher) => {
+      const classes = await getSharedDb()
+        .select({ count: sql<number>`count(*)` })
+        .from(teacherClasses)
+        .where(eq(teacherClasses.teacherId, teacher.id));
+      
+      const students = await getSharedDb()
+        .select({ count: sql<number>`count(DISTINCT ${classEnrollments.studentId})` })
+        .from(classEnrollments)
+        .innerJoin(teacherClasses, eq(classEnrollments.classId, teacherClasses.id))
+        .where(eq(teacherClasses.teacherId, teacher.id));
+      
+      return {
+        ...teacher,
+        classCount: Number((classes[0] as any)?.count || 0),
+        studentCount: Number((students[0] as any)?.count || 0)
+      };
     }));
+    
+    // Sort by class count descending and return
+    return result.sort((a, b) => b.classCount - a.classCount);
   }
 
   async getTopClasses(limit: number): Promise<Array<TeacherClass & { teacher: User; enrollmentCount: number }>> {
@@ -4435,7 +4447,7 @@ export class DatabaseStorage implements IStorage {
 
   async getActiveImpersonations(): Promise<Array<User & { impersonatedUserEmail?: string }>> {
     const now = new Date();
-    const result = await db
+    const result = await getUserDb()
       .select({
         user: users,
         impersonatedUser: {
