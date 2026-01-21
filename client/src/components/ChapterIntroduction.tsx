@@ -11,11 +11,12 @@ import familyTreeImg from "@assets/generated_images/spanish_family_vocabulary_tr
 
 interface ChapterIntroductionProps {
   chapterNumber: number;
+  chapterTitle?: string;
   language: string;
   className?: string;
 }
 
-const chapterContent: Record<number, {
+interface ChapterContentData {
   welcomeText: string;
   narrativeSections: {
     title: string;
@@ -29,62 +30,102 @@ const chapterContent: Record<number, {
     content: string;
     image?: string;
   };
-}> = {
-  1: {
-    welcomeText: "Welcome to your Spanish journey! In this chapter, you'll learn the essential building blocks of Spanish conversation - greetings, introductions, and the art of making a great first impression.",
-    narrativeSections: [
-      {
-        title: "The Art of Greeting",
-        content: "In Spanish-speaking cultures, greetings are more than just words - they're a warm embrace of connection. Unlike quick 'hi and bye' exchanges, Spanish greetings often come with genuine warmth: a kiss on the cheek among friends, a firm handshake in business, and always, always eye contact.",
-        image: coffeeShopImg,
-        imageAlt: "Friends having coffee and conversation",
-        tip: "Pro tip: In most Latin American countries, a single kiss on the cheek is common. In Spain, it's usually two!"
-      },
-      {
-        title: "Time Matters",
-        content: "Spanish has different greetings for different times of day. 'Buenos días' greets the morning sun, 'Buenas tardes' welcomes the afternoon, and 'Buenas noches' embraces the evening. Pay attention to when the sun is in the sky!",
-        image: greetingsInfographicImg,
-        imageAlt: "Spanish greetings throughout the day infographic"
-      },
-      {
-        title: "Formal vs. Informal",
-        content: "Spanish distinguishes between formal and informal speech through 'usted' and 'tú'. Think of 'usted' as the respectful distance you'd keep with your boss or an elder, while 'tú' is the comfortable closeness of friends and family.",
-        tip: "When in doubt, start formal! It's always better to be too polite than too casual."
-      }
-    ],
-    culturalSpotlight: {
-      title: "¡Sobremesa!",
-      content: "One of the most beautiful Spanish traditions is 'sobremesa' - the time spent lingering at the table after a meal, just talking and enjoying company. This is where real conversations happen, where bonds are strengthened. No rushing, no checking phones - just connection.",
-      image: familyGatheringImg
+}
+
+// Match content by title keywords for flexibility
+function getContentByTitle(title: string): ChapterContentData | null {
+  const lowerTitle = title.toLowerCase();
+  
+  if (lowerTitle.includes('greet') || lowerTitle.includes('hello') || lowerTitle.includes('introduction')) {
+    return greetingsContent;
+  }
+  if (lowerTitle.includes('number') || lowerTitle.includes('count')) {
+    return numbersContent;
+  }
+  if (lowerTitle.includes('family') || lowerTitle.includes('familia')) {
+    return familyContent;
+  }
+  return null;
+}
+
+const greetingsContent: ChapterContentData = {
+  welcomeText: "Welcome to your Spanish journey! In this chapter, you'll learn the essential building blocks of Spanish conversation - greetings, introductions, and the art of making a great first impression.",
+  narrativeSections: [
+    {
+      title: "The Art of Greeting",
+      content: "In Spanish-speaking cultures, greetings are more than just words - they're a warm embrace of connection. Unlike quick 'hi and bye' exchanges, Spanish greetings often come with genuine warmth: a kiss on the cheek among friends, a firm handshake in business, and always, always eye contact.",
+      image: coffeeShopImg,
+      imageAlt: "Friends having coffee and conversation",
+      tip: "Pro tip: In most Latin American countries, a single kiss on the cheek is common. In Spain, it's usually two!"
+    },
+    {
+      title: "Time Matters",
+      content: "Spanish has different greetings for different times of day. 'Buenos días' greets the morning sun, 'Buenas tardes' welcomes the afternoon, and 'Buenas noches' embraces the evening. Pay attention to when the sun is in the sky!",
+      image: greetingsInfographicImg,
+      imageAlt: "Spanish greetings throughout the day infographic"
+    },
+    {
+      title: "Formal vs. Informal",
+      content: "Spanish distinguishes between formal and informal speech through 'usted' and 'tú'. Think of 'usted' as the respectful distance you'd keep with your boss or an elder, while 'tú' is the comfortable closeness of friends and family.",
+      tip: "When in doubt, start formal! It's always better to be too polite than too casual."
     }
-  },
-  2: {
-    welcomeText: "Family is at the heart of Spanish-speaking culture. In this chapter, you'll learn to talk about your loved ones and understand the beautiful, sometimes complex, family structures that define Latin identity.",
-    narrativeSections: [
-      {
-        title: "La Familia",
-        content: "In Spanish-speaking cultures, 'family' often extends far beyond the nuclear unit. Cousins might be as close as siblings, and 'tíos' (aunts and uncles) play significant roles in raising children. The vocabulary reflects this richness.",
-        image: familyTreeImg,
-        imageAlt: "Spanish family vocabulary tree",
-        tip: "Many Spanish speakers use 'tío/tía' affectionately for close friends too - it's like calling someone 'dude' or 'hon'!"
-      },
-      {
-        title: "Numbers That Connect",
-        content: "From sharing phone numbers to celebrating birthdays, numbers are everywhere in family life. You'll learn to count in Spanish and use numbers naturally in conversation.",
-        image: numbersVocabImg,
-        imageAlt: "Spanish numbers vocabulary card"
-      }
-    ],
-    culturalSpotlight: {
-      title: "Los Apellidos",
-      content: "Spanish naming conventions are unique - most people carry two last names: their father's surname followed by their mother's. This tradition honors both sides of the family and helps trace lineage. So 'García López' tells a story of two families joined together.",
-      image: familyGatheringImg
-    }
+  ],
+  culturalSpotlight: {
+    title: "¡Sobremesa!",
+    content: "One of the most beautiful Spanish traditions is 'sobremesa' - the time spent lingering at the table after a meal, just talking and enjoying company. This is where real conversations happen, where bonds are strengthened. No rushing, no checking phones - just connection.",
+    image: familyGatheringImg
   }
 };
 
-export function ChapterIntroduction({ chapterNumber, language, className = "" }: ChapterIntroductionProps) {
-  const content = chapterContent[chapterNumber];
+const numbersContent: ChapterContentData = {
+  welcomeText: "Numbers are the universal language! In this chapter, you'll master counting in Spanish from zero to a million. Whether you're shopping, telling time, or sharing your phone number, numbers will become second nature.",
+  narrativeSections: [
+    {
+      title: "Counting from Zero",
+      content: "Spanish numbers follow patterns that make them easier to learn than you might think. Start with uno, dos, tres and build from there. The first fifteen numbers are unique, but after that, predictable patterns emerge that will help you count to infinity!",
+      image: numbersVocabImg,
+      imageAlt: "Spanish numbers vocabulary card",
+      tip: "Notice that 'uno' becomes 'un' before masculine nouns: 'un libro' (one book), but stays 'una' for feminine: 'una mesa' (one table)."
+    },
+    {
+      title: "Numbers in Daily Life",
+      content: "From asking '¿Cuánto cuesta?' (How much does it cost?) to giving your phone number digit by digit, numbers appear everywhere. Practice by counting everyday objects, reading prices, or doing simple math problems in Spanish.",
+      tip: "When giving phone numbers in Spanish, people often say digits in pairs: 55-12-34 instead of 5-5-1-2-3-4."
+    }
+  ],
+  culturalSpotlight: {
+    title: "El Regateo (Bargaining)",
+    content: "In many Spanish-speaking countries, bargaining is an art form, especially in markets and small shops. Knowing your numbers well gives you confidence to negotiate prices. Start by asking 'Me puede hacer un descuento?' (Can you give me a discount?) and see where the conversation goes!"
+  }
+};
+
+const familyContent: ChapterContentData = {
+  welcomeText: "Family is at the heart of Spanish-speaking culture. In this chapter, you'll learn to talk about your loved ones and understand the beautiful, sometimes complex, family structures that define Latin identity.",
+  narrativeSections: [
+    {
+      title: "La Familia",
+      content: "In Spanish-speaking cultures, 'family' often extends far beyond the nuclear unit. Cousins might be as close as siblings, and 'tíos' (aunts and uncles) play significant roles in raising children. The vocabulary reflects this richness.",
+      image: familyTreeImg,
+      imageAlt: "Spanish family vocabulary tree",
+      tip: "Many Spanish speakers use 'tío/tía' affectionately for close friends too - it's like calling someone 'dude' or 'hon'!"
+    },
+    {
+      title: "Extended Family Bonds",
+      content: "Spanish has specific words for family relationships that English groups together. 'Suegra' is mother-in-law, 'cuñado' is brother-in-law, and 'compadre' describes a special bond between godparents and parents.",
+      image: familyGatheringImg,
+      imageAlt: "Family gathering"
+    }
+  ],
+  culturalSpotlight: {
+    title: "Los Apellidos",
+    content: "Spanish naming conventions are unique - most people carry two last names: their father's surname followed by their mother's. This tradition honors both sides of the family and helps trace lineage. So 'García López' tells a story of two families joined together.",
+    image: familyGatheringImg
+  }
+};
+
+export function ChapterIntroduction({ chapterNumber, chapterTitle, language, className = "" }: ChapterIntroductionProps) {
+  // Try to match content by title first (more accurate), fall back to number
+  const content = chapterTitle ? getContentByTitle(chapterTitle) : null;
   
   if (!content || language !== "spanish") {
     return null;

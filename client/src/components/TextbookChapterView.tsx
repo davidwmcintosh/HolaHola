@@ -261,7 +261,8 @@ export function TextbookChapterView({
       </div>
       
       <ChapterIntroduction 
-        chapterNumber={chapter.number} 
+        chapterNumber={chapter.number}
+        chapterTitle={chapter.title}
         language={language}
         className="mb-4"
       />
