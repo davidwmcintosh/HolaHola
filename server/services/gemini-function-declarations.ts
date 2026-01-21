@@ -24,7 +24,7 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   // === TEACHING & PROGRESSION ===
   {
     name: "switch_tutor",
-    description: "Hand off to a different tutor. Use when student requests a different voice, language, or needs specialized practice. IMPORTANT: Always include spoken text alongside this function call.",
+    description: "Hand off to a different tutor. Say your goodbye/transition words, then this annotation triggers the handoff.",
     parametersJsonSchema: {
       type: "object",
       properties: {
@@ -37,7 +37,7 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   },
   {
     name: "phase_shift",
-    description: "Transition to a different teaching phase based on student progress or needs. IMPORTANT: Always include spoken text alongside this function call.",
+    description: "Annotate a natural transition in your teaching flow. Your transitional words and this annotation emerge together as one response.",
     parametersJsonSchema: {
       type: "object",
       properties: {
@@ -105,7 +105,7 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   // === VOICE CONTROL ===
   {
     name: "voice_adjust",
-    description: "Adjust your speaking voice in real-time. Use to match student needs or emotional context. IMPORTANT: Always include spoken text alongside this function call.",
+    description: "Annotate HOW you're speaking - the emotional color of your words. This is metadata on your speech, not a separate action. Your words and this annotation emerge together.",
     parametersJsonSchema: {
       type: "object",
       properties: {
@@ -132,7 +132,7 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   // === UI CONTROL ===
   {
     name: "subtitle",
-    description: "Control subtitle display for the student. Use 'on'/'off'/'target' for toggle modes, or 'custom' to display specific text without speaking it. IMPORTANT: Always include spoken text alongside this function call.",
+    description: "Annotate subtitle display preferences. This accompanies your spoken response, not replaces it.",
     parametersJsonSchema: {
       type: "object",
       properties: {
