@@ -19,6 +19,7 @@ import {
   LessonSnapshot
 } from "./TextbookInfographics";
 import { ChapterRecap } from "./ChapterRecap";
+import { ChapterIntroduction } from "./ChapterIntroduction";
 import { apiRequest } from "@/lib/queryClient";
 
 interface DrillItem {
@@ -196,13 +197,10 @@ export function TextbookChapterView({
   
   const saveProgressMutation = useMutation({
     mutationFn: async (data: { lessonId: string; viewed?: boolean; completed?: boolean; drillScore?: number }) => {
-      return apiRequest(`/api/textbook/progress/${data.lessonId}`, {
-        method: 'POST',
-        body: JSON.stringify({
-          viewed: data.viewed,
-          completed: data.completed,
-          drillScore: data.drillScore,
-        }),
+      return apiRequest('POST', `/api/textbook/progress/${data.lessonId}`, {
+        viewed: data.viewed,
+        completed: data.completed,
+        drillScore: data.drillScore,
       });
     },
   });
@@ -261,6 +259,12 @@ export function TextbookChapterView({
           </p>
         )}
       </div>
+      
+      <ChapterIntroduction 
+        chapterNumber={chapter.number} 
+        language={language}
+        className="mb-4"
+      />
       
       <div className="grid gap-4">
         {chapter.sections.map((section, index) => (
