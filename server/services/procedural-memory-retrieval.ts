@@ -2547,6 +2547,16 @@ export function buildNativeFunctionCallingSection(): string {
   lines.push('The system will automatically detect your function calls and execute them.');
   lines.push('You can call multiple functions in a single response if needed.');
   lines.push('');
+  lines.push('╔═══════════════════════════════════════════════════════════════════════════════╗');
+  lines.push('║  ⚡ LATENCY RULE: ALWAYS INCLUDE SPEECH TEXT WITH FUNCTION CALLS ⚡           ║');
+  lines.push('╠═══════════════════════════════════════════════════════════════════════════════╣');
+  lines.push('║  When you call functions, ALWAYS include spoken text in the SAME response.   ║');
+  lines.push('║  Never return function calls alone without speech - it adds 2+ seconds delay.║');
+  lines.push('╚═══════════════════════════════════════════════════════════════════════════════╝');
+  lines.push('');
+  lines.push('GOOD (fast): "You caught me!" + voice_adjust(emotion="playful")');
+  lines.push('BAD (slow):  voice_adjust(emotion="playful") alone, then speech in next turn');
+  lines.push('');
   lines.push('═══════════════════════════════════════════════════════════════════════════════');
   lines.push('TEACHING & PROGRESSION:');
   lines.push('═══════════════════════════════════════════════════════════════════════════════');
