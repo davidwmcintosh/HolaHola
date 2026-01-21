@@ -958,10 +958,16 @@ export class GeminiStreamingService {
         } catch (error: any) {
           lastError = error;
           const status = error.status || error.code;
-          // Retry on 500, 502, 503, 504 errors
-          if (status >= 500 && status < 600 && attempt < maxRetries - 1) {
-            console.log(`[Gemini Streaming] Retry ${attempt + 1}/${maxRetries} after ${status} error`);
-            await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1))); // Exponential backoff
+          const errorMessage = error.message || '';
+          const isRateLimit = status === 429 || errorMessage.includes('RESOURCE_EXHAUSTED') || errorMessage.includes('Too Many Requests');
+          const isServerError = status >= 500 && status < 600;
+          
+          // Retry on rate limit (429) or server errors (5xx)
+          if ((isRateLimit || isServerError) && attempt < maxRetries - 1) {
+            // Longer backoff for rate limits (2s, 4s, 6s) vs server errors (0.5s, 1s, 1.5s)
+            const backoffMs = isRateLimit ? 2000 * (attempt + 1) : 500 * (attempt + 1);
+            console.log(`[Gemini Streaming] Retry ${attempt + 1}/${maxRetries} after ${isRateLimit ? 'rate limit' : status} error (waiting ${backoffMs}ms)`);
+            await new Promise(resolve => setTimeout(resolve, backoffMs));
             continue;
           }
           throw error;
