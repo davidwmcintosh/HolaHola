@@ -15057,6 +15057,24 @@ Current conversation context:
       // Extract 2-letter code from languageCode (e.g., "ja-JP" -> "ja") or use map
       const cartesiaLang = cartesiaLanguageMap[languageCode] || languageCode?.split('-')[0] || 'en';
       
+      // Map language code to language name for pronunciation dictionary lookup
+      const langCodeToName: Record<string, string> = {
+        'ja': 'japanese', 'ja-JP': 'japanese',
+        'es': 'spanish', 'es-ES': 'spanish', 'es-US': 'spanish', 'es-MX': 'spanish',
+        'fr': 'french', 'fr-FR': 'french', 'fr-CA': 'french',
+        'de': 'german', 'de-DE': 'german',
+        'it': 'italian', 'it-IT': 'italian',
+        'pt': 'portuguese', 'pt-BR': 'portuguese', 'pt-PT': 'portuguese',
+        'ko': 'korean', 'ko-KR': 'korean',
+        'zh': 'mandarin chinese', 'cmn-CN': 'mandarin chinese', 'zh-CN': 'mandarin chinese',
+        'en': 'english', 'en-US': 'english', 'en-GB': 'english',
+      };
+      const targetLanguage = langCodeToName[languageCode] || langCodeToName[cartesiaLang] || 'english';
+      
+      // Get pronunciation dictionary for this language (matches production streaming)
+      const { getPronunciationDictId } = await import('./services/cartesia-streaming');
+      const pronunciationDictId = getPronunciationDictId(targetLanguage);
+      
       // Build voice controls with emotion if provided
       // Cartesia emotions must be in format like "positivity:high" not simple words like "friendly"
       const voiceControls: any = {};
@@ -15069,6 +15087,9 @@ Current conversation context:
       }
       // Skip invalid emotion formats like "friendly", "warm", etc. - Cartesia will reject these
       
+      // Use sonic-3 model to match production streaming quality
+      const modelId = process.env.TTS_CARTESIA_MODEL || 'sonic-3';
+      
       const response = await fetch('https://api.cartesia.ai/tts/bytes', {
         method: 'POST',
         headers: {
@@ -15077,7 +15098,7 @@ Current conversation context:
           'Cartesia-Version': '2024-06-10',
         },
         body: JSON.stringify({
-          model_id: 'sonic-2',
+          model_id: modelId,
           transcript: text,
           voice: {
             mode: 'id',
@@ -15085,6 +15106,8 @@ Current conversation context:
             __experimental_controls: Object.keys(voiceControls).length > 0 ? voiceControls : undefined,
           },
           language: cartesiaLang,
+          // Include pronunciation dictionary to match production quality
+          ...(pronunciationDictId ? { context_id: pronunciationDictId } : {}),
           output_format: {
             container: 'mp3',
             bit_rate: 128000,
