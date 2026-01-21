@@ -677,7 +677,10 @@ export const STREAMING_FEATURE_FLAGS = {
    * - No race conditions between timing data and playback
    * - Single source of truth: AudioContext.currentTime
    * 
-   * Trade-off: ~100-200ms extra latency per sentence (still well under 3s target)
+   * Trade-off: ~100-200ms extra latency per sentence when disabled
+   * 
+   * ENABLED (Jan 2026): Progressive mode for faster perceived responses.
+   * Subtitle sync handled via timing data sent with chunks.
    */
-  PROGRESSIVE_AUDIO_STREAMING: false,
+  PROGRESSIVE_AUDIO_STREAMING: true,
 } as const;
