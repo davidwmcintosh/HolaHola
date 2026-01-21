@@ -410,6 +410,7 @@ export type TutorVoice = typeof tutorVoices.$inferSelect;
 export const conversations = pgTable("conversations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
+  ownerEmail: text("owner_email"), // Cross-environment identifier - same email across dev/prod
   language: text("language").notNull(), // Target language being learned
   nativeLanguage: text("native_language").notNull().default("english"), // Student's native language (for explanations)
   difficulty: text("difficulty").notNull(),
@@ -438,6 +439,7 @@ export const conversations = pgTable("conversations", {
   index("idx_conversations_user_language").on(table.userId, table.language),
   index("idx_conversations_class").on(table.classId),
   index("idx_conversations_type").on(table.conversationType),
+  index("idx_conversations_owner_email").on(table.ownerEmail),
 ]);
 
 export const messages = pgTable("messages", {

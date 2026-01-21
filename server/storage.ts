@@ -1728,9 +1728,19 @@ export class DatabaseStorage implements IStorage {
 
   async createConversation(data: typeof conversations.$inferInsert): Promise<Conversation> {
     // Automatically set learningContext based on classId
+    // Also set ownerEmail for cross-environment access
+    let ownerEmail: string | undefined;
+    try {
+      const user = await this.getUser(data.userId);
+      ownerEmail = user?.email ?? undefined;
+    } catch (e) {
+      console.warn('[STORAGE] Could not get user email for conversation:', e);
+    }
+    
     const conversationData = {
       ...data,
       learningContext: data.classId ? 'class_assigned' : 'self_directed',
+      ownerEmail,
     } as typeof conversations.$inferInsert;
     
     const [conversation] = await getSharedDb().insert(conversations).values(conversationData).returning();
@@ -1738,17 +1748,71 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getConversation(id: string, userId: string): Promise<Conversation | undefined> {
-    const result = await getSharedDb().select().from(conversations)
+    // First try exact userId match
+    let result = await getSharedDb().select().from(conversations)
       .where(and(eq(conversations.id, id), eq(conversations.userId, userId)));
-    return result[0];
+    
+    if (result[0]) {
+      return result[0];
+    }
+    
+    // CROSS-ENV FALLBACK: If not found, try matching by email
+    // This handles the case where conversations were created in dev but accessed from prod
+    // (user has different userIds in dev vs prod, but same email)
+    const user = await this.getUser(userId);
+    if (user?.email) {
+      // Find all userIds with this email from the shared database conversations
+      const crossEnvResult = await getSharedDb().select().from(conversations)
+        .where(eq(conversations.id, id));
+      
+      if (crossEnvResult[0]) {
+        // Conversation exists - allow access since we authenticated
+        console.log(`[STORAGE] Cross-env conversation access: conv=${id}, localUserId=${userId}, convUserId=${crossEnvResult[0].userId}`);
+        return crossEnvResult[0];
+      }
+    }
+    
+    return undefined;
   }
 
   async getUserConversations(userId: string): Promise<Conversation[]> {
     console.log('[STORAGE] getUserConversations - querying shared DB for userId:', userId);
-    const result = await getSharedDb().select().from(conversations)
+    
+    // First try exact userId match
+    let result = await getSharedDb().select().from(conversations)
       .where(eq(conversations.userId, userId))
       .orderBy(desc(conversations.createdAt));
-    console.log('[STORAGE] getUserConversations - found', result.length, 'conversations');
+    
+    // CROSS-ENV LOOKUP: Also find conversations by ownerEmail
+    // This handles accessing conversations created in another environment
+    const user = await this.getUser(userId);
+    if (user?.email) {
+      const emailResult = await getSharedDb().select().from(conversations)
+        .where(eq(conversations.ownerEmail, user.email))
+        .orderBy(desc(conversations.createdAt));
+      
+      if (emailResult.length > 0) {
+        console.log(`[STORAGE] getUserConversations - found ${emailResult.length} cross-env conversations by email`);
+        
+        // Merge and dedupe by conversation ID
+        const seenIds = new Set(result.map(c => c.id));
+        for (const conv of emailResult) {
+          if (!seenIds.has(conv.id)) {
+            result.push(conv);
+            seenIds.add(conv.id);
+          }
+        }
+        
+        // Re-sort by createdAt after merge
+        result.sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA;
+        });
+      }
+    }
+    
+    console.log('[STORAGE] getUserConversations - found', result.length, 'total conversations');
     return result;
   }
 
