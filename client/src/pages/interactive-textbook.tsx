@@ -313,10 +313,7 @@ export default function InteractiveTextbook() {
   // Mutation to save user's position
   const savePositionMutation = useMutation({
     mutationFn: async (data: { chapterId: string; lessonId?: string }) => {
-      return apiRequest(`/api/textbook/${language}/position`, {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
+      return apiRequest('POST', `/api/textbook/${language}/position`, data);
     },
   });
   
