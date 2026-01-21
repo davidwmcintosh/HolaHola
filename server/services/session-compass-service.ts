@@ -10,7 +10,7 @@
  * for fast prompt assembly (no DB reads per turn).
  */
 
-import { getUserDb } from "../db";
+import { getUserDb, getSharedDb } from "../db";
 import { eq, and, isNull, isNotNull, desc } from "drizzle-orm";
 import {
   tutorSessions,
@@ -127,10 +127,10 @@ export class SessionCompassService {
       const student = user[0];
       if (!student) return null;
 
-      // Get last session summary for continuity
+      // Get last session summary for continuity (tutorSessions is SHARED table)
       // Query for sessions that actually have a summary (completed sessions)
       // This prevents finding active sessions without summaries
-      const lastSessions = await getUserDb()
+      const lastSessions = await getSharedDb()
         .select()
         .from(tutorSessions)
         .where(
@@ -156,8 +156,8 @@ export class SessionCompassService {
       let studentInterests: string | null = null;
 
       if (classId) {
-        // Get class info for context
-        const classInfo = await getUserDb()
+        // Get class info for context (teacherClasses is SHARED table)
+        const classInfo = await getSharedDb()
           .select()
           .from(teacherClasses)
           .where(eq(teacherClasses.id, classId))
@@ -168,7 +168,7 @@ export class SessionCompassService {
         }
       }
 
-      // Create the session
+      // Create the session (tutorSessions is SHARED table)
       const sessionData: InsertTutorSession = {
         conversationId,
         userId,
@@ -187,7 +187,7 @@ export class SessionCompassService {
         legacyFreedomLevel,
       };
 
-      const [session] = await getUserDb()
+      const [session] = await getSharedDb()
         .insert(tutorSessions)
         .values(sessionData)
         .returning();
@@ -257,8 +257,8 @@ export class SessionCompassService {
       needsCreditRefresh = !cached.creditBalanceUpdated || 
         (Date.now() - cached.creditBalanceUpdated.getTime()) >= CREDIT_BALANCE_TTL_MS;
     } else {
-      // Cache miss or stale - load from DB
-      const sessions = await getUserDb()
+      // Cache miss or stale - load from DB (tutorSessions is SHARED table)
+      const sessions = await getSharedDb()
         .select()
         .from(tutorSessions)
         .where(eq(tutorSessions.conversationId, conversationId))
@@ -268,13 +268,14 @@ export class SessionCompassService {
       const session = sessions[0];
       if (!session) return null;
 
-      // Load topics and parking items
-      const topics = await getUserDb()
+      // Load topics (tutorSessionTopics is SHARED table)
+      const topics = await getSharedDb()
         .select()
         .from(tutorSessionTopics)
         .where(eq(tutorSessionTopics.sessionId, session.id))
         .orderBy(tutorSessionTopics.sortOrder);
 
+      // Load parking items (tutorParkingItems is USER table)
       const parkingItems = await getUserDb()
         .select()
         .from(tutorParkingItems)
@@ -499,8 +500,8 @@ export class SessionCompassService {
     cached.session = { ...cached.session, elapsedSeconds };
     cached.lastUpdated = new Date();
 
-    // Async DB update (non-blocking)
-    getUserDb().update(tutorSessions)
+    // Async DB update (non-blocking) - tutorSessions is SHARED table
+    getSharedDb().update(tutorSessions)
       .set({ elapsedSeconds, updatedAt: new Date() })
       .where(eq(tutorSessions.id, cached.session.id))
       .execute()
@@ -512,13 +513,14 @@ export class SessionCompassService {
    */
   async addTopic(params: InsertTutorSessionTopic): Promise<TutorSessionTopic | null> {
     try {
-      const [topic] = await getUserDb()
+      // tutorSessionTopics is SHARED table
+      const [topic] = await getSharedDb()
         .insert(tutorSessionTopics)
         .values(params)
         .returning();
 
-      // Update cache
-      const sessionResult = await getUserDb()
+      // Update cache - tutorSessions is SHARED table
+      const sessionResult = await getSharedDb()
         .select()
         .from(tutorSessions)
         .where(eq(tutorSessions.id, params.sessionId))
@@ -545,7 +547,8 @@ export class SessionCompassService {
    */
   async updateTopicStatus(topicId: string, status: TopicCoverageStatus, notes?: string): Promise<void> {
     try {
-      await getUserDb()
+      // tutorSessionTopics is SHARED table
+      await getSharedDb()
         .update(tutorSessionTopics)
         .set({ 
           status, 
@@ -584,13 +587,14 @@ export class SessionCompassService {
       : sessionIdOrParams;
 
     try {
+      // tutorParkingItems is USER table, keep getUserDb()
       const [item] = await getUserDb()
         .insert(tutorParkingItems)
         .values(params)
         .returning();
 
-      // Update cache
-      const sessionResult = await getUserDb()
+      // Update cache - tutorSessions is SHARED table
+      const sessionResult = await getSharedDb()
         .select()
         .from(tutorSessions)
         .where(eq(tutorSessions.id, params.sessionId))
@@ -647,8 +651,8 @@ export class SessionCompassService {
    */
   async generateSessionSummary(conversationId: string): Promise<string | null> {
     try {
-      // Get conversation messages
-      const conversationMessages = await getUserDb()
+      // Get conversation messages (SHARED table - use getSharedDb)
+      const conversationMessages = await getSharedDb()
         .select()
         .from(messages)
         .where(eq(messages.conversationId, conversationId))
@@ -658,8 +662,8 @@ export class SessionCompassService {
         return null; // Too short to summarize
       }
       
-      // Get conversation details for context
-      const [conversation] = await getUserDb()
+      // Get conversation details for context (SHARED table - use getSharedDb)
+      const [conversation] = await getSharedDb()
         .select()
         .from(conversations)
         .where(eq(conversations.id, conversationId))
@@ -723,7 +727,8 @@ Summary (2-3 sentences):`;
         .filter(t => t.status === 'pending' || t.status === 'partial')
         .map(t => t.title);
 
-      await getUserDb()
+      // tutorSessions is a SHARED table - use getSharedDb()
+      await getSharedDb()
         .update(tutorSessions)
         .set({
           status: 'completed',
@@ -753,7 +758,8 @@ Summary (2-3 sentences):`;
       return cached.session;
     }
 
-    const sessions = await getUserDb()
+    // tutorSessions is SHARED table
+    const sessions = await getSharedDb()
       .select()
       .from(tutorSessions)
       .where(
@@ -771,7 +777,8 @@ Summary (2-3 sentences):`;
    * Get session by ID
    */
   async getSessionById(sessionId: string): Promise<TutorSession | null> {
-    const sessions = await getUserDb()
+    // tutorSessions is SHARED table
+    const sessions = await getSharedDb()
       .select()
       .from(tutorSessions)
       .where(eq(tutorSessions.id, sessionId))
@@ -784,7 +791,8 @@ Summary (2-3 sentences):`;
    * Get topic by ID
    */
   async getTopicById(topicId: string): Promise<TutorSessionTopic | null> {
-    const topics = await getUserDb()
+    // tutorSessionTopics is SHARED table
+    const topics = await getSharedDb()
       .select()
       .from(tutorSessionTopics)
       .where(eq(tutorSessionTopics.id, topicId))
