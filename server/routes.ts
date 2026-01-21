@@ -8896,6 +8896,10 @@ Return ONLY the ${targetLanguage} phrase:`;
       
       res.json({ position: position || null });
     } catch (error: any) {
+      // Handle missing table gracefully (table not yet migrated to Neon USER DB)
+      if (error.code === '42P01') {
+        return res.json({ position: null });
+      }
       console.error('Error fetching textbook position:', error);
       res.status(500).json({ error: error.message });
     }
@@ -8970,6 +8974,10 @@ Return ONLY the ${targetLanguage} phrase:`;
       
       res.json({ success: true });
     } catch (error: any) {
+      // Handle missing table gracefully (table not yet migrated to Neon USER DB)
+      if (error.code === '42P01') {
+        return res.json({ success: true, pending: true });
+      }
       console.error('Error updating textbook position:', error);
       res.status(500).json({ error: error.message });
     }
