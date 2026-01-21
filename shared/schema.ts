@@ -2806,7 +2806,7 @@ export type CollaborationMessage = typeof collaborationMessages.$inferSelect;
 export const syncCursors = pgTable("sync_cursors", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   clientId: varchar("client_id").notNull(), // Browser/device identifier (stored in localStorage)
-  sessionId: varchar("session_id").notNull().references(() => founderSessions.id, { onDelete: 'cascade' }),
+  sessionId: varchar("session_id").notNull(), // FK removed - soft reference (cross-database architecture)
   lastProcessedCursor: varchar("last_processed_cursor"), // Last message cursor successfully delivered
   connectedAt: timestamp("connected_at").notNull().defaultNow(),
   disconnectedAt: timestamp("disconnected_at"),

@@ -95,6 +95,9 @@ export const SHARED_TABLES = new Set([
   // Architect/Wren Notes
   'architect_notes',
   
+  // Sync cursors (must be with founder_sessions for FK constraint)
+  'sync_cursors',
+  
   // Support Knowledge (global)
   'support_knowledge_base',
   'support_patterns',
@@ -203,7 +206,7 @@ export const USER_TABLES = new Set([
   
   // Sync infrastructure (will be removed post-migration)
   'sync_runs',
-  'sync_cursors',
+  // 'sync_cursors' moved to SHARED_TABLES (FK to founder_sessions)
   'sync_conflicts',
   'sync_verification_results',
 ]);
