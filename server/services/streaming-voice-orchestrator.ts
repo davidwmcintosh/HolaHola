@@ -7894,27 +7894,17 @@ Only include observations you can clearly justify from the exchange. Return empt
       }
       
       const json = JSON.stringify(message);
-      // DEBUG: Log critical message sends
-      if (message.type === 'word_timing_delta') {
-        console.log(`[SEND DEBUG] word_timing_delta: readyState=${ws.readyState}, length=${json.length}`);
-      }
-      if (message.type === 'word_timing_final') {
-        const finalMsg = message as any;
-        console.log(`[SEND DEBUG] word_timing_final: readyState=${ws.readyState}, sentence=${finalMsg.sentenceIndex}, words=${finalMsg.words?.length}, length=${json.length}`);
-      }
-      if (message.type === 'audio_chunk') {
-        const audioMsg = message as any;
-        console.log(`[SEND DEBUG] audio_chunk: sentence=${audioMsg.sentenceIndex}, chunk=${audioMsg.chunkIndex}, audioLen=${audioMsg.audio?.length || 0}, isLast=${audioMsg.isLast}`);
-      }
+      // HOT PATH: Disabled per-chunk logging to prevent audio jitter
+      // Only log response_complete for session tracking
       if (message.type === 'response_complete') {
         const completeMsg = message as any;
-        console.log(`[SEND DEBUG] >>> RESPONSE_COMPLETE: totalSentences=${completeMsg.totalSentences}, fullText=${completeMsg.fullText?.slice(0, 50)}...`);
+        console.log(`[Streaming] Response complete: ${completeMsg.totalSentences} sentences`);
       }
       ws.send(json);
     } else {
-      // DEBUG: Log when WebSocket isn't open
-      if (message.type === 'word_timing_delta' || message.type === 'audio_chunk' || message.type === 'word_timing_final') {
-        console.log(`[SEND DEBUG] SKIPPED ${message.type}: readyState=${ws.readyState} (not OPEN)`);
+      // Only log critical failures (not hot-path timing messages)
+      if (message.type === 'response_complete' || message.type === 'error') {
+        console.log(`[Streaming] SKIPPED ${message.type}: readyState=${ws.readyState} (not OPEN)`);
       }
     }
   }
