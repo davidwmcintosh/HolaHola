@@ -1,11 +1,11 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles, Globe, Users, BookOpen, Lightbulb } from "lucide-react";
+import { SunArcGreetings, FormalInformalComparison, QuickPhraseGrid } from "./TextbookInfographics";
 
 import familyGatheringImg from "@assets/stock_images/family_gathering_aro_0f321ed1.jpg";
 import coffeeShopImg from "@assets/stock_images/coffee_shop_friends__69e794a8.jpg";
 import danielaTutorImg from "@assets/generated_images/daniela_tutor_welcome_illustration.png";
-import greetingsInfographicImg from "@assets/generated_images/spanish_greetings_time_infographic.png";
 import numbersVocabImg from "@assets/generated_images/spanish_numbers_vocabulary_card.png";
 import familyTreeImg from "@assets/generated_images/spanish_family_vocabulary_tree.png";
 
@@ -16,15 +16,18 @@ interface ChapterIntroductionProps {
   className?: string;
 }
 
+interface NarrativeSection {
+  title: string;
+  content: string;
+  image?: string;
+  imageAlt?: string;
+  tip?: string;
+  infographic?: 'sunArcGreetings' | 'formalInformal' | 'quickPhrases';
+}
+
 interface ChapterContentData {
   welcomeText: string;
-  narrativeSections: {
-    title: string;
-    content: string;
-    image?: string;
-    imageAlt?: string;
-    tip?: string;
-  }[];
+  narrativeSections: NarrativeSection[];
   culturalSpotlight?: {
     title: string;
     content: string;
@@ -61,12 +64,12 @@ const greetingsContent: ChapterContentData = {
     {
       title: "Time Matters",
       content: "Spanish has different greetings for different times of day. 'Buenos días' greets the morning sun, 'Buenas tardes' welcomes the afternoon, and 'Buenas noches' embraces the evening. Pay attention to when the sun is in the sky!",
-      image: greetingsInfographicImg,
-      imageAlt: "Spanish greetings throughout the day infographic"
+      infographic: 'sunArcGreetings'
     },
     {
       title: "Formal vs. Informal",
       content: "Spanish distinguishes between formal and informal speech through 'usted' and 'tú'. Think of 'usted' as the respectful distance you'd keep with your boss or an elder, while 'tú' is the comfortable closeness of friends and family.",
+      infographic: 'formalInformal',
       tip: "When in doubt, start formal! It's always better to be too polite than too casual."
     }
   ],
@@ -157,41 +160,82 @@ export function ChapterIntroduction({ chapterNumber, chapterTitle, language, cla
         </CardContent>
       </Card>
       
-      {content.narrativeSections.map((section, index) => (
-        <Card key={index} className="overflow-hidden" data-testid={`card-narrative-section-${index}`}>
-          <CardContent className="p-0">
-            <div className={`flex flex-col ${index % 2 === 1 ? 'md:flex-row-reverse' : 'md:flex-row'}`}>
-              {section.image && (
-                <div className="md:w-2/5 flex-shrink-0">
-                  <img 
-                    src={section.image} 
-                    alt={section.imageAlt || section.title}
-                    className="w-full h-48 md:h-full object-cover"
-                    data-testid={`img-narrative-${index}`}
-                  />
-                </div>
-              )}
-              <div className={`flex-1 p-4 md:p-6 ${!section.image ? 'md:max-w-none' : ''}`}>
-                <h3 className="text-lg font-semibold mb-3 flex items-center gap-2" data-testid={`text-narrative-title-${index}`}>
-                  <BookOpen className="h-4 w-4 text-muted-foreground" />
-                  {section.title}
-                </h3>
-                <p className="text-muted-foreground leading-relaxed mb-4">
-                  {section.content}
-                </p>
-                {section.tip && (
-                  <div className="bg-amber-500/10 rounded-lg p-3 border border-amber-500/20" data-testid={`tip-section-${index}`}>
-                    <p className="text-sm text-amber-700 dark:text-amber-300 flex items-start gap-2">
-                      <Lightbulb className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                      <span>{section.tip}</span>
-                    </p>
+      {content.narrativeSections.map((section, index) => {
+        const hasVisual = section.image || section.infographic;
+        
+        const renderInfographic = () => {
+          switch (section.infographic) {
+            case 'sunArcGreetings':
+              return <SunArcGreetings className="w-full" />;
+            case 'formalInformal':
+              return (
+                <FormalInformalComparison 
+                  className="w-full"
+                  items={[
+                    { formal: "¿Cómo está usted?", informal: "¿Cómo estás?", context: "How are you?" },
+                    { formal: "Mucho gusto", informal: "¡Hola!", context: "Nice to meet you / Hi!" },
+                    { formal: "Con permiso", informal: "Oye", context: "Excuse me / Hey" },
+                  ]}
+                />
+              );
+            case 'quickPhrases':
+              return (
+                <QuickPhraseGrid 
+                  className="w-full"
+                  phrases={[
+                    { phrase: "Hola", meaning: "Hello" },
+                    { phrase: "Adiós", meaning: "Goodbye" },
+                    { phrase: "Por favor", meaning: "Please" },
+                    { phrase: "Gracias", meaning: "Thank you" },
+                  ]}
+                />
+              );
+            default:
+              return null;
+          }
+        };
+        
+        return (
+          <Card key={index} className="overflow-hidden" data-testid={`card-narrative-section-${index}`}>
+            <CardContent className="p-0">
+              <div className={`flex flex-col ${index % 2 === 1 ? 'md:flex-row-reverse' : 'md:flex-row'}`}>
+                {section.image && (
+                  <div className="md:w-2/5 flex-shrink-0">
+                    <img 
+                      src={section.image} 
+                      alt={section.imageAlt || section.title}
+                      className="w-full h-48 md:h-full object-cover"
+                      data-testid={`img-narrative-${index}`}
+                    />
                   </div>
                 )}
+                {section.infographic && (
+                  <div className="md:w-2/5 flex-shrink-0 p-4 bg-muted/20 flex items-center justify-center" data-testid={`infographic-${index}`}>
+                    {renderInfographic()}
+                  </div>
+                )}
+                <div className={`flex-1 p-4 md:p-6 ${!hasVisual ? 'md:max-w-none' : ''}`}>
+                  <h3 className="text-lg font-semibold mb-3 flex items-center gap-2" data-testid={`text-narrative-title-${index}`}>
+                    <BookOpen className="h-4 w-4 text-muted-foreground" />
+                    {section.title}
+                  </h3>
+                  <p className="text-muted-foreground leading-relaxed mb-4">
+                    {section.content}
+                  </p>
+                  {section.tip && (
+                    <div className="bg-amber-500/10 rounded-lg p-3 border border-amber-500/20" data-testid={`tip-section-${index}`}>
+                      <p className="text-sm text-amber-700 dark:text-amber-300 flex items-start gap-2">
+                        <Lightbulb className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                        <span>{section.tip}</span>
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
+        );
+      })}
       
       {content.culturalSpotlight && (
         <Card className="overflow-hidden border-purple-500/20 bg-gradient-to-br from-purple-500/5 to-transparent" data-testid="card-cultural-spotlight">
