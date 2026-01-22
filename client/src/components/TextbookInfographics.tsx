@@ -451,6 +451,180 @@ export function GrammarFocus({ drills, className = '' }: GrammarFocusProps) {
   );
 }
 
+interface VocabularyStudyGuideProps {
+  drills: DrillItem[];
+  title?: string;
+  className?: string;
+}
+
+export function VocabularyStudyGuide({ 
+  drills, 
+  title = "Key Vocabulary to Study",
+  className = '' 
+}: VocabularyStudyGuideProps) {
+  const vocabDrills = drills
+    .filter(d => d.itemType === 'listen_repeat' || d.itemType === 'translate_speak')
+    .slice(0, 8);
+
+  if (vocabDrills.length === 0) return null;
+
+  return (
+    <div className={`rounded-lg border bg-card p-4 ${className}`} data-testid="vocabulary-study-guide">
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-6 h-6 rounded-full bg-blue-500/10 flex items-center justify-center">
+          <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          </svg>
+        </div>
+        <h4 className="text-sm font-semibold">{title}</h4>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {vocabDrills.map((drill, i) => (
+          <div 
+            key={drill.id || i} 
+            className="flex items-center gap-3 p-2.5 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors"
+            data-testid={`vocab-item-${i}`}
+          >
+            <div className="w-7 h-7 rounded-full bg-blue-500/20 flex items-center justify-center text-xs font-bold text-blue-600 dark:text-blue-400 shrink-0">
+              {i + 1}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-sm truncate">{drill.targetText}</p>
+              <p className="text-xs text-muted-foreground truncate">{drill.prompt}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+      {drills.filter(d => d.itemType === 'listen_repeat' || d.itemType === 'translate_speak').length > 8 && (
+        <p className="text-xs text-muted-foreground mt-3 text-center">
+          +{drills.filter(d => d.itemType === 'listen_repeat' || d.itemType === 'translate_speak').length - 8} more vocabulary items
+        </p>
+      )}
+    </div>
+  );
+}
+
+interface UsefulPhrasesProps {
+  drills: DrillItem[];
+  topic?: string;
+  className?: string;
+}
+
+export function UsefulPhrases({ 
+  drills, 
+  topic,
+  className = '' 
+}: UsefulPhrasesProps) {
+  const phraseDrills = drills
+    .filter(d => d.targetText && d.targetText.split(' ').length >= 2)
+    .slice(0, 6);
+
+  if (phraseDrills.length === 0) return null;
+
+  return (
+    <div className={`rounded-lg border bg-gradient-to-br from-green-500/5 to-transparent p-4 ${className}`} data-testid="useful-phrases">
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-6 h-6 rounded-full bg-green-500/10 flex items-center justify-center">
+          <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
+        </div>
+        <h4 className="text-sm font-semibold">Useful Phrases for This Conversation</h4>
+      </div>
+      {topic && (
+        <p className="text-xs text-muted-foreground mb-3">
+          Practice these before chatting about: <span className="font-medium text-foreground">{topic}</span>
+        </p>
+      )}
+      <div className="space-y-2">
+        {phraseDrills.map((drill, i) => (
+          <div 
+            key={drill.id || i} 
+            className="p-3 rounded-md bg-background border border-green-500/20 hover:border-green-500/40 transition-colors"
+            data-testid={`phrase-item-${i}`}
+          >
+            <p className="font-medium text-sm">{drill.targetText}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{drill.prompt}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+interface PreparationTipsProps {
+  lessonType: string;
+  conversationTopic?: string;
+  objectives?: string[];
+  className?: string;
+}
+
+export function PreparationTips({ 
+  lessonType, 
+  conversationTopic, 
+  objectives,
+  className = '' 
+}: PreparationTipsProps) {
+  const tips: string[] = [];
+  
+  if (lessonType === 'conversation' && conversationTopic) {
+    tips.push(`Think about your own experience with: ${conversationTopic}`);
+    tips.push("Daniela will guide you - just try to respond in Spanish!");
+  } else if (lessonType === 'drill') {
+    tips.push("Practice saying each word out loud before starting");
+    tips.push("Focus on pronunciation, not just understanding");
+  }
+  
+  if (objectives && objectives.length > 0) {
+    objectives.forEach(obj => {
+      const lowerObj = obj.toLowerCase();
+      if (lowerObj.includes('describe')) {
+        tips.push("Think of specific examples you want to describe");
+      }
+      if (lowerObj.includes('compare')) {
+        tips.push("Prepare two things to compare and contrast");
+      }
+      if (lowerObj.includes('explain')) {
+        tips.push("Organize your thoughts on how you'd explain this topic");
+      }
+      if (lowerObj.includes('routine') || lowerObj.includes('daily')) {
+        tips.push("Review time words: por la mañana, por la tarde, por la noche");
+      }
+      if (lowerObj.includes('culture') || lowerObj.includes('custom')) {
+        tips.push("Think about cultural differences you've noticed or read about");
+      }
+    });
+  }
+
+  // Deduplicate tips
+  const uniqueTips = Array.from(new Set(tips)).slice(0, 4);
+
+  if (uniqueTips.length === 0) return null;
+
+  return (
+    <div className={`rounded-lg bg-amber-500/10 border border-amber-500/20 p-4 ${className}`} data-testid="preparation-tips">
+      <div className="flex items-start gap-3">
+        <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0">
+          <svg viewBox="0 0 24 24" className="w-4 h-4 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+          </svg>
+        </div>
+        <div className="flex-1">
+          <p className="text-sm font-semibold text-amber-700 dark:text-amber-300 mb-2">How to Prepare</p>
+          <ul className="space-y-1.5">
+            {uniqueTips.map((tip, i) => (
+              <li key={i} className="text-sm text-amber-700 dark:text-amber-300 flex items-start gap-2">
+                <span className="text-amber-500 mt-1 shrink-0">-</span>
+                <span>{tip}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface LessonSnapshotProps {
   lessonType: string;
   drills: DrillItem[];

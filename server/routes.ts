@@ -8754,19 +8754,33 @@ Return ONLY the ${targetLanguage} phrase:`;
       const chapters = await Promise.all(units.map(async (unit, index) => {
         const lessons = await storage.getCurriculumLessons(unit.id);
         
-        // Build sections without expensive progress queries
-        const sections = lessons.map((lesson) => ({
-          id: lesson.id,
-          name: lesson.name,
-          description: lesson.description || '',
-          lessonType: lesson.lessonType || 'lesson',
-          estimatedMinutes: lesson.estimatedMinutes || 10,
-          progress: 0, // Progress computed on demand in chapter detail view
-          isComplete: false,
-          hasDrills: lesson.lessonType === 'drill',
-          drillCount: 0, // Computed on demand
-          objectives: lesson.objectives || [],
-          conversationTopic: lesson.conversationTopic,
+        // Build sections with drill data for study guides
+        const sections = await Promise.all(lessons.map(async (lesson) => {
+          // Load drills for study guide content
+          const drillItems = await storage.getDrillItems(lesson.id);
+          
+          return {
+            id: lesson.id,
+            name: lesson.name,
+            description: lesson.description || '',
+            lessonType: lesson.lessonType || 'lesson',
+            estimatedMinutes: lesson.estimatedMinutes || 10,
+            progress: 0, // Progress computed on demand in chapter detail view
+            isComplete: false,
+            hasDrills: drillItems.length > 0,
+            drillCount: drillItems.length,
+            objectives: lesson.objectives || [],
+            conversationTopic: lesson.conversationTopic,
+            drills: drillItems.slice(0, 12).map(item => ({
+              id: item.id,
+              itemType: item.itemType,
+              prompt: item.prompt,
+              targetText: item.targetText,
+              difficulty: item.difficulty || 1,
+              mastered: false,
+              attempts: 0,
+            })),
+          };
         }));
         
         // Chapter is locked if previous chapter is not at least 50% complete (except first)

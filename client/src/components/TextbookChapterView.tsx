@@ -17,7 +17,10 @@ import {
 } from "lucide-react";
 import { 
   LessonSnapshot,
-  ObjectivesHighlight
+  ObjectivesHighlight,
+  VocabularyStudyGuide,
+  UsefulPhrases,
+  PreparationTips
 } from "./TextbookInfographics";
 import { ChapterRecap } from "./ChapterRecap";
 import { ChapterIntroduction } from "./ChapterIntroduction";
@@ -134,25 +137,36 @@ function VisualLessonCard({
           </div>
         </div>
         
-        <div className="p-4">
+        <div className="p-4 space-y-4">
           {section.description && (
-            <p className="text-sm text-muted-foreground mb-3">{section.description}</p>
+            <p className="text-sm text-muted-foreground">{section.description}</p>
           )}
           
           {section.objectives && section.objectives.length > 0 && (
             <ObjectivesHighlight 
               objectives={section.objectives} 
               title="After this lesson, I can..."
-              className="mb-4"
             />
           )}
           
-          <LessonSnapshot 
+          {section.drills && section.drills.length > 0 && (
+            <VocabularyStudyGuide 
+              drills={section.drills}
+              title="Study These Words First"
+            />
+          )}
+          
+          {section.conversationTopic && section.drills && section.drills.length > 0 && (
+            <UsefulPhrases 
+              drills={section.drills}
+              topic={section.conversationTopic}
+            />
+          )}
+          
+          <PreparationTips 
             lessonType={section.lessonType}
-            drills={section.drills || []}
             conversationTopic={section.conversationTopic}
-            objectives={[]}
-            className="mb-4"
+            objectives={section.objectives}
           />
           
           <div className="flex gap-2 flex-wrap sm:flex-nowrap">
