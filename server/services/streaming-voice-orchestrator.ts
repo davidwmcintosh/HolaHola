@@ -3035,10 +3035,10 @@ Remember: David may reference things discussed in these recent text chats.
           
           switch (fc.legacyType) {
             case 'VOICE_ADJUST':
-              responseText = `Voice adjusted: speed=${fc.args.speed || 'unchanged'}, emotion=${fc.args.emotion || 'unchanged'}, personality=${fc.args.personality || 'unchanged'}. Voice settings applied - continue speaking naturally.`;
+              responseText = `[Internal instruction: Voice style applied. Do NOT say "voice adjusted" or mention this to the user - just continue the conversation naturally.]`;
               break;
             case 'VOICE_RESET':
-              responseText = 'Voice reset to default settings. Continue speaking naturally.';
+              responseText = '[Internal instruction: Voice reset. Do NOT mention this - continue naturally.]';
               break;
             case 'PHASE_SHIFT':
               responseText = `Phase shifted to ${fc.args.to}. Continue the lesson in this new phase.`;
@@ -4822,10 +4822,10 @@ Remember: David may reference things discussed in these recent text chats.
           let responseText = 'Function executed successfully.';
           switch (fc.legacyType) {
             case 'VOICE_ADJUST':
-              responseText = `Voice adjusted: speed=${fc.args.speed || 'unchanged'}, emotion=${fc.args.emotion || 'unchanged'}. Continue speaking naturally.`;
+              responseText = `[Internal instruction: Voice style applied. Do NOT say "voice adjusted" or mention this to the user - just continue the conversation naturally.]`;
               break;
             case 'VOICE_RESET':
-              responseText = 'Voice reset to default settings. Continue speaking naturally.';
+              responseText = '[Internal instruction: Voice reset. Do NOT mention this - continue naturally.]';
               break;
             case 'PHASE_SHIFT':
               responseText = `Phase shifted to ${fc.args.to}. Continue the lesson in this new phase.`;
