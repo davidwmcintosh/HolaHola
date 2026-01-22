@@ -386,6 +386,16 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       console.log(`[StreamingVoice] Sentence ${msg.sentenceIndex} (turn ${msg.turnId}): "${msg.text.substring(0, 40)}..." hasTarget=${msg.hasTargetContent}`);
     }
     
+    // Reset processing timeout - activity is happening (prevents false timeout during long responses)
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+      processingTimeoutRef.current = setTimeout(() => {
+        console.log('[StreamingVoice] Processing timeout - resetting stuck thinking state');
+        setIsProcessing(false);
+        setError('Response timeout - please try again');
+      }, PROCESSING_TIMEOUT_MS);
+    }
+    
     // Store turnId for callbacks (in case processing message wasn't received)
     if (msg.turnId > currentTurnIdRef.current) {
       currentTurnIdRef.current = msg.turnId;
