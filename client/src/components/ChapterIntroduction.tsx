@@ -48,8 +48,38 @@ function getContentByTitle(title: string): ChapterContentData | null {
   if (lowerTitle.includes('family') || lowerTitle.includes('familia')) {
     return familyContent;
   }
+  if (lowerTitle.includes('review') || lowerTitle.includes('routine') || lowerTitle.includes('daily')) {
+    return dailyRoutinesContent;
+  }
   return null;
 }
+
+const dailyRoutinesContent: ChapterContentData = {
+  welcomeText: "Every day is an adventure in Spanish! In this chapter, you'll learn to talk about your daily routines, from waking up to going to bed. These phrases will help you describe your life and connect with others through shared experiences.",
+  narrativeSections: [
+    {
+      title: "A Day in the Life",
+      content: "Daily routines are the rhythm of life. In Spanish, we use reflexive verbs to describe many personal activities: 'Me despierto' (I wake up), 'Me levanto' (I get up), 'Me ducho' (I shower). Notice how 'me' reflects the action back to yourself.",
+      infographic: 'sunArcGreetings',
+      tip: "Reflexive verbs always pair with pronouns: me, te, se, nos, os, se. Think of them as 'self' actions!"
+    },
+    {
+      title: "Time and Schedule",
+      content: "Talking about when things happen is essential for daily routines. 'Por la mañana' (in the morning), 'por la tarde' (in the afternoon), 'por la noche' (at night). Add specific times with '¿A qué hora?' (At what time?) to make plans and keep schedules.",
+      tip: "Spanish often uses 12-hour time in conversation, but 24-hour time for schedules and transportation."
+    },
+    {
+      title: "Common Routine Phrases",
+      content: "Master these everyday expressions to describe your day naturally. From 'Desayuno a las ocho' (I have breakfast at eight) to 'Me acuesto temprano' (I go to bed early), these phrases will become second nature.",
+      infographic: 'quickPhrases'
+    }
+  ],
+  culturalSpotlight: {
+    title: "La Siesta",
+    content: "While the traditional midday siesta is becoming less common in modern cities, many Spanish-speaking countries still embrace a slower pace of life. Shops may close between 2-5 PM, and late dinners (9-10 PM) are the norm. Understanding these rhythms helps you adapt to local schedules!",
+    image: coffeeShopImg
+  }
+};
 
 const greetingsContent: ChapterContentData = {
   welcomeText: "Welcome to your Spanish journey! In this chapter, you'll learn the essential building blocks of Spanish conversation - greetings, introductions, and the art of making a great first impression.",
