@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -217,6 +217,7 @@ export function TextbookChapterView({
   onReviewFlashcards
 }: TextbookChapterViewProps) {
   const completedCount = chapter.sections.filter(s => s.isComplete).length;
+  const viewedChapterRef = useRef<string | null>(null);
   
   const saveProgressMutation = useMutation({
     mutationFn: async (data: { lessonId: string; viewed?: boolean; completed?: boolean; drillScore?: number }) => {
@@ -228,17 +229,15 @@ export function TextbookChapterView({
     },
   });
   
-  const markSectionViewed = useCallback((lessonId: string) => {
-    saveProgressMutation.mutate({ lessonId, viewed: true });
-  }, [saveProgressMutation]);
-  
+  // Mark all sections as viewed when chapter first loads (once per chapter)
   useEffect(() => {
-    if (chapter.sections.length > 0) {
+    if (chapter.id && chapter.id !== viewedChapterRef.current && chapter.sections.length > 0) {
+      viewedChapterRef.current = chapter.id;
       chapter.sections.forEach(section => {
-        markSectionViewed(section.id);
+        saveProgressMutation.mutate({ lessonId: section.id, viewed: true });
       });
     }
-  }, [chapter.id, chapter.sections, markSectionViewed]);
+  }, [chapter.id]);
   
   const handleReviewFlashcards = () => {
     if (onReviewFlashcards) {
