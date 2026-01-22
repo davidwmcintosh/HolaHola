@@ -8765,6 +8765,8 @@ Return ONLY the ${targetLanguage} phrase:`;
           isComplete: false,
           hasDrills: lesson.lessonType === 'drill',
           drillCount: 0, // Computed on demand
+          objectives: lesson.objectives || [],
+          conversationTopic: lesson.conversationTopic,
         }));
         
         // Chapter is locked if previous chapter is not at least 50% complete (except first)
