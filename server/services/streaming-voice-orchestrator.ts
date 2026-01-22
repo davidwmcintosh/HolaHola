@@ -2039,6 +2039,9 @@ Remember: David may reference things discussed in these recent text chats.
         systemPrompt: session.systemPrompt,  // STATIC base prompt (cacheable)
         conversationHistory: conversationHistoryWithContext,
         userMessage: userMessageWithNote,
+        // Honesty mode needs extra room for verbose, authentic responses
+        // Default 1024 was cutting off Daniela mid-thought
+        maxOutputTokens: session.isRawHonestyMode ? 8192 : 4096,
         enableFunctionCalling: true,  // Enable native Gemini 3 function calling
         enableContextCaching: true,   // Enable caching for stable system prompt
         streamFunctionCallArguments: true,  // Enable early intent detection for latency optimization
@@ -3127,6 +3130,7 @@ Remember: David may reference things discussed in these recent text chats.
               systemPrompt: session.systemPrompt,  // Use stable base prompt (cached)
               conversationHistory: continuationHistory,  // Fresh: preamble + updated history
               userMessage: '', // Empty - we're continuing from function responses
+              maxOutputTokens: session.isRawHonestyMode ? 8192 : 4096,
               enableFunctionCalling: true,
               enableContextCaching: true,  // Use cached system prompt
               onFunctionCall: async (newFunctionCalls: ExtractedFunctionCall[]) => {
@@ -4158,6 +4162,8 @@ Remember: David may reference things discussed in these recent text chats.
         systemPrompt: session.systemPrompt,  // STATIC base prompt (cacheable)
         conversationHistory: conversationHistoryWithContext,
         userMessage: userMessageWithNote,
+        // Honesty mode needs extra room for verbose responses
+        maxOutputTokens: session.isRawHonestyMode ? 8192 : 4096,
         enableFunctionCalling: true,  // Enable native Gemini 3 function calling (open-mic)
         enableContextCaching: true,   // Enable caching for stable system prompt
         streamFunctionCallArguments: true,  // Enable early intent detection (open-mic)
@@ -4924,6 +4930,7 @@ Remember: David may reference things discussed in these recent text chats.
               systemPrompt: session.systemPrompt,  // Use stable base prompt (cached)
               conversationHistory: continuationHistory,  // Fresh: preamble + updated history
               userMessage: '', // Empty - continuing from function responses
+              maxOutputTokens: session.isRawHonestyMode ? 8192 : 4096,
               enableFunctionCalling: true,
               enableContextCaching: true,  // Use cached system prompt
               onFunctionCall: async (newFCs: ExtractedFunctionCall[]) => {
@@ -5067,6 +5074,7 @@ Remember: David may reference things discussed in these recent text chats.
                 systemPrompt: session.systemPrompt,
                 conversationHistory: recursiveHistory,
                 userMessage: '',
+                maxOutputTokens: session.isRawHonestyMode ? 8192 : 4096,
                 enableFunctionCalling: true,
                 enableContextCaching: true,
                 onFunctionCall: async (newFCs: ExtractedFunctionCall[]) => {
@@ -8337,6 +8345,7 @@ Only include observations you can clearly justify from the exchange. Return empt
         systemPrompt: session.systemPrompt,
         conversationHistory: greetingHistory,  // Include history for resumed conversations
         userMessage: greetingPrompt,
+        maxOutputTokens: session.isRawHonestyMode ? 8192 : 4096,  // Allow verbose greetings in honesty mode
         enableContextCaching: true,  // Cache system prompt for faster response
         onSentence: async (chunk: SentenceChunk) => {
           if (!firstTokenReceived) {
@@ -9159,6 +9168,7 @@ DON'T:
         systemPrompt: session.systemPrompt,
         conversationHistory: session.conversationHistory,
         userMessage: switchPrompt,
+        maxOutputTokens: 4096,  // Tutor switch intros don't need honesty mode expansion
         enableContextCaching: true,  // Cache system prompt for faster response
         onSentence: async (chunk: SentenceChunk) => {
           // Clean text for display
@@ -9312,6 +9322,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         systemPrompt: session.systemPrompt + architectContext,
         conversationHistory: session.conversationHistory,
         userMessage: triggerPrompt,
+        maxOutputTokens: 4096,  // Architect responses don't need honesty mode expansion
         enableContextCaching: true,  // Cache system prompt for faster response
         onSentence: async (chunk: SentenceChunk) => {
           // Check for interrupt
