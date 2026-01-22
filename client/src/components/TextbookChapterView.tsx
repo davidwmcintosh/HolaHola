@@ -16,7 +16,8 @@ import {
   Play
 } from "lucide-react";
 import { 
-  LessonSnapshot
+  LessonSnapshot,
+  ObjectivesHighlight
 } from "./TextbookInfographics";
 import { ChapterRecap } from "./ChapterRecap";
 import { ChapterIntroduction } from "./ChapterIntroduction";
@@ -135,14 +136,22 @@ function VisualLessonCard({
         
         <div className="p-4">
           {section.description && (
-            <p className="text-sm text-muted-foreground mb-4">{section.description}</p>
+            <p className="text-sm text-muted-foreground mb-3">{section.description}</p>
+          )}
+          
+          {section.objectives && section.objectives.length > 0 && (
+            <ObjectivesHighlight 
+              objectives={section.objectives} 
+              title="After this lesson, I can..."
+              className="mb-4"
+            />
           )}
           
           <LessonSnapshot 
             lessonType={section.lessonType}
             drills={section.drills || []}
             conversationTopic={section.conversationTopic}
-            objectives={section.objectives}
+            objectives={[]}
             className="mb-4"
           />
           
