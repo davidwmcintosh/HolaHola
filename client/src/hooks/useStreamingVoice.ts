@@ -164,6 +164,11 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   // Ref for tutor switch timeout (error recovery)
   const tutorSwitchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
+  // Ref for processing timeout (stuck thinking recovery)
+  // If no activity for 30+ seconds while isProcessing=true, reset state
+  const processingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const PROCESSING_TIMEOUT_MS = 15000;  // 15 seconds max "thinking" time
+
   // Refs
   const clientRef = useRef<StreamingVoiceClient | null>(null);
   const playerRef = useRef<StreamingAudioPlayer | null>(null);
@@ -695,6 +700,11 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       subtitlesRef.current.reset();
       responseCompleteRef.current = true;
       pendingAudioCountRef.current = 0;
+      // Clear processing timeout on interrupt
+      if (processingTimeoutRef.current) {
+        clearTimeout(processingTimeoutRef.current);
+        processingTimeoutRef.current = null;
+      }
       setIsProcessing(false);
       return; // Don't do normal completion handling
     }
@@ -708,6 +718,12 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     
     // Mark response as complete
     responseCompleteRef.current = true;
+    
+    // Clear processing timeout (response received successfully)
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+      processingTimeoutRef.current = null;
+    }
     
     // Call the onResponseComplete callback to refresh messages
     // Messages are persisted server-side, so we need to refetch
@@ -1066,6 +1082,16 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     setIsProcessing(true);
     setError(null);
     subtitles.reset();
+    
+    // Start processing timeout (stuck thinking recovery)
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+    }
+    processingTimeoutRef.current = setTimeout(() => {
+      console.log('[StreamingVoice] Processing timeout - resetting stuck thinking state');
+      setIsProcessing(false);
+      setError('Response timeout - please try again');
+    }, PROCESSING_TIMEOUT_MS);
     
     // Clear stored audio from previous response before new request
     playerRef.current?.clearStoredAudio();
