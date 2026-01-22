@@ -55,28 +55,28 @@ function getContentByTitle(title: string): ChapterContentData | null {
 }
 
 const dailyRoutinesContent: ChapterContentData = {
-  welcomeText: "Every day is an adventure in Spanish! In this chapter, you'll learn to talk about your daily routines, from waking up to going to bed. These phrases will help you describe your life and connect with others through shared experiences.",
+  welcomeText: "Let's refresh what you know and build your daily vocabulary! This chapter reviews essential Spanish basics and introduces simple phrases for everyday life. Perfect for warming up or solidifying your foundation.",
   narrativeSections: [
     {
-      title: "A Day in the Life",
-      content: "Daily routines are the rhythm of life. In Spanish, we use reflexive verbs to describe many personal activities: 'Me despierto' (I wake up), 'Me levanto' (I get up), 'Me ducho' (I shower). Notice how 'me' reflects the action back to yourself.",
+      title: "Greetings Throughout the Day",
+      content: "Spanish greetings change with the time of day. Start your morning with 'Buenos días', switch to 'Buenas tardes' after lunch, and greet the evening with 'Buenas noches'. These simple phrases open every conversation!",
       infographic: 'sunArcGreetings',
-      tip: "Reflexive verbs always pair with pronouns: me, te, se, nos, os, se. Think of them as 'self' actions!"
+      tip: "Unlike English 'Good night' (only for goodbye), 'Buenas noches' works for both greeting and farewell."
     },
     {
-      title: "Time and Schedule",
-      content: "Talking about when things happen is essential for daily routines. 'Por la mañana' (in the morning), 'por la tarde' (in the afternoon), 'por la noche' (at night). Add specific times with '¿A qué hora?' (At what time?) to make plans and keep schedules.",
-      tip: "Spanish often uses 12-hour time in conversation, but 24-hour time for schedules and transportation."
-    },
-    {
-      title: "Common Routine Phrases",
-      content: "Master these everyday expressions to describe your day naturally. From 'Desayuno a las ocho' (I have breakfast at eight) to 'Me acuesto temprano' (I go to bed early), these phrases will become second nature.",
+      title: "Essential Courtesy",
+      content: "Two magic words will take you far: 'Por favor' (please) and 'Gracias' (thank you). Add '¿Cómo estás?' (How are you?) and 'Muy bien' (Very well) to start friendly exchanges anywhere you go.",
       infographic: 'quickPhrases'
+    },
+    {
+      title: "Simple Daily Words",
+      content: "Build your vocabulary with everyday words: 'el día' (the day), 'la mañana' (the morning), 'la noche' (the night), 'hoy' (today), 'mañana' (tomorrow). These building blocks appear in countless conversations.",
+      tip: "Notice that 'mañana' means both 'morning' and 'tomorrow' - context tells you which!"
     }
   ],
   culturalSpotlight: {
-    title: "La Siesta",
-    content: "While the traditional midday siesta is becoming less common in modern cities, many Spanish-speaking countries still embrace a slower pace of life. Shops may close between 2-5 PM, and late dinners (9-10 PM) are the norm. Understanding these rhythms helps you adapt to local schedules!",
+    title: "La Sobremesa",
+    content: "In Spanish-speaking cultures, meals are a time for connection. 'Sobremesa' is the cherished tradition of lingering at the table after eating, just talking and enjoying company. It's where real bonds are formed!",
     image: coffeeShopImg
   }
 };
