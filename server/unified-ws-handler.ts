@@ -712,6 +712,9 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
           // This gives Daniela full freedom to discuss HolaHola itself, teaching tools, etc.
           const isFounderMode = isDeveloper && !conversation.classId;
           
+          // Beta Tester Mode: User is helping test new features - Daniela can be experimental
+          const isBetaTester = user.isBetaTester === true;
+          
           // Raw Honesty Mode: Minimal prompting for authentic self-discovery conversations
           // Only available to founders, strips away all behavioral scripts
           const isRawHonestyMode = isFounderMode && config.rawHonestyMode === true;
@@ -1123,6 +1126,7 @@ Reference past discussions when relevant, but don't force it.
             voiceId,
             isFounderMode,  // Pass Founder Mode flag for multi-language STT
             isRawHonestyMode,  // Pass Raw Honesty Mode flag for minimal prompting
+            isBetaTester,  // Pass Beta Tester flag for rehearsal mode context
             additionalGreetingContext,  // Additional context for personalized greetings
             dbSessionId  // Database voice_sessions.id - set BEFORE session starts to avoid FK errors
           );
@@ -1149,8 +1153,9 @@ Reference past discussions when relevant, but don't force it.
               conversationId: conversationId, // Exposed for Architect's Voice integration
               isFounderMode: isFounderMode, // Flag for UI to show founder mode indicator
               isRawHonestyMode: isRawHonestyMode, // Flag for raw honesty mode indicator
+              isBetaTester: isBetaTester, // Flag for beta tester rehearsal mode
             }));
-            console.log(`[Streaming Voice] session_started sent (conversation: ${conversationId}${isRawHonestyMode ? ', RAW HONESTY MODE' : isFounderMode ? ', FOUNDER MODE' : ''})`);
+            console.log(`[Streaming Voice] session_started sent (conversation: ${conversationId}${isRawHonestyMode ? ', RAW HONESTY MODE' : isFounderMode ? ', FOUNDER MODE' : ''}${isBetaTester ? ', BETA TESTER' : ''})`);
           }
           
           // Apply any pending voice update that was queued before session was ready

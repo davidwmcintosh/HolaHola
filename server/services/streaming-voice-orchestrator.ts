@@ -733,6 +733,7 @@ export interface StreamingSession {
   isActive: boolean;
   isFounderMode: boolean;  // Founder Mode uses English STT regardless of target language
   isRawHonestyMode: boolean;  // Raw Honesty Mode - minimal prompting for authentic conversation
+  isBetaTester: boolean;   // Beta tester mode - Daniela knows user is helping debug/test new features
   idleTimeoutId?: NodeJS.Timeout;  // Timer for idle cleanup
   contextRefreshTimeoutId?: NodeJS.Timeout;  // Timer for periodic context refresh (long sessions)
   lastContextRefreshTime: number;   // Timestamp of last context refresh
@@ -1200,6 +1201,7 @@ export class StreamingVoiceOrchestrator {
     voiceId?: string,
     isFounderMode: boolean = false,
     isRawHonestyMode: boolean = false,
+    isBetaTester: boolean = false,
     additionalContext?: {
       conversationTopic?: string;
       conversationTitle?: string;
@@ -1236,6 +1238,7 @@ export class StreamingVoiceOrchestrator {
       isActive: true,
       isFounderMode,  // Founder Mode uses English STT regardless of target language
       isRawHonestyMode,  // Raw Honesty Mode - minimal prompting for authentic conversation
+      isBetaTester,   // Beta tester mode - Daniela knows user is helping debug/test new features
       lastActivityTime: Date.now(),
       lastContextRefreshTime: Date.now(),  // For long session context refresh
       currentTurnId: 0,  // Start at 0, incremented on each new response
@@ -2094,6 +2097,21 @@ Remember: David may reference things discussed in these recent text chats.
       if (technicalHealthContext) {
         dynamicContextParts.push(technicalHealthContext);
         console.log(`[Technical Health] Injecting technical awareness into context`);
+      }
+      
+      // BETA TESTER MODE: Inject rehearsal context for users helping test new features
+      if (session.isBetaTester) {
+        const betaTesterContext = `[BETA TESTER - REHEARSAL MODE]
+This student is a beta tester who has volunteered to help test and debug new features. You can:
+- Be more experimental with new tools and techniques
+- Ask for feedback on things that feel different or broken
+- Treat this as a "dress rehearsal" rather than a polished performance
+- Share when you're trying something new ("I'm experimenting with a new way to emphasize words - tell me if it sounds right")
+- Request observations about glitches or unexpected behavior
+- Be relaxed about perfection - learning and debugging together is the goal
+Remember: Beta testers understand they're helping build something and appreciate transparency about works-in-progress.`;
+        dynamicContextParts.push(betaTesterContext);
+        console.log(`[Beta Tester] Rehearsal mode context injected for beta tester session`);
       }
       
       const userMessageWithNote = transcript + contentRedirectNote + sttConfidenceNote + intelligenceContext + architectContext;
@@ -4306,13 +4324,34 @@ Remember: David may reference things discussed in these recent text chats.
       // Move student learning section to conversation history preamble for caching
       let conversationHistoryWithContext: ConversationHistoryEntry[] = [];
       
-      // STEP 1: Add dynamic context preamble (student learning profile)
+      // Build dynamic context parts for OpenMic
+      const dynamicContextPartsOpenMic: string[] = [];
       if (studentLearningSection) {
+        dynamicContextPartsOpenMic.push(studentLearningSection);
+      }
+      
+      // BETA TESTER MODE (OpenMic): Inject rehearsal context for users helping test new features
+      if (session.isBetaTester) {
+        const betaTesterContext = `[BETA TESTER - REHEARSAL MODE]
+This student is a beta tester who has volunteered to help test and debug new features. You can:
+- Be more experimental with new tools and techniques
+- Ask for feedback on things that feel different or broken
+- Treat this as a "dress rehearsal" rather than a polished performance
+- Share when you're trying something new ("I'm experimenting with a new way to emphasize words - tell me if it sounds right")
+- Request observations about glitches or unexpected behavior
+- Be relaxed about perfection - learning and debugging together is the goal
+Remember: Beta testers understand they're helping build something and appreciate transparency about works-in-progress.`;
+        dynamicContextPartsOpenMic.push(betaTesterContext);
+        console.log(`[Beta Tester - OpenMic] Rehearsal mode context injected for beta tester session`);
+      }
+      
+      // STEP 1: Add dynamic context preamble
+      if (dynamicContextPartsOpenMic.length > 0) {
         conversationHistoryWithContext.push(
-          { role: 'user', content: `[CONTEXT UPDATE - Current Session State]\n${studentLearningSection}` },
+          { role: 'user', content: `[CONTEXT UPDATE - Current Session State]\n${dynamicContextPartsOpenMic.join('\n')}` },
           { role: 'model', content: '[Context acknowledged. I will incorporate this information naturally into our conversation.]' }
         );
-        console.log(`[Context Caching - OpenMic] Dynamic context added as preamble`);
+        console.log(`[Context Caching - OpenMic] Dynamic context (${dynamicContextPartsOpenMic.length} sections) added as preamble`);
       }
       
       // Store preamble for continuation calls (before adding session history)
