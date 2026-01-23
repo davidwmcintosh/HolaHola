@@ -3057,9 +3057,17 @@ Remember: David may reference things discussed in these recent text chats.
       // MULTI-STEP FUNCTION CALLING CONTINUATION
       // If Gemini called functions but produced no text, we need to continue the conversation
       // This sends function results back to Gemini and gets actual spoken text
-      if (metrics.sentenceCount === 0 && hadFunctionCalls && functionCallsCopy.length > 0) {
+      // OPTIMIZATION: Exclude metadata-only functions (voice_adjust, voice_reset) from needing continuation
+      // These are speech annotations, not actions requiring a response - they work in a single call
+      const METADATA_ONLY_FUNCTIONS = new Set(['VOICE_ADJUST', 'VOICE_RESET']);
+      const functionsNeedingContinuation = functionCallsCopy.filter(
+        fc => !METADATA_ONLY_FUNCTIONS.has(fc.legacyType || '')
+      );
+      
+      if (metrics.sentenceCount === 0 && hadFunctionCalls && functionsNeedingContinuation.length > 0) {
         console.log(`[Multi-Step FC] Function calls with no text detected - continuing conversation`);
         console.log(`[Multi-Step FC] Functions executed: ${functionCallsCopy.map(fc => fc.name).join(', ')}`);
+        console.log(`[Multi-Step FC] Functions needing continuation: ${functionsNeedingContinuation.map(fc => fc.name).join(', ') || 'none'}`);
         
         // Await any pending memory lookups before building responses
         if (session.pendingMemoryLookupPromises?.length) {
@@ -4867,9 +4875,17 @@ Remember: David may reference things discussed in these recent text chats.
       
       // MULTI-STEP FUNCTION CALLING CONTINUATION (Open Mic path)
       // If Gemini called functions but produced no text, continue the conversation
-      if (metrics.sentenceCount === 0 && hadFunctionCallsOpenMic && functionCallsCopyOpenMic.length > 0) {
+      // OPTIMIZATION: Exclude metadata-only functions (voice_adjust, voice_reset) from needing continuation
+      // These are speech annotations, not actions requiring a response - they work in a single call
+      const METADATA_ONLY_FUNCTIONS_OPENMIC = new Set(['VOICE_ADJUST', 'VOICE_RESET']);
+      const functionsNeedingContinuationOpenMic = functionCallsCopyOpenMic.filter(
+        fc => !METADATA_ONLY_FUNCTIONS_OPENMIC.has(fc.legacyType || '')
+      );
+      
+      if (metrics.sentenceCount === 0 && hadFunctionCallsOpenMic && functionsNeedingContinuationOpenMic.length > 0) {
         console.log(`[Multi-Step FC - OpenMic] Function calls with no text detected - continuing conversation`);
         console.log(`[Multi-Step FC - OpenMic] Functions executed: ${functionCallsCopyOpenMic.map(fc => fc.name).join(', ')}`);
+        console.log(`[Multi-Step FC - OpenMic] Functions needing continuation: ${functionsNeedingContinuationOpenMic.map(fc => fc.name).join(', ') || 'none'}`);
         
         // Await any pending memory lookups before building responses
         if (session.pendingMemoryLookupPromises?.length) {
