@@ -865,6 +865,7 @@ export interface StreamingSession {
     emotion?: string;
     personality?: TutorPersonality;
     expressiveness?: number;
+    reason?: string;
   };
   // Active tutor voice ID: Currently active voice (may differ from voiceId during handoffs)
   activeTutorVoiceId?: string;

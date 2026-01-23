@@ -390,6 +390,7 @@ export interface IStorage {
   getCachedAIImage(promptHash: string): Promise<MediaFile | undefined>;
   cacheImage(data: InsertMediaFile): Promise<MediaFile>;
   incrementImageUsage(id: string): Promise<void>;
+  incrementAlertViewCount(id: string): Promise<void>;
 
   // ACTFL Can-Do Statements
   getCanDoStatements(language?: string, actflLevel?: string, category?: string): Promise<CanDoStatement[]>;
@@ -6465,6 +6466,16 @@ export class DatabaseStorage implements IStorage {
     }
     
     return query.orderBy(desc(systemAlerts.createdAt)).limit(options?.limit || 50);
+  }
+
+  async incrementAlertViewCount(id: string): Promise<void> {
+    const sharedDb = getSharedDb();
+    await sharedDb.update(systemAlerts)
+      .set({ 
+        viewCount: sql`${systemAlerts.viewCount} + 1`,
+        updatedAt: new Date()
+      })
+      .where(eq(systemAlerts.id, id));
   }
   
   // ===== Support Tickets (Tri-Lane Hive - Support Agent escalations) - USER database =====

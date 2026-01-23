@@ -354,6 +354,7 @@ export type StreamingErrorCode =
   | 'AI_FAILED'
   | 'TTS_FAILED'
   | 'TTS_ERROR'
+  | 'TTS_ERROR'
   | 'RATE_LIMITED'
   | 'UNAUTHORIZED'
   | 'TIMEOUT'
