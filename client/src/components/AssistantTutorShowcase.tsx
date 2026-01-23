@@ -4,7 +4,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dumbbell } from "lucide-react";
 import { useLocation } from "wouter";
 import { 
-  languageAccentColors, 
+  languageAccentColors,
+  normalizeLanguage,
   type SupportedLanguage,
   type TutorGender 
 } from "@/lib/tutor-avatars";
@@ -42,12 +43,6 @@ interface AssistantShowcaseData {
   accentColor: string;
 }
 
-function normalizeLanguage(language: string | null | undefined): SupportedLanguage {
-  if (!language) return 'spanish';
-  const lower = language.toLowerCase().trim();
-  if (lower.includes('mandarin') || lower === 'chinese') return 'chinese';
-  return lower as SupportedLanguage;
-}
 
 function getAllAssistantsForShowcase(): AssistantShowcaseData[] {
   const languages: SupportedLanguage[] = [

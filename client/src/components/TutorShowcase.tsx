@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { 
   getAllTutorsForShowcase, 
+  normalizeLanguage,
   type TutorShowcaseData,
   type SupportedLanguage,
   type TutorGender 
@@ -91,7 +92,8 @@ export function TutorShowcase({
   const allTutors = useMemo(() => getAllTutorsForShowcase(), []);
   
   const languageTutors = useMemo(() => {
-    const lang = selectedLanguage === 'all' ? 'spanish' : selectedLanguage;
+    // Normalize the language to handle variants like 'mandarin' -> 'chinese'
+    const lang = selectedLanguage === 'all' ? 'spanish' : normalizeLanguage(selectedLanguage);
     return allTutors.filter(t => t.language === lang);
   }, [selectedLanguage, allTutors]);
   

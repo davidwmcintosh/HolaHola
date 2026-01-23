@@ -187,7 +187,7 @@ const maleAvatars: Record<SupportedLanguage, TutorAvatarSet> = {
 };
 
 // Normalize language string to match our supported languages
-function normalizeLanguage(language: string | null | undefined): SupportedLanguage {
+export function normalizeLanguage(language: string | null | undefined): SupportedLanguage {
   if (!language) return 'spanish'; // Default to Spanish (Daniela's original language)
   
   const normalized = language.toLowerCase().trim();
