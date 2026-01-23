@@ -138,7 +138,7 @@ import { memoryCheckpointService } from "./memory-checkpoint-service";
 import { phonemeAnalyticsService } from "./phoneme-analytics-service";
 import { supportPersonaService } from "./support-persona-service";
 import { db, getSharedDb } from "../db";
-import { logVoiceOrchestratorError } from "./production-telemetry";
+import { logVoiceOrchestratorError, trackVoicePipelineStage, logGeminiTimeout } from "./production-telemetry";
 import { 
   tutorProcedures, 
   teachingPrinciples, 
@@ -1368,6 +1368,9 @@ export class StreamingVoiceOrchestrator {
       metadata: { userId, targetLanguage: config.targetLanguage, isFounderMode }
     });
     
+    // Track pipeline stage for production telemetry (cross-environment monitoring)
+    trackVoicePipelineStage(sessionId, 'session_start', { userId: String(userId) });
+    
     console.log(`[Streaming Orchestrator] Session created: ${sessionId}`);
     return session;
   }
@@ -1392,6 +1395,13 @@ export class StreamingVoiceOrchestrator {
       });
       throw new Error(`Session not found or inactive: ${sessionId}`);
     }
+    
+    // Track pipeline stage: audio received from client
+    // Note: turnId not yet incremented, so we include audio size for debugging correlation
+    trackVoicePipelineStage(sessionId, 'audio_received', { 
+      userId: String(session.userId),
+      audioBytes: String(audioData.length)
+    });
     
     // BARGE-IN DETECTION: If AI is currently generating a response, interrupt it
     // This prevents overlapping responses when user speaks while Daniela is talking
@@ -1451,6 +1461,12 @@ export class StreamingVoiceOrchestrator {
       const { transcript, confidence: pronunciationConfidence, intelligence, words } = transcriptionResult;
       
       metrics.sttLatencyMs = Date.now() - sttStart;
+      
+      // Track pipeline stage: STT complete
+      trackVoicePipelineStage(sessionId, 'stt_complete', { 
+        userId: String(session.userId), 
+        durationMs: metrics.sttLatencyMs 
+      });
       
       console.log(`[Streaming Orchestrator] STT: "${transcript}" (${metrics.sttLatencyMs}ms, conf: ${(pronunciationConfidence * 100).toFixed(0)}%, Cartesia: ${cartesiaWarmupTime >= 0 ? cartesiaWarmupTime + 'ms' : 'fallback'})`);
       
@@ -2035,6 +2051,13 @@ Remember: David may reference things discussed in these recent text chats.
       // Latency impact: ~5-10ms (negligible vs 1-2s LLM response time)
       await this.checkpointUserMessage(session, transcript);
       
+      // Track pipeline stage: Gemini call starting
+      const geminiStartTime = Date.now();
+      trackVoicePipelineStage(sessionId, 'gemini_start', { 
+        userId: String(session.userId),
+        turnId: String(session.currentTurnId)
+      });
+      
       await this.geminiService.streamWithSentenceChunking({
         systemPrompt: session.systemPrompt,  // STATIC base prompt (cacheable)
         conversationHistory: conversationHistoryWithContext,
@@ -2112,6 +2135,14 @@ Remember: David may reference things discussed in these recent text chats.
             metrics.aiFirstTokenMs = Date.now() - aiStart;
             firstTokenReceived = true;
             console.log(`[Streaming Orchestrator] AI first token: ${metrics.aiFirstTokenMs}ms`);
+            
+            // Track pipeline stage: Gemini first token received
+            trackVoicePipelineStage(sessionId, 'gemini_first_token', { 
+              userId: String(session.userId),
+              turnId: String(session.currentTurnId),
+              durationMs: metrics.aiFirstTokenMs
+            });
+            
             // Emit LLM success for diagnostics (first token received)
             voiceDiagnostics.emit({
               sessionId,
@@ -3336,6 +3367,13 @@ Remember: David may reference things discussed in these recent text chats.
           }
         }
       }
+      
+      // Track pipeline stage: response complete being sent
+      trackVoicePipelineStage(sessionId, 'response_sent', { 
+        userId: String(session.userId),
+        turnId: String(turnId),
+        durationMs: metrics.totalLatencyMs
+      });
       
       this.sendMessage(session.ws, {
         type: 'response_complete',
@@ -8813,6 +8851,10 @@ Using this context, speak first to the student with a natural opening message. O
       // }
       
       session.isActive = false;
+      
+      // Track pipeline stage for production telemetry (session ended normally)
+      trackVoicePipelineStage(sessionId, 'session_end', { userId: String(session.userId) });
+      
       this.sessions.delete(sessionId);
       console.log(`[Streaming Orchestrator] Session ended: ${sessionId}`);
     }
