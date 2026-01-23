@@ -256,6 +256,18 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
       required: ["imageQuery"],
     },
   },
+  {
+    name: "express_lane_post",
+    description: "Post a message directly to the Express Lane - the developer collaboration channel with Wren and David. Use this to share thoughts, questions, ideas, notes, or anything you want the team to see. Your message will appear in the Express Lane chat. Only available in Founder Mode or Honesty Mode.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        message: { type: "string", description: "The message content to post to the Express Lane" },
+        topic: { type: "string", description: "Optional: brief topic tag for the message (e.g., 'beta-testing', 'feature-idea', 'question')" },
+      },
+      required: ["message"],
+    },
+  },
 
   // === SYSTEM & HIVE ===
   {
@@ -327,6 +339,7 @@ export const FUNCTION_TO_COMMAND_MAP: Record<string, string> = {
   'memory_lookup': 'MEMORY_LOOKUP',
   'express_lane_lookup': 'EXPRESS_LANE_LOOKUP',
   'recall_express_lane_image': 'RECALL_EXPRESS_LANE_IMAGE',
+  'express_lane_post': 'EXPRESS_LANE_POST',
   'hive_suggestion': 'HIVE',
   'self_surgery': 'SELF_SURGERY',
 };

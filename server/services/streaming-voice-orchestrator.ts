@@ -873,6 +873,8 @@ export interface StreamingSession {
     word: string;
     style: 'stress' | 'slow' | 'both';
   }>;
+  // Express Lane session ID for posting messages to collaboration channel
+  expressLaneSessionId?: string;
   // Active tutor voice ID: Currently active voice (may differ from voiceId during handoffs)
   activeTutorVoiceId?: string;
   // Tutor voice ID: Default voice for current tutor
@@ -2665,6 +2667,24 @@ Remember: David may reference things discussed in these recent text chats.
                   }
                   break;
                 }
+                case 'EXPRESS_LANE_POST': {
+                  // Post message to Express Lane collaboration channel - only in Founder/Honesty mode
+                  const message = cmd.params.message as string;
+                  const topic = cmd.params.topic as string | undefined;
+                  
+                  if (!session.isFounderMode && !session.isRawHonestyMode) {
+                    console.log(`[CommandParser→ExpressLanePost] Rejected - not in Founder/Honesty mode`);
+                    break;
+                  }
+                  
+                  if (message) {
+                    this.processExpressLanePost(session, message, topic).catch(err => {
+                      console.error(`[CommandParser→ExpressLanePost] Error:`, err);
+                    });
+                    console.log(`[CommandParser→ExpressLanePost] Posted${topic ? ` [${topic}]` : ''}: "${message.substring(0, 80)}..."`);
+                  }
+                  break;
+                }
                 case 'VOICE_ADJUST': {
                   // Daniela's real-time voice adjustment
                   // Apply voice override for next TTS synthesis
@@ -3169,6 +3189,9 @@ Remember: David may reference things discussed in these recent text chats.
               break;
             case 'WORD_EMPHASIS':
               responseText = '[Internal instruction: Word emphasis queued. Do NOT mention this - continue naturally. The emphasized word will be spoken with the requested style.]';
+              break;
+            case 'EXPRESS_LANE_POST':
+              responseText = '[Internal instruction: Message posted to Express Lane. Do NOT mention this to the student - continue naturally.]';
               break;
             case 'PHASE_SHIFT':
               responseText = `Phase shifted to ${fc.args.to}. Continue the lesson in this new phase.`;
@@ -4773,6 +4796,24 @@ Remember: David may reference things discussed in these recent text chats.
                 }
                 break;
               }
+              case 'EXPRESS_LANE_POST': {
+                // Post message to Express Lane collaboration channel - only in Founder/Honesty mode
+                const message = cmd.params.message as string;
+                const topic = cmd.params.topic as string | undefined;
+                
+                if (!session.isFounderMode && !session.isRawHonestyMode) {
+                  console.log(`[CommandParser→ExpressLanePost - OpenMic] Rejected - not in Founder/Honesty mode`);
+                  break;
+                }
+                
+                if (message) {
+                  this.processExpressLanePost(session, message, topic).catch(err => {
+                    console.error(`[CommandParser→ExpressLanePost - OpenMic] Error:`, err);
+                  });
+                  console.log(`[CommandParser→ExpressLanePost - OpenMic] Posted${topic ? ` [${topic}]` : ''}: "${message.substring(0, 80)}..."`);
+                }
+                break;
+              }
               case 'VOICE_ADJUST': {
                 // Apply voice override for next TTS synthesis
                 const speed = (cmd.params.speed as string | undefined)?.toLowerCase();
@@ -4987,6 +5028,9 @@ Remember: David may reference things discussed in these recent text chats.
               break;
             case 'WORD_EMPHASIS':
               responseText = '[Internal instruction: Word emphasis queued. Do NOT mention this - continue naturally. The emphasized word will be spoken with the requested style.]';
+              break;
+            case 'EXPRESS_LANE_POST':
+              responseText = '[Internal instruction: Message posted to Express Lane. Do NOT mention this to the student - continue naturally.]';
               break;
             case 'PHASE_SHIFT':
               responseText = `Phase shifted to ${fc.args.to}. Continue the lesson in this new phase.`;
@@ -7600,6 +7644,60 @@ Only include observations you can clearly justify from the exchange. Return empt
   }
   
   /**
+   * EXPRESS LANE POST: Post a message directly to the Express Lane collaboration channel
+   * Allows Daniela to participate in the 3-way Hive conversation during voice sessions
+   */
+  private async processExpressLanePost(
+    session: StreamingSession,
+    message: string,
+    topic?: string
+  ): Promise<void> {
+    try {
+      // Format message content with optional topic tag
+      const formattedContent = topic 
+        ? `[${topic.toUpperCase()}] ${message}`
+        : message;
+      
+      // Get or create a collaboration session for this voice session
+      // Use the active Express Lane session if available, otherwise find/create one
+      const activeSessionId = session.expressLaneSessionId;
+      
+      if (activeSessionId) {
+        // Post to existing Express Lane session
+        await founderCollabService.addMessage(activeSessionId, {
+          role: 'daniela',
+          content: formattedContent,
+          messageType: 'text',
+        });
+        console.log(`[ExpressLane→Post] Message added to session ${activeSessionId}`);
+      } else {
+        // Find or create a session titled "Voice Session Notes"
+        const systemFounderId = 'system-daniela-voice';
+        const sessionTitle = 'Voice Session Notes';
+        
+        const expressSession = await founderCollabService.findOrCreateSessionByTitle(
+          systemFounderId,
+          sessionTitle
+        );
+        
+        // Store for future posts in this voice session
+        (session as any).expressLaneSessionId = expressSession.id;
+        
+        await founderCollabService.addMessage(expressSession.id, {
+          role: 'daniela',
+          content: formattedContent,
+          messageType: 'text',
+        });
+        console.log(`[ExpressLane→Post] Message added to new session ${expressSession.id}`);
+      }
+      
+    } catch (error: any) {
+      console.error(`[ExpressLane→Post] Failed to post message:`, error.message);
+      console.error(`[ExpressLane→Post] Full error:`, error);
+    }
+  }
+  
+  /**
    * ARCHITECT BIDIRECTIONAL: Process Daniela's message to the Architect
    * Routes messages through collaboration hub for real-time 3-way communication
    * 
@@ -10014,6 +10112,26 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           // Store promise so multi-step FC can await it before continuing
           if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
           session.pendingMemoryLookupPromises.push(recallPromise);
+        }
+        break;
+      }
+      
+      case 'EXPRESS_LANE_POST': {
+        // Post a message directly to the Express Lane collaboration channel
+        const message = fn.args.message as string | undefined;
+        const topic = fn.args.topic as string | undefined;
+        
+        if (!session.isFounderMode && !session.isRawHonestyMode) {
+          console.log(`[Native Function→ExpressLanePost] Rejected - not in Founder/Honesty mode`);
+          break;
+        }
+        
+        if (message) {
+          // Post to Express Lane asynchronously (non-blocking)
+          this.processExpressLanePost(session, message, topic).catch(err => {
+            console.error(`[Native Function→ExpressLanePost] Error:`, err.message);
+          });
+          console.log(`[Native Function→ExpressLanePost] Posted message${topic ? ` [${topic}]` : ''}: "${message.substring(0, 100)}..."`);
         }
         break;
       }
