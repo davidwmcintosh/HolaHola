@@ -364,6 +364,16 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     // Store turnId for use in callbacks
     currentTurnIdRef.current = msg.turnId;
     
+    // Start processing timeout (stuck thinking recovery) - applies to BOTH PTT and open mic
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+    }
+    processingTimeoutRef.current = setTimeout(() => {
+      console.log('[StreamingVoice] Processing timeout - resetting stuck thinking state');
+      setIsProcessing(false);
+      setError('Response timeout - please try again');
+    }, PROCESSING_TIMEOUT_MS);
+    
     // CRITICAL FIX: Reset audio player for new turn
     // This clears the previous turn's sentence/word schedule, preventing
     // stale callbacks from firing when new audio starts playing
