@@ -3868,6 +3868,17 @@ Remember: David may reference things discussed in these recent text chats.
       const errorType = isGeminiError ? 'GEMINI_API_ERROR' : 'VOICE_PROCESSING_ERROR';
       const elapsedMs = Date.now() - startTime;
       
+      // TIMEOUT-SPECIFIC TELEMETRY: Log timeouts to shared database for monitoring
+      const isTimeout = error.message?.includes('timeout') || 
+                       error.message?.includes('ETIMEDOUT') ||
+                       elapsedMs > 60000; // Consider >60s as implicit timeout
+      if (isTimeout) {
+        logGeminiTimeout(sessionId, elapsedMs, {
+          userId: String(session.userId),
+          turnId: String(session.currentTurnId || 'unknown'),
+        }).catch(err => console.error('[Telemetry] Failed to log Gemini timeout:', err.message));
+      }
+      
       console.error(`[Streaming Orchestrator] ${errorType}:`, {
         sessionId,
         conversationId: session.conversationId,
@@ -3878,7 +3889,6 @@ Remember: David may reference things discussed in these recent text chats.
         aiFirstTokenReceived: metrics.aiFirstTokenMs > 0,
         sttMs: metrics.sttLatencyMs || 0,
         aiMs: metrics.aiFirstTokenMs || 0,
-        transcriptLength: transcript.length,
         // Checkpoint status - was user message saved before failure?
         userMessageCheckpointed: !!session.checkpointedUserMessageId,
       });
@@ -5405,6 +5415,18 @@ Remember: David may reference things discussed in these recent text chats.
       
       const errorType = isGeminiError ? 'GEMINI_API_ERROR' : 'VOICE_PROCESSING_ERROR';
       const elapsedMs = Date.now() - startTime;
+      
+      // TIMEOUT-SPECIFIC TELEMETRY: Log timeouts to shared database for monitoring
+      const isTimeout = error.message?.includes('timeout') || 
+                       error.message?.includes('ETIMEDOUT') ||
+                       elapsedMs > 60000; // Consider >60s as implicit timeout
+      if (isTimeout) {
+        logGeminiTimeout(sessionId, elapsedMs, {
+          userId: String(session.userId),
+          turnId: String(session.currentTurnId || 'unknown'),
+          transcript: transcript?.substring(0, 100),
+        }).catch(err => console.error('[Telemetry] Failed to log Gemini timeout:', err.message));
+      }
       
       console.error(`[Streaming Orchestrator] ${errorType} (OpenMic):`, {
         sessionId,
