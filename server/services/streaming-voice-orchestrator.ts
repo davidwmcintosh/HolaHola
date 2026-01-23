@@ -9192,6 +9192,15 @@ DON'T:
     let fullText = '';
     let sentenceCount = 0;
     
+    // CRITICAL: Send processing message to trigger thinking mode in the client
+    // Without this, the client won't show the thinking indicator
+    this.sendMessage(session.ws, {
+      type: 'processing',
+      timestamp: Date.now(),
+      turnId,
+      userTranscript: `[Tutor handoff to ${tutorName}]`,
+    } as StreamingProcessingMessage);
+    
     // Create minimal metrics for streamSentenceAudioProgressive (it expects this structure)
     const metrics: StreamingMetrics = {
       sessionId,
