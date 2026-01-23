@@ -859,6 +859,17 @@ export interface StreamingSession {
   }>;  // Key: imageQuery, Value: text + images
   // Pending memory lookup promises: Awaited by multi-step FC before building function responses
   pendingMemoryLookupPromises?: Promise<void>[];
+  // Voice Lab: Override settings for real-time voice tuning (admin feature)
+  voiceOverride?: {
+    speakingRate?: number;
+    emotion?: string;
+    personality?: TutorPersonality;
+    expressiveness?: number;
+  };
+  // Active tutor voice ID: Currently active voice (may differ from voiceId during handoffs)
+  activeTutorVoiceId?: string;
+  // Tutor voice ID: Default voice for current tutor
+  tutorVoiceId?: string;
 }
 
 /**

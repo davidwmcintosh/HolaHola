@@ -15891,7 +15891,7 @@ Current conversation context:
         
         // Only increment if this is a new view (not seen in dedupe window)
         if (!lastView || (now - lastView) > VIEW_DEDUPE_WINDOW_MS) {
-          await storage.incrementAlertViewCount(alert.id);
+          await storage.incrementAlertView(alert.id);
           alertViewCache.set(cacheKey, now);
         }
       }

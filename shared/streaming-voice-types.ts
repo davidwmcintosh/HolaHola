@@ -71,6 +71,7 @@ export type StreamingVoiceMessageType =
   | 'tutor_handoff'       // Tutor handoff: Switch to different tutor voice after farewell
   | 'support_handoff'     // Support handoff: Route student to Support Agent (Tri-Lane Hive)
   | 'assistant_handoff'   // Assistant handoff: Route student to Aris for drills (Tri-Lane Hive)
+  | 'pronunciation_coaching'  // Pronunciation coaching feedback from Azure assessment
   | 'vad_speech_started'  // Open mic: User started speaking (VAD detected speech)
   | 'vad_utterance_end'   // Open mic: User stopped speaking (VAD detected silence)
   | 'interim_transcript'  // Open mic: Real-time interim transcript for feedback
@@ -324,6 +325,7 @@ export interface StreamingTutorHandoffMessage extends StreamingVoiceMessage {
   tutorName?: string;              // The new tutor's name (e.g., "Sayuri")
   isLanguageSwitch: boolean;       // True if this is a cross-language handoff
   requiresGreeting?: boolean;      // True if client should request greeting after reconnecting
+  isAssistant?: boolean;           // True if handoff is to assistant tutor (e.g., Aris for drills)
 }
 
 /**
@@ -351,11 +353,13 @@ export type StreamingErrorCode =
   | 'STT_FAILED'
   | 'AI_FAILED'
   | 'TTS_FAILED'
+  | 'TTS_ERROR'
   | 'RATE_LIMITED'
   | 'UNAUTHORIZED'
   | 'TIMEOUT'
   | 'EMPTY_TRANSCRIPT'
   | 'CONTENT_REJECTED'
+  | 'GREETING_ERROR'
   | 'UNKNOWN';
 
 /**
