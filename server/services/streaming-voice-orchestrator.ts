@@ -867,6 +867,12 @@ export interface StreamingSession {
     expressiveness?: number;
     reason?: string;
   };
+  // Pending word emphases: Queued SSML emphasis tags to inject into TTS text
+  // Cleared after each TTS synthesis call
+  pendingWordEmphases?: Array<{
+    word: string;
+    style: 'stress' | 'slow' | 'both';
+  }>;
   // Active tutor voice ID: Currently active voice (may differ from voiceId during handoffs)
   activeTutorVoiceId?: string;
   // Tutor voice ID: Default voice for current tutor
@@ -952,6 +958,73 @@ function containsMildlyInappropriateContent(text: string): boolean {
     const regex = new RegExp(`\\b${term}\\b`, 'i');
     return regex.test(lowerText);
   });
+}
+
+/**
+ * Apply word emphasis SSML tags to text for Cartesia TTS
+ * 
+ * Cartesia Sonic-3 supports inline SSML-like tags:
+ * - <volume ratio="2"/> for emphasis (louder)
+ * - <speed ratio="1"/> for slower speech (can't use decimals in streaming)
+ * 
+ * IMPORTANT: Per Cartesia docs, decimal ratios can get split during streaming.
+ * We use integer values only (1, 2) to avoid this issue.
+ * 
+ * @param text - The text to process
+ * @param emphases - Array of {word, style} emphasis instructions
+ * @returns Text with SSML tags injected around emphasized words
+ */
+function applyWordEmphases(
+  text: string,
+  emphases: Array<{ word: string; style: 'stress' | 'slow' | 'both' }> | undefined
+): string {
+  if (!emphases || emphases.length === 0) {
+    return text;
+  }
+  
+  let processedText = text;
+  
+  for (const emphasis of emphases) {
+    const { word, style } = emphasis;
+    if (!word) continue;
+    
+    // Create case-insensitive regex to find the word
+    // Use word boundaries to avoid partial matches
+    const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`\\b(${escapedWord})\\b`, 'gi');
+    
+    // Build SSML tags based on style
+    // NOTE: Using integer ratios only (2, not 1.5) to avoid streaming split issues
+    let prefix = '';
+    let suffix = '';
+    
+    switch (style) {
+      case 'stress':
+        // Louder volume for emphasis
+        prefix = '<volume ratio="2"/>';
+        suffix = '<volume ratio="1"/>';
+        break;
+      case 'slow':
+        // Slower speed for clear pronunciation
+        // Using ratio 1 (normal speed reset) after a slower section
+        // Cartesia's minimum is 0.6x but we can't use decimals in streaming
+        // Instead, we'll use a short break for emphasis effect
+        prefix = '<break time="100ms"/>';
+        suffix = '<break time="100ms"/>';
+        break;
+      case 'both':
+        // Both louder and with pauses for maximum emphasis
+        prefix = '<break time="100ms"/><volume ratio="2"/>';
+        suffix = '<volume ratio="1"/><break time="100ms"/>';
+        break;
+    }
+    
+    // Replace the word with emphasized version (preserving original case)
+    processedText = processedText.replace(regex, `${prefix}$1${suffix}`);
+    console.log(`[WordEmphasis] Applied "${style}" to "${word}" in text`);
+  }
+  
+  return processedText;
 }
 
 /**
@@ -3057,9 +3130,9 @@ Remember: David may reference things discussed in these recent text chats.
       // MULTI-STEP FUNCTION CALLING CONTINUATION
       // If Gemini called functions but produced no text, we need to continue the conversation
       // This sends function results back to Gemini and gets actual spoken text
-      // OPTIMIZATION: Exclude metadata-only functions (voice_adjust, voice_reset) from needing continuation
+      // OPTIMIZATION: Exclude metadata-only functions from needing continuation
       // These are speech annotations, not actions requiring a response - they work in a single call
-      const METADATA_ONLY_FUNCTIONS = new Set(['VOICE_ADJUST', 'VOICE_RESET']);
+      const METADATA_ONLY_FUNCTIONS = new Set(['VOICE_ADJUST', 'VOICE_RESET', 'WORD_EMPHASIS']);
       const functionsNeedingContinuation = functionCallsCopy.filter(
         fc => !METADATA_ONLY_FUNCTIONS.has(fc.legacyType || '')
       );
@@ -3093,6 +3166,9 @@ Remember: David may reference things discussed in these recent text chats.
               break;
             case 'VOICE_RESET':
               responseText = '[Internal instruction: Voice reset. Do NOT mention this - continue naturally.]';
+              break;
+            case 'WORD_EMPHASIS':
+              responseText = '[Internal instruction: Word emphasis queued. Do NOT mention this - continue naturally. The emphasized word will be spoken with the requested style.]';
               break;
             case 'PHASE_SHIFT':
               responseText = `Phase shifted to ${fc.args.to}. Continue the lesson in this new phase.`;
@@ -4875,9 +4951,9 @@ Remember: David may reference things discussed in these recent text chats.
       
       // MULTI-STEP FUNCTION CALLING CONTINUATION (Open Mic path)
       // If Gemini called functions but produced no text, continue the conversation
-      // OPTIMIZATION: Exclude metadata-only functions (voice_adjust, voice_reset) from needing continuation
+      // OPTIMIZATION: Exclude metadata-only functions from needing continuation
       // These are speech annotations, not actions requiring a response - they work in a single call
-      const METADATA_ONLY_FUNCTIONS_OPENMIC = new Set(['VOICE_ADJUST', 'VOICE_RESET']);
+      const METADATA_ONLY_FUNCTIONS_OPENMIC = new Set(['VOICE_ADJUST', 'VOICE_RESET', 'WORD_EMPHASIS']);
       const functionsNeedingContinuationOpenMic = functionCallsCopyOpenMic.filter(
         fc => !METADATA_ONLY_FUNCTIONS_OPENMIC.has(fc.legacyType || '')
       );
@@ -4908,6 +4984,9 @@ Remember: David may reference things discussed in these recent text chats.
               break;
             case 'VOICE_RESET':
               responseText = '[Internal instruction: Voice reset. Do NOT mention this - continue naturally.]';
+              break;
+            case 'WORD_EMPHASIS':
+              responseText = '[Internal instruction: Word emphasis queued. Do NOT mention this - continue naturally. The emphasized word will be spoken with the requested style.]';
               break;
             case 'PHASE_SHIFT':
               responseText = `Phase shifted to ${fc.args.to}. Continue the lesson in this new phase.`;
@@ -5747,10 +5826,19 @@ Remember: David may reference things discussed in these recent text chats.
     let firstChunkReceived = false;
     
     try {
+      // Apply word emphases SSML tags if any pending
+      // These come from word_emphasis function calls during Gemini streaming
+      const textWithEmphases = applyWordEmphases(displayText, session.pendingWordEmphases);
+      if (session.pendingWordEmphases && session.pendingWordEmphases.length > 0) {
+        console.log(`[Non-Progressive TTS] Applied ${session.pendingWordEmphases.length} word emphases`);
+        // Clear emphases after applying (per-sentence processing)
+        session.pendingWordEmphases = [];
+      }
+      
       // Collect all audio chunks from Cartesia (MP3 fragments need concatenation)
-      // IMPORTANT: Use displayText (cleaned) for TTS, not originalText (which may have emotion tags)
+      // IMPORTANT: Use textWithEmphases (cleaned + emphases) for TTS
       for await (const audioChunk of this.cartesiaService.streamSynthesize({
-        text: displayText,
+        text: textWithEmphases,
         language: session.targetLanguage,
         targetLanguage: session.targetLanguage, // For phoneme pronunciation
         voiceId: session.voiceId,
@@ -6109,10 +6197,19 @@ Remember: David may reference things discussed in these recent text chats.
     };
     
     try {
+      // Apply word emphases SSML tags if any pending
+      // These come from word_emphasis function calls during Gemini streaming
+      const textWithEmphases = applyWordEmphases(displayText, session.pendingWordEmphases);
+      if (session.pendingWordEmphases && session.pendingWordEmphases.length > 0) {
+        console.log(`[Progressive TTS] Applied ${session.pendingWordEmphases.length} word emphases`);
+        // Clear emphases after applying (per-sentence processing)
+        session.pendingWordEmphases = [];
+      }
+      
       // Use progressive streaming API with real-time callbacks
       const result = await this.cartesiaService.streamSynthesizeProgressive(
         {
-          text: displayText,
+          text: textWithEmphases,
           language: session.targetLanguage,
           targetLanguage: session.targetLanguage,
           voiceId: session.voiceId,
@@ -9641,6 +9738,26 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           // Fallback: clear override entirely
           (session as any).voiceOverride = undefined;
           console.log(`[Native Function→VoiceReset] Cleared override (no defaults stored), reason: ${reason || 'none'}`);
+        }
+        break;
+      }
+      
+      case 'WORD_EMPHASIS': {
+        // Word-level emphasis for pronunciation teaching
+        // Queues SSML tags to be injected into TTS text
+        const word = fn.args.word as string;
+        const style = fn.args.style as 'stress' | 'slow' | 'both';
+        const reason = fn.args.reason as string | undefined;
+        
+        if (word && style) {
+          // Initialize array if not exists
+          if (!session.pendingWordEmphases) {
+            session.pendingWordEmphases = [];
+          }
+          session.pendingWordEmphases.push({ word, style });
+          console.log(`[Native Function→WordEmphasis] Queued: "${word}" with style="${style}", reason="${reason || 'none'}"`);
+        } else {
+          console.warn(`[Native Function→WordEmphasis] Missing required args: word="${word}", style="${style}"`);
         }
         break;
       }

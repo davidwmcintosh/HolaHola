@@ -128,6 +128,19 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
       required: [],
     },
   },
+  {
+    name: "word_emphasis",
+    description: "Emphasize specific words in your speech for pronunciation teaching. Use this when demonstrating stress patterns, highlighting key vocabulary, or contrasting correct/incorrect pronunciations. The emphasized word will be spoken with increased volume and slightly slower pace.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        word: { type: "string", description: "The exact word or short phrase to emphasize (as it appears in your response)" },
+        style: { type: "string", enum: ["stress", "slow", "both"], description: "Emphasis style: stress=louder, slow=slower pace, both=louder and slower" },
+        reason: { type: "string", description: "Why emphasizing this word (e.g., 'accent placement', 'key vocabulary', 'pronunciation contrast')" },
+      },
+      required: ["word", "style"],
+    },
+  },
 
   // === UI CONTROL ===
   {
@@ -303,6 +316,7 @@ export const FUNCTION_TO_COMMAND_MAP: Record<string, string> = {
   'call_assistant': 'CALL_ASSISTANT',
   'voice_adjust': 'VOICE_ADJUST',
   'voice_reset': 'VOICE_RESET',
+  'word_emphasis': 'WORD_EMPHASIS',
   'subtitle': 'SUBTITLE',
   'show_overlay': 'SHOW',
   'hide_overlay': 'HIDE',
