@@ -361,6 +361,10 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       console.log(`[StreamingVoice] Processing turn ${msg.turnId}: "${msg.userTranscript.substring(0, 30)}..."`);
     }
     
+    // CRITICAL: Set processing state when server indicates new turn is processing
+    // This ensures thinking indicator shows for server-initiated responses (tutor handoffs, etc.)
+    setIsProcessing(true);
+    
     // Store turnId for use in callbacks
     currentTurnIdRef.current = msg.turnId;
     
