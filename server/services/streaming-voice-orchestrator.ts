@@ -6649,6 +6649,26 @@ Remember: Beta testers understand they're helping build something and appreciate
     pronunciationConfidence: number = 0
   ): Promise<void> {
     try {
+      // CRITICAL FIX: Ensure conversation exists before saving messages
+      // Client may connect with conversationId but never send start_session message.
+      // Without this, FK constraint on messages table causes silent write failures.
+      try {
+        const existingConversation = await storage.getConversation(conversationId, String(session.userId));
+        if (!existingConversation) {
+          console.log(`[Persist] Creating missing conversation: ${conversationId}`);
+          await storage.createConversation({
+            id: conversationId,
+            userId: String(session.userId),
+            language: session.targetLanguage || 'spanish',
+            title: 'Voice Session',
+          });
+          console.log(`[Persist] ✓ Conversation created: ${conversationId}`);
+        }
+      } catch (convErr: any) {
+        // If conversation creation fails, log and continue - messages will fail but we tried
+        console.error(`[Persist] Conversation creation error: ${convErr.message}`);
+      }
+      
       // CHECKPOINT CHECK: Skip user message if already saved via checkpoint
       // This prevents duplicate user messages when Gemini succeeds
       // Use normalized comparison to match checkpoint storage (handles trim/whitespace differences)
