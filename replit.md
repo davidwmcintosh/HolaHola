@@ -21,6 +21,30 @@ Core data models include Users, Conversations, VocabularyWords, and UserProgress
 
 The system utilizes a dual-database hybrid architecture with Neon PostgreSQL for data storage, separating Daniela's intelligence and curriculum content (SHARED database) from user-specific data (USER database). All services use Neon routing.
 
+### Database Routing Architecture (January 2026 Consolidation)
+
+**Critical Background:** On January 24, 2026, a major database cleanup resolved cross-database foreign key constraint issues that were causing silent write failures.
+
+**The Problem:** PostgreSQL cannot enforce foreign key constraints across different databases. When tables in the USER database had FK constraints pointing to tables in the SHARED database (or vice versa), writes would silently fail.
+
+**Resolution:**
+- Dropped 29 cross-database FK constraints across tables including: `actfl_assessment_events`, `class_hour_packages`, `compass_examples`, `consultation_threads`, `curriculum_paths`, `daniela_recommendations`, `learning_motivations`, `people_connections`, `pronunciation_audio/scores`, `self_practice_sessions`, `session_notes`, `student_lesson_progress/tier_signals`, `syllabus_progress`, `topic_competency_observations`, `usage_ledger`, `user_drill_progress`, `user_lesson_items`, `vocabulary_words`, and `voice_sessions`
+- Cross-database relationships now use soft references with application-level validation
+- Diagnostic scripts created: `check-fk-constraints.ts` (audit), `fix-cross-db-fks.ts` (remediation)
+
+**Routing Rules:**
+| Variable | Routes To | Use For |
+|----------|-----------|---------|
+| `db` | SHARED | Default - curriculum, conversations, voice sessions, usage tracking |
+| `getSharedDb()` | SHARED | Explicit shared access |
+| `getUserDb()` | USER | User profiles, auth, per-environment progress |
+
+**Key Table Locations:**
+- **SHARED:** `usage_ledger`, `voice_sessions`, `conversations`, `messages`, `vocabulary_words`, `class_enrollments`, `tutor_sessions`, curriculum tables
+- **USER:** `users`, `user_progress`, `sessions`, `auth_tokens`, Stripe tables, per-user progress tables
+
+**IMPORTANT:** When adding new tables with FKs, ensure both tables are in the SAME database. If cross-database reference is needed, use soft references (store ID only, no FK constraint) with application-level validation.
+
 An Observation Summarization System condenses observations into insights. The Daniela Content Growth System enables autonomous pedagogical content creation. The Voice Intelligence System provides commercial-grade voice analytics. A Tutor Naming Architecture supports 36 tutors (18 main, 18 assistants). The Voice Lab System offers real-time voice tuning for admin users. The Sofia Support Agent System provides dual-mode technical support and integrates with production telemetry for self-diagnosis. A Production Telemetry System logs voice session errors to the shared Neon database for cross-environment monitoring. A Memory Recovery System checkpoints utterances to survive session interruptions.
 
 The Message Checkpointing System prevents user message loss by saving messages to the database before calling the Gemini API. The ACTION_TRIGGERS Command Parsing System processes Daniela's literal tags for backend commands. A Hybrid Memory Architecture provides "infinite memory" for Daniela, combining pre-loaded context with on-demand neural network lookups. The Student Snapshot System provides Daniela with session continuity and personal connection points at voice session start.
