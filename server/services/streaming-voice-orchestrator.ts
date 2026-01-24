@@ -6653,7 +6653,9 @@ Remember: Beta testers understand they're helping build something and appreciate
       // Client may connect with conversationId but never send start_session message.
       // Without this, FK constraint on messages table causes silent write failures.
       try {
+        console.log(`[Persist] Checking conversation exists: ${conversationId}, userId: ${session.userId}`);
         const existingConversation = await storage.getConversation(conversationId, String(session.userId));
+        console.log(`[Persist] getConversation result:`, existingConversation ? `found (id=${existingConversation.id})` : 'NOT FOUND');
         if (!existingConversation) {
           console.log(`[Persist] Creating missing conversation: ${conversationId}`);
           await storage.createConversation({
