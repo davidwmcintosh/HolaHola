@@ -17923,56 +17923,209 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
     }
   });
   
-  // Post message to EXPRESS Lane (for agent → Hive communication)
+  // Post message to EXPRESS Lane as Wren (for agent → Hive 3-way collaboration)
+  // Part of "Two Surgeons, One Brain" architecture
   app.post("/api/agent/hive/message", requireAgentToken, async (req: any, res) => {
     try {
-      const { message, targetAgent } = req.body;
+      const { content, message, messageType, metadata } = req.body;
+      const messageContent = content || message; // Support both parameter names
       
-      if (!message) {
-        return res.status(400).json({ error: 'Message content required' });
+      if (!messageContent) {
+        return res.status(400).json({ error: 'Message content required (content or message)' });
       }
       
       // Get or create founder session for agent communication
-      const founderCollabService = (await import('./services/founder-collaboration-service')).founderCollaborationService;
       const SYSTEM_FOUNDER_ID = '49847136';
       const session = await founderCollabService.getOrCreateActiveSession(SYSTEM_FOUNDER_ID);
       
-      // Format message with agent identifier
-      const agentPrefix = '[REPLIT-AGENT] ';
-      const formattedMessage = `${agentPrefix}${message}`;
-      
-      // Save the message
-      const savedMessage = await founderCollabService.addMessage(
-        session.id,
-        'founder', // Role as founder proxy
-        formattedMessage,
-        {
-          agentSource: 'replit-agent',
-          targetAgent: targetAgent || 'wren'
+      // Save the message as Wren (the Replit Agent)
+      const savedMessage = await founderCollabService.addMessage(session.id, {
+        role: 'wren',
+        content: messageContent,
+        messageType: messageType || 'text',
+        metadata: {
+          source: 'replit_agent',
+          ...metadata
         }
-      );
+      });
       
       // Broadcast via WebSocket
-      const { founderCollabWSBroker } = await import('./services/founder-collab-ws-broker');
       founderCollabWSBroker.emitToSession(session.id, 'message', {
         id: savedMessage.id,
         sessionId: session.id,
-        role: 'founder',
-        content: formattedMessage,
+        role: savedMessage.role,
+        content: savedMessage.content,
         timestamp: savedMessage.createdAt,
         metadata: savedMessage.metadata
       });
       
-      logAgentAction('post_message', '/api/agent/hive/message', true, `Message to ${targetAgent || 'wren'}`);
+      logAgentAction('post_message', '/api/agent/hive/message', true, `Wren: ${messageContent.substring(0, 50)}...`);
       
       res.json({
         success: true,
         messageId: savedMessage.id,
-        sessionId: session.id
+        sessionId: session.id,
+        cursor: savedMessage.cursor,
+        timestamp: new Date().toISOString(),
       });
     } catch (error: any) {
       console.error('[Agent API] Error posting to Hive:', error);
       logAgentAction('post_message', '/api/agent/hive/message', false, error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Agent fetches recent Hive messages
+  app.get("/api/agent/hive/messages", requireAgentToken, async (req: any, res) => {
+    try {
+      const sessionId = req.query.sessionId as string;
+      const since = req.query.since as string;
+      const limit = parseInt(req.query.limit as string) || 20;
+      
+      // Get active session if none specified
+      const SYSTEM_FOUNDER_ID = '49847136';
+      let targetSessionId = sessionId;
+      if (!targetSessionId) {
+        const session = await founderCollabService.getOrCreateActiveSession(SYSTEM_FOUNDER_ID);
+        targetSessionId = session.id;
+      }
+      
+      const messages = await founderCollabService.getSessionMessages(targetSessionId, limit);
+      
+      // Filter by timestamp if 'since' is provided
+      let filteredMessages = messages;
+      if (since) {
+        const sinceDate = new Date(since);
+        filteredMessages = messages.filter((m: any) => new Date(m.createdAt) > sinceDate);
+      }
+      
+      logAgentAction('fetch_messages', '/api/agent/hive/messages', true, `${filteredMessages.length} messages`);
+      
+      res.json({
+        sessionId: targetSessionId,
+        messages: filteredMessages.map((m: any) => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          createdAt: m.createdAt,
+          metadata: m.metadata,
+        })),
+        count: filteredMessages.length,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      console.error('[Agent API] Error fetching Hive messages:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Agent queries Daniela for pedagogical input
+  app.post("/api/agent/hive/query-daniela", requireAgentToken, async (req: any, res) => {
+    try {
+      const { question, context, sessionId } = req.body;
+      
+      if (!question) {
+        return res.status(400).json({ error: 'question is required' });
+      }
+      
+      // Get active session
+      const SYSTEM_FOUNDER_ID = '49847136';
+      let session;
+      if (sessionId) {
+        session = await founderCollabService.getSession(sessionId);
+      }
+      if (!session) {
+        session = await founderCollabService.getOrCreateActiveSession(SYSTEM_FOUNDER_ID);
+      }
+      
+      // Post Wren's question to the Hive
+      const wrenMessage = await founderCollabService.addMessage(session.id, {
+        role: 'wren',
+        content: `@daniela ${question}`,
+        metadata: {
+          source: 'replit_agent',
+          type: 'daniela_query',
+          context,
+        }
+      });
+      
+      // Broadcast Wren's question
+      founderCollabWSBroker.emitToSession(session.id, 'message', {
+        id: wrenMessage.id,
+        sessionId: session.id,
+        role: wrenMessage.role,
+        content: wrenMessage.content,
+        timestamp: wrenMessage.createdAt,
+        metadata: wrenMessage.metadata
+      });
+      
+      // Trigger Daniela's response through Hive Consciousness
+      const hiveResult = await hiveConsciousnessService.processExternalMessage(
+        `@daniela ${question}`,
+        'wren'
+      );
+      
+      let danielaResponse = null;
+      
+      if (hiveResult.response && hiveResult.agent === 'daniela') {
+        // Add Daniela's response to the session
+        const danielaMessage = await founderCollabService.addMessage(session.id, {
+          role: 'daniela',
+          content: hiveResult.response,
+          metadata: {
+            source: 'hive_consciousness',
+            triggeredBy: wrenMessage.id,
+            queryContext: context,
+          }
+        });
+        
+        // Broadcast Daniela's response
+        founderCollabWSBroker.emitToSession(session.id, 'message', {
+          id: danielaMessage.id,
+          sessionId: session.id,
+          role: danielaMessage.role,
+          content: danielaMessage.content,
+          timestamp: danielaMessage.createdAt,
+          metadata: danielaMessage.metadata
+        });
+        
+        danielaResponse = {
+          content: hiveResult.response,
+          messageId: danielaMessage.id,
+        };
+      }
+      
+      logAgentAction('query_daniela', '/api/agent/hive/query-daniela', true, danielaResponse ? 'got response' : 'no response');
+      
+      res.json({
+        success: true,
+        sessionId: session.id,
+        wrenMessageId: wrenMessage.id,
+        danielaResponse,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      console.error('[Agent API] Error querying Daniela:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Agent gets active session info
+  app.get("/api/agent/hive/session", requireAgentToken, async (req: any, res) => {
+    try {
+      const SYSTEM_FOUNDER_ID = '49847136';
+      const session = await founderCollabService.getOrCreateActiveSession(SYSTEM_FOUNDER_ID);
+      
+      res.json({
+        sessionId: session.id,
+        title: session.title,
+        status: session.status,
+        messageCount: session.messageCount,
+        createdAt: session.createdAt,
+        updatedAt: session.updatedAt,
+      });
+    } catch (error: any) {
+      console.error('[Agent API] Session error:', error);
       res.status(500).json({ error: error.message });
     }
   });
