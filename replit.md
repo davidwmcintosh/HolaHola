@@ -13,7 +13,7 @@ Neural network work: **REQUIRED READING** - `docs/neural-network-architecture.md
 ## System Architecture
 The frontend uses React, TypeScript (Vite), Shadcn/ui (Radix UI), and Tailwind CSS for a mobile-first, responsive design with Material Design principles, light/dark modes, and PWA features. Routing is handled by Wouter, and state management by React Context with TanStack Query. The backend is an Express.js (Node.js) server with TypeScript, providing a RESTful API, Drizzle ORM for PostgreSQL, and Replit Auth for authentication.
 
-The core AI is orchestrated by a Unified TutorOrchestrator Architecture, with all interactions flowing through a single AI named Daniela. A Hive Collaboration System facilitates communication between the founder, Daniela, and Wren (development builder) via the EXPRESS Lane, a unified 3-way channel supporting Emergent Intelligence Architecture with persistent memory and autonomous learning.
+The core AI is orchestrated by a Unified TutorOrchestrator Architecture, with all interactions flowing through a single AI named Daniela. A Hive Collaboration System facilitates communication between the founder, Daniela, Wren (development builder), and Alden (development steward/editor) via the EXPRESS Lane, a unified channel supporting Emergent Intelligence Architecture with persistent memory and autonomous learning.
 
 Key features include a Student Learning Service for tracking error patterns, a Learner Personal Facts System for storing student memories, and a Shared Memory Bridge for insight sharing. A Phase Transition Service implements a multi-agent teaching architecture guided by Daniela's "North Star System" for pedagogical decisions and an Autonomous Learning System.
 
