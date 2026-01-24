@@ -311,6 +311,14 @@ function cleanTextForDisplay(text: string): string {
   // Pattern: [SELF_SURGERY target="..." priority=... confidence=... content='...' ...]
   text = text.replace(/\[SELF_SURGERY[^\]]*\]/gi, '');
   
+  // Strip VOICE_ADJUST tags (voice control commands - should affect TTS settings, not be spoken)
+  // Pattern: [VOICE_ADJUST speed="normal" emotion="friendly" personality="warm"]
+  text = text.replace(/\[VOICE_ADJUST[^\]]*\]/gi, '');
+  
+  // Strip VOICE_RESET tags (voice reset commands - internal, not spoken)
+  // Pattern: [VOICE_RESET] or [VOICE_RESET reason="..."]
+  text = text.replace(/\[VOICE_RESET[^\]]*\]/gi, '');
+  
   // Strip OBSERVE tags (Daniela's teaching observations for office hours - invisible to students)
   // Pattern: [OBSERVE reason="..." note="..."]
   text = text.replace(/\[OBSERVE[^\]]*\]/gi, '');
