@@ -18130,6 +18130,44 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
     }
   });
   
+  // Agent narration - auto-announce significant changes to Express Lane
+  app.post("/api/agent/hive/narrate", requireAgentToken, async (req: any, res) => {
+    try {
+      const { type, content, files, component, details } = req.body;
+      
+      if (!type || !content) {
+        return res.status(400).json({ error: 'type and content are required' });
+      }
+      
+      const validTypes = [
+        'feature_start', 'feature_complete', 'bug_fix', 'schema_change',
+        'refactor', 'investigation', 'question', 'proposal', 
+        'status_update', 'warning', 'celebration'
+      ];
+      
+      if (!validTypes.includes(type)) {
+        return res.status(400).json({ error: `Invalid type. Must be one of: ${validTypes.join(', ')}` });
+      }
+      
+      const { wrenNarrationService } = await import('./services/wren-narration-service');
+      
+      const result = await wrenNarrationService.narrate(type, content, {
+        files,
+        component,
+        details,
+      });
+      
+      if (result.success) {
+        logAgentAction('narrate', '/api/agent/hive/narrate', true, `${type}: ${content.substring(0, 50)}...`);
+      }
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error('[Agent API] Narration error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // Update sprint status (limited write access for agent)
   // Only allows stage and notes updates - no title/priority/description changes
   app.patch("/api/agent/sprints/:id", requireAgentToken, async (req: any, res) => {
