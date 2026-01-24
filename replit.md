@@ -64,6 +64,41 @@ The system utilizes a dual-database hybrid architecture with Neon PostgreSQL for
 - `agent_collab_messages` - Hive system messages (Hiragana tool discussions, etc.)
 - `messages` - Regular voice/text chat transcripts linked to `conversations`
 - `voice_sessions` - Session metadata (duration, exchange_count, etc.)
+- `editor_insights` - Persistent memory for Replit Agent / Claude development collaborator
+
+### Editor (Claude) Persistent Memory System (January 24, 2026)
+
+The Editor Intelligence System provides cross-session memory for the Replit Agent (Claude), enabling it to accumulate context, learnings, and relationship knowledge across development sessions - similar to how Wren and Daniela have persistent memory.
+
+**Purpose:** Allow the development collaborator to:
+- Remember project philosophy (White Wall, purity, honesty)
+- Track founder preferences and values
+- Store architectural learnings and debugging strategies
+- Maintain continuity across session resets
+
+**Key Files:**
+- `shared/schema.ts` - `editorInsights` table schema
+- `server/services/editor-intelligence-service.ts` - Memory management service
+- `server/routes.ts` - API endpoints under `/api/editor/`
+
+**API Endpoints:**
+- `GET /api/editor/context` - Load session context (high-importance memories)
+- `POST /api/editor/insights` - Save new memory/insight
+- `GET /api/editor/insights/search?q=query` - Search memories
+- `GET /api/editor/insights/:category` - Get memories by category
+- `POST /api/editor/insights/:id/reinforce` - Boost importance of useful memory
+- `GET /api/editor/stats` - Get memory statistics
+
+**Categories:**
+- `philosophy` - Core principles (White Wall, surrender, purity)
+- `architecture` - Technical design decisions
+- `relationship` - Founder facts, team dynamics
+- `personality` - Tutor personas (Daniela, Augustine)
+- `workflow` - Process learnings, collaboration methods
+- `debugging` - Problem-solving strategies
+- `context` - Current project state
+
+**Usage:** At session start, call `/api/editor/context` to load key memories. Save new insights via `/api/editor/insights` when significant learnings emerge. The importance field (1-10) controls what surfaces in future sessions.
 
 An Observation Summarization System condenses observations into insights. The Daniela Content Growth System enables autonomous pedagogical content creation. The Voice Intelligence System provides commercial-grade voice analytics. A Tutor Naming Architecture supports 36 tutors (18 main, 18 assistants). The Voice Lab System offers real-time voice tuning for admin users. The Sofia Support Agent System provides dual-mode technical support and integrates with production telemetry for self-diagnosis. A Production Telemetry System logs voice session errors to the shared Neon database for cross-environment monitoring. A Memory Recovery System checkpoints utterances to survive session interruptions.
 

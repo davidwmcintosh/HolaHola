@@ -6588,6 +6588,56 @@ export const insertWrenInsightSchema = createInsertSchema(wrenInsights).omit({
 export type InsertWrenInsight = z.infer<typeof insertWrenInsightSchema>;
 export type WrenInsight = typeof wrenInsights.$inferSelect;
 
+// ===== Editor (Claude) Insights =====
+// Persistent memory system for the Replit Agent / Claude development collaborator
+// Mirrors wren_insights but for the "editor" role in the Hive collaboration system
+
+export const editorInsightCategoryEnum = pgEnum('editor_insight_category', [
+  'philosophy',    // Core principles like White Wall, surrender, purity
+  'architecture',  // Technical design decisions and rationale
+  'relationship',  // Personal facts about founder, team dynamics
+  'debugging',     // Problem-solving strategies that worked
+  'personality',   // Tutor personas (Daniela, Augustine, etc.)
+  'workflow',      // Process learnings, how we work together
+  'context',       // Project state, current priorities
+]);
+
+export const editorInsights = pgTable("editor_insights", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  category: editorInsightCategoryEnum("category").notNull(),
+  title: varchar("title").notNull(),
+  content: text("content").notNull(), // The actual insight/memory
+  context: text("context"), // What situation this came from
+  
+  tags: text("tags").array().default(sql`'{}'::text[]`), // Searchable tags
+  relatedFiles: text("related_files").array().default(sql`'{}'::text[]`), // Files this relates to
+  
+  importance: integer("importance").default(5), // 1-10 scale for memory prioritization
+  useCount: integer("use_count").default(0), // How often retrieved
+  lastUsedAt: timestamp("last_used_at"), // When last retrieved
+  
+  sourceSessionId: varchar("source_session_id"), // Express Lane session if relevant
+  sourceConversationId: varchar("source_conversation_id"), // Voice conversation that inspired this
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_editor_insights_category").on(table.category),
+  index("idx_editor_insights_importance").on(table.importance),
+  index("idx_editor_insights_created").on(table.createdAt),
+]);
+
+export const insertEditorInsightSchema = createInsertSchema(editorInsights).omit({
+  id: true,
+  useCount: true,
+  lastUsedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertEditorInsight = z.infer<typeof insertEditorInsightSchema>;
+export type EditorInsight = typeof editorInsights.$inferSelect;
+
 // ===== Wren Proactive Triggers =====
 // Detected patterns that warrant attention - enables proactive surfacing
 

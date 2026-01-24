@@ -21776,6 +21776,155 @@ ${memoryContext}
   });
 
   // ============================================================================
+  // EDITOR (CLAUDE) INTELLIGENCE: Persistent memory for Replit Agent
+  // Note: These endpoints use x-editor-secret header for consistency with Wren
+  // endpoints. Currently stubbed but ready for secret validation when needed.
+  // ============================================================================
+
+  // Load session context - get memories for new session
+  app.get("/api/editor/context", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (authHeader && !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+      
+      const { editorIntelligence } = await import('./services/editor-intelligence-service');
+      const limit = parseInt(req.query.limit as string) || 20;
+      const minImportance = parseInt(req.query.minImportance as string) || 3;
+      const categories = req.query.categories ? (req.query.categories as string).split(',') : undefined;
+      
+      const memories = await editorIntelligence.loadSessionContext({ limit, minImportance, categories });
+      const formatted = editorIntelligence.formatForContext(memories);
+      
+      res.json({ 
+        success: true, 
+        count: memories.length,
+        memories,
+        formatted,
+      });
+    } catch (error: any) {
+      console.error('[Editor Intelligence] Load context error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Save a new memory/insight
+  app.post("/api/editor/insights", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (authHeader && !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+      
+      const { editorIntelligence } = await import('./services/editor-intelligence-service');
+      const { category, title, content, context, tags, relatedFiles, importance, sourceConversationId } = req.body;
+      
+      if (!category || !title || !content) {
+        return res.status(400).json({ error: 'category, title, and content are required' });
+      }
+      
+      const insight = await editorIntelligence.saveInsight({
+        category,
+        title,
+        content,
+        context,
+        tags: tags || [],
+        relatedFiles: relatedFiles || [],
+        importance: importance || 5,
+        sourceConversationId,
+      });
+      
+      console.log(`[Editor Intelligence] Saved insight: ${category} - ${title}`);
+      res.json({ success: true, insight });
+    } catch (error: any) {
+      console.error('[Editor Intelligence] Save insight error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Search memories
+  app.get("/api/editor/insights/search", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (authHeader && !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+      
+      const { editorIntelligence } = await import('./services/editor-intelligence-service');
+      const query = req.query.q as string;
+      const limit = parseInt(req.query.limit as string) || 10;
+      
+      if (!query) {
+        return res.status(400).json({ error: 'q query parameter is required' });
+      }
+      
+      const memories = await editorIntelligence.searchMemories(query, limit);
+      res.json({ success: true, memories });
+    } catch (error: any) {
+      console.error('[Editor Intelligence] Search error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get memories by category
+  app.get("/api/editor/insights/:category", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (authHeader && !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+      
+      const { editorIntelligence } = await import('./services/editor-intelligence-service');
+      const { category } = req.params;
+      const limit = parseInt(req.query.limit as string) || 10;
+      
+      const memories = await editorIntelligence.getByCategory(category, limit);
+      res.json({ success: true, memories });
+    } catch (error: any) {
+      console.error('[Editor Intelligence] Get by category error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Reinforce a memory (boost importance)
+  app.post("/api/editor/insights/:id/reinforce", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (authHeader && !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+      
+      const { editorIntelligence } = await import('./services/editor-intelligence-service');
+      const { id } = req.params;
+      const boost = parseInt(req.body.boost as string) || 1;
+      
+      await editorIntelligence.reinforceInsight(id, boost);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('[Editor Intelligence] Reinforce error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get memory stats
+  app.get("/api/editor/stats", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (authHeader && !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+      
+      const { editorIntelligence } = await import('./services/editor-intelligence-service');
+      const stats = await editorIntelligence.getStats();
+      res.json({ success: true, stats });
+    } catch (error: any) {
+      console.error('[Editor Intelligence] Stats error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================================================
   // AGENT COLLABORATION: Wren-Daniela direct communication channel
   // ============================================================================
 

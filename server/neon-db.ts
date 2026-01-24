@@ -52,6 +52,9 @@ export const SHARED_TABLES = new Set([
   'reflection_triggers',
   'ai_suggestions',
   
+  // Editor (Claude) Intelligence
+  'editor_insights',
+  
   // Wren Intelligence
   'wren_insights',
   'wren_proactive_triggers',
