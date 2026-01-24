@@ -533,11 +533,27 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
             return;
           }
 
-          const conversation = await storage.getConversation(conversationId!, userId!);
+          let conversation = await storage.getConversation(conversationId!, userId!);
           console.log(`[Streaming Voice] getConversation(${conversationId}) result:`, conversation ? `found (${conversation.title?.substring(0, 30) || 'untitled'})` : 'NOT FOUND');
+          
+          // CRITICAL FIX: Create conversation if it doesn't exist
+          // Client sends conversationId but may not have created the record.
+          // Without this, FK constraint on messages table causes silent write failures.
           if (!conversation) {
-            sendError(ws, 'UNKNOWN', 'Conversation not found', false);
-            return;
+            console.log(`[Streaming Voice] Creating missing conversation: ${conversationId}`);
+            try {
+              conversation = await storage.createConversation({
+                id: conversationId!,
+                userId: userId!,
+                language: config.targetLanguage || 'spanish',
+                title: 'Voice Session',
+              });
+              console.log(`[Streaming Voice] ✓ Conversation created: ${conversationId}`);
+            } catch (createErr: any) {
+              console.error(`[Streaming Voice] Failed to create conversation: ${createErr.message}`);
+              sendError(ws, 'UNKNOWN', 'Failed to create conversation', false);
+              return;
+            }
           }
 
           const messages = await storage.getMessagesByConversation(conversationId!);
@@ -2770,7 +2786,25 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
             // Get user and conversation
             const user = userId ? await storage.getUser(userId) : null;
             const userName = user?.firstName || 'friend';
-            const conversation = (conversationId && userId) ? await storage.getConversation(conversationId, userId) : null;
+            let conversation = (conversationId && userId) ? await storage.getConversation(conversationId, userId) : null;
+            
+            // CRITICAL FIX: Ensure conversation exists in database
+            // Client sends conversationId but may not have created the record.
+            // Without this, FK constraint on messages table causes silent write failures.
+            if (conversationId && userId && !conversation) {
+              console.log(`[Streaming Voice] Creating missing conversation: ${conversationId}`);
+              try {
+                conversation = await storage.createConversation({
+                  id: conversationId,
+                  userId: userId,
+                  language: config.targetLanguage || 'spanish',
+                  title: 'Voice Session',
+                });
+                console.log(`[Streaming Voice] ✓ Conversation created: ${conversationId}`);
+              } catch (createErr: any) {
+                console.error(`[Streaming Voice] Failed to create conversation: ${createErr.message}`);
+              }
+            }
             
             // Calculate Founder Mode (enables hive collaboration)
             const isDeveloper = await usageService.checkDeveloperBypass(userId!);
