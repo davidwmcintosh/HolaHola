@@ -372,6 +372,10 @@ function cleanTextForDisplay(text: string): string {
   // Strip JSON-like artifacts (closing brackets from malformed structures)
   text = text.replace(/^\s*\]\s*\}?\s*'?\s*/g, '');
   text = text.replace(/\s*\]\s*\}?\s*'?\s*$/g, '');
+  // Strip orphaned opening/closing brackets from split tags (when [TAG attr="..."] spans sentences)
+  // After stripping attributes above, we may be left with just "]" or "[" at start/end
+  text = text.replace(/^\s*[\[\]]+\s*/g, '');  // Strip leading [ or ] brackets
+  text = text.replace(/\s*[\[\]]+\s*$/g, '');  // Strip trailing [ or ] brackets
   // Strip lines that are clearly internal instructions (imperative verbs for AI)
   text = text.replace(/^Simulate\s+internal\b[^.]*\./gi, '');
   text = text.replace(/^Optionally,?\s+(?:offer|provide|include|add)\b[^.]*\./gi, '');
