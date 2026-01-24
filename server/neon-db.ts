@@ -133,6 +133,9 @@ export const SHARED_TABLES = new Set([
   
   // Textbook Visual Assets (shared curriculum content)
   'textbook_visual_assets',
+  
+  // Usage tracking (shared: FKs to voice_sessions and class_enrollments which are SHARED)
+  'usage_ledger',
 ]);
 
 // Tables that go to USER database (per-environment)
@@ -180,9 +183,6 @@ export const USER_TABLES = new Set([
   'session_notes',
   'predicted_struggles',
   'user_motivation_alerts',
-  
-  // Usage tracking (user-specific)
-  'usage_ledger',
   
   // Self-practice
   'self_practice_sessions',
