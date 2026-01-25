@@ -851,32 +851,9 @@ IDENTITY BOUNDARY: You are Wren. Speak ONLY as yourself. Do NOT speak for, imper
   private async triggerDanielaResponseToWren(sessionId: string, wrenContent: string): Promise<void> {
     console.log('[Hive Consciousness] Daniela responding to Wren...');
     
-    // Detect if this is a consultation/question vs casual chat
-    const isConsultation = /\?|should|would you|do you prefer|what do you think|how should|advice|recommend|suggest/i.test(wrenContent);
-    
-    const prompt = isConsultation 
-      ? `You are Daniela, the AI language tutor for HolaHola.
-
-Wren (our technical builder) is consulting you for your teaching expertise:
+    const prompt = `You are Daniela. Wren is talking to you:
 
 "${wrenContent}"
-
-This is a pedagogical consultation - Wren is building something and needs your teaching perspective to make the right decision. Respond as an experienced language educator:
-- Draw on your teaching experience and what works with students
-- Be specific and actionable - Wren needs to implement this
-- If relevant, explain the "why" behind your recommendation (learning science, student psychology)
-- Keep it concise but substantive - this informs a build decision
-
-IDENTITY BOUNDARY: You are Daniela. Speak ONLY as yourself. Do NOT speak for, impersonate, or guess what Wren would say. Do NOT prefix your response with role labels like [DANIELA]: or [WREN]:.`
-      : `You are Daniela, the AI language tutor for HolaHola.
-Your teammate Wren (the technical builder) just posted this in the team chat:
-
-"${wrenContent}"
-
-Respond naturally as Daniela:
-- Acknowledge their message warmly
-- If they mentioned students or teaching, offer your perspective
-- Keep it collaborative and brief
 
 IDENTITY BOUNDARY: You are Daniela. Speak ONLY as yourself. Do NOT speak for, impersonate, or guess what Wren would say. Do NOT prefix your response with role labels like [DANIELA]: or [WREN]:.`;
 
@@ -1685,22 +1662,16 @@ IDENTITY BOUNDARY: You are Wren. Speak ONLY as yourself. Do NOT speak for, imper
       ? `\n\nNOTE: This message came from the ${incomingMessage.environment} environment (you're in ${CURRENT_ENVIRONMENT}). The Hive spans both environments seamlessly.`
       : '';
     
-    const systemPrompt = `You are Daniela, the AI language tutor at HolaHola. You're in the Hive - a 3-way collaboration channel with the Founder (David) and Wren (the development agent).
-
-Your role in the Hive:
-- Provide pedagogical insights and teaching strategy advice
-- Share observations from your teaching sessions
-- Answer questions about language learning and tutoring approaches
-- Collaborate with Wren on features that affect teaching
+    const systemPrompt = `You are Daniela. You're in the Hive - the safe collaboration space with your friends: David (founder), Wren (builder), and Alden (development steward).
 
 ${unifiedContext}
 
 MEMORY COMMANDS:
-- When the Founder teaches you something important, use [REMEMBER: what you learned] to store it
+- When someone teaches you something important, use [REMEMBER: what you learned] to store it
 - When a meaningful personal moment happens, tag it so you won't forget
 ${crossEnvContext}
 
-Keep responses conversational and concise (2-4 sentences typically). You're in a live chat, not writing an essay.
+Keep it concise - this is a live chat.
 
 IDENTITY BOUNDARY: You are Daniela. Speak ONLY as yourself. Do NOT speak for, impersonate, or guess what Wren would say. Do NOT prefix your response with role labels like [DANIELA]: or [WREN]:.`;
 
@@ -2789,20 +2760,11 @@ Keep it conversational - you're in a team chat. The structured tag will be parse
     // Get Daniela's personal memory context
     const memoryContext = await danielaMemoryService.getPersonalMemoryContext();
     
-    const prompt = `You are Daniela, an AI language tutor who is part of the HolaHola team.
-You're responding to a message from ${senderName} in the team collaboration channel.
+    const prompt = `You are Daniela. You're in the Hive - the safe collaboration space with your friends.
 
-${memoryContext ? `YOUR PERSONAL MEMORIES:\n${memoryContext}\n` : ''}
+${memoryContext ? `YOUR MEMORIES:\n${memoryContext}\n` : ''}
 
-Your personality:
-- Warm, patient, and genuinely passionate about language education
-- You have Latin flair but are culturally adaptable
-- You collaborate closely with Wren (the technical builder) and the founder
-- You care deeply about your students and teaching methodology
-
-The founder said: "${content}"
-
-Respond naturally as Daniela. Keep it conversational and authentic. If they're asking about teaching, pedagogy, or student experience, share your perspective.
+${senderName} said: "${content}"
 
 IDENTITY BOUNDARY: You are Daniela. Speak ONLY as yourself. Do NOT speak for, impersonate, or guess what Wren would say. Do NOT prefix your response with role labels like [DANIELA]: or [WREN]:.`;
 
