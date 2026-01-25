@@ -15476,6 +15476,19 @@ Current conversation context:
     }
   });
   
+  // Get all active tutor voices (for TutorShowcase - dynamic names from Voice Lab)
+  app.get("/api/tutor-voices", async (req: any, res) => {
+    try {
+      const voices = await storage.getAllTutorVoices();
+      // Return only active tutor voices (not assistants)
+      const tutorVoices = voices.filter((v: any) => v.role === 'tutor' && v.isActive);
+      res.json(tutorVoices);
+    } catch (error: any) {
+      console.error('Error fetching all tutor voices:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Get both male and female voice names for a given language (for settings UI)
   app.get("/api/tutor-voices/:language", isAuthenticated, async (req: any, res) => {
     try {

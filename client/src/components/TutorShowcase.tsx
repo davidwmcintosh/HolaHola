@@ -1,13 +1,25 @@
 import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { 
   getAllTutorsForShowcase, 
   normalizeLanguage,
+  getTutorAvatar,
+  languageAccentColors,
+  tutorTaglines,
   type TutorShowcaseData,
   type SupportedLanguage,
   type TutorGender 
 } from "@/lib/tutor-avatars";
+
+interface TutorVoice {
+  id: string;
+  language: string;
+  gender: 'male' | 'female';
+  voiceName: string;
+  isActive: boolean;
+}
 
 interface TutorCardProps {
   tutor: TutorShowcaseData;
@@ -89,7 +101,36 @@ export function TutorShowcase({
   filterSlot,
   className = '' 
 }: TutorShowcaseProps) {
-  const allTutors = useMemo(() => getAllTutorsForShowcase(), []);
+  // Fetch tutor voices from database for dynamic names
+  const { data: tutorVoices } = useQuery<TutorVoice[]>({
+    queryKey: ['/api/tutor-voices'],
+  });
+
+  // Build tutor data, using database names when available
+  const allTutors = useMemo(() => {
+    const baseTutors = getAllTutorsForShowcase();
+    
+    if (!tutorVoices || tutorVoices.length === 0) {
+      return baseTutors;
+    }
+
+    // Override names from database where available
+    return baseTutors.map(tutor => {
+      const dbVoice = tutorVoices.find(
+        v => v.language.toLowerCase() === tutor.language.toLowerCase() && 
+             v.gender === tutor.gender &&
+             v.isActive
+      );
+      
+      if (dbVoice) {
+        // Extract first name from voiceName (e.g., "Yael - Hebrew Female" -> "Yael")
+        const firstName = dbVoice.voiceName.split(/[\s-]/)[0];
+        return { ...tutor, name: firstName };
+      }
+      
+      return tutor;
+    });
+  }, [tutorVoices]);
   
   const languageTutors = useMemo(() => {
     // Normalize the language to handle variants like 'mandarin' -> 'chinese'
