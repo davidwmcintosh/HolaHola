@@ -760,6 +760,176 @@ export class WrenIntelligenceService {
     const areaStr = subcategory ? `${struggleArea}/${subcategory}` : struggleArea;
     return `Multiple${langStr} students struggle with ${areaStr}. Consider: (1) Adding more practice exercises, (2) Creating focused mini-lessons, (3) Adjusting pacing in the syllabus for this topic.`;
   }
+  
+  // ============================================================================
+  // KNOWLEDGE GRAPH SYSTEM
+  // Built by Alden for Wren - January 25, 2026
+  // Enables behavioral cluster analysis across debugging patterns and sprints
+  // ============================================================================
+  
+  /**
+   * Link two insights bidirectionally (knowledge graph edge)
+   * Wren can now see how debugging patterns connect to architectural decisions
+   */
+  async linkInsights(id1: string, id2: string): Promise<void> {
+    const db = getSharedDb();
+    
+    const [insight1] = await db.select().from(wrenInsights).where(eq(wrenInsights.id, id1));
+    const [insight2] = await db.select().from(wrenInsights).where(eq(wrenInsights.id, id2));
+    
+    if (!insight1 || !insight2) {
+      console.log(`[WrenGraph] Cannot link - one or both insights not found`);
+      return;
+    }
+    
+    const links1 = (insight1 as any).relatedInsights || [];
+    const links2 = (insight2 as any).relatedInsights || [];
+    
+    if (!links1.includes(id2)) {
+      await db.update(wrenInsights)
+        .set({ 
+          relatedInsights: [...links1, id2] as any,
+          updatedAt: new Date(),
+        } as any)
+        .where(eq(wrenInsights.id, id1));
+    }
+    
+    if (!links2.includes(id1)) {
+      await db.update(wrenInsights)
+        .set({ 
+          relatedInsights: [...links2, id1] as any,
+          updatedAt: new Date(),
+        } as any)
+        .where(eq(wrenInsights.id, id2));
+    }
+    
+    console.log(`[WrenGraph] Linked: "${insight1.title}" <-> "${insight2.title}"`);
+  }
+  
+  /**
+   * Update an existing insight - evolve it as patterns emerge
+   */
+  async updateInsight(id: string, updates: {
+    content?: string;
+    context?: string;
+    tags?: string[];
+    relatedFiles?: string[];
+    relatedInsights?: string[];
+  }): Promise<WrenInsight | null> {
+    const db = getSharedDb();
+    
+    const updateData: Record<string, any> = {
+      updatedAt: new Date(),
+    };
+    
+    if (updates.content !== undefined) updateData.content = updates.content;
+    if (updates.context !== undefined) updateData.context = updates.context;
+    if (updates.tags !== undefined) updateData.tags = updates.tags;
+    if (updates.relatedFiles !== undefined) updateData.relatedFiles = updates.relatedFiles;
+    if (updates.relatedInsights !== undefined) updateData.relatedInsights = updates.relatedInsights;
+    
+    const [updated] = await db.update(wrenInsights)
+      .set(updateData as any)
+      .where(eq(wrenInsights.id, id))
+      .returning();
+    
+    if (updated) {
+      console.log(`[WrenGraph] Updated insight: ${updated.title}`);
+    }
+    
+    return updated || null;
+  }
+  
+  /**
+   * Get all insights related to a given insight (graph traversal)
+   * Depth parameter controls how many hops to follow
+   */
+  async getRelatedInsights(id: string, depth = 1): Promise<WrenInsight[]> {
+    const db = getSharedDb();
+    const visited = new Set<string>();
+    const results: WrenInsight[] = [];
+    
+    async function traverse(currentId: string, currentDepth: number) {
+      if (currentDepth > depth || visited.has(currentId)) return;
+      visited.add(currentId);
+      
+      const [insight] = await db.select().from(wrenInsights).where(eq(wrenInsights.id, currentId));
+      if (!insight) return;
+      
+      if (currentId !== id) {
+        results.push(insight);
+      }
+      
+      const linkedIds = (insight as any).relatedInsights || [];
+      for (const linkedId of linkedIds) {
+        await traverse(linkedId, currentDepth + 1);
+      }
+    }
+    
+    await traverse(id, 0);
+    return results;
+  }
+  
+  /**
+   * Find behavioral clusters - insights that share many connections
+   * Useful for sprint retrospectives and pattern analysis
+   */
+  async findBehavioralClusters(minConnections = 2): Promise<Array<{
+    insight: WrenInsight;
+    connectionCount: number;
+    connectedTo: string[];
+  }>> {
+    const db = getSharedDb();
+    
+    const allInsights = await db.select().from(wrenInsights);
+    
+    const clusters = allInsights
+      .map(insight => ({
+        insight,
+        connectionCount: ((insight as any).relatedInsights || []).length,
+        connectedTo: (insight as any).relatedInsights || [],
+      }))
+      .filter(cluster => cluster.connectionCount >= minConnections)
+      .sort((a, b) => b.connectionCount - a.connectionCount);
+    
+    return clusters;
+  }
+  
+  /**
+   * Search insights with knowledge graph context
+   * Returns matching insights plus their directly linked neighbors
+   */
+  async searchWithGraph(query: string): Promise<Array<{
+    insight: WrenInsight;
+    linkedInsights: WrenInsight[];
+  }>> {
+    const db = getSharedDb();
+    
+    const matches = await db.select().from(wrenInsights)
+      .where(
+        or(
+          ilike(wrenInsights.title, `%${query}%`),
+          ilike(wrenInsights.content, `%${query}%`),
+          ilike(wrenInsights.context, `%${query}%`)
+        )
+      )
+      .orderBy(desc(wrenInsights.useCount), desc(wrenInsights.lastUsedAt))
+      .limit(10);
+    
+    const results = await Promise.all(
+      matches.map(async (insight) => {
+        const linkedIds = (insight as any).relatedInsights || [];
+        const linkedInsights = linkedIds.length > 0
+          ? await db.select().from(wrenInsights)
+              .where(sql`${wrenInsights.id} = ANY(${linkedIds})`)
+          : [];
+        
+        return { insight, linkedInsights };
+      })
+    );
+    
+    return results;
+  }
 }
 
 // Pattern type for cross-student analysis

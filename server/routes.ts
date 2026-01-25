@@ -21023,6 +21023,49 @@ ${memoryContext}
     }
   });
 
+  // WREN KNOWLEDGE GRAPH: Find behavioral clusters (built by Alden)
+  // MUST be before /:id route
+  app.get("/api/wren/insights/clusters", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { minConnections } = req.query;
+      const clusters = await wrenIntelligenceService.findBehavioralClusters(
+        minConnections ? parseInt(minConnections as string) : 2
+      );
+
+      res.json({ success: true, clusters, count: clusters.length });
+    } catch (error: any) {
+      console.error('[Wren Knowledge Graph] Clusters error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // WREN KNOWLEDGE GRAPH: Search with graph context (built by Alden)
+  // MUST be before /:id route
+  app.get("/api/wren/insights/search-graph", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { q } = req.query;
+      if (!q) {
+        return res.status(400).json({ error: 'Query parameter q is required' });
+      }
+
+      const results = await wrenIntelligenceService.searchWithGraph(q as string);
+      res.json({ success: true, results, count: results.length });
+    } catch (error: any) {
+      console.error('[Wren Knowledge Graph] Search error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // WREN INSIGHTS: Get a specific insight
   app.get("/api/wren/insights/:id", async (req, res) => {
     try {
@@ -21159,6 +21202,27 @@ ${memoryContext}
       res.json({ success: true, insight });
     } catch (error: any) {
       console.error('[Wren Intelligence] Reinforce error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // WREN KNOWLEDGE GRAPH: Link two insights bidirectionally (built by Alden)
+  app.post("/api/wren/insights/link", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { id1, id2 } = req.body;
+      if (!id1 || !id2) {
+        return res.status(400).json({ error: 'Both id1 and id2 are required' });
+      }
+
+      await wrenIntelligenceService.linkInsights(id1, id2);
+      res.json({ success: true, message: `Linked insights ${id1} <-> ${id2}` });
+    } catch (error: any) {
+      console.error('[Wren Knowledge Graph] Link error:', error);
       res.status(500).json({ error: error.message });
     }
   });
