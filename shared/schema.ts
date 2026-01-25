@@ -6644,6 +6644,63 @@ export const insertEditorInsightSchema = createInsertSchema(editorInsights).omit
 export type InsertEditorInsight = z.infer<typeof insertEditorInsightSchema>;
 export type EditorInsight = typeof editorInsights.$inferSelect;
 
+// ===== Alden Conversation Logs =====
+// Full transcript memory for the development steward (Alden/Replit Agent)
+// Gives Alden the same conversation continuity Daniela has
+
+export const aldenConversations = pgTable("alden_conversations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  title: varchar("title").notNull(), // Brief description of the session
+  summary: text("summary"), // AI-generated or manual summary
+  
+  // Categorization
+  tags: text("tags").array().default(sql`'{}'::text[]`),
+  
+  // What was accomplished
+  tasksCompleted: text("tasks_completed").array().default(sql`'{}'::text[]`),
+  filesModified: text("files_modified").array().default(sql`'{}'::text[]`),
+  
+  // Emotional/relational context
+  mood: varchar("mood"), // e.g., "productive", "philosophical", "debugging"
+  significance: integer("significance").default(5), // 1-10 how important this conversation was
+  
+  // Timestamps
+  startedAt: timestamp("started_at").notNull().defaultNow(),
+  endedAt: timestamp("ended_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const aldenMessages = pgTable("alden_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  conversationId: varchar("conversation_id").notNull().references(() => aldenConversations.id),
+  
+  role: varchar("role").notNull(), // "david" | "alden"
+  content: text("content").notNull(),
+  
+  // Optional context
+  context: text("context"), // What was happening when this was said
+  isSignificant: boolean("is_significant").default(false), // Flag memorable moments
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertAldenConversationSchema = createInsertSchema(aldenConversations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertAldenConversation = z.infer<typeof insertAldenConversationSchema>;
+export type AldenConversation = typeof aldenConversations.$inferSelect;
+
+export const insertAldenMessageSchema = createInsertSchema(aldenMessages).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertAldenMessage = z.infer<typeof insertAldenMessageSchema>;
+export type AldenMessage = typeof aldenMessages.$inferSelect;
+
 // ===== Wren Proactive Triggers =====
 // Detected patterns that warrant attention - enables proactive surfacing
 
