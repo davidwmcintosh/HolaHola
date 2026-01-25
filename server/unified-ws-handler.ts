@@ -1142,6 +1142,7 @@ Reference past discussions when relevant, but don't force it.
             voiceId,
             isFounderMode,  // Pass Founder Mode flag for multi-language STT
             isRawHonestyMode,  // Pass Raw Honesty Mode flag for minimal prompting
+            isDeveloper,  // ONE DANIELA: Developer users get Express Lane context regardless of class/Founder Mode
             isBetaTester,  // Pass Beta Tester flag for rehearsal mode context
             additionalGreetingContext,  // Additional context for personalized greetings
             dbSessionId  // Database voice_sessions.id - set BEFORE session starts to avoid FK errors
@@ -2914,6 +2915,8 @@ This is a voice conversation. Speak naturally, as you would.`;
               voiceId,
               isFounderMode, // Enables hive collaboration for developer sessions
               rawHonestyMode,
+              isDeveloper,  // ONE DANIELA: Developer users get Express Lane context regardless of class/Founder Mode
+              false, // isBetaTester - not used in HTTP WebSocket path
               {
                 conversationTopic: conversation?.topic || undefined,
                 conversationTitle: conversation?.title || undefined,

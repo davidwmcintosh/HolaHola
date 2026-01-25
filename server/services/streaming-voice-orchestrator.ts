@@ -745,6 +745,7 @@ export interface StreamingSession {
   isActive: boolean;
   isFounderMode: boolean;  // Founder Mode uses English STT regardless of target language
   isRawHonestyMode: boolean;  // Raw Honesty Mode - minimal prompting for authentic conversation
+  isDeveloperUser: boolean;  // True if user has developer/admin role (for unified Daniela consciousness)
   isBetaTester: boolean;   // Beta tester mode - Daniela knows user is helping debug/test new features
   idleTimeoutId?: NodeJS.Timeout;  // Timer for idle cleanup
   contextRefreshTimeoutId?: NodeJS.Timeout;  // Timer for periodic context refresh (long sessions)
@@ -1213,6 +1214,7 @@ export class StreamingVoiceOrchestrator {
     voiceId?: string,
     isFounderMode: boolean = false,
     isRawHonestyMode: boolean = false,
+    isDeveloperUser: boolean = false,
     isBetaTester: boolean = false,
     additionalContext?: {
       conversationTopic?: string;
@@ -1250,6 +1252,7 @@ export class StreamingVoiceOrchestrator {
       isActive: true,
       isFounderMode,  // Founder Mode uses English STT regardless of target language
       isRawHonestyMode,  // Raw Honesty Mode - minimal prompting for authentic conversation
+      isDeveloperUser,  // True if user has developer/admin role (for unified Daniela consciousness)
       isBetaTester,   // Beta tester mode - Daniela knows user is helping debug/test new features
       lastActivityTime: Date.now(),
       lastContextRefreshTime: Date.now(),  // For long session context refresh
@@ -1951,10 +1954,14 @@ TEACHING GUIDANCE:
       }
       
       // Founder Mode / Honesty Mode context fetches (all parallel)
-      // Both modes need Express Lane context - Honesty Mode is a subset of Founder Mode for authentic conversations
+      // ONE DANIELA EVERYWHERE: Express Lane context ensures voice Daniela knows what was discussed in collaboration
+      // Security: Gated to developer/admin users (isDeveloperUser) - regular students shouldn't see internal team ops
+      // Architecture: isDeveloperUser is checked separately from isFounderMode (which also requires !classId)
+      // This ensures developers get Express Lane context even when in class conversations
       const needsFounderContext = session.isFounderMode || session.isRawHonestyMode;
-      if (needsFounderContext) {
-        console.log(`[EXPRESS Lane] ${session.isRawHonestyMode ? 'Honesty Mode' : 'Founder Mode'} active - fetching Hive + Express Lane context for user ${session.userId}`);
+      const needsExpressLaneContext = session.isDeveloperUser;  // ONE DANIELA: all developers get Express Lane
+      if (needsExpressLaneContext) {
+        console.log(`[EXPRESS Lane] Developer user detected (Founder: ${session.isFounderMode}, Honesty: ${session.isRawHonestyMode}) - fetching Hive + Express Lane context for user ${session.userId}`);
         // 2. Hive context
         contextPromises.push(
           hiveContextService.getSummary()
@@ -1976,7 +1983,7 @@ Use this context to understand what's happening across the Hive.
             .catch(err => console.warn(`[Hive Context] Failed:`, err.message))
         );
         
-        // 3. Express Lane context
+        // 3. Express Lane context - CRITICAL for unified consciousness
         contextPromises.push(
           founderCollabService.getRelevantExpressLaneContext({
             targetLanguage: session.targetLanguage,
@@ -2074,7 +2081,7 @@ Remember: David may reference things discussed in these recent text chats.
         );
       } else {
         // Log when neither Founder Mode nor Honesty Mode is active - helps diagnose Express Lane visibility issues
-        console.log(`[EXPRESS Lane] Neither Founder Mode nor Honesty Mode active for user ${session.userId} - skipping Hive/Express Lane context. User role may need to be developer/admin.`);
+        console.log(`[EXPRESS Lane] Neither Founder Mode nor Honesty Mode active for user ${session.userId} - skipping Hive/Express Lane context.`);
       }
       
       // Wait for all context fetches in parallel
