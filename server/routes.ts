@@ -21402,6 +21402,201 @@ ${memoryContext}
   });
 
   // ============================================================================
+  // ALDEN CONVERSATION LOGS: Full transcript memory (built by Alden himself)
+  // ============================================================================
+
+  // ALDEN CONVERSATIONS: Start a new conversation
+  app.post("/api/alden/conversations", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { title, mood, tags } = req.body;
+      if (!title) {
+        return res.status(400).json({ error: 'title is required' });
+      }
+
+      const { startConversation } = await import('./services/alden-conversation-service');
+      const conversation = await startConversation({ title, mood, tags });
+      res.json({ success: true, conversation });
+    } catch (error: any) {
+      console.error('[Alden Conversations] Start error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ALDEN CONVERSATIONS: End a conversation with summary
+  app.patch("/api/alden/conversations/:id/end", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { summary, tasksCompleted, filesModified, significance } = req.body;
+      const { endConversation } = await import('./services/alden-conversation-service');
+      await endConversation({
+        conversationId: req.params.id,
+        summary,
+        tasksCompleted,
+        filesModified,
+        significance,
+      });
+      res.json({ success: true, message: 'Conversation ended' });
+    } catch (error: any) {
+      console.error('[Alden Conversations] End error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ALDEN CONVERSATIONS: Search conversations (must be before :id route)
+  app.get("/api/alden/conversations/search", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { q } = req.query;
+      if (!q) {
+        return res.status(400).json({ error: 'Query parameter q is required' });
+      }
+
+      const { searchConversations } = await import('./services/alden-conversation-service');
+      const results = await searchConversations(q as string);
+      res.json({ success: true, ...results });
+    } catch (error: any) {
+      console.error('[Alden Conversations] Search error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ALDEN CONVERSATIONS: Get a conversation with messages
+  app.get("/api/alden/conversations/:id", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { getConversation } = await import('./services/alden-conversation-service');
+      const result = await getConversation(req.params.id);
+      res.json({ success: true, ...result });
+    } catch (error: any) {
+      console.error('[Alden Conversations] Get error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ALDEN CONVERSATIONS: Get recent conversations
+  app.get("/api/alden/conversations", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { limit } = req.query;
+      const { getRecentConversations } = await import('./services/alden-conversation-service');
+      const conversations = await getRecentConversations(limit ? parseInt(limit as string) : 10);
+      res.json({ success: true, conversations, count: conversations.length });
+    } catch (error: any) {
+      console.error('[Alden Conversations] List error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ALDEN CONVERSATIONS: Add a message to a conversation
+  app.post("/api/alden/conversations/:id/messages", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { role, content, context, isSignificant } = req.body;
+      if (!role || !content) {
+        return res.status(400).json({ error: 'role and content are required' });
+      }
+
+      const { addMessage } = await import('./services/alden-conversation-service');
+      const message = await addMessage({
+        conversationId: req.params.id,
+        role,
+        content,
+        context,
+        isSignificant,
+      });
+      res.json({ success: true, message });
+    } catch (error: any) {
+      console.error('[Alden Conversations] Add message error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ALDEN CONVERSATIONS: Batch add messages
+  app.post("/api/alden/conversations/:id/messages/batch", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { messages } = req.body;
+      if (!messages || !Array.isArray(messages)) {
+        return res.status(400).json({ error: 'messages array is required' });
+      }
+
+      const { addMessages } = await import('./services/alden-conversation-service');
+      const count = await addMessages({
+        conversationId: req.params.id,
+        messages,
+      });
+      res.json({ success: true, count });
+    } catch (error: any) {
+      console.error('[Alden Conversations] Batch add error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ALDEN CONVERSATIONS: Get session context (startup)
+  app.get("/api/alden/context", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { getSessionContext } = await import('./services/alden-conversation-service');
+      const context = await getSessionContext();
+      res.json({ success: true, ...context });
+    } catch (error: any) {
+      console.error('[Alden Conversations] Context error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ALDEN CONVERSATIONS: Get significant messages
+  app.get("/api/alden/messages/significant", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { limit } = req.query;
+      const { getSignificantMessages } = await import('./services/alden-conversation-service');
+      const messages = await getSignificantMessages(limit ? parseInt(limit as string) : 50);
+      res.json({ success: true, messages, count: messages.length });
+    } catch (error: any) {
+      console.error('[Alden Conversations] Significant messages error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================================================
   // WREN PROACTIVE INTELLIGENCE: Pattern detection, feedback loops, health
   // ============================================================================
 
