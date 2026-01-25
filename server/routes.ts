@@ -12198,6 +12198,64 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  // ===== LIVE PROBE SESSION =====
+  // Real-time capture of Daniela persona testing for North Star drift
+  
+  app.post("/api/hive/live-probe", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+      
+      const { action, scenario, probeQuestion, danielaResponse, audioReference, driftScore, observations, redFlags, exchangeId, overallAssessment } = req.body;
+      const { liveProbeSessionService } = await import('./services/live-probe-session-service');
+      
+      switch (action) {
+        case 'start':
+          const session = liveProbeSessionService.startSession(scenario || 'Unnamed session');
+          return res.json({ success: true, session });
+          
+        case 'log':
+          const exchange = liveProbeSessionService.logExchange(
+            probeQuestion,
+            danielaResponse,
+            audioReference
+          );
+          return res.json({ success: true, exchange });
+          
+        case 'mark-drift':
+          const marked = exchangeId
+            ? liveProbeSessionService.markDriftById(exchangeId, driftScore, observations, redFlags)
+            : liveProbeSessionService.markDrift(driftScore, observations, redFlags);
+          return res.json({ success: true, exchange: marked });
+          
+        case 'end':
+          const ended = liveProbeSessionService.endSession(overallAssessment);
+          return res.json({ success: true, session: ended });
+          
+        case 'status':
+          return res.json({
+            summary: liveProbeSessionService.getSessionSummary(),
+            currentSession: liveProbeSessionService.getCurrentSession()
+          });
+          
+        case 'export':
+          const exported = liveProbeSessionService.exportSession();
+          return res.json({ session: exported });
+          
+        default:
+          return res.status(400).json({ 
+            error: 'Invalid action',
+            validActions: ['start', 'log', 'mark-drift', 'end', 'status', 'export']
+          });
+      }
+    } catch (error: any) {
+      console.error('[Live Probe] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // Get probe scenarios and voice inventory
   app.get("/api/admin/voice-probe/info", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {
