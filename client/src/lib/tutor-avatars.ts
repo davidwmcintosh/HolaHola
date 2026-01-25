@@ -142,7 +142,7 @@ export interface TutorShowcaseData {
 export function getAllTutorsForShowcase(): TutorShowcaseData[] {
   const languages: SupportedLanguage[] = [
     'spanish', 'french', 'german', 'italian', 'portuguese',
-    'chinese', 'japanese', 'korean', 'english'
+    'chinese', 'japanese', 'korean', 'english', 'hebrew'
   ];
   const genders: TutorGender[] = ['female', 'male'];
   
