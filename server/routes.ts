@@ -21412,6 +21412,38 @@ ${memoryContext}
   // ALDEN CONVERSATION LOGS: Full transcript memory (built by Alden himself)
   // ============================================================================
 
+  // Zod schemas for Alden conversation validation
+  const aldenRoleEnum = z.enum(['david', 'alden']);
+  
+  const startConversationSchema = z.object({
+    title: z.string().min(1, 'title is required'),
+    mood: z.string().optional(),
+    tags: z.array(z.string()).optional(),
+  });
+
+  const endConversationSchema = z.object({
+    summary: z.string().optional(),
+    tasksCompleted: z.array(z.string()).optional(),
+    filesModified: z.array(z.string()).optional(),
+    significance: z.number().min(1).max(10).optional(),
+  });
+
+  const addMessageSchema = z.object({
+    role: aldenRoleEnum,
+    content: z.string().min(1, 'content is required'),
+    context: z.string().optional(),
+    isSignificant: z.boolean().optional(),
+  });
+
+  const batchMessagesSchema = z.object({
+    messages: z.array(z.object({
+      role: aldenRoleEnum,
+      content: z.string().min(1),
+      context: z.string().optional(),
+      isSignificant: z.boolean().optional(),
+    })).min(1, 'at least one message required'),
+  });
+
   // ALDEN CONVERSATIONS: Start a new conversation
   app.post("/api/alden/conversations", async (req, res) => {
     try {
@@ -21420,13 +21452,13 @@ ${memoryContext}
         return res.status(401).json({ error: 'Invalid authentication' });
       }
 
-      const { title, mood, tags } = req.body;
-      if (!title) {
-        return res.status(400).json({ error: 'title is required' });
+      const parsed = startConversationSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.issues[0].message });
       }
 
       const { startConversation } = await import('./services/alden-conversation-service');
-      const conversation = await startConversation({ title, mood, tags });
+      const conversation = await startConversation(parsed.data);
       res.json({ success: true, conversation });
     } catch (error: any) {
       console.error('[Alden Conversations] Start error:', error);
@@ -21442,14 +21474,15 @@ ${memoryContext}
         return res.status(401).json({ error: 'Invalid authentication' });
       }
 
-      const { summary, tasksCompleted, filesModified, significance } = req.body;
+      const parsed = endConversationSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.issues[0].message });
+      }
+
       const { endConversation } = await import('./services/alden-conversation-service');
       await endConversation({
         conversationId: req.params.id,
-        summary,
-        tasksCompleted,
-        filesModified,
-        significance,
+        ...parsed.data,
       });
       res.json({ success: true, message: 'Conversation ended' });
     } catch (error: any) {
@@ -21523,18 +21556,15 @@ ${memoryContext}
         return res.status(401).json({ error: 'Invalid authentication' });
       }
 
-      const { role, content, context, isSignificant } = req.body;
-      if (!role || !content) {
-        return res.status(400).json({ error: 'role and content are required' });
+      const parsed = addMessageSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.issues[0].message });
       }
 
       const { addMessage } = await import('./services/alden-conversation-service');
       const message = await addMessage({
         conversationId: req.params.id,
-        role,
-        content,
-        context,
-        isSignificant,
+        ...parsed.data,
       });
       res.json({ success: true, message });
     } catch (error: any) {
@@ -21551,15 +21581,15 @@ ${memoryContext}
         return res.status(401).json({ error: 'Invalid authentication' });
       }
 
-      const { messages } = req.body;
-      if (!messages || !Array.isArray(messages)) {
-        return res.status(400).json({ error: 'messages array is required' });
+      const parsed = batchMessagesSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.issues[0].message });
       }
 
       const { addMessages } = await import('./services/alden-conversation-service');
       const count = await addMessages({
         conversationId: req.params.id,
-        messages,
+        messages: parsed.data.messages,
       });
       res.json({ success: true, count });
     } catch (error: any) {
