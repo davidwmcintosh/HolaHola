@@ -278,7 +278,7 @@ const tutorNames: Record<SupportedLanguage, { male: string; female: string }> = 
   japanese: { male: 'Daisuke', female: 'Sayuri' },
   korean: { male: 'Minho', female: 'Jihyun' },
   english: { male: 'Blake', female: 'Cindy' },
-  hebrew: { male: 'Noam', female: 'Shira' }, // Hebrew tutors (hidden language - special unlock)
+  hebrew: { male: 'Noam', female: 'Yael' }, // Hebrew tutors (hidden language - special unlock)
 };
 
 // Get the tutor's display name for a given language and gender
