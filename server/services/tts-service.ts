@@ -889,7 +889,9 @@ export class TTSService {
     const startTime = Date.now();
 
     // If forceProvider is specified, use that provider directly (bypass normal provider selection)
-    // This is used for assistant tutors who need Google TTS even when Cartesia is primary
+    // This is used for:
+    // - Assistant tutors who need Google TTS even when Cartesia is primary
+    // - Tutor voices that MUST use Cartesia (bypassing auto-remediation)
     if (forceProvider === 'google') {
       if (!this.googleClient) {
         throw new Error('Google Cloud TTS is not available. Set GOOGLE_CLOUD_TTS_CREDENTIALS.');
@@ -898,6 +900,19 @@ export class TTSService {
       const result = await this.synthesizeWithGoogle(text, language, targetLanguage, returnTimings, speakingRate, voice);
       const elapsed = Date.now() - startTime;
       console.log(`[TTS] ✓ Google (forced) completed in ${elapsed}ms`);
+      return result;
+    }
+    
+    // Force Cartesia - bypass auto-remediation entirely
+    // Tutors should ONLY use Cartesia, never fall back to Google
+    if (forceProvider === 'cartesia') {
+      if (!this.cartesiaClient) {
+        throw new Error('Cartesia is not available. Set CARTESIA_API_KEY.');
+      }
+      console.log(`[TTS] Force provider: Cartesia (tutor mode - bypassing auto-remediation)`);
+      const result = await this.synthesizeWithCartesia(text, language, speakingRate, emotion, voiceId, targetLanguage);
+      const elapsed = Date.now() - startTime;
+      console.log(`[TTS] ✓ Cartesia (forced) completed in ${elapsed}ms`);
       return result;
     }
 
