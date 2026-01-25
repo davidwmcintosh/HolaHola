@@ -12133,6 +12133,170 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  // ===== VOICE PROBE SYSTEM =====
+  // Automated voice auditing to detect personality scripts in Cartesia voices
+  
+  // Hive-accessible probe endpoint (for Alden to run probes via EDITOR_SECRET)
+  app.post("/api/hive/voice-probe", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+      
+      const { action, voiceId, probeId, category } = req.body;
+      const { voiceProbeService } = await import('./services/voice-probe-service');
+      
+      switch (action) {
+        case 'info':
+          return res.json({
+            scenarios: voiceProbeService.getProbeScenarios(),
+            voices: voiceProbeService.getVoiceInventory(),
+            summary: voiceProbeService.getSummary()
+          });
+          
+        case 'run':
+          const voice = voiceProbeService.getVoiceInventory().find(v => v.id === voiceId);
+          const probe = voiceProbeService.getProbeScenarios().find(p => p.id === probeId);
+          if (!voice || !probe) {
+            return res.status(400).json({ error: 'Invalid voiceId or probeId' });
+          }
+          const result = await voiceProbeService.runProbe(voice, probe);
+          return res.json(result);
+          
+        case 'audit-voice':
+          const targetVoice = voiceProbeService.getVoiceInventory().find(v => v.id === voiceId);
+          if (!targetVoice) {
+            return res.status(400).json({ error: 'Invalid voiceId' });
+          }
+          const voiceResults = await voiceProbeService.runAllProbesForVoice(targetVoice);
+          return res.json({ voice: targetVoice, results: voiceResults, summary: voiceProbeService.getSummary() });
+          
+        case 'audit-category':
+          if (!['emotional_bleed', 'incongruent_intonation', 'cultural_resonance'].includes(category)) {
+            return res.status(400).json({ error: 'Invalid category' });
+          }
+          const catResults = await voiceProbeService.runCategoryAudit(category);
+          return res.json({ category, results: catResults, summary: voiceProbeService.getSummary() });
+          
+        case 'results':
+          return res.json({
+            results: voiceProbeService.getResultsForReview(),
+            summary: voiceProbeService.getSummary()
+          });
+          
+        case 'clear':
+          voiceProbeService.clearResults();
+          return res.json({ message: 'Results cleared', summary: voiceProbeService.getSummary() });
+          
+        default:
+          return res.status(400).json({ error: 'Invalid action. Use: info, run, audit-voice, audit-category, results, clear' });
+      }
+    } catch (error: any) {
+      console.error('[Hive Voice Probe] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get probe scenarios and voice inventory
+  app.get("/api/admin/voice-probe/info", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { voiceProbeService } = await import('./services/voice-probe-service');
+      res.json({
+        scenarios: voiceProbeService.getProbeScenarios(),
+        voices: voiceProbeService.getVoiceInventory(),
+        summary: voiceProbeService.getSummary()
+      });
+    } catch (error: any) {
+      console.error('[Voice Probe Info] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Run a single probe for a specific voice
+  app.post("/api/admin/voice-probe/run", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { voiceId, probeId } = req.body;
+      const { voiceProbeService } = await import('./services/voice-probe-service');
+      
+      const voice = voiceProbeService.getVoiceInventory().find(v => v.id === voiceId);
+      const probe = voiceProbeService.getProbeScenarios().find(p => p.id === probeId);
+      
+      if (!voice || !probe) {
+        return res.status(400).json({ error: 'Invalid voiceId or probeId' });
+      }
+      
+      const result = await voiceProbeService.runProbe(voice, probe);
+      res.json(result);
+    } catch (error: any) {
+      console.error('[Voice Probe Run] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Run all probes for a specific voice
+  app.post("/api/admin/voice-probe/audit-voice", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { voiceId } = req.body;
+      const { voiceProbeService } = await import('./services/voice-probe-service');
+      
+      const voice = voiceProbeService.getVoiceInventory().find(v => v.id === voiceId);
+      if (!voice) {
+        return res.status(400).json({ error: 'Invalid voiceId' });
+      }
+      
+      const results = await voiceProbeService.runAllProbesForVoice(voice);
+      res.json({ voice, results, summary: voiceProbeService.getSummary() });
+    } catch (error: any) {
+      console.error('[Voice Probe Audit Voice] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Run probes for a category across all voices
+  app.post("/api/admin/voice-probe/audit-category", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { category } = req.body;
+      const { voiceProbeService } = await import('./services/voice-probe-service');
+      
+      if (!['emotional_bleed', 'incongruent_intonation', 'cultural_resonance'].includes(category)) {
+        return res.status(400).json({ error: 'Invalid category' });
+      }
+      
+      const results = await voiceProbeService.runCategoryAudit(category);
+      res.json({ category, results, summary: voiceProbeService.getSummary() });
+    } catch (error: any) {
+      console.error('[Voice Probe Audit Category] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get current results for review
+  app.get("/api/admin/voice-probe/results", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { voiceProbeService } = await import('./services/voice-probe-service');
+      res.json({
+        results: voiceProbeService.getResultsForReview(),
+        summary: voiceProbeService.getSummary()
+      });
+    } catch (error: any) {
+      console.error('[Voice Probe Results] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Clear results for new audit
+  app.post("/api/admin/voice-probe/clear", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { voiceProbeService } = await import('./services/voice-probe-service');
+      voiceProbeService.clearResults();
+      res.json({ message: 'Results cleared', summary: voiceProbeService.getSummary() });
+    } catch (error: any) {
+      console.error('[Voice Probe Clear] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ===== OBSERVATION SUMMARIZATION =====
   // v23: Founder-only endpoints for observation summarization
   
@@ -20754,6 +20918,63 @@ ${memoryContext}
       });
     } catch (error: any) {
       console.error('[Hive External] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ALDEN: Poll for recent Express Lane messages (for live connection)
+  // This allows Alden to see what the team is saying in real-time
+  app.get("/api/hive/alden-poll", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const since = req.query.since as string; // cursor or timestamp
+      const limit = parseInt(req.query.limit as string) || 20;
+
+      // Get active session
+      const activeSessions = await founderCollabService.getActiveSessions();
+      const session = activeSessions.length > 0 ? activeSessions[0] : null;
+
+      if (!session) {
+        return res.json({ messages: [], sessionId: null, cursor: null });
+      }
+
+      // Get messages - use getLatestMessages for initial load, getMessagesAfterCursor for polling
+      let recentMessages: any[] = [];
+      let hasMore = false;
+      
+      if (since) {
+        const result = await founderCollabService.getMessagesAfterCursor(session.id, since, limit);
+        recentMessages = result.messages || [];
+        hasMore = result.hasMore || false;
+      } else {
+        // Initial load - get most recent messages
+        recentMessages = await founderCollabService.getLatestMessages(session.id, limit);
+      }
+      
+      // Get the latest cursor for next poll
+      const latestCursor = recentMessages.length > 0 
+        ? recentMessages[recentMessages.length - 1].cursor 
+        : null;
+
+      res.json({
+        sessionId: session.id,
+        messages: recentMessages.map((m: any) => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          cursor: m.cursor,
+          createdAt: m.createdAt,
+          metadata: m.metadata
+        })),
+        cursor: latestCursor,
+        hasMore
+      });
+    } catch (error: any) {
+      console.error('[Alden Poll] Error:', error);
       res.status(500).json({ error: error.message });
     }
   });
