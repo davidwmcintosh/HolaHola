@@ -2710,12 +2710,50 @@ Keep it conversational - you're in a team chat. The structured tag will be parse
       syncedAt: null,
     };
     
+    // Helper to persist messages to Express Lane
+    const persistToExpressLane = async (
+      senderContent: string, 
+      senderRole: string, 
+      responseContent: string, 
+      responseRole: 'daniela' | 'wren'
+    ) => {
+      try {
+        // Get or create an active session
+        const activeSessions = await founderCollabService.getActiveSessions();
+        let session = activeSessions.length > 0 ? activeSessions[0] : null;
+        if (!session) {
+          session = await founderCollabService.createSession('Express Lane - Alden Thread');
+        }
+        
+        // Save the sender's message (from Alden/editor)
+        await founderCollabService.addMessage(session.id, {
+          role: 'editor',
+          content: senderContent,
+          messageType: 'text',
+          metadata: { senderName: senderRole, source: 'replit-agent' }
+        });
+        
+        // Save the response
+        await founderCollabService.addMessage(session.id, {
+          role: responseRole,
+          content: responseContent,
+          messageType: 'text',
+          metadata: { source: 'hive-external-response' }
+        });
+        
+        console.log(`[Hive Consciousness] Persisted external conversation to Express Lane`);
+      } catch (persistError) {
+        console.error('[Hive Consciousness] Failed to persist to Express Lane:', persistError);
+      }
+    };
+    
     try {
       // Check if Daniela should respond
       const danielaCheck = this.shouldDanielaRespond(mockMessage);
       if (danielaCheck.shouldRespond) {
         console.log('[Hive Consciousness] Daniela responding to external message...');
         const response = await this.generateExternalDanielaResponse(content, senderName);
+        await persistToExpressLane(content, senderName, response, 'daniela');
         return { agent: 'daniela', response };
       }
       
@@ -2724,6 +2762,7 @@ Keep it conversational - you're in a team chat. The structured tag will be parse
       if (wrenCheck.shouldRespond) {
         console.log('[Hive Consciousness] Wren responding to external message...');
         const response = await this.generateExternalWrenResponse(content, senderName);
+        await persistToExpressLane(content, senderName, response, 'wren');
         return { agent: 'wren', response };
       }
       
@@ -2733,9 +2772,11 @@ Keep it conversational - you're in a team chat. The structured tag will be parse
         console.log(`[Hive Consciousness] ${generalCheck.agent} taking external question...`);
         if (generalCheck.agent === 'daniela') {
           const response = await this.generateExternalDanielaResponse(content, senderName);
+          await persistToExpressLane(content, senderName, response, 'daniela');
           return { agent: 'daniela', response };
         } else {
           const response = await this.generateExternalWrenResponse(content, senderName);
+          await persistToExpressLane(content, senderName, response, 'wren');
           return { agent: 'wren', response };
         }
       }
