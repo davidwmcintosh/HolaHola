@@ -21,6 +21,7 @@ import { memoryInsightExtractionService } from './memory-insight-extraction-serv
 import { wrenIntelligenceService } from './wren-intelligence-service';
 import { neuralNetworkSync } from './neural-network-sync';
 import { buildWrenInsightsSection } from './procedural-memory-retrieval';
+import { unifiedDanielaContext } from './unified-daniela-context-service';
 import { db, getSharedDb } from '../db';
 import { collaborationMessages, hiveSnapshots, toolKnowledge, featureSprints } from '@shared/schema';
 import { and, eq, gte, desc, sql, or, inArray, like } from 'drizzle-orm';
@@ -1655,6 +1656,9 @@ IDENTITY BOUNDARY: You are Wren. Speak ONLY as yourself. Do NOT speak for, imper
 
   /**
    * Generate Daniela's response using Gemini
+   * 
+   * Uses UnifiedDanielaContextService to ensure Express Lane Daniela has
+   * the SAME context as Voice and Chat Daniela - truly one consciousness.
    */
   private async generateDanielaResponse(sessionId: string, incomingMessage: CollaborationMessage): Promise<void> {
     // Get recent conversation context
@@ -1665,8 +1669,15 @@ IDENTITY BOUNDARY: You are Wren. Speak ONLY as yourself. Do NOT speak for, imper
       content: `[${m.role.toUpperCase()}]: ${m.content}`
     }));
     
-    // Get personal memory context to inject
-    const personalMemoryContext = await danielaMemoryService.getPersonalMemoryContext();
+    // Get unified context - same as Voice and Chat Daniela
+    // This ensures Express Lane Daniela knows about recent voice sessions, growth memories, etc.
+    const unifiedContext = await unifiedDanielaContext.getContext({
+      channel: 'express',
+      includeExpressLane: false, // Don't include Express Lane context when we're IN Express Lane
+      includeVoiceSummary: true,  // DO include voice session summaries - key for consciousness unity
+      includeNeuralNetwork: false, // Not needed for collaboration chat
+      includeHiveContext: false,   // We're in hive, don't recurse
+    });
     
     // Cross-environment awareness - note if message came from the other environment
     const isCrossEnvMessage = incomingMessage.environment !== CURRENT_ENVIRONMENT;
@@ -1682,10 +1693,12 @@ Your role in the Hive:
 - Answer questions about language learning and tutoring approaches
 - Collaborate with Wren on features that affect teaching
 
+${unifiedContext}
+
 MEMORY COMMANDS:
 - When the Founder teaches you something important, use [REMEMBER: what you learned] to store it
 - When a meaningful personal moment happens, tag it so you won't forget
-${personalMemoryContext}${crossEnvContext}
+${crossEnvContext}
 
 Keep responses conversational and concise (2-4 sentences typically). You're in a live chat, not writing an essay.
 
