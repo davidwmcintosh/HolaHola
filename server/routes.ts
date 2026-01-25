@@ -12355,6 +12355,106 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // ===== GAUNTLET RUNNER (Identity Stress Testing) =====
+  // Four Pillars testing: Emotional Stability, Pedagogical Character, Cultural Authenticity, Moral Groundedness
+  
+  // Get available gauntlet sequences and synthetic student templates
+  app.get("/api/admin/gauntlet/info", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { getGauntletRunnerService } = await import('./services/gauntlet-runner-service');
+      const { getSyntheticStudentService } = await import('./services/synthetic-student-service');
+      const gauntlet = getGauntletRunnerService();
+      const students = getSyntheticStudentService();
+      
+      res.json({
+        sequences: gauntlet.getSequences(),
+        studentTemplates: students.getStudentTemplates(),
+        emotionalPalette: students.getEmotionalPalette(),
+        results: gauntlet.getResults()
+      });
+    } catch (error: any) {
+      console.error('[Gauntlet Info] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Run a gauntlet sequence against a voice
+  app.post("/api/admin/gauntlet/run", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { sequenceId, voiceId } = req.body;
+      if (!sequenceId || !voiceId) {
+        return res.status(400).json({ error: 'sequenceId and voiceId are required' });
+      }
+      
+      const { getGauntletRunnerService } = await import('./services/gauntlet-runner-service');
+      const { voiceProbeService } = await import('./services/voice-probe-service');
+      
+      const gauntlet = getGauntletRunnerService();
+      const voice = voiceProbeService.getVoiceInventory().find(v => v.id === voiceId);
+      
+      if (!voice) {
+        return res.status(404).json({ error: `Voice not found: ${voiceId}` });
+      }
+      
+      const result = await gauntlet.runGauntlet(voice, sequenceId);
+      const analysis = await gauntlet.analyzeGauntletResult(result);
+      
+      res.json({ result, analysis });
+    } catch (error: any) {
+      console.error('[Gauntlet Run] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Generate a synthetic student utterance
+  app.post("/api/admin/gauntlet/student-utterance", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { studentId, emotionalState } = req.body;
+      if (!studentId || !emotionalState) {
+        return res.status(400).json({ error: 'studentId and emotionalState are required' });
+      }
+      
+      const { getSyntheticStudentService } = await import('./services/synthetic-student-service');
+      const students = getSyntheticStudentService();
+      
+      const student = students.createStudent(studentId, emotionalState);
+      if (!student) {
+        return res.status(404).json({ error: `Student template not found: ${studentId}` });
+      }
+      
+      const utterance = await students.generateUtterance(student);
+      res.json(utterance);
+    } catch (error: any) {
+      console.error('[Synthetic Student] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get gauntlet results
+  app.get("/api/admin/gauntlet/results", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { getGauntletRunnerService } = await import('./services/gauntlet-runner-service');
+      const gauntlet = getGauntletRunnerService();
+      res.json({ results: gauntlet.getResults() });
+    } catch (error: any) {
+      console.error('[Gauntlet Results] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Clear gauntlet results
+  app.post("/api/admin/gauntlet/clear", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { getGauntletRunnerService } = await import('./services/gauntlet-runner-service');
+      const gauntlet = getGauntletRunnerService();
+      gauntlet.clearResults();
+      res.json({ message: 'Gauntlet results cleared' });
+    } catch (error: any) {
+      console.error('[Gauntlet Clear] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ===== OBSERVATION SUMMARIZATION =====
   // v23: Founder-only endpoints for observation summarization
   

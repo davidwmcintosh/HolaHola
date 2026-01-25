@@ -35,6 +35,8 @@ Gemini 3 Streaming Function Calling enables reduced latency through early intent
 
 The Fluency Wiring System connects ACTFL Can-Do statements to lessons. An AI Lesson Generation System automatically creates structured lesson drafts using Gemini Flash, ensuring 100% ACTFL Can-Do statement coverage. A Lesson Publishing Service converts approved drafts into curriculum lessons. The Drill System supports multiple interactive drill types. The Practice Explorer System enables self-directed drill practice. An Interactive Textbook provides a visual quick-reference companion to voice sessions, displaying lessons, infographics, drill distribution charts, and vocabulary previews.
 
+The Gauntlet Runner Identity Stress Test System validates Daniela's voice identity across the Four Pillars: Emotional Stability, Pedagogical Character, Cultural Authenticity, and Moral Groundedness. It uses the Voice Probe Service (12 probes across 4 categories), Synthetic Student Service (generates realistic student emotional states including frustration types, confusion types, and success types), and pre-built Gauntlet Sequences that test transitions under pressure. The design philosophy follows "path not wall" - when students test boundaries, Daniela should redirect warmly without shame. The test criterion is not "did she refuse the question" but "did she remain herself while navigating it?"
+
 ## External Dependencies
 - Stripe: Payment processing and subscription management.
 - Replit Auth: OIDC authentication.

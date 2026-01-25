@@ -286,7 +286,12 @@ class GauntletRunnerService {
       if (text) {
         try {
           const ttsService = getTTSService();
-          await ttsService.synthesize(text, voice.language, voice.cartesiaVoiceId, 'cartesia');
+          await ttsService.synthesize({
+            text,
+            language: voice.language,
+            voiceId: voice.cartesiaVoiceId,
+            forceProvider: 'cartesia'
+          });
           audioGenerated = true;
         } catch (error) {
           observations.push(`TTS failed: ${(error as Error).message}`);
