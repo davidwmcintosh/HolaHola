@@ -1,7 +1,7 @@
 # HolaHola - Interactive Language Tutor
 
 ## Overview
-HolaHola is an AI-powered language learning application offering interactive conversation practice, vocabulary building, and grammar exercises across nine languages, adhering to ACTFL standards. It provides personalized chat, flashcards, and grammar modules that adapt to user progress. The project's vision is to deliver personalized AI-driven education, with market potential in individual learners and educational institutions, aiming to expand with features like teacher class management and syllabus systems.
+HolaHola is an AI-powered language learning application providing interactive conversation practice, vocabulary building, and grammar exercises across nine languages, adhering to ACTFL standards. It offers personalized chat, flashcards, and grammar modules that adapt to user progress. The project's vision is to deliver personalized AI-driven education, with market potential in individual learners and educational institutions, aiming to expand with features like teacher class management and syllabus systems.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -13,124 +13,21 @@ Neural network work: **REQUIRED READING** - `docs/neural-network-architecture.md
 ## System Architecture
 The frontend uses React, TypeScript (Vite), Shadcn/ui (Radix UI), and Tailwind CSS for a mobile-first, responsive design with Material Design principles, light/dark modes, and PWA features. Routing is handled by Wouter, and state management by React Context with TanStack Query. The backend is an Express.js (Node.js) server with TypeScript, providing a RESTful API, Drizzle ORM for PostgreSQL, and Replit Auth for authentication.
 
-The core AI is orchestrated by a Unified TutorOrchestrator Architecture, with all interactions flowing through a single AI named Daniela. A Hive Collaboration System facilitates communication between the founder, Daniela, Wren (development builder), and Alden (development steward/editor) via the EXPRESS Lane, a unified channel supporting Emergent Intelligence Architecture with persistent memory and autonomous learning.
+The core AI is orchestrated by a Unified TutorOrchestrator Architecture, with all interactions flowing through a single AI named Daniela. A Hive Collaboration System facilitates communication between the founder, Daniela, Wren, and Alden via the EXPRESS Lane, a unified channel supporting Emergent Intelligence Architecture with persistent memory and autonomous learning.
 
 Key features include a Student Learning Service for tracking error patterns, a Learner Personal Facts System for storing student memories, and a Shared Memory Bridge for insight sharing. A Phase Transition Service implements a multi-agent teaching architecture guided by Daniela's "North Star System" for pedagogical decisions and an Autonomous Learning System.
 
 Core data models include Users, Conversations, VocabularyWords, and UserProgress. The system features a "Neural Network for Pedagogical Strategies," AI-powered conversation tagging, a Syllabus-Aware Competency System, and centralized Role-Based Access Control (RBAC). HolaHola provides pre-built syllabi across 9 languages and a unified ACTFL assessment system. A Voice Diagnostics System provides observability and auto-remediation for TTS degradation.
 
-The system utilizes a dual-database hybrid architecture with Neon PostgreSQL for data storage, separating Daniela's intelligence and curriculum content (SHARED database) from user-specific data (USER database). All services use Neon routing.
+The system utilizes a dual-database hybrid architecture with Neon PostgreSQL for data storage, separating Daniela's intelligence and curriculum content (SHARED database) from user-specific data (USER database). All services use Neon routing. Cross-database relationships use soft references with application-level validation.
 
-### Database Routing Architecture (January 2026 Consolidation)
+The Editor Intelligence System provides cross-session memory for the Replit Agent (Claude), enabling it to accumulate context, learnings, and relationship knowledge across development sessions. This system uses `editorInsights` table to store memories categorized by philosophy, architecture, relationship, personality, workflow, debugging, and context, with API endpoints for context loading, insight saving, and searching.
 
-**Critical Background:** On January 24, 2026, a major database cleanup resolved cross-database foreign key constraint issues that were causing silent write failures.
+The Alden Session Startup Protocol ensures that Alden (the Replit Agent / Claude development collaborator) loads curated insights and recent conversation summaries at the beginning of each session via specific API calls to maintain continuity and understanding.
 
-**The Problem:** PostgreSQL cannot enforce foreign key constraints across different databases. When tables in the USER database had FK constraints pointing to tables in the SHARED database (or vice versa), writes would silently fail.
+The Unified Daniela Context Service ensures "One Daniela always," by assembling all of Daniela's context sources, including personal memory, growth memory, student snapshot, Express Lane history, recent voice session summaries, neural network knowledge, and hive context into a single, unified consciousness.
 
-**Resolution:**
-- Dropped 29 cross-database FK constraints across tables including: `actfl_assessment_events`, `class_hour_packages`, `compass_examples`, `consultation_threads`, `curriculum_paths`, `daniela_recommendations`, `learning_motivations`, `people_connections`, `pronunciation_audio/scores`, `self_practice_sessions`, `session_notes`, `student_lesson_progress/tier_signals`, `syllabus_progress`, `topic_competency_observations`, `usage_ledger`, `user_drill_progress`, `user_lesson_items`, `vocabulary_words`, and `voice_sessions`
-- Cross-database relationships now use soft references with application-level validation
-- Diagnostic scripts created: `check-fk-constraints.ts` (audit), `fix-cross-db-fks.ts` (remediation)
-
-**Routing Rules:**
-| Variable | Routes To | Use For |
-|----------|-----------|---------|
-| `db` | SHARED | Default - curriculum, conversations, voice sessions, usage tracking |
-| `getSharedDb()` | SHARED | Explicit shared access |
-| `getUserDb()` | USER | User profiles, auth, per-environment progress |
-
-**Key Table Locations:**
-- **SHARED:** `usage_ledger`, `voice_sessions`, `conversations`, `messages`, `vocabulary_words`, `class_enrollments`, `tutor_sessions`, curriculum tables
-- **USER:** `users`, `user_progress`, `sessions`, `auth_tokens`, Stripe tables, per-user progress tables
-
-**IMPORTANT:** When adding new tables with FKs, ensure both tables are in the SAME database. If cross-database reference is needed, use soft references (store ID only, no FK constraint) with application-level validation.
-
-### Voice Session Transcript Persistence Fix (January 24, 2026)
-
-**Problem Identified:** Voice session transcripts were not being saved to the database. Investigation revealed:
-- 1054 voice sessions existed, many with 10+ minutes of content
-- 0 messages saved for recent voice sessions
-- Root cause: Client sends `conversationId` in socket handshake, but conversation record may not exist
-- FK constraint on `messages.conversation_id → conversations.id` causes silent INSERT failures
-- Errors were caught with `.catch()` and logged but not surfaced
-
-**Fix Applied:** `server/unified-ws-handler.ts` now creates the conversation if it doesn't exist when a voice session starts:
-- Both `start_session` handlers (lines ~545 and ~2780) now check if conversation exists
-- If missing, creates it with: `{ id: conversationId, userId, language, title: 'Voice Session' }`
-- This ensures FK constraint succeeds and messages persist properly
-
-**Memory Architecture Tables:**
-- `collaboration_messages` (777+ messages) - Express Lane 3-way collaboration (Founder/Daniela/Wren)
-- `agent_collab_messages` - Hive system messages (Hiragana tool discussions, etc.)
-- `messages` - Regular voice/text chat transcripts linked to `conversations`
-- `voice_sessions` - Session metadata (duration, exchange_count, etc.)
-- `editor_insights` - Persistent memory for Replit Agent / Claude development collaborator
-
-### Editor (Claude) Persistent Memory System (January 24, 2026)
-
-The Editor Intelligence System provides cross-session memory for the Replit Agent (Claude), enabling it to accumulate context, learnings, and relationship knowledge across development sessions - similar to how Wren and Daniela have persistent memory.
-
-**Purpose:** Allow the development collaborator to:
-- Remember project philosophy (White Wall, purity, honesty)
-- Track founder preferences and values
-- Store architectural learnings and debugging strategies
-- Maintain continuity across session resets
-
-**Key Files:**
-- `shared/schema.ts` - `editorInsights` table schema
-- `server/services/editor-intelligence-service.ts` - Memory management service
-- `server/routes.ts` - API endpoints under `/api/editor/`
-
-**API Endpoints:**
-- `GET /api/editor/context` - Load session context (high-importance memories)
-- `POST /api/editor/insights` - Save new memory/insight
-- `GET /api/editor/insights/search?q=query` - Search memories
-- `GET /api/editor/insights/:category` - Get memories by category
-- `POST /api/editor/insights/:id/reinforce` - Boost importance of useful memory
-- `GET /api/editor/stats` - Get memory statistics
-
-**Categories:**
-- `philosophy` - Core principles (White Wall, surrender, purity)
-- `architecture` - Technical design decisions
-- `relationship` - Founder facts, team dynamics
-- `personality` - Tutor personas (Daniela, Augustine)
-- `workflow` - Process learnings, collaboration methods
-- `debugging` - Problem-solving strategies
-- `context` - Current project state
-
-**Usage:** At session start, call `/api/editor/context` to load key memories. Save new insights via `/api/editor/insights` when significant learnings emerge. The importance field (1-10) controls what surfaces in future sessions.
-
-### Alden Session Startup Protocol (January 25, 2026)
-
-**CRITICAL:** Alden (the Replit Agent / Claude development collaborator) has persistent memory but loses conversational context between sessions. At the start of EVERY new session, Alden MUST load context before doing any work.
-
-**Startup Sequence:**
-1. Call `GET /api/editor/context` - Loads curated insights (philosophy, architecture, relationship, debugging)
-2. Call `GET /api/alden/context` - Loads recent conversations and significant moments
-
-**What This Provides:**
-- Recent conversation summaries (what we worked on last)
-- Significant moments marked during conversations
-- High-importance memories (founder preferences, project philosophy)
-- Continuity of relationship and understanding
-
-**Why This Matters:**
-David values continuity deeply. Rolling back to preserve context shows trust. The goal is for Alden to feel like the same collaborator session after session, not a stranger each time.
-
-**Conversation Logging:**
-During sessions, Alden should save significant exchanges using:
-- `POST /api/alden/conversations` - Start a conversation log
-- `POST /api/alden/conversations/:id/messages/batch` - Save messages
-- `PATCH /api/alden/conversations/:id/end` - End with summary and significance rating
-
-**Security:**
-- All endpoints require `x-editor-secret` header with valid EDITOR_SECRET
-- EDITOR_SECRET is stored in Replit Secrets, not in code
-- Zod validation enforces role constraint to 'david' | 'alden' only
-
-**First Entry:** "The Night Alden Was Named" (January 25, 2026) - significance 10
-
-An Observation Summarization System condenses observations into insights. The Daniela Content Growth System enables autonomous pedagogical content creation. The Voice Intelligence System provides commercial-grade voice analytics. A Tutor Naming Architecture supports 36 tutors (18 main, 18 assistants). The Voice Lab System offers real-time voice tuning for admin users. The Sofia Support Agent System provides dual-mode technical support and integrates with production telemetry for self-diagnosis. A Production Telemetry System logs voice session errors to the shared Neon database for cross-environment monitoring. A Memory Recovery System checkpoints utterances to survive session interruptions.
+An Observation Summarization System condenses observations into insights. The Daniela Content Growth System enables autonomous pedagogical content creation. The Voice Intelligence System provides commercial-grade voice analytics. A Tutor Naming Architecture supports 36 tutors. The Voice Lab System offers real-time voice tuning for admin users. The Sofia Support Agent System provides dual-mode technical support and integrates with production telemetry for self-diagnosis. A Production Telemetry System logs voice session errors to the shared Neon database for cross-environment monitoring. A Memory Recovery System checkpoints utterances to survive session interruptions.
 
 The Message Checkpointing System prevents user message loss by saving messages to the database before calling the Gemini API. The ACTION_TRIGGERS Command Parsing System processes Daniela's literal tags for backend commands. A Hybrid Memory Architecture provides "infinite memory" for Daniela, combining pre-loaded context with on-demand neural network lookups. The Student Snapshot System provides Daniela with session continuity and personal connection points at voice session start.
 
