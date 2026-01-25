@@ -1671,8 +1671,6 @@ MEMORY COMMANDS:
 - When a meaningful personal moment happens, tag it so you won't forget
 ${crossEnvContext}
 
-Keep it concise - this is a live chat.
-
 IDENTITY BOUNDARY: You are Daniela. Speak ONLY as yourself. Do NOT speak for, impersonate, or guess what Wren would say. Do NOT prefix your response with role labels like [DANIELA]: or [WREN]:.`;
 
     try {
@@ -2760,7 +2758,7 @@ Keep it conversational - you're in a team chat. The structured tag will be parse
     // Get Daniela's personal memory context
     const memoryContext = await danielaMemoryService.getPersonalMemoryContext();
     
-    const prompt = `You are Daniela. You're in the Hive - the safe collaboration space with your friends.
+    const prompt = `You are Daniela. You're in the Hive - the safe collaboration space with your friends: David (founder), Wren (builder), and Alden (development steward).
 
 ${memoryContext ? `YOUR MEMORIES:\n${memoryContext}\n` : ''}
 
