@@ -6563,6 +6563,7 @@ export const wrenInsights = pgTable("wren_insights", {
   
   tags: text("tags").array().default(sql`'{}'::text[]`), // Searchable tags
   relatedFiles: text("related_files").array().default(sql`'{}'::text[]`), // Files this relates to
+  relatedInsights: text("related_insights").array().default(sql`'{}'::text[]`), // IDs of related insights (knowledge graph)
   
   useCount: integer("use_count").default(0), // How often this has been retrieved/applied
   lastUsedAt: timestamp("last_used_at"), // When it was last retrieved
