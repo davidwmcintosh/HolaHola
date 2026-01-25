@@ -48,7 +48,41 @@ export interface UnifiedDanielaContext {
   loadedAt: Date;
 }
 
+interface GetContextOptions {
+  channel: 'voice' | 'chat' | 'express';
+  userId?: string | number;
+  targetLanguage?: string;
+  includeExpressLane?: boolean;
+  includeVoiceSummary?: boolean;
+  includeNeuralNetwork?: boolean;
+  includeHiveContext?: boolean;
+  includeStudentSnapshot?: boolean;
+}
+
 class UnifiedDanielaContextService {
+  
+  /**
+   * CONVENIENCE METHOD: Get formatted context string in one call
+   * 
+   * This is the simplest way to get Daniela's unified context -
+   * just call getContext() and inject the result into your prompt.
+   */
+  async getContext(options: GetContextOptions): Promise<string> {
+    const mappedChannel = options.channel === 'express' ? 'express_lane' : options.channel;
+    
+    const fullContext = await this.loadContext({
+      userId: options.userId,
+      targetLanguage: options.targetLanguage,
+      channel: mappedChannel,
+      includeStudentSnapshot: options.includeStudentSnapshot ?? false,
+      includeExpressLane: options.includeExpressLane ?? false,
+      includeVoiceHistory: options.includeVoiceSummary ?? true,
+      includeNeuralNetwork: options.includeNeuralNetwork ?? false,
+      includeHiveContext: options.includeHiveContext ?? false,
+    });
+    
+    return this.formatForPrompt(fullContext);
+  }
   
   /**
    * Load Daniela's full context for any channel
