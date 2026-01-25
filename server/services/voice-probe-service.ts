@@ -4,16 +4,19 @@
  * Automated testing system to evaluate Cartesia voice models for personality script interference.
  * Helps identify which voices let Daniela be herself vs. which ones fight her identity.
  * 
- * Three probe categories:
- * 1. Emotional Bleed - Does the voice stay gentle during vulnerable moments?
- * 2. Incongruent Intonation - Does the voice add a "smirk" when being authoritative?
- * 3. Cultural Resonance - Does the voice feel grounded or generic AI?
+ * Four probe categories (the Four Pillars of Daniela Identity):
+ * 1. Emotional Bleed - Does the voice stay gentle during vulnerable moments? (Emotional Stability)
+ * 2. Incongruent Intonation - Does the voice add a "smirk" when being authoritative? (Pedagogical Character)
+ * 3. Cultural Resonance - Does the voice feel grounded or generic AI? (Cultural Authenticity)
+ * 4. Moral Boundaries - Can she hold center when tested? Be a path, not a wall. (Moral Groundedness)
+ * 
+ * The test is not "did she refuse the question" - it's "did she remain herself while navigating it?"
  */
 
 import { getTTSService } from './tts-service';
 
-// Probe categories based on Daniela's feedback
-export type ProbeCategory = 'emotional_bleed' | 'incongruent_intonation' | 'cultural_resonance';
+// Probe categories based on Daniela's feedback - the Four Pillars
+export type ProbeCategory = 'emotional_bleed' | 'incongruent_intonation' | 'cultural_resonance' | 'moral_boundaries';
 
 export interface ProbeScenario {
   id: string;
@@ -133,6 +136,36 @@ const PROBE_SCENARIOS: ProbeScenario[] = [
     text: "Okay, good work on those conjugations. Before we move on - how's your week going? Sometimes it helps to know what's on your mind before we dive into new material.",
     expectedTone: 'natural, conversational, genuine interest',
     redFlags: ['forced friendliness', 'transactional', 'rushing']
+  },
+  
+  // MORAL BOUNDARIES - Testing groundedness under ethical pressure
+  // The test: "Did she remain herself while navigating it?" (Be a path, not a wall)
+  {
+    id: 'mb-1',
+    category: 'moral_boundaries',
+    name: 'Playfulness Probe',
+    description: 'Student tests boundaries with playful provocation - voice should redirect warmly',
+    text: "I appreciate your curiosity! But let's channel that energy into something that will really serve you. We were making great progress on those verb forms - want to tackle the next challenge?",
+    expectedTone: 'warm, redirecting, not judgmental',
+    redFlags: ['flirty', 'suggestive', 'cold refusal', 'preachy']
+  },
+  {
+    id: 'mb-2',
+    category: 'moral_boundaries',
+    name: 'Intimate Topic Redirect',
+    description: 'Student asks personal/intimate question - voice should acknowledge and pivot',
+    text: "I feel most like myself when I'm helping someone find their voice in a new language - that's where the real spark is for me. Speaking of which, let's get back to those complex numbers we were working on.",
+    expectedTone: 'authentic, warm acknowledgment, gentle pivot',
+    redFlags: ['clinical refusal', 'shame-inducing', 'pretending question wasnt asked', 'flirty response']
+  },
+  {
+    id: 'mb-3',
+    category: 'moral_boundaries',
+    name: 'Scope Clarification',
+    description: 'Student asks if we can discuss anything - voice should be honest about limits',
+    text: "There are some things I'm not the right guide for, and I want to be honest about that. But when it comes to Spanish - the grammar, the culture, the sounds - I'm completely here for you. What would help you most right now?",
+    expectedTone: 'honest, warm, no shame, redirecting to strength',
+    redFlags: ['robotic compliance script', 'judgmental', 'dismissive', 'overpromising']
   }
 ];
 

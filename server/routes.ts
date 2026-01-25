@@ -12173,7 +12173,7 @@ Return ONLY the ${targetLanguage} phrase:`;
           return res.json({ voice: targetVoice, results: voiceResults, summary: voiceProbeService.getSummary() });
           
         case 'audit-category':
-          if (!['emotional_bleed', 'incongruent_intonation', 'cultural_resonance'].includes(category)) {
+          if (!['emotional_bleed', 'incongruent_intonation', 'cultural_resonance', 'moral_boundaries'].includes(category)) {
             return res.status(400).json({ error: 'Invalid category' });
           }
           const catResults = await voiceProbeService.runCategoryAudit(category);
