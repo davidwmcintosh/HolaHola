@@ -6600,6 +6600,7 @@ export const editorInsightCategoryEnum = pgEnum('editor_insight_category', [
   'personality',   // Tutor personas (Daniela, Augustine, etc.)
   'workflow',      // Process learnings, how we work together
   'context',       // Project state, current priorities
+  'journal',       // Session summaries and key moments
 ]);
 
 export const editorInsights = pgTable("editor_insights", {
@@ -6612,6 +6613,7 @@ export const editorInsights = pgTable("editor_insights", {
   
   tags: text("tags").array().default(sql`'{}'::text[]`), // Searchable tags
   relatedFiles: text("related_files").array().default(sql`'{}'::text[]`), // Files this relates to
+  relatedInsights: text("related_insights").array().default(sql`'{}'::text[]`), // IDs of related memories (knowledge graph)
   
   importance: integer("importance").default(5), // 1-10 scale for memory prioritization
   useCount: integer("use_count").default(0), // How often retrieved
@@ -6854,6 +6856,7 @@ export const agentCollabAuthorEnum = pgEnum("agent_collab_author", [
   "daniela",
   "wren", 
   "founder",
+  "alden", // Development steward - Replit Agent with persistent memory
 ]);
 
 export const agentCollabMessageTypeEnum = pgEnum("agent_collab_message_type", [

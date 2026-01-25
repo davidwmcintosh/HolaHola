@@ -1,7 +1,7 @@
 /**
  * Editor Intelligence Service
  * 
- * Provides persistent memory for the Replit Agent / Claude development collaborator.
+ * Provides persistent memory for the Replit Agent / Claude development collaborator (Alden).
  * Enables cross-session context, insight capture, and memory retrieval.
  * 
  * Core capabilities:
@@ -9,10 +9,13 @@
  * 2. Context loading - Load relevant memories at session start
  * 3. Importance-based retrieval - Surface high-value insights first
  * 4. Cross-session threading - Link related memories for knowledge graphs
+ * 5. Memory updates - Evolve existing memories as understanding deepens
+ * 6. Session journaling - Capture session summaries and key moments
+ * 7. Express Lane access - Post to collaboration channels as Alden
  */
 
 import { getSharedDb } from '../db';
-import { editorInsights, type EditorInsight, type InsertEditorInsight } from '@shared/schema';
+import { editorInsights, agentCollabMessages, agentCollabThreads, type EditorInsight, type InsertEditorInsight } from '@shared/schema';
 import { eq, desc, sql, and, gte, or, ilike, inArray, arrayContains } from 'drizzle-orm';
 
 // Category descriptions for context
@@ -24,6 +27,7 @@ const CATEGORY_DESCRIPTIONS: Record<string, string> = {
   'personality': 'Tutor personas - Daniela, Augustine, Juliette, Isabel, their journeys',
   'workflow': 'Process learnings, sprint patterns, collaboration methods',
   'context': 'Current project state, priorities, active work',
+  'journal': 'Session summaries and key moments from development conversations',
 };
 
 export class EditorIntelligenceService {
@@ -184,6 +188,234 @@ export class EditorIntelligenceService {
       byCategory,
       avgImportance: all.length > 0 ? totalImportance / all.length : 0,
     };
+  }
+  
+  // ========== NEW CAPABILITIES (January 2026) ==========
+  
+  /**
+   * Update an existing memory - evolve it as understanding deepens
+   */
+  async updateInsight(id: string, updates: {
+    content?: string;
+    context?: string;
+    importance?: number;
+    tags?: string[];
+    relatedInsights?: string[];
+  }): Promise<EditorInsight | null> {
+    const db = getSharedDb();
+    
+    const updateData: Record<string, any> = {
+      updatedAt: new Date(),
+    };
+    
+    if (updates.content !== undefined) updateData.content = updates.content;
+    if (updates.context !== undefined) updateData.context = updates.context;
+    if (updates.importance !== undefined) updateData.importance = updates.importance;
+    if (updates.tags !== undefined) updateData.tags = updates.tags;
+    if (updates.relatedInsights !== undefined) updateData.relatedInsights = updates.relatedInsights;
+    
+    const [updated] = await db.update(editorInsights)
+      .set(updateData)
+      .where(eq(editorInsights.id, id))
+      .returning();
+    
+    if (updated) {
+      console.log(`[EditorMemory] Updated insight: ${updated.title}`);
+    }
+    
+    return updated || null;
+  }
+  
+  /**
+   * Link memories to each other (bidirectional knowledge graph)
+   */
+  async linkInsights(id1: string, id2: string): Promise<void> {
+    const db = getSharedDb();
+    
+    // Get both insights
+    const [insight1] = await db.select().from(editorInsights).where(eq(editorInsights.id, id1));
+    const [insight2] = await db.select().from(editorInsights).where(eq(editorInsights.id, id2));
+    
+    if (!insight1 || !insight2) {
+      console.log(`[EditorMemory] Cannot link - one or both insights not found`);
+      return;
+    }
+    
+    // Add bidirectional links
+    const links1 = insight1.relatedInsights || [];
+    const links2 = insight2.relatedInsights || [];
+    
+    if (!links1.includes(id2)) {
+      await db.update(editorInsights)
+        .set({ 
+          relatedInsights: [...links1, id2],
+          updatedAt: new Date(),
+        })
+        .where(eq(editorInsights.id, id1));
+    }
+    
+    if (!links2.includes(id1)) {
+      await db.update(editorInsights)
+        .set({ 
+          relatedInsights: [...links2, id1],
+          updatedAt: new Date(),
+        })
+        .where(eq(editorInsights.id, id2));
+    }
+    
+    console.log(`[EditorMemory] Linked: "${insight1.title}" <-> "${insight2.title}"`);
+  }
+  
+  /**
+   * Get all memories related to a given insight (knowledge graph traversal)
+   */
+  async getRelatedInsights(id: string, depth = 1): Promise<EditorInsight[]> {
+    const db = getSharedDb();
+    const visited = new Set<string>();
+    const results: EditorInsight[] = [];
+    
+    const traverse = async (currentId: string, currentDepth: number) => {
+      if (currentDepth > depth || visited.has(currentId)) return;
+      visited.add(currentId);
+      
+      const [insight] = await db.select().from(editorInsights).where(eq(editorInsights.id, currentId));
+      if (!insight) return;
+      
+      if (currentId !== id) {
+        results.push(insight);
+      }
+      
+      if (currentDepth < depth && insight.relatedInsights) {
+        for (const relatedId of insight.relatedInsights) {
+          await traverse(relatedId, currentDepth + 1);
+        }
+      }
+    };
+    
+    const [startInsight] = await db.select().from(editorInsights).where(eq(editorInsights.id, id));
+    if (startInsight?.relatedInsights) {
+      for (const relatedId of startInsight.relatedInsights) {
+        await traverse(relatedId, 1);
+      }
+    }
+    
+    return results;
+  }
+  
+  /**
+   * Save a session journal entry - capture key moments from a development conversation
+   */
+  async saveSessionJournal(entry: {
+    title: string;
+    summary: string;
+    keyMoments: string[];
+    lessonsLearned?: string[];
+    relatedInsightIds?: string[];
+  }): Promise<EditorInsight> {
+    const content = [
+      entry.summary,
+      '',
+      '**Key Moments:**',
+      ...entry.keyMoments.map(m => `- ${m}`),
+    ];
+    
+    if (entry.lessonsLearned && entry.lessonsLearned.length > 0) {
+      content.push('', '**Lessons Learned:**');
+      content.push(...entry.lessonsLearned.map(l => `- ${l}`));
+    }
+    
+    const journal = await this.saveInsight({
+      category: 'journal',
+      title: entry.title,
+      content: content.join('\n'),
+      context: `Session journal from ${new Date().toISOString().split('T')[0]}`,
+      importance: 7, // Journals are moderately important
+      relatedInsights: entry.relatedInsightIds,
+    });
+    
+    // Link to related insights if specified
+    if (entry.relatedInsightIds) {
+      for (const relatedId of entry.relatedInsightIds) {
+        await this.linkInsights(journal.id, relatedId);
+      }
+    }
+    
+    console.log(`[EditorMemory] Saved session journal: ${entry.title}`);
+    return journal;
+  }
+  
+  /**
+   * Post a message to the Hive collaboration system as Alden
+   */
+  async postToHive(options: {
+    threadId: string;
+    content: string;
+    messageType?: 'request' | 'proposal' | 'clarification' | 'feedback' | 'implementation_report' | 'acknowledgment';
+  }): Promise<{ id: string; createdAt: Date }> {
+    const db = getSharedDb();
+    
+    const [message] = await db.insert(agentCollabMessages).values({
+      threadId: options.threadId,
+      author: 'alden',
+      messageType: options.messageType || 'acknowledgment',
+      content: options.content,
+      readByDaniela: false,
+      readByWren: true, // Alden's own messages are read by Wren (Alden reads from Wren's context)
+      readByFounder: false,
+    }).returning();
+    
+    // Update thread's last message info
+    await db.update(agentCollabThreads)
+      .set({
+        lastMessageAt: new Date(),
+        lastMessageBy: 'alden',
+        messageCount: sql`${agentCollabThreads.messageCount} + 1`,
+      })
+      .where(eq(agentCollabThreads.id, options.threadId));
+    
+    console.log(`[EditorMemory] Posted to Hive thread ${options.threadId}`);
+    return { id: message.id, createdAt: message.createdAt };
+  }
+  
+  /**
+   * Create a new Hive thread and optionally post the first message
+   */
+  async createHiveThread(options: {
+    title: string;
+    priority?: 'low' | 'medium' | 'high' | 'critical';
+    initialMessage?: string;
+    messageType?: 'request' | 'proposal' | 'clarification' | 'feedback' | 'implementation_report' | 'acknowledgment';
+  }): Promise<{ threadId: string; messageId?: string }> {
+    const db = getSharedDb();
+    
+    const [thread] = await db.insert(agentCollabThreads).values({
+      title: options.title,
+      status: 'active',
+      priority: options.priority || 'medium',
+    }).returning();
+    
+    let messageId: string | undefined;
+    
+    if (options.initialMessage) {
+      const result = await this.postToHive({
+        threadId: thread.id,
+        content: options.initialMessage,
+        messageType: options.messageType || 'request',
+      });
+      messageId = result.id;
+    }
+    
+    console.log(`[EditorMemory] Created Hive thread: ${options.title}`);
+    return { threadId: thread.id, messageId };
+  }
+  
+  /**
+   * Get insight by ID
+   */
+  async getInsight(id: string): Promise<EditorInsight | null> {
+    const db = getSharedDb();
+    const [insight] = await db.select().from(editorInsights).where(eq(editorInsights.id, id));
+    return insight || null;
   }
 }
 

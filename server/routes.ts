@@ -21924,6 +21924,158 @@ ${memoryContext}
     }
   });
 
+  // Get single insight by ID
+  app.get("/api/editor/insights/by-id/:id", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (authHeader && !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+      
+      const { editorIntelligence } = await import('./services/editor-intelligence-service');
+      const insight = await editorIntelligence.getInsight(req.params.id);
+      if (!insight) {
+        return res.status(404).json({ error: 'Insight not found' });
+      }
+      res.json({ success: true, insight });
+    } catch (error: any) {
+      console.error('[Editor Intelligence] Get insight error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update an existing insight
+  app.patch("/api/editor/insights/:id", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (authHeader && !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+      
+      const { content, context, importance, tags, relatedInsights } = req.body;
+      const { editorIntelligence } = await import('./services/editor-intelligence-service');
+      const updated = await editorIntelligence.updateInsight(req.params.id, {
+        content, context, importance, tags, relatedInsights
+      });
+      
+      if (!updated) {
+        return res.status(404).json({ error: 'Insight not found' });
+      }
+      res.json({ success: true, insight: updated });
+    } catch (error: any) {
+      console.error('[Editor Intelligence] Update error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Link two insights together (bidirectional knowledge graph)
+  app.post("/api/editor/insights/link", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (authHeader && !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+      
+      const { id1, id2 } = req.body;
+      if (!id1 || !id2) {
+        return res.status(400).json({ error: 'id1 and id2 are required' });
+      }
+      
+      const { editorIntelligence } = await import('./services/editor-intelligence-service');
+      await editorIntelligence.linkInsights(id1, id2);
+      res.json({ success: true, message: `Linked ${id1} <-> ${id2}` });
+    } catch (error: any) {
+      console.error('[Editor Intelligence] Link error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get related insights (knowledge graph traversal)
+  app.get("/api/editor/insights/:id/related", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (authHeader && !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+      
+      const depth = parseInt(req.query.depth as string) || 1;
+      const { editorIntelligence } = await import('./services/editor-intelligence-service');
+      const related = await editorIntelligence.getRelatedInsights(req.params.id, depth);
+      res.json({ success: true, insights: related });
+    } catch (error: any) {
+      console.error('[Editor Intelligence] Related insights error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Save a session journal entry
+  app.post("/api/editor/journal", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (authHeader && !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+      
+      const { title, summary, keyMoments, lessonsLearned, relatedInsightIds } = req.body;
+      if (!title || !summary || !keyMoments) {
+        return res.status(400).json({ error: 'title, summary, and keyMoments are required' });
+      }
+      
+      const { editorIntelligence } = await import('./services/editor-intelligence-service');
+      const journal = await editorIntelligence.saveSessionJournal({
+        title, summary, keyMoments, lessonsLearned, relatedInsightIds
+      });
+      res.json({ success: true, insight: journal });
+    } catch (error: any) {
+      console.error('[Editor Intelligence] Journal error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Post to Hive collaboration system as Alden
+  app.post("/api/editor/hive/post", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (authHeader && !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+      
+      const { threadId, content, messageType } = req.body;
+      if (!threadId || !content) {
+        return res.status(400).json({ error: 'threadId and content are required' });
+      }
+      
+      const { editorIntelligence } = await import('./services/editor-intelligence-service');
+      const result = await editorIntelligence.postToHive({ threadId, content, messageType });
+      res.json({ success: true, ...result });
+    } catch (error: any) {
+      console.error('[Editor Intelligence] Hive post error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create a new Hive thread as Alden
+  app.post("/api/editor/hive/thread", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (authHeader && !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+      
+      const { title, priority, initialMessage, messageType } = req.body;
+      if (!title) {
+        return res.status(400).json({ error: 'title is required' });
+      }
+      
+      const { editorIntelligence } = await import('./services/editor-intelligence-service');
+      const result = await editorIntelligence.createHiveThread({ title, priority, initialMessage, messageType });
+      res.json({ success: true, ...result });
+    } catch (error: any) {
+      console.error('[Editor Intelligence] Hive thread error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ============================================================================
   // AGENT COLLABORATION: Wren-Daniela direct communication channel
   // ============================================================================
