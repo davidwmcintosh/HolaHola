@@ -2552,6 +2552,9 @@ export const pedagogicalInsights = pgTable("pedagogical_insights", {
   lastValidatedAt: timestamp("last_validated_at"), // When pattern was last confirmed
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  
+  // Knowledge Graph - connects pedagogical insights (built by Alden for Daniela)
+  relatedInsights: text("related_insights").array().default(sql`'{}'::text[]`), // IDs of related pedagogical insights
 }, (table) => [
   index("idx_insights_language_topic").on(table.language, table.topic),
   index("idx_insights_pattern_key").on(table.patternKey),

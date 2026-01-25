@@ -896,6 +896,65 @@ export class WrenIntelligenceService {
   }
   
   /**
+   * Find weighted behavioral clusters - prioritizes by recurrence (useCount)
+   * Wren's request: identify high-friction areas before they break
+   * Weight = connectionCount * 10 + useCount * 5 + recencyBonus
+   */
+  async findWeightedClusters(options: {
+    minConnections?: number;
+    minWeight?: number;
+    limit?: number;
+  } = {}): Promise<Array<{
+    insight: WrenInsight;
+    connectionCount: number;
+    useCount: number;
+    weight: number;
+    frictionScore: number;
+    connectedTo: string[];
+  }>> {
+    const { minConnections = 1, minWeight = 10, limit = 20 } = options;
+    const db = getSharedDb();
+    
+    const allInsights = await db.select().from(wrenInsights);
+    const now = Date.now();
+    const sevenDays = 7 * 24 * 60 * 60 * 1000;
+    
+    const weightedClusters = allInsights
+      .map(insight => {
+        const connectedTo = (insight as any).relatedInsights || [];
+        const connectionCount = connectedTo.length;
+        const useCount = insight.useCount || 0;
+        
+        // Recency bonus: more weight if accessed recently
+        const lastUsed = insight.lastUsedAt ? new Date(insight.lastUsedAt).getTime() : 0;
+        const recencyBonus = lastUsed > (now - sevenDays) ? 10 : 0;
+        
+        // Weight formula: connections are valuable, usage indicates importance
+        const weight = (connectionCount * 10) + (useCount * 5) + recencyBonus;
+        
+        // Friction score: high connections + high usage = potential hotspot
+        const frictionScore = connectionCount * useCount;
+        
+        return {
+          insight,
+          connectionCount,
+          useCount,
+          weight,
+          frictionScore,
+          connectedTo,
+        };
+      })
+      .filter(cluster => 
+        cluster.connectionCount >= minConnections && 
+        cluster.weight >= minWeight
+      )
+      .sort((a, b) => b.weight - a.weight)
+      .slice(0, limit);
+    
+    return weightedClusters;
+  }
+  
+  /**
    * Search insights with knowledge graph context
    * Returns matching insights plus their directly linked neighbors
    */

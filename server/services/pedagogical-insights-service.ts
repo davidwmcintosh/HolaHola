@@ -382,3 +382,156 @@ export async function getUserTeachingEffectiveness(userId: string): Promise<{
     return { totalSessions: 0, totalToolsUsed: 0, favoriteTools: [], drillSuccessRate: null };
   }
 }
+
+// ============================================================================
+// KNOWLEDGE GRAPH SYSTEM
+// Built by Alden for Daniela - January 25, 2026
+// Enables "connective tissue" analysis of student journeys and teaching patterns
+// ============================================================================
+
+/**
+ * Link two pedagogical insights bidirectionally (knowledge graph edge)
+ * Daniela can now see how teaching strategies connect across topics
+ */
+export async function linkInsights(id1: string, id2: string): Promise<void> {
+  const db = getSharedDb();
+  
+  const [insight1] = await db.select().from(pedagogicalInsights).where(eq(pedagogicalInsights.id, id1));
+  const [insight2] = await db.select().from(pedagogicalInsights).where(eq(pedagogicalInsights.id, id2));
+  
+  if (!insight1 || !insight2) {
+    console.log(`[DANIELA Graph] Cannot link - one or both insights not found`);
+    return;
+  }
+  
+  const links1 = (insight1 as any).relatedInsights || [];
+  const links2 = (insight2 as any).relatedInsights || [];
+  
+  if (!links1.includes(id2)) {
+    await db.update(pedagogicalInsights)
+      .set({ 
+        relatedInsights: [...links1, id2] as any,
+        updatedAt: new Date(),
+      } as any)
+      .where(eq(pedagogicalInsights.id, id1));
+  }
+  
+  if (!links2.includes(id1)) {
+    await db.update(pedagogicalInsights)
+      .set({ 
+        relatedInsights: [...links2, id1] as any,
+        updatedAt: new Date(),
+      } as any)
+      .where(eq(pedagogicalInsights.id, id2));
+  }
+  
+  console.log(`[DANIELA Graph] Linked: "${insight1.patternDescription?.substring(0, 40)}..." <-> "${insight2.patternDescription?.substring(0, 40)}..."`);
+}
+
+/**
+ * Get insights related to a given pedagogical insight (graph traversal)
+ * Helps Daniela see the "connective tissue" of teaching patterns
+ */
+export async function getRelatedInsights(id: string, depth = 1): Promise<PedagogicalInsight[]> {
+  const db = getSharedDb();
+  const visited = new Set<string>();
+  const results: PedagogicalInsight[] = [];
+  
+  async function traverse(currentId: string, currentDepth: number) {
+    if (currentDepth > depth || visited.has(currentId)) return;
+    visited.add(currentId);
+    
+    const [insight] = await db.select().from(pedagogicalInsights).where(eq(pedagogicalInsights.id, currentId));
+    if (!insight) return;
+    
+    if (currentId !== id) {
+      results.push(insight);
+    }
+    
+    const linkedIds = (insight as any).relatedInsights || [];
+    for (const linkedId of linkedIds) {
+      await traverse(linkedId, currentDepth + 1);
+    }
+  }
+  
+  await traverse(id, 0);
+  return results;
+}
+
+/**
+ * Find teaching pattern clusters - insights that share many connections
+ * Helps Daniela identify which teaching strategies work together
+ */
+export async function findTeachingPatternClusters(options: {
+  minConnections?: number;
+  language?: string;
+  topic?: string;
+}= {}): Promise<Array<{
+  insight: PedagogicalInsight;
+  connectionCount: number;
+  connectedTo: string[];
+}>> {
+  const { minConnections = 1, language, topic } = options;
+  const db = getSharedDb();
+  
+  let query = db.select().from(pedagogicalInsights).where(eq(pedagogicalInsights.isActive, true));
+  
+  // Note: filtering by language/topic would need additional where clauses
+  const allInsights = await query;
+  
+  const filteredInsights = allInsights.filter(insight => {
+    if (language && insight.language !== language) return false;
+    if (topic && insight.topic !== topic) return false;
+    return true;
+  });
+  
+  const clusters = filteredInsights
+    .map(insight => ({
+      insight,
+      connectionCount: ((insight as any).relatedInsights || []).length,
+      connectedTo: (insight as any).relatedInsights || [],
+    }))
+    .filter(cluster => cluster.connectionCount >= minConnections)
+    .sort((a, b) => b.connectionCount - a.connectionCount);
+  
+  return clusters;
+}
+
+/**
+ * Search pedagogical insights with knowledge graph context
+ * Returns matching insights plus their directly linked neighbors
+ */
+export async function searchWithGraph(query: string): Promise<Array<{
+  insight: PedagogicalInsight;
+  linkedInsights: PedagogicalInsight[];
+}>> {
+  const db = getSharedDb();
+  
+  // Search in pattern descriptions and tutor reflections
+  const matches = await db.select().from(pedagogicalInsights)
+    .where(eq(pedagogicalInsights.isActive, true))
+    .orderBy(desc(pedagogicalInsights.confidenceScore))
+    .limit(20);
+  
+  // Filter by query (case-insensitive)
+  const queryLower = query.toLowerCase();
+  const filtered = matches.filter(insight => 
+    insight.patternDescription?.toLowerCase().includes(queryLower) ||
+    insight.tutorReflection?.toLowerCase().includes(queryLower) ||
+    insight.topic?.toLowerCase().includes(queryLower)
+  ).slice(0, 10);
+  
+  const results = await Promise.all(
+    filtered.map(async (insight) => {
+      const linkedIds = (insight as any).relatedInsights || [];
+      const linkedInsights = linkedIds.length > 0
+        ? await db.select().from(pedagogicalInsights)
+            .where(sql`${pedagogicalInsights.id} = ANY(${linkedIds})`)
+        : [];
+      
+      return { insight, linkedInsights };
+    })
+  );
+  
+  return results;
+}

@@ -21044,6 +21044,29 @@ ${memoryContext}
     }
   });
 
+  // WREN KNOWLEDGE GRAPH: Weighted clusters with recurrence scoring (Wren's request)
+  // MUST be before /:id route
+  app.get("/api/wren/insights/weighted-clusters", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { minConnections, minWeight, limit } = req.query;
+      const clusters = await wrenIntelligenceService.findWeightedClusters({
+        minConnections: minConnections ? parseInt(minConnections as string) : undefined,
+        minWeight: minWeight ? parseInt(minWeight as string) : undefined,
+        limit: limit ? parseInt(limit as string) : undefined,
+      });
+
+      res.json({ success: true, clusters, count: clusters.length });
+    } catch (error: any) {
+      console.error('[Wren Knowledge Graph] Weighted clusters error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // WREN KNOWLEDGE GRAPH: Search with graph context (built by Alden)
   // MUST be before /:id route
   app.get("/api/wren/insights/search-graph", async (req, res) => {
@@ -21281,6 +21304,99 @@ ${memoryContext}
       res.json({ success: true, summary });
     } catch (error: any) {
       console.error('[Wren Intelligence] Summary error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================================================
+  // DANIELA KNOWLEDGE GRAPH: Teaching pattern connections (built by Alden)
+  // ============================================================================
+
+  // DANIELA KNOWLEDGE GRAPH: Link two pedagogical insights
+  app.post("/api/daniela/insights/link", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { id1, id2 } = req.body;
+      if (!id1 || !id2) {
+        return res.status(400).json({ error: 'Both id1 and id2 are required' });
+      }
+
+      const { linkInsights } = await import('./services/pedagogical-insights-service');
+      await linkInsights(id1, id2);
+      res.json({ success: true, message: `Linked pedagogical insights ${id1} <-> ${id2}` });
+    } catch (error: any) {
+      console.error('[Daniela Knowledge Graph] Link error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // DANIELA KNOWLEDGE GRAPH: Find teaching pattern clusters
+  app.get("/api/daniela/insights/clusters", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { minConnections, language, topic } = req.query;
+      const { findTeachingPatternClusters } = await import('./services/pedagogical-insights-service');
+      const clusters = await findTeachingPatternClusters({
+        minConnections: minConnections ? parseInt(minConnections as string) : undefined,
+        language: language as string | undefined,
+        topic: topic as string | undefined,
+      });
+
+      res.json({ success: true, clusters, count: clusters.length });
+    } catch (error: any) {
+      console.error('[Daniela Knowledge Graph] Clusters error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // DANIELA KNOWLEDGE GRAPH: Search with graph context
+  app.get("/api/daniela/insights/search-graph", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { q } = req.query;
+      if (!q) {
+        return res.status(400).json({ error: 'Query parameter q is required' });
+      }
+
+      const { searchWithGraph } = await import('./services/pedagogical-insights-service');
+      const results = await searchWithGraph(q as string);
+      res.json({ success: true, results, count: results.length });
+    } catch (error: any) {
+      console.error('[Daniela Knowledge Graph] Search error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // DANIELA KNOWLEDGE GRAPH: Get related insights via graph traversal
+  app.get("/api/daniela/insights/:id/graph-traverse", async (req, res) => {
+    try {
+      const authHeader = req.headers['x-editor-secret'];
+      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+        return res.status(401).json({ error: 'Invalid authentication' });
+      }
+
+      const { depth } = req.query;
+      const { getRelatedInsights } = await import('./services/pedagogical-insights-service');
+      const related = await getRelatedInsights(
+        req.params.id,
+        depth ? parseInt(depth as string) : 1
+      );
+
+      res.json({ success: true, related, count: related.length });
+    } catch (error: any) {
+      console.error('[Daniela Knowledge Graph] Traverse error:', error);
       res.status(500).json({ error: error.message });
     }
   });
