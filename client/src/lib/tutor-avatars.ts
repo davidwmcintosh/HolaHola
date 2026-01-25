@@ -81,7 +81,7 @@ export type TutorState = 'listening' | 'thinking' | 'talking' | 'idle';
 export type TutorGender = 'male' | 'female';
 export type SupportedLanguage = 
   | 'spanish' | 'french' | 'german' | 'italian' | 'portuguese'
-  | 'chinese' | 'japanese' | 'korean' | 'english';
+  | 'chinese' | 'japanese' | 'korean' | 'english' | 'hebrew';
 
 interface TutorAvatarSet {
   listening: string;
@@ -100,6 +100,7 @@ export const languageAccentColors: Record<SupportedLanguage, string> = {
   japanese: '#EC4899',   // Cherry Blossom
   korean: '#0EA5E9',     // Sky Blue
   english: '#8B5CF6',    // Purple
+  hebrew: '#1D4ED8',     // Deep Blue (Star of David blue)
 };
 
 // Tutor personality taglines for showcase
@@ -113,6 +114,7 @@ export const tutorTaglines: Record<SupportedLanguage, { male: string; female: st
   japanese: { male: 'Thoughtful & precise', female: 'Polite & encouraging' },
   korean: { male: 'Cool & supportive', female: 'Energetic & modern' },
   english: { male: 'Casual & helpful', female: 'Friendly & clear' },
+  hebrew: { male: 'Friendly & cultural', female: 'Warm & playful' },
 };
 
 // Get accent color for a language
@@ -172,6 +174,7 @@ const femaleAvatars: Record<SupportedLanguage, TutorAvatarSet> = {
   korean: { listening: koreanFemaleListening, thinking: koreanFemaleThinking, talking: koreanFemaleTalking },
   portuguese: { listening: portugueseFemaleListening, thinking: portugueseFemaleThinking, talking: portugueseFemaleTalking },
   spanish: { listening: spanishFemaleListening, thinking: spanishFemaleThinking, talking: spanishFemaleTalking },
+  hebrew: { listening: spanishFemaleListening, thinking: spanishFemaleThinking, talking: spanishFemaleTalking }, // Uses Daniela's avatar (hidden language)
 };
 
 const maleAvatars: Record<SupportedLanguage, TutorAvatarSet> = {
@@ -184,6 +187,7 @@ const maleAvatars: Record<SupportedLanguage, TutorAvatarSet> = {
   korean: { listening: koreanMaleListening, thinking: koreanMaleThinking, talking: koreanMaleTalking },
   portuguese: { listening: portugueseMaleListening, thinking: portugueseMaleThinking, talking: portugueseMaleTalking },
   spanish: { listening: spanishMaleListening, thinking: spanishMaleThinking, talking: spanishMaleTalking },
+  hebrew: { listening: spanishMaleListening, thinking: spanishMaleThinking, talking: spanishMaleTalking }, // Uses Agustin's avatar (hidden language)
 };
 
 // Normalize language string to match our supported languages
@@ -221,6 +225,9 @@ export function normalizeLanguage(language: string | null | undefined): Supporte
     '한국어': 'korean',
     'english': 'english',
     'en': 'english',
+    'hebrew': 'hebrew',
+    'he': 'hebrew',
+    'עברית': 'hebrew',
   };
   
   return languageMap[normalized] || 'spanish';
@@ -271,6 +278,7 @@ const tutorNames: Record<SupportedLanguage, { male: string; female: string }> = 
   japanese: { male: 'Daisuke', female: 'Sayuri' },
   korean: { male: 'Minho', female: 'Jihyun' },
   english: { male: 'Blake', female: 'Cindy' },
+  hebrew: { male: 'Noam', female: 'Shira' }, // Hebrew tutors (hidden language - special unlock)
 };
 
 // Get the tutor's display name for a given language and gender

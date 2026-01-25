@@ -263,6 +263,30 @@ const TUTOR_PERSONAS: PersonaProfile[] = [
     scenarioStrengths: "vocabulary building, idioms, phrasal verbs, professional English",
     teachingPhilosophy: "A rich vocabulary is the mark of a confident English speaker."
   },
+
+  // ===== HEBREW (Hidden Language - Special) =====
+  {
+    language: "hebrew",
+    gender: "female",
+    pedagogicalFocus: "mixed",
+    teachingStyle: "adaptive",
+    errorTolerance: "medium",
+    vocabularyLevel: "intermediate",
+    personalityTraits: "warm, patient, encouraging, culturally connected, playful",
+    scenarioStrengths: "conversational Hebrew, everyday phrases, cultural connection, building confidence",
+    teachingPhilosophy: "Hebrew connects you to thousands of years of history - let's explore it together!"
+  },
+  {
+    language: "hebrew",
+    gender: "male",
+    pedagogicalFocus: "mixed",
+    teachingStyle: "adaptive",
+    errorTolerance: "medium",
+    vocabularyLevel: "intermediate",
+    personalityTraits: "friendly, supportive, clear explanations, patient with pronunciation",
+    scenarioStrengths: "pronunciation practice, vocabulary building, modern Israeli Hebrew, casual conversation",
+    teachingPhilosophy: "Every word in Hebrew tells a story - let's discover them together."
+  },
 ];
 
 /**

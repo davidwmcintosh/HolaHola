@@ -373,6 +373,7 @@ export function getDeepgramLanguageCode(language: string): string {
     'korean': 'ko',
     'chinese': 'zh',
     'english': 'en',
+    'hebrew': 'he',
   };
   return languageMap[language.toLowerCase()] || 'en';
 }

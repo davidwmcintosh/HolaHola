@@ -48,6 +48,9 @@ const ASSISTANT_TUTOR_SEEDS = [
   // Korean - Main tutors: Jihyun/Minho (Cartesia)
   { language: 'korean', gender: 'female', name: 'Eun-ji', voiceId: 'ko-KR-Neural2-A', languageCode: 'ko-KR' },
   { language: 'korean', gender: 'male', name: 'Min-ho', voiceId: 'ko-KR-Neural2-C', languageCode: 'ko-KR' },
+  // Hebrew - Special hidden language (Cartesia tutors + Google assistants)
+  { language: 'hebrew', gender: 'female', name: 'Noa', voiceId: 'he-IL-Standard-A', languageCode: 'he-IL' },
+  { language: 'hebrew', gender: 'male', name: 'Amit', voiceId: 'he-IL-Standard-B', languageCode: 'he-IL' },
 ];
 
 /**

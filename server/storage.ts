@@ -5602,6 +5602,9 @@ export class DatabaseStorage implements IStorage {
       // Korean
       { language: 'korean', gender: 'female', provider: 'cartesia', voiceId: 'b5d7b5e0-c94d-47f8-8df5-b124cf8c8b8c', voiceName: 'Korean Woman', languageCode: 'ko' },
       { language: 'korean', gender: 'male', provider: 'cartesia', voiceId: '63ff761f-c1e8-414b-b969-d1833d1c870c', voiceName: 'Korean Male', languageCode: 'ko' },
+      // Hebrew (hidden language - special unlock for founder's daughter)
+      { language: 'hebrew', gender: 'female', provider: 'cartesia', voiceId: '573e3144-a684-4e72-ac2b-9b2063a50b53', voiceName: 'Hebrew Woman', languageCode: 'he' },
+      { language: 'hebrew', gender: 'male', provider: 'cartesia', voiceId: '638efaaa-4d0c-442e-b701-3fae16aad012', voiceName: 'Hebrew Man', languageCode: 'he' },
     ];
 
     for (const voice of defaultVoices) {
@@ -5657,6 +5660,9 @@ export class DatabaseStorage implements IStorage {
       // Korean
       { language: 'korean', gender: 'female', role: 'support', provider: 'google', voiceId: 'ko-KR-Chirp3-HD-Sulafat', voiceName: 'Sulafat', languageCode: 'ko-KR', speakingRate: 1.0 },
       { language: 'korean', gender: 'male', role: 'support', provider: 'google', voiceId: 'ko-KR-Chirp3-HD-Schedar', voiceName: 'Schedar', languageCode: 'ko-KR', speakingRate: 1.0 },
+      // Hebrew (hidden language - special unlock)
+      { language: 'hebrew', gender: 'female', role: 'support', provider: 'google', voiceId: 'he-IL-Standard-A', voiceName: 'Sofia Hebrew', languageCode: 'he-IL', speakingRate: 1.0 },
+      { language: 'hebrew', gender: 'male', role: 'support', provider: 'google', voiceId: 'he-IL-Standard-B', voiceName: 'Sofia Hebrew Male', languageCode: 'he-IL', speakingRate: 1.0 },
     ];
 
     for (const voice of supportVoices) {

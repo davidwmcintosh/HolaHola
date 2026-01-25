@@ -1061,6 +1061,7 @@ export function createSystemPrompt(
     japanese: "Japanese",
     mandarin: "Mandarin Chinese",
     korean: "Korean",
+    hebrew: "Hebrew",
   };
 
   const nativeLanguageMap: Record<string, string> = {
@@ -1076,6 +1077,7 @@ export function createSystemPrompt(
     arabic: "Arabic",
     russian: "Russian",
     hindi: "Hindi",
+    hebrew: "Hebrew",
   };
 
   const languageName = languageMap[language] || language;

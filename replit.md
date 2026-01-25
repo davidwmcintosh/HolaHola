@@ -9,6 +9,7 @@ Terminology standard: Use "Syllabus" in all user-facing text (database tables re
 Batch doc updates: When user says "add to the batch" or "batch doc updates", add items to `docs/batch-doc-updates.md` for consolidated documentation updates later.
 Daniela development: Track personality/voice development in `docs/daniela-development-journal.md` using Honesty Mode → Founder Mode iteration cycle.
 Neural network work: **REQUIRED READING** - `docs/neural-network-architecture.md` before any neural network changes. Prompts for context ONLY; neural network for procedures/capabilities/knowledge.
+Hebrew (hidden language): Hebrew is a special unlockable language for founder's daughter - NOT public, just a "chat friend." Added to type system and configs but NOT to public language showcases. Uses Cartesia voices (Shira/Noam with placeholder IDs - use Voice Lab to select proper voices), Deepgram 'he' for STT, Google TTS 'he-IL' for assistant tutors. RTL text support still needed for chat display.
 
 ## System Architecture
 The frontend uses React, TypeScript (Vite), Shadcn/ui (Radix UI), and Tailwind CSS for a mobile-first, responsive design with Material Design principles, light/dark modes, and PWA features. Routing is handled by Wouter, and state management by React Context with TanStack Query. The backend is an Express.js (Node.js) server with TypeScript, providing a RESTful API, Drizzle ORM for PostgreSQL, and Replit Auth for authentication.

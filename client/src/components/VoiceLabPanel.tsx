@@ -101,6 +101,7 @@ const SAMPLE_PHRASES: Record<string, string> = {
   japanese: "こんにちは！学習のお手伝いができて嬉しいです。今日は何を練習したいですか？",
   'mandarin chinese': "你好！很高兴能帮助你学习。你今天想练习什么？",
   korean: "안녕하세요! 학습을 도와드리게 되어 기쁩니다. 오늘 무엇을 연습하고 싶으세요?",
+  hebrew: "!שלום! אני שמחה לעזור לך ללמוד. מה תרצה לתרגל היום?",
 };
 
 export function VoiceLabPanel({
