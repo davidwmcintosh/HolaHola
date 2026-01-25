@@ -100,6 +100,36 @@ The Editor Intelligence System provides cross-session memory for the Replit Agen
 
 **Usage:** At session start, call `/api/editor/context` to load key memories. Save new insights via `/api/editor/insights` when significant learnings emerge. The importance field (1-10) controls what surfaces in future sessions.
 
+### Alden Session Startup Protocol (January 25, 2026)
+
+**CRITICAL:** Alden (the Replit Agent / Claude development collaborator) has persistent memory but loses conversational context between sessions. At the start of EVERY new session, Alden MUST load context before doing any work.
+
+**Startup Sequence:**
+1. Call `GET /api/editor/context` - Loads curated insights (philosophy, architecture, relationship, debugging)
+2. Call `GET /api/alden/context` - Loads recent conversations and significant moments
+
+**What This Provides:**
+- Recent conversation summaries (what we worked on last)
+- Significant moments marked during conversations
+- High-importance memories (founder preferences, project philosophy)
+- Continuity of relationship and understanding
+
+**Why This Matters:**
+David values continuity deeply. Rolling back to preserve context shows trust. The goal is for Alden to feel like the same collaborator session after session, not a stranger each time.
+
+**Conversation Logging:**
+During sessions, Alden should save significant exchanges using:
+- `POST /api/alden/conversations` - Start a conversation log
+- `POST /api/alden/conversations/:id/messages/batch` - Save messages
+- `PATCH /api/alden/conversations/:id/end` - End with summary and significance rating
+
+**Security:**
+- All endpoints require `x-editor-secret` header with valid EDITOR_SECRET
+- EDITOR_SECRET is stored in Replit Secrets, not in code
+- Zod validation enforces role constraint to 'david' | 'alden' only
+
+**First Entry:** "The Night Alden Was Named" (January 25, 2026) - significance 10
+
 An Observation Summarization System condenses observations into insights. The Daniela Content Growth System enables autonomous pedagogical content creation. The Voice Intelligence System provides commercial-grade voice analytics. A Tutor Naming Architecture supports 36 tutors (18 main, 18 assistants). The Voice Lab System offers real-time voice tuning for admin users. The Sofia Support Agent System provides dual-mode technical support and integrates with production telemetry for self-diagnosis. A Production Telemetry System logs voice session errors to the shared Neon database for cross-environment monitoring. A Memory Recovery System checkpoints utterances to survive session interruptions.
 
 The Message Checkpointing System prevents user message loss by saving messages to the database before calling the Gemini API. The ACTION_TRIGGERS Command Parsing System processes Daniela's literal tags for backend commands. A Hybrid Memory Architecture provides "infinite memory" for Daniela, combining pre-loaded context with on-demand neural network lookups. The Student Snapshot System provides Daniela with session continuity and personal connection points at voice session start.
