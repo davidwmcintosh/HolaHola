@@ -16000,6 +16000,7 @@ Current conversation context:
           'japanese': 'ja',
           'mandarin chinese': 'zh',
           'korean': 'ko',
+          'hebrew': 'he',
         };
         const langCode = langCodeMap[language.toLowerCase()] || language.toLowerCase();
         
