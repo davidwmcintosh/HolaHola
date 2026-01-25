@@ -95,7 +95,14 @@ import { agentCollaborationService } from "./services/agent-collaboration-servic
 import { studentLearningService, TEACHING_STRATEGIES, ERROR_CATEGORIES } from "./services/student-learning-service";
 // RETIRED (Jan 2026 - Neon Phase 3): Editor persona service replaced by direct Hive collaboration
 // import { editorPersonaService, validateEditorSecret } from "./services/editor-persona-service";
-const validateEditorSecret = (_secret: string): boolean => true; // Stub for compatibility - allows all editor requests
+const validateEditorSecret = (secret: string): boolean => {
+  const editorSecret = process.env.EDITOR_SECRET;
+  if (!editorSecret) {
+    console.warn('[Security] EDITOR_SECRET not configured - editor endpoints disabled');
+    return false;
+  }
+  return secret === editorSecret;
+};
 import { supportPersonaService } from "./services/support-persona-service";
 import { founderCollabService } from "./services/founder-collaboration-service";
 import { founderCollabWSBroker } from "./services/founder-collab-ws-broker";
