@@ -83,6 +83,7 @@ const SUPPORTED_LANGUAGES = [
   { value: 'japanese', label: 'Japanese', code: 'ja' },
   { value: 'mandarin chinese', label: 'Mandarin Chinese', code: 'zh' },
   { value: 'korean', label: 'Korean', code: 'ko' },
+  { value: 'hebrew', label: 'Hebrew', code: 'he' },
 ];
 
 const SAMPLE_PHRASES: Record<string, { target: string; native: string }> = {
@@ -121,6 +122,10 @@ const SAMPLE_PHRASES: Record<string, { target: string; native: string }> = {
   korean: { 
     target: "안녕하세요! 한국어를 배우는 것을 도와드리게 되어 기쁩니다. 오늘 무엇을 연습하고 싶으세요?",
     native: "Hello! I'm excited to help you learn Korean. What would you like to practice today?"
+  },
+  hebrew: {
+    target: "!שלום! אני שמחה לעזור לך ללמוד עברית. מה תרצה לתרגל היום?",
+    native: "Hello! I'm excited to help you learn Hebrew. What would you like to practice today?"
   },
 };
 

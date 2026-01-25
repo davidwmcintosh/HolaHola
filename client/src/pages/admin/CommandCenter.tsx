@@ -1178,6 +1178,7 @@ function PersonalFactsBrowserTab() {
                 <SelectItem value="japanese">Japanese</SelectItem>
                 <SelectItem value="korean">Korean</SelectItem>
                 <SelectItem value="english">English</SelectItem>
+                <SelectItem value="hebrew">Hebrew</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -4373,6 +4374,7 @@ function ImageLibraryTab() {
                   <SelectItem value="japanese">Japanese</SelectItem>
                   <SelectItem value="korean">Korean</SelectItem>
                   <SelectItem value="russian">Russian</SelectItem>
+                  <SelectItem value="hebrew">Hebrew</SelectItem>
                 </SelectContent>
               </Select>
             </div>
