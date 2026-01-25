@@ -1231,7 +1231,7 @@ Your whiteboard tools will be loaded from your teaching knowledge base.
 /**
  * Build Founder Mode tool section synchronously from cache
  */
-export function buildFounderModeToolSectionSync(tutorDirectory?: Array<{name: string; gender: string; language: string; isPreferred?: boolean; role?: 'tutor' | 'assistant'}>): string {
+export function buildFounderModeToolSectionSync(tutorDirectory?: Array<{name: string; gender: string; language: string; isPreferred?: boolean; role?: 'tutor' | 'assistant' | 'support'}>): string {
   const tools = getCachedToolKnowledge();
   
   const lines: string[] = [
