@@ -8,25 +8,34 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useLearningFilter, LearningContext } from "@/contexts/LearningFilterContext";
-import { GraduationCap, User, Filter, Sparkles, Heart } from "lucide-react";
+import { GraduationCap, User, Filter, Sparkles, Heart, Globe } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import type { User as UserType } from "@shared/schema";
 import { useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
 
-const allLanguages = [
-  { value: "all", label: "All Languages", flag: "🌍" },
-  { value: "spanish", label: "Spanish", flag: "🇪🇸" },
-  { value: "english", label: "English", flag: "🇬🇧" },
-  { value: "french", label: "French", flag: "🇫🇷" },
-  { value: "german", label: "German", flag: "🇩🇪" },
-  { value: "italian", label: "Italian", flag: "🇮🇹" },
-  { value: "portuguese", label: "Portuguese", flag: "🇵🇹" },
-  { value: "japanese", label: "Japanese", flag: "🇯🇵" },
-  { value: "mandarin", label: "Mandarin", flag: "🇨🇳" },
-  { value: "korean", label: "Korean", flag: "🇰🇷" },
+const publicLanguages = [
+  { value: "all", label: "All Languages" },
+  { value: "spanish", label: "Spanish" },
+  { value: "english", label: "English" },
+  { value: "french", label: "French" },
+  { value: "german", label: "German" },
+  { value: "italian", label: "Italian" },
+  { value: "portuguese", label: "Portuguese" },
+  { value: "japanese", label: "Japanese" },
+  { value: "mandarin", label: "Mandarin" },
+  { value: "korean", label: "Korean" },
 ];
+
+const hiddenLanguages = [
+  { value: "hebrew", label: "Hebrew" },
+];
+
+interface LanguageOption {
+  value: string;
+  label: string;
+}
 
 interface LearningContextFilterProps {
   compact?: boolean;
@@ -49,6 +58,11 @@ export function LearningContextFilter({
   } = useLearningFilter();
   const { user: authUser } = useAuth();
   const isDeveloper = authUser?.role === 'developer' || authUser?.role === 'admin';
+  
+  // Include hidden languages for privileged users
+  const allLanguages: LanguageOption[] = isDeveloper 
+    ? [...publicLanguages, ...hiddenLanguages]
+    : publicLanguages;
 
   // Get user's target language for self-directed learning
   const { data: user } = useQuery<UserType>({
@@ -119,10 +133,10 @@ export function LearningContextFilter({
     }
   };
   
-  // Helper to get language flag for a class
-  const getLanguageFlag = (langCode: string): string => {
-    const lang = allLanguages.find(l => l.value.toLowerCase() === langCode.toLowerCase());
-    return lang?.flag || "🌍";
+  // Helper to get language label for a class
+  const getLanguageLabel = (langCode: string): string => {
+    const lang = allLanguages.find((l: LanguageOption) => l.value.toLowerCase() === langCode.toLowerCase());
+    return lang?.label || langCode;
   };
 
   const getContextLabel = (ctx: LearningContext): string => {
@@ -147,7 +161,7 @@ export function LearningContextFilter({
       <div className="flex items-center gap-2 flex-wrap">
         {showLanguage && selectedLanguage && (
           <Badge variant="secondary" className="text-sm" data-testid="badge-current-language">
-            <span className="mr-1">{selectedLanguage.flag}</span>
+            <Globe className="w-3 h-3 mr-1.5" />
             {selectedLanguage.label}
           </Badge>
         )}
@@ -169,9 +183,8 @@ export function LearningContextFilter({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {availableLanguages.map((lang) => (
+            {availableLanguages.map((lang: LanguageOption) => (
               <SelectItem key={lang.value} value={lang.value} data-testid={`option-language-${lang.value}`}>
-                <span className="mr-2">{lang.flag}</span>
                 {lang.label}
               </SelectItem>
             ))}
@@ -213,7 +226,7 @@ export function LearningContextFilter({
                     <span>{enrollment.class.name}</span>
                     {language === "all" && (
                       <span className="text-xs text-muted-foreground ml-1">
-                        {getLanguageFlag(enrollment.class.language)}
+                        ({getLanguageLabel(enrollment.class.language)})
                       </span>
                     )}
                   </div>
