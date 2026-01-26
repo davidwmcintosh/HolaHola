@@ -2954,6 +2954,7 @@ This is a voice conversation. Speak naturally, as you would.`;
               sessionId: session.id,
               timestamp: Date.now(),
             }));
+            console.log(`[Streaming Voice] session_started sent via Socket.io for ${session.id}`);
           } catch (err: any) {
             console.error('[Streaming Voice] Session creation failed:', err);
             sendErrorAdapter(ws, 'SESSION_FAILED', err.message || 'Session creation failed', false);
