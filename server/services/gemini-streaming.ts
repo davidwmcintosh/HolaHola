@@ -1263,7 +1263,9 @@ export class GeminiStreamingService {
       const hasContent = fullText.length > 0 || sentenceIndex > 0;
       
       if (isJsonTruncation && hasContent) {
-        console.log(`[Gemini Streaming] JSON truncation recovered - returning ${sentenceIndex} sentences, ${fullText.length} chars`);
+        console.log(`[Gemini Streaming] ⚠️ JSON TRUNCATION RECOVERED - returning ${sentenceIndex} sentences, ${fullText.length} chars (function call may have been lost)`);
+        // Log to telemetry for monitoring frequency
+        console.log(`[TELEMETRY] gemini_json_truncation: recovered=true, sentences=${sentenceIndex}, chars=${fullText.length}`);
         
         // Clear pending timeout
         if (flushTimeoutId) {
