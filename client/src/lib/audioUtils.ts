@@ -951,7 +951,18 @@ export class StreamingAudioPlayer {
     }
     
     // Convert raw PCM bytes to Float32Array
-    const float32Data = new Float32Array(audio);
+    // SAFETY: Ensure byte length is a multiple of 4 (required for Float32Array)
+    let rawAudioBytes = audio;
+    if (audio.byteLength % 4 !== 0) {
+      console.warn(`[AUDIO] Byte length ${audio.byteLength} not multiple of 4, truncating`);
+      const truncatedLength = Math.floor(audio.byteLength / 4) * 4;
+      if (truncatedLength === 0) {
+        console.warn(`[AUDIO] Chunk too small to use, skipping`);
+        return;
+      }
+      rawAudioBytes = audio.slice(0, truncatedLength);
+    }
+    const float32Data = new Float32Array(rawAudioBytes);
     const numSamples = float32Data.length;
     const chunkDuration = numSamples / sampleRate;
     
@@ -2064,7 +2075,18 @@ export class StreamingAudioPlayer {
     
     // Convert raw PCM bytes to Float32Array
     // f32le = 32-bit float, little-endian = 4 bytes per sample
-    const float32Data = new Float32Array(chunk.audio);
+    // SAFETY: Ensure byte length is a multiple of 4 (required for Float32Array)
+    let rawAudioBuffer = chunk.audio;
+    if (chunk.audio.byteLength % 4 !== 0) {
+      console.warn(`[AUDIO playPcmChunk] Byte length ${chunk.audio.byteLength} not multiple of 4, truncating`);
+      const truncatedLength = Math.floor(chunk.audio.byteLength / 4) * 4;
+      if (truncatedLength === 0) {
+        console.warn(`[AUDIO playPcmChunk] Chunk too small to use, skipping`);
+        return;
+      }
+      rawAudioBuffer = chunk.audio.slice(0, truncatedLength);
+    }
+    const float32Data = new Float32Array(rawAudioBuffer);
     const numSamples = float32Data.length;
     
     // Create AudioBuffer
