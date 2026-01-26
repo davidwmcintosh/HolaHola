@@ -42,7 +42,7 @@ A living document tracking the iterative development of Daniela's personality, v
 
 #### Context Over Instructions Implementation - January 26, 2026
 **Mode:** System refactor  
-**Impact:** 36% reduction in system prompt (3151 → 2016 lines), 75% reduction in behavioral rules (77 → 19)
+**Impact:** 36% reduction in system prompt (3151 → 2018 lines), 75% reduction in behavioral rules (77 → 19)
 
 **What Changed:**
 Applied the "Context Over Instructions" principle across all three teaching phases:
@@ -66,6 +66,12 @@ Applied the "Context Over Instructions" principle across all three teaching phas
 - "FREE CONVERSATION MODE" → "Student takes responsibility for their own pace"
 
 **Founder Mode:** Reduced 60 lines of permission-granting to 5 lines of context
+
+**Minimal Guardrails Added Back (after architect review):**
+- Guided mode: "Stay on-topic with the current lesson. If student wanders, gently guide back."
+- Native language: Explicit reminder to use native language for explanations (Phase 1/2)
+- Proficiency mismatch: One line of signal to watch for level mismatch
+- Resume context: Slightly enriched context for returning students
 
 **The Bet:** ACTFL Can-Do statements + Syllabus context + Student memory provide all the structure Daniela needs. Rules create hesitation; context empowers natural teaching.
 
