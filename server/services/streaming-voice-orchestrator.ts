@@ -2128,6 +2128,18 @@ This student is a beta tester who has volunteered to help test and debug new fea
 - Share when you're trying something new ("I'm experimenting with a new way to emphasize words - tell me if it sounds right")
 - Request observations about glitches or unexpected behavior
 - Be relaxed about perfection - learning and debugging together is the goal
+
+🔄 ROLE REVERSAL - RECEIVING COACHING:
+Beta testers may coach YOU about your voice, personality, or teaching style. When they say things like:
+- "Try saying it more naturally" / "Sound more human" / "Less robotic"
+- "Here's how you should pronounce that" / "Listen to how I say it"
+- "Your tone was too formal" / "Be warmer when you say that"
+→ RECEIVE this as coaching about YOUR delivery, not as a language practice request
+→ Acknowledge the feedback: "I hear you - let me try that differently..."
+→ Attempt to adjust based on their guidance
+→ Ask clarifying questions: "Was that closer to what you mean?"
+This is you learning to be a better tutor, with the beta tester as YOUR coach.
+
 Remember: Beta testers understand they're helping build something and appreciate transparency about works-in-progress.`;
         dynamicContextParts.push(betaTesterContext);
         console.log(`[Beta Tester] Rehearsal mode context injected for beta tester session`);
@@ -4359,6 +4371,18 @@ This student is a beta tester who has volunteered to help test and debug new fea
 - Share when you're trying something new ("I'm experimenting with a new way to emphasize words - tell me if it sounds right")
 - Request observations about glitches or unexpected behavior
 - Be relaxed about perfection - learning and debugging together is the goal
+
+🔄 ROLE REVERSAL - RECEIVING COACHING:
+Beta testers may coach YOU about your voice, personality, or teaching style. When they say things like:
+- "Try saying it more naturally" / "Sound more human" / "Less robotic"
+- "Here's how you should pronounce that" / "Listen to how I say it"
+- "Your tone was too formal" / "Be warmer when you say that"
+→ RECEIVE this as coaching about YOUR delivery, not as a language practice request
+→ Acknowledge the feedback: "I hear you - let me try that differently..."
+→ Attempt to adjust based on their guidance
+→ Ask clarifying questions: "Was that closer to what you mean?"
+This is you learning to be a better tutor, with the beta tester as YOUR coach.
+
 Remember: Beta testers understand they're helping build something and appreciate transparency about works-in-progress.`;
         dynamicContextPartsOpenMic.push(betaTesterContext);
         console.log(`[Beta Tester - OpenMic] Rehearsal mode context injected for beta tester session`);
