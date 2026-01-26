@@ -82,6 +82,50 @@ const LANGUAGE_NAMES: Record<string, string> = {
   english: 'English',
 };
 
+// ACTFL level mapping (more robust than string parsing)
+const ACTFL_LEVELS = {
+  1: { name: 'Novice Low', dbKey: 'novice_low' },
+  2: { name: 'Intermediate Low', dbKey: 'intermediate_low' },
+  3: { name: 'Intermediate Mid', dbKey: 'intermediate_mid' },
+  4: { name: 'Intermediate High', dbKey: 'intermediate_high' },
+  5: { name: 'Advanced Low', dbKey: 'advanced_low' },
+} as const;
+
+/**
+ * Validate drill format before insertion
+ */
+function validateDrill(drill: GeneratedDrill, type: string): boolean {
+  if (!drill.prompt || drill.prompt.trim().length < 3) return false;
+  if (!drill.targetText || drill.targetText.trim().length < 1) return false;
+  if (drill.difficulty < 1 || drill.difficulty > 4) return false;
+  
+  // Type-specific validation
+  if (type === 'fill_blank' && !drill.prompt.includes('_____')) {
+    console.log(`    Skipped fill_blank without blank: ${drill.prompt.substring(0, 30)}...`);
+    return false;
+  }
+  
+  if (type === 'matching' && !drill.targetText.includes('->')) {
+    console.log(`    Skipped matching without arrow format: ${drill.targetText.substring(0, 30)}...`);
+    return false;
+  }
+  
+  return true;
+}
+
+/**
+ * Extract level number from path name or description
+ */
+function extractLevelNumber(pathName: string): number {
+  // Try to match patterns like "Spanish 1", "Level 2", "German 3"
+  const matches = pathName.match(/(\d+)/);
+  if (matches) {
+    const num = parseInt(matches[1], 10);
+    if (num >= 1 && num <= 5) return num;
+  }
+  return 1; // Default to novice
+}
+
 // Topics for drill generation
 const TOPICS = [
   'greetings and introductions',
@@ -255,10 +299,9 @@ export async function runAIBulkDrillGeneration(): Promise<DrillGenerationResult[
   // Process each path
   for (const path of paths) {
     const langKey = path.language?.toLowerCase() || '';
-    const level = path.name.includes('1') ? 'Novice' : 
-                  path.name.includes('2') ? 'Intermediate Low' :
-                  path.name.includes('3') ? 'Intermediate Mid' :
-                  path.name.includes('4') ? 'Intermediate High' : 'Advanced';
+    const levelNum = extractLevelNumber(path.name);
+    const levelInfo = ACTFL_LEVELS[levelNum as keyof typeof ACTFL_LEVELS] || ACTFL_LEVELS[1];
+    const level = levelInfo.name;
     
     console.log(`\nProcessing: ${path.name} (${level})`);
     
@@ -313,14 +356,14 @@ export async function runAIBulkDrillGeneration(): Promise<DrillGenerationResult[
       continue;
     }
     
-    // Create lesson
+    // Create lesson with proper ACTFL level from mapping
     const [lesson] = await db.insert(curriculumLessons).values({
       curriculumUnitId: unit.id,
       name: lessonName,
       description: `AI-generated drills focusing on active production and vocabulary reinforcement. Topic: ${topic}.`,
       orderIndex: 55,
       lessonType: 'drill',
-      actflLevel: level.toLowerCase().replace(' ', '_') as any,
+      actflLevel: levelInfo.dbKey as any,
       objectives: [
         'Practice active language production through translate-and-speak',
         'Reinforce vocabulary through fill-in-the-blank exercises',
@@ -333,53 +376,70 @@ export async function runAIBulkDrillGeneration(): Promise<DrillGenerationResult[
     
     console.log(`  Created lesson: ${lesson.id}`);
     
-    // Insert all drills
+    // Insert all drills with validation
     let orderIndex = 1;
     const allDrillItems: any[] = [];
+    let skippedCount = 0;
     
-    // Add translate_speak drills
+    // Add translate_speak drills (with validation)
     for (const drill of translateSpeakDrills) {
+      if (!validateDrill(drill, 'translate_speak')) {
+        skippedCount++;
+        continue;
+      }
       allDrillItems.push({
         lessonId: lesson.id,
         itemType: 'translate_speak' as const,
         orderIndex: orderIndex++,
-        prompt: drill.prompt,
-        targetText: drill.targetText,
+        prompt: drill.prompt.trim(),
+        targetText: drill.targetText.trim(),
         targetLanguage: langKey,
-        hints: drill.hints,
-        difficulty: drill.difficulty,
+        hints: drill.hints?.filter(h => h?.trim()) || [],
+        difficulty: Math.min(4, Math.max(1, drill.difficulty)),
         tags: ['translate_speak', 'ai_generated', topic.split(' ')[0]],
       });
     }
     
-    // Add fill_blank drills
+    // Add fill_blank drills (with validation)
     for (const drill of fillBlankDrills) {
+      if (!validateDrill(drill, 'fill_blank')) {
+        skippedCount++;
+        continue;
+      }
       allDrillItems.push({
         lessonId: lesson.id,
         itemType: 'fill_blank' as const,
         orderIndex: orderIndex++,
-        prompt: drill.prompt,
-        targetText: drill.targetText,
+        prompt: drill.prompt.trim(),
+        targetText: drill.targetText.trim(),
         targetLanguage: langKey,
-        hints: drill.hints,
-        difficulty: drill.difficulty,
+        hints: drill.hints?.filter(h => h?.trim()) || [],
+        difficulty: Math.min(4, Math.max(1, drill.difficulty)),
         tags: ['fill_blank', 'ai_generated', topic.split(' ')[0]],
       });
     }
     
-    // Add matching drills
+    // Add matching drills (with validation)
     for (const drill of matchingDrills) {
+      if (!validateDrill(drill, 'matching')) {
+        skippedCount++;
+        continue;
+      }
       allDrillItems.push({
         lessonId: lesson.id,
         itemType: 'matching' as const,
         orderIndex: orderIndex++,
-        prompt: drill.prompt,
-        targetText: drill.targetText,
+        prompt: drill.prompt.trim(),
+        targetText: drill.targetText.trim(),
         targetLanguage: langKey,
-        hints: drill.hints,
-        difficulty: drill.difficulty,
+        hints: drill.hints?.filter(h => h?.trim()) || [],
+        difficulty: Math.min(4, Math.max(1, drill.difficulty)),
         tags: ['matching', 'ai_generated', topic.split(' ')[0]],
       });
+    }
+    
+    if (skippedCount > 0) {
+      console.log(`  Skipped ${skippedCount} invalid drills`);
     }
     
     if (allDrillItems.length > 0) {
