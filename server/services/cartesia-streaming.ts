@@ -37,6 +37,7 @@ import {
   constrainEmotion,
   PERSONALITY_PRESETS,
   addCartesiaPhonemesToText,
+  getEmotionWithIntensity,
 } from './tts-service';
 import { voiceDiagnostics } from './voice-diagnostics-service';
 
@@ -404,7 +405,12 @@ export class CartesiaStreamingService extends EventEmitter {
     
     console.log(`[Cartesia Streaming] Synthesizing: "${finalText.substring(0, 50)}..." (${finalText.length} chars)`);
     const voiceName = voiceId ? `custom (${voiceId.substring(0, 8)}...)` : voiceConfig.name;
-    console.log(`[Cartesia Streaming] Voice: ${voiceName}, Emotion: ${constrainedEmotion}, Speed: ${cartesiaSpeed}`);
+    
+    // Apply emotion intensity based on expressiveness level
+    const emotionWithIntensity = constrainedEmotion 
+      ? getEmotionWithIntensity(constrainedEmotion, expressiveness) 
+      : undefined;
+    console.log(`[Cartesia Streaming] Voice: ${voiceName}, Emotion: ${emotionWithIntensity || constrainedEmotion}, Speed: ${cartesiaSpeed}`);
     
     const startTime = Date.now();
     let firstChunkTime: number | null = null;
@@ -432,7 +438,7 @@ export class CartesiaStreamingService extends EventEmitter {
             id: effectiveVoiceId,
             __experimental_controls: {
               speed: cartesiaSpeed, // Numeric speed in 0.6-1.5 range
-              emotion: constrainedEmotion ? [constrainedEmotion] : undefined,
+              emotion: emotionWithIntensity ? [emotionWithIntensity] : undefined,
             },
           },
           language: voiceConfig.languageCode,
@@ -583,7 +589,7 @@ export class CartesiaStreamingService extends EventEmitter {
           },
           generation_config: {
             speed: cartesiaSpeed,
-            emotion: constrainedEmotion,
+            emotion: emotionWithIntensity || constrainedEmotion,
           },
         };
         

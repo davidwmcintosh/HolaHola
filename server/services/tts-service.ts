@@ -105,6 +105,37 @@ export const EXPRESSIVENESS_LEVELS: Record<number, ExpressivenessConfig> = {
 };
 
 /**
+ * Cartesia emotion intensity levels
+ * Maps expressiveness to emotion intensity suffix for more/less punch
+ */
+export type EmotionIntensity = '' | ':low' | ':high' | ':highest';
+
+/**
+ * Get emotion intensity suffix based on expressiveness level
+ * Higher expressiveness = more emotional punch in the voice
+ */
+export function getEmotionIntensity(expressiveness: number = 3): EmotionIntensity {
+  const level = Math.min(5, Math.max(1, expressiveness));
+  if (level <= 1) return ':low';      // Very subtle - reduce intensity
+  if (level <= 2) return '';           // Subtle - default intensity  
+  if (level <= 3) return ':high';      // Balanced - now gets boost for more punch
+  if (level <= 4) return ':high';      // Expressive - boost intensity
+  return ':highest';                   // Very expressive - maximum punch
+}
+
+/**
+ * Get emotion string with intensity suffix for Cartesia
+ * Returns format like 'excited:high' or 'friendly' (no suffix for default)
+ */
+export function getEmotionWithIntensity(
+  emotion: CartesiaEmotion,
+  expressiveness: number = 3
+): string {
+  const intensity = getEmotionIntensity(expressiveness);
+  return `${emotion}${intensity}`;
+}
+
+/**
  * Get allowed emotions for a personality and expressiveness level
  * Returns the emotions the AI should choose from
  */
