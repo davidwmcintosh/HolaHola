@@ -998,12 +998,23 @@ export class GeminiStreamingService {
       let firstChunkReceived = false;
       
       // Process streamed tokens
+      let chunkCount = 0;
+      let lastLogTime = Date.now();
       for await (const chunk of result) {
+        chunkCount++;
+        
         // Log TTFB on first chunk
         if (!firstChunkReceived) {
           firstChunkReceived = true;
           const ttfb = Date.now() - geminiRequestTime;
           console.log(`[Gemini Streaming] TTFB: ${ttfb}ms (time-to-first-token from Gemini)`);
+        }
+        
+        // Debug: Log chunk activity every 5 seconds during long waits
+        const now = Date.now();
+        if (now - lastLogTime > 5000) {
+          console.log(`[Gemini Streaming DEBUG] Chunk ${chunkCount} at ${now - geminiRequestTime}ms, buffer: ${buffer.length} chars, sentences: ${sentenceIndex}`);
+          lastLogTime = now;
         }
         // Extract function calls from this chunk (Gemini 3 native tool calling)
         // Note: Function call handling is fire-and-forget to avoid blocking token streaming

@@ -893,6 +893,14 @@ export interface StreamingSession {
   activeTutorVoiceId?: string;
   // Tutor voice ID: Default voice for current tutor
   tutorVoiceId?: string;
+  // Pending whiteboard updates - buffered until first audio to sync visuals with speech
+  pendingWhiteboardUpdates?: Array<{
+    type: 'whiteboard_update';
+    timestamp: number;
+    items: any[];
+  }>;
+  // Flag to track if first audio has been sent (for flushing pending updates)
+  firstAudioSent?: boolean;
 }
 
 /**
@@ -10136,9 +10144,9 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
             
             console.log(`[Native Function→ShowImage] Resolved: ${result.source} for "${word}"`);
             
-            // Send image to whiteboard
-            this.sendMessage(session.ws, {
-              type: 'whiteboard_update',
+            // Buffer whiteboard update to sync with audio (prevents image showing during "thinking")
+            const whiteboardUpdate = {
+              type: 'whiteboard_update' as const,
               timestamp: Date.now(),
               items: [{
                 type: 'image',
@@ -10151,7 +10159,18 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
                   source: result.source,
                 },
               }],
-            });
+            };
+            
+            // If audio already started, send immediately; otherwise buffer
+            if (session.firstAudioSent) {
+              this.sendMessage(session.ws, whiteboardUpdate);
+            } else {
+              if (!session.pendingWhiteboardUpdates) {
+                session.pendingWhiteboardUpdates = [];
+              }
+              session.pendingWhiteboardUpdates.push(whiteboardUpdate);
+              console.log(`[Native Function→ShowImage] Buffered for audio sync`);
+            }
           } catch (err: any) {
             console.error(`[Native Function→ShowImage] Error resolving image:`, err.message);
           }
