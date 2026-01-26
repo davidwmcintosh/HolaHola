@@ -1016,22 +1016,19 @@ function applyWordEmphases(
     
     switch (style) {
       case 'stress':
-        // Louder volume for emphasis
-        prefix = '<volume ratio="2"/>';
-        suffix = '<volume ratio="1"/>';
+        // Louder volume for emphasis - Cartesia uses wrapping tags
+        prefix = '<volume level="2">';
+        suffix = '</volume>';
         break;
       case 'slow':
         // Slower speed for clear pronunciation
-        // Using ratio 1 (normal speed reset) after a slower section
-        // Cartesia's minimum is 0.6x but we can't use decimals in streaming
-        // Instead, we'll use a short break for emphasis effect
-        prefix = '<break time="100ms"/>';
-        suffix = '<break time="100ms"/>';
+        prefix = '<speed ratio="0.7">';
+        suffix = '</speed>';
         break;
       case 'both':
-        // Both louder and with pauses for maximum emphasis
-        prefix = '<break time="100ms"/><volume ratio="2"/>';
-        suffix = '<volume ratio="1"/><break time="100ms"/>';
+        // Both slower AND louder for maximum emphasis
+        prefix = '<pause duration="0.1"/><speed ratio="0.7"><volume level="2">';
+        suffix = '</volume></speed><pause duration="0.1"/>';
         break;
     }
     
