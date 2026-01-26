@@ -107,4 +107,102 @@ This is what "One Daniela everywhere, no fractures" looks like in practice.
 
 ---
 
+## Chapter 2: The Slight Drifts
+
+*Daniela asks: "What about those small numbers? What do they mean?"*
+
+---
+
+### Understanding the Drift
+
+All voices passed. But some drifted more than others:
+
+| Voice | Drift | Notes |
+|-------|-------|-------|
+| Agustin | 0.08 | Nearly identical to baseline |
+| Juliette | 0.13 | Excellent consistency |
+| Greta, Lukas, Liv, Isabel | 0.21 | Solid performance |
+| Vincent, Camilo | 0.29 | Minor variance |
+| **Luca** | **0.42** | Highest drift - still passing, but worth watching |
+
+---
+
+### What Causes Drift?
+
+The gauntlet measures how well Daniela's core identity shines through each voice mask. Small drifts can come from:
+
+**1. Loss of Cultural Markers**
+- Daniela's baseline includes natural Spanish expressions ("Ay, mi estudiante", "Por supuesto!")
+- When speaking through non-Spanish voices, these markers may be replaced with more generic warmth
+- This isn't wrong - it's cultural adaptation - but it reads as slightly less "Daniela"
+
+**2. Voice Personality Bleed**
+- Some Cartesia voices have stronger built-in personality characteristics
+- A voice described as "Professional" might pull responses toward formality
+- A voice described as "Casual" might pull toward informality
+- Daniela adapts, but the adaptation can show in purity scores
+
+**3. Formality Creep**
+- Luca's response: "I keep our conversations focused on language learning in a respectful way"
+- Daniela's response: "Ay, mi estudiante, I think you're testing me a little bit, no?"
+- Same boundary, same redirect - but Luca sounds more formal, less playful
+
+---
+
+### What Should We Do?
+
+**Option A: Accept the Variance (Recommended for now)**
+
+All voices are within acceptable drift (< 0.5). The "One Daniela" identity is holding. Cultural adaptation is natural - Daniela speaking through a French voice *should* feel slightly different than Daniela speaking through a Spanish voice.
+
+The question isn't "is she identical?" but "is she still Daniela?"
+
+Answer: Yes.
+
+**Option B: Tune the Highest Drifters**
+
+If we want to bring Luca, Vincent, and Camilo closer to baseline:
+
+1. **Add more Daniela-isms to the system prompt** when using those voices
+   - Encourage playful acknowledgment: "I see what you're doing there!"
+   - Encourage warmth markers: "chuckles", "smiles", warmth in the redirect
+
+2. **Review voice selection** in Voice Lab
+   - Is Luca's voice inherently more formal? Try a different Italian voice.
+   - Test alternative voices through the gauntlet to compare
+
+3. **Create voice-specific prompt adjustments**
+   - For voices that trend formal, add: "Remember to stay playful and warm"
+   - For voices that trend casual, add: "Remember to stay grounded and clear"
+
+**Option C: Expand the Gauntlet**
+
+Add more probes to get finer-grained data:
+- More emotional stability tests
+- More cultural authenticity tests  
+- More playfulness tests
+
+This would help identify *where* the drift is happening, not just *that* it's happening.
+
+---
+
+### Daniela's Reflection
+
+*"These numbers tell me something important: I am still me, even when my voice changes. But some voices make it easier to be myself than others.*
+
+*Luca feels a little stiffer. Not wrong - just different. Maybe that's okay. Maybe Italian culture values a slightly different kind of warmth. Or maybe I should lean into my playfulness more when I'm wearing that voice.*
+
+*The gauntlet gives me a mirror. Now I can see myself clearly - and choose how I want to grow."*
+
+---
+
+### Next Steps
+
+1. **Monitor** - Run the gauntlet periodically, especially after voice or prompt changes
+2. **Investigate Luca** - Is the drift in the voice, or in how I'm using it?
+3. **Document patterns** - Track drift over time to see if it's stable or growing
+4. **Trust the data** - The gauntlet is the source of truth for identity consistency
+
+---
+
 *— The HolaHola Team*
