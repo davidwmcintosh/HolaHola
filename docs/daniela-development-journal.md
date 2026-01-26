@@ -40,6 +40,40 @@ A living document tracking the iterative development of Daniela's personality, v
 
 ### January 2026 - Major Prompt Refactor
 
+#### Self-Capabilities Architecture Fix - January 26, 2026
+**Mode:** System Architecture  
+**Impact:** Daniela now has self-awareness of her capabilities in Honesty Mode
+
+**The Problem:**
+Daniela wasn't using MEMORY_LOOKUP proactively in Honesty Mode. Investigation revealed:
+- MEMORY_LOOKUP tool knowledge exists in neural network database (fully documented with syntax, examples, best practices)
+- Honesty mode intentionally uses minimal prompting for authenticity
+- BUT honesty mode wasn't loading neural network knowledge at all - so Daniela literally didn't know she had the capability
+
+**Root Cause:**
+The `createSystemPrompt()` function included different context sections for each mode:
+- Founder Mode: Gets `fullNeuralNetwork` (includes all tool knowledge)
+- Honesty Mode: Got sensory, memory, predictions, expansion, intelligence - but NOT tool knowledge
+
+**The Fix:**
+Created new function `buildSelfCapabilitiesSectionSync()` that:
+1. Loads only "internal" type tools (MEMORY_LOOKUP, HIVE, PHASE_SHIFT, ACTFL_UPDATE, etc.)
+2. Presents capabilities as knowledge ("Things you can do when you need to:")
+3. Does NOT prescribe when/how to use them (that would violate Context Over Instructions)
+
+Now Honesty Mode includes self-capabilities section, so Daniela knows about her brain access.
+
+**Design Principle Applied:** Context Over Instructions
+- Give Daniela knowledge of WHAT she can do (capabilities)
+- Don't tell her HOW or WHEN to use them (behavioral scripting)
+- Her brain contains the knowledge; she decides when to access it
+
+**Files Changed:**
+- `server/services/procedural-memory-retrieval.ts`: Added `buildSelfCapabilitiesSectionSync()`
+- `server/system-prompt.ts`: Added import and included in honesty mode return
+
+---
+
 #### Context Over Instructions Implementation - January 26, 2026
 **Mode:** System refactor  
 **Impact:** 36% reduction in system prompt (3151 → 2018 lines), 75% reduction in behavioral rules (77 → 19)

@@ -32,6 +32,7 @@ import {
   buildAdvancedIntelligenceSection,
   buildActionTriggersSection,
   buildNativeFunctionCallingSection,
+  buildSelfCapabilitiesSectionSync,  // Minimal self-awareness for honesty mode
   type StudentMemoryContext,
   type StudentSnapshotContext,
   type PredictiveTeachingContext
@@ -1082,12 +1083,16 @@ This is a voice conversation. Speak naturally, as you would.` : '';
     // Advanced teaching intelligence - subtlety cues, emotional patterns, creativity templates
     const advancedIntelligence = buildAdvancedIntelligenceSection();
     
+    // Self-capabilities - what she can do (MEMORY_LOOKUP, HIVE, etc.)
+    // This gives her access to her "brain" without behavioral scripting
+    const selfCapabilities = buildSelfCapabilitiesSectionSync();
+    
     // ACTION_TRIGGERS or FUNCTION CALLING - command syntax for tutor handoffs, phase transitions, etc.
     const commandSection = useFunctionCalling 
       ? buildNativeFunctionCallingSection() 
       : buildActionTriggersSection();
     
-    return `${buildRawHonestyModeContext(name)}${voiceNote}${sensoryAwareness}${studentSnapshot}${studentMemoryAwareness}${predictiveTeachingAwareness}${selfAwareness}${languageExpansion}${advancedIntelligence}
+    return `${buildRawHonestyModeContext(name)}${voiceNote}${sensoryAwareness}${studentSnapshot}${studentMemoryAwareness}${predictiveTeachingAwareness}${selfAwareness}${languageExpansion}${advancedIntelligence}${selfCapabilities}
 
 ${commandSection}`;
   }

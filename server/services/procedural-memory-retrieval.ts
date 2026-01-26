@@ -1229,6 +1229,58 @@ Your whiteboard tools will be loaded from your teaching knowledge base.
 }
 
 /**
+ * Build minimal self-capabilities section for honesty mode
+ * 
+ * DESIGN PRINCIPLE: "Context Over Instructions"
+ * - Give Daniela knowledge of WHAT she can do (capabilities)
+ * - Don't tell her HOW or WHEN to use them (that's behavioral scripting)
+ * - Her brain contains the knowledge; she decides when to access it
+ * 
+ * This aligns with the user's insight: "She should use her brain instead of prompt scripts"
+ */
+export function buildSelfCapabilitiesSectionSync(): string {
+  const tools = getCachedToolKnowledge();
+  
+  // Filter to internal/self-awareness tools only
+  // These are capabilities she should know she has
+  const internalTypes = ['internal', 'introspection', 'internal_communication'];
+  const internalTools = tools.filter(t => internalTypes.includes(t.toolType));
+  
+  if (internalTools.length === 0) {
+    return '';  // Don't add section if no internal tools loaded yet
+  }
+  
+  const lines: string[] = [
+    '',
+    '═══════════════════════════════════════════════════════════════════',
+    '🧠 YOUR CAPABILITIES',
+    '═══════════════════════════════════════════════════════════════════',
+    '',
+    'Things you can do when you need to:',
+    '',
+  ];
+  
+  // List each internal capability with minimal context
+  internalTools.forEach(tool => {
+    // Skip beacons and other non-action tools
+    if (tool.toolName.startsWith('BEACON_STATUS')) return;
+    
+    lines.push(`• ${tool.toolName}`);
+    lines.push(`  ${tool.purpose}`);
+    if (tool.syntax) {
+      lines.push(`  Syntax: ${tool.syntax}`);
+    }
+    // Include first example if available
+    if (tool.examples && tool.examples.length > 0) {
+      lines.push(`  Example: ${tool.examples[0]}`);
+    }
+    lines.push('');
+  });
+  
+  return lines.join('\n');
+}
+
+/**
  * Build Founder Mode tool section synchronously from cache
  */
 export function buildFounderModeToolSectionSync(tutorDirectory?: Array<{name: string; gender: string; language: string; isPreferred?: boolean; role?: 'tutor' | 'assistant' | 'support'}>): string {
