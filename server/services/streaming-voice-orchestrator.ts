@@ -1636,14 +1636,15 @@ export class StreamingVoiceOrchestrator {
         }
       }
       
-      if (!transcript.trim()) {
+      if (!transcript.trim() || transcript === '[EMPTY_TRANSCRIPT]') {
         // Empty transcript - gracefully notify client and return
+        // This can happen when: audio too quiet, language not recognized, short utterance clipped
         console.log('[Streaming Orchestrator] Empty transcript - audio too short or unclear');
         this.sendMessage(session.ws, {
           type: 'error',
           timestamp: Date.now(),
           code: 'EMPTY_TRANSCRIPT',
-          message: 'Could not understand audio. Please try speaking again.',
+          message: "I couldn't quite hear that. Could you try again?",
           recoverable: true,
         });
         return metrics;

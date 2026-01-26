@@ -538,10 +538,19 @@ export class OpenMicSession {
             return;
           }
           
-          if (this.currentTranscript.trim()) {
-            const intel = Object.keys(this.currentIntelligence).length > 0 ? this.currentIntelligence : undefined;
-            this.events.onUtteranceEnd?.(this.currentTranscript, this.currentConfidence, intel);
+          // Always call onUtteranceEnd - even with empty transcript
+          // This prevents timeout waiting for a transcript that will never come
+          // Empty transcripts can happen when:
+          // - Audio is too quiet
+          // - Language not recognized
+          // - Short utterance clipped
+          const intel = Object.keys(this.currentIntelligence).length > 0 ? this.currentIntelligence : undefined;
+          this.events.onUtteranceEnd?.(this.currentTranscript.trim() || '[EMPTY_TRANSCRIPT]', this.currentConfidence, intel);
+          
+          if (!this.currentTranscript.trim()) {
+            console.log('[OpenMic] Empty transcript - signaling [EMPTY_TRANSCRIPT] to prevent timeout');
           }
+          
           this.currentTranscript = '';
           this.currentConfidence = 0;
           this.currentIntelligence = {};
