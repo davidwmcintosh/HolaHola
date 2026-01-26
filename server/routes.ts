@@ -12458,10 +12458,17 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Run gauntlet for all language voices (bulk testing)
   app.post("/api/admin/gauntlet/run-all", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {
-      const { sequenceId, excludeLanguages = [] } = req.body;
-      if (!sequenceId) {
-        return res.status(400).json({ error: 'sequenceId is required' });
+      const runAllSchema = z.object({
+        sequenceId: z.string().min(1, 'sequenceId is required'),
+        excludeLanguages: z.array(z.string()).default([]),
+      });
+      
+      const parseResult = runAllSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: parseResult.error.issues[0].message });
       }
+      
+      const { sequenceId, excludeLanguages } = parseResult.data;
       
       const { getGauntletRunnerService } = await import('./services/gauntlet-runner-service');
       const { voiceProbeService } = await import('./services/voice-probe-service');
@@ -12470,7 +12477,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       const allVoices = voiceProbeService.getVoiceInventory();
       
       // Filter out excluded languages (e.g., ['hebrew'] for hidden languages)
-      const excludeLower = (excludeLanguages as string[]).map((l: string) => l.toLowerCase());
+      const excludeLower = excludeLanguages.map((l: string) => l.toLowerCase());
       const voicesToTest = allVoices.filter(v => !excludeLower.includes(v.language.toLowerCase()));
       
       console.log(`[Gauntlet Run All] Testing ${voicesToTest.length} voices with sequence "${sequenceId}"`);
