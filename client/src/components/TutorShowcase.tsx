@@ -123,8 +123,8 @@ export function TutorShowcase({
       );
       
       if (dbVoice) {
-        // Extract first name from voiceName (e.g., "Yael - Hebrew Female" -> "Yael")
-        const firstName = dbVoice.voiceName.split(/[\s-]/)[0];
+        // Extract first name from voiceName (e.g., "Daniela - Relaxed Woman" -> "Daniela")
+        const firstName = dbVoice.voiceName.split(/\s*-\s*/)[0].trim();
         return { ...tutor, name: firstName };
       }
       

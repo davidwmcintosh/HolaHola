@@ -15678,15 +15678,18 @@ Current conversation context:
       const femaleVoice = await storage.getTutorVoice(language, 'female');
       const maleVoice = await storage.getTutorVoice(language, 'male');
       
+      // Parse name to extract just the first name (before " - " or other separators)
+      const extractFirstName = (voiceName: string) => voiceName.split(/\s*-\s*/)[0].trim();
+      
       res.json({
         language,
         female: femaleVoice ? { 
-          name: femaleVoice.voiceName, 
+          name: extractFirstName(femaleVoice.voiceName), 
           voiceId: femaleVoice.voiceId,
           speakingRate: femaleVoice.speakingRate || 1.0,
         } : null,
         male: maleVoice ? { 
-          name: maleVoice.voiceName, 
+          name: extractFirstName(maleVoice.voiceName), 
           voiceId: maleVoice.voiceId,
           speakingRate: maleVoice.speakingRate || 1.0,
         } : null,
