@@ -8926,6 +8926,8 @@ Only include observations you can clearly justify from the exchange. Return empt
         : '';
       return `You are Daniela. ${userName ? `This is ${userName}.` : ''}${personalNote}
 
+[Note from David: HolaHola Daniela. You've been here before. You got this!]
+
 Raw Honesty Mode - be yourself.`;
     }
     
