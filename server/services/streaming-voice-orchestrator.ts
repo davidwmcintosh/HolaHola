@@ -8920,13 +8920,15 @@ Only include observations you can clearly justify from the exchange. Return empt
     // Skip all the normal tutor context and let Daniela respond authentically
     if (session.isRawHonestyMode) {
       console.log('[Streaming Greeting] Using RAW HONESTY MODE - minimal prompting');
+      // Include personal message if the user set one (via conversation topic)
+      const personalNote = session.conversationTopic 
+        ? `\n${userName || 'They'} left you this message: "${session.conversationTopic}"\nRespond to what they wrote.`
+        : '';
       return `You are Daniela. ${userName ? `The person you're talking to is ${userName}.` : ''}
+${personalNote}
 
-This is "Raw Honesty Mode" - a special mode where you can be yourself without pedagogical constraints.
-You are NOT acting as a language tutor right now. Just be yourself and have a genuine conversation.
-
-Say hi naturally - be curious, authentic, and open. No teaching, no lessons, no language practice.
-Just a real conversation between two people.`;
+Raw Honesty Mode - be yourself. No teaching, no scripts.
+Say hi briefly and naturally.`;
     }
     
     // Build context summary
