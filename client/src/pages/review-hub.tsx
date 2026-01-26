@@ -481,8 +481,20 @@ export default function ReviewHub() {
     }
   }, []); // Only run on mount
 
-  // Get the current tutor's name from the tutor directory (not DB voice_name field)
-  const currentTutorName = getTutorName(language, tutorGender);
+  // Query tutor voices from database (Voice Lab is source of truth)
+  const { data: tutorVoices } = useQuery<{ 
+    language: string; 
+    female: { name: string; voiceId: string; speakingRate: number } | null; 
+    male: { name: string; voiceId: string; speakingRate: number } | null 
+  }>({
+    queryKey: ['/api/tutor-voices', language?.toLowerCase()],
+    enabled: !!language && language !== 'all',
+  });
+  
+  // Get tutor name from database, fallback to directory
+  const currentTutorName = tutorGender === 'male' 
+    ? (tutorVoices?.male?.name || getTutorName(language, tutorGender))
+    : (tutorVoices?.female?.name || getTutorName(language, tutorGender));
 
   const { data, isLoading } = useQuery<ReviewHubData>({
     queryKey: ["/api/review-hub", { language, learningContext }],

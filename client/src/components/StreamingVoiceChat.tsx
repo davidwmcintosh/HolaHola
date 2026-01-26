@@ -12,7 +12,7 @@
  * DO NOT set STREAMING_ONLY_MODE to false without extensive testing.
  */
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -213,7 +213,7 @@ export function StreamingVoiceChat({
     },
   });
   
-  // Query voice config for speaking rate only (names come from tutor directory)
+  // Query voice config from database - this is the source of truth for tutor names
   const { data: tutorVoices } = useQuery<{ 
     language: string; 
     female: { name: string; voiceId: string; speakingRate: number } | null; 
@@ -223,8 +223,14 @@ export function StreamingVoiceChat({
     enabled: !!language,
   });
   
-  // Get tutor names from directory (not database voice_name field)
-  const tutorNames = getTutorNames(language);
+  // Get tutor names from database (Voice Lab is source of truth), fallback to directory
+  const tutorNames = useMemo(() => {
+    const fallback = getTutorNames(language);
+    return {
+      male: tutorVoices?.male?.name || fallback.male,
+      female: tutorVoices?.female?.name || fallback.female,
+    };
+  }, [tutorVoices, language]);
   const [isRecording, setIsRecording] = useState(false);
   const [isPttButtonHeld, setIsPttButtonHeld] = useState(false); // Track if PTT button is physically held (separate from MediaRecorder state)
   

@@ -10,7 +10,6 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Loader2, Volume2, Save, RotateCcw, Play, Sparkles, GraduationCap, Users, ArrowRightLeft } from "lucide-react";
-import { getTutorNames } from "@/lib/tutor-avatars";
 
 type PersonalityType = 'warm' | 'calm' | 'energetic' | 'professional';
 type PedagogicalFocusType = 'grammar' | 'fluency' | 'pronunciation' | 'culture' | 'vocabulary' | 'mixed';

@@ -1138,6 +1138,21 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
   const { language: globalLanguage, difficulty, tutorGender } = useLanguage();
   const { user } = useUser();
   const language = languageProp ?? globalLanguage;
+  
+  // Query tutor voices from database (Voice Lab is source of truth)
+  const { data: tutorVoices } = useQuery<{ 
+    language: string; 
+    female: { name: string; voiceId: string; speakingRate: number } | null; 
+    male: { name: string; voiceId: string; speakingRate: number } | null 
+  }>({
+    queryKey: ['/api/tutor-voices', language?.toLowerCase()],
+    enabled: !!language,
+  });
+  
+  // Get tutor name from database, fallback to directory
+  const currentTutorName = tutorGender === 'male' 
+    ? (tutorVoices?.male?.name || getTutorName(language, tutorGender))
+    : (tutorVoices?.female?.name || getTutorName(language, tutorGender));
   const [expandedSegment, setExpandedSegment] = useState<BrainSegment | null>(null);
   const [observationsExpanded, setObservationsExpanded] = useState(false);
   
@@ -1428,7 +1443,7 @@ export function SyllabusMindMap({ classId, language: languageProp, className, sy
         <TutorObservationsBubble
           userId={user?.id}
           language={language}
-          tutorName={getTutorName(language, tutorGender)}
+          tutorName={currentTutorName}
           isExpanded={observationsExpanded}
           onToggle={toggleObservations}
           centerX={centerX}

@@ -1,4 +1,5 @@
 import { Link } from 'wouter';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Globe, MessageCircle, BookOpen, TrendingUp, Volume2, Target, ArrowRight } from "lucide-react";
@@ -16,18 +17,17 @@ import koreanFemale from "@assets/Tutor_Images/Female/Korean_Female_Talking_No_B
 import englishFemale from "@assets/Tutor_Images/Female/English_Talking-No_Background.jpg";
 import portugueseFemale from "@assets/Tutor_Images/Female/Portuguese_Female_Talking_No_Background.jpg";
 
-// Featured tutors with names for display below buttons
-// Names must match tutor_voices table in database (voice_name field, first part before " - ")
-const featuredTutors = [
-  { avatar: spanishFemale, name: 'Daniela', language: 'Spanish', borderColor: 'border-orange-400' },
-  { avatar: frenchMale, name: 'Vincent', language: 'French', borderColor: 'border-blue-400' },
-  { avatar: germanMale, name: 'Lukas', language: 'German', borderColor: 'border-amber-400' },
-  { avatar: italianFemale, name: 'Liv', language: 'Italian', borderColor: 'border-green-400' },
-  { avatar: portugueseFemale, name: 'Isabel', language: 'Portuguese', borderColor: 'border-emerald-400' },
-  { avatar: japaneseFemale, name: 'Sayuri', language: 'Japanese', borderColor: 'border-pink-400' },
-  { avatar: chineseMale, name: 'Tao', language: 'Chinese', borderColor: 'border-red-400' },
-  { avatar: koreanFemale, name: 'Jihyun', language: 'Korean', borderColor: 'border-sky-400' },
-  { avatar: englishFemale, name: 'Cindy', language: 'English', borderColor: 'border-indigo-400' },
+// Featured tutors with fallback names - actual names fetched from database
+const featuredTutorsConfig = [
+  { avatar: spanishFemale, fallbackName: 'Daniela', language: 'spanish', gender: 'female' as const, borderColor: 'border-orange-400' },
+  { avatar: frenchMale, fallbackName: 'Vincent', language: 'french', gender: 'male' as const, borderColor: 'border-blue-400' },
+  { avatar: germanMale, fallbackName: 'Lukas', language: 'german', gender: 'male' as const, borderColor: 'border-amber-400' },
+  { avatar: italianFemale, fallbackName: 'Liv', language: 'italian', gender: 'female' as const, borderColor: 'border-green-400' },
+  { avatar: portugueseFemale, fallbackName: 'Isabel', language: 'portuguese', gender: 'female' as const, borderColor: 'border-emerald-400' },
+  { avatar: japaneseFemale, fallbackName: 'Sayuri', language: 'japanese', gender: 'female' as const, borderColor: 'border-pink-400' },
+  { avatar: chineseMale, fallbackName: 'Tao', language: 'chinese', gender: 'male' as const, borderColor: 'border-red-400' },
+  { avatar: koreanFemale, fallbackName: 'Jihyun', language: 'korean', gender: 'female' as const, borderColor: 'border-sky-400' },
+  { avatar: englishFemale, fallbackName: 'Cindy', language: 'english', gender: 'female' as const, borderColor: 'border-indigo-400' },
 ];
 
 // Mind map lobe configuration for watermark
@@ -40,6 +40,28 @@ const mindMapLobes = [
 ];
 
 export default function Landing() {
+  // Fetch all tutor voices from database (Voice Lab is source of truth)
+  const { data: allTutorVoices } = useQuery<{
+    language: string;
+    displayName: string;
+    female: { name: string; voiceId: string; speakingRate: number } | null;
+    male: { name: string; voiceId: string; speakingRate: number } | null;
+  }[]>({
+    queryKey: ['/api/tutor-voices'],
+  });
+
+  // Build featured tutors list with database names (fallback to static)
+  const featuredTutors = featuredTutorsConfig.map(tutor => {
+    const voiceData = allTutorVoices?.find(v => v.language.toLowerCase() === tutor.language.toLowerCase());
+    const dbName = tutor.gender === 'female' ? voiceData?.female?.name : voiceData?.male?.name;
+    return {
+      avatar: tutor.avatar,
+      name: dbName || tutor.fallbackName,
+      language: tutor.language.charAt(0).toUpperCase() + tutor.language.slice(1),
+      borderColor: tutor.borderColor,
+    };
+  });
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-50 via-background to-orange-50 dark:from-sky-950/20 dark:via-background dark:to-orange-950/20 overflow-hidden">
       {/* Hero Section with mind map watermark */}
