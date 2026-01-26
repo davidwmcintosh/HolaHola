@@ -5057,6 +5057,72 @@ Remember: Beta testers understand they're helping build something and appreciate
         fc => !METADATA_ONLY_FUNCTIONS_OPENMIC.has(fc.legacyType || '')
       );
       
+      // FALLBACK: If ONLY metadata functions were called with no text, force a continuation
+      // This prevents silent responses when Gemini calls voice_adjust/word_emphasis without speaking
+      if (metrics.sentenceCount === 0 && hadFunctionCallsOpenMic && functionsNeedingContinuationOpenMic.length === 0) {
+        const metadataOnlyFunctions = functionCallsCopyOpenMic.map(fc => fc.name).join(', ');
+        console.warn(`[SILENT RESPONSE FALLBACK] Gemini returned only metadata functions without text: ${metadataOnlyFunctions}`);
+        console.warn(`[SILENT RESPONSE FALLBACK] User transcript: "${transcript.substring(0, 100)}..."`);
+        
+        // Log to production telemetry for monitoring
+        logProductionError(`Silent response: Gemini returned only metadata functions (${metadataOnlyFunctions}) without spoken text`, {
+          userId: session.userId ? String(session.userId) : undefined,
+          sessionId,
+          route: '/voice-orchestrator',
+          feature: 'voice_chat',
+          additionalContext: {
+            stage: 'silent_response_fallback',
+            metadataFunctions: metadataOnlyFunctions,
+            transcript: transcript.substring(0, 200),
+          },
+        }).catch(() => {}); // Don't block on telemetry
+        // Force continuation by adding a synthetic "continue" prompt
+        try {
+          await withExponentialBackoff(
+            () => this.geminiService.streamResponse(
+              session.conversationHistory,
+              {
+                targetLanguage: session.targetLanguage,
+                sourceLanguage: 'en',
+                studentLevel: session.studentLevel,
+                userId: session.userId,
+                streamingSessionId: sessionId,
+                sessionOverrides: session.sessionOverrides,
+                isFounderMode: session.isFounderMode,
+                isRawHonestyMode: session.isRawHonestyMode,
+                isBetaTester: session.isBetaTester,
+                isDeveloperUser: session.isDeveloperUser,
+                thinkingBudget: 'MINIMAL',
+              },
+              {
+                onFunctionCall: async () => {},
+                onSentence: async (chunk: SentenceChunk) => {
+                  if (session.isInterrupted) return;
+                  const displayText = cleanTextForDisplay(chunk.text);
+                  if (!displayText) return;
+                  
+                  console.log(`[Fallback - OpenMic] Continuation sentence: "${displayText.substring(0, 50)}..."`);
+                  
+                  if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
+                    await this.streamSentenceAudioProgressive(session, chunk, displayText, metrics, turnId);
+                  } else {
+                    await this.streamSentenceAudio(session, chunk, displayText, metrics, turnId);
+                  }
+                  fullText += displayText + ' ';
+                  metrics.sentenceCount++;
+                },
+                onError: (error) => {
+                  console.error(`[Fallback - OpenMic] Continuation error:`, error.message);
+                },
+              }
+            ),
+            { maxRetries: 2, baseDelayMs: 500, maxDelayMs: 2000 }
+          );
+        } catch (fallbackErr: any) {
+          console.error(`[Fallback - OpenMic] Continuation failed:`, fallbackErr.message);
+        }
+      }
+      
       if (metrics.sentenceCount === 0 && hadFunctionCallsOpenMic && functionsNeedingContinuationOpenMic.length > 0) {
         console.log(`[Multi-Step FC - OpenMic] Function calls with no text detected - continuing conversation`);
         console.log(`[Multi-Step FC - OpenMic] Functions executed: ${functionCallsCopyOpenMic.map(fc => fc.name).join(', ')}`);
