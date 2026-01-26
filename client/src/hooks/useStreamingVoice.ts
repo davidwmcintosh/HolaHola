@@ -388,6 +388,28 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     // Initialize subtitle state for new turn
     subtitlesRef.current.setCurrentTurnId(msg.turnId);
   }, []);
+
+  /**
+   * Handle processing_pending message - IMMEDIATE thinking signal
+   * This fires right when PTT is released, before Deepgram finalization wait.
+   * Triggers thinking avatar immediately for better perceived responsiveness.
+   */
+  const handleProcessingPending = useCallback((msg: { type: string; timestamp: number; interimTranscript: string }) => {
+    console.log(`[StreamingVoice] Processing pending: "${msg.interimTranscript.substring(0, 30)}..."`);
+    
+    // IMMEDIATELY show thinking indicator
+    setIsProcessing(true);
+    
+    // Start processing timeout (same as handleProcessing)
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+    }
+    processingTimeoutRef.current = setTimeout(() => {
+      console.log('[StreamingVoice] Processing timeout - resetting stuck thinking state');
+      setIsProcessing(false);
+      setError('Response timeout - please try again');
+    }, PROCESSING_TIMEOUT_MS);
+  }, []);
   
   /**
    * Handle sentence start message
@@ -985,6 +1007,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       // Set up callbacks
       clientRef.current.on('stateChange', setConnectionState);
       clientRef.current.on('processing', handleProcessing);
+      clientRef.current.on('processing_pending', handleProcessingPending);  // Immediate thinking signal
       clientRef.current.on('sentenceStart', handleSentenceStart);
       clientRef.current.on('sentenceReady', handleSentenceReady);  // NEW: Atomic first audio + timing
       clientRef.current.on('audioChunk', handleAudioChunk);
@@ -1034,7 +1057,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       setError(err.message);
       throw err;
     }
-  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest]);
+  }, [handleProcessing, handleProcessingPending, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest]);
   
   /**
    * Disconnect from streaming voice service
@@ -1047,6 +1070,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     if (clientRef.current) {
       clientRef.current.off('stateChange', setConnectionState);
       clientRef.current.off('processing', handleProcessing);
+      clientRef.current.off('processing_pending', handleProcessingPending);  // Immediate thinking signal
       clientRef.current.off('sentenceStart', handleSentenceStart);
       clientRef.current.off('sentenceReady', handleSentenceReady);  // NEW: Atomic first audio + timing
       clientRef.current.off('audioChunk', handleAudioChunk);
