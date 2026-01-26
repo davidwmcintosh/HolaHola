@@ -387,7 +387,17 @@ export class CartesiaStreamingService extends EventEmitter {
     
     // Strip emojis which cause Cartesia 500 errors, then clean up whitespace
     const emojiPattern = /[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu;
-    const finalText = cleanedText
+    
+    // Strip SSML-like tags that Gemini generates - Cartesia doesn't support SSML!
+    // It treats <speed>, <volume>, <pause>, <spell> as literal text to speak
+    const ssmlStripped = cleanedText
+      .replace(/<speed[^>]*>(.*?)<\/speed>/gi, '$1')  // <speed ratio="0.7">word</speed> → word
+      .replace(/<volume[^>]*>(.*?)<\/volume>/gi, '$1') // <volume level="2">word</volume> → word
+      .replace(/<spell>(.*?)<\/spell>/gi, '$1')       // <spell>word</spell> → word
+      .replace(/<pause[^>]*\/?>/gi, ' ')              // <pause duration="0.5"/> → space
+      .replace(/<[a-z]+[^>]*\/?>/gi, '');             // Catch any other XML-like tags
+    
+    const finalText = ssmlStripped
       .replace(emojiPattern, '')
       .replace(/\s+/g, ' ')
       .trim();
