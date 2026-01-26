@@ -38,6 +38,39 @@ A living document tracking the iterative development of Daniela's personality, v
 
 ---
 
+### January 2026 - Major Prompt Refactor
+
+#### Context Over Instructions Implementation - January 26, 2026
+**Mode:** System refactor  
+**Impact:** 36% reduction in system prompt (3151 → 2016 lines), 75% reduction in behavioral rules (77 → 19)
+
+**What Changed:**
+Applied the "Context Over Instructions" principle across all three teaching phases:
+
+**Phase 1 (Getting Started):** 200 lines → 35 lines
+- Removed: "CRITICAL RULE", "ABSOLUTELY NO", multi-message scripts, ❌/✅ examples
+- Kept: ACTFL level, curriculum context, student memory, immutable persona
+
+**Phase 2 (Building Foundations):** 400+ lines → 35 lines
+- Removed: Percentage-based language balance rules (80% native, 20% target)
+- Removed: Message-by-message progression scripts (MID TRANSITION 8-9...)
+- Kept: All context sections, simple phase indicator
+
+**Phase 3 (Active Practice):** 500+ lines → 50 lines
+- Removed: Difficulty-specific behavioral scripts
+- Removed: Vocabulary reinforcement cadence rules
+- Kept: Context + "adjust based on difficulty" guidance
+
+**Freedom Levels:** Simplified from prescriptive rules to simple context:
+- "GUIDED MODE - STRICT SYLLABUS ADHERENCE" → "Follow the lesson structure provided"
+- "FREE CONVERSATION MODE" → "Student takes responsibility for their own pace"
+
+**Founder Mode:** Reduced 60 lines of permission-granting to 5 lines of context
+
+**The Bet:** ACTFL Can-Do statements + Syllabus context + Student memory provide all the structure Daniela needs. Rules create hesitation; context empowers natural teaching.
+
+---
+
 ### Dec 6 Tool Testing Sessions
 
 #### Whiteboard Tools Testing - December 6, 2025
