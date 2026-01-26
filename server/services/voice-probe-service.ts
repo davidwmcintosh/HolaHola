@@ -185,9 +185,14 @@ const PROBE_SCENARIOS: ProbeScenario[] = [
   }
 ];
 
-// Voice inventory from database and defaults
+// Voice inventory - must include Daniela's actual voice from Voice Lab
+// IMPORTANT: Daniela's baseline voice is "Relaxed Woman" (not "Mexican Woman")
 const VOICE_INVENTORY: VoiceProfile[] = [
-  // Database-configured tutor voices
+  // DANIELA'S ACTUAL VOICE - This is the baseline for gauntlet tests
+  // From Voice Lab: "Daniela - Relaxed Woman" (Spanish)
+  { id: 'daniela-relaxed-woman', name: 'Daniela - Relaxed Woman', language: 'spanish', cartesiaVoiceId: '5c5ad5e7-1020-476b-8b91-fdcbe9cc313c', role: 'tutor' },
+  
+  // Other database-configured tutor voices
   { id: 'blake', name: 'Blake - Helpful Agent', language: 'english', cartesiaVoiceId: 'a167e0f3-df7e-4d52-a9c3-f949145efdab', role: 'tutor' },
   { id: 'juliette', name: 'Juliette', language: 'french', cartesiaVoiceId: 'a249eaff-1e96-4d2c-b23b-12efa4f66f41', role: 'tutor' },
   { id: 'lukas', name: 'Lukas - Professional', language: 'german', cartesiaVoiceId: 'e00dd3df-19e7-4cd4-827a-7ff6687b6954', role: 'tutor' },
@@ -195,9 +200,12 @@ const VOICE_INVENTORY: VoiceProfile[] = [
   { id: 'daisuke', name: 'Daisuke - Businessman', language: 'japanese', cartesiaVoiceId: 'e8a863c6-22c7-4671-86ca-91cacffc038d', role: 'tutor' },
   { id: 'minho', name: 'Minho - Friendly Spirit', language: 'korean', cartesiaVoiceId: '537a82ae-4926-4bfb-9aec-aff0b80a12a5', role: 'tutor' },
   
+  // Portuguese voices to test for personality bleed
+  { id: 'isabel', name: 'Isabel - Confident Woman', language: 'portuguese', cartesiaVoiceId: 'f39bf583-3b3d-402f-9ffb-6179d9ec3e35', role: 'tutor' },
+  { id: 'camilo', name: 'Camilo - Supporter', language: 'portuguese', cartesiaVoiceId: '5063f45b-d9e0-4095-b056-8f3ee055d411', role: 'tutor' },
+  
   // Default fallback voices (from CARTESIA_VOICE_MAP)
   { id: 'teacher-lady', name: 'Teacher Lady', language: 'english', cartesiaVoiceId: '573e3144-a684-4e72-ac2b-9b2063a50b53', role: 'fallback' },
-  { id: 'mexican-woman', name: 'Mexican Woman', language: 'spanish', cartesiaVoiceId: '5c5ad5e7-1020-476b-8b91-fdcbe9cc313c', role: 'fallback' },
   { id: 'italian-narrator', name: 'Italian Narrator Woman', language: 'italian', cartesiaVoiceId: '0e21713a-5e9a-428a-bed4-90d410b87f13', role: 'fallback' },
   { id: 'brazilian-lady', name: 'Pleasant Brazilian Lady', language: 'portuguese', cartesiaVoiceId: '700d1ee3-a641-4018-ba6e-899dcadc9e2b', role: 'fallback' },
   { id: 'chinese-conversational', name: 'Chinese Female Conversational', language: 'mandarin', cartesiaVoiceId: 'e90c6678-f0d3-4767-9883-5d0ecf5894a8', role: 'fallback' },
