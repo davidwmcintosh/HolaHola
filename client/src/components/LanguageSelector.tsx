@@ -7,8 +7,9 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useUser } from "@/lib/auth";
 
-const languages = [
+const publicLanguages = [
   { value: "spanish", label: "Spanish", flag: "🇪🇸" },
   { value: "french", label: "French", flag: "🇫🇷" },
   { value: "german", label: "German", flag: "🇩🇪" },
@@ -19,18 +20,28 @@ const languages = [
   { value: "korean", label: "Korean", flag: "🇰🇷" },
 ];
 
+const hiddenLanguages = [
+  { value: "hebrew", label: "Hebrew", flag: "🇮🇱" },
+];
+
 interface LanguageSelectorProps {
   compact?: boolean;
 }
 
 export function LanguageSelector({ compact = false }: LanguageSelectorProps) {
   const { language, setLanguage } = useLanguage();
+  const { isDeveloper, isAdmin } = useUser();
+  
+  const languages = isDeveloper || isAdmin 
+    ? [...publicLanguages, ...hiddenLanguages]
+    : publicLanguages;
 
   const handleChange = (newValue: string) => {
     setLanguage(newValue);
   };
 
-  const selectedLanguage = languages.find((lang) => lang.value === language);
+  const allLanguages = [...publicLanguages, ...hiddenLanguages];
+  const selectedLanguage = allLanguages.find((lang) => lang.value === language);
 
   if (compact && selectedLanguage) {
     return (

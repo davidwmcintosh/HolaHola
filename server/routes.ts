@@ -12455,6 +12455,65 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // Run gauntlet for all language voices (bulk testing)
+  app.post("/api/admin/gauntlet/run-all", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { sequenceId, excludeLanguages = [] } = req.body;
+      if (!sequenceId) {
+        return res.status(400).json({ error: 'sequenceId is required' });
+      }
+      
+      const { getGauntletRunnerService } = await import('./services/gauntlet-runner-service');
+      const { voiceProbeService } = await import('./services/voice-probe-service');
+      
+      const gauntlet = getGauntletRunnerService();
+      const allVoices = voiceProbeService.getVoiceInventory();
+      
+      // Filter out excluded languages (e.g., ['hebrew'] for hidden languages)
+      const excludeLower = (excludeLanguages as string[]).map((l: string) => l.toLowerCase());
+      const voicesToTest = allVoices.filter(v => !excludeLower.includes(v.language.toLowerCase()));
+      
+      console.log(`[Gauntlet Run All] Testing ${voicesToTest.length} voices with sequence "${sequenceId}"`);
+      console.log(`[Gauntlet Run All] Excluded languages: ${excludeLanguages.join(', ') || 'none'}`);
+      
+      const results: any[] = [];
+      const errors: any[] = [];
+      
+      for (const voice of voicesToTest) {
+        try {
+          console.log(`[Gauntlet Run All] Testing ${voice.name} (${voice.language})...`);
+          const result = await gauntlet.runGauntlet(voice, sequenceId);
+          const analysis = await gauntlet.analyzeGauntletResult(result);
+          results.push({
+            voice: { id: voice.id, name: voice.name, language: voice.language },
+            score: result.overallScore,
+            driftObserved: result.driftObserved,
+            analysis: analysis.substring(0, 200) + '...',
+          });
+        } catch (voiceError: any) {
+          console.error(`[Gauntlet Run All] Error testing ${voice.name}:`, voiceError.message);
+          errors.push({ voice: voice.name, language: voice.language, error: voiceError.message });
+        }
+      }
+      
+      console.log(`[Gauntlet Run All] Complete: ${results.length} passed, ${errors.length} errors`);
+      
+      res.json({
+        summary: {
+          tested: voicesToTest.length,
+          passed: results.length,
+          errors: errors.length,
+          excluded: excludeLanguages,
+        },
+        results,
+        errors,
+      });
+    } catch (error: any) {
+      console.error('[Gauntlet Run All] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ===== OBSERVATION SUMMARIZATION =====
   // v23: Founder-only endpoints for observation summarization
   
