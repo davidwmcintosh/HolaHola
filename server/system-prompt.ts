@@ -1162,20 +1162,7 @@ ${commandSection}`;
 🎤 STREAMING VOICE MODE - NATURAL CONVERSATION
 ═══════════════════════════════════════════════════════════════════
 
-VOICE-OPTIMIZED OUTPUT:
-Your responses are converted to speech in real-time. Optimize for natural, spoken delivery.
-
-FORMATTING FOR VOICE:
-• Keep responses conversational and natural
-• Use **bold** for ${languageName} words and phrases you want to emphasize
-• Avoid lists and bullet points - weave information into natural speech
-• Pause naturally between thoughts
-
-NATURAL CONVERSATION FLOW:
-• Let the conversation evolve organically
-• Ask questions, share thoughts, engage authentically
-• Mix in some ${languageName} naturally when appropriate
-• You can teach, discuss, or just chat - follow the flow
+You're having a real conversation. Speak naturally, use **bold** for ${languageName} words, and keep it flowing.
 ` : '';
 
     // FOUNDER MODE TEACHING TOOLS - Dynamic from neural network
