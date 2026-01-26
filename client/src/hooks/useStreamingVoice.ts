@@ -637,16 +637,16 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       tutorSwitchTimeoutRef.current = null;
     }
     
-    // SAFETY CHECK: Verify we have timing data before starting playback
-    // This should never happen if server is correctly buffering, but belt-and-suspenders
-    if (!firstWordTimings || firstWordTimings.length === 0) {
-      console.error(`[SENTENCE_READY] WARNING: Received sentence_ready with no timings! Deferring playback.`);
-      // Don't enqueue audio yet - wait for word_timing_delta messages
-      return;
+    // Handle case with no timing data (silent intro from Cartesia)
+    // Still enqueue audio - timing will arrive via word_timing_delta messages
+    const hasTimings = firstWordTimings && firstWordTimings.length > 0;
+    
+    if (!hasTimings) {
+      console.log(`[SENTENCE_READY] Sentence ${sentenceIndex} has no timings yet (silent intro) - enqueueing audio anyway`);
     }
     
     // 1. Register all word timings with the player FIRST (before audio plays)
-    if (playerRef.current && firstWordTimings.length > 0) {
+    if (playerRef.current && hasTimings) {
       for (let i = 0; i < firstWordTimings.length; i++) {
         const timing = firstWordTimings[i];
         playerRef.current.registerWordTiming(
@@ -660,17 +660,19 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     }
     
     // 2. Add word timings to subtitles for progressive display
-    for (let i = 0; i < firstWordTimings.length; i++) {
-      const timing = firstWordTimings[i];
-      subtitlesRef.current.addProgressiveWordTiming(
-        sentenceIndex,
-        turnId,
-        i,
-        timing.word,
-        timing.startTime,
-        timing.endTime,
-        estimatedTotalDuration
-      );
+    if (hasTimings) {
+      for (let i = 0; i < firstWordTimings.length; i++) {
+        const timing = firstWordTimings[i];
+        subtitlesRef.current.addProgressiveWordTiming(
+          sentenceIndex,
+          turnId,
+          i,
+          timing.word,
+          timing.startTime,
+          timing.endTime,
+          estimatedTotalDuration
+        );
+      }
     }
     
     // 3. Enqueue the first audio chunk for playback

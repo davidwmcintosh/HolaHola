@@ -6285,19 +6285,32 @@ Remember: Beta testers understand they're helping build something and appreciate
     let estimatedTotalDuration = 0;
     let sentenceReadySent = false;  // Have we sent the sentence_ready message?
     let chunkIndex = 0;
+    let firstAudioReceivedTime: number | null = null;  // Track when first audio arrived
+    const TIMING_WAIT_TIMEOUT_MS = 250;  // Max wait for timing before sending audio anyway
     
     // Helper: Flush buffered data when we have both audio AND timing
     // CRITICAL: This MUST only fire when we have at least one timing
     // to guarantee the client can start playback with timing data.
+    // EXCEPTION: If audio has been buffered for too long (250ms), send anyway
+    // to prevent playback gaps when Cartesia adds silent intros.
     const trySendSentenceReady = () => {
       if (sentenceReadySent) return;
       if (bufferedAudioChunks.length === 0) return;  // No audio yet
       
+      // Check if we've waited too long for timing data
+      const now = Date.now();
+      const waitedTooLong = firstAudioReceivedTime && (now - firstAudioReceivedTime) > TIMING_WAIT_TIMEOUT_MS;
+      
       // CRITICAL FIX: Only send sentence_ready when we have at least one timing
       // This prevents the race condition where playback starts without timing data
+      // EXCEPTION: After timeout, send anyway to prevent playback gaps
       if (bufferedWordTimings.length === 0) {
-        console.log(`[Progressive] Sentence ${index}: Waiting for first word timing (have ${bufferedAudioChunks.length} audio chunks buffered)`);
-        return;  // Wait until we have at least one timing
+        if (!waitedTooLong) {
+          console.log(`[Progressive] Sentence ${index}: Waiting for first word timing (have ${bufferedAudioChunks.length} audio chunks buffered)`);
+          return;  // Wait until we have at least one timing
+        }
+        // Timeout: Send without timing - client will buffer and play when timing arrives
+        console.log(`[Progressive] Sentence ${index}: TIMEOUT - sending ${bufferedAudioChunks.length} audio chunks without timing (waited ${now - firstAudioReceivedTime!}ms)`);
       }
       
       // We have both audio AND timing - send the atomic sentence_ready message
@@ -6380,6 +6393,11 @@ Remember: Beta testers understand they're helping build something and appreciate
             metrics.audioChunkCount++;  // Track for production duplicate audio debugging
             
             if (!sentenceReadySent) {
+              // Track when first audio arrived for timeout calculation
+              if (!firstAudioReceivedTime) {
+                firstAudioReceivedTime = Date.now();
+              }
+              
               // Still buffering - wait for first timing
               console.log(`[Progressive] Sentence ${index}: Buffering audio chunk ${idx} (waiting for timing)`);
               bufferedAudioChunks.push({
