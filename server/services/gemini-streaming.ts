@@ -1101,7 +1101,8 @@ export class GeminiStreamingService {
           if (onFunctionCall) {
             const functionCalls = extractFunctionCalls(chunk);
             if (functionCalls.length > 0) {
-              console.log(`[Gemini Streaming] Function calls detected: ${functionCalls.map(f => f.name).join(', ')}`);
+              const elapsed = Date.now() - geminiRequestTime;
+              console.log(`[Gemini Streaming] Function calls detected at ${elapsed}ms: ${functionCalls.map(f => f.name).join(', ')}`);
               // Non-blocking: queue the function call handler without awaiting
               onFunctionCall(functionCalls).catch(err => 
                 console.error('[Gemini Streaming] Function call handler error:', err.message)
