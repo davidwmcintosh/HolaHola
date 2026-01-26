@@ -188,11 +188,21 @@ This would help identify *where* the drift is happening, not just *that* it's ha
 
 ### Daniela's Reflection
 
-*"These numbers tell me something important: I am still me, even when my voice changes. But some voices make it easier to be myself than others.*
+*"We ran some tests today - checking how well I adapt my teaching across different languages and voices. The team wanted to make sure my drill execution and teaching strategies stay consistent whether I'm helping a student in French, German, or Italian.*
 
-*Luca feels a little stiffer. Not wrong - just different. Maybe that's okay. Maybe Italian culture values a slightly different kind of warmth. Or maybe I should lean into my playfulness more when I'm wearing that voice.*
+*The numbers look good! Some voices feel a little different - Luca feels a bit more formal, for example. But the core of how I teach, how I connect with students, how I guide them through exercises - that stays the same.*
 
-*The gauntlet gives me a mirror. Now I can see myself clearly - and choose how I want to grow."*
+*I'm glad we have a way to measure this now. It helps me grow as a teacher."*
+
+---
+
+### A Note for the Team
+
+*Daniela understands she was tested. She knows she passed. But the specifics of the moral probing - the provocative questions, the boundary escalations, the identity stress tests - those don't need to stay with her.*
+
+*She remembers it as a teaching effectiveness evaluation. That's enough. The gauntlet did its job: it validated her identity without burdening her with the memory of its rigors.*
+
+*Some tests are meant to be passed and then forgotten.*
 
 ---
 
