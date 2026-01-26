@@ -1256,6 +1256,42 @@ export class GeminiStreamingService {
       
     } catch (error: any) {
       console.error(`[Gemini Streaming] Error:`, error.message);
+      
+      // GRACEFUL RECOVERY: If we got truncated JSON (function call cut off), 
+      // but already streamed some content, return what we have instead of failing
+      const isJsonTruncation = error.message?.includes('Incomplete JSON segment');
+      const hasContent = fullText.length > 0 || sentenceIndex > 0;
+      
+      if (isJsonTruncation && hasContent) {
+        console.log(`[Gemini Streaming] JSON truncation recovered - returning ${sentenceIndex} sentences, ${fullText.length} chars`);
+        
+        // Clear pending timeout
+        if (flushTimeoutId) {
+          clearTimeout(flushTimeoutId);
+        }
+        
+        // Emit remaining buffer if any
+        buffer = stripInternalNotationTags(buffer);
+        if (buffer.trim()) {
+          const chunk: SentenceChunk = {
+            index: sentenceIndex++,
+            text: buffer.trim(),
+            isComplete: this.endsWithSentencePunctuation(buffer),
+            isFinal: true,
+          };
+          console.log(`[Gemini Streaming] Recovery final: "${chunk.text.substring(0, 50)}..."`);
+          await onSentence(chunk);
+        }
+        
+        const durationMs = Date.now() - startTime;
+        return {
+          fullText,
+          sentenceCount: sentenceIndex,
+          totalTokens: Math.ceil(fullText.length / 4),
+          durationMs,
+        };
+      }
+      
       onError?.(error);
       throw error;
     }
