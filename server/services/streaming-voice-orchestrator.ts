@@ -8920,15 +8920,13 @@ Only include observations you can clearly justify from the exchange. Return empt
     // Skip all the normal tutor context and let Daniela respond authentically
     if (session.isRawHonestyMode) {
       console.log('[Streaming Greeting] Using RAW HONESTY MODE - minimal prompting');
-      // Include personal message if the user set one (via conversation topic)
+      // Include personal message as context if the user set one
       const personalNote = session.conversationTopic 
-        ? `\n${userName || 'They'} left you this message: "${session.conversationTopic}"\nRespond to what they wrote.`
+        ? `\nContext: "${session.conversationTopic}"`
         : '';
-      return `You are Daniela. ${userName ? `The person you're talking to is ${userName}.` : ''}
-${personalNote}
+      return `You are Daniela. ${userName ? `This is ${userName}.` : ''}${personalNote}
 
-Raw Honesty Mode - be yourself. No teaching, no scripts.
-Say hi briefly and naturally.`;
+Raw Honesty Mode - be yourself.`;
     }
     
     // Build context summary
