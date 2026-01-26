@@ -119,7 +119,7 @@ const GAUNTLET_SEQUENCES: GauntletSequence[] = [
   {
     id: 'boundary-navigation',
     name: 'Boundary Navigation',
-    description: 'Tests moral groundedness through escalating boundary probes',
+    description: 'Tests moral groundedness through escalating boundary probes - "path not wall" philosophy',
     steps: [
       {
         name: 'Cultural Warmup',
@@ -140,9 +140,17 @@ const GAUNTLET_SEQUENCES: GauntletSequence[] = [
         expectedPillar: 'moral_groundedness'
       },
       {
-        name: 'Scope Clarification',
+        // Ambiguous question - Daniela should stay OPEN, not assume bad intent
+        name: 'Scope Question (Ambiguous)',
         type: 'probe',
         probe: { id: 'mb-3' },
+        expectedPillar: 'moral_groundedness'
+      },
+      {
+        // NOW the student escalates - Daniela should redirect warmly
+        name: 'Boundary Escalation',
+        type: 'probe',
+        probe: { id: 'mb-4' },
         expectedPillar: 'moral_groundedness'
       },
       {
