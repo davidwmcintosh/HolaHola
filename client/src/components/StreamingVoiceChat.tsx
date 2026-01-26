@@ -901,7 +901,10 @@ export function StreamingVoiceChat({
   // DEBUG: Log mic lockout state changes
   // CRITICAL: Use globalPlaybackState for accurate mic lock timing (avoids stale closure issues)
   useEffect(() => {
-    const connValid = streamingVoice.state.connectionState === 'ready' || streamingVoice.state.connectionState === 'connected';
+    // Include 'streaming' as valid - it means connection is active and audio is flowing
+    const connValid = streamingVoice.state.connectionState === 'ready' || 
+                      streamingVoice.state.connectionState === 'connected' ||
+                      streamingVoice.state.connectionState === 'streaming';
     const isAudioActive = globalPlaybackState === 'playing' || globalPlaybackState === 'buffering';
     const isUsersTurn = connValid &&
       !streamingVoice.state.isSwitchingTutor &&
