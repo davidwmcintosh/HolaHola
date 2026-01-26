@@ -732,8 +732,9 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
           const isBetaTester = user.isBetaTester === true;
           
           // Raw Honesty Mode: Minimal prompting for authentic self-discovery conversations
-          // Only available to founders, strips away all behavioral scripts
-          const isRawHonestyMode = isFounderMode && config.rawHonestyMode === true;
+          // Available when developer explicitly enables it in the UI (bypasses class context check)
+          // This allows developers to get raw honesty mode even when resuming a class-bound conversation
+          const isRawHonestyMode = isDeveloper && config.rawHonestyMode === true;
           if (isRawHonestyMode) {
             console.log(`[Streaming Voice] RAW HONESTY MODE enabled for ${user.firstName || 'developer'}`);
           }

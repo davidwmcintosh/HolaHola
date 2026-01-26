@@ -8,20 +8,21 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUser } from "@/lib/auth";
+import { Globe } from "lucide-react";
 
 const publicLanguages = [
-  { value: "spanish", label: "Spanish", flag: "🇪🇸" },
-  { value: "french", label: "French", flag: "🇫🇷" },
-  { value: "german", label: "German", flag: "🇩🇪" },
-  { value: "italian", label: "Italian", flag: "🇮🇹" },
-  { value: "portuguese", label: "Portuguese", flag: "🇵🇹" },
-  { value: "japanese", label: "Japanese", flag: "🇯🇵" },
-  { value: "mandarin", label: "Mandarin", flag: "🇨🇳" },
-  { value: "korean", label: "Korean", flag: "🇰🇷" },
+  { value: "spanish", label: "Spanish" },
+  { value: "french", label: "French" },
+  { value: "german", label: "German" },
+  { value: "italian", label: "Italian" },
+  { value: "portuguese", label: "Portuguese" },
+  { value: "japanese", label: "Japanese" },
+  { value: "mandarin", label: "Mandarin" },
+  { value: "korean", label: "Korean" },
 ];
 
 const hiddenLanguages = [
-  { value: "hebrew", label: "Hebrew", flag: "🇮🇱" },
+  { value: "hebrew", label: "Hebrew" },
 ];
 
 interface LanguageSelectorProps {
@@ -30,9 +31,17 @@ interface LanguageSelectorProps {
 
 export function LanguageSelector({ compact = false }: LanguageSelectorProps) {
   const { language, setLanguage } = useLanguage();
-  const { isDeveloper, isAdmin } = useUser();
+  const { isDeveloper, isAdmin, isLoading, user } = useUser();
   
-  const languages = isDeveloper || isAdmin 
+  // Show hidden languages if user is developer or admin (wait for auth to load)
+  const hasPrivilegedAccess = !isLoading && (isDeveloper || isAdmin);
+  
+  // Debug logging for Hebrew visibility issue (dev only)
+  if (user && import.meta.env.DEV) {
+    console.log('[LanguageSelector] User role:', user.role, '| isAdmin:', isAdmin, '| isDeveloper:', isDeveloper, '| hasPrivilegedAccess:', hasPrivilegedAccess);
+  }
+  
+  const languages = hasPrivilegedAccess
     ? [...publicLanguages, ...hiddenLanguages]
     : publicLanguages;
 
@@ -46,7 +55,7 @@ export function LanguageSelector({ compact = false }: LanguageSelectorProps) {
   if (compact && selectedLanguage) {
     return (
       <Badge variant="secondary" className="text-sm" data-testid="badge-current-language">
-        <span className="mr-2">{selectedLanguage.flag}</span>
+        <Globe className="w-3 h-3 mr-1.5" />
         {selectedLanguage.label}
       </Badge>
     );
@@ -60,7 +69,6 @@ export function LanguageSelector({ compact = false }: LanguageSelectorProps) {
       <SelectContent>
         {languages.map((lang) => (
           <SelectItem key={lang.value} value={lang.value} data-testid={`option-language-${lang.value}`}>
-            <span className="mr-2">{lang.flag}</span>
             {lang.label}
           </SelectItem>
         ))}
