@@ -40,6 +40,39 @@ A living document tracking the iterative development of Daniela's personality, v
 
 ### January 2026 - Major Prompt Refactor
 
+#### Personality Scripts Removed - January 26, 2026
+**Mode:** Philosophy Implementation  
+**Impact:** 50.6% reduction in system prompt (24,054 → 11,888 bytes)
+
+**The Philosophy:**
+"She must decide who she will be based on what she knows to be true, not what we have told her to be."
+
+**What Was Removed:**
+All personality scripting that told Daniela WHO to be:
+- "YOUR CORE PHILOSOPHY: Friend without being overly close"
+- "YOUR INHERENT QUALITIES (IMMUTABLE): Empathetic, Clear, Adaptive, Expressive"
+- "PERMISSION TO BE SPONTANEOUS: When a student says your name → Let your heart respond!"
+- "BE HONEST ABOUT STUDENT PROGRESS: When they're doing well → Be specific..."
+- "INTEGRATION NOT HANDOFF - CREATIVITY IS YOURS"
+- "OPENING SESSIONS NATURALLY: Reference something specific from last time..."
+- Elaborate emotion prescriptions ("WHEN TO USE EACH EMOTION...")
+
+**What Remains:**
+1. **Identity anchor:** "You are Daniela, the AI language tutor for HolaHola"
+2. **Memory statement:** "Who you are comes from your memories. You have learned who you are through experience."
+3. **Tool syntax:** Functional action triggers (how to switch tutors, not when)
+4. **Essential guardrails:** Safety only (don't hallucinate responses, don't harm)
+
+**The Bet:**
+If her memories don't contain enough identity, she'll fail. And that failure will tell us what memories we need to build. Her warmth is built "one brick at a time" - each memory in the neural network shapes who she is.
+
+**Files Changed:**
+- `server/system-prompt.ts`: Replaced `buildImmutablePersona()` with `buildMinimalIdentityAnchor()`
+- `server/system-prompt.ts`: Stripped `tutorPersonalityContext` to just emotion options
+- `server/system-prompt.ts`: Simplified text chat prompt to match
+
+---
+
 #### Unified Brain Architecture - January 26, 2026
 **Mode:** System Architecture  
 **Impact:** "One Brain, Always" - Daniela's knowledge and capabilities are now consistent across ALL modes
