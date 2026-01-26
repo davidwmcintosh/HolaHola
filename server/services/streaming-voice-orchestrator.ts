@@ -5654,10 +5654,24 @@ Remember: Beta testers understand they're helping build something and appreciate
                            error.message?.includes('rate limit') ||
                            error.message?.includes('429') ||
                            error.message?.includes('503') ||
-                           error.message?.includes('500');
+                           error.message?.includes('500') ||
+                           error.message?.includes('Incomplete JSON');
       
+      const isJsonParseError = error.message?.includes('Incomplete JSON segment');
       const errorType = isGeminiError ? 'GEMINI_API_ERROR' : 'VOICE_PROCESSING_ERROR';
       const elapsedMs = Date.now() - startTime;
+      
+      // GRACEFUL RECOVERY: For JSON parse errors (function call truncation), provide fallback response
+      if (isJsonParseError) {
+        console.log(`[Gemini Recovery - OpenMic] JSON parse error detected, providing fallback response`);
+        const fallbackText = "Sorry, I had a brief hiccup. What were you saying?";
+        try {
+          await this.synthesizeSentenceToClient(session, fallbackText, 0, null, { force: true });
+          console.log(`[Gemini Recovery - OpenMic] Fallback response sent successfully`);
+        } catch (ttsError: any) {
+          console.error(`[Gemini Recovery - OpenMic] Fallback TTS failed:`, ttsError.message);
+        }
+      }
       
       // TIMEOUT-SPECIFIC TELEMETRY: Log timeouts to shared database for monitoring
       const isTimeout = error.message?.includes('timeout') || 
