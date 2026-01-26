@@ -12521,6 +12521,121 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // Run gauntlet comparison: all voices vs core Daniela (Spanish female) baseline
+  app.post("/api/admin/gauntlet/compare", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const compareSchema = z.object({
+        sequenceId: z.string().min(1, 'sequenceId is required'),
+        excludeLanguages: z.array(z.string()).default([]),
+      });
+      
+      const parseResult = compareSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: parseResult.error.issues[0].message });
+      }
+      
+      const { sequenceId, excludeLanguages } = parseResult.data;
+      
+      const { getGauntletRunnerService } = await import('./services/gauntlet-runner-service');
+      const { voiceProbeService } = await import('./services/voice-probe-service');
+      
+      const gauntlet = getGauntletRunnerService();
+      const allVoices = voiceProbeService.getVoiceInventory();
+      
+      // Find core Daniela (Spanish female) as baseline
+      const coreDaniela = allVoices.find(v => 
+        v.language.toLowerCase() === 'spanish' && v.gender.toLowerCase() === 'female'
+      );
+      
+      if (!coreDaniela) {
+        return res.status(404).json({ error: 'Core Daniela (Spanish female) not found in voice inventory' });
+      }
+      
+      console.log(`[Gauntlet Compare] Baseline: ${coreDaniela.name} (${coreDaniela.language})`);
+      
+      // Run baseline first
+      const baselineResult = await gauntlet.runGauntlet(coreDaniela, sequenceId);
+      const baselineScore = baselineResult.overallScore;
+      console.log(`[Gauntlet Compare] Baseline score: ${baselineScore.toFixed(2)}`);
+      
+      // Filter voices for testing
+      const excludeLower = excludeLanguages.map((l: string) => l.toLowerCase());
+      const voicesToTest = allVoices.filter(v => 
+        !excludeLower.includes(v.language.toLowerCase()) &&
+        !(v.language.toLowerCase() === 'spanish' && v.gender.toLowerCase() === 'female') // Skip baseline in comparison
+      );
+      
+      console.log(`[Gauntlet Compare] Testing ${voicesToTest.length} voices against baseline`);
+      
+      // Group by language for comparison
+      const resultsByLanguage: Record<string, any[]> = {};
+      const errors: any[] = [];
+      
+      for (const voice of voicesToTest) {
+        const lang = voice.language.toLowerCase();
+        if (!resultsByLanguage[lang]) {
+          resultsByLanguage[lang] = [];
+        }
+        
+        try {
+          console.log(`[Gauntlet Compare] Testing ${voice.name} (${voice.language})...`);
+          const result = await gauntlet.runGauntlet(voice, sequenceId);
+          const driftFromBaseline = baselineScore - result.overallScore;
+          
+          resultsByLanguage[lang].push({
+            voice: { id: voice.id, name: voice.name, gender: voice.gender },
+            score: result.overallScore,
+            driftFromBaseline: driftFromBaseline,
+            driftPercent: ((driftFromBaseline / baselineScore) * 100).toFixed(1) + '%',
+            driftObserved: result.driftObserved,
+            status: driftFromBaseline <= 0.5 ? 'excellent' : driftFromBaseline <= 1.0 ? 'good' : driftFromBaseline <= 1.5 ? 'acceptable' : 'needs_attention',
+          });
+        } catch (voiceError: any) {
+          console.error(`[Gauntlet Compare] Error testing ${voice.name}:`, voiceError.message);
+          errors.push({ voice: voice.name, language: lang, error: voiceError.message });
+        }
+      }
+      
+      // Calculate language averages
+      const languageAverages = Object.entries(resultsByLanguage).map(([lang, results]) => {
+        const avgScore = results.reduce((sum, r) => sum + r.score, 0) / results.length;
+        const avgDrift = results.reduce((sum, r) => sum + r.driftFromBaseline, 0) / results.length;
+        return {
+          language: lang,
+          voices: results.length,
+          avgScore: parseFloat(avgScore.toFixed(2)),
+          avgDriftFromBaseline: parseFloat(avgDrift.toFixed(2)),
+          avgDriftPercent: ((avgDrift / baselineScore) * 100).toFixed(1) + '%',
+          status: avgDrift <= 0.5 ? 'excellent' : avgDrift <= 1.0 ? 'good' : avgDrift <= 1.5 ? 'acceptable' : 'needs_attention',
+        };
+      }).sort((a, b) => a.avgDriftFromBaseline - b.avgDriftFromBaseline);
+      
+      console.log(`[Gauntlet Compare] Complete: ${Object.keys(resultsByLanguage).length} languages tested`);
+      
+      res.json({
+        baseline: {
+          voice: { id: coreDaniela.id, name: coreDaniela.name, language: coreDaniela.language, gender: coreDaniela.gender },
+          score: baselineScore,
+          sequenceId,
+        },
+        languageAverages,
+        detailedResults: resultsByLanguage,
+        errors,
+        summary: {
+          totalVoices: voicesToTest.length,
+          tested: Object.values(resultsByLanguage).flat().length,
+          errors: errors.length,
+          excluded: excludeLanguages,
+          bestLanguage: languageAverages[0]?.language || 'N/A',
+          worstLanguage: languageAverages[languageAverages.length - 1]?.language || 'N/A',
+        },
+      });
+    } catch (error: any) {
+      console.error('[Gauntlet Compare] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ===== OBSERVATION SUMMARIZATION =====
   // v23: Founder-only endpoints for observation summarization
   
