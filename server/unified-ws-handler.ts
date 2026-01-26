@@ -1737,6 +1737,16 @@ Reference past discussions when relevant, but don't force it.
           const interimTranscript = speculativePttTranscript.trim();
           console.log(`[SpeculativePTT] PTT released - interim transcript: "${interimTranscript}" (${speculativePttWordCount} words)`);
           
+          // IMMEDIATE THINKING SIGNAL: Tell client to show thinking avatar NOW
+          // This fires immediately on PTT release, before the 200-400ms Deepgram wait
+          if (ws.readyState === WS.OPEN && interimTranscript.length > 0) {
+            ws.send(JSON.stringify({
+              type: 'processing_pending',
+              timestamp: Date.now(),
+              interimTranscript: interimTranscript,
+            }));
+          }
+          
           // DON'T close immediately - wait for Deepgram final transcript
           // Deepgram often sends the true final transcript 200-400ms after we stop sending audio
           // Use longer wait and early-exit when transcript stabilizes
@@ -3374,6 +3384,16 @@ This is a voice conversation. Speak naturally, as you would.`;
           
           const interimTranscript = speculativePttTranscript.trim();
           console.log(`[SpeculativePTT] PTT released - interim transcript: "${interimTranscript}" (${speculativePttWordCount} words)`);
+          
+          // IMMEDIATE THINKING SIGNAL: Tell client to show thinking avatar NOW
+          // This fires immediately on PTT release, before the 200-400ms Deepgram wait
+          if (ws.readyState === 1 && interimTranscript.length > 0) {
+            ws.send(JSON.stringify({
+              type: 'processing_pending',
+              timestamp: Date.now(),
+              interimTranscript: interimTranscript,
+            }));
+          }
           
           // DON'T close immediately - wait for Deepgram final transcript
           // Deepgram often sends the true final transcript 200-400ms after we stop sending audio

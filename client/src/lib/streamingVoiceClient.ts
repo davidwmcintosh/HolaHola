@@ -834,6 +834,12 @@ export class StreamingVoiceClient {
           this.handleProcessing(message as StreamingProcessingMessage);
           break;
           
+        case 'processing_pending':
+          // IMMEDIATE thinking signal - fired on PTT release before Deepgram finalizes
+          // This ensures the thinking avatar shows immediately when user stops speaking
+          this.handleProcessingPending(message as { type: string; timestamp: number; interimTranscript: string });
+          break;
+          
         case 'sentence_start':
           this.handleSentenceStart(message as StreamingSentenceStartMessage);
           break;
@@ -1024,6 +1030,12 @@ export class StreamingVoiceClient {
     this.setState('processing');
     this.callbacks.onProcessing?.(message.userTranscript);
     this.emit('processing', message);
+  }
+  
+  private handleProcessingPending(message: { type: string; timestamp: number; interimTranscript: string }): void {
+    this.setState('processing');
+    this.callbacks.onProcessing?.(message.interimTranscript);
+    this.emit('processing_pending', message);
   }
   
   private handleSentenceStart(message: StreamingSentenceStartMessage): void {
