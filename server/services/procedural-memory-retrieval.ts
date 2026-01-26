@@ -929,6 +929,202 @@ export function buildSelfBestPracticesSection(): string {
   return lines.join('\n');
 }
 
+// ===== UNIFIED BRAIN LOADER =====
+
+/**
+ * Build Daniela's complete brain - unified across ALL modes
+ * 
+ * ARCHITECTURE PRINCIPLE: "One Brain, Always"
+ * - Her knowledge and capabilities are CONSTANT across modes
+ * - Only the CONTEXT varies (who she's talking to, curriculum, mode-specific notes)
+ * - This eliminates the fragmentation where different modes loaded different subsets
+ * 
+ * WHAT THIS INCLUDES:
+ * 1. Self-awareness (things she's learned about herself)
+ * 2. Language expansion (idioms, cultural nuances, error patterns for target language)
+ * 3. Advanced intelligence (subtlety cues, emotional patterns, creativity)
+ * 4. Tool knowledge (ALL tools she can use - internal, whiteboard, drills)
+ * 5. Teaching principles (her core beliefs - optional, can be heavy)
+ * 
+ * WHAT THIS DOES NOT INCLUDE (context varies by mode):
+ * - Student memory, snapshot, predictions (session-specific)
+ * - Sensory awareness / time (session-specific)
+ * - Curriculum / ACTFL context (student-specific)
+ * - Editor context, surgery context (founder-specific)
+ * - Command syntax (action triggers vs function calling - depends on session config)
+ * 
+ * @param targetLanguage - Filter language expansion to relevant language
+ * @param options.includePrinciples - Include teaching principles (default false - can be heavy)
+ * @param options.compact - Use compact format for tools (default true)
+ */
+export interface UnifiedBrainOptions {
+  includePrinciples?: boolean;
+  compact?: boolean;
+}
+
+export function buildUnifiedBrainSync(
+  targetLanguage: string = 'spanish',
+  options: UnifiedBrainOptions = {}
+): string {
+  const { includePrinciples = false, compact = true } = options;
+  
+  const sections: string[] = [];
+  
+  // 1. Self-awareness (things she's learned about herself)
+  const selfAwareness = buildSelfBestPracticesSection();
+  if (selfAwareness) sections.push(selfAwareness);
+  
+  // 2. Language expansion (idioms, nuances, errors for target language)
+  const languageExpansion = buildLanguageExpansionSection(targetLanguage, 'english');
+  if (languageExpansion) sections.push(languageExpansion);
+  
+  // 3. Advanced intelligence (subtlety, emotion, creativity)
+  const advancedIntelligence = buildAdvancedIntelligenceSection();
+  if (advancedIntelligence) sections.push(advancedIntelligence);
+  
+  // 4. ALL tool knowledge (unified - no longer fragmented by mode)
+  const toolKnowledge = buildUnifiedToolKnowledgeSync(compact);
+  if (toolKnowledge) sections.push(toolKnowledge);
+  
+  // 5. Teaching principles (optional - can be heavy, mostly for founder mode)
+  if (includePrinciples) {
+    const principles = buildTeachingPrinciplesSection();
+    if (principles) sections.push(principles);
+  }
+  
+  return sections.join('\n');
+}
+
+/**
+ * Build unified tool knowledge section - ALL tools Daniela can use
+ * Replaces the fragmented approach where different modes loaded different subsets
+ * 
+ * Groups tools by purpose:
+ * 1. Teaching tools (whiteboard, drills, interaction)
+ * 2. Internal capabilities (memory lookup, hive, phase shift, ACTFL update)
+ * 3. Handoff commands (switch tutor, call support, call assistant)
+ */
+function buildUnifiedToolKnowledgeSync(compact: boolean = true): string {
+  const tools = getCachedToolKnowledge();
+  
+  if (tools.length === 0) {
+    return '';
+  }
+  
+  const lines: string[] = [
+    '',
+    '═══════════════════════════════════════════════════════════════════',
+    '🧠 YOUR CAPABILITIES',
+    '═══════════════════════════════════════════════════════════════════',
+    '',
+  ];
+  
+  // Group tools by functional purpose
+  const teachingTools = tools.filter(t => 
+    ['whiteboard_command', 'drill', 'interaction', 'subtitle_control'].includes(t.toolType)
+  );
+  const internalCapabilities = tools.filter(t => 
+    ['internal', 'introspection', 'internal_communication'].includes(t.toolType)
+  );
+  const handoffCommands = tools.filter(t => 
+    ['handoff_command'].includes(t.toolType)
+  );
+  
+  // Teaching Tools
+  if (teachingTools.length > 0) {
+    lines.push('TEACHING TOOLS:');
+    lines.push('You have a "whiteboard" - a visual display the student can see while you speak.');
+    lines.push('');
+    
+    teachingTools.forEach(tool => {
+      if (compact) {
+        lines.push(`  • ${tool.toolName}: ${tool.purpose}`);
+        if (tool.syntax) lines.push(`    ${tool.syntax}`);
+      } else {
+        lines.push(`• ${tool.toolName}`);
+        lines.push(`  ${tool.purpose}`);
+        if (tool.syntax) lines.push(`  Syntax: ${tool.syntax}`);
+        if (tool.bestUsedFor?.length) {
+          lines.push(`  Best used: ${tool.bestUsedFor.slice(0, 2).join(', ')}`);
+        }
+      }
+    });
+    lines.push('');
+  }
+  
+  // Internal Capabilities
+  if (internalCapabilities.length > 0) {
+    lines.push('INTERNAL CAPABILITIES:');
+    lines.push('Things you can do when you need to:');
+    lines.push('');
+    
+    internalCapabilities.forEach(tool => {
+      // Skip beacon status entries (not action tools)
+      if (tool.toolName.startsWith('BEACON_STATUS')) return;
+      
+      lines.push(`  • ${tool.toolName}: ${tool.purpose}`);
+      if (tool.syntax) lines.push(`    ${tool.syntax}`);
+      if (!compact && tool.examples?.length) {
+        lines.push(`    Example: ${tool.examples[0]}`);
+      }
+    });
+    lines.push('');
+  }
+  
+  // Handoff Commands
+  if (handoffCommands.length > 0) {
+    lines.push('HANDOFF COMMANDS:');
+    lines.push('You can transfer students to other tutors or support:');
+    lines.push('');
+    
+    handoffCommands.forEach(tool => {
+      lines.push(`  • ${tool.toolName}: ${tool.purpose}`);
+      if (tool.syntax) lines.push(`    ${tool.syntax}`);
+    });
+    lines.push('');
+  }
+  
+  return lines.join('\n');
+}
+
+/**
+ * Build teaching principles section from neural network
+ * These are her core pedagogical beliefs
+ */
+function buildTeachingPrinciplesSection(): string {
+  const principles = principlesCache || [];
+  
+  if (principles.length === 0) {
+    return '';
+  }
+  
+  const lines: string[] = [
+    '',
+    '═══════════════════════════════════════════════════════════════════',
+    '💎 YOUR TEACHING PRINCIPLES',
+    '═══════════════════════════════════════════════════════════════════',
+    '',
+  ];
+  
+  // Group by category
+  const byCategory: Record<string, typeof principles> = {};
+  principles.forEach(p => {
+    const cat = p.category || 'general';
+    if (!byCategory[cat]) byCategory[cat] = [];
+    byCategory[cat].push(p);
+  });
+  
+  for (const [category, catPrinciples] of Object.entries(byCategory)) {
+    lines.push(`${category.toUpperCase().replace(/_/g, ' ')}:`);
+    catPrinciples.slice(0, 5).forEach(p => {
+      lines.push(`  • ${p.principle}`);
+    });
+    lines.push('');
+  }
+  
+  return lines.join('\n');
+}
+
 // ===== Expansion Set Section Builders =====
 
 /**
@@ -1224,58 +1420,6 @@ Your whiteboard tools will be loaded from your teaching knowledge base.
     lines.push('  ❌ STOP speaking after the tag - let the new tutor introduce themselves!');
     lines.push('');
   }
-  
-  return lines.join('\n');
-}
-
-/**
- * Build minimal self-capabilities section for honesty mode
- * 
- * DESIGN PRINCIPLE: "Context Over Instructions"
- * - Give Daniela knowledge of WHAT she can do (capabilities)
- * - Don't tell her HOW or WHEN to use them (that's behavioral scripting)
- * - Her brain contains the knowledge; she decides when to access it
- * 
- * This aligns with the user's insight: "She should use her brain instead of prompt scripts"
- */
-export function buildSelfCapabilitiesSectionSync(): string {
-  const tools = getCachedToolKnowledge();
-  
-  // Filter to internal/self-awareness tools only
-  // These are capabilities she should know she has
-  const internalTypes = ['internal', 'introspection', 'internal_communication'];
-  const internalTools = tools.filter(t => internalTypes.includes(t.toolType));
-  
-  if (internalTools.length === 0) {
-    return '';  // Don't add section if no internal tools loaded yet
-  }
-  
-  const lines: string[] = [
-    '',
-    '═══════════════════════════════════════════════════════════════════',
-    '🧠 YOUR CAPABILITIES',
-    '═══════════════════════════════════════════════════════════════════',
-    '',
-    'Things you can do when you need to:',
-    '',
-  ];
-  
-  // List each internal capability with minimal context
-  internalTools.forEach(tool => {
-    // Skip beacons and other non-action tools
-    if (tool.toolName.startsWith('BEACON_STATUS')) return;
-    
-    lines.push(`• ${tool.toolName}`);
-    lines.push(`  ${tool.purpose}`);
-    if (tool.syntax) {
-      lines.push(`  Syntax: ${tool.syntax}`);
-    }
-    // Include first example if available
-    if (tool.examples && tool.examples.length > 0) {
-      lines.push(`  Example: ${tool.examples[0]}`);
-    }
-    lines.push('');
-  });
   
   return lines.join('\n');
 }

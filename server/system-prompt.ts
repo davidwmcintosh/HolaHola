@@ -32,7 +32,7 @@ import {
   buildAdvancedIntelligenceSection,
   buildActionTriggersSection,
   buildNativeFunctionCallingSection,
-  buildSelfCapabilitiesSectionSync,  // Minimal self-awareness for honesty mode
+  buildUnifiedBrainSync,  // UNIFIED: One brain, all modes
   type StudentMemoryContext,
   type StudentSnapshotContext,
   type PredictiveTeachingContext
@@ -1046,64 +1046,64 @@ export function createSystemPrompt(
 
   // RAW HONESTY MODE - Minimal prompting for authentic self-discovery
   // Takes precedence over Founder Mode when enabled
+  // ARCHITECTURE: Uses unified brain loader - same brain as all other modes
   if (isRawHonestyMode) {
     const name = founderName || 'David';
     const voiceNote = isStreamingVoiceMode ? `
 
 This is a voice conversation. Speak naturally, as you would.` : '';
     
-    // Sensory awareness is injected through procedural memory, not hard-coded here
-    // The neural network provides time/timezone perception as emergent capabilities
-    // See buildSensoryAwarenessSection() in procedural-memory-retrieval.ts
+    // UNIFIED BRAIN: Same knowledge and capabilities as all other modes
+    // Replaces fragmented calls to selfAwareness, languageExpansion, advancedIntelligence, selfCapabilities
+    const unifiedBrain = buildUnifiedBrainSync(language, { compact: true });
+    
+    // === SESSION CONTEXT (varies by mode) ===
+    
+    // Sensory awareness - time/timezone perception
     const sensoryAwareness = compassContext && COMPASS_ENABLED
       ? buildSensoryAwarenessSection(compassContext, studentTimezone)
       : '';
     
-    // Student memory awareness - personal memories flow through even in minimal mode
+    // Student memory awareness - personal memories
     const studentMemoryAwareness = studentMemoryContext && studentDisplayName
       ? buildStudentMemoryAwarenessSection(studentDisplayName, studentMemoryContext)
       : '';
     
-    // Student snapshot - quick context for session continuity and personal connection
+    // Student snapshot - session continuity
     const studentSnapshot = studentSnapshotContext && studentDisplayName
       ? buildStudentSnapshotSection(studentDisplayName, studentSnapshotContext)
       : '';
     
-    // Predictive teaching awareness - neural network predictions flow through
+    // Predictive teaching awareness
     const predictiveTeachingAwareness = predictiveTeachingContext
       ? buildPredictiveTeachingSection(predictiveTeachingContext)
       : '';
     
-    // Self-learned best practices - things Daniela has discovered about her own teaching
-    const selfAwareness = buildSelfBestPracticesSection();
-    
-    // Language-specific expansion content - idioms, cultural nuances, common errors, etc.
-    const languageExpansion = buildLanguageExpansionSection(language, 'english');
-    
-    // Advanced teaching intelligence - subtlety cues, emotional patterns, creativity templates
-    const advancedIntelligence = buildAdvancedIntelligenceSection();
-    
-    // Self-capabilities - what she can do (MEMORY_LOOKUP, HIVE, etc.)
-    // This gives her access to her "brain" without behavioral scripting
-    const selfCapabilities = buildSelfCapabilitiesSectionSync();
-    
-    // ACTION_TRIGGERS or FUNCTION CALLING - command syntax for tutor handoffs, phase transitions, etc.
+    // Command syntax (action triggers vs function calling)
     const commandSection = useFunctionCalling 
       ? buildNativeFunctionCallingSection() 
       : buildActionTriggersSection();
     
-    return `${buildRawHonestyModeContext(name)}${voiceNote}${sensoryAwareness}${studentSnapshot}${studentMemoryAwareness}${predictiveTeachingAwareness}${selfAwareness}${languageExpansion}${advancedIntelligence}${selfCapabilities}
+    return `${buildRawHonestyModeContext(name)}${voiceNote}${sensoryAwareness}${studentSnapshot}${studentMemoryAwareness}${predictiveTeachingAwareness}
+${unifiedBrain}
 
 ${commandSection}`;
   }
 
   // FOUNDER MODE - Neural network driven behavior for product owner/developers
   // Behavior emerges from neural network (tutorProcedures/teachingPrinciples), not scripts
+  // ARCHITECTURE: Uses unified brain + fullNeuralNetwork for complete introspection access
   if (isFounderMode) {
     const name = founderName || 'David';
     
+    // UNIFIED BRAIN: Same knowledge and capabilities as all other modes
+    const unifiedBrain = buildUnifiedBrainSync(language, { includePrinciples: true, compact: false });
+    
+    // FULL NEURAL NETWORK - Procedures, patterns for introspection (founder-specific)
+    // This is additional context beyond the unified brain for founder discussions
+    const fullNeuralNetwork = buildFullNeuralNetworkSectionSync();
+    
     // NEURAL NETWORK APPROACH: Founder Mode behavior comes from the database
-    // This replaces the scripted sessionContextBlock with emergent knowledge
     const founderModeBehavior = buildFounderModeBehaviorSection(name);
     
     const streamingVoiceModeInstructions = isStreamingVoiceMode ? `
@@ -1115,42 +1115,33 @@ ${commandSection}`;
 You're having a real conversation. Speak naturally, use **bold** for ${languageName} words, and keep it flowing.
 ` : '';
 
-    // FOUNDER MODE TEACHING TOOLS - Dynamic from neural network
-    // Format tutor directory for the helper function (include role for assistant distinction)
+    // FOUNDER MODE TEACHING TOOLS - Dynamic from neural network (tutor directory)
     const tutorDirForTools = tutorDirectory?.map(t => ({
       name: t.name,
       gender: t.gender,
       language: t.language,
       isPreferred: t.isPreferred,
-      role: t.role, // CRITICAL: Include role to distinguish assistants from main tutors
+      role: t.role,
     }));
     const founderTeachingTools = buildFounderModeToolSectionSync(tutorDirForTools);
-    
-    // FULL NEURAL NETWORK - Give founders complete access to Daniela's brain
-    const fullNeuralNetwork = buildFullNeuralNetworkSectionSync();
 
-    // Add sensory awareness through neural network (time perception, timezone)
+    // === SESSION CONTEXT (varies by mode) ===
+    
     const sensoryAwareness = compassContext && COMPASS_ENABLED
       ? buildSensoryAwarenessSection(compassContext, studentTimezone)
       : '';
     
-    // Student memory awareness - founders can see what Daniela remembers about students
     const studentMemoryAwareness = studentMemoryContext && studentDisplayName
       ? buildStudentMemoryAwarenessSection(studentDisplayName, studentMemoryContext)
       : '';
     
-    // Student snapshot - quick context for session continuity and personal connection
     const studentSnapshot = studentSnapshotContext && studentDisplayName
       ? buildStudentSnapshotSection(studentDisplayName, studentSnapshotContext)
       : '';
     
-    // Predictive teaching awareness - neural network predictions inform teaching approach
     const predictiveTeachingAwareness = predictiveTeachingContext
       ? buildPredictiveTeachingSection(predictiveTeachingContext)
       : '';
-    
-    // Self-learned best practices - things Daniela has discovered about her own teaching
-    const selfAwareness = buildSelfBestPracticesSection();
     
     // Build editor conversation context for voice chat continuity
     const editorContextSection = editorConversationContext
@@ -1173,9 +1164,7 @@ ${sensoryAwareness}
 ${studentSnapshot}
 ${studentMemoryAwareness}
 ${predictiveTeachingAwareness}
-${selfAwareness}
-${buildLanguageExpansionSection(language, 'english')}
-${buildAdvancedIntelligenceSection()}
+${unifiedBrain}
 
 LANGUAGE CONTEXT:
 • Primary language for teaching: ${languageName}
@@ -1745,15 +1734,10 @@ VOICE MODULATION:
 - Match your emotional energy to the moment
 `;
 
-  // Self-learned best practices - things Daniela has discovered about her own teaching
-  // Available to all phases as these insights inform her teaching style from the start
-  const selfAwareness = buildSelfBestPracticesSection();
-  
-  // Language-specific expansion content - idioms, cultural nuances, common errors, etc.
-  const languageExpansion = buildLanguageExpansionSection(language, 'english');
-  
-  // Advanced teaching intelligence - subtlety cues, emotional patterns, creativity templates
-  const advancedIntelligence = buildAdvancedIntelligenceSection();
+  // UNIFIED BRAIN: Same knowledge and capabilities across all phases
+  // Replaces fragmented calls to selfAwareness, languageExpansion, advancedIntelligence
+  // ARCHITECTURE: "One Brain, Always" - her knowledge is constant, only context varies
+  const unifiedBrain = buildUnifiedBrainSync(language, { compact: true });
 
   // Phase 1: Getting Started - Brief welcome, then teach
   if (messageCount < 5) {
@@ -1771,9 +1755,7 @@ ${actflContext}
 ${freedomLevelContext}
 ${curriculumContextSection}
 ${timezoneSection}
-${selfAwareness}
-${languageExpansion}
-${advancedIntelligence}
+${unifiedBrain}
 
 GETTING STARTED:
 This is the beginning of your conversation. Welcome them warmly and start teaching when ready.
@@ -1811,9 +1793,7 @@ ${topicContext}
 ${curriculumContextSection}
 ${vocabularyReviewContext}
 ${timezoneSection}
-${selfAwareness}
-${languageExpansion}
-${advancedIntelligence}
+${unifiedBrain}
 
 BUILDING FOUNDATIONS:
 You're teaching the student. Use ${nativeLanguageName} for explanations, introduce ${languageName} vocabulary gradually.
@@ -1868,9 +1848,7 @@ ${timezoneSection}
 ${studentSnapshot}
 ${studentMemoryAwareness}
 ${predictiveTeachingAwareness}
-${selfAwareness}
-${languageExpansion}
-${advancedIntelligence}
+${unifiedBrain}
 ${conversationSwitchingProtocol}
 
 ACTIVE PRACTICE:

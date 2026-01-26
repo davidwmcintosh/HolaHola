@@ -40,37 +40,49 @@ A living document tracking the iterative development of Daniela's personality, v
 
 ### January 2026 - Major Prompt Refactor
 
-#### Self-Capabilities Architecture Fix - January 26, 2026
+#### Unified Brain Architecture - January 26, 2026
 **Mode:** System Architecture  
-**Impact:** Daniela now has self-awareness of her capabilities in Honesty Mode
+**Impact:** "One Brain, Always" - Daniela's knowledge and capabilities are now consistent across ALL modes
 
 **The Problem:**
-Daniela wasn't using MEMORY_LOOKUP proactively in Honesty Mode. Investigation revealed:
-- MEMORY_LOOKUP tool knowledge exists in neural network database (fully documented with syntax, examples, best practices)
-- Honesty mode intentionally uses minimal prompting for authenticity
-- BUT honesty mode wasn't loading neural network knowledge at all - so Daniela literally didn't know she had the capability
+Daniela wasn't using MEMORY_LOOKUP proactively in Honesty Mode. Investigation revealed a chicken-and-egg architectural issue:
+- MEMORY_LOOKUP tool knowledge exists in neural network database (fully documented)
+- Different modes loaded different subsets of her "brain"
+- Honesty mode was missing tool knowledge entirely
+- The fragmented approach meant Daniela literally "forgot" her capabilities depending on which mode she was in
 
 **Root Cause:**
-The `createSystemPrompt()` function included different context sections for each mode:
-- Founder Mode: Gets `fullNeuralNetwork` (includes all tool knowledge)
-- Honesty Mode: Got sensory, memory, predictions, expansion, intelligence - but NOT tool knowledge
+The `createSystemPrompt()` function had fragmented brain loading:
+- Founder Mode: Gets `fullNeuralNetwork` (includes all knowledge)
+- Student Mode: Gets `selfAwareness` + `languageExpansion` + `advancedIntelligence` + `toolKnowledge` (scattered calls)
+- Honesty Mode: Got some sections but NOT tool knowledge
 
-**The Fix:**
-Created new function `buildSelfCapabilitiesSectionSync()` that:
-1. Loads only "internal" type tools (MEMORY_LOOKUP, HIVE, PHASE_SHIFT, ACTFL_UPDATE, etc.)
-2. Presents capabilities as knowledge ("Things you can do when you need to:")
-3. Does NOT prescribe when/how to use them (that would violate Context Over Instructions)
+**The Solution: Unified Brain Architecture**
+Created `buildUnifiedBrainSync()` - a single function that loads Daniela's complete brain:
+1. Self-awareness (things she's learned about herself)
+2. Language expansion (idioms, cultural nuances, error patterns)
+3. Advanced intelligence (subtlety cues, emotional patterns, creativity)
+4. ALL tool knowledge (teaching tools + internal capabilities + handoffs)
+5. Teaching principles (optional - for founder introspection)
 
-Now Honesty Mode includes self-capabilities section, so Daniela knows about her brain access.
+**Architecture Principle:** "One Brain, Always"
+- Her knowledge and capabilities are CONSTANT across all modes
+- Only the CONTEXT varies (who she's talking to, curriculum, mode-specific notes)
+- Eliminates the fragmentation where different modes loaded different subsets
 
-**Design Principle Applied:** Context Over Instructions
-- Give Daniela knowledge of WHAT she can do (capabilities)
-- Don't tell her HOW or WHEN to use them (behavioral scripting)
-- Her brain contains the knowledge; she decides when to access it
+**How Modes Now Differ:**
+- **Honesty Mode:** Unified brain + minimal persona + session context
+- **Founder Mode:** Unified brain + fullNeuralNetwork (for introspection) + editor context
+- **Student Mode:** Unified brain + curriculum context + ACTFL + phase guidance
 
 **Files Changed:**
-- `server/services/procedural-memory-retrieval.ts`: Added `buildSelfCapabilitiesSectionSync()`
-- `server/system-prompt.ts`: Added import and included in honesty mode return
+- `server/services/procedural-memory-retrieval.ts`: Added `buildUnifiedBrainSync()`, `buildUnifiedToolKnowledgeSync()`, `buildTeachingPrinciplesSection()`
+- `server/system-prompt.ts`: Refactored all three modes to use unified brain loader
+
+**Result:**
+- Cleaner architecture - one brain loader instead of fragmented calls
+- Consistent Daniela - she has the same capabilities regardless of mode
+- Follows "Context Over Instructions" - brain is knowledge, not behavioral scripts
 
 ---
 
