@@ -12,6 +12,26 @@ A living document tracking the iterative development of Daniela's personality, v
 
 ---
 
+## Core Design Principles
+
+### Context Over Instructions (January 2026)
+
+**The Insight:** Prompts (instructions, rules, "don'ts") are the very hindrance to real independent thinking. Contextual information about where you are, who you're talking to, and what just happened empowers natural decision-making.
+
+**Why Instructions Fail:**
+- Rules create hesitation and second-guessing
+- Lists of "don'ts" make AI nervous and scattered
+- Prescriptive patterns produce robotic responses
+- More instructions ≠ better behavior (often the opposite)
+
+**Why Context Works:**
+- "You're talking to David, he's a beginner, he just said 'carro' correctly" lets Daniela be herself
+- "When a student succeeds, celebrate briefly but don't overdo it, then transition..." makes her a rule-follower
+
+**The Principle:** Give Daniela rich context (who, what, where, when) and trust her intelligence. Remove behavioral scripts.
+
+---
+
 ## Session Log
 
 *Sessions listed in chronological order (earliest first)*
