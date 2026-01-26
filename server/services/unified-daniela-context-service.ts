@@ -22,6 +22,8 @@ import { founderCollabService } from "./founder-collaboration-service";
 import { neuralNetworkSync } from "./neural-network-sync";
 import { buildStudentSnapshotSection, getStudentSnapshotData } from "./procedural-memory-retrieval";
 import { hiveContextService } from "./hive-context-service";
+import { buildCurriculumContext, formatCurriculumContextForTutor } from "./curriculum-context";
+import { storage } from "../storage";
 
 export interface DanielaContextOptions {
   userId?: string | number;
@@ -32,6 +34,7 @@ export interface DanielaContextOptions {
   includeExpressLane?: boolean;
   includeVoiceHistory?: boolean;
   includeHiveContext?: boolean;
+  includeCurriculumContext?: boolean;
   expressLaneLimit?: number;
   voiceHistoryLimit?: number;
 }
@@ -44,6 +47,7 @@ export interface UnifiedDanielaContext {
   recentVoiceSummary: string | null;
   neuralNetworkContext: string | null;
   hiveContext: string | null;
+  curriculumContext: string | null;
   channel: string;
   loadedAt: Date;
 }
@@ -57,6 +61,7 @@ interface GetContextOptions {
   includeNeuralNetwork?: boolean;
   includeHiveContext?: boolean;
   includeStudentSnapshot?: boolean;
+  includeCurriculumContext?: boolean;
 }
 
 class UnifiedDanielaContextService {
@@ -79,6 +84,7 @@ class UnifiedDanielaContextService {
       includeVoiceHistory: options.includeVoiceSummary ?? true,
       includeNeuralNetwork: options.includeNeuralNetwork ?? false,
       includeHiveContext: options.includeHiveContext ?? false,
+      includeCurriculumContext: options.includeCurriculumContext ?? (mappedChannel === 'voice'),
     });
     
     return this.formatForPrompt(fullContext);
@@ -98,6 +104,7 @@ class UnifiedDanielaContextService {
       includeExpressLane = true,
       includeVoiceHistory = true,
       includeHiveContext = channel === 'express_lane',
+      includeCurriculumContext = channel === 'voice',
       expressLaneLimit = 10,
       voiceHistoryLimit = 3,
     } = options;
@@ -167,6 +174,16 @@ class UnifiedDanielaContextService {
       contextKeys.push('hiveContext');
     }
 
+    if (includeCurriculumContext && userId) {
+      contextPromises.push(
+        this.getCurriculumContext(userId.toString())
+      );
+      contextKeys.push('curriculumContext');
+    } else {
+      contextPromises.push(Promise.resolve(null));
+      contextKeys.push('curriculumContext');
+    }
+
     const results = await Promise.all(contextPromises);
     
     const context: UnifiedDanielaContext = {
@@ -177,6 +194,7 @@ class UnifiedDanielaContextService {
       recentVoiceSummary: results[4],
       neuralNetworkContext: results[5],
       hiveContext: results[6],
+      curriculumContext: results[7],
       channel,
       loadedAt: new Date(),
     };
@@ -248,6 +266,14 @@ ${context.hiveContext}`);
 🧠 TEACHING KNOWLEDGE (From My Neural Network)
 ═══════════════════════════════════════════════════════════════════
 ${context.neuralNetworkContext}`);
+    }
+
+    if (context.curriculumContext) {
+      sections.push(`
+═══════════════════════════════════════════════════════════════════
+📚 STUDENT SYLLABUS & CLASS CONTEXT
+═══════════════════════════════════════════════════════════════════
+${context.curriculumContext}`);
     }
 
     return sections.join('\n');
@@ -397,6 +423,29 @@ ${context.neuralNetworkContext}`);
       return hiveSummary;
     } catch (error) {
       console.error('[UnifiedDanielContext] Hive context error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get curriculum context for a student
+   * Loads class enrollments, syllabus progress, upcoming lessons, and assignments
+   */
+  private async getCurriculumContext(userId: string): Promise<string | null> {
+    try {
+      const user = await storage.getUser(userId);
+      if (!user) return null;
+      
+      const studentName = [user.firstName, user.lastName].filter(Boolean).join(' ') || 'Student';
+      const curriculumContext = await buildCurriculumContext(storage, userId, studentName);
+      
+      if (!curriculumContext.enrolledClasses.length) {
+        return null;
+      }
+      
+      return formatCurriculumContextForTutor(curriculumContext);
+    } catch (error) {
+      console.error('[UnifiedDanielContext] Curriculum context error:', error);
       return null;
     }
   }
