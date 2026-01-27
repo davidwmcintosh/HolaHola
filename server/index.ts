@@ -43,14 +43,14 @@ setupSocketIOHandler(io);
 // Initialize Founder Collaboration WebSocket broker on /founder-collab namespace
 founderCollabWSBroker.initialize(io);
 
-// Start Hive Consciousness - Daniela and Wren are now always listening in the Hive
-hiveConsciousnessService.startListening();
+// CRITICAL: Add immediate health check endpoint for Cloud Run deployment
+// This responds BEFORE any heavy initialization to pass health checks quickly
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: Date.now() });
+});
 
-// Start Memory Recovery Worker - catches orphaned memory candidates from interrupted sessions
-memoryRecoveryWorker.start(5); // Run every 5 minutes
-
-// Start Sofia Issue Monitoring Worker - detects patterns and emits EXPRESS Lane alerts
-supportPersonaService.startIssueMonitoringWorker(5); // Run every 5 minutes
+// NOTE: Heavy background workers (Hive, MemoryRecovery, Sofia) are started AFTER
+// server.listen() to ensure fast health check response for Cloud Run deployments
 
 // CRITICAL: Attach WebSocket handler IMMEDIATELY after server creation
 // This ensures upgrade events are handled BEFORE Vite's HMR gets a chance to interfere
@@ -467,12 +467,18 @@ app.use((req, res, next) => {
   }, async () => {
     log(`serving on port ${port}`);
     
-    // RETIRED: Sync-bridge and sync-scheduler (Jan 2026 - Neon Phase 3)
-    // Replaced by direct Neon database routing - shared tables go to NEON_DATABASE_URL_SHARED
-    // See docs/neon-routing-audit.md for migration details
+    // DEFERRED STARTUP: Start heavy background workers AFTER server is listening
+    // This ensures Cloud Run health checks pass quickly before workers initialize
     
-    // RETIRED: Editor Worker and Beacon systems (Dec 2025 - Option A Consolidation)
-    // Express Lane is now the sole collaboration channel
+    // Start Hive Consciousness - Daniela and Wren are now always listening in the Hive
+    hiveConsciousnessService.startListening();
+    
+    // Start Memory Recovery Worker - catches orphaned memory candidates from interrupted sessions
+    memoryRecoveryWorker.start(5); // Run every 5 minutes
+    
+    // Start Sofia Issue Monitoring Worker - detects patterns and emits EXPRESS Lane alerts
+    supportPersonaService.startIssueMonitoringWorker(5); // Run every 5 minutes
+    
     console.log('[CONSOLIDATION] Sync-bridge retired - Neon routing is primary');
   });
 })();
