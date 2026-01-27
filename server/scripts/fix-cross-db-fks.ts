@@ -3,14 +3,14 @@ import ws from "ws";
 
 neonConfig.webSocketConstructor = ws;
 
-const NEON_SHARED_URL = process.env.NEON_SHARED_DATABASE_URL;
+const DATABASE_URL = process.env.DATABASE_URL;
 
-if (!NEON_SHARED_URL) {
-  console.error("NEON_SHARED_DATABASE_URL is required");
+if (!DATABASE_URL) {
+  console.error("DATABASE_URL is required");
   process.exit(1);
 }
 
-const pool = new Pool({ connectionString: NEON_SHARED_URL });
+const pool = new Pool({ connectionString: DATABASE_URL });
 
 const CROSS_DB_CONSTRAINTS = [
   { table: 'actfl_assessment_events', constraint: 'actfl_assessment_events_conversation_id_conversations_id_fk' },

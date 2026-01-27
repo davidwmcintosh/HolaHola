@@ -11821,9 +11821,8 @@ Return ONLY the ${targetLanguage} phrase:`;
       // Get sample conversations from shared DB (any user)
       const sampleConvs = await storage.debugGetSampleConversations();
       
-      // Check if Neon shared URL is configured
-      const hasNeonShared = !!process.env.NEON_SHARED_DATABASE_URL;
-      const hasNeonUser = !!process.env.NEON_USER_DATABASE_URL;
+      // Check if database URL is configured
+      const hasDatabase = !!process.env.DATABASE_URL;
       
       res.json({
         environment: env,
@@ -11832,8 +11831,8 @@ Return ONLY the ${targetLanguage} phrase:`;
           email,
           conversationCount: userConversations.length,
         },
-        sharedDatabase: {
-          neonConfigured: hasNeonShared,
+        database: {
+          neonConfigured: hasDatabase,
           sampleConversationUserIds: sampleConvs.slice(0, 10).map(c => ({
             conversationId: c.id.substring(0, 8),
             userId: c.userId,
@@ -11841,9 +11840,6 @@ Return ONLY the ${targetLanguage} phrase:`;
             createdAt: c.createdAt,
           })),
           totalSampleCount: sampleConvs.length,
-        },
-        userDatabase: {
-          neonConfigured: hasNeonUser,
         },
         diagnosis: userConversations.length === 0 && sampleConvs.length > 0
           ? `No conversations found for userId ${userId}. Sample userIds in DB: ${[...new Set(sampleConvs.map(c => c.userId))].slice(0, 5).join(', ')}`
@@ -25309,7 +25305,7 @@ You have full access to your neural network knowledge.
       if (!isNeonConfigured()) {
         return res.status(400).json({ 
           error: 'Neon not configured', 
-          message: 'Set NEON_SHARED_DATABASE_URL and NEON_USER_DATABASE_URL secrets' 
+          message: 'Set DATABASE_URL secret' 
         });
       }
       
@@ -25367,17 +25363,15 @@ You have full access to your neural network knowledge.
         sharedConnected = connectionStatus.shared.success;
         userConnected = connectionStatus.user.success;
         // Mask URLs for security (show host only)
-        if (process.env.NEON_SHARED_DATABASE_URL) {
+        if (process.env.DATABASE_URL) {
           try {
-            const url = new URL(process.env.NEON_SHARED_DATABASE_URL);
+            const url = new URL(process.env.DATABASE_URL);
             sharedUrl = url.host;
-          } catch { sharedUrl = "configured"; }
-        }
-        if (process.env.NEON_USER_DATABASE_URL) {
-          try {
-            const url = new URL(process.env.NEON_USER_DATABASE_URL);
-            userUrl = url.host;
-          } catch { userUrl = "configured"; }
+            userUrl = url.host; // Same database now
+          } catch { 
+            sharedUrl = "configured"; 
+            userUrl = "configured";
+          }
         }
       }
       
