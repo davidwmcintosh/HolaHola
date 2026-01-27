@@ -20,11 +20,10 @@ const publicLanguages = [
   { value: "mandarin", label: "Mandarin" },
   { value: "korean", label: "Korean" },
   { value: "english", label: "English" },
-];
-
-const hiddenLanguages = [
   { value: "hebrew", label: "Hebrew" },
 ];
+
+const hiddenLanguages: { value: string; label: string }[] = [];
 
 interface LanguageSelectorProps {
   compact?: boolean;
