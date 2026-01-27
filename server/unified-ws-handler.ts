@@ -1748,9 +1748,10 @@ Reference past discussions when relevant, but don't force it.
           }
           
           // DON'T close immediately - wait for Deepgram final transcript
-          // Deepgram often sends the true final transcript 200-400ms after we stop sending audio
+          // Deepgram often sends the true final transcript 200-600ms after we stop sending audio
           // Use longer wait and early-exit when transcript stabilizes
-          const FINAL_WAIT_MS = 400;
+          // Increased from 400ms to 600ms Jan 2026 to capture longer phrases
+          const FINAL_WAIT_MS = 600;
           const STABLE_CHECK_MS = 50;
           
           let lastTranscript = speculativePttTranscript;
@@ -3397,9 +3398,10 @@ This is a voice conversation. Speak naturally, as you would.`;
           }
           
           // DON'T close immediately - wait for Deepgram final transcript
-          // Deepgram often sends the true final transcript 200-400ms after we stop sending audio
+          // Deepgram often sends the true final transcript 200-600ms after we stop sending audio
           // Use longer wait and early-exit when transcript stabilizes
-          const FINAL_WAIT_MS = 400;
+          // Increased from 400ms to 600ms Jan 2026 to capture longer phrases
+          const FINAL_WAIT_MS = 600;
           const STABLE_CHECK_MS = 50;
           
           let lastTranscript = speculativePttTranscript;

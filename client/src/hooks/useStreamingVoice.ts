@@ -166,8 +166,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   
   // Ref for processing timeout (stuck thinking recovery)
   // If no activity for 30+ seconds while isProcessing=true, reset state
+  // Increased from 15s to 25s Jan 2026 to handle server delays from RAM pressure
   const processingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const PROCESSING_TIMEOUT_MS = 15000;  // 15 seconds max "thinking" time
+  const PROCESSING_TIMEOUT_MS = 25000;  // 25 seconds max "thinking" time
 
   // Refs
   const clientRef = useRef<StreamingVoiceClient | null>(null);
