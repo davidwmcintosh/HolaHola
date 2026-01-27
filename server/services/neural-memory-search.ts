@@ -36,6 +36,7 @@ import {
   conversations,
   danielaGrowthMemories,
   toolKnowledge,
+  danielaNotes,
   type PeopleConnection,
   type StudentInsight,
   type LearningMotivation,
@@ -54,6 +55,7 @@ import {
   type CurriculumLesson,
   type DanielaGrowthMemory,
   type ToolKnowledge,
+  type DanielaNote,
 } from '@shared/schema';
 import { eq, sql, desc, and, or, ilike } from 'drizzle-orm';
 
@@ -683,7 +685,7 @@ export async function getStudentMemorySummary(studentId: string): Promise<string
  * Teaching memory search result
  */
 export interface TeachingMemoryResult {
-  domain: 'idiom' | 'cultural' | 'procedure' | 'procedures' | 'principle' | 'principles' | 'error-pattern' | 'situational-pattern' | 'patterns' | 'subtlety-cue' | 'emotional-pattern' | 'creativity-template' | 'growth' | 'tools';
+  domain: 'idiom' | 'cultural' | 'procedure' | 'procedures' | 'principle' | 'principles' | 'error-pattern' | 'situational-pattern' | 'patterns' | 'subtlety-cue' | 'emotional-pattern' | 'creativity-template' | 'growth' | 'tools' | 'notes';
   relevance: number;
   summary: string;
   details: string;
@@ -713,7 +715,7 @@ export interface TeachingMemoryResponse {
 export async function searchTeachingKnowledge(
   query: string,
   language?: string,
-  domains?: ('idiom' | 'cultural' | 'procedure' | 'procedures' | 'principle' | 'principles' | 'error-pattern' | 'situational-pattern' | 'patterns' | 'subtlety-cue' | 'emotional-pattern' | 'creativity-template' | 'growth' | 'tools')[]
+  domains?: ('idiom' | 'cultural' | 'procedure' | 'procedures' | 'principle' | 'principles' | 'error-pattern' | 'situational-pattern' | 'patterns' | 'subtlety-cue' | 'emotional-pattern' | 'creativity-template' | 'growth' | 'tools' | 'notes')[]
 ): Promise<TeachingMemoryResponse> {
   const results: TeachingMemoryResult[] = [];
   const searchedDomains: string[] = [];
@@ -721,7 +723,7 @@ export async function searchTeachingKnowledge(
   const normalizedQuery = query.toLowerCase().trim();
   const searchPattern = `%${normalizedQuery}%`;
   
-  const domainsToSearch = domains || ['idiom', 'cultural', 'procedures', 'principles', 'error-pattern', 'patterns', 'subtlety-cue', 'emotional-pattern', 'creativity-template', 'growth', 'tools'];
+  const domainsToSearch = domains || ['idiom', 'cultural', 'procedures', 'principles', 'error-pattern', 'patterns', 'subtlety-cue', 'emotional-pattern', 'creativity-template', 'growth', 'tools', 'notes'];
   const searchPromises: Promise<void>[] = [];
   
   // === LANGUAGE IDIOMS ===
@@ -1214,6 +1216,56 @@ export async function searchTeachingKnowledge(
         }
       } catch (err: any) {
         console.error('[NeuralMemory] Error searching tool knowledge:', err.message);
+      }
+    })());
+  }
+  
+  // === DANIELA'S PERSONAL NOTES ===
+  if (domainsToSearch.includes('notes')) {
+    searchedDomains.push('notes');
+    searchPromises.push((async () => {
+      try {
+        let whereClause = and(
+          eq(danielaNotes.isActive, true),
+          or(
+            ilike(danielaNotes.title, searchPattern),
+            ilike(danielaNotes.content, searchPattern)
+          )
+        );
+        
+        // Filter by language if provided
+        if (language) {
+          whereClause = and(
+            whereClause,
+            or(
+              eq(danielaNotes.language, language),
+              sql`${danielaNotes.language} IS NULL`  // Also include language-agnostic notes
+            )
+          );
+        }
+        
+        const notes = await getSharedDb().select().from(danielaNotes)
+          .where(whereClause)
+          .orderBy(desc(danielaNotes.createdAt))
+          .limit(15);
+        
+        for (const note of notes) {
+          const tags = note.tags?.slice(0, 3).join(', ') || '';
+          results.push({
+            domain: 'notes',
+            relevance: 0.85,
+            summary: `[${note.noteType}] ${note.title}`,
+            details: [
+              note.content.substring(0, 300),
+              tags ? `Tags: ${tags}` : '',
+              note.language ? `Language: ${note.language}` : '',
+            ].filter(Boolean).join('. '),
+            language: note.language || null,
+            source: 'daniela_notes',
+          });
+        }
+      } catch (err: any) {
+        console.error('[NeuralMemory] Error searching personal notes:', err.message);
       }
     })());
   }

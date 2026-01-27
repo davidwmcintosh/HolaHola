@@ -10234,6 +10234,36 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         break;
       }
       
+      case 'TAKE_NOTE': {
+        // Daniela's personal notebook - DIRECT INSERT, no approval required
+        const noteType = fn.args.type as string | undefined;
+        const title = fn.args.title as string | undefined;
+        const content = fn.args.content as string | undefined;
+        const language = fn.args.language as string | undefined;
+        const tagsStr = fn.args.tags as string | undefined;
+        
+        if (noteType && title && content) {
+          const tags = tagsStr ? tagsStr.split(',').map(t => t.trim()) : undefined;
+          
+          console.log(`[Native Function→TakeNote] ${noteType}: "${title.substring(0, 40)}..."`);
+          
+          // Execute immediately - no approval needed
+          storage.insertDanielaNote({
+            noteType: noteType as any,
+            title,
+            content,
+            language: language || session.targetLanguage,
+            sessionId: session.sessionId,
+            tags,
+          }).then(noteId => {
+            console.log(`[Native Function→TakeNote] ✓ Saved note ${noteId}`);
+          }).catch(err => {
+            console.error(`[Native Function→TakeNote] Error:`, err.message);
+          });
+        }
+        break;
+      }
+      
       case 'EXPRESS_LANE_LOOKUP': {
         // On-demand Express Lane history search - only in Founder/Honesty mode (native function call)
         const query = fn.args.query as string | undefined;

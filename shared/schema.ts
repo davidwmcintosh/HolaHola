@@ -3169,6 +3169,68 @@ export type InsertDanielaGrowthMemory = z.infer<typeof insertDanielaGrowthMemory
 export type DanielaGrowthMemory = typeof danielaGrowthMemories.$inferSelect;
 export type GrowthMemoryCategory = 'teaching_technique' | 'timing_inflection' | 'specific_joke' | 'relationship_insight' | 'correction_received' | 'breakthrough_method' | 'cultural_nuance' | 'emotional_intelligence';
 
+// ========================================
+// DANIELA'S PERSONAL NOTEBOOK
+// Direct insert - NO approval needed
+// Her scratch pad for learning and observations
+// ========================================
+
+export const danielaNoteTypeEnum = pgEnum("daniela_note_type", [
+  'tool_experiment',      // Notes about tool usage (whiteboard, subtitles, etc.)
+  'teaching_rhythm',      // Pacing, energy, engagement observations
+  'session_reflection',   // Post-session thoughts
+  'language_insight',     // Language-specific discoveries
+  'student_pattern',      // Patterns observed across students
+  'idea_to_try',          // Things to experiment with
+  'what_worked',          // Successful approaches worth remembering
+  'what_didnt_work',      // Failed approaches to avoid
+  'question_for_founder'  // Things she wants to ask about
+]);
+
+export const danielaNotes = pgTable("daniela_notes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  noteType: danielaNoteTypeEnum("note_type").notNull(),
+  
+  // The note content
+  title: varchar("title", { length: 255 }).notNull(),
+  content: text("content").notNull(),
+  
+  // Optional context
+  language: varchar("language", { length: 20 }), // null = all languages
+  sessionId: varchar("session_id"), // Which session triggered this
+  studentId: varchar("student_id").references(() => users.id, { onDelete: 'set null' }), // If about a specific student pattern
+  
+  // Relevance tracking
+  timesReferenced: integer("times_referenced").default(0), // How often she's looked this up
+  lastReferencedAt: timestamp("last_referenced_at"),
+  
+  // Organization
+  tags: text("tags").array(), // Freeform tags for searching
+  relatedNoteIds: text("related_note_ids").array(), // Links to related notes
+  
+  // Lifecycle
+  isActive: boolean("is_active").default(true),
+  archivedAt: timestamp("archived_at"), // When soft-archived
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_daniela_notes_type").on(table.noteType),
+  index("idx_daniela_notes_language").on(table.language),
+  index("idx_daniela_notes_active").on(table.isActive),
+  index("idx_daniela_notes_created").on(table.createdAt),
+  index("idx_daniela_notes_type_active").on(table.noteType, table.isActive),
+]);
+
+export const insertDanielaNoteSchema = createInsertSchema(danielaNotes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertDanielaNote = z.infer<typeof insertDanielaNoteSchema>;
+export type DanielaNote = typeof danielaNotes.$inferSelect;
+export type DanielaNoteType = 'tool_experiment' | 'teaching_rhythm' | 'session_reflection' | 'language_insight' | 'student_pattern' | 'idea_to_try' | 'what_worked' | 'what_didnt_work' | 'question_for_founder';
+
 // Agenda Queue Priority Enum
 export const agendaPriorityEnum = pgEnum("agenda_priority", [
   'high',      // Urgent - discuss first

@@ -37,6 +37,7 @@ export type ActionCommandType =
   | 'SELF_SURGERY'      // Neural network modifications (Founder Mode)
   // === MEMORY ===
   | 'MEMORY_LOOKUP'     // On-demand search of neural memory for people, topics, etc.
+  | 'TAKE_NOTE'         // Daniela's personal notebook - direct insert, no approval
   // === VOICE CONTROL ===
   | 'VOICE_ADJUST'      // Real-time voice adjustment (speed, emotion)
   | 'VOICE_RESET'       // Reset voice to baseline
@@ -106,10 +107,23 @@ export const VALID_ENUM_VALUES = {
     'tools',               // → toolKnowledge (her capabilities)
     'procedures',          // → tutorProcedures (how she teaches)
     'patterns',            // → situationalPatterns (when to do what)
+    'notes',               // → danielaNotes (her personal notebook)
     // Language-specific knowledge
     'idiom', 'cultural', 'error-pattern',
     // Advanced intelligence
     'subtlety-cue', 'emotional-pattern', 'creativity-template'
+  ],
+  // Daniela's personal notebook - direct insert, no approval required
+  TAKE_NOTE_TYPE: [
+    'tool_experiment',      // Notes about tool usage (whiteboard, subtitles, etc.)
+    'teaching_rhythm',      // Pacing, energy, engagement observations
+    'session_reflection',   // Post-session thoughts
+    'language_insight',     // Language-specific discoveries
+    'student_pattern',      // Patterns observed across students
+    'idea_to_try',          // Things to experiment with
+    'what_worked',          // Successful approaches worth remembering
+    'what_didnt_work',      // Failed approaches to avoid
+    'question_for_founder'  // Things she wants to ask about
   ],
 };
 
@@ -213,6 +227,11 @@ const COMMAND_SCHEMAS: Record<ActionCommandType, { required: string[]; optional:
     required: ['query'],  // The search query (name, topic, question)
     optional: ['domains'],  // Comma-separated domains to search (person,motivation,insight,struggle,session,progress)
     enums: {},  // domains validated separately since it's comma-separated
+  },
+  TAKE_NOTE: {
+    required: ['type', 'title', 'content'],  // Note type, short title, full content
+    optional: ['language', 'tags'],  // Optional language context and freeform tags
+    enums: { type: VALID_ENUM_VALUES.TAKE_NOTE_TYPE },
   },
 };
 

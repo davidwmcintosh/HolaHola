@@ -193,6 +193,10 @@ import {
   danielaGrowthMemories,
   type DanielaGrowthMemory,
   type InsertDanielaGrowthMemory,
+  danielaNotes,
+  type DanielaNote,
+  type InsertDanielaNote,
+  type DanielaNoteType,
   featureSprints,
   sprintStageTransitions,
   consultationThreads,
@@ -7275,6 +7279,75 @@ export class DatabaseStorage implements IStorage {
   async insertDanielaGrowthMemory(data: InsertDanielaGrowthMemory): Promise<string> {
     const [created] = await db.insert(danielaGrowthMemories).values([data]).returning();
     return created.id;
+  }
+  
+  // ===== DANIELA'S PERSONAL NOTEBOOK (Direct Insert - No Approval) =====
+  
+  async insertDanielaNote(data: InsertDanielaNote): Promise<string> {
+    const [created] = await db.insert(danielaNotes).values([data]).returning();
+    console.log(`[Daniela Notes] Saved note: ${data.noteType} - ${data.title}`);
+    return created.id;
+  }
+  
+  async getDanielaNotes(filters?: {
+    noteType?: DanielaNoteType;
+    language?: string;
+    limit?: number;
+    includeArchived?: boolean;
+  }): Promise<DanielaNote[]> {
+    const conditions: any[] = [];
+    
+    if (!filters?.includeArchived) {
+      conditions.push(eq(danielaNotes.isActive, true));
+    }
+    if (filters?.noteType) {
+      conditions.push(eq(danielaNotes.noteType, filters.noteType));
+    }
+    if (filters?.language) {
+      conditions.push(eq(danielaNotes.language, filters.language));
+    }
+    
+    let query = db.select().from(danielaNotes);
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    const results = await query
+      .orderBy(desc(danielaNotes.createdAt))
+      .limit(filters?.limit ?? 50);
+    
+    return results;
+  }
+  
+  async searchDanielaNotes(searchText: string, limit: number = 20): Promise<DanielaNote[]> {
+    const pattern = `%${searchText.toLowerCase()}%`;
+    return await db.select()
+      .from(danielaNotes)
+      .where(and(
+        eq(danielaNotes.isActive, true),
+        or(
+          sql`lower(${danielaNotes.title}) LIKE ${pattern}`,
+          sql`lower(${danielaNotes.content}) LIKE ${pattern}`
+        )
+      ))
+      .orderBy(desc(danielaNotes.createdAt))
+      .limit(limit);
+  }
+  
+  async incrementNoteReference(noteId: string): Promise<void> {
+    await db.update(danielaNotes)
+      .set({ 
+        timesReferenced: sql`${danielaNotes.timesReferenced} + 1`,
+        lastReferencedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(danielaNotes.id, noteId));
+  }
+  
+  async archiveDanielaNote(id: string): Promise<void> {
+    await db.update(danielaNotes)
+      .set({ isActive: false, archivedAt: new Date(), updatedAt: new Date() })
+      .where(eq(danielaNotes.id, id));
   }
   
   // ===== BRAIN SURGERY DEACTIVATE/ROLLBACK METHODS =====
