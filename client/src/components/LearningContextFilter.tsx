@@ -26,11 +26,10 @@ const publicLanguages = [
   { value: "japanese", label: "Japanese" },
   { value: "mandarin", label: "Mandarin" },
   { value: "korean", label: "Korean" },
-];
-
-const hiddenLanguages = [
   { value: "hebrew", label: "Hebrew" },
 ];
+
+const hiddenLanguages: { value: string; label: string }[] = [];
 
 interface LanguageOption {
   value: string;
@@ -76,6 +75,11 @@ export function LearningContextFilter({
 
   // Smart-filter languages: show languages user is enrolled in, has as target, OR has progress in
   const availableLanguages = useMemo(() => {
+    // Developers/admins see all languages without filtering
+    if (isDeveloper) {
+      return allLanguages;
+    }
+    
     // Get unique languages from enrolled classes
     const enrolledLanguages = new Set(
       enrolledClasses
@@ -103,7 +107,7 @@ export function LearningContextFilter({
       lang.value === "all" || enrolledLanguages.has(lang.value.toLowerCase())
     );
     return filteredLanguages;
-  }, [enrolledClasses, user?.targetLanguage, userLanguagesData?.languages]);
+  }, [enrolledClasses, user?.targetLanguage, userLanguagesData?.languages, isDeveloper, allLanguages]);
 
   const selectedLanguage = availableLanguages.find((lang) => lang.value === language) 
     || allLanguages.find((lang) => lang.value === language);
