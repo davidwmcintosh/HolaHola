@@ -2104,23 +2104,32 @@ export function StreamingVoiceChat({
     // Clear preparing state if still waiting for mic
     setIsMicPreparing(false);
     
-    // Stop speculative PTT streaming and notify server
-    pttStreamingActiveRef.current = false;
-    if (pttStreamingProcessorRef.current) {
-      pttStreamingProcessorRef.current.disconnect();
-      pttStreamingProcessorRef.current = null;
-    }
-    if (pttStreamingAudioContextRef.current) {
-      pttStreamingAudioContextRef.current.close().catch(console.error);
-      pttStreamingAudioContextRef.current = null;
-    }
-    
-    // Send ptt_release to server to finalize the speculative transcript
-    // Mark that we sent ptt_release so onstop skips sending audio_data blob
-    // This prevents double AI response (one from ptt_release transcript, one from audio blob)
+    // FIX: Send ptt_release FIRST, THEN stop audio after a short delay
+    // This ensures all in-flight audio reaches the server before we cut the stream
+    // Without this delay, the final words of short phrases can get cut off
     pttReleaseSentRef.current = true;
     streamingVoice.sendPttRelease();
-    console.log('[SpeculativePTT] Stopped streaming and sent ptt_release (skipping audio blob)');
+    console.log('[SpeculativePTT] Sent ptt_release - audio will stop after 100ms drain delay');
+    
+    // Stop streaming flag immediately to prevent new chunks, but keep processor alive briefly
+    pttStreamingActiveRef.current = false;
+    
+    // Delay audio processor disconnect to allow final chunks to transmit
+    // 100ms is enough for any queued audio buffers to flush to WebSocket
+    const processor = pttStreamingProcessorRef.current;
+    const audioContext = pttStreamingAudioContextRef.current;
+    pttStreamingProcessorRef.current = null;
+    pttStreamingAudioContextRef.current = null;
+    
+    setTimeout(() => {
+      if (processor) {
+        try { processor.disconnect(); } catch (e) { /* already disconnected */ }
+      }
+      if (audioContext) {
+        audioContext.close().catch(() => { /* already closed */ });
+      }
+      console.log('[SpeculativePTT] Audio processor disconnected after drain delay');
+    }, 100);
     
     // IMMEDIATELY reset subtitles to prevent phantom flash during the gap
     // between stop() being called and onstop callback firing
