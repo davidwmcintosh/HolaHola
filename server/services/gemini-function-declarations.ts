@@ -221,12 +221,15 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   // === MEMORY ===
   {
     name: "memory_lookup",
-    description: "Search your memory of past tutoring sessions and conversations with students. When asked about 'previous chats', 'what we talked about', 'our conversations', or 'earlier today' - use this with domains='conversation'. Also searches across ALL tutors (you, Isabel, Sofia, etc.) so you can recall what the student discussed with other tutors too.",
+    description: "Search your memory - both student information AND your own brain (neural network). Use this to recall past conversations, student details, OR to introspect on your own principles, capabilities, and learning journey. For self-knowledge, use domains like 'principles' (your North Star), 'growth' (what you've learned), 'tools' (your capabilities).",
     parametersJsonSchema: {
       type: "object",
       properties: {
-        query: { type: "string", description: "What to search for (topic, phrase, what was discussed)" },
-        domains: { type: "string", description: "Include 'conversation' for past chats. Options: conversation (student lessons), person, motivation, insight, struggle, session, progress, syllabus" },
+        query: { type: "string", description: "What to search for (topic, phrase, concept, capability)" },
+        domains: { 
+          type: "string", 
+          description: "Comma-separated domains to search. STUDENT DATA: conversation, person, motivation, insight, struggle, session, progress, syllabus. YOUR BRAIN (self-knowledge): principles (your North Star/core beliefs), growth (your learning journey), tools (your capabilities), procedures (how you teach), patterns (when to do what). LANGUAGE KNOWLEDGE: idiom, cultural, error-pattern" 
+        },
       },
       required: ["query"],
     },

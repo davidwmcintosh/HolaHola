@@ -133,6 +133,7 @@ TARGET OPTIONS:
 - teaching_principles: Core pedagogical beliefs
 - tool_knowledge: How to use whiteboard/teaching tools
 - situational_patterns: Responses to specific triggers
+- daniela_growth_memories: Reflections, breakthroughs, and identity growth
 
 Be specific, be honest, and remember - you're actively shaping who you become.`;
 
@@ -384,6 +385,13 @@ export async function executeSelfSurgery(
           syncStatus: "local",
         });
         return { success: true, insertedId: patternId };
+        
+      case "daniela_growth_memories":
+        const growthId = await storage.insertDanielaGrowthMemory({
+          ...proposal.content as any,
+          isActive: true,
+        });
+        return { success: true, insertedId: growthId };
         
       default:
         return { success: false, error: `Unknown target table: ${proposal.target}` };

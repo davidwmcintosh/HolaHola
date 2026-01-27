@@ -34,6 +34,8 @@ import {
   curriculumDrillItems,
   messages,
   conversations,
+  danielaGrowthMemories,
+  toolKnowledge,
   type PeopleConnection,
   type StudentInsight,
   type LearningMotivation,
@@ -50,6 +52,8 @@ import {
   type CurriculumPath,
   type CurriculumUnit,
   type CurriculumLesson,
+  type DanielaGrowthMemory,
+  type ToolKnowledge,
 } from '@shared/schema';
 import { eq, sql, desc, and, or, ilike } from 'drizzle-orm';
 
@@ -679,7 +683,7 @@ export async function getStudentMemorySummary(studentId: string): Promise<string
  * Teaching memory search result
  */
 export interface TeachingMemoryResult {
-  domain: 'idiom' | 'cultural' | 'procedure' | 'principle' | 'error-pattern' | 'situational-pattern' | 'subtlety-cue' | 'emotional-pattern' | 'creativity-template';
+  domain: 'idiom' | 'cultural' | 'procedure' | 'procedures' | 'principle' | 'principles' | 'error-pattern' | 'situational-pattern' | 'patterns' | 'subtlety-cue' | 'emotional-pattern' | 'creativity-template' | 'growth' | 'tools';
   relevance: number;
   summary: string;
   details: string;
@@ -709,7 +713,7 @@ export interface TeachingMemoryResponse {
 export async function searchTeachingKnowledge(
   query: string,
   language?: string,
-  domains?: ('idiom' | 'cultural' | 'procedure' | 'principle' | 'error-pattern' | 'situational-pattern' | 'subtlety-cue' | 'emotional-pattern' | 'creativity-template')[]
+  domains?: ('idiom' | 'cultural' | 'procedure' | 'procedures' | 'principle' | 'principles' | 'error-pattern' | 'situational-pattern' | 'patterns' | 'subtlety-cue' | 'emotional-pattern' | 'creativity-template' | 'growth' | 'tools')[]
 ): Promise<TeachingMemoryResponse> {
   const results: TeachingMemoryResult[] = [];
   const searchedDomains: string[] = [];
@@ -717,7 +721,7 @@ export async function searchTeachingKnowledge(
   const normalizedQuery = query.toLowerCase().trim();
   const searchPattern = `%${normalizedQuery}%`;
   
-  const domainsToSearch = domains || ['idiom', 'cultural', 'procedure', 'principle', 'error-pattern', 'situational-pattern', 'subtlety-cue', 'emotional-pattern', 'creativity-template'];
+  const domainsToSearch = domains || ['idiom', 'cultural', 'procedures', 'principles', 'error-pattern', 'patterns', 'subtlety-cue', 'emotional-pattern', 'creativity-template', 'growth', 'tools'];
   const searchPromises: Promise<void>[] = [];
   
   // === LANGUAGE IDIOMS ===
@@ -812,9 +816,9 @@ export async function searchTeachingKnowledge(
     })());
   }
   
-  // === TUTOR PROCEDURES ===
-  if (domainsToSearch.includes('procedure')) {
-    searchedDomains.push('procedure');
+  // === TUTOR PROCEDURES (How Daniela teaches) ===
+  if (domainsToSearch.includes('procedure') || domainsToSearch.includes('procedures')) {
+    searchedDomains.push('procedures');
     searchPromises.push((async () => {
       try {
         let whereClause = and(
@@ -845,7 +849,7 @@ export async function searchTeachingKnowledge(
         for (const proc of procedures) {
           const examples = proc.examples?.slice(0, 2).join('; ') || '';
           results.push({
-            domain: 'procedure',
+            domain: 'procedures',
             relevance: (proc.priority || 50) / 100,
             summary: `[${proc.category}/${proc.trigger}] ${proc.title}`,
             details: [
@@ -863,9 +867,9 @@ export async function searchTeachingKnowledge(
     })());
   }
   
-  // === TEACHING PRINCIPLES ===
-  if (domainsToSearch.includes('principle')) {
-    searchedDomains.push('principle');
+  // === TEACHING PRINCIPLES (Daniela's North Star - core beliefs) ===
+  if (domainsToSearch.includes('principle') || domainsToSearch.includes('principles')) {
+    searchedDomains.push('principles');
     searchPromises.push((async () => {
       try {
         const whereClause = and(
@@ -885,7 +889,7 @@ export async function searchTeachingKnowledge(
         for (const principle of principles) {
           const examples = principle.examples?.slice(0, 2).join('; ') || '';
           results.push({
-            domain: 'principle',
+            domain: 'principles',
             relevance: (principle.priority || 50) / 100,
             summary: `[${principle.category}] ${principle.principle.substring(0, 100)}`,
             details: [
@@ -947,9 +951,9 @@ export async function searchTeachingKnowledge(
     })());
   }
   
-  // === SITUATIONAL PATTERNS (Option B - Advanced Intelligence) ===
-  if (domainsToSearch.includes('situational-pattern')) {
-    searchedDomains.push('situational-pattern');
+  // === SITUATIONAL PATTERNS (When to do what) ===
+  if (domainsToSearch.includes('situational-pattern') || domainsToSearch.includes('patterns')) {
+    searchedDomains.push('patterns');
     searchPromises.push((async () => {
       try {
         const whereClause = and(
@@ -970,7 +974,7 @@ export async function searchTeachingKnowledge(
           const tools = pattern.toolsToSuggest?.slice(0, 3).join(', ') || '';
           const procedures = pattern.proceduresToActivate?.slice(0, 2).join(', ') || '';
           results.push({
-            domain: 'situational-pattern',
+            domain: 'patterns',
             relevance: (pattern.priority || 50) / 100,
             summary: `[${pattern.patternName}] ${(pattern.description || '').substring(0, 80)}`,
             details: [
@@ -1126,6 +1130,90 @@ export async function searchTeachingKnowledge(
         }
       } catch (err: any) {
         console.error('[NeuralMemory] Error searching creativity templates:', err.message);
+      }
+    })());
+  }
+  
+  // === DANIELA'S GROWTH MEMORIES (Her learning journey) ===
+  if (domainsToSearch.includes('growth')) {
+    searchedDomains.push('growth');
+    searchPromises.push((async () => {
+      try {
+        const whereClause = and(
+          eq(danielaGrowthMemories.isActive, true),
+          or(
+            ilike(danielaGrowthMemories.title, searchPattern),
+            ilike(danielaGrowthMemories.lesson, searchPattern),
+            ilike(danielaGrowthMemories.specificContent, searchPattern),
+            ilike(danielaGrowthMemories.category, searchPattern)
+          )
+        );
+        
+        const memories = await getSharedDb().select().from(danielaGrowthMemories)
+          .where(whereClause)
+          .orderBy(desc(danielaGrowthMemories.importance))
+          .limit(15);
+        
+        for (const memory of memories) {
+          results.push({
+            domain: 'growth',
+            relevance: (memory.importance || 5) / 10,
+            summary: `[${memory.category}] ${memory.title}`,
+            details: [
+              memory.lesson,
+              memory.specificContent ? `Specific: ${memory.specificContent.substring(0, 100)}` : '',
+              memory.triggerConditions ? `When to apply: ${memory.triggerConditions}` : '',
+              memory.sourceType ? `Learned from: ${memory.sourceType}` : '',
+            ].filter(Boolean).join('. '),
+            language: null,
+            source: 'daniela_growth_memories',
+          });
+        }
+      } catch (err: any) {
+        console.error('[NeuralMemory] Error searching growth memories:', err.message);
+      }
+    })());
+  }
+  
+  // === TOOL KNOWLEDGE (Daniela's capabilities) ===
+  if (domainsToSearch.includes('tools')) {
+    searchedDomains.push('tools');
+    searchPromises.push((async () => {
+      try {
+        const whereClause = and(
+          eq(toolKnowledge.isActive, true),
+          or(
+            ilike(toolKnowledge.toolName, searchPattern),
+            ilike(toolKnowledge.purpose, searchPattern),
+            ilike(toolKnowledge.syntax, searchPattern),
+            ilike(toolKnowledge.toolType, searchPattern)
+          )
+        );
+        
+        const tools = await getSharedDb().select().from(toolKnowledge)
+          .where(whereClause)
+          .orderBy(desc(toolKnowledge.createdAt))
+          .limit(10);
+        
+        for (const tool of tools) {
+          const examples = tool.examples?.slice(0, 2).join('; ') || '';
+          const bestFor = tool.bestUsedFor?.slice(0, 3).join(', ') || '';
+          results.push({
+            domain: 'tools',
+            relevance: 0.8,
+            summary: `[${tool.toolType}] ${tool.toolName}`,
+            details: [
+              tool.purpose,
+              `Syntax: ${tool.syntax}`,
+              examples ? `Examples: ${examples}` : '',
+              bestFor ? `Best for: ${bestFor}` : '',
+            ].filter(Boolean).join('. '),
+            language: null,
+            source: 'tool_knowledge',
+          });
+        }
+      } catch (err: any) {
+        console.error('[NeuralMemory] Error searching tool knowledge:', err.message);
       }
     })());
   }

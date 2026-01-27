@@ -96,8 +96,21 @@ export const VALID_ENUM_VALUES = {
   VOICE_ADJUST_PERSONALITY: ['warm', 'calm', 'energetic', 'professional'],
   // UI Control commands
   SUBTITLE_MODE: ['off', 'on', 'target'],
-  // Memory lookup domains
-  MEMORY_LOOKUP_DOMAINS: ['person', 'motivation', 'insight', 'struggle', 'session', 'progress', 'conversation', 'syllabus'],
+  // Memory lookup domains - includes both student data AND self-knowledge (Daniela's brain)
+  MEMORY_LOOKUP_DOMAINS: [
+    // Student data domains
+    'person', 'motivation', 'insight', 'struggle', 'session', 'progress', 'conversation', 'syllabus',
+    // Self-knowledge domains (Daniela's neural network / brain)
+    'principles',          // → teachingPrinciples (her North Star - core beliefs)
+    'growth',              // → danielaGrowthMemories (her learning journey)
+    'tools',               // → toolKnowledge (her capabilities)
+    'procedures',          // → tutorProcedures (how she teaches)
+    'patterns',            // → situationalPatterns (when to do what)
+    // Language-specific knowledge
+    'idiom', 'cultural', 'error-pattern',
+    // Advanced intelligence
+    'subtlety-cue', 'emotional-pattern', 'creativity-template'
+  ],
 };
 
 /**

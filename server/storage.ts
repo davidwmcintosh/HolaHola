@@ -190,6 +190,9 @@ import {
   teachingPrinciples,
   type TeachingPrinciple,
   type InsertTeachingPrinciple,
+  danielaGrowthMemories,
+  type DanielaGrowthMemory,
+  type InsertDanielaGrowthMemory,
   featureSprints,
   sprintStageTransitions,
   consultationThreads,
@@ -7269,6 +7272,11 @@ export class DatabaseStorage implements IStorage {
     return created.id;
   }
   
+  async insertDanielaGrowthMemory(data: InsertDanielaGrowthMemory): Promise<string> {
+    const [created] = await db.insert(danielaGrowthMemories).values([data]).returning();
+    return created.id;
+  }
+  
   // ===== BRAIN SURGERY DEACTIVATE/ROLLBACK METHODS =====
   
   async deactivateTutorProcedure(id: string): Promise<void> {
@@ -7293,6 +7301,12 @@ export class DatabaseStorage implements IStorage {
     await db.update(situationalPatterns)
       .set({ isActive: false })
       .where(eq(situationalPatterns.id, id));
+  }
+  
+  async deactivateDanielaGrowthMemory(id: string): Promise<void> {
+    await db.update(danielaGrowthMemories)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(danielaGrowthMemories.id, id));
   }
   
   // ===== COLLABORATIVE SURGERY SESSIONS =====
