@@ -675,8 +675,15 @@ export class OpenMicSession {
                     return (text.match(/[^\x00-\x7F]/g) || []).length;
                   };
                   
+                  // Count words for word-level preservation check
+                  const countWords = (text: string) => {
+                    return text.trim().split(/\s+/).filter(w => w.length > 0).length;
+                  };
+                  
                   const interimNonAscii = countNonAscii(this.bestInterimForSegment);
                   const finalNonAscii = countNonAscii(transcript);
+                  const interimWords = countWords(this.bestInterimForSegment);
+                  const finalWords = countWords(transcript);
                   
                   // Check if foreign language content was lost
                   const lostNonAscii = interimNonAscii - finalNonAscii;
@@ -687,9 +694,16 @@ export class OpenMicSession {
                     console.log(`[OpenMic]   Final (${finalNonAscii} non-ASCII): "${transcript.slice(0, 60)}..."`);
                     console.log(`[OpenMic]   Using interim (${interimNonAscii} non-ASCII): "${this.bestInterimForSegment.slice(0, 60)}..."`);
                     transcriptToUse = this.bestInterimForSegment;
-                  } else if (this.bestInterimForSegment.length > transcript.length + 10) {
-                    // Fallback: If interim is significantly longer (10+ chars), prefer it
-                    // This catches content loss even when no special characters involved
+                  } else if (interimWords > finalWords) {
+                    // WORD COUNT PRESERVATION: If interim has more words, prefer it
+                    // This catches "Hola, guapa" → "Hola," truncation even without special chars
+                    console.log(`[OpenMic] WORD PRESERVATION: Final has fewer words (${finalWords} vs ${interimWords})`);
+                    console.log(`[OpenMic]   Final: "${transcript}"`);
+                    console.log(`[OpenMic]   Using interim: "${this.bestInterimForSegment}"`);
+                    transcriptToUse = this.bestInterimForSegment;
+                  } else if (this.bestInterimForSegment.length > transcript.length + 5) {
+                    // Fallback: If interim is significantly longer (5+ chars), prefer it
+                    // Lowered from 10 to catch shorter phrase truncation
                     console.log(`[OpenMic] CONTENT PRESERVATION: Final much shorter than interim (${transcript.length} vs ${this.bestInterimForSegment.length} chars)`);
                     transcriptToUse = this.bestInterimForSegment;
                   }
