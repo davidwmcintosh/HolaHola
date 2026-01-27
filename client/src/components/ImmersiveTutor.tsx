@@ -370,7 +370,7 @@ export function ImmersiveTutor({
           <Button
             variant="ghost"
             size="sm"
-            className={`rounded-full px-3 ${tutorGender === "female" ? "bg-blue-500 text-white hover:bg-blue-600" : ""}`}
+            className={`rounded-full px-3 ${tutorGender === "female" ? "bg-primary text-primary-foreground hover:bg-primary/90" : "text-foreground hover:text-foreground"}`}
             disabled={tutorGender === "female" || isPlaying || isProcessing}
             onClick={() => {
               if (voiceSwitchInProgressRef.current) return;
@@ -386,7 +386,7 @@ export function ImmersiveTutor({
           <Button
             variant="ghost"
             size="sm"
-            className={`rounded-full px-3 ${tutorGender === "male" ? "bg-blue-500 text-white hover:bg-blue-600" : ""}`}
+            className={`rounded-full px-3 ${tutorGender === "male" ? "bg-primary text-primary-foreground hover:bg-primary/90" : "text-foreground hover:text-foreground"}`}
             disabled={tutorGender === "male" || isPlaying || isProcessing}
             onClick={() => {
               if (voiceSwitchInProgressRef.current) return;
