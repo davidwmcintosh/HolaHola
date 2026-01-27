@@ -1422,7 +1422,7 @@ export const tutorModeEnum = pgEnum('tutor_mode', ['main', 'assistant']);
 export const voiceSessions = pgTable("voice_sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
-  conversationId: varchar("conversation_id").references(() => conversations.id),
+  conversationId: varchar("conversation_id"), // FK constraint already exists in DB - removed from schema to prevent duplicate during deploy
   // Session timing
   startedAt: timestamp("started_at").notNull().defaultNow(),
   endedAt: timestamp("ended_at"),
