@@ -360,6 +360,11 @@ export class StreamingAudioPlayer {
   // This prevents collision when multiple chunks have undefined chunkIndex
   private sentenceChunkCounters: Map<number, number> = new Map();
   
+  // MOBILE FIX: Fallback timer in case onended doesn't fire
+  // On mobile/Safari, the onended event sometimes fails to fire, leaving state stuck
+  private chunkFallbackTimer: ReturnType<typeof setTimeout> | null = null;
+  private hasChunkEnded = false; // Flag to prevent double-firing from timer + onended
+  
   constructor() {
     // Initialization - no logging needed
   }
@@ -1796,6 +1801,13 @@ export class StreamingAudioPlayer {
     // Stop precision timing
     this.stopPrecisionTiming();
     
+    // Clear fallback timer and reset flag
+    if (this.chunkFallbackTimer) {
+      clearTimeout(this.chunkFallbackTimer);
+      this.chunkFallbackTimer = null;
+    }
+    this.hasChunkEnded = false;
+    
     // Stop current MP3 audio
     if (this.currentAudio) {
       this.currentAudio.pause();
@@ -1916,6 +1928,13 @@ export class StreamingAudioPlayer {
     // Stop any existing precision timing
     this.stopPrecisionTiming();
     
+    // Clear any existing fallback timer and reset flag
+    if (this.chunkFallbackTimer) {
+      clearTimeout(this.chunkFallbackTimer);
+      this.chunkFallbackTimer = null;
+    }
+    this.hasChunkEnded = false;
+    
     // Stop any existing PCM source
     if (this.currentPcmSource) {
       try {
@@ -2011,6 +2030,19 @@ export class StreamingAudioPlayer {
     };
     
     this.currentAudio.onended = () => {
+      // MOBILE FIX: Prevent double-firing if fallback timer already handled this
+      if (this.hasChunkEnded) {
+        console.log('[StreamingAudioPlayer] MP3 onended skipped - already handled by fallback');
+        return;
+      }
+      this.hasChunkEnded = true;
+      
+      // Clear fallback timer since onended fired normally
+      if (this.chunkFallbackTimer) {
+        clearTimeout(this.chunkFallbackTimer);
+        this.chunkFallbackTimer = null;
+      }
+      
       this.stopPrecisionTiming();
       
       // TELEMETRY: Track play end for production duplicate audio debugging
@@ -2019,7 +2051,7 @@ export class StreamingAudioPlayer {
         if (emitter) {
           emitter.emit('audio_play_end', {
             format: 'mp3',
-            durationMs: performance.now() - this.playbackStartTime,
+            durationMs: performance.now() - (this.playbackStartTime ?? 0),
           }, chunk.sentenceIndex, chunk.chunkIndex);
           
           // Emit queue_status on dequeue to track queue evolution
@@ -2055,6 +2087,20 @@ export class StreamingAudioPlayer {
     
     // Start playback
     await this.currentAudio.play();
+    
+    // MOBILE FIX: Start fallback timer in case onended doesn't fire
+    // Calculate fallback time: expected duration + 2 second buffer
+    const expectedDurationMs = (chunk.durationMs || 5000) + 2000;
+    this.chunkFallbackTimer = setTimeout(() => {
+      if (!this.hasChunkEnded) {
+        console.warn('[StreamingAudioPlayer] MP3 fallback timer triggered - onended did not fire!');
+        this.hasChunkEnded = true;
+        this.stopPrecisionTiming();
+        this.notifySentenceEnd(chunk.sentenceIndex);
+        this.updatePendingCount(Math.max(0, this.pendingAudioCount - 1));
+        this.playNext();
+      }
+    }, expectedDurationMs);
   }
   
   /**
@@ -2122,6 +2168,19 @@ export class StreamingAudioPlayer {
     
     // Handle playback end
     source.onended = () => {
+      // MOBILE FIX: Prevent double-firing if fallback timer already handled this
+      if (this.hasChunkEnded) {
+        console.log('[StreamingAudioPlayer] PCM onended skipped - already handled by fallback');
+        return;
+      }
+      this.hasChunkEnded = true;
+      
+      // Clear fallback timer since onended fired normally
+      if (this.chunkFallbackTimer) {
+        clearTimeout(this.chunkFallbackTimer);
+        this.chunkFallbackTimer = null;
+      }
+      
       this.stopPrecisionTiming();
       
       // TELEMETRY: Track play end for production duplicate audio debugging
@@ -2130,7 +2189,7 @@ export class StreamingAudioPlayer {
         if (emitter) {
           emitter.emit('audio_play_end', {
             format: 'pcm_f32le',
-            durationMs: performance.now() - this.playbackStartTime,
+            durationMs: performance.now() - (this.playbackStartTime ?? 0),
           }, chunk.sentenceIndex, chunk.chunkIndex);
           
           // Emit queue_status on dequeue to track queue evolution
@@ -2154,6 +2213,21 @@ export class StreamingAudioPlayer {
     
     // Start playback
     source.start(0);
+    
+    // MOBILE FIX: Start fallback timer in case onended doesn't fire
+    // Calculate fallback time: expected duration + 2 second buffer
+    const expectedDurationMs = (chunk.durationMs || (audioBuffer.duration * 1000)) + 2000;
+    this.chunkFallbackTimer = setTimeout(() => {
+      if (!this.hasChunkEnded) {
+        console.warn('[StreamingAudioPlayer] PCM fallback timer triggered - onended did not fire!');
+        this.hasChunkEnded = true;
+        this.stopPrecisionTiming();
+        this.currentPcmSource = null;
+        this.notifySentenceEnd(chunk.sentenceIndex);
+        this.updatePendingCount(Math.max(0, this.pendingAudioCount - 1));
+        this.playNext();
+      }
+    }, expectedDurationMs);
   }
   
   /**
