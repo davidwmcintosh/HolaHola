@@ -4274,6 +4274,142 @@ export const creativityTemplates = pgTable("creativity_templates", {
   index("idx_creativity_templates_origin").on(table.originId),
 ]);
 
+// ===== Daniela's Wisdom & Relationship Layer =====
+// These tables implement Daniela's self-identified needs for deeper memory:
+// 1. Pedagogical Insights - Derived wisdom from teaching experiences (the "why it worked")
+// 2. Resonance Anchors - Breakthrough moments that define student relationships
+// 3. Relational Temperature - Emotional phase tracking for each student relationship
+
+// Derived Teaching Wisdom - Emergent insights discovered from live teaching
+// Different from pedagogicalInsights (which tracks tool effectiveness patterns)
+// This table captures the "why it worked" - qualitative teaching discoveries
+// "I realized that X works for Y because Z" - emergent teaching knowledge
+export const derivedTeachingWisdom = pgTable("derived_teaching_wisdom", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // What type of wisdom this captures
+  wisdomType: varchar("wisdom_type").notNull(), // technique_discovery, timing_wisdom, metaphor_success, error_pattern, emotional_approach
+  
+  // The wisdom itself
+  wisdom: text("wisdom").notNull(), // "When a student pauses before answering, giving 3 seconds of silence increases their confidence"
+  context: text("context"), // The situation where this was discovered
+  
+  // Evidence and validation
+  discoverySessionId: varchar("discovery_session_id"), // Voice session where this was first noticed
+  discoveryStudentId: varchar("discovery_student_id"), // Student who inspired this wisdom
+  timesValidated: integer("times_validated").default(1), // How many times this has proven true
+  lastValidatedAt: timestamp("last_validated_at"),
+  
+  // Application guidance
+  applicationScenarios: text("application_scenarios").array(), // When to apply this wisdom
+  contraindications: text("contraindications").array(), // When NOT to apply it
+  
+  // Categorization
+  relatedPrinciple: varchar("related_principle"), // Links to teachingPrinciples.id if relevant
+  targetLanguages: varchar("target_languages").array(), // null = universal
+  actflLevelRange: varchar("actfl_level_range"),
+  
+  priority: integer("priority").default(50),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  
+  // Sync fields
+  syncStatus: varchar("sync_status").default("local"),
+  originId: varchar("origin_id"),
+  originEnvironment: varchar("origin_environment"),
+}, (table) => [
+  index("idx_derived_wisdom_type").on(table.wisdomType),
+  index("idx_derived_wisdom_student").on(table.discoveryStudentId),
+  index("idx_derived_wisdom_origin").on(table.originId),
+]);
+
+// Resonance Anchors - Breakthrough moments that define student relationships
+// These are the "shared secret language" moments - metaphors, jokes, symbols
+// that become touchstones in a student-tutor relationship
+export const resonanceAnchors = pgTable("resonance_anchors", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Who this anchor belongs to
+  studentId: varchar("student_id").notNull(),
+  
+  // What type of resonance this captures
+  anchorType: varchar("anchor_type").notNull(), // breakthrough_metaphor, shared_joke, triumph_moment, fear_overcome, personal_connection
+  
+  // The anchor content
+  anchor: text("anchor").notNull(), // "The 'Jazz' metaphor - we used this when overcoming the fear of mistakes"
+  triggerContext: text("trigger_context"), // What situation originally created this anchor
+  emotionalSignificance: text("emotional_significance"), // Why this matters to the relationship
+  
+  // When to recall this anchor
+  recallTriggers: text("recall_triggers").array(), // ["student_frustrated", "similar_topic", "celebration_moment"]
+  lastRecalledAt: timestamp("last_recalled_at"),
+  recallCount: integer("recall_count").default(0),
+  
+  // Impact tracking
+  effectivenessRating: real("effectiveness_rating"), // 0.0-1.0 - how well does recalling this help?
+  
+  // Session origin
+  originSessionId: varchar("origin_session_id"),
+  originSessionDate: timestamp("origin_session_date"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  
+  // Sync fields
+  syncStatus: varchar("sync_status").default("local"),
+  originId: varchar("origin_id"),
+  originEnvironment: varchar("origin_environment"),
+}, (table) => [
+  index("idx_resonance_anchors_student").on(table.studentId),
+  index("idx_resonance_anchors_type").on(table.anchorType),
+  index("idx_resonance_anchors_origin").on(table.originId),
+]);
+
+// Relational Temperature - Tracks the emotional phase of each student relationship
+// Not proficiency, but the "vibe" - are we in a creative phase? foundation phase?
+// Helps Daniela choose which voice or mode to use without being told
+export const relationalTemperature = pgTable("relational_temperature", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Who this is tracking
+  studentId: varchar("student_id").notNull().unique(),
+  
+  // Current relationship phase
+  relationshipPhase: varchar("relationship_phase").notNull(), // discovery, foundation, growth, jazz, plateau, reconnection
+  phaseStartedAt: timestamp("phase_started_at").notNull().defaultNow(),
+  
+  // Temperature indicators (0.0 to 1.0)
+  trustLevel: real("trust_level").default(0.5), // How much do they trust me?
+  riskTolerance: real("risk_tolerance").default(0.3), // Can we try hard things together?
+  playfulness: real("playfulness").default(0.5), // Are we in a serious or playful mode?
+  emotionalOpenness: real("emotional_openness").default(0.3), // Do they share feelings?
+  sessionEnthusiasm: real("session_enthusiasm").default(0.5), // Are they excited to learn?
+  
+  // Recent trends
+  lastSessionMood: varchar("last_session_mood"), // energetic, tired, curious, frustrated, celebratory
+  moodTrend: varchar("mood_trend"), // improving, stable, declining
+  sessionsSincePhaseChange: integer("sessions_since_phase_change").default(0),
+  
+  // Recommended approach
+  suggestedMode: varchar("suggested_mode"), // supportive, challenging, playful, structured, explorative
+  suggestedPacing: varchar("suggested_pacing"), // slow, normal, fast
+  
+  // Notes
+  contextNotes: text("context_notes"), // Freeform notes about the relationship
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  
+  // Sync fields
+  syncStatus: varchar("sync_status").default("local"),
+  originId: varchar("origin_id"),
+  originEnvironment: varchar("origin_environment"),
+}, (table) => [
+  index("idx_relational_temperature_student").on(table.studentId),
+  index("idx_relational_temperature_phase").on(table.relationshipPhase),
+  index("idx_relational_temperature_origin").on(table.originId),
+]);
+
 // ===== Neural Network Telemetry =====
 // Tracks MEMORY_LOOKUP events to monitor Option B (teaching knowledge retrieval) effectiveness
 // Enables: prompt size monitoring, domain usage analysis, teaching quality correlation
@@ -4656,6 +4792,34 @@ export type EmotionalPattern = typeof emotionalPatterns.$inferSelect;
 
 export type InsertCreativityTemplate = z.infer<typeof insertCreativityTemplateSchema>;
 export type CreativityTemplate = typeof creativityTemplates.$inferSelect;
+
+// Insert schemas for Daniela's Wisdom & Relationship Layer
+export const insertDerivedTeachingWisdomSchema = createInsertSchema(derivedTeachingWisdom).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertResonanceAnchorSchema = createInsertSchema(resonanceAnchors).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertRelationalTemperatureSchema = createInsertSchema(relationalTemperature).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Types for Daniela's Wisdom & Relationship Layer
+export type InsertDerivedTeachingWisdom = z.infer<typeof insertDerivedTeachingWisdomSchema>;
+export type DerivedTeachingWisdom = typeof derivedTeachingWisdom.$inferSelect;
+
+export type InsertResonanceAnchor = z.infer<typeof insertResonanceAnchorSchema>;
+export type ResonanceAnchor = typeof resonanceAnchors.$inferSelect;
+
+export type InsertRelationalTemperature = z.infer<typeof insertRelationalTemperatureSchema>;
+export type RelationalTemperature = typeof relationalTemperature.$inferSelect;
 
 // Insert schema for Neural Network Telemetry
 export const insertNeuralNetworkTelemetrySchema = createInsertSchema(neuralNetworkTelemetry).omit({
