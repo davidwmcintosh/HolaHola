@@ -832,27 +832,6 @@ export class StreamingAudioPlayer {
       console.log(`[AUDIO PLAYER] DEDUP: Skipping duplicate chunk ${chunkKey}`);
       return;
     }
-    
-    // MOBILE DEBUG: Enhanced logging with timestamp and platform detection
-    const isMobile = /iPhone|iPad|Android|Mobile/i.test(navigator.userAgent);
-    const platform = isMobile ? 'MOBILE' : 'DESKTOP';
-    console.log(`[AUDIO PLAYER][${platform}] enqueueProgressivePcmChunk: sentence=${sentenceIndex}, chunk=${chunkIndex}, size=${audio.byteLength}, held=${this.playbackHeld}, time=${Date.now()}`);
-    
-    // MOBILE DEBUG: Track chunk arrival patterns to detect duplicates
-    if (typeof window !== 'undefined' && isMobile) {
-      const w = window as any;
-      if (!w._mobileAudioLog) w._mobileAudioLog = [];
-      w._mobileAudioLog.push({
-        t: Date.now(),
-        s: sentenceIndex,
-        c: chunkIndex,
-        size: audio.byteLength,
-        held: this.playbackHeld
-      });
-      // Keep last 50 entries for debugging
-      if (w._mobileAudioLog.length > 50) w._mobileAudioLog = w._mobileAudioLog.slice(-50);
-    }
-    
     // HOLD PLAYBACK: If held, buffer the chunk for later as a StreamingAudioChunk
     // NOTE: Held chunks are NOT added to dedup set - they'll be processed later
     if (this.playbackHeld) {
@@ -1017,12 +996,6 @@ export class StreamingAudioPlayer {
     source.start(playTime);
     this.progressiveScheduledTime += chunkDuration;
     this.progressiveTotalDuration += chunkDuration;
-    
-    // MOBILE DEBUG: Track active sources to detect double audio
-    if (isMobile) {
-      const activeCount = this.progressiveSources.length;
-      console.log(`[AUDIO PLAYER][MOBILE] Source started: s${sentenceIndex}_c${chunkIndex}, activeSourceCount=${activeCount}, playTime=${playTime.toFixed(3)}, ctxTime=${ctx.currentTime.toFixed(3)}`);
-    }
     
     // Auto-resume if AudioContext becomes suspended (check only, no logging)
     if (ctx.state === 'suspended') {

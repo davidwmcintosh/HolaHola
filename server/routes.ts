@@ -20346,54 +20346,12 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   END OF ARCHIVED ROUTES */
 
   // ============================================================================
-  // CROSS-ENVIRONMENT SYNC API - RETIRED (Jan 2026 - Neon Phase 3)
-  // Replaced by direct Neon database routing - shared tables go to NEON_DATABASE_URL_SHARED
-  // User tables go to NEON_DATABASE_URL_USER (branched per environment)
+  // SYSTEM HEALTH & EXPRESS LANE BRIDGE
+  // Sync auth middleware kept for express-lane-bridge (Hive Consciousness)
+  // Old sync routes retired Jan 2026 - replaced by unified Neon database
   // ============================================================================
   
-  // Import sync auth middleware (kept for express lane bridge)
   const { validateSyncRequest } = await import('./middleware/sync-auth');
-  
-  // RETIRED: syncBridge removed - Neon routing is primary
-  // const { syncBridge } = await import('./services/sync-bridge');
-  
-  // Deprecated sync routes - return 410 Gone
-  const syncDeprecatedHandler = (req: any, res: any) => {
-    res.status(410).json({
-      error: 'Sync API retired',
-      message: 'Cross-environment sync replaced by Neon database routing (Jan 2026)',
-      migration: 'See docs/neon-routing-audit.md for details',
-    });
-  };
-  
-  // Stub all sync routes with deprecation notice
-  app.post('/api/sync/export', validateSyncRequest, syncDeprecatedHandler);
-  app.post('/api/sync/import', validateSyncRequest, syncDeprecatedHandler);
-  app.post('/api/sync/verify-counts', validateSyncRequest, syncDeprecatedHandler);
-  app.get('/api/sync/compare-environments', isAuthenticated, syncDeprecatedHandler);
-  app.get('/api/sync/query-peer-counts', isAuthenticated, syncDeprecatedHandler);
-  app.post('/api/sync/push', isAuthenticated, syncDeprecatedHandler);
-  app.post('/api/sync/pull', isAuthenticated, syncDeprecatedHandler);
-  app.post('/api/sync/full', isAuthenticated, syncDeprecatedHandler);
-  app.get('/api/sync/status', isAuthenticated, syncDeprecatedHandler);
-  app.post('/api/sync/force-reset', isAuthenticated, syncDeprecatedHandler);
-  app.get('/api/sync/peer-stats', isAuthenticated, syncDeprecatedHandler);
-  app.post('/api/sync/trigger-pull', validateSyncRequest, syncDeprecatedHandler);
-  app.post('/api/sync/trigger-force-reset', validateSyncRequest, syncDeprecatedHandler);
-  app.get('/api/sync/nightly-status', validateSyncRequest, syncDeprecatedHandler);
-  app.post('/api/sync/capabilities', validateSyncRequest, syncDeprecatedHandler);
-  app.post('/api/sync/peer-stats', validateSyncRequest, syncDeprecatedHandler);
-  app.post('/api/sync/peer-sync-runs', validateSyncRequest, syncDeprecatedHandler);
-  app.get('/api/sync/peer-sync-runs', isAuthenticated, syncDeprecatedHandler);
-  
-  // Agent sync routes - deprecated
-  app.post('/api/agent/sync/push', requireAgentToken, syncDeprecatedHandler);
-  app.post('/api/agent/sync/pull', requireAgentToken, syncDeprecatedHandler);
-  app.post('/api/agent/sync/full', requireAgentToken, syncDeprecatedHandler);
-  app.get('/api/agent/sync/status', requireAgentToken, syncDeprecatedHandler);
-  app.post('/api/agent/sync/trigger-peer-push', requireAgentToken, syncDeprecatedHandler);
-  app.post('/api/agent/sync/trigger-peer-pull', requireAgentToken, syncDeprecatedHandler);
-  app.post('/api/agent/sync/trigger-peer-force-reset', requireAgentToken, syncDeprecatedHandler);
   
   // Health check: Migration status (still active - doesn't depend on syncBridge)
   app.get('/api/health/migrations', async (req: any, res) => {
