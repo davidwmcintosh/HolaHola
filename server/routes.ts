@@ -20353,23 +20353,6 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   
   const { validateSyncRequest } = await import('./middleware/sync-auth');
   
-  // Diagnostic: Show which database we're connected to (for debugging prod vs dev)
-  app.get('/api/health/database', async (req: any, res) => {
-    try {
-      const result = await db.execute(sql`SELECT current_database() as db_name, current_user as username, (SELECT count(*) FROM conversations) as conversation_count`);
-      const row = result.rows[0] as any;
-      res.json({
-        environment: process.env.NODE_ENV || 'unknown',
-        database: row?.db_name || 'unknown',
-        user: row?.username || 'unknown',
-        conversationCount: row?.conversation_count || 0,
-        databaseUrlHost: process.env.DATABASE_URL?.split('@')[1]?.split('/')[0] || 'hidden',
-      });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
   // Health check: Migration status (still active - doesn't depend on syncBridge)
   app.get('/api/health/migrations', async (req: any, res) => {
     try {

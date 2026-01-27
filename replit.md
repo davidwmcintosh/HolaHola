@@ -77,3 +77,32 @@ conversationId: varchar("conversation_id"), // FK exists in DB - removed from sc
 ```
 
 **Note:** The `postgresql-16` module was also removed from `.replit` since we use external Neon, not Replit's managed PostgreSQL.
+
+### Replit Managed PostgreSQL Override Issue (Jan 2026)
+
+**Problem:** When using an external Neon database, Replit's built-in PostgreSQL integration can override your DATABASE_URL secret at runtime, causing production to connect to a different database than intended.
+
+**Symptoms:**
+- Setting DATABASE_URL in secrets doesn't take effect in production
+- Environment variables show as "managed by runtime" and can't be edited
+- Dev and production show different data despite same secret values
+
+**Diagnosis:** Add a temporary diagnostic endpoint to check which database production is actually using:
+```typescript
+app.get('/api/health/database', async (req, res) => {
+  const result = await db.execute(sql`SELECT current_database(), current_user`);
+  res.json({ ...result.rows[0], host: process.env.DATABASE_URL?.split('@')[1]?.split('/')[0] });
+});
+```
+
+**Fix:** Go to Replit's Database panel → Settings → "Remove database" to disconnect the managed PostgreSQL. This allows your manually-set DATABASE_URL secret to take effect. Removing the Replit connection does NOT delete your external Neon data.
+
+### Cloud Run Health Check Timeout
+
+**Problem:** Autoscale deployments timeout during health checks because background workers delay server readiness.
+
+**Fix:** 
+1. Add a fast `/health` endpoint early in server initialization (before heavy workers)
+2. Defer background workers (Hive Consciousness, MemoryRecovery, Sofia Monitor) to start AFTER `server.listen()` callback
+
+This ensures the server responds to health checks immediately while heavy initialization happens afterward.
