@@ -49,3 +49,31 @@ The Gauntlet Runner Identity Stress Test System validates Daniela's voice identi
 - Azure Speech Services: Pronunciation assessment for drill assignment.
 - Unsplash: Stock educational images.
 - Gemini Flash-Image: AI-generated contextual images.
+
+## Deployment Notes
+
+### External Neon Database with Replit Publishing
+
+HolaHola uses a single external Neon PostgreSQL database for both development and production. This can cause conflicts with Replit's built-in database migration system during publishing.
+
+**Common Issue: "FK constraint already exists" or "version mismatch" errors**
+
+Replit's deployment tries to run schema migrations even when using an external database. If a foreign key constraint already exists in the database, the migration fails.
+
+**Fix Procedure:**
+1. If the constraint already exists in your Neon database, temporarily remove the `.references()` call from the affected column in `shared/schema.ts`
+2. Add a comment noting: `// FK constraint already exists in DB - removed from schema to prevent duplicate during deploy`
+3. Run `npm run db:push` to sync Drizzle's understanding
+4. Publish again - deployment should succeed
+5. The actual FK constraint remains in the database; only the Drizzle schema reference is removed
+
+**Example (voice_sessions.conversationId):**
+```typescript
+// Before (causes deploy error):
+conversationId: varchar("conversation_id").references(() => conversations.id),
+
+// After (deploy succeeds):
+conversationId: varchar("conversation_id"), // FK exists in DB - removed from schema
+```
+
+**Note:** The `postgresql-16` module was also removed from `.replit` since we use external Neon, not Replit's managed PostgreSQL.
