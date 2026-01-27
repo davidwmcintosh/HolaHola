@@ -1019,7 +1019,6 @@ export class StreamingAudioPlayer {
     this.progressiveTotalDuration += chunkDuration;
     
     // MOBILE DEBUG: Track active sources to detect double audio
-    const isMobile = /iPhone|iPad|Android|Mobile/i.test(navigator.userAgent);
     if (isMobile) {
       const activeCount = this.progressiveSources.length;
       console.log(`[AUDIO PLAYER][MOBILE] Source started: s${sentenceIndex}_c${chunkIndex}, activeSourceCount=${activeCount}, playTime=${playTime.toFixed(3)}, ctxTime=${ctx.currentTime.toFixed(3)}`);
