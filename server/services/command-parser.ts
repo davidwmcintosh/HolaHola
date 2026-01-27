@@ -272,6 +272,7 @@ const ROBUST_TAG_PATTERNS: Record<ActionCommandType, RegExp> = {
   HOLD: /\[HOLD\]/gi,
   // === MEMORY ===
   MEMORY_LOOKUP: /\[MEMORY_LOOKUP\s+([^\]]+)\]/gi,
+  TAKE_NOTE: /\[TAKE_NOTE\s+([^\]]+)\]/gi,
 };
 
 /**

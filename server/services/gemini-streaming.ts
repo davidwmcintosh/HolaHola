@@ -79,9 +79,21 @@ function stripInternalNotationTags(text: string): string {
   // Clean up multiple spaces and leading/trailing whitespace
   text = text.replace(/\s{2,}/g, ' ').trim();
   
+  // Strip non-bracketed PHASE_SHIFT directives that Daniela sometimes outputs inline
+  // Pattern: PHASE_SHIFT to="..." reason="..." (without brackets, often at end of sentences)
+  text = text.replace(/\s*PHASE_SHIFT\s+to\s*=\s*[""][^""]*[""]\s*reason\s*=\s*[""][^""]*[""]/gi, '');
+  // Also catch double-quoted versions
+  text = text.replace(/\s*PHASE_SHIFT\s+to\s*=\s*"[^"]*"\s*reason\s*=\s*"[^"]*"/gi, '');
+  
+  // Strip internal meta-directives that look like instructions
+  // Pattern: "Maintain directness and founder-level honesty even when transitioning..."
+  // Pattern: "not a state-dependent persona Maintain directness..."
+  text = text.replace(/\s*(?:not\s+a\s+state-dependent\s+persona\s+)?Maintain\s+(?:directness|founder-level)[^.!?\n]*[.!?]?/gi, '');
+  
   // Strip bracket-based tags with balanced matching for complex content
   // Pattern: [TAG_NAME followed by content until balanced ]
-  const tagPatterns = ['SELF_SURGERY', 'SELF_LEARN', 'OBSERVE', 'KNOWLEDGE_PING', 'HIVE'];
+  // Added PHASE_SHIFT to the list for bracketed versions
+  const tagPatterns = ['SELF_SURGERY', 'SELF_LEARN', 'OBSERVE', 'KNOWLEDGE_PING', 'HIVE', 'PHASE_SHIFT'];
   
   for (const tagName of tagPatterns) {
     let result = '';
