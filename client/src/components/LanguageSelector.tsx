@@ -19,6 +19,7 @@ const publicLanguages = [
   { value: "japanese", label: "Japanese" },
   { value: "mandarin", label: "Mandarin" },
   { value: "korean", label: "Korean" },
+  { value: "english", label: "English" },
 ];
 
 const hiddenLanguages = [
