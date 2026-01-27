@@ -626,6 +626,7 @@ export interface IStorage {
     timeFilter?: 'today' | 'week' | 'month' | 'older';
     starredOnly?: boolean;
     topicId?: string;
+    language?: string;
   }): Promise<Conversation[]>;
   
   // Phase 1: Vocabulary time-based filtering
@@ -4497,8 +4498,14 @@ export class DatabaseStorage implements IStorage {
     timeFilter?: 'today' | 'week' | 'month' | 'older';
     starredOnly?: boolean;
     topicId?: string;
+    language?: string;
   }): Promise<Conversation[]> {
     const conditions: any[] = [eq(conversations.userId, userId)];
+    
+    // Language filter
+    if (filter.language) {
+      conditions.push(eq(conversations.language, filter.language));
+    }
     
     // Time-based filtering
     if (filter.timeFilter) {

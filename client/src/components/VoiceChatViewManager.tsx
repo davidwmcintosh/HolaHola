@@ -183,7 +183,7 @@ export function VoiceChatViewManager({
       </div>
 
       {/* View Content */}
-      <div className="flex flex-col flex-1 min-h-0">
+      <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
         {view === "live" ? (
           conversationId ? (
             <div className="flex-1 min-h-0 overflow-hidden">

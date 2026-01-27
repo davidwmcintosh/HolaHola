@@ -3312,12 +3312,13 @@ export async function registerRoutes(app: Express): Promise<void> {
   app.get("/api/conversations/filtered", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { timeFilter, starredOnly, topicId } = req.query;
+      const { timeFilter, starredOnly, topicId, language } = req.query;
       
       const conversations = await storage.getFilteredConversations(userId, {
         timeFilter: timeFilter as 'today' | 'week' | 'month' | 'older' | undefined,
         starredOnly: starredOnly === 'true',
-        topicId: topicId as string | undefined
+        topicId: topicId as string | undefined,
+        language: language as string | undefined
       });
       
       res.json(conversations);

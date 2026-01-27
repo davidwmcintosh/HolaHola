@@ -9,6 +9,7 @@ import { Calendar, Clock, Eye, Loader2, Star, Filter, ArrowLeft, Bot, User, Play
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Conversation, Message, Topic } from "@shared/schema";
+import { useLanguage } from "@/contexts/LanguageContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -107,12 +108,17 @@ export function ConversationHistory({
   const [starredOnly, setStarredOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  
+  // Get the selected language from the global context (set by LearningContextFilter dropdown)
+  const { language: selectedLanguage } = useLanguage();
 
   const { data: conversations = [], isLoading } = useQuery<Conversation[]>({
-    queryKey: ["/api/conversations/filtered", { timeFilter, starredOnly }],
+    queryKey: ["/api/conversations/filtered", { timeFilter, starredOnly, language: selectedLanguage }],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (timeFilter !== 'all') params.append('timeFilter', timeFilter);
+      // Filter by the language selected in the global language dropdown
+      if (selectedLanguage) params.append('language', selectedLanguage);
       if (starredOnly) params.append('starredOnly', 'true');
       const url = `/api/conversations/filtered?${params.toString()}`;
       const response = await fetch(url, { credentials: 'include' });
