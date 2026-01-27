@@ -20,7 +20,7 @@ Key features include a Student Learning Service for tracking error patterns, a L
 
 Core data models include Users, Conversations, VocabularyWords, and UserProgress. The system features a "Neural Network for Pedagogical Strategies," AI-powered conversation tagging, a Syllabus-Aware Competency System, and centralized Role-Based Access Control (RBAC). HolaHola provides pre-built syllabi across 9 languages and a unified ACTFL assessment system. A Voice Diagnostics System provides observability and auto-remediation for TTS degradation.
 
-The system utilizes a dual-database hybrid architecture with Neon PostgreSQL for data storage, separating Daniela's intelligence and curriculum content (SHARED database) from user-specific data (USER database). All services use Neon routing. Cross-database relationships use soft references with application-level validation.
+The system uses a single Neon PostgreSQL database (DATABASE_URL) for all data storage - Daniela's intelligence, curriculum content, and user data all live in one database for simplicity. The legacy dual-database routing (getSharedDb/getUserDb) remains for backwards compatibility but both functions now return the same database connection.
 
 The Editor Intelligence System provides cross-session memory for the Replit Agent (Claude), enabling it to accumulate context, learnings, and relationship knowledge across development sessions. This system uses `editorInsights` table to store memories categorized by philosophy, architecture, relationship, personality, workflow, debugging, and context, with API endpoints for context loading, insight saving, and searching.
 

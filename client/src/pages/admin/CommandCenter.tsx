@@ -5245,7 +5245,7 @@ function NeonMigrationSection() {
             ) : !neonStatus?.neonConfigured ? (
               <div className="text-center py-4">
                 <p className="text-muted-foreground mb-2">Neon database not configured</p>
-                <p className="text-sm text-muted-foreground">Set NEON_SHARED_DATABASE_URL and NEON_USER_DATABASE_URL environment variables</p>
+                <p className="text-sm text-muted-foreground">Set DATABASE_URL environment variable</p>
               </div>
             ) : (
               <div className="space-y-4">

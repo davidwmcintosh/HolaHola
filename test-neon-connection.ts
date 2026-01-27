@@ -3,19 +3,17 @@ import ws from "ws";
 
 neonConfig.webSocketConstructor = ws;
 
-async function testNeonConnections() {
-  console.log("\n=== Testing Neon Database Connections ===\n");
+async function testNeonConnection() {
+  console.log("\n=== Testing Neon Database Connection ===\n");
   
-  const sharedUrl = process.env.NEON_SHARED_DATABASE_URL;
-  const userUrl = process.env.NEON_USER_DATABASE_URL;
+  const dbUrl = process.env.DATABASE_URL;
   
-  console.log("Shared URL configured:", sharedUrl ? "YES" : "NO");
-  console.log("User URL configured:", userUrl ? "YES" : "NO");
+  console.log("DATABASE_URL configured:", dbUrl ? "YES" : "NO");
   
-  if (sharedUrl) {
-    console.log("\n--- Testing SHARED database ---");
+  if (dbUrl) {
+    console.log("\n--- Testing database connection ---");
     try {
-      const pool = new Pool({ connectionString: sharedUrl });
+      const pool = new Pool({ connectionString: dbUrl });
       const result = await pool.query('SELECT current_database() as db, current_user as usr, version() as ver');
       console.log("✓ Connected to:", result.rows[0].db);
       console.log("  User:", result.rows[0].usr);
@@ -28,26 +26,11 @@ async function testNeonConnections() {
     } catch (err: any) {
       console.log("✗ Failed:", err.message);
     }
-  }
-  
-  if (userUrl) {
-    console.log("\n--- Testing USER database ---");
-    try {
-      const pool = new Pool({ connectionString: userUrl });
-      const result = await pool.query('SELECT current_database() as db, current_user as usr');
-      console.log("✓ Connected to:", result.rows[0].db);
-      console.log("  User:", result.rows[0].usr);
-      
-      const tables = await pool.query("SELECT count(*) as cnt FROM information_schema.tables WHERE table_schema = 'public'");
-      console.log("  Tables in public schema:", tables.rows[0].cnt);
-      
-      await pool.end();
-    } catch (err: any) {
-      console.log("✗ Failed:", err.message);
-    }
+  } else {
+    console.log("DATABASE_URL not configured");
   }
   
   console.log("\n=== Test Complete ===\n");
 }
 
-testNeonConnections().catch(console.error);
+testNeonConnection().catch(console.error);
