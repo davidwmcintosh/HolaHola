@@ -410,6 +410,7 @@ export class OpenMicSession {
   private currentIntelligence: DeepgramIntelligence = {};
   private lastInterimTranscript = '';
   private lastInterimConfidence = 0;
+  private bestInterimForSegment = '';  // Track best interim transcript for current segment (preserves Spanish)
   private chunkCount = 0;
   private totalBytes = 0;
   private keepaliveInterval: NodeJS.Timeout | null = null;
@@ -434,6 +435,7 @@ export class OpenMicSession {
         this.currentConfidence = 0;
         this.currentIntelligence = {};
         this.lastFinalSegment = '';  // Reset dedup tracker when suppressed
+        this.bestInterimForSegment = '';  // Reset Spanish preservation tracker
       }
     }
   }
@@ -535,6 +537,7 @@ export class OpenMicSession {
             this.currentConfidence = 0;
             this.currentIntelligence = {};
             this.lastFinalSegment = '';  // Reset dedup tracker
+            this.bestInterimForSegment = '';  // Reset Spanish preservation tracker
             return;
           }
           
@@ -555,6 +558,7 @@ export class OpenMicSession {
           this.currentConfidence = 0;
           this.currentIntelligence = {};
           this.lastFinalSegment = '';  // Reset dedup tracker for new utterance
+          this.bestInterimForSegment = '';  // Reset Spanish preservation tracker
         });
         
         this.connection.on(LiveTranscriptionEvents.Transcript, (data: any) => {
@@ -658,10 +662,45 @@ export class OpenMicSession {
               if (isExactDuplicate) {
                 console.log(`[OpenMic] DEDUP: Skipping duplicate final segment: "${trimmedTranscript.slice(0, 50)}..."`);
               } else {
+                // MULTILINGUAL PRESERVATION: Deepgram's final transcripts often drop foreign language
+                // words that were correctly captured in interim transcripts. This affects all 42+
+                // languages - Spanish, French, German, Hebrew, Japanese, Korean, Chinese, etc.
+                // Use universal non-ASCII character detection instead of language-specific word lists.
+                let transcriptToUse = transcript;
+                
+                if (this.bestInterimForSegment) {
+                  // Count non-ASCII characters (foreign language content)
+                  // This catches: accented letters (é, ñ, ü), CJK characters, Hebrew, Arabic, etc.
+                  const countNonAscii = (text: string) => {
+                    return (text.match(/[^\x00-\x7F]/g) || []).length;
+                  };
+                  
+                  const interimNonAscii = countNonAscii(this.bestInterimForSegment);
+                  const finalNonAscii = countNonAscii(transcript);
+                  
+                  // Check if foreign language content was lost
+                  const lostNonAscii = interimNonAscii - finalNonAscii;
+                  
+                  if (lostNonAscii >= 2) {
+                    // Lost 2+ non-ASCII chars = likely dropped foreign words
+                    console.log(`[OpenMic] MULTILINGUAL PRESERVATION: Lost ${lostNonAscii} non-ASCII chars in final`);
+                    console.log(`[OpenMic]   Final (${finalNonAscii} non-ASCII): "${transcript.slice(0, 60)}..."`);
+                    console.log(`[OpenMic]   Using interim (${interimNonAscii} non-ASCII): "${this.bestInterimForSegment.slice(0, 60)}..."`);
+                    transcriptToUse = this.bestInterimForSegment;
+                  } else if (this.bestInterimForSegment.length > transcript.length + 10) {
+                    // Fallback: If interim is significantly longer (10+ chars), prefer it
+                    // This catches content loss even when no special characters involved
+                    console.log(`[OpenMic] CONTENT PRESERVATION: Final much shorter than interim (${transcript.length} vs ${this.bestInterimForSegment.length} chars)`);
+                    transcriptToUse = this.bestInterimForSegment;
+                  }
+                }
+                
                 // Accumulate final segments
-                this.currentTranscript += (this.currentTranscript ? ' ' : '') + transcript;
+                this.currentTranscript += (this.currentTranscript ? ' ' : '') + transcriptToUse;
                 this.currentConfidence = confidence;
                 this.lastFinalSegment = trimmedTranscript;
+                // Reset best interim for next segment
+                this.bestInterimForSegment = '';
                 console.log(`[OpenMic] Final segment accumulated: "${this.currentTranscript}"`);
                 // CRITICAL: Also notify PTT handler of accumulated transcript
                 // This ensures PTT mode sees the full accumulated text, not just interim fragments
@@ -674,6 +713,13 @@ export class OpenMicSession {
                 ? this.currentTranscript + ' ' + transcript 
                 : transcript;
               this.events.onInterimTranscript?.(fullTranscript);
+              
+              // Track the best (longest) interim for this segment - these often capture
+              // Spanish words that get dropped in the final transcript
+              if (transcript.length > this.bestInterimForSegment.length) {
+                this.bestInterimForSegment = transcript;
+              }
+              
               // Store interim as potential fallback if no final comes
               if (!this.currentTranscript) {
                 this.lastInterimTranscript = transcript;
