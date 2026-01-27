@@ -395,7 +395,17 @@ export class CartesiaStreamingService extends EventEmitter {
       .replace(/<volume[^>]*>(.*?)<\/volume>/gi, '$1') // <volume level="2">word</volume> → word
       .replace(/<spell>(.*?)<\/spell>/gi, '$1')       // <spell>word</spell> → word
       .replace(/<pause[^>]*\/?>/gi, ' ')              // <pause duration="0.5"/> → space
-      .replace(/<[a-z]+[^>]*\/?>/gi, '');             // Catch any other XML-like tags
+      .replace(/<[a-z]+[^>]*\/?>/gi, '')              // Catch any other XML-like tags
+      // Strip voice control codes that AI sometimes generates in malformed formats (defense-in-depth)
+      // These should be stripped by streaming-voice-orchestrator but add fallback here
+      .replace(/\[VOICE_ADJUST[^\]]*\]/gi, '')        // [VOICE_ADJUST ...]
+      .replace(/voice_adjust\s*\{[^}]*\}/gi, '')      // voice_adjust{...}
+      .replace(/voice_adjust\s*:\s*\{[^}]*\}/gi, '')  // voice_adjust: {...}
+      .replace(/\[VOICE_RESET[^\]]*\]/gi, '')         // [VOICE_RESET ...]
+      .replace(/voice_reset\s*[:\{][^}]*\}?/gi, '')   // voice_reset: {...}
+      .replace(/\[SUBTITLE\s+(?:off|on|target)\s*\]/gi, '')  // [SUBTITLE off|on|target]
+      .replace(/subtitle\s*:\s*\{[^}]*\}/gi, '')      // subtitle: {...}
+      .replace(/<ctrl\d+>/gi, '');                    // <ctrl46> tokenization artifacts
     
     const finalText = ssmlStripped
       .replace(emojiPattern, '')

@@ -312,12 +312,32 @@ function cleanTextForDisplay(text: string): string {
   text = text.replace(/\[SELF_SURGERY[^\]]*\]/gi, '');
   
   // Strip VOICE_ADJUST tags (voice control commands - should affect TTS settings, not be spoken)
-  // Pattern: [VOICE_ADJUST speed="normal" emotion="friendly" personality="warm"]
+  // Pattern 1: [VOICE_ADJUST speed="normal" emotion="friendly" personality="warm"]
   text = text.replace(/\[VOICE_ADJUST[^\]]*\]/gi, '');
+  // Pattern 2: voice_adjust{...} - malformed curly brace format (seen in production)
+  text = text.replace(/voice_adjust\s*\{[^}]*\}/gi, '');
+  // Pattern 3: { voice_adjust"": {...} } or { "voice_adjust": {...} } - JSON-like format
+  text = text.replace(/\{\s*"?voice_adjust"?\s*"*:\s*\{[^}]*\}\s*\}/gi, '');
+  // Pattern 4: voice_adjust: { emotion: "...", ... } - inline JSON-like
+  text = text.replace(/voice_adjust\s*:\s*\{[^}]*\}/gi, '');
+  // Pattern 5: <ctrl46> artifacts from tokenization issues
+  text = text.replace(/<ctrl\d+>/gi, '');
   
   // Strip VOICE_RESET tags (voice reset commands - internal, not spoken)
   // Pattern: [VOICE_RESET] or [VOICE_RESET reason="..."]
   text = text.replace(/\[VOICE_RESET[^\]]*\]/gi, '');
+  // Pattern 2: voice_reset{...} or voice_reset: {...} - malformed formats
+  text = text.replace(/voice_reset\s*[:\{][^}]*\}?/gi, '');
+  
+  // Strip SUBTITLE control tags (UI commands - should affect display, not be spoken)
+  // Pattern 1: [SUBTITLE off|on|target]
+  text = text.replace(/\[SUBTITLE\s+(?:off|on|target)\s*\]/gi, '');
+  // Pattern 2: { subtitle: { mode: "...", text: "..." } } - JSON-like format
+  text = text.replace(/\{\s*subtitle\s*:\s*\{[^}]*\}\s*\}/gi, '');
+  // Pattern 3: subtitle: { mode: "...", ... } - inline format
+  text = text.replace(/subtitle\s*:\s*\{[^}]*\}/gi, '');
+  // Pattern 4: { subtitle"": {...} } - malformed quotes format
+  text = text.replace(/\{\s*subtitle"*\s*:\s*\{[^}]*\}\s*\}/gi, '');
   
   // Strip OBSERVE tags (Daniela's teaching observations for office hours - invisible to students)
   // Pattern: [OBSERVE reason="..." note="..."]

@@ -106,3 +106,23 @@ app.get('/api/health/database', async (req, res) => {
 2. Defer background workers (Hive Consciousness, MemoryRecovery, Sofia Monitor) to start AFTER `server.listen()` callback
 
 This ensures the server responds to health checks immediately while heavy initialization happens afterward.
+
+### Voice Control Code Stripping (Jan 2026)
+
+**Problem:** Gemini sometimes outputs voice control codes in malformed formats that get spoken aloud instead of being stripped.
+
+**Affected Codes:**
+- `[VOICE_ADJUST speed="..." emotion="..." personality="..."]` - Standard format
+- `voice_adjust{...}` or `voice_adjust: {...}` - Malformed curly brace formats
+- `[VOICE_RESET]` - Voice reset command
+- `[SUBTITLE off|on|target]` - UI control
+- `<ctrl46>` - Tokenization artifacts
+
+**Solution:** Two-layer defense:
+1. `streaming-voice-orchestrator.ts` → `cleanTextForDisplay()` function strips these before display/TTS
+2. `cartesia-streaming.ts` → Defense-in-depth stripping as fallback before TTS synthesis
+
+**When Adding New Languages or Voice Features:**
+- If adding new voice control tags, add stripping patterns to BOTH files
+- Test with the new language to ensure Gemini doesn't generate malformed output
+- Check the `messages` table for any `content ILIKE '%new_tag%'` to verify stripping works
