@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, boolean, real, index, uniqueIndex, jsonb, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, real, index, uniqueIndex, jsonb, pgEnum, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -7631,4 +7631,141 @@ export const insertWrenCommitmentSchema = createInsertSchema(wrenCommitments).om
 });
 export type InsertWrenCommitment = z.infer<typeof insertWrenCommitmentSchema>;
 export type WrenCommitment = typeof wrenCommitments.$inferSelect;
+
+// =============================================================================
+// BRAIN HEALTH MONITORING - Telemetry for Daniela's Memory & Tool Usage
+// =============================================================================
+
+// Event types for brain health telemetry
+export const brainEventTypeEnum = pgEnum("brain_event_type", [
+  "memory_retrieval",      // Passive memory search triggered
+  "memory_injection",      // Memory actually injected into context
+  "memory_lookup_tool",    // Native memory_lookup() function called
+  "fact_extraction",       // Personal fact extracted from conversation
+  "action_trigger",        // ACTION_TRIGGER tag emitted
+  "tool_call",             // Whiteboard or other tool used
+]);
+
+export const brainEventSourceEnum = pgEnum("brain_event_source", [
+  "passive_lookup",        // Automatic keyword-triggered search
+  "active_function",       // Deliberate memory_lookup() call
+  "extraction_service",    // Fact extraction from conversation
+  "streaming_orchestrator", // Main voice flow
+  "openmicFlow",           // OpenMic flow
+]);
+
+// Individual brain events (append-only, low overhead)
+export const brainEvents = pgTable("brain_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Event classification
+  eventType: brainEventTypeEnum("event_type").notNull(),
+  eventSource: brainEventSourceEnum("event_source").notNull(),
+  
+  // Context
+  sessionId: varchar("session_id"),           // Voice session ID
+  conversationId: varchar("conversation_id"), // Conversation ID
+  userId: varchar("user_id"),                 // Student user ID
+  targetLanguage: varchar("target_language", { length: 50 }),
+  
+  // Memory-specific fields
+  memoryIds: text("memory_ids").array(),      // Retrieved memory IDs
+  memoryTypes: text("memory_types").array(),  // Types of memories (person, insight, etc.)
+  queryTerms: text("query_terms"),            // Search terms used
+  resultsCount: integer("results_count"),     // Number of results returned
+  relevanceScore: real("relevance_score"),    // Average relevance of results
+  freshnessAvgDays: real("freshness_avg_days"), // Average age of retrieved memories
+  
+  // Tool/Tag-specific fields
+  toolName: varchar("tool_name", { length: 100 }),     // Tool or function name
+  actionTrigger: varchar("action_trigger", { length: 100 }), // ACTION_TRIGGER tag
+  tagPayload: jsonb("tag_payload"),           // Payload for action triggers
+  
+  // Fact extraction fields
+  factType: varchar("fact_type", { length: 50 }),      // Type of fact extracted
+  factSpecificity: varchar("fact_specificity", { length: 20 }), // specific/vague
+  
+  // Performance
+  latencyMs: integer("latency_ms"),           // Time taken for operation
+  wasUsed: boolean("was_used").default(false), // Was the retrieved memory actually used?
+  
+  // Redundancy tracking
+  redundancyHash: varchar("redundancy_hash", { length: 64 }), // Hash to detect repeated retrievals
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_brain_events_type").on(table.eventType),
+  index("idx_brain_events_user").on(table.userId),
+  index("idx_brain_events_session").on(table.sessionId),
+  index("idx_brain_events_created").on(table.createdAt),
+]);
+
+export const insertBrainEventSchema = createInsertSchema(brainEvents).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertBrainEvent = z.infer<typeof insertBrainEventSchema>;
+export type BrainEvent = typeof brainEvents.$inferSelect;
+
+// Daily aggregated metrics (computed by background worker)
+export const brainDailyMetrics = pgTable("brain_daily_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Aggregation key
+  metricDate: date("metric_date").notNull(),
+  userId: varchar("user_id"),                 // NULL for global metrics
+  targetLanguage: varchar("target_language", { length: 50 }), // NULL for all languages
+  
+  // Memory metrics
+  memoryRetrievalCount: integer("memory_retrieval_count").default(0),
+  memoryInjectionCount: integer("memory_injection_count").default(0),
+  memoryLookupToolCount: integer("memory_lookup_tool_count").default(0),
+  avgRelevanceScore: real("avg_relevance_score"),
+  avgFreshnessDays: real("avg_freshness_days"),
+  memoryUsageRate: real("memory_usage_rate"),   // Percentage of retrievals actually used
+  redundancyRate: real("redundancy_rate"),      // Percentage of repeated retrievals
+  
+  // Diversity breakdown (jsonb for flexibility)
+  memoryTypeDiversity: jsonb("memory_type_diversity"), // { person: 10, insight: 5, ... }
+  factTypeDiversity: jsonb("fact_type_diversity"),     // { preference: 3, family: 2, ... }
+  
+  // Fact extraction metrics
+  factsExtractedCount: integer("facts_extracted_count").default(0),
+  specificFactsCount: integer("specific_facts_count").default(0), // Facts with specific details
+  vagueFactsCount: integer("vague_facts_count").default(0),       // Vague/generic facts
+  factSpecificityRate: real("fact_specificity_rate"),             // specific / total
+  
+  // Tool usage metrics
+  toolCallCount: integer("tool_call_count").default(0),
+  toolBreakdown: jsonb("tool_breakdown"),      // { whiteboard: 5, draw: 3, ... }
+  
+  // Action trigger metrics
+  actionTriggerCount: integer("action_trigger_count").default(0),
+  actionTriggerBreakdown: jsonb("action_trigger_breakdown"), // { SAVE_MEMORY: 10, ... }
+  
+  // Session/student coverage
+  uniqueSessionsCount: integer("unique_sessions_count").default(0),
+  uniqueStudentsCount: integer("unique_students_count").default(0),
+  studentsWithMemoryActivity: integer("students_with_memory_activity").default(0),
+  studentCoverageRate: real("student_coverage_rate"), // Percentage with memory activity
+  
+  // Performance
+  avgLatencyMs: real("avg_latency_ms"),
+  p95LatencyMs: real("p95_latency_ms"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_brain_metrics_date").on(table.metricDate),
+  index("idx_brain_metrics_user").on(table.userId),
+  index("idx_brain_metrics_date_user").on(table.metricDate, table.userId),
+]);
+
+export const insertBrainDailyMetricSchema = createInsertSchema(brainDailyMetrics).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertBrainDailyMetric = z.infer<typeof insertBrainDailyMetricSchema>;
+export type BrainDailyMetric = typeof brainDailyMetrics.$inferSelect;
 
