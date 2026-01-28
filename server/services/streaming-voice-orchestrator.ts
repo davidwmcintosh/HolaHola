@@ -139,6 +139,7 @@ import { phonemeAnalyticsService } from "./phoneme-analytics-service";
 import { supportPersonaService } from "./support-persona-service";
 import { db, getSharedDb } from "../db";
 import { logVoiceOrchestratorError, trackVoicePipelineStage, logGeminiTimeout } from "./production-telemetry";
+import { segmentByLanguage, segmentsToCartesiaChunks, logSegmentation } from "./language-segmenter";
 import { 
   tutorProcedures, 
   teachingPrinciples, 
@@ -6407,21 +6408,19 @@ Remember: Beta testers understand they're helping build something and appreciate
         session.pendingWordEmphases = [];
       }
       
-      // Use progressive streaming API with real-time callbacks
-      const result = await this.cartesiaService.streamSynthesizeProgressive(
-        {
-          text: textWithEmphases,
-          language: session.targetLanguage,
-          targetLanguage: session.targetLanguage,
-          voiceId: session.voiceId,
-          speakingRate: effectiveSpeakingRate,
-          emotion: effectiveEmotion,
-          personality: effectivePersonality,
-          expressiveness: effectiveExpressiveness,
-        },
-        {
+      // Check for code-switching: detect target language words in native language text
+      // This enables proper pronunciation when tutor explains in student's native language
+      // but uses target language vocabulary (e.g., "Let's practice 'hermoso'")
+      const segmentationResult = segmentByLanguage(
+        textWithEmphases,
+        session.nativeLanguage,
+        session.targetLanguage
+      );
+      
+      // Define callbacks for TTS streaming
+      const ttsCallbacks = {
           // Audio chunk callback - buffer until timing arrives, then stream directly
-          onAudioChunk: (audioChunk, idx) => {
+          onAudioChunk: (audioChunk: { audio: Buffer; durationMs: number; audioFormat?: string; sampleRate?: number; isLast?: boolean }, idx: number) => {
             metrics.audioBytes += audioChunk.audio.length;
             metrics.audioChunkCount++;  // Track for production duplicate audio debugging
             
@@ -6462,7 +6461,7 @@ Remember: Beta testers understand they're helping build something and appreciate
           },
           
           // Word timing callback - buffer until audio arrives, then stream deltas
-          onWordTimestamp: (timing, wordIdx, estimatedTotal) => {
+          onWordTimestamp: (timing: { word: string; startTime: number; endTime: number }, wordIdx: number, estimatedTotal: number) => {
             estimatedTotalDuration = estimatedTotal;
             
             if (!sentenceReadySent) {
@@ -6490,7 +6489,7 @@ Remember: Beta testers understand they're helping build something and appreciate
           },
           
           // Final reconciliation when synthesis completes
-          onComplete: (finalTimestamps, actualDurationMs) => {
+          onComplete: (finalTimestamps: Array<{ word: string; startTime: number; endTime: number }>, actualDurationMs: number) => {
             // If we never sent sentence_ready (edge case: no timings at all), send now with estimated timings
             if (!sentenceReadySent && bufferedAudioChunks.length > 0) {
               console.log(`[Progressive] Sentence ${index}: No native timings received, using estimates`);
@@ -6541,8 +6540,48 @@ Remember: Beta testers understand they're helping build something and appreciate
             
             console.log(`[Progressive] Sentence ${index}: Complete (${chunkIndex} chunks, ${actualDurationMs}ms)`);
           },
-        }
-      );
+      };
+      
+      // Choose streaming method based on code-switching detection
+      let result;
+      if (segmentationResult.hasCodeSwitching) {
+        // Multilingual: use segmented streaming for proper pronunciation
+        logSegmentation(segmentationResult, session.nativeLanguage, session.targetLanguage);
+        
+        const segments = segmentsToCartesiaChunks(
+          segmentationResult.segments,
+          session.nativeLanguage,
+          session.targetLanguage
+        );
+        
+        result = await this.cartesiaService.streamSynthesizeMultilingual(
+          segments,
+          {
+            targetLanguage: session.targetLanguage,
+            voiceId: session.voiceId,
+            speakingRate: effectiveSpeakingRate,
+            emotion: effectiveEmotion,
+            personality: effectivePersonality,
+            expressiveness: effectiveExpressiveness,
+          },
+          ttsCallbacks
+        );
+      } else {
+        // Single language: use regular progressive streaming
+        result = await this.cartesiaService.streamSynthesizeProgressive(
+          {
+            text: textWithEmphases,
+            language: session.targetLanguage,
+            targetLanguage: session.targetLanguage,
+            voiceId: session.voiceId,
+            speakingRate: effectiveSpeakingRate,
+            emotion: effectiveEmotion,
+            personality: effectivePersonality,
+            expressiveness: effectiveExpressiveness,
+          },
+          ttsCallbacks
+        );
+      }
       
     } catch (error: any) {
       // Extract status code and response body for telemetry

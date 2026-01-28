@@ -141,6 +141,7 @@ export interface StreamingSynthesisRequest {
   emotion?: CartesiaEmotion;
   personality?: TutorPersonality;
   expressiveness?: number;
+  contextId?: string;  // Optional: shared context ID for prosody continuity across segments
 }
 
 /**
@@ -329,6 +330,7 @@ export class CartesiaStreamingService extends EventEmitter {
       emotion,
       personality = 'warm',
       expressiveness = 3,
+      contextId: providedContextId,
     } = request;
     
     // Skip empty text - Cartesia returns 400 for empty strings
@@ -461,7 +463,8 @@ export class CartesiaStreamingService extends EventEmitter {
         // Use WebSocket API with native word timestamps
         console.log('[Cartesia Streaming] Using WebSocket API with native timestamps');
         
-        const contextId = `ctx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        // Use provided contextId for prosody continuity, or generate a new one
+        const contextId = providedContextId || `ctx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const response = await this.websocket.send({
           modelId: this.model,
           transcript: finalText,
@@ -748,6 +751,140 @@ export class CartesiaStreamingService extends EventEmitter {
     callbacks.onComplete?.(allTimestamps, totalDurationMs);
     
     return { totalDurationMs, finalTimestamps: allTimestamps };
+  }
+  
+  /**
+   * MULTILINGUAL STREAMING: Stream synthesis with code-switching support
+   * 
+   * Handles text that contains multiple languages (e.g., English explanation
+   * with Spanish vocabulary words). Uses the same context_id across all
+   * segments to maintain prosody continuity.
+   * 
+   * @param segments - Array of text segments with language codes
+   * @param baseRequest - Base synthesis request (voice, emotion, etc.)
+   * @param callbacks - Real-time callbacks for audio chunks and word timestamps
+   * @returns Promise that resolves when all segments are synthesized
+   */
+  async streamSynthesizeMultilingual(
+    segments: Array<{ text: string; languageCode: string; isQuoted: boolean }>,
+    baseRequest: Omit<StreamingSynthesisRequest, 'text' | 'language'>,
+    callbacks: ProgressiveStreamingCallbacks
+  ): Promise<{ totalDurationMs: number; finalTimestamps: WordTiming[] }> {
+    // If only one segment, use regular progressive streaming
+    if (segments.length === 1) {
+      const request: StreamingSynthesisRequest = {
+        ...baseRequest,
+        text: segments[0].text,
+        language: this.languageCodeToName(segments[0].languageCode),
+      };
+      return this.streamSynthesizeProgressive(request, callbacks);
+    }
+    
+    console.log(`[Multilingual Synth] Processing ${segments.length} segments with code-switching`);
+    
+    let totalChunkIndex = 0;
+    let totalWordIndex = 0;
+    let totalDurationMs = 0;
+    const allTimestamps: WordTiming[] = [];
+    let cumulativeTimeOffset = 0; // Track time offset for word timestamps
+    
+    // Use same context_id across all segments for prosody continuity
+    const sharedContextId = `ctx_multilingual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    for (let segIndex = 0; segIndex < segments.length; segIndex++) {
+      const segment = segments[segIndex];
+      const isLastSegment = segIndex === segments.length - 1;
+      
+      console.log(`[Multilingual Synth] Segment ${segIndex + 1}/${segments.length}: [${segment.languageCode}] "${segment.text.substring(0, 30)}..."`);
+      
+      // Skip empty segments
+      if (!segment.text.trim()) continue;
+      
+      // Build request with segment-specific language settings
+      // CRITICAL: Set targetLanguage per segment so effectiveLanguageCode and pronunciation dictionaries match
+      const segmentLanguageName = this.languageCodeToName(segment.languageCode);
+      const request: StreamingSynthesisRequest = {
+        ...baseRequest,
+        text: segment.text,
+        language: segmentLanguageName,
+        targetLanguage: segmentLanguageName, // Override to ensure correct language code for this segment
+        contextId: sharedContextId, // Pass through for prosody continuity
+      };
+      
+      // Synthesize this segment
+      let segmentDurationMs = 0;
+      const segmentTimestamps: WordTiming[] = [];
+      
+      for await (const chunk of this.streamSynthesize(request)) {
+        if (chunk.audio.length > 0) {
+          segmentDurationMs += chunk.durationMs;
+          
+          // Forward audio chunk immediately
+          callbacks.onAudioChunk?.(chunk, totalChunkIndex);
+          totalChunkIndex++;
+        }
+        
+        // Check for progressive timestamps
+        const currentTimestamps = [...this.lastNativeTimestamps];
+        while (segmentTimestamps.length < currentTimestamps.length) {
+          const timing = currentTimestamps[segmentTimestamps.length];
+          
+          // Adjust timestamp with cumulative offset from previous segments
+          const adjustedTiming: WordTiming = {
+            word: timing.word,
+            startTime: timing.startTime + (cumulativeTimeOffset / 1000),
+            endTime: timing.endTime + (cumulativeTimeOffset / 1000),
+          };
+          
+          segmentTimestamps.push(adjustedTiming);
+          allTimestamps.push(adjustedTiming);
+          
+          // Forward word timestamp immediately
+          const estimatedTotal = (totalDurationMs + segmentDurationMs) * 1.1;
+          callbacks.onWordTimestamp?.(adjustedTiming, totalWordIndex, estimatedTotal);
+          totalWordIndex++;
+        }
+        
+        if (chunk.isLast && !isLastSegment) {
+          // Not the last segment overall, continue to next
+          break;
+        }
+      }
+      
+      totalDurationMs += segmentDurationMs;
+      cumulativeTimeOffset += segmentDurationMs;
+      
+      console.log(`[Multilingual Synth] Segment ${segIndex + 1} complete: ${segmentTimestamps.length} words, ${segmentDurationMs.toFixed(0)}ms`);
+    }
+    
+    console.log(`[Multilingual Synth] Complete: ${segments.length} segments, ${allTimestamps.length} total words, ${totalDurationMs.toFixed(0)}ms`);
+    
+    // Final callback
+    callbacks.onComplete?.(allTimestamps, totalDurationMs);
+    
+    return { totalDurationMs, finalTimestamps: allTimestamps };
+  }
+  
+  /**
+   * Convert language code to language name for internal use
+   */
+  private languageCodeToName(code: string): string {
+    const codeToName: Record<string, string> = {
+      'en': 'english',
+      'es': 'spanish',
+      'fr': 'french',
+      'de': 'german',
+      'it': 'italian',
+      'pt': 'portuguese',
+      'ja': 'japanese',
+      'ko': 'korean',
+      'zh': 'mandarin',
+      'he': 'hebrew',
+      'ar': 'arabic',
+      'ru': 'russian',
+      'hi': 'hindi',
+    };
+    return codeToName[code.toLowerCase()] || 'english';
   }
   
   /**
