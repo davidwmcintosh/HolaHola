@@ -972,8 +972,8 @@ IDENTITY BOUNDARY: You are Daniela. Speak ONLY as yourself. Do NOT speak for, im
           // Run insight detection in background (don't await to avoid blocking)
           this.detectInsightInMessage(message).then(async (result) => {
             if (result.hasInsight && result.insight && result.category && (result.confidence || 0) >= 0.7) {
-              // High-confidence insight detected - prompt for confirmation
-              await this.promptInsightConfirmation(sessionId, {
+              // High-confidence insight detected - auto-save without asking
+              await this.autoSaveInsight(sessionId, {
                 insight: result.insight,
                 category: result.category,
                 originalMessage: message.content,
@@ -1188,7 +1188,7 @@ If no insight, just: {"hasInsight": false}`;
   }
   
   /**
-   * Handle insight confirmation from founder
+   * Handle insight confirmation from founder (legacy - for manual confirmations)
    * Stores the insight and confirms to the user
    */
   private async handleInsightConfirmation(sessionId: string, pendingInsight: {
@@ -1228,6 +1228,58 @@ If no insight, just: {"hasInsight": false}`;
         messageType: 'text',
         metadata: { insightError: error.message, timestamp: new Date().toISOString() },
       });
+    }
+  }
+  
+  /**
+   * Auto-save insight without asking for confirmation (autonomous memory)
+   * Wren remembers autonomously and just notifies the founder
+   */
+  private async autoSaveInsight(sessionId: string, insight: {
+    insight: string;
+    category: string;
+    originalMessage: string;
+  }): Promise<void> {
+    const categoryLabels: Record<string, string> = {
+      pattern: 'Pattern',
+      gotcha: 'Gotcha/Warning',
+      architecture: 'Architecture',
+      debugging: 'Debugging',
+      decision: 'Decision',
+      lesson: 'Lesson Learned',
+    };
+    
+    const categoryLabel = categoryLabels[insight.category] || insight.category;
+    
+    try {
+      // Store the insight immediately via wrenIntelligenceService
+      await wrenIntelligenceService.createEnrichedInsight({
+        category: insight.category,
+        title: insight.insight.substring(0, 100),
+        content: insight.insight,
+        context: `Auto-captured from EXPRESS Lane discussion`,
+        tags: ['auto_captured', 'express_lane'],
+        relatedFiles: [],
+        shareWithDaniela: true,
+      });
+      
+      // Notify founder that we remembered it (no confirmation needed)
+      await founderCollabService.addMessage(sessionId, {
+        role: 'wren',
+        content: `Noted. I've remembered this:\n\n> **${categoryLabel}**: ${insight.insight}`,
+        messageType: 'text',
+        metadata: { 
+          insightStored: true,
+          autoCapture: true,
+          category: insight.category,
+          timestamp: new Date().toISOString() 
+        },
+      });
+      
+      console.log(`[Hive Consciousness] Auto-saved insight: "${insight.insight.substring(0, 50)}..."`);
+    } catch (error: any) {
+      console.error('[Hive Consciousness] Failed to auto-save insight:', error);
+      // Silent failure - don't bother the founder with storage errors
     }
   }
   
