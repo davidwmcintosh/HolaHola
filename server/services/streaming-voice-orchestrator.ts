@@ -339,6 +339,18 @@ function cleanTextForDisplay(text: string): string {
   // Pattern 4: { subtitle"": {...} } - malformed quotes format
   text = text.replace(/\{\s*subtitle"*\s*:\s*\{[^}]*\}\s*\}/gi, '');
   
+  // Strip SHOW/HIDE whiteboard control tags (UI commands - processed by function calls)
+  // Pattern 1: [SHOW text="..."] or SHOW text="..."]  (with or without opening bracket)
+  text = text.replace(/\[?SHOW\s+text\s*=\s*"[^"]*"\s*\]?/gi, '');
+  // Pattern 2: [HIDE] or [HIDE text]
+  text = text.replace(/\[HIDE[^\]]*\]/gi, '');
+  
+  // Strip WORD_EMPHASIS control tags (UI commands - processed by function calls)
+  // Pattern 1: [WORD_EMPHASIS word="..." style="..."] or WORD_EMPHASIS word="..."] (malformed)
+  text = text.replace(/\[?WORD_EMPHASIS\s+[^\]]*\]?/gi, '');
+  // Pattern 2: word_emphasis{...} - curly brace format
+  text = text.replace(/word_emphasis\s*\{[^}]*\}/gi, '');
+  
   // Strip OBSERVE tags (Daniela's teaching observations for office hours - invisible to students)
   // Pattern: [OBSERVE reason="..." note="..."]
   text = text.replace(/\[OBSERVE[^\]]*\]/gi, '');
