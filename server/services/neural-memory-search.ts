@@ -139,8 +139,15 @@ export async function searchMemory(
   const normalizedQuery = query.toLowerCase().trim();
   const queryWords = normalizedQuery.split(/\s+/).filter(w => w.length > 2);
   
-  // Build search pattern for SQL ILIKE
+  // Build search pattern for SQL ILIKE (exact phrase match)
   const searchPattern = `%${normalizedQuery}%`;
+  
+  // Build keyword patterns for conversation search (matches ANY significant word)
+  // This allows finding "song on the radio" when searching for "car song radio"
+  const significantWords = queryWords.filter(w => 
+    !['the', 'and', 'for', 'that', 'with', 'from', 'have', 'was', 'were', 'are', 'been', 'being', 'about', 'what', 'when', 'where', 'which', 'who', 'how', 'you', 'your', 'they', 'them', 'this', 'these', 'those'].includes(w)
+  );
+  const keywordPatterns = significantWords.map(w => `%${w}%`);
   
   const domainsToSearch = domains || ['person', 'motivation', 'insight', 'struggle', 'session', 'progress', 'conversation'];
   
@@ -366,7 +373,7 @@ export async function searchMemory(
     searchedDomains.push('conversation');
     searchPromises.push((async () => {
       try {
-        console.log(`[NeuralMemory] Starting conversation search for student ${studentId}, query: "${query}"`);
+        console.log(`[NeuralMemory] Starting conversation search for student ${studentId}, query: "${query}", keywords: [${significantWords.join(', ')}]`);
         
         // Check if query mentions a specific tutor by name
         // e.g., "What did I tell Isabel?" → search Portuguese conversations
@@ -423,6 +430,11 @@ export async function searchMemory(
           
           // Also search for the actual query content across ALL languages
           // This catches the topic itself (e.g., "reggaeton") regardless of which tutor session it was in
+          // Use keyword-based matching to find messages with ANY significant word
+          const keywordConditions = keywordPatterns.length > 0 
+            ? keywordPatterns.map(pattern => ilike(messages.content, pattern))
+            : [ilike(messages.content, searchPattern)];
+          
           const crossTutorByContent = await getSharedDb()
             .select({
               messageId: messages.id,
@@ -437,10 +449,10 @@ export async function searchMemory(
             .innerJoin(conversations, eq(messages.conversationId, conversations.id))
             .where(and(
               eq(conversations.userId, studentId),
-              ilike(messages.content, searchPattern)
+              or(...keywordConditions)
             ))
             .orderBy(desc(messages.createdAt))
-            .limit(10);
+            .limit(15);
           
           // Merge results, deduplicate by message ID, and sort by recency
           const seenIds = new Set<string>();
@@ -484,6 +496,11 @@ export async function searchMemory(
               .limit(30); // Get more messages for context
           } else {
             // Search by content match across ALL languages/tutors
+            // Use keyword-based matching to find messages with ANY significant word
+            const contentKeywordConditions = keywordPatterns.length > 0 
+              ? keywordPatterns.map(pattern => ilike(messages.content, pattern))
+              : [ilike(messages.content, searchPattern)];
+            
             recentConvos = await getSharedDb()
               .select({
                 messageId: messages.id,
@@ -498,10 +515,10 @@ export async function searchMemory(
               .innerJoin(conversations, eq(messages.conversationId, conversations.id))
               .where(and(
                 eq(conversations.userId, studentId),
-                ilike(messages.content, searchPattern)
+                or(...contentKeywordConditions)
               ))
               .orderBy(desc(messages.createdAt))
-              .limit(10);
+              .limit(15);
           }
         }
         
