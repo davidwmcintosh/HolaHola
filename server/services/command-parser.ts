@@ -284,7 +284,9 @@ const ROBUST_TAG_PATTERNS: Record<ActionCommandType, RegExp> = {
   CLEAR: /\[CLEAR\]/gi,
   HOLD: /\[HOLD\]/gi,
   // === MEMORY ===
-  MEMORY_LOOKUP: /\[MEMORY_LOOKUP\s+([^\]]+)\]/gi,
+  // More lenient pattern: matches with or without brackets, handles malformed quotes
+  // Matches: [MEMORY_LOOKUP ...], MEMORY_LOOKUP query="..." domains="...", etc.
+  MEMORY_LOOKUP: /\[?MEMORY_LOOKUP\s+([^\]\n]+)\]?/gi,
   TAKE_NOTE: /\[TAKE_NOTE\s+([^\]]+)\]/gi,
 };
 
