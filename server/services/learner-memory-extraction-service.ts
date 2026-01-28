@@ -17,6 +17,7 @@ import type { LearnerPersonalFact, MemoryPrivacySettings } from '@shared/schema'
 import { db, getSharedDb, getUserDb } from '../db';
 import { users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
+import { brainHealthTelemetry } from './brain-health-telemetry';
 
 // Structure for extracted facts from conversation
 interface ExtractedFact {
@@ -458,6 +459,16 @@ class LearnerMemoryExtractionService {
           
           saved.push(savedFact);
           this.recordFactSaved(fact.factType);
+          
+          // BRAIN HEALTH TELEMETRY: Log fact extraction
+          brainHealthTelemetry.logFactExtraction({
+            conversationId,
+            userId: studentId,
+            targetLanguage: language,
+            factType: fact.factType,
+            factSpecificity: fact.confidence >= 0.8 ? 'specific' : 'vague',
+            latencyMs: Date.now() - startTime,
+          }).catch(err => console.warn('[BrainHealth] Fact extraction log failed:', err.message));
         } catch (err: any) {
           console.error(`[MemoryExtraction] Failed to save fact: ${err.message}`);
           // Check if it was a dedup (fact already existed)
@@ -517,6 +528,16 @@ class LearnerMemoryExtractionService {
       });
       
       console.log(`[MemoryExtraction] Saved explicit remember command: ${content.slice(0, 50)}`);
+      
+      // BRAIN HEALTH TELEMETRY: Log explicit REMEMBER command extraction
+      brainHealthTelemetry.logFactExtraction({
+        conversationId,
+        userId: studentId,
+        targetLanguage: language,
+        factType,
+        factSpecificity: 'specific', // Explicit commands are always specific
+      }).catch(err => console.warn('[BrainHealth] Fact extraction log failed:', err.message));
+      
       return saved;
     } catch (err: any) {
       console.error(`[MemoryExtraction] Failed to save explicit memory: ${err.message}`);

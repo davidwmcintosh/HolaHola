@@ -117,6 +117,7 @@ import { toInternalActflLevel, toExternalActflLevel } from "./actfl-utils";
 import { GoogleGenAI, Modality } from "@google/genai";
 import { createClient } from "@deepgram/sdk";
 import { validateOneUnitRule, countConceptualUnits } from "./phrase-detection";
+import { brainHealthTelemetry } from "./services/brain-health-telemetry";
 
 // ============================================================================
 // AI PROVIDERS: Gemini (Text) + Deepgram (Voice STT) + Google Cloud (Voice TTS)
@@ -25352,6 +25353,120 @@ You have full access to your neural network knowledge.
         userUrl: null,
         error: error.message 
       });
+    }
+  });
+
+  // ============================================================================
+  // BRAIN HEALTH MONITORING - Daniela's Cognitive Activity Dashboard
+  // ============================================================================
+
+  app.get("/api/admin/brain-health/dashboard", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const summary = await brainHealthTelemetry.getDashboardSummary();
+      res.json(summary);
+    } catch (error: any) {
+      console.error("[BrainHealth] Dashboard error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/admin/brain-health/events", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const limit = parseInt(String(req.query.limit || '100'));
+      const events = await brainHealthTelemetry.getRecentEvents(limit);
+      res.json({ events });
+    } catch (error: any) {
+      console.error("[BrainHealth] Events error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/admin/brain-health/events/user/:userId", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const limit = parseInt(String(req.query.limit || '50'));
+      const events = await brainHealthTelemetry.getEventsByUser(userId, limit);
+      res.json({ events });
+    } catch (error: any) {
+      console.error("[BrainHealth] User events error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/admin/brain-health/metrics/memory", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const days = parseInt(String(req.query.days || '7'));
+      const metrics = await brainHealthTelemetry.getMemoryHealthMetrics(days);
+      res.json(metrics);
+    } catch (error: any) {
+      console.error("[BrainHealth] Memory metrics error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/admin/brain-health/metrics/facts", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const days = parseInt(String(req.query.days || '7'));
+      const metrics = await brainHealthTelemetry.getFactExtractionMetrics(days);
+      res.json(metrics);
+    } catch (error: any) {
+      console.error("[BrainHealth] Fact metrics error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/admin/brain-health/metrics/tools", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const days = parseInt(String(req.query.days || '7'));
+      const breakdown = await brainHealthTelemetry.getToolBreakdown(days);
+      res.json({ breakdown });
+    } catch (error: any) {
+      console.error("[BrainHealth] Tool metrics error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/admin/brain-health/metrics/triggers", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const days = parseInt(String(req.query.days || '7'));
+      const breakdown = await brainHealthTelemetry.getActionTriggerBreakdown(days);
+      res.json({ breakdown });
+    } catch (error: any) {
+      console.error("[BrainHealth] Trigger metrics error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/admin/brain-health/coverage", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const coverage = await brainHealthTelemetry.getStudentCoverage();
+      res.json(coverage);
+    } catch (error: any) {
+      console.error("[BrainHealth] Coverage error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/admin/brain-health/daily-metrics", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const days = parseInt(String(req.query.days || '30'));
+      const metrics = await brainHealthTelemetry.getDailyMetrics(days);
+      res.json({ metrics });
+    } catch (error: any) {
+      console.error("[BrainHealth] Daily metrics error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/admin/brain-health/aggregate", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { date } = req.body;
+      const targetDate = date ? new Date(date) : undefined;
+      await brainHealthTelemetry.runDailyAggregation(targetDate);
+      res.json({ success: true, message: `Aggregation complete for ${targetDate?.toISOString().split('T')[0] || 'today'}` });
+    } catch (error: any) {
+      console.error("[BrainHealth] Aggregation error:", error);
+      res.status(500).json({ error: error.message });
     }
   });
 

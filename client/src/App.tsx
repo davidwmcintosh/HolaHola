@@ -54,6 +54,7 @@ const AdminSyncControlCenter = lazy(() => import("@/pages/admin/SyncControlCente
 const AdminFluencyCoverage = lazy(() => import("@/pages/admin/FluencyCoverage"));
 const AdminLessonDrafts = lazy(() => import("@/pages/admin/LessonDrafts"));
 const AdminDeveloperDashboard = lazy(() => import("@/pages/admin/DeveloperDashboard"));
+const AdminBrainHealth = lazy(() => import("@/pages/admin/BrainHealth"));
 const Lessons = lazy(() => import("@/pages/lessons"));
 const ReviewHub = lazy(() => import("@/pages/review-hub"));
 const ArisPractice = lazy(() => import("@/pages/aris-practice"));
@@ -215,6 +216,7 @@ function Router() {
         <Route path="/admin/fluency-coverage" component={AdminFluencyCoverage} />
         <Route path="/admin/lesson-drafts" component={AdminLessonDrafts} />
         <Route path="/admin/developer" component={AdminDeveloperDashboard} />
+        <Route path="/admin/brain-health" component={AdminBrainHealth} />
         
         <Route path="/settings" component={Settings} />
         <Route path="/pricing" component={Pricing} />

@@ -123,6 +123,7 @@ import { assessAdvancementReadiness, formatLevel } from "../actfl-advancement";
 import { tagConversation } from "./conversation-tagger";
 import { architectVoiceService } from "./architect-voice-service";
 import { trackToolEvent, mapWhiteboardTypeToToolType } from "./pedagogical-insights-service";
+import { brainHealthTelemetry } from "./brain-health-telemetry";
 import { createSystemPrompt, TutorDirectoryEntry, buildPedagogicalPersonaSection } from "../system-prompt";
 import { hiveCollaborationService, BeaconType } from "./hive-collaboration-service";
 import { hiveContextService } from "./hive-context-service";
@@ -2058,6 +2059,19 @@ Weave them into your response ONLY if they feel genuinely relevant.
 Don't force a reference if it doesn't fit the moment.
 `;
                   console.log(`[Passive Memory] Auto-retrieved ${memoryResults.results.length} memories for query: "${searchQuery}"`);
+                  
+                  // BRAIN HEALTH TELEMETRY: Track passive memory injection
+                  brainHealthTelemetry.logMemoryInjection({
+                    sessionId: session.sessionId,
+                    conversationId: session.conversationId,
+                    userId: String(session.userId),
+                    targetLanguage: session.targetLanguage,
+                    memoryIds: memoryResults.results.map(r => r.id),
+                    memoryTypes: memoryResults.results.map(r => r.domain || 'unknown'),
+                    queryTerms: searchQuery,
+                    resultsCount: memoryResults.results.length,
+                    relevanceScore: memoryResults.results.reduce((sum, r) => sum + (r.score || 0), 0) / memoryResults.results.length,
+                  }, 'passive_lookup').catch(err => console.warn('[BrainHealth] Passive memory log failed:', err.message));
                 }
               } catch (err: any) {
                 console.warn(`[Passive Memory] Failed:`, err.message);
@@ -2439,6 +2453,16 @@ Remember: Beta testers understand they're helping build something and appreciate
           const commandsToProcess = commandParseResult.commands;
           
           for (const cmd of commandsToProcess) {
+              // BRAIN HEALTH TELEMETRY: Log all ACTION_TRIGGER commands
+              brainHealthTelemetry.logActionTrigger({
+                sessionId: session.sessionId,
+                conversationId: session.conversationId,
+                userId: String(session.userId),
+                targetLanguage: session.targetLanguage,
+                actionTrigger: cmd.type,
+                tagPayload: cmd.params,
+              }).catch(err => console.warn('[BrainHealth] Action trigger log failed:', err.message));
+              
               switch (cmd.type) {
                 case 'SWITCH_TUTOR': {
                   // Only process if not already handled by whiteboard parser
@@ -10087,6 +10111,15 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
   ): Promise<void> {
     console.log(`[Native Function Call] Processing: ${fn.name} -> ${fn.legacyType}`);
     
+    // BRAIN HEALTH TELEMETRY: Log all native function/tool calls
+    brainHealthTelemetry.logToolCall({
+      sessionId: session.sessionId,
+      conversationId: session.conversationId,
+      userId: String(session.userId),
+      targetLanguage: session.targetLanguage,
+      toolName: fn.legacyType || fn.name,
+    }).catch(err => console.warn('[BrainHealth] Tool call log failed:', err.message));
+    
     switch (fn.legacyType) {
       case 'SWITCH_TUTOR': {
         const target = fn.args.target as string | undefined;
@@ -10696,9 +10729,31 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
             beaconReason: `Daniela searched neural memory for "${query}"`,
           }).catch(err => console.error(`[MemoryLookup] Beacon error:`, err));
         }
+        
+        // BRAIN HEALTH TELEMETRY: Track active memory_lookup tool usage
+        brainHealthTelemetry.logMemoryLookupTool({
+          sessionId: session.sessionId,
+          conversationId: session.conversationId,
+          userId: studentId || undefined,
+          targetLanguage: session.targetLanguage,
+          queryTerms: query,
+          resultsCount: totalFound,
+          memoryTypes: rawDomains.length > 0 ? rawDomains : undefined,
+        }).catch(err => console.warn('[BrainHealth] Memory lookup log failed:', err.message));
       } else {
         session.memoryLookupResults[query] = `No memories found for "${query}". Respond naturally based on what you know.`;
         console.log(`[MemoryLookup] No results found for "${query.substring(0, 50)}..."`);
+        
+        // BRAIN HEALTH TELEMETRY: Track failed lookups too
+        brainHealthTelemetry.logMemoryLookupTool({
+          sessionId: session.sessionId,
+          conversationId: session.conversationId,
+          userId: studentId || undefined,
+          targetLanguage: session.targetLanguage,
+          queryTerms: query,
+          resultsCount: 0,
+          memoryTypes: rawDomains.length > 0 ? rawDomains : undefined,
+        }).catch(err => console.warn('[BrainHealth] Memory lookup log failed:', err.message));
       }
     } catch (err: any) {
       console.error(`[MemoryLookup] Error:`, err.message);
