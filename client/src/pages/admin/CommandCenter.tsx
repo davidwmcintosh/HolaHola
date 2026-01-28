@@ -20,6 +20,7 @@ import { SystemHealthDashboard } from "@/components/admin/SystemHealthDashboard"
 import { useUser } from "@/lib/auth";
 import { SyllabusBuilder } from "@/components/SyllabusBuilder";
 import { useFounderCollab } from "@/hooks/useFounderCollab";
+import { BrainHealthContent } from "@/pages/admin/BrainHealth";
 import { 
   LayoutDashboard,
   Users,
@@ -1405,6 +1406,7 @@ export default function CommandCenter() {
       tabs: [
         { id: "neural-network", label: "Neural Net", icon: Zap, roles: ['developer', 'admin'] },
         { id: "brain-surgery", label: "Surgery", icon: Brain, roles: ['developer', 'admin'] },
+        { id: "brain-health", label: "Health", icon: Heart, roles: ['developer', 'admin'] },
         { id: "north-star", label: "North Star", icon: Compass, roles: ['developer', 'admin'] },
         { id: "teaching-tools", label: "Tools", icon: Activity, roles: ['developer', 'admin'] },
       ]
@@ -1581,6 +1583,10 @@ export default function CommandCenter() {
 
           <TabsContent value="brain-surgery" className="space-y-4">
             <BrainSurgeryTab />
+          </TabsContent>
+
+          <TabsContent value="brain-health" className="space-y-4">
+            <BrainHealthTab />
           </TabsContent>
 
           <TabsContent value="north-star" className="space-y-4">
@@ -11888,6 +11894,10 @@ interface BrainSurgeryChatMessage {
   content: string;
   timestamp: string;
   selfSurgeryProposals?: SelfSurgeryProposalChat[];
+}
+
+function BrainHealthTab() {
+  return <BrainHealthContent />;
 }
 
 function BrainSurgeryTab() {

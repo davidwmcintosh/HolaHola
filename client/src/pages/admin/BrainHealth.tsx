@@ -88,7 +88,7 @@ interface AnomaliesResponse {
   recommendation: string | null;
 }
 
-export default function BrainHealth() {
+export function BrainHealthContent() {
   const [liveMode, setLiveMode] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -167,9 +167,7 @@ export default function BrainHealth() {
   };
 
   return (
-    <RoleGuard allowedRoles={["admin", "founder"]}>
-      <AdminLayout>
-        <div className="space-y-6">
+    <div className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
@@ -573,7 +571,15 @@ export default function BrainHealth() {
               </div>
             </>
           )}
-        </div>
+    </div>
+  );
+}
+
+export default function BrainHealth() {
+  return (
+    <RoleGuard allowedRoles={["admin", "founder"]}>
+      <AdminLayout>
+        <BrainHealthContent />
       </AdminLayout>
     </RoleGuard>
   );
