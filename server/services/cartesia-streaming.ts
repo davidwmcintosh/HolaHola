@@ -121,6 +121,12 @@ const CARTESIA_VOICE_MAP: Record<string, { voiceId: string; languageCode: string
     languageCode: 'ko',
     name: 'Korean Calm Woman'
   },
+  // Hebrew (hidden language) - voices from tutor_voices table
+  'hebrew': { 
+    voiceId: '1daba551-67af-465e-a189-f91495aa2347',  // Yael - default female
+    languageCode: 'he',
+    name: 'Yael'
+  },
 };
 
 /**
@@ -337,10 +343,16 @@ export class CartesiaStreamingService extends EventEmitter {
       return;
     }
     
-    // Determine voice
+    // Determine voice and language code
     const selectedLanguage = language?.toLowerCase() || 'english';
     const voiceConfig = CARTESIA_VOICE_MAP[selectedLanguage] || CARTESIA_VOICE_MAP['english'];
     const effectiveVoiceId = voiceId || voiceConfig.voiceId;
+    
+    // For language code, prefer targetLanguage if voice config fell back to English
+    // This handles cases like Hebrew or future languages not yet in the voice map
+    const targetLangLower = targetLanguage?.toLowerCase();
+    const targetVoiceConfig = targetLangLower ? CARTESIA_VOICE_MAP[targetLangLower] : null;
+    const effectiveLanguageCode = targetVoiceConfig?.languageCode || voiceConfig.languageCode;
     
     // Constrain emotion to personality bounds
     const constrainedEmotion = constrainEmotion(emotion, personality, expressiveness);
@@ -461,7 +473,7 @@ export class CartesiaStreamingService extends EventEmitter {
               emotion: emotionWithIntensity ? [emotionWithIntensity] : undefined,
             },
           },
-          language: voiceConfig.languageCode,
+          language: effectiveLanguageCode,
           contextId: contextId,
           ...(pronunciationDictId && { pronunciationDictId: pronunciationDictId }),
           addTimestamps: true, // Enable native word-level timestamps
@@ -601,7 +613,7 @@ export class CartesiaStreamingService extends EventEmitter {
             mode: 'id',
             id: effectiveVoiceId,
           },
-          language: voiceConfig.languageCode,
+          language: effectiveLanguageCode,
           outputFormat: {
             container: 'mp3',
             sampleRate: AUDIO_STREAMING_CONFIG.SAMPLE_RATE,
