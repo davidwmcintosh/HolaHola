@@ -428,7 +428,8 @@ export class CartesiaStreamingService extends EventEmitter {
       .replace(/voice_reset\s*[:\{][^}]*\}?/gi, '')   // voice_reset: {...}
       .replace(/\[SUBTITLE\s+(?:off|on|target)\s*\]/gi, '')  // [SUBTITLE off|on|target]
       .replace(/subtitle\s*:\s*\{[^}]*\}/gi, '')      // subtitle: {...}
-      .replace(/<ctrl\d+>/gi, '');                    // <ctrl46> tokenization artifacts
+      .replace(/<ctrl\d+>/gi, '')                     // <ctrl46> tokenization artifacts
+      .replace(/\[?MEMORY_LOOKUP[^\]]*\]?/gi, '');    // MEMORY_LOOKUP query="..." domains="..."
     
     const finalText = ssmlStripped
       .replace(emojiPattern, '')

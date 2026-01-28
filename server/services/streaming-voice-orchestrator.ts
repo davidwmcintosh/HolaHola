@@ -340,6 +340,12 @@ function cleanTextForDisplay(text: string): string {
   // Pattern 4: { subtitle"": {...} } - malformed quotes format
   text = text.replace(/\{\s*subtitle"*\s*:\s*\{[^}]*\}\s*\}/gi, '');
   
+  // Strip MEMORY_LOOKUP tags (internal command triggers - should not be spoken)
+  // Pattern: MEMORY_LOOKUP query="..." domains="..." (with or without brackets)
+  text = text.replace(/\[?MEMORY_LOOKUP[^\]]*\]?/gi, '');
+  // Pattern 2: memory_lookup query=... domains=... (lowercase, no brackets)
+  text = text.replace(/memory_lookup\s+query\s*=\s*"[^"]*"\s*domains?\s*=\s*"[^"]*"/gi, '');
+  
   // Strip SHOW/HIDE whiteboard control tags (UI commands - processed by function calls)
   // Pattern 1: [SHOW text="..."] or SHOW text="..."]  (with or without opening bracket)
   text = text.replace(/\[?SHOW\s+text\s*=\s*"[^"]*"\s*\]?/gi, '');
