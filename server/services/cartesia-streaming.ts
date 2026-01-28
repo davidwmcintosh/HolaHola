@@ -39,6 +39,7 @@ import {
   addCartesiaPhonemesToText,
   getEmotionWithIntensity,
 } from './tts-service';
+import { processPronunciationTags } from './daniela-pronunciation-tags';
 import { voiceDiagnostics } from './voice-diagnostics-service';
 
 /**
@@ -377,15 +378,23 @@ export class CartesiaStreamingService extends EventEmitter {
       console.log(`[Cartesia Strip DEBUG] After strip: "${textWithoutMarkup.substring(0, 80)}..."`);
     }
     
+    // STEP 2: Process Daniela's pronunciation tags [es:word] → <<phonemes>>
+    // This gives Daniela direct control over pronunciation without complex detection
+    const tagResult = processPronunciationTags(textWithoutMarkup);
+    const textWithTags = tagResult.processedText;
+    if (tagResult.tagsFound > 0) {
+      console.log(`[Cartesia Streaming] Processed ${tagResult.tagsFound} pronunciation tag(s)`);
+    }
+    
     let processedText: string;
     if (pronunciationDictId) {
       // Use server-side dictionary - no need for inline phoneme markers
       // This produces cleaner transcripts for better word timing
-      processedText = textWithoutMarkup;
+      processedText = textWithTags;
       console.log(`[Cartesia Streaming] Using pronunciation dictionary: ${pronunciationDictId} for ${targetLanguage}`);
     } else {
       // Fallback to inline phoneme processing if no dictionary available
-      processedText = addCartesiaPhonemesToText(textWithoutMarkup, targetLanguage);
+      processedText = addCartesiaPhonemesToText(textWithTags, targetLanguage);
     }
     
     // Clean standalone quotes but PRESERVE apostrophes in contractions (I'm, don't, etc.)

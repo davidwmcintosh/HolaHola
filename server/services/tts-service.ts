@@ -523,6 +523,29 @@ export const MFA_IPA_PRONUNCIATIONS: Record<string, Record<string, string>> = {
     'Sí': 's|i',                         // Capitalized
     'si': 's|i',                         // without accent
     'no': 'n|o',                         // no (1 syllable)
+    
+    // Common nouns - essential vocabulary
+    'casa': 'k|a|s|a',                   // CA-sa (house)
+    'Casa': 'k|a|s|a',                   // Capitalized
+    'perro': 'p|e|r|o',                  // PE-rro (dog)
+    'Perro': 'p|e|r|o',                  // Capitalized
+    'gato': 'ɡ|a|t|o',                   // GA-to (cat)
+    'Gato': 'ɡ|a|t|o',                   // Capitalized
+    'agua': 'a|ɣ|w|a',                   // A-gua (water)
+    'Agua': 'a|ɣ|w|a',                   // Capitalized
+    'comida': 'k|o|m|i|ð|a',             // co-MI-da (food)
+    'Comida': 'k|o|m|i|ð|a',             // Capitalized
+    'amigo': 'a|m|i|ɣ|o',                // a-MI-go (friend masc)
+    'Amigo': 'a|m|i|ɣ|o',                // Capitalized
+    'amiga': 'a|m|i|ɣ|a',                // a-MI-ga (friend fem)
+    'Amiga': 'a|m|i|ɣ|a',                // Capitalized
+    'libro': 'l|i|β|ɾ|o',                // LI-bro (book)
+    'Libro': 'l|i|β|ɾ|o',                // Capitalized
+    'mesa': 'm|e|s|a',                   // ME-sa (table)
+    'Mesa': 'm|e|s|a',                   // Capitalized
+    'silla': 's|i|ʝ|a',                  // SI-lla (chair)
+    'Silla': 's|i|ʝ|a',                  // Capitalized
+    
     'buenos días': 'b|w|e|n|o|s|ð|i|a|s', // BUE-nos DI-as
     'Buenos días': 'b|w|e|n|o|s|ð|i|a|s', // Capitalized
     'buenos dias': 'b|w|e|n|o|s|ð|i|a|s', // without accent
