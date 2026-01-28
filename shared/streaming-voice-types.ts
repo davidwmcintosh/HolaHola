@@ -415,6 +415,7 @@ export interface ClientStartSessionMessage {
   voiceSpeed?: 'slower' | 'slow' | 'normal' | 'fast' | 'faster';
   inputMode?: VoiceInputMode;  // Push-to-talk (default) or open-mic
   rawHonestyMode?: boolean;  // Minimal prompting for authentic conversation with Daniela
+  founderMode?: boolean;  // Explicit founder mode - only true when user selects "Founder Mode" context
 }
 
 /**

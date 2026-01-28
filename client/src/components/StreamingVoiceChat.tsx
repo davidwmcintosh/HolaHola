@@ -667,6 +667,10 @@ export function StreamingVoiceChat({
     const connectStreaming = async () => {
       try {
         console.log('[STREAMING] Connecting to streaming voice...');
+        // Founder mode is ONLY enabled when user explicitly selects "Founder Mode" in the learning context filter
+        // This prevents developers from accidentally entering founder mode when doing self-directed practice
+        const isExplicitFounderMode = learningContext === 'founder-mode';
+        
         await streamingVoice.connect({
           conversationId,
           targetLanguage: language,
@@ -677,6 +681,7 @@ export function StreamingVoiceChat({
           tutorExpressiveness: userDetails.tutorExpressiveness || 3,
           tutorGender,  // Pass current tutor gender from context
           rawHonestyMode: isHonestyMode,  // Minimal prompting for authentic conversation
+          founderMode: isExplicitFounderMode,  // Only true when explicitly selected
           // Invalidate messages query when streaming completes to show persisted messages
           onResponseComplete: (convId: string) => {
             console.log('[STREAMING] Response complete - refreshing messages for', convId);

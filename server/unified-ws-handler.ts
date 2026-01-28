@@ -724,9 +724,10 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
           // while outputting plain text format for TTS
           // Note: derivedDifficulty comes from class expectedActflMin or user's ACTFL assessment
           // NOT from user's self-selected difficultyLevel preference
-          // Founder Mode: Developer/admin users in non-class conversations get open collaboration mode
-          // This gives Daniela full freedom to discuss HolaHola itself, teaching tools, etc.
-          const isFounderMode = isDeveloper && !conversation.classId;
+          // Founder Mode: EXPLICIT flag from client - only true when user selects "Founder Mode" in learning context
+          // This prevents developers from accidentally entering founder mode when doing self-directed practice
+          // The flag is only trusted for developers/admins (regular users cannot enable founder mode)
+          const isFounderMode = isDeveloper && config.founderMode === true;
           
           // Beta Tester Mode: User is helping test new features - Daniela can be experimental
           const isBetaTester = user.isBetaTester === true;
@@ -2821,8 +2822,9 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
             }
             
             // Calculate Founder Mode (enables hive collaboration)
+            // Uses explicit flag from client - only true when user selects "Founder Mode" in learning context
             const isDeveloper = await usageService.checkDeveloperBypass(userId!);
-            const isFounderMode = isDeveloper && !conversation?.classId;
+            const isFounderMode = isDeveloper && config.founderMode === true;
             const messages = conversationId ? await storage.getMessagesByConversation(conversationId) : [];
             
             // Get tutor voice - normalize language key for consistency

@@ -58,6 +58,7 @@ export interface StreamingSessionConfig {
   tutorGender?: 'male' | 'female';
   voiceSpeed?: 'normal' | 'slow';
   rawHonestyMode?: boolean;  // Minimal prompting for authentic conversation with Daniela
+  founderMode?: boolean;  // Explicit founder mode flag - only true when user selects "Founder Mode" context
   onResponseComplete?: (conversationId: string) => void;
   /** Called when server sends whiteboard updates (e.g., enriched WORD_MAP items) */
   onWhiteboardUpdate?: (items: any[], shouldClear: boolean) => void;
@@ -1049,6 +1050,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
         tutorGender: config.tutorGender,
         voiceSpeed: config.voiceSpeed,
         rawHonestyMode: config.rawHonestyMode,  // Minimal prompting mode
+        founderMode: config.founderMode,  // Explicit founder mode flag
       });
       
       if (isVerboseLoggingEnabled()) {

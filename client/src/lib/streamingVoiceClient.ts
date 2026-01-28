@@ -180,6 +180,7 @@ export interface StreamingSessionConfig {
   tutorGender?: 'male' | 'female';
   voiceSpeed?: 'normal' | 'slow';
   rawHonestyMode?: boolean;  // Minimal prompting for authentic conversation with Daniela
+  founderMode?: boolean;  // Explicit founder mode - only true when user selects "Founder Mode" context
 }
 
 /**
