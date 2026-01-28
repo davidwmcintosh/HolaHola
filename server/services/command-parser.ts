@@ -41,6 +41,7 @@ export type ActionCommandType =
   // === VOICE CONTROL ===
   | 'VOICE_ADJUST'      // Real-time voice adjustment (speed, emotion)
   | 'VOICE_RESET'       // Reset voice to baseline
+  | 'WORD_EMPHASIS'     // Emphasize specific words for pronunciation teaching
   // === UI CONTROL ===
   | 'SUBTITLE'          // Toggle subtitle mode (off/on/target)
   | 'SHOW'              // Display custom overlay text
@@ -95,6 +96,8 @@ export const VALID_ENUM_VALUES = {
   VOICE_ADJUST_EMOTION_LEGACY: ['positivity', 'curiosity', 'surprise', 'anger', 'sadness'],
   // Personality presets that determine baseline emotion and allowed emotion range
   VOICE_ADJUST_PERSONALITY: ['warm', 'calm', 'energetic', 'professional'],
+  // Word emphasis styles
+  WORD_EMPHASIS_STYLE: ['stress', 'slow', 'both'],
   // UI Control commands
   SUBTITLE_MODE: ['off', 'on', 'target'],
   // Memory lookup domains - includes both student data AND self-knowledge (Daniela's brain)
@@ -191,6 +194,11 @@ const COMMAND_SCHEMAS: Record<ActionCommandType, { required: string[]; optional:
     optional: ['reason'],
     enums: {},
   },
+  WORD_EMPHASIS: {
+    required: ['word', 'style'],  // Word to emphasize and emphasis style
+    optional: ['reason'],
+    enums: { style: VALID_ENUM_VALUES.WORD_EMPHASIS_STYLE },
+  },
   // === UI CONTROL COMMANDS ===
   SUBTITLE: {
     required: ['mode'],  // mode: off|on|target
@@ -257,6 +265,8 @@ const ROBUST_TAG_PATTERNS: Record<ActionCommandType, RegExp> = {
   // === VOICE CONTROL ===
   VOICE_ADJUST: /\[VOICE_ADJUST\s+([^\]]+)\]/gi,
   VOICE_RESET: /\[VOICE_RESET(?:\s+([^\]]*))?\]/gi,
+  // WORD_EMPHASIS captures: [WORD_EMPHASIS word="..." style="..."] or malformed without bracket
+  WORD_EMPHASIS: /\[?WORD_EMPHASIS\s+([^\]]+)\]?/gi,
   // === UI CONTROL ===
   // SUBTITLE captures: [SUBTITLE off], [SUBTITLE on], [SUBTITLE target]
   // The mode value is captured in group 1
