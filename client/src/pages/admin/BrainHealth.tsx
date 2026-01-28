@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { RoleGuard } from "@/components/admin/RoleGuard";
 import { MetricsCard } from "@/components/admin/MetricsCard";
@@ -7,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Brain, 
   Activity, 
@@ -19,7 +21,11 @@ import {
   Database,
   Target,
   Sparkles,
-  CheckCircle2
+  CheckCircle2,
+  AlertTriangle,
+  Radio,
+  Pause,
+  Play
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -48,10 +54,73 @@ interface DashboardSummary {
   };
 }
 
+interface LiveEvent {
+  id: string;
+  eventType: string;
+  eventSource: string;
+  sessionId: string | null;
+  userId: string | null;
+  toolName: string | null;
+  actionTrigger: string | null;
+  factType: string | null;
+  relevanceScore: number | null;
+  latencyMs: number | null;
+  createdAt: string;
+}
+
+interface LiveEventsResponse {
+  events: LiveEvent[];
+  totalCount: number;
+  oldestTimestamp: string | null;
+}
+
+interface Anomaly {
+  type: 'high_latency' | 'low_relevance' | 'high_redundancy' | 'extraction_failure' | 'memory_starvation';
+  severity: 'warning' | 'critical';
+  message: string;
+  affectedEvents: number;
+  sampleEventIds: string[];
+}
+
+interface AnomaliesResponse {
+  anomalies: Anomaly[];
+  healthScore: number;
+  recommendation: string | null;
+}
+
 export default function BrainHealth() {
+  const [liveMode, setLiveMode] = useState(false);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
   const { data: summary, isLoading, refetch } = useQuery<DashboardSummary>({
     queryKey: ["/api/admin/brain-health/dashboard"],
   });
+
+  const { data: liveEvents, isLoading: isLiveLoading, refetch: refetchLive } = useQuery<LiveEventsResponse>({
+    queryKey: ["/api/admin/brain-health/events/live"],
+    enabled: liveMode,
+  });
+
+  const { data: anomalies, isLoading: isAnomaliesLoading, refetch: refetchAnomalies } = useQuery<AnomaliesResponse>({
+    queryKey: ["/api/admin/brain-health/anomalies"],
+  });
+
+  const stableRefetchLive = useCallback(() => {
+    refetchLive();
+  }, [refetchLive]);
+
+  useEffect(() => {
+    if (liveMode) {
+      stableRefetchLive();
+      intervalRef.current = setInterval(stableRefetchLive, 3000);
+    }
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [liveMode, stableRefetchLive]);
 
   const handleRunAggregation = async () => {
     try {
@@ -72,6 +141,31 @@ export default function BrainHealth() {
     return value.toFixed(1);
   };
 
+  const getEventIcon = (eventType: string) => {
+    switch (eventType) {
+      case 'memory_injection': return <Brain className="h-3 w-3" />;
+      case 'memory_retrieval': return <Target className="h-3 w-3" />;
+      case 'tool_call': return <Zap className="h-3 w-3" />;
+      case 'action_trigger': return <Tag className="h-3 w-3" />;
+      case 'fact_extraction': return <Sparkles className="h-3 w-3" />;
+      default: return <Activity className="h-3 w-3" />;
+    }
+  };
+
+  const getEventBadgeVariant = (eventType: string): "default" | "secondary" | "outline" | "destructive" => {
+    switch (eventType) {
+      case 'memory_injection': return "default";
+      case 'tool_call': return "secondary";
+      case 'action_trigger': return "outline";
+      default: return "secondary";
+    }
+  };
+
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  };
+
   return (
     <RoleGuard allowedRoles={["admin", "founder"]}>
       <AdminLayout>
@@ -87,7 +181,16 @@ export default function BrainHealth() {
               </p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => refetch()} data-testid="button-refresh">
+              <Button 
+                variant={liveMode ? "default" : "outline"} 
+                onClick={() => setLiveMode(!liveMode)} 
+                data-testid="button-live-mode"
+              >
+                {liveMode ? <Pause className="h-4 w-4 mr-2" /> : <Play className="h-4 w-4 mr-2" />}
+                {liveMode ? "Pause Live" : "Go Live"}
+                {liveMode && <Radio className="h-3 w-3 ml-2 animate-pulse text-destructive" />}
+              </Button>
+              <Button variant="outline" onClick={() => { refetch(); refetchAnomalies(); }} data-testid="button-refresh">
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh
               </Button>
@@ -339,6 +442,135 @@ export default function BrainHealth() {
                   </CardContent>
                 </Card>
               )}
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <Card data-testid="card-anomalies">
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <AlertTriangle className="h-5 w-5" />
+                        Anomaly Detection
+                      </span>
+                      {anomalies && (
+                        <Badge 
+                          variant={anomalies.healthScore >= 80 ? "default" : anomalies.healthScore >= 50 ? "secondary" : "destructive"}
+                          data-testid="badge-health-score"
+                        >
+                          Health: {anomalies.healthScore}%
+                        </Badge>
+                      )}
+                    </CardTitle>
+                    <CardDescription>
+                      Proactive issue detection (last 24 hours)
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {isAnomaliesLoading ? (
+                      <div className="space-y-3">
+                        <Skeleton className="h-16" />
+                        <Skeleton className="h-16" />
+                      </div>
+                    ) : anomalies?.anomalies && anomalies.anomalies.length > 0 ? (
+                      <div className="space-y-3">
+                        {anomalies.anomalies.map((anomaly, i) => (
+                          <div 
+                            key={i} 
+                            className={`p-3 rounded-lg border ${anomaly.severity === 'critical' ? 'border-destructive/50 bg-destructive/10' : 'border-muted-foreground/30 bg-muted'}`}
+                            data-testid={`anomaly-${i}`}
+                          >
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge variant={anomaly.severity === 'critical' ? 'destructive' : 'outline'} className="text-xs">
+                                {anomaly.severity}
+                              </Badge>
+                              <span className="text-sm font-medium">{anomaly.type.replace(/_/g, ' ')}</span>
+                            </div>
+                            <p className="text-sm text-muted-foreground">{anomaly.message}</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Affected: {anomaly.affectedEvents} events
+                            </p>
+                          </div>
+                        ))}
+                        {anomalies.recommendation && (
+                          <p className="text-sm text-muted-foreground mt-2 p-2 bg-muted rounded" data-testid="text-recommendation">
+                            {anomalies.recommendation}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-primary" data-testid="text-no-anomalies">
+                        <CheckCircle2 className="h-5 w-5" />
+                        <span>No anomalies detected - brain is healthy!</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card data-testid="card-live-events">
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <Radio className={`h-5 w-5 ${liveMode ? 'text-destructive animate-pulse' : ''}`} />
+                        Live Events Feed
+                      </span>
+                      {liveMode && (
+                        <Badge variant="outline" className="text-xs" data-testid="badge-live-count">
+                          {liveEvents?.totalCount || 0} events
+                        </Badge>
+                      )}
+                    </CardTitle>
+                    <CardDescription>
+                      {liveMode ? 'Streaming brain activity (refreshing every 3s)' : 'Click "Go Live" to start monitoring'}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {liveMode ? (
+                      <ScrollArea className="h-64">
+                        {isLiveLoading && !liveEvents ? (
+                          <div className="space-y-2">
+                            <Skeleton className="h-12" />
+                            <Skeleton className="h-12" />
+                            <Skeleton className="h-12" />
+                          </div>
+                        ) : liveEvents?.events && liveEvents.events.length > 0 ? (
+                          <div className="space-y-2">
+                            {liveEvents.events.map((event, i) => (
+                              <div 
+                                key={event.id} 
+                                className="p-2 rounded border bg-muted/50 text-sm"
+                                data-testid={`live-event-${i}`}
+                              >
+                                <div className="flex items-center justify-between mb-1">
+                                  <Badge variant={getEventBadgeVariant(event.eventType)} className="text-xs flex items-center gap-1">
+                                    {getEventIcon(event.eventType)}
+                                    {event.eventType.replace(/_/g, ' ')}
+                                  </Badge>
+                                  <span className="text-xs text-muted-foreground">{formatTime(event.createdAt)}</span>
+                                </div>
+                                <div className="text-xs text-muted-foreground flex flex-wrap gap-2">
+                                  {event.toolName && <span>Tool: {event.toolName}</span>}
+                                  {event.actionTrigger && <span>Trigger: {event.actionTrigger}</span>}
+                                  {event.latencyMs && <span>{event.latencyMs}ms</span>}
+                                  {event.relevanceScore !== null && <span>Rel: {(event.relevanceScore * 100).toFixed(0)}%</span>}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-live-events">
+                            No events in the last 60 seconds. Start a voice session to see activity.
+                          </p>
+                        )}
+                      </ScrollArea>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-32 text-muted-foreground" data-testid="live-mode-disabled">
+                        <Radio className="h-8 w-8 mb-2 opacity-50" />
+                        <p className="text-sm">Live monitoring is paused</p>
+                        <p className="text-xs">Click "Go Live" to watch Daniela's brain in real-time</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
             </>
           )}
         </div>

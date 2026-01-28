@@ -681,6 +681,235 @@ class BrainHealthTelemetry {
     };
   }
 
+  /**
+   * Get live events with filtering for real-time monitoring
+   */
+  async getLiveEvents(options: {
+    limit?: number;
+    sinceSeconds?: number;
+    sessionId?: string;
+    eventTypes?: string[];
+  } = {}): Promise<{
+    events: typeof brainEvents.$inferSelect[];
+    totalCount: number;
+    oldestTimestamp: Date | null;
+  }> {
+    const { limit = 50, sinceSeconds = 60, sessionId, eventTypes } = options;
+    
+    const since = new Date(Date.now() - sinceSeconds * 1000);
+    
+    let query = db.select().from(brainEvents);
+    
+    const conditions = [gte(brainEvents.createdAt, since)];
+    
+    if (sessionId) {
+      conditions.push(eq(brainEvents.sessionId, sessionId));
+    }
+    
+    const events = await query
+      .where(and(...conditions))
+      .orderBy(desc(brainEvents.createdAt))
+      .limit(limit);
+    
+    // Filter by event types in memory if specified
+    const filtered = eventTypes && eventTypes.length > 0
+      ? events.filter(e => eventTypes.includes(e.eventType))
+      : events;
+    
+    return {
+      events: filtered,
+      totalCount: filtered.length,
+      oldestTimestamp: filtered.length > 0 ? filtered[filtered.length - 1].createdAt : null,
+    };
+  }
+
+  /**
+   * Get events for a specific voice session
+   */
+  async getSessionEvents(sessionId: string): Promise<{
+    events: typeof brainEvents.$inferSelect[];
+    summary: {
+      memoryInjections: number;
+      toolCalls: number;
+      actionTriggers: number;
+      factsExtracted: number;
+      avgLatency: number;
+      avgRelevance: number;
+      duration: number | null;
+    };
+  }> {
+    const events = await db
+      .select()
+      .from(brainEvents)
+      .where(eq(brainEvents.sessionId, sessionId))
+      .orderBy(desc(brainEvents.createdAt));
+    
+    const memoryInjections = events.filter(e => e.eventType === 'memory_injection').length;
+    const toolCalls = events.filter(e => e.eventType === 'tool_call').length;
+    const actionTriggers = events.filter(e => e.eventType === 'action_trigger').length;
+    const factsExtracted = events.filter(e => e.eventType === 'fact_extraction').length;
+    
+    const latencies = events.map(e => e.latencyMs).filter((l): l is number => l !== null);
+    const avgLatency = latencies.length > 0 
+      ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length)
+      : 0;
+    
+    const relevanceScores = events.map(e => e.relevanceScore).filter((s): s is number => s !== null);
+    const avgRelevance = relevanceScores.length > 0
+      ? relevanceScores.reduce((a, b) => a + b, 0) / relevanceScores.length
+      : 0;
+    
+    let duration: number | null = null;
+    if (events.length >= 2) {
+      const firstEvent = events[events.length - 1];
+      const lastEvent = events[0];
+      if (firstEvent.createdAt && lastEvent.createdAt) {
+        duration = Math.round((lastEvent.createdAt.getTime() - firstEvent.createdAt.getTime()) / 1000);
+      }
+    }
+    
+    return {
+      events,
+      summary: {
+        memoryInjections,
+        toolCalls,
+        actionTriggers,
+        factsExtracted,
+        avgLatency,
+        avgRelevance,
+        duration,
+      },
+    };
+  }
+
+  /**
+   * Detect anomalies in brain health metrics for debugging
+   */
+  async detectAnomalies(hoursBack: number = 24): Promise<{
+    anomalies: Array<{
+      type: 'high_latency' | 'low_relevance' | 'high_redundancy' | 'extraction_failure' | 'memory_starvation';
+      severity: 'warning' | 'critical';
+      message: string;
+      affectedEvents: number;
+      sampleEventIds: string[];
+    }>;
+    healthScore: number;
+    recommendation: string | null;
+  }> {
+    const since = new Date(Date.now() - hoursBack * 60 * 60 * 1000);
+    
+    const events = await db
+      .select()
+      .from(brainEvents)
+      .where(gte(brainEvents.createdAt, since));
+    
+    const anomalies: Array<{
+      type: 'high_latency' | 'low_relevance' | 'high_redundancy' | 'extraction_failure' | 'memory_starvation';
+      severity: 'warning' | 'critical';
+      message: string;
+      affectedEvents: number;
+      sampleEventIds: string[];
+    }> = [];
+    
+    // Check for high latency events (>500ms)
+    const highLatencyEvents = events.filter(e => e.latencyMs && e.latencyMs > 500);
+    if (highLatencyEvents.length > 5) {
+      const avgLatency = highLatencyEvents.reduce((a, e) => a + (e.latencyMs || 0), 0) / highLatencyEvents.length;
+      anomalies.push({
+        type: 'high_latency',
+        severity: avgLatency > 1000 ? 'critical' : 'warning',
+        message: `${highLatencyEvents.length} events with latency >500ms (avg: ${Math.round(avgLatency)}ms)`,
+        affectedEvents: highLatencyEvents.length,
+        sampleEventIds: highLatencyEvents.slice(0, 5).map(e => e.id),
+      });
+    }
+    
+    // Check for low relevance scores (<0.5)
+    const lowRelevanceEvents = events.filter(e => e.relevanceScore !== null && e.relevanceScore < 0.5);
+    const relevanceEvents = events.filter(e => e.relevanceScore !== null);
+    if (relevanceEvents.length > 10 && lowRelevanceEvents.length / relevanceEvents.length > 0.3) {
+      anomalies.push({
+        type: 'low_relevance',
+        severity: lowRelevanceEvents.length / relevanceEvents.length > 0.5 ? 'critical' : 'warning',
+        message: `${Math.round(lowRelevanceEvents.length / relevanceEvents.length * 100)}% of memory retrievals have low relevance (<0.5)`,
+        affectedEvents: lowRelevanceEvents.length,
+        sampleEventIds: lowRelevanceEvents.slice(0, 5).map(e => e.id),
+      });
+    }
+    
+    // Check for high redundancy (same memories fetched repeatedly)
+    const hashCounts = new Map<string, number>();
+    for (const event of events) {
+      if (event.redundancyHash) {
+        hashCounts.set(event.redundancyHash, (hashCounts.get(event.redundancyHash) || 0) + 1);
+      }
+    }
+    const redundantHashes = Array.from(hashCounts.entries()).filter(([, count]) => count > 3);
+    if (redundantHashes.length > 5) {
+      anomalies.push({
+        type: 'high_redundancy',
+        severity: redundantHashes.length > 20 ? 'critical' : 'warning',
+        message: `${redundantHashes.length} memory combinations fetched 4+ times (potential caching opportunity)`,
+        affectedEvents: redundantHashes.reduce((a, [, count]) => a + count, 0),
+        sampleEventIds: events.filter(e => redundantHashes.some(([hash]) => e.redundancyHash === hash)).slice(0, 5).map(e => e.id),
+      });
+    }
+    
+    // Check for memory starvation (sessions with no memory injections)
+    const sessionEvents = new Map<string, { injections: number; total: number }>();
+    for (const event of events) {
+      if (event.sessionId) {
+        if (!sessionEvents.has(event.sessionId)) {
+          sessionEvents.set(event.sessionId, { injections: 0, total: 0 });
+        }
+        const stats = sessionEvents.get(event.sessionId)!;
+        stats.total++;
+        if (event.eventType === 'memory_injection') {
+          stats.injections++;
+        }
+      }
+    }
+    const starvedSessions = Array.from(sessionEvents.entries())
+      .filter(([, stats]) => stats.total >= 5 && stats.injections === 0);
+    if (starvedSessions.length > 2) {
+      anomalies.push({
+        type: 'memory_starvation',
+        severity: starvedSessions.length > 10 ? 'critical' : 'warning',
+        message: `${starvedSessions.length} sessions have no memory injections (Daniela may lack context)`,
+        affectedEvents: starvedSessions.reduce((a, [, stats]) => a + stats.total, 0),
+        sampleEventIds: [],
+      });
+    }
+    
+    // Calculate overall health score (0-100)
+    let healthScore = 100;
+    for (const anomaly of anomalies) {
+      if (anomaly.severity === 'critical') {
+        healthScore -= 20;
+      } else {
+        healthScore -= 10;
+      }
+    }
+    healthScore = Math.max(0, healthScore);
+    
+    // Generate recommendation
+    let recommendation: string | null = null;
+    if (anomalies.length > 0) {
+      const criticalCount = anomalies.filter(a => a.severity === 'critical').length;
+      if (criticalCount > 0) {
+        recommendation = `${criticalCount} critical issue(s) detected. Focus on: ${anomalies.filter(a => a.severity === 'critical').map(a => a.type).join(', ')}`;
+      } else {
+        recommendation = `${anomalies.length} warning(s) detected. Monitor: ${anomalies.map(a => a.type).join(', ')}`;
+      }
+    }
+    
+    return {
+      anomalies,
+      healthScore,
+      recommendation,
+    };
+  }
+
   shutdown(): void {
     if (this.flushInterval) {
       clearInterval(this.flushInterval);

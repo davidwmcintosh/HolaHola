@@ -25470,6 +25470,46 @@ You have full access to your neural network knowledge.
     }
   });
 
+  // Live events feed for real-time monitoring
+  app.get("/api/admin/brain-health/events/live", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const sinceSeconds = parseInt(req.query.sinceSeconds as string) || 60;
+      const sessionId = req.query.sessionId as string | undefined;
+      const eventTypes = req.query.eventTypes ? (req.query.eventTypes as string).split(',') : undefined;
+      
+      const data = await brainHealthTelemetry.getLiveEvents({ limit, sinceSeconds, sessionId, eventTypes });
+      res.json(data);
+    } catch (error: any) {
+      console.error("[BrainHealth] Live events error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Session-specific events for debugging a particular voice session
+  app.get("/api/admin/brain-health/events/session/:sessionId", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { sessionId } = req.params;
+      const data = await brainHealthTelemetry.getSessionEvents(sessionId);
+      res.json(data);
+    } catch (error: any) {
+      console.error("[BrainHealth] Session events error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Anomaly detection for proactive issue identification
+  app.get("/api/admin/brain-health/anomalies", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const hoursBack = parseInt(req.query.hoursBack as string) || 24;
+      const data = await brainHealthTelemetry.detectAnomalies(hoursBack);
+      res.json(data);
+    } catch (error: any) {
+      console.error("[BrainHealth] Anomalies error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Server is now passed in from index.ts where WebSocket handler is attached first
   // This ensures WS upgrade handler runs BEFORE Express/Vite middleware interferes
 }
