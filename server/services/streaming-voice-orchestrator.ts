@@ -7735,15 +7735,16 @@ Only include observations you can clearly justify from the exchange. Return empt
       
       // Use PhaseTransitionService for the transition
       // The service handles context summarization and state management
-      const transitioned = await phaseTransitionService.transitionTo(
+      const transitionEvent = await phaseTransitionService.transitionPhase(
+        String(session.userId),
         data.to,
-        session.conversationHistory || [],
-        session.targetLanguage || 'es',
-        data.reason
+        data.reason,
+        (session.conversationHistory || []).map(h => ({ role: h.role, content: h.content })),
+        session.targetLanguage || 'es'
       );
       
-      if (transitioned) {
-        console.log(`[Phase Shift] Successfully transitioned to ${data.to}`);
+      if (transitionEvent) {
+        console.log(`[Phase Shift] Successfully transitioned to ${transitionEvent.toPhase}`);
         console.log(`[Phase Shift] Reason: ${data.reason}`);
       } else {
         console.log(`[Phase Shift] Transition to ${data.to} skipped (already in phase or invalid)`);
