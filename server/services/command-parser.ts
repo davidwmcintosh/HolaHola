@@ -261,10 +261,13 @@ const ROBUST_TAG_PATTERNS: Record<ActionCommandType, RegExp> = {
   // SUBTITLE captures: [SUBTITLE off], [SUBTITLE on], [SUBTITLE target]
   // The mode value is captured in group 1
   SUBTITLE: /\[SUBTITLE\s+(off|on|target)\s*\]/gi,
-  // SHOW captures: [SHOW: text to display]
-  SHOW: /\[SHOW:\s*([^\]]+)\]/gi,
-  // HIDE is a simple flag
-  HIDE: /\[HIDE\]/gi,
+  // SHOW captures multiple formats:
+  // - [SHOW: text to display] (colon format - group 1 captures text)
+  // - [SHOW text="..."] (attribute format - group 2 captures quoted text)
+  // - SHOW text="..."] (malformed without opening bracket)
+  SHOW: /\[?SHOW(?::\s*([^\]]+)|(?:\s+text\s*=\s*"([^"]*)"\s*\]?))/gi,
+  // HIDE is a simple flag (with or without opening bracket for malformed output)
+  HIDE: /\[?HIDE\s*\]?/gi,
   // TEXT_INPUT captures: [TEXT_INPUT:prompt text]
   TEXT_INPUT: /\[TEXT_INPUT:\s*([^\]]+)\]/gi,
   // CLEAR and HOLD are simple flags
@@ -425,8 +428,10 @@ function extractSpecialParams(type: ActionCommandType, match: RegExpExecArray): 
       // [SUBTITLE off/on/target] - group 1 is the mode
       return match[1] ? { mode: match[1].toLowerCase() } : null;
     case 'SHOW':
-      // [SHOW: text] - group 1 is the text
-      return match[1] ? { text: match[1].trim() } : null;
+      // [SHOW: text] - group 1 is colon format text
+      // [SHOW text="..."] - group 2 is attribute format text
+      const showText = match[1] || match[2];
+      return showText ? { text: showText.trim() } : null;
     case 'HIDE':
       // [HIDE] - no params needed
       return {};
