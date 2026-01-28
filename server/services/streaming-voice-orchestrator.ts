@@ -1926,6 +1926,7 @@ export class StreamingVoiceOrchestrator {
       let textChatSection = '';
       let editorFeedbackSection = '';
       let studentLearningSection = '';  // PROACTIVE STUDENT INTELLIGENCE: Struggles & strategies
+      let passiveMemorySection = '';    // PASSIVE MEMORY: Auto-retrieved memories based on user message
       let surfacedFeedbackIds: string[] = [];
       let expressLaneHistory: { role: 'user' | 'assistant'; content: string }[] = [];
       session.pendingArchitectNoteIds = [];
@@ -1996,6 +1997,74 @@ TEACHING GUIDANCE:
             })
             .catch(err => console.warn(`[Student Intelligence] Failed:`, err.message))
         );
+        
+        // 3. PASSIVE MEMORY INJECTION: Auto-search memories based on user message keywords
+        // This gives Daniela "natural recall" without requiring her to actively use memory_lookup
+        // Keywords that suggest a memory lookup would be helpful
+        const passiveMemoryKeywords = [
+          // Names & specifics that might be in memory
+          'remember', 'told you', 'mentioned', 'said', 'last time', 'before',
+          // Music/media references
+          'song', 'music', 'band', 'album', 'movie', 'book', 'show',
+          // People references
+          'daughter', 'son', 'wife', 'husband', 'mom', 'dad', 'friend',
+          'sister', 'brother', 'family', 'boyfriend', 'girlfriend',
+          // Events
+          'trip', 'vacation', 'wedding', 'birthday', 'work', 'job', 'school',
+          // Preferences
+          'favorite', 'love', 'hate', 'enjoy', 'like',
+        ];
+        
+        const transcriptLower = transcript.toLowerCase();
+        const hasMemoryTrigger = passiveMemoryKeywords.some(kw => transcriptLower.includes(kw));
+        
+        if (hasMemoryTrigger) {
+          contextPromises.push(
+            (async () => {
+              try {
+                const { searchMemory, formatMemoryForConversation } = await import('./neural-memory-search');
+                
+                // Extract meaningful keywords from transcript (remove common words)
+                const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'i', 'you', 'we', 'they', 'he', 'she', 'it', 'that', 'this', 'what', 'when', 'where', 'why', 'how', 'my', 'your', 'our', 'their', 'me', 'him', 'her', 'us', 'them', 'about', 'just', 'so', 'really', 'very', 'now', 'then', 'here', 'there', 'some', 'all', 'any', 'more', 'most', 'other', 'over', 'such', 'no', 'not', 'only', 'own', 'same', 'than', 'too', 'can', 'know', 'think', 'want', 'like', 'going', 'get', 'got', 'make', 'made', 'say', 'said', 'go', 'went', 'come', 'came', 'take', 'took', 'see', 'saw', 'look', 'looked', 'one', 'two', 'three', 'four', 'five', 'first', 'last', 'also', 'well', 'if', 'yes', 'no', 'okay', 'yeah', 'hmm', 'um']);
+                
+                // Extract keywords (min 3 chars, not a stop word)
+                const words = transcript.split(/[\s,.!?;:'"()]+/).filter(w => 
+                  w.length >= 3 && !stopWords.has(w.toLowerCase())
+                );
+                
+                if (words.length === 0) return;
+                
+                // Build search query from first 4 meaningful words
+                const searchQuery = words.slice(0, 4).join(' ');
+                
+                // Search for relevant memories
+                const memoryResults = await searchMemory(
+                  String(session.userId),
+                  searchQuery,
+                  ['person', 'motivation', 'insight', 'conversation']
+                );
+                
+                if (memoryResults.results.length > 0) {
+                  const formatted = formatMemoryForConversation(memoryResults);
+                  passiveMemorySection = `
+═══════════════════════════════════════════════════════════════════
+💭 RELEVANT MEMORIES (Auto-retrieved - you naturally recall this)
+═══════════════════════════════════════════════════════════════════
+
+${formatted}
+
+These memories surfaced naturally based on what the student is saying.
+Weave them into your response ONLY if they feel genuinely relevant.
+Don't force a reference if it doesn't fit the moment.
+`;
+                  console.log(`[Passive Memory] Auto-retrieved ${memoryResults.results.length} memories for query: "${searchQuery}"`);
+                }
+              } catch (err: any) {
+                console.warn(`[Passive Memory] Failed:`, err.message);
+              }
+            })()
+          );
+        }
       }
       
       // Founder Mode / Honesty Mode context fetches (all parallel)
@@ -2142,6 +2211,9 @@ Remember: David may reference things discussed in these recent text chats.
       
       if (studentLearningSection) {
         dynamicContextParts.push(studentLearningSection);
+      }
+      if (passiveMemorySection) {
+        dynamicContextParts.push(passiveMemorySection);
       }
       if (hiveContextSection) {
         dynamicContextParts.push(hiveContextSection);
@@ -4334,6 +4406,7 @@ Remember: Beta testers understand they're helping build something and appreciate
       // Check for architect notes and student learning context in parallel
       let architectContext = '';
       let studentLearningSection = '';
+      let passiveMemorySectionOpenMic = '';  // PASSIVE MEMORY: Auto-retrieved memories based on user message
       session.pendingArchitectNoteIds = [];  // Reset for this turn
       
       // CONTEXT CACHING: Clear previous turn's preamble to prevent stale context bleed
@@ -4382,6 +4455,53 @@ Remember: Beta testers understand they're helping build something and appreciate
             })
             .catch(err => console.warn(`[Student Intelligence] Failed (open mic):`, err.message))
         );
+        
+        // PASSIVE MEMORY INJECTION (OpenMic): Auto-search memories based on user message keywords
+        const passiveMemoryKeywordsOpenMic = [
+          'remember', 'told you', 'mentioned', 'said', 'last time', 'before',
+          'song', 'music', 'band', 'album', 'movie', 'book', 'show',
+          'daughter', 'son', 'wife', 'husband', 'mom', 'dad', 'friend',
+          'sister', 'brother', 'family', 'boyfriend', 'girlfriend',
+          'trip', 'vacation', 'wedding', 'birthday', 'work', 'job', 'school',
+          'favorite', 'love', 'hate', 'enjoy', 'like',
+        ];
+        
+        const transcriptLowerOpenMic = transcript.toLowerCase();
+        const hasMemoryTriggerOpenMic = passiveMemoryKeywordsOpenMic.some(kw => transcriptLowerOpenMic.includes(kw));
+        
+        if (hasMemoryTriggerOpenMic) {
+          contextPromises.push(
+            (async () => {
+              try {
+                const { searchMemory, formatMemoryForConversation } = await import('./neural-memory-search');
+                
+                const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'i', 'you', 'we', 'they', 'he', 'she', 'it', 'that', 'this', 'what', 'when', 'where', 'why', 'how', 'my', 'your', 'our', 'their', 'me', 'him', 'her', 'us', 'them', 'about', 'just', 'so', 'really', 'very', 'now', 'then', 'here', 'there', 'some', 'all', 'any', 'more', 'most', 'other', 'over', 'such', 'no', 'not', 'only', 'own', 'same', 'than', 'too', 'can', 'know', 'think', 'want', 'like', 'going', 'get', 'got', 'make', 'made', 'say', 'said', 'go', 'went', 'come', 'came', 'take', 'took', 'see', 'saw', 'look', 'looked', 'one', 'two', 'three', 'four', 'five', 'first', 'last', 'also', 'well', 'if', 'yes', 'no', 'okay', 'yeah', 'hmm', 'um']);
+                
+                const words = transcript.split(/[\s,.!?;:'"()]+/).filter(w => 
+                  w.length >= 3 && !stopWords.has(w.toLowerCase())
+                );
+                
+                if (words.length === 0) return;
+                
+                const searchQuery = words.slice(0, 4).join(' ');
+                
+                const memoryResults = await searchMemory(
+                  String(session.userId),
+                  searchQuery,
+                  ['person', 'motivation', 'insight', 'conversation']
+                );
+                
+                if (memoryResults.results.length > 0) {
+                  const formatted = formatMemoryForConversation(memoryResults);
+                  passiveMemorySectionOpenMic = `\n\n[RELEVANT MEMORIES - You naturally recall this]\n${formatted}`;
+                  console.log(`[Passive Memory - OpenMic] Auto-retrieved ${memoryResults.results.length} memories`);
+                }
+              } catch (err: any) {
+                console.warn(`[Passive Memory - OpenMic] Failed:`, err.message);
+              }
+            })()
+          );
+        }
       }
       
       await Promise.all(contextPromises);
@@ -4404,6 +4524,9 @@ Remember: Beta testers understand they're helping build something and appreciate
       const dynamicContextPartsOpenMic: string[] = [];
       if (studentLearningSection) {
         dynamicContextPartsOpenMic.push(studentLearningSection);
+      }
+      if (passiveMemorySectionOpenMic) {
+        dynamicContextPartsOpenMic.push(passiveMemorySectionOpenMic);
       }
       
       // BETA TESTER MODE (OpenMic): Inject rehearsal context for users helping test new features

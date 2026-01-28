@@ -120,7 +120,8 @@ export function buildStudentSnapshotSection(
   // Check if we have any meaningful data
   const hasData = snapshot.lastSession || snapshot.syllabusPosition || 
                   snapshot.streak || snapshot.recentWins?.length || 
-                  snapshot.needsPractice?.length || snapshot.personalFollowUps?.length;
+                  snapshot.needsPractice?.length || snapshot.personalFollowUps?.length ||
+                  snapshot.conversationHighlights?.length;
   
   if (!hasData) return '';
   

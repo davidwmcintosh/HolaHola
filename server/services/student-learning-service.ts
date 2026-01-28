@@ -196,12 +196,13 @@ export const PERSONAL_FACT_TYPES = [
   'life_event',      // "Getting married in June"
   'personal_detail', // "Works as a nurse"
   'goal',            // "Want to be conversational for trip"
-  'preference',      // "Prefers morning practice sessions"
+  'preference',      // "Prefers morning practice sessions" or "Loves 'The Promise' by When in Rome"
   'relationship',    // "Has a sister named Maria"
   'travel',          // "Planning trip to Madrid"
   'work',            // "Started new job at hospital"
-  'family',          // "Just had a baby"
+  'family',          // "Just had a baby", "Daughter Maya plays soccer"
   'hobby',           // "Loves playing guitar"
+  'notable_mention', // Song, book, movie, artist, or cultural reference they shared (PRESERVE EXACT TITLES)
 ] as const;
 
 export type PersonalFactType = typeof PERSONAL_FACT_TYPES[number];
