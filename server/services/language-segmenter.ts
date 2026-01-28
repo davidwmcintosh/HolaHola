@@ -239,6 +239,7 @@ export function segmentByLanguage(
  * Cartesia language code mapping
  */
 const CARTESIA_LANGUAGE_CODES: Record<string, string> = {
+  // Full language names
   'english': 'en',
   'spanish': 'es',
   'french': 'fr',
@@ -254,6 +255,20 @@ const CARTESIA_LANGUAGE_CODES: Record<string, string> = {
   'arabic': 'ar',
   'russian': 'ru',
   'hindi': 'hi',
+  // Short codes (passthrough)
+  'en': 'en',
+  'es': 'es',
+  'fr': 'fr',
+  'de': 'de',
+  'it': 'it',
+  'pt': 'pt',
+  'ja': 'ja',
+  'ko': 'ko',
+  'zh': 'zh',
+  'he': 'he',
+  'ar': 'ar',
+  'ru': 'ru',
+  'hi': 'hi',
 };
 
 /**
