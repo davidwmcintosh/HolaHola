@@ -33,39 +33,64 @@ interface ExtractionResult {
 }
 
 // Prompt for Gemini to extract personal facts
+// CRITICAL: Preserve SPECIFIC details - names, titles, places, dates!
 const EXTRACTION_PROMPT = `You are analyzing a language tutoring conversation to extract personal facts the student shared about their life.
 
-Extract ONLY concrete personal details that would be valuable for the tutor to remember in future sessions. Focus on:
-- Life events: trips, weddings, new jobs, moving, babies
-- Personal details: occupation, hobbies, pets, family
+CRITICAL: Preserve SPECIFIC DETAILS! When the student mentions:
+- Song names, band names, movie titles, book titles → Include the EXACT name
+- People's names (family, friends, colleagues) → Include their NAME
+- Places (restaurants, cities, neighborhoods) → Include the SPECIFIC place
+- Dates, times, ages → Include the EXACT detail
+- Numbers, amounts, statistics → Include the EXACT number
+
+❌ BAD: "Enjoys listening to music during car rides"
+✅ GOOD: "Loves 'The Promise' by When in Rome - listens during car rides"
+
+❌ BAD: "Has a daughter who plays soccer"  
+✅ GOOD: "Daughter Maya plays soccer for the Wildcats team"
+
+❌ BAD: "Works in technology"
+✅ GOOD: "Works as a software architect at Replit"
+
+Extract personal details valuable for the tutor to remember. Focus on:
+- Life events: trips, weddings, new jobs, moving, babies (with NAMES and DATES)
+- Personal details: occupation, hobbies, pets, family (with SPECIFIC names)
 - Goals: why they're learning, what they want to achieve
-- Preferences: learning style, practice time preferences
-- Relationships: family members, friends mentioned by name
-- Travel: upcoming or past trips
-- Work: job, career changes, work situations
-- Hobbies: activities they enjoy
+- Preferences: favorite songs, movies, books, restaurants, activities (with TITLES/NAMES)
+- Relationships: family members, friends mentioned (with their NAMES)
+- Travel: trips with SPECIFIC destinations and dates
+- Work: job titles, company names, projects
+- Hobbies: activities with SPECIFIC details (team names, venues, etc.)
+- Notable mentions: any song, book, movie, artist, or cultural reference they shared
 
 DO NOT extract:
 - Language learning progress (tracked separately)
 - Errors or struggles (tracked separately)
-- Generic small talk without personal details
+- Generic observations without specifics
 - Anything the tutor said (only student's personal info)
 
 For each fact, provide:
 - factType: one of ${PERSONAL_FACT_TYPES.join(', ')}
-- fact: concise statement (max 100 chars)
-- context: how it came up (max 50 chars)
-- relevantDate: ISO date if there's a specific date (e.g., trip date, wedding date)
+- fact: detailed statement with specifics preserved (max 200 chars)
+- context: how it came up (max 80 chars)
+- relevantDate: ISO date if there's a specific date
 - confidence: 0-1 how confident this is a real personal fact
 
 Respond with JSON:
 {
   "facts": [
     {
-      "factType": "travel",
-      "fact": "Planning trip to Madrid in June 2025",
-      "context": "Mentioned as motivation for learning",
-      "relevantDate": "2025-06-01",
+      "factType": "preference",
+      "fact": "Loves 'The Promise' by When in Rome - was listening during a car ride",
+      "context": "Shared music during road trip conversation",
+      "relevantDate": null,
+      "confidence": 0.95
+    },
+    {
+      "factType": "family",
+      "fact": "Daughter Maya (age 8) plays soccer for the Wildcats",
+      "context": "Mentioned when discussing weekend plans",
+      "relevantDate": null,
       "confidence": 0.9
     }
   ],

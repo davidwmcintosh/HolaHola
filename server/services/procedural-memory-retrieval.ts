@@ -96,6 +96,11 @@ export interface StudentSnapshotContext {
     factType: string;
     daysAgo: number;
   }[];
+  conversationHighlights?: { // memorable moments from recent conversations
+    quote: string;
+    context: string;
+    daysAgo: number;
+  }[];
 }
 
 /**
@@ -171,6 +176,20 @@ export function buildStudentSnapshotSection(
                        followUp.daysAgo <= 7 ? 'this week' :
                        `${followUp.daysAgo} days ago`;
       lines.push(`  • ${followUp.fact} (mentioned ${daysText})`);
+    }
+  }
+  
+  // Conversation highlights - memorable moments from recent sessions
+  if (snapshot.conversationHighlights && snapshot.conversationHighlights.length > 0) {
+    lines.push('');
+    lines.push('RECENT CONVERSATION HIGHLIGHTS:');
+    lines.push('(Things they shared that you naturally remember)');
+    for (const highlight of snapshot.conversationHighlights.slice(0, 4)) {
+      const daysText = highlight.daysAgo === 0 ? 'today' :
+                       highlight.daysAgo === 1 ? 'yesterday' :
+                       highlight.daysAgo <= 7 ? 'this week' :
+                       `${highlight.daysAgo} days ago`;
+      lines.push(`  • "${highlight.quote}" — ${highlight.context} (${daysText})`);
     }
   }
   
@@ -297,6 +316,78 @@ export async function getStudentSnapshotData(
       
       if (followUpCandidates.length > 0) {
         snapshot.personalFollowUps = followUpCandidates.slice(0, 5);
+      }
+    }
+    
+    // 4. Get conversation highlights - memorable quotes from recent sessions
+    // These are user messages that contain specific personal details worth remembering
+    const recentHighlights = await getSharedDb()
+      .select({
+        content: messages.content,
+        createdAt: messages.createdAt,
+        topic: conversations.topic,
+      })
+      .from(messages)
+      .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+      .where(
+        and(
+          eq(conversations.userId, studentId),
+          eq(messages.role, 'user'),
+          targetLanguage ? eq(conversations.language, targetLanguage) : sql`true`,
+          // Only messages from last 14 days
+          gte(messages.createdAt, sql`NOW() - INTERVAL '14 days'`)
+        )
+      )
+      .orderBy(desc(messages.createdAt))
+      .limit(50); // Get more to filter for meaningful ones
+    
+    if (recentHighlights.length > 0) {
+      const now = new Date();
+      const meaningfulHighlights: { quote: string; context: string; daysAgo: number }[] = [];
+      
+      // Keywords that indicate memorable personal content
+      const memorableKeywords = [
+        // Names and specifics
+        'called', 'named', 'name is', 'my daughter', 'my son', 'my wife', 'my husband',
+        'my friend', 'my mom', 'my dad', 'my sister', 'my brother',
+        // Music/media
+        'song', 'band', 'music', 'playing', 'listening', 'movie', 'book', 'show',
+        // Events
+        'trip', 'vacation', 'wedding', 'birthday', 'anniversary', 'graduated',
+        // Specifics
+        'favorite', 'love the', 'really like', 'always', 'remember when',
+        // Places
+        'restaurant', 'place called', 'went to', 'visited',
+      ];
+      
+      for (const msg of recentHighlights) {
+        if (!msg.content) continue;
+        const lowerContent = msg.content.toLowerCase();
+        
+        // Check if message contains memorable keywords
+        const hasMemorable = memorableKeywords.some(kw => lowerContent.includes(kw));
+        if (!hasMemorable) continue;
+        
+        // Skip very short or very long messages
+        if (msg.content.length < 20 || msg.content.length > 300) continue;
+        
+        const daysAgo = Math.floor((now.getTime() - new Date(msg.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+        
+        // Truncate quote if needed
+        const quote = msg.content.length > 120 ? msg.content.slice(0, 117) + '...' : msg.content;
+        
+        meaningfulHighlights.push({
+          quote,
+          context: msg.topic || 'conversation',
+          daysAgo,
+        });
+        
+        // Stop at 4 highlights
+        if (meaningfulHighlights.length >= 4) break;
+      }
+      
+      if (meaningfulHighlights.length > 0) {
+        snapshot.conversationHighlights = meaningfulHighlights;
       }
     }
     
