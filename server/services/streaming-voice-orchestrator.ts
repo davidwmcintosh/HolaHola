@@ -7752,6 +7752,43 @@ Only include observations you can clearly justify from the exchange. Return empt
       
     } catch (error: any) {
       console.error(`[Phase Shift] Failed:`, error.message);
+      // Log silent failure to telemetry for founder review
+      this.logSilentFailure(session, 'phase_shift', error.message, { targetPhase: data.to, reason: data.reason });
+    }
+  }
+  
+  /**
+   * Log silent failures to production_telemetry for debugging
+   * These are errors that don't break the session but should be investigated
+   */
+  private async logSilentFailure(
+    session: StreamingSession,
+    functionName: string,
+    errorMessage: string,
+    context: Record<string, any> = {}
+  ): Promise<void> {
+    try {
+      const { productionTelemetry } = await import("@shared/schema");
+      const db = (await import("../db")).getSharedDb();
+      
+      await db.insert(productionTelemetry).values({
+        sessionId: session.sessionId,
+        userId: session.userId ? String(session.userId) : null,
+        eventType: 'silent_function_failure',
+        errorMessage: `[${functionName}] ${errorMessage}`,
+        errorDetails: JSON.stringify({
+          function: functionName,
+          context,
+          timestamp: new Date().toISOString(),
+          language: session.targetLanguage || 'unknown',
+        }),
+        environment: process.env.NODE_ENV === 'production' ? 'production' : 'development',
+        resolved: false,
+      });
+      console.log(`[Silent Failure Logged] ${functionName}: ${errorMessage.substring(0, 50)}...`);
+    } catch (err: any) {
+      // Don't let telemetry logging break the session
+      console.warn(`[Silent Failure] Could not log to telemetry: ${err.message}`);
     }
   }
   
