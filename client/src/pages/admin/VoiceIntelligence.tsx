@@ -281,7 +281,7 @@ function ClientTelemetryPanel() {
   );
 }
 
-export function VoiceIntelligenceContent() {
+export default function VoiceIntelligence() {
   const { toast } = useToast();
   const [daysBack, setDaysBack] = useState("7");
   const [environment, setEnvironment] = useState<string>("all");
@@ -781,10 +781,11 @@ export function VoiceIntelligenceContent() {
           <div className="text-xs text-muted-foreground text-center">
             Report generated: {report?.generatedAt ? new Date(report.generatedAt).toLocaleString() : 'Loading...'}
           </div>
-        </div>
       </div>
     </div>
   );
 }
 
-export default VoiceIntelligenceContent;
+export function VoiceIntelligenceContent() {
+  return <VoiceIntelligence />;
+}

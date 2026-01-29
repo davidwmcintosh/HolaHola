@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { BookOpen, Target, AlertTriangle, CheckCircle, GraduationCap, Sparkles, Loader2, FileText, ArrowLeft } from "lucide-react";
+import { BookOpen, Target, AlertTriangle, CheckCircle, GraduationCap, Sparkles, Loader2, FileText } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -97,7 +97,7 @@ function getCoverageProgressColor(percent: number): string {
   return "bg-red-500";
 }
 
-export function FluencyCoverageContent() {
+export default function FluencyCoverage() {
   const [selectedLanguage, setSelectedLanguage] = useState("spanish");
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const { toast } = useToast();
@@ -482,10 +482,11 @@ export function FluencyCoverageContent() {
               </CardContent>
             </Card>
           )}
-        </div>
       </div>
     </div>
   );
 }
 
-export default FluencyCoverageContent;
+export function FluencyCoverageContent() {
+  return <FluencyCoverage />;
+}

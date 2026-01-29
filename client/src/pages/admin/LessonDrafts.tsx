@@ -8,7 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, CheckCircle, XCircle, Clock, Sparkles, ChevronRight, BookOpen, Target, MessageSquare, Loader2, Shuffle, CheckCheck, AlertCircle, ArrowLeft } from "lucide-react";
+import { FileText, CheckCircle, XCircle, Clock, Sparkles, ChevronRight, BookOpen, Target, MessageSquare, Loader2, Shuffle, CheckCheck, AlertCircle } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -96,7 +96,7 @@ const LANGUAGES = [
   { value: "english", label: "English" },
 ];
 
-export function LessonDraftsContent() {
+export default function LessonDrafts() {
   const [statusFilter, setStatusFilter] = useState("draft");
   const [languageFilter, setLanguageFilter] = useState("all");
   const [selectedDraft, setSelectedDraft] = useState<LessonDraft | null>(null);
@@ -677,10 +677,11 @@ export function LessonDraftsContent() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-        </div>
       </div>
     </div>
   );
 }
 
-export default LessonDraftsContent;
+export function LessonDraftsContent() {
+  return <LessonDrafts />;
+}

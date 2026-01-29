@@ -308,7 +308,7 @@ const PULL_BATCHES = [
   { id: 'founder-context', label: 'Founder Context', description: 'Your personal facts (same Daniela)' },
 ];
 
-export function SyncControlCenterContent() {
+export default function SyncControlCenter() {
   const { toast } = useToast();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedBatches, setSelectedBatches] = useState<string[]>([]);
@@ -1493,10 +1493,11 @@ export function SyncControlCenterContent() {
               </Card>
             </>
           )}
-        </div>
       </div>
     </div>
   );
 }
 
-export default SyncControlCenterContent;
+export function SyncControlCenterContent() {
+  return <SyncControlCenter />;
+}
