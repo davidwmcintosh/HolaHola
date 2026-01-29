@@ -919,7 +919,6 @@ export function VoiceConsoleContent() {
           <SofiaVoiceCard />
         </div>
       </div>
-    </RoleGuard>
   );
 }
 

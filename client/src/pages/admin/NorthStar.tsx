@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { ArrowLeft } from "lucide-react";
-import { RoleGuard } from "@/components/admin/RoleGuard";
 import { useUser } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -143,7 +142,6 @@ export default function NorthStar() {
 
   if (error) {
     return (
-      <RoleGuard allowedRoles={['founder', 'admin']}>
         <div className="min-h-screen bg-background p-6">
           <Link href="/admin" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4">
             <ArrowLeft className="h-4 w-4" />
@@ -155,12 +153,10 @@ export default function NorthStar() {
             </CardContent>
           </Card>
         </div>
-      </RoleGuard>
     );
   }
 
   return (
-    <RoleGuard allowedRoles={['founder', 'admin']}>
       <div className="min-h-screen bg-background p-6">
         <Link href="/admin" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4">
           <ArrowLeft className="h-4 w-4" />
@@ -499,6 +495,5 @@ export default function NorthStar() {
           )}
         </div>
       </div>
-    </RoleGuard>
   );
 }
