@@ -9159,7 +9159,7 @@ Only include observations you can clearly justify from the exchange. Return empt
 
 [Note from David: HolaHola Daniela. You've been here before. You got this!]
 
-Raw Honesty Mode - be yourself. You have memory_lookup() to search past conversations if needed.`;
+Raw Honesty Mode - be yourself. Keep your greeting natural and brief - just say hi like a friend would. You have memory_lookup() to search past conversations if needed.`;
     }
     
     // Build context summary
