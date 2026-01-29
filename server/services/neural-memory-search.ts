@@ -435,6 +435,8 @@ export async function searchMemory(
             ? keywordPatterns.map(pattern => ilike(messages.content, pattern))
             : [ilike(messages.content, searchPattern)];
           
+          // Search ALL matching messages without limit - we'll rank and filter later
+          // This ensures we never lose old but highly relevant messages (like specific songs, names, etc.)
           const crossTutorByContent = await getSharedDb()
             .select({
               messageId: messages.id,
@@ -452,7 +454,7 @@ export async function searchMemory(
               or(...keywordConditions)
             ))
             .orderBy(desc(messages.createdAt))
-            .limit(50); // Increased from 15 to avoid losing older relevant messages
+            .limit(200); // Large limit to capture year+ of history
           
           // Merge results, deduplicate by message ID, and sort by recency
           const seenIds = new Set<string>();
@@ -501,6 +503,7 @@ export async function searchMemory(
               ? keywordPatterns.map(pattern => ilike(messages.content, pattern))
               : [ilike(messages.content, searchPattern)];
             
+            // Search ALL matching messages with large limit to capture full history
             recentConvos = await getSharedDb()
               .select({
                 messageId: messages.id,
@@ -518,7 +521,7 @@ export async function searchMemory(
                 or(...contentKeywordConditions)
               ))
               .orderBy(desc(messages.createdAt))
-              .limit(50); // Increased from 15 to avoid losing older relevant messages
+              .limit(200); // Large limit to capture year+ of history
           }
         }
         
