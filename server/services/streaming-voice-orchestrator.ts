@@ -10717,12 +10717,24 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       if (results.length > 0) {
         let combinedResults = results.join('\n\n');
         
-        // Safeguard: Truncate to prevent Gemini INVALID_ARGUMENT errors
-        // Gemini function responses have content limits
-        const MAX_MEMORY_RESULT_CHARS = 8000;
+        // Safeguard: Sanitize and truncate to prevent Gemini INVALID_ARGUMENT errors
+        // Remove potentially problematic characters that Gemini might reject
+        combinedResults = combinedResults
+          .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Remove control characters
+          .replace(/\uFFFD/g, '') // Remove replacement characters
+          .replace(/[\u2028\u2029]/g, '\n'); // Normalize line/paragraph separators
+        
+        // Truncate at a natural boundary (paragraph break) if too long
+        const MAX_MEMORY_RESULT_CHARS = 6000;
         if (combinedResults.length > MAX_MEMORY_RESULT_CHARS) {
-          console.log(`[MemoryLookup] Truncating results from ${combinedResults.length} to ${MAX_MEMORY_RESULT_CHARS} chars`);
-          combinedResults = combinedResults.substring(0, MAX_MEMORY_RESULT_CHARS) + '\n\n[... additional results truncated for brevity]';
+          // Find a natural break point (paragraph or section boundary)
+          let truncateAt = combinedResults.lastIndexOf('\n\n', MAX_MEMORY_RESULT_CHARS);
+          if (truncateAt < MAX_MEMORY_RESULT_CHARS * 0.5) {
+            // No good break point, just truncate at character limit
+            truncateAt = MAX_MEMORY_RESULT_CHARS;
+          }
+          console.log(`[MemoryLookup] Truncating results from ${combinedResults.length} to ${truncateAt} chars`);
+          combinedResults = combinedResults.substring(0, truncateAt) + '\n\n[... additional memories available - ask about specific topics]';
         }
         
         session.memoryLookupResults[query] = combinedResults;
