@@ -7871,6 +7871,7 @@ function EditorChatTab() {
   }, [founderCollab.state.messages]);
 
   // Fetch EXPRESS lane session on mount when in EXPRESS mode
+  // Polls every 5 seconds as fallback for messages added via REST API (not WebSocket)
   const { data: expressData, isLoading: expressLoading, refetch: refetchExpress } = useQuery<{
     hasActiveSession: boolean;
     session: ExpressLaneSession | null;
@@ -7878,6 +7879,7 @@ function EditorChatTab() {
   }>({
     queryKey: ['/api/express-lane/ui/session'],
     enabled: expressLaneMode,
+    refetchInterval: 5000,
   });
 
   // Update local state when EXPRESS data loads
