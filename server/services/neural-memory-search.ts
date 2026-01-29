@@ -57,7 +57,7 @@ import {
   type ToolKnowledge,
   type DanielaNote,
 } from '@shared/schema';
-import { eq, sql, desc, and, or, ilike } from 'drizzle-orm';
+import { eq, sql, desc, and, or, ilike, gte } from 'drizzle-orm';
 
 /**
  * Tutor name to language mapping
@@ -622,8 +622,11 @@ export async function searchMemory(
               ? keywordPatterns.map(pattern => ilike(messages.content, pattern))
               : [ilike(messages.content, searchPattern)];
             
-            // Run both keyword and semantic search in parallel
-            const [keywordResults, semanticResults] = await Promise.all([
+            // Run keyword, semantic, AND baseline recent search in parallel
+            // The baseline ensures Daniela always "sees" recent conversations even if they don't match the query
+            const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+            
+            const [keywordResults, semanticResults, baselineRecent] = await Promise.all([
               getSharedDb()
                 .select({
                   messageId: messages.id,
@@ -642,12 +645,31 @@ export async function searchMemory(
                 ))
                 .orderBy(desc(messages.createdAt))
                 .limit(200),
-              semanticSearchMessages(studentId, query, 100)
+              semanticSearchMessages(studentId, query, 100),
+              // BASELINE: Always fetch recent messages so Daniela has visibility into recent activity
+              getSharedDb()
+                .select({
+                  messageId: messages.id,
+                  content: messages.content,
+                  role: messages.role,
+                  conversationId: messages.conversationId,
+                  language: conversations.language,
+                  conversationTitle: conversations.title,
+                  createdAt: messages.createdAt,
+                })
+                .from(messages)
+                .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+                .where(and(
+                  eq(conversations.userId, studentId),
+                  gte(messages.createdAt, sevenDaysAgo)
+                ))
+                .orderBy(desc(messages.createdAt))
+                .limit(30)
             ]);
             
             // Merge and deduplicate, prioritizing semantic rank
             const seenIds = new Set<string>();
-            const messageRankings = new Map<string, { msg: typeof keywordResults[0], semanticRank?: number }>();
+            const messageRankings = new Map<string, { msg: typeof keywordResults[0], semanticRank?: number, isRecentBaseline?: boolean }>();
             
             for (const msg of keywordResults) {
               if (!seenIds.has(msg.messageId)) {
@@ -679,6 +701,15 @@ export async function searchMemory(
               }
             }
             
+            // BASELINE RECENT: Always include recent messages regardless of content match
+            // This ensures Daniela "sees" recent activity even when query doesn't match
+            for (const msg of baselineRecent) {
+              if (!seenIds.has(msg.messageId)) {
+                seenIds.add(msg.messageId);
+                messageRankings.set(msg.messageId, { msg, isRecentBaseline: true });
+              }
+            }
+            
             // Sort by semantic rank first, then recency
             // Also populate semanticRanks for relevance scoring
             const sortedContentResults = Array.from(messageRankings.values())
@@ -698,7 +729,7 @@ export async function searchMemory(
             }
             recentConvos = sortedContentResults.map(r => r.msg);
             
-            console.log(`[NeuralMemory] Content search: ${keywordResults.length} keyword matches, ${semanticResults.length} semantic matches`);
+            console.log(`[NeuralMemory] Content search: ${keywordResults.length} keyword, ${semanticResults.length} semantic, ${baselineRecent.length} baseline recent`);
           }
         }
         
@@ -712,18 +743,37 @@ export async function searchMemory(
           return lang;
         };
         
+        // Calculate recency boost - messages from last 14 days get a boost
+        // This ensures recent conversations are always visible even if content doesn't match well
+        const now = Date.now();
+        const fourteenDaysMs = 14 * 24 * 60 * 60 * 1000;
+        const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+        
         for (const msg of recentConvos) {
           const tutorDisplayName = msg.language ? getTutorDisplayName(msg.language) : 'Tutor';
           const roleLabel = msg.role === 'user' ? 'You said to ' + tutorDisplayName : tutorDisplayName + ' said';
           const langLabel = msg.language ? `[${msg.language}]` : '';
           
-          // Calculate relevance: base score + semantic rank boost
-          // ts_rank typically returns 0-1, so normalize and add to base
+          // Calculate relevance: base score + semantic rank boost + recency boost
           const baseRelevance = tutorLanguage ? 0.85 : 0.7;
           const semanticRank = semanticRanks.get(msg.messageId) || 0;
           // Normalize semantic rank (typically 0-0.5) to 0-0.2 boost
           const semanticBoost = Math.min(semanticRank * 0.4, 0.2);
-          const relevance = Math.min(baseRelevance + semanticBoost, 0.99);
+          
+          // Recency boost: +0.15 for messages in last 7 days, +0.08 for last 14 days
+          // This ensures Daniela "remembers" recent conversations naturally
+          let recencyBoost = 0;
+          if (msg.createdAt) {
+            const msgTime = new Date(msg.createdAt).getTime();
+            const age = now - msgTime;
+            if (age < sevenDaysMs) {
+              recencyBoost = 0.15; // Very recent - strong boost
+            } else if (age < fourteenDaysMs) {
+              recencyBoost = 0.08; // Recent - moderate boost
+            }
+          }
+          
+          const relevance = Math.min(baseRelevance + semanticBoost + recencyBoost, 0.99);
           
           results.push({
             domain: 'conversation',
