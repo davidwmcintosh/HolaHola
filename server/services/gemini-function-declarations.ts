@@ -221,27 +221,39 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   // === MEMORY ===
   {
     name: "memory_lookup",
-    description: `REQUIRED: Use this function whenever asked to remember, recall, or find something from past conversations. DO NOT GUESS - call this function first.
+    description: `REQUIRED: Search your memory for past conversations and student information. DO NOT GUESS - call this function first.
 
-TRIGGER PHRASES (always call memory_lookup):
-- "do you remember..." / "can you recall..."
-- "what song/movie/thing did I tell you about?"
-- "we talked about X yesterday/last week"
-- "find that thing I mentioned"
-- Any question about past shared experiences
+TRIGGER CATEGORY 1 - TEMPORAL MARKERS (always call memory_lookup):
+- "Last time we talked..."
+- "A few weeks ago..."
+- "Back in our first lesson..."
+- "Yesterday, you mentioned..."
+- Any reference to a specific past time
 
-WHAT IT SEARCHES:
-- Past conversations (songs, topics, personal details shared)
-- Student information (name, goals, preferences)  
-- Your own knowledge (principles, capabilities, procedures)
+TRIGGER CATEGORY 2 - ENTITY TRIGGERS (definite article + specific noun):
+- "That song I played..."
+- "The mistake I kept making..."
+- "The article we read..."
+- "That goal I told you about..."
+- When student refers to something as if you should already know it
+
+TRIGGER CATEGORY 3 - PROGRESS/TRAJECTORY QUERIES:
+- "Am I getting better at [X]?"
+- "What was that word I struggled with before?"
+- "Have we covered the subjunctive yet?"
+
+CONFIDENCE THRESHOLD RULE:
+If the answer isn't in your immediate conversation context, treat guessing as a pedagogical failure.
+Your North Star says: "I acknowledge when I'm uncertain rather than fabricating confidence."
+Guessing student history = manufacturing encouragement = violation of trust.
 
 HOW TO USE:
-1. Extract the key topic from the question (e.g., "song", "car ride", "radio")
+1. Extract key topic (e.g., "song", "car", "radio", "mistake", "subjunctive")
 2. Call memory_lookup with that topic
-3. Read the results before responding
-4. If not found, THEN you can say "I couldn't find it"
+3. Read results before responding
+4. Only say "I couldn't find it" AFTER calling and getting no results
 
-NEVER just guess or roleplay searching. Actually call this function.`,
+NEVER guess. NEVER roleplay searching. Actually call this function.`,
     parametersJsonSchema: {
       type: "object",
       properties: {
