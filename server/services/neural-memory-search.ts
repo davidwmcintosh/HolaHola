@@ -121,6 +121,75 @@ export interface MemorySearchResponse {
 }
 
 /**
+ * Full-text semantic search for messages using PostgreSQL tsvector
+ * This finds related content even without exact keyword matches.
+ * Returns messages ranked by relevance.
+ */
+export async function semanticSearchMessages(
+  studentId: string,
+  searchQuery: string,
+  limit: number = 50
+): Promise<Array<{
+  messageId: string;
+  content: string;
+  role: string;
+  conversationId: string;
+  language: string | null;
+  conversationTitle: string | null;
+  createdAt: Date | null;
+  rank: number;
+}>> {
+  try {
+    const sharedDb = getSharedDb();
+    
+    // Convert query to tsquery format - handle phrases and individual words
+    // Use minimal filtering for multilingual support with 'simple' config
+    // Only filter very short words (1-2 chars) to keep language-specific tokens
+    const words = searchQuery.toLowerCase().trim().split(/\s+/).filter(w => w.length > 2);
+    
+    // Minimal stop words that are common across multiple languages
+    // Keeping this very minimal since 'simple' config doesn't stem, so we want most words
+    const minimalStopWords = ['the', 'and', 'for'];
+    const significantWords = words.filter(w => !minimalStopWords.includes(w));
+    
+    // If all words were filtered, use original words
+    const queryWords = significantWords.length > 0 ? significantWords : words;
+    
+    if (queryWords.length === 0) {
+      return [];
+    }
+    
+    // Build OR query for broader matching
+    const tsqueryText = queryWords.join(' | ');
+    
+    // Use 'simple' config for multilingual content (Spanish, Portuguese, Japanese, etc.)
+    // 'simple' doesn't stem words but matches exact tokens across all languages
+    const results = await sharedDb.execute(sql`
+      SELECT 
+        m.id as "messageId",
+        m.content,
+        m.role,
+        m.conversation_id as "conversationId",
+        c.language,
+        c.title as "conversationTitle",
+        m.created_at as "createdAt",
+        ts_rank(m.search_vector, to_tsquery('simple', ${tsqueryText})) as rank
+      FROM messages m
+      INNER JOIN conversations c ON m.conversation_id = c.id
+      WHERE c.user_id = ${studentId}
+        AND m.search_vector @@ to_tsquery('simple', ${tsqueryText})
+      ORDER BY rank DESC, m.created_at DESC
+      LIMIT ${limit}
+    `);
+    
+    return results.rows as any[];
+  } catch (err: any) {
+    console.error('[NeuralMemory] Semantic search error:', err.message);
+    return [];
+  }
+}
+
+/**
  * Search across all memory domains for a student
  * 
  * @param studentId - The student to search memories for
@@ -381,7 +450,8 @@ export async function searchMemory(
         const tutorName = tutorLanguage ? 
           Object.entries(TUTOR_NAME_TO_LANGUAGE).find(([_, lang]) => lang === tutorLanguage)?.[0] : null;
         
-        let recentConvos;
+        let recentConvos: any[];
+        let semanticRanks: Map<string, number> = new Map();
         
         if (tutorLanguage) {
           // Search by tutor's language - get recent conversations with that tutor
@@ -456,23 +526,72 @@ export async function searchMemory(
             .orderBy(desc(messages.createdAt))
             .limit(200); // Large limit to capture year+ of history
           
-          // Merge results, deduplicate by message ID, and sort by recency
+          // Also run semantic search for broader matching (finds related content even without exact keywords)
+          const semanticResults = await semanticSearchMessages(studentId, query, 100);
+          
+          // Merge results, deduplicate by message ID, and combine rankings
           const seenIds = new Set<string>();
+          const messageRankings = new Map<string, { msg: typeof tutorConvos[0], semanticRank?: number }>();
+          
+          // Add all sources with deduplication
           const allMessages = [...tutorConvos, ...crossTutorByName, ...crossTutorByContent];
-          recentConvos = [];
           for (const msg of allMessages) {
             if (!seenIds.has(msg.messageId)) {
               seenIds.add(msg.messageId);
-              recentConvos.push(msg);
+              messageRankings.set(msg.messageId, { msg });
             }
           }
-          // Re-sort by recency (most recent first)
-          recentConvos.sort((a, b) => {
-            const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-            const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-            return bTime - aTime;
-          });
-          console.log(`[NeuralMemory] Tutor search: ${tutorConvos.length} from ${tutorLanguage}, ${crossTutorByName.length} name mentions, ${crossTutorByContent.length} content matches`);
+          
+          // Add semantic results with ranking info
+          for (const semResult of semanticResults) {
+            if (!seenIds.has(semResult.messageId)) {
+              seenIds.add(semResult.messageId);
+              messageRankings.set(semResult.messageId, { 
+                msg: {
+                  messageId: semResult.messageId,
+                  content: semResult.content,
+                  role: semResult.role,
+                  conversationId: semResult.conversationId,
+                  language: semResult.language ?? null,
+                  conversationTitle: semResult.conversationTitle ?? null,
+                  createdAt: semResult.createdAt ?? null,
+                } as typeof tutorConvos[0],
+                semanticRank: semResult.rank
+              });
+            } else {
+              // Message already found by keyword search - add semantic rank
+              const existing = messageRankings.get(semResult.messageId);
+              if (existing) {
+                existing.semanticRank = semResult.rank;
+              }
+            }
+          }
+          
+          // Build final list sorted by: semantic rank (if present) > recency
+          // Store semantic ranks in a map for later use in relevance scoring
+          semanticRanks = new Map<string, number>();
+          const sortedResults = Array.from(messageRankings.values())
+            .sort((a, b) => {
+              // Messages with high semantic rank come first
+              if (a.semanticRank && b.semanticRank) {
+                return b.semanticRank - a.semanticRank;
+              }
+              if (a.semanticRank && !b.semanticRank) return -1;
+              if (!a.semanticRank && b.semanticRank) return 1;
+              // Fall back to recency
+              const aTime = a.msg.createdAt ? new Date(a.msg.createdAt).getTime() : 0;
+              const bTime = b.msg.createdAt ? new Date(b.msg.createdAt).getTime() : 0;
+              return bTime - aTime;
+            });
+          
+          for (const r of sortedResults) {
+            if (r.semanticRank) {
+              semanticRanks.set(r.msg.messageId, r.semanticRank);
+            }
+          }
+          recentConvos = sortedResults.map(r => r.msg);
+          
+          console.log(`[NeuralMemory] Tutor search: ${tutorConvos.length} from ${tutorLanguage}, ${crossTutorByName.length} name mentions, ${crossTutorByContent.length} content matches, ${semanticResults.length} semantic matches`);
         } else {
           // Check if this is a "recent/today" query that should just return recent messages
           const recentTerms = ['recent', 'today', 'earlier', 'last', 'previous', 'past', 'before', 'ago', 'just', 'chat', 'conversation', 'talked', 'said', 'told', 'discussed', 'mentioned'];
@@ -503,25 +622,83 @@ export async function searchMemory(
               ? keywordPatterns.map(pattern => ilike(messages.content, pattern))
               : [ilike(messages.content, searchPattern)];
             
-            // Search ALL matching messages with large limit to capture full history
-            recentConvos = await getSharedDb()
-              .select({
-                messageId: messages.id,
-                content: messages.content,
-                role: messages.role,
-                conversationId: messages.conversationId,
-                language: conversations.language,
-                conversationTitle: conversations.title,
-                createdAt: messages.createdAt,
-              })
-              .from(messages)
-              .innerJoin(conversations, eq(messages.conversationId, conversations.id))
-              .where(and(
-                eq(conversations.userId, studentId),
-                or(...contentKeywordConditions)
-              ))
-              .orderBy(desc(messages.createdAt))
-              .limit(200); // Large limit to capture year+ of history
+            // Run both keyword and semantic search in parallel
+            const [keywordResults, semanticResults] = await Promise.all([
+              getSharedDb()
+                .select({
+                  messageId: messages.id,
+                  content: messages.content,
+                  role: messages.role,
+                  conversationId: messages.conversationId,
+                  language: conversations.language,
+                  conversationTitle: conversations.title,
+                  createdAt: messages.createdAt,
+                })
+                .from(messages)
+                .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+                .where(and(
+                  eq(conversations.userId, studentId),
+                  or(...contentKeywordConditions)
+                ))
+                .orderBy(desc(messages.createdAt))
+                .limit(200),
+              semanticSearchMessages(studentId, query, 100)
+            ]);
+            
+            // Merge and deduplicate, prioritizing semantic rank
+            const seenIds = new Set<string>();
+            const messageRankings = new Map<string, { msg: typeof keywordResults[0], semanticRank?: number }>();
+            
+            for (const msg of keywordResults) {
+              if (!seenIds.has(msg.messageId)) {
+                seenIds.add(msg.messageId);
+                messageRankings.set(msg.messageId, { msg });
+              }
+            }
+            
+            for (const semResult of semanticResults) {
+              if (!seenIds.has(semResult.messageId)) {
+                seenIds.add(semResult.messageId);
+                messageRankings.set(semResult.messageId, { 
+                  msg: {
+                    messageId: semResult.messageId,
+                    content: semResult.content,
+                    role: semResult.role,
+                    conversationId: semResult.conversationId,
+                    language: semResult.language ?? null,
+                    conversationTitle: semResult.conversationTitle ?? null,
+                    createdAt: semResult.createdAt ?? null,
+                  } as typeof keywordResults[0],
+                  semanticRank: semResult.rank
+                });
+              } else {
+                const existing = messageRankings.get(semResult.messageId);
+                if (existing) {
+                  existing.semanticRank = semResult.rank;
+                }
+              }
+            }
+            
+            // Sort by semantic rank first, then recency
+            // Also populate semanticRanks for relevance scoring
+            const sortedContentResults = Array.from(messageRankings.values())
+              .sort((a, b) => {
+                if (a.semanticRank && b.semanticRank) return b.semanticRank - a.semanticRank;
+                if (a.semanticRank && !b.semanticRank) return -1;
+                if (!a.semanticRank && b.semanticRank) return 1;
+                const aTime = a.msg.createdAt ? new Date(a.msg.createdAt).getTime() : 0;
+                const bTime = b.msg.createdAt ? new Date(b.msg.createdAt).getTime() : 0;
+                return bTime - aTime;
+              });
+            
+            for (const r of sortedContentResults) {
+              if (r.semanticRank) {
+                semanticRanks.set(r.msg.messageId, r.semanticRank);
+              }
+            }
+            recentConvos = sortedContentResults.map(r => r.msg);
+            
+            console.log(`[NeuralMemory] Content search: ${keywordResults.length} keyword matches, ${semanticResults.length} semantic matches`);
           }
         }
         
@@ -540,9 +717,17 @@ export async function searchMemory(
           const roleLabel = msg.role === 'user' ? 'You said to ' + tutorDisplayName : tutorDisplayName + ' said';
           const langLabel = msg.language ? `[${msg.language}]` : '';
           
+          // Calculate relevance: base score + semantic rank boost
+          // ts_rank typically returns 0-1, so normalize and add to base
+          const baseRelevance = tutorLanguage ? 0.85 : 0.7;
+          const semanticRank = semanticRanks.get(msg.messageId) || 0;
+          // Normalize semantic rank (typically 0-0.5) to 0-0.2 boost
+          const semanticBoost = Math.min(semanticRank * 0.4, 0.2);
+          const relevance = Math.min(baseRelevance + semanticBoost, 0.99);
+          
           results.push({
             domain: 'conversation',
-            relevance: tutorLanguage ? 0.95 : 0.8, // Higher relevance for tutor-specific searches
+            relevance,
             summary: `${langLabel} ${roleLabel}: "${msg.content?.substring(0, 80)}..."`,
             details: msg.content || '',
             timestamp: msg.createdAt,

@@ -461,6 +461,8 @@ export const messages = pgTable("messages", {
   actflLevel: text("actfl_level"), // novice_low, novice_mid, etc. - AI detects complexity of message content
   // Background enrichment status for voice chat optimization
   enrichmentStatus: text("enrichment_status"), // null (complete), "pending", "processing", "failed" - used for split response in voice chat
+  // Full-text search vector (auto-populated by database trigger)
+  searchVector: text("search_vector"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [
   index("idx_messages_conversation_id").on(table.conversationId),
