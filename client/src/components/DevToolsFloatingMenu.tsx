@@ -101,7 +101,7 @@ export function DevToolsFloatingMenu({
   const isLoading = reloadCreditsMutation.isPending || resetDataMutation.isPending;
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2">
+    <div className="fixed bottom-20 right-4 z-50 flex items-center gap-2 sm:bottom-4">
       {conversationId && (
         <div 
           className="bg-background/80 backdrop-blur-sm border rounded-md px-2 py-1 text-xs font-mono text-muted-foreground cursor-pointer hover:bg-background/90 shadow-sm"
