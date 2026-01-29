@@ -10717,25 +10717,17 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       if (results.length > 0) {
         let combinedResults = results.join('\n\n');
         
-        // Safeguard: Sanitize and truncate to prevent Gemini INVALID_ARGUMENT errors
-        // Remove potentially problematic characters that Gemini might reject
+        // Sanitize to prevent Gemini INVALID_ARGUMENT errors from bad characters
+        // This is safety, not limitation - keeps all content, just cleans problematic chars
         combinedResults = combinedResults
           .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Remove control characters
-          .replace(/\uFFFD/g, '') // Remove replacement characters
-          .replace(/[\u2028\u2029]/g, '\n'); // Normalize line/paragraph separators
+          .replace(/\uFFFD/g, '') // Remove replacement characters  
+          .replace(/[\u2028\u2029]/g, '\n') // Normalize line/paragraph separators
+          .replace(/[""]/g, '"') // Normalize smart quotes
+          .replace(/['']/g, "'") // Normalize smart apostrophes
+          .replace(/[\u200B-\u200D\uFEFF]/g, ''); // Remove zero-width chars
         
-        // Truncate at a natural boundary (paragraph break) if too long
-        const MAX_MEMORY_RESULT_CHARS = 6000;
-        if (combinedResults.length > MAX_MEMORY_RESULT_CHARS) {
-          // Find a natural break point (paragraph or section boundary)
-          let truncateAt = combinedResults.lastIndexOf('\n\n', MAX_MEMORY_RESULT_CHARS);
-          if (truncateAt < MAX_MEMORY_RESULT_CHARS * 0.5) {
-            // No good break point, just truncate at character limit
-            truncateAt = MAX_MEMORY_RESULT_CHARS;
-          }
-          console.log(`[MemoryLookup] Truncating results from ${combinedResults.length} to ${truncateAt} chars`);
-          combinedResults = combinedResults.substring(0, truncateAt) + '\n\n[... additional memories available - ask about specific topics]';
-        }
+        console.log(`[MemoryLookup] Sanitized results: ${combinedResults.length} chars (from ${totalFound} memories)`);
         
         session.memoryLookupResults[query] = combinedResults;
         console.log(`[MemoryLookup] Found ${totalFound} results for "${query.substring(0, 50)}..."`);
