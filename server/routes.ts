@@ -25072,7 +25072,10 @@ You have full access to your neural network knowledge.
       }
       
       const user = await storage.getUser(userId);
-      if (!user || (user.role !== 'admin' && user.role !== 'founder')) {
+      const FOUNDER_USER_ID = '49847136';
+      const isFounder = userId === FOUNDER_USER_ID;
+      
+      if (!user || (user.role !== 'admin' && !isFounder)) {
         return res.status(403).json({ error: 'Admin or Founder access required' });
       }
 
@@ -25086,8 +25089,8 @@ You have full access to your neural network knowledge.
         isActive: isActive !== undefined ? isActive : undefined,
       };
       
-      // Constitutional text fields (principle, category) - FOUNDER ONLY
-      if (user.role === 'founder') {
+      // Constitutional text fields (principle, category) - FOUNDER ONLY (by user ID)
+      if (isFounder) {
         if (principle !== undefined) {
           updateData.principle = principle;
           console.log(`[NORTH-STAR] Founder ${user.id} editing principle text for ${id}`);
