@@ -463,6 +463,8 @@ export const messages = pgTable("messages", {
   enrichmentStatus: text("enrichment_status"), // null (complete), "pending", "processing", "failed" - used for split response in voice chat
   // Full-text search vector (auto-populated by database trigger)
   searchVector: text("search_vector"),
+  // Legacy embedding column (preserved for data continuity - may contain vector embeddings)
+  embedding: text("embedding"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [
   index("idx_messages_conversation_id").on(table.conversationId),
@@ -3738,6 +3740,127 @@ export type UserMotivationAlert = typeof userMotivationAlerts.$inferSelect;
 
 export type InsertSessionNote = z.infer<typeof insertSessionNoteSchema>;
 export type SessionNote = typeof sessionNotes.$inferSelect;
+
+// ===== Journey Memory System =====
+// Pre-computed narrative summaries of student learning journeys
+// Replaces expensive message search with cheap context retrieval
+
+// Journey snapshot type - overall learning arc or language-specific
+export const journeySnapshotTypeEnum = pgEnum('journey_snapshot_type', [
+  'language_journey',    // Progress in a specific language (most common)
+  'overall_journey',     // Cross-language learning story
+  'relationship'         // Student-Daniela relationship arc
+]);
+
+// Journey Snapshots - AI-generated narrative summaries of learning progress
+// Updated periodically (not every session) to keep token costs low
+export const journeySnapshots = pgTable("journey_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  
+  // Snapshot scope
+  snapshotType: journeySnapshotTypeEnum("snapshot_type").default("language_journey"),
+  targetLanguage: varchar("target_language"), // Required for language_journey, null for overall
+  
+  // The narrative summary (the "gold" - this is what Daniela reads)
+  narrativeSummary: text("narrative_summary").notNull(), // ~500 tokens max
+  
+  // Structured highlights (for quick reference)
+  keyMilestones: jsonb("key_milestones").$type<{
+    milestoneId: string;
+    title: string;
+    when: string; // approximate date
+  }[]>(),
+  
+  currentStrengths: text("current_strengths").array(), // What they're good at now
+  currentChallenges: text("current_challenges").array(), // What they're working on
+  recentBreakthroughs: text("recent_breakthroughs").array(), // Last 30 days wins
+  
+  // Learning trajectory
+  trajectoryNotes: text("trajectory_notes"), // "Accelerating", "Plateauing", "Returning after break"
+  estimatedActflLevel: varchar("estimated_actfl_level"), // Based on conversation analysis
+  
+  // Metadata for freshness
+  sessionsIncluded: integer("sessions_included").default(0), // How many sessions informed this
+  lastSessionId: varchar("last_session_id"), // Most recent session included
+  lastUpdated: timestamp("last_updated").notNull().defaultNow(),
+  nextUpdateDue: timestamp("next_update_due"), // When to regenerate (after X sessions or Y days)
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_journey_snapshots_user").on(table.userId),
+  index("idx_journey_snapshots_user_language").on(table.userId, table.targetLanguage),
+  index("idx_journey_snapshots_type").on(table.snapshotType),
+  index("idx_journey_snapshots_next_update").on(table.nextUpdateDue),
+]);
+
+export const insertJourneySnapshotSchema = createInsertSchema(journeySnapshots).omit({
+  id: true,
+  lastUpdated: true,
+  createdAt: true,
+});
+export type InsertJourneySnapshot = z.infer<typeof insertJourneySnapshotSchema>;
+export type JourneySnapshot = typeof journeySnapshots.$inferSelect;
+
+// Milestone type - what kind of breakthrough was it?
+export const learningMilestoneTypeEnum = pgEnum('learning_milestone_type', [
+  'breakthrough',        // "Aha!" moment where something clicked
+  'first_success',       // First time accomplishing something (first joke in Spanish)
+  'plateau_overcome',    // Broke through a stuck point
+  'connection_made',     // Connected learning to personal life
+  'confidence_boost',    // Moment of visible confidence gain
+  'teacher_flagged',     // Daniela explicitly noted this as significant
+  'vocabulary_milestone',// Hit word count threshold (100, 500, 1000)
+  'grammar_milestone',   // Mastered a grammar concept
+  'fluency_marker'       // First sustained conversation, first phone call, etc.
+]);
+
+// Learning Milestones - Individual "magic moments" worth remembering
+// Captured in real-time (via ACTION_TRIGGERS) and preserved forever
+export const learningMilestones = pgTable("learning_milestones", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  targetLanguage: varchar("target_language").notNull(),
+  
+  // What happened
+  milestoneType: learningMilestoneTypeEnum("milestone_type").notNull(),
+  title: varchar("title", { length: 200 }).notNull(), // Short label for lists
+  description: text("description").notNull(), // The full story of what happened
+  
+  // Why it matters (Daniela's perspective)
+  significance: text("significance"), // Why this was meaningful for this student
+  emotionalContext: varchar("emotional_context"), // "proud", "relieved", "surprised", etc.
+  
+  // Source context
+  conversationId: varchar("conversation_id").references(() => conversations.id, { onDelete: 'set null' }),
+  voiceSessionId: varchar("voice_session_id").references(() => voiceSessions.id, { onDelete: 'set null' }),
+  messageId: varchar("message_id"), // The specific message where this happened
+  
+  // For curriculum-aligned milestones
+  competencyId: varchar("competency_id"), // Link to grammar/vocab competency if relevant
+  lessonId: varchar("lesson_id"), // Link to curriculum lesson if relevant
+  
+  // Flags
+  danielaFlagged: boolean("daniela_flagged").default(false), // Daniela explicitly noted this
+  studentAcknowledged: boolean("student_acknowledged").default(false), // Student said "yes that clicked!"
+  
+  occurredAt: timestamp("occurred_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_learning_milestones_user").on(table.userId),
+  index("idx_learning_milestones_user_language").on(table.userId, table.targetLanguage),
+  index("idx_learning_milestones_type").on(table.milestoneType),
+  index("idx_learning_milestones_occurred").on(table.occurredAt),
+  index("idx_learning_milestones_conversation").on(table.conversationId),
+]);
+
+export const insertLearningMilestoneSchema = createInsertSchema(learningMilestones).omit({
+  id: true,
+  occurredAt: true,
+  createdAt: true,
+});
+export type InsertLearningMilestone = z.infer<typeof insertLearningMilestoneSchema>;
+export type LearningMilestone = typeof learningMilestones.$inferSelect;
 
 // Category type for type-safe best practice categories
 export type BestPracticeCategory = 'tool_usage' | 'teaching_style' | 'pacing' | 'communication' | 'content' | 'system';

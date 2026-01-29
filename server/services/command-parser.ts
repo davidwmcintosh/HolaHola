@@ -38,6 +38,7 @@ export type ActionCommandType =
   // === MEMORY ===
   | 'MEMORY_LOOKUP'     // On-demand search of neural memory for people, topics, etc.
   | 'TAKE_NOTE'         // Daniela's personal notebook - direct insert, no approval
+  | 'MILESTONE'         // Record a learning milestone/breakthrough moment
   // === VOICE CONTROL ===
   | 'VOICE_ADJUST'      // Real-time voice adjustment (speed, emotion)
   | 'VOICE_RESET'       // Reset voice to baseline
@@ -98,6 +99,8 @@ export const VALID_ENUM_VALUES = {
   VOICE_ADJUST_PERSONALITY: ['warm', 'calm', 'energetic', 'professional'],
   // Word emphasis styles
   WORD_EMPHASIS_STYLE: ['stress', 'slow', 'both'],
+  // Learning milestone types
+  MILESTONE_TYPE: ['breakthrough', 'first_success', 'plateau_overcome', 'connection_made', 'confidence_boost', 'teacher_flagged', 'vocabulary_milestone', 'grammar_milestone', 'fluency_marker'],
   // UI Control commands
   SUBTITLE_MODE: ['off', 'on', 'target'],
   // Memory lookup domains - includes both student data AND self-knowledge (Daniela's brain)

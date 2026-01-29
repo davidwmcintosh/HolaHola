@@ -56,6 +56,8 @@ import {
   textbookSectionProgress,
   textbookUserPosition,
   textbookVisualAssets,
+  journeySnapshots,
+  learningMilestones,
 } from "@shared/schema";
 import { hasTeacherAccess, hasDeveloperAccess } from "@shared/permissions";
 import OpenAI, { toFile } from "openai";
@@ -25509,6 +25511,199 @@ You have full access to your neural network knowledge.
       res.json(data);
     } catch (error: any) {
       console.error("[BrainHealth] Anomalies error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================
+  // Journey Memory System Admin Routes
+  // ============================================
+  
+  app.get("/api/admin/journey/snapshots", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const limit = parseInt(String(req.query.limit || '50'));
+      const offset = parseInt(String(req.query.offset || '0'));
+      const language = req.query.language as string | undefined;
+      
+      const snapshots = await db.select({
+        id: journeySnapshots.id,
+        userId: journeySnapshots.userId,
+        targetLanguage: journeySnapshots.targetLanguage,
+        snapshotType: journeySnapshots.snapshotType,
+        narrativeSummary: journeySnapshots.narrativeSummary,
+        currentStrengths: journeySnapshots.currentStrengths,
+        currentChallenges: journeySnapshots.currentChallenges,
+        trajectoryNotes: journeySnapshots.trajectoryNotes,
+        sessionsIncluded: journeySnapshots.sessionsIncluded,
+        lastUpdated: journeySnapshots.lastUpdated,
+        createdAt: journeySnapshots.createdAt,
+      })
+        .from(journeySnapshots)
+        .where(language ? eq(journeySnapshots.targetLanguage, language) : sql`1=1`)
+        .orderBy(desc(journeySnapshots.lastUpdated))
+        .limit(limit)
+        .offset(offset);
+      
+      const countResult = await db.select({ count: sql<number>`count(*)::int` })
+        .from(journeySnapshots)
+        .where(language ? eq(journeySnapshots.targetLanguage, language) : sql`1=1`);
+      
+      res.json({ 
+        snapshots,
+        total: countResult[0]?.count || 0
+      });
+    } catch (error: any) {
+      console.error("[Journey Admin] Snapshots error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/admin/journey/milestones", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const limit = parseInt(String(req.query.limit || '50'));
+      const offset = parseInt(String(req.query.offset || '0'));
+      const language = req.query.language as string | undefined;
+      const category = req.query.category as string | undefined;
+      
+      let whereConditions = sql`1=1`;
+      if (language) {
+        whereConditions = eq(learningMilestones.targetLanguage, language);
+      }
+      if (category) {
+        whereConditions = and(whereConditions, eq(learningMilestones.milestoneType, category as any));
+      }
+      
+      const milestones = await db.select()
+        .from(learningMilestones)
+        .where(whereConditions)
+        .orderBy(desc(learningMilestones.createdAt))
+        .limit(limit)
+        .offset(offset);
+      
+      const countResult = await db.select({ count: sql<number>`count(*)::int` })
+        .from(learningMilestones)
+        .where(whereConditions);
+      
+      res.json({ 
+        milestones,
+        total: countResult[0]?.count || 0
+      });
+    } catch (error: any) {
+      console.error("[Journey Admin] Milestones error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/admin/journey/user/:userId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const language = req.query.language as string || 'spanish';
+      
+      const { journeyMemoryService } = await import('./services/journey-memory-service');
+      
+      const context = await journeyMemoryService.getJourneyContext(userId, language);
+      const stats = await journeyMemoryService.getJourneyStats(userId, language);
+      
+      res.json({ 
+        context,
+        stats,
+        userId,
+        language
+      });
+    } catch (error: any) {
+      console.error("[Journey Admin] User context error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/admin/journey/refresh/:userId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const { language = 'spanish' } = req.body;
+      
+      const { journeyMemoryService } = await import('./services/journey-memory-service');
+      
+      const snapshot = await journeyMemoryService.generateOrUpdateSnapshot(userId, language);
+      
+      res.json({ 
+        success: true,
+        snapshot 
+      });
+    } catch (error: any) {
+      console.error("[Journey Admin] Refresh error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/admin/journey/milestone", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { 
+        userId, 
+        targetLanguage, 
+        title, 
+        description, 
+        milestoneType = 'teacher_flagged',
+        significance,
+        emotionalContext,
+        conversationId,
+        voiceSessionId 
+      } = req.body;
+      
+      if (!userId || !targetLanguage || !title || !description) {
+        return res.status(400).json({ error: 'Missing required fields: userId, targetLanguage, title, description' });
+      }
+      
+      const { journeyMemoryService } = await import('./services/journey-memory-service');
+      
+      const milestone = await journeyMemoryService.recordMilestone({
+        userId,
+        targetLanguage,
+        milestoneType: milestoneType as any,
+        title,
+        description,
+        significance: significance || undefined,
+        emotionalContext: emotionalContext || undefined,
+        conversationId: conversationId || undefined,
+        voiceSessionId: voiceSessionId || undefined,
+      });
+      
+      res.json({ 
+        success: true,
+        milestone 
+      });
+    } catch (error: any) {
+      console.error("[Journey Admin] Add milestone error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/admin/journey/stats", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const snapshotCount = await db.select({ count: sql<number>`count(*)::int` }).from(journeySnapshots);
+      const milestoneCount = await db.select({ count: sql<number>`count(*)::int` }).from(learningMilestones);
+      
+      const languageBreakdown = await db.select({
+        language: journeySnapshots.targetLanguage,
+        count: sql<number>`count(*)::int`
+      })
+        .from(journeySnapshots)
+        .groupBy(journeySnapshots.targetLanguage);
+      
+      const categoryBreakdown = await db.select({
+        category: learningMilestones.milestoneType,
+        count: sql<number>`count(*)::int`
+      })
+        .from(learningMilestones)
+        .groupBy(learningMilestones.milestoneType);
+      
+      res.json({
+        totalSnapshots: snapshotCount[0]?.count || 0,
+        totalMilestones: milestoneCount[0]?.count || 0,
+        snapshotsByLanguage: languageBreakdown,
+        milestonesByCategory: categoryBreakdown,
+      });
+    } catch (error: any) {
+      console.error("[Journey Admin] Stats error:", error);
       res.status(500).json({ error: error.message });
     }
   });

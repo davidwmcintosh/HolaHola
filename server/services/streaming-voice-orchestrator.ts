@@ -138,6 +138,7 @@ import { studentLearningService } from "./student-learning-service";
 import { memoryCheckpointService } from "./memory-checkpoint-service";
 import { phonemeAnalyticsService } from "./phoneme-analytics-service";
 import { supportPersonaService } from "./support-persona-service";
+import { journeyMemoryService } from "./journey-memory-service";
 import { db, getSharedDb } from "../db";
 import { logVoiceOrchestratorError, trackVoicePipelineStage, logGeminiTimeout } from "./production-telemetry";
 // Language segmenter no longer needed - pronunciation handled via Daniela's [lang:word] tags
@@ -10499,6 +10500,40 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
             console.log(`[Native Function→TakeNote] ✓ Saved note ${noteId}`);
           }).catch(err => {
             console.error(`[Native Function→TakeNote] Error:`, err.message);
+          });
+        }
+        break;
+      }
+      
+      case 'MILESTONE': {
+        // Record a learning milestone/breakthrough moment
+        const milestoneType = fn.args.type as string | undefined;
+        const title = fn.args.title as string | undefined;
+        const description = fn.args.description as string | undefined;
+        const significance = fn.args.significance as string | undefined;
+        const emotionalContext = fn.args.emotional_context as string | undefined;
+        
+        if (title && description && session.userId) {
+          console.log(`[Native Function→Milestone] ${milestoneType || 'teacher_flagged'}: "${title.substring(0, 40)}..."`);
+          
+          // Record milestone asynchronously - non-blocking
+          journeyMemoryService.recordMilestone({
+            userId: session.userId,
+            targetLanguage: session.targetLanguage || 'spanish',
+            milestoneType: (milestoneType as any) || 'teacher_flagged',
+            title,
+            description,
+            significance: significance || undefined,
+            emotionalContext: emotionalContext || undefined,
+            conversationId: session.conversationId || undefined,
+            voiceSessionId: session.voiceSessionId || undefined,
+            danielaFlagged: true,
+          }).then(milestone => {
+            if (milestone) {
+              console.log(`[Native Function→Milestone] ✓ Recorded milestone ${milestone.id}`);
+            }
+          }).catch(err => {
+            console.error(`[Native Function→Milestone] Error:`, err.message);
           });
         }
         break;

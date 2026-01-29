@@ -23,6 +23,7 @@ import { neuralNetworkSync } from "./neural-network-sync";
 import { buildStudentSnapshotSection, getStudentSnapshotData } from "./procedural-memory-retrieval";
 import { hiveContextService } from "./hive-context-service";
 import { buildCurriculumContext, formatCurriculumContextForTutor } from "./curriculum-context";
+import { journeyMemoryService } from "./journey-memory-service";
 import { storage } from "../storage";
 
 export interface DanielaContextOptions {
@@ -35,6 +36,7 @@ export interface DanielaContextOptions {
   includeVoiceHistory?: boolean;
   includeHiveContext?: boolean;
   includeCurriculumContext?: boolean;
+  includeJourneyContext?: boolean;
   expressLaneLimit?: number;
   voiceHistoryLimit?: number;
 }
@@ -48,6 +50,7 @@ export interface UnifiedDanielaContext {
   neuralNetworkContext: string | null;
   hiveContext: string | null;
   curriculumContext: string | null;
+  journeyContext: string | null;
   channel: string;
   loadedAt: Date;
 }
@@ -62,6 +65,7 @@ interface GetContextOptions {
   includeHiveContext?: boolean;
   includeStudentSnapshot?: boolean;
   includeCurriculumContext?: boolean;
+  includeJourneyContext?: boolean;
 }
 
 class UnifiedDanielaContextService {
@@ -85,6 +89,7 @@ class UnifiedDanielaContextService {
       includeNeuralNetwork: options.includeNeuralNetwork ?? false,
       includeHiveContext: options.includeHiveContext ?? false,
       includeCurriculumContext: options.includeCurriculumContext ?? (mappedChannel === 'voice'),
+      includeJourneyContext: options.includeJourneyContext ?? (mappedChannel === 'voice'),
     });
     
     return this.formatForPrompt(fullContext);
@@ -105,6 +110,7 @@ class UnifiedDanielaContextService {
       includeVoiceHistory = true,
       includeHiveContext = channel === 'express_lane',
       includeCurriculumContext = channel === 'voice',
+      includeJourneyContext = channel === 'voice',
       expressLaneLimit = 10,
       voiceHistoryLimit = 3,
     } = options;
@@ -184,6 +190,16 @@ class UnifiedDanielaContextService {
       contextKeys.push('curriculumContext');
     }
 
+    if (includeJourneyContext && userId && targetLanguage) {
+      contextPromises.push(
+        this.getJourneyContext(userId.toString(), targetLanguage)
+      );
+      contextKeys.push('journeyContext');
+    } else {
+      contextPromises.push(Promise.resolve(null));
+      contextKeys.push('journeyContext');
+    }
+
     const results = await Promise.all(contextPromises);
     
     const context: UnifiedDanielaContext = {
@@ -195,6 +211,7 @@ class UnifiedDanielaContextService {
       neuralNetworkContext: results[5],
       hiveContext: results[6],
       curriculumContext: results[7],
+      journeyContext: results[8],
       channel,
       loadedAt: new Date(),
     };
@@ -274,6 +291,14 @@ ${context.neuralNetworkContext}`);
 📚 STUDENT SYLLABUS & CLASS CONTEXT
 ═══════════════════════════════════════════════════════════════════
 ${context.curriculumContext}`);
+    }
+
+    if (context.journeyContext) {
+      sections.push(`
+═══════════════════════════════════════════════════════════════════
+🗺️ STUDENT'S LEARNING JOURNEY (Their Story So Far)
+═══════════════════════════════════════════════════════════════════
+${context.journeyContext}`);
     }
 
     return sections.join('\n');
@@ -446,6 +471,25 @@ ${context.curriculumContext}`);
       return formatCurriculumContextForTutor(curriculumContext);
     } catch (error) {
       console.error('[UnifiedDanielContext] Curriculum context error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get journey context for a student's learning arc
+   * Provides narrative summary of their language learning journey
+   */
+  private async getJourneyContext(userId: string, targetLanguage: string): Promise<string | null> {
+    try {
+      const journeyContext = await journeyMemoryService.getJourneyContext(userId, targetLanguage);
+      
+      if (!journeyContext) {
+        return null;
+      }
+      
+      return journeyMemoryService.formatJourneyContextForPrompt(journeyContext);
+    } catch (error) {
+      console.error('[UnifiedDanielContext] Journey context error:', error);
       return null;
     }
   }
