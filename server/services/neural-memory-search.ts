@@ -452,7 +452,7 @@ export async function searchMemory(
               or(...keywordConditions)
             ))
             .orderBy(desc(messages.createdAt))
-            .limit(15);
+            .limit(50); // Increased from 15 to avoid losing older relevant messages
           
           // Merge results, deduplicate by message ID, and sort by recency
           const seenIds = new Set<string>();
@@ -518,7 +518,7 @@ export async function searchMemory(
                 or(...contentKeywordConditions)
               ))
               .orderBy(desc(messages.createdAt))
-              .limit(15);
+              .limit(50); // Increased from 15 to avoid losing older relevant messages
           }
         }
         
