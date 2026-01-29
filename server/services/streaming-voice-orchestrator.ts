@@ -10715,7 +10715,16 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       if (!session.memoryLookupResults) session.memoryLookupResults = {};
       
       if (results.length > 0) {
-        const combinedResults = results.join('\n\n');
+        let combinedResults = results.join('\n\n');
+        
+        // Safeguard: Truncate to prevent Gemini INVALID_ARGUMENT errors
+        // Gemini function responses have content limits
+        const MAX_MEMORY_RESULT_CHARS = 8000;
+        if (combinedResults.length > MAX_MEMORY_RESULT_CHARS) {
+          console.log(`[MemoryLookup] Truncating results from ${combinedResults.length} to ${MAX_MEMORY_RESULT_CHARS} chars`);
+          combinedResults = combinedResults.substring(0, MAX_MEMORY_RESULT_CHARS) + '\n\n[... additional results truncated for brevity]';
+        }
+        
         session.memoryLookupResults[query] = combinedResults;
         console.log(`[MemoryLookup] Found ${totalFound} results for "${query.substring(0, 50)}..."`);
         
