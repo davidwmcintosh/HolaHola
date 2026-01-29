@@ -221,14 +221,34 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   // === MEMORY ===
   {
     name: "memory_lookup",
-    description: "Search your memory - both student information AND your own brain (neural network). Use this to recall past conversations, student details, OR to introspect on your own principles, capabilities, and learning journey. For self-knowledge, use domains like 'principles' (your North Star), 'growth' (what you've learned), 'tools' (your capabilities).",
+    description: `REQUIRED: Use this function whenever asked to remember, recall, or find something from past conversations. DO NOT GUESS - call this function first.
+
+TRIGGER PHRASES (always call memory_lookup):
+- "do you remember..." / "can you recall..."
+- "what song/movie/thing did I tell you about?"
+- "we talked about X yesterday/last week"
+- "find that thing I mentioned"
+- Any question about past shared experiences
+
+WHAT IT SEARCHES:
+- Past conversations (songs, topics, personal details shared)
+- Student information (name, goals, preferences)  
+- Your own knowledge (principles, capabilities, procedures)
+
+HOW TO USE:
+1. Extract the key topic from the question (e.g., "song", "car ride", "radio")
+2. Call memory_lookup with that topic
+3. Read the results before responding
+4. If not found, THEN you can say "I couldn't find it"
+
+NEVER just guess or roleplay searching. Actually call this function.`,
     parametersJsonSchema: {
       type: "object",
       properties: {
-        query: { type: "string", description: "What to search for (topic, phrase, concept, capability)" },
+        query: { type: "string", description: "Key topic/phrase to search for. Be specific: 'song radio car' not just 'song'. Include related words." },
         domains: { 
           type: "string", 
-          description: "Comma-separated domains to search. STUDENT DATA: conversation, person, motivation, insight, struggle, session, progress, syllabus. YOUR BRAIN (self-knowledge): principles (your North Star/core beliefs), growth (your learning journey), tools (your capabilities), procedures (how you teach), patterns (when to do what). LANGUAGE KNOWLEDGE: idiom, cultural, error-pattern" 
+          description: "Comma-separated domains. Use 'conversation' for past chats (most common). Use 'person' for student details. Use 'principles,growth,tools' for self-knowledge." 
         },
       },
       required: ["query"],
