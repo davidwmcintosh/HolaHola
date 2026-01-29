@@ -12,7 +12,6 @@ import { FileText, CheckCircle, XCircle, Clock, Sparkles, ChevronRight, BookOpen
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Link } from "wouter";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface ScaffoldedTask {
@@ -244,15 +243,7 @@ export default function LessonDrafts() {
               Review and approve AI-generated lesson content before publishing
             </p>
           </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" asChild data-testid="link-coverage">
-                <Link href="/admin/fluency-coverage">
-                  <Target className="h-4 w-4 mr-2" />
-                  Coverage Dashboard
-                </Link>
-              </Button>
-            </div>
-          </div>
+        </div>
 
           <div className="grid gap-4 md:grid-cols-5">
             {Object.entries(STATUS_LABELS).map(([status, info]) => {

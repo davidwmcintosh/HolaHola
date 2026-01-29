@@ -22,6 +22,10 @@ import { SyllabusBuilder } from "@/components/SyllabusBuilder";
 import { useFounderCollab } from "@/hooks/useFounderCollab";
 import { BrainHealthContent } from "@/pages/admin/BrainHealth";
 import { JourneyMemoryContent } from "@/pages/admin/JourneyMemory";
+import { FluencyCoverageContent } from "@/pages/admin/FluencyCoverage";
+import { LessonDraftsContent } from "@/pages/admin/LessonDrafts";
+import { VoiceIntelligenceContent } from "@/pages/admin/VoiceIntelligence";
+import { SyncControlCenterContent } from "@/pages/admin/SyncControlCenter";
 import { 
   LayoutDashboard,
   Users,
@@ -1346,22 +1350,6 @@ export default function CommandCenter() {
       setLocation('/admin/voices');
       return;
     }
-    if (value === 'voice-intelligence') {
-      setLocation('/admin/voice-intelligence');
-      return;
-    }
-    if (value === 'sync-control') {
-      setLocation('/admin/sync');
-      return;
-    }
-    if (value === 'fluency-coverage') {
-      setLocation('/admin/fluency-coverage');
-      return;
-    }
-    if (value === 'lesson-drafts') {
-      setLocation('/admin/lesson-drafts');
-      return;
-    }
     setActiveTab(value);
   };
 
@@ -1654,6 +1642,22 @@ export default function CommandCenter() {
 
           <TabsContent value="option-b-telemetry" className="space-y-4">
             <OptionBTelemetryTab />
+          </TabsContent>
+
+          <TabsContent value="fluency-coverage" className="space-y-4">
+            <FluencyCoverageContent />
+          </TabsContent>
+
+          <TabsContent value="lesson-drafts" className="space-y-4">
+            <LessonDraftsContent />
+          </TabsContent>
+
+          <TabsContent value="voice-intelligence" className="space-y-4">
+            <VoiceIntelligenceContent />
+          </TabsContent>
+
+          <TabsContent value="sync-control" className="space-y-4">
+            <SyncControlCenterContent />
           </TabsContent>
         </Tabs>
       </div>

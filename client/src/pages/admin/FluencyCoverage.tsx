@@ -10,7 +10,6 @@ import { BookOpen, Target, AlertTriangle, CheckCircle, GraduationCap, Sparkles, 
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Link } from "wouter";
 
 interface CoverageAnalysis {
   summary: {
@@ -226,12 +225,6 @@ export default function FluencyCoverage() {
                   <Sparkles className="h-4 w-4 mr-2" />
                 )}
                 Fill All Gaps
-              </Button>
-              <Button variant="outline" asChild data-testid="link-review-queue">
-                <Link href="/admin/lesson-drafts">
-                  <FileText className="h-4 w-4 mr-2" />
-                  Review Queue
-                </Link>
               </Button>
             </div>
           </div>

@@ -48,11 +48,7 @@ const CurriculumLibrary = lazy(() => import("@/pages/curriculum-library"));
 const ClassCreationHub = lazy(() => import("@/pages/class-creation-hub"));
 const CommandCenter = lazy(() => import("@/pages/admin/CommandCenter"));
 const AdminVoiceConsole = lazy(() => import("@/pages/admin/VoiceConsole"));
-const AdminVoiceIntelligence = lazy(() => import("@/pages/admin/VoiceIntelligence"));
 const AdminNorthStar = lazy(() => import("@/pages/admin/NorthStar"));
-const AdminSyncControlCenter = lazy(() => import("@/pages/admin/SyncControlCenter"));
-const AdminFluencyCoverage = lazy(() => import("@/pages/admin/FluencyCoverage"));
-const AdminLessonDrafts = lazy(() => import("@/pages/admin/LessonDrafts"));
 const AdminDeveloperDashboard = lazy(() => import("@/pages/admin/DeveloperDashboard"));
 const AdminBrainHealth = lazy(() => import("@/pages/admin/BrainHealth"));
 const Lessons = lazy(() => import("@/pages/lessons"));
@@ -210,11 +206,7 @@ function Router() {
         {/* Admin Routes - Command Center consolidates all admin features */}
         <Route path="/admin" component={CommandCenter} />
         <Route path="/admin/voices" component={AdminVoiceConsole} />
-        <Route path="/admin/voice-intelligence" component={AdminVoiceIntelligence} />
         <Route path="/admin/north-star" component={AdminNorthStar} />
-        <Route path="/admin/sync" component={AdminSyncControlCenter} />
-        <Route path="/admin/fluency-coverage" component={AdminFluencyCoverage} />
-        <Route path="/admin/lesson-drafts" component={AdminLessonDrafts} />
         <Route path="/admin/developer" component={AdminDeveloperDashboard} />
         <Route path="/admin/brain-health" component={AdminBrainHealth} />
         
