@@ -1,6 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { AdminLayout } from "@/components/admin/AdminLayout";
-import { RoleGuard } from "@/components/admin/RoleGuard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Download } from "lucide-react";
@@ -30,8 +28,6 @@ export default function AdminReports() {
   });
 
   return (
-    <RoleGuard allowedRoles={['admin']}>
-      <AdminLayout>
         <div className="space-y-6">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Admin Reports</h1>
@@ -142,7 +138,5 @@ export default function AdminReports() {
             </CardContent>
           </Card>
         </div>
-      </AdminLayout>
-    </RoleGuard>
   );
 }

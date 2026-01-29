@@ -1,7 +1,5 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { AdminLayout } from "@/components/admin/AdminLayout";
-import { RoleGuard } from "@/components/admin/RoleGuard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -185,8 +183,6 @@ export default function DeveloperDashboard() {
   };
 
   return (
-    <RoleGuard allowedRoles={['developer', 'admin']}>
-      <AdminLayout>
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
@@ -757,8 +753,6 @@ export default function DeveloperDashboard() {
             </TabsContent>
           </Tabs>
         </div>
-      </AdminLayout>
-    </RoleGuard>
   );
 }
 

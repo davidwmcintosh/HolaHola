@@ -1,7 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { AdminLayout } from "@/components/admin/AdminLayout";
-import { RoleGuard } from "@/components/admin/RoleGuard";
 import { MetricsCard } from "@/components/admin/MetricsCard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -575,12 +573,4 @@ export function BrainHealthContent() {
   );
 }
 
-export default function BrainHealth() {
-  return (
-    <RoleGuard allowedRoles={["admin", "founder"]}>
-      <AdminLayout>
-        <BrainHealthContent />
-      </AdminLayout>
-    </RoleGuard>
-  );
-}
+export default BrainHealthContent;

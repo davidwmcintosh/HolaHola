@@ -1,6 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { AdminLayout } from "@/components/admin/AdminLayout";
-import { RoleGuard } from "@/components/admin/RoleGuard";
 import { MetricsCard } from "@/components/admin/MetricsCard";
 import { TrendChart } from "@/components/admin/TrendChart";
 import { Users, GraduationCap, FileText, MessageSquare, TrendingUp, Award } from "lucide-react";
@@ -39,8 +37,6 @@ export default function AdminDashboard() {
   });
 
   return (
-    <RoleGuard allowedRoles={['admin']}>
-      <AdminLayout>
         <div className="space-y-6">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Platform Overview</h1>
@@ -168,7 +164,5 @@ export default function AdminDashboard() {
             </Card>
           </div>
         </div>
-      </AdminLayout>
-    </RoleGuard>
   );
 }

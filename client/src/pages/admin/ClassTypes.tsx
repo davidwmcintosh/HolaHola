@@ -1,7 +1,5 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { AdminLayout } from "@/components/admin/AdminLayout";
-import { RoleGuard } from "@/components/admin/RoleGuard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -177,8 +175,6 @@ export default function AdminClassTypes() {
   };
 
   return (
-    <RoleGuard allowedRoles={['admin']}>
-      <AdminLayout>
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
@@ -452,7 +448,5 @@ export default function AdminClassTypes() {
             </CardContent>
           </Card>
         </div>
-      </AdminLayout>
-    </RoleGuard>
   );
 }
