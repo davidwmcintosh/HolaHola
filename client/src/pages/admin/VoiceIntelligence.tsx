@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Link } from "wouter";
-import { ArrowLeft, RefreshCw, TrendingUp, TrendingDown, Activity, AlertTriangle, Clock, Globe, Users, Zap, ChevronDown, ChevronUp, Radio, Play, Pause } from "lucide-react";
-import { RoleGuard } from "@/components/admin/RoleGuard";
+import { RefreshCw, TrendingUp, TrendingDown, Activity, AlertTriangle, Clock, Globe, Users, Zap, ChevronDown, ChevronUp, Radio, Play, Pause } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -283,7 +281,7 @@ function ClientTelemetryPanel() {
   );
 }
 
-export default function VoiceIntelligence() {
+export function VoiceIntelligenceContent() {
   const { toast } = useToast();
   const [daysBack, setDaysBack] = useState("7");
   const [environment, setEnvironment] = useState<string>("all");
@@ -329,21 +327,13 @@ export default function VoiceIntelligence() {
   };
 
   return (
-    <RoleGuard allowedRoles={['founder', 'admin', 'developer']}>
-      <div className="min-h-screen bg-background p-4 md:p-6">
-        <div className="max-w-7xl mx-auto space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <Link href="/admin">
-                <Button variant="ghost" size="icon" data-testid="button-back-admin">
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
-              </Link>
-              <div>
-                <h1 className="text-2xl font-bold">Voice Intelligence</h1>
-                <p className="text-sm text-muted-foreground">Comprehensive voice pipeline analytics</p>
-              </div>
-            </div>
+    <div className="min-h-screen bg-background p-4 md:p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold">Voice Intelligence</h1>
+            <p className="text-sm text-muted-foreground">Comprehensive voice pipeline analytics</p>
+          </div>
 
             <div className="flex items-center gap-2 flex-wrap">
               <Select value={daysBack} onValueChange={setDaysBack}>
@@ -793,6 +783,8 @@ export default function VoiceIntelligence() {
           </div>
         </div>
       </div>
-    </RoleGuard>
+    </div>
   );
 }
+
+export default VoiceIntelligenceContent;

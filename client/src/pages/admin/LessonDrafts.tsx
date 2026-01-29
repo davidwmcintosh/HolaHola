@@ -1,5 +1,4 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { RoleGuard } from "@/components/admin/RoleGuard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -97,7 +96,7 @@ const LANGUAGES = [
   { value: "english", label: "English" },
 ];
 
-export default function LessonDrafts() {
+export function LessonDraftsContent() {
   const [statusFilter, setStatusFilter] = useState("draft");
   const [languageFilter, setLanguageFilter] = useState("all");
   const [selectedDraft, setSelectedDraft] = useState<LessonDraft | null>(null);
@@ -234,24 +233,17 @@ export default function LessonDrafts() {
   ) || {};
 
   return (
-    <RoleGuard allowedRoles={["admin", "developer", "founder"]}>
-      <div className="min-h-screen bg-background p-6">
-        <div className="max-w-7xl mx-auto space-y-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <Button variant="ghost" size="sm" asChild className="mb-2" data-testid="link-back-command-center">
-                <Link href="/admin">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Command Center
-                </Link>
-              </Button>
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight" data-testid="text-page-title">
-                AI Lesson Draft Review
-              </h1>
-              <p className="text-muted-foreground mt-2">
-                Review and approve AI-generated lesson content before publishing
-              </p>
-            </div>
+    <div className="min-h-screen bg-background p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight" data-testid="text-page-title">
+              AI Lesson Draft Review
+            </h1>
+            <p className="text-muted-foreground mt-2">
+              Review and approve AI-generated lesson content before publishing
+            </p>
+          </div>
             <div className="flex items-center gap-2">
               <Button variant="outline" asChild data-testid="link-coverage">
                 <Link href="/admin/fluency-coverage">
@@ -687,6 +679,8 @@ export default function LessonDrafts() {
         </Dialog>
         </div>
       </div>
-    </RoleGuard>
+    </div>
   );
 }
+
+export default LessonDraftsContent;

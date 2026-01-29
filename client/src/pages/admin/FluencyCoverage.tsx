@@ -1,5 +1,4 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { RoleGuard } from "@/components/admin/RoleGuard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
@@ -98,7 +97,7 @@ function getCoverageProgressColor(percent: number): string {
   return "bg-red-500";
 }
 
-export default function FluencyCoverage() {
+export function FluencyCoverageContent() {
   const [selectedLanguage, setSelectedLanguage] = useState("spanish");
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const { toast } = useToast();
@@ -192,24 +191,17 @@ export default function FluencyCoverage() {
   };
 
   return (
-    <RoleGuard allowedRoles={['admin', 'developer', 'founder']}>
-      <div className="min-h-screen bg-background p-6">
-        <div className="max-w-7xl mx-auto space-y-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <Button variant="ghost" size="sm" asChild className="mb-2" data-testid="link-back-command-center">
-                <Link href="/admin">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Command Center
-                </Link>
-              </Button>
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight" data-testid="text-page-title">
-                ACTFL Fluency Coverage
-              </h1>
-              <p className="text-muted-foreground mt-2">
-                Monitor Can-Do statement coverage across lessons and identify content gaps
-              </p>
-            </div>
+    <div className="min-h-screen bg-background p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight" data-testid="text-page-title">
+              ACTFL Fluency Coverage
+            </h1>
+            <p className="text-muted-foreground mt-2">
+              Monitor Can-Do statement coverage across lessons and identify content gaps
+            </p>
+          </div>
             <div className="flex flex-wrap items-center gap-2">
               <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
                 <SelectTrigger className="w-48" data-testid="select-language">
@@ -492,6 +484,8 @@ export default function FluencyCoverage() {
           )}
         </div>
       </div>
-    </RoleGuard>
+    </div>
   );
 }
+
+export default FluencyCoverageContent;

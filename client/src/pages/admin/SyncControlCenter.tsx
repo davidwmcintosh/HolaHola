@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Link } from "wouter";
 import { 
-  ArrowLeft, 
   RefreshCw, 
   ArrowUpRight, 
   ArrowDownLeft, 
@@ -17,7 +15,6 @@ import {
   RotateCcw,
   Activity
 } from "lucide-react";
-import { RoleGuard } from "@/components/admin/RoleGuard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -311,7 +308,7 @@ const PULL_BATCHES = [
   { id: 'founder-context', label: 'Founder Context', description: 'Your personal facts (same Daniela)' },
 ];
 
-export default function SyncControlCenter() {
+export function SyncControlCenterContent() {
   const { toast } = useToast();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedBatches, setSelectedBatches] = useState<string[]>([]);
@@ -577,23 +574,15 @@ export default function SyncControlCenter() {
   const peerEnv = currentEnv === 'production' ? 'development' : 'production';
 
   return (
-    <RoleGuard allowedRoles={['founder']}>
-      <div className="min-h-screen bg-background">
-        <div className="container max-w-6xl mx-auto p-4 md:p-6 space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link href="/admin">
-                <Button variant="ghost" size="icon" data-testid="button-back">
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
-              </Link>
-              <div>
-                <h1 className="text-2xl font-bold">Sync Control Center</h1>
-                <p className="text-muted-foreground">
-                  Manage dev-prod synchronization
-                </p>
-              </div>
-            </div>
+    <div className="min-h-screen bg-background">
+      <div className="container max-w-6xl mx-auto p-4 md:p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Sync Control Center</h1>
+            <p className="text-muted-foreground">
+              Manage dev-prod synchronization
+            </p>
+          </div>
             <Button 
               variant="outline" 
               onClick={handleRefresh}
@@ -1506,6 +1495,8 @@ export default function SyncControlCenter() {
           )}
         </div>
       </div>
-    </RoleGuard>
+    </div>
   );
 }
+
+export default SyncControlCenterContent;

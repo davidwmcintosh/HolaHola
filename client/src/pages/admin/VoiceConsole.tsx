@@ -1,8 +1,5 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Link } from "wouter";
-import { ArrowLeft } from "lucide-react";
-import { RoleGuard } from "@/components/admin/RoleGuard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -129,7 +126,7 @@ const SAMPLE_PHRASES: Record<string, { target: string; native: string }> = {
   },
 };
 
-export default function VoiceConsole() {
+export function VoiceConsoleContent() {
   const { toast } = useToast();
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
   const [auditionPhase, setAuditionPhase] = useState<'idle' | 'target' | 'native'>('idle');
@@ -451,13 +448,8 @@ export default function VoiceConsole() {
   }, {} as Record<string, { male: TutorVoice | null; female: TutorVoice | null }>);
 
   return (
-    <RoleGuard allowedRoles={['admin']}>
-      <div className="min-h-screen bg-background p-6">
-        <Link href="/admin" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4">
-          <ArrowLeft className="h-4 w-4" />
-          Back to Command Center
-        </Link>
-        <div className="space-y-6">
+    <div className="min-h-screen bg-background p-6">
+      <div className="space-y-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h1 className="text-3xl md:text-4xl font-bold tracking-tight" data-testid="text-page-title">Voice Console</h1>
