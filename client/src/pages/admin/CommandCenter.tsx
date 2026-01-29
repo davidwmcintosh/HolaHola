@@ -21,6 +21,7 @@ import { useUser } from "@/lib/auth";
 import { SyllabusBuilder } from "@/components/SyllabusBuilder";
 import { useFounderCollab } from "@/hooks/useFounderCollab";
 import { BrainHealthContent } from "@/pages/admin/BrainHealth";
+import { JourneyMemoryContent } from "@/pages/admin/JourneyMemory";
 import { 
   LayoutDashboard,
   Users,
@@ -103,6 +104,7 @@ import {
   Database,
   Target,
   Percent,
+  Map,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -1407,6 +1409,7 @@ export default function CommandCenter() {
         { id: "neural-network", label: "Neural Net", icon: Zap, roles: ['developer', 'admin'] },
         { id: "brain-surgery", label: "Surgery", icon: Brain, roles: ['developer', 'admin'] },
         { id: "brain-health", label: "Health", icon: Heart, roles: ['developer', 'admin'] },
+        { id: "journey-memory", label: "Journeys", icon: Map, roles: ['developer', 'admin'] },
         { id: "north-star", label: "North Star", icon: Compass, roles: ['developer', 'admin'] },
         { id: "teaching-tools", label: "Tools", icon: Activity, roles: ['developer', 'admin'] },
       ]
@@ -1587,6 +1590,10 @@ export default function CommandCenter() {
 
           <TabsContent value="brain-health" className="space-y-4">
             <BrainHealthTab />
+          </TabsContent>
+
+          <TabsContent value="journey-memory" className="space-y-4">
+            <JourneyMemoryContent />
           </TabsContent>
 
           <TabsContent value="north-star" className="space-y-4">

@@ -1,7 +1,5 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { AdminLayout } from "@/components/admin/AdminLayout";
-import { RoleGuard } from "@/components/admin/RoleGuard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -71,7 +69,7 @@ const MILESTONE_TYPE_COLORS: Record<string, string> = {
   fluency_marker: "bg-orange-500/20 text-orange-700 dark:text-orange-400",
 };
 
-export default function AdminJourneyMemory() {
+export function JourneyMemoryContent() {
   const [languageFilter, setLanguageFilter] = useState<string>("");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [userIdSearch, setUserIdSearch] = useState("");
@@ -122,20 +120,18 @@ export default function AdminJourneyMemory() {
   };
 
   return (
-    <RoleGuard allowedRoles={['admin']}>
-      <AdminLayout>
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2" data-testid="text-page-title">
-                <Map className="h-6 w-6" />
-                Journey Memory System
-              </h1>
-              <p className="text-muted-foreground">
-                AI-powered learning journey tracking for cost-effective student memory
-              </p>
-            </div>
-          </div>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2" data-testid="text-page-title">
+            <Map className="h-6 w-6" />
+            Journey Memory System
+          </h1>
+          <p className="text-muted-foreground">
+            AI-powered learning journey tracking for cost-effective student memory
+          </p>
+        </div>
+      </div>
 
           {statsLoading ? (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -411,8 +407,8 @@ export default function AdminJourneyMemory() {
               )}
             </TabsContent>
           </Tabs>
-        </div>
-      </AdminLayout>
-    </RoleGuard>
+    </div>
   );
 }
+
+export default JourneyMemoryContent;
