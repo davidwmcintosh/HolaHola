@@ -733,12 +733,12 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
           const isBetaTester = user.isBetaTester === true;
           
           // Raw Honesty Mode: Minimal prompting for authentic self-discovery conversations
-          // DEVELOPER/ADMIN: Developers and admins can access this mode
-          // This allows authentic, unscripted conversations with Daniela
+          // FOUNDER-ONLY: Only the founder/admin can access this mode
+          // This allows the founder to have completely raw, unscripted conversations with Daniela
           const isAdmin = user.role === 'admin';
-          const isRawHonestyMode = isDeveloper && config.rawHonestyMode === true;
+          const isRawHonestyMode = isAdmin && config.rawHonestyMode === true;
           if (isRawHonestyMode) {
-            console.log(`[Streaming Voice] RAW HONESTY MODE enabled for ${user.firstName || 'developer'}`);
+            console.log(`[Streaming Voice] RAW HONESTY MODE enabled for FOUNDER ${user.firstName || 'admin'}`);
           }
           
           // Session Context: USER_ROLE and SESSION_INTENT for better mode awareness
