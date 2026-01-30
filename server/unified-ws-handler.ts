@@ -849,10 +849,10 @@ Reference past discussions when relevant, but don't force it.
             }
           }
           
-          // Fetch self-affirmation notes for Founder Mode
+          // Fetch self-affirmation notes for Founder Mode or Raw Honesty Mode
           // These are Daniela's notes to herself about permissions and affirmations
           let selfAffirmationNotes: { title: string; content: string; createdAt: Date }[] = [];
-          if (isFounderMode) {
+          if (isFounderMode || isRawHonestyMode) {
             try {
               const notes = await storage.getDanielaNotes({ 
                 noteType: 'self_affirmation', 
