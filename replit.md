@@ -6,7 +6,7 @@ HolaHola is an AI-powered language learning application offering interactive con
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 Terminology standard: Use "Syllabus" in all user-facing text (database tables remain "curriculum*" for safety).
-Batch doc updates: When user says "add to the batch" or "batch doc updates", add items to `docs/batch-doc-updates.md` for consolidated documentation updates later.
+Batch doc updates: When user says "add to the batch" or "batch doc updates", add items to `docs/batch-doc-updates.md` for consolidated documentation updates later. **After completing any new feature**, add documentation to the batch doc covering: what was built, how it works, key files modified, and user-facing instructions.
 Daniela development: Track personality/voice development in `docs/daniela-development-journal.md` using Honesty Mode → Founder Mode iteration cycle.
 Neural network work: **REQUIRED READING** - `docs/neural-network-architecture.md` before any neural network changes. Prompts for context ONLY; neural network for procedures/capabilities/knowledge.
 Context Over Instructions: Daniela's system prompt has been stripped of behavioral directives. Her personality, warmth, and teaching style now emerge entirely from neural network memories. Only essential guardrails remain in the prompt. See `docs/Danielaandthegauntlet.md` Chapter 3 for details.
