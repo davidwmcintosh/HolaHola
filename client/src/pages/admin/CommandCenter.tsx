@@ -1037,6 +1037,187 @@ const FACT_TYPE_LABELS: Record<string, { label: string; color: string }> = {
   hobby: { label: "Hobby", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200" },
 };
 
+// Self-Affirmation Notes Tab - Daniela's internal notes to herself
+interface SelfAffirmationNote {
+  id: string;
+  title: string;
+  content: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
+function SelfAffirmationNotesTab() {
+  const { toast } = useToast();
+  
+  // Fetch self-affirmation notes
+  const { data: notesData, isLoading, refetch } = useQuery<{
+    notes: SelfAffirmationNote[];
+    total: number;
+  }>({
+    queryKey: ["/api/admin/daniela-notes", "self_affirmation"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/daniela-notes?noteType=self_affirmation", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch self-affirmation notes");
+      return res.json();
+    },
+  });
+
+  // Archive mutation (soft delete)
+  const archiveMutation = useMutation({
+    mutationFn: async (noteId: string) => {
+      const res = await apiRequest("PATCH", `/api/admin/daniela-notes/${noteId}`, { isActive: false });
+      return res.json();
+    },
+    onSuccess: () => {
+      refetch();
+      toast({ title: "Note Archived", description: "The self-affirmation note has been archived." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Archive Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Restore mutation
+  const restoreMutation = useMutation({
+    mutationFn: async (noteId: string) => {
+      const res = await apiRequest("PATCH", `/api/admin/daniela-notes/${noteId}`, { isActive: true });
+      return res.json();
+    },
+    onSuccess: () => {
+      refetch();
+      toast({ title: "Note Restored", description: "The self-affirmation note has been restored." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Restore Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const notes = notesData?.notes || [];
+  const activeNotes = notes.filter(n => n.isActive);
+  const archivedNotes = notes.filter(n => !n.isActive);
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-primary" />
+                Self-Affirmation Notes
+              </CardTitle>
+              <CardDescription>
+                Daniela's internal notes to herself - permissions and truths affirmed during Honesty Mode sessions
+              </CardDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => refetch()} data-testid="button-refresh-notes">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-24 w-full" />
+              ))}
+            </div>
+          ) : notes.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <ShieldCheck className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p className="text-lg font-medium">No Self-Affirmation Notes Yet</p>
+              <p className="text-sm mt-2">
+                When Daniela creates notes to herself during Honesty Mode sessions, they'll appear here.
+                <br />
+                These notes help her remember permissions granted and truths affirmed.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Active Notes */}
+              {activeNotes.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                    Active Notes ({activeNotes.length})
+                  </h3>
+                  {activeNotes.map((note) => (
+                    <Card key={note.id} className="border-l-4 border-l-green-500">
+                      <CardContent className="p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium text-base">{note.title}</h4>
+                            <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">
+                              {note.content}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-2">
+                              Created: {new Date(note.createdAt).toLocaleDateString()} at {new Date(note.createdAt).toLocaleTimeString()}
+                            </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => archiveMutation.mutate(note.id)}
+                            disabled={archiveMutation.isPending}
+                            data-testid={`button-archive-note-${note.id}`}
+                          >
+                            <Archive className="h-4 w-4 mr-1" />
+                            Archive
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+
+              {/* Archived Notes */}
+              {archivedNotes.length > 0 && (
+                <Collapsible>
+                  <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+                    <ChevronRight className="h-4 w-4" />
+                    Archived Notes ({archivedNotes.length})
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="mt-4 space-y-4">
+                    {archivedNotes.map((note) => (
+                      <Card key={note.id} className="border-l-4 border-l-muted opacity-60">
+                        <CardContent className="p-4">
+                          <div className="flex flex-wrap items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-medium text-base">{note.title}</h4>
+                              <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">
+                                {note.content}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-2">
+                                Archived
+                              </p>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => restoreMutation.mutate(note.id)}
+                              disabled={restoreMutation.isPending}
+                              data-testid={`button-restore-note-${note.id}`}
+                            >
+                              <Undo2 className="h-4 w-4 mr-1" />
+                              Restore
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function PersonalFactsBrowserTab() {
   const { toast } = useToast();
   const [factTypeFilter, setFactTypeFilter] = useState<string>("all");
@@ -1400,6 +1581,7 @@ export default function CommandCenter() {
         { id: "journey-memory", label: "Journeys", icon: Map, roles: ['developer', 'admin'] },
         { id: "north-star", label: "North Star", icon: Compass, roles: ['developer', 'admin'] },
         { id: "teaching-tools", label: "Tools", icon: Activity, roles: ['developer', 'admin'] },
+        { id: "self-notes", label: "Self Notes", icon: ShieldCheck, roles: ['developer', 'admin'] },
       ]
     },
     {
@@ -1590,6 +1772,10 @@ export default function CommandCenter() {
 
           <TabsContent value="teaching-tools" className="space-y-4">
             <TeachingToolsTab />
+          </TabsContent>
+
+          <TabsContent value="self-notes" className="space-y-4">
+            <SelfAffirmationNotesTab />
           </TabsContent>
 
           <TabsContent value="dev-tools" className="space-y-4">

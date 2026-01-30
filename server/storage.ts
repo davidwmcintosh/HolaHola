@@ -7356,6 +7356,20 @@ export class DatabaseStorage implements IStorage {
       .set({ isActive: false, archivedAt: new Date(), updatedAt: new Date() })
       .where(eq(danielaNotes.id, id));
   }
+
+  async updateDanielaNoteById(id: string, updates: { isActive?: boolean; title?: string; content?: string }): Promise<DanielaNote | null> {
+    const updateData: any = { updatedAt: new Date() };
+    if (typeof updates.isActive === 'boolean') updateData.isActive = updates.isActive;
+    if (updates.title) updateData.title = updates.title;
+    if (updates.content) updateData.content = updates.content;
+    
+    const result = await db.update(danielaNotes)
+      .set(updateData)
+      .where(eq(danielaNotes.id, id))
+      .returning();
+    
+    return result[0] || null;
+  }
   
   // ===== BRAIN SURGERY DEACTIVATE/ROLLBACK METHODS =====
   

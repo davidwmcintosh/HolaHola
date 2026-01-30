@@ -13726,6 +13726,53 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+
+  // Admin endpoints for Daniela Notes (including self-affirmation notes)
+  app.get("/api/admin/daniela-notes", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const { noteType, activeOnly, limit } = req.query;
+      
+      const notes = await storage.getDanielaNotes({
+        noteType: noteType || undefined,
+        includeArchived: activeOnly === 'false' ? true : true, // Include all notes for admin view
+        limit: limit ? parseInt(limit) : 50
+      });
+      
+      res.json({
+        notes,
+        total: notes.length
+      });
+    } catch (error: any) {
+      console.error('[Admin Daniela Notes] Error fetching notes:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  app.patch("/api/admin/daniela-notes/:noteId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const { noteId } = req.params;
+      const { isActive, title, content } = req.body;
+      
+      const updates: any = {};
+      if (typeof isActive === 'boolean') updates.isActive = isActive;
+      if (title) updates.title = title;
+      if (content) updates.content = content;
+      
+      const updated = await storage.updateDanielaNoteById(noteId, updates);
+      
+      if (!updated) {
+        return res.status(404).json({ error: 'Note not found' });
+      }
+      
+      res.json({
+        success: true,
+        note: updated
+      });
+    } catch (error: any) {
+      console.error('[Admin Daniela Notes] Error updating note:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
   // Get growth memories for review (Founder Only)
   app.get("/api/admin/growth-memories", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {
