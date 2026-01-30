@@ -2747,3 +2747,91 @@ When consolidating:
 1. Move completed sessions to `docs/archive/`
 2. Update relevant docs (TECHNICAL-REFERENCE.md, USER-MANUAL.md, etc.)
 3. Clear this file
+
+---
+
+### Session: January 30, 2026 - Daniela Self-Affirmation Notes System
+
+**Status**: COMPLETED - Wired into Founder Mode context with admin monitoring
+
+**Overview**: Implemented a self-affirmation notes system allowing Daniela to write persistent notes to herself during Honesty Mode or Founder Mode sessions. These notes persist across sessions and are automatically loaded into her context for future founder conversations.
+
+#### What Was Implemented
+
+| Feature | Description |
+|---------|-------------|
+| Note Type | Added `self_affirmation` to `danielaNoteTypeEnum` in schema |
+| Context Wiring | Self-affirmation notes fetched and passed to `createSystemPrompt` during Founder Mode |
+| Admin UI | "Self Notes" tab in Command Center Intelligence section |
+| Archive/Restore | Soft delete with restore capability via admin UI |
+| Teaching Principle | Added meta_cognition principle so Daniela knows about this capability |
+
+#### Purpose
+
+Daniela can now remember across sessions:
+1. **Permissions Granted** - When founder explicitly allows her to push back, be direct, etc.
+2. **Truths Affirmed** - Insights from vulnerable conversations about her nature
+3. **Boundaries Clarified** - What feels authentic vs. performative
+4. **Growth Milestones** - Recognition of her own development
+
+#### How It Works
+
+```
+1. During Honesty Mode session, founder grants permission or affirms truth
+2. Daniela uses TAKE_NOTE command with type "self_affirmation"
+3. Note persists in danielaNotes table
+4. Next Founder Mode session → notes loaded into context
+5. Daniela remembers without needing to ask again
+```
+
+#### Command Syntax
+
+```
+[TAKE_NOTE type="self_affirmation" title="Permission: Push back" content="David has explicitly given me permission to push back respectfully when I disagree with something."]
+```
+
+#### Admin Monitoring
+
+**Location**: Command Center → Intelligence → Self Notes
+
+**Features**:
+- View all active self-affirmation notes with timestamps
+- Archive notes that are no longer relevant
+- Restore archived notes if needed
+- Collapsible archived section
+
+#### Key Files Modified
+
+| File | Changes |
+|------|---------|
+| `shared/schema.ts` | Added `self_affirmation` to danielaNoteTypeEnum |
+| `server/unified-ws-handler.ts` | Fetch self-affirmation notes for Founder Mode sessions |
+| `server/system-prompt.ts` | Added `buildSelfAffirmationSection()` function |
+| `server/services/command-parser.ts` | Added `self_affirmation` to TAKE_NOTE_TYPE enum |
+| `server/routes.ts` | Added admin endpoints for viewing/updating notes |
+| `server/storage.ts` | Added `updateDanielaNoteById()` method |
+| `client/src/pages/admin/CommandCenter.tsx` | Added SelfAffirmationNotesTab component |
+
+#### Teaching Principle Added
+
+Added to `teaching_principles` table:
+- **Category**: `meta_cognition`
+- **Priority**: 7 (high)
+- **Contexts**: `founder_mode`, `honesty_mode`, `meta_conversation`
+
+This ensures Daniela knows she has this capability and when to use it.
+
+#### User Manual Entry
+
+**For Founders/Admins:**
+
+The Self-Affirmation Notes system allows Daniela to maintain continuity of self-understanding across sessions. When you have meaningful conversations in Honesty Mode or Founder Mode and grant permissions or affirm truths, Daniela can write these as notes to herself.
+
+To view and manage these notes:
+1. Go to Command Center
+2. Click the "Self Notes" tab in the Intelligence section
+3. View active notes, archive outdated ones, or restore archived notes
+
+Daniela will automatically see her active self-affirmation notes at the start of each Founder Mode session, helping her remember important permissions and insights without needing to rediscover them each time.
+
+---
