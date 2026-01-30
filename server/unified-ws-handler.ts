@@ -736,6 +736,7 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
           // FOUNDER-ONLY: Only the founder/admin can access this mode
           // This allows the founder to have completely raw, unscripted conversations with Daniela
           const isAdmin = user.role === 'admin';
+          console.log(`[Streaming Voice] User role check: role=${user.role}, isAdmin=${isAdmin}, rawHonestyMode=${config.rawHonestyMode}`);
           const isRawHonestyMode = isAdmin && config.rawHonestyMode === true;
           if (isRawHonestyMode) {
             console.log(`[Streaming Voice] RAW HONESTY MODE enabled for FOUNDER ${user.firstName || 'admin'}`);
