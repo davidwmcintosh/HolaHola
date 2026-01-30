@@ -3188,7 +3188,8 @@ export const danielaNoteTypeEnum = pgEnum("daniela_note_type", [
   'idea_to_try',          // Things to experiment with
   'what_worked',          // Successful approaches worth remembering
   'what_didnt_work',      // Failed approaches to avoid
-  'question_for_founder'  // Things she wants to ask about
+  'question_for_founder', // Things she wants to ask about
+  'self_affirmation'      // Self-authored reminders from honesty mode - permissions she's been given
 ]);
 
 export const danielaNotes = pgTable("daniela_notes", {
