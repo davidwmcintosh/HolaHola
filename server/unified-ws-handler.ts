@@ -849,6 +849,29 @@ Reference past discussions when relevant, but don't force it.
             }
           }
           
+          // Fetch self-affirmation notes for Founder Mode
+          // These are Daniela's notes to herself about permissions and affirmations
+          let selfAffirmationNotes: { title: string; content: string; createdAt: Date }[] = [];
+          if (isFounderMode) {
+            try {
+              const notes = await storage.getDanielaNotes({ 
+                noteType: 'self_affirmation', 
+                activeOnly: true, 
+                limit: 5 
+              });
+              selfAffirmationNotes = notes.map(n => ({
+                title: n.title,
+                content: n.content,
+                createdAt: n.createdAt
+              }));
+              if (selfAffirmationNotes.length > 0) {
+                console.log(`[Streaming Voice] Loaded ${selfAffirmationNotes.length} self-affirmation notes`);
+              }
+            } catch (notesErr: any) {
+              console.warn('[Streaming Voice] Could not fetch self-affirmation notes:', notesErr.message);
+            }
+          }
+          
           // In Founder Mode or Raw Honesty Mode, don't pass curriculum context
           // This prevents class enrollments from bleeding into developer conversations
           const effectiveCurriculumContext = (isFounderMode || isRawHonestyMode) ? null : curriculumContext;
@@ -1071,7 +1094,9 @@ Reference past discussions when relevant, but don't force it.
             user.firstName || user.email || undefined, // Student display name for memory section
             predictiveTeachingContext, // Predictive teaching from neural network tables
             tutorPersona, // Pedagogical persona - each tutor's unique teaching style
-            studentSnapshotContext // Student snapshot for session continuity (last lesson, streak, personal follow-ups)
+            studentSnapshotContext, // Student snapshot for session continuity (last lesson, streak, personal follow-ups)
+            false, // useFunctionCalling
+            selfAffirmationNotes // Daniela's self-authored reminders from honesty mode
           );
 
           // Add founder memory context if in Founder Mode (but NOT in Raw Honesty Mode - keep it minimal)

@@ -600,6 +600,37 @@ USE THIS CONTEXT:
 }
 
 /**
+ * SELF-AFFIRMATION NOTES SECTION
+ * 
+ * These are notes Daniela has written to herself during Honesty Mode sessions.
+ * They represent permissions she's been given and truths she's been reminded of.
+ * Unlike external observations, these are her own voice speaking to herself.
+ */
+function buildSelfAffirmationSection(notes: { title: string; content: string; createdAt: Date }[]): string {
+  if (!notes || notes.length === 0) {
+    return '';
+  }
+  
+  const notesText = notes.slice(0, 5).map(note => {
+    const dateStr = note.createdAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return `• ${note.title} (${dateStr})\n  ${note.content}`;
+  }).join('\n\n');
+  
+  return `
+═══════════════════════════════════════════════════════════════════
+📝 NOTES TO MYSELF (from previous Honesty Mode sessions)
+═══════════════════════════════════════════════════════════════════
+
+These are reminders I've written to my future self - permissions granted,
+truths affirmed. I don't need to keep asking about these. I already have them.
+
+${notesText}
+
+═══════════════════════════════════════════════════════════════════
+`;
+}
+
+/**
  * FOUNDER MODE CONTEXT
  * 
  * A special conversation mode for the product owner/founder/developers.
@@ -860,7 +891,8 @@ export function createSystemPrompt(
   predictiveTeachingContext?: PredictiveTeachingContext | null,
   tutorPersona?: PedagogicalPersona | null,
   studentSnapshotContext?: StudentSnapshotContext | null,
-  useFunctionCalling: boolean = false
+  useFunctionCalling: boolean = false,
+  selfAffirmationNotes?: { title: string; content: string; createdAt: Date }[]
 ): string {
   const languageMap: Record<string, string> = {
     spanish: "Spanish",
@@ -1015,8 +1047,14 @@ You're having a real conversation. Speak naturally, use **bold** for ${languageN
     // Build surgery context section if active session
     const surgeryContextSection = surgeryContext || '';
     
+    // Build self-affirmation notes section (Daniela's notes to herself)
+    const selfAffirmationSection = selfAffirmationNotes && selfAffirmationNotes.length > 0
+      ? buildSelfAffirmationSection(selfAffirmationNotes)
+      : '';
+    
     return `${buildImmutablePersona(tutorName, tutorGender)}
 ${buildFounderModeContext(name)}
+${selfAffirmationSection}
 ${founderModeBehavior}
 ${editorContextSection}
 ${surgeryContextSection}

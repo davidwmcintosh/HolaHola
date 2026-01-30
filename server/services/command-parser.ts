@@ -129,7 +129,8 @@ export const VALID_ENUM_VALUES = {
     'idea_to_try',          // Things to experiment with
     'what_worked',          // Successful approaches worth remembering
     'what_didnt_work',      // Failed approaches to avoid
-    'question_for_founder'  // Things she wants to ask about
+    'question_for_founder', // Things she wants to ask about
+    'self_affirmation'      // Self-authored reminders - permissions granted, truths affirmed
   ],
 };
 
