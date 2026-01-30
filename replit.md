@@ -11,6 +11,7 @@ Daniela development: Track personality/voice development in `docs/daniela-develo
 Neural network work: **REQUIRED READING** - `docs/neural-network-architecture.md` before any neural network changes. Prompts for context ONLY; neural network for procedures/capabilities/knowledge.
 Context Over Instructions: Daniela's system prompt has been stripped of behavioral directives. Her personality, warmth, and teaching style now emerge entirely from neural network memories. Only essential guardrails remain in the prompt. See `docs/Danielaandthegauntlet.md` Chapter 3 for details.
 Hebrew (hidden language): Hebrew is a special unlockable language for founder's daughter - NOT public, just a "chat friend." Added to type system and configs but NOT to public language showcases. Uses Cartesia voices (Shira/Noam with placeholder IDs - use Voice Lab to select proper voices), Deepgram 'he' for STT, Google TTS 'he-IL' for assistant tutors. RTL text support still needed for chat display.
+Mobile floating buttons: DevToolsFloatingMenu uses `bottom-28` on mobile (112px) to clear Chrome's mobile UI, `bottom-4` on desktop.
 
 ## System Architecture
 The frontend uses React, TypeScript (Vite), Shadcn/ui (Radix UI), and Tailwind CSS for a mobile-first, responsive design following Material Design principles, with light/dark modes and PWA features. Wouter handles routing, and React Context with TanStack Query manages state. The backend is an Express.js (Node.js) server with TypeScript, providing a RESTful API, Drizzle ORM for PostgreSQL, and Replit Auth for authentication.
