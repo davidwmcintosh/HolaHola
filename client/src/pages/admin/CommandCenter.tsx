@@ -108,7 +108,7 @@ import {
   Database,
   Target,
   Percent,
-  Map,
+  Map as MapIcon,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -1578,7 +1578,7 @@ export default function CommandCenter() {
         { id: "neural-network", label: "Neural Net", icon: Zap, roles: ['developer', 'admin'] },
         { id: "brain-surgery", label: "Surgery", icon: Brain, roles: ['developer', 'admin'] },
         { id: "brain-health", label: "Health", icon: Heart, roles: ['developer', 'admin'] },
-        { id: "journey-memory", label: "Journeys", icon: Map, roles: ['developer', 'admin'] },
+        { id: "journey-memory", label: "Journeys", icon: MapIcon, roles: ['developer', 'admin'] },
         { id: "north-star", label: "North Star", icon: Compass, roles: ['developer', 'admin'] },
         { id: "teaching-tools", label: "Tools", icon: Activity, roles: ['developer', 'admin'] },
         { id: "self-notes", label: "Self Notes", icon: ShieldCheck, roles: ['developer', 'admin'] },
