@@ -114,7 +114,7 @@ class FounderCollabWSBroker {
       }
       
       const { neon } = await import('@neondatabase/serverless');
-      const sql = neon(process.env.DATABASE_URL!);
+      const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
       
       const sessions = await sql`
         SELECT sess FROM sessions WHERE sid = ${sessionId}

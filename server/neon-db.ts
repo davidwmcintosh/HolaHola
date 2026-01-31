@@ -5,7 +5,7 @@ import * as schema from "@shared/schema";
 
 neonConfig.webSocketConstructor = ws;
 
-const DATABASE_URL = process.env.DATABASE_URL;
+const DATABASE_URL = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
 
 // ===== SINGLE DATABASE ARCHITECTURE =====
 // All tables now live in one database. These exports remain for backwards compatibility.

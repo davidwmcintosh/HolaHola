@@ -60,10 +60,10 @@ setupUnifiedWebSocketHandler(server);
 // Initialize Stripe before starting server (non-blocking if credentials missing)
 let stripeReady = false;
 const stripeInitPromise = (async function initStripe() {
-  const databaseUrl = process.env.DATABASE_URL;
+  const databaseUrl = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
   
   if (!databaseUrl) {
-    console.error('DATABASE_URL environment variable is required for Stripe integration');
+    console.error('DATABASE_URL or NEON_DATABASE_URL environment variable is required for Stripe integration');
     return;
   }
 
