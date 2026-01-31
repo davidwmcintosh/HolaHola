@@ -55,7 +55,7 @@ async function getUserIdFromSession(req: IncomingMessage): Promise<string | null
     }
 
     const { neon } = await import('@neondatabase/serverless');
-    const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
+    const sql = neon(process.env.NEON_SHARED_DATABASE_URL || process.env.DATABASE_URL!);
     
     const sessions = await sql`
       SELECT sess FROM sessions WHERE sid = ${sessionId}
@@ -269,7 +269,7 @@ export function setupStreamingVoiceProxy(server: Server) {
             if (isFounderMode) {
               try {
                 const { neon } = await import('@neondatabase/serverless');
-                const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
+                const sql = neon(process.env.NEON_SHARED_DATABASE_URL || process.env.DATABASE_URL!);
                 
                 // Get recent editor conversations with messages
                 const editorConvs = await sql`

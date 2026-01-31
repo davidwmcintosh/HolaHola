@@ -8,16 +8,16 @@ neonConfig.webSocketConstructor = ws;
 // ===== SINGLE DATABASE ARCHITECTURE =====
 // Consolidated to one Neon database for simplicity.
 // All tables now live in the same database.
-// NEON_DATABASE_URL takes priority to bypass Replit's cached production DATABASE_URL
+// NEON_SHARED_DATABASE_URL takes priority to bypass Replit's cached production DATABASE_URL
 
-const DATABASE_URL = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+const DATABASE_URL = process.env.NEON_SHARED_DATABASE_URL || process.env.DATABASE_URL;
 
 if (!DATABASE_URL) {
-  throw new Error("[DB] FATAL: DATABASE_URL or NEON_DATABASE_URL is required");
+  throw new Error("[DB] FATAL: DATABASE_URL or NEON_SHARED_DATABASE_URL is required");
 }
 
-if (process.env.NEON_DATABASE_URL) {
-  console.log("[DB] ✓ Using NEON_DATABASE_URL override");
+if (process.env.NEON_SHARED_DATABASE_URL) {
+  console.log("[DB] ✓ Using NEON_SHARED_DATABASE_URL override");
 } else {
   console.log("[DB] ✓ Using DATABASE_URL");
 }

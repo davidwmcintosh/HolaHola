@@ -5,9 +5,9 @@ let stripeSync: StripeSync | null = null;
 
 async function getStripeSync(): Promise<StripeSync | null> {
   if (!stripeSync) {
-    const databaseUrl = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+    const databaseUrl = process.env.NEON_SHARED_DATABASE_URL || process.env.DATABASE_URL;
     if (!databaseUrl) {
-      console.warn('[Stripe] DATABASE_URL or NEON_DATABASE_URL is required for Stripe webhook processing');
+      console.warn('[Stripe] DATABASE_URL or NEON_SHARED_DATABASE_URL is required for Stripe webhook processing');
       return null;
     }
 
