@@ -2063,7 +2063,7 @@ function UsersTab() {
     email: "",
     firstName: "",
     lastName: "",
-    classId: "",
+    classId: "none",
     creditHours: 0,
     sendEmail: true,
     enrollInAllPublic: true,
@@ -2216,7 +2216,7 @@ function UsersTab() {
       email: quickEnrollForm.email,
       firstName: quickEnrollForm.firstName,
       lastName: quickEnrollForm.lastName,
-      classId: quickEnrollForm.classId || undefined,
+      classId: quickEnrollForm.classId === "none" ? undefined : quickEnrollForm.classId,
       creditHours: quickEnrollForm.creditHours || undefined,
       sendEmail: quickEnrollForm.sendEmail,
       enrollInAllPublic: quickEnrollForm.enrollInAllPublic,
@@ -2747,7 +2747,7 @@ function UsersTab() {
               <div className="flex items-center gap-2">
                 <Switch
                   checked={quickEnrollForm.enrollInAllPublic}
-                  onCheckedChange={(checked) => setQuickEnrollForm({ ...quickEnrollForm, enrollInAllPublic: checked, classId: "" })}
+                  onCheckedChange={(checked) => setQuickEnrollForm({ ...quickEnrollForm, enrollInAllPublic: checked, classId: "none" })}
                   data-testid="switch-quick-enroll-all-public"
                 />
                 <label className="text-sm font-medium">Enroll in All Public Classes</label>
@@ -2763,7 +2763,7 @@ function UsersTab() {
                       <SelectValue placeholder="Self-directed (no class)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Self-directed (no class)</SelectItem>
+                      <SelectItem value="none">Self-directed (no class)</SelectItem>
                       {classesData?.classes?.map((cls) => (
                         <SelectItem key={cls.id} value={cls.id}>
                           {cls.name} ({cls.language})

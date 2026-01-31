@@ -70,8 +70,8 @@ const MILESTONE_TYPE_COLORS: Record<string, string> = {
 };
 
 export function JourneyMemoryContent() {
-  const [languageFilter, setLanguageFilter] = useState<string>("");
-  const [categoryFilter, setCategoryFilter] = useState<string>("");
+  const [languageFilter, setLanguageFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [userIdSearch, setUserIdSearch] = useState("");
   const { toast } = useToast();
 
@@ -79,7 +79,7 @@ export function JourneyMemoryContent() {
     queryKey: ["/api/admin/journey/stats"],
   });
 
-  const snapshotsQueryUrl = languageFilter 
+  const snapshotsQueryUrl = languageFilter && languageFilter !== "all"
     ? `/api/admin/journey/snapshots?language=${languageFilter}` 
     : "/api/admin/journey/snapshots";
   
@@ -91,8 +91,8 @@ export function JourneyMemoryContent() {
   });
 
   const milestonesParams = new URLSearchParams();
-  if (languageFilter) milestonesParams.set("language", languageFilter);
-  if (categoryFilter) milestonesParams.set("category", categoryFilter);
+  if (languageFilter && languageFilter !== "all") milestonesParams.set("language", languageFilter);
+  if (categoryFilter && categoryFilter !== "all") milestonesParams.set("category", categoryFilter);
   const milestonesQueryUrl = milestonesParams.toString() 
     ? `/api/admin/journey/milestones?${milestonesParams.toString()}` 
     : "/api/admin/journey/milestones";
@@ -204,7 +204,7 @@ export function JourneyMemoryContent() {
                 <SelectValue placeholder="All languages" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All languages</SelectItem>
+                <SelectItem value="all">All languages</SelectItem>
                 <SelectItem value="spanish">Spanish</SelectItem>
                 <SelectItem value="french">French</SelectItem>
                 <SelectItem value="german">German</SelectItem>
@@ -221,7 +221,7 @@ export function JourneyMemoryContent() {
                 <SelectValue placeholder="All milestone types" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All milestone types</SelectItem>
+                <SelectItem value="all">All milestone types</SelectItem>
                 <SelectItem value="breakthrough">Breakthrough</SelectItem>
                 <SelectItem value="first_success">First Success</SelectItem>
                 <SelectItem value="plateau_overcome">Plateau Overcome</SelectItem>

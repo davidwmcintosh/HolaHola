@@ -653,7 +653,7 @@ function UnitCard({
   const [newLessonName, setNewLessonName] = useState("");
   const [newLessonDescription, setNewLessonDescription] = useState("");
   const [newLessonType, setNewLessonType] = useState("conversation");
-  const [newLessonActflLevel, setNewLessonActflLevel] = useState("");
+  const [newLessonActflLevel, setNewLessonActflLevel] = useState("unspecified");
   const [createBundle, setCreateBundle] = useState(false);
 
   // Auto-prefill lesson name when type changes
@@ -672,14 +672,14 @@ function UnitCard({
   const [editLessonName, setEditLessonName] = useState("");
   const [editLessonDescription, setEditLessonDescription] = useState("");
   const [editLessonType, setEditLessonType] = useState("conversation");
-  const [editLessonActflLevel, setEditLessonActflLevel] = useState("");
+  const [editLessonActflLevel, setEditLessonActflLevel] = useState("unspecified");
   
   const openEditDialog = (lesson: ClassCurriculumLesson) => {
     setEditingLesson(lesson);
     setEditLessonName(lesson.name);
     setEditLessonDescription(lesson.description || "");
     setEditLessonType(lesson.lessonType);
-    setEditLessonActflLevel(lesson.actflLevel || "");
+    setEditLessonActflLevel(lesson.actflLevel || "unspecified");
   };
   
   const closeEditDialog = () => {
@@ -687,7 +687,7 @@ function UnitCard({
     setEditLessonName("");
     setEditLessonDescription("");
     setEditLessonType("conversation");
-    setEditLessonActflLevel("");
+    setEditLessonActflLevel("unspecified");
   };
   
   const handleUpdateLesson = () => {
@@ -697,7 +697,7 @@ function UnitCard({
       name: editLessonName.trim(),
       description: editLessonDescription.trim(),
       lessonType: editLessonType,
-      actflLevel: editLessonActflLevel || undefined,
+      actflLevel: editLessonActflLevel === "unspecified" ? undefined : editLessonActflLevel,
     }, closeEditDialog);
   };
 
@@ -708,7 +708,7 @@ function UnitCard({
       setNewLessonName("");
       setNewLessonDescription("");
       setNewLessonType("conversation");
-      setNewLessonActflLevel("");
+      setNewLessonActflLevel("unspecified");
       setCreateBundle(false);
       setAddLessonDialogOpen(false);
     };
@@ -717,7 +717,7 @@ function UnitCard({
       name: newLessonName.trim(),
       description: newLessonDescription.trim(),
       lessonType: newLessonType,
-      actflLevel: newLessonActflLevel || undefined,
+      actflLevel: newLessonActflLevel === "unspecified" ? undefined : newLessonActflLevel,
       estimatedMinutes: 30,
       createBundle: createBundle && newLessonType === "conversation",
     }, resetForm);
@@ -913,7 +913,7 @@ function UnitCard({
                               <SelectValue placeholder="Select level" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="">Not specified</SelectItem>
+                              <SelectItem value="unspecified">Not specified</SelectItem>
                               <SelectItem value="novice_low">Novice Low</SelectItem>
                               <SelectItem value="novice_mid">Novice Mid</SelectItem>
                               <SelectItem value="novice_high">Novice High</SelectItem>
@@ -1117,7 +1117,7 @@ function UnitCard({
                               <SelectValue placeholder="Select level" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="">Not specified</SelectItem>
+                              <SelectItem value="unspecified">Not specified</SelectItem>
                               <SelectItem value="novice_low">Novice Low</SelectItem>
                               <SelectItem value="novice_mid">Novice Mid</SelectItem>
                               <SelectItem value="novice_high">Novice High</SelectItem>
@@ -1226,7 +1226,7 @@ function UnitCard({
                               <SelectValue placeholder="Select level" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="">Not specified</SelectItem>
+                              <SelectItem value="unspecified">Not specified</SelectItem>
                               <SelectItem value="novice_low">Novice Low</SelectItem>
                               <SelectItem value="novice_mid">Novice Mid</SelectItem>
                               <SelectItem value="novice_high">Novice High</SelectItem>

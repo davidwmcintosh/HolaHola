@@ -22,15 +22,19 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export default function AdminUsers() {
-  const [roleFilter, setRoleFilter] = useState<string>("");
+  const [roleFilter, setRoleFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
+
+  const usersQueryUrl = roleFilter && roleFilter !== "all"
+    ? `/api/admin/users?role=${roleFilter}`
+    : "/api/admin/users";
 
   const { data, isLoading } = useQuery<{
     users: Array<any>;
     total: number;
   }>({
-    queryKey: ["/api/admin/users", { role: roleFilter || undefined }],
+    queryKey: [usersQueryUrl],
   });
 
   const updateRoleMutation = useMutation({
@@ -119,7 +123,7 @@ export default function AdminUsers() {
                 <SelectValue placeholder="Filter by role" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Roles</SelectItem>
+                <SelectItem value="all">All Roles</SelectItem>
                 <SelectItem value="student">Students</SelectItem>
                 <SelectItem value="teacher">Teachers</SelectItem>
                 <SelectItem value="developer">Developers</SelectItem>
