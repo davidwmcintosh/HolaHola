@@ -79,21 +79,29 @@ export function JourneyMemoryContent() {
     queryKey: ["/api/admin/journey/stats"],
   });
 
+  const snapshotsQueryUrl = languageFilter 
+    ? `/api/admin/journey/snapshots?language=${languageFilter}` 
+    : "/api/admin/journey/snapshots";
+  
   const { data: snapshotsData, isLoading: snapshotsLoading } = useQuery<{
     snapshots: JourneySnapshot[];
     total: number;
   }>({
-    queryKey: ["/api/admin/journey/snapshots", { language: languageFilter || undefined }],
+    queryKey: [snapshotsQueryUrl],
   });
+
+  const milestonesParams = new URLSearchParams();
+  if (languageFilter) milestonesParams.set("language", languageFilter);
+  if (categoryFilter) milestonesParams.set("category", categoryFilter);
+  const milestonesQueryUrl = milestonesParams.toString() 
+    ? `/api/admin/journey/milestones?${milestonesParams.toString()}` 
+    : "/api/admin/journey/milestones";
 
   const { data: milestonesData, isLoading: milestonesLoading } = useQuery<{
     milestones: LearningMilestone[];
     total: number;
   }>({
-    queryKey: ["/api/admin/journey/milestones", { 
-      language: languageFilter || undefined,
-      category: categoryFilter || undefined 
-    }],
+    queryKey: [milestonesQueryUrl],
   });
 
   const refreshMutation = useMutation({
