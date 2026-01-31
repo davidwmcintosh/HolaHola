@@ -185,7 +185,16 @@ async function postProposal() {
     console.log(`\n✅ Proposal posted to Express Lane!`);
     console.log(`Session: "${PROPOSAL_TITLE}"`);
     console.log(`Session ID: ${sessionId}`);
-    console.log(`\nDaniela and Founder can now see this in the Command Center.`);
+    
+    // Now trigger Daniela's response via the Hive Consciousness Service
+    console.log(`\nTriggering Daniela's response...`);
+    
+    // Import and call the hive consciousness service to get Daniela to respond
+    const { hiveConsciousnessService } = await import('../server/services/hive-consciousness-service');
+    await hiveConsciousnessService.triggerDanielaResponseToWrenPublic(sessionId, PROPOSAL_CONTENT);
+    
+    console.log(`\n✅ Daniela has been notified and should respond shortly.`);
+    console.log(`Check the Command Center to see her response.`);
     
   } catch (error) {
     console.error("Error posting proposal:", error);
