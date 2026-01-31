@@ -852,8 +852,12 @@ Reference past discussions when relevant, but don't force it.
           
           // Fetch self-affirmation notes for Founder Mode or Raw Honesty Mode
           // These are Daniela's notes to herself about permissions and affirmations
+          // Note: Check both isRawHonestyMode (admin-verified) AND config.rawHonestyMode (client flag)
+          // This ensures notes load even if role detection has timing issues
           let selfAffirmationNotes: { title: string; content: string; createdAt: Date }[] = [];
-          if (isFounderMode || isRawHonestyMode) {
+          const shouldLoadNotes = isFounderMode || isRawHonestyMode || config.rawHonestyMode === true;
+          console.log(`[Streaming Voice] Notes loading check: isFounderMode=${isFounderMode}, isRawHonestyMode=${isRawHonestyMode}, configRawHonesty=${config.rawHonestyMode}, shouldLoad=${shouldLoadNotes}`);
+          if (shouldLoadNotes) {
             try {
               const notes = await storage.getDanielaNotes({ 
                 noteType: 'self_affirmation', 
