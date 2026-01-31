@@ -33,29 +33,42 @@ The 27 public classes that linked curriculum_paths to the public catalogue were 
 - Subscription = unlimited access?
 - Which drives revenue and retention best?
 
-## Options
+## Non-Negotiable: Schools Need Structured Classes
+Schools and institutions MUST have syllabus-driven classes for:
+- State standards compliance
+- Auditor requirements
+- Progress tracking for administrators
+- Teacher oversight and control
 
-### Option A: Interactive Textbook + Free Voice
-- Complete textbook for all 9 languages
-- Voice sessions are open-ended practice (no syllabus driving them)
-- Daniela uses ACTFL internally but student just "learns naturally"
+This is the existing `teacher_classes` + `curriculum_paths` system. It stays.
+
+---
+
+## The Real Question: What about INDIVIDUAL learners?
+
+### Option A: Interactive Textbook + Flexible Voice
+- Complete textbook for all 9 languages (only Spanish 1 exists now)
+- Voice sessions are open-ended practice (no syllabus forcing order)
+- Daniela uses ACTFL internally but student learns naturally
 - Sell: Textbook access + voice hours
 
-### Option B: Structured Classes (Recreate Original)
-- Create 27 teacher_classes from curriculum_paths
-- Students enroll, follow syllabi, track progress
-- Sell: Class enrollment + voice hours included
+### Option B: HolaHola Public Classes (Recreate Original 27)
+- Create HolaHola-owned teacher_classes from curriculum_paths
+- Individual learners enroll like school students
+- Same syllabus-driven experience as schools
+- Sell: Class enrollment + voice hours
 
-### Option C: Syllabus-Free Adaptive Learning
-- No textbook, no classes
+### Option C: Just Voice Hours (Syllabus-Free)
+- No textbook, no HolaHola classes
 - Pure voice-first learning with Daniela
-- She tracks ACTFL progress invisibly
+- She tracks ACTFL progress invisibly, adapts naturally
 - Sell: Voice hour packages only
 
-### Option D: Hybrid - Teacher vs Consumer Products
-- **For schools**: Structured classes with syllabi (teacher_classes)
-- **For individuals**: Interactive textbook + flexible voice practice
-- Different pricing and features per audience
+### Option D: Textbook + Voice, No Public Classes
+- Interactive textbook as the structured learning path
+- Voice sessions for practice, not curriculum delivery
+- Schools use class system; individuals use textbook
+- Simpler: no need to recreate 27 public classes
 
 ## Technical Considerations
 
