@@ -5,6 +5,7 @@ HolaHola is an AI-powered language learning application offering interactive con
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
+**DATABASE CONNECTION RULE (CRITICAL):** NEVER use `DATABASE_URL` or `process.env.DATABASE_URL` anywhere in the codebase. ALWAYS use `NEON_SHARED_DATABASE_URL` (`process.env.NEON_SHARED_DATABASE_URL`) for all database connections. This applies to all current code, bug fixes, and future development. Replit's `DATABASE_URL` has caching issues in production that cause connection failures. The canonical database files are `server/db.ts` and `server/neon-db.ts`.
 Terminology standard: Use "Syllabus" in all user-facing text (database tables remain "curriculum*" for safety).
 Batch doc updates: When user says "add to the batch" or "batch doc updates", add items to `docs/batch-doc-updates.md` for consolidated documentation updates later. **After completing any new feature**, add documentation to the batch doc covering: what was built, how it works, key files modified, and user-facing instructions.
 Daniela development: Track personality/voice development in `docs/daniela-development-journal.md` using Honesty Mode → Founder Mode iteration cycle.
