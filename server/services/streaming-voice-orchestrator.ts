@@ -5433,6 +5433,22 @@ Remember: Beta testers understand they're helping build something and appreciate
         console.log(`[Multi-Step FC - OpenMic] Functions executed: ${functionCallsCopyOpenMic.map(fc => fc.name).join(', ')}`);
         console.log(`[Multi-Step FC - OpenMic] Functions needing continuation: ${functionsNeedingContinuationOpenMic.map(fc => fc.name).join(', ') || 'none'}`);
         
+        // PRIORITY CHECK: If voice_adjust already provided embedded text, use it NOW and skip continuation
+        // This handles cases like voice_adjust + play_audio or voice_adjust + take_note
+        const embeddedTextBeforeContinuation = ((session as any).functionCallText || '').trim();
+        if (embeddedTextBeforeContinuation) {
+          console.log(`[Multi-Step FC - OpenMic] Found embedded text (${embeddedTextBeforeContinuation.length} chars) BEFORE continuation - using for TTS`);
+          fullText = embeddedTextBeforeContinuation;
+          metrics.sentenceCount = 1;
+          
+          // Stream the embedded text as audio
+          await this.streamSentenceAudioProgressive(session, { index: 0, text: embeddedTextBeforeContinuation }, embeddedTextBeforeContinuation, metrics, session.turnId || `turn-${Date.now()}`);
+          
+          // Clear after use
+          (session as any).functionCallText = undefined;
+          (session as any).voiceAdjustText = undefined;
+          // Skip the continuation logic entirely - we have speech
+        } else {
         // Await any pending memory lookups before building responses
         if (session.pendingMemoryLookupPromises?.length) {
           console.log(`[Multi-Step FC - OpenMic] Awaiting ${session.pendingMemoryLookupPromises.length} pending memory lookups...`);
@@ -5811,6 +5827,7 @@ Remember: Beta testers understand they're helping build something and appreciate
         } catch (contErr: any) {
           console.error(`[Multi-Step FC - OpenMic] Continuation failed:`, contErr.message);
         }
+        }  // Close the else block for embedded text check
       }
       
       // Clear generating flag - response complete
