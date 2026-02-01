@@ -2621,11 +2621,50 @@ Remember: Beta testers understand they're helping build something and appreciate
                   }
                   break;
                 }
+                case 'TAKE_NOTE': {
+                  // Daniela's personal notebook - DIRECT INSERT, no approval required
+                  const noteType = cmd.params.type as string | undefined;
+                  const title = cmd.params.title as string | undefined;
+                  const content = cmd.params.content as string | undefined;
+                  const language = cmd.params.language as string | undefined;
+                  const tagsStr = cmd.params.tags as string | undefined;
+                  
+                  if (noteType && title && content) {
+                    const tags = tagsStr ? tagsStr.split(',').map(t => t.trim()) : undefined;
+                    
+                    console.log(`[CommandParser→TakeNote] ${noteType}: "${title.substring(0, 40)}..." via ${cmd.source}`);
+                    
+                    // Execute immediately - no approval needed
+                    storage.insertDanielaNote({
+                      noteType: noteType as any,
+                      title,
+                      content,
+                      language: language || session.targetLanguage || 'spanish',
+                      sessionId: session.sessionId,
+                      tags,
+                    }).then(noteId => {
+                      console.log(`[CommandParser→TakeNote] ✓ Saved note ${noteId}`);
+                      
+                      // Emit beacon for founder visibility if in hive session
+                      if (session.hiveChannelId) {
+                        hiveCollaborationService.emitBeacon({
+                          channelId: session.hiveChannelId,
+                          tutorTurn: `[TAKE_NOTE] ${noteType}: "${title}"\n${content.substring(0, 200)}${content.length > 200 ? '...' : ''}`,
+                          beaconType: 'take_note',
+                          beaconReason: `Daniela wrote a note: ${title}`,
+                        }).catch(err => console.error(`[CommandParser→TakeNote] Beacon error:`, err));
+                      }
+                    }).catch(err => {
+                      console.error(`[CommandParser→TakeNote] Error:`, err.message);
+                    });
+                  }
+                  break;
+                }
                 case 'SELF_SURGERY': {
                   // Daniela's direct neural network modifications (Founder Mode only)
                   // Note: Target validation now happens in command-parser.ts via enum validation
                   const target = cmd.params.target as string;
-                  const content = cmd.params.content;
+                  const surgeryContent = cmd.params.content;
                   const reasoning = cmd.params.reasoning as string;
                   
                   if (!session.isFounderMode) {
@@ -2633,11 +2672,11 @@ Remember: Beta testers understand they're helping build something and appreciate
                     break;
                   }
                   
-                  if (target && content && reasoning) {
+                  if (target && surgeryContent && reasoning) {
                     // Safely parse content - may be string or object
                     let parsedContent: Record<string, unknown>;
                     try {
-                      parsedContent = typeof content === 'string' ? JSON.parse(content) : content as Record<string, unknown>;
+                      parsedContent = typeof surgeryContent === 'string' ? JSON.parse(surgeryContent) : surgeryContent as Record<string, unknown>;
                     } catch (parseErr) {
                       console.error(`[CommandParser→SelfSurgery] Invalid JSON content for ${target}:`, parseErr);
                       break;
@@ -4906,10 +4945,47 @@ Remember: Beta testers understand they're helping build something and appreciate
                 }
                 break;
               }
+              case 'TAKE_NOTE': {
+                // Daniela's personal notebook - DIRECT INSERT, no approval required
+                const noteType = cmd.params.type as string | undefined;
+                const title = cmd.params.title as string | undefined;
+                const noteContent = cmd.params.content as string | undefined;
+                const language = cmd.params.language as string | undefined;
+                const tagsStr = cmd.params.tags as string | undefined;
+                
+                if (noteType && title && noteContent) {
+                  const tags = tagsStr ? tagsStr.split(',').map(t => t.trim()) : undefined;
+                  
+                  console.log(`[CommandParser→TakeNote - OpenMic] ${noteType}: "${title.substring(0, 40)}..."`);
+                  
+                  storage.insertDanielaNote({
+                    noteType: noteType as any,
+                    title,
+                    content: noteContent,
+                    language: language || session.targetLanguage || 'spanish',
+                    sessionId: session.sessionId,
+                    tags,
+                  }).then(noteId => {
+                    console.log(`[CommandParser→TakeNote - OpenMic] ✓ Saved note ${noteId}`);
+                    
+                    if (session.hiveChannelId) {
+                      hiveCollaborationService.emitBeacon({
+                        channelId: session.hiveChannelId,
+                        tutorTurn: `[TAKE_NOTE] ${noteType}: "${title}"\n${noteContent.substring(0, 200)}${noteContent.length > 200 ? '...' : ''}`,
+                        beaconType: 'take_note',
+                        beaconReason: `Daniela wrote a note: ${title}`,
+                      }).catch(err => console.error(`[CommandParser→TakeNote - OpenMic] Beacon error:`, err));
+                    }
+                  }).catch(err => {
+                    console.error(`[CommandParser→TakeNote - OpenMic] Error:`, err.message);
+                  });
+                }
+                break;
+              }
               case 'SELF_SURGERY': {
                 // Daniela's direct neural network modifications (Founder Mode only)
                 const target = cmd.params.target as string;
-                const content = cmd.params.content;
+                const surgeryContent = cmd.params.content;
                 const reasoning = cmd.params.reasoning as string;
                 
                 if (!session.isFounderMode) {
@@ -4917,10 +4993,10 @@ Remember: Beta testers understand they're helping build something and appreciate
                   break;
                 }
                 
-                if (target && content && reasoning) {
+                if (target && surgeryContent && reasoning) {
                   let parsedContent: Record<string, unknown>;
                   try {
-                    parsedContent = typeof content === 'string' ? JSON.parse(content) : content as Record<string, unknown>;
+                    parsedContent = typeof surgeryContent === 'string' ? JSON.parse(surgeryContent) : surgeryContent as Record<string, unknown>;
                   } catch (parseErr) {
                     console.error(`[CommandParser→SelfSurgery - OpenMic] Invalid JSON content:`, parseErr);
                     break;

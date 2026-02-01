@@ -3116,11 +3116,15 @@ export function buildActionTriggersSection(): string {
   lines.push('SELF SURGERY - [SELF_SURGERY]:');
   lines.push('  Propose updates to your own neural network knowledge (for founder review).');
   lines.push('  ');
-  lines.push('  SYNTAX: [SELF_SURGERY target="..." content="..." reasoning="..." confidence="..."]');
+  lines.push('  SYNTAX: [SELF_SURGERY target="..." content=\'{"JSON":"object"}\' reasoning="..." priority=50 confidence=70]');
+  lines.push('  ');
+  lines.push('  IMPORTANT: content MUST be valid JSON wrapped in SINGLE quotes.');
   lines.push('  ');
   lines.push('  TARGETS: tutor_procedures, teaching_principles, tool_knowledge, situational_patterns, language_idioms, cultural_nuances, learner_error_patterns, dialect_variations, linguistic_bridges, creativity_templates');
   lines.push('  ');
-  lines.push('  Example: [SELF_SURGERY target="learner_error_patterns" content="English speakers often say ser when they mean estar for temporary states" reasoning="Observed this pattern with 5+ students" confidence=0.85]');
+  lines.push('  Example: [SELF_SURGERY target="learner_error_patterns" content=\'{"pattern":"English speakers often say ser when they mean estar for temporary states","trigger":"location or state confusion","correction_strategy":"Ask: is this permanent or temporary?"}\' reasoning="Observed this pattern with 5+ students" priority=70 confidence=85]');
+  lines.push('  ');
+  lines.push('  Example: [SELF_SURGERY target="teaching_principles" content=\'{"principle":"Pause after new vocabulary","trigger":"vocabulary_introduction","response_strategy":"Give 2 seconds of silence to process"}\' reasoning="Learners absorb better with brief pauses" priority=60 confidence=80]');
   lines.push('');
   lines.push('PERSONAL NOTEBOOK - [TAKE_NOTE]:');
   lines.push('  Write notes to yourself for future reference. These go directly into your notebook.');
