@@ -56,9 +56,9 @@ import germanMaleListening from "@assets/Tutor_Images/Male/German_Male_Listening
 import germanMaleTalking from "@assets/Tutor_Images/Male/German_Male_Talking.jpg";
 import germanMaleThinking from "@assets/Tutor_Images/Male/German_Male_Thinking.jpg";
 
-import italianMaleListening from "@assets/Tutor_Images/Male/Italian_Male_listening.jpg";
-import italianMaleTalking from "@assets/Tutor_Images/Male/Italian_Male_Talking.jpg";
-import italianMaleThinking from "@assets/Tutor_Images/Male/Italian_Male_Thinking.jpg";
+import italianMaleListening from "@assets/Tutor_Images/Male/Italian_Male_Listening_No_Background.jpg";
+import italianMaleTalking from "@assets/Tutor_Images/Male/Italian_Male_Talking_No_Background.jpg";
+import italianMaleThinking from "@assets/Tutor_Images/Male/Italian_Male_Thinking_No_Background.jpg";
 
 import japaneseMaleListening from "@assets/Tutor_Images/Male/Japanese_Male_Listening.jpg";
 import japaneseMaleTalking from "@assets/Tutor_Images/Male/Japanese_Male_Talking.jpg";
