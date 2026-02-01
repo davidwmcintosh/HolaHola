@@ -9911,19 +9911,20 @@ Return ONLY the ${targetLanguage} phrase:`;
       const { text, language } = parseResult.data;
       const voiceGender = (user?.tutorGender || 'female') as 'female' | 'male';
       
-      const { generateDrillAudio } = await import('./services/drill-audio-service');
-      const { audioBase64, durationMs } = await generateDrillAudio(
+      // Use database-backed audio caching for persistent storage
+      const { getCachedPronunciationAudio } = await import('./services/audio-caching-service');
+      const result = await getCachedPronunciationAudio(
         text,
         language,
-        0.9,
-        voiceGender
+        voiceGender,
+        'normal',
+        { contentType: 'pronunciation' }
       );
       
-      const audioUrl = `data:audio/mpeg;base64,${audioBase64}`;
-      
       res.json({
-        audioUrl,
-        audioDurationMs: durationMs,
+        audioUrl: result.audioUrl,
+        audioDurationMs: result.durationMs,
+        cacheHit: result.cacheHit,
       });
     } catch (error: any) {
       console.error('Error generating pronunciation audio:', error);

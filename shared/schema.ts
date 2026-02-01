@@ -1084,7 +1084,7 @@ export const audioLibrary = pgTable("audio_library", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   lastAccessedAt: timestamp("last_accessed_at").notNull().defaultNow(),
 }, (table) => [
-  index("idx_audio_library_hash").on(table.textHash),
+  uniqueIndex("idx_audio_library_hash").on(table.textHash),
   index("idx_audio_library_language").on(table.language),
   index("idx_audio_library_source").on(table.sourceId),
   index("idx_audio_library_content_type").on(table.contentType),
