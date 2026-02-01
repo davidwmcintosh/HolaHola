@@ -11141,10 +11141,47 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         
         if (description) {
           console.log(`[Native Function→Play] "${description.substring(0, 50)}..."`);
+          
+          // Try to get cached audio for instant playback (Phase 3 Hybrid Audio Library)
+          let audioUrl: string | undefined;
+          let audioDurationMs: number | undefined;
+          
+          try {
+            // Import dynamically to avoid circular dependencies
+            const { getCachedPronunciationAudio } = await import('./audio-caching-service');
+            const targetLanguage = session.targetLanguage || 'spanish';
+            const voiceGender = (session as any).voiceGender || 'female';
+            
+            // Use the description as the text to synthesize
+            // (Daniela describes what she wants to play, which is typically the target phrase)
+            const result = await getCachedPronunciationAudio(
+              description,
+              targetLanguage,
+              voiceGender as 'female' | 'male',
+              'normal',
+              { contentType: 'pronunciation' }
+            );
+            
+            audioUrl = result.audioUrl;
+            audioDurationMs = result.durationMs || undefined;
+            console.log(`[Native Function→Play] ${result.cacheHit ? 'Cache HIT' : 'Generated'}: got audio (${audioDurationMs}ms)`);
+          } catch (error: any) {
+            console.warn(`[Native Function→Play] Failed to get cached audio: ${error.message}`);
+          }
+          
           this.sendMessage(session.ws, {
             type: 'whiteboard_update',
             timestamp: Date.now(),
-            items: [{ type: 'play', content: description }],
+            items: [{ 
+              type: 'play', 
+              content: description,
+              data: {
+                text: description,
+                speed: 'normal' as const,
+                audioUrl,           // Include cached audio URL for instant playback
+                audioDurationMs,    // Include duration for UI feedback
+              },
+            }],
           });
         }
         break;

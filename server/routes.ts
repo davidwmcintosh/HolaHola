@@ -9819,6 +9819,103 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // Pre-warm audio cache for drill lessons (generates both slow and normal speeds)
+  // This enables instant playback for students during voice sessions
+  app.post("/api/admin/drill-audio/prewarm", mutationLimiter, isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!hasTeacherAccess(user?.role)) {
+        return res.status(403).json({ error: "Only teachers can pre-warm audio cache" });
+      }
+
+      const { lessonId, lessonIds, language, gender = 'female' } = req.body;
+      
+      if (!language) {
+        return res.status(400).json({ error: "language is required" });
+      }
+      
+      const { preWarmLessonAudioCache, preWarmMultipleLessonsAudioCache } = await import('./services/drill-audio-service');
+      
+      if (lessonIds && Array.isArray(lessonIds)) {
+        // Batch pre-warm multiple lessons
+        const result = await preWarmMultipleLessonsAudioCache(lessonIds, language, gender);
+        res.json({
+          message: "Batch pre-warm complete",
+          ...result,
+        });
+      } else if (lessonId) {
+        // Single lesson pre-warm
+        const result = await preWarmLessonAudioCache(lessonId, language, gender);
+        res.json({
+          message: "Pre-warm complete",
+          ...result,
+        });
+      } else {
+        return res.status(400).json({ error: "Either lessonId or lessonIds is required" });
+      }
+    } catch (error: any) {
+      console.error('Error pre-warming audio cache:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get cached pronunciation audio for Daniela's play_audio tool (Phase 3)
+  // Enables instant audio playback during voice sessions
+  app.post("/api/audio-library/lookup", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      const { text, language, speed = 'normal' } = req.body;
+      
+      if (!text || !language) {
+        return res.status(400).json({ error: "text and language are required" });
+      }
+      
+      const voiceGender = (user?.tutorGender || 'female') as 'female' | 'male';
+      
+      const { getCachedPronunciationAudio } = await import('./services/audio-caching-service');
+      const result = await getCachedPronunciationAudio(
+        text,
+        language,
+        voiceGender,
+        speed as 'slow' | 'normal' | 'fast',
+        { contentType: 'pronunciation' }
+      );
+      
+      res.json({
+        audioUrl: result.audioUrl,
+        durationMs: result.durationMs,
+        cacheHit: result.cacheHit,
+      });
+    } catch (error: any) {
+      console.error('Error looking up cached audio:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get audio library cache statistics (admin)
+  app.get("/api/admin/audio-library/stats", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!hasTeacherAccess(user?.role)) {
+        return res.status(403).json({ error: "Only teachers can view cache stats" });
+      }
+      
+      const { getCacheStats } = await import('./services/audio-caching-service');
+      const stats = await getCacheStats();
+      
+      res.json(stats);
+    } catch (error: any) {
+      console.error('Error getting cache stats:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Get single drill item audio (generates on-demand with user's voice preference)
   // Uses gender-specific database fields + in-memory cache for efficient reuse
   app.get("/api/drill-audio/:drillItemId", isAuthenticated, async (req: any, res) => {

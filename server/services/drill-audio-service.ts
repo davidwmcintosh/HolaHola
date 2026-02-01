@@ -11,9 +11,11 @@
  * - Caching: drill items have fixed text, so audio can be generated once
  *   and reused for all learners
  * - Batch synthesis: generates audio for multiple items efficiently
+ * - Hybrid storage: in-memory cache for speed + database for persistence
  */
 
 import { getTTSService, getAssistantVoice, AssistantVoiceGender } from './tts-service';
+import { getCachedPronunciationAudio, preWarmCache, type AudioSpeed, type AudioContentType } from './audio-caching-service';
 import { storage } from '../storage';
 import type { CurriculumDrillItem } from '@shared/schema';
 import crypto from 'crypto';
@@ -72,7 +74,17 @@ function estimateDurationMs(bufferSize: number): number {
 }
 
 /**
+ * Map speaking rate to speed setting
+ */
+function rateToSpeed(speakingRate: number): AudioSpeed {
+  if (speakingRate <= 0.75) return 'slow';
+  if (speakingRate >= 1.05) return 'fast';
+  return 'normal';
+}
+
+/**
  * Generate audio for a single drill item with optional gender preference
+ * Now uses persistent database caching via audio-caching-service
  */
 export async function generateDrillAudio(
   text: string,
@@ -82,40 +94,40 @@ export async function generateDrillAudio(
 ): Promise<{ audioBase64: string; durationMs: number }> {
   const cacheKey = generateCacheKey(text, language, speakingRate, gender);
   
-  // Check cache first
+  // Check in-memory cache first (fastest)
   if (isCacheValid(cacheKey)) {
-    console.log(`[Drill Audio] Cache HIT for text: "${text.substring(0, 30)}..." (${gender})`);
+    console.log(`[Drill Audio] Memory cache HIT for text: "${text.substring(0, 30)}..." (${gender})`);
     return {
       audioBase64: audioCache[cacheKey].audioBase64,
       durationMs: audioCache[cacheKey].durationMs,
     };
   }
   
-  console.log(`[Drill Audio] Generating audio for: "${text.substring(0, 50)}..." (${gender} voice)`);
-  
-  // Get gendered voice configuration
-  const voiceConfig = getAssistantVoice(language, gender);
-  
-  // Use Google TTS with gendered voice for consistent drill audio
-  const ttsService = getTTSService();
-  const result = await ttsService.synthesize({
+  // Use persistent database cache (hybrid approach)
+  const speed = rateToSpeed(speakingRate);
+  const result = await getCachedPronunciationAudio(
     text,
     language,
-    voice: voiceConfig.name, // Use the gendered voice name
-    speakingRate,
-  });
+    gender,
+    speed,
+    { 
+      contentType: 'drill',
+      speakingRate, // Use exact rate for TTS if generating
+    }
+  );
   
-  const audioBase64 = result.audioBuffer.toString('base64');
-  const durationMs = estimateDurationMs(result.audioBuffer.length);
+  // Extract base64 from data URL
+  const audioBase64 = result.audioUrl.replace('data:audio/mpeg;base64,', '');
+  const durationMs = result.durationMs || estimateDurationMs(Buffer.from(audioBase64, 'base64').length);
   
-  // Cache the result
+  // Store in memory cache for faster subsequent lookups
   audioCache[cacheKey] = {
     audioBase64,
     durationMs,
     generatedAt: Date.now(),
   };
   
-  console.log(`[Drill Audio] Generated ${result.audioBuffer.length} bytes, ~${durationMs}ms duration (${gender})`);
+  console.log(`[Drill Audio] ${result.cacheHit ? 'DB cache HIT' : 'Generated'}: "${text.substring(0, 30)}..." (${gender})`);
   
   return { audioBase64, durationMs };
 }
@@ -225,7 +237,7 @@ export function clearAudioCache(): number {
 }
 
 /**
- * Get cache statistics
+ * Get cache statistics (in-memory cache only)
  */
 export function getCacheStats(): { totalEntries: number; totalSizeKB: number; oldestEntryAge: string } {
   const entries = Object.values(audioCache);
@@ -248,5 +260,79 @@ export function getCacheStats(): { totalEntries: number; totalSizeKB: number; ol
     totalEntries,
     totalSizeKB: Math.round(totalBytes / 1024),
     oldestEntryAge: totalEntries > 0 ? `${ageHours}h` : 'N/A',
+  };
+}
+
+/**
+ * Pre-warm database cache for all drill items in a lesson
+ * Generates both slow and normal speeds for instant playback
+ * 
+ * This is the key function for Phase 2 of the hybrid audio library.
+ * When a teacher creates/activates a lesson, we pre-generate all audio
+ * at both speeds so students get instant playback.
+ */
+export async function preWarmLessonAudioCache(
+  lessonId: string,
+  language: string,
+  gender: AssistantVoiceGender = 'female'
+): Promise<{ generated: number; cached: number; errors: number; totalItems: number }> {
+  const drillItems = await storage.getDrillItems(lessonId);
+  
+  if (drillItems.length === 0) {
+    console.log(`[Drill Audio] No drill items found for lesson ${lessonId}`);
+    return { generated: 0, cached: 0, errors: 0, totalItems: 0 };
+  }
+  
+  console.log(`[Drill Audio] Pre-warming cache for ${drillItems.length} drill items (${language}, ${gender})`);
+  
+  // Prepare items for batch pre-warming
+  const items = drillItems.map(item => ({
+    text: item.targetText,
+    language,
+    sourceId: item.id,
+  }));
+  
+  // Pre-warm with both slow and normal speeds (per Daniela's pedagogical guidance)
+  const result = await preWarmCache(items, gender, ['normal', 'slow'], 'drill');
+  
+  console.log(`[Drill Audio] Pre-warm complete for lesson ${lessonId}: ${result.generated} generated, ${result.cached} cached, ${result.errors} errors`);
+  
+  return {
+    ...result,
+    totalItems: drillItems.length,
+  };
+}
+
+/**
+ * Pre-warm cache for multiple lessons (batch operation)
+ */
+export async function preWarmMultipleLessonsAudioCache(
+  lessonIds: string[],
+  language: string,
+  gender: AssistantVoiceGender = 'female'
+): Promise<{ lessonsProcessed: number; totalGenerated: number; totalCached: number; totalErrors: number }> {
+  let totalGenerated = 0;
+  let totalCached = 0;
+  let totalErrors = 0;
+  
+  console.log(`[Drill Audio] Pre-warming cache for ${lessonIds.length} lessons`);
+  
+  for (const lessonId of lessonIds) {
+    try {
+      const result = await preWarmLessonAudioCache(lessonId, language, gender);
+      totalGenerated += result.generated;
+      totalCached += result.cached;
+      totalErrors += result.errors;
+    } catch (error: any) {
+      console.error(`[Drill Audio] Error pre-warming lesson ${lessonId}:`, error.message);
+      totalErrors++;
+    }
+  }
+  
+  return {
+    lessonsProcessed: lessonIds.length,
+    totalGenerated,
+    totalCached,
+    totalErrors,
   };
 }

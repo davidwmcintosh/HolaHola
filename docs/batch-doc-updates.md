@@ -8,6 +8,43 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: February 1, 2026 - Hybrid Audio Library Phase 1 (COMPLETED)
+
+**Status**: COMPLETED - Phase 1 caching layer implemented
+
+**Overview**: Implemented persistent database-backed audio caching for TTS audio to reduce latency and costs.
+
+#### What Was Built
+
+1. **Database Table: `audio_library`**
+   - SHA256 hash-based unique indexing for fast lookups
+   - Hit counter for analytics (tracks cache usage)
+   - Supports content types: drill, vocabulary, pronunciation, textbook
+   - Speed variants: slow, normal, fast
+
+2. **Service: `audio-caching-service.ts`**
+   - `getCachedPronunciationAudio()` - Cache-first lookup with auto-store on miss
+   - `preWarmCache()` - Batch pre-generation for drill lessons
+   - `getCacheStats()` - Analytics for cache usage
+
+3. **Updated Endpoint: `/api/tts/pronunciation`**
+   - Now checks database cache before generating
+   - Auto-stores on cache miss
+   - Returns new `cacheHit` field (true/false)
+
+#### Key Files Modified
+- `shared/schema.ts` - Added audio_library table with unique index
+- `server/services/audio-caching-service.ts` - New caching service
+- `server/routes.ts` - Updated pronunciation endpoint
+- `docs/audio-system.md` - Updated documentation
+
+#### Testing Confirmed
+- First request: cache miss (generates + stores audio)
+- Second request: cache hit (retrieves from database)
+- Database entry created with hit counter incrementing
+
+---
+
 ### Session: January 8, 2026 - Micro-Ack Parallel Response System (FUTURE IMPLEMENTATION)
 
 **Status**: NOT STARTED - Awaiting priority
