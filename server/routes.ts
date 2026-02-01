@@ -9892,7 +9892,44 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
-  // ===== Syllabus Progress & Competency =====
+  // Generate pronunciation audio for arbitrary text (for textbook, vocabulary, etc.)
+  const pronunciationRequestSchema = z.object({
+    text: z.string().min(1).max(500),
+    language: z.string().min(2).max(10),
+  });
+
+  app.post("/api/tts/pronunciation", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      const parseResult = pronunciationRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: parseResult.error.errors[0]?.message || "Invalid request" });
+      }
+      
+      const { text, language } = parseResult.data;
+      const voiceGender = (user?.tutorGender || 'female') as 'female' | 'male';
+      
+      const { generateDrillAudio } = await import('./services/drill-audio-service');
+      const { audioBase64, durationMs } = await generateDrillAudio(
+        text,
+        language,
+        0.9,
+        voiceGender
+      );
+      
+      const audioUrl = `data:audio/mpeg;base64,${audioBase64}`;
+      
+      res.json({
+        audioUrl,
+        audioDurationMs: durationMs,
+      });
+    } catch (error: any) {
+      console.error('Error generating pronunciation audio:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   // Check lesson competency for a student
   app.get("/api/competency/check/:classId/:lessonId", isAuthenticated, async (req: any, res) => {

@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { AudioPlayButton } from "@/components/AudioPlayButton";
 import {
   Play,
   Pause,
@@ -114,7 +115,13 @@ function DrillPreviewCard({ drills, onStartDrill }: {
               }`}
             >
               <div className="flex items-center gap-1.5">
-                {drill.mastered && <CheckCircle2 className="h-3 w-3" />}
+                <AudioPlayButton 
+                  drillItemId={drill.id} 
+                  size="sm" 
+                  variant="ghost"
+                  className="shrink-0"
+                />
+                {drill.mastered && <CheckCircle2 className="h-3 w-3 shrink-0" />}
                 <span className="truncate">{drill.prompt}</span>
               </div>
             </div>
