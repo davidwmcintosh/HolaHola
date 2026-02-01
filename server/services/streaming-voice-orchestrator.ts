@@ -9133,7 +9133,7 @@ Only include observations you can clearly justify from the exchange. Return empt
         conversationHistory: greetingHistory,  // Include history for resumed conversations
         userMessage: greetingPrompt,
         maxOutputTokens: session.isRawHonestyMode ? 8192 : 4096,  // Allow verbose greetings in honesty mode
-        enableFunctionCalling: true,  // Enable native Gemini 3 function calling for greetings
+        enableFunctionCalling: false,  // Disable function calling for greetings - just produce text
         enableContextCaching: true,  // Cache system prompt for faster response
         onSentence: async (chunk: SentenceChunk) => {
           if (!firstTokenReceived) {
