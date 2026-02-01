@@ -5620,6 +5620,23 @@ Remember: Beta testers understand they're helping build something and appreciate
                  session.currentTurnFunctionCalls && 
                  session.currentTurnFunctionCalls.length > 0 &&
                  recursiveDepth < MAX_RECURSIVE_FC_DEPTH) {
+            
+            // CHECK: If voice_adjust already provided embedded text, use it and stop looping
+            const embeddedTextFromFC = ((session as any).functionCallText || '').trim();
+            if (embeddedTextFromFC) {
+              console.log(`[Multi-Step FC - OpenMic] Found embedded text (${embeddedTextFromFC.length} chars) - using for TTS and stopping continuation`);
+              fullText = embeddedTextFromFC;
+              metrics.sentenceCount = 1;
+              
+              // Stream the embedded text as audio
+              await this.streamSentenceAudioProgressive(session, { index: 0, text: embeddedTextFromFC }, embeddedTextFromFC, metrics, session.turnId || `turn-${Date.now()}`);
+              
+              // Clear after use
+              (session as any).functionCallText = undefined;
+              (session as any).voiceAdjustText = undefined;
+              break;  // Exit the continuation loop
+            }
+            
             recursiveDepth++;
             console.log(`[Multi-Step FC - OpenMic] Recursive continuation depth ${recursiveDepth} - ${session.currentTurnFunctionCalls.length} new function calls`);
             
