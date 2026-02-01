@@ -56,7 +56,7 @@ function TutorCard({ tutor, onSelect }: TutorCardProps) {
       >
         <Avatar 
           className="border-2 border-background"
-          style={{ width: 64, height: 64 }}
+          style={{ width: 64, height: 64, backgroundColor: tutor.accentColor }}
         >
           <AvatarImage 
             src={tutor.avatar} 
