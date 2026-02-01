@@ -18636,7 +18636,8 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
       // Trigger Daniela's response through Hive Consciousness
       const hiveResult = await hiveConsciousnessService.processExternalMessage(
         `@daniela ${question}`,
-        'wren'
+        'wren',
+        { skipSenderPersistence: true, skipResponsePersistence: true }
       );
       
       let danielaResponse = null;
@@ -20599,7 +20600,8 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
       // Process through Hive Consciousness to get Daniela/Wren responses
       const hiveResult = await hiveConsciousnessService.processExternalMessage(
         content,
-        senderName || 'founder'
+        senderName || 'founder',
+        { skipSenderPersistence: true, skipResponsePersistence: true }
       );
       
       // If an agent responded, add their response to the session too

@@ -2736,10 +2736,16 @@ Keep it conversational - you're in a team chat. The structured tag will be parse
    * Returns the agent response synchronously instead of broadcasting via WebSocket
    * 
    * This enables the Hive to receive @mentions from external contexts
+   * 
+   * @param options.skipSenderPersistence - If true, don't persist the sender's message 
+   *   (use when caller already added it to the session to avoid duplicates)
+   * @param options.skipResponsePersistence - If true, don't persist the response 
+   *   (use when caller handles response persistence themselves)
    */
   async processExternalMessage(
     content: string,
-    senderName: string = 'founder'
+    senderName: string = 'founder',
+    options: { skipSenderPersistence?: boolean; skipResponsePersistence?: boolean } = {}
   ): Promise<{ agent: 'daniela' | 'wren' | null; response: string | null }> {
     if (!this.isListening) {
       this.startListening();
@@ -2777,21 +2783,25 @@ Keep it conversational - you're in a team chat. The structured tag will be parse
           session = await founderCollabService.createSession('Express Lane - Alden Thread');
         }
         
-        // Save the sender's message (from Alden/editor)
-        await founderCollabService.addMessage(session.id, {
-          role: 'editor',
-          content: senderContent,
-          messageType: 'text',
-          metadata: { senderName: senderRole, source: 'replit-agent' }
-        });
+        // Save the sender's message ONLY if not already persisted by caller
+        if (!options.skipSenderPersistence) {
+          await founderCollabService.addMessage(session.id, {
+            role: 'editor',
+            content: senderContent,
+            messageType: 'text',
+            metadata: { senderName: senderRole, source: 'replit-agent' }
+          });
+        }
         
-        // Save the response
-        await founderCollabService.addMessage(session.id, {
-          role: responseRole,
-          content: responseContent,
-          messageType: 'text',
-          metadata: { source: 'hive-external-response' }
-        });
+        // Save the response ONLY if caller doesn't handle it themselves
+        if (!options.skipResponsePersistence) {
+          await founderCollabService.addMessage(session.id, {
+            role: responseRole,
+            content: responseContent,
+            messageType: 'text',
+            metadata: { source: 'hive-external-response' }
+          });
+        }
         
         console.log(`[Hive Consciousness] Persisted external conversation to Express Lane`);
       } catch (persistError) {
