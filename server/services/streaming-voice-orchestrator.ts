@@ -9202,16 +9202,16 @@ Only include observations you can clearly justify from the exchange. Return empt
         },
       });
       
-      // FALLBACK: If no text was produced but voice_adjust provided text, use that
-      // This handles the case where Gemini only returns function calls (voice_adjust with text)
-      const voiceAdjustText = (session as any).voiceAdjustText as string | undefined;
-      if (metrics.sentenceCount === 0 && voiceAdjustText) {
-        console.log(`[Streaming Greeting] No AI text produced, using voice_adjust text: "${voiceAdjustText.substring(0, 80)}..."`);
+      // FALLBACK: If no text was produced but function calls provided text, use that
+      // This handles the case where Gemini only returns function calls (e.g., voice_adjust, drill, phase_shift with text)
+      const functionCallText = ((session as any).functionCallText as string | undefined)?.trim();
+      if (metrics.sentenceCount === 0 && functionCallText) {
+        console.log(`[Streaming Greeting] No AI text produced, using function call text: "${functionCallText.substring(0, 80)}..."`);
         
         // Process the text as a single sentence
-        const displayText = cleanTextForDisplay(voiceAdjustText);
+        const displayText = cleanTextForDisplay(functionCallText);
         if (displayText) {
-          const extraction = extractTargetLanguageWithMapping(displayText, voiceAdjustText);
+          const extraction = extractTargetLanguageWithMapping(displayText, functionCallText);
           const wordMappingArray: [number, number][] = extraction.wordMapping.size > 0
             ? Array.from(extraction.wordMapping.entries())
             : [];
@@ -9239,10 +9239,11 @@ Only include observations you can clearly justify from the exchange. Return empt
           fullText = displayText;
           metrics.sentenceCount = 1;
         }
-        
-        // Clear voiceAdjustText after use
-        (session as any).voiceAdjustText = undefined;
       }
+      
+      // Clear function call text storage after use
+      (session as any).voiceAdjustText = undefined;
+      (session as any).functionCallText = undefined;
       
       // Update conversation history
       session.conversationHistory.push({ role: 'model', content: fullText.trim() });
