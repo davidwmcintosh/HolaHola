@@ -11144,7 +11144,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           this.sendMessage(session.ws, {
             type: 'whiteboard_update',
             timestamp: Date.now(),
-            items: [{ type: 'play_audio', content: description }],
+            items: [{ type: 'play', content: description }],
           });
         }
         break;
