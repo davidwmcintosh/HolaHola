@@ -9150,12 +9150,15 @@ Only include observations you can clearly justify from the exchange. Return empt
         onFunctionCall: async (functionCalls) => {
           // Execute function calls during greeting to populate functionCallText
           for (const fc of functionCalls) {
-            console.log(`[Streaming Greeting] Function call: ${fc.name}`);
-            await this.executeNativeFunctionCall(session, {
-              name: fc.name,
-              args: fc.args,
-              legacyType: this.mapFunctionToLegacyType(fc.name),
-            });
+            console.log(`[Streaming Greeting] Function call: ${fc.name}`, fc.args);
+            // Extract text from function calls that carry spoken text (voice_adjust, phase_shift, drill, show_image)
+            if (fc.args && typeof fc.args === 'object' && 'text' in fc.args) {
+              const text = (fc.args as { text?: string }).text;
+              if (text && typeof text === 'string') {
+                console.log(`[Streaming Greeting] Extracted text from ${fc.name}: "${text.substring(0, 50)}..."`);
+                (session as any).functionCallText = ((session as any).functionCallText || '') + text + ' ';
+              }
+            }
           }
         },
         onSentence: async (chunk: SentenceChunk) => {
