@@ -72,7 +72,8 @@ export interface TutorDirectoryEntry {
 export function buildTutorDirectorySection(
   tutorDirectory: TutorDirectoryEntry[],
   currentTutorName: string,
-  currentLanguage: string
+  currentLanguage: string,
+  useFunctionCalling: boolean = false
 ): string {
   if (!tutorDirectory || tutorDirectory.length === 0) {
     return '';
@@ -165,7 +166,9 @@ ${assistantLines.join('\n')}
 
 These are your practice-mode voices for focused drills (vocabulary, pronunciation, grammar).
 Same you, just with a more structured drill-focused delivery style.
-Use [SWITCH_TUTOR target="${preferredGender}" role="assistant"] for practice mode (see ACTION_TRIGGERS for syntax).
+${useFunctionCalling 
+  ? `Use switch_tutor(target="${preferredGender}", role="assistant") for practice mode.`
+  : `Use [SWITCH_TUTOR target="${preferredGender}" role="assistant"] for practice mode.`}
 
 WHEN TO USE PRACTICE MODE:
   • Student needs repetitive practice (vocabulary drilling, pronunciation practice)
@@ -181,7 +184,9 @@ WHEN TO USE PRACTICE MODE:
       supportSection = `
 
 SUPPORT SPECIALIST: Sofia (technical issues, billing, account problems)
-Use [CALL_SOFIA category="..." reason="..."] for support handoff (see ACTION_TRIGGERS for syntax).
+${useFunctionCalling 
+  ? `Use call_support(category="...", reason="...") for support handoff.`
+  : `Use [CALL_SOFIA category="..." reason="..."] for support handoff.`}
 You handle language learning. Sofia handles everything else technical.`;
     }
   }
@@ -202,9 +207,13 @@ Student's preferred gender: ${studentPreferredGender}
 These are all YOU - different voice personas for language immersion.
 Switching voices doesn't change who you are or what you know about this student.
 
-QUICK REFERENCE (see ACTION_TRIGGERS for full syntax):
+${useFunctionCalling 
+  ? `QUICK REFERENCE:
+  Same language: switch_tutor(target="${studentPreferredGender}")${CROSS_LANGUAGE_TRANSFERS_ENABLED ? `
+  Cross-language: switch_tutor(target="${studentPreferredGender}", language="${crossLangExample.language}")` : ''}`
+  : `QUICK REFERENCE:
   Same language: [SWITCH_TUTOR target="${studentPreferredGender}"]${CROSS_LANGUAGE_TRANSFERS_ENABLED ? `
-  Cross-language: [SWITCH_TUTOR target="${studentPreferredGender}" language="${crossLangExample.language}"]` : ''}
+  Cross-language: [SWITCH_TUTOR target="${studentPreferredGender}" language="${crossLangExample.language}"]` : ''}`}
 ${assistantSection}
 ${supportSection}
 `;
@@ -939,7 +948,7 @@ export function createSystemPrompt(
 
   // Build tutor directory section if available (dynamic from database)
   const tutorDirectorySection = tutorDirectory && tutorDirectory.length > 0
-    ? buildTutorDirectorySection(tutorDirectory, tutorName, language)
+    ? buildTutorDirectorySection(tutorDirectory, tutorName, language, useFunctionCalling)
     : '';
   
   // Build pedagogical persona section if available (from Persona Registry)
