@@ -9135,8 +9135,9 @@ Only include observations you can clearly justify from the exchange. Return empt
         console.log(`[Streaming Greeting] Including ${greetingHistory.length} history entries for resumed conversation`);
       }
       
-      // Clear any previous voiceAdjustText before greeting
+      // Clear any previous function call text before greeting
       (session as any).voiceAdjustText = undefined;
+      (session as any).functionCallText = undefined;
       
       await this.geminiService.streamWithSentenceChunking({
         systemPrompt: session.systemPrompt,
@@ -9146,6 +9147,17 @@ Only include observations you can clearly justify from the exchange. Return empt
         enableFunctionCalling: true,  // Allow function calling (voice_adjust includes text now)
         enableContextCaching: true,  // Cache system prompt for faster response
         session: session as any,  // Pass session for function execution (voice_adjust stores text)
+        onFunctionCall: async (functionCalls) => {
+          // Execute function calls during greeting to populate functionCallText
+          for (const fc of functionCalls) {
+            console.log(`[Streaming Greeting] Function call: ${fc.name}`);
+            await this.executeNativeFunctionCall(session, {
+              name: fc.name,
+              args: fc.args,
+              legacyType: this.mapFunctionToLegacyType(fc.name),
+            });
+          }
+        },
         onSentence: async (chunk: SentenceChunk) => {
           if (!firstTokenReceived) {
             metrics.aiFirstTokenMs = Date.now() - aiStart;
