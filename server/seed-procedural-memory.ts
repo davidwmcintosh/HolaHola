@@ -210,15 +210,20 @@ async function seedToolKnowledge() {
       sequencePatterns: ['End of session → SUMMARY of key points → encouragement → goodbye'],
     },
     {
-      toolName: 'PLAY',
-      toolType: 'whiteboard_command',
-      purpose: 'Play an audio sample (song, native speaker clip). For listening practice.',
-      syntax: '[PLAY:description of audio to find]',
-      examples: ['[PLAY:native Spanish greeting]', '[PLAY:formal French introduction]'],
-      bestUsedFor: ['listening', 'native_pronunciation', 'songs', 'authentic_audio'],
-      avoidWhen: ['connection_issues', 'focus_on_production'],
+      toolName: 'play_audio',
+      toolType: 'native_function_call',
+      purpose: 'Play an audio sample for pronunciation modeling. Uses cached audio when available (instant) or generates via TTS.',
+      syntax: 'FUNCTION CALL: play_audio({ description: "phrase to pronounce" })',
+      examples: [
+        'FUNCTION CALL: play_audio({ description: "Buenos días" })',
+        'FUNCTION CALL: play_audio({ description: "Je m\'appelle Marie" })',
+        'FUNCTION CALL: play_audio({ description: "Mucho gusto" })'
+      ],
+      bestUsedFor: ['pronunciation_modeling', 'listening_practice', 'native_pronunciation', 'vocabulary_audio'],
+      avoidWhen: ['connection_issues', 'student_should_produce_first'],
       combinesWith: ['PHONETIC', 'WRITE'],
-      sequencePatterns: ['PLAY audio → student repeats → feedback → practice'],
+      sequencePatterns: ['Introduce phrase → play_audio for model → student repeats → feedback'],
+      technicalNotes: 'Audio is cached in audio_library table. Pre-warmed drill vocabulary loads instantly (~50ms). New phrases cache after first generation.',
     },
     
     // DRILL TYPES
