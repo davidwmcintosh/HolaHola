@@ -2941,8 +2941,8 @@ Remember: Beta testers understand they're helping build something and appreciate
                   break;
                 }
                 case 'VOICE_ADJUST': {
-                  // Daniela's real-time voice adjustment
-                  // Apply voice override for next TTS synthesis
+                  // Daniela's real-time voice adjustment - now includes spoken text for one-call efficiency
+                  const text = cmd.params.text as string | undefined;
                   const speed = (cmd.params.speed as string | undefined)?.toLowerCase();
                   const emotion = (cmd.params.emotion as string | undefined)?.toLowerCase();
                   const personality = (cmd.params.personality as string | undefined)?.toLowerCase();
@@ -3002,6 +3002,13 @@ Remember: Beta testers understand they're helping build something and appreciate
                   };
                   
                   (session as any).voiceOverride = newOverride;
+                  
+                  // If text is provided, store it for TTS synthesis
+                  if (text) {
+                    (session as any).voiceAdjustText = text;
+                    console.log(`[CommandParser→VoiceAdjust] Text included (${text.length} chars): "${text.substring(0, 80)}..."`);
+                  }
+                  
                   console.log(`[CommandParser→VoiceAdjust] Applied: speed=${speed || 'unchanged'} (rate=${speed ? speedMap[speed] : 'unchanged'}), emotion=${emotion || 'unchanged'} (mapped=${mappedEmotion || 'unchanged'}), personality=${validatedPersonality || 'unchanged'}, reason=${reason || 'none'}`);
                   console.log(`[CommandParser→VoiceAdjust] Session override now:`, newOverride);
                   break;
@@ -9128,13 +9135,17 @@ Only include observations you can clearly justify from the exchange. Return empt
         console.log(`[Streaming Greeting] Including ${greetingHistory.length} history entries for resumed conversation`);
       }
       
+      // Clear any previous voiceAdjustText before greeting
+      (session as any).voiceAdjustText = undefined;
+      
       await this.geminiService.streamWithSentenceChunking({
         systemPrompt: session.systemPrompt,
         conversationHistory: greetingHistory,  // Include history for resumed conversations
         userMessage: greetingPrompt,
         maxOutputTokens: session.isRawHonestyMode ? 8192 : 4096,  // Allow verbose greetings in honesty mode
-        enableFunctionCalling: false,  // Disable function calling for greetings - just produce text
+        enableFunctionCalling: true,  // Allow function calling (voice_adjust includes text now)
         enableContextCaching: true,  // Cache system prompt for faster response
+        session: session as any,  // Pass session for function execution (voice_adjust stores text)
         onSentence: async (chunk: SentenceChunk) => {
           if (!firstTokenReceived) {
             metrics.aiFirstTokenMs = Date.now() - aiStart;
@@ -9190,6 +9201,48 @@ Only include observations you can clearly justify from the exchange. Return empt
           this.sendError(session.ws, 'AI_FAILED', error.message, true);
         },
       });
+      
+      // FALLBACK: If no text was produced but voice_adjust provided text, use that
+      // This handles the case where Gemini only returns function calls (voice_adjust with text)
+      const voiceAdjustText = (session as any).voiceAdjustText as string | undefined;
+      if (metrics.sentenceCount === 0 && voiceAdjustText) {
+        console.log(`[Streaming Greeting] No AI text produced, using voice_adjust text: "${voiceAdjustText.substring(0, 80)}..."`);
+        
+        // Process the text as a single sentence
+        const displayText = cleanTextForDisplay(voiceAdjustText);
+        if (displayText) {
+          const extraction = extractTargetLanguageWithMapping(displayText, voiceAdjustText);
+          const wordMappingArray: [number, number][] = extraction.wordMapping.size > 0
+            ? Array.from(extraction.wordMapping.entries())
+            : [];
+          const hasTargetContent = !!(extraction.targetText && extraction.targetText.trim().length > 0);
+          
+          // Notify client of new sentence
+          this.sendMessage(session.ws, {
+            type: 'sentence_start',
+            timestamp: Date.now(),
+            turnId,
+            sentenceIndex: 0,
+            text: displayText,
+            hasTargetContent,
+            targetLanguageText: hasTargetContent ? extraction.targetText : undefined,
+            wordMapping: hasTargetContent && wordMappingArray.length > 0 ? wordMappingArray : undefined,
+          } as StreamingSentenceStartMessage);
+          
+          // Synthesize and stream audio
+          if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
+            await this.streamSentenceAudioProgressive(session, { index: 0, text: displayText, isFinal: true }, displayText, metrics, turnId);
+          } else {
+            await this.streamSentenceAudio(session, { index: 0, text: displayText, isFinal: true }, displayText, metrics, turnId);
+          }
+          
+          fullText = displayText;
+          metrics.sentenceCount = 1;
+        }
+        
+        // Clear voiceAdjustText after use
+        (session as any).voiceAdjustText = undefined;
+      }
       
       // Update conversation history
       session.conversationHistory.push({ role: 'model', content: fullText.trim() });
@@ -10278,7 +10331,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       }
       
       case 'VOICE_ADJUST': {
-        // Daniela's real-time voice adjustment - mirrors legacy command parser exactly
+        // Daniela's real-time voice adjustment - now includes spoken text for one-call efficiency
+        const text = fn.args.text as string | undefined;
         const speed = (fn.args.speed as string | undefined)?.toLowerCase();
         const emotion = (fn.args.emotion as string | undefined)?.toLowerCase();
         const personality = (fn.args.personality as string | undefined)?.toLowerCase();
@@ -10333,6 +10387,14 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         };
         
         (session as any).voiceOverride = newOverride;
+        
+        // If text is provided, store it for TTS synthesis
+        // This allows Daniela to provide voice settings + text in one call
+        if (text) {
+          (session as any).voiceAdjustText = text;
+          console.log(`[Native Function→VoiceAdjust] Text included (${text.length} chars): "${text.substring(0, 80)}..."`);
+        }
+        
         console.log(`[Native Function→VoiceAdjust] Applied: speed=${speed || 'unchanged'} (rate=${speed ? speedMap[speed] : 'unchanged'}), emotion=${emotion || 'unchanged'} (mapped=${mappedEmotion || 'unchanged'}), personality=${validatedPersonality || 'unchanged'}, reason=${reason || 'none'}`);
         console.log(`[Native Function→VoiceAdjust] Session override now:`, newOverride);
         break;

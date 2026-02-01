@@ -105,16 +105,17 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   // === VOICE CONTROL ===
   {
     name: "voice_adjust",
-    description: "Annotate HOW you're speaking - the emotional color of your words. This is metadata on your speech, not a separate action. Your words and this annotation emerge together.",
+    description: "Speak with specific emotional coloring. Include your spoken text in the 'text' parameter so voice settings and words are delivered together in one call. Always include text - never call this without your response.",
     parametersJsonSchema: {
       type: "object",
       properties: {
+        text: { type: "string", description: "What you're saying (the spoken response)" },
         speed: { type: "string", enum: ["slowest", "slow", "normal", "fast", "fastest"], description: "Speaking speed" },
         emotion: { type: "string", enum: ["happy", "excited", "friendly", "curious", "thoughtful", "warm", "playful", "surprised", "proud", "encouraging", "calm", "neutral"], description: "Emotional tone" },
         personality: { type: "string", enum: ["warm", "calm", "energetic", "professional"], description: "Personality preset" },
-        reason: { type: "string", description: "Why adjusting voice" },
+        reason: { type: "string", description: "Why adjusting voice (internal note)" },
       },
-      required: [],
+      required: ["text"],
     },
   },
   {
