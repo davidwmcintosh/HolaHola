@@ -9645,7 +9645,7 @@ function EditorChatTab() {
                       >
                         <div className="flex items-center gap-2 mb-1">
                           <Badge variant="secondary" className={`text-xs ${getRoleBadgeColor(msg.role)}`}>
-                            {msg.role === 'daniela' ? 'Daniela' : msg.role === 'founder' ? 'You' : msg.role === 'editor' ? 'Editor' : msg.role === 'wren' ? 'Wren' : msg.role}
+                            {msg.role === 'daniela' ? 'Daniela' : msg.role === 'founder' ? 'You' : msg.role === 'editor' ? 'Alden' : msg.role === 'wren' ? 'Wren' : msg.role}
                           </Badge>
                         </div>
                         <div className="text-sm whitespace-pre-wrap break-words">{msg.content}</div>
