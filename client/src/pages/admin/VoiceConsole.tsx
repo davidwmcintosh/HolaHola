@@ -1864,3 +1864,5 @@ function SofiaVoiceCard() {
     </Card>
   );
 }
+
+export default VoiceConsoleContent;
