@@ -106,14 +106,15 @@ The `play_audio` function allows Daniela to play audio clips during voice sessio
 }
 ```
 
-### Whiteboard Integration
+### How Daniela Uses It
 
-When Daniela calls `play_audio`, it maps to the `[PLAY]` whiteboard tag:
+Daniela invokes this via Gemini's native function calling:
 
-| Function Call | Whiteboard Tag |
-|---------------|----------------|
-| `play_audio({ description: "hola" })` | `[PLAY]hola[/PLAY]` |
-| `play_audio({ description: "Buenos días" })` | `[PLAY speed="slow"]Buenos días[/PLAY]` |
+```
+FUNCTION CALL: play_audio({ description: "Buenos días" })
+```
+
+The orchestrator converts this to a whiteboard update that renders in the UI.
 
 ### PlayItemData Interface
 
@@ -143,17 +144,20 @@ The `[PLAY]` tag renders as an interactive audio player in the whiteboard UI, al
 4. Frontend renders PlayItemData with play controls
 5. TTS generates audio on-demand when user clicks play
 
-### Usage Examples (in Daniela's responses)
+### Usage Examples
 
-**Direct pronunciation:**
+Daniela calls the function when she wants to model pronunciation:
+
 ```
-I'll say that slowly for you. [PLAY speed="slow"]Mucho gusto[/PLAY]
+// Gemini generates this function call:
+play_audio({ description: "Mucho gusto" })
+
+// Daniela's spoken response might be:
+"I'll say that slowly for you..."
+// Then the audio plays via the whiteboard UI
 ```
 
-**Natural speech example:**
-```
-Listen to how a native speaker would say this: [PLAY]¿Cómo estás hoy?[/PLAY]
-```
+The `description` parameter contains the text to pronounce.
 
 ---
 
