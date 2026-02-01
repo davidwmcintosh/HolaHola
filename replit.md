@@ -37,7 +37,7 @@ The Message Checkpointing System prevents user message loss by saving messages b
 
 Gemini 3 Streaming Function Calling enables reduced latency through early intent detection. Multimodal Function Responses allow tool results to include images/PDFs. A Multimodal Image Recall System enables Daniela to view and describe photos shared in Express Lane conversations. Context Caching Optimization separates static system prompts from dynamic per-turn context for cost reduction and faster time-to-first-token.
 
-The Fluency Wiring System connects ACTFL Can-Do statements to lessons. An AI Lesson Generation System automatically creates structured lesson drafts using Gemini Flash, ensuring 100% ACTFL Can-Do statement coverage. A Lesson Publishing Service converts approved drafts into curriculum lessons. The Drill System supports multiple interactive drill types. The Practice Explorer System enables self-directed drill practice. An Interactive Textbook provides a visual quick-reference companion to voice sessions.
+The Fluency Wiring System connects ACTFL Can-Do statements to lessons. An AI Lesson Generation System automatically creates structured lesson drafts using Gemini Flash, ensuring 100% ACTFL Can-Do statement coverage. A Lesson Publishing Service converts approved drafts into curriculum lessons. The Drill System supports multiple interactive drill types. The Practice Explorer System enables self-directed drill practice. An Interactive Textbook provides a visual quick-reference companion to voice sessions with on-demand pronunciation audio playback (see `docs/audio-system.md`).
 
 The Gauntlet Runner Identity Stress Test System validates Daniela's voice identity across Emotional Stability, Pedagogical Character, Cultural Authenticity, and Moral Groundedness. It uses the Voice Probe Service, Synthetic Student Service, and pre-built Gauntlet Sequences to test transitions under pressure, focusing on warm redirection rather than refusal.
 
@@ -47,7 +47,7 @@ The Gauntlet Runner Identity Stress Test System validates Daniela's voice identi
 - Gemini API: Text chat completions and voice chat LLM.
 - Deepgram API: Voice STT (Nova-3 model).
 - Cartesia API: Primary TTS (Sonic-3 model).
-- Google Cloud Text-to-Speech: For support/assistant tutors.
+- Google Cloud Text-to-Speech: For support/assistant tutors and textbook pronunciation audio.
 - Azure Speech Services: Pronunciation assessment for drill assignment.
 - Unsplash: Stock educational images.
 - Gemini Flash-Image: AI-generated contextual images.

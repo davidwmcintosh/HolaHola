@@ -141,10 +141,24 @@ The Interactive Textbook should eventually surface this depth progression, showi
 
 ---
 
+## Audio Preview (Completed January 2026)
+
+Students can now play pronunciation audio directly from the textbook:
+
+- **Drill audio buttons**: Each drill preview card has a play button
+- **On-demand TTS**: Audio generated via Google Cloud Text-to-Speech
+- **API endpoints**: `/api/drill-audio/:id` and `/api/tts/pronunciation`
+- **Components**: `AudioPlayButton` and `TextAudioPlayButton`
+
+See `docs/audio-system.md` for complete audio architecture documentation.
+
+---
+
 ## Future Enhancements
 
 1. **Progress Overlays**: Show student completion status on each lesson
 2. **Drill Type Filters**: Let students focus on specific practice types
 3. **Can-Do Statement Mapping**: Connect lessons to ACTFL competencies visually
-4. **Audio Preview**: Play sample drill audio directly from the textbook
+4. ~~**Audio Preview**: Play sample drill audio directly from the textbook~~ ✅ COMPLETED
 5. **Depth Indicators**: Show when a lesson includes advanced prosody or production focus
+6. **Speed Control**: Add slow/normal/fast playback options to audio players
