@@ -1015,6 +1015,11 @@ export class GeminiStreamingService {
       for await (const chunk of result) {
         chunkCount++;
         
+        // DEBUG: Log raw chunk structure on first few chunks
+        if (chunkCount <= 3) {
+          console.log(`[Gemini Streaming DEBUG] Chunk ${chunkCount} raw:`, JSON.stringify(chunk, null, 2).substring(0, 500));
+        }
+        
         // Log TTFB on first chunk
         if (!firstChunkReceived) {
           firstChunkReceived = true;
