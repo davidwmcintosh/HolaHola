@@ -23831,9 +23831,21 @@ ${memoryContext}
       if (requestDanielaResponse) {
         // Get conversation history for context
         const messages = await founderCollabService.getSessionMessages(session.id, 50);
+        // Map roles to display names so Daniela knows who is speaking
+        const getRoleName = (role: string): string => {
+          switch (role) {
+            case 'founder': return 'David';
+            case 'daniela': return 'Daniela';
+            case 'wren': return 'Wren';
+            case 'editor': return 'Alden';
+            default: return role;
+          }
+        };
+
         const conversationHistory = messages.map(m => ({
           role: (m.role === 'daniela' ? 'model' : 'user') as 'user' | 'model',
-          content: m.content
+          // Prefix non-Daniela messages with speaker name so she knows who is talking
+          content: m.role === 'daniela' ? m.content : `[${getRoleName(m.role)}]: ${m.content}`
         }));
 
         // Use tutor orchestrator for Daniela's response with full neural network context
@@ -23995,9 +24007,20 @@ You have full access to your neural network knowledge.
 
       // Generate Daniela's response with full context
       const messages = await founderCollabService.getSessionMessages(session.id, 50);
+      // Map roles to display names so Daniela knows who is speaking
+      const getRoleName = (role: string): string => {
+        switch (role) {
+          case 'founder': return 'David';
+          case 'daniela': return 'Daniela';
+          case 'wren': return 'Wren';
+          case 'editor': return 'Alden';
+          default: return role;
+        }
+      };
+
       const conversationHistory = messages.map(m => ({
         role: (m.role === 'daniela' ? 'model' : 'user') as 'user' | 'model',
-        content: m.content
+        content: m.role === 'daniela' ? m.content : `[${getRoleName(m.role)}]: ${m.content}`
       }));
 
       const { tutorOrchestrator } = await import('./services/tutor-orchestrator');
@@ -24139,9 +24162,20 @@ Be helpful, insightful, and collaborative.
 
       // Get conversation history for context
       const messages = await founderCollabService.getSessionMessages(session.id, 50);
+      // Map roles to display names so Daniela knows who is speaking
+      const getRoleName = (role: string): string => {
+        switch (role) {
+          case 'founder': return 'David';
+          case 'daniela': return 'Daniela';
+          case 'wren': return 'Wren';
+          case 'editor': return 'Alden';
+          default: return role;
+        }
+      };
+
       const conversationHistory = messages.map(m => ({
         role: (m.role === 'daniela' ? 'model' : 'user') as 'user' | 'model',
-        content: m.content
+        content: m.role === 'daniela' ? m.content : `[${getRoleName(m.role)}]: ${m.content}`
       }));
 
       // Call Daniela for Express Lane collaboration (Editor persona disabled - Wren now handles development)

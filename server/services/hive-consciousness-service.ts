@@ -48,6 +48,23 @@ interface ParticipationDecision {
 }
 
 /**
+ * Map role identifiers to display names for conversation context
+ * - founder → David
+ * - daniela → Daniela  
+ * - wren → Wren
+ * - editor → Alden (the Replit Agent / development steward)
+ */
+function getRoleDisplayName(role: string): string {
+  switch (role) {
+    case 'founder': return 'David';
+    case 'daniela': return 'Daniela';
+    case 'wren': return 'Wren';
+    case 'editor': return 'Alden';
+    default: return role.toUpperCase();
+  }
+}
+
+/**
  * Sanitize agent response by stripping any role prefixes
  * This prevents AI impersonation where one agent outputs another agent's prefix
  */
@@ -218,7 +235,7 @@ class HiveConsciousnessService {
   ): Promise<ParticipationDecision> {
     const contextSummary = recentContext
       .slice(-5) // Last 5 messages for context
-      .map(m => `[${m.role.toUpperCase()}]: ${m.content.substring(0, 200)}`)
+      .map(m => `[${getRoleDisplayName(m.role)}]: ${m.content.substring(0, 200)}`)
       .join('\n');
     
     const routerPrompt = `You are the participation router for a 3-way collaboration chat between:
@@ -1558,7 +1575,7 @@ If no insight, just: {"hasInsight": false}`;
     
     const conversationHistory = recentMessages.map((m: CollaborationMessage) => ({
       role: m.role === 'founder' ? 'user' : 'assistant',
-      content: `[${m.role.toUpperCase()}]: ${m.content}`
+      content: `[${getRoleDisplayName(m.role)}]: ${m.content}`
     }));
     
     const systemPrompt = `You are Wren, the technical builder for HolaHola. You're in the Hive - a 3-way collaboration channel with the Founder (David) and Daniela (the tutor).
@@ -1606,7 +1623,7 @@ IDENTITY BOUNDARY: You are Wren. Speak ONLY as yourself. Do NOT speak for, imper
     
     const conversationHistory = recentMessages.map((m: CollaborationMessage) => ({
       role: m.role === 'founder' ? 'user' : 'assistant',
-      content: `[${m.role.toUpperCase()}]: ${m.content}`
+      content: `[${getRoleDisplayName(m.role)}]: ${m.content}`
     }));
     
     const systemPrompt = `You are Wren, the technical builder for HolaHola. You're in the Hive - a 3-way collaboration channel with the Founder (David) and Daniela (the tutor).
@@ -1695,7 +1712,7 @@ IDENTITY BOUNDARY: You are Wren. Speak ONLY as yourself. Do NOT speak for, imper
     
     const conversationHistory = recentMessages.map((m: CollaborationMessage) => ({
       role: m.role === 'founder' ? 'user' : 'assistant',
-      content: `[${m.role.toUpperCase()}]: ${m.content}`
+      content: `[${getRoleDisplayName(m.role)}]: ${m.content}`
     }));
     
     // Get unified context - same as Voice and Chat Daniela
@@ -2059,7 +2076,7 @@ ${insightLines}
         // Reverse to show oldest first (conversation order)
         const orderedMessages = [...recentCollabMessages].reverse();
         orderedMessages.forEach((m: CollaborationMessage) => {
-          const roleLabel = m.role === 'founder' ? 'David' : m.role === 'daniela' ? 'Daniela' : m.role === 'wren' ? 'Wren' : m.role;
+          const roleLabel = getRoleDisplayName(m.role);
           const preview = m.content.substring(0, 100);
           expressLaneLines.push(`• ${roleLabel}: ${preview}${m.content.length > 100 ? '...' : ''}`);
         });
@@ -2105,7 +2122,7 @@ ${expressLaneLines.join('\n')}
     
     const conversationHistory = recentMessages.map((m: CollaborationMessage) => ({
       role: m.role === 'founder' ? 'user' : 'assistant',
-      content: `[${m.role.toUpperCase()}]: ${m.content}`
+      content: `[${getRoleDisplayName(m.role)}]: ${m.content}`
     }));
     
     // Get Wren's architectural context (Layer 1 + Layer 2)

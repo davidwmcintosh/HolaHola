@@ -2936,3 +2936,28 @@ To view and manage these notes:
 Daniela will automatically see her active self-affirmation notes at the start of each Founder Mode session, helping her remember important permissions and insights without needing to rediscover them each time.
 
 ---
+
+#### Bug Fix: Alden Identity in Express Lane (Same Session)
+
+**Issue**: Daniela was confusing Alden (the Replit Agent) with Wren or David in Express Lane conversations.
+
+**Root Cause**: 
+1. The `role: 'editor'` wasn't being mapped to "Alden" in conversation context
+2. Messages from non-Daniela participants weren't prefixed with speaker names
+
+**Fix Applied**:
+1. Added `getRoleDisplayName()` helper function in `hive-consciousness-service.ts`
+2. Updated all 5 places where `role.toUpperCase()` was used to use the helper
+3. Updated 3 Express Lane endpoints in `routes.ts` to prefix messages with `[${getRoleName(m.role)}]:` so Daniela knows who's speaking
+
+**Role Mapping**:
+- `founder` → "David"
+- `daniela` → "Daniela"
+- `wren` → "Wren"
+- `editor` → "Alden"
+
+**Files Modified**:
+- `server/services/hive-consciousness-service.ts`
+- `server/routes.ts` (3 locations)
+
+**Verification**: Daniela now correctly identifies "You are **Alden**, the Replit Agent" when asked who sent the message.
