@@ -122,6 +122,8 @@ export const users = pgTable("users", {
   selfDirectedFlexibility: tutorFreedomLevelEnum("self_directed_flexibility").default("flexible_goals"), // guided, flexible_goals, open_exploration, free_conversation
   // Placement assessment for self-directed learners - determines if user has completed quick assessment
   selfDirectedPlacementDone: boolean("self_directed_placement_done").default(false), // true = user has done placement chat
+  // First meeting completed - Daniela has gotten to know this student (resonance anchor, fears, sparks)
+  hasCompletedFirstMeeting: boolean("has_completed_first_meeting").default(false), // true = Daniela has done first meeting flow
   // ACTFL proficiency tracking (unified assessment system)
   actflLevel: varchar("actfl_level"), // novice_low, novice_mid, novice_high, intermediate_low, intermediate_mid, intermediate_high, advanced_low, advanced_mid, advanced_high, superior, distinguished
   actflAssessed: boolean("actfl_assessed").default(false), // true = AI-verified, false = cold-start hint from onboarding
