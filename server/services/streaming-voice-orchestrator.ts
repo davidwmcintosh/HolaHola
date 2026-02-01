@@ -5403,12 +5403,29 @@ Remember: Beta testers understand they're helping build something and appreciate
       
       // TREAT METADATA-ONLY FUNCTIONS AS NEEDING CONTINUATION
       // voice_adjust and word_emphasis should ALWAYS accompany spoken text
-      // If Gemini only returns these without text, force continuation to get actual speech
+      // If Gemini only returns these without text, check for embedded text first before forcing continuation
       if (metrics.sentenceCount === 0 && hadFunctionCallsOpenMic && functionsNeedingContinuationOpenMic.length === 0) {
         const metadataOnlyFunctions = functionCallsCopyOpenMic.map(fc => fc.name).join(', ');
-        console.warn(`[Voice] Gemini returned only metadata functions (${metadataOnlyFunctions}) - these should accompany speech, forcing continuation`);
-        // Add metadata functions to continuation list so they get proper follow-up
-        functionsNeedingContinuationOpenMic.push(...functionCallsCopyOpenMic);
+        
+        // NEW: Check if voice_adjust or other functions included text - use it directly for TTS
+        const embeddedText = ((session as any).functionCallText || '').trim();
+        if (embeddedText) {
+          console.log(`[Voice] Metadata functions included embedded text (${embeddedText.length} chars) - using for TTS`);
+          // Use the embedded text for TTS instead of forcing continuation
+          fullText = embeddedText;
+          metrics.sentenceCount = 1;  // Mark that we have content to speak
+          
+          // Stream the embedded text as audio
+          await this.streamSentenceAudioProgressive(session, { index: 0, text: embeddedText }, embeddedText, metrics, session.turnId || `turn-${Date.now()}`);
+          
+          // Clear the functionCallText after use
+          (session as any).functionCallText = undefined;
+          (session as any).voiceAdjustText = undefined;
+        } else {
+          console.warn(`[Voice] Gemini returned only metadata functions (${metadataOnlyFunctions}) - these should accompany speech, forcing continuation`);
+          // Add metadata functions to continuation list so they get proper follow-up
+          functionsNeedingContinuationOpenMic.push(...functionCallsCopyOpenMic);
+        }
       }
       
       if (metrics.sentenceCount === 0 && hadFunctionCallsOpenMic && functionsNeedingContinuationOpenMic.length > 0) {
