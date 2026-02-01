@@ -8,13 +8,15 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
-### Session: February 1, 2026 - Hybrid Audio Library Phase 1 (COMPLETED)
+### Session: February 1, 2026 - Hybrid Audio Library (ALL PHASES COMPLETE)
 
-**Status**: COMPLETED - Phase 1 caching layer implemented
+**Status**: COMPLETED - All 3 phases implemented
 
-**Overview**: Implemented persistent database-backed audio caching for TTS audio to reduce latency and costs.
+**Overview**: Implemented persistent database-backed audio caching for TTS audio to reduce latency and costs, with drill pre-generation and Daniela voice session integration.
 
-#### What Was Built
+---
+
+#### Phase 1: Persistent Cache Layer ✓
 
 1. **Database Table: `audio_library`**
    - SHA256 hash-based unique indexing for fast lookups
@@ -32,16 +34,60 @@ Staging area for documentation changes to be consolidated later.
    - Auto-stores on cache miss
    - Returns new `cacheHit` field (true/false)
 
+---
+
+#### Phase 2: Drill Pre-Generation ✓
+
+1. **Updated `drill-audio-service.ts`**
+   - Uses hybrid cache (memory + database) for drill audio
+   - Pre-warms both slow (0.7x) and normal speed variants
+   - Pedagogically informed: Daniela uses slow speed for demos, normal for fluency
+
+2. **Admin Endpoints**
+   - `POST /api/admin/drill-audio/prewarm` - Batch pre-generate audio for drill lessons
+   - `GET /api/admin/audio-library/stats` - Cache analytics (total entries, hits, by language)
+
+3. **Pre-Warm Request Body**
+   ```json
+   {
+     "lessonId": "lesson-uuid",
+     "speeds": ["slow", "normal"]
+   }
+   ```
+
+---
+
+#### Phase 3: Daniela Voice Integration ✓
+
+1. **API Endpoint: `/api/audio-library/lookup`**
+   - Authenticated endpoint for play_audio function calls
+   - Uses user's tutor gender preference
+   - Returns cached audio with duration
+
+2. **Voice Orchestrator PLAY Handler**
+   - Enhanced to retrieve cached audio for instant playback
+   - Proper whiteboard payload structure with `data.audioUrl` and `data.audioDurationMs`
+   - Falls back gracefully if cache miss
+
+3. **Whiteboard Integration**
+   - `PlayItemData` now receives pre-loaded audio from cache
+   - Instant playback without waiting for TTS generation
+
+---
+
 #### Key Files Modified
 - `shared/schema.ts` - Added audio_library table with unique index
-- `server/services/audio-caching-service.ts` - New caching service
-- `server/routes.ts` - Updated pronunciation endpoint
+- `server/services/audio-caching-service.ts` - Core caching service
+- `server/services/drill-audio-service.ts` - Hybrid cache integration
+- `server/services/streaming-voice-orchestrator.ts` - PLAY handler enhancement
+- `server/routes.ts` - Admin and lookup endpoints
 - `docs/audio-system.md` - Updated documentation
 
 #### Testing Confirmed
 - First request: cache miss (generates + stores audio)
 - Second request: cache hit (retrieves from database)
 - Database entry created with hit counter incrementing
+- Voice orchestrator PLAY handler sends proper data structure
 
 ---
 

@@ -191,13 +191,27 @@ The `[PLAY]` tag renders as an interactive audio player in the whiteboard UI, al
 - Replay the audio
 - Adjust playback speed (slow/normal/fast)
 
-### How It Works
+### How It Works (With Hybrid Caching)
 
 1. Gemini calls `play_audio({ description: "some phrase" })`
 2. Streaming Voice Orchestrator receives the function call
-3. Converts to whiteboard update with type `play`
-4. Frontend renders PlayItemData with play controls
-5. TTS generates audio on-demand when user clicks play
+3. **Cache Check**: Orchestrator queries `audio_library` for cached audio
+   - **Cache HIT**: Returns pre-generated audio instantly
+   - **Cache MISS**: Generates via TTS and caches for future use
+4. Converts to whiteboard update with type `play` including:
+   - `data.text`: The phrase to display
+   - `data.speed`: Speed setting (slow/normal/fast)
+   - `data.audioUrl`: Pre-loaded base64 audio (if cached)
+   - `data.audioDurationMs`: Duration for UI feedback
+5. Frontend renders PlayItemData with instant playback (no wait for TTS)
+
+### Latency Benefits
+
+| Scenario | Latency |
+|----------|---------|
+| Cache HIT (pre-warmed drill vocabulary) | ~50ms (database lookup) |
+| Cache MISS (first-time phrase) | ~500-800ms (TTS generation + cache store) |
+| Subsequent requests (same phrase) | ~50ms (cache hit) |
 
 ### Usage Examples
 
@@ -267,22 +281,63 @@ All generated audio is returned as:
 
 ---
 
-## 5. Hybrid Audio Library Proposal
+## 5. Hybrid Audio Library (IMPLEMENTED)
 
 ### The Vision
 
 Create a **pre-generated audio library** for curriculum content combined with **on-demand TTS** for dynamic content. This hybrid approach balances quality, cost, and flexibility.
 
-### Current State (What We Have)
+### Implementation Status (February 2026)
 
 | Feature | Status | Implementation |
 |---------|--------|----------------|
 | Textbook pronunciation playback | ✅ Complete | `AudioPlayButton` + `/api/tts/pronunciation` |
-| Daniela's `play_audio` tool | ✅ Complete | Gemini function call → whiteboard → UI |
+| Daniela's `play_audio` tool | ✅ Complete | Gemini function call → cached audio → whiteboard |
 | On-demand TTS generation | ✅ Complete | Google Cloud TTS via POST endpoint |
-| Pre-generated drill audio | ❌ Not started | Schema has `audioUrl` fields, unused |
+| Database-backed caching | ✅ Complete | `audio_library` table with SHA256 hash indexing |
+| Drill audio pre-generation | ✅ Complete | Admin endpoints for batch pre-warming |
+| Voice session integration | ✅ Complete | PLAY handler retrieves cached audio |
 
-### Proposed Architecture
+### Admin Endpoints
+
+#### POST `/api/admin/drill-audio/prewarm`
+Pre-generate and cache audio for all items in a drill lesson.
+
+**Request:**
+```json
+{
+  "lessonId": "lesson-uuid",
+  "voiceGender": "female",
+  "speeds": ["slow", "normal"]
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "cached": 24,
+  "errors": 0,
+  "message": "Pre-warmed 24 audio files for lesson"
+}
+```
+
+#### GET `/api/admin/audio-library/stats`
+Get cache analytics including hit counts by language.
+
+**Response:**
+```json
+{
+  "totalEntries": 1250,
+  "totalHits": 4830,
+  "byLanguage": {
+    "spanish": { "entries": 450, "hits": 2100 },
+    "french": { "entries": 300, "hits": 1200 }
+  }
+}
+```
+
+### Current Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -290,9 +345,9 @@ Create a **pre-generated audio library** for curriculum content combined with **
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  Is audio pre-cached in audio_library table?                │
-│  ├─ YES → Return cached URL (fast, free)                    │
-│  └─ NO  → Generate via TTS → Cache for future → Return      │
+│  Check audio_library table (by SHA256 text_hash)            │
+│  ├─ CACHE HIT  → Return cached audio, increment hit_count   │
+│  └─ CACHE MISS → Generate via TTS → Store in DB → Return    │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -300,11 +355,11 @@ Create a **pre-generated audio library** for curriculum content combined with **
 
 | Category | Source | Caching Strategy |
 |----------|--------|------------------|
-| **Drill Items** | Curriculum database | Pre-generate on lesson publish, store in `audio_library` |
+| **Drill Items** | Curriculum database | Pre-generate via admin prewarm endpoint |
 | **Textbook Vocabulary** | Extracted from drills | Pre-generate batch, cache permanently |
 | **Daniela Pronunciation** | `play_audio` function calls | Generate on-demand, cache by text+language hash |
 
-### Database Schema Addition
+### Database Schema
 
 ```sql
 CREATE TABLE audio_library (
