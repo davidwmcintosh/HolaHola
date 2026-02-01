@@ -32,7 +32,7 @@ Fetches pre-generated audio for a specific drill item.
 ```
 
 #### POST `/api/tts/pronunciation`
-Generates pronunciation audio for arbitrary text on-demand.
+Generates pronunciation audio for arbitrary text on-demand. **Now with database-backed caching!**
 
 **Request:**
 ```json
@@ -46,13 +46,46 @@ Generates pronunciation audio for arbitrary text on-demand.
 ```json
 {
   "audioUrl": "data:audio/mp3;base64,...",
-  "audioDurationMs": 850
+  "audioDurationMs": 850,
+  "cacheHit": true
 }
 ```
 
 **Validation:**
 - `text`: Required, max 500 characters
 - `language`: Required, 2-10 characters
+
+**Caching Behavior:**
+- First request for any text+language+voice combination: generates audio via TTS, stores in database, returns `cacheHit: false`
+- Subsequent requests for same combination: retrieves from database, increments hit counter, returns `cacheHit: true`
+- Cache key: SHA256 hash of `text|language|voiceId|speed`
+
+### Audio Caching System
+
+The audio caching system provides persistent storage for TTS-generated audio, reducing latency and API costs.
+
+#### Database Schema (`audio_library` table)
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | varchar | UUID primary key |
+| `content_type` | text | Category: 'drill', 'vocabulary', 'pronunciation', 'textbook' |
+| `text_hash` | varchar(64) | SHA256 hash for unique identification (indexed) |
+| `text` | text | Original text for debugging |
+| `language` | varchar(10) | Language code (e.g., 'spanish') |
+| `voice_id` | varchar(100) | TTS voice identifier |
+| `speed` | text | 'slow', 'normal', or 'fast' |
+| `audio_url` | text | Base64 data URL of audio |
+| `duration_ms` | integer | Audio duration in milliseconds |
+| `hit_count` | integer | Cache hit counter for analytics |
+| `source_id` | varchar | Optional link to drill item ID |
+
+#### Service: `audio-caching-service.ts`
+
+Key functions:
+- `getCachedPronunciationAudio(text, language, gender, speed, options)` - Main entry point
+- `preWarmCache(items, gender, speeds, contentType)` - Batch pre-generation for drills
+- `getCacheStats()` - Cache analytics
 
 ### Data Flow
 
@@ -62,7 +95,10 @@ User clicks play button
 AudioPlayButton calls /api/drill-audio/:id
   or TextAudioPlayButton calls /api/tts/pronunciation
         ↓
-Backend generates TTS via Google Cloud Text-to-Speech
+Check audio_library for cached entry (by text_hash)
+        ↓
+[Cache HIT] → Return cached audio, increment hit_count
+[Cache MISS] → Generate via Google Cloud TTS → Store in database
         ↓
 Audio returned as base64 data URL
         ↓
