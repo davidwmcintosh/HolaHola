@@ -335,6 +335,215 @@ NEVER guess. NEVER roleplay searching. Actually call this function.`,
       required: ["target", "content", "reasoning"],
     },
   },
+
+  // === DRILLS (unified syntax for all drill types) ===
+  {
+    name: "drill",
+    description: "Start an interactive drill exercise. Your spoken instructions and this annotation emerge together - say what you want them to practice, then this triggers the drill UI.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        type: { type: "string", enum: ["repeat", "translate", "match", "fill_blank", "sentence_order"], description: "Type of drill exercise" },
+        content: { type: "string", description: "The drill content. Format depends on type: repeat='phrase to repeat', translate='phrase in native language', match='word1=translation1|word2=translation2', fill_blank='Sentence with ___ blank|option1,option2|correct', sentence_order='Word1|Word2|Word3|Word4'" },
+      },
+      required: ["type", "content"],
+    },
+  },
+
+  // === WHITEBOARD CONTENT TOOLS ===
+  {
+    name: "write",
+    description: "Write text on the whiteboard. Use for vocabulary words, phrases, or any text you want the student to see.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        text: { type: "string", description: "Text to display on the whiteboard" },
+        size: { type: "string", enum: ["sm", "md", "lg", "xl"], description: "Text size (default: md)" },
+      },
+      required: ["text"],
+    },
+  },
+  {
+    name: "grammar_table",
+    description: "Display a grammar table with rows and columns. Perfect for conjugations, comparisons, or structured information.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        headers: { type: "string", description: "Column headers separated by |, e.g., 'Pronoun|Present|Past'" },
+        rows: { type: "string", description: "Table rows, each row separated by newline, columns by |, e.g., 'yo|hablo|hablé\\ntú|hablas|hablaste'" },
+      },
+      required: ["headers", "rows"],
+    },
+  },
+  {
+    name: "compare",
+    description: "Show a side-by-side comparison of two items (words, phrases, concepts).",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        item1: { type: "string", description: "First item to compare" },
+        item2: { type: "string", description: "Second item to compare" },
+      },
+      required: ["item1", "item2"],
+    },
+  },
+  {
+    name: "word_map",
+    description: "Display a visual word map with a center word and related words branching out.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        center: { type: "string", description: "The central word or concept" },
+        related: { type: "string", description: "Comma-separated list of related words, e.g., 'rojo, azul, verde, amarillo'" },
+      },
+      required: ["center", "related"],
+    },
+  },
+  {
+    name: "phonetic",
+    description: "Display phonetic transcription for pronunciation guidance.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        text: { type: "string", description: "The phonetic transcription to display" },
+        word: { type: "string", description: "Optional: the original word this transcription is for" },
+      },
+      required: ["text"],
+    },
+  },
+  {
+    name: "culture",
+    description: "Display a cultural insight or note on the whiteboard.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        insight: { type: "string", description: "The cultural insight or explanation" },
+      },
+      required: ["insight"],
+    },
+  },
+  {
+    name: "context",
+    description: "Display contextual information about when/how to use a word or phrase.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        explanation: { type: "string", description: "The contextual explanation" },
+      },
+      required: ["explanation"],
+    },
+  },
+  {
+    name: "scenario",
+    description: "Display a roleplay scenario description on the whiteboard.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        description: { type: "string", description: "Description of the scenario and roles" },
+      },
+      required: ["description"],
+    },
+  },
+  {
+    name: "summary",
+    description: "Display a bullet-point summary of what was learned.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        points: { type: "string", description: "Summary points separated by newlines, e.g., 'Learned greetings\\nPracticed numbers 1-10\\nNew vocabulary: 5 words'" },
+      },
+      required: ["points"],
+    },
+  },
+  {
+    name: "reading",
+    description: "Display a reading passage with optional translation.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        passage: { type: "string", description: "The reading passage text" },
+        translation: { type: "string", description: "Optional translation of the passage" },
+      },
+      required: ["passage"],
+    },
+  },
+  {
+    name: "play_audio",
+    description: "Play an audio clip (song, dialogue, pronunciation example).",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        description: { type: "string", description: "Description of the audio to find and play" },
+      },
+      required: ["description"],
+    },
+  },
+
+  // === LANGUAGE-SPECIFIC TOOLS (CJK) ===
+  {
+    name: "stroke",
+    description: "Display stroke order for a character (Chinese, Japanese, Korean).",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        character: { type: "string", description: "The character to show stroke order for" },
+      },
+      required: ["character"],
+    },
+  },
+  {
+    name: "tone",
+    description: "Display tone information for a pinyin syllable (Mandarin).",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        pinyin: { type: "string", description: "Pinyin with tone number, e.g., 'ma1' or 'ni3 hao3'" },
+      },
+      required: ["pinyin"],
+    },
+  },
+
+  // === PRONUNCIATION TAGGING ===
+  {
+    name: "pronunciation_tag",
+    description: "Tag a word for specific language pronunciation. Use when you want TTS to pronounce a word in its native language rather than English.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        word: { type: "string", description: "The word to pronounce" },
+        language: { type: "string", description: "Language code: es, fr, de, it, pt, ja, ko, zh, he (or full name like 'spanish')" },
+      },
+      required: ["word", "language"],
+    },
+  },
+
+  // === FIRST MEETING (onboarding) ===
+  {
+    name: "first_meeting_complete",
+    description: "Signal that you're satisfied with the initial introduction. Use when you've learned enough about a new student to feel ready to teach them.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        summary: { type: "string", description: "Brief summary of what you learned about the student" },
+      },
+      required: [],
+    },
+  },
+
+  // === TAKE NOTE (self-improvement) ===
+  {
+    name: "take_note",
+    description: "Record an insight, observation, or teaching note to your memory. Use for self-reflection, student patterns, ideas to try, or lessons learned.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        type: { type: "string", enum: ["session_reflection", "teaching_rhythm", "language_insight", "student_pattern", "idea_to_try", "what_worked", "what_didnt_work", "tool_experiment", "question_for_founder", "self_affirmation"], description: "Category of the note. self_affirmation is only for Honesty Mode (founder-granted permissions)." },
+        title: { type: "string", description: "Brief title for the note" },
+        content: { type: "string", description: "The note content" },
+      },
+      required: ["type", "title", "content"],
+    },
+  },
 ];
 
 /**
@@ -377,6 +586,24 @@ export const FUNCTION_TO_COMMAND_MAP: Record<string, string> = {
   'express_lane_post': 'EXPRESS_LANE_POST',
   'hive_suggestion': 'HIVE',
   'self_surgery': 'SELF_SURGERY',
+  // === NEW UNIFIED TOOLS ===
+  'drill': 'DRILL',
+  'write': 'WRITE',
+  'grammar_table': 'GRAMMAR_TABLE',
+  'compare': 'COMPARE',
+  'word_map': 'WORD_MAP',
+  'phonetic': 'PHONETIC',
+  'culture': 'CULTURE',
+  'context': 'CONTEXT',
+  'scenario': 'SCENARIO',
+  'summary': 'SUMMARY',
+  'reading': 'READING',
+  'play_audio': 'PLAY',
+  'stroke': 'STROKE',
+  'tone': 'TONE',
+  'pronunciation_tag': 'PRONUNCIATION_TAG',
+  'first_meeting_complete': 'FIRST_MEETING_COMPLETE',
+  'take_note': 'TAKE_NOTE',
 };
 
 /**

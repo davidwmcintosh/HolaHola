@@ -10822,6 +10822,226 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         break;
       }
       
+      // === NEW UNIFIED WHITEBOARD TOOLS ===
+      
+      case 'DRILL': {
+        const drillType = fn.args.type as string | undefined;
+        const content = fn.args.content as string | undefined;
+        
+        if (drillType && content) {
+          console.log(`[Native Function→Drill] Type: ${drillType}, content: "${content.substring(0, 50)}..."`);
+          this.sendMessage(session.ws, {
+            type: 'whiteboard_update',
+            timestamp: Date.now(),
+            items: [{ type: 'drill', drillType, content }],
+          });
+        }
+        break;
+      }
+      
+      case 'WRITE': {
+        const text = fn.args.text as string | undefined;
+        const size = fn.args.size as string | undefined;
+        
+        if (text) {
+          console.log(`[Native Function→Write] "${text.substring(0, 50)}..." size: ${size || 'md'}`);
+          this.sendMessage(session.ws, {
+            type: 'whiteboard_update',
+            timestamp: Date.now(),
+            items: [{ type: 'write', content: text, size: size || 'md' }],
+          });
+        }
+        break;
+      }
+      
+      case 'GRAMMAR_TABLE': {
+        const headers = fn.args.headers as string | undefined;
+        const rows = fn.args.rows as string | undefined;
+        
+        if (headers && rows) {
+          console.log(`[Native Function→GrammarTable] Headers: ${headers}`);
+          this.sendMessage(session.ws, {
+            type: 'whiteboard_update',
+            timestamp: Date.now(),
+            items: [{ type: 'grammar_table', headers, rows }],
+          });
+        }
+        break;
+      }
+      
+      case 'COMPARE': {
+        const item1 = fn.args.item1 as string | undefined;
+        const item2 = fn.args.item2 as string | undefined;
+        
+        if (item1 && item2) {
+          console.log(`[Native Function→Compare] "${item1}" vs "${item2}"`);
+          this.sendMessage(session.ws, {
+            type: 'whiteboard_update',
+            timestamp: Date.now(),
+            items: [{ type: 'compare', item1, item2 }],
+          });
+        }
+        break;
+      }
+      
+      case 'WORD_MAP': {
+        const center = fn.args.center as string | undefined;
+        const related = fn.args.related as string | undefined;
+        
+        if (center && related) {
+          console.log(`[Native Function→WordMap] Center: "${center}" -> ${related}`);
+          this.sendMessage(session.ws, {
+            type: 'whiteboard_update',
+            timestamp: Date.now(),
+            items: [{ type: 'word_map', center, related }],
+          });
+        }
+        break;
+      }
+      
+      case 'PHONETIC': {
+        const text = fn.args.text as string | undefined;
+        const word = fn.args.word as string | undefined;
+        
+        if (text) {
+          console.log(`[Native Function→Phonetic] ${word ? `${word}: ` : ''}${text}`);
+          this.sendMessage(session.ws, {
+            type: 'whiteboard_update',
+            timestamp: Date.now(),
+            items: [{ type: 'phonetic', content: text, word }],
+          });
+        }
+        break;
+      }
+      
+      case 'CULTURE': {
+        const insight = fn.args.insight as string | undefined;
+        
+        if (insight) {
+          console.log(`[Native Function→Culture] "${insight.substring(0, 50)}..."`);
+          this.sendMessage(session.ws, {
+            type: 'whiteboard_update',
+            timestamp: Date.now(),
+            items: [{ type: 'culture', content: insight }],
+          });
+        }
+        break;
+      }
+      
+      case 'CONTEXT': {
+        const explanation = fn.args.explanation as string | undefined;
+        
+        if (explanation) {
+          console.log(`[Native Function→Context] "${explanation.substring(0, 50)}..."`);
+          this.sendMessage(session.ws, {
+            type: 'whiteboard_update',
+            timestamp: Date.now(),
+            items: [{ type: 'context', content: explanation }],
+          });
+        }
+        break;
+      }
+      
+      case 'SCENARIO': {
+        const description = fn.args.description as string | undefined;
+        
+        if (description) {
+          console.log(`[Native Function→Scenario] "${description.substring(0, 50)}..."`);
+          this.sendMessage(session.ws, {
+            type: 'whiteboard_update',
+            timestamp: Date.now(),
+            items: [{ type: 'scenario', content: description }],
+          });
+        }
+        break;
+      }
+      
+      case 'SUMMARY': {
+        const points = fn.args.points as string | undefined;
+        
+        if (points) {
+          console.log(`[Native Function→Summary] ${points.split('\n').length} points`);
+          this.sendMessage(session.ws, {
+            type: 'whiteboard_update',
+            timestamp: Date.now(),
+            items: [{ type: 'summary', content: points }],
+          });
+        }
+        break;
+      }
+      
+      case 'READING': {
+        const passage = fn.args.passage as string | undefined;
+        const translation = fn.args.translation as string | undefined;
+        
+        if (passage) {
+          console.log(`[Native Function→Reading] "${passage.substring(0, 50)}..."`);
+          this.sendMessage(session.ws, {
+            type: 'whiteboard_update',
+            timestamp: Date.now(),
+            items: [{ type: 'reading', content: passage, translation }],
+          });
+        }
+        break;
+      }
+      
+      case 'PLAY': {
+        const description = fn.args.description as string | undefined;
+        
+        if (description) {
+          console.log(`[Native Function→Play] "${description.substring(0, 50)}..."`);
+          this.sendMessage(session.ws, {
+            type: 'whiteboard_update',
+            timestamp: Date.now(),
+            items: [{ type: 'play_audio', content: description }],
+          });
+        }
+        break;
+      }
+      
+      case 'STROKE': {
+        const character = fn.args.character as string | undefined;
+        
+        if (character) {
+          console.log(`[Native Function→Stroke] Character: ${character}`);
+          this.sendMessage(session.ws, {
+            type: 'whiteboard_update',
+            timestamp: Date.now(),
+            items: [{ type: 'stroke', content: character }],
+          });
+        }
+        break;
+      }
+      
+      case 'TONE': {
+        const pinyin = fn.args.pinyin as string | undefined;
+        
+        if (pinyin) {
+          console.log(`[Native Function→Tone] Pinyin: ${pinyin}`);
+          this.sendMessage(session.ws, {
+            type: 'whiteboard_update',
+            timestamp: Date.now(),
+            items: [{ type: 'tone', content: pinyin }],
+          });
+        }
+        break;
+      }
+      
+      case 'PRONUNCIATION_TAG': {
+        const word = fn.args.word as string | undefined;
+        const language = fn.args.language as string | undefined;
+        
+        if (word && language) {
+          console.log(`[Native Function→PronunciationTag] [${language}:${word}]`);
+          // Pronunciation tags affect TTS, store for sentence processing
+          if (!session.pendingPronunciationTags) {
+            session.pendingPronunciationTags = [];
+          }
+          session.pendingPronunciationTags.push({ word, language });
+        }
+        break;
+      }
+      
       default:
         console.log(`[Native Function Call] Unknown function type: ${fn.legacyType}`);
     }
