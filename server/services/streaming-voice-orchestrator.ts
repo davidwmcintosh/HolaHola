@@ -10318,6 +10318,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       }
       
       case 'PHASE_SHIFT': {
+        const text = fn.args.text as string | undefined;
         const to = fn.args.to as string | undefined;
         const reason = fn.args.reason as string | undefined;
         if (to && reason) {
@@ -10326,6 +10327,11 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
             reason 
           }).catch(err => console.error(`[Native Function→PhaseShift] Error:`, err));
           console.log(`[Native Function→PhaseShift] Triggered: ${to} - ${reason}`);
+        }
+        // Store text for TTS fallback if no regular text output
+        if (text) {
+          (session as any).functionCallText = ((session as any).functionCallText || '') + text + ' ';
+          console.log(`[Native Function→PhaseShift] Text included: "${text.substring(0, 50)}..."`);
         }
         break;
       }
@@ -10392,6 +10398,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         // This allows Daniela to provide voice settings + text in one call
         if (text) {
           (session as any).voiceAdjustText = text;
+          // Also add to functionCallText for unified fallback handling
+          (session as any).functionCallText = ((session as any).functionCallText || '') + text + ' ';
           console.log(`[Native Function→VoiceAdjust] Text included (${text.length} chars): "${text.substring(0, 80)}..."`);
         }
         
@@ -10566,6 +10574,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       }
       
       case 'SHOW_IMAGE': {
+        const text = fn.args.text as string | undefined;
         const word = fn.args.word as string;
         const description = fn.args.description as string | undefined;
         const context = fn.args.context as string | undefined;
@@ -10573,6 +10582,12 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         if (!word) {
           console.warn(`[Native Function→ShowImage] Missing word parameter`);
           break;
+        }
+        
+        // Store text for TTS fallback if no regular text output
+        if (text) {
+          (session as any).functionCallText = ((session as any).functionCallText || '') + text + ' ';
+          console.log(`[Native Function→ShowImage] Text included: "${text.substring(0, 50)}..."`);
         }
         
         console.log(`[Native Function→ShowImage] Resolving image for "${word}" (${description || 'no description'})`);
@@ -10887,8 +10902,15 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       // === NEW UNIFIED WHITEBOARD TOOLS ===
       
       case 'DRILL': {
+        const text = fn.args.text as string | undefined;
         const drillType = fn.args.type as string | undefined;
         const content = fn.args.content as string | undefined;
+        
+        // Store text for TTS fallback if no regular text output
+        if (text) {
+          (session as any).functionCallText = ((session as any).functionCallText || '') + text + ' ';
+          console.log(`[Native Function→Drill] Text included: "${text.substring(0, 50)}..."`);
+        }
         
         if (drillType && content) {
           console.log(`[Native Function→Drill] Type: ${drillType}, content: "${content.substring(0, 50)}..."`);

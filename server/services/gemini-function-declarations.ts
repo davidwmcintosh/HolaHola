@@ -37,10 +37,11 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   },
   {
     name: "phase_shift",
-    description: "Annotate a natural transition in your teaching flow. Your transitional words and this annotation emerge together as one response.",
+    description: "Annotate a natural transition in your teaching flow. Include your transitional words in the 'text' parameter so the phase shift and speech are delivered together.",
     parametersJsonSchema: {
       type: "object",
       properties: {
+        text: { type: "string", description: "Your spoken transition words (e.g., 'Now let's try something more challenging!')" },
         to: { type: "string", enum: ["warmup", "active_teaching", "challenge", "reflection", "drill", "assessment"], description: "Target teaching phase" },
         reason: { type: "string", description: "Brief explanation for the phase transition" },
       },
@@ -207,10 +208,11 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   },
   {
     name: "show_image",
-    description: "Display an image on the whiteboard for vocabulary or cultural teaching. Fetches stock photos or generates AI images for words, concepts, places, food, objects, etc.",
+    description: "Display an image on the whiteboard for vocabulary or cultural teaching. Include your spoken words in the 'text' parameter so the image and speech are delivered together.",
     parametersJsonSchema: {
       type: "object",
       properties: {
+        text: { type: "string", description: "What you're saying about the image (e.g., 'This is a manzana - a red, delicious apple!')" },
         word: { type: "string", description: "The vocabulary word or concept to show (e.g., 'manzana', 'mercado', 'paella')" },
         description: { type: "string", description: "Brief description to help find the right image (e.g., 'red apple fruit', 'Mexican street market', 'Spanish rice dish')" },
         context: { type: "string", description: "Optional teaching context (e.g., 'food vocabulary', 'cultural landmark')" },
@@ -340,10 +342,11 @@ NEVER guess. NEVER roleplay searching. Actually call this function.`,
   // === DRILLS (unified syntax for all drill types) ===
   {
     name: "drill",
-    description: "Start an interactive drill exercise. Your spoken instructions and this annotation emerge together - say what you want them to practice, then this triggers the drill UI.",
+    description: "Start an interactive drill exercise. Include your spoken instructions in the 'text' parameter so the drill trigger and speech are delivered together.",
     parametersJsonSchema: {
       type: "object",
       properties: {
+        text: { type: "string", description: "Your spoken instructions introducing the drill (e.g., 'Let's practice counting to ten!')" },
         type: { type: "string", enum: ["repeat", "translate", "match", "fill_blank", "sentence_order"], description: "Type of drill exercise" },
         content: { type: "string", description: "The drill content. Format depends on type: repeat='phrase to repeat', translate='phrase in native language', match='word1=translation1|word2=translation2', fill_blank='Sentence with ___ blank|option1,option2|correct', sentence_order='Word1|Word2|Word3|Word4'" },
       },
