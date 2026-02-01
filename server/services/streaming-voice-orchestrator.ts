@@ -2596,6 +2596,31 @@ Remember: Beta testers understand they're helping build something and appreciate
                   }
                   break;
                 }
+                case 'FIRST_MEETING_COMPLETE': {
+                  // Daniela signals she knows the student well enough
+                  // This marks the end of the "first conversation" experience
+                  const summary = cmd.params.summary as string | undefined;
+                  
+                  if (session.userId) {
+                    try {
+                      await storage.updateUser(session.userId, { hasCompletedFirstMeeting: true });
+                      console.log(`[CommandParser→FirstMeeting] Marked complete for user ${session.userId}${summary ? `: "${summary}"` : ''}`);
+                      
+                      // Emit beacon for founder visibility if in hive session
+                      if (session.hiveChannelId) {
+                        hiveCollaborationService.emitBeacon({
+                          channelId: session.hiveChannelId,
+                          tutorTurn: `[FIRST_MEETING_COMPLETE] Daniela has completed her "getting to know you" phase with this student.${summary ? `\n\nSummary: ${summary}` : ''}`,
+                        });
+                      }
+                    } catch (err) {
+                      console.error(`[CommandParser→FirstMeeting] Error updating user:`, err);
+                    }
+                  } else {
+                    console.log(`[CommandParser→FirstMeeting] Ignored (no userId in session)`);
+                  }
+                  break;
+                }
                 case 'SELF_SURGERY': {
                   // Daniela's direct neural network modifications (Founder Mode only)
                   // Note: Target validation now happens in command-parser.ts via enum validation
@@ -4859,6 +4884,25 @@ Remember: Beta testers understand they're helping build something and appreciate
                     priority: cmd.params.priority as number | undefined,
                   }).catch(err => console.error(`[CommandParser→Hive - OpenMic] Error:`, err));
                   console.log(`[CommandParser→Hive - OpenMic] Posted: "${title}" (${category})`);
+                }
+                break;
+              }
+              case 'FIRST_MEETING_COMPLETE': {
+                // Daniela signals she knows the student well enough
+                const summary = cmd.params.summary as string | undefined;
+                if (session.userId) {
+                  try {
+                    await storage.updateUser(session.userId, { hasCompletedFirstMeeting: true });
+                    console.log(`[CommandParser→FirstMeeting - OpenMic] Marked complete for user ${session.userId}`);
+                    if (session.hiveChannelId) {
+                      hiveCollaborationService.emitBeacon({
+                        channelId: session.hiveChannelId,
+                        tutorTurn: `[FIRST_MEETING_COMPLETE] Daniela completed "getting to know you" phase.${summary ? `\n\nSummary: ${summary}` : ''}`,
+                      });
+                    }
+                  } catch (err) {
+                    console.error(`[CommandParser→FirstMeeting - OpenMic] Error:`, err);
+                  }
                 }
                 break;
               }
@@ -10620,6 +10664,25 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
             priority: fn.args.priority as number | undefined,
           }).catch(err => console.error(`[Native Function→Hive] Error:`, err));
           console.log(`[Native Function→Hive] Suggestion: ${category} - ${title}`);
+        }
+        break;
+      }
+      
+      case 'FIRST_MEETING_COMPLETE': {
+        const summary = fn.args.summary as string | undefined;
+        if (session.userId) {
+          try {
+            await storage.updateUser(session.userId, { hasCompletedFirstMeeting: true });
+            console.log(`[Native Function→FirstMeeting] Marked complete for user ${session.userId}`);
+            if (session.hiveChannelId) {
+              hiveCollaborationService.emitBeacon({
+                channelId: session.hiveChannelId,
+                tutorTurn: `[FIRST_MEETING_COMPLETE] Daniela completed "getting to know you" phase.${summary ? `\n\nSummary: ${summary}` : ''}`,
+              });
+            }
+          } catch (err) {
+            console.error(`[Native Function→FirstMeeting] Error:`, err);
+          }
         }
         break;
       }

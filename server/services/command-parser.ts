@@ -39,6 +39,7 @@ export type ActionCommandType =
   | 'MEMORY_LOOKUP'     // On-demand search of neural memory for people, topics, etc.
   | 'TAKE_NOTE'         // Daniela's personal notebook - direct insert, no approval
   | 'MILESTONE'         // Record a learning milestone/breakthrough moment
+  | 'FIRST_MEETING_COMPLETE' // Mark that Daniela knows the student well enough
   // === VOICE CONTROL ===
   | 'VOICE_ADJUST'      // Real-time voice adjustment (speed, emotion)
   | 'VOICE_RESET'       // Reset voice to baseline
@@ -244,6 +245,10 @@ const COMMAND_SCHEMAS: Record<ActionCommandType, { required: string[]; optional:
     required: ['type', 'title', 'content'],  // Note type, short title, full content
     optional: ['language', 'tags'],  // Optional language context and freeform tags
     enums: { type: VALID_ENUM_VALUES.TAKE_NOTE_TYPE },
+  },
+  FIRST_MEETING_COMPLETE: {
+    required: [],  // No required params - just the command itself is the signal
+    optional: ['summary'],  // Optional summary of what Daniela learned about the student
   },
 };
 
