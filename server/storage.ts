@@ -104,7 +104,6 @@ import {
   assignments,
   assignmentSubmissions,
   syllabusProgress,
-  learnerPersonalFacts,
   topicCompetencyObservations,
   danielaRecommendations,
   studentTierSignals,
@@ -766,7 +765,6 @@ export interface IStorage {
     conversationsDeleted: number;
     progressReset: boolean;
     lessonsDeleted: number;
-    personalFactsDeleted: number;
     firstMeetingReset: boolean;
   }>;
 
@@ -5776,26 +5774,20 @@ export class DatabaseStorage implements IStorage {
       lessonsDeleted = lessonResult.length;
     }
 
-    // Reset first meeting flag and delete personal facts (Daniela's notes about the student)
-    let personalFactsDeleted = 0;
-    const personalFactsResult = await getSharedDb().delete(learnerPersonalFacts)
-      .where(eq(learnerPersonalFacts.studentId, userId))
-      .returning();
-    personalFactsDeleted = personalFactsResult.length;
-    
     // Reset the first meeting flag so Daniela does the "getting to know you" flow again
+    // NOTE: We intentionally keep learnerPersonalFacts - Daniela should remember the student
+    // even when their learning progress is reset (e.g., student taking a new class)
     await getSharedDb().update(users)
       .set({ hasCompletedFirstMeeting: false })
       .where(eq(users.id, userId));
 
-    console.log(`[Admin] Reset learning data for user ${userId}: ${vocabularyDeleted} vocab, ${conversationsDeleted} convs, progress=${progressReset}, ${lessonsDeleted} lessons, ${personalFactsDeleted} personal facts`);
+    console.log(`[Admin] Reset learning data for user ${userId}: ${vocabularyDeleted} vocab, ${conversationsDeleted} convs, progress=${progressReset}, ${lessonsDeleted} lessons (personal facts preserved)`);
 
     return {
       vocabularyDeleted,
       conversationsDeleted,
       progressReset,
       lessonsDeleted,
-      personalFactsDeleted,
       firstMeetingReset: true
     };
   }
