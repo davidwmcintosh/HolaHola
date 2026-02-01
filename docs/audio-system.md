@@ -116,6 +116,25 @@ FUNCTION CALL: play_audio({ description: "Buenos días" })
 
 The orchestrator converts this to a whiteboard update that renders in the UI.
 
+### Important: play_audio vs voice_adjust
+
+| Tool | Purpose | Speed Control |
+|------|---------|---------------|
+| **`voice_adjust`** | Controls Daniela's live speech | `speed: "slowest" \| "slow" \| "normal" \| "fast" \| "fastest"` |
+| **`play_audio`** | Puts reference audio on whiteboard for student replay | N/A (uses TTS default) |
+
+**`voice_adjust`** is for Daniela speaking with specific speed/emotion:
+```
+FUNCTION CALL: voice_adjust({ text: "Mucho gusto", speed: "slow", emotion: "warm" })
+```
+
+**`play_audio`** is for vocabulary demos students can replay:
+```
+FUNCTION CALL: play_audio({ description: "Buenos días" })
+```
+
+Speed control lives in `voice_adjust`, not `play_audio`. This keeps Daniela's live teaching voice separate from reference audio clips.
+
 ### PlayItemData Interface
 
 ```typescript

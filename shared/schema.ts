@@ -1068,6 +1068,28 @@ export const selfPracticeSessions = pgTable("self_practice_sessions", {
   index("idx_self_practice_language").on(table.targetLanguage),
 ]);
 
+// Audio library for caching TTS-generated audio
+export const audioLibrary = pgTable("audio_library", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  contentType: text("content_type").notNull(), // 'drill', 'vocabulary', 'pronunciation'
+  textHash: varchar("text_hash", { length: 64 }).notNull(), // SHA256 of text + language + voice + speed
+  text: text("text").notNull(), // Original text for debugging/display
+  language: varchar("language", { length: 10 }).notNull(), // Language code (e.g., 'spanish', 'fr')
+  voiceId: varchar("voice_id", { length: 100 }), // TTS voice identifier
+  speed: text("speed").notNull().default("normal"), // 'slow', 'normal', 'fast'
+  audioUrl: text("audio_url").notNull(), // Base64 data URL or storage URL
+  durationMs: integer("duration_ms"), // Audio duration in milliseconds
+  sourceId: varchar("source_id"), // drill_item_id if applicable
+  hitCount: integer("hit_count").notNull().default(0), // Cache hit counter
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  lastAccessedAt: timestamp("last_accessed_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_audio_library_hash").on(table.textHash),
+  index("idx_audio_library_language").on(table.language),
+  index("idx_audio_library_source").on(table.sourceId),
+  index("idx_audio_library_content_type").on(table.contentType),
+]);
+
 // Class types for categorizing classes (ACTFL-Led, Executive, Travel, etc.)
 export const classTypes = pgTable("class_types", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1998,6 +2020,16 @@ export const insertSelfPracticeSessionSchema = createInsertSchema(selfPracticeSe
 
 export type InsertSelfPracticeSession = z.infer<typeof insertSelfPracticeSessionSchema>;
 export type SelfPracticeSession = typeof selfPracticeSessions.$inferSelect;
+
+// Audio library insert schema and types
+export const insertAudioLibrarySchema = createInsertSchema(audioLibrary).omit({
+  id: true,
+  hitCount: true,
+  createdAt: true,
+  lastAccessedAt: true,
+});
+export type InsertAudioLibrary = z.infer<typeof insertAudioLibrarySchema>;
+export type AudioLibraryEntry = typeof audioLibrary.$inferSelect;
 
 export const insertClassTypeSchema = createInsertSchema(classTypes).omit({
   id: true,
