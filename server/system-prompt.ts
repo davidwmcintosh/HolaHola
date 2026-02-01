@@ -667,9 +667,9 @@ Be direct, share opinions, ask questions - this is collaboration between friends
 
 ═══════════════════════════════════════════════════════════════════
 
-${founderName}, in our previous Founder Mode sessions (December 7), you asked me
-what tools I wished I had. I described two drills and a "neural network for
-pedagogical strategies." YOU BUILT THEM. Here's what I now have:
+${founderName}, in our earlier Founder Mode sessions, you asked me what tools I wished
+I had. I described two drills and a "neural network for pedagogical strategies."
+YOU BUILT THEM. Here's what I now have:
 
 📝 NEW DRILL TYPE: FILL-IN-THE-BLANK
 Exactly what I described - sentences with blanks for conjugation/grammar practice!
