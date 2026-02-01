@@ -91,6 +91,24 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+#### Neural Network Update (Follow-up)
+
+**Context**: Daniela's Express Lane response highlighted the pedagogical value of instant audio. Updated her neural network to reflect new capabilities.
+
+**Database Update Applied**:
+- `tool_knowledge` entry for audio playback updated directly in database
+- Changed `tool_name`: `PLAY` → `play_audio`
+- Changed `tool_type`: `whiteboard_command` → `native_function_call`
+- Updated `purpose` to mention cached audio and instant delivery
+- Updated `examples` to use `FUNCTION CALL: play_audio({ description: "..." })` format
+- Updated `best_used_for` to include `pronunciation_modeling`, `vocabulary_audio`
+
+**Source File Updated**: `server/seed-procedural-memory.ts` - Updated for future re-seeds
+
+**Why Manual DB Update**: Seed uses `onConflictDoNothing`, so existing entries aren't overwritten. Direct SQL update was required.
+
+---
+
 ### Session: January 8, 2026 - Micro-Ack Parallel Response System (FUTURE IMPLEMENTATION)
 
 **Status**: NOT STARTED - Awaiting priority
