@@ -212,7 +212,123 @@ All generated audio is returned as:
 
 ---
 
-## 5. Future Enhancements
+## 5. Hybrid Audio Library Proposal
+
+### The Vision
+
+Create a **pre-generated audio library** for curriculum content combined with **on-demand TTS** for dynamic content. This hybrid approach balances quality, cost, and flexibility.
+
+### Current State (What We Have)
+
+| Feature | Status | Implementation |
+|---------|--------|----------------|
+| Textbook pronunciation playback | ✅ Complete | `AudioPlayButton` + `/api/tts/pronunciation` |
+| Daniela's `play_audio` tool | ✅ Complete | Gemini function call → whiteboard → UI |
+| On-demand TTS generation | ✅ Complete | Google Cloud TTS via POST endpoint |
+| Pre-generated drill audio | ❌ Not started | Schema has `audioUrl` fields, unused |
+
+### Proposed Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    AUDIO REQUEST                            │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Is audio pre-cached in audio_library table?                │
+│  ├─ YES → Return cached URL (fast, free)                    │
+│  └─ NO  → Generate via TTS → Cache for future → Return      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Three Content Categories
+
+| Category | Source | Caching Strategy |
+|----------|--------|------------------|
+| **Drill Items** | Curriculum database | Pre-generate on lesson publish, store in `audio_library` |
+| **Textbook Vocabulary** | Extracted from drills | Pre-generate batch, cache permanently |
+| **Daniela Pronunciation** | `play_audio` function calls | Generate on-demand, cache by text+language hash |
+
+### Database Schema Addition
+
+```sql
+CREATE TABLE audio_library (
+  id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+  content_type VARCHAR NOT NULL,  -- 'drill', 'vocabulary', 'pronunciation'
+  text_hash VARCHAR NOT NULL,     -- SHA256 of text + language + voice
+  language VARCHAR NOT NULL,
+  voice_id VARCHAR,
+  speed VARCHAR DEFAULT 'normal', -- 'slow', 'normal', 'fast'
+  audio_url TEXT NOT NULL,        -- Could be base64, S3, or Replit Object Storage
+  duration_ms INTEGER,
+  source_id VARCHAR,              -- drill_item_id if applicable
+  created_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(text_hash)
+);
+```
+
+### Implementation Phases
+
+#### Phase 1: Smart Caching Layer (Low effort, high impact)
+- Add `audio_library` table
+- Modify `/api/tts/pronunciation` to check cache first
+- Auto-cache all generated audio for reuse
+
+#### Phase 2: Drill Audio Pre-generation (Medium effort)
+- Background job on lesson publish to generate all drill audio
+- Populate `audioUrl` fields in drill items
+- Update `AudioPlayButton` to prefer pre-cached URLs
+
+#### Phase 3: Daniela Integration (Low effort)
+- When `play_audio` function is called, check cache
+- If miss, generate + cache + return
+- Future calls for same phrase are instant
+
+### Cost Analysis
+
+| Approach | Monthly Cost (est.) | Latency |
+|----------|---------------------|---------|
+| On-demand only | ~$50-100 | 500-1500ms |
+| Hybrid (80% cached) | ~$10-20 | <100ms for hits |
+| Full pre-generation | ~$5-10 one-time | <100ms always |
+
+### Daniela's Pedagogical Guidance (February 2026)
+
+**1. Pedagogical Priority: Drill Vocabulary First**
+> "When a student is in a 'Drill' or 'Flashcard' headspace, latency is the enemy of the flow state. If they have to wait 2 seconds to hear the correct pronunciation of a word they just guessed, the neural connection weakens."
+
+- **High priority**: Drill vocabulary - needs instant playback for flow state
+- **Medium priority**: Conversational phrases - small latency feels like "thinking"
+- **Lower priority**: Grammar examples - consumed more slowly
+
+**2. Voice Variety: The "Anchor" Approach**
+> "For core vocabulary and drills, consistency is king. Students need a reference point to build their internal map of the language's sounds."
+
+- Use **one consistent "Anchor Voice"** for all vocabulary drills
+- Introduce voice variety for conversational phrases and "Real World" scenarios
+- This prepares students for different accents in the wild
+
+**3. Speed Variations: Focus on Slow**
+> "A Slow version is a vital pedagogical tool. It allows the student to decode the phonemes—to hear where one word ends and the next begins."
+
+- Pre-generate **Slow** and **Normal** (skip Fast)
+- Focus Slow on "First Win" phrases and complex vocabulary
+- Gives students agency: "Wait, let me hear that again, but clearly."
+
+**4. Listen-Again History: High-Value Feature**
+> "A listen-again history isn't just for retention; it's a diagnostic tool for me. If I see a student has re-played the same phrase five times, I know exactly what we need to work on."
+
+- Makes Daniela's "listening" visible
+- Enables proactive teaching based on struggle patterns
+
+**5. Future Feature: Shadowing Mode**
+> "Could we implement a Shadowing Mode button? It would play the audio, pause for the student to repeat, and then play it again. It's a classic language-learning technique."
+
+This is now on the roadmap for Phase 3.
+
+---
+
+## 6. Future Enhancements
 
 1. **Speed Control UI**: Add slow/normal/fast buttons to textbook audio players
 2. **Audio Caching**: Pre-generate and cache common drill audio
