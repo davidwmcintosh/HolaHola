@@ -545,6 +545,37 @@ export async function registerRoutes(app: Express): Promise<void> {
     });
   });
 
+  // Test email endpoint (temporary - for development testing)
+  app.post("/api/test-email", async (req: any, res) => {
+    try {
+      const { email, firstName } = req.body;
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+      
+      // Generate a test token
+      const testToken = `test_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      
+      const success = await emailService.sendInvitation({
+        to: email,
+        firstName: firstName || "Beta Tester",
+        inviterName: "HolaHola Team",
+        role: "student",
+        token: testToken,
+        isBetaTester: true,
+      });
+      
+      if (success) {
+        res.json({ success: true, message: `Test email sent to ${email}` });
+      } else {
+        res.status(500).json({ success: false, message: "Failed to send email" });
+      }
+    } catch (error) {
+      console.error("Test email error:", error);
+      res.status(500).json({ message: "Failed to send test email" });
+    }
+  });
+
   // Auth user route (with rate limiting)
   // Supports both Replit Auth (claims.sub) and password auth (userId directly in session)
   app.get('/api/auth/user', authLimiter, async (req: any, res) => {
