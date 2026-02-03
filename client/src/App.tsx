@@ -214,6 +214,12 @@ function Router() {
         <Route path="/pricing" component={Pricing} />
         <Route path="/classes" component={Classes} />
         <Route path="/classes/:id" component={ClassDetail} />
+        
+        {/* Auth routes - accessible even when logged in for account management */}
+        <Route path="/complete-registration" component={CompleteRegistration} />
+        <Route path="/login"><Redirect to="/" /></Route>
+        <Route path="/signup"><Redirect to="/" /></Route>
+        
         <Route component={NotFound} />
       </Switch>
     </PageWrapper>
