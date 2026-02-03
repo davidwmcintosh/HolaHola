@@ -77,6 +77,7 @@ export default function CompleteRegistration() {
       const response = await apiRequest('POST', '/api/auth/invitations/complete', {
         token,
         password: data.password,
+        confirmPassword: data.confirmPassword,
       });
       if (!response.ok) {
         const errorData = await response.json();
