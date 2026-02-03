@@ -62,6 +62,20 @@ interface FeaturedClass {
   expectedActflMin: string | null;
 }
 
+interface PricingConfig {
+  class_price_cents: string;
+  hour_rate_cents: string;
+  free_trial_hours: string;
+}
+
+interface HourPackage {
+  id: string;
+  name: string;
+  hours: number;
+  totalPriceCents: number;
+  stripePriceId: string;
+}
+
 const joinClassFormSchema = z.object({
   joinCode: z.string().min(1, "Join code is required").toUpperCase(),
 });
@@ -173,6 +187,18 @@ export default function StudentJoinClass() {
     },
     enabled: showCatalogue || !!searchQuery || !!languageFilter || !!classTypeFilter,
   });
+
+  const { data: pricingConfig } = useQuery<PricingConfig>({
+    queryKey: ['/api/pricing-config'],
+  });
+
+  const { data: hourPackagesData } = useQuery<{ packages: HourPackage[] }>({
+    queryKey: ['/api/billing/hour-packages'],
+  });
+
+  const classPriceCents = parseInt(pricingConfig?.class_price_cents || '25000');
+  const classPrice = classPriceCents / 100;
+  const hourPackages = hourPackagesData?.packages || [];
 
   const joinClassMutation = useMutation({
     mutationFn: async (values: JoinClassFormValues) => {
@@ -328,6 +354,10 @@ export default function StudentJoinClass() {
                           ? `Target: ${getActflLabel(cls.targetActflLevel)}`
                           : cls.classType?.name || 'ACTFL-aligned curriculum'}
                     </p>
+                    <div className="mb-2">
+                      <span className="text-2xl font-bold">${classPrice}</span>
+                      <span className="text-muted-foreground ml-1">/class</span>
+                    </div>
                     <Button
                       className="w-full"
                       onClick={() => enrollFromCatalogue.mutate(cls.id)}
@@ -515,6 +545,12 @@ export default function StudentJoinClass() {
                             ? `Target: ${getActflLabel(cls.targetActflLevel)}`
                             : cls.classType?.name || 'ACTFL-aligned curriculum'}
                       </p>
+                      {!cls.isEnrolled && (
+                        <div className="mb-2">
+                          <span className="text-2xl font-bold">${classPrice}</span>
+                          <span className="text-muted-foreground ml-1">/class</span>
+                        </div>
+                      )}
                       {cls.isEnrolled ? (
                         <Button
                           variant="secondary"
@@ -669,6 +705,47 @@ export default function StudentJoinClass() {
           </div>
         </section>
       )}
+
+      {/* Self-Directed Learning Section */}
+      <section className="mt-12">
+        <Card className="bg-muted/50 border-dashed">
+          <CardHeader className="text-center">
+            <div className="flex justify-center mb-4">
+              <div className="p-3 bg-primary/10 rounded-full">
+                <Mic className="h-8 w-8 text-primary" />
+              </div>
+            </div>
+            <CardTitle className="text-xl">Prefer Self-Directed Learning?</CardTitle>
+            <CardDescription className="max-w-lg mx-auto">
+              Practice at your own pace with our AI tutors. Purchase hours and use them anytime, 
+              across all 9 languages.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pb-8">
+            {hourPackages.length > 0 ? (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto mb-6">
+                {hourPackages.slice(0, 4).map((pkg) => (
+                  <div 
+                    key={pkg.id}
+                    className="text-center p-4 rounded-lg bg-background border"
+                  >
+                    <div className="text-2xl font-bold">{pkg.hours}h</div>
+                    <div className="text-sm text-muted-foreground">{pkg.name}</div>
+                    <div className="text-lg font-semibold text-primary mt-1">
+                      ${(pkg.totalPriceCents / 100).toFixed(0)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            <div className="flex justify-center">
+              <Button variant="outline" asChild data-testid="button-view-hour-packages">
+                <a href="/pricing">View Hour Packages</a>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
     </div>
   );
 }
