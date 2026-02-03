@@ -548,25 +548,40 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Test email endpoint (temporary - for development testing)
   app.post("/api/test-email", async (req: any, res) => {
     try {
-      const { email, firstName } = req.body;
+      const { email, firstName, lastName } = req.body;
       if (!email) {
         return res.status(400).json({ message: "Email is required" });
       }
       
-      // Generate a test token
-      const testToken = `test_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      // Create a real invitation with proper token stored in database
+      const inviteResult = await passwordAuthService.createInvitation({
+        email,
+        firstName: firstName || "Beta Tester",
+        lastName: lastName || "",
+        role: "student",
+      }, "49847136");
       
-      const success = await emailService.sendInvitation({
+      if (!inviteResult.success || !inviteResult.token) {
+        return res.status(400).json({ success: false, message: inviteResult.error || "Failed to create invitation" });
+      }
+      
+      // Mark user as beta tester
+      if (inviteResult.user) {
+        await storage.updateUserDetails(inviteResult.user.id, { isBetaTester: true });
+      }
+      
+      // Send invitation email with the real token
+      const emailSuccess = await emailService.sendInvitation({
         to: email,
         firstName: firstName || "Beta Tester",
         inviterName: "HolaHola Team",
         role: "student",
-        token: testToken,
+        token: inviteResult.token,
         isBetaTester: true,
       });
       
-      if (success) {
-        res.json({ success: true, message: `Test email sent to ${email}` });
+      if (emailSuccess) {
+        res.json({ success: true, message: `Beta tester invitation sent to ${email}` });
       } else {
         res.status(500).json({ success: false, message: "Failed to send email" });
       }
