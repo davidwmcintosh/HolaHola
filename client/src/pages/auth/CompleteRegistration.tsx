@@ -33,8 +33,16 @@ export default function CompleteRegistration() {
   const search = useSearch();
   const { toast } = useToast();
   
-  const params = new URLSearchParams(search);
+  // Debug: log what we're getting
+  console.log('[CompleteRegistration] search:', search);
+  console.log('[CompleteRegistration] window.location.search:', window.location.search);
+  
+  // Use window.location.search directly as fallback
+  const searchString = search || window.location.search.slice(1);
+  const params = new URLSearchParams(searchString);
   const token = params.get('token');
+  
+  console.log('[CompleteRegistration] token:', token?.substring(0, 20) + '...');
   
   const { data: invitation, isLoading: isVerifying, error: verifyError } = useQuery({
     queryKey: ['/api/auth/invitations/verify', token],
