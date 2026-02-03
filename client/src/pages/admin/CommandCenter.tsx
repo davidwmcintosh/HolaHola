@@ -6445,7 +6445,10 @@ function PricingSettingsTab() {
       }
       
       for (const update of updates) {
-        await apiRequest("POST", "/api/admin/product-config", update);
+        await apiRequest("PUT", `/api/admin/product-config/${update.key}`, { 
+          value: update.value, 
+          description: update.description 
+        });
       }
     },
     onSuccess: () => {
