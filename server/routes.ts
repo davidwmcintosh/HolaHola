@@ -697,12 +697,108 @@ export async function registerRoutes(app: Express): Promise<void> {
       }
       
       const invite = await passwordAuthService.getInviteByToken(token);
+      
+      // Get user to check if they are a beta tester
+      const user = validation.userId ? await storage.getUser(validation.userId) : null;
+      
       res.json({ 
         valid: true, 
         email: invite?.email,
         firstName: invite?.firstName,
         lastName: invite?.lastName,
         role: invite?.role,
+        isBetaTester: user?.isBetaTester || false,
+      });
+      const invite = await passwordAuthService.getInviteByToken(token);
+      
+      // Get user to check if they are a beta tester
+      const user = validation.userId ? await storage.getUser(validation.userId) : null;
+      
+      res.json({ 
+        valid: true, 
+        email: invite?.email,
+        firstName: invite?.firstName,
+        lastName: invite?.lastName,
+        role: invite?.role,
+        isBetaTester: user?.isBetaTester || false,
+      });
+      const invite = await passwordAuthService.getInviteByToken(token);
+      
+      // Get user to check if they are a beta tester
+      const user = validation.userId ? await storage.getUser(validation.userId) : null;
+      
+      res.json({ 
+        valid: true, 
+        email: invite?.email,
+        firstName: invite?.firstName,
+        lastName: invite?.lastName,
+        role: invite?.role,
+        isBetaTester: user?.isBetaTester || false,
+      });
+      const invite = await passwordAuthService.getInviteByToken(token);
+      
+      // Get user to check if they are a beta tester
+      const user = validation.userId ? await storage.getUser(validation.userId) : null;
+      
+      res.json({ 
+        valid: true, 
+        email: invite?.email,
+        firstName: invite?.firstName,
+        lastName: invite?.lastName,
+        role: invite?.role,
+        isBetaTester: user?.isBetaTester || false,
+      });
+      const invite = await passwordAuthService.getInviteByToken(token);
+      
+      // Get user to check if they are a beta tester
+      const user = validation.userId ? await storage.getUser(validation.userId) : null;
+      
+      res.json({ 
+        valid: true, 
+        email: invite?.email,
+        firstName: invite?.firstName,
+        lastName: invite?.lastName,
+        role: invite?.role,
+        isBetaTester: user?.isBetaTester || false,
+      });
+      const invite = await passwordAuthService.getInviteByToken(token);
+      
+      // Get user to check if they are a beta tester
+      const user = validation.userId ? await storage.getUser(validation.userId) : null;
+      
+      res.json({ 
+        valid: true, 
+        email: invite?.email,
+        firstName: invite?.firstName,
+        lastName: invite?.lastName,
+        role: invite?.role,
+        isBetaTester: user?.isBetaTester || false,
+      });
+      const invite = await passwordAuthService.getInviteByToken(token);
+      
+      // Get user to check if they are a beta tester
+      const user = validation.userId ? await storage.getUser(validation.userId) : null;
+      
+      res.json({ 
+        valid: true, 
+        email: invite?.email,
+        firstName: invite?.firstName,
+        lastName: invite?.lastName,
+        role: invite?.role,
+        isBetaTester: user?.isBetaTester || false,
+      });
+      const invite = await passwordAuthService.getInviteByToken(token);
+      
+      // Get user to check if they are a beta tester
+      const user = validation.userId ? await storage.getUser(validation.userId) : null;
+      
+      res.json({ 
+        valid: true, 
+        email: invite?.email,
+        firstName: invite?.firstName,
+        lastName: invite?.lastName,
+        role: invite?.role,
+        isBetaTester: user?.isBetaTester || false,
       });
     } catch (error) {
       console.error("Invitation verify error:", error);
