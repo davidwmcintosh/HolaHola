@@ -132,7 +132,7 @@ export default function Classes() {
     return labels[level] || level.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
-  const classPriceCents = parseInt(pricingConfig?.class_price_cents || '4900');
+  const classPriceCents = parseInt(pricingConfig?.class_price_cents || '25000');
   const classPrice = getClassPrice(classPriceCents);
 
   const featuredClasses = publicClasses?.filter(c => c.isFeatured)

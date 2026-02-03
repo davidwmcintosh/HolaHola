@@ -36,34 +36,114 @@ interface PricingConfig {
   pack_10hr_discount_percent?: string;
 }
 
-function getHourPackages(hourRateCents: number, pack5hrDiscount: number = 0, pack10hrDiscount: number = 10) {
-  const baseRate = hourRateCents / 100;
-  const discount5hr = 1 - (pack5hrDiscount / 100);
-  const discount10hr = 1 - (pack10hrDiscount / 100);
-  
-  return [
-    {
-      id: 'starter',
-      name: 'Starter',
-      hours: 5,
-      price: Math.round(baseRate * 5 * discount5hr * 100) / 100,
-      pricePerHour: Math.round(baseRate * discount5hr * 100) / 100,
-      discount: pack5hrDiscount,
-      description: 'Perfect for trying out self-directed learning',
+interface HourPackageResponse {
+  tier: string;
+  hours: number;
+  priceUsd: number;
+  name: string;
+  productId: string;
+  pricePerHour: number;
+}
+
+interface HourPackageDisplay {
+  id: string;
+  name: string;
+  hours: number;
+  price: number;
+  pricePerHour: number;
+  discount: number;
+  description: string;
+  features: string[];
+  popular?: boolean;
+}
+
+function formatHourPackages(packages: HourPackageResponse[] | undefined): HourPackageDisplay[] {
+  if (!packages || packages.length === 0) {
+    // Return default packages if API fails
+    return [
+      {
+        id: 'try_it',
+        name: 'Try It',
+        hours: 1,
+        price: 12,
+        pricePerHour: 12,
+        discount: 0,
+        description: 'Perfect for testing the waters',
+        features: ['1 hour of AI tutor time', 'All 9 languages', 'No commitment'],
+      },
+      {
+        id: 'starter',
+        name: 'Starter',
+        hours: 5,
+        price: 50,
+        pricePerHour: 10,
+        discount: 17,
+        description: 'Great for getting started',
+        features: ['5 hours of AI tutor time', 'All 9 languages', 'Progress tracking', 'Never expires'],
+      },
+      {
+        id: 'regular',
+        name: 'Regular',
+        hours: 10,
+        price: 90,
+        pricePerHour: 9,
+        discount: 25,
+        description: 'Best for consistent practice',
+        features: ['10 hours of AI tutor time', 'All 9 languages', 'Pronunciation feedback', 'Progress tracking', 'Never expires'],
+        popular: true,
+      },
+      {
+        id: 'committed',
+        name: 'Committed',
+        hours: 20,
+        price: 160,
+        pricePerHour: 8,
+        discount: 33,
+        description: 'Maximum value for dedicated learners',
+        features: ['20 hours of AI tutor time', 'All 9 languages', 'Priority support', 'Progress tracking', 'Never expires'],
+      },
+    ];
+  }
+
+  const packageDetails: Record<string, { description: string; features: string[]; popular?: boolean }> = {
+    try_it: {
+      description: 'Perfect for testing the waters',
+      features: ['1 hour of AI tutor time', 'All 9 languages', 'No commitment'],
+    },
+    starter: {
+      description: 'Great for getting started',
       features: ['5 hours of AI tutor time', 'All 9 languages', 'Progress tracking', 'Never expires'],
     },
-    {
-      id: 'explorer',
-      name: 'Explorer',
-      hours: 10,
-      price: Math.round(baseRate * 10 * discount10hr * 100) / 100,
-      pricePerHour: Math.round(baseRate * discount10hr * 100) / 100,
-      discount: pack10hrDiscount,
-      description: 'Great for consistent weekly practice',
+    regular: {
+      description: 'Best for consistent practice',
       features: ['10 hours of AI tutor time', 'All 9 languages', 'Pronunciation feedback', 'Progress tracking', 'Never expires'],
       popular: true,
     },
-  ];
+    committed: {
+      description: 'Maximum value for dedicated learners',
+      features: ['20 hours of AI tutor time', 'All 9 languages', 'Priority support', 'Progress tracking', 'Never expires'],
+    },
+  };
+
+  // Calculate discount based on price per hour vs base rate (first package)
+  const baseRate = packages[0]?.pricePerHour || 12;
+
+  return packages.map(pkg => {
+    const details = packageDetails[pkg.tier] || { description: pkg.name, features: [`${pkg.hours} hours of AI tutor time`] };
+    const discount = pkg.tier === 'try_it' ? 0 : Math.round((1 - pkg.pricePerHour / baseRate) * 100);
+    
+    return {
+      id: pkg.tier,
+      name: pkg.name,
+      hours: pkg.hours,
+      price: pkg.priceUsd,
+      pricePerHour: pkg.pricePerHour,
+      discount: discount > 0 ? discount : 0,
+      description: details.description,
+      features: details.features,
+      popular: details.popular,
+    };
+  });
 }
 
 const iconMap: Record<string, typeof BookOpen> = {
@@ -116,6 +196,10 @@ export default function Pricing() {
     queryKey: ['/api/pricing-config'],
   });
 
+  const { data: hourPackagesData } = useQuery<{ packages: HourPackageResponse[] }>({
+    queryKey: ['/api/billing/hour-packages'],
+  });
+
   const { data: classTypes } = useQuery<ClassType[]>({
     queryKey: ['/api/class-types'],
   });
@@ -141,11 +225,8 @@ export default function Pricing() {
     return labels[level] || level.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
-  const classPriceCents = parseInt(pricingConfig?.class_price_cents || '4900');
-  const hourRateCents = parseInt(pricingConfig?.hour_rate_cents || '580');
-  const pack5hrDiscount = parseInt(pricingConfig?.pack_5hr_discount_percent || '0');
-  const pack10hrDiscount = parseInt(pricingConfig?.pack_10hr_discount_percent || '10');
-  const hourPackages = getHourPackages(hourRateCents, pack5hrDiscount, pack10hrDiscount);
+  const classPriceCents = parseInt(pricingConfig?.class_price_cents || '25000');
+  const hourPackages = formatHourPackages(hourPackagesData?.packages);
   const classPrice = getClassPrice(classPriceCents);
 
   const handleSelectClass = (classId: string) => {
@@ -333,7 +414,7 @@ export default function Pricing() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {hourPackages.map((pkg) => (
                 <Card
                   key={pkg.id}

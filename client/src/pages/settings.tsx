@@ -202,14 +202,16 @@ export default function Settings() {
   });
 
   // Fetch hour packages for purchase
-  const { data: hourPackages, isLoading: hourPackagesLoading } = useQuery<HourPackage[]>({
+  const { data: hourPackagesData, isLoading: hourPackagesLoading } = useQuery<{ packages: HourPackage[] }>({
     queryKey: ["/api/billing/hour-packages"],
   });
+  const hourPackages = hourPackagesData?.packages;
 
   // Fetch institutional packages for teachers
-  const { data: institutionalPackages, isLoading: institutionalPackagesLoading } = useQuery<InstitutionalPackage[]>({
+  const { data: institutionalPackagesData, isLoading: institutionalPackagesLoading } = useQuery<{ packages: InstitutionalPackage[] }>({
     queryKey: ["/api/billing/institutional-packages"],
   });
+  const institutionalPackages = institutionalPackagesData?.packages;
 
   // Fetch teacher's classes (for class package purchase)
   const { data: teacherClasses } = useQuery<TeacherClass[]>({
