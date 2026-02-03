@@ -181,10 +181,11 @@ export class EmailService {
     role: string;
     className?: string;
     token: string;
+    isBetaTester?: boolean;
   }): Promise<boolean> {
     const completeUrl = `${APP_URL}/complete-registration?token=${params.token}`;
     const greeting = params.firstName ? `Hi ${params.firstName}` : 'Hi there';
-    const roleText = params.role === 'teacher' ? 'teacher' : 'student';
+    const roleText = params.isBetaTester ? 'beta tester' : (params.role === 'teacher' ? 'teacher' : 'student');
     const classInfo = params.className ? ` for ${params.className}` : '';
     const inviterInfo = params.inviterName ? ` by ${params.inviterName}` : '';
     

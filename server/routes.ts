@@ -771,6 +771,7 @@ export async function registerRoutes(app: Express): Promise<void> {
       // Send invitation email
       if (result.token) {
         await emailService.sendInvitation({
+        isBetaTester: result.user?.isBetaTester || false,
           to: validation.data.email,
           firstName: validation.data.firstName,
           inviterName: `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() || undefined,
@@ -11370,6 +11371,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       
       // Send invitation email
       await emailService.sendInvitation({
+        isBetaTester: targetUser.isBetaTester || false,
         to: targetUser.email,
         firstName: targetUser.firstName || undefined,
         inviterName: adminUser ? `${adminUser.firstName || ''} ${adminUser.lastName || ''}`.trim() || undefined : undefined,
@@ -11553,6 +11555,7 @@ Return ONLY the ${targetLanguage} phrase:`;
           
           if (inviteResult.success && inviteResult.token) {
             await emailService.sendInvitation({
+        isBetaTester: newUser.isBetaTester || false,
               to: email.toLowerCase(),
               firstName: firstName || undefined,
               inviterName: adminUser ? `${adminUser.firstName || ''} ${adminUser.lastName || ''}`.trim() || undefined : undefined,
