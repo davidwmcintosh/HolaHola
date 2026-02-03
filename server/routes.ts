@@ -7591,7 +7591,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Join a class with join code (students)
   app.post("/api/student/enroll", isAuthenticated, async (req: any, res) => {
     try {
-      const studentId = req.user.claims.sub;
+      const studentId = req.session?.userId || req.user?.claims?.sub;
       const { joinCode } = req.body;
       
       if (!joinCode) {
@@ -7687,7 +7687,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get student's enrolled classes
   app.get("/api/student/classes", isAuthenticated, async (req: any, res) => {
     try {
-      const studentId = req.user.claims.sub;
+      const studentId = req.session?.userId || req.user?.claims?.sub;
       const enrollments = await storage.getStudentEnrollments(studentId);
       res.json(enrollments);
     } catch (error: any) {
@@ -7733,7 +7733,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   
   app.post("/api/student/progress/complete", isAuthenticated, async (req: any, res) => {
     try {
-      const studentId = req.user.claims.sub;
+      const studentId = req.session?.userId || req.user?.claims?.sub;
       
       // Validate request body with Zod
       const parseResult = completionRequestSchema.safeParse(req.body);
@@ -7874,7 +7874,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get student's syllabus progress for a class (with completion counts)
   app.get("/api/student/progress/:classId", isAuthenticated, async (req: any, res) => {
     try {
-      const studentId = req.user.claims.sub;
+      const studentId = req.session?.userId || req.user?.claims?.sub;
       const { classId } = req.params;
 
       // Verify student is enrolled
@@ -8373,7 +8373,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   app.get("/api/classes/catalogue", isAuthenticated, async (req: any, res) => {
     try {
       const { search, language, classType } = req.query;
-      const studentId = req.user.claims.sub;
+      const studentId = req.session?.userId || req.user?.claims?.sub;
       
       // Get all active classes
       const allClasses = await storage.getAllActiveClasses();
@@ -8458,7 +8458,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // SECURITY: Only allows enrollment in classes marked with isPublicCatalogue=true
   app.post("/api/classes/catalogue/:classId/enroll", isAuthenticated, async (req: any, res) => {
     try {
-      const studentId = req.user.claims.sub;
+      const studentId = req.session?.userId || req.user?.claims?.sub;
       const { classId } = req.params;
       
       // Get the class
@@ -10105,7 +10105,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Check lesson competency for a student
   app.get("/api/competency/check/:classId/:lessonId", isAuthenticated, async (req: any, res) => {
     try {
-      const studentId = req.user.claims.sub;
+      const studentId = req.session?.userId || req.user?.claims?.sub;
       const { classId, lessonId } = req.params;
       
       // Import dynamically to avoid circular dependencies
@@ -10122,7 +10122,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Check upcoming lessons for early completion
   app.get("/api/competency/upcoming/:classId", isAuthenticated, async (req: any, res) => {
     try {
-      const studentId = req.user.claims.sub;
+      const studentId = req.session?.userId || req.user?.claims?.sub;
       const { classId } = req.params;
       
       const { checkUpcomingLessonsForEarlyCompletion } = await import('./services/competency-verifier');
@@ -10138,7 +10138,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Mark lesson as organically completed
   app.post("/api/competency/complete-early", mutationLimiter, isAuthenticated, async (req: any, res) => {
     try {
-      const studentId = req.user.claims.sub;
+      const studentId = req.session?.userId || req.user?.claims?.sub;
       const { classId, lessonId, tutorVerified } = req.body;
       
       const { checkLessonCompetency, markLessonAsOrganicallyCompleted } = await import('./services/competency-verifier');
@@ -10173,7 +10173,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get syllabus progress for a student in a class
   app.get("/api/syllabus-progress/:classId", isAuthenticated, async (req: any, res) => {
     try {
-      const studentId = req.user.claims.sub;
+      const studentId = req.session?.userId || req.user?.claims?.sub;
       const { classId } = req.params;
       
       const progress = await storage.getSyllabusProgress(studentId, classId);
@@ -10189,7 +10189,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Returns units with lessons, Daniela's observations, recommendations, and time variance
   app.get("/api/class/:classId/progress", isAuthenticated, async (req: any, res) => {
     try {
-      const studentId = req.user.claims.sub;
+      const studentId = req.session?.userId || req.user?.claims?.sub;
       const { classId } = req.params;
       
       const progress = await storage.getUnifiedProgress(studentId, classId);
@@ -10207,7 +10207,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Only allowed for lessons with requirementTier !== 'required' and that have a sourceLessonId
   app.post("/api/class/:classId/lesson/:lessonId/skip", mutationLimiter, isAuthenticated, async (req: any, res) => {
     try {
-      const studentId = req.user.claims.sub;
+      const studentId = req.session?.userId || req.user?.claims?.sub;
       const { classId, lessonId } = req.params;
       
       // Verify student is enrolled in the class
@@ -10271,7 +10271,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Manually mark a lesson as complete with actual time spent
   app.post("/api/class/:classId/lesson/:lessonId/complete", mutationLimiter, isAuthenticated, async (req: any, res) => {
     try {
-      const studentId = req.user.claims.sub;
+      const studentId = req.session?.userId || req.user?.claims?.sub;
       const { classId, lessonId } = req.params;
       const { actualMinutes, evidenceConversationId, tutorNotes } = req.body;
       
@@ -11193,7 +11193,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get student's submissions
   app.get("/api/student/submissions", isAuthenticated, async (req: any, res) => {
     try {
-      const studentId = req.user.claims.sub;
+      const studentId = req.session?.userId || req.user?.claims?.sub;
       const submissions = await storage.getStudentSubmissions(studentId);
       res.json(submissions);
     } catch (error: any) {
@@ -11229,7 +11229,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Create or update submission
   app.post("/api/assignments/:assignmentId/submit", mutationLimiter, isAuthenticated, async (req: any, res) => {
     try {
-      const studentId = req.user.claims.sub;
+      const studentId = req.session?.userId || req.user?.claims?.sub;
       const { assignmentId } = req.params;
       
       // Verify assignment exists and student is enrolled in the class
