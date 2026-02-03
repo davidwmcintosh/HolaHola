@@ -62,6 +62,15 @@ interface SubscriptionResponse {
   status: string;
 }
 
+interface HourPackage {
+  tier: string;
+  hours: number;
+  priceUsd: number;
+  name: string;
+  productId: string;
+  pricePerHour: number;
+}
+
 export default function Settings() {
   const { user, isLoading: authLoading } = useAuth();
   const { userName, language } = useLanguage();
@@ -172,10 +181,35 @@ export default function Settings() {
     enabled: !!user,
   });
 
-  // Checkout mutation
+  // Fetch hour packages for purchase
+  const { data: hourPackages, isLoading: hourPackagesLoading } = useQuery<HourPackage[]>({
+    queryKey: ["/api/billing/hour-packages"],
+  });
+
+  // Checkout mutation for subscriptions
   const checkoutMutation = useMutation({
     mutationFn: async (priceId: string) => {
       const result = await apiRequest("POST", "/api/billing/checkout", { priceId }) as { url: string };
+      return result;
+    },
+    onSuccess: (data) => {
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to start checkout",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Hour package checkout mutation
+  const hourPackageCheckoutMutation = useMutation({
+    mutationFn: async (tier: string) => {
+      const result = await apiRequest("POST", "/api/billing/hour-packages/checkout", { tier }) as { url: string };
       return result;
     },
     onSuccess: (data) => {
@@ -686,6 +720,65 @@ export default function Settings() {
               </div>
             ) : null}
           </CardFooter>
+        </Card>
+
+        {/* Hour Packages - Buy Tutoring Hours */}
+        <Card data-testid="card-hour-packages">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5" />
+              Buy Tutoring Hours
+            </CardTitle>
+            <CardDescription>
+              Purchase practice hours to use with your AI tutor
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {hourPackagesLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-16 w-full" />
+              </div>
+            ) : hourPackages && hourPackages.length > 0 ? (
+              <div className="grid gap-3">
+                {hourPackages.map((pkg) => (
+                  <div
+                    key={pkg.tier}
+                    className="flex items-center justify-between p-4 rounded-lg border bg-muted/30"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-medium">{pkg.name}</h4>
+                        <Badge variant="secondary" className="text-xs">
+                          {pkg.hours} hour{pkg.hours > 1 ? 's' : ''}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        ${pkg.pricePerHour.toFixed(2)}/hour
+                      </p>
+                    </div>
+                    <Button
+                      onClick={() => hourPackageCheckoutMutation.mutate(pkg.tier)}
+                      disabled={hourPackageCheckoutMutation.isPending}
+                      data-testid={`button-buy-${pkg.tier}`}
+                    >
+                      ${pkg.priceUsd}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No hour packages available at this time.
+              </p>
+            )}
+            {hourPackageCheckoutMutation.isError && (
+              <p className="text-sm text-destructive mt-2">
+                Failed to start checkout. Please try again or contact support.
+              </p>
+            )}
+          </CardContent>
         </Card>
 
         {/* Reset Profile */}
