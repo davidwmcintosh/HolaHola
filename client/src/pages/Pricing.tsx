@@ -255,17 +255,15 @@ export default function Pricing() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
       <div className="container mx-auto px-4 py-8 md:py-12">
-        {isAuthenticated && (
-          <Button
-            variant="ghost"
-            onClick={() => navigate('/')}
-            className="mb-6"
-            data-testid="button-back-home"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
-        )}
+        <Button
+          variant="ghost"
+          onClick={() => navigate('/')}
+          className="mb-6"
+          data-testid="button-back-home"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          {isAuthenticated ? 'Back to Dashboard' : 'Back to Home'}
+        </Button>
 
         <div className="text-center mb-10 md:mb-14">
           <h1 className="text-3xl md:text-4xl font-bold mb-3" data-testid="text-pricing-title">
