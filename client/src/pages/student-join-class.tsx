@@ -45,6 +45,9 @@ interface CatalogueClass {
   isActive: boolean;
   isEnrolled: boolean;
   classType: ClassType | null;
+  classLevel: number;
+  targetActflLevel: string | null;
+  expectedActflMin: string | null;
 }
 
 interface FeaturedClass {
@@ -54,6 +57,9 @@ interface FeaturedClass {
   language: string;
   classType: ClassType | null;
   featuredOrder: number | null;
+  classLevel: number;
+  targetActflLevel: string | null;
+  expectedActflMin: string | null;
 }
 
 const joinClassFormSchema = z.object({
@@ -63,17 +69,56 @@ const joinClassFormSchema = z.object({
 type JoinClassFormValues = z.infer<typeof joinClassFormSchema>;
 
 const LANGUAGE_OPTIONS = [
-  { value: "all", label: "All Languages" },
-  { value: "spanish", label: "Spanish" },
-  { value: "french", label: "French" },
-  { value: "german", label: "German" },
-  { value: "italian", label: "Italian" },
-  { value: "portuguese", label: "Portuguese" },
-  { value: "japanese", label: "Japanese" },
-  { value: "korean", label: "Korean" },
-  { value: "mandarin", label: "Mandarin Chinese" },
-  { value: "english", label: "English (ESL)" },
+  { value: "all", label: "All Languages", flag: "" },
+  { value: "spanish", label: "Spanish", flag: "🇪🇸" },
+  { value: "french", label: "French", flag: "🇫🇷" },
+  { value: "german", label: "German", flag: "🇩🇪" },
+  { value: "italian", label: "Italian", flag: "🇮🇹" },
+  { value: "portuguese", label: "Portuguese", flag: "🇧🇷" },
+  { value: "japanese", label: "Japanese", flag: "🇯🇵" },
+  { value: "korean", label: "Korean", flag: "🇰🇷" },
+  { value: "mandarin", label: "Mandarin Chinese", flag: "🇨🇳" },
+  { value: "english", label: "English (ESL)", flag: "🇺🇸" },
 ];
+
+function getLanguageFlag(language: string): string {
+  const langLower = language.toLowerCase();
+  const lang = LANGUAGE_OPTIONS.find(l => l.value === langLower);
+  return lang?.flag || "🌍";
+}
+
+function getLanguageLabel(language: string): string {
+  const langLower = language.toLowerCase();
+  const lang = LANGUAGE_OPTIONS.find(l => l.value === langLower);
+  return lang?.label || language;
+}
+
+function getLevelBadge(classLevel: number): { label: string; variant: 'default' | 'secondary' | 'outline' } {
+  switch (classLevel) {
+    case 1: return { label: 'Beginner', variant: 'secondary' };
+    case 2: return { label: 'Intermediate', variant: 'default' };
+    case 3: return { label: 'Advanced', variant: 'outline' };
+    case 4: return { label: 'Superior', variant: 'outline' };
+    default: return { label: 'All Levels', variant: 'secondary' };
+  }
+}
+
+function getActflLabel(level: string): string {
+  const labels: Record<string, string> = {
+    novice_low: "Novice Low",
+    novice_mid: "Novice Mid",
+    novice_high: "Novice High",
+    intermediate_low: "Intermediate Low",
+    intermediate_mid: "Intermediate Mid",
+    intermediate_high: "Intermediate High",
+    advanced_low: "Advanced Low",
+    advanced_mid: "Advanced Mid",
+    advanced_high: "Advanced High",
+    superior: "Superior",
+    distinguished: "Distinguished",
+  };
+  return labels[level] || level?.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) || '';
+}
 
 const CLASS_TYPE_ICONS: Record<string, typeof Award> = {
   "Award": Award,
@@ -252,7 +297,7 @@ export default function StudentJoinClass() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {featuredClasses.slice(0, 3).map((cls) => {
-              const IconComponent = getClassTypeIcon(cls.classType?.icon);
+              const levelBadge = getLevelBadge(cls.classLevel);
               return (
                 <Card 
                   key={cls.id}
@@ -262,31 +307,27 @@ export default function StudentJoinClass() {
                   <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-primary/10 to-transparent" />
                   <CardHeader>
                     <div className="flex items-start justify-between gap-2">
-                      <div className="p-2 rounded-lg bg-primary/10">
-                        <IconComponent className="h-5 w-5 text-primary" />
+                      <div className="text-3xl" role="img" aria-label={getLanguageLabel(cls.language)}>
+                        {getLanguageFlag(cls.language)}
                       </div>
                       <Badge variant="secondary" className="text-xs">
                         Featured
                       </Badge>
                     </div>
                     <CardTitle className="mt-3">{cls.name}</CardTitle>
-                    <CardDescription className="flex items-center gap-2">
-                      <Languages className="h-4 w-4" />
-                      <span className="capitalize">{cls.language}</span>
-                      {cls.classType && (
-                        <>
-                          <span className="text-muted-foreground/50">|</span>
-                          <span>{cls.classType.name}</span>
-                        </>
-                      )}
+                    <CardDescription className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="outline">{getLanguageLabel(cls.language)}</Badge>
+                      <Badge variant={levelBadge.variant}>{levelBadge.label}</Badge>
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {cls.description && (
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {cls.description}
-                      </p>
-                    )}
+                    <p className="text-sm text-muted-foreground">
+                      {cls.expectedActflMin && cls.targetActflLevel 
+                        ? `${getActflLabel(cls.expectedActflMin)} → ${getActflLabel(cls.targetActflLevel)}`
+                        : cls.targetActflLevel 
+                          ? `Target: ${getActflLabel(cls.targetActflLevel)}`
+                          : cls.classType?.name || 'ACTFL-aligned curriculum'}
+                    </p>
                     <Button
                       className="w-full"
                       onClick={() => enrollFromCatalogue.mutate(cls.id)}
@@ -357,6 +398,7 @@ export default function StudentJoinClass() {
                   onClick={() => handleFilterSelect("language", lang.value)}
                   data-testid={`button-filter-language-${lang.value}`}
                 >
+                  <span className="mr-1.5">{lang.flag}</span>
                   {lang.label}
                 </Button>
               );
@@ -437,7 +479,7 @@ export default function StudentJoinClass() {
           ) : catalogueClasses && catalogueClasses.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {catalogueClasses.map((cls) => {
-                const IconComponent = cls.classType ? getClassTypeIcon(cls.classType.icon) : Award;
+                const levelBadge = getLevelBadge(cls.classLevel);
                 return (
                   <Card 
                     key={cls.id} 
@@ -446,36 +488,33 @@ export default function StudentJoinClass() {
                   >
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <CardTitle className="text-lg truncate">{cls.name}</CardTitle>
-                          <CardDescription className="flex items-center gap-2 mt-1">
-                            <Languages className="h-4 w-4" />
-                            <span className="capitalize">{cls.language}</span>
-                          </CardDescription>
+                        <div className="text-2xl" role="img" aria-label={getLanguageLabel(cls.language)}>
+                          {getLanguageFlag(cls.language)}
                         </div>
                         {cls.isEnrolled ? (
                           <Badge variant="default" className="shrink-0 bg-primary/80">
                             <CheckCircle2 className="w-3 h-3 mr-1" />
                             Enrolled
                           </Badge>
-                        ) : cls.classType ? (
-                          <Badge variant="outline" className="shrink-0 gap-1">
-                            <IconComponent className="w-3 h-3" />
-                            {cls.classType.name.split(' ')[0]}
-                          </Badge>
                         ) : (
-                          <Badge variant="outline" className="shrink-0">
-                            ACTFL
+                          <Badge variant={levelBadge.variant} className="shrink-0">
+                            {levelBadge.label}
                           </Badge>
                         )}
                       </div>
+                      <CardTitle className="text-lg truncate mt-2">{cls.name}</CardTitle>
+                      <CardDescription className="flex items-center gap-2 flex-wrap mt-1">
+                        <Badge variant="outline" className="text-xs">{getLanguageLabel(cls.language)}</Badge>
+                      </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      {cls.description && (
-                        <p className="text-sm text-muted-foreground line-clamp-2">
-                          {cls.description}
-                        </p>
-                      )}
+                      <p className="text-sm text-muted-foreground">
+                        {cls.expectedActflMin && cls.targetActflLevel 
+                          ? `${getActflLabel(cls.expectedActflMin)} → ${getActflLabel(cls.targetActflLevel)}`
+                          : cls.targetActflLevel 
+                            ? `Target: ${getActflLabel(cls.targetActflLevel)}`
+                            : cls.classType?.name || 'ACTFL-aligned curriculum'}
+                      </p>
                       {cls.isEnrolled ? (
                         <Button
                           variant="secondary"

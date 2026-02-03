@@ -8347,6 +8347,9 @@ Return ONLY the ${targetLanguage} phrase:`;
           icon: cls.classType.icon,
         } : null,
         featuredOrder: cls.featuredOrder,
+        classLevel: cls.classLevel,
+        targetActflLevel: cls.targetActflLevel,
+        expectedActflMin: cls.expectedActflMin,
       }));
       res.json(sanitizedClasses);
     } catch (error: any) {
@@ -8378,9 +8381,9 @@ Return ONLY the ${targetLanguage} phrase:`;
           classType: ct ? { id: ct.id, name: ct.name, slug: ct.slug, icon: ct.icon } : null,
           isFeatured: cls.isFeatured,
           featuredOrder: cls.featuredOrder,
-          targetActflLevel: cls.targetActflLevel,
-          expectedActflMin: cls.expectedActflMin,
-          classLevel: cls.classLevel,
+        classLevel: cls.classLevel,
+        targetActflLevel: cls.targetActflLevel,
+        expectedActflMin: cls.expectedActflMin,
         };
       });
       
@@ -8450,9 +8453,9 @@ Return ONLY the ${targetLanguage} phrase:`;
         classType: ct ? { id: ct.id, name: ct.name, slug: ct.slug, icon: ct.icon } : null,
         isFeatured: cls.isFeatured,
         featuredOrder: cls.featuredOrder,
+        classLevel: cls.classLevel,
         targetActflLevel: cls.targetActflLevel,
         expectedActflMin: cls.expectedActflMin,
-        classLevel: cls.classLevel,
         syllabus
       });
     } catch (error: any) {
