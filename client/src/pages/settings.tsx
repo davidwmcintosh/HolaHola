@@ -156,6 +156,40 @@ export default function Settings() {
     flexibilityMutation.mutate(flexibility);
   };
 
+  // Native language state and mutation
+  const [nativeLanguage, setNativeLanguage] = useState<string>(user?.nativeLanguage || "english");
+  
+  useEffect(() => {
+    if (user?.nativeLanguage) {
+      setNativeLanguage(user.nativeLanguage);
+    }
+  }, [user?.nativeLanguage]);
+
+  const nativeLanguageMutation = useMutation({
+    mutationFn: async (newNativeLanguage: string) => {
+      return apiRequest("PUT", "/api/user/preferences", { nativeLanguage: newNativeLanguage });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({
+        title: "Native language updated",
+        description: "Your explanations will now be in your preferred language",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update native language",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleNativeLanguageChange = (newLang: string) => {
+    setNativeLanguage(newLang);
+    nativeLanguageMutation.mutate(newLang);
+  };
+
   // Language-specific eligibility comes from the API now
   const isEligibleForPlacement = langPrefsData?.eligibleForPlacement ?? false;
   const recommendedFlexibility = langPrefsData?.smartDefault || 'flexible_goals';
@@ -414,8 +448,8 @@ export default function Settings() {
           </CardFooter>
         </Card>
 
-        {/* Self-Directed Tutor Style - Only for personal practice, not class chats */}
-        <Card data-testid="card-self-directed-style">
+        {/* Self-Directed Tutor Style - Hidden per design update (moved to join-class page) */}
+        {false && <Card data-testid="card-self-directed-style">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <GraduationCap className="h-5 w-5" />
@@ -613,7 +647,7 @@ export default function Settings() {
               Note: Class assignments use the teaching style set by your teacher, not this preference.
             </p>
           </CardContent>
-        </Card>
+        </Card>}
 
         {/* Appearance Settings */}
         <Card data-testid="card-appearance">
@@ -664,8 +698,8 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        {/* Subscription Status */}
-        <Card data-testid="card-subscription">
+        {/* Subscription Status - Hidden per design update (users purchase via join-class/pricing pages) */}
+        {false && <Card data-testid="card-subscription">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CreditCard className="h-5 w-5" />
@@ -777,10 +811,10 @@ export default function Settings() {
               </div>
             ) : null}
           </CardFooter>
-        </Card>
+        </Card>}
 
-        {/* Hour Packages - Buy Tutoring Hours */}
-        <Card data-testid="card-hour-packages">
+        {/* Hour Packages - Hidden per design update (users purchase via join-class/pricing pages) */}
+        {false && <Card data-testid="card-hour-packages">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5" />
@@ -836,10 +870,10 @@ export default function Settings() {
               </p>
             )}
           </CardContent>
-        </Card>
+        </Card>}
 
-        {/* Institutional Class Packages - For Teachers */}
-        {teacherClasses && teacherClasses.length > 0 && (
+        {/* Institutional Class Packages - Hidden per design update (users purchase via join-class/pricing pages) */}
+        {false && teacherClasses && teacherClasses.length > 0 && (
           <Card data-testid="card-class-packages">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
