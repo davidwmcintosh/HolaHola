@@ -2930,7 +2930,8 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(classEnrollments)
       .leftJoin(teacherClasses, eq(classEnrollments.classId, teacherClasses.id))
-      .where(eq(classEnrollments.studentId, studentId));
+      .where(eq(classEnrollments.studentId, studentId))
+      .orderBy(teacherClasses.language, teacherClasses.name);
     
     return result.map(row => ({
       ...row.class_enrollments,
