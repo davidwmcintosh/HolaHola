@@ -178,7 +178,9 @@ export default function CompleteRegistration() {
                 Email: <span className="font-medium text-foreground" data-testid="text-invitation-email">{invitation.email}</span>
               </p>
               <p className="text-sm text-muted-foreground">
-                Role: <span className="font-medium text-foreground capitalize" data-testid="text-invitation-role">{invitation.role}</span>
+                Role: <span className="font-medium text-foreground capitalize" data-testid="text-invitation-role">
+                  {invitation.isBetaTester ? 'Beta Tester' : invitation.role}
+                </span>
               </p>
             </div>
           )}
