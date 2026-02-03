@@ -211,7 +211,7 @@ export class EmailService {
     <p>${APP_NAME} is an AI-powered language tutoring platform where you can practice speaking with personalized AI tutors who adapt to your learning style.</p>
     
     <div style="text-align: center; margin: 30px 0;">
-      <a href="${completeUrl}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 30px; border-radius: 8px; text-decoration: none; font-weight: 600; display: inline-block;">Complete Your Registration</a>
+      <a href="${completeUrl}" style="background-color: #667eea; color: white; padding: 14px 30px; border-radius: 8px; text-decoration: none; font-weight: 600; display: inline-block;">Complete Your Registration</a>
     </div>
     
     <p style="color: #6b7280; font-size: 14px;">Or copy this link: <a href="${completeUrl}" style="color: #667eea;">${completeUrl}</a></p>
@@ -274,7 +274,7 @@ This is an automated message from ${APP_NAME}. Please do not reply to this email
     <p>We received a request to reset your password. Click the button below to choose a new password:</p>
     
     <div style="text-align: center; margin: 30px 0;">
-      <a href="${resetUrl}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 30px; border-radius: 8px; text-decoration: none; font-weight: 600; display: inline-block;">Reset Password</a>
+      <a href="${resetUrl}" style="background-color: #667eea; color: white; padding: 14px 30px; border-radius: 8px; text-decoration: none; font-weight: 600; display: inline-block;">Reset Password</a>
     </div>
     
     <p style="color: #6b7280; font-size: 14px;">Or copy this link: <a href="${resetUrl}" style="color: #667eea;">${resetUrl}</a></p>
