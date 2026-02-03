@@ -2992,6 +2992,100 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
+  // ===== Institutional Package Purchase Flow (for teachers buying class packages) =====
+  
+  // Get available institutional packages
+  app.get('/api/billing/institutional-packages', async (_req, res) => {
+    try {
+      const packages = stripeService.getInstitutionalPackages();
+      res.json({ packages });
+    } catch (error: any) {
+      console.error("Error fetching institutional packages:", error);
+      res.status(500).json({ message: "Failed to fetch institutional packages" });
+    }
+  });
+  
+  // Create checkout session for institutional package purchase
+  app.post('/api/billing/institutional-packages/checkout', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session?.userId || req.user?.claims?.sub;
+      let user = await storage.getUser(userId);
+      const { packageTier, studentCount, classId } = req.body;
+
+      if (!packageTier) {
+        return res.status(400).json({ message: "Package tier is required" });
+      }
+
+      if (!studentCount || studentCount < 1) {
+        return res.status(400).json({ message: "Student count is required and must be at least 1" });
+      }
+
+      if (!classId) {
+        return res.status(400).json({ message: "Class ID is required" });
+      }
+
+      // Validate package tier
+      const validTiers = ['basic', 'standard', 'premium', 'full_year'];
+      if (!validTiers.includes(packageTier)) {
+        return res.status(400).json({ message: "Invalid package tier" });
+      }
+
+      // Verify the class exists and belongs to this teacher
+      const teacherClass = await storage.getTeacherClass(classId);
+      if (!teacherClass) {
+        return res.status(404).json({ message: "Class not found" });
+      }
+      if (teacherClass.teacherId !== userId) {
+        return res.status(403).json({ message: "You don't have permission to purchase for this class" });
+      }
+
+      // Ensure user exists and has email
+      if (!user) {
+        user = await storage.upsertUser({
+          id: userId,
+          email: req.user.claims.email,
+          firstName: req.user.claims.first_name,
+          lastName: req.user.claims.last_name,
+          profileImageUrl: req.user.claims.profile_image_url,
+        });
+      }
+
+      if (!user.email) {
+        return res.status(400).json({ message: "User email is required for billing" });
+      }
+
+      // Create or get Stripe customer
+      let customerId = user.stripeCustomerId;
+      if (!customerId) {
+        const customer = await stripeService.createCustomer(user.email, userId);
+        await storage.updateUserStripeInfo(userId, { stripeCustomerId: customer.id });
+        customerId = customer.id;
+      }
+
+      // Create institutional package checkout session
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const session = await stripeService.createInstitutionalPackageCheckoutSession(
+        customerId,
+        userId,
+        packageTier,
+        studentCount,
+        classId,
+        `${baseUrl}/settings?purchase=success&type=class&session_id={CHECKOUT_SESSION_ID}`,
+        `${baseUrl}/settings?purchase=cancel&type=class`
+      );
+
+      res.json({ url: session.url });
+    } catch (error: any) {
+      console.error("Error creating institutional package checkout session:", error);
+      if (error.message && (error.message.includes('connection not found') || error.message.includes('X_REPLIT_TOKEN'))) {
+        return res.status(503).json({ 
+          message: "Billing service is not configured. Please set up Stripe integration in Replit Secrets." 
+        });
+      }
+      res.status(500).json({ message: error.message || "Failed to create checkout session" });
+    }
+  });
+
   // Realtime API capability check - actually tests API access
   // Cache the result for 5 minutes to avoid repeated checks
   let capabilityCache: { available: boolean; reason: string; code?: string; timestamp: number } | null = null;

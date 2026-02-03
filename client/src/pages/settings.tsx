@@ -6,7 +6,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { UserCircle, Trash2, Globe, CreditCard, Crown, Sparkles, LogOut, Palette, Moon, Sun, Monitor, GraduationCap, AlertTriangle, CheckCircle2, Loader2, BookOpen } from "lucide-react";
+import { UserCircle, Trash2, Globe, CreditCard, Crown, Sparkles, LogOut, Palette, Moon, Sun, Monitor, GraduationCap, AlertTriangle, CheckCircle2, Loader2, BookOpen, Users } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -71,6 +72,22 @@ interface HourPackage {
   pricePerHour: number;
 }
 
+interface InstitutionalPackage {
+  tier: string;
+  hoursPerStudent: number;
+  pricePerStudentUsd: number;
+  name: string;
+  productId: string;
+  pricePerHour: number;
+}
+
+interface TeacherClass {
+  id: string;
+  name: string;
+  language: string;
+  enrolledCount?: number;
+}
+
 export default function Settings() {
   const { user, isLoading: authLoading } = useAuth();
   const { userName, language } = useLanguage();
@@ -79,6 +96,9 @@ export default function Settings() {
   const [selectedPrefLanguage, setSelectedPrefLanguage] = useState<string>(language || "spanish");
   const [selfDirectedFlexibility, setSelfDirectedFlexibility] = useState<string>("flexible_goals");
   const [isRunningPlacement, setIsRunningPlacement] = useState(false);
+  const [selectedClassForPackage, setSelectedClassForPackage] = useState<string>("");
+  const [selectedPackageTier, setSelectedPackageTier] = useState<string>("");
+  const [studentCount, setStudentCount] = useState<number>(1);
   const { toast } = useToast();
   const logoutMutation = useLogout();
 
@@ -186,6 +206,17 @@ export default function Settings() {
     queryKey: ["/api/billing/hour-packages"],
   });
 
+  // Fetch institutional packages for teachers
+  const { data: institutionalPackages, isLoading: institutionalPackagesLoading } = useQuery<InstitutionalPackage[]>({
+    queryKey: ["/api/billing/institutional-packages"],
+  });
+
+  // Fetch teacher's classes (for class package purchase)
+  const { data: teacherClasses } = useQuery<TeacherClass[]>({
+    queryKey: ["/api/teacher/classes"],
+    enabled: !!user,
+  });
+
   // Checkout mutation for subscriptions
   const checkoutMutation = useMutation({
     mutationFn: async (priceId: string) => {
@@ -210,6 +241,30 @@ export default function Settings() {
   const hourPackageCheckoutMutation = useMutation({
     mutationFn: async (tier: string) => {
       const result = await apiRequest("POST", "/api/billing/hour-packages/checkout", { tier }) as { url: string };
+      return result;
+    },
+    onSuccess: (data) => {
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to start checkout",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Institutional package checkout mutation (for teachers buying class packages)
+  const institutionalCheckoutMutation = useMutation({
+    mutationFn: async ({ packageTier, studentCount, classId }: { packageTier: string; studentCount: number; classId: string }) => {
+      const result = await apiRequest("POST", "/api/billing/institutional-packages/checkout", { 
+        packageTier, 
+        studentCount, 
+        classId 
+      }) as { url: string };
       return result;
     },
     onSuccess: (data) => {
@@ -780,6 +835,120 @@ export default function Settings() {
             )}
           </CardContent>
         </Card>
+
+        {/* Institutional Class Packages - For Teachers */}
+        {teacherClasses && teacherClasses.length > 0 && (
+          <Card data-testid="card-class-packages">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Buy Class Packages
+              </CardTitle>
+              <CardDescription>
+                Purchase tutoring hours for your entire class (one-time purchase per student)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {institutionalPackagesLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                </div>
+              ) : (
+                <>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="class-select">Select Class</Label>
+                      <Select
+                        value={selectedClassForPackage}
+                        onValueChange={setSelectedClassForPackage}
+                      >
+                        <SelectTrigger id="class-select" data-testid="select-class">
+                          <SelectValue placeholder="Choose a class" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {teacherClasses.map((cls) => (
+                            <SelectItem key={cls.id} value={cls.id}>
+                              {cls.name} ({cls.language})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="student-count">Number of Students</Label>
+                      <Input
+                        id="student-count"
+                        type="number"
+                        min={1}
+                        max={500}
+                        value={studentCount}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStudentCount(Math.max(1, parseInt(e.target.value) || 1))}
+                        data-testid="input-student-count"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Select Package</Label>
+                    <div className="grid gap-3">
+                      {institutionalPackages?.map((pkg) => {
+                        const totalPrice = pkg.pricePerStudentUsd * studentCount;
+                        const totalHours = pkg.hoursPerStudent * studentCount;
+                        const isSelected = selectedPackageTier === pkg.tier;
+                        return (
+                          <div
+                            key={pkg.tier}
+                            onClick={() => setSelectedPackageTier(pkg.tier)}
+                            className={`flex items-center justify-between p-4 rounded-lg border cursor-pointer transition-colors ${
+                              isSelected ? 'border-primary bg-primary/5' : 'bg-muted/30 hover-elevate'
+                            }`}
+                            data-testid={`package-option-${pkg.tier}`}
+                          >
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-medium">{pkg.name}</h4>
+                                <Badge variant="secondary" className="text-xs">
+                                  {pkg.hoursPerStudent}h/student
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                ${pkg.pricePerStudentUsd}/student ({totalHours} total hours)
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-semibold">${totalPrice}</div>
+                              <div className="text-xs text-muted-foreground">total</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <Button
+                    className="w-full"
+                    disabled={!selectedClassForPackage || !selectedPackageTier || institutionalCheckoutMutation.isPending}
+                    onClick={() => institutionalCheckoutMutation.mutate({
+                      packageTier: selectedPackageTier,
+                      studentCount,
+                      classId: selectedClassForPackage
+                    })}
+                    data-testid="button-purchase-class-package"
+                  >
+                    {institutionalCheckoutMutation.isPending ? 'Processing...' : 'Purchase Class Package'}
+                  </Button>
+
+                  {institutionalCheckoutMutation.isError && (
+                    <p className="text-sm text-destructive">
+                      Failed to start checkout. Please try again or contact support.
+                    </p>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Reset Profile */}
         <Card data-testid="card-reset-profile">

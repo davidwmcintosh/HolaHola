@@ -2,25 +2,46 @@ import { storage } from './storage';
 import { getUncachableStripeClient } from './stripeClient';
 import { usageService } from './services/usage-service';
 
-// Hour package configurations for independent learners (matching docs/cost-analysis-2025.md)
-export const HOUR_PACKAGES = {
+// Default hour package configurations (can be overridden by database config)
+export const DEFAULT_HOUR_PACKAGES = {
   try_it: { hours: 1, priceUsd: 12, name: 'Try It', productId: 'hour_pkg_try_it' },
   starter: { hours: 5, priceUsd: 50, name: 'Starter', productId: 'hour_pkg_starter' },
   regular: { hours: 10, priceUsd: 90, name: 'Regular', productId: 'hour_pkg_regular' },
   committed: { hours: 20, priceUsd: 160, name: 'Committed', productId: 'hour_pkg_committed' },
 } as const;
 
-export type HourPackageTier = keyof typeof HOUR_PACKAGES;
+export type HourPackageTier = keyof typeof DEFAULT_HOUR_PACKAGES;
 
-// Institutional class package configurations (per-student pricing, matching docs/cost-analysis-2025.md)
-export const INSTITUTIONAL_PACKAGES = {
+// Default institutional class package configurations (can be overridden by database config)
+export const DEFAULT_INSTITUTIONAL_PACKAGES = {
   basic: { hoursPerStudent: 10, pricePerStudentUsd: 50, name: 'Basic', productId: 'inst_pkg_basic' },
   standard: { hoursPerStudent: 20, pricePerStudentUsd: 100, name: 'Standard', productId: 'inst_pkg_standard' },
   premium: { hoursPerStudent: 30, pricePerStudentUsd: 150, name: 'Premium', productId: 'inst_pkg_premium' },
   full_year: { hoursPerStudent: 120, pricePerStudentUsd: 600, name: 'Full Year', productId: 'inst_pkg_full_year' },
 } as const;
 
-export type InstitutionalPackageTier = keyof typeof INSTITUTIONAL_PACKAGES;
+export type InstitutionalPackageTier = keyof typeof DEFAULT_INSTITUTIONAL_PACKAGES;
+
+// Helper to get pricing config from database with fallbacks
+async function getPricingConfig(): Promise<{
+  hourRateCents: number;
+  classPriceCents: number;
+  pack5hrDiscount: number;
+  pack10hrDiscount: number;
+}> {
+  try {
+    const configs = await storage.getAllProductConfig();
+    const configMap = configs.reduce((acc, c) => ({ ...acc, [c.key]: c.value }), {} as Record<string, string>);
+    return {
+      hourRateCents: parseInt(configMap.hour_rate_cents) || 580, // $5.80/hour default
+      classPriceCents: parseInt(configMap.class_price_cents) || 4900, // $49/class default
+      pack5hrDiscount: parseInt(configMap.pack_5hr_discount_percent) || 0,
+      pack10hrDiscount: parseInt(configMap.pack_10hr_discount_percent) || 10,
+    };
+  } catch {
+    return { hourRateCents: 580, classPriceCents: 4900, pack5hrDiscount: 0, pack10hrDiscount: 10 };
+  }
+}
 
 export class StripeService {
   private async getStripeOrThrow() {
@@ -59,7 +80,7 @@ export class StripeService {
     cancelUrl: string
   ) {
     const stripe = await this.getStripeOrThrow();
-    const pkg = HOUR_PACKAGES[packageTier];
+    const pkg = DEFAULT_HOUR_PACKAGES[packageTier];
     
     if (!pkg) {
       throw new Error(`Invalid package tier: ${packageTier}`);
@@ -130,7 +151,7 @@ export class StripeService {
         userId,
         hours * 3600, // Convert hours to seconds
         'purchase',
-        `Hour package purchase: ${HOUR_PACKAGES[packageTier].name} (${hours}h, $${(session.amount_total || 0) / 100}, session: ${sessionId})`,
+        `Hour package purchase: ${DEFAULT_HOUR_PACKAGES[packageTier].name} (${hours}h, $${(session.amount_total || 0) / 100}, session: ${sessionId})`,
         {
           stripePaymentId: sessionId,
         }
@@ -145,7 +166,7 @@ export class StripeService {
   }
   
   getHourPackages() {
-    return Object.entries(HOUR_PACKAGES).map(([tier, config]) => ({
+    return Object.entries(DEFAULT_HOUR_PACKAGES).map(([tier, config]) => ({
       tier,
       ...config,
       pricePerHour: Math.round(config.priceUsd / config.hours * 100) / 100,
@@ -153,7 +174,7 @@ export class StripeService {
   }
 
   getInstitutionalPackages() {
-    return Object.entries(INSTITUTIONAL_PACKAGES).map(([tier, config]) => ({
+    return Object.entries(DEFAULT_INSTITUTIONAL_PACKAGES).map(([tier, config]) => ({
       tier,
       ...config,
       pricePerHour: Math.round(config.pricePerStudentUsd / config.hoursPerStudent * 100) / 100,
@@ -161,6 +182,63 @@ export class StripeService {
       profitPerStudent: Math.round((config.pricePerStudentUsd - config.hoursPerStudent * 2.47) * 100) / 100,
       marginPercent: Math.round(((config.pricePerStudentUsd - config.hoursPerStudent * 2.47) / (config.hoursPerStudent * 2.47)) * 100),
     }));
+  }
+
+  async createInstitutionalPackageCheckoutSession(
+    customerId: string,
+    userId: string,
+    packageTier: InstitutionalPackageTier,
+    studentCount: number,
+    classId: string,
+    successUrl: string,
+    cancelUrl: string
+  ) {
+    const stripe = await this.getStripeOrThrow();
+    const pkg = DEFAULT_INSTITUTIONAL_PACKAGES[packageTier];
+    
+    if (!pkg) {
+      throw new Error(`Invalid institutional package tier: ${packageTier}`);
+    }
+
+    if (studentCount < 1 || studentCount > 500) {
+      throw new Error('Student count must be between 1 and 500');
+    }
+
+    const totalPrice = pkg.pricePerStudentUsd * studentCount;
+    const totalHours = pkg.hoursPerStudent * studentCount;
+    
+    return await stripe.checkout.sessions.create({
+      customer: customerId,
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: `${pkg.name} Class Package - ${studentCount} Students`,
+            description: `${pkg.hoursPerStudent} hours per student (${totalHours} total hours) for your class`,
+            metadata: {
+              tier: packageTier,
+              hoursPerStudent: pkg.hoursPerStudent.toString(),
+              studentCount: studentCount.toString(),
+              classId,
+            },
+          },
+          unit_amount: Math.round(totalPrice * 100),
+        },
+        quantity: 1,
+      }],
+      mode: 'payment',
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      metadata: {
+        type: 'institutional_package',
+        userId,
+        tier: packageTier,
+        hoursPerStudent: pkg.hoursPerStudent.toString(),
+        studentCount: studentCount.toString(),
+        classId,
+      },
+    });
   }
 
   async createCustomerPortalSession(customerId: string, returnUrl: string) {
