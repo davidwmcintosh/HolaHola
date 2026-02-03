@@ -11654,6 +11654,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Update user details (admin only) - firstName, lastName, email, isTestAccount, isBetaTester
+  // When marking as beta tester, auto-enrolls in all public classes
   app.patch("/api/admin/users/:userId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const adminId = req.user.claims.sub;
@@ -11664,6 +11665,10 @@ Return ONLY the ${targetLanguage} phrase:`;
       if (firstName === undefined && lastName === undefined && email === undefined && isTestAccount === undefined && isBetaTester === undefined) {
         return res.status(400).json({ error: "No fields to update provided" });
       }
+      
+      // Check if we're setting isBetaTester to true (for auto-enrollment)
+      const existingUser = await storage.getUser(userId);
+      const isNewBetaTester = isBetaTester === true && existingUser && !existingUser.isBetaTester;
       
       const updated = await storage.updateUserDetails(userId, {
         firstName,
@@ -11677,24 +11682,49 @@ Return ONLY the ${targetLanguage} phrase:`;
         return res.status(404).json({ error: "User not found" });
       }
       
+      // Auto-enroll in all public classes when marking as beta tester
+      let enrolledClassCount = 0;
+      if (isNewBetaTester) {
+        const publicClasses = await getUserDb().select()
+          .from(teacherClasses)
+          .where(eq(teacherClasses.isPublicCatalogue, true));
+        
+        console.log(`[Beta Tester] Auto-enrolling ${userId} in ${publicClasses.length} public classes`);
+        
+        for (const cls of publicClasses) {
+          try {
+            // Check if already enrolled
+            const alreadyEnrolled = await storage.isStudentEnrolled(cls.id, userId);
+            if (!alreadyEnrolled) {
+              await storage.enrollStudent(cls.id, userId);
+              enrolledClassCount++;
+            }
+          } catch (err: any) {
+            console.warn(`[Beta Tester] Failed to enroll in class ${cls.name}: ${err.message}`);
+          }
+        }
+        console.log(`[Beta Tester] Enrolled ${userId} in ${enrolledClassCount} new classes`);
+      }
+      
       // Log the action
       await storage.logAdminAction({
         actorId: adminId,
         action: 'update_user_details',
         targetType: 'user',
         targetId: userId,
-        metadata: { firstName, lastName, email, isTestAccount, isBetaTester },
+        metadata: { firstName, lastName, email, isTestAccount, isBetaTester, enrolledClassCount },
         ipAddress: req.ip,
         userAgent: req.get('user-agent'),
       });
       
-      res.json(updated);
+      res.json({ ...updated, enrolledClassCount });
     } catch (error: any) {
       console.error('Error updating user details:', error);
       res.status(500).json({ error: error.message });
     }
   });
 
+  // Grant credits to a user (admin only) - for beta testers and special allocations
   // Grant credits to a user (admin only) - for beta testers and special allocations
   app.post("/api/admin/users/:userId/grant-credits", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
