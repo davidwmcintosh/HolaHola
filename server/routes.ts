@@ -786,6 +786,24 @@ export async function registerRoutes(app: Express): Promise<void> {
       if (result.user) {
         req.session.userId = result.user.id;
         req.session.authProvider = 'password';
+        
+        // Auto-enroll beta testers in all public classes
+        if (result.user.isBetaTester) {
+          try {
+            const publicClasses = await storage.getPublicCatalogueClasses();
+            let enrolledCount = 0;
+            for (const cls of publicClasses) {
+              const alreadyEnrolled = await storage.isStudentEnrolled(cls.id, result.user.id);
+              if (!alreadyEnrolled) {
+                await storage.enrollStudent(cls.id, result.user.id);
+                enrolledCount++;
+              }
+            }
+            console.log(`[Beta Tester] Auto-enrolled ${result.user.email} in ${enrolledCount} public classes`);
+          } catch (enrollError) {
+            console.error('[Beta Tester] Failed to auto-enroll:', enrollError);
+          }
+        }
       }
       
       res.json({ success: true, user: result.user });
