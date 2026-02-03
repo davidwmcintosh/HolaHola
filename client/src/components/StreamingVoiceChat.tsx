@@ -127,6 +127,8 @@ interface StreamingVoiceChatProps {
   onResumeHandled?: () => void;
   onLanguageHandoff?: (tutorName: string, targetLanguage: string) => void;
   onLanguageHandoffComplete?: () => void;
+  isExhausted?: boolean;
+  onInsufficientCredits?: () => void;
 }
 
 export function StreamingVoiceChat({ 
@@ -136,7 +138,9 @@ export function StreamingVoiceChat({
   isResumedConversation,
   onResumeHandled,
   onLanguageHandoff,
-  onLanguageHandoffComplete
+  onLanguageHandoffComplete,
+  isExhausted,
+  onInsufficientCredits
 }: StreamingVoiceChatProps) {
   const [, navigate] = useLocation();
   const { language, difficulty, setLanguage, subtitleMode, setSubtitleMode, tutorGender, voiceSpeed, setTutorGender, setVoiceSpeed } = useLanguage();
@@ -664,6 +668,15 @@ export function StreamingVoiceChat({
   useEffect(() => {
     if (!useStreamingMode || !conversationId || !userDetails) return;
     
+    // Block connection if credits are exhausted
+    if (isExhausted) {
+      console.log('[STREAMING] Connection blocked - credits exhausted');
+      if (onInsufficientCredits) {
+        onInsufficientCredits();
+      }
+      return;
+    }
+    
     const connectStreaming = async () => {
       try {
         console.log('[STREAMING] Connecting to streaming voice...');
@@ -901,7 +914,7 @@ export function StreamingVoiceChat({
         streamingConnectedRef.current = false;
       }
     };
-  }, [conversationId, useStreamingMode, user, language, difficulty, subtitleMode, onLanguageHandoffComplete]);
+  }, [conversationId, useStreamingMode, user, language, difficulty, subtitleMode, onLanguageHandoffComplete, isExhausted, onInsufficientCredits]);
   
   // DEBUG: Log mic lockout state changes
   // CRITICAL: Use globalPlaybackState for accurate mic lock timing (avoids stale closure issues)
@@ -1652,6 +1665,15 @@ export function StreamingVoiceChat({
   const startRecording = async () => {
     if (isRecording) return;
     
+    // Block recording if credits are exhausted
+    if (isExhausted) {
+      console.log('[RECORDING] Blocked - credits exhausted');
+      if (onInsufficientCredits) {
+        onInsufficientCredits();
+      }
+      return;
+    }
+    
     try {
       setError(null);
       
@@ -2203,6 +2225,15 @@ export function StreamingVoiceChat({
     // isRecording state can be stale after cleanup
     if (openMicActiveRef.current) {
       console.log('[OPEN MIC] Already active (ref check), ignoring');
+      return;
+    }
+    
+    // Block recording if credits are exhausted
+    if (isExhausted) {
+      console.log('[OPEN MIC] Blocked - credits exhausted');
+      if (onInsufficientCredits) {
+        onInsufficientCredits();
+      }
       return;
     }
     

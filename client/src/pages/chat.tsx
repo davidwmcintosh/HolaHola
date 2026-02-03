@@ -447,6 +447,21 @@ export default function Chat() {
     }, 400);
   };
 
+  // Handle voice mode click - check credits first
+  const handleVoiceModeClick = useCallback(() => {
+    if (isExhausted) {
+      console.log('[SHARED CHAT] Voice mode blocked - credits exhausted');
+      setShowInsufficientCreditsDialog(true);
+      return;
+    }
+    setMode("voice");
+  }, [isExhausted]);
+
+  // Callback for VoiceChat to show credits dialog when attempting to call with no credits
+  const handleInsufficientCredits = useCallback(() => {
+    setShowInsufficientCreditsDialog(true);
+  }, []);
+
   return (
     <div className="h-full flex flex-col relative">
       {/* Smooth loading overlay for page reload */}
@@ -479,7 +494,7 @@ export default function Chat() {
           <Button
             variant={mode === "voice" ? "default" : "outline"}
             size="sm"
-            onClick={() => setMode("voice")}
+            onClick={handleVoiceModeClick}
             data-testid="button-voice-mode"
           >
             <Mic className="h-4 w-4 md:mr-2" />
@@ -588,6 +603,8 @@ export default function Chat() {
                 onResumeHandled={() => setIsResumedConversation(false)}
                 onLanguageHandoff={handleLanguageHandoff}
                 onLanguageHandoffComplete={completeLanguageHandoff}
+                isExhausted={isExhausted}
+                onInsufficientCredits={handleInsufficientCredits}
               />
           ) : (
             <ChatInterface 
