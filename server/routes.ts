@@ -747,6 +747,9 @@ export async function registerRoutes(app: Express): Promise<void> {
       // Get user to check if they are a beta tester
       const user = validation.userId ? await storage.getUser(validation.userId) : null;
       
+      console.log('[Verify Debug] validation.userId:', validation.userId);
+      console.log('[Verify Debug] user:', user?.id, 'isBetaTester:', user?.isBetaTester);
+      
       res.json({ 
         valid: true, 
         email: invite?.email,

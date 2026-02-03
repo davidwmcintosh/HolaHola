@@ -57,6 +57,8 @@ export default function CompleteRegistration() {
     },
     enabled: !!token,
     retry: false,
+    staleTime: 0,
+    gcTime: 0,
   });
 
   const form = useForm<RegistrationFormData>({
