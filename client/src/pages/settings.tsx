@@ -432,6 +432,30 @@ export default function Settings() {
                     </div>
                   </div>
                 </div>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-0.5 flex-1">
+                    <p className="text-sm font-medium text-muted-foreground">Native Language</p>
+                    <p className="text-xs text-muted-foreground">
+                      Used for explanations and translations
+                    </p>
+                  </div>
+                  <Select
+                    value={nativeLanguage}
+                    onValueChange={handleNativeLanguageChange}
+                    disabled={nativeLanguageMutation.isPending}
+                  >
+                    <SelectTrigger className="w-40" data-testid="select-native-language">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {['english', 'spanish', 'french', 'german', 'italian', 'portuguese', 'japanese', 'mandarin', 'korean', 'arabic'].map((lang) => (
+                        <SelectItem key={lang} value={lang} data-testid={`select-native-${lang}`}>
+                          <span className="capitalize">{languageNames[lang] || lang}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </>
             )}
           </CardContent>
