@@ -285,59 +285,58 @@ export function hasSignificantTargetLanguageContent(text: string): boolean {
 export function detectTextLanguageForTTS(text: string, targetLanguage: string): string {
   if (!text || text.length < 3) return targetLanguage;
   
+  // Languages that use non-Latin scripts - these need English override when speaking English
+  // because Cartesia tries to pronounce English with their phonetics (unintelligible)
+  const nonLatinScriptLanguages = new Set([
+    'japanese', 'korean', 'mandarin chinese', 'chinese', 'mandarin',
+    'hebrew', 'arabic', 'russian', 'hindi', 'thai', 'greek'
+  ]);
+  
+  // Latin-script languages preserve their accent when speaking English (sounds natural)
+  // Spanish tutor speaking English should sound Mexican-accented, not American
+  const isNonLatinScriptLanguage = nonLatinScriptLanguages.has(targetLanguage.toLowerCase());
+  
+  // If target language uses Latin script, always keep native accent
+  if (!isNonLatinScriptLanguage) {
+    // Spanish, French, German, Italian, Portuguese, English - keep native TTS
+    return targetLanguage;
+  }
+  
+  // For non-Latin script languages, detect if text is mostly English
   // Use character-based detection for CJK languages (more reliable than franc for short text)
   const cjkPattern = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\uAC00-\uD7AF]/g;
+  const hebrewPattern = /[\u0590-\u05FF]/g;
+  const arabicPattern = /[\u0600-\u06FF]/g;
+  const cyrillicPattern = /[\u0400-\u04FF]/g;
+  const devanagariPattern = /[\u0900-\u097F]/g;
+  const thaiPattern = /[\u0E00-\u0E7F]/g;
+  const greekPattern = /[\u0370-\u03FF]/g;
   const latinPattern = /[a-zA-Z]/g;
   
-  const cjkMatches = text.match(cjkPattern) || [];
-  const latinMatches = text.match(latinPattern) || [];
+  const cjkCount = (text.match(cjkPattern) || []).length;
+  const hebrewCount = (text.match(hebrewPattern) || []).length;
+  const arabicCount = (text.match(arabicPattern) || []).length;
+  const cyrillicCount = (text.match(cyrillicPattern) || []).length;
+  const devanagariCount = (text.match(devanagariPattern) || []).length;
+  const thaiCount = (text.match(thaiPattern) || []).length;
+  const greekCount = (text.match(greekPattern) || []).length;
+  const latinCount = (text.match(latinPattern) || []).length;
   
-  const cjkCount = cjkMatches.length;
-  const latinCount = latinMatches.length;
-  const totalChars = cjkCount + latinCount;
+  const nonLatinCount = cjkCount + hebrewCount + arabicCount + cyrillicCount + devanagariCount + thaiCount + greekCount;
+  const totalChars = nonLatinCount + latinCount;
   
   if (totalChars === 0) return targetLanguage;
   
   // Calculate ratios
-  const cjkRatio = cjkCount / totalChars;
   const latinRatio = latinCount / totalChars;
   
   // If more than 70% Latin characters, use English for TTS
-  // This ensures Japanese/Korean/Chinese voices pronounce English correctly
+  // This ensures Japanese/Korean/Chinese/Hebrew voices pronounce English correctly
   if (latinRatio > 0.7) {
-    console.log(`[TextLangDetect] Text is ${(latinRatio * 100).toFixed(0)}% Latin → using 'english' for TTS (was: ${targetLanguage})`);
+    console.log(`[TextLangDetect] Non-Latin language '${targetLanguage}' with ${(latinRatio * 100).toFixed(0)}% Latin text → using 'english' for TTS`);
     return 'english';
   }
   
-  // If more than 50% CJK characters, use the target language
-  if (cjkRatio > 0.5) {
-    console.log(`[TextLangDetect] Text is ${(cjkRatio * 100).toFixed(0)}% CJK → using '${targetLanguage}' for TTS`);
-    return targetLanguage;
-  }
-  
-  // Mixed content - use franc for more accurate detection
-  const detectedLang = franc(text, { minLength: 3 });
-  
-  // Map franc codes to our language names
-  const francToLanguage: Record<string, string> = {
-    'eng': 'english',
-    'spa': 'spanish',
-    'fra': 'french',
-    'deu': 'german',
-    'ita': 'italian',
-    'por': 'portuguese',
-    'jpn': 'japanese',
-    'kor': 'korean',
-    'cmn': 'mandarin chinese',
-    'zho': 'mandarin chinese',
-  };
-  
-  const mappedLang = francToLanguage[detectedLang];
-  if (mappedLang) {
-    console.log(`[TextLangDetect] Franc detected '${detectedLang}' → using '${mappedLang}' for TTS`);
-    return mappedLang;
-  }
-  
-  // Default to target language
+  // Keep native language for proper pronunciation of native script
   return targetLanguage;
 }
