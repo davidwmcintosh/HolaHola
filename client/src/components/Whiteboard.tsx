@@ -2104,6 +2104,11 @@ const PronunciationItemDisplay = ({ item, index }: PronunciationItemDisplayProps
  * Used for nested content inside size tags like <lg>**bold**</lg>
  */
 function parseFormattedTextInner(text: string): JSX.Element[] {
+  // Guard against undefined/null text
+  if (!text) {
+    return [<span key={0}></span>];
+  }
+  
   const elements: JSX.Element[] = [];
   let keyIndex = 0;
   
@@ -2150,6 +2155,11 @@ function parseFormattedTextInner(text: string): JSX.Element[] {
  * Inline sizes: <sm>small</sm>, <lg>large</lg>, <xl>extra large</xl>
  */
 function parseFormattedText(text: string): JSX.Element[] {
+  // Guard against undefined/null text
+  if (!text) {
+    return [<span key={0}></span>];
+  }
+  
   const elements: JSX.Element[] = [];
   let keyIndex = 0;
   
