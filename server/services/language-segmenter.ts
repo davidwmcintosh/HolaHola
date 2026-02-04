@@ -128,23 +128,33 @@ function detectQuotedVocabulary(text: string): Detection[] {
 }
 
 /**
- * Detect unquoted CJK (Chinese/Japanese/Korean) character sequences.
+ * Detect unquoted non-Latin script character sequences.
  * These are unambiguous - they can't be English, so we can detect them without quotes.
  * 
  * This catches cases like: "Please try to say ありがとう when thanking someone"
  * where the Japanese word isn't quoted but should still be pronounced correctly.
+ * 
+ * Supports: Japanese, Korean, Chinese, Hebrew, Arabic, Russian, Hindi, Thai, Greek
  */
-function detectUnquotedCJK(text: string): Detection[] {
+function detectUnquotedNonLatin(text: string): Detection[] {
   const detections: Detection[] = [];
   
-  // Pattern for consecutive CJK characters (including common punctuation)
-  // Japanese: Hiragana, Katakana, Kanji
-  // Korean: Hangul
-  // Chinese: CJK Unified Ideographs
-  const cjkPattern = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\uAC00-\uD7AF\u3000-\u303F]+/g;
+  // Pattern for consecutive non-Latin characters
+  // Each range represents a distinct writing system that's unambiguously not English
+  const nonLatinPattern = new RegExp([
+    '[\u3040-\u309F\u30A0-\u30FF]+',     // Japanese Hiragana + Katakana
+    '[\u4E00-\u9FAF]+',                   // CJK Ideographs (Chinese/Japanese Kanji)
+    '[\uAC00-\uD7AF]+',                   // Korean Hangul
+    '[\u0590-\u05FF]+',                   // Hebrew
+    '[\u0600-\u06FF]+',                   // Arabic
+    '[\u0400-\u04FF]+',                   // Cyrillic (Russian, etc.)
+    '[\u0900-\u097F]+',                   // Devanagari (Hindi)
+    '[\u0E00-\u0E7F]+',                   // Thai
+    '[\u0370-\u03FF]+',                   // Greek
+  ].join('|'), 'g');
   
   let match;
-  while ((match = cjkPattern.exec(text)) !== null) {
+  while ((match = nonLatinPattern.exec(text)) !== null) {
     const fullMatch = match[0];
     
     // Skip very short matches (single character might be punctuation)
@@ -210,12 +220,12 @@ export function segmentByLanguage(
   // Detect quoted vocabulary (e.g., *Gracias*, "hermoso")
   const quotedDetections = detectQuotedVocabulary(text);
   
-  // Detect unquoted CJK characters (Japanese, Korean, Chinese)
+  // Detect unquoted non-Latin characters (Japanese, Korean, Chinese, Hebrew, Arabic, Russian, etc.)
   // These are unambiguous and don't need quotes
-  const cjkDetections = detectUnquotedCJK(text);
+  const nonLatinDetections = detectUnquotedNonLatin(text);
   
   // Merge both detection types
-  const allDetections = [...quotedDetections, ...cjkDetections];
+  const allDetections = [...quotedDetections, ...nonLatinDetections];
   
   // Sort by position and remove overlaps
   allDetections.sort((a, b) => a.start - b.start);
