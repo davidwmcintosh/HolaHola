@@ -3311,6 +3311,9 @@ Remember: Beta testers understand they're helping build something and appreciate
           // Client will hide subtitles immediately when hasTargetContent is false (no fallback needed)
           const hasTargetContent = !!(extraction.targetText && extraction.targetText.trim().length > 0);
           
+          // ALWAYS log sentence_start for debugging
+          console.log(`[SENTENCE_START EMIT] sentence=${chunk.index}, hasTarget=${hasTargetContent}, targetText="${(extraction.targetText || '').substring(0, 50)}"`);
+          
           // Notify client of new sentence with cleaned text and word mapping
           this.sendMessage(session.ws, {
             type: 'sentence_start',

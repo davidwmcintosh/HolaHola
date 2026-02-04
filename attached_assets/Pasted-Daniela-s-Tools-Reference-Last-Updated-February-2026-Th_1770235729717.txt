@@ -1,0 +1,309 @@
+Daniela's Tools Reference
+Last Updated: February 2026
+
+This document lists all native function calling tools available to Daniela. Use this for testing tool functionality.
+
+Teaching & Progression Tools
+switch_tutor
+Hand off to a different tutor.
+
+Parameter	Type	Required	Description
+target	"male" | "female"	Yes	Target tutor gender
+language	string	No	Target language for cross-language handoffs
+role	"tutor" | "assistant"	No	Whether switching to main tutor or assistant
+Test: "Can I talk to the male tutor?"
+
+phase_shift
+Annotate a natural transition in teaching flow.
+
+Parameter	Type	Required	Description
+text	string	No	Spoken transition words
+to	"warmup" | "active_teaching" | "challenge" | "reflection" | "drill" | "assessment"	Yes	Target teaching phase
+reason	string	Yes	Explanation for the transition
+Test: "Let's move on to something more challenging"
+
+actfl_update
+Update student's ACTFL proficiency level.
+
+Parameter	Type	Required	Description
+level	string	Yes	ACTFL level (e.g., 'Novice Mid')
+confidence	number	No	Confidence score 0-1
+reason	string	No	Evidence for the assessment
+direction	"up" | "down" | "confirm"	No	Direction of level change
+syllabus_progress
+Track student progress on syllabus topics.
+
+Parameter	Type	Required	Description
+topic	string	Yes	Syllabus topic being tracked
+status	"demonstrated" | "needs_review" | "struggling"	Yes	Student's status
+evidence	string	No	Evidence for the assessment
+call_support
+Hand off to Sofia support agent.
+
+Parameter	Type	Required	Description
+category	"technical" | "account" | "billing" | "content" | "feedback" | "other"	Yes	Support category
+reason	string	No	Why support is needed
+priority	"low" | "normal" | "high" | "critical"	No	Urgency level
+Test: "I'm having a technical issue with my account"
+
+call_assistant
+Delegate drill practice to assistant tutor.
+
+Parameter	Type	Required	Description
+type	"repeat" | "translate" | "match" | "fill_blank" | "sentence_order" | "multiple_choice" | "true_false" | "conjugation"	Yes	Type of drill
+focus	string	Yes	Skill or topic to focus on
+items	string	Yes	Comma-separated list of vocabulary/phrases
+priority	"low" | "medium" | "high"	No	Priority of this drill
+Voice Control Tools
+voice_adjust
+Speak with specific emotional coloring.
+
+Parameter	Type	Required	Description
+text	string	Yes	What you're saying
+speed	"slowest" | "slow" | "normal" | "fast" | "fastest"	No	Speaking speed
+emotion	"happy" | "excited" | "friendly" | "curious" | "thoughtful" | "warm" | "playful" | "surprised" | "proud" | "encouraging" | "calm" | "neutral"	No	Emotional tone
+personality	"warm" | "calm" | "energetic" | "professional"	No	Personality preset
+reason	string	No	Why adjusting voice
+Test: "Say something exciting!" or "Can you speak more slowly?"
+
+voice_reset
+Reset voice to baseline settings.
+
+Parameter	Type	Required	Description
+reason	string	No	Why resetting voice
+word_emphasis
+Emphasize specific words in speech.
+
+Parameter	Type	Required	Description
+word	string	Yes	The word/phrase to emphasize
+style	"stress" | "slow" | "both"	Yes	Emphasis style
+reason	string	No	Why emphasizing
+Test: "Can you emphasize the word 'importante' when you say it?"
+
+UI Control Tools
+subtitle
+Control subtitle display.
+
+Parameter	Type	Required	Description
+mode	"off" | "on" | "target" | "custom"	Yes	Subtitle mode
+text	string	No	Custom text (when mode is 'custom')
+Test: "Turn on subtitles" / "Turn off subtitles" / "Only show Spanish subtitles"
+
+show_overlay
+Display custom text overlay on screen.
+
+Parameter	Type	Required	Description
+text	string	Yes	Text to display
+hide_overlay
+Hide the custom text overlay. (No parameters)
+
+request_text_input
+Ask the student to type a response.
+
+Parameter	Type	Required	Description
+prompt	string	Yes	Prompt to display
+Test: "Can you have me type something?"
+
+clear_whiteboard
+Clear all content from the whiteboard. (No parameters)
+
+Test: "Clear the whiteboard"
+
+hold_whiteboard
+Prevent whiteboard content from auto-clearing. (No parameters)
+
+Whiteboard Content Tools
+write
+Write text on the whiteboard.
+
+Parameter	Type	Required	Description
+text	string	Yes	Text to display
+size	"sm" | "md" | "lg" | "xl"	No	Text size
+Test: "Write 'hola' on the whiteboard"
+
+grammar_table
+Display a grammar table.
+
+Parameter	Type	Required	Description
+headers	string	Yes	Column headers separated by |
+rows	string	Yes	Rows separated by newline, columns by |
+Test: "Show me the conjugation of 'hablar' in a table"
+
+compare
+Show side-by-side comparison of two items.
+
+Parameter	Type	Required	Description
+item1	string	Yes	First item
+item2	string	Yes	Second item
+Test: "Compare 'ser' and 'estar'" or "What's the difference between the whiteboard and subtitles?"
+
+word_map
+Display a visual word map.
+
+Parameter	Type	Required	Description
+center	string	Yes	Central word/concept
+related	string	Yes	Comma-separated related words
+Test: "Show me a word map for colors"
+
+phonetic
+Display phonetic transcription.
+
+Parameter	Type	Required	Description
+text	string	Yes	Phonetic transcription
+word	string	No	Original word
+Test: "Show me the phonetic pronunciation of 'trabajar'"
+
+culture
+Display a cultural insight.
+
+Parameter	Type	Required	Description
+insight	string	Yes	Cultural insight/explanation
+Test: "Tell me about a Mexican cultural tradition"
+
+context
+Display contextual information.
+
+Parameter	Type	Required	Description
+explanation	string	Yes	Contextual explanation
+scenario
+Display a roleplay scenario.
+
+Parameter	Type	Required	Description
+description	string	Yes	Scenario description
+Test: "Let's do a roleplay at a restaurant"
+
+summary
+Display a bullet-point summary.
+
+Parameter	Type	Required	Description
+points	string	Yes	Summary points separated by newlines
+Test: "Summarize what we learned today"
+
+reading
+Display a reading passage.
+
+Parameter	Type	Required	Description
+passage	string	Yes	Reading passage text
+translation	string	No	Optional translation
+show_image
+Display an image on the whiteboard.
+
+Parameter	Type	Required	Description
+text	string	No	What you're saying about the image
+word	string	Yes	Vocabulary word/concept to show
+description	string	No	Brief description to help find image
+context	string	No	Teaching context
+Test: "Show me a picture of an apple" or "What does a 'mercado' look like?"
+
+play_audio
+Play an audio clip.
+
+Parameter	Type	Required	Description
+description	string	Yes	Description of the audio to play
+Test: "Play some traditional Mexican music"
+
+Drill Tools
+drill
+Start an interactive drill exercise.
+
+Parameter	Type	Required	Description
+text	string	No	Spoken instructions
+type	"repeat" | "translate" | "match" | "fill_blank" | "sentence_order"	Yes	Type of drill
+content	string	Yes	Drill content (format depends on type)
+Test: "Let's do a repeat drill" / "Give me a translation exercise"
+
+Memory Tools
+memory_lookup
+Search memory for past conversations and student information.
+
+Parameter	Type	Required	Description
+query	string	Yes	Key topic/phrase to search
+domains	string	No	Comma-separated domains (conversation, person, principles, etc.)
+Test: "What did we talk about last time?" / "Do you remember that song I mentioned?"
+
+express_lane_lookup
+Search Express Lane (developer collaboration channel). Founder/Honesty Mode only
+
+Parameter	Type	Required	Description
+query	string	Yes	What to search for
+sessionId	string	No	Specific session ID
+limit	number	No	Max messages to return
+recall_express_lane_image
+Look at an image from Express Lane. Founder/Honesty Mode only
+
+Parameter	Type	Required	Description
+imageQuery	string	Yes	Description of image to recall
+reason	string	No	Why you want to see it
+express_lane_post
+Post a message to Express Lane. Founder/Honesty Mode only
+
+Parameter	Type	Required	Description
+message	string	Yes	Message content
+topic	string	No	Brief topic tag
+System & Hive Tools
+hive_suggestion
+Contribute insight/suggestion to hive mind.
+
+Parameter	Type	Required	Description
+category	"self_improvement" | "content_gap" | "ux_observation" | "teaching_insight" | "product_feature" | "technical_issue" | "student_pattern" | "tool_enhancement"	Yes	Category
+title	string	Yes	Brief title
+description	string	Yes	Detailed description
+reasoning	string	No	Why this matters
+priority	number	No	Priority 1-5
+self_surgery
+Propose modifications to neural network. Founder Mode only
+
+Parameter	Type	Required	Description
+target	"tutor_procedures" | "teaching_principles" | "tool_knowledge" | etc.	Yes	Knowledge domain
+content	string	Yes	JSON content to add/modify
+reasoning	string	Yes	Why modification is needed
+priority	number	No	Priority 1-5
+confidence	number	No	Confidence 0-1
+take_note
+Record an insight or teaching note.
+
+Parameter	Type	Required	Description
+type	"session_reflection" | "teaching_rhythm" | "language_insight" | "student_pattern" | "idea_to_try" | "what_worked" | "what_didnt_work" | "tool_experiment" | "question_for_founder" | "self_affirmation"	Yes	Category
+title	string	Yes	Brief title
+content	string	Yes	Note content
+Language-Specific Tools (CJK)
+stroke
+Display stroke order for a character.
+
+Parameter	Type	Required	Description
+character	string	Yes	Character to show stroke order
+tone
+Display tone information for Mandarin pinyin.
+
+Parameter	Type	Required	Description
+pinyin	string	Yes	Pinyin with tone number (e.g., 'ma1')
+Other Tools
+pronunciation_tag
+Tag a word for specific language pronunciation.
+
+Parameter	Type	Required	Description
+word	string	Yes	Word to pronounce
+language	string	Yes	Language code (es, fr, de, it, pt, ja, ko, zh, he)
+first_meeting_complete
+Signal that initial introduction is complete.
+
+Parameter	Type	Required	Description
+summary	string	No	Brief summary of what was learned
+Quick Test Commands
+Here are some quick phrases to test various tools:
+
+write - "Write 'buenos días' on the whiteboard"
+compare - "What's the difference between 'por' and 'para'?"
+grammar_table - "Show me a conjugation table for 'comer'"
+show_image - "Show me what a 'playa' looks like"
+culture - "Tell me about Day of the Dead"
+subtitle - "Turn on Spanish subtitles"
+drill - "Let's practice some vocabulary"
+switch_tutor - "Can I talk to the male tutor?"
+voice_adjust - "Speak more slowly please"
+word_map - "Show me words related to 'familia'"
+summary - "What did we learn today?"
+scenario - "Let's roleplay ordering at a café"
+memory_lookup - "What did we discuss last week?"
+phonetic - "How do you pronounce 'trabajar'?"
+call_support - "I need help with my account"
