@@ -269,3 +269,75 @@ export function hasSignificantTargetLanguageContent(text: string): boolean {
   // Must have at least 2 characters and actual words
   return text.length >= 2 && hasWords;
 }
+
+/**
+ * Detects the predominant language of text for TTS synthesis.
+ * This is critical for Japanese/Korean/Chinese voices speaking English text.
+ * 
+ * When a Japanese voice is configured but the text is mostly English,
+ * we should tell Cartesia to use 'en' language code so pronunciation is correct.
+ * The voice character is preserved, but pronunciation rules switch appropriately.
+ * 
+ * @param text - The text to analyze
+ * @param targetLanguage - The session's target language (e.g., 'japanese')
+ * @returns The language to use for TTS (e.g., 'english' or 'japanese')
+ */
+export function detectTextLanguageForTTS(text: string, targetLanguage: string): string {
+  if (!text || text.length < 3) return targetLanguage;
+  
+  // Use character-based detection for CJK languages (more reliable than franc for short text)
+  const cjkPattern = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\uAC00-\uD7AF]/g;
+  const latinPattern = /[a-zA-Z]/g;
+  
+  const cjkMatches = text.match(cjkPattern) || [];
+  const latinMatches = text.match(latinPattern) || [];
+  
+  const cjkCount = cjkMatches.length;
+  const latinCount = latinMatches.length;
+  const totalChars = cjkCount + latinCount;
+  
+  if (totalChars === 0) return targetLanguage;
+  
+  // Calculate ratios
+  const cjkRatio = cjkCount / totalChars;
+  const latinRatio = latinCount / totalChars;
+  
+  // If more than 70% Latin characters, use English for TTS
+  // This ensures Japanese/Korean/Chinese voices pronounce English correctly
+  if (latinRatio > 0.7) {
+    console.log(`[TextLangDetect] Text is ${(latinRatio * 100).toFixed(0)}% Latin → using 'english' for TTS (was: ${targetLanguage})`);
+    return 'english';
+  }
+  
+  // If more than 50% CJK characters, use the target language
+  if (cjkRatio > 0.5) {
+    console.log(`[TextLangDetect] Text is ${(cjkRatio * 100).toFixed(0)}% CJK → using '${targetLanguage}' for TTS`);
+    return targetLanguage;
+  }
+  
+  // Mixed content - use franc for more accurate detection
+  const detectedLang = franc(text, { minLength: 3 });
+  
+  // Map franc codes to our language names
+  const francToLanguage: Record<string, string> = {
+    'eng': 'english',
+    'spa': 'spanish',
+    'fra': 'french',
+    'deu': 'german',
+    'ita': 'italian',
+    'por': 'portuguese',
+    'jpn': 'japanese',
+    'kor': 'korean',
+    'cmn': 'mandarin chinese',
+    'zho': 'mandarin chinese',
+  };
+  
+  const mappedLang = francToLanguage[detectedLang];
+  if (mappedLang) {
+    console.log(`[TextLangDetect] Franc detected '${detectedLang}' → using '${mappedLang}' for TTS`);
+    return mappedLang;
+  }
+  
+  // Default to target language
+  return targetLanguage;
+}

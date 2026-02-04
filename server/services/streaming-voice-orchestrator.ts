@@ -114,7 +114,7 @@ async function retryWithBackoff<T>(
   throw lastError;
 }
 import { constrainEmotion, TutorPersonality, CartesiaEmotion, getTTSService, getAssistantVoice, getDefaultEmotion } from "./tts-service";
-import { extractTargetLanguageText, extractTargetLanguageWithMapping, hasSignificantTargetLanguageContent } from "../text-utils";
+import { extractTargetLanguageText, extractTargetLanguageWithMapping, hasSignificantTargetLanguageContent, detectTextLanguageForTTS } from "../text-utils";
 import { storage } from "../storage";
 import { generateConversationTitle } from "../conversation-utils";
 import { validateOneUnitRule, UnitValidationResult } from "../phrase-detection";
@@ -6869,12 +6869,18 @@ Remember: Beta testers understand they're helping build something and appreciate
           },
       };
       
+      // Detect the actual language of the text for TTS
+      // This is critical for Japanese/Korean/Chinese voices speaking English text
+      // When a Japanese tutor speaks English (for beginners), we need to use 'english' language code
+      // so Cartesia applies correct pronunciation rules, while keeping the Japanese voice character
+      const detectedLanguage = detectTextLanguageForTTS(textWithEmphases, session.targetLanguage);
+      
       // Use progressive streaming - pronunciation tags are handled in cartesia-streaming.ts
       const result = await this.cartesiaService.streamSynthesizeProgressive(
         {
           text: textWithEmphases,
-          language: session.targetLanguage,
-          targetLanguage: session.targetLanguage,
+          language: detectedLanguage,
+          targetLanguage: session.targetLanguage, // Keep original for pronunciation dictionary lookup
           voiceId: session.voiceId,
           speakingRate: effectiveSpeakingRate,
           emotion: effectiveEmotion,
