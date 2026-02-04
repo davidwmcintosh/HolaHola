@@ -3654,9 +3654,10 @@ This is a voice conversation. Speak naturally, as you would.`;
             return;
           }
           
-          // Check admin privileges - session.isFounderMode is set during session creation for developers
-          if (!(session as any).isFounderMode) {
-            console.warn('[Streaming Voice] voice_override rejected - not in founder mode');
+          // Check admin privileges - voice overrides allowed for Founder Mode or Raw Honesty Mode
+          const canOverrideVoice = (session as any).isFounderMode || (session as any).isRawHonestyMode;
+          if (!canOverrideVoice) {
+            console.warn('[Streaming Voice] voice_override rejected - not in founder mode or honesty mode');
             return;
           }
           
