@@ -59,6 +59,21 @@ export function FloatingSubtitleOverlay({
 
   const hasCustomOverlay = customOverlayText && customOverlayText.trim().length > 0;
 
+  // Debug: Log why subtitles aren't showing (only when mode is not 'off')
+  if (regularSubtitleMode !== 'off' && !hasRegularSubtitles && !hasCustomOverlay) {
+    console.log('[SUBTITLE DEBUG] Not showing:', {
+      mode: regularSubtitleMode,
+      isPlaying,
+      hasTargetContent,
+      visibleTargetText: visibleTargetText?.substring(0, 50),
+      targetWordsCount: targetWords?.length || 0,
+      wordTimingsCount: wordTimings.length,
+      visibleWordCount,
+      currentSentenceIndex,
+      sentencesCount: sentences.length,
+    });
+  }
+
   // Nothing to display
   if (!hasRegularSubtitles && !hasCustomOverlay) {
     return null;
