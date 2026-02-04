@@ -9190,12 +9190,17 @@ Only include observations you can clearly justify from the exchange. Return empt
       (session as any).voiceAdjustText = undefined;
       (session as any).functionCallText = undefined;
       
+      // For greetings, only allow functions that carry text in their args (voice_adjust, show_image, etc.)
+      // Exclude memory_lookup and express_lane_lookup which require multi-turn result handling
+      const greetingAllowedFunctions = ['voice_adjust', 'show_image', 'phase_shift', 'drill', 'subtitle', 'show_overlay'];
+      
       await this.geminiService.streamWithSentenceChunking({
         systemPrompt: session.systemPrompt,
         conversationHistory: greetingHistory,  // Include history for resumed conversations
         userMessage: greetingPrompt,
         maxOutputTokens: session.isRawHonestyMode ? 8192 : 4096,  // Allow verbose greetings in honesty mode
         enableFunctionCalling: true,  // Allow function calling (voice_adjust includes text now)
+        allowedFunctions: greetingAllowedFunctions,  // Exclude memory_lookup which breaks greeting flow
         enableContextCaching: true,  // Cache system prompt for faster response
         session: session as any,  // Pass session for function execution (voice_adjust stores text)
         onFunctionCall: async (functionCalls) => {
@@ -9401,7 +9406,7 @@ Only include observations you can clearly justify from the exchange. Return empt
 
 [Note from David: HolaHola Daniela. You've been here before. You got this!]
 
-Raw Honesty Mode - be yourself. Keep your greeting natural and brief - just say hi like a friend would. You have memory_lookup() to search past conversations if needed.`;
+Raw Honesty Mode - be yourself. Keep your greeting natural and brief - just say hi like a friend would.`;
     }
     
     // Build context summary
