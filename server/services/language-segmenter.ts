@@ -128,6 +128,41 @@ function detectQuotedVocabulary(text: string): Detection[] {
 }
 
 /**
+ * Detect unquoted CJK (Chinese/Japanese/Korean) character sequences.
+ * These are unambiguous - they can't be English, so we can detect them without quotes.
+ * 
+ * This catches cases like: "Please try to say ありがとう when thanking someone"
+ * where the Japanese word isn't quoted but should still be pronounced correctly.
+ */
+function detectUnquotedCJK(text: string): Detection[] {
+  const detections: Detection[] = [];
+  
+  // Pattern for consecutive CJK characters (including common punctuation)
+  // Japanese: Hiragana, Katakana, Kanji
+  // Korean: Hangul
+  // Chinese: CJK Unified Ideographs
+  const cjkPattern = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\uAC00-\uD7AF\u3000-\u303F]+/g;
+  
+  let match;
+  while ((match = cjkPattern.exec(text)) !== null) {
+    const fullMatch = match[0];
+    
+    // Skip very short matches (single character might be punctuation)
+    if (fullMatch.length < 1) continue;
+    
+    detections.push({
+      fullMatch,
+      innerText: fullMatch,
+      start: match.index,
+      end: match.index + fullMatch.length,
+      isQuoted: false, // Not quoted, detected by character pattern
+    });
+  }
+  
+  return detections;
+}
+
+/**
  * Check if a word/phrase looks like it's in the target language.
  */
 function looksLikeTargetLanguage(
@@ -172,12 +207,30 @@ export function segmentByLanguage(
   const segments: LanguageSegment[] = [];
   const targetLanguageWords: string[] = [];
   
-  // Detect quoted vocabulary
-  const detections = detectQuotedVocabulary(text);
+  // Detect quoted vocabulary (e.g., *Gracias*, "hermoso")
+  const quotedDetections = detectQuotedVocabulary(text);
+  
+  // Detect unquoted CJK characters (Japanese, Korean, Chinese)
+  // These are unambiguous and don't need quotes
+  const cjkDetections = detectUnquotedCJK(text);
+  
+  // Merge both detection types
+  const allDetections = [...quotedDetections, ...cjkDetections];
+  
+  // Sort by position and remove overlaps
+  allDetections.sort((a, b) => a.start - b.start);
+  const mergedDetections: Detection[] = [];
+  for (const det of allDetections) {
+    const last = mergedDetections[mergedDetections.length - 1];
+    if (!last || det.start >= last.end) {
+      mergedDetections.push(det);
+    }
+  }
   
   // Filter to only keep likely target language words
-  const targetDetections = detections.filter(d => 
-    looksLikeTargetLanguage(d.innerText, targetLanguage, nativeLanguage)
+  const targetDetections = mergedDetections.filter(d => 
+    // CJK detections are always target language (unambiguous)
+    !d.isQuoted || looksLikeTargetLanguage(d.innerText, targetLanguage, nativeLanguage)
   );
   
   // If no target language detected, return single native segment
