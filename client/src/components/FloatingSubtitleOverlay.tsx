@@ -43,17 +43,21 @@ export function FloatingSubtitleOverlay({
     : null;
   const wordTimings = currentSentence?.wordTimings || [];
 
-  // For target mode, use visibleTargetText from state (already properly managed)
-  // Split only for rendering, using target-specific indices
-  const targetWords = regularSubtitleMode === 'target' && hasTargetContent && visibleTargetText 
-    ? visibleTargetText.split(/\s+/).filter(w => w.length > 0)
+  // For target mode, use CURRENT SENTENCE's targetLanguageText, not aggregate visibleTargetText
+  // This ensures we show the current sentence being spoken, not all completed sentences
+  const currentTargetText = currentSentence?.targetLanguageText || '';
+  const targetWords = regularSubtitleMode === 'target' && hasTargetContent && currentTargetText 
+    ? currentTargetText.split(/\s+/).filter(w => w.length > 0)
     : null;
 
   // Determine if we have content to display based on mode
+  // NOTE: For "all" mode, we show subtitles immediately when wordTimings exist.
+  // The visibleWordCount only affects karaoke highlighting, not whether subtitles appear.
+  // For "target" mode, we still need targetWords to be populated (via word mapping).
   const hasRegularSubtitles = (() => {
     if (regularSubtitleMode === 'off' || !isPlaying) return false;
     if (regularSubtitleMode === 'target') return targetWords && targetWords.length > 0;
-    if (regularSubtitleMode === 'all') return wordTimings.length > 0 && visibleWordCount > 0;
+    if (regularSubtitleMode === 'all') return wordTimings.length > 0;
     return false;
   })();
 
@@ -65,7 +69,7 @@ export function FloatingSubtitleOverlay({
       mode: regularSubtitleMode,
       isPlaying,
       hasTargetContent,
-      visibleTargetText: visibleTargetText?.substring(0, 50),
+      currentTargetText: currentTargetText?.substring(0, 50),
       targetWordsCount: targetWords?.length || 0,
       wordTimingsCount: wordTimings.length,
       visibleWordCount,
@@ -122,7 +126,8 @@ export function FloatingSubtitleOverlay({
               {regularSubtitleMode === 'all' ? (
                 // Render from wordTimings array directly (preserves Cartesia alignment)
                 // visibleWordCount controls progressive reveal (ACTFL policy driven)
-                wordTimings.slice(0, visibleWordCount).map((timing, index) => {
+                // For "all" mode, show all words if visibleWordCount is 0 (initial state)
+                wordTimings.slice(0, visibleWordCount > 0 ? visibleWordCount : wordTimings.length).map((timing, index) => {
                   // Karaoke highlighting: highlight words up to currentWordIndex
                   const isHighlighted = index <= currentWordIndex;
                   const isCurrentWord = index === currentWordIndex;
