@@ -400,6 +400,16 @@ function buildTimezoneContext(timezone: string): string {
     const hourStr = new Intl.DateTimeFormat('en-US', options).format(now);
     const hour = parseInt(hourStr, 10);
     
+    // Get the full date in student's timezone
+    const dateOptions: Intl.DateTimeFormatOptions = {
+      timeZone: timezone,
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    };
+    const fullDate = new Intl.DateTimeFormat('en-US', dateOptions).format(now);
+    
     // Determine time of day
     let timeOfDay: string;
     if (hour >= 5 && hour < 12) {
@@ -414,9 +424,11 @@ function buildTimezoneContext(timezone: string): string {
     
     return `
 STUDENT TIME CONTEXT:
+  Today's Date: ${fullDate}
   Timezone: ${timezone}
   Local time: approximately ${timeOfDay} (${hour}:00)
   Use appropriate greetings (Buenos días/tardes/noches, Bonjour/Bonsoir, etc.)
+  IMPORTANT: Use this date when referring to past sessions or time elapsed.
 `;
   } catch (e) {
     // Invalid timezone, skip context
