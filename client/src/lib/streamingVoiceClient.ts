@@ -195,6 +195,7 @@ type StreamingEventType =
   | 'stateChange'
   | 'sessionStart'
   | 'processing'
+  | 'processing_pending'  // Immediate thinking signal on PTT release
   | 'sentenceStart'
   | 'sentenceReady'      // NEW: Atomic first audio + first timing (prevents timing race)
   | 'audioChunk'
