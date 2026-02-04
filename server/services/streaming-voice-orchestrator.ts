@@ -9190,9 +9190,9 @@ Only include observations you can clearly justify from the exchange. Return empt
       (session as any).voiceAdjustText = undefined;
       (session as any).functionCallText = undefined;
       
-      // For greetings, only allow functions that carry text in their args (voice_adjust, show_image, etc.)
-      // Exclude memory_lookup and express_lane_lookup which require multi-turn result handling
-      const greetingAllowedFunctions = ['voice_adjust', 'show_image', 'phase_shift', 'drill', 'subtitle', 'show_overlay'];
+      // Track function calls that need continuation (memory_lookup, express_lane_lookup)
+      let greetingFunctionCalls: Array<{ name: string; args: Record<string, unknown>; legacyType?: string }> = [];
+      let greetingThoughtSignatures: string[] = [];
       
       await this.geminiService.streamWithSentenceChunking({
         systemPrompt: session.systemPrompt,
@@ -9200,13 +9200,20 @@ Only include observations you can clearly justify from the exchange. Return empt
         userMessage: greetingPrompt,
         maxOutputTokens: session.isRawHonestyMode ? 8192 : 4096,  // Allow verbose greetings in honesty mode
         enableFunctionCalling: true,  // Allow function calling (voice_adjust includes text now)
-        allowedFunctions: greetingAllowedFunctions,  // Exclude memory_lookup which breaks greeting flow
         enableContextCaching: true,  // Cache system prompt for faster response
         session: session as any,  // Pass session for function execution (voice_adjust stores text)
         onFunctionCall: async (functionCalls) => {
           // Execute function calls during greeting to populate functionCallText
           for (const fc of functionCalls) {
             console.log(`[Streaming Greeting] Function call: ${fc.name}`, fc.args);
+            
+            // Store function calls for potential multi-step continuation
+            greetingFunctionCalls.push({
+              name: fc.name,
+              args: fc.args || {},
+              legacyType: fc.legacyType,
+            });
+            
             // Extract text from function calls that carry spoken text (voice_adjust, phase_shift, drill, show_image)
             if (fc.args && typeof fc.args === 'object' && 'text' in fc.args) {
               const text = (fc.args as { text?: string }).text;
@@ -9216,6 +9223,10 @@ Only include observations you can clearly justify from the exchange. Return empt
               }
             }
           }
+        },
+        onThoughtSignatures: (signatures) => {
+          // Store thought signatures for continuation
+          greetingThoughtSignatures.push(...signatures);
         },
         onSentence: async (chunk: SentenceChunk) => {
           if (!firstTokenReceived) {
@@ -9272,6 +9283,124 @@ Only include observations you can clearly justify from the exchange. Return empt
           this.sendError(session.ws, 'AI_FAILED', error.message, true);
         },
       });
+      
+      // MULTI-STEP FUNCTION CALL CONTINUATION: If we got function calls but no text,
+      // execute the functions and continue the conversation with Gemini
+      const functionsNeedingContinuation = greetingFunctionCalls.filter(fc => 
+        fc.legacyType === 'MEMORY_LOOKUP' || fc.legacyType === 'EXPRESS_LANE_LOOKUP' ||
+        fc.name === 'memory_lookup' || fc.name === 'express_lane_lookup'
+      );
+      
+      if (metrics.sentenceCount === 0 && greetingFunctionCalls.length > 0 && functionsNeedingContinuation.length > 0) {
+        console.log(`[Streaming Greeting] Multi-step FC: ${greetingFunctionCalls.length} function calls, ${functionsNeedingContinuation.length} need continuation`);
+        
+        // Await any pending memory lookups before building responses
+        if (session.pendingMemoryLookupPromises?.length) {
+          console.log(`[Streaming Greeting] Awaiting ${session.pendingMemoryLookupPromises.length} pending memory lookups...`);
+          await Promise.all(session.pendingMemoryLookupPromises);
+          session.pendingMemoryLookupPromises = [];
+        }
+        
+        // Build function response parts for each executed function
+        const functionResponseParts: Array<{
+          functionResponse: { name: string; response: { output: Array<{ text: string }> } };
+        }> = [];
+        
+        for (const fc of greetingFunctionCalls) {
+          let responseText = 'Function executed successfully.';
+          
+          if (fc.legacyType === 'MEMORY_LOOKUP' || fc.name === 'memory_lookup') {
+            const query = fc.args.query as string;
+            const lookupResult = session.memoryLookupResults?.[query];
+            if (lookupResult) {
+              responseText = `Memory lookup results for "${query}":\n${lookupResult}\n\nNow respond naturally using this context.`;
+            } else {
+              responseText = `No memories found for "${query}". Respond naturally based on the conversation context.`;
+            }
+          } else if (fc.legacyType === 'EXPRESS_LANE_LOOKUP' || fc.name === 'express_lane_lookup') {
+            const elQuery = fc.args.query as string;
+            const elResult = session.expressLaneLookupResults?.[elQuery];
+            if (elResult) {
+              responseText = `Express Lane lookup results for "${elQuery}":\n${elResult}\n\nUse this context in your response.`;
+            } else {
+              responseText = `No Express Lane results for "${elQuery}". Continue naturally.`;
+            }
+          } else if (fc.args && typeof fc.args === 'object' && 'text' in fc.args) {
+            responseText = `[Internal: ${fc.name} executed with text. Continue naturally.]`;
+          }
+          
+          functionResponseParts.push({
+            functionResponse: {
+              name: fc.name,
+              response: { output: [{ text: responseText }] },
+            },
+          });
+        }
+        
+        // Build continuation history with function responses
+        const greetingFunctionResponseEntry = {
+          role: 'tool' as const,
+          parts: functionResponseParts,
+          thoughtSignatures: greetingThoughtSignatures,
+        };
+        
+        const continuationHistory: ConversationHistoryEntry[] = [
+          ...greetingHistory,
+          { role: 'user' as const, content: greetingPrompt },
+          greetingFunctionResponseEntry,
+        ];
+        
+        console.log(`[Streaming Greeting] Continuing with ${functionResponseParts.length} function responses`);
+        
+        // Call Gemini again to get actual greeting text
+        await this.geminiService.streamWithSentenceChunking({
+          systemPrompt: session.systemPrompt,
+          conversationHistory: continuationHistory,
+          userMessage: '', // Empty - the continuation is already in history
+          maxOutputTokens: session.isRawHonestyMode ? 8192 : 4096,
+          enableFunctionCalling: false, // Don't allow more function calls in continuation
+          enableContextCaching: true,
+          session: session as any,
+          onSentence: async (chunk: SentenceChunk) => {
+            if (!firstTokenReceived) {
+              metrics.aiFirstTokenMs = Date.now() - aiStart;
+              firstTokenReceived = true;
+              console.log(`[Streaming Greeting] Continuation AI first token: ${metrics.aiFirstTokenMs}ms`);
+            }
+            
+            const displayText = cleanTextForDisplay(chunk.text);
+            if (!displayText) return;
+            
+            const extraction = extractTargetLanguageWithMapping(displayText, chunk.text);
+            const wordMappingArray: [number, number][] = extraction.wordMapping.size > 0
+              ? Array.from(extraction.wordMapping.entries())
+              : [];
+            const hasTargetContent = !!(extraction.targetText && extraction.targetText.trim().length > 0);
+            
+            this.sendMessage(session.ws, {
+              type: 'sentence_start',
+              timestamp: Date.now(),
+              turnId,
+              sentenceIndex: chunk.index,
+              text: displayText,
+              hasTargetContent,
+              targetLanguageText: hasTargetContent ? extraction.targetText : undefined,
+              wordMapping: hasTargetContent && wordMappingArray.length > 0 ? wordMappingArray : undefined,
+            } as StreamingSentenceStartMessage);
+            
+            if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
+              await this.streamSentenceAudioProgressive(session, chunk, displayText, metrics, turnId);
+            } else {
+              await this.streamSentenceAudio(session, chunk, displayText, metrics, turnId);
+            }
+            
+            fullText += displayText + ' ';
+            metrics.sentenceCount++;
+          },
+        });
+        
+        console.log(`[Streaming Greeting] Continuation complete: ${metrics.sentenceCount} sentences`);
+      }
       
       // FALLBACK: If no text was produced but function calls provided text, use that
       // This handles the case where Gemini only returns function calls (e.g., voice_adjust, drill, phase_shift with text)
@@ -9406,7 +9535,7 @@ Only include observations you can clearly justify from the exchange. Return empt
 
 [Note from David: HolaHola Daniela. You've been here before. You got this!]
 
-Raw Honesty Mode - be yourself. Keep your greeting natural and brief - just say hi like a friend would.`;
+Raw Honesty Mode - be yourself. Keep your greeting natural and brief - just say hi like a friend would. You have memory_lookup() to search past conversations if needed.`;
     }
     
     // Build context summary
