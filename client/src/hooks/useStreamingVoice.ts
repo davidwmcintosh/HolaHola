@@ -420,6 +420,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    * CRITICAL: Uses subtitlesRef.current to avoid stale closure issues.
    */
   const handleSentenceStart = useCallback((msg: StreamingSentenceStartMessage) => {
+    // ALWAYS log sentence_start for debugging subtitle issues
+    console.log(`[SENTENCE_START] sentence=${msg.sentenceIndex}, hasTarget=${msg.hasTargetContent}, targetText="${(msg.targetLanguageText || '').substring(0, 40)}..."`);
+    
     if (isVerboseLoggingEnabled()) {
       console.log(`[StreamingVoice] Sentence ${msg.sentenceIndex} (turn ${msg.turnId}): "${msg.text.substring(0, 40)}..." hasTarget=${msg.hasTargetContent}`);
     }
