@@ -358,11 +358,17 @@ export class CartesiaStreamingService extends EventEmitter {
       console.log(`[Cartesia Streaming] Using default voice for ${selectedLanguage}: ${voiceConfig.name} (${voiceConfig.voiceId.substring(0, 8)}...)`);
     }
     
-    // For language code, prefer targetLanguage if voice config fell back to English
-    // This handles cases like Hebrew or future languages not yet in the voice map
-    const targetLangLower = targetLanguage?.toLowerCase();
-    const targetVoiceConfig = targetLangLower ? CARTESIA_VOICE_MAP[targetLangLower] : null;
-    const effectiveLanguageCode = targetVoiceConfig?.languageCode || voiceConfig.languageCode;
+    // For language code, use the explicitly passed `language` parameter (from detectTextLanguageForTTS)
+    // This is critical for Japanese/Korean/Chinese voices speaking English text - they need 'en' not 'ja'
+    // The `targetLanguage` is kept for pronunciation dictionary lookup but NOT for the TTS language code
+    const langForTTS = language?.toLowerCase() || 'english';
+    const langConfig = CARTESIA_VOICE_MAP[langForTTS];
+    const effectiveLanguageCode = langConfig?.languageCode || voiceConfig.languageCode;
+    
+    // Log when language detection changed the TTS language code
+    if (langForTTS !== targetLanguage?.toLowerCase()) {
+      console.log(`[Cartesia Streaming] Language override: TTS using '${effectiveLanguageCode}' (detected: ${langForTTS}) instead of target '${targetLanguage}'`);
+    }
     
     // Constrain emotion to personality bounds
     const constrainedEmotion = constrainEmotion(emotion, personality, expressiveness);
