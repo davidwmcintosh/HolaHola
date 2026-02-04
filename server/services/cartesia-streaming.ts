@@ -351,6 +351,13 @@ export class CartesiaStreamingService extends EventEmitter {
     const voiceConfig = CARTESIA_VOICE_MAP[selectedLanguage] || CARTESIA_VOICE_MAP['english'];
     const effectiveVoiceId = voiceId || voiceConfig.voiceId;
     
+    // Debug logging to trace voice selection
+    if (voiceId) {
+      console.log(`[Cartesia Streaming] Using custom voiceId: ${voiceId.substring(0, 8)}... (passed from session)`);
+    } else {
+      console.log(`[Cartesia Streaming] Using default voice for ${selectedLanguage}: ${voiceConfig.name} (${voiceConfig.voiceId.substring(0, 8)}...)`);
+    }
+    
     // For language code, prefer targetLanguage if voice config fell back to English
     // This handles cases like Hebrew or future languages not yet in the voice map
     const targetLangLower = targetLanguage?.toLowerCase();

@@ -196,6 +196,9 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
               if (voiceNameParts[0]?.trim()) {
                 tutorName = voiceNameParts[0].trim();
               }
+              console.log(`[Streaming Voice] ✓ Voice lookup: ${tutorName} (${effectiveLanguage}, ${tutorGender}) → voiceId: ${voiceId.substring(0, 8)}...`);
+            } else {
+              console.warn(`[Streaming Voice] ⚠️ No matching voice found for ${effectiveLanguage}/${tutorGender} - will use Cartesia default`);
             }
           } catch (err: any) {
             console.warn(`[Streaming Voice] Voice config error: ${err.message}`);
