@@ -445,7 +445,7 @@ STUDENT TIME CONTEXT:
  * - Live Pacing: Where are we in the session?
  * - No micromanaging - just the information a real tutor would have
  */
-function buildCompassContextBlock(compass: CompassContext): string {
+export function buildCompassContextBlock(compass: CompassContext): string {
   const formatMinutes = (seconds: number) => Math.round(seconds / 60);
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);

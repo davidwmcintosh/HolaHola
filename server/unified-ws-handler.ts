@@ -19,7 +19,7 @@ import { Server } from 'http';
 import type { IncomingMessage } from 'http';
 import { Duplex } from 'stream';
 import { storage } from './storage';
-import { createSystemPrompt, createStreamingVoicePrompt, TutorDirectoryEntry, UserRole, SessionIntent, buildPedagogicalPersonaSection } from './system-prompt';
+import { createSystemPrompt, createStreamingVoicePrompt, TutorDirectoryEntry, UserRole, SessionIntent, buildPedagogicalPersonaSection, buildCompassContextBlock } from './system-prompt';
 import { PedagogicalPersona } from '@shared/tutor-orchestration-types';
 import { parse as parseCookie } from 'cookie';
 import signature from 'cookie-signature';
@@ -2877,6 +2877,30 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
             }
             console.log(`[Streaming Voice] Session using tutor: ${tutorName} (${tutorGender})`);
             
+            // Initialize Daniela's Compass for time-aware tutoring
+            if (COMPASS_ENABLED && conversationId && userId) {
+              try {
+                const classId = (conversation as any)?.classId || null;
+                compassSession = await sessionCompassService.initializeSession({
+                  conversationId: conversationId,
+                  userId: userId,
+                  classId,
+                  scheduledDurationMinutes: 30,
+                });
+                if (compassSession) {
+                  compassContext = await sessionCompassService.getCompassContext(conversationId);
+                  sessionStartTime = Date.now();
+                  console.log(`[Compass Init] ✓ Session created: ${compassSession.id} for conversation ${conversationId}`);
+                } else {
+                  console.log(`[Compass Init] Returned null (isEnabled check failed?)`);
+                }
+              } catch (compassErr: any) {
+                console.warn(`[Compass Init] Error: ${compassErr.message}`);
+              }
+            } else {
+              console.log(`[Compass Init] Skipped: COMPASS_ENABLED=${COMPASS_ENABLED}, conversationId=${!!conversationId}, userId=${!!userId}`);
+            }
+            
             // Generate system prompt - use minimal prompt for honesty mode
             let systemPrompt: string;
             if (rawHonestyMode) {
@@ -2913,6 +2937,13 @@ This is a voice conversation. Speak naturally, as you would.`;
               if (isFounderMode) {
                 console.log(`[Streaming Voice] Using FOUNDER MODE prompt with ${tutorName} (${tutorGender})`);
               }
+            }
+            
+            // Append Daniela's Compass context to the system prompt
+            if (compassContext && COMPASS_ENABLED) {
+              const compassBlock = buildCompassContextBlock(compassContext);
+              systemPrompt += '\n\n' + compassBlock;
+              console.log(`[Compass Init] ✓ Compass context appended to system prompt`);
             }
             
             // Build conversation history for context
