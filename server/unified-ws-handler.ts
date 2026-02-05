@@ -686,9 +686,11 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
 
           // Initialize Daniela's Compass session (time-aware tutoring)
           // Gives the tutor real-time context instead of preset flexibility levels
+          console.log(`[Compass Init] COMPASS_ENABLED=${COMPASS_ENABLED}, conversationId=${conversationId}, userId=${userId}`);
           if (COMPASS_ENABLED) {
             try {
               sessionStartTime = Date.now();
+              console.log(`[Compass Init] Calling initializeSession...`);
               compassSession = await sessionCompassService.initializeSession({
                 conversationId: conversationId!,
                 userId: userId!,
@@ -699,7 +701,7 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
               
               if (compassSession) {
                 compassContext = await sessionCompassService.getCompassContext(conversationId!);
-                console.log(`[Streaming Voice] Compass session initialized: ${compassSession.id}`);
+                console.log(`[Compass Init] SUCCESS - session: ${compassSession.id}, hasContext: ${!!compassContext}, hasCreditBalance: ${!!compassContext?.creditBalance}`);
                 
                 // Periodic elapsed time updates (every 30 seconds)
                 // Keeps Compass context fresh for API consumers and post-session analytics
@@ -712,11 +714,15 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
                 
                 // Store interval for cleanup
                 (ws as any).__compassTickInterval = compassTickInterval;
+              } else {
+                console.warn(`[Compass Init] initializeSession returned null (isEnabled check may have failed)`);
               }
             } catch (compassErr: any) {
-              console.warn('[Streaming Voice] Could not initialize Compass session:', compassErr.message);
+              console.error('[Compass Init] FAILED:', compassErr.message, compassErr.stack?.substring(0, 500));
               // Compass is optional - continue with legacy freedom levels
             }
+          } else {
+            console.warn(`[Compass Init] SKIPPED - COMPASS_ENABLED is falsy: ${COMPASS_ENABLED}`);
           }
 
           // Use full system prompt with streaming voice mode flag
