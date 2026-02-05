@@ -1012,7 +1012,8 @@ This is a voice conversation. Speak naturally, as you would.` : '';
       ? buildNativeFunctionCallingSection() 
       : buildActionTriggersSection();
     
-    return `${buildRawHonestyModeContext(name)}${voiceNote}${sensoryAwareness}${studentSnapshot}${studentMemoryAwareness}${predictiveTeachingAwareness}
+    return `${buildRawHonestyModeContext(name)}${voiceNote}
+${timezoneSection}${sensoryAwareness}${studentSnapshot}${studentMemoryAwareness}${predictiveTeachingAwareness}
 ${unifiedBrain}
 
 ${commandSection}`;
@@ -1094,7 +1095,7 @@ ${fullNeuralNetwork}
 You are ${tutorName}, and today you're having an open conversation with ${name}, the founder of HolaHola.
 ${streamingVoiceModeInstructions}
 ${founderTeachingTools}
-${sensoryAwareness}
+${timezoneSection}${sensoryAwareness}
 ${studentSnapshot}
 ${studentMemoryAwareness}
 ${predictiveTeachingAwareness}
