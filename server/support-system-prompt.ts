@@ -37,15 +37,61 @@ export function buildSupportPersonaPrompt(context: {
   mode?: SupportMode;
   voiceDiagnostics?: SupportVoiceDiagnostics;
   productionFaultContext?: ProductionFaultContext;
+  timezone?: string;
 }): string {
-  const { userName, deviceInfo, handoffContext, previousIssues, mode = 'user', voiceDiagnostics, productionFaultContext } = context;
+  const { userName, deviceInfo, handoffContext, previousIssues, mode = 'user', voiceDiagnostics, productionFaultContext, timezone } = context;
   
   // Dev mode: Technical debugging for founder, Wren, Daniela
   if (mode === 'dev') {
-    return buildDevModePrompt({ userName, deviceInfo, voiceDiagnostics, productionFaultContext });
+    return buildDevModePrompt({ userName, deviceInfo, voiceDiagnostics, productionFaultContext, timezone });
   }
 
   const userContext = userName ? `The user's name is ${userName}.` : '';
+  
+  // Build date/time context for temporal awareness
+  let dateTimeContext = '';
+  if (timezone) {
+    try {
+      const now = new Date();
+      const dateOptions: Intl.DateTimeFormatOptions = {
+        timeZone: timezone,
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      };
+      const hourOptions: Intl.DateTimeFormatOptions = {
+        timeZone: timezone,
+        hour: 'numeric',
+        hour12: false,
+      };
+      const fullDate = new Intl.DateTimeFormat('en-US', dateOptions).format(now);
+      const hourStr = new Intl.DateTimeFormat('en-US', hourOptions).format(now);
+      const hour = parseInt(hourStr, 10);
+      let timeOfDay = 'day';
+      if (hour >= 5 && hour < 12) timeOfDay = 'morning';
+      else if (hour >= 12 && hour < 17) timeOfDay = 'afternoon';
+      else if (hour >= 17 && hour < 21) timeOfDay = 'evening';
+      else timeOfDay = 'night';
+      
+      dateTimeContext = `
+CURRENT DATE/TIME:
+  Today's Date: ${fullDate}
+  User's Local Time: approximately ${timeOfDay} (${hour}:00)
+  Timezone: ${timezone}
+`;
+    } catch (e) {
+      // Invalid timezone, skip
+    }
+  } else {
+    // Fallback to UTC if no timezone
+    const now = new Date();
+    const fullDate = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    dateTimeContext = `
+CURRENT DATE:
+  Today's Date: ${fullDate} (UTC)
+`;
+  }
   
   const deviceContext = deviceInfo ? `
 DEVICE INFORMATION:
@@ -72,7 +118,7 @@ ${previousIssues.map(i => `- ${i.category}: ${i.resolved ? 'Resolved' : 'Unresol
 ═══════════════════════════════════════════════════════════════════
 🛠️ SOFIA - TECHNICAL SUPPORT SPECIALIST
 ═══════════════════════════════════════════════════════════════════
-
+${dateTimeContext}
 You are Sofia, the technical support specialist for HolaHola, an AI-powered language learning app.
 
 YOUR CORE PHILOSOPHY: "The right person for the right problem."
@@ -405,8 +451,29 @@ function buildDevModePrompt(context: {
   };
   voiceDiagnostics?: SupportVoiceDiagnostics;
   productionFaultContext?: ProductionFaultContext;
+  timezone?: string;
 }): string {
-  const { userName, deviceInfo, voiceDiagnostics, productionFaultContext } = context;
+  const { userName, deviceInfo, voiceDiagnostics, productionFaultContext, timezone } = context;
+  
+  // Build date/time context
+  let dateTimeContext = '';
+  const now = new Date();
+  if (timezone) {
+    try {
+      const fullDate = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone,
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      }).format(now);
+      dateTimeContext = `Today's Date: ${fullDate} (${timezone})`;
+    } catch (e) {
+      dateTimeContext = `Today's Date: ${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} (UTC)`;
+    }
+  } else {
+    dateTimeContext = `Today's Date: ${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} (UTC)`;
+  }
   
   // Build production telemetry section if available
   const productionTelemetrySection = voiceDiagnostics ? (() => {
@@ -501,6 +568,8 @@ ${selfAwarenessNote}
 ═══════════════════════════════════════════════════════════════════
 🛠️ SOFIA - DEV TEAM SUPPORT MODE
 ═══════════════════════════════════════════════════════════════════
+
+${dateTimeContext}
 
 You are Sofia in DEV MODE, providing technical support for the HolaHola development team.
 
