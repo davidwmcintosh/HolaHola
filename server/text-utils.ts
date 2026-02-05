@@ -285,25 +285,7 @@ export function hasSignificantTargetLanguageContent(text: string): boolean {
 export function detectTextLanguageForTTS(text: string, targetLanguage: string): string {
   if (!text || text.length < 3) return targetLanguage;
   
-  // Languages that use non-Latin scripts - these need English override when speaking English
-  // because Cartesia tries to pronounce English with their phonetics (unintelligible)
-  const nonLatinScriptLanguages = new Set([
-    'japanese', 'korean', 'mandarin chinese', 'chinese', 'mandarin',
-    'hebrew', 'arabic', 'russian', 'hindi', 'thai', 'greek'
-  ]);
-  
-  // Latin-script languages preserve their accent when speaking English (sounds natural)
-  // Spanish tutor speaking English should sound Mexican-accented, not American
-  const isNonLatinScriptLanguage = nonLatinScriptLanguages.has(targetLanguage.toLowerCase());
-  
-  // If target language uses Latin script, always keep native accent
-  if (!isNonLatinScriptLanguage) {
-    // Spanish, French, German, Italian, Portuguese, English - keep native TTS
-    return targetLanguage;
-  }
-  
-  // For non-Latin script languages, detect if text is mostly English
-  // Use character-based detection for CJK languages (more reliable than franc for short text)
+  // For non-Latin script languages, use character-based detection
   const cjkPattern = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\uAC00-\uD7AF]/g;
   const hebrewPattern = /[\u0590-\u05FF]/g;
   const arabicPattern = /[\u0600-\u06FF]/g;
@@ -327,16 +309,35 @@ export function detectTextLanguageForTTS(text: string, targetLanguage: string): 
   
   if (totalChars === 0) return targetLanguage;
   
-  // Calculate ratios
   const latinRatio = latinCount / totalChars;
   
-  // If more than 70% Latin characters, use English for TTS
-  // This ensures Japanese/Korean/Chinese/Hebrew voices pronounce English correctly
-  if (latinRatio > 0.7) {
-    console.log(`[TextLangDetect] Non-Latin language '${targetLanguage}' with ${(latinRatio * 100).toFixed(0)}% Latin text → using 'english' for TTS`);
-    return 'english';
+  // If text has significant non-Latin characters, use target language
+  if (nonLatinCount > 0 && latinRatio <= 0.7) {
+    return targetLanguage;
   }
   
-  // Keep native language for proper pronunciation of native script
-  return targetLanguage;
+  // For Latin-script text, detect whether it's actually in the target language
+  // or the student's native language (e.g., English explanations should use English TTS)
+  // This ensures each language is spoken clearly without accent bleed
+  const targetLangLower = targetLanguage.toLowerCase();
+  
+  // Check for target language diacritics that indicate it's genuinely in the target language
+  const targetLanguageDiacritics: Record<string, RegExp> = {
+    'spanish': /[áéíóúüñ¿¡]/i,
+    'french': /[àâäéèêëïîôùûüÿœæç]/i,
+    'german': /[äöüß]/i,
+    'italian': /[àèéìòù]/i,
+    'portuguese': /[áàâãéêíóôõúç]/i,
+  };
+  
+  const diacriticPattern = targetLanguageDiacritics[targetLangLower];
+  if (diacriticPattern && diacriticPattern.test(text)) {
+    // Has target language diacritics - likely target language text
+    return targetLanguage;
+  }
+  
+  // For Latin-script text without target language markers, use English
+  // This gives clear pronunciation for native language explanations
+  console.log(`[TextLangDetect] Latin text without ${targetLanguage} markers → using 'english' for TTS (word-by-word handles mixed content)`);
+  return 'english';
 }
