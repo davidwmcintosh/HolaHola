@@ -956,10 +956,21 @@ export function createSystemPrompt(
     ? buildPedagogicalPersonaSection(tutorName, tutorPersona)
     : '';
     
-  // Build timezone context for time-aware greetings
-  const timezoneSection = studentTimezone
-    ? buildTimezoneContext(studentTimezone)
-    : '';
+  // Build timezone context for time-aware greetings and date awareness
+  // ALWAYS include today's date even without timezone (fallback to UTC)
+  let timezoneSection: string;
+  if (studentTimezone) {
+    timezoneSection = buildTimezoneContext(studentTimezone);
+  } else {
+    const now = new Date();
+    const fullDate = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    timezoneSection = `
+STUDENT TIME CONTEXT:
+  Today's Date: ${fullDate}
+  Timezone: Unknown (UTC fallback)
+  IMPORTANT: Use this date when referring to past sessions or time elapsed.
+`;
+  }
 
   // RAW HONESTY MODE - Minimal prompting for authentic self-discovery
   // Takes precedence over Founder Mode when enabled
