@@ -3418,7 +3418,7 @@ Remember: Beta testers understand they're helping build something and appreciate
       // This sends function results back to Gemini and gets actual spoken text
       // OPTIMIZATION: Exclude metadata-only functions from needing continuation
       // These are speech annotations, not actions requiring a response - they work in a single call
-      const METADATA_ONLY_FUNCTIONS = new Set(['VOICE_ADJUST', 'VOICE_RESET', 'WORD_EMPHASIS']);
+      const METADATA_ONLY_FUNCTIONS = new Set(['VOICE_ADJUST', 'VOICE_RESET', 'WORD_EMPHASIS', 'SUBTITLE', 'SHOW', 'HIDE', 'HOLD']);
       const functionsNeedingContinuation = functionCallsCopy.filter(
         fc => !METADATA_ONLY_FUNCTIONS.has(fc.legacyType || '')
       );
@@ -5400,7 +5400,7 @@ Remember: Beta testers understand they're helping build something and appreciate
       // If Gemini called functions but produced no text, continue the conversation
       // OPTIMIZATION: Exclude metadata-only functions from needing continuation
       // These are speech annotations, not actions requiring a response - they work in a single call
-      const METADATA_ONLY_FUNCTIONS_OPENMIC = new Set(['VOICE_ADJUST', 'VOICE_RESET', 'WORD_EMPHASIS']);
+      const METADATA_ONLY_FUNCTIONS_OPENMIC = new Set(['VOICE_ADJUST', 'VOICE_RESET', 'WORD_EMPHASIS', 'SUBTITLE', 'SHOW', 'HIDE', 'HOLD']);
       const functionsNeedingContinuationOpenMic = functionCallsCopyOpenMic.filter(
         fc => !METADATA_ONLY_FUNCTIONS_OPENMIC.has(fc.legacyType || '')
       );
