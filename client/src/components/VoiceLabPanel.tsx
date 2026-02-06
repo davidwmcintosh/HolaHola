@@ -415,6 +415,11 @@ export function VoiceLabPanel({
                       <SelectItem key={voice.id} value={voice.id}>
                         <div className="flex items-center gap-2">
                           <span>{voice.name}</span>
+                          {voice.gender && (
+                            <span className="text-xs text-muted-foreground">
+                              ({voice.gender === 'feminine' || voice.gender === 'female' ? 'F' : voice.gender === 'masculine' || voice.gender === 'male' ? 'M' : voice.gender})
+                            </span>
+                          )}
                           {voice.id === currentVoice.voiceId && (
                             <Badge variant="secondary" className="text-xs ml-1">Current</Badge>
                           )}
