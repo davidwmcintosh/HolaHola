@@ -272,6 +272,7 @@ export function VoiceLabPanel({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/voices'] });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/voices/current'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tutor-voices'] });
       // Apply saved settings as override for current session
       // (Session voiceDefaults are loaded at start and won't update mid-session)
       // This ensures the saved settings apply immediately to current session
