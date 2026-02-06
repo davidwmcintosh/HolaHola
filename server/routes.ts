@@ -16482,6 +16482,7 @@ Current conversation context:
       // Path or query params for filtering
       const language = req.params.language || req.query.language;
       const gender = req.params.gender || req.query.gender;
+      console.log(`[Cartesia Voices DEBUG] Request - params.language: "${req.params.language}", params.gender: "${req.params.gender}", query.language: "${req.query.language}", query.gender: "${req.query.gender}", resolved: language="${language}", gender="${gender}"`);
       
       // Fetch voices from Cartesia API with pagination
       const allVoices: any[] = [];
