@@ -42,18 +42,22 @@ const mindMapLobes = [
 export default function Landing() {
   // Fetch all tutor voices from database (Voice Lab is source of truth)
   const { data: allTutorVoices } = useQuery<{
+    id: string;
     language: string;
-    displayName: string;
-    female: { name: string; voiceId: string; speakingRate: number } | null;
-    male: { name: string; voiceId: string; speakingRate: number } | null;
+    gender: string;
+    voiceName: string;
+    isActive: boolean;
   }[]>({
     queryKey: ['/api/tutor-voices'],
   });
 
   // Build featured tutors list with database names (fallback to static)
+  const extractFirstName = (voiceName: string) => voiceName.split(/\s*-\s*/)[0].trim();
   const featuredTutors = featuredTutorsConfig.map(tutor => {
-    const voiceData = allTutorVoices?.find(v => v.language.toLowerCase() === tutor.language.toLowerCase());
-    const dbName = tutor.gender === 'female' ? voiceData?.female?.name : voiceData?.male?.name;
+    const voiceData = allTutorVoices?.find(
+      v => v.language.toLowerCase() === tutor.language.toLowerCase() && v.gender === tutor.gender
+    );
+    const dbName = voiceData ? extractFirstName(voiceData.voiceName) : null;
     return {
       avatar: tutor.avatar,
       name: dbName || tutor.fallbackName,
