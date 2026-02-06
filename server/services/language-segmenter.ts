@@ -172,6 +172,10 @@ function detectUnquotedNonLatin(text: string): Detection[] {
   return detections;
 }
 
+const LATIN_SCRIPT_LANGUAGES = new Set([
+  'spanish', 'french', 'german', 'italian', 'portuguese',
+]);
+
 /**
  * Check if a word/phrase looks like it's in the target language.
  */
@@ -190,15 +194,23 @@ function looksLikeTargetLanguage(
     }
   }
   
-  // Check for target language-specific characters
+  // Check for target language-specific characters (diacritics, non-Latin script)
   const targetPattern = LANGUAGE_PATTERNS[targetLanguage.toLowerCase()];
   if (targetPattern && targetPattern.test(text)) {
     return true;
   }
   
-  // For languages without special characters, use heuristics
-  // If quoted and not obviously English, assume it's target language
-  return true;
+  // For Latin-script target languages (Spanish, French, etc.):
+  // If the quoted word has NO target-language diacritics/markers, it's likely
+  // just an English word in quotes - don't switch TTS language for it.
+  // Words like "role", "plan", "time" in quotes should stay native TTS.
+  if (LATIN_SCRIPT_LANGUAGES.has(targetLanguage.toLowerCase())) {
+    return false;
+  }
+  
+  // For non-Latin-script languages (Japanese, Korean, Chinese, Hebrew, etc.):
+  // Quoted words without their script characters are likely native language
+  return false;
 }
 
 /**
