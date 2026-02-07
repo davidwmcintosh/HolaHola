@@ -19,7 +19,7 @@ import { Server } from 'http';
 import type { IncomingMessage } from 'http';
 import { Duplex } from 'stream';
 import { storage } from './storage';
-import { createSystemPrompt, createStreamingVoicePrompt, TutorDirectoryEntry, UserRole, SessionIntent, buildPedagogicalPersonaSection, buildCompassContextBlock } from './system-prompt';
+import { createSystemPrompt, createStreamingVoicePrompt, TutorDirectoryEntry, UserRole, SessionIntent, buildPedagogicalPersonaSection, buildCompassContextBlock, buildTimezoneContext } from './system-prompt';
 import { PedagogicalPersona } from '@shared/tutor-orchestration-types';
 import { parse as parseCookie } from 'cookie';
 import signature from 'cookie-signature';
@@ -2927,9 +2927,9 @@ This is a voice conversation. Speak naturally, as you would.`;
                 effectiveLanguage,
                 config.difficultyLevel || 'beginner',
                 config.nativeLanguage || 'english',
-                null, // actflLevel
-                'warm', // tutorPersonality
-                3, // tutorExpressiveness
+                user?.actflLevel || null, // Use user's actual ACTFL level from database
+                (user?.tutorPersonality || 'warm') as any, // Use user's actual tutor personality preference
+                user?.tutorExpressiveness || 3, // Use user's actual expressiveness preference
                 isFounderMode, // Pass Founder Mode flag for neural network behavior
                 tutorName, // Current tutor name (e.g., "Agustin" or "Daniela")
                 tutorGender // Current tutor gender
@@ -2939,6 +2939,20 @@ This is a voice conversation. Speak naturally, as you would.`;
               }
             }
             
+            // Append timezone context for time-aware greetings
+            if (user?.timezone) {
+              const timezoneBlock = buildTimezoneContext(user.timezone);
+              if (timezoneBlock) {
+                systemPrompt += '\n\n' + timezoneBlock;
+                console.log(`[Streaming Voice] ✓ Timezone context appended: ${user.timezone}`);
+              }
+            } else {
+              const now = new Date();
+              const fullDate = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+              systemPrompt += `\n\nSTUDENT TIME CONTEXT:\n  Today's Date: ${fullDate}\n  Timezone: Unknown (UTC fallback)\n  IMPORTANT: Use this date when referring to past sessions or time elapsed.\n`;
+              console.log(`[Streaming Voice] No timezone found for user, using UTC date fallback`);
+            }
+
             // Append Daniela's Compass context to the system prompt
             if (compassContext && COMPASS_ENABLED) {
               const compassBlock = buildCompassContextBlock(compassContext);

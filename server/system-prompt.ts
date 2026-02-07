@@ -389,7 +389,7 @@ const IMMUTABLE_PERSONA = buildImmutablePersona('Daniela', 'female');
  * Build timezone context for time-aware greetings
  * Helps the tutor use appropriate day/night greetings based on student's local time
  */
-function buildTimezoneContext(timezone: string): string {
+export function buildTimezoneContext(timezone: string): string {
   try {
     const now = new Date();
     const options: Intl.DateTimeFormatOptions = {
