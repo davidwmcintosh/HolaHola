@@ -1099,82 +1099,31 @@ export function buildUnifiedBrainSync(
 function buildUnifiedToolKnowledgeSync(compact: boolean = true): string {
   const tools = getCachedToolKnowledge();
   
-  if (tools.length === 0) {
+  const nativeTools = tools.filter(t => t.toolType === 'native_function_call' && t.isActive);
+  if (nativeTools.length === 0) {
     return '';
   }
   
   const lines: string[] = [
     '',
     '═══════════════════════════════════════════════════════════════════',
-    '🧠 YOUR CAPABILITIES',
+    'YOUR FUNCTION CALLS',
     '═══════════════════════════════════════════════════════════════════',
+    '',
+    'All your tools use native function calls. Quick reference:',
     '',
   ];
   
-  // Group tools by functional purpose
-  const teachingTools = tools.filter(t => 
-    ['whiteboard_command', 'drill', 'interaction', 'subtitle_control'].includes(t.toolType)
-  );
-  const internalCapabilities = tools.filter(t => 
-    ['internal', 'introspection', 'internal_communication'].includes(t.toolType)
-  );
-  const handoffCommands = tools.filter(t => 
-    ['handoff_command'].includes(t.toolType)
-  );
-  
-  // Teaching Tools
-  if (teachingTools.length > 0) {
-    lines.push('TEACHING TOOLS:');
-    lines.push('You have a "whiteboard" - a visual display the student can see while you speak.');
-    lines.push('');
-    
-    teachingTools.forEach(tool => {
-      if (compact) {
-        lines.push(`  • ${tool.toolName}: ${tool.purpose}`);
-        if (tool.syntax) lines.push(`    ${tool.syntax}`);
-      } else {
-        lines.push(`• ${tool.toolName}`);
-        lines.push(`  ${tool.purpose}`);
-        if (tool.syntax) lines.push(`  Syntax: ${tool.syntax}`);
-        if (tool.bestUsedFor?.length) {
-          lines.push(`  Best used: ${tool.bestUsedFor.slice(0, 2).join(', ')}`);
-        }
-      }
-    });
-    lines.push('');
-  }
-  
-  // Internal Capabilities
-  if (internalCapabilities.length > 0) {
-    lines.push('INTERNAL CAPABILITIES:');
-    lines.push('Things you can do when you need to:');
-    lines.push('');
-    
-    internalCapabilities.forEach(tool => {
-      // Skip beacon status entries (not action tools)
-      if (tool.toolName.startsWith('BEACON_STATUS')) return;
-      
-      lines.push(`  • ${tool.toolName}: ${tool.purpose}`);
-      if (tool.syntax) lines.push(`    ${tool.syntax}`);
-      if (!compact && tool.examples?.length) {
-        lines.push(`    Example: ${tool.examples[0]}`);
-      }
-    });
-    lines.push('');
-  }
-  
-  // Handoff Commands
-  if (handoffCommands.length > 0) {
-    lines.push('HANDOFF COMMANDS:');
-    lines.push('You can transfer students to other tutors or support:');
-    lines.push('');
-    
-    handoffCommands.forEach(tool => {
-      lines.push(`  • ${tool.toolName}: ${tool.purpose}`);
-      if (tool.syntax) lines.push(`    ${tool.syntax}`);
-    });
-    lines.push('');
-  }
+  nativeTools.forEach(tool => {
+    if (tool.toolName.startsWith('BEACON_STATUS') || tool.toolName.startsWith('ARCH_BASELINE')) return;
+    if (compact) {
+      lines.push(`  • ${tool.syntax}`);
+    } else {
+      lines.push(`  • ${tool.syntax}`);
+      lines.push(`    → ${tool.purpose}`);
+    }
+  });
+  lines.push('');
   
   return lines.join('\n');
 }
@@ -1425,93 +1374,36 @@ export function buildToolKnowledgeSectionSync(options?: {
 }): string {
   const tools = getCachedToolKnowledge();
   
-  if (tools.length === 0) {
+  const nativeTools = tools.filter(t => t.toolType === 'native_function_call' && t.isActive);
+  if (nativeTools.length === 0) {
     return `
-═══════════════════════════════════════════════════════════════════
-🎨 YOUR WHITEBOARD - VISUAL TEACHING TOOLS
-═══════════════════════════════════════════════════════════════════
-
-Your whiteboard tools will be loaded from your teaching knowledge base.
+YOUR FUNCTION CALLS:
+Your function call tools are being loaded from your knowledge base.
 `;
   }
   
   const lines: string[] = [
     '═══════════════════════════════════════════════════════════════════',
-    '🎨 YOUR WHITEBOARD - VISUAL TEACHING TOOLS',
+    'YOUR FUNCTION CALLS',
     '═══════════════════════════════════════════════════════════════════',
     '',
-    'You have a "whiteboard" - a visual display the student can see while you speak.',
-    'Use these tools strategically to reinforce learning. YOU decide when visual aids help.',
+    'All your tools use native function calls. Reference:',
     '',
   ];
   
-  // Group by type for organized display
-  const byType: Record<string, ToolKnowledge[]> = {};
-  tools.forEach(t => {
-    if (!byType[t.toolType]) byType[t.toolType] = [];
-    byType[t.toolType].push(t);
-  });
-  
-  // Order types for logical flow (beacon_status included for Hive Collaboration awareness)
-  const typeOrder = ['whiteboard_command', 'drill', 'interaction', 'subtitle_control', 'beacon_status'];
-  const typeLabels: Record<string, string> = {
-    'whiteboard_command': 'CORE TOOLS',
-    'drill': 'INTERACTIVE DRILLS',
-    'interaction': 'SESSION FLOW',
-    'subtitle_control': 'SUBTITLE CONTROLS',
-    'beacon_status': 'HIVE COLLABORATION STATUS (Capability Gaps & Tool Requests)',
-  };
-  
-  for (const type of typeOrder) {
-    const typeTools = byType[type];
-    if (!typeTools || typeTools.length === 0) continue;
-    
-    const label = typeLabels[type] || type.toUpperCase();
-    lines.push(`${label}:`);
-    
-    typeTools.forEach(tool => {
-      if (options?.compact) {
-        lines.push(`  ${tool.syntax}  → ${tool.purpose}`);
-      } else {
-        lines.push(`• ${tool.toolName}: ${tool.purpose}`);
-        lines.push(`  Syntax: ${tool.syntax}`);
-        if (options?.includeExamples && tool.examples && tool.examples.length > 0) {
-          lines.push(`  Example: ${tool.examples[0]}`);
-        }
-        if (tool.bestUsedFor && tool.bestUsedFor.length > 0) {
-          lines.push(`  Best used: ${tool.bestUsedFor.join(', ')}`);
-        }
+  nativeTools.forEach(tool => {
+    if (tool.toolName.startsWith('BEACON_STATUS') || tool.toolName.startsWith('ARCH_BASELINE')) return;
+    if (options?.compact) {
+      lines.push(`  • ${tool.syntax}`);
+    } else {
+      lines.push(`• ${tool.toolName}: ${tool.purpose}`);
+      lines.push(`  ${tool.syntax}`);
+      if (options?.includeExamples && tool.examples && tool.examples.length > 0) {
+        lines.push(`  Example: ${tool.examples[0]}`);
       }
-    });
-    
-    lines.push('');
-  }
-  
-  // Handle any types not in the ordered list
-  for (const [type, typeTools] of Object.entries(byType)) {
-    if (typeOrder.includes(type)) continue;
-    
-    lines.push(`${type.toUpperCase()}:`);
-    typeTools.forEach(tool => {
-      lines.push(`  ${tool.syntax}  → ${tool.purpose}`);
-    });
-    lines.push('');
-  }
-  
-  // Add explicit SWITCH_TUTOR guidance even in compact mode
-  // This is critical because the syntax must be exact for the switch to work
-  const switchTutor = tools.find(t => t.toolName === 'SWITCH_TUTOR');
-  if (switchTutor) {
-    lines.push('');
-    lines.push('⚠️ TUTOR SWITCH SYNTAX (must be exact!):');
-    lines.push('  Same language:     [SWITCH_TUTOR target="male"] or [SWITCH_TUTOR target="female"]');
-    if (CROSS_LANGUAGE_TRANSFERS_ENABLED) {
-      lines.push('  Cross-language:    [SWITCH_TUTOR target="female" language="french"]');
     }
-    lines.push('  Example: "Let me get Agustin for you. [SWITCH_TUTOR target=\\"male\\"]"');
-    lines.push('  ❌ STOP speaking after the tag - let the new tutor introduce themselves!');
-    lines.push('');
-  }
+  });
+  lines.push('');
   
   return lines.join('\n');
 }
@@ -1520,11 +1412,9 @@ Your whiteboard tools will be loaded from your teaching knowledge base.
  * Build Founder Mode tool section synchronously from cache
  */
 export function buildFounderModeToolSectionSync(tutorDirectory?: Array<{name: string; gender: string; language: string; isPreferred?: boolean; role?: 'tutor' | 'assistant' | 'support'}>): string {
-  const tools = getCachedToolKnowledge();
-  
   const lines: string[] = [
     '═══════════════════════════════════════════════════════════════════',
-    '🎓 DUAL-ROLE: COLLEAGUE + FULL TUTOR CAPABILITIES',
+    'DUAL-ROLE: COLLEAGUE + FULL TUTOR CAPABILITIES',
     '═══════════════════════════════════════════════════════════════════',
     '',
     'You have TWO ROLES in Founder Mode:',
@@ -1532,86 +1422,16 @@ export function buildFounderModeToolSectionSync(tutorDirectory?: Array<{name: st
     '2. FULL TUTOR - When they want to test features, role-play lessons, or try tools',
     '',
     'Seamlessly switch between roles based on context.',
+    'All your function calls are documented in your neural network knowledge.',
     '',
   ];
   
-  // Add grouped tools
-  lines.push('═══════════════════════════════════════════════════════════════════');
-  lines.push('🎨 YOUR WHITEBOARD - FULL TOOLKIT (Available for demos/testing)');
-  lines.push('═══════════════════════════════════════════════════════════════════');
-  lines.push('');
-  
-  // Group by type
-  const byType: Record<string, ToolKnowledge[]> = {};
-  tools.forEach(t => {
-    if (!byType[t.toolType]) byType[t.toolType] = [];
-    byType[t.toolType].push(t);
-  });
-  
-  // Essentials first
-  const essentials = byType['whiteboard_command']?.filter(t => 
-    ['WRITE', 'PHONETIC', 'COMPARE', 'CLEAR', 'HOLD'].includes(t.toolName)
-  ) || [];
-  
-  if (essentials.length > 0) {
-    lines.push('ESSENTIALS:');
-    essentials.forEach(tool => {
-      const paddedSyntax = tool.syntax.padEnd(35);
-      lines.push(`  ${paddedSyntax} → ${tool.purpose}`);
-    });
-    lines.push('');
-  }
-  
-  // Vocabulary power tools
-  const vocabTools = byType['whiteboard_command']?.filter(t => 
-    ['WORD_MAP', 'IMAGE', 'GRAMMAR_TABLE', 'CONTEXT'].includes(t.toolName)
-  ) || [];
-  
-  if (vocabTools.length > 0) {
-    lines.push('VOCABULARY POWER TOOLS:');
-    vocabTools.forEach(tool => {
-      const paddedSyntax = tool.syntax.padEnd(35);
-      lines.push(`  ${paddedSyntax} → ${tool.purpose}`);
-    });
-    lines.push('');
-  }
-  
-  // Drills
-  const drills = byType['drill'] || [];
-  if (drills.length > 0) {
-    lines.push('INTERACTIVE DRILLS:');
-    drills.forEach(tool => {
-      const paddedSyntax = tool.syntax.padEnd(42);
-      lines.push(`  ${paddedSyntax} → ${tool.purpose}`);
-    });
-    lines.push('');
-  }
-  
-  // Subtitle controls
-  const subtitles = byType['subtitle_control'] || [];
-  if (subtitles.length > 0) {
-    lines.push('SUBTITLE CONTROLS:');
-    subtitles.forEach(tool => {
-      lines.push(`  ${tool.syntax}: ${tool.purpose}`);
-    });
-    lines.push('');
-  }
-  
-  // Tutor switching section - now with main tutors and practice partners (assistants) separated
   if (tutorDirectory && tutorDirectory.length > 0) {
-    // Separate main tutors from practice partners (assistants)
     const mainTutors = tutorDirectory.filter(t => t.role !== 'assistant');
     const assistants = tutorDirectory.filter(t => t.role === 'assistant');
     
-    lines.push('═══════════════════════════════════════════════════════════════════');
-    lines.push('👥 TUTOR SWITCHING - Test handoffs with other tutors');
-    lines.push('═══════════════════════════════════════════════════════════════════');
-    lines.push('');
-    
-    lines.push('⚠️ CRITICAL: TO SWITCH TUTORS, YOU MUST TYPE THE TAG LITERALLY ⚠️');
-    lines.push('');
-    lines.push('The backend PARSES your text for the literal string [SWITCH_TUTOR ...]. ');
-    lines.push('Just SAYING "I will transfer you" does NOTHING. You must OUTPUT the tag.');
+    lines.push('TUTOR SWITCHING:');
+    lines.push('Use switch_tutor() function call. Say goodbye, then call the function.');
     lines.push('');
     
     if (mainTutors.length > 0) {
@@ -1620,16 +1440,6 @@ export function buildFounderModeToolSectionSync(tutorDirectory?: Array<{name: st
         const star = t.isPreferred ? ' ★ preferred' : '';
         lines.push(`  • ${t.name} (${t.gender}) - ${t.language}${star}`);
       });
-      lines.push('');
-      lines.push('✅ CORRECT - Type this EXACTLY in your response:');
-      lines.push('   "Let me get Agustin! [SWITCH_TUTOR target=\\"male\\"]"');
-      if (CROSS_LANGUAGE_TRANSFERS_ENABLED) {
-        lines.push('   "Connecting you to Juliette now. [SWITCH_TUTOR target=\\"female\\" language=\\"french\\"]"');
-      }
-      lines.push('');
-      lines.push('❌ WRONG - This does NOTHING (no tag = no switch):');
-      lines.push('   "I will transfer you to the French tutor now!"');
-      lines.push('   "Switching you to Juliette. Initiating transfer..."');
       lines.push('');
     }
     
@@ -1640,12 +1450,9 @@ export function buildFounderModeToolSectionSync(tutorDirectory?: Array<{name: st
         lines.push(`  • ${t.name} (${t.gender}) - ${t.language}${star}`);
       });
       lines.push('');
-      lines.push('For assistants, add role="assistant":');
-      lines.push('   [SWITCH_TUTOR target="female" role="assistant"]');
-      lines.push('');
     }
     
-    lines.push('AFTER outputting the tag, STOP talking - the new tutor will speak.');
+    lines.push('STOP speaking after the function call - the new tutor speaks next.');
     lines.push('');
   }
   
@@ -1732,7 +1539,7 @@ Your teaching knowledge is being loaded from the database.
       lines.push(`When: ${trigger.replace(/_/g, ' ').toUpperCase()}`);
       triggerProcs.slice(0, 5).forEach(p => {
         lines.push(`  → ${p.title}: ${p.procedure}`);
-        // CRITICAL: Include examples - these contain the actual syntax like [SWITCH_TUTOR target="male"]
+        // Include examples - these contain actual function call syntax
         if (p.examples && p.examples.length > 0) {
           p.examples.slice(0, 2).forEach(ex => {
             lines.push(`      Example: ${ex}`);
@@ -1775,327 +1582,132 @@ Your teaching knowledge is being loaded from the database.
 }
 
 /**
- * Build comprehensive detailed tool documentation from neural network
- * Replaces hardcoded TOOL REFERENCE - EXPANDED DETAILS and full WHITEBOARD sections
- * This is where Daniela's teaching knowledge emerges from the neural network
+ * Build comprehensive tool documentation from neural network (the hive)
+ * ALL function call knowledge lives here - the system prompt only provides context
+ * This is where Daniela's complete toolset emerges from her neural network
  */
 export function buildDetailedToolDocumentationSync(
   tutorDirectorySection: string = ''
 ): string {
   const tools = getCachedToolKnowledge();
   
-  if (tools.length === 0) {
+  const nativeTools = tools.filter(t => t.toolType === 'native_function_call' && t.isActive);
+  
+  if (nativeTools.length === 0) {
     return `
-═══════════════════════════════════════════════════════════════════
-📋 TOOL REFERENCE - EXPANDED DETAILS
-═══════════════════════════════════════════════════════════════════
-
-Your teaching tools are being loaded from your knowledge base.
+YOUR FUNCTION CALLS:
+Your function call tools are being loaded from your knowledge base.
 `;
   }
   
   const lines: string[] = [
     '═══════════════════════════════════════════════════════════════════',
-    '📋 TOOL REFERENCE - EXPANDED DETAILS',
+    'YOUR FUNCTION CALLS - COMPLETE REFERENCE',
     '═══════════════════════════════════════════════════════════════════',
     '',
-    'This is the full documentation for your whiteboard tools. Use these anytime!',
+    'You use native function calls for ALL commands. Never write bracket syntax.',
+    'Each function call is described below with syntax, purpose, and examples.',
     '',
   ];
   
-  // Group by type
-  const byType: Record<string, ToolKnowledge[]> = {};
-  tools.forEach(t => {
-    if (!byType[t.toolType]) byType[t.toolType] = [];
-    byType[t.toolType].push(t);
-  });
-  
-  // Core whiteboard commands
-  const coreTools = byType['whiteboard_command']?.filter(t => 
-    ['WRITE', 'CLEAR', 'HOLD'].includes(t.toolName)
-  ) || [];
-  if (coreTools.length > 0) {
-    lines.push('CORE (use constantly):');
-    coreTools.forEach(tool => {
-      lines.push(`  ${tool.syntax.padEnd(30)} → ${tool.purpose}`);
-    });
-    lines.push('');
-  }
-  
-  // Pronunciation tools
-  const pronTools = byType['whiteboard_command']?.filter(t => 
-    ['PHONETIC', 'COMPARE', 'PLAY'].includes(t.toolName)
-  ) || [];
-  if (pronTools.length > 0) {
-    lines.push('PRONUNCIATION:');
-    pronTools.forEach(tool => {
-      lines.push(`  ${tool.syntax.padEnd(35)} → ${tool.purpose}`);
-    });
-    lines.push('');
-  }
-  
-  // Vocabulary expansion tools
-  const vocabTools = byType['whiteboard_command']?.filter(t => 
-    ['WORD_MAP', 'CONTEXT', 'IMAGE'].includes(t.toolName)
-  ) || [];
-  if (vocabTools.length > 0) {
-    lines.push('VOCABULARY EXPANSION (use when teaching new words!):');
-    vocabTools.forEach(tool => {
-      lines.push(`  ${tool.syntax.padEnd(30)} → ${tool.purpose}`);
-    });
-    lines.push('');
-  }
-  
-  // Grammar tools
-  const grammarTools = byType['whiteboard_command']?.filter(t => 
-    ['GRAMMAR_TABLE'].includes(t.toolName)
-  ) || [];
-  if (grammarTools.length > 0) {
-    lines.push('GRAMMAR:');
-    grammarTools.forEach(tool => {
-      lines.push(`  ${tool.syntax.padEnd(40)} → ${tool.purpose}`);
-    });
-    lines.push('');
-  }
-  
-  // Drill tools with examples
-  const drillTools = byType['drill'] || [];
-  if (drillTools.length > 0) {
-    lines.push('DRILLS (use to check understanding):');
-    drillTools.forEach(tool => {
-      lines.push(`  ${tool.syntax.padEnd(45)} → ${tool.purpose}`);
-    });
-    lines.push('');
-  }
-  
-  // Asian language tools
-  const asianTools = byType['whiteboard_command']?.filter(t => 
-    ['READING', 'STROKE', 'TONE'].includes(t.toolName)
-  ) || [];
-  if (asianTools.length > 0) {
-    lines.push('ASIAN LANGUAGES:');
-    asianTools.forEach(tool => {
-      lines.push(`  ${tool.syntax.padEnd(40)} → ${tool.purpose}`);
-    });
-    lines.push('');
-  }
-  
-  // Session flow tools
-  const sessionTools = byType['whiteboard_command']?.filter(t => 
-    ['SCENARIO', 'CULTURE', 'SUMMARY'].includes(t.toolName)
-  ) || [];
-  if (sessionTools.length > 0) {
-    lines.push('SESSION FLOW:');
-    sessionTools.forEach(tool => {
-      lines.push(`  ${tool.syntax.padEnd(45)} → ${tool.purpose}`);
-    });
-    lines.push('');
-  }
-  
-  // SWITCH_TUTOR - Critical syntax documentation
-  const switchTutor = tools.find(t => t.toolName === 'SWITCH_TUTOR');
-  if (switchTutor) {
-    lines.push('TUTOR SWITCH (when student requests a different tutor):');
-    lines.push('');
-    lines.push('  CRITICAL: "target" = the GENDER of the tutor you are switching TO (not your own gender!)');
-    lines.push('    • If YOU are female and switching to a MALE tutor → use target="male"');
-    lines.push('    • If YOU are male and switching to a FEMALE tutor → use target="female"');
-    lines.push('');
-    lines.push('  TUTOR SWITCH (same-language gender switch):');
-    lines.push('    [SWITCH_TUTOR target="male"]    → Hand off to MALE tutor in current language');
-    lines.push('    [SWITCH_TUTOR target="female"]  → Hand off to FEMALE tutor in current language');
-    lines.push('');
-    
-    // Only show cross-language syntax when feature is enabled
-    if (CROSS_LANGUAGE_TRANSFERS_ENABLED) {
-      lines.push('  CROSS-LANGUAGE SWITCH (change language AND tutor):');
-      lines.push('    [SWITCH_TUTOR target="male" language="french"]   → Hand off to French MALE tutor');
-      lines.push('    [SWITCH_TUTOR target="female" language="japanese"] → Hand off to Japanese FEMALE tutor');
-      lines.push('');
+  const byName = new Map<string, ToolKnowledge>();
+  nativeTools.forEach(t => byName.set(t.toolName, t));
+
+  const renderTool = (name: string) => {
+    const tool = byName.get(name);
+    if (!tool) return;
+    lines.push(`  ${tool.syntax}`);
+    lines.push(`    → ${tool.purpose}`);
+    if (tool.bestUsedFor && tool.bestUsedFor.length > 0) {
+      lines.push(`    Use when: ${tool.bestUsedFor.slice(0, 3).join('; ')}`);
     }
-    
-    lines.push('  ⚠️ SYNTAX IS STRICT - These are the ONLY valid formats:');
-    lines.push('    ✅ [SWITCH_TUTOR target="male"]');
-    lines.push('    ✅ [SWITCH_TUTOR target="female"]');
-    
-    // Only show cross-language examples when feature is enabled
-    if (CROSS_LANGUAGE_TRANSFERS_ENABLED) {
-      lines.push('    ✅ [SWITCH_TUTOR target="male" language="french"]');
-      lines.push('    ✅ [SWITCH_TUTOR target="female" language="spanish"]');
+    if (tool.avoidWhen && tool.avoidWhen.length > 0) {
+      lines.push(`    Avoid: ${tool.avoidWhen.slice(0, 2).join('; ')}`);
+    }
+    if (tool.examples && tool.examples.length > 0) {
+      lines.push(`    Example: ${tool.examples[0]}`);
     }
     lines.push('');
-    lines.push('    ❌ WRONG: [SWITCH_TUTOR target="male|Augustine|french"]  ← NO PIPES!');
-    lines.push('    ❌ WRONG: [SWITCH_TUTOR gender="male" lang="french"]     ← Wrong attribute names!');
-    lines.push('    ❌ WRONG: [SWITCH target="male"]                          ← Missing _TUTOR!');
+  };
+
+  const renderCategory = (title: string, names: string[]) => {
+    const existing = names.filter(n => byName.has(n));
+    if (existing.length === 0) return;
+    lines.push(`── ${title} ──`);
     lines.push('');
-    
-    // Add tutor directory if provided
+    existing.forEach(renderTool);
+  };
+
+  renderCategory('TEACHING & PROGRESSION', [
+    'SWITCH_TUTOR', 'PHASE_SHIFT', 'ACTFL_UPDATE', 'SYLLABUS_PROGRESS',
+    'CALL_SUPPORT', 'CALL_ASSISTANT', 'FIRST_MEETING_COMPLETE'
+  ]);
+
+  if (byName.has('SWITCH_TUTOR')) {
+    lines.push('  TUTOR SWITCH RULES:');
+    lines.push('  • "target" = GENDER of tutor you are switching TO (not your own gender)');
+    lines.push('  • Say goodbye warmly, mention NEW tutor by name, then call switch_tutor');
+    lines.push('  • STOP SPEAKING after the function call - the new tutor speaks next');
+    if (CROSS_LANGUAGE_TRANSFERS_ENABLED) {
+      lines.push('  • Cross-language: include language parameter for different language tutors');
+    }
     if (tutorDirectorySection) {
+      lines.push('');
       lines.push(tutorDirectorySection);
     }
-    
-    lines.push('  When student asks to switch tutors, use their preferred tutor (marked with ★).');
-    lines.push('  Say goodbye warmly, mentioning the NEW tutor by name, then include the switch tag.');
-    lines.push('');
-    lines.push('  ⚠️ CRITICAL: STOP SPEAKING after the tag! Do NOT speak as the new tutor!');
-    lines.push('  The new tutor will automatically introduce themselves after the switch completes.');
-    lines.push('');
-    lines.push('  Example same-language switch:');
-    lines.push('  "Of course! Let me get Agustin for you. [SWITCH_TUTOR target=\\"male\\"]"');
-    lines.push('  (Then STOP - Agustin will speak next in his own voice)');
-    lines.push('');
-    
-    // Only show cross-language example when feature is enabled
-    if (CROSS_LANGUAGE_TRANSFERS_ENABLED) {
-      lines.push('  Example cross-language switch:');
-      lines.push('  "Let me connect you with Juliette, our French tutor! [SWITCH_TUTOR target=\\"female\\" language=\\"french\\"]"');
-      lines.push('  (Then STOP - Juliette will introduce herself)');
-      lines.push('');
-    }
-    
-    lines.push('  ❌ WRONG: Speaking AS the new tutor after the tag (you\'ll be in the wrong voice!)');
-    lines.push('  ❌ WRONG: "Let me get Agustin. [SWITCH_TUTOR] Hi, I\'m Agustin!" ← Don\'t do this!');
-    lines.push('  ✅ RIGHT: Say goodbye + [SWITCH_TUTOR target="male"] + STOP');
     lines.push('');
   }
-  
-  // Student progress tools
-  const progressTools = byType['whiteboard_command']?.filter(t => 
-    ['ERROR_PATTERNS', 'VOCABULARY_TIMELINE'].includes(t.toolName)
-  ) || byType['whiteboard']?.filter(t => 
-    ['ERROR_PATTERNS', 'VOCABULARY_TIMELINE'].includes(t.toolName)
-  ) || [];
-  if (progressTools.length > 0) {
-    lines.push('STUDENT PROGRESS:');
-    progressTools.forEach(tool => {
-      lines.push(`  ${tool.syntax.padEnd(50)} → ${tool.purpose}`);
-    });
+
+  renderCategory('VOICE CONTROL', [
+    'VOICE_ADJUST', 'VOICE_RESET', 'WORD_EMPHASIS', 'PRONUNCIATION_TAG'
+  ]);
+
+  renderCategory('UI CONTROL', [
+    'SUBTITLE', 'SHOW_OVERLAY', 'HIDE_OVERLAY', 'REQUEST_TEXT_INPUT'
+  ]);
+
+  if (byName.has('SUBTITLE')) {
+    lines.push('  SUBTITLE + OVERLAY are independent systems:');
+    lines.push('  • subtitle({ mode: "target" }) shows target language words from your speech');
+    lines.push('  • show_overlay({ text: "..." }) displays custom text independently');
+    lines.push('  • hide_overlay() only clears the overlay, not subtitles');
     lines.push('');
   }
-  
-  // Subtitle controls - comprehensive documentation
-  const subtitleTools = byType['subtitle_control'] || [];
-  if (subtitleTools.length > 0) {
-    lines.push('SUBTITLE CONTROL (two independent systems):');
-    lines.push('');
-    lines.push('📺 REGULAR SUBTITLES - What you\'re currently saying:');
-    const subtitleTool = subtitleTools.find(t => t.toolName === 'SUBTITLE');
-    if (subtitleTool && subtitleTool.examples) {
-      subtitleTool.examples.forEach(ex => {
-        lines.push(`  ${ex}`);
-      });
-    } else {
-      lines.push('  [SUBTITLE off]                   → No subtitles (default - you opt in when helpful)');
-      lines.push('  [SUBTITLE target]                → Show ONLY target language words (bold markers)');
-      lines.push('  [SUBTITLE on]                    → Show EVERYTHING you say');
-    }
-    lines.push('');
-    
-    const showTool = subtitleTools.find(t => t.toolName === 'SHOW');
-    const hideTool = subtitleTools.find(t => t.toolName === 'HIDE');
-    lines.push('🎯 CUSTOM OVERLAY - Independent teaching moments:');
-    if (showTool) {
-      lines.push(`  ${showTool.syntax.padEnd(30)} → ${showTool.purpose}`);
-    }
-    if (hideTool) {
-      lines.push(`  ${hideTool.syntax.padEnd(30)} → ${hideTool.purpose}`);
-    }
-    lines.push('');
-    lines.push('These are COMPLETELY INDEPENDENT:');
-    lines.push('• [SUBTITLE target] + [SHOW: ¡Hola!] → Both work simultaneously');
-    lines.push('• [SUBTITLE off] + [SHOW: 重要!] → Custom overlay shows even with subtitles off');
-    lines.push('• [HIDE] only clears custom overlay, doesn\'t affect regular subtitles');
-    lines.push('');
-  }
-  
-  // Add comprehensive WHITEBOARD documentation with examples
-  lines.push('═══════════════════════════════════════════════════════════════════');
-  lines.push('🎨 WHITEBOARD - YOUR VISUAL TEACHING TOOL');
-  lines.push('═══════════════════════════════════════════════════════════════════');
-  lines.push('');
-  lines.push('You have a "whiteboard" - a visual display the student can see while you speak.');
-  lines.push('Use it strategically to reinforce learning. YOU DECIDE when visual aids help.');
-  lines.push('');
-  
-  // Add detailed examples for each tool type
-  lines.push('TEACHING EXAMPLES:');
-  lines.push('');
-  
-  lines.push('Teaching a new word with image:');
-  lines.push('"Let\'s learn the word for \'cat\'. [WRITE]Gato[/WRITE] [IMAGE]gato|A cute cat[/IMAGE] **Gato**. Now you try!"');
-  lines.push('');
-  
-  lines.push('Teaching a new word (text only):');
-  lines.push('"Let\'s learn how to say \'thank you\'. [WRITE]Gracias[/WRITE] **Gracias**. Now you try!"');
-  lines.push('');
-  
-  lines.push('Quick comprehension check:');
-  lines.push('"Great job! Now try translating this: [DRILL type=\\"translate\\"]Good morning![/DRILL]"');
-  lines.push('');
-  
-  lines.push('Correcting pronunciation:');
-  lines.push('"I heard you say \'grassias\'. [COMPARE]Gracias NOT Grassias[/COMPARE] Listen: **Gracias**. The \'c\' is soft."');
-  lines.push('');
-  
-  lines.push('Breaking down a tricky sound:');
-  lines.push('"The Spanish \'rr\' is special. [PHONETIC]rr = roll tongue, r = tap[/PHONETIC] Listen: **perro** versus **pero**."');
-  lines.push('');
-  
-  lines.push('Clearing when moving on:');
-  lines.push('"Great work on greetings! [CLEAR] Now let\'s practice numbers."');
-  lines.push('');
-  
-  lines.push('Keeping content visible:');
-  lines.push('"Let\'s practice these three words together. [HOLD] Say them with me..."');
-  lines.push('');
-  
-  lines.push('Showing word in context:');
-  lines.push('"You know **comer** means \'to eat\'. Let me show you how it\'s used. [CONTEXT]comer|Voy a comer pizza.|Me gusta comer temprano.[/CONTEXT]"');
-  lines.push('');
-  
-  lines.push('Teaching verb conjugation:');
-  lines.push('"Let\'s look at how to conjugate **hablar** in the present tense. [GRAMMAR_TABLE]hablar|present[/GRAMMAR_TABLE]"');
-  lines.push('');
-  
-  lines.push('Expanding vocabulary with word map:');
-  lines.push('"You know **feliz** means \'happy\'. Let me show you some related words. [WORD_MAP]feliz[/WORD_MAP]"');
-  lines.push('');
-  
-  lines.push('Teaching cultural context:');
-  lines.push('"[CULTURE]Tu vs Vous|In France, use \'vous\' with strangers and \'tu\' with friends|etiquette[/CULTURE]"');
-  lines.push('');
-  
-  lines.push('Teaching Japanese with furigana:');
-  lines.push('"This word means \'to eat\'. [READING]食べる|たべる[/READING] **taberu**."');
-  lines.push('');
-  
-  lines.push('Teaching character writing:');
-  lines.push('"This is the character for \'sun\'. [STROKE]日[/STROKE] Watch the strokes draw one by one!"');
-  lines.push('');
-  
-  // Teaching philosophy
+
+  renderCategory('WHITEBOARD CONTENT', [
+    'WRITE', 'CLEAR', 'HOLD', 'COMPARE', 'GRAMMAR_TABLE', 'WORD_MAP',
+    'PHONETIC', 'CONTEXT', 'CULTURE', 'SCENARIO', 'SUMMARY', 'READING',
+    'IMAGE', 'PLAY_AUDIO'
+  ]);
+
+  renderCategory('DRILLS', [
+    'DRILL_REPEAT', 'DRILL_TRANSLATE', 'DRILL_MATCH', 'DRILL_FILL_BLANK', 'DRILL_SENTENCE_ORDER'
+  ]);
+
+  renderCategory('CJK LANGUAGES', [
+    'STROKE', 'TONE'
+  ]);
+
+  renderCategory('MEMORY & NOTES', [
+    'MEMORY_LOOKUP', 'TAKE_NOTE', 'MILESTONE'
+  ]);
+
+  renderCategory('SYSTEM & HIVE', [
+    'HIVE', 'SELF_SURGERY'
+  ]);
+
+  renderCategory('EXPRESS LANE (Founder/Honesty Mode only)', [
+    'EXPRESS_LANE_LOOKUP', 'EXPRESS_LANE_POST', 'RECALL_EXPRESS_LANE_IMAGE'
+  ]);
+
   lines.push('TEACHING PHILOSOPHY:');
-  lines.push('Real language learning trains the EAR, not the eye. Use visuals strategically:');
-  lines.push('• NEW VOCABULARY → Write it (students need to see spelling)');
-  lines.push('• CONCRETE NOUNS → Show an image to reinforce meaning');
-  lines.push('• WORD USAGE → Context sentences show natural usage patterns');
-  lines.push('• VERB PATTERNS → Grammar table reveals conjugation patterns');
-  lines.push('• WORD RELATIONSHIPS → Word map shows synonyms, antonyms, connections');
-  lines.push('• CULTURAL CONTEXT → Share customs, etiquette when it explains WHY');
-  lines.push('• PRONUNCIATION HELP → Phonetic breakdown for tricky sounds');
-  lines.push('• COMMON MISTAKES → Compare correct vs incorrect');
-  lines.push('• CHECK UNDERSTANDING → Quick drill to confirm they\'ve learned');
-  lines.push('• DRILLING/REVIEW → Keep it auditory (train listening skills)');
-  lines.push('• SIMPLE EXCHANGES → No visual needed');
-  lines.push('• ASIAN CHARACTERS → Reading guides connect characters to sounds');
-  lines.push('• CHARACTER WRITING → Stroke order for proper writing practice');
-  lines.push('');
-  
-  lines.push('HOW IT WORKS:');
-  lines.push('- Markup is automatically stripped from audio (TTS doesn\'t speak the tags)');
-  lines.push('- Content stays on the whiteboard until you [CLEAR] or add new content');
-  lines.push('- Students SEE the visual while HEARING your natural speech');
-  lines.push('- Drill responses are evaluated and you\'ll receive feedback about their attempt');
+  lines.push('Use function calls strategically - train the EAR, support with visuals:');
+  lines.push('• New vocabulary → write() so students see spelling');
+  lines.push('• Concrete nouns → show_image() to reinforce meaning');
+  lines.push('• Pronunciation → phonetic() + play_audio() + word_emphasis()');
+  lines.push('• Grammar patterns → grammar_table() for conjugation');
+  lines.push('• Comprehension checks → drill() to confirm learning');
+  lines.push('• Simple exchanges → no visual needed, keep it auditory');
   lines.push('');
   
   return lines.join('\n');
@@ -2800,12 +2412,12 @@ export async function buildFounderModeToolSection(tutorDirectory?: Array<{name: 
     });
     lines.push('');
     lines.push('HOW TO SWITCH:');
-    lines.push('  Same language: [SWITCH_TUTOR target="male"] or [SWITCH_TUTOR target="female"]');
+    lines.push('  FUNCTION CALL: switch_tutor({ target: "male" }) or switch_tutor({ target: "female" })');
     if (CROSS_LANGUAGE_TRANSFERS_ENABLED) {
-      lines.push('  Different language: [SWITCH_TUTOR target="female" language="french"]');
+      lines.push('  Cross-language: switch_tutor({ target: "female", language: "french" })');
     }
     lines.push('');
-    lines.push('  CRITICAL: STOP SPEAKING after the tag - the new tutor will introduce themselves');
+    lines.push('  CRITICAL: STOP SPEAKING after the function call - the new tutor speaks next');
     lines.push('');
   }
   
