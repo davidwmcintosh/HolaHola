@@ -9296,9 +9296,9 @@ Only include observations you can clearly justify from the exchange. Return empt
                 const spokenText = (fc.args as Record<string, unknown>).spoken_text as string | undefined;
                 const text = (fc.args as Record<string, unknown>).text as string | undefined;
                 const extractedText = spokenText || text;
-                if (extractedText && typeof extractedText === 'string') {
+                if (extractedText && typeof extractedText === 'string' && !(session as any).functionCallText) {
                   console.log(`[Streaming Greeting] Extracted text from ${fc.name}: "${extractedText.substring(0, 50)}..."`);
-                  (session as any).functionCallText = ((session as any).functionCallText || '') + extractedText + ' ';
+                  (session as any).functionCallText = extractedText;
                 }
               }
             }
@@ -10610,8 +10610,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           console.log(`[Native Function→PhaseShift] Triggered: ${to} - ${reason}`);
         }
         // Store text for TTS fallback if no regular text output
-        if (text) {
-          (session as any).functionCallText = ((session as any).functionCallText || '') + text + ' ';
+        if (text && !(session as any).functionCallText) {
+          (session as any).functionCallText = text;
           console.log(`[Native Function→PhaseShift] Text included: "${text.substring(0, 50)}..."`);
         }
         break;
@@ -10677,10 +10677,13 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         
         // If text is provided, store it for TTS synthesis
         // This allows Daniela to provide voice settings + text in one call
+        // CRITICAL: Use SET (not append) to prevent double-audio when Gemini calls
+        // multiple functions (e.g. voice_adjust + subtitle) with the same spoken text
         if (text) {
           (session as any).voiceAdjustText = text;
-          // Also add to functionCallText for unified fallback handling
-          (session as any).functionCallText = ((session as any).functionCallText || '') + text + ' ';
+          if (!(session as any).functionCallText) {
+            (session as any).functionCallText = text;
+          }
           console.log(`[Native Function→VoiceAdjust] Text included (${text.length} chars): "${text.substring(0, 80)}..."`);
         }
         
@@ -10707,8 +10710,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           (session as any).voiceOverride = undefined;
           console.log(`[Native Function→VoiceReset] Cleared override (no defaults stored), reason: ${reason || 'none'}`);
         }
-        if (text) {
-          (session as any).functionCallText = ((session as any).functionCallText || '') + text + ' ';
+        if (text && !(session as any).functionCallText) {
+          (session as any).functionCallText = text;
           console.log(`[Native Function→VoiceReset] Text included: "${text.substring(0, 80)}..."`);
         }
         break;
@@ -10811,8 +10814,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
             }));
           }
         }
-        if (spokenText) {
-          (session as any).functionCallText = ((session as any).functionCallText || '') + spokenText + ' ';
+        if (spokenText && !(session as any).functionCallText) {
+          (session as any).functionCallText = spokenText;
           console.log(`[Native Function→Subtitle] Spoken text included: "${spokenText.substring(0, 80)}..."`);
         }
         break;
@@ -10827,8 +10830,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           timestamp: Date.now(),
           items: [{ type: 'hold', hold: hold !== false }],
         });
-        if (text) {
-          (session as any).functionCallText = ((session as any).functionCallText || '') + text + ' ';
+        if (text && !(session as any).functionCallText) {
+          (session as any).functionCallText = text;
           console.log(`[Native Function→Hold] Text included: "${text.substring(0, 80)}..."`);
         }
         break;
@@ -10846,8 +10849,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           });
           console.log(`[Native Function Call] SHOW -> type: ${contentType}`);
         }
-        if (spokenText) {
-          (session as any).functionCallText = ((session as any).functionCallText || '') + spokenText + ' ';
+        if (spokenText && !(session as any).functionCallText) {
+          (session as any).functionCallText = spokenText;
           console.log(`[Native Function→Show] Spoken text included: "${spokenText.substring(0, 80)}..."`);
         }
         break;
@@ -10861,8 +10864,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           items: [{ type: 'clear' }],
         });
         console.log(`[Native Function Call] HIDE -> cleared overlay`);
-        if (text) {
-          (session as any).functionCallText = ((session as any).functionCallText || '') + text + ' ';
+        if (text && !(session as any).functionCallText) {
+          (session as any).functionCallText = text;
           console.log(`[Native Function→Hide] Text included: "${text.substring(0, 80)}..."`);
         }
         break;
@@ -10876,8 +10879,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           items: [{ type: 'clear' }],
         });
         console.log(`[Native Function Call] CLEAR -> whiteboard cleared`);
-        if (text) {
-          (session as any).functionCallText = ((session as any).functionCallText || '') + text + ' ';
+        if (text && !(session as any).functionCallText) {
+          (session as any).functionCallText = text;
           console.log(`[Native Function→Clear] Text included: "${text.substring(0, 80)}..."`);
         }
         break;
@@ -10895,8 +10898,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         }
         
         // Store text for TTS fallback if no regular text output
-        if (text) {
-          (session as any).functionCallText = ((session as any).functionCallText || '') + text + ' ';
+        if (text && !(session as any).functionCallText) {
+          (session as any).functionCallText = text;
           console.log(`[Native Function→ShowImage] Text included: "${text.substring(0, 50)}..."`);
         }
         
@@ -11045,8 +11048,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
             console.error(`[Native Function→Milestone] Error:`, err.message);
           });
         }
-        if (text) {
-          (session as any).functionCallText = ((session as any).functionCallText || '') + text + ' ';
+        if (text && !(session as any).functionCallText) {
+          (session as any).functionCallText = text;
           console.log(`[Native Function→Milestone] Spoken text: "${text.substring(0, 80)}..."`);
         }
         break;
@@ -11220,8 +11223,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         const content = fn.args.content as string | undefined;
         
         // Store text for TTS fallback if no regular text output
-        if (text) {
-          (session as any).functionCallText = ((session as any).functionCallText || '') + text + ' ';
+        if (text && !(session as any).functionCallText) {
+          (session as any).functionCallText = text;
           console.log(`[Native Function→Drill] Text included: "${text.substring(0, 50)}..."`);
         }
         
