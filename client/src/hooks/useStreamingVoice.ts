@@ -650,6 +650,23 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       console.log(`[SENTENCE_READY] Sentence ${sentenceIndex} has no timings yet (silent intro) - enqueueing audio anyway`);
     }
     
+    // CRITICAL FIX: Create the sentence entry if it doesn't exist yet.
+    // The progressive path sends sentence_ready WITHOUT a preceding sentence_start,
+    // so addSentence was never called, leaving the sentences array empty.
+    // Without this, word timings have no sentence to attach to and subtitles never display.
+    const reconstructedText = hasTimings 
+      ? firstWordTimings.map(t => t.word).join(' ') 
+      : '';
+    subtitlesRef.current.addSentence(
+      sentenceIndex,
+      reconstructedText,
+      turnId,
+      false,
+      undefined,
+      undefined
+    );
+    console.log(`[SENTENCE_READY] Created sentence entry for subtitles: sentence=${sentenceIndex}, turn=${turnId}, text="${reconstructedText.substring(0, 40)}..."`);
+    
     // 1. Register all word timings with the player FIRST (before audio plays)
     if (playerRef.current && hasTimings) {
       for (let i = 0; i < firstWordTimings.length; i++) {
