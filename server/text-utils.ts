@@ -137,6 +137,18 @@ export function extractTargetLanguageText(text: string): string {
     }
   }
   
+  // PASS 3: Extract complete ¿...? and ¡...! phrases (Spanish questions/exclamations)
+  // These are unambiguous target language markers - ALL words inside are target language
+  // e.g., "¿Cómo te sientes hoy?" → extracts "Cómo", "te", "sientes", "hoy"
+  const invertedPhrasePattern = /[¿¡]([^.!?\n]*?)[?!]/g;
+  let phraseMatch;
+  while ((phraseMatch = invertedPhrasePattern.exec(plainText)) !== null) {
+    const phraseInner = phraseMatch[1].trim();
+    if (phraseInner.length >= 2) {
+      phraseInner.split(/\s+/).forEach(word => addWord(word));
+    }
+  }
+  
   // Return collected words in order found
   if (extractedWords.length > 0) {
     return extractedWords.join(' ');
@@ -316,12 +328,12 @@ export function detectTextLanguageForTTS(text: string, targetLanguage: string): 
     return targetLanguage;
   }
   
-  // For Latin-script text, detect whether it's actually in the target language
+  // For Latin-script text, detect whether it's PREDOMINANTLY in the target language
   // or the student's native language (e.g., English explanations should use English TTS)
   // This ensures each language is spoken clearly without accent bleed
   const targetLangLower = targetLanguage.toLowerCase();
   
-  // Check for target language diacritics that indicate it's genuinely in the target language
+  // Check for target language diacritics
   const targetLanguageDiacritics: Record<string, RegExp> = {
     'spanish': /[áéíóúüñ¿¡]/i,
     'french': /[àâäéèêëïîôùûüÿœæç]/i,
@@ -331,13 +343,27 @@ export function detectTextLanguageForTTS(text: string, targetLanguage: string): 
   };
   
   const diacriticPattern = targetLanguageDiacritics[targetLangLower];
-  if (diacriticPattern && diacriticPattern.test(text)) {
-    // Has target language diacritics - likely target language text
-    return targetLanguage;
+  if (diacriticPattern) {
+    // Count words with vs without diacritics to determine dominant language
+    const words = text.split(/\s+/).filter(w => w.length > 0);
+    const wordsWithDiacritics = words.filter(w => diacriticPattern.test(w)).length;
+    const diacriticRatio = words.length > 0 ? wordsWithDiacritics / words.length : 0;
+    
+    // If more than 20% of words have diacritics, the text is predominantly target language
+    // This is a conservative threshold - many target language words lack diacritics
+    // (e.g., "te sientes hoy" has no diacritics but is fully Spanish)
+    // The segmenter handles code-switching for mixed content before this fallback runs
+    if (diacriticRatio > 0.2) {
+      console.log(`[TextLangDetect] ${(diacriticRatio * 100).toFixed(0)}% diacritics (${wordsWithDiacritics}/${words.length}) → using '${targetLanguage}' TTS`);
+      return targetLanguage;
+    } else if (wordsWithDiacritics > 0) {
+      console.log(`[TextLangDetect] Only ${(diacriticRatio * 100).toFixed(0)}% diacritics (${wordsWithDiacritics}/${words.length}) → using 'english' TTS (segmenter handles code-switching)`);
+      return 'english';
+    }
   }
   
   // For Latin-script text without target language markers, use English
   // This gives clear pronunciation for native language explanations
-  console.log(`[TextLangDetect] Latin text without ${targetLanguage} markers → using 'english' for TTS (word-by-word handles mixed content)`);
+  console.log(`[TextLangDetect] Latin text without ${targetLanguage} markers → using 'english' for TTS`);
   return 'english';
 }

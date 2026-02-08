@@ -177,6 +177,129 @@ const LATIN_SCRIPT_LANGUAGES = new Set([
 ]);
 
 /**
+ * Detect Latin-script target language phrases by diacritics and special punctuation.
+ * 
+ * For languages like Spanish that share the Latin alphabet with English,
+ * quoted/emphasized detection isn't enough. This function detects:
+ * - ¿...? Spanish question patterns
+ * - ¡...! Spanish exclamation patterns
+ * - Clusters of words containing target-language diacritics
+ * 
+ * Example: "let's warm up. ¿Cómo te sientes hoy?"
+ * → Detects "¿Cómo te sientes hoy?" as a Spanish segment
+ */
+function detectLatinScriptTargetPhrases(
+  text: string,
+  targetLanguage: string
+): Detection[] {
+  const detections: Detection[] = [];
+  const targetLower = targetLanguage.toLowerCase();
+  
+  if (!LATIN_SCRIPT_LANGUAGES.has(targetLower)) return detections;
+  
+  const targetPattern = LANGUAGE_PATTERNS[targetLower];
+  if (!targetPattern) return detections;
+  
+  // PASS A: Detect ¿...? and ¡...! patterns (Spanish-specific)
+  if (targetLower === 'spanish') {
+    const spanishPhrasePattern = /[¿¡][^.!?\n]*?[?!]/g;
+    let match;
+    while ((match = spanishPhrasePattern.exec(text)) !== null) {
+      const phrase = match[0].trim();
+      if (phrase.length >= 3) {
+        detections.push({
+          fullMatch: phrase,
+          innerText: phrase,
+          start: match.index,
+          end: match.index + match[0].length,
+          isQuoted: false,
+        });
+      }
+    }
+  }
+  
+  // PASS B: Detect word clusters with target-language diacritics
+  // Find words with diacritics, then expand to include surrounding non-English words
+  const words = text.split(/(\s+)/);
+  let pos = 0;
+  let clusterStart = -1;
+  let clusterEnd = -1;
+  let clusterTextStart = -1;
+  let clusterTextEnd = -1;
+  let consecutiveNonDiacritic = 0;
+  
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i];
+    const wordStart = pos;
+    const wordEnd = pos + word.length;
+    pos = wordEnd;
+    
+    if (/^\s+$/.test(word)) continue;
+    
+    const hasDiacritics = targetPattern.test(word);
+    const isCommonEnglish = COMMON_ENGLISH_WORDS.has(word.toLowerCase().replace(/[^a-zA-Z]/g, ''));
+    
+    if (hasDiacritics) {
+      if (clusterStart === -1) {
+        clusterStart = i;
+        clusterTextStart = wordStart;
+      }
+      clusterEnd = i;
+      clusterTextEnd = wordEnd;
+      consecutiveNonDiacritic = 0;
+    } else if (clusterStart !== -1) {
+      consecutiveNonDiacritic++;
+      if (!isCommonEnglish || consecutiveNonDiacritic > 2) {
+        // End cluster - too many non-diacritic words or a clearly English word
+        // But include short connector words (te, de, el, la, en, con, por, sin, mi, tu, su, un, una, los, las, nos)
+        const cleanWord = word.toLowerCase().replace(/[^a-zA-ZáéíóúüñÀ-ÿ]/g, '');
+        const isSpanishConnector = /^(te|de|el|la|en|con|por|sin|mi|tu|su|un|una|los|las|nos|que|al|del|es|se|le|lo|me|ya|si|no|y|o|a)$/.test(cleanWord);
+        
+        if (isSpanishConnector && consecutiveNonDiacritic <= 2) {
+          clusterEnd = i;
+          clusterTextEnd = wordEnd;
+        } else {
+          // Emit cluster
+          const clusterText = text.slice(clusterTextStart, clusterTextEnd).trim();
+          if (clusterText.length >= 3) {
+            detections.push({
+              fullMatch: clusterText,
+              innerText: clusterText,
+              start: clusterTextStart,
+              end: clusterTextEnd,
+              isQuoted: false,
+            });
+          }
+          clusterStart = -1;
+          clusterEnd = -1;
+          consecutiveNonDiacritic = 0;
+        }
+      } else {
+        // Short connector word within a diacritic cluster - tentatively include
+        clusterEnd = i;
+        clusterTextEnd = wordEnd;
+      }
+    }
+  }
+  
+  // Emit final cluster if any
+  if (clusterStart !== -1) {
+    const clusterText = text.slice(clusterTextStart, clusterTextEnd).trim();
+    if (clusterText.length >= 3) {
+      detections.push({
+        fullMatch: clusterText,
+        innerText: clusterText,
+        start: clusterTextStart,
+        end: clusterTextEnd,
+        isQuoted: false,
+      });
+    }
+  }
+  
+  return detections;
+}
+
+/**
  * Check if a word/phrase looks like it's in the target language.
  */
 function looksLikeTargetLanguage(
@@ -236,8 +359,12 @@ export function segmentByLanguage(
   // These are unambiguous and don't need quotes
   const nonLatinDetections = detectUnquotedNonLatin(text);
   
-  // Merge both detection types
-  const allDetections = [...quotedDetections, ...nonLatinDetections];
+  // Detect Latin-script target language phrases by diacritics (¿...?, diacritic clusters)
+  // This catches Spanish/French/etc. phrases that aren't quoted
+  const latinScriptDetections = detectLatinScriptTargetPhrases(text, targetLanguage);
+  
+  // Merge all detection types
+  const allDetections = [...quotedDetections, ...nonLatinDetections, ...latinScriptDetections];
   
   // Sort by position and remove overlaps
   allDetections.sort((a, b) => a.start - b.start);
@@ -250,8 +377,9 @@ export function segmentByLanguage(
   }
   
   // Filter to only keep likely target language words
+  // - Non-quoted detections (CJK, diacritic clusters, ¿...? patterns) are trusted directly
+  // - Quoted detections go through looksLikeTargetLanguage check
   const targetDetections = mergedDetections.filter(d => 
-    // CJK detections are always target language (unambiguous)
     !d.isQuoted || looksLikeTargetLanguage(d.innerText, targetLanguage, nativeLanguage)
   );
   
