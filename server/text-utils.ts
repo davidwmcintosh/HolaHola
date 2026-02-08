@@ -274,31 +274,10 @@ export function detectTextLanguageForTTS(text: string, targetLanguage: string): 
     return targetLanguage;
   }
   
-  // SAFETY NET: When bold markers are missing (Gemini doesn't always output them),
-  // detect unambiguous target language markers in Latin-script text.
-  // Inverted punctuation (¿, ¡) and language-specific diacritics can only belong
-  // to the target language - English never uses these characters.
-  // This prevents Cartesia from applying English pronunciation rules to Spanish/French/etc.
-  const targetLower = targetLanguage?.toLowerCase() || '';
-  
-  const LATIN_LANGUAGE_MARKERS: Record<string, RegExp> = {
-    'spanish': /[¿¡ñÑ]|[áéíóúÁÉÍÓÚüÜ]/,
-    'french': /[àâæçéèêëïîôœùûüÿÀÂÆÇÉÈÊËÏÎÔŒÙÛÜŸ]/,
-    'german': /[äöüßÄÖÜ]/,
-    'italian': /[àèéìíîòóùúÀÈÉÌÍÎÒÓÙÚ]/,
-    'portuguese': /[ãõçÃÕÇàáâéêíóôúÀÁÂÉÊÍÓÔÚ]/,
-  };
-  
-  const markerPattern = LATIN_LANGUAGE_MARKERS[targetLower];
-  if (markerPattern && markerPattern.test(text)) {
-    console.log(`[TTS-LANG-DETECT] Found ${targetLower} markers in text, using target language instead of English`);
-    return targetLanguage;
-  }
-  
-  // For Latin-script text with no detectable target language markers, default to English TTS.
-  // Gemini bold markers (**word**) are the primary source of truth for
+  // For Latin-script text, default to English TTS.
+  // Gemini bold markers (**word**) are the single source of truth for
   // target language words. The word-by-word segmenter handles code-switching
-  // upstream using those markers. If we reach here with no code-switching
-  // and no language markers, the text is likely English.
+  // upstream using those markers. If we reach here with no code-switching,
+  // the text is either English or should have been bold-marked by Gemini.
   return 'english';
 }
