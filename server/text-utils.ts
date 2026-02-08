@@ -189,7 +189,8 @@ export interface TargetLanguageExtractionResult {
  */
 export function extractTargetLanguageWithMapping(
   displayText: string,
-  rawText?: string
+  rawText?: string,
+  targetLanguage?: string
 ): TargetLanguageExtractionResult {
   const result: TargetLanguageExtractionResult = {
     targetText: '',
@@ -197,6 +198,17 @@ export function extractTargetLanguageWithMapping(
   };
   
   if (!displayText) return result;
+  
+  // Check if the entire text is in the target language (not code-switching)
+  // When Daniela speaks fully in Spanish, words like "ahora", "mismo", "para"
+  // lack diacritics and are missed by per-word extraction
+  if (isTextPredominantlyTargetLanguage(displayText, targetLanguage)) {
+    const allWords = displayText.split(/\s+/).filter(w => w.length > 0);
+    console.log(`[TargetExtraction] Full target language detected (${allWords.length} words) - showing all as target`);
+    result.targetText = allWords.join(' ');
+    allWords.forEach((_, i) => result.wordMapping.set(i, i));
+    return result;
+  }
   
   // Get the target language text using existing extraction
   let targetText = rawText 
@@ -263,6 +275,73 @@ function normalizeWordForComparison(word: string): string {
   return word
     .toLowerCase()
     .replace(new RegExp('^[^\\p{L}\\p{N}]+|[^\\p{L}\\p{N}]+$', 'gu'), ''); // Remove leading/trailing non-letter/number
+}
+
+/**
+ * Detects if text is predominantly in the target language (not code-switching).
+ * When Daniela speaks entirely in Spanish, many words lack diacritics/markers
+ * and are incorrectly classified as English. This function detects monolingual
+ * target language text so ALL words can be treated as target language.
+ * 
+ * Heuristic: If the text has strong target language indicators (diacritics, ¿, ¡)
+ * AND does not contain definitive English-only structural words, it's likely
+ * monolingual target language text.
+ * 
+ * @param text - The text to analyze
+ * @param targetLanguage - The session's target language
+ * @returns True if the text appears to be entirely in the target language
+ */
+export function isTextPredominantlyTargetLanguage(text: string, targetLanguage?: string): boolean {
+  if (!text || text.length < 10) return false;
+  
+  const words = text.split(/\s+/).filter(w => w.length > 0);
+  if (words.length < 3) return false;
+  
+  const hasSpanishMarkers = /[¿¡ñáéíóúü]/i.test(text);
+  const hasFrenchMarkers = /[àâçèéêëîïôùûüæœ]/i.test(text);
+  const hasGermanMarkers = /[äöüß]/i.test(text);
+  const hasPortugueseMarkers = /[ãõçáéíóúâêô]/i.test(text);
+  const hasItalianMarkers = /[àèéìíîòóùú]/i.test(text);
+  const hasCJK = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\uAC00-\uD7AF]/.test(text);
+  
+  const hasAnyTargetMarkers = hasSpanishMarkers || hasFrenchMarkers || hasGermanMarkers || 
+    hasPortugueseMarkers || hasItalianMarkers || hasCJK;
+  
+  if (!hasAnyTargetMarkers) return false;
+  
+  const englishStructuralWords = new Set([
+    'the', 'this', 'that', 'these', 'those', 'is', 'are', 'was', 'were',
+    'have', 'has', 'had', 'which', 'who', 'whose', 'where', 'when',
+    'while', 'although', 'because', 'however', 'therefore',
+    'should', 'would', 'could', 'might', 'shall',
+    'and', 'but', 'or', 'not', 'its', "it's",
+    'you', 'your', "you're", 'they', 'their', "they're",
+    'we', 'our', 'she', 'her', 'his', 'him',
+    'do', "don't", 'does', "doesn't",
+    'will', "won't", 'can', "can't",
+    'just', 'also', 'very', 'really', 'about',
+    'now', 'try', 'saying', 'means', 'called',
+    'great', 'good', 'nice', 'well', 'right', 'okay',
+    'let', "let's", 'want', 'need', 'like',
+    'here', 'there', 'how', 'what', 'why',
+    'with', 'from', 'into', 'over', 'under',
+  ]);
+  
+  const lowerWords = words.map(w => w.toLowerCase().replace(/[^a-záéíóúñüàâçèêëîïôùûüäöß]/gi, ''));
+  const englishCount = lowerWords.filter(w => englishStructuralWords.has(w)).length;
+  const englishRatio = englishCount / words.length;
+  
+  if (englishRatio > 0.15) return false;
+  
+  const foreignCharPattern = /[¡¿ñáéíóúàâçèêëîïôùûüäöüßãõæœ]/i;
+  const markedWordCount = lowerWords.filter(w => foreignCharPattern.test(w)).length;
+  const markedRatio = markedWordCount / words.length;
+  
+  if (markedRatio >= 0.15) return true;
+  
+  if (hasSpanishMarkers && /[¿¡]/.test(text)) return true;
+  
+  return false;
 }
 
 /**
