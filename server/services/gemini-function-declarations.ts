@@ -148,7 +148,7 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   // === UI CONTROL ===
   {
     name: "subtitle",
-    description: "Annotate subtitle display preferences. Include your spoken response in 'spoken_text' so the mode change and speech are delivered together in one call. Always include spoken_text.",
+    description: "Toggle the student's subtitle/caption display on screen. MUST be called when student asks to see subtitles, turn on captions, show text, or requests targeted subtitles. Include your spoken response in 'spoken_text'. Always include spoken_text.",
     parametersJsonSchema: {
       type: "object",
       properties: {
