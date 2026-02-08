@@ -3055,37 +3055,28 @@ Remember: Beta testers understand they're helping build something and appreciate
                 }
                 // === UI CONTROL COMMANDS ===
                 case 'SUBTITLE': {
-                  // Toggle subtitle mode: off/on/target OR show custom text
                   const mode = (cmd.params.mode as string)?.toLowerCase();
                   const customText = cmd.params.text as string | undefined;
                   
                   if (mode === 'custom' && customText) {
-                    // Custom mode: Display specific text without speaking it
-                    // Use existing custom_overlay protocol that client already handles
                     (session as any).customOverlayText = customText;
                     console.log(`[CommandParser→Subtitle] Custom text: "${customText.substring(0, 50)}..." via ${cmd.source}`);
-                    if (session.ws.readyState === 1) {
-                      session.ws.send(JSON.stringify({
-                        type: 'custom_overlay',
-                        text: customText,
-                        action: 'show',
-                        timestamp: Date.now(),
-                      }));
-                    }
+                    this.sendMessage(session.ws, {
+                      type: 'custom_overlay',
+                      text: customText,
+                      action: 'show',
+                      timestamp: Date.now(),
+                    } as any, session);
                   } else if (mode && ['off', 'on', 'target'].includes(mode)) {
                     const validMode = mode === 'on' ? 'all' : mode as 'off' | 'all' | 'target';
                     session.subtitleMode = validMode;
-                    console.log(`[CommandParser→Subtitle] Mode changed to: ${validMode} via ${cmd.source} format`);
-                    
-                    // Send WebSocket message to client to update UI subtitle setting
-                    if (session.ws.readyState === 1) {  // WebSocket.OPEN = 1
-                      session.ws.send(JSON.stringify({
-                        type: 'subtitle_mode_change',
-                        mode: validMode,  // 'off' | 'all' | 'target'
-                        timestamp: Date.now(),
-                      }));
-                      console.log(`[CommandParser→Subtitle] Sent subtitle_mode_change to client: ${validMode}`);
-                    }
+                    console.log(`[CommandParser→Subtitle] Mode changed to: ${validMode} via ${cmd.source}`);
+                    this.sendMessage(session.ws, {
+                      type: 'subtitle_mode_change',
+                      mode: validMode,
+                      timestamp: Date.now(),
+                    } as any, session);
+                    console.log(`[CommandParser→Subtitle] ✓ Sent subtitle_mode_change via sendMessage: ${validMode}`);
                   }
                   break;
                 }
@@ -4864,31 +4855,24 @@ Remember: Beta testers understand they're helping build something and appreciate
                 const customText = cmd.params.text as string | undefined;
                 
                 if (mode === 'custom' && customText) {
-                  // Use existing custom_overlay protocol that client already handles
                   (session as any).customOverlayText = customText;
                   console.log(`[CommandParser→Subtitle - OpenMic] Custom: "${customText.substring(0, 50)}..."`);
-                  if (session.ws.readyState === 1) {
-                    session.ws.send(JSON.stringify({
-                      type: 'custom_overlay',
-                      text: customText,
-                      action: 'show',
-                      timestamp: Date.now(),
-                    }));
-                  }
+                  this.sendMessage(session.ws, {
+                    type: 'custom_overlay',
+                    text: customText,
+                    action: 'show',
+                    timestamp: Date.now(),
+                  } as any, session);
                 } else if (mode && ['off', 'on', 'target'].includes(mode)) {
                   const validMode = mode === 'on' ? 'all' : mode as 'off' | 'all' | 'target';
                   session.subtitleMode = validMode;
                   console.log(`[CommandParser→Subtitle - OpenMic] Mode: ${validMode}`);
-                  
-                  // Send WebSocket message to client to update UI subtitle setting
-                  if (session.ws.readyState === 1) {
-                    session.ws.send(JSON.stringify({
-                      type: 'subtitle_mode_change',
-                      mode: validMode,
-                      timestamp: Date.now(),
-                    }));
-                    console.log(`[CommandParser→Subtitle - OpenMic] Sent subtitle_mode_change to client: ${validMode}`);
-                  }
+                  this.sendMessage(session.ws, {
+                    type: 'subtitle_mode_change',
+                    mode: validMode,
+                    timestamp: Date.now(),
+                  } as any, session);
+                  console.log(`[CommandParser→Subtitle - OpenMic] ✓ Sent via sendMessage: ${validMode}`);
                 }
                 break;
               }
@@ -6944,12 +6928,9 @@ Remember: Beta testers understand they're helping build something and appreciate
           ttsCallbacks
         );
       } else {
-        // No code-switching detected - use sentence-level language detection
-        // This handles cases where entire sentences are in one language
-        // (e.g., Japanese tutor speaking full English sentences to beginners)
         const detectedLanguage = detectTextLanguageForTTS(textWithEmphases, session.targetLanguage);
+        console.log(`[Progressive] TTS language: detected='${detectedLanguage}' target='${session.targetLanguage}' text="${textWithEmphases.substring(0, 60)}..."`);
         
-        // Use progressive streaming - pronunciation tags are handled in cartesia-streaming.ts
         const result = await this.cartesiaService.streamSynthesizeProgressive(
           {
             text: textWithEmphases,
@@ -10789,7 +10770,6 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       }
       
       case 'SUBTITLE': {
-        // Toggle subtitle mode: off/on/target OR show custom text (not spoken)
         const spokenText = fn.args.spoken_text as string | undefined;
         const mode = (fn.args.mode as string)?.toLowerCase();
         const customText = fn.args.text as string | undefined;
@@ -10798,48 +10778,30 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           if (!customText || customText.trim() === '') {
             console.warn(`[Native Function→Subtitle] Custom mode requires text parameter, skipping`);
           } else {
-            // Custom mode: Display specific text without speaking it
-            // Use existing custom_overlay protocol that client already handles
-            // Note: Use [HIDE] to clear the overlay when done
             console.log(`[Native Function→Subtitle] Custom text display: "${customText.substring(0, 50)}..."`);
-            
-            // Set on session for any code that reads it
             (session as any).customOverlayText = customText;
-            
-            // Send using existing custom_overlay message (already handled by client)
-            if (session.ws.readyState === 1) {
-              session.ws.send(JSON.stringify({
-                type: 'custom_overlay',
-                text: customText,
-                action: 'show',
-                timestamp: Date.now(),
-              }));
-            }
+            this.sendMessage(session.ws, {
+              type: 'custom_overlay',
+              text: customText,
+              action: 'show',
+              timestamp: Date.now(),
+            } as any, session);
           }
         } else if (mode && ['off', 'on', 'target'].includes(mode)) {
-          // Standard mode toggle: off/on/target
           const validMode = mode === 'on' ? 'all' : mode as 'off' | 'all' | 'target';
           session.subtitleMode = validMode;
-          console.log(`[Native Function→Subtitle] Mode changed to: ${validMode}`);
+          console.log(`[Native Function→Subtitle] Mode changed to: ${validMode} (session ${session.id})`);
           
-          // Send WebSocket message to client to update UI subtitle setting
-          const wsReady = session.ws.readyState;
-          console.log(`[Native Function→Subtitle] WebSocket readyState: ${wsReady} (need 1 to send)`);
-          if (wsReady === 1) {
-            const subtitleMsg = JSON.stringify({
-              type: 'subtitle_mode_change',
-              mode: validMode,
-              timestamp: Date.now(),
-            });
-            session.ws.send(subtitleMsg);
-            console.log(`[Native Function→Subtitle] ✓ Sent subtitle_mode_change to client: ${validMode}`);
-          } else {
-            console.error(`[Native Function→Subtitle] ✗ WebSocket not ready (state=${wsReady}), cannot send subtitle_mode_change`);
-          }
+          this.sendMessage(session.ws, {
+            type: 'subtitle_mode_change',
+            mode: validMode,
+            timestamp: Date.now(),
+          } as any, session);
+          console.log(`[Native Function→Subtitle] ✓ Sent subtitle_mode_change via sendMessage: ${validMode}`);
         }
         if (spokenText && !(session as any).functionCallText) {
           (session as any).functionCallText = spokenText;
-          console.log(`[Native Function→Subtitle] Spoken text included: "${spokenText.substring(0, 80)}..."`);
+          console.log(`[Native Function→Subtitle] Spoken text for TTS: "${spokenText.substring(0, 80)}..."`);
         }
         break;
       }
