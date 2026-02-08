@@ -328,42 +328,10 @@ export function detectTextLanguageForTTS(text: string, targetLanguage: string): 
     return targetLanguage;
   }
   
-  // For Latin-script text, detect whether it's PREDOMINANTLY in the target language
-  // or the student's native language (e.g., English explanations should use English TTS)
-  // This ensures each language is spoken clearly without accent bleed
-  const targetLangLower = targetLanguage.toLowerCase();
-  
-  // Check for target language diacritics
-  const targetLanguageDiacritics: Record<string, RegExp> = {
-    'spanish': /[áéíóúüñ¿¡]/i,
-    'french': /[àâäéèêëïîôùûüÿœæç]/i,
-    'german': /[äöüß]/i,
-    'italian': /[àèéìòù]/i,
-    'portuguese': /[áàâãéêíóôõúç]/i,
-  };
-  
-  const diacriticPattern = targetLanguageDiacritics[targetLangLower];
-  if (diacriticPattern) {
-    // Count words with vs without diacritics to determine dominant language
-    const words = text.split(/\s+/).filter(w => w.length > 0);
-    const wordsWithDiacritics = words.filter(w => diacriticPattern.test(w)).length;
-    const diacriticRatio = words.length > 0 ? wordsWithDiacritics / words.length : 0;
-    
-    // If more than 20% of words have diacritics, the text is predominantly target language
-    // This is a conservative threshold - many target language words lack diacritics
-    // (e.g., "te sientes hoy" has no diacritics but is fully Spanish)
-    // The segmenter handles code-switching for mixed content before this fallback runs
-    if (diacriticRatio > 0.2) {
-      console.log(`[TextLangDetect] ${(diacriticRatio * 100).toFixed(0)}% diacritics (${wordsWithDiacritics}/${words.length}) → using '${targetLanguage}' TTS`);
-      return targetLanguage;
-    } else if (wordsWithDiacritics > 0) {
-      console.log(`[TextLangDetect] Only ${(diacriticRatio * 100).toFixed(0)}% diacritics (${wordsWithDiacritics}/${words.length}) → using 'english' TTS (segmenter handles code-switching)`);
-      return 'english';
-    }
-  }
-  
-  // For Latin-script text without target language markers, use English
-  // This gives clear pronunciation for native language explanations
-  console.log(`[TextLangDetect] Latin text without ${targetLanguage} markers → using 'english' for TTS`);
+  // For Latin-script text, default to English TTS.
+  // The word-by-word segmenter handles all code-switching detection upstream,
+  // so this function only needs to pick a sensible default for the whole chunk.
+  // English is the right choice: if the segmenter didn't detect target language
+  // markers, the text looks like native language and should sound like it.
   return 'english';
 }
