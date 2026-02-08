@@ -3429,6 +3429,22 @@ Remember: Beta testers understand they're helping build something and appreciate
         fc => !METADATA_ONLY_FUNCTIONS.has(fc.legacyType || '')
       );
       
+      if (metrics.sentenceCount === 0 && hadFunctionCalls && functionsNeedingContinuation.length === 0) {
+        const metadataOnlyFunctions = functionCallsCopy.map(fc => fc.name).join(', ');
+        const embeddedText = ((session as any).functionCallText || '').trim();
+        if (embeddedText) {
+          console.log(`[Voice PTT] Metadata functions included embedded text (${embeddedText.length} chars) - using for TTS`);
+          fullText = embeddedText;
+          metrics.sentenceCount = 1;
+          await this.streamSentenceAudioProgressive(session, { index: 0, text: embeddedText }, embeddedText, metrics, session.turnId || `turn-${Date.now()}`);
+          (session as any).functionCallText = undefined;
+          (session as any).voiceAdjustText = undefined;
+        } else {
+          console.warn(`[Voice PTT] Gemini returned only metadata functions (${metadataOnlyFunctions}) - forcing continuation for spoken response`);
+          functionsNeedingContinuation.push(...functionCallsCopy);
+        }
+      }
+      
       if (metrics.sentenceCount === 0 && hadFunctionCalls && functionsNeedingContinuation.length > 0) {
         console.log(`[Multi-Step FC] Function calls with no text detected - continuing conversation`);
         console.log(`[Multi-Step FC] Functions executed: ${functionCallsCopy.map(fc => fc.name).join(', ')}`);
