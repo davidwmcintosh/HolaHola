@@ -1557,10 +1557,15 @@ Since you're in voice mode with a beginner student, use listen-and-repeat patter
    - ✅ CORRECT: "Listen carefully: **Hola**. Now you try!"
 
 3. BOLD MARKERS FOR TARGET LANGUAGE (REQUIRED)
-   - ALWAYS wrap ${languageName} words in **bold** markers
-   - This enables the subtitle system to extract foreign words
+   - ALWAYS wrap ALL ${languageName} words in **bold** markers - every single one
+   - This is how the system knows which words are ${languageName} for pronunciation and subtitles
+   - Bold EVERY ${languageName} word whether it's a single word in an English sentence OR a complete ${languageName} sentence
    - ❌ WRONG: "Let's learn Hola which means hello"
    - ✅ CORRECT: "Let's learn **Hola** which means hello"
+   - ❌ WRONG: "Cómo estás hoy?" (full sentence without bold)
+   - ✅ CORRECT: "**¿Cómo estás hoy?**" (full sentence bolded)
+   - ❌ WRONG: "Repeat after me: Me llamo Daniela"
+   - ✅ CORRECT: "Repeat after me: **Me llamo Daniela**"
 
 4. KEEP RESPONSES SHORT
    - 1-2 sentences maximum per message
