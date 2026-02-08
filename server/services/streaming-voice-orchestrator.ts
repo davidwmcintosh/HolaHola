@@ -6952,11 +6952,23 @@ Remember: Beta testers understand they're helping build something and appreciate
       const nativeLanguage = session.nativeLanguage || 'english';
       // Extract bold-marked words from raw Gemini text as target language hints
       // Bold markers are stripped from displayText but indicate target language words
-      const boldMarkedWords = extractBoldMarkedWords(chunk.text || '');
-      if (boldMarkedWords.length > 0) {
-        console.log(`[Progressive] Bold-marked target words from raw text: ${boldMarkedWords.join(', ')}`);
+      const rawChunkText = chunk.text || '';
+      const boldMarkedWords = extractBoldMarkedWords(rawChunkText);
+      
+      // Diagnostic: trace bold marker extraction through TTS pipeline
+      const hasBoldSyntax = rawChunkText.includes('**');
+      console.log(`[TTS-LANG-DIAG] Raw chunk has bold syntax: ${hasBoldSyntax}, extracted ${boldMarkedWords.length} bold words`);
+      if (hasBoldSyntax) {
+        console.log(`[TTS-LANG-DIAG] Raw text (first 120): "${rawChunkText.substring(0, 120)}"`);
       }
+      if (boldMarkedWords.length > 0) {
+        console.log(`[TTS-LANG-DIAG] Bold-marked target words: ${boldMarkedWords.join(', ')}`);
+      }
+      console.log(`[TTS-LANG-DIAG] Display text for TTS (first 120): "${textWithEmphases.substring(0, 120)}"`);
+      
       const segmentationResult = segmentByLanguage(textWithEmphases, nativeLanguage, session.targetLanguage, boldMarkedWords);
+      
+      console.log(`[TTS-LANG-DIAG] Segmentation: hasCodeSwitching=${segmentationResult.hasCodeSwitching}, segments=${segmentationResult.segments.length}, targetWords=${segmentationResult.targetLanguageWords.join(', ') || 'none'}`);
       
       if (segmentationResult.hasCodeSwitching && segmentationResult.segments.length > 1) {
         // Use multilingual synthesis for word-by-word code-switching
@@ -6968,7 +6980,7 @@ Remember: Beta testers understand they're helping build something and appreciate
           session.targetLanguage
         );
         
-        console.log(`[Progressive] Using multilingual synthesis: ${cartesiaChunks.length} segments`);
+        console.log(`[TTS-LANG-DIAG] → MULTILINGUAL path: ${cartesiaChunks.length} segments, codes: ${cartesiaChunks.map(c => c.languageCode).join(',')}`);
         
         // Use multilingual streaming for code-switching
         const result = await this.cartesiaService.streamSynthesizeMultilingual(
@@ -6985,7 +6997,7 @@ Remember: Beta testers understand they're helping build something and appreciate
         );
       } else {
         const detectedLanguage = detectTextLanguageForTTS(textWithEmphases, session.targetLanguage);
-        console.log(`[Progressive] TTS language: detected='${detectedLanguage}' target='${session.targetLanguage}' text="${textWithEmphases.substring(0, 60)}..."`);
+        console.log(`[TTS-LANG-DIAG] → FALLBACK path: detected='${detectedLanguage}' target='${session.targetLanguage}'`);
         
         const result = await this.cartesiaService.streamSynthesizeProgressive(
           {
