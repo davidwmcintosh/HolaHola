@@ -9282,7 +9282,7 @@ Only include observations you can clearly justify from the exchange. Return empt
             // (subtitle mode change, voice adjust, etc.) AND extracts spoken text to functionCallText
             if (fc.legacyType) {
               try {
-                await this.handleNativeFunctionCall(session, {
+                await this.handleNativeFunctionCall(session.sessionId, session, {
                   name: fc.name,
                   args: fc.args || {},
                   legacyType: fc.legacyType,
