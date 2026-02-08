@@ -9278,12 +9278,28 @@ Only include observations you can clearly justify from the exchange. Return empt
               legacyType: fc.legacyType,
             });
             
-            // Extract text from function calls that carry spoken text (voice_adjust, phase_shift, drill, show_image)
-            if (fc.args && typeof fc.args === 'object' && 'text' in fc.args) {
-              const text = (fc.args as { text?: string }).text;
-              if (text && typeof text === 'string') {
-                console.log(`[Streaming Greeting] Extracted text from ${fc.name}: "${text.substring(0, 50)}..."`);
-                (session as any).functionCallText = ((session as any).functionCallText || '') + text + ' ';
+            // Execute the function call handler — this handles both side effects
+            // (subtitle mode change, voice adjust, etc.) AND extracts spoken text to functionCallText
+            if (fc.legacyType) {
+              try {
+                await this.handleNativeFunctionCall(session, {
+                  name: fc.name,
+                  args: fc.args || {},
+                  legacyType: fc.legacyType,
+                });
+              } catch (err) {
+                console.warn(`[Streaming Greeting] Function execution error for ${fc.name}:`, (err as Error).message);
+              }
+            } else {
+              // Fallback text extraction for functions without legacyType
+              if (fc.args && typeof fc.args === 'object') {
+                const spokenText = (fc.args as Record<string, unknown>).spoken_text as string | undefined;
+                const text = (fc.args as Record<string, unknown>).text as string | undefined;
+                const extractedText = spokenText || text;
+                if (extractedText && typeof extractedText === 'string') {
+                  console.log(`[Streaming Greeting] Extracted text from ${fc.name}: "${extractedText.substring(0, 50)}..."`);
+                  (session as any).functionCallText = ((session as any).functionCallText || '') + extractedText + ' ';
+                }
               }
             }
           }
