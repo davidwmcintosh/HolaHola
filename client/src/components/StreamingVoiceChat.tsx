@@ -276,6 +276,13 @@ export function StreamingVoiceChat({
   // Whiteboard hook - tutor-controlled visual teaching aids
   const whiteboard = useWhiteboard();
   
+  // Sync user's saved subtitle mode preference to whiteboard on mount
+  useEffect(() => {
+    if (subtitleMode && subtitleMode !== 'off') {
+      whiteboard.setRegularSubtitleMode(subtitleMode);
+    }
+  }, []);
+  
   // Cache for slow repeat audio - so subsequent presses just replay
   const slowRepeatCacheRef = useRef<{ messageId: string; audioBlob: Blob } | null>(null);
   
