@@ -334,8 +334,14 @@ function cleanTextForDisplay(text: string): string {
   text = text.replace(/voice_reset\s*[:\{][^}]*\}?/gi, '');
   
   // Strip SUBTITLE control tags (UI commands - should affect display, not be spoken)
-  // Pattern 1: [SUBTITLE off|on|target]
-  text = text.replace(/\[SUBTITLE\s+(?:off|on|target)\s*\]/gi, '');
+  // Pattern 1: [SUBTITLE off|on|target] with optional trailing attributes like reason="..."
+  text = text.replace(/\[SUBTITLE\s+(?:off|on|target|all)\s*\](?:\s*(?:reason|reasoning|text)\s*=\s*"[^"]*"\s*)*/gi, '');
+  // Pattern 1b: [SUBTITLE on] ... [/SUBTITLE] block format (strip entire block)
+  text = text.replace(/\[SUBTITLE\s+[^\]]*\][\s\S]*?\[\/SUBTITLE\]/gi, '');
+  // Pattern 1c: Bare SUBTITLE with attributes (no closing bracket matched above)
+  text = text.replace(/\[SUBTITLE\s+[^\]]*\]/gi, '');
+  // Pattern 1d: Orphaned SUBTITLE",} or SUBTITLE",reasoning="..." fragments
+  text = text.replace(/SUBTITLE"\s*,?\s*\}?\s*(?:reasoning\s*=\s*"[^"]*")?/gi, '');
   // Pattern 2: { subtitle: { mode: "...", text: "..." } } - JSON-like format
   text = text.replace(/\{\s*subtitle\s*:\s*\{[^}]*\}\s*\}/gi, '');
   // Pattern 3: subtitle: { mode: "...", ... } - inline format

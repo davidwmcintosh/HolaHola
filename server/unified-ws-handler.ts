@@ -2932,7 +2932,8 @@ This is a voice conversation. Speak naturally, as you would.`;
                 user?.tutorExpressiveness || 3, // Use user's actual expressiveness preference
                 isFounderMode, // Pass Founder Mode flag for neural network behavior
                 tutorName, // Current tutor name (e.g., "Agustin" or "Daniela")
-                tutorGender // Current tutor gender
+                tutorGender, // Current tutor gender
+                true // useFunctionCalling - matches orchestrator's enableFunctionCalling: true
               );
               if (isFounderMode) {
                 console.log(`[Streaming Voice] Using FOUNDER MODE prompt with ${tutorName} (${tutorGender})`);

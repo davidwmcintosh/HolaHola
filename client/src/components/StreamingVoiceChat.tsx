@@ -2409,6 +2409,13 @@ export function StreamingVoiceChat({
   const handleEndCall = () => {
     console.log('[END CALL] User requested to end voice session');
     
+    // Clear greeting lock so reconnecting to the same conversation can get a fresh greeting
+    greetingRequestedRef.current = null;
+    clearGreetingLock();
+    try {
+      sessionStorage.removeItem(GREETING_MESSAGE_KEY);
+    } catch { /* ignore */ }
+    
     // Disconnect streaming voice FIRST - this is synchronous and immediately:
     // 1. Sets intentionalDisconnect = true (prevents auto-reconnect)
     // 2. Clears any pending reconnect timer
