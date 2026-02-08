@@ -1810,10 +1810,13 @@ Reference past discussions when relevant, but don't force it.
               }
               
               // Exit early if transcript has been stable for 150ms (3 checks) AND at least 200ms elapsed
+              // BUT only if we actually HAVE a non-empty transcript - otherwise keep waiting
+              // Empty transcripts should never trigger early exit (Deepgram may still be processing)
               // OR timeout after FINAL_WAIT_MS
-              if ((stableCount >= 3 && elapsed >= 200) || elapsed >= FINAL_WAIT_MS) {
+              const hasContent = currentTranscript.trim().length > 0;
+              if ((hasContent && stableCount >= 3 && elapsed >= 200) || elapsed >= FINAL_WAIT_MS) {
                 clearInterval(checkInterval);
-                console.log(`[SpeculativePTT] Wait complete: elapsed=${elapsed}ms, stable=${stableCount * STABLE_CHECK_MS}ms`);
+                console.log(`[SpeculativePTT] Wait complete: elapsed=${elapsed}ms, stable=${stableCount * STABLE_CHECK_MS}ms, hasContent=${hasContent}`);
                 resolve();
               }
             }, STABLE_CHECK_MS);
@@ -3509,10 +3512,13 @@ ${buildNativeFunctionCallingSection()}`;
               }
               
               // Exit early if transcript has been stable for 150ms (3 checks) AND at least 200ms elapsed
+              // BUT only if we actually HAVE a non-empty transcript - otherwise keep waiting
+              // Empty transcripts should never trigger early exit (Deepgram may still be processing)
               // OR timeout after FINAL_WAIT_MS
-              if ((stableCount >= 3 && elapsed >= 200) || elapsed >= FINAL_WAIT_MS) {
+              const hasContent = currentTranscript.trim().length > 0;
+              if ((hasContent && stableCount >= 3 && elapsed >= 200) || elapsed >= FINAL_WAIT_MS) {
                 clearInterval(checkInterval);
-                console.log(`[SpeculativePTT] Wait complete: elapsed=${elapsed}ms, stable=${stableCount * STABLE_CHECK_MS}ms`);
+                console.log(`[SpeculativePTT] Wait complete: elapsed=${elapsed}ms, stable=${stableCount * STABLE_CHECK_MS}ms, hasContent=${hasContent}`);
                 resolve();
               }
             }, STABLE_CHECK_MS);
