@@ -229,16 +229,40 @@ export function hasSignificantTargetLanguageContent(text: string): boolean {
 }
 
 /**
+ * Latin-script target languages that share the Latin alphabet with English.
+ * These need special handling because character-based detection alone can't
+ * distinguish them from English text.
+ */
+const LATIN_SCRIPT_LANGUAGES = new Set([
+  'spanish', 'french', 'german', 'italian', 'portuguese',
+]);
+
+/**
+ * Language-specific character/punctuation markers that unambiguously indicate
+ * a particular Latin-script language. If text contains these, it's NOT English.
+ */
+const LATIN_LANGUAGE_MARKERS: Record<string, RegExp> = {
+  'spanish': /[ñÑ¿¡áéíóúÁÉÍÓÚüÜ]/,
+  'french': /[àâæçéèêëîïôœùûüÿÀÂÆÇÉÈÊËÎÏÔŒÙÛÜŸ]/,
+  'german': /[äöüßÄÖÜẞ]/,
+  'italian': /[àèéìíîòóùúÀÈÉÌÍÎÒÓÙÚ]/,
+  'portuguese': /[ãõâêôàáçéíóúüÃÕÂÊÔÀÁÇÉÍÓÚÜ]/,
+};
+
+/**
  * Detects the predominant language of text for TTS synthesis.
- * This is critical for Japanese/Korean/Chinese voices speaking English text.
  * 
- * When a Japanese voice is configured but the text is mostly English,
- * we should tell Cartesia to use 'en' language code so pronunciation is correct.
- * The voice character is preserved, but pronunciation rules switch appropriately.
+ * Handles two key scenarios:
+ * 1. Non-Latin languages (Japanese, Korean, etc.): Use character script detection
+ * 2. Latin-script languages (Spanish, French, etc.): Use diacritics/punctuation markers
+ *    to detect when full target-language sentences should use target pronunciation.
+ * 
+ * When the word-by-word segmenter detected code-switching, this function is NOT called.
+ * It's only called for unsegmented text (entire chunk spoken as one language).
  * 
  * @param text - The text to analyze
- * @param targetLanguage - The session's target language (e.g., 'japanese')
- * @returns The language to use for TTS (e.g., 'english' or 'japanese')
+ * @param targetLanguage - The session's target language (e.g., 'japanese', 'spanish')
+ * @returns The language to use for TTS (e.g., 'english' or 'spanish')
  */
 export function detectTextLanguageForTTS(text: string, targetLanguage: string): string {
   if (!text || text.length < 3) return targetLanguage;
@@ -274,10 +298,27 @@ export function detectTextLanguageForTTS(text: string, targetLanguage: string): 
     return targetLanguage;
   }
   
-  // For Latin-script text, default to English TTS.
-  // The word-by-word segmenter handles all code-switching detection upstream,
-  // so this function only needs to pick a sensible default for the whole chunk.
-  // English is the right choice: if the segmenter didn't detect target language
-  // markers, the text looks like native language and should sound like it.
+  // For Latin-script target languages (Spanish, French, German, Italian, Portuguese):
+  // Check for language-specific diacritics and punctuation markers.
+  // Full target-language sentences (e.g. "¿Cómo estás?") won't have bold markers
+  // because Daniela isn't embedding vocab in English - she's speaking entirely in
+  // the target language. We detect this via diacritics/special characters.
+  const targetLower = targetLanguage.toLowerCase();
+  if (LATIN_SCRIPT_LANGUAGES.has(targetLower)) {
+    const markerPattern = LATIN_LANGUAGE_MARKERS[targetLower];
+    if (markerPattern) {
+      const markerMatches = text.match(new RegExp(markerPattern.source, 'g')) || [];
+      // Require multiple marker hits OR unambiguous markers (¿, ¡, ñ, ß, œ, æ)
+      // Single accented char could be English loanword (café, Beyoncé)
+      const unambiguousMarkers = /[¿¡ñÑßœŒæÆ]/;
+      if (unambiguousMarkers.test(text) || markerMatches.length >= 3) {
+        return targetLanguage;
+      }
+    }
+  }
+  
+  // For Latin-script text with no foreign markers, default to English TTS.
+  // The word-by-word segmenter handles code-switching detection upstream,
+  // so this fallback means the text genuinely looks like English.
   return 'english';
 }
