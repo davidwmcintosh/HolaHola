@@ -11190,13 +11190,26 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       case 'GRAMMAR_TABLE': {
         const headers = fn.args.headers as string | undefined;
         const rows = fn.args.rows as string | undefined;
+        const verb = fn.args.verb as string || 'conjugation';
+        const tense = fn.args.tense as string || '';
         
         if (headers && rows) {
           console.log(`[Native Function→GrammarTable] Headers: ${headers}`);
           this.sendMessage(session.ws, {
             type: 'whiteboard_update',
             timestamp: Date.now(),
-            items: [{ type: 'grammar_table', headers, rows }],
+            items: [{ 
+              type: 'grammar_table', 
+              content: `${verb}${tense ? ` (${tense})` : ''}: ${headers}`,
+              data: {
+                verb: verb,
+                tense: tense,
+                conjugations: rows.split('|').map(row => {
+                  const parts = row.split(':').map(s => s.trim());
+                  return { pronoun: parts[0] || '', form: parts[1] || parts[0] || '' };
+                }),
+              }
+            }],
           });
         }
         break;
@@ -11211,7 +11224,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           this.sendMessage(session.ws, {
             type: 'whiteboard_update',
             timestamp: Date.now(),
-            items: [{ type: 'compare', item1, item2 }],
+            items: [{ type: 'compare', content: `${item1} vs ${item2}` }],
           });
         }
         break;
@@ -11223,10 +11236,18 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         
         if (center && related) {
           console.log(`[Native Function→WordMap] Center: "${center}" -> ${related}`);
+          const relatedWords = related.split(',').map(w => w.trim()).filter(w => w.length > 0);
           this.sendMessage(session.ws, {
             type: 'whiteboard_update',
             timestamp: Date.now(),
-            items: [{ type: 'word_map', center, related }],
+            items: [{ 
+              type: 'word_map', 
+              content: `${center}: ${related}`,
+              data: {
+                targetWord: center,
+                collocations: relatedWords,
+              }
+            }],
           });
         }
         break;
