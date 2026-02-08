@@ -326,6 +326,8 @@ function cleanTextForDisplay(text: string): string {
   text = text.replace(/voice_adjust\s*:\s*\{[^}]*\}/gi, '');
   // Pattern 5: <ctrl46> artifacts from tokenization issues
   text = text.replace(/<ctrl\d+>/gi, '');
+  // Pattern 6: voice_adjust(...) - native function call syntax spoken as text
+  text = text.replace(/voice_adjust\s*\([^)]*\)/gi, '');
   
   // Strip VOICE_RESET tags (voice reset commands - internal, not spoken)
   // Pattern: [VOICE_RESET] or [VOICE_RESET reason="..."]
@@ -348,6 +350,17 @@ function cleanTextForDisplay(text: string): string {
   text = text.replace(/subtitle\s*:\s*\{[^}]*\}/gi, '');
   // Pattern 4: { subtitle"": {...} } - malformed quotes format
   text = text.replace(/\{\s*subtitle"*\s*:\s*\{[^}]*\}\s*\}/gi, '');
+  // Pattern 5: subtitle(...) - native function call syntax spoken as text
+  text = text.replace(/subtitle\s*\([^)]*\)/gi, '');
+  
+  // Catch-all: Strip any Daniela function name spoken as text with parentheses
+  // Matches patterns like: play_audio({...}), show_image({...}), phase_shift({...}), etc.
+  const functionNames = ['voice_adjust', 'voice_reset', 'subtitle', 'play_audio', 'show_image', 
+    'show_overlay', 'hide_overlay', 'clear_whiteboard', 'word_emphasis', 'hold_whiteboard',
+    'phase_shift', 'milestone', 'take_note', 'drill', 'express_lane_lookup'];
+  for (const fnName of functionNames) {
+    text = text.replace(new RegExp(fnName + '\\s*\\([^)]*\\)', 'gi'), '');
+  }
   
   // Strip MEMORY_LOOKUP tags (internal command triggers - should not be spoken)
   // Pattern: MEMORY_LOOKUP query="..." domains="..." (with or without brackets)
@@ -3431,7 +3444,8 @@ Remember: Beta testers understand they're helping build something and appreciate
       
       if (metrics.sentenceCount === 0 && hadFunctionCalls && functionsNeedingContinuation.length === 0) {
         const metadataOnlyFunctions = functionCallsCopy.map(fc => fc.name).join(', ');
-        const embeddedText = ((session as any).functionCallText || '').trim();
+        const rawEmbeddedText = ((session as any).functionCallText || '').trim();
+        const embeddedText = cleanTextForDisplay(rawEmbeddedText).trim();
         if (embeddedText) {
           console.log(`[Voice PTT] Metadata functions included embedded text (${embeddedText.length} chars) - using for TTS`);
           fullText = embeddedText;
@@ -5434,7 +5448,8 @@ Remember: Beta testers understand they're helping build something and appreciate
         const metadataOnlyFunctions = functionCallsCopyOpenMic.map(fc => fc.name).join(', ');
         
         // NEW: Check if voice_adjust or other functions included text - use it directly for TTS
-        const embeddedText = ((session as any).functionCallText || '').trim();
+        const rawEmbeddedText = ((session as any).functionCallText || '').trim();
+        const embeddedText = cleanTextForDisplay(rawEmbeddedText).trim();
         if (embeddedText) {
           console.log(`[Voice] Metadata functions included embedded text (${embeddedText.length} chars) - using for TTS`);
           // Use the embedded text for TTS instead of forcing continuation
@@ -5461,7 +5476,8 @@ Remember: Beta testers understand they're helping build something and appreciate
         
         // PRIORITY CHECK: If voice_adjust already provided embedded text, use it NOW and skip continuation
         // This handles cases like voice_adjust + play_audio or voice_adjust + take_note
-        const embeddedTextBeforeContinuation = ((session as any).functionCallText || '').trim();
+        const rawEmbeddedTextBeforeContinuation = ((session as any).functionCallText || '').trim();
+        const embeddedTextBeforeContinuation = cleanTextForDisplay(rawEmbeddedTextBeforeContinuation).trim();
         if (embeddedTextBeforeContinuation) {
           console.log(`[Multi-Step FC - OpenMic] Found embedded text (${embeddedTextBeforeContinuation.length} chars) BEFORE continuation - using for TTS`);
           fullText = embeddedTextBeforeContinuation;
@@ -5664,7 +5680,8 @@ Remember: Beta testers understand they're helping build something and appreciate
                  recursiveDepth < MAX_RECURSIVE_FC_DEPTH) {
             
             // CHECK: If voice_adjust already provided embedded text, use it and stop looping
-            const embeddedTextFromFC = ((session as any).functionCallText || '').trim();
+            const rawEmbeddedTextFromFC = ((session as any).functionCallText || '').trim();
+            const embeddedTextFromFC = cleanTextForDisplay(rawEmbeddedTextFromFC).trim();
             if (embeddedTextFromFC) {
               console.log(`[Multi-Step FC - OpenMic] Found embedded text (${embeddedTextFromFC.length} chars) - using for TTS and stopping continuation`);
               fullText = embeddedTextFromFC;
