@@ -461,6 +461,7 @@ export class CartesiaStreamingService extends EventEmitter {
     }
     
     console.log(`[Cartesia Streaming] Synthesizing: "${finalText.substring(0, 50)}..." (${finalText.length} chars)`);
+    console.log(`[TTS-LANG-DIAG] Cartesia API call: language='${selectedLanguage}', effectiveLanguageCode='${effectiveLanguageCode}', langForTTS='${langForTTS}', targetLanguage='${targetLanguage}'`);
     const voiceName = voiceId ? `custom (${voiceId.substring(0, 8)}...)` : voiceConfig.name;
     
     // Apply emotion intensity based on expressiveness level

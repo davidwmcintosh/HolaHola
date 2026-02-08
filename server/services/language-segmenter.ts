@@ -99,6 +99,9 @@ function detectKnownTargetWords(text: string, knownWords: string[]): Detection[]
   const detections: Detection[] = [];
   const knownSet = new Set(knownWords.map(w => w.toLowerCase().replace(/[^a-zA-ZÀ-ÿñÑ¿¡]/g, '')));
   
+  console.log(`[TTS-LANG-DIAG] detectKnownTargetWords: looking for ${knownWords.length} words in text (${text.length} chars)`);
+  console.log(`[TTS-LANG-DIAG] Known set: ${Array.from(knownSet).join(', ')}`);
+  
   const wordPattern = /[¡¿]?[a-zA-ZÀ-ÿñÑ]+[?!]?/g;
   let match;
   while ((match = wordPattern.exec(text)) !== null) {
@@ -114,6 +117,8 @@ function detectKnownTargetWords(text: string, knownWords: string[]): Detection[]
       });
     }
   }
+  
+  console.log(`[TTS-LANG-DIAG] detectKnownTargetWords: found ${detections.length} matches: ${detections.map(d => d.innerText).join(', ')}`);
   
   return detections;
 }
