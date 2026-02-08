@@ -3683,6 +3683,16 @@ ${buildNativeFunctionCallingSection()}`;
               pendingSpeculativeTranscript = null;
               pendingSpeculativeWordCount = 0;
               console.log(`[SpeculativePTT] No transcript to process`);
+              
+              // CRITICAL: Send response_complete so client exits "processing" state
+              // Without this, the client stays stuck in "thinking" forever
+              if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
+                ws.send(JSON.stringify({
+                  type: 'response_complete',
+                  timestamp: Date.now(),
+                  reason: 'no_transcript',
+                }));
+              }
             }
           }
           
