@@ -2909,8 +2909,10 @@ export function buildNativeFunctionCallingSection(): string {
   lines.push('  - reason (optional): why resetting voice');
   lines.push('');
   lines.push('subtitle(mode)');
-  lines.push('  Control subtitle display.');
+  lines.push('  Control subtitle display. ALWAYS say something when changing mode.');
   lines.push('  - mode (required): "off", "on", or "target" (target language only)');
+  lines.push('  Example: "Sure, I\'ll show just the Spanish words!" + subtitle(mode="target")');
+  lines.push('  Example: "Okay, subtitles off!" + subtitle(mode="off")');
   lines.push('');
   lines.push('show_overlay(text)');
   lines.push('  Display text overlay on screen.');
