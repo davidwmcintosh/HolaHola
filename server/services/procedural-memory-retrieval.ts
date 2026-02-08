@@ -2936,6 +2936,15 @@ export function buildNativeFunctionCallingSection(): string {
   lines.push('  Prevent whiteboard auto-clearing.');
   lines.push('  - text (required): your spoken response');
   lines.push('');
+  lines.push('milestone(text, type, title, description, significance?, emotional_context?)');
+  lines.push('  Record a learning milestone or breakthrough moment for this student.');
+  lines.push('  - text (required): your spoken response celebrating the milestone');
+  lines.push('  - type (required): breakthrough, first_success, plateau_overcome, connection_made, confidence_boost, teacher_flagged, vocabulary_milestone, grammar_milestone, fluency_marker');
+  lines.push('  - title (required): short label (e.g. "First joke in Spanish")');
+  lines.push('  - description (required): the full story of what happened');
+  lines.push('  - significance (optional): why this was meaningful for this student');
+  lines.push('  - emotional_context (optional): student emotion: proud, relieved, surprised, excited');
+  lines.push('');
   lines.push('───────────────────────────────────────────────────────────────────────────────');
   lines.push('MEMORY & LEARNING:');
   lines.push('───────────────────────────────────────────────────────────────────────────────');

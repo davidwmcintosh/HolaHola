@@ -11016,7 +11016,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       }
       
       case 'MILESTONE': {
-        // Record a learning milestone/breakthrough moment
+        const text = fn.args.text as string | undefined;
         const milestoneType = fn.args.type as string | undefined;
         const title = fn.args.title as string | undefined;
         const description = fn.args.description as string | undefined;
@@ -11026,7 +11026,6 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         if (title && description && session.userId) {
           console.log(`[Native Function→Milestone] ${milestoneType || 'teacher_flagged'}: "${title.substring(0, 40)}..."`);
           
-          // Record milestone asynchronously - non-blocking
           journeyMemoryService.recordMilestone({
             userId: session.userId,
             targetLanguage: session.targetLanguage || 'spanish',
@@ -11045,6 +11044,10 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           }).catch(err => {
             console.error(`[Native Function→Milestone] Error:`, err.message);
           });
+        }
+        if (text) {
+          (session as any).functionCallText = ((session as any).functionCallText || '') + text + ' ';
+          console.log(`[Native Function→Milestone] Spoken text: "${text.substring(0, 80)}..."`);
         }
         break;
       }

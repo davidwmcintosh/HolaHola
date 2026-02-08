@@ -544,6 +544,24 @@ NEVER guess. NEVER roleplay searching. Actually call this function.`,
     },
   },
 
+  // === MILESTONE (record learning breakthroughs) ===
+  {
+    name: "milestone",
+    description: "Record a learning milestone or breakthrough moment for this student. Use when the student has an 'aha!' moment, first success, overcomes a plateau, makes a personal connection, or shows a confidence boost. These are preserved forever in the student's journey.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        text: { type: "string", description: "Your spoken response celebrating or acknowledging the milestone" },
+        type: { type: "string", enum: ["breakthrough", "first_success", "plateau_overcome", "connection_made", "confidence_boost", "teacher_flagged", "vocabulary_milestone", "grammar_milestone", "fluency_marker"], description: "Category of milestone" },
+        title: { type: "string", description: "Short label (e.g. 'First joke in Spanish', 'Mastered ser vs estar')" },
+        description: { type: "string", description: "The full story of what happened and why it matters" },
+        significance: { type: "string", description: "Why this was meaningful for this particular student" },
+        emotional_context: { type: "string", description: "The student's emotional state: proud, relieved, surprised, excited, etc." },
+      },
+      required: ["text", "type", "title", "description"],
+    },
+  },
+
   // === TAKE NOTE (self-improvement) ===
   {
     name: "take_note",
@@ -618,6 +636,7 @@ export const FUNCTION_TO_COMMAND_MAP: Record<string, string> = {
   'pronunciation_tag': 'PRONUNCIATION_TAG',
   'first_meeting_complete': 'FIRST_MEETING_COMPLETE',
   'take_note': 'TAKE_NOTE',
+  'milestone': 'MILESTONE',
 };
 
 /**
