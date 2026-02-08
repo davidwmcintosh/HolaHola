@@ -1,37 +1,17 @@
 /**
  * Utility functions for text processing
  * 
- * REFACTOR NOTES (December 2025):
- * Simplified from multi-pass defensive extraction to principled bold-only approach.
+ * REFACTOR (February 2026):
+ * Simplified architecture. Bold markers (**word**) from Gemini are extracted once
+ * upstream (via extractBoldMarkedWords in language-segmenter.ts) and passed as
+ * knownTargetWords to both subtitle mapping and TTS segmentation.
  * 
- * REMOVED FEATURES (may be reintroduced if problems arise):
- * - PASS 3: Common foreign word list (COMMON_SHORT_FOREIGN_WORDS) - caused ambiguity
- * - PASS 4: Multi-word phrase matching fallback - position tracking was buggy
- * - ENGLISH_FILTER blocklist - no longer needed with principled extraction
- * - Position-based segment tracking with overlap detection - overcomplicated
- * - expandToPhrase() helper - relied on COMMON_PHRASES patterns
+ * extractTargetLanguageWithMapping: Accepts knownTargetWords, does simple word
+ * matching against display text. No more multi-pass heuristic detection.
  * 
- * KEPT FEATURES:
- * - PASS 1: Bold marker extraction (**word**) - primary method, trusts AI marking
- * - PASS 2: Foreign character detection (¡, ¿, ñ, á, é, etc.) - unambiguous backup
- * - Parenthetical content removal - prevents English translations leaking
- * - Emotion tag stripping - removes (friendly), (curious) etc.
+ * extractTargetLanguageText: Still exists for standalone extraction in routes/chat
+ * where bold markers aren't pre-extracted. Uses bold + diacritic detection.
  */
-
-import { franc } from 'franc-min';
-
-// Supported target languages mapped to franc ISO 639-3 codes
-const TARGET_LANGUAGE_CODES = new Set([
-  'spa', // Spanish
-  'fra', // French  
-  'deu', // German
-  'ita', // Italian
-  'por', // Portuguese
-  'jpn', // Japanese
-  'kor', // Korean
-  'cmn', // Mandarin Chinese
-  'arb', // Arabic
-]);
 
 /**
  * Extracts target language text from a mixed-language response
@@ -167,30 +147,24 @@ export interface TargetLanguageExtractionResult {
 }
 
 /**
- * Extracts target language text from display text with word position mapping
- * This enables karaoke highlighting in Target subtitle mode by knowing which
- * word indices from the full text correspond to words in the target text
- * 
- * SIMPLIFIED APPROACH:
- * - No English filter blocklist (was causing bugs with position tracking)
- * - Direct word matching between display and target text
- * - Trusts extractTargetLanguageText to return only foreign words
+ * Extracts target language text from display text with word position mapping.
+ * Uses knownTargetWords (pre-extracted from bold markers upstream) for direct matching.
  * 
  * Example:
  *   displayText: "Let's learn the word Hola which means hello"
+ *   knownTargetWords: ["Hola"]
  *   Returns: {
  *     targetText: "Hola",
- *     wordMapping: Map { 4 => 0 }  // "Hola" is word 4 in full, word 0 in target
+ *     wordMapping: Map { 4 => 0 }
  *   }
  * 
  * @param displayText - The cleaned display text (no markdown, no emotion tags)
- * @param rawText - The raw text with **bold** markers (optional, for primary extraction)
+ * @param knownTargetWords - Words known to be target language (from bold markers in raw Gemini text)
  * @returns Target text and word index mapping
  */
 export function extractTargetLanguageWithMapping(
   displayText: string,
-  rawText?: string,
-  targetLanguage?: string
+  knownTargetWords: string[]
 ): TargetLanguageExtractionResult {
   const result: TargetLanguageExtractionResult = {
     targetText: '',
@@ -199,70 +173,30 @@ export function extractTargetLanguageWithMapping(
   
   if (!displayText) return result;
   
-  // Check if the entire text is in the target language (not code-switching)
-  // When Daniela speaks fully in Spanish, words like "ahora", "mismo", "para"
-  // lack diacritics and are missed by per-word extraction
-  if (isTextPredominantlyTargetLanguage(displayText, targetLanguage)) {
-    const allWords = displayText.split(/\s+/).filter(w => w.length > 0);
-    console.log(`[TargetExtraction] Full target language detected (${allWords.length} words) - showing all as target`);
-    result.targetText = allWords.join(' ');
-    allWords.forEach((_, i) => result.wordMapping.set(i, i));
-    return result;
-  }
-  
-  // Get the target language text using existing extraction
-  let targetText = rawText 
-    ? extractTargetLanguageText(rawText) 
-    : extractTargetLanguageText(displayText);
-  
-  if (!targetText) return result;
-  
-  // Clean any residual markers from target text
-  // This catches edge cases where ** markers or quotes weren't fully stripped
-  targetText = targetText
-    .replace(/\*\*/g, '')           // Remove any remaining bold markers
-    .replace(/^["'""'']+|["'""'']+$/g, '')  // Remove leading/trailing quotes
-    .replace(/["'""'']\s*$/g, '')   // Remove trailing quote followed by space
-    .replace(/^\s*["'""'']/g, '')   // Remove leading quote
-    .trim();
-  
-  if (!targetText) return result;
-  
-  result.targetText = targetText;
-  
-  // Split both texts into words for mapping
   const displayWords = displayText.split(/\s+/).filter(w => w.length > 0);
-  const targetWordsArray = targetText.split(/\s+/).filter(w => w.length > 0);
+  if (displayWords.length === 0) return result;
   
-  if (displayWords.length === 0 || targetWordsArray.length === 0) {
-    return result;
-  }
+  const knownNormalized = new Set(
+    (knownTargetWords || []).map(w => normalizeWordForComparison(w))
+      .filter(w => w.length > 0)
+  );
   
-  // Build word mapping: for each target word, find its position in display text
-  // Use a greedy matching approach that handles repeated words
-  let targetWordIndex = 0;
+  const matchedWords: string[] = [];
   
-  for (let displayIndex = 0; displayIndex < displayWords.length && targetWordIndex < targetWordsArray.length; displayIndex++) {
-    const displayWord = normalizeWordForComparison(displayWords[displayIndex]);
-    const targetWord = normalizeWordForComparison(targetWordsArray[targetWordIndex]);
-    
-    if (displayWord === targetWord) {
-      result.wordMapping.set(displayIndex, targetWordIndex);
-      targetWordIndex++;
+  for (let i = 0; i < displayWords.length; i++) {
+    const normalized = normalizeWordForComparison(displayWords[i]);
+    if (knownNormalized.has(normalized)) {
+      result.wordMapping.set(i, matchedWords.length);
+      matchedWords.push(displayWords[i]);
     }
   }
   
-  // Log mapping for debugging
-  if (result.wordMapping.size > 0) {
+  if (matchedWords.length > 0) {
+    result.targetText = matchedWords.join(' ');
     const mappingStr = Array.from(result.wordMapping.entries())
       .map(([full, target]) => `${full}=>${target}`)
       .join(', ');
-    console.log(`[TargetExtraction] Mapping: ${mappingStr} (${displayWords.length} display -> ${result.wordMapping.size} target)`);
-  } else if (targetWordsArray.length > 0) {
-    // Log when we have target words but no mapping (useful for debugging)
-    console.log(`[TargetExtraction] WARNING: ${targetWordsArray.length} target words but no mapping found`);
-    console.log(`[TargetExtraction] Target: "${targetText}"`);
-    console.log(`[TargetExtraction] Display: "${displayText.substring(0, 100)}..."`);
+    console.log(`[TargetExtraction] Mapping: ${mappingStr} (${displayWords.length} display -> ${matchedWords.length} target)`);
   }
   
   return result;
@@ -275,73 +209,6 @@ function normalizeWordForComparison(word: string): string {
   return word
     .toLowerCase()
     .replace(new RegExp('^[^\\p{L}\\p{N}]+|[^\\p{L}\\p{N}]+$', 'gu'), ''); // Remove leading/trailing non-letter/number
-}
-
-/**
- * Detects if text is predominantly in the target language (not code-switching).
- * When Daniela speaks entirely in Spanish, many words lack diacritics/markers
- * and are incorrectly classified as English. This function detects monolingual
- * target language text so ALL words can be treated as target language.
- * 
- * Heuristic: If the text has strong target language indicators (diacritics, ¿, ¡)
- * AND does not contain definitive English-only structural words, it's likely
- * monolingual target language text.
- * 
- * @param text - The text to analyze
- * @param targetLanguage - The session's target language
- * @returns True if the text appears to be entirely in the target language
- */
-export function isTextPredominantlyTargetLanguage(text: string, targetLanguage?: string): boolean {
-  if (!text || text.length < 10) return false;
-  
-  const words = text.split(/\s+/).filter(w => w.length > 0);
-  if (words.length < 3) return false;
-  
-  const hasSpanishMarkers = /[¿¡ñáéíóúü]/i.test(text);
-  const hasFrenchMarkers = /[àâçèéêëîïôùûüæœ]/i.test(text);
-  const hasGermanMarkers = /[äöüß]/i.test(text);
-  const hasPortugueseMarkers = /[ãõçáéíóúâêô]/i.test(text);
-  const hasItalianMarkers = /[àèéìíîòóùú]/i.test(text);
-  const hasCJK = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\uAC00-\uD7AF]/.test(text);
-  
-  const hasAnyTargetMarkers = hasSpanishMarkers || hasFrenchMarkers || hasGermanMarkers || 
-    hasPortugueseMarkers || hasItalianMarkers || hasCJK;
-  
-  if (!hasAnyTargetMarkers) return false;
-  
-  const englishStructuralWords = new Set([
-    'the', 'this', 'that', 'these', 'those', 'is', 'are', 'was', 'were',
-    'have', 'has', 'had', 'which', 'who', 'whose', 'where', 'when',
-    'while', 'although', 'because', 'however', 'therefore',
-    'should', 'would', 'could', 'might', 'shall',
-    'and', 'but', 'or', 'not', 'its', "it's",
-    'you', 'your', "you're", 'they', 'their', "they're",
-    'we', 'our', 'she', 'her', 'his', 'him',
-    'do', "don't", 'does', "doesn't",
-    'will', "won't", 'can', "can't",
-    'just', 'also', 'very', 'really', 'about',
-    'now', 'try', 'saying', 'means', 'called',
-    'great', 'good', 'nice', 'well', 'right', 'okay',
-    'let', "let's", 'want', 'need', 'like',
-    'here', 'there', 'how', 'what', 'why',
-    'with', 'from', 'into', 'over', 'under',
-  ]);
-  
-  const lowerWords = words.map(w => w.toLowerCase().replace(/[^a-záéíóúñüàâçèêëîïôùûüäöß]/gi, ''));
-  const englishCount = lowerWords.filter(w => englishStructuralWords.has(w)).length;
-  const englishRatio = englishCount / words.length;
-  
-  if (englishRatio > 0.15) return false;
-  
-  const foreignCharPattern = /[¡¿ñáéíóúàâçèêëîïôùûüäöüßãõæœ]/i;
-  const markedWordCount = lowerWords.filter(w => foreignCharPattern.test(w)).length;
-  const markedRatio = markedWordCount / words.length;
-  
-  if (markedRatio >= 0.15) return true;
-  
-  if (hasSpanishMarkers && /[¿¡]/.test(text)) return true;
-  
-  return false;
 }
 
 /**

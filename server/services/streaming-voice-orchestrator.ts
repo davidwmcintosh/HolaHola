@@ -3303,7 +3303,8 @@ Remember: Beta testers understand they're helping build something and appreciate
           
           // Extract target language with word mapping (needs raw text with bold markers)
           // This provides both targetLanguageText AND a mapping for karaoke highlighting
-          const extraction = extractTargetLanguageWithMapping(displayText, chunk.text, session.targetLanguage);
+          const boldWords = extractBoldMarkedWords(chunk.text || '');
+          const extraction = extractTargetLanguageWithMapping(displayText, boldWords);
           
           // DEBUG: Trace extraction
           if (extraction.targetText) {
@@ -3442,7 +3443,8 @@ Remember: Beta testers understand they're helping build something and appreciate
           fullText = embeddedText;
           metrics.sentenceCount = 1;
           
-          const pttEmbedExtraction = extractTargetLanguageWithMapping(embeddedText, rawEmbeddedText, session.targetLanguage);
+          const pttEmbedBoldWords = extractBoldMarkedWords(rawEmbeddedText || '');
+          const pttEmbedExtraction = extractTargetLanguageWithMapping(embeddedText, pttEmbedBoldWords);
           const pttEmbedWordMapping: [number, number][] = pttEmbedExtraction.wordMapping.size > 0
             ? Array.from(pttEmbedExtraction.wordMapping.entries()) : [];
           const pttEmbedHasTarget = !!(pttEmbedExtraction.targetText && pttEmbedExtraction.targetText.trim().length > 0);
@@ -5344,7 +5346,8 @@ Remember: Beta testers understand they're helping build something and appreciate
           actualSentenceCount++;
           
           // Extract target language with word mapping
-          const extraction = extractTargetLanguageWithMapping(displayText, chunk.text, session.targetLanguage);
+          const boldWords = extractBoldMarkedWords(chunk.text || '');
+          const extraction = extractTargetLanguageWithMapping(displayText, boldWords);
           const wordMappingArray: [number, number][] = extraction.wordMapping.size > 0
             ? Array.from(extraction.wordMapping.entries())
             : [];
@@ -5458,7 +5461,8 @@ Remember: Beta testers understand they're helping build something and appreciate
           fullText = embeddedText;
           metrics.sentenceCount = 1;
           
-          const embeddedExtraction = extractTargetLanguageWithMapping(embeddedText, rawEmbeddedText, session.targetLanguage);
+          const embeddedBoldWords = extractBoldMarkedWords(rawEmbeddedText || '');
+          const embeddedExtraction = extractTargetLanguageWithMapping(embeddedText, embeddedBoldWords);
           const embeddedWordMapping: [number, number][] = embeddedExtraction.wordMapping.size > 0
             ? Array.from(embeddedExtraction.wordMapping.entries()) : [];
           const embeddedHasTarget = !!(embeddedExtraction.targetText && embeddedExtraction.targetText.trim().length > 0);
@@ -5499,7 +5503,8 @@ Remember: Beta testers understand they're helping build something and appreciate
           fullText = embeddedTextBeforeContinuation;
           metrics.sentenceCount = 1;
           
-          const contExtraction = extractTargetLanguageWithMapping(embeddedTextBeforeContinuation, rawEmbeddedTextBeforeContinuation, session.targetLanguage);
+          const contBoldWords = extractBoldMarkedWords(rawEmbeddedTextBeforeContinuation || '');
+          const contExtraction = extractTargetLanguageWithMapping(embeddedTextBeforeContinuation, contBoldWords);
           const contWordMapping: [number, number][] = contExtraction.wordMapping.size > 0
             ? Array.from(contExtraction.wordMapping.entries()) : [];
           const contHasTarget = !!(contExtraction.targetText && contExtraction.targetText.trim().length > 0);
@@ -9369,7 +9374,8 @@ Only include observations you can clearly justify from the exchange. Return empt
           if (!displayText) return;
           
           // Extract target language with word mapping
-          const extraction = extractTargetLanguageWithMapping(displayText, chunk.text, session.targetLanguage);
+          const boldWords = extractBoldMarkedWords(chunk.text || '');
+          const extraction = extractTargetLanguageWithMapping(displayText, boldWords);
           const wordMappingArray: [number, number][] = extraction.wordMapping.size > 0
             ? Array.from(extraction.wordMapping.entries())
             : [];
@@ -9500,7 +9506,8 @@ Only include observations you can clearly justify from the exchange. Return empt
             const displayText = cleanTextForDisplay(chunk.text);
             if (!displayText) return;
             
-            const extraction = extractTargetLanguageWithMapping(displayText, chunk.text, session.targetLanguage);
+            const boldWords = extractBoldMarkedWords(chunk.text || '');
+            const extraction = extractTargetLanguageWithMapping(displayText, boldWords);
             const wordMappingArray: [number, number][] = extraction.wordMapping.size > 0
               ? Array.from(extraction.wordMapping.entries())
               : [];
@@ -9540,7 +9547,8 @@ Only include observations you can clearly justify from the exchange. Return empt
         // Process the text as a single sentence
         const displayText = cleanTextForDisplay(functionCallText);
         if (displayText) {
-          const extraction = extractTargetLanguageWithMapping(displayText, functionCallText, session.targetLanguage);
+          const boldWords = extractBoldMarkedWords(functionCallText || '');
+          const extraction = extractTargetLanguageWithMapping(displayText, boldWords);
           const wordMappingArray: [number, number][] = extraction.wordMapping.size > 0
             ? Array.from(extraction.wordMapping.entries())
             : [];
