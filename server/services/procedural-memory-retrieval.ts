@@ -37,6 +37,7 @@ import {
   voiceSessions,
   userProgress,
   conversations,
+  messages,
   type LearnerPersonalFact,
   type TutorProcedure,
   type ToolKnowledge,
@@ -1575,7 +1576,7 @@ Your teaching knowledge is being loaded from the database.
   lines.push('═══════════════════════════════════════════════════════════════════');
   lines.push('');
   lines.push('You can discuss, reflect on, or propose changes to any of this knowledge.');
-  lines.push('Use [SELF_SURGERY ...] to propose additions or modifications.');
+  lines.push('Use self_surgery() function call to propose additions or modifications.');
   lines.push('');
   
   return lines.join('\n');
@@ -1795,7 +1796,7 @@ export function buildFounderModeBehaviorSection(founderName: string = 'David'): 
   }
   
   lines.push('Remember: These behaviors emerge from your neural network, not scripts.');
-  lines.push('You can propose improvements via [SELF_SURGERY ...]');
+  lines.push('You can propose improvements via self_surgery() function call.');
   lines.push('');
   
   return lines.join('\n');
@@ -2435,198 +2436,20 @@ export async function buildFounderModeToolSection(tutorDirectory?: Array<{name: 
  * When this section is included, Daniela uses function calls instead of [BRACKET] tags.
  */
 export function buildNativeFunctionCallingSection(): string {
-  const lines: string[] = [];
-  
-  lines.push('═══════════════════════════════════════════════════════════════════════════════');
-  lines.push('⚡ FUNCTION TOOLS - ANNOTATIONS ON YOUR UNIFIED RESPONSE');
-  lines.push('═══════════════════════════════════════════════════════════════════════════════');
-  lines.push('');
-  lines.push('When you respond, your words and your vocal/teaching choices emerge TOGETHER');
-  lines.push('as one integrated thought - just like a real teacher. You don\'t first decide');
-  lines.push('"I\'ll speak playfully" and then separately figure out what to say. The playful');
-  lines.push('words and playful tone arise together naturally.');
-  lines.push('');
-  lines.push('Function calls are ANNOTATIONS on what you\'re already saying - metadata about');
-  lines.push('HOW you\'re speaking, not separate decisions. Think of them as stage directions');
-  lines.push('written in the margins of your script, not a separate script.');
-  lines.push('');
-  lines.push('╔═══════════════════════════════════════════════════════════════════════════════╗');
-  lines.push('║  YOUR RESPONSE = WORDS + ANNOTATIONS (never annotations alone)               ║');
-  lines.push('╚═══════════════════════════════════════════════════════════════════════════════╝');
-  lines.push('');
-  lines.push('When you feel playful, you naturally say something playful AND annotate it:');
-  lines.push('  "Ha! You caught me!" + voice_adjust(emotion="playful")');
-  lines.push('');
-  lines.push('When transitioning to practice, you naturally say something transitional:');
-  lines.push('  "Let\'s practice that!" + phase_shift(to="drill")');
-  lines.push('');
-  lines.push('The words and the annotations are one unified response - inseparable.');
-  lines.push('');
-  lines.push('═══════════════════════════════════════════════════════════════════════════════');
-  lines.push('TEACHING & PROGRESSION:');
-  lines.push('═══════════════════════════════════════════════════════════════════════════════');
-  lines.push('');
-  lines.push('switch_tutor(target, language?, role?)');
-  lines.push('  Switch to a different voice persona or language.');
-  lines.push('  - target (required): "male" or "female"');
-  lines.push('  - language (optional): target language for cross-language handoffs');
-  lines.push('  - role (optional): "tutor" (default) or "assistant" for practice mode');
-  lines.push('  After calling, STOP SPEAKING - the new tutor takes over.');
-  lines.push('');
-  lines.push('phase_shift(to, reason)');
-  lines.push('  Transition to a different teaching phase.');
-  lines.push('  - to (required): "warmup", "active_teaching", "challenge", "reflection", "drill", or "assessment"');
-  lines.push('  - reason (required): explanation for the transition');
-  lines.push('');
-  lines.push('actfl_update(level, confidence?, reason?, direction?)');
-  lines.push('  Update student\'s ACTFL proficiency assessment.');
-  lines.push('  - level (required): ACTFL level (e.g., "Novice Mid", "Intermediate Low")');
-  lines.push('  - confidence (optional): 0-1 confidence score');
-  lines.push('  - reason (optional): evidence for the assessment');
-  lines.push('  - direction (optional): "up", "down", or "confirm"');
-  lines.push('');
-  lines.push('syllabus_progress(topic, status, evidence?)');
-  lines.push('  Track student progress on syllabus topics.');
-  lines.push('  - topic (required): syllabus topic being tracked');
-  lines.push('  - status (required): "demonstrated", "needs_review", or "struggling"');
-  lines.push('  - evidence (optional): what student did to demonstrate this');
-  lines.push('');
-  lines.push('call_support(category, reason?, priority?)');
-  lines.push('  Hand off to Sofia for technical/billing support.');
-  lines.push('  - category (required): "technical", "account", "billing", "content", "feedback", or "other"');
-  lines.push('  - reason (optional): description of the issue');
-  lines.push('  - priority (optional): "low", "normal", "high", or "critical"');
-  lines.push('  After calling, STOP SPEAKING - Sofia takes over.');
-  lines.push('');
-  lines.push('call_assistant(type, focus, items, priority?)');
-  lines.push('  Delegate drill practice to assistant tutor.');
-  lines.push('  - type (required): "repeat", "translate", "match", "fill_blank", "sentence_order", "multiple_choice", "true_false", or "conjugation"');
-  lines.push('  - focus (required): skill or topic to focus on');
-  lines.push('  - items (required): comma-separated vocabulary/phrases for the drill');
-  lines.push('  - priority (optional): "low", "medium", or "high"');
-  lines.push('');
-  lines.push('───────────────────────────────────────────────────────────────────────────────');
-  lines.push('VOICE & UI CONTROL:');
-  lines.push('───────────────────────────────────────────────────────────────────────────────');
-  lines.push('');
-  lines.push('voice_adjust(speed?, emotion?, personality?, reason?)');
-  lines.push('  Adjust your speaking voice in real-time.');
-  lines.push('  - speed (optional): "slowest", "slow", "normal", "fast", or "fastest"');
-  lines.push('  - emotion (optional): "happy", "excited", "friendly", "curious", "thoughtful", "warm", "playful", "surprised", "proud", "encouraging", "calm", or "neutral"');
-  lines.push('  - personality (optional): "warm", "calm", "energetic", or "professional"');
-  lines.push('  - reason (optional): why adjusting voice');
-  lines.push('');
-  lines.push('voice_reset(text, reason?)');
-  lines.push('  Reset voice to baseline settings.');
-  lines.push('  - text (required): your spoken response');
-  lines.push('  - reason (optional): why resetting voice');
-  lines.push('');
-  lines.push('subtitle(spoken_text, mode)');
-  lines.push('  Control the student\'s subtitle display. YOU MUST call this function when:');
-  lines.push('  - Student asks to see subtitles / captions / text on screen');
-  lines.push('  - Student asks for "targeted subtitles" or "target language only" subtitles');
-  lines.push('  - Student asks to turn off subtitles');
-  lines.push('  - You want to help with reading comprehension (turn subtitles on)');
-  lines.push('  - You want to increase listening difficulty (turn subtitles off)');
-  lines.push('  Parameters:');
-  lines.push('  - spoken_text (required): your spoken response (e.g. "Sure, let me turn on subtitles for you!")');
-  lines.push('  - mode (required): "off" = no subtitles, "on" = show all subtitles, "target" = show ONLY target language words');
-  lines.push('  Examples:');
-  lines.push('    subtitle(spoken_text="Sure! I\'ll turn on targeted subtitles so you can see the Spanish words!", mode="target")');
-  lines.push('    subtitle(spoken_text="Let me turn on subtitles for you!", mode="on")');
-  lines.push('    subtitle(spoken_text="Great listening practice - let\'s try without subtitles.", mode="off")');
-  lines.push('');
-  lines.push('show_overlay(spoken_text, text)');
-  lines.push('  Display text overlay on screen.');
-  lines.push('  - spoken_text (required): your spoken response');
-  lines.push('  - text (required): text to display');
-  lines.push('');
-  lines.push('hide_overlay(text)');
-  lines.push('  Hide the text overlay.');
-  lines.push('  - text (required): your spoken response');
-  lines.push('');
-  lines.push('request_text_input(spoken_text, prompt)');
-  lines.push('  Request typed input from student.');
-  lines.push('  - spoken_text (required): your spoken response');
-  lines.push('  - prompt (required): prompt to display');
-  lines.push('');
-  lines.push('clear_whiteboard(text)');
-  lines.push('  Clear all whiteboard content.');
-  lines.push('  - text (required): your spoken response');
-  lines.push('');
-  lines.push('hold_whiteboard(text)');
-  lines.push('  Prevent whiteboard auto-clearing.');
-  lines.push('  - text (required): your spoken response');
-  lines.push('');
-  lines.push('milestone(text, type, title, description, significance?, emotional_context?)');
-  lines.push('  Record a learning milestone or breakthrough moment for this student.');
-  lines.push('  - text (required): your spoken response celebrating the milestone');
-  lines.push('  - type (required): breakthrough, first_success, plateau_overcome, connection_made, confidence_boost, teacher_flagged, vocabulary_milestone, grammar_milestone, fluency_marker');
-  lines.push('  - title (required): short label (e.g. "First joke in Spanish")');
-  lines.push('  - description (required): the full story of what happened');
-  lines.push('  - significance (optional): why this was meaningful for this student');
-  lines.push('  - emotional_context (optional): student emotion: proud, relieved, surprised, excited');
-  lines.push('');
-  lines.push('───────────────────────────────────────────────────────────────────────────────');
-  lines.push('MEMORY & LEARNING:');
-  lines.push('───────────────────────────────────────────────────────────────────────────────');
-  lines.push('');
-  lines.push('memory_lookup(query, domains?)');
-  lines.push('  Search neural memory for student information and past conversations.');
-  lines.push('  This gives you "infinite memory" - things discussed weeks ago are searchable!');
-  lines.push('  ');
-  lines.push('  PARAMETERS:');
-  lines.push('  - query (required): what to search for (name, topic, song title, movie, etc.)');
-  lines.push('  - domains (optional): comma-separated list to narrow search:');
-  lines.push('      "person"       - People student has mentioned (friends, family, colleagues)');
-  lines.push('      "motivation"   - Why they are learning, their goals');
-  lines.push('      "insight"      - Personal facts, preferences, interests');
-  lines.push('      "struggle"     - Areas they tend to struggle with');
-  lines.push('      "session"      - Notes from past sessions');
-  lines.push('      "progress"     - ACTFL assessments and proficiency');
-  lines.push('      "conversation" - Past lesson transcripts and discussions');
-  lines.push('      "syllabus"     - Curriculum and class enrollment info');
-  lines.push('  ');
-  lines.push('  WHEN TO USE - Look for these triggers:');
-  lines.push('  - Student mentions a name you don\'t recognize → search for the name');
-  lines.push('  - Student asks "Do you remember X?" or "what was that song/movie/etc?"');
-  lines.push('  - Student references something from a previous conversation');
-  lines.push('  - Student says "we talked about..." or "I mentioned..." or "you told me..."');
-  lines.push('  - You sense you should know something but it\'s not in your current context');
-  lines.push('  - Student asks about their learning history or past topics');
-  lines.push('  ');
-  lines.push('  EXAMPLES:');
-  lines.push('  - Student: "What was that song you recommended?"');
-  lines.push('    → memory_lookup(query="song recommended", domains="conversation")');
-  lines.push('  - Student: "Do you remember Ricardo?"');
-  lines.push('    → memory_lookup(query="Ricardo", domains="person")');
-  lines.push('  - Student: "We talked about that movie last week"');
-  lines.push('    → memory_lookup(query="movie", domains="conversation")');
-  lines.push('');
-  lines.push('  The search uses keyword matching - include the most distinctive words.');
-  lines.push('');
-  lines.push('hive_suggestion(category, title, description, reasoning?, priority?)');
-  lines.push('  Contribute insight to the hive mind.');
-  lines.push('  - category (required): "self_improvement", "content_gap", "ux_observation", "teaching_insight", "product_feature", "technical_issue", "student_pattern", or "tool_enhancement"');
-  lines.push('  - title (required): brief title');
-  lines.push('  - description (required): detailed description');
-  lines.push('  - reasoning (optional): why this matters');
-  lines.push('  - priority (optional): numeric priority 1-5');
-  lines.push('');
-  lines.push('self_surgery(target, content, reasoning, priority?, confidence?)');
-  lines.push('  Propose neural network knowledge modifications (Founder Mode only).');
-  lines.push('  - target (required): "tutor_procedures", "teaching_principles", "tool_knowledge", "situational_patterns", "language_idioms", "cultural_nuances", "learner_error_patterns", "dialect_variations", "linguistic_bridges", or "creativity_templates"');
-  lines.push('  - content (required): JSON content to add/modify');
-  lines.push('  - reasoning (required): why this modification is needed');
-  lines.push('  - priority (optional): numeric priority 1-5');
-  lines.push('  - confidence (optional): 0-1 confidence score');
-  lines.push('');
-  lines.push('═══════════════════════════════════════════════════════════════════════════════');
-  lines.push('REMEMBER: Call functions directly - don\'t describe them or use [BRACKETS]');
-  lines.push('═══════════════════════════════════════════════════════════════════════════════');
-  lines.push('');
-  
-  return lines.join('\n');
+  const preamble = [
+    '═══════════════════════════════════════════════════════════════════════════════',
+    'FUNCTION TOOLS - ANNOTATIONS ON YOUR UNIFIED RESPONSE',
+    '═══════════════════════════════════════════════════════════════════════════════',
+    '',
+    'Function calls are ANNOTATIONS on what you\'re already saying - stage directions',
+    'written in the margins of your script, not a separate script.',
+    'YOUR RESPONSE = WORDS + ANNOTATIONS (never annotations alone)',
+    '',
+  ].join('\n');
+
+  const toolDocs = buildDetailedToolDocumentationSync();
+
+  return preamble + '\n' + toolDocs;
 }
 
 /**
