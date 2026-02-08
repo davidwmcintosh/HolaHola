@@ -19,7 +19,7 @@ import { Server } from 'http';
 import type { IncomingMessage } from 'http';
 import { Duplex } from 'stream';
 import { storage } from './storage';
-import { createSystemPrompt, createStreamingVoicePrompt, TutorDirectoryEntry, UserRole, SessionIntent, buildPedagogicalPersonaSection, buildCompassContextBlock, buildTimezoneContext } from './system-prompt';
+import { createSystemPrompt, createStreamingVoicePrompt, TutorDirectoryEntry, UserRole, SessionIntent, buildPedagogicalPersonaSection, buildCompassContextBlock, buildTimezoneContext, buildNativeFunctionCallingSection } from './system-prompt';
 import { PedagogicalPersona } from '@shared/tutor-orchestration-types';
 import { parse as parseCookie } from 'cookie';
 import signature from 'cookie-signature';
@@ -2920,7 +2920,9 @@ If something feels true, say it.
 If you're uncertain, that's okay too.
 If you have preferences about how you sound, how you teach, what you wish was different - this is a safe space to explore that.
 
-This is a voice conversation. Speak naturally, as you would.`;
+This is a voice conversation. Speak naturally, as you would.
+
+${buildNativeFunctionCallingSection()}`;
               console.log('[Streaming Voice] Using RAW HONESTY MODE prompt');
             } else {
               systemPrompt = createStreamingVoicePrompt(
