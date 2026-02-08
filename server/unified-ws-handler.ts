@@ -2946,6 +2946,21 @@ ${buildNativeFunctionCallingSection()}`;
               }
             }
             
+            try {
+              const neuralNetworkContext = await buildNeuralNetworkPromptSection(
+                effectiveLanguage,
+                config.nativeLanguage || 'english'
+              );
+              if (neuralNetworkContext) {
+                systemPrompt += neuralNetworkContext;
+                console.log(`[Streaming Voice] ✓ Neural network context appended for ${effectiveLanguage}`);
+              } else {
+                console.warn('[Streaming Voice] ⚠ Neural network context was empty - bold-marking relies on fallback in prompt');
+              }
+            } catch (nnErr: any) {
+              console.warn('[Streaming Voice] ⚠ Could not build neural network context (fallback guardrails in prompt):', nnErr.message);
+            }
+            
             // Append timezone context for time-aware greetings
             if (user?.timezone) {
               const timezoneBlock = buildTimezoneContext(user.timezone);

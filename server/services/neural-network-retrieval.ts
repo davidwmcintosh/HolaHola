@@ -1,24 +1,21 @@
 import { db, getSharedDb } from "../db";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, or } from "drizzle-orm";
 import {
   learnerErrorPatterns,
   dialectVariations,
   linguisticBridges,
+  tutorProcedures,
   type LearnerErrorPattern,
   type DialectVariation,
   type LinguisticBridge,
+  type TutorProcedure,
 } from "@shared/schema";
 
-// Phase 1 On-Demand Recall: Idioms and cultural nuances are now queried via MEMORY_LOOKUP
-// instead of being pre-loaded into the prompt. This reduces prompt bloat significantly.
-// Daniela can search idioms/cultural content using: [MEMORY_LOOKUP query="..." domains="idiom,cultural"]
-
 export interface NeuralNetworkContext {
-  // Removed: idioms - now queried on-demand via MEMORY_LOOKUP domains="idiom"
-  // Removed: culturalNuances - now queried on-demand via MEMORY_LOOKUP domains="cultural"
   errorPatterns: LearnerErrorPattern[];
   dialects: DialectVariation[];
   bridges: LinguisticBridge[];
+  alwaysProcedures: TutorProcedure[];
 }
 
 export async function getNeuralNetworkContext(
@@ -28,8 +25,7 @@ export async function getNeuralNetworkContext(
 ): Promise<NeuralNetworkContext> {
   // Fetch relevant knowledge in parallel
   // Note: Idioms and cultural nuances are now ON-DEMAND via MEMORY_LOOKUP (Phase 1)
-  const [errors, dialects, bridges] = await Promise.all([
-    // Error patterns for this language pair (kept pre-loaded - small and critical)
+  const [errors, dialects, bridges, alwaysProcs] = await Promise.all([
     getSharedDb().select()
       .from(learnerErrorPatterns)
       .where(and(
@@ -39,7 +35,6 @@ export async function getNeuralNetworkContext(
       ))
       .limit(limit),
     
-    // Dialect variations (kept pre-loaded - small and useful)
     getSharedDb().select()
       .from(dialectVariations)
       .where(and(
@@ -49,7 +44,6 @@ export async function getNeuralNetworkContext(
       .orderBy(sql`RANDOM()`)
       .limit(limit),
     
-    // Linguistic bridges (kept pre-loaded - critical for false friends warnings)
     getSharedDb().select()
       .from(linguisticBridges)
       .where(and(
@@ -59,22 +53,39 @@ export async function getNeuralNetworkContext(
       ))
       .orderBy(sql`RANDOM()`)
       .limit(limit),
+
+    getSharedDb().select()
+      .from(tutorProcedures)
+      .where(and(
+        eq(tutorProcedures.trigger, 'always'),
+        eq(tutorProcedures.isActive, true)
+      ))
+      .orderBy(sql`priority DESC`)
+      .limit(10),
   ]);
   
   return {
     errorPatterns: errors,
     dialects,
     bridges,
+    alwaysProcedures: alwaysProcs,
   };
 }
 
 export function formatNeuralNetworkForPrompt(context: NeuralNetworkContext): string {
   const sections: string[] = [];
   
-  // Note: Idioms and cultural nuances are now ON-DEMAND via MEMORY_LOOKUP (Phase 1)
-  // Daniela queries them when needed instead of having them pre-loaded
+  if (context.alwaysProcedures.length > 0) {
+    const procLines = context.alwaysProcedures.map(p => {
+      let block = `**${p.title}:**\n${p.procedure}`;
+      if (p.examples && p.examples.length > 0) {
+        block += '\nExamples:\n' + p.examples.map(e => `  ${e}`).join('\n');
+      }
+      return block;
+    }).join('\n\n');
+    sections.push(procLines);
+  }
   
-  // Format error patterns (kept pre-loaded - small and critical for real-time correction)
   if (context.errorPatterns.length > 0) {
     const errorLines = context.errorPatterns.map(e => {
       const strategies = e.teachingStrategies?.slice(0, 2).join('; ') || '';
