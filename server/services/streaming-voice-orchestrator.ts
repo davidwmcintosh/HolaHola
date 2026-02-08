@@ -10675,6 +10675,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       
       case 'VOICE_RESET': {
         // Reset voice to tutor defaults - mirrors legacy command parser exactly
+        const text = fn.args.text as string | undefined;
         const reason = fn.args.reason as string | undefined;
         
         if (session.voiceDefaults) {
@@ -10689,6 +10690,10 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           // Fallback: clear override entirely
           (session as any).voiceOverride = undefined;
           console.log(`[Native Function→VoiceReset] Cleared override (no defaults stored), reason: ${reason || 'none'}`);
+        }
+        if (text) {
+          (session as any).functionCallText = ((session as any).functionCallText || '') + text + ' ';
+          console.log(`[Native Function→VoiceReset] Text included: "${text.substring(0, 80)}..."`);
         }
         break;
       }
@@ -10749,6 +10754,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       
       case 'SUBTITLE': {
         // Toggle subtitle mode: off/on/target OR show custom text (not spoken)
+        const spokenText = fn.args.spoken_text as string | undefined;
         const mode = (fn.args.mode as string)?.toLowerCase();
         const customText = fn.args.text as string | undefined;
         
@@ -10789,11 +10795,15 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
             }));
           }
         }
+        if (spokenText) {
+          (session as any).functionCallText = ((session as any).functionCallText || '') + spokenText + ' ';
+          console.log(`[Native Function→Subtitle] Spoken text included: "${spokenText.substring(0, 80)}..."`);
+        }
         break;
       }
       
       case 'HOLD': {
-        // Hold whiteboard content - prevents auto-clear
+        const text = fn.args.text as string | undefined;
         const hold = fn.args.hold as boolean | undefined;
         console.log(`[Native Function Call] HOLD -> ${hold}`);
         this.sendMessage(session.ws, {
@@ -10801,11 +10811,16 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           timestamp: Date.now(),
           items: [{ type: 'hold', hold: hold !== false }],
         });
+        if (text) {
+          (session as any).functionCallText = ((session as any).functionCallText || '') + text + ' ';
+          console.log(`[Native Function→Hold] Text included: "${text.substring(0, 80)}..."`);
+        }
         break;
       }
       
       case 'SHOW': {
-        const content = fn.args.content as string | undefined;
+        const spokenText = fn.args.spoken_text as string | undefined;
+        const content = (fn.args.content || fn.args.text) as string | undefined;
         const contentType = fn.args.contentType as string | undefined;
         if (content) {
           this.sendMessage(session.ws, {
@@ -10815,26 +10830,40 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           });
           console.log(`[Native Function Call] SHOW -> type: ${contentType}`);
         }
+        if (spokenText) {
+          (session as any).functionCallText = ((session as any).functionCallText || '') + spokenText + ' ';
+          console.log(`[Native Function→Show] Spoken text included: "${spokenText.substring(0, 80)}..."`);
+        }
         break;
       }
       
       case 'HIDE': {
+        const text = fn.args.text as string | undefined;
         this.sendMessage(session.ws, {
           type: 'whiteboard_update',
           timestamp: Date.now(),
           items: [{ type: 'clear' }],
         });
         console.log(`[Native Function Call] HIDE -> cleared overlay`);
+        if (text) {
+          (session as any).functionCallText = ((session as any).functionCallText || '') + text + ' ';
+          console.log(`[Native Function→Hide] Text included: "${text.substring(0, 80)}..."`);
+        }
         break;
       }
       
       case 'CLEAR': {
+        const text = fn.args.text as string | undefined;
         this.sendMessage(session.ws, {
           type: 'whiteboard_update',
           timestamp: Date.now(),
           items: [{ type: 'clear' }],
         });
         console.log(`[Native Function Call] CLEAR -> whiteboard cleared`);
+        if (text) {
+          (session as any).functionCallText = ((session as any).functionCallText || '') + text + ' ';
+          console.log(`[Native Function→Clear] Text included: "${text.substring(0, 80)}..."`);
+        }
         break;
       }
       

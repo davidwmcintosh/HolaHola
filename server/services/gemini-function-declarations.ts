@@ -121,13 +121,14 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   },
   {
     name: "voice_reset",
-    description: "Reset voice to your baseline settings.",
+    description: "Reset voice to your baseline settings. Include your spoken text in the 'text' parameter so the reset and words are delivered together in one call. Always include text.",
     parametersJsonSchema: {
       type: "object",
       properties: {
+        text: { type: "string", description: "What you're saying (the spoken response)" },
         reason: { type: "string", description: "Why resetting voice" },
       },
-      required: [],
+      required: ["text"],
     },
   },
   {
@@ -147,63 +148,72 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   // === UI CONTROL ===
   {
     name: "subtitle",
-    description: "Annotate subtitle display preferences. This accompanies your spoken response, not replaces it.",
+    description: "Annotate subtitle display preferences. Include your spoken response in 'spoken_text' so the mode change and speech are delivered together in one call. Always include spoken_text.",
     parametersJsonSchema: {
       type: "object",
       properties: {
+        spoken_text: { type: "string", description: "What you're saying (the spoken response)" },
         mode: { type: "string", enum: ["off", "on", "target", "custom"], description: "Subtitle mode: off=none, on=all languages, target=target language only, custom=display specific text" },
         text: { type: "string", description: "Text to display when mode is 'custom'. Ignored for other modes." },
       },
-      required: ["mode"],
+      required: ["mode", "spoken_text"],
     },
   },
   {
     name: "show_overlay",
-    description: "Display custom text overlay on screen (vocabulary word, grammar note, etc.)",
+    description: "Display custom text overlay on screen (vocabulary word, grammar note, etc.). Include your spoken words in 'spoken_text' so overlay and speech are delivered together. Always include spoken_text.",
     parametersJsonSchema: {
       type: "object",
       properties: {
+        spoken_text: { type: "string", description: "What you're saying (the spoken response)" },
         text: { type: "string", description: "Text to display in the overlay" },
+      },
+      required: ["text", "spoken_text"],
+    },
+  },
+  {
+    name: "hide_overlay",
+    description: "Hide the custom text overlay. Include your spoken words in the 'text' parameter so the action and speech are delivered together. Always include text.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        text: { type: "string", description: "What you're saying (the spoken response)" },
       },
       required: ["text"],
     },
   },
   {
-    name: "hide_overlay",
-    description: "Hide the custom text overlay.",
-    parametersJsonSchema: {
-      type: "object",
-      properties: {},
-      required: [],
-    },
-  },
-  {
     name: "request_text_input",
-    description: "Ask the student to type a response (for spelling practice, written answers, etc.)",
+    description: "Ask the student to type a response (for spelling practice, written answers, etc.). Include your spoken words in 'spoken_text' so the prompt and speech are delivered together. Always include spoken_text.",
     parametersJsonSchema: {
       type: "object",
       properties: {
+        spoken_text: { type: "string", description: "What you're saying (the spoken response)" },
         prompt: { type: "string", description: "Prompt to display to the student" },
       },
-      required: ["prompt"],
+      required: ["prompt", "spoken_text"],
     },
   },
   {
     name: "clear_whiteboard",
-    description: "Clear all content from the teaching whiteboard.",
+    description: "Clear all content from the teaching whiteboard. Include your spoken words in the 'text' parameter so the action and speech are delivered together. Always include text.",
     parametersJsonSchema: {
       type: "object",
-      properties: {},
-      required: [],
+      properties: {
+        text: { type: "string", description: "What you're saying (the spoken response)" },
+      },
+      required: ["text"],
     },
   },
   {
     name: "hold_whiteboard",
-    description: "Prevent whiteboard content from auto-clearing. Use to keep important content visible.",
+    description: "Prevent whiteboard content from auto-clearing. Include your spoken words in the 'text' parameter so the action and speech are delivered together. Always include text.",
     parametersJsonSchema: {
       type: "object",
-      properties: {},
-      required: [],
+      properties: {
+        text: { type: "string", description: "What you're saying (the spoken response)" },
+      },
+      required: ["text"],
     },
   },
   {
