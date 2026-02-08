@@ -304,9 +304,24 @@ export function useStreamingSubtitles(config?: UseStreamingSubtitlesConfig): Use
       : [];
     
     setSentences(prev => {
-      // Check if sentence already exists
-      const existing = prev.find(s => s.index === index && s.turnId === turnId);
-      if (existing) {
+      const existingIdx = prev.findIndex(s => s.index === index && s.turnId === turnId);
+      if (existingIdx >= 0) {
+        const existing = prev[existingIdx];
+        if (hasTarget && !existing.hasTargetContent) {
+          const updated = [...prev];
+          updated[existingIdx] = {
+            ...existing,
+            text: text || existing.text,
+            hasTargetContent: true,
+            targetLanguageText: targetLanguageText,
+            wordMapping: wordMapping,
+            targetBlocks: targetBlocks.length > 0 ? targetBlocks : undefined,
+          };
+          if (isVerboseLoggingEnabled()) {
+            console.log(`[StreamingSubtitles v2] MERGED target data into existing sentence ${index}`);
+          }
+          return updated;
+        }
         return prev;
       }
       

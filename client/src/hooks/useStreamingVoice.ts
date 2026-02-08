@@ -651,9 +651,10 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     }
     
     // CRITICAL FIX: Create the sentence entry if it doesn't exist yet.
-    // The progressive path sends sentence_ready WITHOUT a preceding sentence_start,
-    // so addSentence was never called, leaving the sentences array empty.
-    // Without this, word timings have no sentence to attach to and subtitles never display.
+    // The progressive path sends sentence_ready which may arrive before sentence_start.
+    // addSentence is idempotent - if sentence_start already created the entry (with target data),
+    // this call is a no-op and the target data is preserved.
+    // If sentence_start hasn't arrived yet, this creates a basic entry so subtitles can start.
     const reconstructedText = hasTimings 
       ? firstWordTimings.map(t => t.word).join(' ') 
       : '';
@@ -665,7 +666,6 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       undefined,
       undefined
     );
-    console.log(`[SENTENCE_READY] Created sentence entry for subtitles: sentence=${sentenceIndex}, turn=${turnId}, text="${reconstructedText.substring(0, 40)}..."`);
     
     // 1. Register all word timings with the player FIRST (before audio plays)
     if (playerRef.current && hasTimings) {
