@@ -2559,43 +2559,43 @@ export function isTextInputItem(item: WhiteboardItem): item is TextInputItem {
  * Check if a drill item is a matching drill
  */
 export function isMatchingDrill(item: DrillItem): boolean {
-  return item.data.drillType === 'match' && Array.isArray(item.data.pairs);
+  return !!item.data && item.data.drillType === 'match' && Array.isArray(item.data.pairs);
 }
 
 export function isFillBlankDrill(item: DrillItem): boolean {
-  return item.data.drillType === 'fill_blank' && !!item.data.blankedText;
+  return !!item.data && item.data.drillType === 'fill_blank' && !!item.data.blankedText;
 }
 
 export function isSentenceOrderDrill(item: DrillItem): boolean {
-  return item.data.drillType === 'sentence_order' && Array.isArray(item.data.words);
+  return !!item.data && item.data.drillType === 'sentence_order' && Array.isArray(item.data.words);
 }
 
 export function isMultipleChoiceDrill(item: DrillItem): boolean {
-  return item.data.drillType === 'multiple_choice' && Array.isArray(item.data.choices);
+  return !!item.data && item.data.drillType === 'multiple_choice' && Array.isArray(item.data.choices);
 }
 
 export function isTrueFalseDrill(item: DrillItem): boolean {
-  return item.data.drillType === 'true_false' && item.data.statement !== undefined;
+  return !!item.data && item.data.drillType === 'true_false' && item.data.statement !== undefined;
 }
 
 export function isConjugationDrill(item: DrillItem): boolean {
-  return item.data.drillType === 'conjugation' && !!item.data.verb;
+  return !!item.data && item.data.drillType === 'conjugation' && !!item.data.verb;
 }
 
 export function isDictationDrill(item: DrillItem): boolean {
-  return item.data.drillType === 'dictation' && !!item.data.audioText;
+  return !!item.data && item.data.drillType === 'dictation' && !!item.data.audioText;
 }
 
 export function isSpeakDrill(item: DrillItem): boolean {
-  return item.data.drillType === 'speak' && !!item.data.textToSpeak;
+  return !!item.data && item.data.drillType === 'speak' && !!item.data.textToSpeak;
 }
 
 export function isCognateMatchDrill(item: DrillItem): boolean {
-  return item.data.drillType === 'cognate_match' && Array.isArray(item.data.cognates);
+  return !!item.data && item.data.drillType === 'cognate_match' && Array.isArray(item.data.cognates);
 }
 
 export function isFalseFriendTrapDrill(item: DrillItem): boolean {
-  return item.data.drillType === 'false_friend_trap' && Array.isArray(item.data.falseFriendOptions);
+  return !!item.data && item.data.drillType === 'false_friend_trap' && Array.isArray(item.data.falseFriendOptions);
 }
 
 /**
