@@ -337,17 +337,68 @@ function looksLikeTargetLanguage(
 }
 
 /**
+ * Extract bold-marked words from raw Gemini text.
+ * These represent target language words that Gemini explicitly marked.
+ * Used to provide hints to the segmenter when bold markers are stripped from display text.
+ */
+export function extractBoldMarkedWords(rawText: string): string[] {
+  if (!rawText) return [];
+  const boldPattern = /\*\*([^*]+)\*\*/g;
+  const words: string[] = [];
+  let match;
+  while ((match = boldPattern.exec(rawText)) !== null) {
+    const phrase = match[1].trim();
+    if (phrase.length >= 2) {
+      words.push(...phrase.split(/\s+/).filter(w => w.length > 0));
+    }
+  }
+  return words;
+}
+
+/**
+ * Detect known target words in cleaned text by exact word matching.
+ * Used when bold markers from raw Gemini text indicate target language words
+ * but the cleaned display text has markers stripped.
+ */
+function detectKnownTargetWords(text: string, knownWords: string[]): Detection[] {
+  if (!knownWords || knownWords.length === 0) return [];
+  
+  const detections: Detection[] = [];
+  const knownSet = new Set(knownWords.map(w => w.toLowerCase().replace(/[^a-zA-ZÀ-ÿñÑ¿¡]/g, '')));
+  
+  const wordPattern = /[¡¿]?[a-zA-ZÀ-ÿñÑ]+[?!]?/g;
+  let match;
+  while ((match = wordPattern.exec(text)) !== null) {
+    const word = match[0];
+    const normalized = word.toLowerCase().replace(/[^a-zA-ZÀ-ÿñÑ]/g, '');
+    if (knownSet.has(normalized) && !COMMON_ENGLISH_WORDS.has(normalized)) {
+      detections.push({
+        fullMatch: word,
+        innerText: word,
+        start: match.index,
+        end: match.index + word.length,
+        isQuoted: false,
+      });
+    }
+  }
+  
+  return detections;
+}
+
+/**
  * Segment text into native and target language chunks.
  * 
  * @param text - The text to segment
  * @param nativeLanguage - The student's native language (tutor's explanation language)
  * @param targetLanguage - The student's target language (what they're learning)
+ * @param knownTargetWords - Optional list of words known to be target language (from bold markers in raw text)
  * @returns Segmentation result with language-tagged chunks
  */
 export function segmentByLanguage(
   text: string,
   nativeLanguage: string,
-  targetLanguage: string
+  targetLanguage: string,
+  knownTargetWords?: string[]
 ): SegmentationResult {
   const segments: LanguageSegment[] = [];
   const targetLanguageWords: string[] = [];
@@ -363,11 +414,28 @@ export function segmentByLanguage(
   // This catches Spanish/French/etc. phrases that aren't quoted
   const latinScriptDetections = detectLatinScriptTargetPhrases(text, targetLanguage);
   
-  // Merge all detection types
-  const allDetections = [...quotedDetections, ...nonLatinDetections, ...latinScriptDetections];
+  // Detect known target words from bold markers (stripped from display text but extracted from raw)
+  const knownWordDetections = detectKnownTargetWords(text, knownTargetWords || []);
   
-  // Sort by position and remove overlaps
+  // Merge all detection types
+  const allDetections = [...quotedDetections, ...nonLatinDetections, ...latinScriptDetections, ...knownWordDetections];
+  
+  // Sort by position first
   allDetections.sort((a, b) => a.start - b.start);
+  
+  // Merge adjacent detections separated only by whitespace into single segments
+  // This prevents "buenos" + " " + "días" from becoming 3 separate TTS calls
+  for (let i = allDetections.length - 1; i > 0; i--) {
+    const prev = allDetections[i - 1];
+    const curr = allDetections[i];
+    const between = text.slice(prev.end, curr.start);
+    if (/^\s+$/.test(between)) {
+      prev.fullMatch = text.slice(prev.start, curr.end);
+      prev.innerText = text.slice(prev.start, curr.end);
+      prev.end = curr.end;
+      allDetections.splice(i, 1);
+    }
+  }
   const mergedDetections: Detection[] = [];
   for (const det of allDetections) {
     const last = mergedDetections[mergedDetections.length - 1];

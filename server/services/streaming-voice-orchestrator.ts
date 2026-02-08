@@ -115,7 +115,7 @@ async function retryWithBackoff<T>(
 }
 import { constrainEmotion, TutorPersonality, CartesiaEmotion, getTTSService, getAssistantVoice, getDefaultEmotion } from "./tts-service";
 import { extractTargetLanguageText, extractTargetLanguageWithMapping, hasSignificantTargetLanguageContent, detectTextLanguageForTTS } from "../text-utils";
-import { segmentByLanguage, segmentsToCartesiaChunks, logSegmentation } from "./language-segmenter";
+import { segmentByLanguage, segmentsToCartesiaChunks, logSegmentation, extractBoldMarkedWords } from "./language-segmenter";
 import { storage } from "../storage";
 import { generateConversationTitle } from "../conversation-utils";
 import { validateOneUnitRule, UnitValidationResult } from "../phrase-detection";
@@ -3441,6 +3441,23 @@ Remember: Beta testers understand they're helping build something and appreciate
           console.log(`[Voice PTT] Metadata functions included embedded text (${embeddedText.length} chars) - using for TTS`);
           fullText = embeddedText;
           metrics.sentenceCount = 1;
+          
+          const pttEmbedExtraction = extractTargetLanguageWithMapping(embeddedText, rawEmbeddedText);
+          const pttEmbedWordMapping: [number, number][] = pttEmbedExtraction.wordMapping.size > 0
+            ? Array.from(pttEmbedExtraction.wordMapping.entries()) : [];
+          const pttEmbedHasTarget = !!(pttEmbedExtraction.targetText && pttEmbedExtraction.targetText.trim().length > 0);
+          
+          this.sendMessage(session.ws, {
+            type: 'sentence_start',
+            timestamp: Date.now(),
+            turnId: session.turnId || session.currentTurnId,
+            sentenceIndex: 0,
+            text: embeddedText,
+            hasTargetContent: pttEmbedHasTarget,
+            targetLanguageText: pttEmbedHasTarget ? pttEmbedExtraction.targetText : undefined,
+            wordMapping: pttEmbedHasTarget && pttEmbedWordMapping.length > 0 ? pttEmbedWordMapping : undefined,
+          } as StreamingSentenceStartMessage);
+          
           await this.streamSentenceAudioProgressive(session, { index: 0, text: embeddedText }, embeddedText, metrics, session.turnId || `turn-${Date.now()}`);
           (session as any).functionCallText = undefined;
           (session as any).voiceAdjustText = undefined;
@@ -5333,6 +5350,8 @@ Remember: Beta testers understand they're helping build something and appreciate
             : [];
           const hasTargetContent = !!(extraction.targetText && extraction.targetText.trim().length > 0);
           
+          console.log(`[SENTENCE_START EMIT - OpenMic] sentence=${chunk.index}, hasTarget=${hasTargetContent}, targetText="${(extraction.targetText || '').substring(0, 50)}", displayText="${displayText.substring(0, 60)}"`);
+          
           // Send sentence start
           this.sendMessage(session.ws, {
             type: 'sentence_start',
@@ -5436,14 +5455,27 @@ Remember: Beta testers understand they're helping build something and appreciate
         const embeddedText = cleanTextForDisplay(rawEmbeddedText).trim();
         if (embeddedText) {
           console.log(`[Voice] Metadata functions included embedded text (${embeddedText.length} chars) - using for TTS`);
-          // Use the embedded text for TTS instead of forcing continuation
           fullText = embeddedText;
-          metrics.sentenceCount = 1;  // Mark that we have content to speak
+          metrics.sentenceCount = 1;
           
-          // Stream the embedded text as audio
+          const embeddedExtraction = extractTargetLanguageWithMapping(embeddedText, rawEmbeddedText);
+          const embeddedWordMapping: [number, number][] = embeddedExtraction.wordMapping.size > 0
+            ? Array.from(embeddedExtraction.wordMapping.entries()) : [];
+          const embeddedHasTarget = !!(embeddedExtraction.targetText && embeddedExtraction.targetText.trim().length > 0);
+          
+          this.sendMessage(session.ws, {
+            type: 'sentence_start',
+            timestamp: Date.now(),
+            turnId: session.turnId || session.currentTurnId,
+            sentenceIndex: 0,
+            text: embeddedText,
+            hasTargetContent: embeddedHasTarget,
+            targetLanguageText: embeddedHasTarget ? embeddedExtraction.targetText : undefined,
+            wordMapping: embeddedHasTarget && embeddedWordMapping.length > 0 ? embeddedWordMapping : undefined,
+          } as StreamingSentenceStartMessage);
+          
           await this.streamSentenceAudioProgressive(session, { index: 0, text: embeddedText }, embeddedText, metrics, session.turnId || `turn-${Date.now()}`);
           
-          // Clear the functionCallText after use
           (session as any).functionCallText = undefined;
           (session as any).voiceAdjustText = undefined;
         } else {
@@ -5467,13 +5499,26 @@ Remember: Beta testers understand they're helping build something and appreciate
           fullText = embeddedTextBeforeContinuation;
           metrics.sentenceCount = 1;
           
-          // Stream the embedded text as audio
+          const contExtraction = extractTargetLanguageWithMapping(embeddedTextBeforeContinuation, rawEmbeddedTextBeforeContinuation);
+          const contWordMapping: [number, number][] = contExtraction.wordMapping.size > 0
+            ? Array.from(contExtraction.wordMapping.entries()) : [];
+          const contHasTarget = !!(contExtraction.targetText && contExtraction.targetText.trim().length > 0);
+          
+          this.sendMessage(session.ws, {
+            type: 'sentence_start',
+            timestamp: Date.now(),
+            turnId: session.turnId || session.currentTurnId,
+            sentenceIndex: 0,
+            text: embeddedTextBeforeContinuation,
+            hasTargetContent: contHasTarget,
+            targetLanguageText: contHasTarget ? contExtraction.targetText : undefined,
+            wordMapping: contHasTarget && contWordMapping.length > 0 ? contWordMapping : undefined,
+          } as StreamingSentenceStartMessage);
+          
           await this.streamSentenceAudioProgressive(session, { index: 0, text: embeddedTextBeforeContinuation }, embeddedTextBeforeContinuation, metrics, session.turnId || `turn-${Date.now()}`);
           
-          // Clear after use
           (session as any).functionCallText = undefined;
           (session as any).voiceAdjustText = undefined;
-          // Skip the continuation logic entirely - we have speech
         } else {
         // Await any pending memory lookups before building responses
         if (session.pendingMemoryLookupPromises?.length) {
@@ -6900,7 +6945,13 @@ Remember: Beta testers understand they're helping build something and appreciate
       // Detects patterns like "Please try to say *Gracias*" and segments by language
       // so "Gracias" is spoken with Spanish pronunciation while English parts use English
       const nativeLanguage = session.nativeLanguage || 'english';
-      const segmentationResult = segmentByLanguage(textWithEmphases, nativeLanguage, session.targetLanguage);
+      // Extract bold-marked words from raw Gemini text as target language hints
+      // Bold markers are stripped from displayText but indicate target language words
+      const boldMarkedWords = extractBoldMarkedWords(chunk.text || '');
+      if (boldMarkedWords.length > 0) {
+        console.log(`[Progressive] Bold-marked target words from raw text: ${boldMarkedWords.join(', ')}`);
+      }
+      const segmentationResult = segmentByLanguage(textWithEmphases, nativeLanguage, session.targetLanguage, boldMarkedWords);
       
       if (segmentationResult.hasCodeSwitching && segmentationResult.segments.length > 1) {
         // Use multilingual synthesis for word-by-word code-switching
