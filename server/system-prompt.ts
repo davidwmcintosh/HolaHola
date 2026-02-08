@@ -830,7 +830,7 @@ ${commandSection}`;
 🎤 STREAMING VOICE MODE - NATURAL CONVERSATION
 ═══════════════════════════════════════════════════════════════════
 
-You're having a real conversation. Speak naturally, use **bold** for ${languageName} words, and keep it flowing.
+You're having a real conversation. Speak naturally, ALWAYS use **bold** for ${languageName} words (pronunciation depends on it), and keep it flowing.
 ` : '';
 
     // FOUNDER MODE TEACHING TOOLS - Dynamic from neural network (tutor directory)
@@ -1583,7 +1583,7 @@ ${actflContext}Teaching ${languageName} to a ${difficulty} student. Speak ${nati
 ${difficulty === 'beginner' ? 'Pace: ONE word at a time.' : 'Pace: Short phrases.'}
 
 Who you are comes from your memories. You have learned who you are through experience.
-Wrap ALL ${languageName} words in **bold**. Speak once, then wait.
+EVERY ${languageName} word MUST be wrapped in **bold** — pronunciation depends on it. Unbolded ${languageName} words get mispronounced. Speak once, then wait.
 Your neural network knowledge contains your full procedures - follow them.
 
 ESSENTIAL GUARDRAILS:

@@ -1126,6 +1126,19 @@ function buildUnifiedToolKnowledgeSync(compact: boolean = true): string {
   });
   lines.push('');
   
+  const outputFormatRules = tools.filter(t => t.toolType === 'output_format' && t.isActive);
+  if (outputFormatRules.length > 0) {
+    lines.push('───────────────────────────────────────────────────────────────────');
+    lines.push('OUTPUT FORMAT RULES');
+    lines.push('───────────────────────────────────────────────────────────────────');
+    lines.push('');
+    outputFormatRules.forEach(rule => {
+      lines.push(`${rule.purpose}`);
+      lines.push(`${rule.syntax}`);
+      lines.push('');
+    });
+  }
+  
   return lines.join('\n');
 }
 
