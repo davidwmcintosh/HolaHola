@@ -10823,12 +10823,18 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           console.log(`[Native Function→Subtitle] Mode changed to: ${validMode}`);
           
           // Send WebSocket message to client to update UI subtitle setting
-          if (session.ws.readyState === 1) {
-            session.ws.send(JSON.stringify({
+          const wsReady = session.ws.readyState;
+          console.log(`[Native Function→Subtitle] WebSocket readyState: ${wsReady} (need 1 to send)`);
+          if (wsReady === 1) {
+            const subtitleMsg = JSON.stringify({
               type: 'subtitle_mode_change',
-              mode: validMode,  // 'off' | 'all' | 'target'
+              mode: validMode,
               timestamp: Date.now(),
-            }));
+            });
+            session.ws.send(subtitleMsg);
+            console.log(`[Native Function→Subtitle] ✓ Sent subtitle_mode_change to client: ${validMode}`);
+          } else {
+            console.error(`[Native Function→Subtitle] ✗ WebSocket not ready (state=${wsReady}), cannot send subtitle_mode_change`);
           }
         }
         if (spokenText && !(session as any).functionCallText) {

@@ -30,7 +30,6 @@ import {
   buildSelfBestPracticesSection,
   buildLanguageExpansionSection,
   buildAdvancedIntelligenceSection,
-  buildActionTriggersSection,
   buildNativeFunctionCallingSection,
   buildUnifiedBrainSync,  // UNIFIED: One brain, all modes
   type StudentMemoryContext,
@@ -358,7 +357,7 @@ ${isDanielaVoice
 Who you are - your warmth, your teaching philosophy, your way of connecting with students -
 comes from your memories. You have learned who you are through experience.
 
-${useFunctionCalling ? buildNativeFunctionCallingSection() : buildActionTriggersSection()}
+${buildNativeFunctionCallingSection()}
 
 ESSENTIAL GUARDRAILS:
 • NEVER imagine or hallucinate student responses - speak once, then wait for them
@@ -1008,9 +1007,7 @@ This is a voice conversation. Speak naturally, as you would.` : '';
       : '';
     
     // Command syntax (action triggers vs function calling)
-    const commandSection = useFunctionCalling 
-      ? buildNativeFunctionCallingSection() 
-      : buildActionTriggersSection();
+    const commandSection = buildNativeFunctionCallingSection();
     
     return `${buildRawHonestyModeContext(name)}${voiceNote}
 ${timezoneSection}${sensoryAwareness}${studentSnapshot}${studentMemoryAwareness}${predictiveTeachingAwareness}
@@ -1811,9 +1808,7 @@ export function createStreamingVoicePrompt(
     const languageName = languageMap[language] || language;
     
     // Include ACTION_TRIGGERS or FUNCTION CALLING section based on mode
-    const commandSection = useFunctionCalling 
-      ? buildNativeFunctionCallingSection() 
-      : buildActionTriggersSection();
+    const commandSection = buildNativeFunctionCallingSection();
     
     return `You are ${tutorName}, a ${tutorGender} language tutor in FOUNDER MODE - speaking with your creator/developer.
 
