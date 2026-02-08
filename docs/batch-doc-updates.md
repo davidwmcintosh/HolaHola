@@ -2961,3 +2961,27 @@ Daniela will automatically see her active self-affirmation notes at the start of
 - `server/routes.ts` (3 locations)
 
 **Verification**: Daniela now correctly identifies "You are **Alden**, the Replit Agent" when asked who sent the message.
+
+---
+
+### Session: February 8, 2026 - Function Call Spoken Text & Milestone Wiring
+
+**What was built**:
+1. Fixed metadata-only function calls (voice_reset, subtitle, show_overlay, hide_overlay, clear_whiteboard, hold_whiteboard) to include a required `text`/`spoken_text` parameter in their Gemini schemas, matching the `voice_adjust` pattern. This ensures Daniela always produces audio even when her response is only a function call.
+2. Fixed greeting handler to route function calls through `handleNativeFunctionCall` instead of only extracting text manually — this was causing "ringing and ringing" because `spoken_text` fields were being missed.
+3. Wired up the orphaned `milestone` tool: added Gemini function declaration, legacy type mapping, TTS text extraction, and procedural memory docs.
+
+**Key files modified**:
+- `server/services/gemini-function-declarations.ts` — added `text`/`spoken_text` params to 6 function schemas; added `milestone` declaration and mapping
+- `server/services/streaming-voice-orchestrator.ts` — updated 7 handlers to extract text to `functionCallText`; updated greeting `onFunctionCall` to call `handleNativeFunctionCall`; added TTS text to MILESTONE handler
+- `server/services/procedural-memory-retrieval.ts` — updated tool docs to show required text params; added `milestone` tool docs
+
+**CRITICAL CHECKLIST for adding new Gemini function declarations**:
+When adding a new tool that Daniela can call, you must do ALL of these:
+1. Add the function declaration in `gemini-function-declarations.ts` (the `DANIELA_FUNCTION_DECLARATIONS` array)
+2. Add the legacy type mapping in `gemini-function-declarations.ts` (the `FUNCTION_TO_LEGACY_TYPE` dictionary, e.g. `'my_function': 'MY_FUNCTION'`)
+3. Add a `case 'MY_FUNCTION':` handler in `handleNativeFunctionCall()` in `streaming-voice-orchestrator.ts`
+4. If the function is metadata-only (no whiteboard content), include a required `text` parameter so Daniela always produces audio
+5. In the handler, extract the `text` param to `(session as any).functionCallText` for TTS fallback
+6. Add documentation in `procedural-memory-retrieval.ts` so Daniela knows the tool exists
+Missing any of these steps will cause silent failures — the function either won't be callable, won't execute, or won't produce audio.
