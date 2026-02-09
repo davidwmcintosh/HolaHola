@@ -50,7 +50,7 @@ const STREAMING_ONLY_MODE = true; // CRITICAL: Never fall back to REST
 // Tracks WHEN last greeting played AND which message ID was synthesized
 const GREETING_TIMESTAMP_KEY = 'linguaflow_last_greeting_time';
 const GREETING_MESSAGE_KEY = 'linguaflow_last_greeting_message';
-const GREETING_COOLDOWN_MS = 30000; // 30 seconds - prevent greeting if one played recently
+const GREETING_COOLDOWN_MS = 5000; // 5 seconds - prevent double-greeting on mount, but allow reconnections
 
 // Module-level lock to prevent race conditions when multiple components mount simultaneously
 // This uses a compare-and-swap pattern: check and set atomically
@@ -115,8 +115,12 @@ function tryAcquireGreetingLock(messageId: string): boolean {
 
 function clearGreetingLock(): void {
   greetingInProgress = false;
-  // Note: We don't clear synthesizedMessageId or sessionStorage
-  // This ensures the same greeting is never re-synthesized
+  synthesizedMessageId = null;
+  try {
+    sessionStorage.removeItem(GREETING_MESSAGE_KEY);
+    sessionStorage.removeItem(GREETING_TIMESTAMP_KEY);
+  } catch {
+  }
 }
 
 interface StreamingVoiceChatProps {

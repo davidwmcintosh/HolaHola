@@ -472,12 +472,17 @@ export class UsageService {
       .returning();
     
     // Record consumption in ledger (negative value)
-    if (durationSeconds > 0) {
+    // SAFEGUARD: Don't charge for sessions where Daniela never spoke (0 exchanges)
+    // These are failed connection attempts that should not cost the user
+    const exchangeCount = updatedSession.exchangeCount || 0;
+    if (durationSeconds > 0 && exchangeCount > 0) {
       await this.consumeCredits(session.userId, durationSeconds, sessionId, session.classId || undefined);
+    } else if (durationSeconds > 0 && exchangeCount === 0) {
+      console.log(`[UsageService] Skipping charge for 0-exchange session ${sessionId} (${durationSeconds}s) - Daniela never spoke`);
     }
     
-    // Update user streak and practice minutes (any completed session counts toward streak)
-    if (session.language && durationSeconds > 0) {
+    // Update user streak and practice minutes (only count sessions with actual exchanges)
+    if (session.language && durationSeconds > 0 && exchangeCount > 0) {
       const practiceMinutes = Math.max(1, Math.ceil(durationSeconds / 60));
       try {
         await storage.recordActivityAndUpdateStreak(session.userId, session.language, practiceMinutes);

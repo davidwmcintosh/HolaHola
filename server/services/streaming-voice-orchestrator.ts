@@ -2109,7 +2109,7 @@ Don't force a reference if it doesn't fit the moment.
                   
                   // BRAIN HEALTH TELEMETRY: Track passive memory injection
                   brainHealthTelemetry.logMemoryInjection({
-                    sessionId: session.sessionId,
+                    sessionId: session.id,
                     conversationId: session.conversationId,
                     userId: String(session.userId),
                     targetLanguage: session.targetLanguage,
@@ -2502,7 +2502,7 @@ Remember: Beta testers understand they're helping build something and appreciate
           for (const cmd of commandsToProcess) {
               // BRAIN HEALTH TELEMETRY: Log all ACTION_TRIGGER commands
               brainHealthTelemetry.logActionTrigger({
-                sessionId: session.sessionId,
+                sessionId: session.id,
                 conversationId: session.conversationId,
                 userId: String(session.userId),
                 targetLanguage: session.targetLanguage,
@@ -2686,7 +2686,7 @@ Remember: Beta testers understand they're helping build something and appreciate
                       title,
                       content,
                       language: language || session.targetLanguage || 'spanish',
-                      sessionId: session.sessionId,
+                      sessionId: session.id,
                       tags,
                     }).then(noteId => {
                       console.log(`[CommandParser→TakeNote] ✓ Saved note ${noteId}`);
@@ -5049,7 +5049,7 @@ Remember: Beta testers understand they're helping build something and appreciate
                     title,
                     content: noteContent,
                     language: language || session.targetLanguage || 'spanish',
-                    sessionId: session.sessionId,
+                    sessionId: session.id,
                     tags,
                   }).then(noteId => {
                     console.log(`[CommandParser→TakeNote - OpenMic] ✓ Saved note ${noteId}`);
@@ -8299,7 +8299,7 @@ Only include observations you can clearly justify from the exchange. Return empt
       const db = (await import("../db")).getSharedDb();
       
       await db.insert(productionTelemetry).values({
-        sessionId: session.sessionId,
+        sessionId: session.id,
         userId: session.userId ? String(session.userId) : null,
         eventType: 'silent_function_failure',
         errorMessage: `[${functionName}] ${errorMessage}`,
@@ -9407,7 +9407,7 @@ Only include observations you can clearly justify from the exchange. Return empt
             // (subtitle mode change, voice adjust, etc.) AND extracts spoken text to functionCallText
             if (fc.legacyType) {
               try {
-                await this.handleNativeFunctionCall(session.sessionId, session, {
+                await this.handleNativeFunctionCall(session.id, session, {
                   name: fc.name,
                   args: fc.args || {},
                   legacyType: fc.legacyType,
@@ -10793,7 +10793,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
     
     // BRAIN HEALTH TELEMETRY: Log all native function/tool calls
     brainHealthTelemetry.logToolCall({
-      sessionId: session.sessionId,
+      sessionId: session.id,
       conversationId: session.conversationId,
       userId: String(session.userId),
       targetLanguage: session.targetLanguage,
@@ -11216,7 +11216,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
             title,
             content,
             language: language || session.targetLanguage,
-            sessionId: session.sessionId,
+            sessionId: session.id,
             tags,
           }).then(noteId => {
             console.log(`[Native Function→TakeNote] ✓ Saved note ${noteId}`);
@@ -11884,7 +11884,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         
         // BRAIN HEALTH TELEMETRY: Track active memory_lookup tool usage
         brainHealthTelemetry.logMemoryLookupTool({
-          sessionId: session.sessionId,
+          sessionId: session.id,
           conversationId: session.conversationId,
           userId: studentId || undefined,
           targetLanguage: session.targetLanguage,
@@ -11898,7 +11898,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         
         // BRAIN HEALTH TELEMETRY: Track failed lookups too
         brainHealthTelemetry.logMemoryLookupTool({
-          sessionId: session.sessionId,
+          sessionId: session.id,
           conversationId: session.conversationId,
           userId: studentId || undefined,
           targetLanguage: session.targetLanguage,
