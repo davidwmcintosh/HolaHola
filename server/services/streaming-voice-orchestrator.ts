@@ -11430,11 +11430,17 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         const insight = fn.args.insight as string | undefined;
         
         if (insight) {
-          console.log(`[Native Function→Culture] "${insight.substring(0, 50)}..."`);
+          const cultureParts = insight.split('|').map((p: string) => p.trim());
+          const cultureData = {
+            topic: cultureParts[0] || 'Cultural Insight',
+            context: cultureParts[1] || cultureParts[0] || insight,
+            category: cultureParts[2] || undefined,
+          };
+          console.log(`[Native Function→Culture] "${insight.substring(0, 50)}..." topic="${cultureData.topic}"`);
           this.sendMessage(session.ws, {
             type: 'whiteboard_update',
             timestamp: Date.now(),
-            items: [{ type: 'culture', content: insight }],
+            items: [{ type: 'culture', content: insight, data: cultureData }],
           });
         }
         break;
@@ -11444,11 +11450,18 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         const explanation = fn.args.explanation as string | undefined;
         
         if (explanation) {
-          console.log(`[Native Function→Context] "${explanation.substring(0, 50)}..."`);
+          const contextParts = explanation.split('|').map((p: string) => p.trim());
+          const word = contextParts[0] || explanation;
+          const sentences = contextParts.slice(1).filter((s: string) => s.length > 0);
+          const contextData = {
+            word,
+            sentences: sentences.length > 0 ? sentences : [explanation],
+          };
+          console.log(`[Native Function→Context] "${explanation.substring(0, 50)}..." word="${contextData.word}"`);
           this.sendMessage(session.ws, {
             type: 'whiteboard_update',
             timestamp: Date.now(),
-            items: [{ type: 'context', content: explanation }],
+            items: [{ type: 'context', content: explanation, data: contextData }],
           });
         }
         break;
@@ -11483,11 +11496,23 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         const points = fn.args.points as string | undefined;
         
         if (points) {
-          console.log(`[Native Function→Summary] ${points.split('\n').length} points`);
+          const summaryParts = points.split('|').map((p: string) => p.trim());
+          const title = summaryParts[0] || "Today's Vocabulary";
+          const wordsStr = summaryParts[1] || '';
+          const phrasesStr = summaryParts[2] || '';
+          const words = wordsStr ? wordsStr.split(',').map((w: string) => w.trim()).filter(Boolean) : [];
+          const phrases = phrasesStr ? phrasesStr.split(',').map((p: string) => p.trim()).filter(Boolean) : [];
+          const summaryData = {
+            title,
+            words,
+            phrases,
+            totalItems: words.length + phrases.length,
+          };
+          console.log(`[Native Function→Summary] title="${title}" ${words.length} words, ${phrases.length} phrases`);
           this.sendMessage(session.ws, {
             type: 'whiteboard_update',
             timestamp: Date.now(),
-            items: [{ type: 'summary', content: points }],
+            items: [{ type: 'summary', content: points, data: summaryData }],
           });
         }
         break;
@@ -11498,11 +11523,20 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         const translation = fn.args.translation as string | undefined;
         
         if (passage) {
-          console.log(`[Native Function→Reading] "${passage.substring(0, 50)}..."`);
+          const readingParts = passage.split('|').map((p: string) => p.trim());
+          const character = readingParts[0]?.trim() || passage;
+          const reading = readingParts[1]?.trim() || '';
+          const language = readingParts[2]?.toLowerCase()?.trim() || undefined;
+          const readingData = {
+            character,
+            reading,
+            language,
+          };
+          console.log(`[Native Function→Reading] "${passage.substring(0, 50)}..." char="${character}" reading="${reading}"`);
           this.sendMessage(session.ws, {
             type: 'whiteboard_update',
             timestamp: Date.now(),
-            items: [{ type: 'reading', content: passage, translation }],
+            items: [{ type: 'reading', content: passage, data: readingData, translation }],
           });
         }
         break;
@@ -11563,11 +11597,16 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         const character = fn.args.character as string | undefined;
         
         if (character) {
+          const strokeData = {
+            character,
+            language: (fn.args.language as string | undefined)?.toLowerCase() || undefined,
+            strokes: [],
+          };
           console.log(`[Native Function→Stroke] Character: ${character}`);
           this.sendMessage(session.ws, {
             type: 'whiteboard_update',
             timestamp: Date.now(),
-            items: [{ type: 'stroke', content: character }],
+            items: [{ type: 'stroke', content: character, data: strokeData }],
           });
         }
         break;
@@ -11577,11 +11616,20 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         const pinyin = fn.args.pinyin as string | undefined;
         
         if (pinyin) {
-          console.log(`[Native Function→Tone] Pinyin: ${pinyin}`);
+          const word = (fn.args.word as string | undefined) || pinyin;
+          const tones = (fn.args.tones as number[] | undefined) || [];
+          const toneData = {
+            word,
+            pinyin,
+            tones,
+            language: (fn.args.language as string | undefined)?.toLowerCase() || 'mandarin',
+            meaning: fn.args.meaning as string | undefined,
+          };
+          console.log(`[Native Function→Tone] Pinyin: ${pinyin} tones: ${tones}`);
           this.sendMessage(session.ws, {
             type: 'whiteboard_update',
             timestamp: Date.now(),
-            items: [{ type: 'tone', content: pinyin }],
+            items: [{ type: 'tone', content: pinyin, data: toneData }],
           });
         }
         break;
