@@ -267,7 +267,19 @@ async function getUserIdFromSession(req: IncomingMessage): Promise<string | null
     if (!sessions || sessions.length === 0) return null;
 
     const sessionData = sessions[0].sess as any;
-    return sessionData?.passport?.user?.claims?.sub || null;
+    
+    // Check password auth first (stores userId directly in session)
+    if (sessionData?.userId) {
+      console.log('[WS Auth] Authenticated via password session');
+      return sessionData.userId;
+    }
+    
+    // Fall back to Replit Auth / OIDC (stores in passport.user.claims.sub)
+    const oidcSub = sessionData?.passport?.user?.claims?.sub;
+    if (oidcSub) {
+      console.log('[WS Auth] Authenticated via OIDC/Replit Auth');
+    }
+    return oidcSub || null;
   } catch (error) {
     console.error('[WS Auth] Error:', error);
     return null;
