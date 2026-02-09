@@ -6476,10 +6476,11 @@ Remember: Beta testers understand they're helping build something and appreciate
       
       // Collect all audio chunks from Cartesia (MP3 fragments need concatenation)
       // IMPORTANT: Use textWithEmphases (cleaned + emphases) for TTS
+      // Always use autoDetectLanguage — let Sonic-3 handle mixed-language text natively
       for await (const audioChunk of this.cartesiaService.streamSynthesize({
         text: textWithEmphases,
-        language: session.targetLanguage,
-        targetLanguage: session.targetLanguage, // For phoneme pronunciation
+        autoDetectLanguage: true,
+        targetLanguage: session.targetLanguage,
         voiceId: session.voiceId,
         speakingRate: effectiveSpeakingRate,
         emotion: effectiveEmotion,
@@ -7015,46 +7016,32 @@ Remember: Beta testers understand they're helping build something and appreciate
       
       console.log(`[TTS-LANG-DIAG] Segmentation: hasCodeSwitching=${segmentationResult.hasCodeSwitching}, segments=${segmentationResult.segments.length}, targetWords=${segmentationResult.targetLanguageWords.join(', ') || 'none'}`);
       
+      // ALWAYS use autoDetectLanguage=true — let Cartesia Sonic-3 handle language switching
+      // natively. Previous approaches caused problems:
+      //   - Forcing target language → English words got accented/garbled
+      //   - Forcing English → target language words like "bene" got anglicized ("bean")
+      //   - Word-by-word splitting → "two different speakers" artifact
+      // Sonic-3 auto-detect handles mixed-language text with a single voice naturally.
+      // Segmentation results are still used for subtitle/karaoke highlighting, not TTS.
       if (segmentationResult.hasCodeSwitching && segmentationResult.segments.length > 1) {
-        // UNIFIED CODE-SWITCHING: Send the full mixed-language text to Cartesia as ONE request
-        // with autoDetectLanguage=true. Sonic-3 handles language switching natively with the same
-        // voice identity — no more "two different speakers spliced together" artifact.
-        // The segmentation result is still used for subtitle/karaoke word mapping (not TTS).
         logSegmentation(segmentationResult, nativeLanguage, session.targetLanguage);
-        
-        console.log(`[TTS-LANG-DIAG] → UNIFIED CODE-SWITCH path: sending full text with auto-detect (${segmentationResult.segments.length} subtitle segments, target words: ${segmentationResult.targetLanguageWords.join(', ') || 'none'})`);
-        
-        const result = await this.cartesiaService.streamSynthesizeProgressive(
-          {
-            text: textWithEmphases,
-            autoDetectLanguage: true,
-            targetLanguage: session.targetLanguage,
-            voiceId: session.voiceId,
-            speakingRate: effectiveSpeakingRate,
-            emotion: effectiveEmotion,
-            personality: effectivePersonality,
-            expressiveness: effectiveExpressiveness,
-          },
-          ttsCallbacks
-        );
-      } else {
-        const detectedLanguage = detectTextLanguageForTTS(textWithEmphases, session.targetLanguage);
-        console.log(`[TTS-LANG-DIAG] → SINGLE-LANGUAGE path: detected='${detectedLanguage}' target='${session.targetLanguage}'`);
-        
-        const result = await this.cartesiaService.streamSynthesizeProgressive(
-          {
-            text: textWithEmphases,
-            language: detectedLanguage,
-            targetLanguage: session.targetLanguage,
-            voiceId: session.voiceId,
-            speakingRate: effectiveSpeakingRate,
-            emotion: effectiveEmotion,
-            personality: effectivePersonality,
-            expressiveness: effectiveExpressiveness,
-          },
-          ttsCallbacks
-        );
       }
+      
+      console.log(`[TTS-LANG-DIAG] → AUTO-DETECT path: letting Sonic-3 handle language (target='${session.targetLanguage}', codeSwitch=${segmentationResult.hasCodeSwitching}, segments=${segmentationResult.segments.length})`);
+      
+      const result = await this.cartesiaService.streamSynthesizeProgressive(
+        {
+          text: textWithEmphases,
+          autoDetectLanguage: true,
+          targetLanguage: session.targetLanguage,
+          voiceId: session.voiceId,
+          speakingRate: effectiveSpeakingRate,
+          emotion: effectiveEmotion,
+          personality: effectivePersonality,
+          expressiveness: effectiveExpressiveness,
+        },
+        ttsCallbacks
+      );
       
     } catch (error: any) {
       // Extract status code and response body for telemetry
