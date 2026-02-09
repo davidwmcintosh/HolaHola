@@ -89,6 +89,33 @@ function detectUnquotedNonLatin(text: string): Detection[] {
 }
 
 /**
+ * Detect Spanish inverted punctuation spans (¿...? and ¡...!).
+ * These are unambiguous Spanish markers — no other language uses them.
+ * Captures everything between ¿ and ? (or ¡ and !) as a target-language span.
+ */
+function detectSpanishPunctuation(text: string, targetLanguage: string): Detection[] {
+  if (!targetLanguage.toLowerCase().startsWith('spanish')) return [];
+  
+  const detections: Detection[] = [];
+  const spanishSpanPattern = /[¿¡][^¿¡?!]*[?!]/g;
+  let match;
+  while ((match = spanishSpanPattern.exec(text)) !== null) {
+    const fullMatch = match[0];
+    if (fullMatch.length < 3) continue;
+    
+    detections.push({
+      fullMatch,
+      innerText: fullMatch,
+      start: match.index,
+      end: match.index + fullMatch.length,
+      isQuoted: false,
+    });
+  }
+  
+  return detections;
+}
+
+/**
  * Common target-language interjections/exclamations that tutors naturally use.
  * These words are frequently spoken as standalone reactions (e.g., "Perfecto!" or "Très bien!")
  * but Gemini may not bold-mark them since they're not being "taught" as vocabulary.
@@ -218,8 +245,9 @@ export function segmentByLanguage(
   const nonLatinDetections = detectUnquotedNonLatin(text);
   const knownWordDetections = detectKnownTargetWords(text, knownTargetWords || []);
   const interjectionDetections = detectInterjections(text, targetLanguage);
+  const spanishPunctuationDetections = detectSpanishPunctuation(text, targetLanguage);
   
-  const allDetections = [...nonLatinDetections, ...knownWordDetections, ...interjectionDetections];
+  const allDetections = [...nonLatinDetections, ...knownWordDetections, ...interjectionDetections, ...spanishPunctuationDetections];
   allDetections.sort((a, b) => a.start - b.start);
   
   // Merge adjacent detections separated only by whitespace
