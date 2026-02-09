@@ -72,6 +72,7 @@ export interface DeepgramLiveConfig {
   language: string;
   model?: string;
   enableIntelligence?: boolean;
+  keyterms?: string[];
 }
 
 // EAGER initialization - voice is a core feature, fail fast if Deepgram is unavailable
@@ -143,6 +144,11 @@ export async function transcribeWithLiveAPI(
         smart_format: true,
         // NO encoding/sample_rate for container formats like WebM
       };
+      
+      if (config.keyterms && config.keyterms.length > 0) {
+        connectionOptions.keyterm = config.keyterms;
+        console.log(`[Deepgram Live] Keyterms: [${config.keyterms.join(', ')}]`);
+      }
       
       // Add Deepgram features - only when plan supports them
       // OPTIMIZATION: Skip diarize for PTT mode (single speaker, adds latency)

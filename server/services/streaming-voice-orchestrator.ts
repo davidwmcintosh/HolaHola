@@ -1639,8 +1639,8 @@ export class StreamingVoiceOrchestrator {
       // Start both operations in parallel
       const [transcriptionResult, cartesiaWarmupTime] = await Promise.all([
         // STT: Transcribe user audio with Deepgram (returns transcript + confidence)
-        // Founder Mode uses multi-language detection for English/Spanish mixing
-        this.transcribeAudio(audioData, session.targetLanguage, session.nativeLanguage, session.isFounderMode),
+        // Pass recently-taught vocabulary as keyterms for better recognition of target words
+        this.transcribeAudio(audioData, session.targetLanguage, session.nativeLanguage, session.isFounderMode, (session as any).sttKeyterms),
         // Connection warmup: Ensure Cartesia WebSocket is ready (no-op if already connected)
         this.cartesiaService.ensureConnection().catch((err: Error) => {
           console.warn(`[Streaming Orchestrator] Cartesia warmup failed: ${err.message}`);
@@ -3325,6 +3325,10 @@ Remember: Beta testers understand they're helping build something and appreciate
           // This provides both targetLanguageText AND a mapping for karaoke highlighting
           const boldWords = extractBoldMarkedWords(chunk.text || '');
           const extraction = extractTargetLanguageWithMapping(displayText, boldWords);
+          
+          if (boldWords.length > 0) {
+            this.addSttKeyterms(session, boldWords);
+          }
           
           // DEBUG: Trace extraction
           if (extraction.targetText) {
@@ -5379,6 +5383,10 @@ Remember: Beta testers understand they're helping build something and appreciate
             : [];
           const hasTargetContent = !!(extraction.targetText && extraction.targetText.trim().length > 0);
           
+          if (boldWords.length > 0) {
+            this.addSttKeyterms(session, boldWords);
+          }
+          
           console.log(`[SENTENCE_START EMIT - OpenMic] sentence=${chunk.index}, hasTarget=${hasTargetContent}, targetText="${(extraction.targetText || '').substring(0, 50)}", displayText="${displayText.substring(0, 60)}"`);
           
           // Send sentence start
@@ -6234,13 +6242,14 @@ Remember: Beta testers understand they're helping build something and appreciate
     audioData: Buffer, 
     targetLanguage: string,
     nativeLanguage: string = 'english',
-    isFounderMode: boolean = false
+    isFounderMode: boolean = false,
+    keyterms?: string[]
   ): Promise<{ transcript: string; confidence: number; intelligence?: DeepgramIntelligence; words?: TranscriptionResult['words'] }> {
     // MULTI-LANGUAGE: Always use multi-language detection
     // Students naturally mix native + target language during lessons
     const languageCode = 'multi';
     
-    console.log(`[Deepgram] Transcribing ${audioData.length} bytes, language: ${languageCode} (bilingual: ${nativeLanguage}/${targetLanguage})`);
+    console.log(`[Deepgram] Transcribing ${audioData.length} bytes, language: ${languageCode} (bilingual: ${nativeLanguage}/${targetLanguage})${keyterms?.length ? ` keyterms: [${keyterms.join(', ')}]` : ''}`);
     
     // Log header to verify WebM format (0x1A 0x45 0xDF 0xA3)
     const header = audioData.slice(0, 16);
@@ -6252,6 +6261,7 @@ Remember: Beta testers understand they're helping build something and appreciate
       const result = await transcribeWithLiveAPI(audioData, {
         language: languageCode,
         enableIntelligence: true,
+        keyterms,
       });
       
       if (!result.transcript) {
@@ -8937,6 +8947,20 @@ Only include observations you can clearly justify from the exchange. Return empt
   }
   
   /**
+   * Add vocabulary keyterms for STT recognition boosting.
+   * Deepgram Nova-3 keyterm prompting helps recognize target language words
+   * that beginner students are trying to pronounce. Keeps a rolling set of
+   * up to 100 terms (Deepgram's recommended limit) per session.
+   */
+  private addSttKeyterms(session: StreamingSession, words: string[]): void {
+    const existing: string[] = (session as any).sttKeyterms || [];
+    const newSet = [...new Set([...existing, ...words.map(w => w.toLowerCase())])];
+    const capped = newSet.slice(-100);
+    (session as any).sttKeyterms = capped;
+    console.log(`[STT Keyterms] Updated: [${capped.join(', ')}] (${capped.length} terms)`);
+  }
+
+  /**
    * Send a JSON message over WebSocket
    * Includes deduplication for audio_chunk to prevent double audio bug
    * Uses both chunk-ID and content-hash deduplication for comprehensive protection
@@ -9421,6 +9445,10 @@ Only include observations you can clearly justify from the exchange. Return empt
             ? Array.from(extraction.wordMapping.entries())
             : [];
           
+          if (boldWords.length > 0) {
+            this.addSttKeyterms(session, boldWords);
+          }
+          
           // NEW ARCHITECTURE (v2): Explicit hasTargetContent flag eliminates phantom subtitles
           const hasTargetContent = !!(extraction.targetText && extraction.targetText.trim().length > 0);
           
@@ -9553,6 +9581,10 @@ Only include observations you can clearly justify from the exchange. Return empt
               ? Array.from(extraction.wordMapping.entries())
               : [];
             const hasTargetContent = !!(extraction.targetText && extraction.targetText.trim().length > 0);
+            
+            if (boldWords.length > 0) {
+              this.addSttKeyterms(session, boldWords);
+            }
             
             this.sendMessage(session.ws, {
               type: 'sentence_start',
@@ -10674,6 +10706,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         const existing: string[] = (session as any).accumulatedBoldWords || [];
         (session as any).accumulatedBoldWords = [...new Set([...existing, ...fnBoldWords])];
         console.log(`[Native Function Call] Accumulated ${fnBoldWords.length} bold words from ${fn.name}: ${fnBoldWords.join(', ')}`);
+        
+        this.addSttKeyterms(session, fnBoldWords);
       }
     }
     
