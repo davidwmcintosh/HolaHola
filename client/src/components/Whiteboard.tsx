@@ -3184,7 +3184,7 @@ interface ScenarioItemDisplayProps {
 }
 
 const ScenarioItemDisplay = ({ item, index }: ScenarioItemDisplayProps) => {
-  const { data } = item;
+  const data = item.data || {};
   const mood = data.mood || 'casual';
   
   const moodStyles: Record<string, { icon: typeof Sparkles; color: string }> = {
