@@ -812,8 +812,10 @@ export class CartesiaStreamingService extends EventEmitter {
     const allTimestamps: WordTiming[] = [];
     let cumulativeTimeOffset = 0; // Track time offset for word timestamps
     
-    // Use same context_id across all segments for prosody continuity
-    const sharedContextId = `ctx_multilingual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    // Use per-language context IDs to prevent accent carryover between languages
+    // Sharing context_id causes Cartesia's prosody model to carry Spanish accent into English segments
+    const contextIdBase = `ctx_ml_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const languageContextIds: Record<string, string> = {};
     
     for (let segIndex = 0; segIndex < segments.length; segIndex++) {
       const segment = segments[segIndex];
@@ -828,6 +830,13 @@ export class CartesiaStreamingService extends EventEmitter {
         continue;
       }
       
+      // Use separate context_id per language so accent doesn't bleed across language boundaries
+      // Same-language consecutive segments still share context for natural prosody continuity
+      if (!languageContextIds[segment.languageCode]) {
+        languageContextIds[segment.languageCode] = `${contextIdBase}_${segment.languageCode}`;
+      }
+      const segmentContextId = languageContextIds[segment.languageCode];
+      
       // Build request with segment-specific language settings
       // CRITICAL: Set targetLanguage per segment so effectiveLanguageCode and pronunciation dictionaries match
       const segmentLanguageName = this.languageCodeToName(segment.languageCode);
@@ -836,7 +845,7 @@ export class CartesiaStreamingService extends EventEmitter {
         text: segment.text,
         language: segmentLanguageName,
         targetLanguage: segmentLanguageName, // Override to ensure correct language code for this segment
-        contextId: sharedContextId, // Pass through for prosody continuity
+        contextId: segmentContextId, // Per-language context prevents accent carryover
       };
       
       // Synthesize this segment
