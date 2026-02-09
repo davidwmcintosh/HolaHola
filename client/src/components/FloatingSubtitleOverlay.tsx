@@ -126,8 +126,10 @@ export function FloatingSubtitleOverlay({
               {regularSubtitleMode === 'all' ? (
                 // Render from wordTimings array directly (preserves Cartesia alignment)
                 // visibleWordCount controls progressive reveal (ACTFL policy driven)
-                // For "all" mode, show all words if visibleWordCount is 0 (initial state)
-                wordTimings.slice(0, visibleWordCount > 0 ? visibleWordCount : wordTimings.length).map((timing, index) => {
+                // When isPlaying and visibleWordCount=0, progressive reveal is starting — show nothing
+                // (updatePlaybackTime will set the correct count on the next frame).
+                // When NOT playing and visibleWordCount=0, show all words as a static preview.
+                wordTimings.slice(0, (isPlaying && visibleWordCount === 0) ? 0 : (visibleWordCount > 0 ? visibleWordCount : wordTimings.length)).map((timing, index) => {
                   // Karaoke highlighting: highlight words up to currentWordIndex
                   const isHighlighted = index <= currentWordIndex;
                   const isCurrentWord = index === currentWordIndex;
@@ -158,11 +160,11 @@ export function FloatingSubtitleOverlay({
                 // Target mode: render from visibleTargetText with progressive reveal
                 // Words appear greyed out just before they're spoken (look-ahead window),
                 // then highlight via currentTargetWordIndex as karaoke reaches them.
-                // This prevents overwhelming the user with all target words at once.
+                // LOOK_AHEAD=1: show only the next target word as preview (not all at once)
                 targetWords?.map((word, index) => {
                   const isHighlighted = index <= currentTargetWordIndex;
                   const isCurrentWord = index === currentTargetWordIndex;
-                  const LOOK_AHEAD = 3;
+                  const LOOK_AHEAD = 1;
                   const isVisible = index <= currentTargetWordIndex + LOOK_AHEAD;
                   
                   if (!isVisible) return null;
