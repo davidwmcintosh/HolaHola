@@ -383,6 +383,8 @@ NEVER guess. NEVER roleplay searching. Actually call this function.`,
     parametersJsonSchema: {
       type: "object",
       properties: {
+        verb: { type: "string", description: "The verb or grammar topic being displayed, e.g., 'hablar'" },
+        tense: { type: "string", description: "The tense or grammar category, e.g., 'Present Indicative'" },
         headers: { type: "string", description: "Column headers separated by |, e.g., 'Pronoun|Present|Past'" },
         rows: { type: "string", description: "Table rows, each row separated by newline, columns by |, e.g., 'yo|hablo|hablé\\ntú|hablas|hablaste'" },
       },

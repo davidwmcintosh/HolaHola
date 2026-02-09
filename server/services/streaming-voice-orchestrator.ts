@@ -11331,7 +11331,10 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
               return { id: Math.random().toString(36).substring(7), left: left || pair, right: right || '' };
             });
             drillData.pairs = pairs;
-            drillData.matchState = { matched: {}, selected: null, attempts: 0 };
+            drillData.selectedLeftId = null;
+            drillData.matchedCount = 0;
+            drillData.attempts = 0;
+            drillData.matchState = 'pending';
           } else if (drillType === 'fill_blank') {
             const parts = content.split('|').map((p: string) => p.trim());
             drillData.blankedText = parts[0] || content;
@@ -11372,12 +11375,10 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       case 'GRAMMAR_TABLE': {
         const headers = fn.args.headers as string | undefined;
         const rows = fn.args.rows as string | undefined;
+        const verb = (fn.args.verb as string | undefined) || 'conjugation';
+        const tense = (fn.args.tense as string | undefined) || '';
         
         if (headers && rows) {
-          const headerCols = headers.split('|').map((h: string) => h.trim());
-          const verb = headerCols[0] || 'conjugation';
-          const tense = headerCols.length > 1 ? headerCols.slice(1).join(', ') : '';
-          
           const conjugations = rows.split('\n').filter((r: string) => r.trim()).map((row: string) => {
             const cols = row.split('|').map((c: string) => c.trim());
             return { pronoun: cols[0] || '', form: cols.slice(1).join(' / ') || cols[0] || '' };
