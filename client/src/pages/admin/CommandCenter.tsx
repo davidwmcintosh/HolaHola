@@ -2077,6 +2077,12 @@ function UsersTab() {
     queryKey: [queryUrl],
   });
 
+  const { data: balancesData } = useQuery<{
+    balances: Record<string, { balanceSeconds: number; balanceHours: number }>;
+  }>({
+    queryKey: ["/api/admin/users/balances"],
+  });
+
   const updateRoleMutation = useMutation({
     mutationFn: async ({ userId, newRole }: { userId: string; newRole: string }) => {
       return apiRequest("PATCH", `/api/admin/users/${userId}/role`, { role: newRole });
@@ -2113,6 +2119,7 @@ function UsersTab() {
       return apiRequest("POST", `/api/admin/users/${userId}/grant-credits`, { creditHours, description });
     },
     onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users/balances"] });
       toast({ title: "Credits Granted", description: data.message || "Credits have been added to user's account" });
       setGrantCreditsUser(null);
       setCreditAmount(1);
@@ -2373,6 +2380,21 @@ function UsersTab() {
                     </div>
 
                     <div className="flex items-center gap-3 flex-wrap">
+                      <span className={`text-sm font-medium min-w-[4rem] text-right ${
+                        balancesData?.balances[user.id]
+                          ? balancesData.balances[user.id].balanceHours < 0
+                            ? 'text-destructive'
+                            : balancesData.balances[user.id].balanceHours === 0
+                              ? 'text-muted-foreground'
+                              : ''
+                          : 'text-muted-foreground'
+                      }`} data-testid={`text-balance-${user.id}`}>
+                        <DollarSign className="h-3.5 w-3.5 inline mr-0.5" />
+                        {balancesData?.balances[user.id] 
+                          ? `${balancesData.balances[user.id].balanceHours}h`
+                          : '—'}
+                      </span>
+
                       {(user.role === 'developer' || user.role === 'admin') && (
                         <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-muted/50">
                           <span className="text-xs text-muted-foreground">Dev Test</span>
