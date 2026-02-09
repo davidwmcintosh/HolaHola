@@ -55,8 +55,9 @@ function getGeminiClient(): GoogleGenAI {
   return geminiClient;
 }
 
-// Feature flag for gradual rollout
-export const COMPASS_ENABLED = process.env.COMPASS_ENABLED === 'true';
+// Compass is always on — credit tracking for paid accounts requires it.
+// If compass fails to initialize, errors are surfaced rather than silently falling back.
+export const COMPASS_ENABLED = true;
 
 // Runtime cache for active sessions (fast prompt assembly)
 interface CachedSession {
@@ -84,14 +85,10 @@ const CREDIT_BALANCE_TTL_MS = 60 * 1000;
 
 export class SessionCompassService {
   /**
-   * Check if Compass is enabled for this user/class
-   * During migration: gradually roll out to users
+   * Compass is always enabled — credit tracking requires it.
+   * Kept as a method for interface compatibility.
    */
   isEnabled(userId: string, classId?: string | null): boolean {
-    // Global feature flag
-    if (!COMPASS_ENABLED) return false;
-    
-    // Future: could check per-class or per-user flags
     return true;
   }
 
