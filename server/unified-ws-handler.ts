@@ -1552,7 +1552,8 @@ Reference past discussions when relevant, but don't force it.
             // Start new session
             openMicSessionStarting = true;
             const languageCode = getDeepgramLanguageCode(session.targetLanguage || 'spanish');
-            console.log(`[OpenMic] Starting PCM session for language: ${languageCode}`);
+            const sessionKeytermsForMic = (session as any).sttKeyterms as string[] | undefined;
+            console.log(`[OpenMic] Starting PCM session for language: ${languageCode}${sessionKeytermsForMic?.length ? ` (${sessionKeytermsForMic.length} keyterms)` : ''}`);
             
             const newSession = new OpenMicSession(languageCode, {
               onSpeechStarted: () => {
@@ -1616,7 +1617,7 @@ Reference past discussions when relevant, but don't force it.
                   }));
                 }
               },
-            });
+            }, sessionKeytermsForMic);
             
             try {
               await newSession.start();
@@ -1667,7 +1668,8 @@ Reference past discussions when relevant, but don't force it.
             pendingSpeculativeWordCount = 0;
             
             const languageCode = getDeepgramLanguageCode(session.targetLanguage || 'spanish');
-            console.log(`[SpeculativePTT] Starting PCM session for language: ${languageCode}`);
+            const sessionKeyterms = (session as any).sttKeyterms as string[] | undefined;
+            console.log(`[SpeculativePTT] Starting PCM session for language: ${languageCode}${sessionKeyterms?.length ? ` (${sessionKeyterms.length} keyterms)` : ''}`);
             
             const pttSession = new OpenMicSession(languageCode, {
               onSpeechStarted: () => {
@@ -1747,7 +1749,7 @@ Reference past discussions when relevant, but don't force it.
                 console.log('[SpeculativePTT] Session closed');
                 speculativePttSession = null;
               },
-            });
+            }, sessionKeyterms);
             
             try {
               await pttSession.start();
@@ -3272,7 +3274,8 @@ ${buildNativeFunctionCallingSection()}`;
             // Start new session
             openMicSessionStarting = true;
             const languageCode = getDeepgramLanguageCode(session.targetLanguage || 'spanish');
-            console.log(`[OpenMic] Starting PCM session for language: ${languageCode}`);
+            const sessionKeytermsForMic = (session as any).sttKeyterms as string[] | undefined;
+            console.log(`[OpenMic] Starting PCM session for language: ${languageCode}${sessionKeytermsForMic?.length ? ` (${sessionKeytermsForMic.length} keyterms)` : ''}`);
             
             const newSession = new OpenMicSession(languageCode, {
               onSpeechStarted: () => {
@@ -3336,7 +3339,7 @@ ${buildNativeFunctionCallingSection()}`;
                   }));
                 }
               },
-            });
+            }, sessionKeytermsForMic);
             
             try {
               await newSession.start();
@@ -3387,7 +3390,8 @@ ${buildNativeFunctionCallingSection()}`;
             pendingSpeculativeWordCount = 0;
             
             const languageCode = getDeepgramLanguageCode(session.targetLanguage || 'spanish');
-            console.log(`[SpeculativePTT] Starting PCM session for language: ${languageCode}`);
+            const sessionKeyterms = (session as any).sttKeyterms as string[] | undefined;
+            console.log(`[SpeculativePTT] Starting PCM session for language: ${languageCode}${sessionKeyterms?.length ? ` (${sessionKeyterms.length} keyterms)` : ''}`);
             
             const pttSession = new OpenMicSession(languageCode, {
               onSpeechStarted: () => {
@@ -3467,7 +3471,7 @@ ${buildNativeFunctionCallingSection()}`;
                 console.log('[SpeculativePTT] Session closed');
                 speculativePttSession = null;
               },
-            });
+            }, sessionKeyterms);
             
             try {
               await pttSession.start();

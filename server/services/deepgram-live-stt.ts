@@ -411,6 +411,7 @@ export class OpenMicSession {
   private isOpen = false;
   private events: OpenMicEvents;
   private language: string;
+  private keyterms: string[];
   private currentTranscript = '';
   private currentConfidence = 0;
   private currentIntelligence: DeepgramIntelligence = {};
@@ -423,9 +424,10 @@ export class OpenMicSession {
   private isSuppressed = false;
   private lastFinalSegment = '';  // Deduplication: Track last final segment to prevent duplicates
   
-  constructor(language: string, events: OpenMicEvents) {
+  constructor(language: string, events: OpenMicEvents, keyterms?: string[]) {
     this.language = language;
     this.events = events;
+    this.keyterms = keyterms || [];
   }
   
   /**
@@ -480,7 +482,7 @@ export class OpenMicSession {
         const openMicModel = 'nova-3';  // Always nova-3 for open-mic - multi-language requires it
         console.log(`[OpenMic] Creating Deepgram live connection (model: ${openMicModel} [forced for multi-lang], language: ${languageCode}, target: ${this.language}, intelligence: ${DEEPGRAM_INTELLIGENCE_ENABLED})`);
         
-        this.connection = deepgramClient.listen.live({
+        const connectionOptions: any = {
           model: openMicModel,  // nova-3 is required for reliable multi-language streaming
           language: languageCode,
           punctuate: true,
@@ -496,7 +498,14 @@ export class OpenMicSession {
           ...(DEEPGRAM_INTELLIGENCE_ENABLED && {
             diarize: true,           // Speaker separation
           }),
-        });
+        };
+        
+        if (this.keyterms.length > 0) {
+          connectionOptions.keywords = this.keyterms.map(w => `${w}:2`);
+          console.log(`[OpenMic] Keyterms (${this.keyterms.length}): [${this.keyterms.slice(0, 10).join(', ')}${this.keyterms.length > 10 ? '...' : ''}]`);
+        }
+        
+        this.connection = deepgramClient.listen.live(connectionOptions);
         console.log(`[OpenMic] Intelligence ${DEEPGRAM_INTELLIGENCE_ENABLED ? 'enabled: diarize' : 'disabled (plan limitation)'}`);
         
         // Attach Open handler first
