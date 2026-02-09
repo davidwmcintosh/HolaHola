@@ -2389,9 +2389,8 @@ function UsersTab() {
                               : ''
                           : 'text-muted-foreground'
                       }`} data-testid={`text-balance-${user.id}`}>
-                        <DollarSign className="h-3.5 w-3.5 inline mr-0.5" />
                         {balancesData?.balances[user.id] 
-                          ? `${balancesData.balances[user.id].balanceHours}h`
+                          ? `${(Math.round(balancesData.balances[user.id].balanceSeconds / 36) / 100).toFixed(2)}h`
                           : '—'}
                       </span>
 
