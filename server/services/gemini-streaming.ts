@@ -842,6 +842,9 @@ export class GeminiStreamingService {
     let flushTimeoutId: NodeJS.Timeout | null = null;
     let firstSentenceEmitted = false;
     
+    // Stream timeout state (declared here so catch block can clean up)
+    let streamTimeoutId: NodeJS.Timeout | null = null;
+    
     // Helper to flush buffer if it has enough content
     const flushBufferIfNeeded = async () => {
       // Strip internal notation tags before flushing
@@ -1009,10 +1012,44 @@ export class GeminiStreamingService {
       const geminiRequestTime = Date.now();
       let firstChunkReceived = false;
       
+      // STREAM TIMEOUT: Prevent indefinite hangs when Gemini stalls
+      // Voice target is <3s total response. First chunk allows for thinking overhead,
+      // but we abort early enough for the fallback to still feel responsive.
+      const FIRST_CHUNK_TIMEOUT_MS = 10000; // 10s for initial thinking + first token
+      const INTER_CHUNK_TIMEOUT_MS = 8000;  // 8s between subsequent chunks (generous for slow networks)
+      let streamTimedOut = false;
+      
+      const clearStreamTimeout = () => {
+        if (streamTimeoutId) {
+          clearTimeout(streamTimeoutId);
+          streamTimeoutId = null;
+        }
+      };
+      
+      const resetStreamTimeout = () => {
+        clearStreamTimeout();
+        const timeoutMs = firstChunkReceived ? INTER_CHUNK_TIMEOUT_MS : FIRST_CHUNK_TIMEOUT_MS;
+        streamTimeoutId = setTimeout(() => {
+          streamTimedOut = true;
+          const elapsed = Date.now() - geminiRequestTime;
+          const phase = firstChunkReceived ? 'inter-chunk' : 'first-chunk';
+          console.error(`[Gemini Streaming] STREAM TIMEOUT (${phase}) after ${elapsed}ms - aborting to prevent hang`);
+          console.error(`[Gemini Streaming] State at timeout: ${chunkCount} chunks received, ${buffer.length} chars buffered, ${sentenceIndex} sentences emitted`);
+        }, timeoutMs);
+      };
+      
+      resetStreamTimeout();
+      
       // Process streamed tokens
       let chunkCount = 0;
       let lastLogTime = Date.now();
       for await (const chunk of result) {
+        if (streamTimedOut) {
+          console.warn(`[Gemini Streaming] Breaking out of stream loop after timeout`);
+          break;
+        }
+        
+        resetStreamTimeout();
         chunkCount++;
         
         // Log TTFB on first chunk
@@ -1245,9 +1282,16 @@ export class GeminiStreamingService {
         }
       }
       
-      // Clear any pending timeout
+      // Clear stream timeout and flush timeout
+      clearStreamTimeout();
       if (flushTimeoutId) {
         clearTimeout(flushTimeoutId);
+      }
+      
+      // If stream timed out, notify via onError callback
+      if (streamTimedOut) {
+        const timeoutError = new Error(`Gemini stream timed out after ${Date.now() - geminiRequestTime}ms (${chunkCount} chunks received, ${fullText.length} chars)`);
+        onError?.(timeoutError);
       }
       
       // Strip internal notation tags from remaining buffer before final output
@@ -1268,7 +1312,8 @@ export class GeminiStreamingService {
       
       const durationMs = Date.now() - startTime;
       const functionCallLog = functionCallsProcessed > 0 ? `, ${functionCallsProcessed} function calls` : '';
-      console.log(`[Gemini Streaming] Complete: ${sentenceIndex} sentences, ${fullText.length} chars${functionCallLog} in ${durationMs}ms`);
+      const timeoutLog = streamTimedOut ? ' [TIMED OUT]' : '';
+      console.log(`[Gemini Streaming] Complete: ${sentenceIndex} sentences, ${fullText.length} chars${functionCallLog} in ${durationMs}ms${timeoutLog}`);
       
       return {
         fullText,
@@ -1291,7 +1336,10 @@ export class GeminiStreamingService {
         // Log to telemetry for monitoring frequency
         console.log(`[TELEMETRY] gemini_json_truncation: recovered=true, sentences=${sentenceIndex}, chars=${fullText.length}`);
         
-        // Clear pending timeout
+        // Clear pending timeouts
+        if (streamTimeoutId) {
+          clearTimeout(streamTimeoutId);
+        }
         if (flushTimeoutId) {
           clearTimeout(flushTimeoutId);
         }
