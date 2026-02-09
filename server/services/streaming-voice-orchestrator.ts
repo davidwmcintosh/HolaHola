@@ -10114,8 +10114,16 @@ Using this context, speak first to the student with a natural opening message. O
           recoverable: false,
         } as StreamingErrorMessage);
         
-        // Clean up the session
+        // CRITICAL: Close the WebSocket so the close handler in unified-ws-handler
+        // properly ends the usage session and compass session.
+        // Without this, the WS stays open and usage time keeps accruing.
+        const ws = session.ws;
         this.endSession(session.id);
+        try {
+          ws.close(4408, 'Idle timeout');
+        } catch (e) {
+          // Socket may already be closing
+        }
       }
     }, SESSION_IDLE_TIMEOUT_MS);
     
@@ -10182,7 +10190,15 @@ Using this context, speak first to the student with a natural opening message. O
             recoverable: false,
           } as StreamingErrorMessage);
           
+          // CRITICAL: Close the WebSocket so the close handler in unified-ws-handler
+          // properly ends the usage session and stops credit accrual.
+          const ws = session.ws;
           this.endSession(session.id);
+          try {
+            ws.close(4409, 'Credits exhausted');
+          } catch (e) {
+            // Socket may already be closing
+          }
         } else if (projectedRemaining <= 120) {
           this.sendMessage(session.ws, {
             type: 'error',
