@@ -103,12 +103,11 @@ export function allowRoles(allowedRoles: UserRole[]) {
 export function loadAuthenticatedUser(storage: any) {
   return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      // Skip if not authenticated
-      if (!req.user?.claims?.sub) {
+      // Skip if not authenticated - check both password auth and OIDC
+      const userId = (req.session as any)?.userId || req.user?.claims?.sub;
+      if (!userId) {
         return next();
       }
-
-      const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
 
       if (!user) {

@@ -173,6 +173,18 @@ export async function setupAuth(app: Express, authLimiter?: any) {
   app.post("/api/logout", ...logoutPostHandler);
 }
 
+export function getRequestUserId(req: any): string | null {
+  // Password auth stores userId directly in session
+  if (req.session?.userId) {
+    return req.session.userId;
+  }
+  // Replit Auth / OIDC stores in passport.user.claims.sub
+  if (req.user?.claims?.sub) {
+    return req.user.claims.sub;
+  }
+  return null;
+}
+
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   // Check for password auth first (userId stored directly in session)
   const sessionUserId = (req.session as any)?.userId;

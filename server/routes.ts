@@ -72,7 +72,7 @@ import {
 import { franc } from "franc-min";
 import { createSystemPrompt } from "./system-prompt";
 import { assessMessage, analyzePerformance } from "./difficulty-adjustment";
-import { setupAuth, isAuthenticated, getSession } from "./replitAuth";
+import { setupAuth, isAuthenticated, getSession, getRequestUserId } from "./replitAuth";
 import { passwordAuthService } from "./services/password-auth-service";
 import { emailService } from "./services/email-service";
 import { neuralNetworkSync } from "./services/neural-network-sync";
@@ -605,7 +605,7 @@ export async function registerRoutes(app: Express): Promise<void> {
       
       // Fall back to Replit Auth (claims.sub)
       if (req.isAuthenticated() && req.user?.claims?.sub) {
-        const user = await storage.getUser(req.user.claims.sub);
+        const user = await storage.getUser(getRequestUserId(req)!);
         return res.json(user);
       }
       
@@ -816,7 +816,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Create invitation (admin/teacher only)
   app.post('/api/auth/invitations', authLimiter, isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -866,7 +866,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Get pending invitations (admin/teacher only)
   app.get('/api/auth/invitations', authLimiter, isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -895,7 +895,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Get all languages user has progress in
   app.get('/api/user/languages', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const languages = await storage.getUserLanguages(userId);
       res.json({ languages });
     } catch (error: any) {
@@ -906,7 +906,7 @@ export async function registerRoutes(app: Express): Promise<void> {
 
   app.put('/api/user/preferences', isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       
       // Validate request body
       const validationResult = updateUserPreferencesSchema.safeParse(req.body);
@@ -956,7 +956,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // This enables time-aware greetings from Daniela
   app.put('/api/user/timezone', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { timezone } = req.body;
       
       // Validate timezone is a non-empty string (IANA format)
@@ -979,7 +979,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Get all language-specific preferences for a user
   app.get('/api/user/language-preferences', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const preferences = await storage.getAllLanguagePreferences(userId);
       res.json({ preferences });
     } catch (error) {
@@ -991,7 +991,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Get preferences for a specific language with eligibility info
   app.get('/api/user/language-preferences/:language', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { language } = req.params;
       
       if (!language) {
@@ -1049,7 +1049,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Update preferences for a specific language
   app.put('/api/user/language-preferences/:language', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { language } = req.params;
       const { selfDirectedFlexibility, selfDirectedPlacementDone } = req.body;
       
@@ -1080,7 +1080,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Get user usage statistics (voice messages)
   app.get('/api/user/usage', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const stats = await storage.getUserUsageStats(userId);
       res.json(stats);
     } catch (error) {
@@ -1093,7 +1093,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // DEPRECATED: Use /api/usage/status instead for hour-based tracking
   app.post('/api/user/check-voice-usage', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const result = await storage.checkAndIncrementVoiceUsage(userId);
       
       if (!result.allowed) {
@@ -1117,7 +1117,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Get current usage status (balance, active session, etc.)
   app.get('/api/usage/status', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const status = await usageService.getUsageStatus(userId);
       
       // Check for developer bypass
@@ -1136,7 +1136,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Check if user can start a voice session
   app.get('/api/usage/check', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       
       // Check for developer bypass first
       const isDeveloper = await usageService.checkDeveloperBypass(userId);
@@ -1163,7 +1163,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Get usage history (ledger entries)
   app.get('/api/usage/history', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const limit = parseInt(req.query.limit as string) || 20;
       const history = await usageService.getUsageHistory(userId, limit);
       res.json({ history });
@@ -1176,7 +1176,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Get recent voice sessions
   app.get('/api/usage/sessions', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const limit = parseInt(req.query.limit as string) || 10;
       const sessions = await usageService.getRecentSessions(userId, limit);
       res.json({ sessions });
@@ -1189,7 +1189,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Get credit balance only (lightweight endpoint)
   app.get('/api/usage/balance', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const balance = await usageService.getBalanceWithBypass(userId);
       res.json(balance);
     } catch (error) {
@@ -1201,7 +1201,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Get class-specific balance for a student enrollment
   app.get('/api/usage/class/:classId/balance', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { classId } = req.params;
       
       // Check for developer bypass
@@ -1233,7 +1233,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Get purchased hours balance (not tied to any class)
   app.get('/api/usage/purchased', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       
       // Check for developer bypass
       const isDeveloper = await usageService.checkDeveloperBypass(userId);
@@ -1255,7 +1255,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Check credits with class context (for starting sessions)
   app.get('/api/usage/check/:classId?', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const classId = req.params.classId || req.query.classId;
       
       // Check for developer bypass first
@@ -1292,7 +1292,7 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
     
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { conversationId } = req.params;
       
       // Verify user owns this conversation
@@ -1326,7 +1326,7 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
     
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { conversationId } = req.params;
       const { content, source } = req.body;
       
@@ -1366,7 +1366,7 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
     
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { topicId } = req.params;
       const { status } = req.body;
       
@@ -1472,7 +1472,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Get stats about architect notes (for debugging)
   app.get('/api/architect/stats', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       
       // Verify user is a developer
       const isDeveloper = await usageService.checkDeveloperBypass(userId);
@@ -1886,7 +1886,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Submit a best practice for promotion
   app.post('/api/sync/promotions/submit', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { bestPracticeId } = req.body;
       
       if (!bestPracticeId) {
@@ -1909,7 +1909,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Review a promotion (approve/reject)
   app.post('/api/sync/promotions/:id/review', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { id } = req.params;
       const { approved, reviewNotes } = req.body;
       
@@ -1961,7 +1961,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Import best practices (for manual sync)
   app.post('/api/sync/import/best-practices', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { practices } = req.body;
       
       if (!Array.isArray(practices)) {
@@ -1999,7 +1999,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Export anonymized student insights (for one-way prod→dev sync)
   app.get('/api/sync/export/anonymized-insights', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
       
       // Only developers and admins can export anonymized data
@@ -2036,7 +2036,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Get aggregate student statistics (privacy-preserving analytics)
   app.get('/api/sync/stats/aggregate', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
       
       // Only developers and admins can view aggregate stats
@@ -2055,7 +2055,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Trigger manual auto-sync (syncs all pending best practices)
   app.post('/api/sync/auto', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
       
       if (user?.role !== 'developer' && user?.role !== 'admin') {
@@ -2073,7 +2073,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Retract a synced best practice
   app.post('/api/sync/retract/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
       
       if (user?.role !== 'developer' && user?.role !== 'admin') {
@@ -2099,7 +2099,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Get auto-sync status
   app.get('/api/sync/auto-status', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
       
       if (user?.role !== 'developer' && user?.role !== 'admin') {
@@ -2117,7 +2117,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Get detailed sync history with retract capability info
   app.get('/api/sync/history', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
       
       if (user?.role !== 'developer' && user?.role !== 'admin') {
@@ -2146,7 +2146,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Manual sync trigger (developer/admin only)
   app.post('/api/sync/trigger', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
       
       if (user?.role !== 'developer' && user?.role !== 'admin') {
@@ -2174,7 +2174,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Reload credits for a class (developer only)
   app.post('/api/developer/reload-credits', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       
       // Verify user is a developer
       const isDeveloper = await usageService.checkDeveloperBypass(userId);
@@ -2253,7 +2253,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Create a test class for developers (quick setup for testing)
   app.post('/api/developer/create-test-class', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       
       // Verify user is a developer
       const isDeveloper = await usageService.checkDeveloperBypass(userId);
@@ -2322,7 +2322,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Get platform-wide reports for developers (DAU, language popularity, etc.)
   app.get('/api/developer/platform-stats', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       
       // Verify user is a developer
       const isDeveloper = await usageService.checkDeveloperBypass(userId);
@@ -2435,7 +2435,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Get developer usage analytics
   app.get('/api/developer/analytics', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       
       // Verify user is a developer
       const isDeveloper = await usageService.checkDeveloperBypass(userId);
@@ -2577,7 +2577,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Get class completion estimates
   app.get('/api/developer/class-estimates', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       
       // Verify user is a developer
       const isDeveloper = await usageService.checkDeveloperBypass(userId);
@@ -2648,7 +2648,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Get neural network teaching knowledge telemetry for Option B evaluation
   app.get('/api/developer/neural-network-telemetry', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       
       // Verify user is a developer
       const isDeveloper = await usageService.checkDeveloperBypass(userId);
@@ -2774,7 +2774,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Get user's subscription status
   app.get('/api/billing/subscription', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
       
       if (!user?.stripeSubscriptionId) {
@@ -2796,7 +2796,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Create checkout session
   app.post('/api/billing/checkout', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       let user = await storage.getUser(userId);
       const { priceId } = req.body;
 
@@ -2853,7 +2853,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Create customer portal session (manage subscription)
   app.post('/api/billing/portal', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
 
       if (!user?.stripeCustomerId) {
@@ -2895,7 +2895,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Create checkout session for hour package purchase
   app.post('/api/billing/hour-packages/checkout', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       let user = await storage.getUser(userId);
       const { packageTier } = req.body;
 
@@ -2957,7 +2957,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Fulfill hour package after successful payment (called from frontend after redirect)
   app.post('/api/billing/hour-packages/fulfill', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { sessionId } = req.body;
       
       if (!sessionId) {
@@ -3008,7 +3008,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Create checkout session for institutional package purchase
   app.post('/api/billing/institutional-packages/checkout', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       let user = await storage.getUser(userId);
       const { packageTier, studentCount, classId } = req.body;
 
@@ -3202,7 +3202,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // This bypasses server-side WebSocket blocking in Replit infrastructure
   app.post("/api/realtime/token", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
       
       if (!user) {
@@ -3269,7 +3269,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Chat / Conversations
   app.post("/api/conversations", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       
       // Fetch user record to get saved preferences (defensive fallback)
       let userRecord = await storage.getUser(userId);
@@ -3458,7 +3458,7 @@ export async function registerRoutes(app: Express): Promise<void> {
 
   app.get("/api/conversations", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const email = req.user.claims.email;
       console.log('[CONVERSATIONS GET] Fetching for userId:', userId, 'email:', email, 'env:', process.env.NODE_ENV);
       const conversations = await storage.getUserConversations(userId);
@@ -3481,7 +3481,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // IMPORTANT: This route MUST come before /api/conversations/:id to avoid "filtered" being treated as an ID
   app.get("/api/conversations/filtered", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { timeFilter, starredOnly, topicId, language } = req.query;
       
       const conversations = await storage.getFilteredConversations(userId, {
@@ -3500,7 +3500,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Week 1 Feature: Smart search across all user conversations
   app.get("/api/search/messages", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const query = req.query.q as string;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
       
@@ -3518,7 +3518,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Week 1 Feature: AI-powered practice suggestions based on conversation history
   app.get("/api/practice-suggestions", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const user = req.user;
       const userProfile = await storage.getUser(userId);
       
@@ -3611,7 +3611,7 @@ Return a JSON array of suggestions with this format:
 
   app.get("/api/conversations/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const conversation = await storage.getConversation(req.params.id, userId);
       if (!conversation) {
         return res.status(404).json({ message: "Conversation not found" });
@@ -3641,7 +3641,7 @@ Return a JSON array of suggestions with this format:
 
   app.get("/api/conversations/by-language/:language", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const conversations = await storage.getConversationsByLanguage(req.params.language, userId);
       res.json(conversations);
     } catch (error: any) {
@@ -3651,7 +3651,7 @@ Return a JSON array of suggestions with this format:
 
   app.get("/api/conversations/:id/messages", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const conversation = await storage.getConversation(req.params.id, userId);
       if (!conversation) {
         return res.status(404).json({ message: "Conversation not found" });
@@ -3665,7 +3665,7 @@ Return a JSON array of suggestions with this format:
 
   app.delete("/api/conversations/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const success = await storage.deleteConversation(req.params.id, userId);
       if (!success) {
         return res.status(404).json({ message: "Conversation not found" });
@@ -3678,7 +3678,7 @@ Return a JSON array of suggestions with this format:
 
   app.post("/api/conversations/:id/messages", aiLimiter, isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const conversationId = req.params.id;
       const conversation = await storage.getConversation(conversationId, userId);
       
@@ -5707,7 +5707,7 @@ ${memoryContext}
   // Get active voice session for user (allows client to reconnect to existing session)
   app.get("/api/voice/active-session", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || req.session?.userId;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -5790,7 +5790,7 @@ ${memoryContext}
         return res.status(400).json({ error: "No audio file provided" });
       }
 
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       
       // CRITICAL: Check voice usage limits BEFORE transcription (don't increment yet)
       const usageCheck = await storage.checkVoiceUsage(userId);
@@ -5906,7 +5906,7 @@ ${memoryContext}
         return res.status(400).json({ error: "No text provided" });
       }
 
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       
       // Get user's tutor gender preference for voice selection
       const user = await storage.getUser(userId);
@@ -6044,7 +6044,7 @@ ${memoryContext}
       }
 
       const { referenceText, language, classId, sessionId } = req.body;
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       
       if (!req.file) {
         return res.status(400).json({ error: "Audio file required" });
@@ -6114,7 +6114,7 @@ ${memoryContext}
   app.post("/api/voice/slow-repeat", voiceLimiter, isAuthenticated, async (req: any, res) => {
     try {
       const { conversationId } = req.body;
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       
       if (!conversationId) {
         return res.status(400).json({ error: "Conversation ID is required" });
@@ -6231,7 +6231,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Vocabulary
   app.get("/api/vocabulary", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { language, difficulty } = req.query;
       if (!language) {
         return res.status(400).json({ error: "Language parameter is required" });
@@ -6250,7 +6250,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Vocabulary with path parameters (RESTful alternative)
   app.get("/api/vocabulary/:language/:difficulty", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { language, difficulty } = req.params;
       const words = await storage.getVocabularyWords(language, userId, difficulty);
       res.json(words);
@@ -6261,7 +6261,7 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   app.patch("/api/vocabulary/:id/review", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { id } = req.params;
       const { isCorrect } = req.body;
       
@@ -6292,7 +6292,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Export vocabulary in CSV or Anki format
   app.get("/api/vocabulary/export", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { language, format = 'csv' } = req.query;
       
       if (!language) {
@@ -6334,7 +6334,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Phase 1: Toggle conversation star
   app.patch("/api/conversations/:id/star", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const updated = await storage.toggleConversationStar(req.params.id, userId);
       if (!updated) {
         return res.status(404).json({ message: "Conversation not found" });
@@ -6348,7 +6348,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Phase 1: Get filtered vocabulary
   app.get("/api/vocabulary/filtered", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { language, timeFilter, topicId, sourceConversationId, classId } = req.query;
       
       if (!language) {
@@ -6421,7 +6421,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Review Hub: Unified learning dashboard data
   app.get("/api/review-hub", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { language, context } = req.query;
       
       if (!language) {
@@ -6450,7 +6450,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Phase 3: User Lessons CRUD
   app.get("/api/lessons", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { language } = req.query;
       const lessons = await storage.getUserLessons(userId, language as string | undefined);
       res.json(lessons);
@@ -6461,7 +6461,7 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   app.get("/api/lessons/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const lesson = await storage.getUserLesson(req.params.id, userId);
       if (!lesson) {
         return res.status(404).json({ message: "Lesson not found" });
@@ -6474,7 +6474,7 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   app.post("/api/lessons", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const lesson = await storage.createUserLesson({ ...req.body, userId });
       res.status(201).json(lesson);
     } catch (error: any) {
@@ -6484,7 +6484,7 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   app.patch("/api/lessons/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const updated = await storage.updateUserLesson(req.params.id, userId, req.body);
       if (!updated) {
         return res.status(404).json({ message: "Lesson not found" });
@@ -6497,7 +6497,7 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   app.delete("/api/lessons/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const deleted = await storage.deleteUserLesson(req.params.id, userId);
       if (!deleted) {
         return res.status(404).json({ message: "Lesson not found" });
@@ -6539,7 +6539,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Phase 3: Auto-generate weekly lesson
   app.post("/api/lessons/generate-weekly", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { language, weekStart } = req.body;
       
       if (!language || !weekStart) {
@@ -6610,7 +6610,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // User Progress
   app.get("/api/progress/:language", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const progress = await storage.getOrCreateUserProgress(req.params.language, userId);
       res.json(progress);
     } catch (error: any) {
@@ -6621,7 +6621,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // ACTFL Progress (FACT criteria tracking)
   app.get("/api/actfl-progress/:language", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { language } = req.params;
       
       // Handle "all" language - return null (no aggregate ACTFL progress makes sense)
@@ -6639,7 +6639,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Progress History
   app.get("/api/progress-history/:language", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const days = req.query.days ? parseInt(req.query.days as string) : 30;
       const history = await storage.getProgressHistory(req.params.language, userId, days);
       res.json(history);
@@ -6650,7 +6650,7 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   app.post("/api/progress-history", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       // Convert date string to Date object if necessary
       const data = {
         ...req.body,
@@ -6671,7 +6671,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Difficulty adjustment recommendation
   app.get("/api/difficulty-recommendation/:conversationId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const conversation = await storage.getConversation(req.params.conversationId, userId);
       if (!conversation) {
         return res.status(404).json({ message: "Conversation not found" });
@@ -6712,7 +6712,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // PATCH conversation
   app.patch("/api/conversations/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const updated = await storage.updateConversation(req.params.id, userId, req.body);
       if (!updated) {
         return res.status(404).json({ message: "Conversation not found" });
@@ -6726,7 +6726,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // PATCH progress by language (convenience endpoint for difficulty adjustments)
   app.patch("/api/progress/:languageOrId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       // First try to find by language, then by ID
       const progress = await storage.getOrCreateUserProgress(req.params.languageOrId, userId);
       
@@ -6752,7 +6752,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Pronunciation Scores - Analyze and save
   app.post("/api/pronunciation-scores/analyze", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { messageId, conversationId, transcribedText } = req.body;
       
       if (!messageId || !conversationId || !transcribedText) {
@@ -6800,7 +6800,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Pronunciation Scores - Create manually (for future use)
   app.post("/api/pronunciation-scores", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const validated = insertPronunciationScoreSchema.parse(req.body);
       // Verify the conversation belongs to the user
       const conversation = await storage.getConversation(validated.conversationId, userId);
@@ -6819,7 +6819,7 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   app.get("/api/pronunciation-scores/conversation/:conversationId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const conversation = await storage.getConversation(req.params.conversationId, userId);
       if (!conversation) {
         return res.status(404).json({ message: "Conversation not found" });
@@ -6833,7 +6833,7 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   app.get("/api/pronunciation-scores/message/:messageId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const score = await storage.getPronunciationScoreByMessage(req.params.messageId);
       if (!score) {
         return res.status(404).json({ message: "Pronunciation score not found" });
@@ -6851,7 +6851,7 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   app.get("/api/pronunciation-scores/stats/:conversationId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const conversation = await storage.getConversation(req.params.conversationId, userId);
       if (!conversation) {
         return res.status(404).json({ message: "Conversation not found" });
@@ -6888,7 +6888,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Mind Map: User topic mastery for visualization
   app.get("/api/conversation-topics/:language", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const language = req.params.language;
       
       const topics = await storage.getUserTopicMastery(userId, language);
@@ -7261,7 +7261,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Media Files - Image Upload
   app.post("/api/media/upload", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { base64Data, filename, mimeType, caption, messageId } = req.body;
       
       if (!base64Data || !filename || !mimeType) {
@@ -7314,7 +7314,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get images for a message
   app.get("/api/messages/:messageId/media", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const messageId = req.params.messageId;
 
       // Verify the message belongs to the user's conversation
@@ -7334,7 +7334,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get user's media files
   app.get("/api/media/my-uploads", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const mediaFiles = await storage.getUserMediaFiles(userId);
       res.json(mediaFiles);
     } catch (error: any) {
@@ -7440,7 +7440,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get user's Can-Do progress
   app.get("/api/actfl/progress", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const progress = await storage.getUserCanDoProgress(userId);
       res.json(progress);
     } catch (error: any) {
@@ -7452,7 +7452,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Toggle Can-Do progress (check/uncheck a statement)
   app.post("/api/actfl/progress/toggle", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { statementId } = req.body;
       
       if (!statementId) {
@@ -7478,7 +7478,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Create a new class (teachers only)
   app.post("/api/teacher/classes", mutationLimiter, isAuthenticated, async (req: any, res) => {
     try {
-      const teacherId = req.user.claims.sub;
+      const teacherId = getRequestUserId(req)!;
       const user = await storage.getUser(teacherId);
       
       if (!hasTeacherAccess(user?.role)) {
@@ -7523,7 +7523,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Clone an existing class (teachers only)
   app.post("/api/teacher/classes/:classId/clone", mutationLimiter, isAuthenticated, async (req: any, res) => {
     try {
-      const teacherId = req.user.claims.sub;
+      const teacherId = getRequestUserId(req)!;
       const { classId } = req.params;
       const { name, description } = req.body;
       const user = await storage.getUser(teacherId);
@@ -7575,7 +7575,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get all classes for a teacher (teachers only)
   app.get("/api/teacher/classes", isAuthenticated, async (req: any, res) => {
     try {
-      const teacherId = req.user.claims.sub;
+      const teacherId = getRequestUserId(req)!;
       const user = await storage.getUser(teacherId);
       
       if (!hasTeacherAccess(user?.role)) {
@@ -7613,7 +7613,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get a specific class
   app.get("/api/teacher/classes/:classId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { classId } = req.params;
       const teacherClass = await storage.getTeacherClass(classId);
       
@@ -7645,7 +7645,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Update a class
   app.patch("/api/teacher/classes/:classId", isAuthenticated, async (req: any, res) => {
     try {
-      const teacherId = req.user.claims.sub;
+      const teacherId = getRequestUserId(req)!;
       const { classId } = req.params;
       const teacherClass = await storage.getTeacherClass(classId);
       
@@ -7664,7 +7664,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Delete a class
   app.delete("/api/teacher/classes/:classId", isAuthenticated, async (req: any, res) => {
     try {
-      const teacherId = req.user.claims.sub;
+      const teacherId = getRequestUserId(req)!;
       const { classId } = req.params;
       const teacherClass = await storage.getTeacherClass(classId);
       
@@ -7743,7 +7743,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get class roster (teacher view)
   app.get("/api/teacher/classes/:classId/students", isAuthenticated, async (req: any, res) => {
     try {
-      const teacherId = req.user.claims.sub;
+      const teacherId = getRequestUserId(req)!;
       const { classId } = req.params;
       const teacherClass = await storage.getTeacherClass(classId);
       
@@ -8011,7 +8011,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Create a recommendation (Daniela or system can call this)
   app.post("/api/recommendations", isAuthenticated, async (req: any, res) => {
     try {
-      const creatorId = req.user.claims.sub;
+      const creatorId = getRequestUserId(req)!;
       const { 
         userId, // Target student
         language,
@@ -8062,7 +8062,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get recommendations for a student
   app.get("/api/recommendations", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { language, classId, includeSnoozed, includeCompleted } = req.query;
 
       const recommendations = await storage.getDanielaRecommendations(userId, {
@@ -8226,7 +8226,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get all class types including inactive (admin only)
   app.get("/api/admin/class-types", isAuthenticated, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(getRequestUserId(req)!);
       if (!user || !hasAdminAccess(user.role)) {
         return res.status(403).json({ error: "Access denied" });
       }
@@ -8241,7 +8241,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Create a new class type (admin only)
   app.post("/api/admin/class-types", isAuthenticated, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(getRequestUserId(req)!);
       if (!user || !hasAdminAccess(user.role)) {
         return res.status(403).json({ error: "Access denied" });
       }
@@ -8256,7 +8256,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Update a class type (admin only)
   app.patch("/api/admin/class-types/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(getRequestUserId(req)!);
       if (!user || !hasAdminAccess(user.role)) {
         return res.status(403).json({ error: "Access denied" });
       }
@@ -8275,7 +8275,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Delete a class type (admin only)
   app.delete("/api/admin/class-types/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(getRequestUserId(req)!);
       if (!user || !hasAdminAccess(user.role)) {
         return res.status(403).json({ error: "Access denied" });
       }
@@ -8604,7 +8604,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Remove student from class
   app.delete("/api/teacher/classes/:classId/students/:studentId", isAuthenticated, async (req: any, res) => {
     try {
-      const teacherId = req.user.claims.sub;
+      const teacherId = getRequestUserId(req)!;
       const { classId, studentId } = req.params;
       const teacherClass = await storage.getTeacherClass(classId);
       
@@ -8623,7 +8623,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Update student details (teacher can edit students in their class)
   app.patch("/api/teacher/classes/:classId/students/:studentId", isAuthenticated, async (req: any, res) => {
     try {
-      const teacherId = req.user.claims.sub;
+      const teacherId = getRequestUserId(req)!;
       const { classId, studentId } = req.params;
       const { firstName, lastName, email } = req.body;
       
@@ -8664,7 +8664,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Reset student progress within a class (teacher can reset student's class-specific data)
   app.post("/api/teacher/classes/:classId/students/:studentId/reset", isAuthenticated, async (req: any, res) => {
     try {
-      const teacherId = req.user.claims.sub;
+      const teacherId = getRequestUserId(req)!;
       const { classId, studentId } = req.params;
       
       const teacherClass = await storage.getTeacherClass(classId);
@@ -8694,7 +8694,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get class usage report (teachers only)
   app.get("/api/teacher/classes/:classId/usage", isAuthenticated, async (req: any, res) => {
     try {
-      const teacherId = req.user.claims.sub;
+      const teacherId = getRequestUserId(req)!;
       const { classId } = req.params;
       const user = await storage.getUser(teacherId);
       
@@ -8723,7 +8723,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Reset class usage (admin only - for testing purposes)
   app.post("/api/admin/classes/:classId/reset-usage", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { classId } = req.params;
       const { resetAllStudents, studentId, hoursToAllocate } = req.body;
       
@@ -8794,7 +8794,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Create curriculum path (teachers/admins only)
   app.post("/api/curriculum/paths", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
       
       if (!hasTeacherAccess(user?.role)) {
@@ -8895,7 +8895,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get full textbook structure for a language (chapters, sections, progress)
   app.get("/api/textbook/:language", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { language } = req.params;
       
       // Normalize language to match database format
@@ -9012,7 +9012,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get specific chapter content with full section details
   app.get("/api/textbook/:language/chapter/:chapterId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { chapterId } = req.params;
       
       const unit = await storage.getCurriculumUnit(chapterId);
@@ -9078,7 +9078,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get user's textbook position (last chapter/lesson they were viewing)
   app.get("/api/textbook/:language/position", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { language } = req.params;
       
       const [position] = await getUserDb()
@@ -9122,7 +9122,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Update user's textbook position
   app.post("/api/textbook/:language/position", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { language } = req.params;
       
       const parsed = textbookPositionSchema.safeParse(req.body);
@@ -9183,7 +9183,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get progress for a specific section/lesson
   app.get("/api/textbook/progress/:lessonId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { lessonId } = req.params;
       
       const [progress] = await getUserDb()
@@ -9207,7 +9207,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Note: Textbook progress tables may not exist yet in Neon USER db - fail silently
   app.post("/api/textbook/progress/:lessonId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { lessonId } = req.params;
       
       const parsed = textbookProgressSchema.safeParse(req.body);
@@ -9300,7 +9300,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get chapter progress summary (aggregated from all sections)
   app.get("/api/textbook/:language/chapter/:chapterId/progress", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { chapterId } = req.params;
       
       // Get all lessons in this chapter
@@ -9401,7 +9401,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Create curriculum unit
   app.post("/api/curriculum/units", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
       
       if (!hasTeacherAccess(user?.role)) {
@@ -9431,7 +9431,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Create curriculum lesson
   app.post("/api/curriculum/lessons", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
       
       if (!hasTeacherAccess(user?.role)) {
@@ -9463,7 +9463,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Create drill item (teachers only)
   app.post("/api/drill-items", mutationLimiter, isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
       
       if (!hasTeacherAccess(user?.role)) {
@@ -9481,7 +9481,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Update drill item (teachers only)
   app.patch("/api/drill-items/:id", mutationLimiter, isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
       
       if (!hasTeacherAccess(user?.role)) {
@@ -9505,7 +9505,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Delete drill item (teachers only)
   app.delete("/api/drill-items/:id", mutationLimiter, isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
       
       if (!hasTeacherAccess(user?.role)) {
@@ -9531,7 +9531,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get drill progress for a lesson
   app.get("/api/drill-progress/:lessonId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { lessonId } = req.params;
       
       const progress = await storage.getDrillProgressForLesson(userId, lessonId);
@@ -9569,7 +9569,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Record a drill attempt
   app.post("/api/drill-progress/attempt", mutationLimiter, isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { drillItemId, score, timeSpentMs, classId } = req.body;
       
       if (!drillItemId || typeof score !== 'number') {
@@ -9594,7 +9594,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get items due for review
   app.get("/api/drill-progress/due-review", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { lessonId, limit } = req.query;
       
       const items = await storage.getDueReviewItems(
@@ -9615,7 +9615,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get practice catalog - browse available drills by language/topic
   app.get("/api/practice/catalog", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { language, tags, difficulty } = req.query;
       
       // Get all drill-type lessons (use 'name' column, not 'lessonTitle')
@@ -9728,7 +9728,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Start a self-practice session
   app.post("/api/practice/sessions", mutationLimiter, isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { lessonId } = req.body;
       
       if (!lessonId) {
@@ -9782,7 +9782,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Complete a self-practice session
   app.patch("/api/practice/sessions/:sessionId/complete", mutationLimiter, isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { sessionId } = req.params;
       const { completedItems, correctItems, averageScore, totalTimeSpentMs } = req.body;
       
@@ -9833,7 +9833,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get user's practice history
   app.get("/api/practice/history", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { language, limit } = req.query;
       
       let query = getUserDb()
@@ -9866,7 +9866,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // This only applies to class-based learning; self-directed learners bypass prerequisites
   app.get("/api/class-lessons/:lessonId/prerequisite-status", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { lessonId } = req.params;
       
       // Get the class lesson
@@ -9951,7 +9951,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Generate audio for all drill items in a lesson (teachers only)
   app.post("/api/drill-audio/generate/:lessonId", mutationLimiter, isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
       
       if (!hasTeacherAccess(user?.role)) {
@@ -9993,7 +9993,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // This enables instant playback for students during voice sessions
   app.post("/api/admin/drill-audio/prewarm", mutationLimiter, isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
       
       if (!hasTeacherAccess(user?.role)) {
@@ -10035,7 +10035,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Enables instant audio playback during voice sessions
   app.post("/api/audio-library/lookup", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
       
       const { text, language, speed = 'normal' } = req.body;
@@ -10069,7 +10069,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get audio library cache statistics (admin)
   app.get("/api/admin/audio-library/stats", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
       
       if (!hasTeacherAccess(user?.role)) {
@@ -10090,7 +10090,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Uses gender-specific database fields + in-memory cache for efficient reuse
   app.get("/api/drill-audio/:drillItemId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
       const { drillItemId } = req.params;
       const drillItem = await storage.getDrillItem(drillItemId);
@@ -10142,7 +10142,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get audio cache stats (admin/developer only)
   app.get("/api/drill-audio/cache/stats", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
       
       if (!hasDeveloperAccess(user?.role)) {
@@ -10167,7 +10167,7 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   app.post("/api/tts/pronunciation", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
       
       const parseResult = pronunciationRequestSchema.safeParse(req.body);
@@ -10445,7 +10445,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get early completions for a class (teachers only)
   app.get("/api/teacher/classes/:classId/early-completions", isAuthenticated, async (req: any, res) => {
     try {
-      const teacherId = req.user.claims.sub;
+      const teacherId = getRequestUserId(req)!;
       const { classId } = req.params;
       const teacherClass = await storage.getTeacherClass(classId);
       
@@ -10490,7 +10490,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get ACTFL analysis for class curriculum
   app.get("/api/teacher/classes/:classId/curriculum/actfl-analysis", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { classId } = req.params;
       
       const { allowed, teacherClass } = await canAccessClassCurriculum(userId, classId);
@@ -10609,7 +10609,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Initialize syllabus for a class (clones from template if class has curriculum_path_id but no units)
   app.post("/api/teacher/classes/:classId/curriculum/initialize", mutationLimiter, isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { classId } = req.params;
       
       // Check access
@@ -10654,7 +10654,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get class curriculum units (syllabus)
   app.get("/api/teacher/classes/:classId/curriculum/units", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { classId } = req.params;
       
       const { allowed } = await canAccessClassCurriculum(userId, classId);
@@ -10674,7 +10674,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // This is the single source of truth for student progress visualization
   app.get("/api/classes/:classId/unified-progress", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { classId } = req.params;
       
       // Verify user has access to this class (enrolled student or teacher)
@@ -10701,7 +10701,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Update lesson progress status (skip, complete, already-know)
   app.post("/api/classes/:classId/lessons/:lessonId/progress", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { classId, lessonId } = req.params;
       const { action, confirmSkip } = req.body; // action: 'complete' | 'skip' | 'already_know'
       
@@ -10776,7 +10776,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Manage recommendation queue actions (snooze, dismiss, complete)
   app.post("/api/recommendations/:recommendationId/action", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { recommendationId } = req.params;
       const { action, snoozeHours } = req.body; // action: 'snooze' | 'dismiss' | 'complete'
       
@@ -10815,7 +10815,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get lessons for a class curriculum unit
   app.get("/api/teacher/classes/:classId/curriculum/units/:unitId/lessons", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { classId, unitId } = req.params;
       
       const { allowed } = await canAccessClassCurriculum(userId, classId);
@@ -10834,7 +10834,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Update class curriculum unit (for reordering)
   app.patch("/api/teacher/classes/:classId/curriculum/units/:unitId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { classId, unitId } = req.params;
       
       const { allowed } = await canAccessClassCurriculum(userId, classId);
@@ -10853,7 +10853,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Update class curriculum lesson (for reordering/editing)
   app.patch("/api/teacher/classes/:classId/curriculum/lessons/:lessonId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { classId, lessonId } = req.params;
       
       const { allowed } = await canAccessClassCurriculum(userId, classId);
@@ -10872,7 +10872,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Delete class curriculum lesson (soft delete by setting isRemoved = true)
   app.delete("/api/teacher/classes/:classId/curriculum/lessons/:lessonId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { classId, lessonId } = req.params;
       
       const { allowed } = await canAccessClassCurriculum(userId, classId);
@@ -10905,7 +10905,7 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   app.post("/api/teacher/classes/:classId/curriculum/units/:unitId/lessons", mutationLimiter, isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { classId, unitId } = req.params;
       
       // Validate request body FIRST before any database operations
@@ -11061,7 +11061,7 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   app.patch("/api/teacher/classes/:classId/curriculum/units/:unitId/lessons/:lessonId", mutationLimiter, isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { classId, unitId, lessonId } = req.params;
       
       // Validate request body FIRST before any database operations
@@ -11112,7 +11112,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Batch update unit order
   app.post("/api/teacher/classes/:classId/curriculum/units/reorder", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { classId } = req.params;
       const { unitOrders } = req.body; // Array of { id, orderIndex }
       
@@ -11137,7 +11137,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Batch update lesson order within a unit
   app.post("/api/teacher/classes/:classId/curriculum/units/:unitId/lessons/reorder", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { classId, unitId } = req.params;
       const { lessonOrders } = req.body; // Array of { id, orderIndex }
       
@@ -11164,7 +11164,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Create assignment (teachers only)
   app.post("/api/assignments", mutationLimiter, isAuthenticated, async (req: any, res) => {
     try {
-      const teacherId = req.user.claims.sub;
+      const teacherId = getRequestUserId(req)!;
       const user = await storage.getUser(teacherId);
       
       if (!hasTeacherAccess(user?.role)) {
@@ -11211,7 +11211,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get all assignments for a teacher
   app.get("/api/teacher/assignments", isAuthenticated, async (req: any, res) => {
     try {
-      const teacherId = req.user.claims.sub;
+      const teacherId = getRequestUserId(req)!;
       const assignments = await storage.getTeacherAssignments(teacherId);
       res.json(assignments);
     } catch (error: any) {
@@ -11223,7 +11223,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get a specific assignment
   app.get("/api/assignments/:assignmentId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { assignmentId } = req.params;
       const assignment = await storage.getAssignment(assignmentId);
       
@@ -11250,7 +11250,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Update assignment
   app.patch("/api/assignments/:assignmentId", isAuthenticated, async (req: any, res) => {
     try {
-      const teacherId = req.user.claims.sub;
+      const teacherId = getRequestUserId(req)!;
       const { assignmentId } = req.params;
       const assignment = await storage.getAssignment(assignmentId);
       
@@ -11269,7 +11269,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Delete assignment
   app.delete("/api/assignments/:assignmentId", isAuthenticated, async (req: any, res) => {
     try {
-      const teacherId = req.user.claims.sub;
+      const teacherId = getRequestUserId(req)!;
       const { assignmentId } = req.params;
       const assignment = await storage.getAssignment(assignmentId);
       
@@ -11302,7 +11302,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get submissions for an assignment (teacher view)
   app.get("/api/assignments/:assignmentId/submissions", isAuthenticated, async (req: any, res) => {
     try {
-      const teacherId = req.user.claims.sub;
+      const teacherId = getRequestUserId(req)!;
       const { assignmentId } = req.params;
       
       // Verify user is the teacher who created this assignment
@@ -11372,7 +11372,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Grade submission (teacher only)
   app.patch("/api/submissions/:submissionId/grade", isAuthenticated, async (req: any, res) => {
     try {
-      const teacherId = req.user.claims.sub;
+      const teacherId = getRequestUserId(req)!;
       const { submissionId } = req.params;
       const { teacherScore, teacherFeedback } = req.body;
       
@@ -11411,7 +11411,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Generate student progress report (students can view their own, teachers can view any student in their class)
   app.get("/api/reports/student/:studentId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { studentId } = req.params;
       const { format = "json" } = req.query; // json or csv
       
@@ -11458,7 +11458,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Generate class summary report (teachers only)
   app.get("/api/reports/class/:classId", isAuthenticated, async (req: any, res) => {
     try {
-      const teacherId = req.user.claims.sub;
+      const teacherId = getRequestUserId(req)!;
       const { classId } = req.params;
       
       const report = await generateClassSummaryReport(classId, teacherId);
@@ -11472,7 +11472,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Generate parent/guardian report (students only - for their own progress)
   app.get("/api/reports/parent", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const report = await generateParentReport(userId);
       res.json(report);
     } catch (error: any) {
@@ -11505,7 +11505,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Send/resend invitation to existing pending user (admin only)
   app.post("/api/admin/users/:userId/send-invitation", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const adminId = req.user.claims.sub;
+      const adminId = getRequestUserId(req)!;
       const { userId } = req.params;
       
       // Get the target user
@@ -11569,7 +11569,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Create new user (admin only) - for password-based auth
   app.post("/api/admin/users", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const adminId = req.user.claims.sub;
+      const adminId = getRequestUserId(req)!;
       const { email, firstName, lastName, role } = req.body;
       
       // Validate required fields
@@ -11619,7 +11619,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Quick Enroll - streamlined test user setup (admin/developer only)
   app.post("/api/admin/quick-enroll", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
     try {
-      const adminId = req.user.claims.sub;
+      const adminId = getRequestUserId(req)!;
       
       // Check admin or developer role
       const adminUser = await storage.getUser(adminId);
@@ -11793,7 +11793,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Update user role (admin only)
   app.patch("/api/admin/users/:userId/role", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const adminId = req.user.claims.sub;
+      const adminId = getRequestUserId(req)!;
       const { userId } = req.params;
       const { role } = req.body;
       
@@ -11829,7 +11829,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // When marking as beta tester, auto-enrolls in all public classes
   app.patch("/api/admin/users/:userId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const adminId = req.user.claims.sub;
+      const adminId = getRequestUserId(req)!;
       const { userId } = req.params;
       const { firstName, lastName, email, isTestAccount, isBetaTester } = req.body;
       
@@ -11900,7 +11900,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Grant credits to a user (admin only) - for beta testers and special allocations
   app.post("/api/admin/users/:userId/grant-credits", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const adminId = req.user.claims.sub;
+      const adminId = getRequestUserId(req)!;
       const { userId } = req.params;
       const { creditHours, description, expiresAt } = req.body;
       
@@ -11947,7 +11947,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Reset user learning data (admin/developer only)
   app.post("/api/admin/users/:userId/reset-learning-data", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const adminId = req.user.claims.sub;
+      const adminId = getRequestUserId(req)!;
       const { userId } = req.params;
       const { resetVocabulary, resetConversations, resetProgress, resetLessons } = req.body;
       
@@ -12152,7 +12152,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Diagnose Neon migration issues - shows user identity and sample conversation data
   app.get("/api/admin/db-routing-diagnostic", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const email = req.user.claims.email;
       const env = process.env.NODE_ENV || 'unknown';
       
@@ -13226,7 +13226,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   app.post("/api/admin/lesson-drafts/generate", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {
       const { canDoStatementId, additionalContext } = req.body;
-      const userId = req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       
       if (!canDoStatementId) {
         return res.status(400).json({ error: "canDoStatementId is required" });
@@ -13250,7 +13250,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   app.post("/api/admin/lesson-drafts/generate-for-gaps", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {
       const { language, limit = 5 } = req.body;
-      const userId = req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       
       if (!language) {
         return res.status(400).json({ error: "language is required" });
@@ -13294,7 +13294,7 @@ Return ONLY the ${targetLanguage} phrase:`;
     try {
       const { draftId } = req.params;
       const { status, reviewNotes } = req.body;
-      const userId = req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       
       if (!['pending', 'approved', 'rejected'].includes(status)) {
         return res.status(400).json({ error: "Invalid status. Must be pending, approved, or rejected" });
@@ -13318,7 +13318,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   app.post("/api/admin/lesson-drafts/bulk-status", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {
       const { status, language, currentStatus } = req.body;
-      const userId = req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       
       if (!['pending', 'approved', 'rejected'].includes(status)) {
         return res.status(400).json({ error: "Invalid status. Must be pending, approved, or rejected" });
@@ -13417,7 +13417,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Start automated gap filling for ALL languages
   app.post("/api/admin/lesson-drafts/fill-all-gaps", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { batchSize = 10, delayBetweenBatches = 5000 } = req.body;
       
       const { generateAllGapsAutomation, getAllCoverageGaps } = await import('./services/ai-lesson-generator');
@@ -13592,7 +13592,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   app.get("/api/fluency/can-do-progress/:language", isAuthenticated, async (req: any, res) => {
     try {
       const { getStudentCanDoProgress } = await import('./services/fluency-wiring-service');
-      const userId = req.user?.claims?.sub || req.userId;
+      const userId = getRequestUserId(req);
       const { language } = req.params;
       
       const progress = await getStudentCanDoProgress(userId, language);
@@ -13637,7 +13637,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   app.get("/api/pronunciation-drills/struggles", isAuthenticated, async (req: any, res) => {
     try {
       const { pronunciationDrillService } = await import("./services/pronunciation-drill-service");
-      const userId = req.user?.claims?.sub || req.userId;
+      const userId = getRequestUserId(req);
       const { language } = req.query;
       
       if (!language) {
@@ -13656,7 +13656,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   app.post("/api/pronunciation-drills/start", isAuthenticated, async (req: any, res) => {
     try {
       const { pronunciationDrillService, startSessionSchema } = await import("./services/pronunciation-drill-service");
-      const userId = req.user?.claims?.sub || req.userId;
+      const userId = getRequestUserId(req);
       
       const parseResult = startSessionSchema.safeParse(req.body);
       if (!parseResult.success) {
@@ -13760,7 +13760,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   app.get("/api/pronunciation-drills/recommendations", isAuthenticated, async (req: any, res) => {
     try {
       const { studentLearningService } = await import("./services/student-learning-service");
-      const userId = req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const language = (req.query.language as string) || 'spanish';
       const limit = parseInt(req.query.limit as string) || 5;
       
@@ -13780,7 +13780,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   app.get("/api/pronunciation-drills/progress-timeline", isAuthenticated, async (req: any, res) => {
     try {
       const { studentLearningService } = await import("./services/student-learning-service");
-      const userId = req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const language = (req.query.language as string) || 'spanish';
       const phoneme = req.query.phoneme as string | undefined;
       
@@ -13800,7 +13800,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get past voice sessions for a student
   app.get("/api/session-replay/sessions", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const language = req.query.language as string | undefined;
       const limit = parseInt(req.query.limit as string) || 20;
       
@@ -13866,7 +13866,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get session details with messages for replay
   app.get("/api/session-replay/sessions/:sessionId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { sessionId } = req.params;
       
       if (!userId) {
@@ -14022,7 +14022,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   app.get("/api/admin/personal-facts-migration/status", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {
       const { historicalPersonalFactsMigrationService } = await import("./services/historical-personal-facts-migration-service");
-      const userId = req.user.id;
+      const userId = getRequestUserId(req);
       const status = await historicalPersonalFactsMigrationService.getConversationCount(userId);
       res.json(status);
     } catch (error: any) {
@@ -14035,7 +14035,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   app.post("/api/admin/personal-facts-migration/batch", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {
       const { historicalPersonalFactsMigrationService } = await import("./services/historical-personal-facts-migration-service");
-      const userId = req.user.id;
+      const userId = getRequestUserId(req);
       const result = await historicalPersonalFactsMigrationService.runBatch(userId);
       res.json(result);
     } catch (error: any) {
@@ -14048,7 +14048,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   app.post("/api/admin/personal-facts-migration/full", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {
       const { historicalPersonalFactsMigrationService } = await import("./services/historical-personal-facts-migration-service");
-      const userId = req.user.id;
+      const userId = getRequestUserId(req);
       
       // Start migration in background, respond immediately
       res.json({ status: 'started', message: 'Personal facts migration started in background. Check status endpoint for progress.' });
@@ -15034,7 +15034,7 @@ Return ONLY the ${targetLanguage} phrase:`;
     try {
       const { id } = req.params;
       const { status, acknowledgmentNote, declineReason, completedInBuild } = req.body;
-      const userId = req.user?.claims?.sub || req.session?.userId;
+      const userId = getRequestUserId(req);
       
       const updateData: any = {
         statusChangedAt: new Date(),
@@ -15074,7 +15074,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get all editor collaboration conversations
   app.get("/api/editor-chat/conversations", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || req.session?.userId;
+      const userId = getRequestUserId(req);
       
       const editorConversations = await getSharedDb().select()
         .from(conversations)
@@ -15099,7 +15099,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         return res.status(400).json({ error: "Invalid conversation ID" });
       }
       
-      const userId = req.user?.claims?.sub || req.session?.userId;
+      const userId = getRequestUserId(req);
       const { messages: msgs } = await import("@shared/schema");
       
       // First verify the conversation belongs to the current user and is an editor conversation
@@ -15130,7 +15130,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Create a new editor collaboration conversation
   app.post("/api/editor-chat/conversations", isAuthenticated, loadAuthenticatedUser(storage), mutationLimiter, requireRole('admin', 'developer'), async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || req.session?.userId;
+      const userId = getRequestUserId(req);
       const { title } = req.body;
       
       const [newConversation] = await getSharedDb().insert(conversations).values({
@@ -15154,7 +15154,7 @@ Return ONLY the ${targetLanguage} phrase:`;
     try {
       const { id: conversationId } = req.params;
       const { content } = req.body;
-      const userId = req.user?.claims?.sub || req.session?.userId;
+      const userId = getRequestUserId(req);
       const { messages: msgs } = await import("@shared/schema");
       
       // Verify conversation exists and belongs to user
@@ -15248,7 +15248,7 @@ Current conversation context:
   // Get recent editor conversation context for neural network integration
   app.get("/api/editor-chat/memory-context", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || req.session?.userId;
+      const userId = getRequestUserId(req);
       const { messages: msgs } = await import("@shared/schema");
       
       // Get last 10 conversations with their recent messages
@@ -15588,7 +15588,7 @@ Current conversation context:
         return res.status(400).json({ error: 'Value is required' });
       }
       
-      const userId = req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const config = await storage.upsertProductConfig(key, value, description || '', userId);
       
       // Log the admin action
@@ -15675,7 +15675,7 @@ Current conversation context:
   app.patch("/api/admin/media/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { id } = req.params;
-      const adminId = req.user.claims.sub;
+      const adminId = getRequestUserId(req)!;
       const { title, description, tags, language, isReviewed } = req.body;
       
       // Build update object with allowed fields
@@ -15713,7 +15713,7 @@ Current conversation context:
   // Bulk review media files (admin only)
   app.post("/api/admin/media/bulk-review", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const adminId = req.user.claims.sub;
+      const adminId = getRequestUserId(req)!;
       const { ids, isReviewed } = req.body;
       
       if (!Array.isArray(ids) || ids.length === 0) {
@@ -15736,7 +15736,7 @@ Current conversation context:
   // Request new image for a word (admin only)
   app.post("/api/admin/media/request-image", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const adminId = req.user.claims.sub;
+      const adminId = getRequestUserId(req)!;
       const { word, language, description } = req.body;
       
       if (!word || !language) {
@@ -15769,7 +15769,7 @@ Current conversation context:
   app.delete("/api/admin/media/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { id } = req.params;
-      const adminId = req.user.claims.sub;
+      const adminId = getRequestUserId(req)!;
       
       // Get file info before deletion for audit log
       const file = await storage.getMediaFile(id);
@@ -15802,7 +15802,7 @@ Current conversation context:
   // Start impersonation (admin only)
   app.post("/api/admin/impersonate", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const adminId = req.user.claims.sub;
+      const adminId = getRequestUserId(req)!;
       const { targetUserId, durationMinutes = 60 } = req.body;
       
       if (!targetUserId) {
@@ -15842,7 +15842,7 @@ Current conversation context:
   // End impersonation (admin only)
   app.post("/api/admin/end-impersonation", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const adminId = req.user.claims.sub;
+      const adminId = getRequestUserId(req)!;
       const { targetUserId } = req.body;
       
       if (!targetUserId) {
@@ -15956,7 +15956,7 @@ Current conversation context:
       
       // Log the action
       await storage.logAdminAction({
-        actorId: req.user.claims.sub,
+        actorId: getRequestUserId(req)!,
         action: 'upsert_tutor_voice',
         targetType: 'tutor_voice',
         targetId: voice.id,
@@ -15980,7 +15980,7 @@ Current conversation context:
       
       if (success) {
         await storage.logAdminAction({
-          actorId: req.user.claims.sub,
+          actorId: getRequestUserId(req)!,
           action: 'delete_tutor_voice',
           targetType: 'tutor_voice',
           targetId: id,
@@ -16002,7 +16002,7 @@ Current conversation context:
       await storage.seedDefaultTutorVoices();
       
       await storage.logAdminAction({
-        actorId: req.user.claims.sub,
+        actorId: getRequestUserId(req)!,
         action: 'seed_tutor_voices',
         ipAddress: req.ip,
         userAgent: req.get('user-agent'),
@@ -16236,7 +16236,7 @@ Current conversation context:
       
       // Log the action
       await storage.logAdminAction({
-        actorId: req.user.claims.sub,
+        actorId: getRequestUserId(req)!,
         action: 'update_tutor_voice',
         targetType: 'tutor_voice',
         targetId: id,
@@ -16730,7 +16730,7 @@ Current conversation context:
   // Get student's syllabus time data for a specific class
   app.get("/api/analytics/syllabus-time/:classId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -16753,7 +16753,7 @@ Current conversation context:
   // Get student's learning pace summary (for dashboard cards)
   app.get("/api/analytics/pace-summary", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -16871,7 +16871,7 @@ Current conversation context:
   // Admin: Create a new system alert
   app.post("/api/system-alerts", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       
       // Validate request body with Zod
       const parseResult = createSystemAlertSchema.safeParse(req.body);
@@ -17088,7 +17088,7 @@ Current conversation context:
   // Send a text message to Support Agent
   app.post("/api/support/message", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { ticketId, message, category, mode, drillContext, clientTelemetry } = req.body;
       
       if (!message || typeof message !== 'string') {
@@ -17213,7 +17213,7 @@ Current conversation context:
   
   app.post("/api/support/voice-message", isAuthenticated, loadAuthenticatedUser(storage), upload.single('audio'), async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const audioFile = req.file;
       
       if (!audioFile) {
@@ -17347,7 +17347,7 @@ Current conversation context:
   app.post("/api/support/tickets/:ticketId/resolve", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
     try {
       const { ticketId } = req.params;
-      const userId = req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       
       const ticket = await storage.getSupportTicket(ticketId);
       if (!ticket) {
@@ -17377,7 +17377,7 @@ Current conversation context:
   // Create a new support ticket
   app.post("/api/support/tickets", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const { category, subject, description, handoffFrom, handoffContext, deviceInfo } = req.body;
       
       if (!category || !subject || !description) {
@@ -17409,7 +17409,7 @@ Current conversation context:
   // Get user's support tickets
   app.get("/api/support/tickets", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const tickets = await storage.getSupportTickets({ userId, limit: 50 });
       res.json(tickets);
     } catch (error: any) {
@@ -17422,7 +17422,7 @@ Current conversation context:
   app.get("/api/support/tickets/:ticketId", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
     try {
       const { ticketId } = req.params;
-      const userId = req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       
       const ticket = await storage.getSupportTicket(ticketId);
       if (!ticket) {
@@ -18196,7 +18196,7 @@ ${context ? `Context provided:\n${context}\n` : ''}`;
   // Get pending drill assignments for the current user
   app.get("/api/aris/drills/pending", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -18212,7 +18212,7 @@ ${context ? `Context provided:\n${context}\n` : ''}`;
   // Get a specific drill assignment
   app.get("/api/aris/drills/:assignmentId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -18238,7 +18238,7 @@ ${context ? `Context provided:\n${context}\n` : ''}`;
   // Start a drill assignment
   app.post("/api/aris/drills/:assignmentId/start", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -18274,7 +18274,7 @@ ${context ? `Context provided:\n${context}\n` : ''}`;
   // Complete a drill assignment with results
   app.post("/api/aris/drills/:assignmentId/complete", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -18421,7 +18421,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   // Get drill history for current user
   app.get("/api/aris/history", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -18441,7 +18441,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   // Auto-provision drills for a lesson (called when starting a lesson)
   app.post("/api/aris/drills/provision", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -18468,7 +18468,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   // Transition drill lifecycle state
   app.post("/api/aris/drills/:assignmentId/lifecycle", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -18511,7 +18511,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   // Activate all planned drills in a bundle
   app.post("/api/aris/drills/activate-bundle", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -18534,7 +18534,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   // Get drill statistics for current user
   app.get("/api/aris/drills/stats", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -18552,7 +18552,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   // Get pending drills with lifecycle awareness
   app.get("/api/aris/drills/lifecycle/pending", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -18576,7 +18576,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
       const { getAssistantPersona, ARIS_FEEDBACK } = await import('./services/assistant-tutor-config');
       
       // Get language and gender from query params or user profile
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       let targetLanguage = req.query.language as string;
       let tutorGender = req.query.gender as 'female' | 'male';
       
@@ -18614,7 +18614,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
     try {
       const { getAssistantPersona } = await import('./services/assistant-tutor-config');
       
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const user = userId ? await storage.getUser(userId) : null;
       const targetLanguage = user?.targetLanguage || 'spanish';
       const tutorGender = user?.tutorGender;
@@ -19201,7 +19201,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   // Create feature sprint
   app.post("/api/feature-sprints", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const sprint = await storage.createFeatureSprint({
         ...req.body,
         createdBy: userId
@@ -19216,7 +19216,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   // Update feature sprint
   app.patch("/api/feature-sprints/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const sprint = await storage.getFeatureSprint(req.params.id);
       if (!sprint) {
         return res.status(404).json({ error: "Sprint not found" });
@@ -19720,7 +19720,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   // Create consultation thread
   app.post("/api/sprint-consults", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const thread = await storage.createConsultationThread({
         ...req.body,
         createdBy: userId
@@ -20285,7 +20285,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
     
     // Fall back to session-based auth for Command Center access
     if (req.user?.claims?.sub) {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
       if (user?.role === 'admin' || user?.role === 'developer') {
         return true;
@@ -23911,7 +23911,7 @@ ${memoryContext}
     try {
       const authHeader = req.headers['x-editor-secret'];
       const hasEditorAuth = authHeader && validateEditorSecret(authHeader as string);
-      const userId = req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       const hasSessionAuth = req.isAuthenticated?.() && userId === req.params.studentId;
       
       if (!hasEditorAuth && !hasSessionAuth) {
@@ -24313,7 +24313,7 @@ Be helpful, insightful, and collaborative.
   app.post("/api/express-lane/ui/collaborate", isAuthenticated, async (req: any, res) => {
     try {
       // Check if user has developer/admin access
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: 'Authentication required' });
       }
@@ -24505,7 +24505,7 @@ You have full access to your neural network knowledge.
 
   app.post("/api/express-lane/ui/upload", isAuthenticated, expressLaneUpload.single('file'), async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: 'Authentication required' });
       }
@@ -24543,7 +24543,7 @@ You have full access to your neural network knowledge.
   // EXPRESS LANE UI: Get session messages for UI
   app.get("/api/express-lane/ui/session", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: 'Authentication required' });
       }
@@ -24603,7 +24603,7 @@ You have full access to your neural network knowledge.
   // EXPRESS LANE UI: Create a new session
   app.post("/api/express-lane/ui/sessions", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: 'Authentication required' });
       }
@@ -24639,7 +24639,7 @@ You have full access to your neural network knowledge.
   // EXPRESS LANE UI: Get session history (list of all sessions)
   app.get("/api/express-lane/ui/sessions", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: 'Authentication required' });
       }
@@ -24672,7 +24672,7 @@ You have full access to your neural network knowledge.
   // EXPRESS LANE UI: Search within session messages
   app.get("/api/express-lane/ui/search", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: 'Authentication required' });
       }
@@ -24804,7 +24804,7 @@ You have full access to your neural network knowledge.
   // Get pending agenda items (sorted by priority, then created date)
   app.get("/api/express-lane/agenda", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: 'Authentication required' });
       }
@@ -24838,7 +24838,7 @@ You have full access to your neural network knowledge.
   // Add new agenda item
   app.post("/api/express-lane/agenda", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: 'Authentication required' });
       }
@@ -24873,7 +24873,7 @@ You have full access to your neural network knowledge.
   // Update agenda item (status, notes, etc.)
   app.patch("/api/express-lane/agenda/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: 'Authentication required' });
       }
@@ -24912,7 +24912,7 @@ You have full access to your neural network knowledge.
   // Delete agenda item
   app.delete("/api/express-lane/agenda/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: 'Authentication required' });
       }
@@ -24995,7 +24995,7 @@ You have full access to your neural network knowledge.
   
   app.post("/api/express-lane/pre-flight", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: 'Authentication required' });
       }
@@ -25164,7 +25164,7 @@ You have full access to your neural network knowledge.
   // Create a new Post-Flight report
   app.post("/api/express-lane/post-flight", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: 'Authentication required' });
       }
@@ -25255,7 +25255,7 @@ You have full access to your neural network knowledge.
   // List Post-Flight reports
   app.get("/api/express-lane/post-flight", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: 'Authentication required' });
       }
@@ -25298,7 +25298,7 @@ You have full access to your neural network knowledge.
   // Post-Flight analytics for dashboard
   app.get("/api/express-lane/post-flight/analytics", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: 'Authentication required' });
       }
@@ -25411,7 +25411,7 @@ You have full access to your neural network knowledge.
   // Get full North Star for prompt injection
   app.get("/api/north-star", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: 'Authentication required' });
       }
@@ -25432,7 +25432,7 @@ You have full access to your neural network knowledge.
   // Get all principles
   app.get("/api/north-star/principles", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: 'Authentication required' });
       }
@@ -25457,7 +25457,7 @@ You have full access to your neural network knowledge.
   // Create a principle (Admin/Founder only)
   app.post("/api/north-star/principles", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: 'Authentication required' });
       }
@@ -25489,7 +25489,7 @@ You have full access to your neural network knowledge.
   // Update a principle (Admin can update metadata, Founder can update everything including constitutional text)
   app.patch("/api/north-star/principles/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: 'Authentication required' });
       }
@@ -25545,7 +25545,7 @@ You have full access to your neural network knowledge.
   // Get understanding for a principle
   app.get("/api/north-star/understanding/:principleId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: 'Authentication required' });
       }
@@ -25567,7 +25567,7 @@ You have full access to your neural network knowledge.
   // Deepen understanding (from Express Lane discussions)
   app.post("/api/north-star/understanding/deepen", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: 'Authentication required' });
       }
@@ -25600,7 +25600,7 @@ You have full access to your neural network knowledge.
   // Get examples for a principle
   app.get("/api/north-star/examples/:principleId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: 'Authentication required' });
       }
@@ -25622,7 +25622,7 @@ You have full access to your neural network knowledge.
   // Create an example (from teaching sessions)
   app.post("/api/north-star/examples", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: 'Authentication required' });
       }
@@ -25655,7 +25655,7 @@ You have full access to your neural network knowledge.
   // Approve a pending example
   app.post("/api/north-star/examples/:id/approve", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      const userId = getRequestUserId(req);
       if (!userId) {
         return res.status(401).json({ error: 'Authentication required' });
       }
