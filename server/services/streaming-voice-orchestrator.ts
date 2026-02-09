@@ -3443,7 +3443,12 @@ Remember: Beta testers understand they're helping build something and appreciate
           fullText = embeddedText;
           metrics.sentenceCount = 1;
           
-          const pttEmbedBoldWords = extractBoldMarkedWords(rawEmbeddedText || '');
+          const pttDirectBoldWords = extractBoldMarkedWords(rawEmbeddedText || '');
+          const pttAccumulatedWords: string[] = (session as any).accumulatedBoldWords || [];
+          const pttEmbedBoldWords = [...new Set([...pttDirectBoldWords, ...pttAccumulatedWords])];
+          if (pttAccumulatedWords.length > 0) {
+            console.log(`[Voice PTT] Merged ${pttAccumulatedWords.length} accumulated bold words with ${pttDirectBoldWords.length} direct: ${pttEmbedBoldWords.join(', ')}`);
+          }
           const pttEmbedExtraction = extractTargetLanguageWithMapping(embeddedText, pttEmbedBoldWords);
           const pttEmbedWordMapping: [number, number][] = pttEmbedExtraction.wordMapping.size > 0
             ? Array.from(pttEmbedExtraction.wordMapping.entries()) : [];
@@ -3460,9 +3465,10 @@ Remember: Beta testers understand they're helping build something and appreciate
             wordMapping: pttEmbedHasTarget && pttEmbedWordMapping.length > 0 ? pttEmbedWordMapping : undefined,
           } as StreamingSentenceStartMessage);
           
-          await this.streamSentenceAudioProgressive(session, { index: 0, text: embeddedText }, embeddedText, metrics, session.turnId || `turn-${Date.now()}`);
+          await this.streamSentenceAudioProgressive(session, { index: 0, text: embeddedText }, embeddedText, metrics, session.turnId || `turn-${Date.now()}`, pttEmbedBoldWords);
           (session as any).functionCallText = undefined;
           (session as any).voiceAdjustText = undefined;
+          (session as any).accumulatedBoldWords = undefined;
         } else {
           console.warn(`[Voice PTT] Gemini returned only metadata functions (${metadataOnlyFunctions}) - forcing continuation for spoken response`);
           functionsNeedingContinuation.push(...functionCallsCopy);
@@ -5461,7 +5467,12 @@ Remember: Beta testers understand they're helping build something and appreciate
           fullText = embeddedText;
           metrics.sentenceCount = 1;
           
-          const embeddedBoldWords = extractBoldMarkedWords(rawEmbeddedText || '');
+          const embeddedDirectBoldWords = extractBoldMarkedWords(rawEmbeddedText || '');
+          const embeddedAccumulatedWords: string[] = (session as any).accumulatedBoldWords || [];
+          const embeddedBoldWords = [...new Set([...embeddedDirectBoldWords, ...embeddedAccumulatedWords])];
+          if (embeddedAccumulatedWords.length > 0) {
+            console.log(`[Voice] Merged ${embeddedAccumulatedWords.length} accumulated bold words with ${embeddedDirectBoldWords.length} direct: ${embeddedBoldWords.join(', ')}`);
+          }
           const embeddedExtraction = extractTargetLanguageWithMapping(embeddedText, embeddedBoldWords);
           const embeddedWordMapping: [number, number][] = embeddedExtraction.wordMapping.size > 0
             ? Array.from(embeddedExtraction.wordMapping.entries()) : [];
@@ -5478,10 +5489,11 @@ Remember: Beta testers understand they're helping build something and appreciate
             wordMapping: embeddedHasTarget && embeddedWordMapping.length > 0 ? embeddedWordMapping : undefined,
           } as StreamingSentenceStartMessage);
           
-          await this.streamSentenceAudioProgressive(session, { index: 0, text: embeddedText }, embeddedText, metrics, session.turnId || `turn-${Date.now()}`);
+          await this.streamSentenceAudioProgressive(session, { index: 0, text: embeddedText }, embeddedText, metrics, session.turnId || `turn-${Date.now()}`, embeddedBoldWords);
           
           (session as any).functionCallText = undefined;
           (session as any).voiceAdjustText = undefined;
+          (session as any).accumulatedBoldWords = undefined;
         } else {
           console.warn(`[Voice] Gemini returned only metadata functions (${metadataOnlyFunctions}) - these should accompany speech, forcing continuation`);
           // Add metadata functions to continuation list so they get proper follow-up
@@ -5503,7 +5515,12 @@ Remember: Beta testers understand they're helping build something and appreciate
           fullText = embeddedTextBeforeContinuation;
           metrics.sentenceCount = 1;
           
-          const contBoldWords = extractBoldMarkedWords(rawEmbeddedTextBeforeContinuation || '');
+          const contDirectBoldWords = extractBoldMarkedWords(rawEmbeddedTextBeforeContinuation || '');
+          const accumulatedWords: string[] = (session as any).accumulatedBoldWords || [];
+          const contBoldWords = [...new Set([...contDirectBoldWords, ...accumulatedWords])];
+          if (accumulatedWords.length > 0) {
+            console.log(`[Multi-Step FC - OpenMic] Merged ${accumulatedWords.length} accumulated bold words with ${contDirectBoldWords.length} direct: ${contBoldWords.join(', ')}`);
+          }
           const contExtraction = extractTargetLanguageWithMapping(embeddedTextBeforeContinuation, contBoldWords);
           const contWordMapping: [number, number][] = contExtraction.wordMapping.size > 0
             ? Array.from(contExtraction.wordMapping.entries()) : [];
@@ -5520,10 +5537,11 @@ Remember: Beta testers understand they're helping build something and appreciate
             wordMapping: contHasTarget && contWordMapping.length > 0 ? contWordMapping : undefined,
           } as StreamingSentenceStartMessage);
           
-          await this.streamSentenceAudioProgressive(session, { index: 0, text: embeddedTextBeforeContinuation }, embeddedTextBeforeContinuation, metrics, session.turnId || `turn-${Date.now()}`);
+          await this.streamSentenceAudioProgressive(session, { index: 0, text: embeddedTextBeforeContinuation }, embeddedTextBeforeContinuation, metrics, session.turnId || `turn-${Date.now()}`, contBoldWords);
           
           (session as any).functionCallText = undefined;
           (session as any).voiceAdjustText = undefined;
+          (session as any).accumulatedBoldWords = undefined;
         } else {
         // Await any pending memory lookups before building responses
         if (session.pendingMemoryLookupPromises?.length) {
@@ -5721,12 +5739,15 @@ Remember: Beta testers understand they're helping build something and appreciate
               fullText = embeddedTextFromFC;
               metrics.sentenceCount = 1;
               
-              // Stream the embedded text as audio
-              await this.streamSentenceAudioProgressive(session, { index: 0, text: embeddedTextFromFC }, embeddedTextFromFC, metrics, session.turnId || `turn-${Date.now()}`);
+              const fcDirectBoldWords = extractBoldMarkedWords(rawEmbeddedTextFromFC || '');
+              const fcAccumulatedWords: string[] = (session as any).accumulatedBoldWords || [];
+              const fcBoldWords = [...new Set([...fcDirectBoldWords, ...fcAccumulatedWords])];
+              await this.streamSentenceAudioProgressive(session, { index: 0, text: embeddedTextFromFC }, embeddedTextFromFC, metrics, session.turnId || `turn-${Date.now()}`, fcBoldWords);
               
               // Clear after use
               (session as any).functionCallText = undefined;
               (session as any).voiceAdjustText = undefined;
+              (session as any).accumulatedBoldWords = undefined;
               break;  // Exit the continuation loop
             }
             
@@ -6690,7 +6711,8 @@ Remember: Beta testers understand they're helping build something and appreciate
     chunk: SentenceChunk,
     displayText: string,
     metrics: StreamingMetrics,
-    turnId?: number
+    turnId?: number,
+    preExtractedBoldWords?: string[]
   ): Promise<void> {
     // ASSISTANT MODE: Use Google TTS instead of Cartesia for practice partners
     // Falls back to non-progressive streaming since Google doesn't support streaming
@@ -6953,11 +6975,14 @@ Remember: Beta testers understand they're helping build something and appreciate
       // Extract bold-marked words from raw Gemini text as target language hints
       // Bold markers are stripped from displayText but indicate target language words
       const rawChunkText = chunk.text || '';
-      const boldMarkedWords = extractBoldMarkedWords(rawChunkText);
+      const boldMarkedWords = preExtractedBoldWords && preExtractedBoldWords.length > 0
+        ? preExtractedBoldWords
+        : extractBoldMarkedWords(rawChunkText);
       
       // Diagnostic: trace bold marker extraction through TTS pipeline
       const hasBoldSyntax = rawChunkText.includes('**');
-      console.log(`[TTS-LANG-DIAG] Raw chunk has bold syntax: ${hasBoldSyntax}, extracted ${boldMarkedWords.length} bold words`);
+      const usedPreExtracted = !!(preExtractedBoldWords && preExtractedBoldWords.length > 0);
+      console.log(`[TTS-LANG-DIAG] Raw chunk has bold syntax: ${hasBoldSyntax}, extracted ${boldMarkedWords.length} bold words${usedPreExtracted ? ' (pre-extracted from raw function call text)' : ''}`);
       if (hasBoldSyntax) {
         console.log(`[TTS-LANG-DIAG] Raw text (first 120): "${rawChunkText.substring(0, 120)}"`);
       }
@@ -10637,6 +10662,16 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
     fn: ExtractedFunctionCall
   ): Promise<void> {
     console.log(`[Native Function Call] Processing: ${fn.name} -> ${fn.legacyType}`);
+    
+    const fnText = (fn.args.text || fn.args.spoken_text) as string | undefined;
+    if (fnText && fnText.includes('**')) {
+      const fnBoldWords = extractBoldMarkedWords(fnText);
+      if (fnBoldWords.length > 0) {
+        const existing: string[] = (session as any).accumulatedBoldWords || [];
+        (session as any).accumulatedBoldWords = [...new Set([...existing, ...fnBoldWords])];
+        console.log(`[Native Function Call] Accumulated ${fnBoldWords.length} bold words from ${fn.name}: ${fnBoldWords.join(', ')}`);
+      }
+    }
     
     // BRAIN HEALTH TELEMETRY: Log all native function/tool calls
     brainHealthTelemetry.logToolCall({
