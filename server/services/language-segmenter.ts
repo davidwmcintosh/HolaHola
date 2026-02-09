@@ -89,6 +89,80 @@ function detectUnquotedNonLatin(text: string): Detection[] {
 }
 
 /**
+ * Common target-language interjections/exclamations that tutors naturally use.
+ * These words are frequently spoken as standalone reactions (e.g., "Perfecto!" or "Très bien!")
+ * but Gemini may not bold-mark them since they're not being "taught" as vocabulary.
+ * Without this, TTS defaults to English pronunciation for these words.
+ */
+const COMMON_INTERJECTIONS: Record<string, string[]> = {
+  spanish: [
+    'perfecto', 'exacto', 'excelente', 'fantástico', 'fantastico', 'maravilloso',
+    'increíble', 'increible', 'correcto', 'genial', 'estupendo', 'fenomenal',
+    'bravo', 'claro', 'bueno', 'vale', 'oye', 'mira', 'vamos', 'ándale', 'andale',
+    'órale', 'orale', 'dale', 'venga', 'verdad', 'sí', 'si',
+  ],
+  french: [
+    'parfait', 'excellent', 'magnifique', 'formidable', 'superbe', 'génial',
+    'bravo', 'voilà', 'voila', 'exactement', 'absolument', 'merveilleux',
+    'bien', 'oui', 'allez', 'courage', 'chapeau',
+  ],
+  german: [
+    'perfekt', 'ausgezeichnet', 'wunderbar', 'fantastisch', 'genau', 'richtig',
+    'toll', 'prima', 'klasse', 'super', 'bravo', 'jawohl', 'stimmt',
+  ],
+  italian: [
+    'perfetto', 'esatto', 'eccellente', 'fantastico', 'meraviglioso', 'magnifico',
+    'bravo', 'brava', 'benissimo', 'bellissimo', 'giusto', 'certo', 'bene',
+    'allora', 'ecco', 'avanti', 'coraggio', 'complimenti', 'davvero',
+  ],
+  portuguese: [
+    'perfeito', 'exato', 'excelente', 'fantástico', 'fantastico', 'maravilhoso',
+    'incrível', 'incrivel', 'correto', 'ótimo', 'otimo', 'legal', 'beleza',
+    'parabéns', 'parabens', 'isso', 'certo', 'verdade',
+  ],
+  japanese: [],
+  korean: [],
+  'mandarin chinese': [],
+  mandarin: [],
+  chinese: [],
+  english: [],
+  hebrew: [],
+};
+
+/**
+ * Detect common target-language interjections in text.
+ * Only matches words that appear at the very start of a sentence or as standalone words,
+ * to avoid false positives in English contexts.
+ */
+function detectInterjections(text: string, targetLanguage: string): Detection[] {
+  const langKey = targetLanguage.toLowerCase();
+  const interjections = COMMON_INTERJECTIONS[langKey];
+  if (!interjections || interjections.length === 0) return [];
+  
+  const interjectionSet = new Set(interjections);
+  const detections: Detection[] = [];
+  
+  const sentenceStartPattern = /(?:^|[.!?]\s+)([¡¿]?[a-zA-ZÀ-ÿñÑáéíóúÁÉÍÓÚ]+[.!?,]?)/g;
+  let match;
+  while ((match = sentenceStartPattern.exec(text)) !== null) {
+    const word = match[1];
+    const normalized = word.toLowerCase().replace(/[^a-zA-ZÀ-ÿñÑáéíóúÁÉÍÓÚ]/g, '');
+    if (normalized.length >= 2 && interjectionSet.has(normalized)) {
+      const wordStart = match.index + match[0].indexOf(word);
+      detections.push({
+        fullMatch: word.replace(/[.,]$/, ''),
+        innerText: word.replace(/[.,]$/, ''),
+        start: wordStart,
+        end: wordStart + word.replace(/[.,]$/, '').length,
+        isQuoted: false,
+      });
+    }
+  }
+  
+  return detections;
+}
+
+/**
  * Detect known target words in text by exact word matching.
  * Used when bold markers from raw Gemini text indicate target language words
  * but the cleaned display text has markers stripped.
@@ -143,8 +217,9 @@ export function segmentByLanguage(
   
   const nonLatinDetections = detectUnquotedNonLatin(text);
   const knownWordDetections = detectKnownTargetWords(text, knownTargetWords || []);
+  const interjectionDetections = detectInterjections(text, targetLanguage);
   
-  const allDetections = [...nonLatinDetections, ...knownWordDetections];
+  const allDetections = [...nonLatinDetections, ...knownWordDetections, ...interjectionDetections];
   allDetections.sort((a, b) => a.start - b.start);
   
   // Merge adjacent detections separated only by whitespace
