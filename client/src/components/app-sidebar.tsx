@@ -301,7 +301,7 @@ export function AppSidebar() {
             <SidebarMenuButton asChild data-testid="link-settings">
               <Link href="/settings" onClick={closeSidebar}>
                 <Settings className="h-4 w-4" />
-                <span>Settings</span>
+                <span>Account</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

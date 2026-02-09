@@ -6,7 +6,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { UserCircle, Trash2, Globe, CreditCard, Crown, Sparkles, LogOut, Palette, Moon, Sun, Monitor, GraduationCap, AlertTriangle, CheckCircle2, Loader2, BookOpen, Users } from "lucide-react";
+import { UserCircle, Trash2, Globe, CreditCard, Crown, Sparkles, LogOut, Palette, Moon, Sun, Monitor, GraduationCap, AlertTriangle, CheckCircle2, Loader2, BookOpen, Users, Clock, ArrowDownCircle, ArrowUpCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -241,6 +241,32 @@ export default function Settings() {
   });
   const hourPackages = hourPackagesData?.packages;
 
+  // Fetch credit balance and usage history
+  const { data: balanceData, isLoading: balanceLoading } = useQuery<{
+    remainingSeconds: number;
+    remainingHours: number;
+    purchasedSeconds: number;
+    classAllocationSeconds: number;
+    bonusSeconds: number;
+    warningLevel: string;
+  }>({
+    queryKey: ["/api/usage/balance"],
+    enabled: !!user,
+  });
+
+  const { data: usageHistoryData, isLoading: usageHistoryLoading } = useQuery<{
+    history: Array<{
+      id: string;
+      creditSeconds: number;
+      entitlementType: string;
+      description: string | null;
+      createdAt: string;
+    }>;
+  }>({
+    queryKey: ["/api/usage/history"],
+    enabled: !!user,
+  });
+
   // Fetch institutional packages for teachers
   const { data: institutionalPackagesData, isLoading: institutionalPackagesLoading } = useQuery<{ packages: InstitutionalPackage[] }>({
     queryKey: ["/api/billing/institutional-packages"],
@@ -384,8 +410,8 @@ export default function Settings() {
     <div className="container mx-auto p-6 max-w-4xl">
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold" data-testid="text-settings-title">Settings</h1>
-          <p className="text-muted-foreground mt-1">Manage your account, subscription, and preferences</p>
+          <h1 className="text-3xl font-bold" data-testid="text-settings-title">Account</h1>
+          <p className="text-muted-foreground mt-1">Manage your account, usage, and preferences</p>
         </div>
 
         {/* Account Information */}
@@ -1009,6 +1035,95 @@ export default function Settings() {
             </CardContent>
           </Card>
         )}
+
+        {/* Usage Report */}
+        <Card data-testid="card-usage-report">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Usage Report
+            </CardTitle>
+            <CardDescription>Your credit balance and session history</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {balanceLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-16" />
+                <Skeleton className="h-8" />
+              </div>
+            ) : balanceData ? (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="p-4 rounded-md border">
+                    <p className="text-sm text-muted-foreground">Remaining Balance</p>
+                    <p className={`text-2xl font-bold ${balanceData.remainingSeconds < 0 ? 'text-destructive' : balanceData.warningLevel === 'low' || balanceData.warningLevel === 'critical' ? 'text-yellow-600 dark:text-yellow-400' : ''}`} data-testid="text-remaining-balance">
+                      {balanceData.remainingHours}h
+                    </p>
+                  </div>
+                  <div className="p-4 rounded-md border">
+                    <p className="text-sm text-muted-foreground">Purchased</p>
+                    <p className="text-2xl font-bold" data-testid="text-purchased-hours">
+                      {Math.round(balanceData.purchasedSeconds / 360) / 10}h
+                    </p>
+                  </div>
+                  <div className="p-4 rounded-md border">
+                    <p className="text-sm text-muted-foreground">Bonus / Allocated</p>
+                    <p className="text-2xl font-bold" data-testid="text-bonus-hours">
+                      {Math.round((balanceData.bonusSeconds + balanceData.classAllocationSeconds) / 360) / 10}h
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-medium mb-3">Recent Transactions</h3>
+                  {usageHistoryLoading ? (
+                    <div className="space-y-2">
+                      {[...Array(3)].map((_, i) => (
+                        <Skeleton key={i} className="h-10" />
+                      ))}
+                    </div>
+                  ) : usageHistoryData?.history && usageHistoryData.history.length > 0 ? (
+                    <div className="space-y-1">
+                      {usageHistoryData.history.slice(0, 15).map((entry) => {
+                        const isCredit = entry.creditSeconds > 0;
+                        const absSeconds = Math.abs(entry.creditSeconds);
+                        const minutes = Math.round(absSeconds / 60);
+                        const hours = Math.round(absSeconds / 360) / 10;
+                        const displayTime = absSeconds >= 3600 ? `${hours}h` : `${minutes}m`;
+                        const date = new Date(entry.createdAt);
+                        
+                        return (
+                          <div key={entry.id} className="flex items-center justify-between py-2 px-3 rounded-md border text-sm" data-testid={`row-usage-${entry.id}`}>
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              {isCredit ? (
+                                <ArrowUpCircle className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
+                              ) : (
+                                <ArrowDownCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+                              )}
+                              <span className="truncate">{entry.description || entry.entitlementType}</span>
+                            </div>
+                            <div className="flex items-center gap-3 shrink-0 ml-2">
+                              <span className={`font-medium ${isCredit ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
+                                {isCredit ? '+' : '-'}{displayTime}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground py-4 text-center">No usage history yet</p>
+                  )}
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">Unable to load usage data</p>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Reset Profile */}
         <Card data-testid="card-reset-profile">

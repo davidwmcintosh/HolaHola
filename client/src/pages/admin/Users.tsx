@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { User, Shield, Search, RotateCcw, Loader2 } from "lucide-react";
+import { User, Shield, Search, RotateCcw, Loader2, CreditCard } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -35,6 +35,12 @@ export default function AdminUsers() {
     total: number;
   }>({
     queryKey: [usersQueryUrl],
+  });
+
+  const { data: balancesData } = useQuery<{
+    balances: Record<string, { balanceSeconds: number; balanceHours: number }>;
+  }>({
+    queryKey: ["/api/admin/users/balances"],
   });
 
   const updateRoleMutation = useMutation({
@@ -164,6 +170,23 @@ export default function AdminUsers() {
                             </div>
                             <div className="text-sm text-muted-foreground">{user.email}</div>
                           </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <CreditCard className="h-4 w-4 text-muted-foreground" />
+                          <span className={`text-sm ${
+                            balancesData?.balances[user.id]
+                              ? balancesData.balances[user.id].balanceHours < 0
+                                ? 'text-destructive'
+                                : balancesData.balances[user.id].balanceHours === 0
+                                  ? 'text-muted-foreground'
+                                  : ''
+                              : 'text-muted-foreground'
+                          }`} data-testid={`text-balance-${user.id}`}>
+                            {balancesData?.balances[user.id] 
+                              ? `${balancesData.balances[user.id].balanceHours}h`
+                              : '—'}
+                          </span>
                         </div>
 
                         <div className="flex items-center gap-3">

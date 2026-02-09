@@ -11501,6 +11501,31 @@ Return ONLY the ${targetLanguage} phrase:`;
       res.status(500).json({ error: error.message });
     }
   });
+
+  // Get credit balances for all users (admin only - for Command Center)
+  app.get("/api/admin/users/balances", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const result = await storage.getAllUsers({});
+      const balanceMap: Record<string, { balanceSeconds: number; balanceHours: number }> = {};
+      
+      for (const user of result.users) {
+        try {
+          const balance = await usageService.getBalance(user.id);
+          balanceMap[user.id] = {
+            balanceSeconds: balance.remainingSeconds,
+            balanceHours: Math.round(balance.remainingSeconds / 360) / 10,
+          };
+        } catch {
+          balanceMap[user.id] = { balanceSeconds: 0, balanceHours: 0 };
+        }
+      }
+      
+      res.json({ balances: balanceMap });
+    } catch (error: any) {
+      console.error('Error fetching user balances:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
   
   // Send/resend invitation to existing pending user (admin only)
   app.post("/api/admin/users/:userId/send-invitation", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
