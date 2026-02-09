@@ -363,6 +363,9 @@ app.use(express.urlencoded({ extended: false }));
 // Serve uploaded files (Express Lane attachments)
 app.use('/uploads', express.static('uploads'));
 
+// Serve TTS evaluation audio files (temporary)
+app.use('/tts-eval', express.static('public/tts-eval'));
+
 // Apply general rate limiting to all API routes
 app.use('/api', generalLimiter);
 

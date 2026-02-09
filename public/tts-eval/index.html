@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TTS Evaluation: Cartesia vs ElevenLabs</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; padding: 20px; max-width: 1200px; margin: 0 auto; }
+  h1 { font-size: 1.5rem; margin-bottom: 8px; color: #f8fafc; }
+  .subtitle { color: #94a3b8; margin-bottom: 24px; font-size: 0.9rem; }
+  .stats { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+  .stat { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 12px 16px; flex: 1; min-width: 200px; }
+  .stat-label { color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .stat-value { font-size: 1.25rem; font-weight: 600; margin-top: 4px; }
+  .stat-value.green { color: #4ade80; }
+  .stat-value.blue { color: #60a5fa; }
+  .stat-value.amber { color: #fbbf24; }
+  .test-group { background: #1e293b; border: 1px solid #334155; border-radius: 8px; margin-bottom: 16px; overflow: hidden; }
+  .test-header { padding: 16px; border-bottom: 1px solid #334155; cursor: pointer; }
+  .test-header:hover { background: #253349; }
+  .test-title { font-weight: 600; font-size: 1rem; }
+  .test-desc { color: #94a3b8; font-size: 0.85rem; margin-top: 4px; }
+  .test-text { color: #cbd5e1; font-size: 0.85rem; margin-top: 8px; font-style: italic; }
+  .test-text .target { color: #f59e0b; font-weight: 600; }
+  .players { padding: 16px; display: grid; gap: 12px; }
+  .player-row { display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: #0f172a; border-radius: 6px; }
+  .provider-label { min-width: 180px; font-size: 0.8rem; font-weight: 500; }
+  .provider-label.cartesia { color: #a78bfa; }
+  .provider-label.cartesia-forced { color: #c084fc; }
+  .provider-label.eleven-flash { color: #34d399; }
+  .provider-label.eleven-turbo { color: #2dd4bf; }
+  audio { flex: 1; height: 32px; }
+  .key-test { border-left: 3px solid #f59e0b; }
+  .badge { display: inline-block; background: #f59e0b; color: #0f172a; font-size: 0.65rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-left: 8px; text-transform: uppercase; }
+  .note { background: #1a1a2e; border: 1px solid #f59e0b33; border-radius: 8px; padding: 16px; margin-bottom: 24px; }
+  .note-title { color: #f59e0b; font-weight: 600; margin-bottom: 8px; }
+  .note p { color: #94a3b8; font-size: 0.85rem; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<h1>TTS Provider Evaluation</h1>
+<p class="subtitle">Cartesia Sonic-3 vs ElevenLabs Flash v2.5 / Turbo v2.5</p>
+
+<div class="stats">
+  <div class="stat">
+    <div class="stat-label">Cartesia Avg Latency</div>
+    <div class="stat-value amber">~1,176ms</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">ElevenLabs Flash Latency</div>
+    <div class="stat-value green">~348ms</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">ElevenLabs Turbo Latency</div>
+    <div class="stat-value green">~279ms</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Cost Savings (EL Flash)</div>
+    <div class="stat-value blue">~44% cheaper</div>
+  </div>
+</div>
+
+<div class="note">
+  <div class="note-title">What to listen for</div>
+  <p>Focus on the <strong style="color:#f59e0b">highlighted target words</strong> in each test. Does the provider pronounce them in the correct language? 
+  The critical test is "come stai" (Italian) - Cartesia has been pronouncing "come" as English and "stai" as "stay."
+  Also listen for accent consistency - does the voice maintain a natural tutor personality across languages?</p>
+</div>
+
+<div class="note" style="border-color: #60a5fa33;">
+  <div class="note-title" style="color: #60a5fa;">Methodology notes</div>
+  <p>Latency: Measured as full HTTP round-trip (not streaming TTFB). In production we'd use WebSocket streaming for both, so real latency would be lower. 
+  Cartesia timestamps show 0 because the bytes API doesn't return them (only WebSocket API does). 
+  ElevenLabs timestamps are derived from character-level alignment data. 
+  Voices are not matched 1:1 - Cartesia uses language-specific voices, ElevenLabs uses a single premade voice. 
+  This eval focuses on pronunciation correctness, not voice personality matching.</p>
+</div>
+
+<div id="tests"></div>
+
+<script>
+const tests = [
+  {
+    id: 'it-homograph',
+    title: 'Italian Homograph: "come stai"',
+    desc: '"come" exists in both English and Italian with completely different pronunciations',
+    text: 'Now try saying <span class="target">come stai</span> to greet someone.',
+    key: true,
+  },
+  {
+    id: 'it-mixed',
+    title: 'Italian Mixed: buongiorno / buonasera',
+    desc: 'Italian words embedded in English explanation',
+    text: 'The word <span class="target">buongiorno</span> means good morning, and you can also say <span class="target">buonasera</span> in the evening.',
+    key: true,
+  },
+  {
+    id: 'it-sentence',
+    title: 'Italian Full Sentence',
+    desc: 'Full Italian sentence with English context',
+    text: 'Repeat after me: <span class="target">Mi chiamo Daniela, e sono la tua insegnante.</span>',
+    key: false,
+  },
+  {
+    id: 'es-mixed',
+    title: 'Spanish Mixed: buenos dias / gracias',
+    desc: 'Spanish words in English sentence',
+    text: 'When you enter a shop, say <span class="target">buenos dias</span> to be polite, and <span class="target">gracias</span> when you leave.',
+    key: false,
+  },
+  {
+    id: 'es-homograph',
+    title: 'Spanish Homograph: "no me gusta"',
+    desc: '"no" and "me" exist in English too',
+    text: 'If someone asks, you can say <span class="target">no me gusta</span> to express you don\'t like something.',
+    key: false,
+  },
+  {
+    id: 'fr-mixed',
+    title: 'French Mixed: bonjour / merci beaucoup',
+    desc: 'French words in English context',
+    text: 'A common greeting is <span class="target">bonjour</span>, and you can say <span class="target">merci beaucoup</span> to thank someone warmly.',
+    key: false,
+  },
+  {
+    id: 'fr-homograph',
+    title: 'French Homograph: "table" / "orange"',
+    desc: '"table" and "orange" exist in both languages with different pronunciation',
+    text: 'The French word <span class="target">table</span> sounds different than English, and <span class="target">une orange</span> is almost the same.',
+    key: false,
+  },
+  {
+    id: 'de-mixed',
+    title: 'German Mixed: danke schon / guten Morgen',
+    desc: 'German words in English explanation',
+    text: 'To say thank you in German, say <span class="target">danke schon</span>, and <span class="target">guten Morgen</span> means good morning.',
+    key: false,
+  },
+  {
+    id: 'ja-mixed',
+    title: 'Japanese Mixed: konnichiwa / arigatou',
+    desc: 'Japanese romanized words in English context',
+    text: 'The most common greeting is <span class="target">konnichiwa</span>, and you bow while saying <span class="target">arigatou gozaimasu</span>.',
+    key: false,
+  },
+  {
+    id: 'ko-mixed',
+    title: 'Korean Mixed: annyeonghaseyo / kamsahamnida',
+    desc: 'Korean romanized words in English context',
+    text: 'To say hello politely, use <span class="target">annyeonghaseyo</span>, and <span class="target">kamsahamnida</span> means thank you.',
+    key: false,
+  },
+];
+
+const container = document.getElementById('tests');
+
+tests.forEach(test => {
+  const providers = [
+    { label: 'Cartesia (auto-detect)', file: `${test.id}_cartesia_autodetect.mp3`, cls: 'cartesia' },
+    { label: `Cartesia (forced lang)`, file: `${test.id}_cartesia_forced.mp3`, cls: 'cartesia-forced' },
+    { label: 'ElevenLabs Flash v2.5', file: `${test.id}_elevenlabs_flash.mp3`, cls: 'eleven-flash' },
+    { label: 'ElevenLabs Turbo v2.5', file: `${test.id}_elevenlabs_turbo.mp3`, cls: 'eleven-turbo' },
+  ];
+
+  const group = document.createElement('div');
+  group.className = `test-group ${test.key ? 'key-test' : ''}`;
+  group.innerHTML = `
+    <div class="test-header">
+      <div class="test-title">${test.title}${test.key ? '<span class="badge">Key Test</span>' : ''}</div>
+      <div class="test-desc">${test.desc}</div>
+      <div class="test-text">${test.text}</div>
+    </div>
+    <div class="players">
+      ${providers.map(p => `
+        <div class="player-row">
+          <div class="provider-label ${p.cls}">${p.label}</div>
+          <audio controls preload="none" src="${p.file}"></audio>
+        </div>
+      `).join('')}
+    </div>
+  `;
+  container.appendChild(group);
+});
+</script>
+
+</body>
+</html>
