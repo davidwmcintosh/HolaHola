@@ -169,7 +169,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   // If no activity for 30+ seconds while isProcessing=true, reset state
   // Increased from 15s to 25s Jan 2026 to handle server delays from RAM pressure
   const processingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const PROCESSING_TIMEOUT_MS = 25000;  // 25 seconds max "thinking" time
+  const PROCESSING_TIMEOUT_MS = 15000;  // 15 seconds max "thinking" time (voice conversations need responsiveness)
 
   // Refs
   const clientRef = useRef<StreamingVoiceClient | null>(null);
@@ -1267,6 +1267,16 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     setIsProcessing(true);
     setError(null);
     subtitles.reset();
+    
+    // Start processing timeout (stuck thinking recovery for greetings too)
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+    }
+    processingTimeoutRef.current = setTimeout(() => {
+      console.log('[StreamingVoice] Greeting timeout - resetting stuck thinking state');
+      setIsProcessing(false);
+      setError('Response timeout - please try again');
+    }, PROCESSING_TIMEOUT_MS);
     
     // Clear stored audio
     playerRef.current?.clearStoredAudio();
