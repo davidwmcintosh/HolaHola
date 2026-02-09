@@ -143,6 +143,7 @@ export interface StreamingSynthesisRequest {
   personality?: TutorPersonality;
   expressiveness?: number;
   contextId?: string;  // Optional: shared context ID for prosody continuity across segments
+  autoDetectLanguage?: boolean;  // When true, omit language from Cartesia API to enable native code-switching
 }
 
 /**
@@ -332,6 +333,7 @@ export class CartesiaStreamingService extends EventEmitter {
       personality = 'warm',
       expressiveness = 3,
       contextId: providedContextId,
+      autoDetectLanguage,
     } = request;
     
     // Skip empty text - Cartesia returns 400 for empty strings
@@ -358,15 +360,22 @@ export class CartesiaStreamingService extends EventEmitter {
       console.log(`[Cartesia Streaming] Using default voice for ${selectedLanguage}: ${voiceConfig.name} (${voiceConfig.voiceId.substring(0, 8)}...)`);
     }
     
+    // AUTO-DETECT MODE: When autoDetectLanguage is true, we omit the language field
+    // from the Cartesia API call. Sonic-3 will auto-detect languages in the text and
+    // handle code-switching natively with the same voice — no more "two speakers" artifact.
+    const useAutoDetect = autoDetectLanguage === true;
+    
     // For language code, use the explicitly passed `language` parameter (from detectTextLanguageForTTS)
     // This is critical for Japanese/Korean/Chinese voices speaking English text - they need 'en' not 'ja'
     // The `targetLanguage` is kept for pronunciation dictionary lookup but NOT for the TTS language code
     const langForTTS = language?.toLowerCase() || 'english';
     const langConfig = CARTESIA_VOICE_MAP[langForTTS];
-    const effectiveLanguageCode = langConfig?.languageCode || voiceConfig.languageCode;
+    const effectiveLanguageCode = useAutoDetect ? null : (langConfig?.languageCode || voiceConfig.languageCode);
     
     // Log when language detection changed the TTS language code
-    if (langForTTS !== targetLanguage?.toLowerCase()) {
+    if (useAutoDetect) {
+      console.log(`[Cartesia Streaming] AUTO-DETECT mode: language field omitted for native code-switching`);
+    } else if (langForTTS !== targetLanguage?.toLowerCase()) {
       console.log(`[Cartesia Streaming] Language override: TTS using '${effectiveLanguageCode}' (detected: ${langForTTS}) instead of target '${targetLanguage}'`);
     }
     
@@ -489,22 +498,25 @@ export class CartesiaStreamingService extends EventEmitter {
         
         // Use provided contextId for prosody continuity, or generate a new one
         const contextId = providedContextId || `ctx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        const response = await this.websocket.send({
+        const wsPayload: any = {
           modelId: this.model,
           transcript: finalText,
           voice: {
             mode: 'id',
             id: effectiveVoiceId,
             __experimental_controls: {
-              speed: cartesiaSpeed, // Numeric speed in 0.6-1.5 range
+              speed: cartesiaSpeed,
               emotion: emotionWithIntensity ? [emotionWithIntensity] : undefined,
             },
           },
-          language: effectiveLanguageCode,
           contextId: contextId,
           ...(pronunciationDictId && { pronunciationDictId: pronunciationDictId }),
-          addTimestamps: true, // Enable native word-level timestamps
-        });
+          addTimestamps: true,
+        };
+        if (effectiveLanguageCode !== null) {
+          wsPayload.language = effectiveLanguageCode;
+        }
+        const response = await this.websocket.send(wsPayload);
         
         // Collect timestamps as they arrive
         const collectedTimestamps: WordTiming[] = [];
@@ -643,7 +655,6 @@ export class CartesiaStreamingService extends EventEmitter {
             mode: 'id',
             id: effectiveVoiceId,
           },
-          language: effectiveLanguageCode,
           outputFormat: {
             container: 'raw',
             sampleRate: AUDIO_STREAMING_CONFIG.SAMPLE_RATE,
@@ -654,6 +665,9 @@ export class CartesiaStreamingService extends EventEmitter {
             emotion: emotionWithIntensity || constrainedEmotion,
           },
         };
+        if (effectiveLanguageCode !== null) {
+          requestOptions.language = effectiveLanguageCode;
+        }
         
         if (pronunciationDictId) {
           requestOptions.pronunciationDictId = pronunciationDictId;

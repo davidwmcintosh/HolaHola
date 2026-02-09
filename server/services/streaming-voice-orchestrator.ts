@@ -6996,39 +6996,36 @@ Remember: Beta testers understand they're helping build something and appreciate
       console.log(`[TTS-LANG-DIAG] Segmentation: hasCodeSwitching=${segmentationResult.hasCodeSwitching}, segments=${segmentationResult.segments.length}, targetWords=${segmentationResult.targetLanguageWords.join(', ') || 'none'}`);
       
       if (segmentationResult.hasCodeSwitching && segmentationResult.segments.length > 1) {
-        // Use multilingual synthesis for word-by-word code-switching
+        // UNIFIED CODE-SWITCHING: Send the full mixed-language text to Cartesia as ONE request
+        // with autoDetectLanguage=true. Sonic-3 handles language switching natively with the same
+        // voice identity — no more "two different speakers spliced together" artifact.
+        // The segmentation result is still used for subtitle/karaoke word mapping (not TTS).
         logSegmentation(segmentationResult, nativeLanguage, session.targetLanguage);
         
-        const cartesiaChunks = segmentsToCartesiaChunks(
-          segmentationResult.segments,
-          nativeLanguage,
-          session.targetLanguage
-        );
+        console.log(`[TTS-LANG-DIAG] → UNIFIED CODE-SWITCH path: sending full text with auto-detect (${segmentationResult.segments.length} subtitle segments, target words: ${segmentationResult.targetLanguageWords.join(', ') || 'none'})`);
         
-        console.log(`[TTS-LANG-DIAG] → MULTILINGUAL path: ${cartesiaChunks.length} segments, codes: ${cartesiaChunks.map(c => c.languageCode).join(',')}`);
-        
-        // Use multilingual streaming for code-switching
-        const result = await this.cartesiaService.streamSynthesizeMultilingual(
-          cartesiaChunks,
+        const result = await this.cartesiaService.streamSynthesizeProgressive(
           {
+            text: textWithEmphases,
+            autoDetectLanguage: true,
+            targetLanguage: session.targetLanguage,
             voiceId: session.voiceId,
             speakingRate: effectiveSpeakingRate,
             emotion: effectiveEmotion,
             personality: effectivePersonality,
             expressiveness: effectiveExpressiveness,
-            targetLanguage: session.targetLanguage,
           },
           ttsCallbacks
         );
       } else {
         const detectedLanguage = detectTextLanguageForTTS(textWithEmphases, session.targetLanguage);
-        console.log(`[TTS-LANG-DIAG] → FALLBACK path: detected='${detectedLanguage}' target='${session.targetLanguage}'`);
+        console.log(`[TTS-LANG-DIAG] → SINGLE-LANGUAGE path: detected='${detectedLanguage}' target='${session.targetLanguage}'`);
         
         const result = await this.cartesiaService.streamSynthesizeProgressive(
           {
             text: textWithEmphases,
             language: detectedLanguage,
-            targetLanguage: session.targetLanguage, // Keep original for pronunciation dictionary lookup
+            targetLanguage: session.targetLanguage,
             voiceId: session.voiceId,
             speakingRate: effectiveSpeakingRate,
             emotion: effectiveEmotion,
