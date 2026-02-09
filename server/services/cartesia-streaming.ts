@@ -631,6 +631,9 @@ export class CartesiaStreamingService extends EventEmitter {
         
       } else {
         // Fallback to bytes API (no native timestamps)
+        // CRITICAL: The bytes API returns pcm_s16le regardless of what we request.
+        // We request s16le explicitly and convert to f32le on the server so the
+        // client receives identical data from both WebSocket and bytes paths.
         console.log('[Cartesia Streaming] Using bytes API (WebSocket not connected)');
         
         const requestOptions: any = {
@@ -644,7 +647,7 @@ export class CartesiaStreamingService extends EventEmitter {
           outputFormat: {
             container: 'raw',
             sampleRate: AUDIO_STREAMING_CONFIG.SAMPLE_RATE,
-            encoding: 'pcm_f32le',
+            encoding: 'pcm_s16le',
           },
           generation_config: {
             speed: cartesiaSpeed,
@@ -664,13 +667,14 @@ export class CartesiaStreamingService extends EventEmitter {
             console.log(`[Cartesia Streaming] TTFB (bytes): ${firstChunkTime - startTime}ms`);
           }
           
-          const buffer = Buffer.from(chunk);
-          totalBytes += buffer.length;
+          const s16Buffer = Buffer.from(chunk);
+          const f32Buffer = this.convertS16leToF32le(s16Buffer);
+          totalBytes += f32Buffer.length;
           chunkCount++;
           
           yield {
-            audio: buffer,
-            durationMs: this.estimatePcmDuration(buffer.length),
+            audio: f32Buffer,
+            durationMs: this.estimateS16leDuration(s16Buffer.length),
             isLast: false,
             audioFormat: 'pcm_f32le' as const,
             sampleRate: 24000,
@@ -987,6 +991,34 @@ export class CartesiaStreamingService extends EventEmitter {
     return (bufferSize / bytesPerSecond) * 1000; // Return ms
   }
   
+  /**
+   * Convert pcm_s16le buffer to pcm_f32le buffer
+   * The bytes API returns s16le even when f32le is requested.
+   * Each 16-bit signed integer sample is normalized to [-1.0, 1.0] float range.
+   */
+  private convertS16leToF32le(s16Buffer: Buffer): Buffer {
+    const sampleCount = Math.floor(s16Buffer.length / 2);
+    const f32Buffer = Buffer.alloc(sampleCount * 4);
+    for (let i = 0; i < sampleCount; i++) {
+      const s16Value = s16Buffer.readInt16LE(i * 2);
+      const f32Value = s16Value / 32768.0;
+      f32Buffer.writeFloatLE(f32Value, i * 4);
+    }
+    return f32Buffer;
+  }
+
+  /**
+   * Estimate audio duration from pcm_s16le buffer size
+   * PCM s16le at 24kHz mono = 2 bytes per sample
+   */
+  private estimateS16leDuration(bufferSize: number): number {
+    const bytesPerSample = 2;
+    const sampleRate = 24000;
+    const channels = 1;
+    const bytesPerSecond = bytesPerSample * sampleRate * channels;
+    return (bufferSize / bytesPerSecond) * 1000;
+  }
+
   /**
    * Estimate PCM audio duration from buffer size
    * PCM f32le at 24kHz mono = 4 bytes per sample × 24000 samples/sec = 96KB per second
