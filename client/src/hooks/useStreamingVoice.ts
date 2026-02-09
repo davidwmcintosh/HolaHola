@@ -630,31 +630,24 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   const handleSentenceReady = useCallback((msg: StreamingSentenceReadyMessage) => {
     const { sentenceIndex, turnId, firstAudioChunk, firstWordTimings, estimatedTotalDuration } = msg;
     
-    if (isVerboseLoggingEnabled()) {
-      console.error(`[SENTENCE_READY HANDLER] sentence=${sentenceIndex}, turn=${turnId}, timings=${firstWordTimings.length} words`);
-    }
+    // ALWAYS log sentence_ready receipt for diagnostics (this was a critical silent failure)
+    const audioStripped = (firstAudioChunk as any)?.audioStripped === true;
+    const hasAudio = firstAudioChunk?.audio && firstAudioChunk.audio.length > 0;
+    console.log(`[SENTENCE_READY] Received: sentence=${sentenceIndex}, turn=${turnId}, timings=${firstWordTimings?.length || 0}, hasAudio=${hasAudio}, audioStripped=${audioStripped}`);
     
     // TUTOR SWITCH: If we were switching tutors, clear the flag now that audio is ready
-    // This unlocks the mic after the new tutor starts speaking
     setIsSwitchingTutor(false);
     if (tutorSwitchTimeoutRef.current) {
       clearTimeout(tutorSwitchTimeoutRef.current);
       tutorSwitchTimeoutRef.current = null;
     }
     
-    // Handle case with no timing data (silent intro from Cartesia)
-    // Still enqueue audio - timing will arrive via word_timing_delta messages
     const hasTimings = firstWordTimings && firstWordTimings.length > 0;
     
     if (!hasTimings) {
-      console.log(`[SENTENCE_READY] Sentence ${sentenceIndex} has no timings yet (silent intro) - enqueueing audio anyway`);
+      console.log(`[SENTENCE_READY] Sentence ${sentenceIndex} has no timings yet (silent intro)`);
     }
     
-    // CRITICAL FIX: Create the sentence entry if it doesn't exist yet.
-    // The progressive path sends sentence_ready which may arrive before sentence_start.
-    // addSentence is idempotent - if sentence_start already created the entry (with target data),
-    // this call is a no-op and the target data is preserved.
-    // If sentence_start hasn't arrived yet, this creates a basic entry so subtitles can start.
     const reconstructedText = hasTimings 
       ? firstWordTimings.map(t => t.word).join(' ') 
       : '';
@@ -698,10 +691,11 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     }
     
     // 3. Enqueue the first audio chunk for playback
-    if (playerRef.current && firstAudioChunk.audio) {
+    // PROXY FIX: If audioStripped=true, audio was too large for the proxy and will
+    // arrive as a separate audio_chunk message. Skip enqueue here - handleAudioChunk handles it.
+    if (playerRef.current && hasAudio && !audioStripped) {
       logAudioChunkReceived(sentenceIndex);
       
-      // Decode base64 to ArrayBuffer
       const binaryString = atob(firstAudioChunk.audio);
       const bytes = new Uint8Array(binaryString.length);
       for (let i = 0; i < binaryString.length; i++) {
@@ -712,9 +706,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
         console.error(`[SENTENCE_READY] Enqueueing first audio chunk: ${bytes.buffer.byteLength} bytes`);
       }
       
-      // Enqueue for progressive playback
       if (firstAudioChunk.audioFormat === 'pcm_f32le') {
-        // Normalize chunkIndex to ensure deduplication works correctly
         const normalizedChunkIndex = typeof firstAudioChunk.chunkIndex === 'number' 
           ? firstAudioChunk.chunkIndex 
           : parseInt(firstAudioChunk.chunkIndex as any, 10) || 0;
@@ -723,10 +715,12 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
           normalizedChunkIndex,
           bytes.buffer,
           firstAudioChunk.durationMs,
-          false,  // Not last chunk
+          false,
           firstAudioChunk.sampleRate
         );
       }
+    } else if (audioStripped) {
+      console.log(`[SENTENCE_READY] Audio stripped by proxy adapter - will arrive as separate audio_chunk`);
     }
   }, []);
   

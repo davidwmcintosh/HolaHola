@@ -1060,12 +1060,14 @@ export class StreamingVoiceClient {
    */
   private handleSentenceReady(message: StreamingSentenceReadyMessage): void {
     const { sentenceIndex, firstWordTimings } = message;
+    const audioStripped = (message as any).firstAudioChunk?.audioStripped === true;
+    const hasAudio = message.firstAudioChunk?.audio && message.firstAudioChunk.audio.length > 0;
     
-    // Update sentence index
+    console.log(`[WS CLIENT] sentence_ready received: sentence=${sentenceIndex}, timings=${firstWordTimings?.length || 0}, hasAudio=${hasAudio}, audioStripped=${audioStripped}`);
+    
     this.currentSentenceIndex = sentenceIndex;
     this.setState('streaming');
     
-    // Emit the atomic message - listeners can use both audio and timing together
     this.emit('sentenceReady', message);
   }
   

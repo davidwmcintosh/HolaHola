@@ -131,9 +131,76 @@ class SocketIOWebSocketAdapter {
         try {
           const parsed = JSON.parse(data);
           
+          // PROXY SAFE DELIVERY: Replit proxy silently drops large Socket.io messages
+          // Strategy: Split any message with >50KB of audio into smaller deliverable parts
+          
+          // SENTENCE_READY FIX: sentence_ready contains embedded firstAudioChunk.audio
+          // which can exceed proxy limits, causing the message to be silently dropped.
+          // Fix: Strip audio from sentence_ready and send it as a separate audio_chunk.
+          // Client handles sentence_ready with or without embedded audio.
+          if (parsed.type === 'sentence_ready' && parsed.firstAudioChunk?.audio && parsed.firstAudioChunk.audio.length > 30000) {
+            const audioData = parsed.firstAudioChunk.audio;
+            const audioMeta = { ...parsed.firstAudioChunk };
+            
+            console.log(`[SOCKET EMIT] sentence_ready: SPLITTING (audio=${audioData.length} chars) - sending timings first, then audio_chunk`);
+            
+            // 1. Send sentence_ready WITHOUT audio (lightweight control message with timings)
+            const lightweightReady = {
+              ...parsed,
+              firstAudioChunk: {
+                ...audioMeta,
+                audio: '',  // Strip audio - it will arrive as separate audio_chunk
+                audioStripped: true,  // Signal to client that audio comes separately
+              },
+            };
+            this.socket.emit('message', lightweightReady);
+            
+            // 2. Send the audio as a regular audio_chunk (goes through chunking if needed)
+            const audioChunkMsg = {
+              type: 'audio_chunk',
+              timestamp: parsed.timestamp,
+              turnId: parsed.turnId,
+              sentenceIndex: parsed.sentenceIndex,
+              chunkIndex: audioMeta.chunkIndex ?? 0,
+              isLast: false,
+              durationMs: audioMeta.durationMs,
+              audio: audioData,
+              audioFormat: audioMeta.audioFormat || 'pcm_f32le',
+              sampleRate: audioMeta.sampleRate || 24000,
+            };
+            
+            // Apply chunking to the extracted audio if needed
+            if (audioData.length > 50000) {
+              const CHUNK_SIZE = 50000;
+              const totalChunks = Math.ceil(audioData.length / CHUNK_SIZE);
+              for (let i = 0; i < totalChunks; i++) {
+                const start = i * CHUNK_SIZE;
+                const end = Math.min(start + CHUNK_SIZE, audioData.length);
+                this.socket.emit('message', {
+                  type: 'audio_chunk_part',
+                  sentenceIndex: parsed.sentenceIndex,
+                  chunkIndex: audioMeta.chunkIndex ?? 0,
+                  partIndex: i,
+                  totalParts: totalChunks,
+                  audio: audioData.slice(start, end),
+                  ...(i === 0 ? {
+                    timestamp: parsed.timestamp,
+                    turnId: parsed.turnId,
+                    durationMs: audioMeta.durationMs,
+                    audioFormat: audioMeta.audioFormat || 'pcm_f32le',
+                    sampleRate: audioMeta.sampleRate || 24000,
+                    isLast: false,
+                  } : {}),
+                  isFinalPart: i === totalChunks - 1,
+                });
+              }
+            } else {
+              this.socket.emit('message', audioChunkMsg);
+            }
+          }
           // CHUNKING: Large audio_chunk messages get dropped by Replit proxy
           // Split into smaller chunks (64KB base64 = ~48KB raw) for reliable delivery
-          if (parsed.type === 'audio_chunk' && parsed.audio && parsed.audio.length > 50000) {
+          else if (parsed.type === 'audio_chunk' && parsed.audio && parsed.audio.length > 50000) {
             const CHUNK_SIZE = 50000; // 50KB chunks of base64
             const totalChunks = Math.ceil(parsed.audio.length / CHUNK_SIZE);
             console.log(`[SOCKET EMIT] audio_chunk: CHUNKING ${parsed.audio.length} bytes into ${totalChunks} chunks`);
@@ -166,7 +233,7 @@ class SocketIOWebSocketAdapter {
               this.socket.emit('message', chunkMsg);
             }
           } else {
-            if (parsed.type === 'audio_chunk' || parsed.type === 'word_timing') {
+            if (parsed.type === 'audio_chunk' || parsed.type === 'word_timing' || parsed.type === 'sentence_ready') {
               console.log(`[SOCKET EMIT] ${parsed.type}: connected=${this.socket.connected}, dataLen=${data.length}`);
             }
             // Emit parsed object, not string - Socket.io handles serialization
