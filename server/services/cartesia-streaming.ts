@@ -642,9 +642,9 @@ export class CartesiaStreamingService extends EventEmitter {
           },
           language: effectiveLanguageCode,
           outputFormat: {
-            container: 'mp3',
+            container: 'raw',
             sampleRate: AUDIO_STREAMING_CONFIG.SAMPLE_RATE,
-            bitRate: AUDIO_STREAMING_CONFIG.BIT_RATE,
+            encoding: 'pcm_f32le',
           },
           generation_config: {
             speed: cartesiaSpeed,
@@ -670,8 +670,10 @@ export class CartesiaStreamingService extends EventEmitter {
           
           yield {
             audio: buffer,
-            durationMs: this.estimateDuration(buffer.length),
+            durationMs: this.estimatePcmDuration(buffer.length),
             isLast: false,
+            audioFormat: 'pcm_f32le' as const,
+            sampleRate: 24000,
           };
         }
         
