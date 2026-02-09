@@ -11456,14 +11456,25 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       
       case 'SCENARIO': {
         const description = fn.args.description as string | undefined;
+        const spokenText = (fn.args.spoken_text || fn.args.text) as string | undefined;
         
         if (description) {
-          console.log(`[Native Function→Scenario] "${description.substring(0, 50)}..."`);
+          const parts = description.split('|').map((p: string) => p.trim());
+          const scenarioData = {
+            location: parts[0] || description,
+            situation: parts[1] || description,
+            mood: parts[2] || undefined,
+            isLoading: false,
+          };
+          console.log(`[Native Function→Scenario] "${description.substring(0, 50)}..." location="${scenarioData.location}"`);
           this.sendMessage(session.ws, {
             type: 'whiteboard_update',
             timestamp: Date.now(),
-            items: [{ type: 'scenario', content: description }],
+            items: [{ type: 'scenario', content: description, data: scenarioData }],
           });
+        }
+        if (spokenText && !(session as any).functionCallText) {
+          (session as any).functionCallText = spokenText;
         }
         break;
       }
