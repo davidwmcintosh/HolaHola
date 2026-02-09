@@ -360,6 +360,8 @@ export type StreamingErrorCode =
   | 'EMPTY_TRANSCRIPT'
   | 'CONTENT_REJECTED'
   | 'GREETING_ERROR'
+  | 'CREDITS_EXHAUSTED'
+  | 'CREDITS_LOW'
   | 'UNKNOWN';
 
 /**

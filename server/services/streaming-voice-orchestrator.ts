@@ -52,6 +52,7 @@ import {
 } from "@shared/streaming-voice-types";
 import { parseWhiteboardMarkup, WhiteboardItem, WordMapItem, isWordMapItem, stripWhiteboardMarkup, SelfSurgeryItemData } from "@shared/whiteboard-types";
 import { commandParserService, ParsedCommand } from "./command-parser";
+import { usageService } from "./usage-service";
 
 /**
  * Lightweight metrics logger for performance monitoring
@@ -667,7 +668,8 @@ function stripArchitectMessages(text: string): string {
  * Idle timeout configuration - protects tutor resources
  * When student doesn't respond within timeout, session resources are cleaned up
  */
-const SESSION_IDLE_TIMEOUT_MS = 240000; // 4 minutes of inactivity before cleanup (extended for long responses)
+const SESSION_IDLE_TIMEOUT_MS = 120000; // 2 minutes of inactivity before cleanup
+const CREDIT_CHECK_INTERVAL_MS = 30000; // Check credit balance every 30 seconds during active sessions
 
 /**
  * Voice speed options for speaking rate control
@@ -829,6 +831,7 @@ export interface StreamingSession {
   isDeveloperUser: boolean;  // True if user has developer/admin role (for unified Daniela consciousness)
   isBetaTester: boolean;   // Beta tester mode - Daniela knows user is helping debug/test new features
   idleTimeoutId?: NodeJS.Timeout;  // Timer for idle cleanup
+  creditCheckIntervalId?: NodeJS.Timeout;  // Timer for periodic credit balance check
   contextRefreshTimeoutId?: NodeJS.Timeout;  // Timer for periodic context refresh (long sessions)
   lastContextRefreshTime: number;   // Timestamp of last context refresh
   lastActivityTime: number;         // Timestamp of last student activity
@@ -1511,6 +1514,9 @@ export class StreamingVoiceOrchestrator {
     });
     
     this.sessions.set(sessionId, session);
+    
+    // Start periodic credit balance check to prevent accounts going negative
+    this.startCreditCheckInterval(session);
     
     // Start periodic context refresh timer for long sessions (Founder Mode only)
     if (isFounderMode) {
@@ -9982,6 +9988,12 @@ Using this context, speak first to the student with a natural opening message. O
         session.idleTimeoutId = undefined;
       }
       
+      // Clear periodic credit check interval
+      if (session.creditCheckIntervalId) {
+        clearInterval(session.creditCheckIntervalId);
+        session.creditCheckIntervalId = undefined;
+      }
+      
       // Clear context refresh timer
       this.stopContextRefreshTimer(session);
       
@@ -10134,6 +10146,58 @@ Using this context, speak first to the student with a natural opening message. O
     if (session && session.isActive) {
       this.resetIdleTimeout(session);
     }
+  }
+  
+  private startCreditCheckInterval(session: StreamingSession): void {
+    if (session.creditCheckIntervalId) {
+      clearInterval(session.creditCheckIntervalId);
+    }
+    
+    session.creditCheckIntervalId = setInterval(async () => {
+      if (!session.isActive) {
+        if (session.creditCheckIntervalId) {
+          clearInterval(session.creditCheckIntervalId);
+          session.creditCheckIntervalId = undefined;
+        }
+        return;
+      }
+      
+      try {
+        const isDeveloper = await usageService.checkDeveloperBypass(String(session.userId));
+        if (isDeveloper) return;
+        
+        const balance = await usageService.getBalanceWithBypass(String(session.userId));
+        
+        const sessionElapsedSeconds = Math.floor((Date.now() - session.startTime) / 1000);
+        const projectedRemaining = balance.remainingSeconds - sessionElapsedSeconds;
+        
+        if (projectedRemaining <= 0) {
+          console.log(`[CreditGuard] Session ${session.id} - credits exhausted (remaining: ${balance.remainingSeconds}s, elapsed: ${sessionElapsedSeconds}s). Ending session.`);
+          
+          this.sendMessage(session.ws, {
+            type: 'error',
+            timestamp: Date.now(),
+            code: 'CREDITS_EXHAUSTED',
+            message: 'Your session credits have been used up. Visit your Account page to add more hours.',
+            recoverable: false,
+          } as StreamingErrorMessage);
+          
+          this.endSession(session.id);
+        } else if (projectedRemaining <= 120) {
+          this.sendMessage(session.ws, {
+            type: 'error',
+            timestamp: Date.now(),
+            code: 'CREDITS_LOW',
+            message: `Less than 2 minutes of credit remaining.`,
+            recoverable: true,
+          } as StreamingErrorMessage);
+        }
+      } catch (err) {
+        console.warn(`[CreditGuard] Balance check failed for session ${session.id}:`, err);
+      }
+    }, CREDIT_CHECK_INTERVAL_MS);
+    
+    console.log(`[CreditGuard] Started periodic credit check for session ${session.id} (every ${CREDIT_CHECK_INTERVAL_MS / 1000}s)`);
   }
   
   /**

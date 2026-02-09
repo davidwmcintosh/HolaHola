@@ -241,6 +241,11 @@ export default function Settings() {
   });
   const hourPackages = hourPackagesData?.packages;
 
+  // Usage report filter state
+  const [usageStartDate, setUsageStartDate] = useState<string>('');
+  const [usageEndDate, setUsageEndDate] = useState<string>('');
+  const [usageFilter, setUsageFilter] = useState<'all' | 'credits' | 'debits'>('all');
+
   // Fetch credit balance and usage history
   const { data: balanceData, isLoading: balanceLoading } = useQuery<{
     remainingSeconds: number;
@@ -254,6 +259,11 @@ export default function Settings() {
     enabled: !!user,
   });
 
+  const usageQueryParams = new URLSearchParams();
+  if (usageStartDate) usageQueryParams.set('startDate', usageStartDate);
+  if (usageEndDate) usageQueryParams.set('endDate', new Date(usageEndDate + 'T23:59:59').toISOString());
+  const usageQueryString = usageQueryParams.toString();
+
   const { data: usageHistoryData, isLoading: usageHistoryLoading } = useQuery<{
     history: Array<{
       id: string;
@@ -263,7 +273,8 @@ export default function Settings() {
       createdAt: string;
     }>;
   }>({
-    queryKey: ["/api/usage/history"],
+    queryKey: ["/api/usage/history", usageStartDate, usageEndDate],
+    queryFn: () => fetch(`/api/usage/history${usageQueryString ? `?${usageQueryString}` : ''}`, { credentials: 'include' }).then(r => r.json()),
     enabled: !!user,
   });
 
@@ -1075,7 +1086,63 @@ export default function Settings() {
                 </div>
 
                 <div>
-                  <h3 className="text-sm font-medium mb-3">Recent Transactions</h3>
+                  <div className="flex flex-col sm:flex-row sm:items-end gap-3 mb-4">
+                    <div className="flex-1">
+                      <Label className="text-xs text-muted-foreground mb-1 block">From</Label>
+                      <Input
+                        type="date"
+                        value={usageStartDate}
+                        onChange={(e) => setUsageStartDate(e.target.value)}
+                        data-testid="input-usage-start-date"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <Label className="text-xs text-muted-foreground mb-1 block">To</Label>
+                      <Input
+                        type="date"
+                        value={usageEndDate}
+                        onChange={(e) => setUsageEndDate(e.target.value)}
+                        data-testid="input-usage-end-date"
+                      />
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        size="sm"
+                        variant={usageFilter === 'all' ? 'default' : 'outline'}
+                        onClick={() => setUsageFilter('all')}
+                        data-testid="button-filter-all"
+                      >
+                        All
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={usageFilter === 'credits' ? 'default' : 'outline'}
+                        onClick={() => setUsageFilter('credits')}
+                        data-testid="button-filter-credits"
+                      >
+                        Credits
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={usageFilter === 'debits' ? 'default' : 'outline'}
+                        onClick={() => setUsageFilter('debits')}
+                        data-testid="button-filter-debits"
+                      >
+                        Debits
+                      </Button>
+                    </div>
+                    {(usageStartDate || usageEndDate) && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => { setUsageStartDate(''); setUsageEndDate(''); }}
+                        data-testid="button-clear-dates"
+                      >
+                        Clear dates
+                      </Button>
+                    )}
+                  </div>
+
                   {usageHistoryLoading ? (
                     <div className="space-y-2">
                       {[...Array(3)].map((_, i) => (
@@ -1083,39 +1150,64 @@ export default function Settings() {
                       ))}
                     </div>
                   ) : usageHistoryData?.history && usageHistoryData.history.length > 0 ? (
-                    <div className="space-y-1">
-                      {usageHistoryData.history.slice(0, 15).map((entry) => {
-                        const isCredit = entry.creditSeconds > 0;
-                        const absSeconds = Math.abs(entry.creditSeconds);
-                        const minutes = Math.round(absSeconds / 60);
-                        const hours = Math.round(absSeconds / 360) / 10;
-                        const displayTime = absSeconds >= 3600 ? `${hours}h` : `${minutes}m`;
-                        const date = new Date(entry.createdAt);
-                        
-                        return (
-                          <div key={entry.id} className="flex items-center justify-between py-2 px-3 rounded-md border text-sm" data-testid={`row-usage-${entry.id}`}>
-                            <div className="flex items-center gap-2 min-w-0 flex-1">
-                              {isCredit ? (
-                                <ArrowUpCircle className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
-                              ) : (
-                                <ArrowDownCircle className="h-4 w-4 text-muted-foreground shrink-0" />
-                              )}
-                              <span className="truncate">{entry.description || entry.entitlementType}</span>
-                            </div>
-                            <div className="flex items-center gap-3 shrink-0 ml-2">
-                              <span className={`font-medium ${isCredit ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
-                                {isCredit ? '+' : '-'}{displayTime}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                              </span>
-                            </div>
+                    (() => {
+                      const filtered = usageHistoryData.history.filter(entry => {
+                        if (usageFilter === 'credits') return entry.creditSeconds > 0;
+                        if (usageFilter === 'debits') return entry.creditSeconds < 0;
+                        return true;
+                      });
+                      const totalCredits = filtered.filter(e => e.creditSeconds > 0).reduce((s, e) => s + e.creditSeconds, 0);
+                      const totalDebits = filtered.filter(e => e.creditSeconds < 0).reduce((s, e) => s + Math.abs(e.creditSeconds), 0);
+                      
+                      return (
+                        <>
+                          <div className="flex items-center gap-4 mb-3 text-sm">
+                            <span className="text-green-600 dark:text-green-400 font-medium" data-testid="text-total-credits">
+                              <ArrowUpCircle className="h-3.5 w-3.5 inline mr-1" />
+                              +{totalCredits >= 3600 ? `${Math.round(totalCredits / 360) / 10}h` : `${Math.round(totalCredits / 60)}m`}
+                            </span>
+                            <span className="text-muted-foreground font-medium" data-testid="text-total-debits">
+                              <ArrowDownCircle className="h-3.5 w-3.5 inline mr-1" />
+                              -{totalDebits >= 3600 ? `${Math.round(totalDebits / 360) / 10}h` : `${Math.round(totalDebits / 60)}m`}
+                            </span>
+                            <span className="text-xs text-muted-foreground ml-auto">{filtered.length} transactions</span>
                           </div>
-                        );
-                      })}
-                    </div>
+                          <div className="space-y-1">
+                            {filtered.map((entry) => {
+                              const isCredit = entry.creditSeconds > 0;
+                              const absSeconds = Math.abs(entry.creditSeconds);
+                              const minutes = Math.round(absSeconds / 60);
+                              const hours = Math.round(absSeconds / 360) / 10;
+                              const displayTime = absSeconds >= 3600 ? `${hours}h` : `${minutes}m`;
+                              const date = new Date(entry.createdAt);
+                              
+                              return (
+                                <div key={entry.id} className="flex items-center justify-between py-2 px-3 rounded-md border text-sm" data-testid={`row-usage-${entry.id}`}>
+                                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                                    {isCredit ? (
+                                      <ArrowUpCircle className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
+                                    ) : (
+                                      <ArrowDownCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+                                    )}
+                                    <span className="truncate">{entry.description || entry.entitlementType}</span>
+                                  </div>
+                                  <div className="flex items-center gap-3 shrink-0 ml-2">
+                                    <span className={`font-medium ${isCredit ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
+                                      {isCredit ? '+' : '-'}{displayTime}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </>
+                      );
+                    })()
                   ) : (
-                    <p className="text-sm text-muted-foreground py-4 text-center">No usage history yet</p>
+                    <p className="text-sm text-muted-foreground py-4 text-center">No transactions found for this period</p>
                   )}
                 </div>
               </>

@@ -1164,8 +1164,10 @@ export async function registerRoutes(app: Express): Promise<void> {
   app.get('/api/usage/history', isAuthenticated, async (req: any, res) => {
     try {
       const userId = getRequestUserId(req);
-      const limit = parseInt(req.query.limit as string) || 20;
-      const history = await usageService.getUsageHistory(userId, limit);
+      const limit = parseInt(req.query.limit as string) || 50;
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+      const history = await usageService.getUsageHistory(userId, limit, startDate, endDate);
       res.json({ history });
     } catch (error) {
       console.error("Error fetching usage history:", error);

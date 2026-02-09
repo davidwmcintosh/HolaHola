@@ -684,12 +684,20 @@ export class UsageService {
   /**
    * Get usage history for a user
    */
-  async getUsageHistory(userId: string, limit = 20): Promise<UsageLedger[]> {
-    // Note: usage_ledger is in SHARED database (FKs to voice_sessions and class_enrollments)
+  async getUsageHistory(userId: string, limit = 50, startDate?: Date, endDate?: Date): Promise<UsageLedger[]> {
+    const conditions = [eq(usageLedger.userId, userId)];
+    
+    if (startDate) {
+      conditions.push(sql`${usageLedger.createdAt} >= ${startDate}` as any);
+    }
+    if (endDate) {
+      conditions.push(sql`${usageLedger.createdAt} <= ${endDate}` as any);
+    }
+    
     return db
       .select()
       .from(usageLedger)
-      .where(eq(usageLedger.userId, userId))
+      .where(and(...conditions))
       .orderBy(desc(usageLedger.createdAt))
       .limit(limit);
   }
