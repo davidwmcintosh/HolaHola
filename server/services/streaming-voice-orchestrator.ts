@@ -355,12 +355,32 @@ function cleanTextForDisplay(text: string): string {
   
   // Catch-all: Strip any Daniela function name spoken as text with parentheses
   // Matches patterns like: play_audio({...}), show_image({...}), phase_shift({...}), etc.
-  const functionNames = ['voice_adjust', 'voice_reset', 'subtitle', 'play_audio', 'show_image', 
+  // IMPORTANT: This list MUST include ALL functions from gemini-function-declarations.ts
+  const functionNames = [
+    'voice_adjust', 'voice_reset', 'subtitle', 'play_audio', 'show_image',
     'show_overlay', 'hide_overlay', 'clear_whiteboard', 'word_emphasis', 'hold_whiteboard',
-    'phase_shift', 'milestone', 'take_note', 'drill', 'express_lane_lookup'];
+    'phase_shift', 'milestone', 'take_note', 'drill', 'express_lane_lookup',
+    'switch_tutor', 'actfl_update', 'syllabus_progress', 'call_support', 'call_assistant',
+    'request_text_input', 'memory_lookup', 'recall_express_lane_image', 'express_lane_post',
+    'hive_suggestion', 'self_surgery', 'write', 'grammar_table', 'compare', 'word_map',
+    'phonetic', 'culture', 'context', 'scenario', 'summary', 'reading', 'stroke', 'tone',
+    'pronunciation_tag', 'first_meeting_complete',
+  ];
   for (const fnName of functionNames) {
+    // Pattern 1: function_name({...}) or function_name({nested {...}}) - handle nested braces
+    text = text.replace(new RegExp(fnName + '\\s*\\(\\{[\\s\\S]*?\\}\\)', 'gi'), '');
+    // Pattern 2: function_name(...) - simple parentheses (no braces)
     text = text.replace(new RegExp(fnName + '\\s*\\([^)]*\\)', 'gi'), '');
+    // Pattern 3: function_name: {...} - colon-object format
+    text = text.replace(new RegExp(fnName + '\\s*:\\s*\\{[^}]*\\}', 'gi'), '');
+    // Pattern 4: function_name{...} - direct brace format
+    text = text.replace(new RegExp(fnName + '\\s*\\{[^}]*\\}', 'gi'), '');
   }
+  // Ultra catch-all: Strip any remaining word_word(...) pattern that looks like a function call
+  // This catches new functions added in the future that aren't in the list above
+  text = text.replace(/\b[a-z_]{2,30}\s*\(\s*\{[\s\S]*?\}\s*\)/g, '');
+  // Also catch FUNCTION CALL: prefix that might leak from tool_knowledge docs
+  text = text.replace(/FUNCTION\s+CALL\s*:\s*\w+\s*\([^)]*\)/gi, '');
   
   // Strip MEMORY_LOOKUP tags (internal command triggers - should not be spoken)
   // Pattern: MEMORY_LOOKUP query="..." domains="..." (with or without brackets)

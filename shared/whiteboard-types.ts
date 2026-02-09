@@ -2346,6 +2346,12 @@ export function stripWhiteboardMarkup(text: string): string {
     .replace(/\[VOICE_ADJUST\s+[^\]]*$/gi, '')
     .replace(/\[VOICE_RESET\s+[^\]]*$/gi, '')
     
+    // UNIVERSAL CATCH-ALL: Strip any remaining [UPPERCASE_TAG ...] or [UPPERCASE_TAG]...[/UPPERCASE_TAG] patterns
+    // This catches any new internal commands that might be added without updating this list
+    // Only matches ALL-CAPS tags with underscores (to avoid stripping legitimate content like [Hello])
+    .replace(/\[[A-Z][A-Z_]{2,}(?:\s+[^\]]*)??\]/g, '')
+    .replace(/\[\/[A-Z][A-Z_]{2,}\]/g, '')
+    
     .replace(/\s{2,}/g, ' ')
     .trim();
   
