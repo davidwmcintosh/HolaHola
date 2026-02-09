@@ -823,11 +823,13 @@ export class CartesiaStreamingService extends EventEmitter {
     const contextIdBase = `ctx_ml_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const languageContextIds: Record<string, string> = {};
     
+    // SEQUENTIAL SYNTHESIS with gap-minimization:
+    // Segments are synthesized one at a time (safe for shared WebSocket state),
+    // but audio chunks are forwarded immediately to keep the client's playback 
+    // buffer full. The client's audio player handles seamless gapless playback.
+    
     for (let segIndex = 0; segIndex < segments.length; segIndex++) {
       const segment = segments[segIndex];
-      const isLastSegment = segIndex === segments.length - 1;
-      
-      console.log(`[Multilingual Synth] Segment ${segIndex + 1}/${segments.length}: [${segment.languageCode}] "${segment.text.substring(0, 30)}..."`);
       
       // Skip empty or punctuation-only segments (Cartesia rejects these with 400)
       const textContent = segment.text.replace(/[^a-zA-ZÀ-ÿñÑ\u3040-\u9FAF\uAC00-\uD7AF\u0590-\u06FF\u0400-\u04FF\u0900-\u097F\u0E00-\u0E7F\u0370-\u03FF]/g, '').trim();
@@ -837,61 +839,48 @@ export class CartesiaStreamingService extends EventEmitter {
       }
       
       // Use separate context_id per language so accent doesn't bleed across language boundaries
-      // Same-language consecutive segments still share context for natural prosody continuity
       if (!languageContextIds[segment.languageCode]) {
         languageContextIds[segment.languageCode] = `${contextIdBase}_${segment.languageCode}`;
       }
       const segmentContextId = languageContextIds[segment.languageCode];
-      
-      // Build request with segment-specific language settings
-      // CRITICAL: Set targetLanguage per segment so effectiveLanguageCode and pronunciation dictionaries match
       const segmentLanguageName = this.languageCodeToName(segment.languageCode);
+      
       const request: StreamingSynthesisRequest = {
         ...baseRequest,
         text: segment.text,
         language: segmentLanguageName,
-        targetLanguage: segmentLanguageName, // Override to ensure correct language code for this segment
-        contextId: segmentContextId, // Per-language context prevents accent carryover
+        targetLanguage: segmentLanguageName,
+        contextId: segmentContextId,
       };
       
-      // Synthesize this segment
+      console.log(`[Multilingual Synth] Segment ${segIndex + 1}/${segments.length}: [${segment.languageCode}] "${segment.text.substring(0, 30)}..."`);
+      
       let segmentDurationMs = 0;
       const segmentTimestamps: WordTiming[] = [];
       
       for await (const chunk of this.streamSynthesize(request)) {
         if (chunk.audio.length > 0) {
           segmentDurationMs += chunk.durationMs;
-          
-          // Forward audio chunk immediately
           callbacks.onAudioChunk?.(chunk, totalChunkIndex);
           totalChunkIndex++;
         }
         
-        // Check for progressive timestamps
         const currentTimestamps = [...this.lastNativeTimestamps];
         while (segmentTimestamps.length < currentTimestamps.length) {
           const timing = currentTimestamps[segmentTimestamps.length];
-          
-          // Adjust timestamp with cumulative offset from previous segments
           const adjustedTiming: WordTiming = {
             word: timing.word,
             startTime: timing.startTime + (cumulativeTimeOffset / 1000),
             endTime: timing.endTime + (cumulativeTimeOffset / 1000),
           };
-          
           segmentTimestamps.push(adjustedTiming);
           allTimestamps.push(adjustedTiming);
-          
-          // Forward word timestamp immediately
           const estimatedTotal = (totalDurationMs + segmentDurationMs) * 1.1;
           callbacks.onWordTimestamp?.(adjustedTiming, totalWordIndex, estimatedTotal);
           totalWordIndex++;
         }
         
-        if (chunk.isLast && !isLastSegment) {
-          // Not the last segment overall, continue to next
-          break;
-        }
+        if (chunk.isLast) break;
       }
       
       totalDurationMs += segmentDurationMs;

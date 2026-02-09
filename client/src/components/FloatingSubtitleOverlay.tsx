@@ -155,18 +155,23 @@ export function FloatingSubtitleOverlay({
                   );
                 })
               ) : (
-                // Target mode: render from visibleTargetText
-                // Uses currentTargetWordIndex for target-specific karaoke highlighting
+                // Target mode: render from visibleTargetText with progressive reveal
+                // Words appear greyed out just before they're spoken (look-ahead window),
+                // then highlight via currentTargetWordIndex as karaoke reaches them.
+                // This prevents overwhelming the user with all target words at once.
                 targetWords?.map((word, index) => {
-                  // Karaoke highlighting based on target-specific index
                   const isHighlighted = index <= currentTargetWordIndex;
                   const isCurrentWord = index === currentTargetWordIndex;
+                  const LOOK_AHEAD = 3;
+                  const isVisible = index <= currentTargetWordIndex + LOOK_AHEAD;
+                  
+                  if (!isVisible) return null;
                   
                   return (
                     <span
                       key={`${index}-${word}`}
                       className={`
-                        inline-block mx-1 transition-all duration-100
+                        inline-block mx-1 transition-all duration-200
                         ${isHighlighted 
                           ? 'text-primary drop-shadow-[0_0_8px_hsl(var(--primary)/0.5)]' 
                           : 'text-foreground/40'
