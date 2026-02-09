@@ -2985,3 +2985,28 @@ When adding a new tool that Daniela can call, you must do ALL of these:
 5. In the handler, extract the `text` param to `(session as any).functionCallText` for TTS fallback
 6. Add documentation in `procedural-memory-retrieval.ts` so Daniela knows the tool exists
 Missing any of these steps will cause silent failures — the function either won't be callable, won't execute, or won't produce audio.
+
+---
+
+### Session: February 9, 2026 - Deepgram STT Keyterm Prompting for Beginner Vocabulary
+
+**Status**: COMPLETED
+
+**Problem**: Beta tester Daniel (day-zero Italian learner) couldn't get Deepgram to recognize target language words like "dove" — it was being transcribed as "Doze", "Dos", etc. Beginners have accented pronunciation that Deepgram's multi-language model defaults to English phonemes for.
+
+**Solution**: Implemented Deepgram keyterm prompting — recently-taught vocabulary words (extracted from bold markers in Daniela's responses) are passed as `keywords` to Deepgram's pre-recorded API, biasing recognition toward target language words.
+
+**How it works**:
+1. Session maintains a rolling set of up to 100 recently-taught words in `(session as any).sttKeyterms`
+2. Bold-marked words from every Daniela response (`**word**`) are extracted and added via `addSttKeyterms()`
+3. For PTT transcription, keyterms are passed to Deepgram as `keywords` with boost intensifier (format: `word:2`)
+4. Deepgram uses these to bias its acoustic model toward recognizing those specific words
+
+**Key files modified**:
+- `server/services/streaming-voice-orchestrator.ts` — Added `addSttKeyterms()` helper, `sttKeyterms` session property, keyterm extraction in all sentence callback paths (main response, greeting, greeting continuation), and keyterm passing to `transcribeAudio()`
+- `server/services/deepgram-live-stt.ts` — Added `keywords` field to `DeepgramLiveConfig`, passed keyterms to Deepgram pre-recorded API as `keywords` parameter
+
+**Architecture notes**:
+- Only applies to PTT (push-to-talk) path — open-mic uses persistent Deepgram connections that can't accept new keyterms mid-stream
+- TTS (Cartesia autoDetectLanguage) and STT (Deepgram keyterms) are independent systems
+- Keyterms are most impactful for beginners; advanced students have clearer pronunciation and conversational context that helps Deepgram naturally
