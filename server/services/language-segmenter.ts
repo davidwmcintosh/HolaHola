@@ -275,8 +275,22 @@ export function segmentByLanguage(
     }
   }
   
+  // Post-process: merge punctuation-only segments into their neighbors
+  // Prevents Cartesia 400 errors from trying to synthesize just "," or ". "
+  const mergedSegments: LanguageSegment[] = [];
+  for (const seg of segments) {
+    const hasLetters = /[a-zA-ZÀ-ÿñÑ\u3040-\u9FAF\uAC00-\uD7AF\u0590-\u06FF\u0400-\u04FF]/.test(seg.text);
+    if (!hasLetters && mergedSegments.length > 0) {
+      mergedSegments[mergedSegments.length - 1].text += seg.text;
+    } else if (!hasLetters && mergedSegments.length === 0) {
+      mergedSegments.push(seg);
+    } else {
+      mergedSegments.push(seg);
+    }
+  }
+  
   return {
-    segments,
+    segments: mergedSegments,
     hasCodeSwitching: targetLanguageWords.length > 0,
     targetLanguageWords
   };

@@ -821,8 +821,12 @@ export class CartesiaStreamingService extends EventEmitter {
       
       console.log(`[Multilingual Synth] Segment ${segIndex + 1}/${segments.length}: [${segment.languageCode}] "${segment.text.substring(0, 30)}..."`);
       
-      // Skip empty segments
-      if (!segment.text.trim()) continue;
+      // Skip empty or punctuation-only segments (Cartesia rejects these with 400)
+      const textContent = segment.text.replace(/[^a-zA-ZÀ-ÿñÑ\u3040-\u9FAF\uAC00-\uD7AF\u0590-\u06FF\u0400-\u04FF\u0900-\u097F\u0E00-\u0E7F\u0370-\u03FF]/g, '').trim();
+      if (!textContent) {
+        console.log(`[Multilingual Synth] Skipping punctuation-only segment ${segIndex + 1}: "${segment.text}"`);
+        continue;
+      }
       
       // Build request with segment-specific language settings
       // CRITICAL: Set targetLanguage per segment so effectiveLanguageCode and pronunciation dictionaries match
