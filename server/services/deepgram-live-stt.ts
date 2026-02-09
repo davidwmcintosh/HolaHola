@@ -501,7 +501,7 @@ export class OpenMicSession {
         };
         
         if (this.keyterms.length > 0) {
-          connectionOptions.keywords = this.keyterms.map(w => `${w}:2`);
+          connectionOptions.keyterm = this.keyterms;
           console.log(`[OpenMic] Keyterms (${this.keyterms.length}): [${this.keyterms.slice(0, 10).join(', ')}${this.keyterms.length > 10 ? '...' : ''}]`);
         }
         
