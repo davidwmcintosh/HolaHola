@@ -1125,6 +1125,13 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     pendingAudioCountRef.current = 0;
     setConnectionState('disconnected');
     setIsProcessing(false);
+    setError(null);
+    
+    // Clear processing timeout (prevents stale timeout from old session firing after reconnect)
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+      processingTimeoutRef.current = null;
+    }
     
     // Clear tutor switch state and timeout
     if (tutorSwitchTimeoutRef.current) {
