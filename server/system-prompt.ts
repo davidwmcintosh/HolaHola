@@ -748,9 +748,13 @@ export function createSystemPrompt(
     : '';
     
   // Build timezone context for time-aware greetings and date awareness
-  // ALWAYS include today's date even without timezone (fallback to UTC)
+  // When Compass is active, it handles time via Sensory Awareness (single source of truth)
+  // Legacy timezoneSection only used when Compass is NOT active
+  const compassHandlesTime = compassContext && COMPASS_ENABLED;
   let timezoneSection: string;
-  if (studentTimezone) {
+  if (compassHandlesTime) {
+    timezoneSection = '';
+  } else if (studentTimezone) {
     timezoneSection = buildTimezoneContext(studentTimezone);
   } else {
     const now = new Date();

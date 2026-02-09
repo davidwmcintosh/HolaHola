@@ -2975,8 +2975,13 @@ ${buildNativeFunctionCallingSection()}`;
               console.warn('[Streaming Voice] ⚠ Could not build neural network context (fallback guardrails in prompt):', nnErr.message);
             }
             
-            // Append timezone context for time-aware greetings
-            if (user?.timezone) {
+            // Append Daniela's Compass context to the system prompt
+            // When Compass is active, it handles time via Sensory Awareness (single source of truth)
+            if (compassContext && COMPASS_ENABLED) {
+              const compassBlock = buildCompassContextBlock(compassContext);
+              systemPrompt += '\n\n' + compassBlock;
+              console.log(`[Compass Init] ✓ Compass context appended to system prompt (handles time)`);
+            } else if (user?.timezone) {
               const timezoneBlock = buildTimezoneContext(user.timezone);
               if (timezoneBlock) {
                 systemPrompt += '\n\n' + timezoneBlock;
@@ -2987,13 +2992,6 @@ ${buildNativeFunctionCallingSection()}`;
               const fullDate = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
               systemPrompt += `\n\nSTUDENT TIME CONTEXT:\n  Today's Date: ${fullDate}\n  Timezone: Unknown (UTC fallback)\n  IMPORTANT: Use this date when referring to past sessions or time elapsed.\n`;
               console.log(`[Streaming Voice] No timezone found for user, using UTC date fallback`);
-            }
-
-            // Append Daniela's Compass context to the system prompt
-            if (compassContext && COMPASS_ENABLED) {
-              const compassBlock = buildCompassContextBlock(compassContext);
-              systemPrompt += '\n\n' + compassBlock;
-              console.log(`[Compass Init] ✓ Compass context appended to system prompt`);
             }
             
             // Build conversation history for context

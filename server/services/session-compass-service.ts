@@ -71,6 +71,8 @@ interface CachedSession {
   actflLevel: string | null;
   actflAssessed: boolean;
   actflSource: string | null;
+  // Student timezone for correct CLOCK display (e.g., "America/Denver")
+  studentTimezone: string | null;
 }
 
 const sessionCache = new Map<string, CachedSession>();
@@ -223,6 +225,7 @@ export class SessionCompassService {
         actflLevel: student.actflLevel || null,
         actflAssessed: student.actflAssessed || false,
         actflSource: student.assessmentSource || null,
+        studentTimezone: student.timezone || null,
       });
 
       console.log(`[Compass] Initialized session for conversation ${conversationId}`);
@@ -292,6 +295,7 @@ export class SessionCompassService {
           actflLevel: users.actflLevel,
           actflAssessed: users.actflAssessed,
           assessmentSource: users.assessmentSource,
+          timezone: users.timezone,
         })
         .from(users)
         .where(eq(users.id, session.userId))
@@ -308,6 +312,7 @@ export class SessionCompassService {
         actflLevel: userActfl?.actflLevel || null,
         actflAssessed: userActfl?.actflAssessed || false,
         actflSource: userActfl?.assessmentSource || null,
+        studentTimezone: userActfl?.timezone || null,
       };
       sessionCache.set(conversationId, cacheEntry);
       cached = cacheEntry;
@@ -438,21 +443,39 @@ export class SessionCompassService {
     const isOnTrack = coveredMustHaveMinutes >= expectedCoveredMinutes * 0.8; // 80% buffer
 
     // Wall clock time - answers "what time is it?"
+    // Use student's timezone when available so Daniela greets appropriately
     const now = new Date();
     const currentTimeUTC = now.toISOString();
-    // Include full date + time so LLM has complete context
-    const currentTimeFormatted = now.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      timeZone: 'UTC'
-    }) + ', ' + now.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit',
-      hour12: true,
-      timeZone: 'UTC'
-    }) + ' UTC';
+    const displayTimezone = cached.studentTimezone || 'UTC';
+    const timezoneLabel = cached.studentTimezone || 'UTC';
+    let currentTimeFormatted: string;
+    try {
+      currentTimeFormatted = now.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZone: displayTimezone
+      }) + ', ' + now.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true,
+        timeZone: displayTimezone
+      }) + ` (${timezoneLabel})`;
+    } catch {
+      currentTimeFormatted = now.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZone: 'UTC'
+      }) + ', ' + now.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true,
+        timeZone: 'UTC'
+      }) + ' UTC';
+    }
 
     return {
       studentName: session.studentName,
