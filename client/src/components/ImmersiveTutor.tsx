@@ -198,6 +198,14 @@ export function ImmersiveTutor({
     console.log('[IMMERSIVE TUTOR STATE] playbackState:', playbackState, '(global:', globalPlaybackState, ', prop:', propPlaybackState, ')');
   }, [playbackState, globalPlaybackState, propPlaybackState]);
   
+  // DEBUG: Track isProcessing changes to verify thinking state triggers
+  useEffect(() => {
+    console.log('[IMMERSIVE TUTOR] ★★★ isProcessing changed to:', isProcessing, 'at', Date.now());
+    if (isProcessing) {
+      console.log('[IMMERSIVE TUTOR] ★★★ THINKING STATE ACTIVE - avatar should show chin-on-hand image');
+    }
+  }, [isProcessing]);
+  
   // Debounce voice switching to prevent rapid clicks
   const voiceSwitchInProgressRef = useRef<boolean>(false);
 
