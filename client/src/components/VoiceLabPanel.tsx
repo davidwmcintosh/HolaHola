@@ -50,6 +50,10 @@ interface TutorVoice {
   errorTolerance?: ErrorToleranceType;
   personalityTraits?: string;
   teachingPhilosophy?: string;
+  elStability?: number;
+  elSimilarityBoost?: number;
+  elStyle?: number;
+  elSpeakerBoost?: boolean;
 }
 
 interface CartesiaVoice {
@@ -79,6 +83,9 @@ export interface VoiceOverride {
   pedagogicalFocus?: PedagogicalFocusType;
   teachingStyle?: TeachingStyleType;
   errorTolerance?: ErrorToleranceType;
+  elStability?: number;
+  elSimilarityBoost?: number;
+  elStyle?: number;
 }
 
 interface GoogleVoice {
@@ -140,6 +147,11 @@ export function VoiceLabPanel({
   const [teachingStyle, setTeachingStyle] = useState<TeachingStyleType>('conversational');
   const [errorTolerance, setErrorTolerance] = useState<ErrorToleranceType>('medium');
   
+  // ElevenLabs-specific voice settings
+  const [elStability, setElStability] = useState(0.5);
+  const [elSimilarityBoost, setElSimilarityBoost] = useState(0.75);
+  const [elStyle, setElStyle] = useState(0.0);
+  
   // Voice selection state (for audition)
   const [selectedVoiceId, setSelectedVoiceId] = useState<string | null>(null);
 
@@ -180,11 +192,6 @@ export function VoiceLabPanel({
   // Fetch available ElevenLabs voices for main tutors (only when using ElevenLabs)
   const { data: elevenLabsVoicesData, isLoading: isLoadingElevenLabsVoices } = useQuery<{ voices: ElevenLabsVoice[]; total: number }>({
     queryKey: ['/api/admin/elevenlabs-voices'],
-    queryFn: async () => {
-      const res = await fetch('/api/admin/elevenlabs-voices');
-      if (!res.ok) throw new Error('Failed to fetch voices');
-      return res.json();
-    },
     enabled: isOpen && !!language && !isAssistant && isElevenLabs,
   });
   const elevenLabsVoices = (elevenLabsVoicesData?.voices || []).map(v => ({
@@ -222,6 +229,9 @@ export function VoiceLabPanel({
       setTeachingStyle((currentOverride?.teachingStyle ?? currentVoice.teachingStyle ?? 'conversational') as TeachingStyleType);
       setErrorTolerance((currentOverride?.errorTolerance ?? currentVoice.errorTolerance ?? 'medium') as ErrorToleranceType);
       setSelectedVoiceId(currentOverride?.voiceId ?? currentVoice.voiceId);
+      setElStability(currentVoice.elStability ?? 0.5);
+      setElSimilarityBoost(currentVoice.elSimilarityBoost ?? 0.75);
+      setElStyle(currentVoice.elStyle ?? 0.0);
       setHasChanges(!!currentOverride);
     }
   }, [currentVoice, currentOverride, isOpen]);
@@ -248,8 +258,8 @@ export function VoiceLabPanel({
       pedagogicalFocus,
       teachingStyle,
       errorTolerance,
-      // Only include voiceId if it differs from the current tutor's voice
       ...(selectedVoiceId && selectedVoiceId !== currentVoice?.voiceId ? { voiceId: selectedVoiceId } : {}),
+      ...(isElevenLabs ? { elStability, elSimilarityBoost, elStyle } : {}),
     };
     onOverrideChange(override);
     setHasChanges(true);
@@ -273,6 +283,9 @@ export function VoiceLabPanel({
       setTeachingStyle((currentVoice.teachingStyle ?? 'conversational') as TeachingStyleType);
       setErrorTolerance((currentVoice.errorTolerance ?? 'medium') as ErrorToleranceType);
       setSelectedVoiceId(currentVoice.voiceId);
+      setElStability(currentVoice.elStability ?? 0.5);
+      setElSimilarityBoost(currentVoice.elSimilarityBoost ?? 0.75);
+      setElStyle(currentVoice.elStyle ?? 0.0);
     }
     onOverrideChange(null);
     setHasChanges(false);
@@ -294,8 +307,8 @@ export function VoiceLabPanel({
         pedagogicalFocus,
         teachingStyle,
         errorTolerance,
-        // Include voiceId if changed
         ...(selectedVoiceId && selectedVoiceId !== currentVoice.voiceId ? { voiceId: selectedVoiceId } : {}),
+        ...(isElevenLabs ? { elStability, elSimilarityBoost, elStyle } : {}),
       });
       return res.json();
     },
@@ -315,6 +328,7 @@ export function VoiceLabPanel({
         teachingStyle,
         errorTolerance,
         ...(selectedVoiceId && selectedVoiceId !== currentVoice?.voiceId ? { voiceId: selectedVoiceId } : {}),
+        ...(isElevenLabs ? { elStability, elSimilarityBoost, elStyle } : {}),
       };
       onOverrideChange(override);
       setHasChanges(false);
@@ -339,17 +353,24 @@ export function VoiceLabPanel({
     setIsAuditioning(true);
     try {
       const phrase = SAMPLE_PHRASES[language] || SAMPLE_PHRASES.english;
+      const bodyData: Record<string, unknown> = {
+        voiceId: selectedVoiceId || currentVoice.voiceId,
+        text: phrase,
+        languageCode: currentVoice.languageCode,
+        speakingRate,
+        emotion,
+        provider: currentVoice.provider || (isAssistant ? 'google' : 'elevenlabs'),
+      };
+      if (isElevenLabs) {
+        bodyData.elStability = elStability;
+        bodyData.elSimilarityBoost = elSimilarityBoost;
+        bodyData.elStyle = elStyle;
+        bodyData.elSpeed = speakingRate;
+      }
       const res = await fetch('/api/admin/voice-audition', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          voiceId: selectedVoiceId || currentVoice.voiceId,
-          text: phrase,
-          languageCode: currentVoice.languageCode,
-          speakingRate,
-          emotion,
-          provider: currentVoice.provider || (isAssistant ? 'google' : 'elevenlabs'),
-        }),
+        body: JSON.stringify(bodyData),
       });
       
       if (!res.ok) {
@@ -472,18 +493,14 @@ export function VoiceLabPanel({
               <div className="flex items-center justify-between">
                 <Label>Speaking Speed</Label>
                 <span className="text-sm font-medium">
-                  {speakingRate === 0.7 ? 'Slow' : 
-                   speakingRate === 0.9 ? 'Natural' : 
-                   speakingRate === 1.0 ? 'Normal' :
-                   speakingRate >= 1.2 ? 'Fast' : 
-                   speakingRate.toFixed(2)}
+                  {speakingRate.toFixed(1)}x
                 </span>
               </div>
               <Slider
                 value={[speakingRate]}
                 onValueChange={([value]) => setSpeakingRate(value)}
-                min={0.7}
-                max={1.3}
+                min={isElevenLabs ? 0.5 : 0.7}
+                max={isElevenLabs ? 2.0 : 1.3}
                 step={0.1}
                 className="w-full"
                 data-testid="slider-voice-lab-speed"
@@ -495,73 +512,139 @@ export function VoiceLabPanel({
               </div>
             </div>
 
-            {/* Personality */}
-            {ttsMetadata && (
-              <div className="space-y-2">
-                <Label>Personality</Label>
-                <Select 
-                  value={personality} 
-                  onValueChange={(v) => setPersonality(v as PersonalityType)}
-                >
-                  <SelectTrigger data-testid="select-voice-lab-personality">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(ttsMetadata.personalities).map(([key, preset]) => (
-                      <SelectItem key={key} value={key}>
-                        <div className="flex flex-col">
-                          <span>{preset.name}</span>
-                          <span className="text-xs text-muted-foreground">{preset.description}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {/* Expressiveness */}
-            {ttsMetadata && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label>Expressiveness</Label>
-                  <span className="text-sm font-medium">
-                    {ttsMetadata.expressivenessLevels[expressiveness]?.label || `Level ${expressiveness}`}
-                  </span>
+            {isElevenLabs ? (
+              <>
+                {/* ElevenLabs Voice Settings */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label>Stability</Label>
+                    <span className="text-sm font-medium">{elStability.toFixed(2)}</span>
+                  </div>
+                  <Slider
+                    value={[elStability]}
+                    onValueChange={([value]) => setElStability(value)}
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    className="w-full"
+                    data-testid="slider-voice-lab-el-stability"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Expressive</span>
+                    <span>Consistent</span>
+                  </div>
                 </div>
-                <Slider
-                  value={[expressiveness]}
-                  onValueChange={([value]) => setExpressiveness(value)}
-                  min={1}
-                  max={5}
-                  step={1}
-                  className="w-full"
-                  data-testid="slider-voice-lab-expressiveness"
-                />
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Subtle</span>
-                  <span>Balanced</span>
-                  <span>Dramatic</span>
-                </div>
-              </div>
-            )}
 
-            {/* Emotion */}
-            <div className="space-y-2">
-              <Label>Emotion</Label>
-              <Select value={emotion} onValueChange={setEmotion}>
-                <SelectTrigger data-testid="select-voice-lab-emotion">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableEmotions.map((em) => (
-                    <SelectItem key={em} value={em}>
-                      <span className="capitalize">{em}</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label>Similarity</Label>
+                    <span className="text-sm font-medium">{elSimilarityBoost.toFixed(2)}</span>
+                  </div>
+                  <Slider
+                    value={[elSimilarityBoost]}
+                    onValueChange={([value]) => setElSimilarityBoost(value)}
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    className="w-full"
+                    data-testid="slider-voice-lab-el-similarity"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Creative</span>
+                    <span>Faithful</span>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label>Style Exaggeration</Label>
+                    <span className="text-sm font-medium">{elStyle.toFixed(2)}</span>
+                  </div>
+                  <Slider
+                    value={[elStyle]}
+                    onValueChange={([value]) => setElStyle(value)}
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    className="w-full"
+                    data-testid="slider-voice-lab-el-style"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Keep at 0 for most natural results
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Cartesia-specific: Personality */}
+                {ttsMetadata && (
+                  <div className="space-y-2">
+                    <Label>Personality</Label>
+                    <Select 
+                      value={personality} 
+                      onValueChange={(v) => setPersonality(v as PersonalityType)}
+                    >
+                      <SelectTrigger data-testid="select-voice-lab-personality">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(ttsMetadata.personalities).map(([key, preset]) => (
+                          <SelectItem key={key} value={key}>
+                            <div className="flex flex-col">
+                              <span>{preset.name}</span>
+                              <span className="text-xs text-muted-foreground">{preset.description}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Cartesia-specific: Expressiveness */}
+                {ttsMetadata && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label>Expressiveness</Label>
+                      <span className="text-sm font-medium">
+                        {ttsMetadata.expressivenessLevels[expressiveness]?.label || `Level ${expressiveness}`}
+                      </span>
+                    </div>
+                    <Slider
+                      value={[expressiveness]}
+                      onValueChange={([value]) => setExpressiveness(value)}
+                      min={1}
+                      max={5}
+                      step={1}
+                      className="w-full"
+                      data-testid="slider-voice-lab-expressiveness"
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Subtle</span>
+                      <span>Balanced</span>
+                      <span>Dramatic</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Emotion */}
+                <div className="space-y-2">
+                  <Label>Emotion</Label>
+                  <Select value={emotion} onValueChange={setEmotion}>
+                    <SelectTrigger data-testid="select-voice-lab-emotion">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableEmotions.map((em) => (
+                        <SelectItem key={em} value={em}>
+                          <span className="capitalize">{em}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
 
             <Separator />
 

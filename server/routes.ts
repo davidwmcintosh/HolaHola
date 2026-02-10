@@ -16309,7 +16309,7 @@ Current conversation context:
   // Supports both Cartesia (main tutors) and Google Cloud TTS (assistant tutors)
   app.post("/api/admin/voice-audition", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const { voiceId, text, languageCode, speakingRate, emotion, provider = 'cartesia' } = req.body;
+      const { voiceId, text, languageCode, speakingRate, emotion, provider = 'cartesia', elStability, elSimilarityBoost, elStyle, elSpeed } = req.body;
       
       if (!voiceId || !text) {
         return res.status(400).json({ error: "voiceId and text are required" });
@@ -16369,9 +16369,12 @@ Current conversation context:
         
         const audioBuffer = await elevenService.synthesizeToBuffer(text, voiceId, {
           languageCode: languageCode?.split('-')[0] || 'en',
-          speakingRate: speakingRate || 1.0,
+          speakingRate: elSpeed !== undefined ? Math.max(0.5, Math.min(2.0, parseFloat(elSpeed))) : (speakingRate || 1.0),
           pronunciationDictId: pronDict?.dictionaryId,
           pronunciationDictVersionId: pronDict?.versionId,
+          elStability: elStability ?? 0.5,
+          elSimilarityBoost: elSimilarityBoost ?? 0.75,
+          elStyle: elStyle ?? 0,
         });
         
         res.setHeader('Content-Type', 'audio/mpeg');

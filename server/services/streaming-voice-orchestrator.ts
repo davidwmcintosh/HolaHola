@@ -10390,6 +10390,9 @@ Using this context, speak first to the student with a natural opening message. O
     pedagogicalFocus?: string;
     teachingStyle?: string;
     errorTolerance?: string;
+    elStability?: number;
+    elSimilarityBoost?: number;
+    elStyle?: number;
   } | null): boolean {
     const session = this.sessions.get(sessionId);
     if (!session) {
@@ -10402,6 +10405,13 @@ Using this context, speak first to the student with a natural opening message. O
     if (override?.voiceId) {
       session.voiceId = override.voiceId;
       console.log(`[Streaming Orchestrator] Voice ID updated to: ${override.voiceId.substring(0, 8)}...`);
+    }
+    
+    // Apply ElevenLabs settings directly to session (read from session during TTS)
+    if (override) {
+      if (override.elStability !== undefined) (session as any).elStability = override.elStability;
+      if (override.elSimilarityBoost !== undefined) (session as any).elSimilarityBoost = override.elSimilarityBoost;
+      if (override.elStyle !== undefined) (session as any).elStyle = override.elStyle;
     }
     
     // Store override in session
