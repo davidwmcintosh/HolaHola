@@ -72,6 +72,8 @@ interface CartesiaVoice {
   language: string;
   gender: 'male' | 'female' | string;
   isPublic: boolean;
+  previewUrl?: string;
+  source?: string;
 }
 
 interface ElevenLabsVoice {
@@ -227,6 +229,8 @@ export function VoiceConsoleContent() {
       language: v.labels?.language || '',
       gender: v.labels?.gender || '',
       isPublic: true,
+      previewUrl: v.previewUrl,
+      source: v.source,
     }));
 
   const activeVoices = formData.provider === 'elevenlabs' ? elevenLabsVoices : cartesiaVoices;
@@ -343,7 +347,8 @@ export function VoiceConsoleContent() {
   const handleAudition = async (
     voiceId: string, voiceName: string, language: string, languageCode: string, speakingRate: number = 0.9,
     provider?: string,
-    elSettings?: { elStability?: number; elSimilarityBoost?: number; elStyle?: number; elSpeed?: number }
+    elSettings?: { elStability?: number; elSimilarityBoost?: number; elStyle?: number; elSpeed?: number },
+    fallbackPreviewUrl?: string
   ) => {
     if (playingVoiceId === voiceId && audioElement) {
       audioElement.pause();
@@ -363,12 +368,10 @@ export function VoiceConsoleContent() {
     const phrases = SAMPLE_PHRASES[language] || SAMPLE_PHRASES.english;
     
     try {
-      // First play in target language with selected emotion
-      const targetAudio = await playVoiceSample(voiceId, phrases.target, languageCode, speakingRate, auditionEmotion, provider, elSettings);
+      const targetAudio = await playVoiceSample(voiceId, phrases.target, languageCode, speakingRate, auditionEmotion, provider, elSettings, fallbackPreviewUrl);
       
       targetAudio.onended = async () => {
-        // If language is not English, play English sample too
-        if (language !== 'english') {
+        if (language !== 'english' && !fallbackPreviewUrl) {
           setAuditionPhase('native');
           try {
             const nativeAudio = await playVoiceSample(voiceId, phrases.native, 'en', speakingRate, auditionEmotion, provider, elSettings);
@@ -418,7 +421,8 @@ export function VoiceConsoleContent() {
     speakingRate: number = 0.9,
     emotion?: string,
     provider?: string,
-    elSettings?: { elStability?: number; elSimilarityBoost?: number; elStyle?: number; elSpeed?: number }
+    elSettings?: { elStability?: number; elSimilarityBoost?: number; elStyle?: number; elSpeed?: number },
+    fallbackPreviewUrl?: string
   ): Promise<HTMLAudioElement> => {
     const body: Record<string, unknown> = {
       voiceId,
@@ -443,6 +447,10 @@ export function VoiceConsoleContent() {
     });
 
     if (!response.ok) {
+      if (fallbackPreviewUrl) {
+        const audio = new Audio(fallbackPreviewUrl);
+        return audio;
+      }
       throw new Error("Failed to preview voice");
     }
 
@@ -897,20 +905,24 @@ export function VoiceConsoleContent() {
                           <Button
                             type="button"
                             variant="outline"
-                            onClick={() => handleAudition(
-                              formData.voiceId,
-                              formData.voiceName,
-                              formData.language,
-                              formData.languageCode,
-                              formData.speakingRate,
-                              formData.provider,
-                              formData.provider === 'elevenlabs' ? {
-                                elStability: formData.elStability,
-                                elSimilarityBoost: formData.elSimilarityBoost,
-                                elStyle: formData.elStyle,
-                                elSpeed: formData.speakingRate,
-                              } : undefined
-                            )}
+                            onClick={() => {
+                              const selectedVoice = activeVoices.find(v => v.id === formData.voiceId);
+                              handleAudition(
+                                formData.voiceId,
+                                formData.voiceName,
+                                formData.language,
+                                formData.languageCode,
+                                formData.speakingRate,
+                                formData.provider,
+                                formData.provider === 'elevenlabs' ? {
+                                  elStability: formData.elStability,
+                                  elSimilarityBoost: formData.elSimilarityBoost,
+                                  elStyle: formData.elStyle,
+                                  elSpeed: formData.speakingRate,
+                                } : undefined,
+                                selectedVoice?.source === 'library' ? selectedVoice.previewUrl : undefined
+                              );
+                            }}
                             data-testid="button-audition"
                             className="flex-1"
                           >
