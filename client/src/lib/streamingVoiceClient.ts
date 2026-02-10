@@ -1037,9 +1037,7 @@ export class StreamingVoiceClient {
   
   private handleProcessing(message: StreamingProcessingMessage): void {
     console.log('[PROCESSING RECEIVED] ★ processing message received at', Date.now());
-    const win = window as any;
-    win._processingTracker = win._processingTracker || [];
-    win._processingTracker.push({ type: 'processing', time: Date.now(), transcript: message.userTranscript });
+    telemetryEmitter.emit('processing_signal_received', { signalType: 'processing' });
     this.setState('processing');
     this.callbacks.onProcessing?.(message.userTranscript);
     this.emit('processing', message);
@@ -1047,9 +1045,7 @@ export class StreamingVoiceClient {
   
   private handleProcessingPending(message: { type: string; timestamp: number; interimTranscript: string }): void {
     console.log('[PROCESSING RECEIVED] ★ processing_pending message received at', Date.now());
-    const win = window as any;
-    win._processingTracker = win._processingTracker || [];
-    win._processingTracker.push({ type: 'processing_pending', time: Date.now(), transcript: message.interimTranscript });
+    telemetryEmitter.emit('processing_signal_received', { signalType: 'processing_pending' });
     this.setState('processing');
     this.callbacks.onProcessing?.(message.interimTranscript);
     this.emit('processing_pending', message);
