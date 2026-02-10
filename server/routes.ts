@@ -16122,18 +16122,38 @@ Current conversation context:
       const femaleVoice = await storage.getTutorVoice(language, 'female');
       const maleVoice = await storage.getTutorVoice(language, 'male');
       
-      // Parse name to extract just the first name (before " - " or other separators)
-      const extractFirstName = (voiceName: string) => voiceName.split(/\s*-\s*/)[0].trim();
+      // Tutor character name directory - canonical display names
+      // voice_name stores TTS provider labels (e.g. "Aoede (Cálida, Expresiva)")
+      // but user-facing name should always be the character name (e.g. "Daniela")
+      const tutorCharacterNames: Record<string, { male: string; female: string }> = {
+        spanish: { male: 'Agustin', female: 'Daniela' },
+        french: { male: 'Vincent', female: 'Juliette' },
+        german: { male: 'Lukas', female: 'Greta' },
+        italian: { male: 'Luca', female: 'Liv' },
+        portuguese: { male: 'Camilo', female: 'Isabel' },
+        chinese: { male: 'Tao', female: 'Hua' },
+        'mandarin chinese': { male: 'Tao', female: 'Hua' },
+        japanese: { male: 'Daisuke', female: 'Sayuri' },
+        korean: { male: 'Minho', female: 'Jihyun' },
+        english: { male: 'Blake', female: 'Cindy' },
+        hebrew: { male: 'Noam', female: 'Yael' },
+      };
+      
+      const getCharacterName = (gender: 'male' | 'female', voiceName: string) => {
+        const charNames = tutorCharacterNames[language];
+        if (charNames) return charNames[gender];
+        return voiceName.split(/\s*[--(]\s*/)[0].trim();
+      };
       
       res.json({
         language,
         female: femaleVoice ? { 
-          name: extractFirstName(femaleVoice.voiceName), 
+          name: getCharacterName('female', femaleVoice.voiceName), 
           voiceId: femaleVoice.voiceId,
           speakingRate: femaleVoice.speakingRate || 1.0,
         } : null,
         male: maleVoice ? { 
-          name: extractFirstName(maleVoice.voiceName), 
+          name: getCharacterName('male', maleVoice.voiceName), 
           voiceId: maleVoice.voiceId,
           speakingRate: maleVoice.speakingRate || 1.0,
         } : null,
