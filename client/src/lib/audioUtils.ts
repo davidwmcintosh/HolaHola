@@ -1143,7 +1143,10 @@ export class StreamingAudioPlayer {
     
     // Calculate absolute AudioContext times
     const absoluteStartTime = sentenceEntry.startCtxTime + relativeStartTime;
-    const absoluteEndTime = sentenceEntry.startCtxTime + relativeEndTime;
+    // Clamp word end time to sentence end time to prevent words extending past audio
+    const sentenceEndTime = sentenceEntry.endCtxTime ?? (sentenceEntry.startCtxTime + sentenceEntry.totalDuration);
+    const rawAbsoluteEndTime = sentenceEntry.startCtxTime + relativeEndTime;
+    const absoluteEndTime = sentenceEntry.totalDuration > 0 ? Math.min(rawAbsoluteEndTime, sentenceEndTime) : rawAbsoluteEndTime;
     
     // Store in word schedule
     const key = `s${sentenceIndex}_w${wordIndex}`;
@@ -1514,7 +1517,23 @@ export class StreamingAudioPlayer {
       const wordBasedSentenceIndex = activeWord?.sentenceIndex ?? -1;
       
       // Use word-based sentence detection OR fall back to sentence-based
-      const effectiveSentenceIndex = wordBasedSentenceIndex >= 0 ? wordBasedSentenceIndex : activeIndex;
+      // CRITICAL FIX: Word timings can extend past actual audio end time.
+      // When sentence-based detection says ended (activeIndex = -1) but word-based
+      // still returns a match, trust the sentence schedule as authoritative source
+      // of audio end time. This prevents avatar lingering in "speaking" state.
+      let effectiveSentenceIndex = wordBasedSentenceIndex >= 0 ? wordBasedSentenceIndex : activeIndex;
+      
+      if (effectiveSentenceIndex >= 0 && activeIndex < 0 && wordBasedSentenceIndex >= 0) {
+        const wordEntry = this.sentenceSchedule.get(effectiveSentenceIndex);
+        if (wordEntry) {
+          const audioEndTime = wordEntry.endCtxTime ?? (wordEntry.startCtxTime + wordEntry.totalDuration);
+          if (now >= audioEndTime + 0.15) {
+            console.log(`[TIMING FIX] Word timing extended past audio end - overriding word-based detection. now=${now.toFixed(3)}, audioEnd=${audioEndTime.toFixed(3)}, wordSentence=${wordBasedSentenceIndex}`);
+            effectiveSentenceIndex = -1;
+          }
+        }
+      }
+      
       const effectiveEntry = effectiveSentenceIndex >= 0 ? this.sentenceSchedule.get(effectiveSentenceIndex) : null;
       
       // DEBUG: Log effective sentence detection every 30 frames - only when verbose
@@ -1601,7 +1620,7 @@ export class StreamingAudioPlayer {
           return;
         }
         
-        // SAFETY NET: If we're 30+ seconds past the last sentence's end time, force stop
+        // SAFETY NET: If we're 5+ seconds past the last sentence's end time, force stop
         // This prevents zombie loops when state tracking fails
         if (this.sentenceSchedule.size > 0) {
           let maxEndTime = 0;
@@ -1613,7 +1632,7 @@ export class StreamingAudioPlayer {
           }
           
           const secondsPastEnd = now - maxEndTime;
-          if (secondsPastEnd > 30) {
+          if (secondsPastEnd > 5) {
             console.warn(`[SAFETY NET] Loop running ${secondsPastEnd.toFixed(1)}s past last audio - forcing stop`);
             this.isPlaying = false;
             this.setState('idle');
