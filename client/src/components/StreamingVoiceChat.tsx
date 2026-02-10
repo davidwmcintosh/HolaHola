@@ -2171,6 +2171,14 @@ export function StreamingVoiceChat({
       streamingVoice.subtitles.reset();
     }
     
+    // CRITICAL: Set isProcessing=true BEFORE cleanup for BOTH streaming and legacy paths
+    // In streaming mode, there's no MediaRecorder onstop callback to set this.
+    // Without this, ImmersiveTutor never shows the "thinking" state.
+    setIsRecording(false);
+    isRecordingRef.current = false;
+    setIsProcessing(true);
+    isProcessingRef.current = true;
+    
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
     } else {
