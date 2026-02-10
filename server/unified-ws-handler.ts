@@ -1311,8 +1311,8 @@ Reference past discussions when relevant, but don't force it.
               );
               
               if (matchingVoice?.voiceId) {
-                orchestrator.updateSessionVoice(session.id, matchingVoice.voiceId);
-                console.log(`[Streaming Voice] Applied pending voice update: ${pendingGender} (${matchingVoice.voiceName})`);
+                orchestrator.updateSessionVoice(session.id, matchingVoice.voiceId, matchingVoice.provider);
+                console.log(`[Streaming Voice] Applied pending voice update: ${pendingGender} (${matchingVoice.voiceName}, TTS: ${matchingVoice.provider || 'default'})`);
                 
                 ws.send(JSON.stringify({
                   type: 'voice_updated',
@@ -2135,8 +2135,8 @@ Reference past discussions when relevant, but don't force it.
             
             if (matchingVoice?.voiceId) {
               // Update the voice in orchestrator FIRST
-              orchestrator.updateSessionVoice(capturedSessionId, matchingVoice.voiceId);
-              console.log(`[Streaming Voice] Voice updated to ${newGender}: ${matchingVoice.voiceName}`);
+              orchestrator.updateSessionVoice(capturedSessionId, matchingVoice.voiceId, matchingVoice.provider);
+              console.log(`[Streaming Voice] Voice updated to ${newGender}: ${matchingVoice.voiceName} (TTS: ${matchingVoice.provider || 'default'})`);
               
               // For cross-language handoffs, store pending intro for the NEW session to pick up
               // The old WebSocket will close before we can deliver the intro, so we defer it
@@ -3289,7 +3289,7 @@ ${buildNativeFunctionCallingSection()}`;
               const tutorVoice = await storage.getTutorVoice(targetLanguage, voiceMsg.tutorGender);
               
               if (tutorVoice?.voiceId) {
-                orchestrator.updateSessionVoice(session.id, tutorVoice.voiceId);
+                orchestrator.updateSessionVoice(session.id, tutorVoice.voiceId, tutorVoice.provider);
                 ws.send(JSON.stringify({
                   type: 'voice_updated',
                   timestamp: Date.now(),

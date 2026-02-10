@@ -60,6 +60,16 @@ interface CartesiaVoice {
   gender?: string;
 }
 
+interface ElevenLabsVoice {
+  id: string;
+  name: string;
+  category: string;
+  labels: Record<string, string>;
+  description: string;
+  previewUrl: string;
+  provider: string;
+}
+
 export interface VoiceOverride {
   speakingRate?: number;
   personality?: PersonalityType;
@@ -87,7 +97,7 @@ interface VoiceLabPanelProps {
   onOverrideChange: (override: VoiceOverride | null) => void;
   currentOverride: VoiceOverride | null;
   onTutorGenderChange?: (gender: 'male' | 'female') => void;
-  role?: 'tutor' | 'assistant';  // Default is 'tutor' for main tutors (Cartesia), 'assistant' for drill tutors (Google TTS)
+  role?: 'tutor' | 'assistant';  // Default is 'tutor' for main tutors (ElevenLabs/Cartesia), 'assistant' for drill tutors (Google TTS)
 }
 
 const SAMPLE_PHRASES: Record<string, string> = {
@@ -147,13 +157,15 @@ export function VoiceLabPanel({
     enabled: isOpen,
   });
 
-  // Fetch TTS metadata (personalities, emotions, etc.) - only for main tutors (Cartesia)
+  // Fetch TTS metadata (personalities, emotions, etc.) - only for Cartesia main tutors
   const { data: ttsMetadata } = useQuery<TTSMetadata>({
     queryKey: ['/api/admin/tts-metadata'],
-    enabled: isOpen && !isAssistant,
+    enabled: isOpen && !isAssistant && currentVoice?.provider !== 'elevenlabs',
   });
   
-  // Fetch available Cartesia voices for main tutors
+  const isElevenLabs = currentVoice?.provider === 'elevenlabs';
+
+  // Fetch available Cartesia voices for main tutors (only when using Cartesia)
   const { data: cartesiaVoicesData, isLoading: isLoadingCartesiaVoices } = useQuery<{ voices: CartesiaVoice[]; total: number }>({
     queryKey: ['/api/admin/cartesia-voices', language, tutorGender],
     queryFn: async () => {
@@ -161,9 +173,27 @@ export function VoiceLabPanel({
       if (!res.ok) throw new Error('Failed to fetch voices');
       return res.json();
     },
-    enabled: isOpen && !!language && !isAssistant,
+    enabled: isOpen && !!language && !isAssistant && !isElevenLabs,
   });
   const cartesiaVoices = cartesiaVoicesData?.voices || [];
+
+  // Fetch available ElevenLabs voices for main tutors (only when using ElevenLabs)
+  const { data: elevenLabsVoicesData, isLoading: isLoadingElevenLabsVoices } = useQuery<{ voices: ElevenLabsVoice[]; total: number }>({
+    queryKey: ['/api/admin/elevenlabs-voices'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/elevenlabs-voices');
+      if (!res.ok) throw new Error('Failed to fetch voices');
+      return res.json();
+    },
+    enabled: isOpen && !!language && !isAssistant && isElevenLabs,
+  });
+  const elevenLabsVoices = (elevenLabsVoicesData?.voices || []).map(v => ({
+    id: v.id,
+    name: v.name,
+    description: v.description || '',
+    language: v.labels?.accent || '',
+    gender: v.labels?.gender || undefined,
+  }));
 
   // Fetch available Google TTS voices for assistants
   const { data: googleVoicesData, isLoading: isLoadingGoogleVoices } = useQuery<{ voices: GoogleVoice[]; total: number }>({
@@ -178,8 +208,8 @@ export function VoiceLabPanel({
   const googleVoices = googleVoicesData?.voices || [];
 
   // Use appropriate voice list based on role
-  const availableVoices = isAssistant ? googleVoices : cartesiaVoices;
-  const isLoadingVoices = isAssistant ? isLoadingGoogleVoices : isLoadingCartesiaVoices;
+  const availableVoices = isAssistant ? googleVoices : (isElevenLabs ? elevenLabsVoices : cartesiaVoices);
+  const isLoadingVoices = isAssistant ? isLoadingGoogleVoices : (isElevenLabs ? isLoadingElevenLabsVoices : isLoadingCartesiaVoices);
 
   // Initialize local state from current voice or override
   useEffect(() => {
@@ -318,7 +348,7 @@ export function VoiceLabPanel({
           languageCode: currentVoice.languageCode,
           speakingRate,
           emotion,
-          provider: currentVoice.provider || (isAssistant ? 'google' : 'cartesia'),
+          provider: currentVoice.provider || (isAssistant ? 'google' : 'elevenlabs'),
         }),
       });
       

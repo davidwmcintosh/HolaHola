@@ -4,12 +4,12 @@
  * ⚠️ CRITICAL: DANIELA'S VOICE PIPELINE - DO NOT MODIFY WITHOUT FOUNDER APPROVAL ⚠️
  * 
  * The central coordinator for streaming voice mode:
- * User audio → Deepgram STT → Gemini streaming → Sentence chunks → Cartesia TTS → Audio stream
+ * User audio → Deepgram STT → Gemini streaming → Sentence chunks → TTS → Audio stream
  * 
  * LOCKED CONFIGURATION (see replit.md "Voice Architecture"):
  * - STT: Deepgram Nova-3 via LIVE API (NOT prerecorded - prerecorded fails with WebM)
  * - LLM: Gemini (streaming)
- * - TTS: Cartesia Sonic-3 (NOT OpenAI)
+ * - TTS: ElevenLabs Flash v2.5 (default) or Cartesia Sonic-3 (fallback via TTS_PROVIDER=cartesia)
  * 
  * NEVER:
  * - Switch to OpenAI TTS/STT
@@ -28,6 +28,8 @@ import { getDeepgramLanguageCode, DeepgramIntelligence, DeepgramSentiment, Deepg
 import { analyzePronunciation, generateQuickCoaching, PronunciationCoaching } from "./live-pronunciation-coach";
 import { getGeminiStreamingService, SentenceChunk, ExtractedFunctionCall, ConversationHistoryEntry, PartialFunctionCall } from "./gemini-streaming";
 import { getCartesiaStreamingService } from "./cartesia-streaming";
+import { getElevenLabsStreamingService } from "./elevenlabs-streaming";
+import { DANIELA_TTS_PROVIDER } from "./voice-config";
 import { WebSocket as WS } from "ws";
 import {
   StreamingMessage,
@@ -819,6 +821,7 @@ export interface StreamingSession {
   tutorExpressiveness: number;
   voiceSpeed: VoiceSpeedOption;
   voiceId?: string;
+  ttsProvider?: 'elevenlabs' | 'cartesia';  // Per-session TTS provider (from tutor_voices DB record)
   tutorGender: 'male' | 'female';    // Current tutor gender for persona-aware responses
   tutorName: string;                 // Current tutor's first name (e.g., "Daniela", "Agustin")
   systemPrompt: string;
@@ -1264,9 +1267,11 @@ export class StreamingVoiceOrchestrator {
   private sessions: Map<string, StreamingSession> = new Map();
   private geminiService = getGeminiStreamingService();
   private cartesiaService = getCartesiaStreamingService();
+  private elevenlabsService = getElevenLabsStreamingService();
+  private ttsProvider = DANIELA_TTS_PROVIDER;
   
   constructor() {
-    console.log('[Streaming Orchestrator] Initialized');
+    console.log(`[Streaming Orchestrator] Initialized (TTS: ${this.ttsProvider})`);
   }
   
   /**
@@ -1406,7 +1411,8 @@ export class StreamingVoiceOrchestrator {
           console.log(`[PedagogicalPersona] Loaded for ${session.tutorName}: focus=${tutorVoice.pedagogicalFocus}, style=${tutorVoice.teachingStyle}`);
         }
         
-        console.log(`[VoiceDefaults] Loaded tutor baseline from DB: ${config.targetLanguage}/${initialGender}`, session.voiceDefaults);
+        session.ttsProvider = (tutorVoice.provider === 'elevenlabs' ? 'elevenlabs' : 'cartesia') as 'elevenlabs' | 'cartesia';
+        console.log(`[VoiceDefaults] Loaded tutor baseline from DB: ${config.targetLanguage}/${initialGender} (TTS: ${session.ttsProvider})`, session.voiceDefaults);
       } else {
         // Fallback to standard tutor defaults if voice not in database
         // Use consistent tutor baseline (not user preferences) so reset is predictable
@@ -1488,15 +1494,22 @@ export class StreamingVoiceOrchestrator {
     // - Gemini: Eliminates cold-start penalty (~3-4 seconds on first request)
     // Store promise so greeting can await completion (guarantees warmup before first AI call)
     const warmupStart = Date.now();
-    let cartesiaWarmupMs = 0;
+    let ttsWarmupMs = 0;
     let geminiWarmupMs = 0;
-    session.warmupPromise = Promise.all([
-      this.cartesiaService.ensureConnection()
+    const sessionTtsProvider = session.ttsProvider || this.ttsProvider;
+    const ttsWarmupPromise = sessionTtsProvider === 'elevenlabs'
+      ? Promise.resolve(0).then(time => {
+          ttsWarmupMs = time;
+          console.log(`[Streaming Orchestrator] ElevenLabs ready (REST, no warmup needed)`);
+        })
+      : this.cartesiaService.ensureConnection()
         .then(time => {
-          cartesiaWarmupMs = time;
+          ttsWarmupMs = time;
           console.log(`[Streaming Orchestrator] Cartesia pre-warmed: ${time}ms`);
         })
-        .catch((err: Error) => console.warn(`[Streaming Orchestrator] Cartesia warmup failed: ${err.message}`)),
+        .catch((err: Error) => console.warn(`[Streaming Orchestrator] Cartesia warmup failed: ${err.message}`));
+    session.warmupPromise = Promise.all([
+      ttsWarmupPromise,
       this.geminiService.warmup()
         .then(time => {
           geminiWarmupMs = time;
@@ -1643,15 +1656,15 @@ export class StreamingVoiceOrchestrator {
       const sttStart = Date.now();
       
       // Start both operations in parallel
-      const [transcriptionResult, cartesiaWarmupTime] = await Promise.all([
-        // STT: Transcribe user audio with Deepgram (returns transcript + confidence)
-        // Pass recently-taught vocabulary as keyterms for better recognition of target words
+      const ttsWarmup = (session.ttsProvider || this.ttsProvider) === 'elevenlabs'
+        ? Promise.resolve(0) // ElevenLabs uses REST, no warmup needed
+        : this.cartesiaService.ensureConnection().catch((err: Error) => {
+            console.warn(`[Streaming Orchestrator] Cartesia warmup failed: ${err.message}`);
+            return -1;
+          });
+      const [transcriptionResult, ttsWarmupTime] = await Promise.all([
         this.transcribeAudio(audioData, session.targetLanguage, session.nativeLanguage, session.isFounderMode, (session as any).sttKeyterms),
-        // Connection warmup: Ensure Cartesia WebSocket is ready (no-op if already connected)
-        this.cartesiaService.ensureConnection().catch((err: Error) => {
-          console.warn(`[Streaming Orchestrator] Cartesia warmup failed: ${err.message}`);
-          return -1; // Return -1 to indicate failure (will fallback to bytes API)
-        }),
+        ttsWarmup,
       ]);
       
       // Extract transcript, pronunciation confidence, intelligence data, and word-level data (per-session, no race conditions)
@@ -4120,8 +4133,9 @@ Remember: Beta testers understand they're helping build something and appreciate
                 session.cachedMainTutorVoiceId = undefined;
               }
             
-              // Update session voice with Cartesia voiceId
+              // Update session voice with voiceId and provider
               session.voiceId = matchingVoice.voiceId;
+              session.ttsProvider = (matchingVoice.provider === 'elevenlabs' ? 'elevenlabs' : 'cartesia') as 'elevenlabs' | 'cartesia';
               session.tutorGender = effectiveGender;
               session.tutorName = tutorName;
               
@@ -6083,6 +6097,7 @@ Remember: Beta testers understand they're helping build something and appreciate
               tutorName = voiceNameParts[0]?.trim();
               session.isAssistantActive = false;
               session.voiceId = matchingVoice.voiceId;
+              session.ttsProvider = (matchingVoice.provider === 'elevenlabs' ? 'elevenlabs' : 'cartesia') as 'elevenlabs' | 'cartesia';
               session.tutorGender = targetGender;
               session.tutorName = tutorName || 'your tutor';
               
@@ -6490,10 +6505,10 @@ Remember: Beta testers understand they're helping build something and appreciate
         session.pendingWordEmphases = [];
       }
       
-      // Collect all audio chunks from Cartesia (MP3 fragments need concatenation)
+      // Collect all audio chunks from TTS provider (MP3 fragments need concatenation)
       // IMPORTANT: Use textWithEmphases (cleaned + emphases) for TTS
-      // Always use autoDetectLanguage — let Sonic-3 handle mixed-language text natively
-      for await (const audioChunk of this.cartesiaService.streamSynthesize({
+      // Always use autoDetectLanguage — let TTS provider handle mixed-language text natively
+      const ttsRequest = {
         text: textWithEmphases,
         autoDetectLanguage: true,
         targetLanguage: session.targetLanguage,
@@ -6502,7 +6517,12 @@ Remember: Beta testers understand they're helping build something and appreciate
         emotion: effectiveEmotion,
         personality: effectivePersonality,
         expressiveness: effectiveExpressiveness,
-      })) {
+      };
+      const effectiveTtsProvider = session.ttsProvider || this.ttsProvider;
+      const ttsStream = effectiveTtsProvider === 'elevenlabs'
+        ? this.elevenlabsService.streamSynthesize(ttsRequest)
+        : this.cartesiaService.streamSynthesize(ttsRequest);
+      for await (const audioChunk of ttsStream) {
         if (audioChunk.audio.length > 0) {
           // Track TTS first byte timing only on non-empty audio (actual TTS output)
           if (!firstChunkReceived) {
@@ -6544,15 +6564,16 @@ Remember: Beta testers understand they're helping build something and appreciate
       const effectiveTurnId = turnId ?? session.currentTurnId;
       
       // Send word timings BEFORE audio so client has them ready when playback starts
-      // Use native Cartesia timestamps if available (more accurate), otherwise estimate
+      // Use native timestamps if available (more accurate), otherwise estimate
       if (session.subtitleMode !== 'off') {
-        // Consume native timestamps from Cartesia (clears after retrieval to prevent reuse)
-        const nativeTimestamps = this.cartesiaService.consumeNativeTimestamps();
+        // Consume native timestamps (clears after retrieval to prevent reuse)
+        const nativeTimestamps = effectiveTtsProvider === 'elevenlabs'
+          ? [] // ElevenLabs doesn't provide native word timestamps
+          : this.cartesiaService.consumeNativeTimestamps();
         let finalTimings: WordTiming[];
         
         if (nativeTimestamps.length > 0) {
-          // Use native timestamps from Cartesia WebSocket API
-          console.log(`[Streaming] Using ${nativeTimestamps.length} native Cartesia timestamps for sentence ${index}`);
+          console.log(`[Streaming] Using ${nativeTimestamps.length} native timestamps for sentence ${index}`);
           finalTimings = nativeTimestamps;
         } else {
           // Fall back to estimation (when WebSocket not connected or timestamps not returned)
@@ -6979,6 +7000,8 @@ Remember: Beta testers understand they're helping build something and appreciate
             }
             
             // Send final "empty" audio chunk to signal end
+            const lastAudioFormat = bufferedAudioChunks.length > 0 ? bufferedAudioChunks[0].audioFormat : 'mp3';
+            const lastSampleRate = bufferedAudioChunks.length > 0 ? bufferedAudioChunks[0].sampleRate : 44100;
             this.sendMessage(session.ws, {
               type: 'audio_chunk',
               timestamp: Date.now(),
@@ -6988,8 +7011,8 @@ Remember: Beta testers understand they're helping build something and appreciate
               isLast: true,
               durationMs: 0,
               audio: '', // Empty base64
-              audioFormat: 'pcm_f32le',
-              sampleRate: 24000,
+              audioFormat: lastAudioFormat,
+              sampleRate: lastSampleRate,
             } as StreamingAudioChunkMessage);
             
             // Send sentence end
@@ -7043,21 +7066,23 @@ Remember: Beta testers understand they're helping build something and appreciate
         logSegmentation(segmentationResult, nativeLanguage, session.targetLanguage);
       }
       
-      console.log(`[TTS-LANG-DIAG] → AUTO-DETECT path: letting Sonic-3 handle language (target='${session.targetLanguage}', codeSwitch=${segmentationResult.hasCodeSwitching}, segments=${segmentationResult.segments.length})`);
+      const effectiveTtsProvider = session.ttsProvider || this.ttsProvider;
+      console.log(`[TTS-LANG-DIAG] → AUTO-DETECT path: letting ${effectiveTtsProvider} handle language (target='${session.targetLanguage}', codeSwitch=${segmentationResult.hasCodeSwitching}, segments=${segmentationResult.segments.length})`);
       
-      const result = await this.cartesiaService.streamSynthesizeProgressive(
-        {
-          text: textWithEmphases,
-          autoDetectLanguage: true,
-          targetLanguage: session.targetLanguage,
-          voiceId: session.voiceId,
-          speakingRate: effectiveSpeakingRate,
-          emotion: effectiveEmotion,
-          personality: effectivePersonality,
-          expressiveness: effectiveExpressiveness,
-        },
-        ttsCallbacks
-      );
+      const progressiveRequest = {
+        text: textWithEmphases,
+        autoDetectLanguage: true,
+        targetLanguage: session.targetLanguage,
+        voiceId: session.voiceId,
+        speakingRate: effectiveSpeakingRate,
+        emotion: effectiveEmotion,
+        personality: effectivePersonality,
+        expressiveness: effectiveExpressiveness,
+      };
+      
+      const result = effectiveTtsProvider === 'elevenlabs'
+        ? await this.elevenlabsService.streamSynthesizeProgressive(progressiveRequest, ttsCallbacks)
+        : await this.cartesiaService.streamSynthesizeProgressive(progressiveRequest, ttsCallbacks);
       
     } catch (error: any) {
       // Extract status code and response body for telemetry
@@ -10314,7 +10339,7 @@ Using this context, speak first to the student with a natural opening message. O
    * Update the voice for an active session
    * Called when user changes tutor gender mid-session
    */
-  updateSessionVoice(sessionId: string, voiceId: string): boolean {
+  updateSessionVoice(sessionId: string, voiceId: string, provider?: string): boolean {
     const session = this.sessions.get(sessionId);
     if (!session) {
       console.warn(`[Streaming Orchestrator] Cannot update voice - session ${sessionId} not found`);
@@ -10322,7 +10347,10 @@ Using this context, speak first to the student with a natural opening message. O
     }
     
     session.voiceId = voiceId;
-    console.log(`[Streaming Orchestrator] Updated voice for session ${sessionId}: ${voiceId.substring(0, 8)}...`);
+    if (provider) {
+      session.ttsProvider = (provider === 'elevenlabs' ? 'elevenlabs' : 'cartesia') as 'elevenlabs' | 'cartesia';
+    }
+    console.log(`[Streaming Orchestrator] Updated voice for session ${sessionId}: ${voiceId.substring(0, 8)}... (TTS: ${session.ttsProvider || this.ttsProvider})`);
     return true;
   }
   

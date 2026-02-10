@@ -16318,6 +16318,41 @@ Current conversation context:
         }
       }
       
+      // Handle ElevenLabs TTS
+      if (provider === 'elevenlabs') {
+        const { getElevenLabsStreamingService, getElevenLabsPronunciationDict } = await import('./services/elevenlabs-streaming');
+        const elevenService = getElevenLabsStreamingService();
+        
+        if (!elevenService.isAvailable()) {
+          return res.status(500).json({ error: "ElevenLabs API key not configured" });
+        }
+        
+        const langCodeToName: Record<string, string> = {
+          'ja': 'japanese', 'ja-JP': 'japanese',
+          'es': 'spanish', 'es-ES': 'spanish', 'es-US': 'spanish',
+          'fr': 'french', 'fr-FR': 'french',
+          'de': 'german', 'de-DE': 'german',
+          'it': 'italian', 'it-IT': 'italian',
+          'pt': 'portuguese', 'pt-BR': 'portuguese',
+          'ko': 'korean', 'ko-KR': 'korean',
+          'zh': 'mandarin chinese', 'cmn-CN': 'mandarin chinese',
+          'en': 'english', 'en-US': 'english',
+        };
+        const targetLang = langCodeToName[languageCode] || langCodeToName[languageCode?.split('-')[0]] || 'english';
+        const pronDict = getElevenLabsPronunciationDict(targetLang);
+        
+        const audioBuffer = await elevenService.synthesizeToBuffer(text, voiceId, {
+          languageCode: languageCode?.split('-')[0] || 'en',
+          speakingRate: speakingRate || 1.0,
+          pronunciationDictId: pronDict?.dictionaryId,
+          pronunciationDictVersionId: pronDict?.versionId,
+        });
+        
+        res.setHeader('Content-Type', 'audio/mpeg');
+        res.send(audioBuffer);
+        return;
+      }
+
       // Default: Cartesia for main tutors
       const apiKey = process.env.CARTESIA_API_KEY;
       if (!apiKey) {
@@ -16673,6 +16708,44 @@ Current conversation context:
       res.json({ voices, total: voices.length });
     } catch (error: any) {
       console.error('Error fetching Cartesia voices:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Fetch available ElevenLabs voices from their API (admin/developer only)
+  app.get("/api/admin/elevenlabs-voices", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const apiKey = process.env.ELEVENLABS_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({ error: "ElevenLabs API key not configured" });
+      }
+
+      const response = await fetch('https://api.elevenlabs.io/v1/voices', {
+        headers: {
+          'xi-api-key': apiKey,
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('ElevenLabs API error:', errorText);
+        return res.status(response.status).json({ error: `ElevenLabs API error: ${response.statusText}` });
+      }
+
+      const data = await response.json();
+      const voices = (data.voices || []).map((v: any) => ({
+        id: v.voice_id,
+        name: v.name,
+        category: v.category,
+        labels: v.labels || {},
+        description: v.description,
+        previewUrl: v.preview_url,
+        provider: 'elevenlabs',
+      }));
+
+      res.json({ voices, total: voices.length });
+    } catch (error: any) {
+      console.error('Error fetching ElevenLabs voices:', error);
       res.status(500).json({ error: error.message });
     }
   });

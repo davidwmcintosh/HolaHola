@@ -51,23 +51,32 @@ export const DANIELA_STT_API_MODE = 'live' as const;
 export const DANIELA_STT_INTELLIGENCE_ENABLED = true;
 
 // ============================================================================
-// DANIELA TTS CONFIGURATION (Cartesia Sonic-3)
+// DANIELA TTS CONFIGURATION
 // ============================================================================
 
 /**
- * Required TTS provider for Daniela
- * Cartesia Sonic-3 provides:
- * - 40ms latency (vs 500-1500ms for Google)
- * - Full SSML support with emotion tags
- * - High-quality multilingual voices
+ * TTS provider for Daniela
+ * 
+ * 'elevenlabs' - ElevenLabs Flash v2.5 (DEFAULT)
+ *   - 44% cheaper than Cartesia, 3-4x faster
+ *   - Accent-matched voices per language (native speakers)
+ *   - language_code parameter for correct pronunciation
+ *   - Pronunciation dictionaries for homograph fixes
+ * 
+ * 'cartesia' - Cartesia Sonic-3 (LEGACY, kept for rollback)
+ *   - 40ms latency, full SSML emotion tags
+ *   - No inline language switching support
+ * 
+ * Override with TTS_PROVIDER env var (e.g. TTS_PROVIDER=cartesia)
  */
-export const DANIELA_TTS_PROVIDER = 'cartesia' as const;
+export const DANIELA_TTS_PROVIDER = (process.env.TTS_PROVIDER || 'elevenlabs') as 'elevenlabs' | 'cartesia';
 
 /**
- * Required Cartesia model
- * Sonic-3 is the production model with full features
+ * TTS model per provider
  */
-export const DANIELA_TTS_MODEL = 'sonic-3';
+export const DANIELA_TTS_MODEL = DANIELA_TTS_PROVIDER === 'elevenlabs' 
+  ? 'eleven_flash_v2_5' 
+  : 'sonic-3';
 
 // ============================================================================
 // RUNTIME VALIDATION
@@ -100,10 +109,17 @@ export function validateVoiceConfig(): { valid: boolean; warnings: string[]; cri
     warnings.push(`   Student sentiment/intent tracking will be disabled`);
   }
   
-  // Check Cartesia API key - CRITICAL for Daniela
-  if (!process.env.CARTESIA_API_KEY) {
-    warnings.push(`❌ CRITICAL: CARTESIA_API_KEY is not set - Daniela's voice will NOT work`);
-    critical = true;
+  // Check TTS provider API key - CRITICAL for Daniela
+  if (DANIELA_TTS_PROVIDER === 'elevenlabs') {
+    if (!process.env.ELEVENLABS_API_KEY) {
+      warnings.push(`❌ CRITICAL: ELEVENLABS_API_KEY is not set - Daniela's voice will NOT work`);
+      critical = true;
+    }
+  } else {
+    if (!process.env.CARTESIA_API_KEY) {
+      warnings.push(`❌ CRITICAL: CARTESIA_API_KEY is not set - Daniela's voice will NOT work`);
+      critical = true;
+    }
   }
   
   // Check Deepgram API key - CRITICAL for STT
@@ -145,6 +161,7 @@ export function getVoiceConfigStatus(): Record<string, string | boolean> {
     deepgramModel: process.env.DEEPGRAM_MODEL || 'nova-3 (default)',
     deepgramIntelligence: process.env.DEEPGRAM_INTELLIGENCE_ENABLED !== 'false',
     cartesiaConfigured: !!process.env.CARTESIA_API_KEY,
+    elevenlabsConfigured: !!process.env.ELEVENLABS_API_KEY,
     deepgramConfigured: !!process.env.DEEPGRAM_API_KEY,
     googleTtsConfigured: !!process.env.GOOGLE_CLOUD_TTS_CREDENTIALS,
     requiredSttModel: DANIELA_STT_MODEL,
