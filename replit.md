@@ -47,13 +47,16 @@ The Fluency Wiring System connects ACTFL Can-Do statements to lessons. An AI Les
 
 The Gauntlet Runner Identity Stress Test System validates Daniela's voice identity across Emotional Stability, Pedagogical Character, Cultural Authenticity, and Moral Groundedness. It uses the Voice Probe Service, Synthetic Student Service, and pre-built Gauntlet Sequences to test transitions under pressure, focusing on warm redirection rather than refusal.
 
+**TTS PROVIDER STRATEGY (Feb 2026 - SCALABILITY):** Google Cloud TTS (Chirp 3 HD) is the recommended primary provider for production. Cartesia (15 concurrent connections on Scale plan) and ElevenLabs (15 concurrent connections on top $1,100/mo tier) cannot support classroom-scale usage (45+ students). Google Cloud TTS uses request-per-minute quotas (default 1,000 RPM, increasable) with no hard concurrent connection limit. The Voice Console (`VoiceConsole.tsx`) has a global provider dropdown supporting all three: Google Cloud TTS (Chirp 3 HD), Cartesia (Sonic-3), and ElevenLabs (Flash v2.5). Google voices offer 8 voice options per language (Aoede, Kore, Leda, Zephyr female; Puck, Charon, Fenrir, Orus male) with pitch (-10 to +10 semitones), volume gain (-10 to +10 dB), and speaking rate (0.25 to 4.0) controls. The `synthesizeWithGoogleDirect()` method in `tts-service.ts` handles Google voice previewing. All 9 languages + Hebrew are supported by Chirp 3 HD.
+
 ## External Dependencies
 - Stripe: Payment processing and subscription management.
 - Replit Auth: OIDC authentication.
 - Gemini API: Text chat completions and voice chat LLM.
 - Deepgram API: Voice STT (Nova-3 model).
-- Cartesia API: Primary TTS (Sonic-3 model).
-- Google Cloud Text-to-Speech: For support/assistant tutors and textbook pronunciation audio.
+- Google Cloud Text-to-Speech: Primary TTS provider for production (Chirp 3 HD voices, unlimited concurrency). Also used for assistant tutors and textbook pronunciation.
+- Cartesia API: Alternative TTS provider (Sonic-3 model, limited to 15 concurrent connections).
+- ElevenLabs API: Alternative TTS provider (Flash v2.5 model, limited to 15 concurrent connections).
 - Azure Speech Services: Pronunciation assessment for drill assignment.
 - Unsplash: Stock educational images.
 - Gemini Flash-Image: AI-generated contextual images.

@@ -87,6 +87,14 @@ interface ElevenLabsVoice {
   source?: string;
 }
 
+interface GoogleVoiceOption {
+  id: string;
+  name: string;
+  language: string;
+  gender: 'male' | 'female';
+  languageCode: string;
+}
+
 const SUPPORTED_LANGUAGES = [
   { value: 'english', label: 'English', code: 'en' },
   { value: 'spanish', label: 'Spanish', code: 'es' },
@@ -175,6 +183,9 @@ export function VoiceConsoleContent() {
     elSimilarityBoost: 0.75,
     elStyle: 0.0,
     elSpeakerBoost: true,
+    // Google Cloud TTS settings
+    googlePitch: 0,
+    googleVolumeGainDb: 0,
     // Pedagogical persona fields
     pedagogicalFocus: 'mixed' as PedagogicalFocus,
     teachingStyle: 'adaptive' as TeachingStyle,
@@ -233,8 +244,28 @@ export function VoiceConsoleContent() {
       source: v.source,
     }));
 
-  const activeVoices = formData.provider === 'elevenlabs' ? elevenLabsVoices : cartesiaVoices;
-  const isLoadingActiveVoices = formData.provider === 'elevenlabs' ? isLoadingElevenLabsVoices : isLoadingCartesiaVoices;
+  const { data: googleVoicesData, isLoading: isLoadingGoogleVoices } = useQuery<GoogleVoiceOption[]>({
+    queryKey: ["/api/admin/google-voices", formData.language, formData.gender],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/google-voices/${encodeURIComponent(formData.language)}/${formData.gender}`);
+      if (!res.ok) throw new Error('Failed to fetch Google voices');
+      const data = await res.json();
+      return data.voices || [];
+    },
+    enabled: isAddDialogOpen && !!formData.language && formData.provider === 'google',
+  });
+
+  const googleVoices: CartesiaVoice[] = (googleVoicesData || []).map(v => ({
+    id: v.id,
+    name: v.name,
+    description: `Google Chirp 3 HD - ${v.languageCode}`,
+    language: v.language,
+    gender: v.gender,
+    isPublic: true,
+  }));
+
+  const activeVoices = formData.provider === 'google' ? googleVoices : formData.provider === 'elevenlabs' ? elevenLabsVoices : cartesiaVoices;
+  const isLoadingActiveVoices = formData.provider === 'google' ? isLoadingGoogleVoices : formData.provider === 'elevenlabs' ? isLoadingElevenLabsVoices : isLoadingCartesiaVoices;
 
   const upsertMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
@@ -271,7 +302,8 @@ export function VoiceConsoleContent() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/tutor-voices"] });
-      toast({ title: "Success", description: `All tutor voices switched to ${globalProvider === 'elevenlabs' ? 'ElevenLabs' : 'Cartesia'}` });
+      const providerLabel = globalProvider === 'google' ? 'Google Cloud TTS' : globalProvider === 'elevenlabs' ? 'ElevenLabs' : 'Cartesia';
+      toast({ title: "Success", description: `All tutor voices switched to ${providerLabel}` });
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -304,6 +336,8 @@ export function VoiceConsoleContent() {
       elSimilarityBoost: 0.75,
       elStyle: 0.0,
       elSpeakerBoost: true,
+      googlePitch: 0,
+      googleVolumeGainDb: 0,
       pedagogicalFocus: 'mixed',
       teachingStyle: 'adaptive',
       errorTolerance: 'medium',
@@ -348,7 +382,8 @@ export function VoiceConsoleContent() {
     voiceId: string, voiceName: string, language: string, languageCode: string, speakingRate: number = 0.9,
     provider?: string,
     elSettings?: { elStability?: number; elSimilarityBoost?: number; elStyle?: number; elSpeed?: number },
-    fallbackPreviewUrl?: string
+    fallbackPreviewUrl?: string,
+    googleSettings?: { googlePitch?: number; googleVolumeGainDb?: number }
   ) => {
     if (playingVoiceId === voiceId && audioElement) {
       audioElement.pause();
@@ -368,13 +403,13 @@ export function VoiceConsoleContent() {
     const phrases = SAMPLE_PHRASES[language] || SAMPLE_PHRASES.english;
     
     try {
-      const targetAudio = await playVoiceSample(voiceId, phrases.target, languageCode, speakingRate, auditionEmotion, provider, elSettings, fallbackPreviewUrl);
+      const targetAudio = await playVoiceSample(voiceId, phrases.target, languageCode, speakingRate, auditionEmotion, provider, elSettings, fallbackPreviewUrl, googleSettings);
       
       targetAudio.onended = async () => {
         if (language !== 'english' && !fallbackPreviewUrl) {
           setAuditionPhase('native');
           try {
-            const nativeAudio = await playVoiceSample(voiceId, phrases.native, 'en', speakingRate, auditionEmotion, provider, elSettings);
+            const nativeAudio = await playVoiceSample(voiceId, phrases.native, 'en', speakingRate, auditionEmotion, provider, elSettings, undefined, googleSettings);
             nativeAudio.onended = () => {
               setPlayingVoiceId(null);
               setAuditionPhase('idle');
@@ -422,7 +457,8 @@ export function VoiceConsoleContent() {
     emotion?: string,
     provider?: string,
     elSettings?: { elStability?: number; elSimilarityBoost?: number; elStyle?: number; elSpeed?: number },
-    fallbackPreviewUrl?: string
+    fallbackPreviewUrl?: string,
+    googleSettings?: { googlePitch?: number; googleVolumeGainDb?: number }
   ): Promise<HTMLAudioElement> => {
     const body: Record<string, unknown> = {
       voiceId,
@@ -439,6 +475,10 @@ export function VoiceConsoleContent() {
       body.elSimilarityBoost = elSettings.elSimilarityBoost;
       body.elStyle = elSettings.elStyle;
       body.elSpeed = elSettings.elSpeed ?? speakingRate;
+    }
+    if (provider === 'google' && googleSettings) {
+      body.googlePitch = googleSettings.googlePitch ?? 0;
+      body.googleVolumeGainDb = googleSettings.googleVolumeGainDb ?? 0;
     }
     const response = await fetch("/api/admin/tutor-voices/preview", {
       method: "POST",
@@ -476,7 +516,11 @@ export function VoiceConsoleContent() {
       elStyle: voice.elStyle,
       elSpeed: voice.speakingRate,
     } : undefined;
-    await handleAudition(voice.voiceId, voice.voiceName, voice.language, voice.languageCode, voice.speakingRate, voice.provider, elSettings);
+    const googleSettings = voice.provider === 'google' ? {
+      googlePitch: (voice as any).googlePitch ?? 0,
+      googleVolumeGainDb: (voice as any).googleVolumeGainDb ?? 0,
+    } : undefined;
+    await handleAudition(voice.voiceId, voice.voiceName, voice.language, voice.languageCode, voice.speakingRate, voice.provider, elSettings, undefined, googleSettings);
   };
 
   const handleEdit = (voice: TutorVoice) => {
@@ -612,7 +656,7 @@ export function VoiceConsoleContent() {
                   <DialogHeader>
                     <DialogTitle>{editingVoice ? "Edit Voice" : "Add Voice Configuration"}</DialogTitle>
                     <DialogDescription>
-                      Select a language, gender, and voice for the tutor. Using {globalProvider === 'elevenlabs' ? 'ElevenLabs Flash v2.5' : 'Cartesia Sonic-3'}.
+                      Select a language, gender, and voice for the tutor. Using {globalProvider === 'google' ? 'Google Cloud TTS (Chirp 3 HD)' : globalProvider === 'elevenlabs' ? 'ElevenLabs Flash v2.5' : 'Cartesia Sonic-3'}.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
@@ -651,12 +695,12 @@ export function VoiceConsoleContent() {
                         {isLoadingActiveVoices ? (
                           <div className="flex items-center gap-2 p-3 border rounded-md">
                             <Loader2 className="h-4 w-4 animate-spin" />
-                            <span className="text-sm text-muted-foreground">Loading {formData.provider === 'elevenlabs' ? 'ElevenLabs' : 'Cartesia'} voices...</span>
+                            <span className="text-sm text-muted-foreground">Loading {formData.provider === 'google' ? 'Google' : formData.provider === 'elevenlabs' ? 'ElevenLabs' : 'Cartesia'} voices...</span>
                           </div>
                         ) : activeVoices.length === 0 ? (
                           <div className="p-3 border rounded-md border-dashed">
                             <p className="text-sm text-muted-foreground">
-                              No voices found. {formData.provider === 'elevenlabs' ? 'Check ElevenLabs API key.' : `No ${formData.gender} voices for ${SUPPORTED_LANGUAGES.find(l => l.value === formData.language)?.label}.`}
+                              No voices found. {formData.provider === 'elevenlabs' ? 'Check ElevenLabs API key.' : formData.provider === 'google' ? 'Check Google Cloud TTS credentials.' : `No ${formData.gender} voices for ${SUPPORTED_LANGUAGES.find(l => l.value === formData.language)?.label}.`}
                             </p>
                           </div>
                         ) : (
@@ -689,7 +733,14 @@ export function VoiceConsoleContent() {
                         <div className="flex items-center justify-between">
                           <Label>Speaking Speed</Label>
                           <span className="text-sm font-medium">
-                            {formData.provider === 'elevenlabs' ? (
+                            {formData.provider === 'google' ? (
+                              formData.speakingRate === 1.0 ? 'Normal' :
+                              formData.speakingRate < 0.6 ? 'Very Slow' :
+                              formData.speakingRate < 1.0 ? 'Slow' :
+                              formData.speakingRate > 2.0 ? 'Very Fast' :
+                              formData.speakingRate > 1.0 ? 'Fast' :
+                              formData.speakingRate.toFixed(2)
+                            ) : formData.provider === 'elevenlabs' ? (
                               formData.speakingRate === 1.0 ? 'Normal' :
                               formData.speakingRate < 0.8 ? 'Very Slow' :
                               formData.speakingRate < 1.0 ? 'Slow' :
@@ -708,14 +759,20 @@ export function VoiceConsoleContent() {
                         <Slider
                           value={[formData.speakingRate]}
                           onValueChange={([value]) => setFormData(prev => ({ ...prev, speakingRate: value }))}
-                          min={formData.provider === 'elevenlabs' ? 0.5 : 0.7}
-                          max={formData.provider === 'elevenlabs' ? 2.0 : 1.3}
-                          step={formData.provider === 'elevenlabs' ? 0.05 : 0.1}
+                          min={formData.provider === 'google' ? 0.25 : formData.provider === 'elevenlabs' ? 0.5 : 0.7}
+                          max={formData.provider === 'google' ? 4.0 : formData.provider === 'elevenlabs' ? 2.0 : 1.3}
+                          step={formData.provider === 'google' ? 0.05 : formData.provider === 'elevenlabs' ? 0.05 : 0.1}
                           className="w-full"
                           data-testid="slider-speed"
                         />
                         <div className="flex justify-between text-xs text-muted-foreground">
-                          {formData.provider === 'elevenlabs' ? (
+                          {formData.provider === 'google' ? (
+                            <>
+                              <span>Slow (0.25)</span>
+                              <span>Normal (1.0)</span>
+                              <span>Fast (4.0)</span>
+                            </>
+                          ) : formData.provider === 'elevenlabs' ? (
                             <>
                               <span>Slow (0.5)</span>
                               <span>Normal (1.0)</span>
@@ -815,6 +872,58 @@ export function VoiceConsoleContent() {
                           >
                             {formData.elSpeakerBoost ? 'On' : 'Off'}
                           </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Google Cloud TTS Voice Settings */}
+                    {formData.voiceId && formData.provider === 'google' && (
+                      <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+                        <div className="flex items-center gap-2">
+                          <Volume2 className="h-4 w-4 text-primary" />
+                          <Label className="text-sm font-medium">Google Cloud TTS Settings</Label>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs text-muted-foreground">Pitch</Label>
+                            <span className="text-sm font-medium">{formData.googlePitch > 0 ? '+' : ''}{formData.googlePitch.toFixed(1)} semitones</span>
+                          </div>
+                          <Slider
+                            value={[formData.googlePitch]}
+                            onValueChange={([value]) => setFormData(prev => ({ ...prev, googlePitch: value }))}
+                            min={-10}
+                            max={10}
+                            step={0.5}
+                            className="w-full"
+                            data-testid="slider-google-pitch"
+                          />
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>Lower (-10)</span>
+                            <span>Default (0)</span>
+                            <span>Higher (+10)</span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs text-muted-foreground">Volume Gain</Label>
+                            <span className="text-sm font-medium">{formData.googleVolumeGainDb > 0 ? '+' : ''}{formData.googleVolumeGainDb.toFixed(1)} dB</span>
+                          </div>
+                          <Slider
+                            value={[formData.googleVolumeGainDb]}
+                            onValueChange={([value]) => setFormData(prev => ({ ...prev, googleVolumeGainDb: value }))}
+                            min={-10}
+                            max={10}
+                            step={0.5}
+                            className="w-full"
+                            data-testid="slider-google-volume"
+                          />
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>Quieter (-10)</span>
+                            <span>Default (0)</span>
+                            <span>Louder (+10)</span>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -920,7 +1029,11 @@ export function VoiceConsoleContent() {
                                   elStyle: formData.elStyle,
                                   elSpeed: formData.speakingRate,
                                 } : undefined,
-                                selectedVoice?.source === 'library' ? selectedVoice.previewUrl : undefined
+                                selectedVoice?.source === 'library' ? selectedVoice.previewUrl : undefined,
+                                formData.provider === 'google' ? {
+                                  googlePitch: formData.googlePitch,
+                                  googleVolumeGainDb: formData.googleVolumeGainDb,
+                                } : undefined
                               );
                             }}
                             data-testid="button-audition"
@@ -1059,6 +1172,7 @@ export function VoiceConsoleContent() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="google">Google Cloud TTS (Chirp 3 HD)</SelectItem>
                     <SelectItem value="cartesia">Cartesia (Sonic-3)</SelectItem>
                     <SelectItem value="elevenlabs">ElevenLabs (Flash v2.5)</SelectItem>
                   </SelectContent>
@@ -1075,7 +1189,7 @@ export function VoiceConsoleContent() {
               <DialogHeader>
                 <DialogTitle>Switch TTS Provider</DialogTitle>
                 <DialogDescription>
-                  This will update all tutor voices to use {pendingProvider === 'elevenlabs' ? 'ElevenLabs Flash v2.5' : 'Cartesia Sonic-3'}. Each tutor will keep its current voice selection but the provider tag will change. You can reassign individual voices afterward.
+                  This will update all tutor voices to use {pendingProvider === 'google' ? 'Google Cloud TTS (Chirp 3 HD)' : pendingProvider === 'elevenlabs' ? 'ElevenLabs Flash v2.5' : 'Cartesia Sonic-3'}. Each tutor will keep its current voice selection but the provider tag will change. You can reassign individual voices afterward.
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter className="flex gap-2">

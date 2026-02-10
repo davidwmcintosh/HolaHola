@@ -1659,6 +1659,56 @@ export class TTSService {
   }
 
   /**
+   * Synthesize speech using Google Cloud TTS with a specific voice ID and parameters.
+   * Used by the Voice Console for previewing/auditioning Google Chirp 3 HD voices.
+   */
+  async synthesizeWithGoogleDirect(params: {
+    text: string;
+    voiceId: string;
+    speakingRate?: number;
+    pitch?: number;
+    volumeGainDb?: number;
+  }): Promise<TTSResponse> {
+    if (!this.googleClient) {
+      throw new Error('Google Cloud TTS is not available. Set GOOGLE_CLOUD_TTS_CREDENTIALS.');
+    }
+
+    const { text, voiceId, speakingRate = 1.0, pitch = 0, volumeGainDb = 0 } = params;
+    const voiceParts = voiceId.split('-');
+    const languageCode = voiceParts.length >= 2 ? `${voiceParts[0]}-${voiceParts[1]}` : 'en-US';
+
+    console.log(`[Google TTS Direct] Synthesizing ${text.length} chars with voice ${voiceId} (rate: ${speakingRate}, pitch: ${pitch}, volume: ${volumeGainDb}dB)`);
+
+    const request = {
+      input: { text },
+      voice: {
+        languageCode,
+        name: voiceId,
+      },
+      audioConfig: {
+        audioEncoding: 'MP3' as const,
+        speakingRate,
+        pitch,
+        volumeGainDb,
+      },
+    };
+
+    const [response] = await this.googleClient.synthesizeSpeech(request);
+
+    if (!response.audioContent) {
+      throw new Error('Google TTS returned no audio content');
+    }
+
+    const audioBuffer = Buffer.from(response.audioContent as Uint8Array);
+    console.log(`[Google TTS Direct] Generated ${audioBuffer.length} bytes`);
+
+    return {
+      audioBuffer,
+      contentType: 'audio/mpeg',
+    };
+  }
+
+  /**
    * Synthesize speech using OpenAI TTS (fallback)
    */
   private async synthesizeWithOpenAI(text: string, voice?: string): Promise<TTSResponse> {

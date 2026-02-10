@@ -16889,7 +16889,30 @@ Current conversation context:
         return res.send(audioBuffer);
       }
       
-      // Use TTS service with configurable speaking rate
+      if (provider === 'google') {
+        const { googlePitch, googleVolumeGainDb } = req.body;
+        const validatedGoogleRate = speakingRate !== undefined
+          ? Math.max(0.25, Math.min(4.0, parseFloat(speakingRate)))
+          : 1.0;
+        
+        const { getTTSService } = await import('./services/tts-service');
+        const ttsService = getTTSService();
+        const result = await ttsService.synthesizeWithGoogleDirect({
+          text,
+          voiceId,
+          speakingRate: validatedGoogleRate,
+          pitch: googlePitch ?? 0,
+          volumeGainDb: googleVolumeGainDb ?? 0,
+        });
+        
+        res.set({
+          'Content-Type': result.contentType,
+          'Content-Length': result.audioBuffer.length,
+        });
+        return res.send(result.audioBuffer);
+      }
+      
+      // Use TTS service with configurable speaking rate (Cartesia)
       // Validate speakingRate (0.7 to 1.3 range), default to 0.9
       const validatedRate = speakingRate !== undefined
         ? Math.max(0.7, Math.min(1.3, parseFloat(speakingRate)))
@@ -16901,7 +16924,7 @@ Current conversation context:
         text,
         voiceId,
         language: language || 'en',
-        targetLanguage: language || 'en', // Enable phoneme processing for accurate pronunciation
+        targetLanguage: language || 'en',
         emotion: emotion || 'friendly',
         speakingRate: validatedRate,
       });
