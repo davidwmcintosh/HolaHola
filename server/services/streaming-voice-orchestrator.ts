@@ -7148,15 +7148,15 @@ Remember: Beta testers understand they're helping build something and appreciate
             isLast: true,
           }, 0);
           
-          if (session.subtitleMode !== 'off') {
-            const estimatedTimings = this.estimateWordTimings(displayText, estimatedDurationMs / 1000);
-            ttsCallbacks.onWordTimings(estimatedTimings, estimatedDurationMs);
+          const estimatedTimings = this.estimateWordTimings(displayText, estimatedDurationMs / 1000);
+          for (let wi = 0; wi < estimatedTimings.length; wi++) {
+            ttsCallbacks.onWordTimestamp(estimatedTimings[wi], wi, estimatedDurationMs);
           }
           
-          ttsCallbacks.onComplete(estimatedDurationMs);
+          ttsCallbacks.onComplete(estimatedTimings, estimatedDurationMs);
         } else {
           console.warn(`[Progressive] Google TTS returned empty audio for sentence ${index}`);
-          ttsCallbacks.onComplete(0);
+          ttsCallbacks.onComplete([], 0);
         }
       } else {
         const result = effectiveTtsProvider === 'elevenlabs'
