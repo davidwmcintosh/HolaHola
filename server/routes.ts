@@ -15933,23 +15933,22 @@ Current conversation context:
       const validRoles = ['tutor', 'assistant', 'support'];
       const validatedRole = validRoles.includes(role) ? role : 'tutor';
       
-      // CRITICAL SAFEGUARD: Enforce provider by role
-      // Main tutors MUST use Cartesia Sonic-3 voices
-      // Assistants and support MUST use Google Cloud TTS voices
-      if (validatedRole === 'tutor' && provider !== 'cartesia') {
+      const validTutorProviders = ['cartesia', 'elevenlabs'];
+      if (validatedRole === 'tutor' && !validTutorProviders.includes(provider)) {
         return res.status(400).json({ 
-          error: "Main tutors must use Cartesia voices. Google voices are only for assistant tutors and support." 
+          error: "Main tutors must use Cartesia or ElevenLabs voices." 
         });
       }
       if ((validatedRole === 'assistant' || validatedRole === 'support') && provider !== 'google') {
         return res.status(400).json({ 
-          error: "Assistant tutors and support must use Google voices. Cartesia voices are only for main tutors." 
+          error: "Assistant tutors and support must use Google voices." 
         });
       }
       
-      // Validate speakingRate if provided (0.5 to 2.0 range for assistants/support, 0.7 to 1.3 for tutors)
-      const rateMin = (validatedRole === 'assistant' || validatedRole === 'support') ? 0.5 : 0.7;
-      const rateMax = (validatedRole === 'assistant' || validatedRole === 'support') ? 2.0 : 1.3;
+      // Validate speakingRate: ElevenLabs supports 0.5-2.0, Cartesia supports 0.7-1.3
+      const isElevenLabs = provider === 'elevenlabs';
+      const rateMin = (validatedRole === 'assistant' || validatedRole === 'support' || isElevenLabs) ? 0.5 : 0.7;
+      const rateMax = (validatedRole === 'assistant' || validatedRole === 'support' || isElevenLabs) ? 2.0 : 1.3;
       const validatedSpeakingRate = speakingRate !== undefined 
         ? Math.max(rateMin, Math.min(rateMax, parseFloat(speakingRate))) 
         : 0.9; // Default to natural speed
@@ -16023,6 +16022,33 @@ Current conversation context:
     }
   });
   
+  // Bulk update TTS provider for all tutor voices (admin only)
+  app.post("/api/admin/tutor-voices/provider", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { provider } = req.body;
+      if (!provider || !['cartesia', 'elevenlabs'].includes(provider)) {
+        return res.status(400).json({ error: "Provider must be 'cartesia' or 'elevenlabs'" });
+      }
+      
+      const count = await storage.updateAllTutorVoicesProvider(provider);
+      
+      await storage.logAdminAction({
+        actorId: getRequestUserId(req)!,
+        action: 'bulk_update_tts_provider',
+        targetType: 'tutor_voice',
+        targetId: 'all',
+        metadata: { provider, updatedCount: count },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+      
+      res.json({ success: true, provider, updatedCount: count });
+    } catch (error: any) {
+      console.error('Error bulk updating TTS provider:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Seed default voices (admin only - one-time setup)
   app.post("/api/admin/tutor-voices/seed", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {

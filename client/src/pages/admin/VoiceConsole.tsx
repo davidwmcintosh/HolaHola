@@ -143,6 +143,8 @@ export function VoiceConsoleContent() {
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
   const [editingVoice, setEditingVoice] = useState<TutorVoice | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [globalProvider, setGlobalProvider] = useState<string>('cartesia');
+  const [pendingProvider, setPendingProvider] = useState<string | null>(null);
   
   // Emotion audition state
   const [auditionPersonality, setAuditionPersonality] = useState<PersonalityType>('warm');
@@ -193,11 +195,6 @@ export function VoiceConsoleContent() {
   // Fetch available ElevenLabs voices
   const { data: elevenLabsVoicesData, isLoading: isLoadingElevenLabsVoices } = useQuery<{ voices: ElevenLabsVoice[]; total: number }>({
     queryKey: ["/api/admin/elevenlabs-voices"],
-    queryFn: async () => {
-      const res = await fetch('/api/admin/elevenlabs-voices');
-      if (!res.ok) throw new Error('Failed to fetch ElevenLabs voices');
-      return res.json();
-    },
     enabled: isAddDialogOpen && !!formData.language && formData.provider === 'elevenlabs',
   });
 
@@ -252,11 +249,33 @@ export function VoiceConsoleContent() {
     },
   });
 
+  const bulkProviderMutation = useMutation({
+    mutationFn: async (provider: string) => {
+      return apiRequest("POST", "/api/admin/tutor-voices/provider", { provider });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/tutor-voices"] });
+      toast({ title: "Success", description: `All tutor voices switched to ${globalProvider === 'elevenlabs' ? 'ElevenLabs' : 'Cartesia'}` });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  useEffect(() => {
+    if (voices && voices.length > 0) {
+      const tutors = voices.filter(v => v.role === 'tutor' || !v.role);
+      if (tutors.length > 0) {
+        setGlobalProvider(tutors[0].provider);
+      }
+    }
+  }, [voices]);
+
   const resetForm = () => {
     setFormData({
       language: '',
       gender: 'female',
-      provider: 'cartesia',
+      provider: globalProvider,
       voiceId: '',
       voiceName: '',
       languageCode: '',
@@ -428,7 +447,7 @@ export function VoiceConsoleContent() {
     setFormData({
       language: voice.language,
       gender: voice.gender,
-      provider: voice.provider,
+      provider: globalProvider,
       voiceId: voice.voiceId,
       voiceName: voice.voiceName,
       languageCode: voice.languageCode,
@@ -485,13 +504,23 @@ export function VoiceConsoleContent() {
     }
   };
 
-  const handleProviderChange = (value: string) => {
+  const handleGlobalProviderChange = (value: string) => {
+    if (value !== globalProvider) {
+      setPendingProvider(value);
+    }
+  };
+
+  const confirmProviderSwitch = () => {
+    if (!pendingProvider) return;
+    setGlobalProvider(pendingProvider);
     setFormData(prev => ({
       ...prev,
-      provider: value,
+      provider: pendingProvider,
       voiceId: '',
       voiceName: '',
     }));
+    bulkProviderMutation.mutate(pendingProvider);
+    setPendingProvider(null);
   };
 
   const handleSubmit = () => {
@@ -541,7 +570,7 @@ export function VoiceConsoleContent() {
                   <DialogHeader>
                     <DialogTitle>{editingVoice ? "Edit Voice" : "Add Voice Configuration"}</DialogTitle>
                     <DialogDescription>
-                      Select a language, gender, and Cartesia Sonic-3 voice for the tutor.
+                      Select a language, gender, and voice for the tutor. Using {globalProvider === 'elevenlabs' ? 'ElevenLabs Flash v2.5' : 'Cartesia Sonic-3'}.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
@@ -573,22 +602,6 @@ export function VoiceConsoleContent() {
                       </div>
                     </div>
 
-                    {/* TTS Provider Selection */}
-                    {formData.language && (
-                      <div className="space-y-2">
-                        <Label>TTS Provider</Label>
-                        <Select value={formData.provider} onValueChange={handleProviderChange}>
-                          <SelectTrigger data-testid="select-provider">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="cartesia">Cartesia (Sonic-3)</SelectItem>
-                            <SelectItem value="elevenlabs">ElevenLabs (Flash v2.5)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                    
                     {/* Voice Selection Dropdown */}
                     {formData.language && (
                       <div className="space-y-2">
@@ -975,6 +988,52 @@ export function VoiceConsoleContent() {
               </Dialog>
             </div>
           </div>
+
+          <Card data-testid="card-global-tts-provider">
+            <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between py-4 px-5">
+              <div className="flex items-center gap-3">
+                <Headphones className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="font-medium text-sm">TTS Provider</p>
+                  <p className="text-xs text-muted-foreground">
+                    Applies to all tutor voices
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 flex-wrap">
+                <Select value={globalProvider} onValueChange={handleGlobalProviderChange} disabled={bulkProviderMutation.isPending}>
+                  <SelectTrigger className="w-[220px]" data-testid="select-global-provider">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cartesia">Cartesia (Sonic-3)</SelectItem>
+                    <SelectItem value="elevenlabs">ElevenLabs (Flash v2.5)</SelectItem>
+                  </SelectContent>
+                </Select>
+                {bulkProviderMutation.isPending && (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Dialog open={!!pendingProvider} onOpenChange={(open) => { if (!open) setPendingProvider(null); }}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Switch TTS Provider</DialogTitle>
+                <DialogDescription>
+                  This will update all tutor voices to use {pendingProvider === 'elevenlabs' ? 'ElevenLabs Flash v2.5' : 'Cartesia Sonic-3'}. Each tutor will keep its current voice selection but the provider tag will change. You can reassign individual voices afterward.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="flex gap-2">
+                <Button variant="outline" onClick={() => setPendingProvider(null)} data-testid="button-cancel-provider-switch">Cancel</Button>
+                <Button onClick={confirmProviderSwitch} disabled={bulkProviderMutation.isPending} data-testid="button-confirm-provider-switch">
+                  {bulkProviderMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Switch All Voices
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           {isLoading ? (
             <div className="space-y-2">

@@ -748,6 +748,9 @@ export interface IStorage {
   // Delete a voice configuration
   deleteTutorVoice(id: string): Promise<boolean>;
   
+  // Update TTS provider for all tutor voices at once
+  updateAllTutorVoicesProvider(provider: string): Promise<number>;
+  
   // Seed default voices (for initial setup)
   seedDefaultTutorVoices(): Promise<void>;
   
@@ -5541,14 +5544,12 @@ export class DatabaseStorage implements IStorage {
     // Default to 'tutor' role if not specified
     const role = data.role || 'tutor';
     
-    // CRITICAL SAFEGUARD: Enforce provider by role at storage layer
-    // Main tutors MUST use Cartesia Sonic-3 voices
-    // Assistants and support MUST use Google Cloud TTS voices
-    if (role === 'tutor' && data.provider !== 'cartesia') {
-      throw new Error('[Voice Guard] Main tutors must use Cartesia voices. Google voices are only for assistant tutors and support.');
+    const validTutorProviders = ['cartesia', 'elevenlabs'];
+    if (role === 'tutor' && !validTutorProviders.includes(data.provider)) {
+      throw new Error('[Voice Guard] Main tutors must use Cartesia or ElevenLabs voices.');
     }
     if ((role === 'assistant' || role === 'support') && data.provider !== 'google') {
-      throw new Error('[Voice Guard] Assistant tutors and support must use Google voices. Cartesia voices are only for main tutors.');
+      throw new Error('[Voice Guard] Assistant tutors and support must use Google voices.');
     }
     
     // Check if voice already exists for this language, gender, AND role
@@ -5577,6 +5578,18 @@ export class DatabaseStorage implements IStorage {
   async deleteTutorVoice(id: string): Promise<boolean> {
     const result = await getSharedDb().delete(tutorVoices).where(eq(tutorVoices.id, id)).returning();
     return result.length > 0;
+  }
+
+  async updateAllTutorVoicesProvider(provider: string): Promise<number> {
+    const validProviders = ['cartesia', 'elevenlabs'];
+    if (!validProviders.includes(provider)) {
+      throw new Error(`[Voice Guard] Invalid provider: ${provider}. Must be one of: ${validProviders.join(', ')}`);
+    }
+    const result = await getSharedDb().update(tutorVoices)
+      .set({ provider, updatedAt: new Date() })
+      .where(eq(tutorVoices.role, 'tutor'))
+      .returning();
+    return result.length;
   }
 
   async seedDefaultTutorVoices(): Promise<void> {
