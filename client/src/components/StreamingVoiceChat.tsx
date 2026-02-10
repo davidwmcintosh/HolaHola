@@ -1054,25 +1054,28 @@ export function StreamingVoiceChat({
     // Note: When streamProcessing is true but not playing yet, 
     // avatar stays in current state (idle/listening) until audio actually starts
     
-    // Handle streaming errors - show them since we don't have REST fallback
+    // Handle streaming errors - only reset processing on CONNECTION-level errors
+    // Non-fatal audio playback errors (e.g. "Failed to load because no supported source was found"
+    // from 0-byte end-marker audio chunks) should NOT clear isProcessing or avatar state
     if (streamError) {
-      console.error('[STREAMING] Error:', streamError);
-      // Reset processing state and avatar
-      if (isProcessingRef.current) {
-        setIsProcessing(false);
-        isProcessingRef.current = false;
-        setProcessingStage(null);
-      }
-      setAvatarState('idle');
-      setError(streamError);
+      const isConnectionError = connectionState === 'error' || connectionState === 'disconnected';
       
-      if (connectionState === 'error') {
+      if (isConnectionError) {
+        console.error('[STREAMING] Connection error:', streamError);
+        if (isProcessingRef.current) {
+          setIsProcessing(false);
+          isProcessingRef.current = false;
+          setProcessingStage(null);
+        }
+        setAvatarState('idle');
+        setError(streamError);
         streamingConnectedRef.current = false;
-        // Reset handoff flag on error so parent's safety timeout handles cleanup
         if (isLanguageHandoffRef.current) {
           console.log('[STREAMING] Error during language handoff - resetting flag');
           isLanguageHandoffRef.current = false;
         }
+      } else {
+        console.warn('[STREAMING] Non-fatal error (not clearing processing state):', streamError);
       }
     }
     
