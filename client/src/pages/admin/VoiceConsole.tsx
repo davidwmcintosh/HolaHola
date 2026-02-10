@@ -70,6 +70,16 @@ interface CartesiaVoice {
   isPublic: boolean;
 }
 
+interface ElevenLabsVoice {
+  id: string;
+  name: string;
+  category: string;
+  labels: Record<string, string>;
+  description: string;
+  previewUrl: string;
+  provider: string;
+}
+
 const SUPPORTED_LANGUAGES = [
   { value: 'english', label: 'English', code: 'en' },
   { value: 'spanish', label: 'Spanish', code: 'es' },
@@ -170,10 +180,33 @@ export function VoiceConsoleContent() {
   // Fetch available Cartesia voices based on selected language and gender
   const { data: cartesiaVoicesData, isLoading: isLoadingCartesiaVoices } = useQuery<{ voices: CartesiaVoice[]; total: number }>({
     queryKey: ["/api/admin/cartesia-voices", formData.language, formData.gender],
-    enabled: isAddDialogOpen && !!formData.language,
+    enabled: isAddDialogOpen && !!formData.language && formData.provider === 'cartesia',
   });
 
   const cartesiaVoices = cartesiaVoicesData?.voices || [];
+
+  // Fetch available ElevenLabs voices
+  const { data: elevenLabsVoicesData, isLoading: isLoadingElevenLabsVoices } = useQuery<{ voices: ElevenLabsVoice[]; total: number }>({
+    queryKey: ["/api/admin/elevenlabs-voices"],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/elevenlabs-voices');
+      if (!res.ok) throw new Error('Failed to fetch ElevenLabs voices');
+      return res.json();
+    },
+    enabled: isAddDialogOpen && !!formData.language && formData.provider === 'elevenlabs',
+  });
+
+  const elevenLabsVoices: CartesiaVoice[] = (elevenLabsVoicesData?.voices || []).map(v => ({
+    id: v.id,
+    name: v.name,
+    description: v.description || v.labels?.accent || '',
+    language: v.labels?.accent || '',
+    gender: v.labels?.gender || '',
+    isPublic: true,
+  }));
+
+  const activeVoices = formData.provider === 'elevenlabs' ? elevenLabsVoices : cartesiaVoices;
+  const isLoadingActiveVoices = formData.provider === 'elevenlabs' ? isLoadingElevenLabsVoices : isLoadingCartesiaVoices;
 
   const upsertMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
@@ -418,7 +451,7 @@ export function VoiceConsoleContent() {
   };
 
   const handleVoiceSelect = (voiceId: string) => {
-    const selectedVoice = cartesiaVoices.find(v => v.id === voiceId);
+    const selectedVoice = activeVoices.find(v => v.id === voiceId);
     if (selectedVoice) {
       setFormData(prev => ({
         ...prev,
@@ -426,6 +459,15 @@ export function VoiceConsoleContent() {
         voiceName: selectedVoice.name,
       }));
     }
+  };
+
+  const handleProviderChange = (value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      provider: value,
+      voiceId: '',
+      voiceName: '',
+    }));
   };
 
   const handleSubmit = () => {
@@ -506,20 +548,36 @@ export function VoiceConsoleContent() {
                         </Select>
                       </div>
                     </div>
+
+                    {/* TTS Provider Selection */}
+                    {formData.language && (
+                      <div className="space-y-2">
+                        <Label>TTS Provider</Label>
+                        <Select value={formData.provider} onValueChange={handleProviderChange}>
+                          <SelectTrigger data-testid="select-provider">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="cartesia">Cartesia (Sonic-3)</SelectItem>
+                            <SelectItem value="elevenlabs">ElevenLabs (Flash v2.5)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                     
                     {/* Voice Selection Dropdown */}
                     {formData.language && (
                       <div className="space-y-2">
                         <Label>Voice</Label>
-                        {isLoadingCartesiaVoices ? (
+                        {isLoadingActiveVoices ? (
                           <div className="flex items-center gap-2 p-3 border rounded-md">
                             <Loader2 className="h-4 w-4 animate-spin" />
-                            <span className="text-sm text-muted-foreground">Loading available voices...</span>
+                            <span className="text-sm text-muted-foreground">Loading {formData.provider === 'elevenlabs' ? 'ElevenLabs' : 'Cartesia'} voices...</span>
                           </div>
-                        ) : cartesiaVoices.length === 0 ? (
+                        ) : activeVoices.length === 0 ? (
                           <div className="p-3 border rounded-md border-dashed">
                             <p className="text-sm text-muted-foreground">
-                              No {formData.gender} voices found for {SUPPORTED_LANGUAGES.find(l => l.value === formData.language)?.label}.
+                              No voices found. {formData.provider === 'elevenlabs' ? 'Check ElevenLabs API key.' : `No ${formData.gender} voices for ${SUPPORTED_LANGUAGES.find(l => l.value === formData.language)?.label}.`}
                             </p>
                           </div>
                         ) : (
@@ -528,7 +586,7 @@ export function VoiceConsoleContent() {
                               <SelectValue placeholder="Select a voice" />
                             </SelectTrigger>
                             <SelectContent>
-                              {cartesiaVoices.map(voice => (
+                              {activeVoices.map(voice => (
                                 <SelectItem key={voice.id} value={voice.id}>
                                   <div className="flex flex-col">
                                     <span>{voice.name}</span>
