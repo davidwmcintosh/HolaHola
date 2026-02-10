@@ -1525,7 +1525,7 @@ export class StreamingVoiceOrchestrator {
       const totalWarmup = Date.now() - warmupStart;
       logMetric('warmup', { 
         sessionId, 
-        cartesiaMs: cartesiaWarmupMs, 
+        cartesiaMs: ttsWarmupMs, 
         geminiMs: geminiWarmupMs, 
         totalMs: totalWarmup 
       });
