@@ -6851,6 +6851,8 @@ Remember: Beta testers understand they're helping build something and appreciate
     let sentenceReadySent = false;  // Have we sent the sentence_ready message?
     let chunkIndex = 0;
     let firstAudioReceivedTime: number | null = null;  // Track when first audio arrived
+    let firstChunkAudioFormat: 'mp3' | 'pcm_f32le' = 'mp3';  // Track format from first audio chunk for onComplete
+    let firstChunkSampleRate: number = 44100;
     const TIMING_WAIT_TIMEOUT_MS = 250;  // Max wait for timing before sending audio anyway
     
     // Helper: Flush buffered data when we have both audio AND timing
@@ -6950,6 +6952,12 @@ Remember: Beta testers understand they're helping build something and appreciate
             metrics.audioBytes += audioChunk.audio.length;
             metrics.audioChunkCount++;  // Track for production duplicate audio debugging
             
+            // Track format from first chunk for use in onComplete final marker
+            if (idx === 0 && audioChunk.audioFormat) {
+              firstChunkAudioFormat = audioChunk.audioFormat as 'mp3' | 'pcm_f32le';
+              firstChunkSampleRate = audioChunk.sampleRate || 44100;
+            }
+            
             if (!sentenceReadySent) {
               // Track when first audio arrived for timeout calculation
               if (!firstAudioReceivedTime) {
@@ -7042,8 +7050,9 @@ Remember: Beta testers understand they're helping build something and appreciate
             }
             
             // Send final "empty" audio chunk to signal end
-            const lastAudioFormat = bufferedAudioChunks.length > 0 ? bufferedAudioChunks[0].audioFormat : 'mp3';
-            const lastSampleRate = bufferedAudioChunks.length > 0 ? bufferedAudioChunks[0].sampleRate : 44100;
+            // Use tracked format from first chunk (bufferedAudioChunks is cleared after sentence_ready)
+            const lastAudioFormat = firstChunkAudioFormat;
+            const lastSampleRate = firstChunkSampleRate;
             this.sendMessage(session.ws, {
               type: 'audio_chunk',
               timestamp: Date.now(),
