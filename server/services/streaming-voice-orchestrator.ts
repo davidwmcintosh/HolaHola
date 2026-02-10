@@ -7150,7 +7150,7 @@ Remember: Beta testers understand they're helping build something and appreciate
               ttsCallbacks.onAudioChunk({
                 audio: audioChunk.audio,
                 durationMs: audioChunk.durationMs,
-                audioFormat: 'mp3',
+                audioFormat: audioChunk.audioFormat || 'pcm_f32le',
                 isLast: false,
               }, googleStreamChunkIdx++);
               

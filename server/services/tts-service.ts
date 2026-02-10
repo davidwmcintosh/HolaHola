@@ -1758,25 +1758,33 @@ export class TTSService {
       stream.on('data', (response: any) => {
         try {
           if (response.audioContent && response.audioContent.length > 0) {
-            const audioBuffer = Buffer.from(response.audioContent);
-            if (audioBuffer.length === 0) return;
+            const rawBuffer = Buffer.from(response.audioContent);
+            if (rawBuffer.length === 0) return;
 
             if (!firstChunkTime) {
               firstChunkTime = Date.now();
-              console.log(`[Google TTS Stream] First chunk: ${audioBuffer.length} bytes in ${firstChunkTime - startTime}ms`);
+              console.log(`[Google TTS Stream] First chunk: ${rawBuffer.length} bytes (int16) in ${firstChunkTime - startTime}ms`);
             }
 
-            totalBytes += audioBuffer.length;
+            totalBytes += rawBuffer.length;
             chunkCount++;
+
+            const sampleCount = Math.floor(rawBuffer.length / 2);
+            const float32Buffer = Buffer.alloc(sampleCount * 4);
+            for (let i = 0; i < sampleCount; i++) {
+              const int16Val = rawBuffer.readInt16LE(i * 2);
+              const float32Val = int16Val < 0 ? int16Val / 0x8000 : int16Val / 0x7FFF;
+              float32Buffer.writeFloatLE(float32Val, i * 4);
+            }
 
             const chunkDurationMs = chunkCount === 1
               ? estimatedTotalDurationMs
               : 0;
 
             onAudioChunk({
-              audio: audioBuffer,
+              audio: float32Buffer,
               durationMs: chunkDurationMs,
-              audioFormat: 'mp3',
+              audioFormat: 'pcm_f32le',
               sampleRate: 24000,
             });
           }
@@ -1799,13 +1807,6 @@ export class TTSService {
           voice: {
             languageCode,
             name: voiceId,
-          },
-          streamingAudioConfig: {
-            audioEncoding: 'MP3',
-            speakingRate,
-            pitch,
-            volumeGainDb,
-            sampleRateHertz: 24000,
           },
         },
       });
