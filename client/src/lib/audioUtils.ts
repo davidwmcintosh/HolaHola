@@ -554,6 +554,7 @@ export class StreamingAudioPlayer {
   private updatePendingCount(count: number): void {
     this.pendingAudioCount = count;
     this.callbacks.onPendingAudioChange?.(count);
+    this.notifyPendingAudioChange(count);
   }
   
   /**
