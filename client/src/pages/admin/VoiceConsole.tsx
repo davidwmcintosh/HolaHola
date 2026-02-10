@@ -533,7 +533,7 @@ export function VoiceConsoleContent() {
     setFormData({
       language: voice.language,
       gender: voice.gender,
-      provider: globalProvider,
+      provider: voice.provider || globalProvider,
       voiceId: voice.voiceId,
       voiceName: voice.voiceName,
       languageCode: voice.languageCode,
@@ -547,6 +547,9 @@ export function VoiceConsoleContent() {
       elSimilarityBoost: voice.elSimilarityBoost ?? 0.75,
       elStyle: voice.elStyle ?? 0.0,
       elSpeakerBoost: voice.elSpeakerBoost ?? true,
+      // Google Cloud TTS settings
+      googlePitch: (voice as any).googlePitch ?? 0,
+      googleVolumeGainDb: (voice as any).googleVolumeGainDb ?? 0,
       // Load pedagogical persona fields
       pedagogicalFocus: voice.pedagogicalFocus || 'mixed',
       teachingStyle: voice.teachingStyle || 'adaptive',
@@ -887,10 +890,10 @@ export function VoiceConsoleContent() {
                         <div className="space-y-3">
                           <div className="flex items-center justify-between">
                             <Label className="text-xs text-muted-foreground">Pitch</Label>
-                            <span className="text-sm font-medium">{formData.googlePitch > 0 ? '+' : ''}{formData.googlePitch.toFixed(1)} semitones</span>
+                            <span className="text-sm font-medium">{(formData.googlePitch ?? 0) > 0 ? '+' : ''}{(formData.googlePitch ?? 0).toFixed(1)} semitones</span>
                           </div>
                           <Slider
-                            value={[formData.googlePitch]}
+                            value={[formData.googlePitch ?? 0]}
                             onValueChange={([value]) => setFormData(prev => ({ ...prev, googlePitch: value }))}
                             min={-10}
                             max={10}
@@ -908,10 +911,10 @@ export function VoiceConsoleContent() {
                         <div className="space-y-3">
                           <div className="flex items-center justify-between">
                             <Label className="text-xs text-muted-foreground">Volume Gain</Label>
-                            <span className="text-sm font-medium">{formData.googleVolumeGainDb > 0 ? '+' : ''}{formData.googleVolumeGainDb.toFixed(1)} dB</span>
+                            <span className="text-sm font-medium">{(formData.googleVolumeGainDb ?? 0) > 0 ? '+' : ''}{(formData.googleVolumeGainDb ?? 0).toFixed(1)} dB</span>
                           </div>
                           <Slider
-                            value={[formData.googleVolumeGainDb]}
+                            value={[formData.googleVolumeGainDb ?? 0]}
                             onValueChange={([value]) => setFormData(prev => ({ ...prev, googleVolumeGainDb: value }))}
                             min={-10}
                             max={10}

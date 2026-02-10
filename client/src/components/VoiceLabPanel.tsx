@@ -177,6 +177,7 @@ export function VoiceLabPanel({
   });
   
   const isElevenLabs = currentVoice?.provider === 'elevenlabs';
+  const isGoogle = currentVoice?.provider === 'google';
 
   // Fetch available Cartesia voices for main tutors (only when using Cartesia)
   const { data: cartesiaVoicesData, isLoading: isLoadingCartesiaVoices } = useQuery<{ voices: CartesiaVoice[]; total: number }>({
@@ -186,7 +187,7 @@ export function VoiceLabPanel({
       if (!res.ok) throw new Error('Failed to fetch voices');
       return res.json();
     },
-    enabled: isOpen && !!language && !isAssistant && !isElevenLabs,
+    enabled: isOpen && !!language && !isAssistant && !isElevenLabs && !isGoogle,
   });
   const cartesiaVoices = cartesiaVoicesData?.voices || [];
 
@@ -217,7 +218,7 @@ export function VoiceLabPanel({
     gender: v.labels?.gender || undefined,
   }));
 
-  // Fetch available Google TTS voices for assistants
+  // Fetch available Google TTS voices for assistants OR main tutors using Google provider
   const { data: googleVoicesData, isLoading: isLoadingGoogleVoices } = useQuery<{ voices: GoogleVoice[]; total: number }>({
     queryKey: ['/api/admin/google-voices', language, tutorGender],
     queryFn: async () => {
@@ -225,13 +226,13 @@ export function VoiceLabPanel({
       if (!res.ok) throw new Error('Failed to fetch voices');
       return res.json();
     },
-    enabled: isOpen && !!language && isAssistant,
+    enabled: isOpen && !!language && (isAssistant || isGoogle),
   });
   const googleVoices = googleVoicesData?.voices || [];
 
-  // Use appropriate voice list based on role
-  const availableVoices = isAssistant ? googleVoices : (isElevenLabs ? elevenLabsVoices : cartesiaVoices);
-  const isLoadingVoices = isAssistant ? isLoadingGoogleVoices : (isElevenLabs ? isLoadingElevenLabsVoices : isLoadingCartesiaVoices);
+  // Use appropriate voice list based on role and provider
+  const availableVoices = (isAssistant || isGoogle) ? googleVoices : (isElevenLabs ? elevenLabsVoices : cartesiaVoices);
+  const isLoadingVoices = (isAssistant || isGoogle) ? isLoadingGoogleVoices : (isElevenLabs ? isLoadingElevenLabsVoices : isLoadingCartesiaVoices);
 
   // Initialize local state from current voice or override
   useEffect(() => {
