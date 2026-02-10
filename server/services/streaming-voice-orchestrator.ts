@@ -9077,6 +9077,9 @@ Only include observations you can clearly justify from the exchange. Return empt
    * Uses both chunk-ID and content-hash deduplication for comprehensive protection
    */
   private sendMessage(ws: WS, message: StreamingMessage, session?: StreamingSession): void {
+    if (message.type === 'processing') {
+      console.log(`[SendMessage] Sending 'processing' message: readyState=${ws.readyState}, WS.OPEN=${WS.OPEN}`);
+    }
     if (ws.readyState === WS.OPEN) {
       // DEDUPLICATION: Prevent duplicate audio chunks (double audio bug fix)
       // Only deduplicate audio_chunk messages - sentence_ready has different semantics

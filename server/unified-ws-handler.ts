@@ -3575,12 +3575,16 @@ ${buildNativeFunctionCallingSection()}`;
           
           // IMMEDIATE THINKING SIGNAL: Tell client to show thinking avatar NOW
           // This fires immediately on PTT release, before the 200-400ms Deepgram wait
+          console.log(`[SpeculativePTT] Sending processing_pending: readyState=${ws.readyState}, interimLen=${interimTranscript.length}`);
           if (ws.readyState === 1 && interimTranscript.length > 0) {
             ws.send(JSON.stringify({
               type: 'processing_pending',
               timestamp: Date.now(),
               interimTranscript: interimTranscript,
             }));
+            console.log(`[SpeculativePTT] ✓ processing_pending sent`);
+          } else {
+            console.log(`[SpeculativePTT] ⚠️ processing_pending NOT sent (readyState=${ws.readyState}, interimLen=${interimTranscript.length})`);
           }
           
           // DON'T close immediately - wait for Deepgram final transcript
