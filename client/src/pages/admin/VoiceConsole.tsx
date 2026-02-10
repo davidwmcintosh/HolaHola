@@ -257,7 +257,7 @@ export function VoiceConsoleContent() {
     enabled: isAddDialogOpen && !!formData.language && formData.provider === 'google',
   });
 
-  const googleVoices: CartesiaVoice[] = (googleVoicesData || []).map(v => ({
+  const googleVoices: CartesiaVoice[] = (Array.isArray(googleVoicesData) ? googleVoicesData : []).map(v => ({
     id: v.id,
     name: v.name,
     description: `Google Chirp 3 HD - ${v.languageCode}`,
