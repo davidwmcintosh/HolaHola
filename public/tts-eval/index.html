@@ -57,11 +57,89 @@
 <p class="subtitle">Cartesia Sonic-3 vs ElevenLabs Flash v2.5 - Language Tutor Voice Quality</p>
 
 <div class="tabs">
-  <div class="tab active" onclick="switchTab('round2')">Round 2: Accent-Matched Voices (NEW)</div>
+  <div class="tab active" onclick="switchTab('round3')">Round 3: Homograph Fixes (NEW)</div>
+  <div class="tab" onclick="switchTab('round2')">Round 2: Accent-Matched Voices</div>
   <div class="tab" onclick="switchTab('round1')">Round 1: Original Comparison</div>
 </div>
 
-<div id="round2" class="tab-content active">
+<div id="round3" class="tab-content active">
+
+<div class="note" style="border-color: #4ade8033;">
+  <div class="note-title" style="color: #4ade80;">Round 3: Fixing Homograph Mispronunciation</div>
+  <p>Round 2 showed accent-matched voices work great, but two homographs remain problematic:<br>
+  <strong style="color:#f59e0b">"come"</strong> (Italian: koh-meh, English: kuhm) and 
+  <strong style="color:#f59e0b">"table"</strong> (French: tahbl, English: tay-bul).<br><br>
+  We test two fixes: <strong style="color:#f472b6">Phonetic alias</strong> (rewrite "come" as "koh-meh" before sending to TTS) and 
+  <strong style="color:#60a5fa">language_code hint</strong> (tell ElevenLabs the whole text is Italian/French).
+  We already have bold markers from Gemini that identify which words are target-language, so we know exactly where to apply aliases.</p>
+</div>
+
+<div class="test-group key-test">
+  <div class="test-header">
+    <div class="test-title">Italian "come stai" - Homograph Fix<span class="badge">Key Test</span></div>
+    <div class="test-desc">Does alias ("koh-meh") or language_code ("it") fix the English pronunciation of "come"?</div>
+    <div class="test-text">Now try saying <span class="target">come stai</span> to greet someone.</div>
+  </div>
+  <div class="players">
+    <div class="player-row">
+      <div class="provider-label eleven-accent">Original (accent voice, no fix)</div>
+      <audio controls preload="none" src="it-come-original.mp3"></audio>
+    </div>
+    <div class="player-row">
+      <div class="provider-label" style="color:#f472b6">Fix 1: Phonetic alias ("koh-meh stai") <span class="new-tag">NEW</span></div>
+      <audio controls preload="none" src="it-come-alias.mp3"></audio>
+    </div>
+    <div class="player-row">
+      <div class="provider-label" style="color:#60a5fa">Fix 2: language_code = "it" <span class="new-tag">NEW</span></div>
+      <audio controls preload="none" src="it-come-langcode.mp3"></audio>
+    </div>
+    <div class="player-row">
+      <div class="provider-label cartesia-forced">Cartesia forced Italian [Round 1 reference]</div>
+      <audio controls preload="none" src="it-homograph_cartesia_forced.mp3"></audio>
+    </div>
+  </div>
+</div>
+
+<div class="test-group key-test">
+  <div class="test-header">
+    <div class="test-title">French "table" - Homograph Fix<span class="badge">Key Test</span></div>
+    <div class="test-desc">Does alias ("tahbl") or language_code ("fr") fix the English pronunciation of "table"?</div>
+    <div class="test-text">The French word <span class="target">table</span> sounds different than English, and <span class="target">une orange</span> is almost the same.</div>
+  </div>
+  <div class="players">
+    <div class="player-row">
+      <div class="provider-label eleven-accent">Original (accent voice, no fix)</div>
+      <audio controls preload="none" src="fr-table-original.mp3"></audio>
+    </div>
+    <div class="player-row">
+      <div class="provider-label" style="color:#f472b6">Fix 1: Phonetic alias ("tahbl") <span class="new-tag">NEW</span></div>
+      <audio controls preload="none" src="fr-table-alias.mp3"></audio>
+    </div>
+    <div class="player-row">
+      <div class="provider-label" style="color:#60a5fa">Fix 2: language_code = "fr" <span class="new-tag">NEW</span></div>
+      <audio controls preload="none" src="fr-table-langcode.mp3"></audio>
+    </div>
+    <div class="player-row">
+      <div class="provider-label cartesia-forced">Cartesia forced French [Round 1 reference]</div>
+      <audio controls preload="none" src="fr-homograph_cartesia_forced.mp3"></audio>
+    </div>
+  </div>
+</div>
+
+<div class="note">
+  <div class="note-title">How this would work in production</div>
+  <p>Gemini already marks target language words with <strong style="color:#f59e0b">**bold markers**</strong>. 
+  Before sending text to ElevenLabs TTS, we could:<br><br>
+  <strong>Alias approach:</strong> Maintain a small lookup table of known homographs per language. When we see a bold-marked word 
+  that matches the table, swap it for the phonetic alias. This is precise and only affects problem words.<br><br>
+  <strong>language_code approach:</strong> Pass the target language code with every request. Simpler, but may cause English words 
+  to be mispronounced instead (the opposite problem).<br><br>
+  Listen to both and decide which sounds more natural overall.</p>
+</div>
+
+</div>
+
+<div id="round2" class="tab-content">
 
 <div class="note" style="border-color: #f472b633;">
   <div class="note-title" style="color: #f472b6;">Round 2: The Key Question</div>
