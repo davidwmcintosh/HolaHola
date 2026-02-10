@@ -82,6 +82,7 @@ interface ElevenLabsVoice {
   description: string;
   previewUrl: string;
   provider: string;
+  source?: string;
 }
 
 const SUPPORTED_LANGUAGES = [
@@ -196,25 +197,32 @@ export function VoiceConsoleContent() {
 
   const cartesiaVoices = cartesiaVoicesData?.voices || [];
 
-  // Fetch available ElevenLabs voices
+  const selectedLangCode = SUPPORTED_LANGUAGES.find(l => l.value === formData.language)?.code || '';
+
   const { data: elevenLabsVoicesData, isLoading: isLoadingElevenLabsVoices } = useQuery<{ voices: ElevenLabsVoice[]; total: number }>({
-    queryKey: ["/api/admin/elevenlabs-voices"],
+    queryKey: ["/api/admin/elevenlabs-voices", selectedLangCode, formData.gender],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (selectedLangCode) params.set('language', selectedLangCode);
+      if (formData.gender) params.set('gender', formData.gender);
+      const res = await fetch(`/api/admin/elevenlabs-voices?${params.toString()}`);
+      if (!res.ok) throw new Error('Failed to fetch voices');
+      return res.json();
+    },
     enabled: isAddDialogOpen && !!formData.language && formData.provider === 'elevenlabs',
   });
-
-  const selectedLangCode = SUPPORTED_LANGUAGES.find(l => l.value === formData.language)?.code || '';
 
   const elevenLabsVoices: CartesiaVoice[] = (elevenLabsVoicesData?.voices || [])
     .filter(v => {
       const voiceLang = v.labels?.language || '';
       const voiceGender = v.labels?.gender || '';
-      const langMatch = !selectedLangCode || voiceLang === selectedLangCode;
+      const langMatch = !selectedLangCode || voiceLang === selectedLangCode || v.source === 'library';
       const genderMatch = !formData.gender || voiceGender === formData.gender;
       return langMatch && genderMatch;
     })
     .map(v => ({
       id: v.id,
-      name: v.name,
+      name: `${v.name}${v.source === 'library' ? ' [Library]' : ''}`,
       description: v.description || [v.labels?.accent, v.labels?.descriptive, v.labels?.use_case].filter(Boolean).join(', ') || '',
       language: v.labels?.language || '',
       gender: v.labels?.gender || '',

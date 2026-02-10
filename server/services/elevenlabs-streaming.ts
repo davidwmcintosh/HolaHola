@@ -35,12 +35,12 @@ import type {
  */
 const ELEVENLABS_VOICE_MAP: Record<string, { voiceId: string; languageCode: string; name: string }> = {
   'english': {
-    voiceId: 'EXAVITQu4vr4xnSDxMaL',  // Sarah - premade English
+    voiceId: 'XrExE9yKIg1WjnnlVkGX',
     languageCode: 'en',
-    name: 'Sarah',
+    name: 'Matilda',
   },
   'spanish': {
-    voiceId: '1SM7GgM6IMuvQBfpc0as',
+    voiceId: 'zl1Ut8dvwcVSuQSB9XkG',
     languageCode: 'es',
     name: 'Ninoska',
   },
@@ -50,7 +50,7 @@ const ELEVENLABS_VOICE_MAP: Record<string, { voiceId: string; languageCode: stri
     name: 'Lea',
   },
   'german': {
-    voiceId: 'RFh0TQvtdMlgdYCNjqbv',
+    voiceId: 'XFigb6fqZPxl2Q2dFOXN',
     languageCode: 'de',
     name: 'Nadine',
   },
@@ -60,29 +60,29 @@ const ELEVENLABS_VOICE_MAP: Record<string, { voiceId: string; languageCode: stri
     name: 'Alessandra',
   },
   'portuguese': {
-    voiceId: 'EXAVITQu4vr4xnSDxMaL',  // TODO: Find native Portuguese voice
+    voiceId: 'pFZP5JQG7iQjIQuC4Bku',
     languageCode: 'pt',
-    name: 'Sarah',
+    name: 'Lily',
   },
   'japanese': {
-    voiceId: 'MgFk4zRwS0Ov4P4y3Fh1',
+    voiceId: 'EkK6wL8GaH8IgBZTTDGJ',
     languageCode: 'ja',
     name: 'Akari',
   },
   'mandarin chinese': {
-    voiceId: 'EXAVITQu4vr4xnSDxMaL',  // TODO: Find native Mandarin voice
+    voiceId: 'cgSgspJ2msm6clMCkdW9',
     languageCode: 'zh',
-    name: 'Sarah',
+    name: 'Jessica',
   },
   'korean': {
-    voiceId: 'IyGJAPXsNfvITxCLBqjf',
+    voiceId: 'mYk0rAapHek2oTw18z8x',
     languageCode: 'ko',
     name: 'Salang',
   },
   'hebrew': {
-    voiceId: 'EXAVITQu4vr4xnSDxMaL',  // TODO: Find Hebrew voice
-    languageCode: 'he',
-    name: 'Sarah',
+    voiceId: 'Xb7hH8MSUJpSbSDYk0k2',
+    languageCode: '',
+    name: 'Alice',
   },
 };
 

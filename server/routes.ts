@@ -16749,6 +16749,8 @@ Current conversation context:
         return res.status(500).json({ error: "ElevenLabs API key not configured" });
       }
 
+      const { language, gender } = req.query;
+
       const response = await fetch('https://api.elevenlabs.io/v1/voices', {
         headers: {
           'xi-api-key': apiKey,
@@ -16762,7 +16764,7 @@ Current conversation context:
       }
 
       const data = await response.json();
-      const voices = (data.voices || []).map((v: any) => ({
+      const accountVoices = (data.voices || []).map((v: any) => ({
         id: v.voice_id,
         name: v.name,
         category: v.category,
@@ -16770,9 +16772,54 @@ Current conversation context:
         description: v.description,
         previewUrl: v.preview_url,
         provider: 'elevenlabs',
+        source: 'account',
       }));
 
-      res.json({ voices, total: voices.length });
+      let libraryVoices: any[] = [];
+      if (language) {
+        try {
+          const libUrl = new URL('https://api.elevenlabs.io/v1/shared-voices');
+          libUrl.searchParams.set('page_size', '20');
+          libUrl.searchParams.set('language', language as string);
+          libUrl.searchParams.set('sort', 'usage_character_count_1y');
+          if (gender) {
+            libUrl.searchParams.set('gender', gender as string);
+          }
+          
+          const libResponse = await fetch(libUrl.toString(), {
+            headers: { 'xi-api-key': apiKey },
+          });
+          
+          if (libResponse.ok) {
+            const libData = await libResponse.json();
+            const accountVoiceIds = new Set(accountVoices.map((v: any) => v.id));
+            libraryVoices = (libData.voices || [])
+              .filter((v: any) => !accountVoiceIds.has(v.voice_id))
+              .map((v: any) => ({
+                id: v.voice_id,
+                name: v.name,
+                category: 'shared',
+                labels: {
+                  language: v.language || '',
+                  accent: v.accent || '',
+                  gender: v.gender || '',
+                  age: v.age || '',
+                  descriptive: v.descriptive || '',
+                  use_case: v.use_case || '',
+                },
+                description: [v.accent, v.descriptive, v.use_case].filter(Boolean).join(', ') || '',
+                previewUrl: v.preview_url || '',
+                provider: 'elevenlabs',
+                source: 'library',
+              }));
+          }
+        } catch (libError: any) {
+          console.error('Error fetching ElevenLabs shared voices:', libError.message);
+        }
+      }
+
+      const allVoices = [...accountVoices, ...libraryVoices];
+      res.json({ voices: allVoices, total: allVoices.length });
     } catch (error: any) {
       console.error('Error fetching ElevenLabs voices:', error);
       res.status(500).json({ error: error.message });

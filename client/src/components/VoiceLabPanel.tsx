@@ -72,6 +72,7 @@ interface ElevenLabsVoice {
   description: string;
   previewUrl: string;
   provider: string;
+  source?: string;
 }
 
 export interface VoiceOverride {
@@ -189,14 +190,28 @@ export function VoiceLabPanel({
   });
   const cartesiaVoices = cartesiaVoicesData?.voices || [];
 
-  // Fetch available ElevenLabs voices for main tutors (only when using ElevenLabs)
+  const langCodeMap: Record<string, string> = {
+    english: 'en', spanish: 'es', french: 'fr', german: 'de',
+    italian: 'it', portuguese: 'pt', japanese: 'ja',
+    'mandarin chinese': 'zh', korean: 'ko', hebrew: 'he',
+  };
+  const elLangCode = langCodeMap[language] || '';
+
   const { data: elevenLabsVoicesData, isLoading: isLoadingElevenLabsVoices } = useQuery<{ voices: ElevenLabsVoice[]; total: number }>({
-    queryKey: ['/api/admin/elevenlabs-voices'],
+    queryKey: ['/api/admin/elevenlabs-voices', elLangCode, tutorGender],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (elLangCode) params.set('language', elLangCode);
+      if (tutorGender) params.set('gender', tutorGender);
+      const res = await fetch(`/api/admin/elevenlabs-voices?${params.toString()}`);
+      if (!res.ok) throw new Error('Failed to fetch voices');
+      return res.json();
+    },
     enabled: isOpen && !!language && !isAssistant && isElevenLabs,
   });
   const elevenLabsVoices = (elevenLabsVoicesData?.voices || []).map(v => ({
     id: v.id,
-    name: v.name,
+    name: `${v.name}${v.source === 'library' ? ' [Library]' : ''}`,
     description: v.description || '',
     language: v.labels?.accent || '',
     gender: v.labels?.gender || undefined,
