@@ -821,7 +821,7 @@ export interface StreamingSession {
   tutorExpressiveness: number;
   voiceSpeed: VoiceSpeedOption;
   voiceId?: string;
-  ttsProvider?: 'elevenlabs' | 'cartesia';  // Per-session TTS provider (from tutor_voices DB record)
+  ttsProvider?: 'elevenlabs' | 'cartesia' | 'google';  // Per-session TTS provider (from tutor_voices DB record)
   tutorGender: 'male' | 'female';    // Current tutor gender for persona-aware responses
   tutorName: string;                 // Current tutor's first name (e.g., "Daniela", "Agustin")
   systemPrompt: string;
@@ -1411,7 +1411,7 @@ export class StreamingVoiceOrchestrator {
           console.log(`[PedagogicalPersona] Loaded for ${session.tutorName}: focus=${tutorVoice.pedagogicalFocus}, style=${tutorVoice.teachingStyle}`);
         }
         
-        session.ttsProvider = (tutorVoice.provider === 'elevenlabs' ? 'elevenlabs' : 'cartesia') as 'elevenlabs' | 'cartesia';
+        session.ttsProvider = (tutorVoice.provider === 'elevenlabs' ? 'elevenlabs' : tutorVoice.provider === 'google' ? 'google' : 'cartesia') as 'elevenlabs' | 'cartesia' | 'google';
         // Store ElevenLabs-specific voice settings on session
         (session as any).elStability = tutorVoice.elStability ?? 0.5;
         (session as any).elSimilarityBoost = tutorVoice.elSimilarityBoost ?? 0.75;
@@ -1502,10 +1502,10 @@ export class StreamingVoiceOrchestrator {
     let ttsWarmupMs = 0;
     let geminiWarmupMs = 0;
     const sessionTtsProvider = session.ttsProvider || this.ttsProvider;
-    const ttsWarmupPromise = sessionTtsProvider === 'elevenlabs'
+    const ttsWarmupPromise = (sessionTtsProvider === 'elevenlabs' || sessionTtsProvider === 'google')
       ? Promise.resolve(0).then(time => {
           ttsWarmupMs = time;
-          console.log(`[Streaming Orchestrator] ElevenLabs ready (REST, no warmup needed)`);
+          console.log(`[Streaming Orchestrator] ${sessionTtsProvider === 'google' ? 'Google Cloud TTS' : 'ElevenLabs'} ready (REST, no warmup needed)`);
         })
       : this.cartesiaService.ensureConnection()
         .then(time => {
@@ -1661,8 +1661,9 @@ export class StreamingVoiceOrchestrator {
       const sttStart = Date.now();
       
       // Start both operations in parallel
-      const ttsWarmup = (session.ttsProvider || this.ttsProvider) === 'elevenlabs'
-        ? Promise.resolve(0) // ElevenLabs uses REST, no warmup needed
+      const currentTtsProvider = session.ttsProvider || this.ttsProvider;
+      const ttsWarmup = (currentTtsProvider === 'elevenlabs' || currentTtsProvider === 'google')
+        ? Promise.resolve(0) // ElevenLabs/Google use REST, no warmup needed
         : this.cartesiaService.ensureConnection().catch((err: Error) => {
             console.warn(`[Streaming Orchestrator] Cartesia warmup failed: ${err.message}`);
             return -1;
@@ -4140,7 +4141,7 @@ Remember: Beta testers understand they're helping build something and appreciate
             
               // Update session voice with voiceId, provider, and ElevenLabs settings
               session.voiceId = matchingVoice.voiceId;
-              session.ttsProvider = (matchingVoice.provider === 'elevenlabs' ? 'elevenlabs' : 'cartesia') as 'elevenlabs' | 'cartesia';
+              session.ttsProvider = (matchingVoice.provider === 'elevenlabs' ? 'elevenlabs' : matchingVoice.provider === 'google' ? 'google' : 'cartesia') as 'elevenlabs' | 'cartesia' | 'google';
               (session as any).elStability = matchingVoice.elStability ?? 0.5;
               (session as any).elSimilarityBoost = matchingVoice.elSimilarityBoost ?? 0.75;
               (session as any).elStyle = matchingVoice.elStyle ?? 0;
@@ -6106,7 +6107,7 @@ Remember: Beta testers understand they're helping build something and appreciate
               tutorName = voiceNameParts[0]?.trim();
               session.isAssistantActive = false;
               session.voiceId = matchingVoice.voiceId;
-              session.ttsProvider = (matchingVoice.provider === 'elevenlabs' ? 'elevenlabs' : 'cartesia') as 'elevenlabs' | 'cartesia';
+              session.ttsProvider = (matchingVoice.provider === 'elevenlabs' ? 'elevenlabs' : matchingVoice.provider === 'google' ? 'google' : 'cartesia') as 'elevenlabs' | 'cartesia' | 'google';
               (session as any).elStability = matchingVoice.elStability ?? 0.5;
               (session as any).elSimilarityBoost = matchingVoice.elSimilarityBoost ?? 0.75;
               (session as any).elStyle = matchingVoice.elStyle ?? 0;
@@ -6537,32 +6538,55 @@ Remember: Beta testers understand they're helping build something and appreciate
         elSpeakerBoost: (session as any).elSpeakerBoost,
       };
       const effectiveTtsProvider = session.ttsProvider || this.ttsProvider;
-      const ttsStream = effectiveTtsProvider === 'elevenlabs'
-        ? this.elevenlabsService.streamSynthesize(ttsRequest)
-        : this.cartesiaService.streamSynthesize(ttsRequest);
-      for await (const audioChunk of ttsStream) {
-        if (audioChunk.audio.length > 0) {
-          // Track TTS first byte timing only on non-empty audio (actual TTS output)
-          if (!firstChunkReceived) {
-            firstChunkReceived = true;
-            if (index === 0 && !metrics.ttsFirstByteMs) {
-              metrics.ttsFirstByteMs = Date.now() - ttsStart;
-            }
-          }
-          audioChunks.push(audioChunk.audio);
-          metrics.audioBytes += audioChunk.audio.length;
-          metrics.audioChunkCount++;  // Track for production duplicate audio debugging
-          totalDurationMs += audioChunk.durationMs;
-          
-          // Track format from first chunk
-          if (audioChunks.length === 1 && audioChunk.audioFormat) {
-            audioFormat = audioChunk.audioFormat;
-            sampleRate = audioChunk.sampleRate || 24000;
+      
+      if (effectiveTtsProvider === 'google') {
+        const ttsService = getTTSService();
+        const googleResult = await ttsService.synthesizeWithGoogleDirect({
+          text: textWithEmphases,
+          voiceId: session.voiceId || '',
+          speakingRate: effectiveSpeakingRate,
+          pitch: (session as any).googlePitch ?? 0,
+          volumeGainDb: (session as any).googleVolumeGainDb ?? 0,
+        });
+        
+        if (googleResult.audioBuffer && googleResult.audioBuffer.length > 0) {
+          audioChunks.push(googleResult.audioBuffer);
+          metrics.audioBytes += googleResult.audioBuffer.length;
+          metrics.audioChunkCount++;
+          const wordsPerMinute = 150;
+          const wordCount = textWithEmphases.split(/\s+/).length;
+          totalDurationMs = Math.max(1000, (wordCount / wordsPerMinute) * 60000 / effectiveSpeakingRate);
+          audioFormat = 'mp3';
+          if (!metrics.ttsFirstByteMs) {
+            metrics.ttsFirstByteMs = Date.now() - ttsStart;
           }
         }
-        
-        if (audioChunk.isLast) {
-          break;
+      } else {
+        const ttsStream = effectiveTtsProvider === 'elevenlabs'
+          ? this.elevenlabsService.streamSynthesize(ttsRequest)
+          : this.cartesiaService.streamSynthesize(ttsRequest);
+        for await (const audioChunk of ttsStream) {
+          if (audioChunk.audio.length > 0) {
+            if (!firstChunkReceived) {
+              firstChunkReceived = true;
+              if (index === 0 && !metrics.ttsFirstByteMs) {
+                metrics.ttsFirstByteMs = Date.now() - ttsStart;
+              }
+            }
+            audioChunks.push(audioChunk.audio);
+            metrics.audioBytes += audioChunk.audio.length;
+            metrics.audioChunkCount++;
+            totalDurationMs += audioChunk.durationMs;
+            
+            if (audioChunks.length === 1 && audioChunk.audioFormat) {
+              audioFormat = audioChunk.audioFormat;
+              sampleRate = audioChunk.sampleRate || 24000;
+            }
+          }
+          
+          if (audioChunk.isLast) {
+            break;
+          }
         }
       }
       
@@ -7103,9 +7127,37 @@ Remember: Beta testers understand they're helping build something and appreciate
         elSpeakerBoost: (session as any).elSpeakerBoost,
       };
       
-      const result = effectiveTtsProvider === 'elevenlabs'
-        ? await this.elevenlabsService.streamSynthesizeProgressive(progressiveRequest, ttsCallbacks)
-        : await this.cartesiaService.streamSynthesizeProgressive(progressiveRequest, ttsCallbacks);
+      if (effectiveTtsProvider === 'google') {
+        const ttsService = getTTSService();
+        const googleResult = await ttsService.synthesizeWithGoogleDirect({
+          text: textWithEmphases,
+          voiceId: session.voiceId || '',
+          speakingRate: effectiveSpeakingRate,
+          pitch: (session as any).googlePitch ?? 0,
+          volumeGainDb: (session as any).googleVolumeGainDb ?? 0,
+        });
+        
+        if (googleResult.audioBuffer && googleResult.audioBuffer.length > 0) {
+          const wordsPerMinute = 150;
+          const wordCount = textWithEmphases.split(/\s+/).length;
+          const estimatedDurationMs = Math.max(1000, (wordCount / wordsPerMinute) * 60000 / effectiveSpeakingRate);
+          ttsCallbacks.onAudioChunk(googleResult.audioBuffer, estimatedDurationMs, 'mp3');
+          
+          if (session.subtitleMode !== 'off') {
+            const estimatedTimings = this.estimateWordTimings(displayText, estimatedDurationMs / 1000);
+            ttsCallbacks.onWordTimings(estimatedTimings, estimatedDurationMs);
+          }
+          
+          ttsCallbacks.onComplete(estimatedDurationMs);
+        } else {
+          console.warn(`[Progressive] Google TTS returned empty audio for sentence ${index}`);
+          ttsCallbacks.onComplete(0);
+        }
+      } else {
+        const result = effectiveTtsProvider === 'elevenlabs'
+          ? await this.elevenlabsService.streamSynthesizeProgressive(progressiveRequest, ttsCallbacks)
+          : await this.cartesiaService.streamSynthesizeProgressive(progressiveRequest, ttsCallbacks);
+      }
       
     } catch (error: any) {
       // Extract status code and response body for telemetry
@@ -10371,7 +10423,7 @@ Using this context, speak first to the student with a natural opening message. O
     
     session.voiceId = voiceId;
     if (provider) {
-      session.ttsProvider = (provider === 'elevenlabs' ? 'elevenlabs' : 'cartesia') as 'elevenlabs' | 'cartesia';
+      session.ttsProvider = (provider === 'elevenlabs' ? 'elevenlabs' : provider === 'google' ? 'google' : 'cartesia') as 'elevenlabs' | 'cartesia' | 'google';
     }
     console.log(`[Streaming Orchestrator] Updated voice for session ${sessionId}: ${voiceId.substring(0, 8)}... (TTS: ${session.ttsProvider || this.ttsProvider})`);
     return true;
