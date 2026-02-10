@@ -11,7 +11,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { getStreamingVoiceClient, StreamingVoiceClient } from '../lib/streamingVoiceClient';
 import { getStreamingAudioPlayer, StreamingAudioPlayer, StreamingAudioChunk, StreamingPlaybackState, isVerboseLoggingEnabled } from '../lib/audioUtils';
 import { useStreamingSubtitles, UseStreamingSubtitlesReturn } from './useStreamingSubtitles';
-import { logAudioChunkReceived, updateDebugTimingState } from '../lib/debugTimingState';
+import { logAudioChunkReceived, updateDebugTimingState, trackWsMessage } from '../lib/debugTimingState';
 import { 
   STREAMING_FEATURE_FLAGS,
   type StreamingClientState,
@@ -783,6 +783,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       setIsProcessing(false);
       return; // Don't do normal completion handling
     }
+    
+    trackWsMessage('response_complete');
     
     // CRITICAL: Tell the audio player how many sentences this turn has
     // This prevents premature loop termination when early sentences finish

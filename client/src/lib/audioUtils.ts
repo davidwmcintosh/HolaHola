@@ -1330,9 +1330,9 @@ export class StreamingAudioPlayer {
           }
           
           // Mark sentences as ended when their time passes (with grace period)
-          // Note: endTime is already calculated with fallback, so no need to check endCtxTime
-          if (entry.started && !entry.ended && now >= endTime + AUDIO_END_GRACE_PERIOD) {
+          if (!entry.ended && now >= endTime + AUDIO_END_GRACE_PERIOD) {
             entry.ended = true;
+            if (!entry.started) entry.started = true;
             this.notifySentenceEnd(index);
           }
           
@@ -1563,8 +1563,9 @@ export class StreamingAudioPlayer {
           // AudioContext.currentTime can slightly lead actual audio buffer playback due to buffering
           // This prevents avatar returning to listening while audio is still playing
           const AUDIO_END_GRACE_PERIOD = 0.15; // 150ms
-          if (now >= entry.endCtxTime + AUDIO_END_GRACE_PERIOD && entry.started && !entry.ended) {
+          if (now >= entry.endCtxTime + AUDIO_END_GRACE_PERIOD && !entry.ended) {
             entry.ended = true;
+            if (!entry.started) entry.started = true;
             anyEndedThisTick = true;
             
             // Update debug panel with sentences ended count
@@ -1588,31 +1589,15 @@ export class StreamingAudioPlayer {
         }
       }
       
-      // FALLBACK: Periodically check if we should stop (every 30 frames) when response_complete was received
-      // or when we have expectedSentenceCount set and all sentences may have ended
+      // FALLBACK: Periodically check if we should stop (every 30 frames)
       if (frameCount % 30 === 0) {
-        const debugState = window.__debugTimingState;
-        const wsReceived = debugState?.wsResponseCompleteReceived;
-        const expCount = this.expectedSentenceCount;
-        
-        // Verbose logging for fallback status
-        if (isVerboseLoggingEnabled() && frameCount % 150 === 0) {
-          console.log(`[FALLBACK CHECK] F${frameCount}: wsReceived=${wsReceived}, expectedCount=${expCount}, scheduleSize=${this.sentenceSchedule.size}`);
-        }
-        
-        // Check if loop should stop in two cases:
-        // 1. wsReceived && expCount === null (fallback path when playerRef was null)
-        // 2. expCount !== null (we know how many sentences to expect)
-        // FIX: Previously only checked case 1, causing loop to run forever when expCount was set
-        if (wsReceived || expCount !== null) {
-          const allEnded = this.checkAllSentencesEnded();
-          if (allEnded) {
-            this.isPlaying = false;
-            this.setState('idle');
-            this.stopPrecisionTiming();
-            this.notifyComplete();
-            return; // Exit the loop
-          }
+        const allEnded = this.checkAllSentencesEnded();
+        if (allEnded) {
+          this.isPlaying = false;
+          this.setState('idle');
+          this.stopPrecisionTiming();
+          this.notifyComplete();
+          return;
         }
         
         // SAFETY NET: If we're 30+ seconds past the last sentence's end time, force stop
@@ -1757,19 +1742,22 @@ export class StreamingAudioPlayer {
     // CRITICAL: If we don't know how many sentences to expect, we can't be sure all have arrived
     // FALLBACK: Check if response_complete was received via debug state (playerRef might have been null)
     if (this.expectedSentenceCount === null) {
+      const allEntries = Array.from(this.sentenceSchedule.entries());
+      const allHaveEnded = allEntries.length > 0 && allEntries.every(([_, entry]) => entry.ended && entry.endCtxTime !== undefined);
+      
       const debugState = window.__debugTimingState;
       if (debugState?.wsResponseCompleteReceived) {
-        // response_complete WAS received, but playerRef was null when hook tried to call setExpectedSentenceCount
-        // Fallback: check if all sentences in schedule have ended
-        const allEntries = Array.from(this.sentenceSchedule.entries());
-        const allHaveEnded = allEntries.every(([_, entry]) => entry.ended && entry.endCtxTime !== undefined);
-        
-        if (allHaveEnded && allEntries.length > 0) {
+        if (allHaveEnded) {
           logResult(true, `FALLBACK: response_complete received, all ${allEntries.length} sentences ended`);
           return true;
         }
         logResult(false, `FALLBACK: response_complete received but not all sentences ended yet (${allEntries.length} in schedule)`);
         return false;
+      }
+      
+      if (allHaveEnded) {
+        logResult(true, `ALL_ENDED: all ${allEntries.length} sentences have ended+endCtxTime (no response_complete needed)`);
+        return true;
       }
       logResult(false, 'expectedSentenceCount=null (waiting for response_complete)');
       return false;
