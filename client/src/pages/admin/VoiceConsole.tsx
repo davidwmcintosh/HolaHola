@@ -747,27 +747,30 @@ export function VoiceConsoleContent() {
                         <div className="flex items-center justify-between">
                           <Label>Speaking Speed</Label>
                           <span className="text-sm font-medium">
-                            {formData.provider === 'google' ? (
-                              formData.speakingRate === 1.0 ? 'Normal' :
-                              formData.speakingRate < 0.6 ? 'Very Slow' :
-                              formData.speakingRate < 1.0 ? 'Slow' :
-                              formData.speakingRate > 2.0 ? 'Very Fast' :
-                              formData.speakingRate > 1.0 ? 'Fast' :
-                              formData.speakingRate.toFixed(2)
-                            ) : formData.provider === 'elevenlabs' ? (
-                              formData.speakingRate === 1.0 ? 'Normal' :
-                              formData.speakingRate < 0.8 ? 'Very Slow' :
-                              formData.speakingRate < 1.0 ? 'Slow' :
-                              formData.speakingRate > 1.5 ? 'Very Fast' :
-                              formData.speakingRate > 1.0 ? 'Fast' :
-                              formData.speakingRate.toFixed(2)
-                            ) : (
-                              formData.speakingRate === 0.7 ? 'Slow' : 
-                              formData.speakingRate === 0.9 ? 'Natural' : 
-                              formData.speakingRate === 1.0 ? 'Normal' :
-                              formData.speakingRate >= 1.2 ? 'Fast' : 
-                              formData.speakingRate.toFixed(2)
-                            )}
+                            {(() => {
+                              const rate = formData.speakingRate;
+                              const rateStr = rate.toFixed(2) + 'x';
+                              let label = '';
+                              if (formData.provider === 'google') {
+                                if (rate < 0.6) label = 'Very Slow';
+                                else if (rate < 1.0) label = 'Slow';
+                                else if (rate === 1.0) label = 'Normal';
+                                else if (rate <= 2.0) label = 'Fast';
+                                else label = 'Very Fast';
+                              } else if (formData.provider === 'elevenlabs') {
+                                if (rate < 0.8) label = 'Very Slow';
+                                else if (rate < 1.0) label = 'Slow';
+                                else if (rate === 1.0) label = 'Normal';
+                                else if (rate <= 1.5) label = 'Fast';
+                                else label = 'Very Fast';
+                              } else {
+                                if (rate <= 0.7) label = 'Slow';
+                                else if (rate <= 0.9) label = 'Natural';
+                                else if (rate === 1.0) label = 'Normal';
+                                else label = 'Fast';
+                              }
+                              return `${label} (${rateStr})`;
+                            })()}
                           </span>
                         </div>
                         <Slider
