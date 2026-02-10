@@ -126,15 +126,36 @@
   </div>
 </div>
 
+<div class="test-group key-test" style="border-color: #22d3ee44;">
+  <div class="test-header">
+    <div class="test-title">Isolated Word Test: Does language_code actually work?<span class="badge" style="background:#22d3ee33;color:#22d3ee">DIAGNOSTIC</span></div>
+    <div class="test-desc">Sending ONLY the foreign words (no English context) with and without language_code. If the parameter works, these should sound different.</div>
+  </div>
+  <div class="players">
+    <div class="player-row">
+      <div class="provider-label" style="color:#f59e0b">Italian "come stai" - NO language_code</div>
+      <audio controls preload="none" src="it-come-only-nolang.mp3"></audio>
+    </div>
+    <div class="player-row">
+      <div class="provider-label" style="color:#60a5fa">Italian "come stai" - WITH language_code = "it"</div>
+      <audio controls preload="none" src="it-come-only-langcode.mp3"></audio>
+    </div>
+    <div class="player-row">
+      <div class="provider-label" style="color:#f59e0b">French "table" - NO language_code</div>
+      <audio controls preload="none" src="fr-table-only-nolang.mp3"></audio>
+    </div>
+    <div class="player-row">
+      <div class="provider-label" style="color:#60a5fa">French "table" - WITH language_code = "fr"</div>
+      <audio controls preload="none" src="fr-table-only-langcode.mp3"></audio>
+    </div>
+  </div>
+</div>
+
 <div class="note">
-  <div class="note-title">How this would work in production</div>
-  <p>Gemini already marks target language words with <strong style="color:#f59e0b">**bold markers**</strong>. 
-  Before sending text to ElevenLabs TTS, we could:<br><br>
-  <strong>Alias approach:</strong> Maintain a small lookup table of known homographs per language. When we see a bold-marked word 
-  that matches the table, swap it for the phonetic alias. This is precise and only affects problem words.<br><br>
-  <strong>language_code approach:</strong> Pass the target language code with every request. Simpler, but may cause English words 
-  to be mispronounced instead (the opposite problem).<br><br>
-  Listen to both and decide which sounds more natural overall.</p>
+  <div class="note-title">What we're testing</div>
+  <p>If <code>language_code</code> works on isolated words, we could potentially split sentences: 
+  send English parts without a language code, and send bold-marked target words with the target language code, 
+  then stitch the audio together. But first - does it even change pronunciation? Listen above.</p>
 </div>
 
 </div>
