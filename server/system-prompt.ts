@@ -450,7 +450,7 @@ STUDENT SNAPSHOT:
 ${compass.studentName ? `Name: ${compass.studentName}` : 'Name: (Not yet introduced)'}
 ${compass.studentGoals ? `Goals: ${compass.studentGoals}` : ''}
 ${compass.studentInterests ? `Interests: ${compass.studentInterests}` : ''}
-${compass.lastSessionSummary ? `Last Session: ${compass.lastSessionSummary}` : 'First session together!'}`.trim();
+${compass.lastSessionSummary ? `Last Session: ${compass.lastSessionSummary}` : ''}`.trim();
 
   // Today's Roadmap
   const formatTopicStatus = (status: TopicCoverageStatus) => {

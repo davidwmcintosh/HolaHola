@@ -21,6 +21,7 @@ import {
   classEnrollments,
   teacherClasses,
   messages,
+  voiceSessions,
   type TutorSession,
   type TutorSessionTopic,
   type TutorParkingItem,
@@ -141,11 +142,40 @@ export class SessionCompassService {
         .orderBy(desc(tutorSessions.createdAt))
         .limit(1);
       
-      const lastSession = lastSessions[0];
-      const lastSessionSummary = lastSession?.sessionSummary || null;
+      const lastTutorSession = lastSessions[0];
       
-      if (lastSessionSummary) {
-        console.log(`[Compass] Found previous session summary: "${lastSessionSummary.substring(0, 50)}..."`);
+      // CRITICAL FIX: Also check voice_sessions for the actual latest interaction date
+      // tutor_sessions may have stopped generating summaries, creating a stale "last session" date
+      // voice_sessions is the ground truth for when the student actually last spoke with us
+      const lastVoiceSessions = await getSharedDb()
+        .select({ startedAt: voiceSessions.startedAt })
+        .from(voiceSessions)
+        .where(eq(voiceSessions.userId, userId.toString()))
+        .orderBy(desc(voiceSessions.startedAt))
+        .limit(1);
+      
+      const lastVoiceDate = lastVoiceSessions[0]?.startedAt;
+      const lastTutorDate = lastTutorSession?.createdAt;
+      
+      // Determine if the tutor_sessions summary is stale (voice_sessions has a much more recent interaction)
+      let lastSessionSummary: string | null = null;
+      if (lastTutorSession?.sessionSummary) {
+        const tutorDateMs = lastTutorDate ? new Date(lastTutorDate).getTime() : 0;
+        const voiceDateMs = lastVoiceDate ? new Date(lastVoiceDate).getTime() : 0;
+        const staleDiffMs = voiceDateMs - tutorDateMs;
+        const staleDiffDays = staleDiffMs / (1000 * 60 * 60 * 24);
+        
+        if (staleDiffDays > 1) {
+          // The tutor_sessions summary is from more than 1 day before the latest voice session
+          // Suppress it to avoid Daniela thinking the last interaction was months ago
+          console.log(`[Compass] Suppressing stale tutor session summary (${Math.round(staleDiffDays)} days older than latest voice session)`);
+          console.log(`[Compass]   tutor_sessions last summary: ${lastTutorDate}`);
+          console.log(`[Compass]   voice_sessions last session: ${lastVoiceDate}`);
+          lastSessionSummary = null;
+        } else {
+          lastSessionSummary = lastTutorSession.sessionSummary;
+          console.log(`[Compass] Found previous session summary: "${lastSessionSummary.substring(0, 50)}..."`);
+        }
       } else {
         console.log(`[Compass] No previous session summary found for user ${userId}`);
       }
