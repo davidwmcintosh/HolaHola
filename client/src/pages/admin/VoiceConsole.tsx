@@ -52,6 +52,10 @@ interface TutorVoice {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  elStability?: number;
+  elSimilarityBoost?: number;
+  elStyle?: number;
+  elSpeakerBoost?: boolean;
   // Pedagogical persona fields
   pedagogicalFocus?: PedagogicalFocus;
   teachingStyle?: TeachingStyle;
@@ -328,7 +332,11 @@ export function VoiceConsoleContent() {
 
   // Bilingual audition: plays voice in target language, then native (English)
   // Uses the selected auditionEmotion for previewing different emotional tones
-  const handleAudition = async (voiceId: string, voiceName: string, language: string, languageCode: string, speakingRate: number = 0.9) => {
+  const handleAudition = async (
+    voiceId: string, voiceName: string, language: string, languageCode: string, speakingRate: number = 0.9,
+    provider?: string,
+    elSettings?: { elStability?: number; elSimilarityBoost?: number; elStyle?: number; elSpeed?: number }
+  ) => {
     if (playingVoiceId === voiceId && audioElement) {
       audioElement.pause();
       setPlayingVoiceId(null);
@@ -348,14 +356,14 @@ export function VoiceConsoleContent() {
     
     try {
       // First play in target language with selected emotion
-      const targetAudio = await playVoiceSample(voiceId, phrases.target, languageCode, speakingRate, auditionEmotion);
+      const targetAudio = await playVoiceSample(voiceId, phrases.target, languageCode, speakingRate, auditionEmotion, provider, elSettings);
       
       targetAudio.onended = async () => {
         // If language is not English, play English sample too
         if (language !== 'english') {
           setAuditionPhase('native');
           try {
-            const nativeAudio = await playVoiceSample(voiceId, phrases.native, 'en', speakingRate, auditionEmotion);
+            const nativeAudio = await playVoiceSample(voiceId, phrases.native, 'en', speakingRate, auditionEmotion, provider, elSettings);
             nativeAudio.onended = () => {
               setPlayingVoiceId(null);
               setAuditionPhase('idle');
@@ -400,18 +408,30 @@ export function VoiceConsoleContent() {
     text: string, 
     languageCode: string, 
     speakingRate: number = 0.9,
-    emotion?: string
+    emotion?: string,
+    provider?: string,
+    elSettings?: { elStability?: number; elSimilarityBoost?: number; elStyle?: number; elSpeed?: number }
   ): Promise<HTMLAudioElement> => {
+    const body: Record<string, unknown> = {
+      voiceId,
+      text,
+      language: languageCode,
+      speakingRate,
+      emotion: emotion || auditionEmotion,
+    };
+    if (provider) {
+      body.provider = provider;
+    }
+    if (provider === 'elevenlabs' && elSettings) {
+      body.elStability = elSettings.elStability;
+      body.elSimilarityBoost = elSettings.elSimilarityBoost;
+      body.elStyle = elSettings.elStyle;
+      body.elSpeed = elSettings.elSpeed ?? speakingRate;
+    }
     const response = await fetch("/api/admin/tutor-voices/preview", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        voiceId,
-        text,
-        language: languageCode,
-        speakingRate,
-        emotion: emotion || auditionEmotion,
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
@@ -434,7 +454,13 @@ export function VoiceConsoleContent() {
   };
 
   const handlePreview = async (voice: TutorVoice) => {
-    await handleAudition(voice.voiceId, voice.voiceName, voice.language, voice.languageCode, voice.speakingRate);
+    const elSettings = voice.provider === 'elevenlabs' ? {
+      elStability: voice.elStability,
+      elSimilarityBoost: voice.elSimilarityBoost,
+      elStyle: voice.elStyle,
+      elSpeed: voice.speakingRate,
+    } : undefined;
+    await handleAudition(voice.voiceId, voice.voiceName, voice.language, voice.languageCode, voice.speakingRate, voice.provider, elSettings);
   };
 
   const handleEdit = (voice: TutorVoice) => {
@@ -868,7 +894,14 @@ export function VoiceConsoleContent() {
                               formData.voiceName,
                               formData.language,
                               formData.languageCode,
-                              formData.speakingRate
+                              formData.speakingRate,
+                              formData.provider,
+                              formData.provider === 'elevenlabs' ? {
+                                elStability: formData.elStability,
+                                elSimilarityBoost: formData.elSimilarityBoost,
+                                elStyle: formData.elStyle,
+                                elSpeed: formData.speakingRate,
+                              } : undefined
                             )}
                             data-testid="button-audition"
                             className="flex-1"

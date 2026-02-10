@@ -16811,10 +16811,32 @@ Current conversation context:
   // This endpoint fully simulates production TTS with phoneme processing and emotion control
   app.post("/api/admin/tutor-voices/preview", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const { voiceId, text, language, speakingRate, emotion } = req.body;
+      const { voiceId, text, language, speakingRate, emotion, provider, elStability, elSimilarityBoost, elStyle, elSpeed } = req.body;
       
       if (!voiceId || !text) {
         return res.status(400).json({ error: "voiceId and text are required" });
+      }
+      
+      if (provider === 'elevenlabs') {
+        const validatedSpeed = elSpeed !== undefined
+          ? Math.max(0.5, Math.min(2.0, parseFloat(elSpeed)))
+          : 1.0;
+        
+        const { getElevenLabsStreamingService } = await import('./services/elevenlabs-streaming');
+        const elService = getElevenLabsStreamingService();
+        const audioBuffer = await elService.synthesizeToBuffer(text, voiceId, {
+          languageCode: language || undefined,
+          speakingRate: validatedSpeed,
+          elStability: elStability ?? 0.5,
+          elSimilarityBoost: elSimilarityBoost ?? 0.75,
+          elStyle: elStyle ?? 0,
+        });
+        
+        res.set({
+          'Content-Type': 'audio/mpeg',
+          'Content-Length': audioBuffer.length,
+        });
+        return res.send(audioBuffer);
       }
       
       // Use TTS service with configurable speaking rate
