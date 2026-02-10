@@ -5009,8 +5009,15 @@ Remember: Beta testers understand they're helping build something and appreciate
       // Store preamble for continuation calls (before adding session history)
       session.currentTurnPreamble = [...conversationHistoryWithContext];
       
-      // STEP 2: Add conversation history
-      conversationHistoryWithContext.push(...session.conversationHistory);
+      // STEP 2: Add conversation history (capped for prompt size optimization)
+      const MAX_HISTORY_ENTRIES_OPENMIC = session.isFounderMode ? 60 : 40;
+      const historyToSendOpenMic = session.conversationHistory.length > MAX_HISTORY_ENTRIES_OPENMIC
+        ? session.conversationHistory.slice(-MAX_HISTORY_ENTRIES_OPENMIC)
+        : session.conversationHistory;
+      if (session.conversationHistory.length > MAX_HISTORY_ENTRIES_OPENMIC) {
+        console.log(`[History Cap - OpenMic] Trimmed history from ${session.conversationHistory.length} to ${MAX_HISTORY_ENTRIES_OPENMIC} entries`);
+      }
+      conversationHistoryWithContext.push(...historyToSendOpenMic);
       
       // MESSAGE CHECKPOINTING (OpenMic): Save user message BEFORE Gemini call
       // This ensures user messages are preserved even if Gemini fails/times out
