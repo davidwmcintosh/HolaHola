@@ -54,6 +54,8 @@ interface TutorVoice {
   elSimilarityBoost?: number;
   elStyle?: number;
   elSpeakerBoost?: boolean;
+  googlePitch?: number;
+  googleVolumeGainDb?: number;
 }
 
 interface CartesiaVoice {
@@ -254,8 +256,8 @@ export function VoiceLabPanel({
       setElStability(currentVoice.elStability ?? 0.5);
       setElSimilarityBoost(currentVoice.elSimilarityBoost ?? 0.75);
       setElStyle(currentVoice.elStyle ?? 0.0);
-      setGooglePitch(currentOverride?.googlePitch ?? (currentVoice as any).googlePitch ?? 0);
-      setGoogleVolumeGainDb(currentOverride?.googleVolumeGainDb ?? (currentVoice as any).googleVolumeGainDb ?? 0);
+      setGooglePitch(currentOverride?.googlePitch ?? currentVoice.googlePitch ?? 0);
+      setGoogleVolumeGainDb(currentOverride?.googleVolumeGainDb ?? currentVoice.googleVolumeGainDb ?? 0);
       setHasChanges(!!currentOverride);
     }
   }, [currentVoice, currentOverride, isOpen]);
@@ -311,8 +313,8 @@ export function VoiceLabPanel({
       setElStability(currentVoice.elStability ?? 0.5);
       setElSimilarityBoost(currentVoice.elSimilarityBoost ?? 0.75);
       setElStyle(currentVoice.elStyle ?? 0.0);
-      setGooglePitch((currentVoice as any).googlePitch ?? 0);
-      setGoogleVolumeGainDb((currentVoice as any).googleVolumeGainDb ?? 0);
+      setGooglePitch(currentVoice.googlePitch ?? 0);
+      setGoogleVolumeGainDb(currentVoice.googleVolumeGainDb ?? 0);
     }
     onOverrideChange(null);
     setHasChanges(false);
@@ -357,6 +359,7 @@ export function VoiceLabPanel({
         errorTolerance,
         ...(selectedVoiceId && selectedVoiceId !== currentVoice?.voiceId ? { voiceId: selectedVoiceId } : {}),
         ...(isElevenLabs ? { elStability, elSimilarityBoost, elStyle } : {}),
+        ...(isGoogle ? { googlePitch, googleVolumeGainDb } : {}),
       };
       onOverrideChange(override);
       setHasChanges(false);
@@ -531,8 +534,8 @@ export function VoiceLabPanel({
               <Slider
                 value={[speakingRate]}
                 onValueChange={([value]) => setSpeakingRate(value)}
-                min={isElevenLabs ? 0.5 : isGoogle ? 0.5 : 0.7}
-                max={isElevenLabs ? 2.0 : isGoogle ? 2.0 : 1.3}
+                min={isElevenLabs ? 0.5 : isGoogle ? 0.25 : 0.7}
+                max={isElevenLabs ? 2.0 : isGoogle ? 4.0 : 1.3}
                 step={0.1}
                 className="w-full"
                 data-testid="slider-voice-lab-speed"
