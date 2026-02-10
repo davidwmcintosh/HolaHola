@@ -1708,15 +1708,12 @@ export class TTSService {
     };
   }
 
-  canUseGoogleStreaming(params: { pitch?: number; volumeGainDb?: number }): boolean {
-    const { pitch = 0, volumeGainDb = 0 } = params;
-    return pitch === 0 && volumeGainDb === 0;
-  }
-
   async streamSynthesizeWithGoogle(params: {
     text: string;
     voiceId: string;
     speakingRate?: number;
+    pitch?: number;
+    volumeGainDb?: number;
     onAudioChunk: (chunk: { audio: Buffer; durationMs: number; audioFormat: string; sampleRate: number; isLast?: boolean }) => void;
     onComplete: (totalBytes: number) => void;
     onError: (error: Error) => void;
@@ -1725,7 +1722,7 @@ export class TTSService {
       throw new Error('Google Cloud TTS Beta client not available for streaming. Set GOOGLE_CLOUD_TTS_CREDENTIALS.');
     }
 
-    const { text, voiceId, speakingRate = 1.0, onAudioChunk, onComplete, onError } = params;
+    const { text, voiceId, speakingRate = 1.0, pitch = 0, volumeGainDb = 0, onAudioChunk, onComplete, onError } = params;
     const voiceParts = voiceId.split('-');
     const languageCode = voiceParts.length >= 2 ? `${voiceParts[0]}-${voiceParts[1]}` : 'en-US';
     const startTime = Date.now();
@@ -1737,7 +1734,7 @@ export class TTSService {
     const wordCount = text.split(/\s+/).length;
     const estimatedTotalDurationMs = Math.max(1000, (wordCount / wordsPerMinute) * 60000 / speakingRate);
 
-    console.log(`[Google TTS Stream] Starting bidirectional stream: ${text.length} chars, voice=${voiceId}, rate=${speakingRate}, est=${Math.round(estimatedTotalDurationMs)}ms`);
+    console.log(`[Google TTS Stream] Starting bidirectional stream: ${text.length} chars, voice=${voiceId}, rate=${speakingRate}, pitch=${pitch}, vol=${volumeGainDb}dB, est=${Math.round(estimatedTotalDurationMs)}ms`);
 
     return new Promise<void>((resolve, reject) => {
       const stream = (this.googleBetaClient as any).streamingSynthesize();
@@ -1806,6 +1803,8 @@ export class TTSService {
           streamingAudioConfig: {
             audioEncoding: 'MP3',
             speakingRate,
+            pitch,
+            volumeGainDb,
             sampleRateHertz: 24000,
           },
         },

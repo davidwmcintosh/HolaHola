@@ -7131,57 +7131,52 @@ Remember: Beta testers understand they're helping build something and appreciate
         const ttsService = getTTSService();
         const googlePitch = (session as any).googlePitch ?? 0;
         const googleVolumeGainDb = (session as any).googleVolumeGainDb ?? 0;
-        const useStreaming = ttsService.canUseGoogleStreaming({ pitch: googlePitch, volumeGainDb: googleVolumeGainDb });
         const googleStartTime = Date.now();
+        let streamingSucceeded = false;
         
-        if (useStreaming) {
-          let streamingSucceeded = false;
+        try {
+          let googleStreamChunkIdx = 0;
+          const wordsPerMinute = 150;
+          const wordCount = textWithEmphases.split(/\s+/).length;
+          const estimatedDurationMs = Math.max(1000, (wordCount / wordsPerMinute) * 60000 / effectiveSpeakingRate);
           
-          try {
-            let googleStreamChunkIdx = 0;
-            const wordsPerMinute = 150;
-            const wordCount = textWithEmphases.split(/\s+/).length;
-            const estimatedDurationMs = Math.max(1000, (wordCount / wordsPerMinute) * 60000 / effectiveSpeakingRate);
-            
-            await ttsService.streamSynthesizeWithGoogle({
-              text: textWithEmphases,
-              voiceId: session.voiceId || '',
-              speakingRate: effectiveSpeakingRate,
-              onAudioChunk: (audioChunk) => {
-                ttsCallbacks.onAudioChunk({
-                  audio: audioChunk.audio,
-                  durationMs: audioChunk.durationMs,
-                  audioFormat: 'mp3',
-                  isLast: false,
-                }, googleStreamChunkIdx++);
-                
-                if (googleStreamChunkIdx === 1) {
-                  const estimatedTimings = this.estimateWordTimings(displayText, estimatedDurationMs / 1000);
-                  for (let wi = 0; wi < estimatedTimings.length; wi++) {
-                    ttsCallbacks.onWordTimestamp(estimatedTimings[wi], wi, estimatedDurationMs);
-                  }
-                }
-              },
-              onComplete: (totalBytes) => {
+          await ttsService.streamSynthesizeWithGoogle({
+            text: textWithEmphases,
+            voiceId: session.voiceId || '',
+            speakingRate: effectiveSpeakingRate,
+            pitch: googlePitch,
+            volumeGainDb: googleVolumeGainDb,
+            onAudioChunk: (audioChunk) => {
+              ttsCallbacks.onAudioChunk({
+                audio: audioChunk.audio,
+                durationMs: audioChunk.durationMs,
+                audioFormat: 'mp3',
+                isLast: false,
+              }, googleStreamChunkIdx++);
+              
+              if (googleStreamChunkIdx === 1) {
                 const estimatedTimings = this.estimateWordTimings(displayText, estimatedDurationMs / 1000);
-                ttsCallbacks.onComplete(estimatedTimings, estimatedDurationMs);
-                console.log(`[Progressive] Google TTS streaming complete: sentence ${index}, ${googleStreamChunkIdx} chunks, ${totalBytes} bytes, ${Date.now() - googleStartTime}ms`);
-              },
-              onError: (err) => {
-                console.error(`[Progressive] Google TTS streaming error for sentence ${index}:`, err.message);
-              },
-            });
-            
-            streamingSucceeded = true;
-          } catch (streamErr: any) {
-            console.warn(`[Progressive] Google TTS streaming failed for sentence ${index}, falling back to REST: ${streamErr.message}`);
-          }
+                for (let wi = 0; wi < estimatedTimings.length; wi++) {
+                  ttsCallbacks.onWordTimestamp(estimatedTimings[wi], wi, estimatedDurationMs);
+                }
+              }
+            },
+            onComplete: (totalBytes) => {
+              const estimatedTimings = this.estimateWordTimings(displayText, estimatedDurationMs / 1000);
+              ttsCallbacks.onComplete(estimatedTimings, estimatedDurationMs);
+              console.log(`[Progressive] Google TTS streaming complete: sentence ${index}, ${googleStreamChunkIdx} chunks, ${totalBytes} bytes, ${Date.now() - googleStartTime}ms`);
+            },
+            onError: (err) => {
+              console.error(`[Progressive] Google TTS streaming error for sentence ${index}:`, err.message);
+            },
+          });
           
-          if (!streamingSucceeded) {
-            await this.googleTtsRestFallback(ttsService, textWithEmphases, displayText, session, effectiveSpeakingRate, googlePitch, googleVolumeGainDb, index, ttsCallbacks, googleStartTime);
-          }
-        } else {
-          console.log(`[Progressive] Google TTS using REST (pitch=${googlePitch}, volume=${googleVolumeGainDb}dB not supported in streaming)`);
+          streamingSucceeded = true;
+        } catch (streamErr: any) {
+          console.warn(`[Progressive] Google TTS streaming failed for sentence ${index}, falling back to REST: ${streamErr.message}`);
+        }
+        
+        if (!streamingSucceeded) {
           await this.googleTtsRestFallback(ttsService, textWithEmphases, displayText, session, effectiveSpeakingRate, googlePitch, googleVolumeGainDb, index, ttsCallbacks, googleStartTime);
         }
       } else {
