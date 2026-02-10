@@ -155,11 +155,36 @@
   </div>
 </div>
 
+<div class="test-group key-test" style="border-color: #f43f5e44;">
+  <div class="test-header">
+    <div class="test-title">Fix 3: Pronunciation Dictionary + language_code<span class="badge" style="background:#f43f5e33;color:#f43f5e">BEST CANDIDATE</span></div>
+    <div class="test-desc">ElevenLabs Pronunciation Dictionaries let you define rules like "when you see 'come', pronounce it as 'kome'" - 
+    attached to the API call, no text rewriting needed. Combined with language_code="it" for the general boost. 
+    This scales: one dictionary per language, add homographs as you find them.</div>
+    <div class="test-text"><strong>Same Italian text:</strong> "Now try saying <span class="target">come stai</span> to greet someone. You can also say <span class="target">dove sei</span> which means where are you."</div>
+  </div>
+  <div class="players">
+    <div class="player-row">
+      <div class="provider-label" style="color:#f59e0b">NO language_code, NO dictionary (original problem)</div>
+      <audio controls preload="none" src="it-full-nolang.mp3"></audio>
+    </div>
+    <div class="player-row">
+      <div class="provider-label" style="color:#a855f7">WITH language_code = "it" only (come still wrong)</div>
+      <audio controls preload="none" src="it-full-langcode.mp3"></audio>
+    </div>
+    <div class="player-row">
+      <div class="provider-label" style="color:#f43f5e">WITH language_code = "it" + Pronunciation Dictionary (come→kome) <span class="new-tag">NEW</span></div>
+      <audio controls preload="none" src="it-full-dict.mp3"></audio>
+    </div>
+  </div>
+</div>
+
 <div class="note">
-  <div class="note-title">The key question</div>
-  <p>Does <code>language_code</code> fix target words WITHOUT breaking the English parts? If the English still sounds natural 
-  while the foreign words are pronounced correctly, this is the production solution - just pass the target language code 
-  with every TTS request. No word-by-word splitting needed.</p>
+  <div class="note-title">Production approach if this sounds good</div>
+  <p><strong>language_code</strong> handles 95% of pronunciation (you confirmed it sounds great and flows beautifully).<br>
+  <strong>Pronunciation Dictionary</strong> catches the remaining stubborn homographs like "come." One dictionary per language, 
+  managed via API. Add rules as needed - no code changes, no text rewriting. The dictionary ID is stored in config and 
+  attached to every TTS request for that language.</p>
 </div>
 
 <div class="test-group" style="border-color: #22d3ee44;">
