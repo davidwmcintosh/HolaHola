@@ -884,11 +884,16 @@ export class StudentLearningService {
     lines.push('[RECENT SESSION HISTORY]');
     
     // Most recent session summary
+    // Only show if reasonably recent (within 14 days) to avoid stale data confusing the tutor
     const latestWithSummary = context.recentSessions.find(s => s.summary);
     if (latestWithSummary) {
       const daysSince = Math.floor((Date.now() - new Date(latestWithSummary.date).getTime()) / (1000 * 60 * 60 * 24));
-      const timeAgo = daysSince === 0 ? 'Today' : daysSince === 1 ? 'Yesterday' : `${daysSince} days ago`;
-      lines.push(`Last session (${timeAgo}): ${latestWithSummary.summary?.substring(0, 100)}...`);
+      if (daysSince <= 14) {
+        const timeAgo = daysSince === 0 ? 'Today' : daysSince === 1 ? 'Yesterday' : `${daysSince} days ago`;
+        lines.push(`Last session (${timeAgo}): ${latestWithSummary.summary?.substring(0, 100)}...`);
+      } else {
+        console.log(`[CrossSession] Suppressing stale session summary (${daysSince} days old)`);
+      }
     }
     
     // Topics covered across sessions
@@ -901,10 +906,13 @@ export class StudentLearningService {
       lines.push(`Pending from before: ${context.pendingTopics.slice(0, 3).join(', ')}`);
     }
     
-    // Tutor notes from recent session
+    // Tutor notes from recent session (only if within 14 days)
     const latestWithNotes = context.recentSessions.find(s => s.tutorNotes);
     if (latestWithNotes?.tutorNotes) {
-      lines.push(`Your notes: ${latestWithNotes.tutorNotes.substring(0, 80)}...`);
+      const notesDaysSince = Math.floor((Date.now() - new Date(latestWithNotes.date).getTime()) / (1000 * 60 * 60 * 24));
+      if (notesDaysSince <= 14) {
+        lines.push(`Your notes: ${latestWithNotes.tutorNotes.substring(0, 80)}...`);
+      }
     }
     
     return lines.join('\n');
