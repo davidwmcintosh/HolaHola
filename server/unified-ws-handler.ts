@@ -236,8 +236,14 @@ class SocketIOWebSocketAdapter {
             if (parsed.type === 'audio_chunk' || parsed.type === 'word_timing' || parsed.type === 'sentence_ready') {
               console.log(`[SOCKET EMIT] ${parsed.type}: connected=${this.socket.connected}, dataLen=${data.length}`);
             }
+            if (parsed.type === 'processing' || parsed.type === 'processing_pending' || parsed.type === 'feedback') {
+              console.log(`[SOCKET EMIT CONTROL] Emitting '${parsed.type}' via socket.emit('message'): connected=${this.socket.connected}, socketId=${this.socket.id}`);
+            }
             // Emit parsed object, not string - Socket.io handles serialization
             this.socket.emit('message', parsed);
+            if (parsed.type === 'processing' || parsed.type === 'processing_pending') {
+              console.log(`[SOCKET EMIT CONTROL] ✓ socket.emit('message', ${parsed.type}) completed`);
+            }
           }
         } catch (e) {
           // Fallback: emit as-is if not valid JSON

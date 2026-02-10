@@ -405,7 +405,14 @@ export class StreamingVoiceClient {
         socket.onAny((eventName: string, ...args: any[]) => {
           if (eventName === 'message') {
             const data = args[0];
-            console.log('[SOCKET.IO onAny] EVENT:', eventName, 'TYPE:', data?.type, 'HAS AUDIO:', !!data?.audio);
+            const msgType = data?.type || 'unknown';
+            if (msgType === 'processing' || msgType === 'processing_pending') {
+              console.log('[SOCKET.IO CONTROL MSG] ★★★ Received:', msgType, JSON.stringify(data));
+            } else if (msgType === 'audio_chunk_part' || msgType === 'word_timing_delta') {
+              // Reduce noise - don't log every audio/timing part
+            } else {
+              console.log('[SOCKET.IO onAny] EVENT:', eventName, 'TYPE:', msgType, 'HAS AUDIO:', !!data?.audio);
+            }
           } else {
             console.log('[SOCKET.IO onAny] EVENT:', eventName);
           }
