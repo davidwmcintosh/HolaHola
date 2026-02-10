@@ -144,6 +144,11 @@ export interface StreamingSynthesisRequest {
   expressiveness?: number;
   contextId?: string;  // Optional: shared context ID for prosody continuity across segments
   autoDetectLanguage?: boolean;  // When true, omit language from Cartesia API to enable native code-switching
+  // ElevenLabs-specific voice settings
+  elStability?: number;          // 0.0-1.0, voice consistency
+  elSimilarityBoost?: number;    // 0.0-1.0, adherence to original voice
+  elStyle?: number;              // 0.0-1.0, style exaggeration
+  elSpeakerBoost?: boolean;      // Subtle voice similarity enhancement
 }
 
 /**

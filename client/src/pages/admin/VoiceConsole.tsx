@@ -161,6 +161,11 @@ export function VoiceConsoleContent() {
     expressiveness: 3,
     emotion: 'friendly',
     isActive: true,
+    // ElevenLabs voice settings
+    elStability: 0.5,
+    elSimilarityBoost: 0.75,
+    elStyle: 0.0,
+    elSpeakerBoost: true,
     // Pedagogical persona fields
     pedagogicalFocus: 'mixed' as PedagogicalFocus,
     teachingStyle: 'adaptive' as TeachingStyle,
@@ -196,14 +201,24 @@ export function VoiceConsoleContent() {
     enabled: isAddDialogOpen && !!formData.language && formData.provider === 'elevenlabs',
   });
 
-  const elevenLabsVoices: CartesiaVoice[] = (elevenLabsVoicesData?.voices || []).map(v => ({
-    id: v.id,
-    name: v.name,
-    description: v.description || v.labels?.accent || '',
-    language: v.labels?.accent || '',
-    gender: v.labels?.gender || '',
-    isPublic: true,
-  }));
+  const selectedLangCode = SUPPORTED_LANGUAGES.find(l => l.value === formData.language)?.code || '';
+
+  const elevenLabsVoices: CartesiaVoice[] = (elevenLabsVoicesData?.voices || [])
+    .filter(v => {
+      const voiceLang = v.labels?.language || '';
+      const voiceGender = v.labels?.gender || '';
+      const langMatch = !selectedLangCode || voiceLang === selectedLangCode;
+      const genderMatch = !formData.gender || voiceGender === formData.gender;
+      return langMatch && genderMatch;
+    })
+    .map(v => ({
+      id: v.id,
+      name: v.name,
+      description: v.description || [v.labels?.accent, v.labels?.descriptive, v.labels?.use_case].filter(Boolean).join(', ') || '',
+      language: v.labels?.language || '',
+      gender: v.labels?.gender || '',
+      isPublic: true,
+    }));
 
   const activeVoices = formData.provider === 'elevenlabs' ? elevenLabsVoices : cartesiaVoices;
   const isLoadingActiveVoices = formData.provider === 'elevenlabs' ? isLoadingElevenLabsVoices : isLoadingCartesiaVoices;
@@ -250,6 +265,10 @@ export function VoiceConsoleContent() {
       expressiveness: 3,
       emotion: 'friendly',
       isActive: true,
+      elStability: 0.5,
+      elSimilarityBoost: 0.75,
+      elStyle: 0.0,
+      elSpeakerBoost: true,
       pedagogicalFocus: 'mixed',
       teachingStyle: 'adaptive',
       errorTolerance: 'medium',
@@ -418,6 +437,11 @@ export function VoiceConsoleContent() {
       expressiveness: savedExpressiveness,
       emotion: savedEmotion,
       isActive: voice.isActive,
+      // ElevenLabs voice settings
+      elStability: voice.elStability ?? 0.5,
+      elSimilarityBoost: voice.elSimilarityBoost ?? 0.75,
+      elStyle: voice.elStyle ?? 0.0,
+      elSpeakerBoost: voice.elSpeakerBoost ?? true,
       // Load pedagogical persona fields
       pedagogicalFocus: voice.pedagogicalFocus || 'mixed',
       teachingStyle: voice.teachingStyle || 'adaptive',
@@ -610,32 +634,138 @@ export function VoiceConsoleContent() {
                         <div className="flex items-center justify-between">
                           <Label>Speaking Speed</Label>
                           <span className="text-sm font-medium">
-                            {formData.speakingRate === 0.7 ? 'Slow' : 
-                             formData.speakingRate === 0.9 ? 'Natural' : 
-                             formData.speakingRate === 1.0 ? 'Normal' :
-                             formData.speakingRate >= 1.2 ? 'Fast' : 
-                             formData.speakingRate.toFixed(2)}
+                            {formData.provider === 'elevenlabs' ? (
+                              formData.speakingRate === 1.0 ? 'Normal' :
+                              formData.speakingRate < 0.8 ? 'Very Slow' :
+                              formData.speakingRate < 1.0 ? 'Slow' :
+                              formData.speakingRate > 1.5 ? 'Very Fast' :
+                              formData.speakingRate > 1.0 ? 'Fast' :
+                              formData.speakingRate.toFixed(2)
+                            ) : (
+                              formData.speakingRate === 0.7 ? 'Slow' : 
+                              formData.speakingRate === 0.9 ? 'Natural' : 
+                              formData.speakingRate === 1.0 ? 'Normal' :
+                              formData.speakingRate >= 1.2 ? 'Fast' : 
+                              formData.speakingRate.toFixed(2)
+                            )}
                           </span>
                         </div>
                         <Slider
                           value={[formData.speakingRate]}
                           onValueChange={([value]) => setFormData(prev => ({ ...prev, speakingRate: value }))}
-                          min={0.7}
-                          max={1.3}
-                          step={0.1}
+                          min={formData.provider === 'elevenlabs' ? 0.5 : 0.7}
+                          max={formData.provider === 'elevenlabs' ? 2.0 : 1.3}
+                          step={formData.provider === 'elevenlabs' ? 0.05 : 0.1}
                           className="w-full"
                           data-testid="slider-speed"
                         />
                         <div className="flex justify-between text-xs text-muted-foreground">
-                          <span>Slow (0.7)</span>
-                          <span>Natural (0.9)</span>
-                          <span>Fast (1.3)</span>
+                          {formData.provider === 'elevenlabs' ? (
+                            <>
+                              <span>Slow (0.5)</span>
+                              <span>Normal (1.0)</span>
+                              <span>Fast (2.0)</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>Slow (0.7)</span>
+                              <span>Natural (0.9)</span>
+                              <span>Fast (1.3)</span>
+                            </>
+                          )}
                         </div>
                       </div>
                     )}
 
-                    {/* Emotion Controls for Audition */}
-                    {formData.voiceId && ttsMetadata && (
+                    {/* ElevenLabs Voice Settings */}
+                    {formData.voiceId && formData.provider === 'elevenlabs' && (
+                      <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="h-4 w-4 text-primary" />
+                          <Label className="text-sm font-medium">ElevenLabs Voice Settings</Label>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs text-muted-foreground">Stability</Label>
+                            <span className="text-sm font-medium">{formData.elStability.toFixed(2)}</span>
+                          </div>
+                          <Slider
+                            value={[formData.elStability]}
+                            onValueChange={([value]) => setFormData(prev => ({ ...prev, elStability: value }))}
+                            min={0}
+                            max={1}
+                            step={0.05}
+                            className="w-full"
+                            data-testid="slider-el-stability"
+                          />
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>Expressive (0)</span>
+                            <span>Consistent (1)</span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs text-muted-foreground">Similarity Boost</Label>
+                            <span className="text-sm font-medium">{formData.elSimilarityBoost.toFixed(2)}</span>
+                          </div>
+                          <Slider
+                            value={[formData.elSimilarityBoost]}
+                            onValueChange={([value]) => setFormData(prev => ({ ...prev, elSimilarityBoost: value }))}
+                            min={0}
+                            max={1}
+                            step={0.05}
+                            className="w-full"
+                            data-testid="slider-el-similarity"
+                          />
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>Low (0)</span>
+                            <span>High (1)</span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs text-muted-foreground">Style Exaggeration</Label>
+                            <span className="text-sm font-medium">{formData.elStyle.toFixed(2)}</span>
+                          </div>
+                          <Slider
+                            value={[formData.elStyle]}
+                            onValueChange={([value]) => setFormData(prev => ({ ...prev, elStyle: value }))}
+                            min={0}
+                            max={1}
+                            step={0.05}
+                            className="w-full"
+                            data-testid="slider-el-style"
+                          />
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>None (0)</span>
+                            <span>Exaggerated (1)</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">Higher values increase latency. Keep at 0 unless needed.</p>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1">
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Speaker Boost</Label>
+                            <p className="text-xs text-muted-foreground">Subtle voice similarity enhancement</p>
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={formData.elSpeakerBoost ? "default" : "outline"}
+                            onClick={() => setFormData(prev => ({ ...prev, elSpeakerBoost: !prev.elSpeakerBoost }))}
+                            data-testid="button-el-speaker-boost"
+                          >
+                            {formData.elSpeakerBoost ? 'On' : 'Off'}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Cartesia Emotion Controls for Audition */}
+                    {formData.voiceId && formData.provider === 'cartesia' && ttsMetadata && (
                       <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
                         <div className="flex items-center gap-2">
                           <Sparkles className="h-4 w-4 text-primary" />

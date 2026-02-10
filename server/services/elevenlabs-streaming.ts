@@ -176,6 +176,10 @@ export class ElevenLabsStreamingService extends EventEmitter {
       targetLanguage,
       speakingRate = 0.9,
       autoDetectLanguage,
+      elStability,
+      elSimilarityBoost,
+      elStyle,
+      elSpeakerBoost,
     } = request;
     
     const trimmedText = text?.trim() || '';
@@ -248,10 +252,10 @@ export class ElevenLabsStreamingService extends EventEmitter {
       console.log(`[ElevenLabs Streaming] Using pronunciation dictionary for ${targetLanguage}`);
     }
     
-    // Map speaking rate: our 0.6-1.5 range stays as-is for ElevenLabs stability/similarity
-    // Lower stability = more expressive, higher = more consistent
-    const stability = Math.max(0.3, Math.min(0.8, 0.5));
-    const similarityBoost = 0.75;
+    const stability = elStability ?? 0.5;
+    const similarityBoost = elSimilarityBoost ?? 0.75;
+    const styleValue = elStyle ?? 0;
+    const speakerBoost = elSpeakerBoost ?? true;
     
     const startTime = Date.now();
     let firstChunkTime: number | null = null;
@@ -265,10 +269,14 @@ export class ElevenLabsStreamingService extends EventEmitter {
         voice_settings: {
           stability,
           similarity_boost: similarityBoost,
-          style: 0,
-          use_speaker_boost: true,
+          style: styleValue,
+          use_speaker_boost: speakerBoost,
         },
       };
+
+      if (speakingRate && speakingRate !== 1.0) {
+        requestBody.speed = speakingRate;
+      }
       
       if (effectiveLanguageCode) {
         requestBody.language_code = effectiveLanguageCode;
@@ -427,6 +435,10 @@ export class ElevenLabsStreamingService extends EventEmitter {
       speakingRate?: number;
       pronunciationDictId?: string;
       pronunciationDictVersionId?: string;
+      elStability?: number;
+      elSimilarityBoost?: number;
+      elStyle?: number;
+      elSpeakerBoost?: boolean;
     } = {}
   ): Promise<Buffer> {
     if (!this.apiKey) {
@@ -437,12 +449,16 @@ export class ElevenLabsStreamingService extends EventEmitter {
       text,
       model_id: this.model,
       voice_settings: {
-        stability: 0.5,
-        similarity_boost: 0.75,
-        style: 0,
-        use_speaker_boost: true,
+        stability: options.elStability ?? 0.5,
+        similarity_boost: options.elSimilarityBoost ?? 0.75,
+        style: options.elStyle ?? 0,
+        use_speaker_boost: options.elSpeakerBoost ?? true,
       },
     };
+
+    if (options.speakingRate && options.speakingRate !== 1.0) {
+      requestBody.speed = options.speakingRate;
+    }
     
     if (options.languageCode) {
       requestBody.language_code = options.languageCode;

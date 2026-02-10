@@ -388,6 +388,12 @@ export const tutorVoices = pgTable("tutor_voices", {
   emotion: varchar("emotion").notNull().default("friendly"), // Default emotion for TTS
   isActive: boolean("is_active").notNull().default(true), // Enable/disable voice without deleting
   
+  // ========== ELEVENLABS VOICE SETTINGS ==========
+  elStability: real("el_stability").default(0.5), // 0.0-1.0, voice consistency (lower = more expressive)
+  elSimilarityBoost: real("el_similarity_boost").default(0.75), // 0.0-1.0, adherence to original voice
+  elStyle: real("el_style").default(0.0), // 0.0-1.0, style exaggeration
+  elSpeakerBoost: boolean("el_speaker_boost").default(true), // Subtle voice similarity enhancement
+  
   // ========== PEDAGOGICAL PERSONA REGISTRY ==========
   // Teaching profile metadata for each tutor - shapes AI behavior beyond just voice
   pedagogicalFocus: pedagogicalFocusEnum("pedagogical_focus").default("mixed"), // Primary teaching emphasis

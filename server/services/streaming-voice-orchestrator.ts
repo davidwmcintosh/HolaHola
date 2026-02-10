@@ -1412,6 +1412,11 @@ export class StreamingVoiceOrchestrator {
         }
         
         session.ttsProvider = (tutorVoice.provider === 'elevenlabs' ? 'elevenlabs' : 'cartesia') as 'elevenlabs' | 'cartesia';
+        // Store ElevenLabs-specific voice settings on session
+        (session as any).elStability = tutorVoice.elStability ?? 0.5;
+        (session as any).elSimilarityBoost = tutorVoice.elSimilarityBoost ?? 0.75;
+        (session as any).elStyle = tutorVoice.elStyle ?? 0;
+        (session as any).elSpeakerBoost = tutorVoice.elSpeakerBoost ?? true;
         console.log(`[VoiceDefaults] Loaded tutor baseline from DB: ${config.targetLanguage}/${initialGender} (TTS: ${session.ttsProvider})`, session.voiceDefaults);
       } else {
         // Fallback to standard tutor defaults if voice not in database
@@ -4133,9 +4138,13 @@ Remember: Beta testers understand they're helping build something and appreciate
                 session.cachedMainTutorVoiceId = undefined;
               }
             
-              // Update session voice with voiceId and provider
+              // Update session voice with voiceId, provider, and ElevenLabs settings
               session.voiceId = matchingVoice.voiceId;
               session.ttsProvider = (matchingVoice.provider === 'elevenlabs' ? 'elevenlabs' : 'cartesia') as 'elevenlabs' | 'cartesia';
+              (session as any).elStability = matchingVoice.elStability ?? 0.5;
+              (session as any).elSimilarityBoost = matchingVoice.elSimilarityBoost ?? 0.75;
+              (session as any).elStyle = matchingVoice.elStyle ?? 0;
+              (session as any).elSpeakerBoost = matchingVoice.elSpeakerBoost ?? true;
               session.tutorGender = effectiveGender;
               session.tutorName = tutorName;
               
@@ -6098,6 +6107,10 @@ Remember: Beta testers understand they're helping build something and appreciate
               session.isAssistantActive = false;
               session.voiceId = matchingVoice.voiceId;
               session.ttsProvider = (matchingVoice.provider === 'elevenlabs' ? 'elevenlabs' : 'cartesia') as 'elevenlabs' | 'cartesia';
+              (session as any).elStability = matchingVoice.elStability ?? 0.5;
+              (session as any).elSimilarityBoost = matchingVoice.elSimilarityBoost ?? 0.75;
+              (session as any).elStyle = matchingVoice.elStyle ?? 0;
+              (session as any).elSpeakerBoost = matchingVoice.elSpeakerBoost ?? true;
               session.tutorGender = targetGender;
               session.tutorName = tutorName || 'your tutor';
               
@@ -6517,6 +6530,11 @@ Remember: Beta testers understand they're helping build something and appreciate
         emotion: effectiveEmotion,
         personality: effectivePersonality,
         expressiveness: effectiveExpressiveness,
+        // ElevenLabs-specific voice settings from DB
+        elStability: (session as any).elStability,
+        elSimilarityBoost: (session as any).elSimilarityBoost,
+        elStyle: (session as any).elStyle,
+        elSpeakerBoost: (session as any).elSpeakerBoost,
       };
       const effectiveTtsProvider = session.ttsProvider || this.ttsProvider;
       const ttsStream = effectiveTtsProvider === 'elevenlabs'
@@ -7078,6 +7096,11 @@ Remember: Beta testers understand they're helping build something and appreciate
         emotion: effectiveEmotion,
         personality: effectivePersonality,
         expressiveness: effectiveExpressiveness,
+        // ElevenLabs-specific voice settings from DB
+        elStability: (session as any).elStability,
+        elSimilarityBoost: (session as any).elSimilarityBoost,
+        elStyle: (session as any).elStyle,
+        elSpeakerBoost: (session as any).elSpeakerBoost,
       };
       
       const result = effectiveTtsProvider === 'elevenlabs'
