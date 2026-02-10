@@ -8,6 +8,70 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: February 10, 2026 - Google Cloud TTS Migration: Capabilities & Future Optimizations
+
+**Status**: COMPLETED (migration) / ONGOING (optimization backlog)
+
+**Overview**: Migrated all 20 main tutor voices from ElevenLabs/Cartesia WebSocket-streaming TTS to Google Cloud TTS (Chirp 3 HD) REST-based API. This was done for classroom-scale concurrency (Cartesia/ElevenLabs capped at 15 concurrent connections; Google uses RPM quotas with no hard concurrency limit).
+
+#### What Changed
+
+| Area | Before (Cartesia/ElevenLabs) | After (Google Chirp 3 HD) |
+|------|------------------------------|---------------------------|
+| Protocol | WebSocket streaming (chunks arrive as generated) | REST (complete audio in single response) |
+| Concurrency | 15 connections max | RPM-based (default 1,000 RPM, increasable) |
+| Emotion controls | Rich: warm, playful, curious, excited, etc. | None — Google has no emotion knobs |
+| Word timings | Real word-level timestamps from provider | Estimated timings (word count / 150 WPM) |
+| Pronunciation dicts | Custom per-language dictionaries loaded | Google built-in pronunciation (not customizable) |
+| Audio format | Raw PCM (Cartesia) / MP3 (ElevenLabs) | MP3 |
+| Speed control | Yes (speakingRate) | Yes (speakingRate 0.25-4.0) |
+| Pitch control | Via emotion/style | Yes (pitch -10 to +10 semitones) |
+| Volume control | N/A | Yes (volumeGainDb -10 to +10 dB) |
+
+#### What Still Works
+
+- **Speed changes** via `voice_adjust` function call — `speakingRate` is passed to Google API
+- **Subtitles** — estimated word timings sent to client (less precise but functional)
+- **Custom subtitles** — `subtitle(mode: 'custom', text: '...')` is unaffected (just text to UI)
+- **All non-voice function calls** — whiteboard, overlays, drills, phase shifts, etc.
+- **Voice Console** — Google provider selectable with pitch/volume/rate controls
+
+#### What's Degraded or Lost
+
+1. **Latency**: REST means full audio must generate before first byte plays. Previously, WebSocket streaming allowed audio to start playing while still generating. Expect ~2-4 sec overhead vs streaming for longer sentences.
+2. **Emotion expressiveness**: `voice_adjust(emotion: 'warm')` is stored on session but has no effect on Google audio. Daniela's voice will sound the same regardless of emotion function calls.
+3. **Word emphasis**: `word_emphasis` function call had Cartesia-specific emphasis controls. No equivalent in Google.
+4. **Pronunciation dictionaries**: 8 language-specific dictionaries were loaded for Cartesia. Google uses its own built-in pronunciation.
+5. **Voice identity**: Chirp 3 HD voices sound different from the Cartesia voices the system was originally tuned with.
+
+#### Future Optimization Backlog
+
+| Priority | Optimization | Description | Expected Impact |
+|----------|-------------|-------------|-----------------|
+| HIGH | Sentence-level parallelism | Fire Google TTS requests for multiple sentences simultaneously while Gemini is still streaming | Could recover 2-3 sec of latency |
+| HIGH | Audio pre-buffering | Start TTS for sentence N+1 while sentence N is playing | Near-zero inter-sentence gap |
+| HIGH | Micro-ack system | Pre-recorded quick acknowledgments while main response generates (see existing batch doc entry) | Perceived latency near zero |
+| MEDIUM | Google TTS streaming API | Google has a streaming synthesis API (v1beta1) — investigate if Chirp 3 HD supports it | Could restore progressive audio delivery |
+| MEDIUM | Hybrid provider strategy | Use Google for production scale, Cartesia for premium/admin voice sessions | Best of both worlds |
+| MEDIUM | SSML emotion markers | Use Google SSML `<prosody>` and `<emphasis>` tags to approximate emotion control | Partial emotion expressiveness recovery |
+| LOW | Audio caching for common phrases | Cache frequently spoken phrases (greetings, transitions) in audio_library | Instant playback for repeated content |
+| LOW | Word timing from audio duration | Calculate actual audio duration from MP3 header instead of word-count estimate | More accurate subtitle sync |
+
+#### Historical Context
+
+When first integrating Google TTS (before Cartesia), response times were ~8 seconds vs <4 seconds achieved with Cartesia's WebSocket streaming. The sentence-level parallelism and pre-buffering optimizations above are the key to closing that gap.
+
+#### Key Files Modified
+
+| File | Changes |
+|------|---------|
+| `server/services/streaming-voice-orchestrator.ts` | Added `google` to ttsProvider type, Google routing in progressive + buffered paths, warmup skip |
+| `server/services/tts-service.ts` | `synthesizeWithGoogleDirect()` — REST synthesis with pitch/volume/rate params |
+| `client/src/pages/admin/VoiceConsole.tsx` | Google provider dropdown with pitch/volume/rate controls |
+| Database: `tutor_voices` | 20 main tutors migrated to Chirp 3 HD voice IDs (Aoede, Puck, Leda, Orus, Fenrir) |
+
+---
+
 ### Session: February 1, 2026 - Hybrid Audio Library (ALL PHASES COMPLETE)
 
 **Status**: COMPLETED - All 3 phases implemented
