@@ -1708,6 +1708,123 @@ export class TTSService {
     };
   }
 
+  canUseGoogleStreaming(params: { pitch?: number; volumeGainDb?: number }): boolean {
+    const { pitch = 0, volumeGainDb = 0 } = params;
+    return pitch === 0 && volumeGainDb === 0;
+  }
+
+  async streamSynthesizeWithGoogle(params: {
+    text: string;
+    voiceId: string;
+    speakingRate?: number;
+    onAudioChunk: (chunk: { audio: Buffer; durationMs: number; audioFormat: string; sampleRate: number; isLast?: boolean }) => void;
+    onComplete: (totalBytes: number) => void;
+    onError: (error: Error) => void;
+  }): Promise<void> {
+    if (!this.googleBetaClient) {
+      throw new Error('Google Cloud TTS Beta client not available for streaming. Set GOOGLE_CLOUD_TTS_CREDENTIALS.');
+    }
+
+    const { text, voiceId, speakingRate = 1.0, onAudioChunk, onComplete, onError } = params;
+    const voiceParts = voiceId.split('-');
+    const languageCode = voiceParts.length >= 2 ? `${voiceParts[0]}-${voiceParts[1]}` : 'en-US';
+    const startTime = Date.now();
+    let totalBytes = 0;
+    let chunkCount = 0;
+    let firstChunkTime: number | null = null;
+
+    const wordsPerMinute = 150;
+    const wordCount = text.split(/\s+/).length;
+    const estimatedTotalDurationMs = Math.max(1000, (wordCount / wordsPerMinute) * 60000 / speakingRate);
+
+    console.log(`[Google TTS Stream] Starting bidirectional stream: ${text.length} chars, voice=${voiceId}, rate=${speakingRate}, est=${Math.round(estimatedTotalDurationMs)}ms`);
+
+    return new Promise<void>((resolve, reject) => {
+      const stream = (this.googleBetaClient as any).streamingSynthesize();
+      let settled = false;
+
+      const finish = (err?: Error) => {
+        if (settled) return;
+        settled = true;
+        if (err) {
+          try { onError(err); } catch (e) { console.error('[Google TTS Stream] onError callback threw:', e); }
+          reject(err);
+        } else {
+          const elapsed = Date.now() - startTime;
+          const ttfc = firstChunkTime ? firstChunkTime - startTime : -1;
+          console.log(`[Google TTS Stream] Complete: ${chunkCount} chunks, ${totalBytes} bytes, ${elapsed}ms total, TTFC=${ttfc}ms`);
+          try { onComplete(totalBytes); } catch (e) { console.error('[Google TTS Stream] onComplete callback threw:', e); }
+          resolve();
+        }
+      };
+
+      stream.on('data', (response: any) => {
+        try {
+          if (response.audioContent && response.audioContent.length > 0) {
+            const audioBuffer = Buffer.from(response.audioContent);
+            if (audioBuffer.length === 0) return;
+
+            if (!firstChunkTime) {
+              firstChunkTime = Date.now();
+              console.log(`[Google TTS Stream] First chunk: ${audioBuffer.length} bytes in ${firstChunkTime - startTime}ms`);
+            }
+
+            totalBytes += audioBuffer.length;
+            chunkCount++;
+
+            const chunkDurationMs = chunkCount === 1
+              ? estimatedTotalDurationMs
+              : 0;
+
+            onAudioChunk({
+              audio: audioBuffer,
+              durationMs: chunkDurationMs,
+              audioFormat: 'mp3',
+              sampleRate: 24000,
+            });
+          }
+        } catch (e) {
+          console.error('[Google TTS Stream] onAudioChunk callback threw:', e);
+        }
+      });
+
+      stream.on('error', (err: Error) => {
+        console.error(`[Google TTS Stream] Stream error after ${Date.now() - startTime}ms:`, err.message);
+        finish(err);
+      });
+
+      stream.on('end', () => {
+        finish();
+      });
+
+      stream.write({
+        streamingConfig: {
+          voice: {
+            languageCode,
+            name: voiceId,
+          },
+          streamingAudioConfig: {
+            audioEncoding: 'MP3',
+            speakingRate,
+            sampleRateHertz: 24000,
+          },
+        },
+      });
+
+      const sentences = text.match(/[^.!?]+[.!?]*\s*/g) || [text];
+      for (const sentence of sentences) {
+        const trimmed = sentence.trim();
+        if (trimmed.length > 0) {
+          stream.write({
+            input: { text: trimmed },
+          });
+        }
+      }
+
+      stream.end();
+    });
+  }
+
   /**
    * Synthesize speech using OpenAI TTS (fallback)
    */

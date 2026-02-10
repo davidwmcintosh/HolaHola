@@ -7129,34 +7129,60 @@ Remember: Beta testers understand they're helping build something and appreciate
       
       if (effectiveTtsProvider === 'google') {
         const ttsService = getTTSService();
-        const googleResult = await ttsService.synthesizeWithGoogleDirect({
-          text: textWithEmphases,
-          voiceId: session.voiceId || '',
-          speakingRate: effectiveSpeakingRate,
-          pitch: (session as any).googlePitch ?? 0,
-          volumeGainDb: (session as any).googleVolumeGainDb ?? 0,
-        });
+        const googlePitch = (session as any).googlePitch ?? 0;
+        const googleVolumeGainDb = (session as any).googleVolumeGainDb ?? 0;
+        const useStreaming = ttsService.canUseGoogleStreaming({ pitch: googlePitch, volumeGainDb: googleVolumeGainDb });
+        const googleStartTime = Date.now();
         
-        if (googleResult.audioBuffer && googleResult.audioBuffer.length > 0) {
-          const wordsPerMinute = 150;
-          const wordCount = textWithEmphases.split(/\s+/).length;
-          const estimatedDurationMs = Math.max(1000, (wordCount / wordsPerMinute) * 60000 / effectiveSpeakingRate);
-          ttsCallbacks.onAudioChunk({
-            audio: googleResult.audioBuffer,
-            durationMs: estimatedDurationMs,
-            audioFormat: 'mp3',
-            isLast: true,
-          }, 0);
+        if (useStreaming) {
+          let streamingSucceeded = false;
           
-          const estimatedTimings = this.estimateWordTimings(displayText, estimatedDurationMs / 1000);
-          for (let wi = 0; wi < estimatedTimings.length; wi++) {
-            ttsCallbacks.onWordTimestamp(estimatedTimings[wi], wi, estimatedDurationMs);
+          try {
+            let googleStreamChunkIdx = 0;
+            const wordsPerMinute = 150;
+            const wordCount = textWithEmphases.split(/\s+/).length;
+            const estimatedDurationMs = Math.max(1000, (wordCount / wordsPerMinute) * 60000 / effectiveSpeakingRate);
+            
+            await ttsService.streamSynthesizeWithGoogle({
+              text: textWithEmphases,
+              voiceId: session.voiceId || '',
+              speakingRate: effectiveSpeakingRate,
+              onAudioChunk: (audioChunk) => {
+                ttsCallbacks.onAudioChunk({
+                  audio: audioChunk.audio,
+                  durationMs: audioChunk.durationMs,
+                  audioFormat: 'mp3',
+                  isLast: false,
+                }, googleStreamChunkIdx++);
+                
+                if (googleStreamChunkIdx === 1) {
+                  const estimatedTimings = this.estimateWordTimings(displayText, estimatedDurationMs / 1000);
+                  for (let wi = 0; wi < estimatedTimings.length; wi++) {
+                    ttsCallbacks.onWordTimestamp(estimatedTimings[wi], wi, estimatedDurationMs);
+                  }
+                }
+              },
+              onComplete: (totalBytes) => {
+                const estimatedTimings = this.estimateWordTimings(displayText, estimatedDurationMs / 1000);
+                ttsCallbacks.onComplete(estimatedTimings, estimatedDurationMs);
+                console.log(`[Progressive] Google TTS streaming complete: sentence ${index}, ${googleStreamChunkIdx} chunks, ${totalBytes} bytes, ${Date.now() - googleStartTime}ms`);
+              },
+              onError: (err) => {
+                console.error(`[Progressive] Google TTS streaming error for sentence ${index}:`, err.message);
+              },
+            });
+            
+            streamingSucceeded = true;
+          } catch (streamErr: any) {
+            console.warn(`[Progressive] Google TTS streaming failed for sentence ${index}, falling back to REST: ${streamErr.message}`);
           }
           
-          ttsCallbacks.onComplete(estimatedTimings, estimatedDurationMs);
+          if (!streamingSucceeded) {
+            await this.googleTtsRestFallback(ttsService, textWithEmphases, displayText, session, effectiveSpeakingRate, googlePitch, googleVolumeGainDb, index, ttsCallbacks, googleStartTime);
+          }
         } else {
-          console.warn(`[Progressive] Google TTS returned empty audio for sentence ${index}`);
-          ttsCallbacks.onComplete([], 0);
+          console.log(`[Progressive] Google TTS using REST (pitch=${googlePitch}, volume=${googleVolumeGainDb}dB not supported in streaming)`);
+          await this.googleTtsRestFallback(ttsService, textWithEmphases, displayText, session, effectiveSpeakingRate, googlePitch, googleVolumeGainDb, index, ttsCallbacks, googleStartTime);
         }
       } else {
         const result = effectiveTtsProvider === 'elevenlabs'
@@ -7192,6 +7218,50 @@ Remember: Beta testers understand they're helping build something and appreciate
     }
   }
   
+  private async googleTtsRestFallback(
+    ttsService: any,
+    textWithEmphases: string,
+    displayText: string,
+    session: StreamingSession,
+    speakingRate: number,
+    pitch: number,
+    volumeGainDb: number,
+    sentenceIndex: number,
+    ttsCallbacks: any,
+    startTime: number
+  ): Promise<void> {
+    const googleResult = await ttsService.synthesizeWithGoogleDirect({
+      text: textWithEmphases,
+      voiceId: session.voiceId || '',
+      speakingRate,
+      pitch,
+      volumeGainDb,
+    });
+    
+    if (googleResult.audioBuffer && googleResult.audioBuffer.length > 0) {
+      const wordsPerMinute = 150;
+      const wordCount = textWithEmphases.split(/\s+/).length;
+      const estimatedDurationMs = Math.max(1000, (wordCount / wordsPerMinute) * 60000 / speakingRate);
+      ttsCallbacks.onAudioChunk({
+        audio: googleResult.audioBuffer,
+        durationMs: estimatedDurationMs,
+        audioFormat: 'mp3',
+        isLast: true,
+      }, 0);
+      
+      const estimatedTimings = this.estimateWordTimings(displayText, estimatedDurationMs / 1000);
+      for (let wi = 0; wi < estimatedTimings.length; wi++) {
+        ttsCallbacks.onWordTimestamp(estimatedTimings[wi], wi, estimatedDurationMs);
+      }
+      
+      ttsCallbacks.onComplete(estimatedTimings, estimatedDurationMs);
+      console.log(`[Progressive] Google TTS REST: sentence ${sentenceIndex}, ${googleResult.audioBuffer.length} bytes, ${Date.now() - startTime}ms`);
+    } else {
+      console.warn(`[Progressive] Google TTS REST returned empty audio for sentence ${sentenceIndex}`);
+      ttsCallbacks.onComplete([], 0);
+    }
+  }
+
   /**
    * Estimate word timings when not provided by TTS
    * Uses the original display text for word timings (phonemes are only added inside Cartesia)

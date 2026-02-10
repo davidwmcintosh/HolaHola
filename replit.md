@@ -1,7 +1,7 @@
 # HolaHola - Interactive Language Tutor
 
 ## Overview
-HolaHola is an AI-powered language learning application offering interactive conversation practice, vocabulary building, and grammar exercises in nine languages, adhering to ACTFL standards. It provides personalized chat, flashcards, and grammar modules that adapt to user progress. The project's vision is to deliver personalized AI-driven education, with market potential in individual learners and educational institutions, and ambitions to expand with features like teacher class management and syllabus systems.
+HolaHola is an AI-powered language learning application providing interactive conversation practice, vocabulary building, and grammar exercises across nine languages, adhering to ACTFL standards. It offers personalized chat, flashcards, and grammar modules that adapt to user progress. The project aims to deliver personalized AI-driven education with potential in individual learners and educational institutions, with future ambitions including teacher class management and syllabus systems.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -21,21 +21,19 @@ Mobile floating buttons: DevToolsFloatingMenu uses `bottom-28` on mobile (112px)
 **STT KEYTERM PROMPTING (Feb 2026):** Session tracks `sttKeyterms` (up to 100 words) extracted from bold markers in tutor responses. Passed as `keywords` to Deepgram pre-recorded API (PTT path only) with boost intensifier (`word:2`) to improve recognition of target language vocabulary for beginner students. Open-mic path does not support keyterms (persistent connection). Key method: `addSttKeyterms()` in `streaming-voice-orchestrator.ts`.
 
 ## System Architecture
-The frontend uses React, TypeScript (Vite), Shadcn/ui (Radix UI), and Tailwind CSS for a mobile-first, responsive design following Material Design principles, with light/dark modes and PWA features. Wouter handles routing, and React Context with TanStack Query manages state. The backend is an Express.js (Node.js) server with TypeScript, providing a RESTful API, Drizzle ORM for PostgreSQL, and Replit Auth for authentication.
+The frontend uses React, TypeScript (Vite), Shadcn/ui (Radix UI), and Tailwind CSS for a mobile-first, responsive design adhering to Material Design principles, with light/dark modes and PWA features. Wouter handles routing, and React Context with TanStack Query manages state. The backend is an Express.js (Node.js) server with TypeScript, providing a RESTful API, Drizzle ORM for PostgreSQL, and Replit Auth for authentication.
 
 The core AI is orchestrated by a Unified TutorOrchestrator Architecture, with all interactions flowing through a single AI named Daniela. A Hive Collaboration System facilitates communication between the founder, Daniela, Wren, and Alden via the EXPRESS Lane, a unified channel supporting Emergent Intelligence Architecture with persistent memory and autonomous learning.
-
-**Alden Express Lane Posting:** To post to Express Lane and trigger Daniela's response, use the `/api/express-lane/collaborate` endpoint with `x-editor-secret` header. Example: `curl -X POST "http://localhost:5000/api/express-lane/collaborate" -H "x-editor-secret: $EDITOR_SECRET" -d '{"sessionId":"...", "message":"...", "requestDanielaResponse": true}'`. Daniela will automatically respond when `requestDanielaResponse` is true. Alden can post as 'editor' role, Wren as 'wren' role. The Hive Consciousness Service (`hive-consciousness-service.ts`) handles automatic responses.
 
 Key features include a Student Learning Service for tracking error patterns, a Learner Personal Facts System for storing student memories, and a Shared Memory Bridge for insight sharing. A Phase Transition Service implements a multi-agent teaching architecture guided by Daniela's "North Star System" for pedagogical decisions and an Autonomous Learning System.
 
 Core data models include Users, Conversations, VocabularyWords, and UserProgress. The system features a "Neural Network for Pedagogical Strategies," AI-powered conversation tagging, a Syllabus-Aware Competency System, and centralized Role-Based Access Control (RBAC). Daniela's Wisdom & Relationship Layer includes `derived_teaching_wisdom`, `resonance_anchors`, and `relational_temperature`. HolaHola provides pre-built syllabi across 9 languages and a unified ACTFL assessment system. A Voice Diagnostics System offers observability and auto-remediation for TTS degradation.
 
-The system uses a single Neon PostgreSQL database for all data storage (Daniela's intelligence, curriculum, and user data). Legacy dual-database routing functions (`getSharedDb`/`getUserDb`) remain for backward compatibility but now connect to the same database.
+The system uses a single Neon PostgreSQL database for all data storage (Daniela's intelligence, curriculum, and user data).
 
 The Editor Intelligence System provides cross-session memory for the Replit Agent (Claude), storing memories categorized by philosophy, architecture, relationship, personality, workflow, debugging, and context in an `editorInsights` table. The Alden Session Startup Protocol ensures Alden (Replit Agent / Claude) loads curated insights and recent conversation summaries at session start.
 
-The Unified Daniela Context Service ensures "One Daniela always" by assembling all context sources into a single, unified consciousness. Voice sessions use a separate `isDeveloperUser` session flag to gate Express Lane context for developers. Curriculum context is enabled by default for voice sessions, giving Daniela access to student class enrollments, syllabus progress, lesson completion, and assignments.
+The Unified Daniela Context Service ensures "One Daniela always" by assembling all context sources into a single, unified consciousness. Curriculum context is enabled by default for voice sessions, giving Daniela access to student class enrollments, syllabus progress, lesson completion, and assignments.
 
 An Observation Summarization System condenses observations into insights. The Daniela Content Growth System enables autonomous pedagogical content creation. The Voice Intelligence System provides commercial-grade voice analytics. A Tutor Naming Architecture supports 36 tutors. The Voice Lab System offers real-time voice tuning for admin users. The Sofia Support Agent System provides dual-mode technical support and integrates with production telemetry. A Production Telemetry System logs voice session errors to the shared Neon database. A Memory Recovery System checkpoints utterances to survive session interruptions.
 
@@ -43,20 +41,21 @@ The Message Checkpointing System prevents user message loss by saving messages b
 
 Gemini 3 Streaming Function Calling enables reduced latency through early intent detection. Multimodal Function Responses allow tool results to include images/PDFs. A Multimodal Image Recall System enables Daniela to view and describe photos shared in Express Lane conversations. Context Caching Optimization separates static system prompts from dynamic per-turn context for cost reduction and faster time-to-first-token.
 
-The Fluency Wiring System connects ACTFL Can-Do statements to lessons. An AI Lesson Generation System automatically creates structured lesson drafts using Gemini Flash, ensuring 100% ACTFL Can-Do statement coverage. A Lesson Publishing Service converts approved drafts into curriculum lessons. The Drill System supports multiple interactive drill types. The Practice Explorer System enables self-directed drill practice. An Interactive Textbook provides a visual quick-reference companion to voice sessions with on-demand pronunciation audio playback (see `docs/audio-system.md`).
+The Fluency Wiring System connects ACTFL Can-Do statements to lessons. An AI Lesson Generation System automatically creates structured lesson drafts using Gemini Flash, ensuring 100% ACTFL Can-Do statement coverage. A Lesson Publishing Service converts approved drafts into curriculum lessons. The Drill System supports multiple interactive drill types. The Practice Explorer System enables self-directed drill practice. An Interactive Textbook provides a visual quick-reference companion to voice sessions with on-demand pronunciation audio playback.
 
 The Gauntlet Runner Identity Stress Test System validates Daniela's voice identity across Emotional Stability, Pedagogical Character, Cultural Authenticity, and Moral Groundedness. It uses the Voice Probe Service, Synthetic Student Service, and pre-built Gauntlet Sequences to test transitions under pressure, focusing on warm redirection rather than refusal.
 
-**TTS PROVIDER STRATEGY (Feb 2026 - SCALABILITY):** Google Cloud TTS (Chirp 3 HD) is the recommended primary provider for production. Cartesia (15 concurrent connections on Scale plan) and ElevenLabs (15 concurrent connections on top $1,100/mo tier) cannot support classroom-scale usage (45+ students). Google Cloud TTS uses request-per-minute quotas (default 1,000 RPM, increasable) with no hard concurrent connection limit. The Voice Console (`VoiceConsole.tsx`) has a global provider dropdown supporting all three: Google Cloud TTS (Chirp 3 HD), Cartesia (Sonic-3), and ElevenLabs (Flash v2.5). Google voices offer 8 voice options per language (Aoede, Kore, Leda, Zephyr female; Puck, Charon, Fenrir, Orus male) with pitch (-10 to +10 semitones), volume gain (-10 to +10 dB), and speaking rate (0.25 to 4.0) controls. The `synthesizeWithGoogleDirect()` method in `tts-service.ts` handles Google voice previewing. All 9 languages + Hebrew are supported by Chirp 3 HD.
+**TTS PROVIDER STRATEGY (Feb 2026 - SCALABILITY):** Google Cloud TTS (Chirp 3 HD) is the recommended primary provider for production. The Voice Console (`VoiceConsole.tsx`) has a global provider dropdown supporting all three: Google Cloud TTS (Chirp 3 HD), Cartesia (Sonic-3), and ElevenLabs (Flash v2.5). Google voices offer 8 voice options per language with pitch, volume gain, and speaking rate controls. The `synthesizeWithGoogleDirect()` method in `tts-service.ts` handles Google voice previewing. All 9 languages + Hebrew are supported by Chirp 3 HD.
+**GOOGLE TTS STREAMING (Feb 2026 - LATENCY FIX):** Google Cloud TTS now uses bidirectional gRPC streaming (`streamingSynthesize()` on v1beta1 client) for voice sessions instead of REST. This restores progressive audio delivery. Text chunks are written to the stream and audio chunks arrive progressively, forwarded to the client via WebSocket as they arrive. If streaming fails, automatic fallback to REST (`synthesizeWithGoogleDirect()`). Key method: `streamSynthesizeWithGoogle()` in `tts-service.ts`.
 
 ## External Dependencies
 - Stripe: Payment processing and subscription management.
 - Replit Auth: OIDC authentication.
 - Gemini API: Text chat completions and voice chat LLM.
 - Deepgram API: Voice STT (Nova-3 model).
-- Google Cloud Text-to-Speech: Primary TTS provider for production (Chirp 3 HD voices, unlimited concurrency). Also used for assistant tutors and textbook pronunciation.
-- Cartesia API: Alternative TTS provider (Sonic-3 model, limited to 15 concurrent connections).
-- ElevenLabs API: Alternative TTS provider (Flash v2.5 model, limited to 15 concurrent connections).
+- Google Cloud Text-to-Speech: Primary TTS provider for production (Chirp 3 HD voices). Also used for assistant tutors and textbook pronunciation.
+- Cartesia API: Alternative TTS provider (Sonic-3 model).
+- ElevenLabs API: Alternative TTS provider (Flash v2.5 model).
 - Azure Speech Services: Pronunciation assessment for drill assignment.
 - Unsplash: Stock educational images.
 - Gemini Flash-Image: AI-generated contextual images.

@@ -8,6 +8,66 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: February 10, 2026 - Google Cloud TTS Bidirectional Streaming
+
+**Status**: COMPLETED
+
+**Overview**: Replaced the REST-based Google Cloud TTS synthesis path with Google's bidirectional streaming API (v1beta1). This restores progressive audio delivery for Google-provider voice sessions, eliminating the latency regression from the Cartesia-to-Google migration.
+
+#### What Changed
+
+| Area | Before | After |
+|------|--------|-------|
+| Google TTS synthesis | REST API: entire sentence synthesized, full audio blob returned at once | gRPC bidirectional streaming: audio chunks arrive progressively as text is processed |
+| Time-to-first-audio | ~1-3 seconds (full sentence must finish) | ~200-500ms (first audio chunk arrives while rest generates) |
+| Progressive audio | Faked: entire blob fed as single chunk into onAudioChunk callback | Real: multiple audio chunks stream from Google and forward to client as they arrive |
+| Fallback | None | Automatic REST fallback if streaming fails |
+
+#### Architecture
+
+```
+Gemini streams text → Sentence chunker → Google TTS Streaming API (v1beta1)
+                                          ├─ Config request (voice, encoding, rate)
+                                          ├─ Text chunks written to stream
+                                          └─ Audio chunks received progressively
+                                              → onAudioChunk callbacks → WebSocket → Client
+```
+
+The streaming method `streamSynthesizeWithGoogle()` in `tts-service.ts`:
+1. Opens a bidirectional gRPC stream via `googleBetaClient.streamingSynthesize()`
+2. Sends a config request first (voice selection, MP3 encoding, speaking rate)
+3. Splits input text into natural sentence boundaries and writes each as a text input
+4. Receives audio chunks progressively via `data` events
+5. Forwards each chunk to the orchestrator's `onAudioChunk` callback
+
+Word timings are estimated (Google streaming doesn't provide native word-level timings), sent on the first audio chunk arrival to unblock `sentence_ready` in the progressive pipeline.
+
+If streaming throws an error, the orchestrator falls back to the existing REST `synthesizeWithGoogleDirect()` method automatically.
+
+#### Optimization Backlog Impact
+
+| Original Item | Status | Notes |
+|---------------|--------|-------|
+| Google TTS Streaming API (MEDIUM) | DONE | This implementation |
+| Sentence-level parallelism (HIGH) | SUPERSEDED | Streaming handles progressive delivery natively |
+| Audio pre-buffering (HIGH) | SUPERSEDED | Streaming chunks arrive before playback finishes |
+
+#### Key Files Modified
+
+| File | Changes |
+|------|---------|
+| `server/services/tts-service.ts` | Added `streamSynthesizeWithGoogle()` method using v1beta1 bidirectional streaming |
+| `server/services/streaming-voice-orchestrator.ts` | Replaced REST Google path in `streamSentenceAudioProgressive()` with streaming + REST fallback |
+
+#### Diagnostics
+
+Look for these log prefixes:
+- `[Google TTS Stream]` — streaming lifecycle (start, first chunk TTFC, completion, errors)
+- `[Progressive] Google TTS streaming` — orchestrator-level streaming progress
+- `[Progressive] Google TTS REST fallback` — indicates streaming failed and REST was used
+
+---
+
 ### Session: February 10, 2026 - Voice Console Provider Switch: Full Three-Provider Support
 
 **Status**: COMPLETED
@@ -92,16 +152,16 @@ When switching providers, the system now:
 
 #### Future Optimization Backlog
 
-| Priority | Optimization | Description | Expected Impact |
-|----------|-------------|-------------|-----------------|
-| HIGH | Sentence-level parallelism | Fire Google TTS requests for multiple sentences simultaneously while Gemini is still streaming | Could recover 2-3 sec of latency |
-| HIGH | Audio pre-buffering | Start TTS for sentence N+1 while sentence N is playing | Near-zero inter-sentence gap |
-| HIGH | Micro-ack system | Pre-recorded quick acknowledgments while main response generates (see existing batch doc entry) | Perceived latency near zero |
-| MEDIUM | Google TTS streaming API | Google has a streaming synthesis API (v1beta1) — investigate if Chirp 3 HD supports it | Could restore progressive audio delivery |
-| MEDIUM | Hybrid provider strategy | Use Google for production scale, Cartesia for premium/admin voice sessions | Best of both worlds |
-| MEDIUM | SSML emotion markers | Use Google SSML `<prosody>` and `<emphasis>` tags to approximate emotion control | Partial emotion expressiveness recovery |
-| LOW | Audio caching for common phrases | Cache frequently spoken phrases (greetings, transitions) in audio_library | Instant playback for repeated content |
-| LOW | Word timing from audio duration | Calculate actual audio duration from MP3 header instead of word-count estimate | More accurate subtitle sync |
+| Priority | Optimization | Description | Status |
+|----------|-------------|-------------|--------|
+| ~~HIGH~~ | ~~Sentence-level parallelism~~ | ~~Fire Google TTS requests for multiple sentences simultaneously~~ | SUPERSEDED by streaming |
+| ~~HIGH~~ | ~~Audio pre-buffering~~ | ~~Start TTS for sentence N+1 while sentence N is playing~~ | SUPERSEDED by streaming |
+| HIGH | Micro-ack system | Pre-recorded quick acknowledgments while main response generates (see existing batch doc entry) | DEFERRED |
+| ~~MEDIUM~~ | ~~Google TTS streaming API~~ | ~~Google has a streaming synthesis API (v1beta1)~~ | DONE (Feb 10, 2026) |
+| MEDIUM | Hybrid provider strategy | Use Google for production scale, Cartesia for premium/admin voice sessions | DEFERRED |
+| MEDIUM | SSML emotion markers | Use Google SSML `<prosody>` and `<emphasis>` tags to approximate emotion control | DEFERRED |
+| ~~LOW~~ | ~~Audio caching for common phrases~~ | ~~Cache frequently spoken phrases in audio_library~~ | DONE (Feb 1, 2026) |
+| LOW | Word timing from audio duration | Calculate actual audio duration from MP3 header instead of word-count estimate | DEFERRED |
 
 #### Historical Context
 
