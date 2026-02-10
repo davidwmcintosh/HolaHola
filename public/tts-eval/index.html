@@ -126,10 +126,46 @@
   </div>
 </div>
 
-<div class="test-group key-test" style="border-color: #22d3ee44;">
+<div class="test-group key-test" style="border-color: #a855f744;">
   <div class="test-header">
-    <div class="test-title">Isolated Word Test: Does language_code actually work?<span class="badge" style="background:#22d3ee33;color:#22d3ee">DIAGNOSTIC</span></div>
-    <div class="test-desc">Sending ONLY the foreign words (no English context) with and without language_code. If the parameter works, these should sound different.</div>
+    <div class="test-title">Full Sentence Test: language_code on mixed English + target language<span class="badge" style="background:#a855f733;color:#a855f7">CONCLUSIVE</span></div>
+    <div class="test-desc">The real test: full mixed-language sentences with and without language_code. Added "dove sei" for Italian (another homograph - "dove" is English for a bird). Listen carefully to the target language words.</div>
+  </div>
+  <div class="players">
+    <div class="player-row">
+      <div class="provider-label" style="color:#f59e0b">Italian full sentence - NO language_code</div>
+      <audio controls preload="none" src="it-full-nolang.mp3"></audio>
+    </div>
+    <div class="player-row">
+      <div class="provider-label" style="color:#a855f7">Italian full sentence - WITH language_code = "it" <span class="new-tag">NEW</span></div>
+      <audio controls preload="none" src="it-full-langcode.mp3"></audio>
+    </div>
+    <div class="player-row">
+      <div class="provider-label" style="color:#f59e0b">French full sentence - NO language_code</div>
+      <audio controls preload="none" src="fr-full-nolang.mp3"></audio>
+    </div>
+    <div class="player-row">
+      <div class="provider-label" style="color:#a855f7">French full sentence - WITH language_code = "fr" <span class="new-tag">NEW</span></div>
+      <audio controls preload="none" src="fr-full-langcode.mp3"></audio>
+    </div>
+  </div>
+  <div class="test-text" style="margin-top:12px">
+    <strong>Italian text:</strong> "Now try saying <span class="target">come stai</span> to greet someone. You can also say <span class="target">dove sei</span> which means where are you."<br>
+    <strong>French text:</strong> "The French word <span class="target">table</span> sounds different than English. And <span class="target">une orange</span> is almost the same. Try saying <span class="target">bonjour comment allez-vous</span> to be polite."
+  </div>
+</div>
+
+<div class="note">
+  <div class="note-title">The key question</div>
+  <p>Does <code>language_code</code> fix target words WITHOUT breaking the English parts? If the English still sounds natural 
+  while the foreign words are pronounced correctly, this is the production solution - just pass the target language code 
+  with every TTS request. No word-by-word splitting needed.</p>
+</div>
+
+<div class="test-group" style="border-color: #22d3ee44;">
+  <div class="test-header">
+    <div class="test-title">Earlier Isolated Word Test (reference)<span class="badge" style="background:#22d3ee33;color:#22d3ee">DIAGNOSTIC</span></div>
+    <div class="test-desc">Isolated words only - inconclusive since the voice already handles them correctly without English context.</div>
   </div>
   <div class="players">
     <div class="player-row">
@@ -149,13 +185,6 @@
       <audio controls preload="none" src="fr-table-only-langcode.mp3"></audio>
     </div>
   </div>
-</div>
-
-<div class="note">
-  <div class="note-title">What we're testing</div>
-  <p>If <code>language_code</code> works on isolated words, we could potentially split sentences: 
-  send English parts without a language code, and send bold-marked target words with the target language code, 
-  then stitch the audio together. But first - does it even change pronunciation? Listen above.</p>
 </div>
 
 </div>
