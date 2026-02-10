@@ -7171,9 +7171,13 @@ Remember: Beta testers understand they're helping build something and appreciate
               }
             },
             onComplete: (totalBytes) => {
-              const estimatedTimings = this.estimateWordTimings(displayText, estimatedDurationMs / 1000);
-              ttsCallbacks.onComplete(estimatedTimings, estimatedDurationMs);
-              console.log(`[Progressive] Google TTS streaming complete: sentence ${index}, ${googleStreamChunkIdx} chunks, ${totalBytes} bytes, ${Date.now() - googleStartTime}ms`);
+              const actualDurationMs = totalBytes > 0
+                ? (totalBytes / 2 / 24000) * 1000
+                : estimatedDurationMs;
+              const timingDurationMs = actualDurationMs > 0 ? actualDurationMs : estimatedDurationMs;
+              const finalTimings = this.estimateWordTimings(displayText, timingDurationMs / 1000);
+              ttsCallbacks.onComplete(finalTimings, timingDurationMs);
+              console.log(`[Progressive] Google TTS streaming complete: sentence ${index}, ${googleStreamChunkIdx} chunks, ${totalBytes} bytes, ${Date.now() - googleStartTime}ms, actualDuration=${Math.round(actualDurationMs)}ms (estimated=${Math.round(estimatedDurationMs)}ms)`);
             },
             onError: (err) => {
               console.error(`[Progressive] Google TTS streaming error for sentence ${index}:`, err.message);

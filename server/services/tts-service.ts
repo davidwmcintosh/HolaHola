@@ -1777,9 +1777,7 @@ export class TTSService {
               float32Buffer.writeFloatLE(float32Val, i * 4);
             }
 
-            const chunkDurationMs = chunkCount === 1
-              ? estimatedTotalDurationMs
-              : 0;
+            const chunkDurationMs = (sampleCount / 24000) * 1000;
 
             onAudioChunk({
               audio: float32Buffer,

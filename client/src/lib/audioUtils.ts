@@ -1577,9 +1577,14 @@ export class StreamingAudioPlayer {
           }
         }
         
-        // If any sentence ended this tick, check if ALL are now complete
         if (anyEndedThisTick) {
-          this.checkAllSentencesEnded();
+          if (this.checkAllSentencesEnded()) {
+            this.isPlaying = false;
+            this.setState('idle');
+            this.stopPrecisionTiming();
+            this.notifyComplete();
+            return;
+          }
         }
       }
       
