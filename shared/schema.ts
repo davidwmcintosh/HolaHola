@@ -394,6 +394,10 @@ export const tutorVoices = pgTable("tutor_voices", {
   elStyle: real("el_style").default(0.0), // 0.0-1.0, style exaggeration
   elSpeakerBoost: boolean("el_speaker_boost").default(true), // Subtle voice similarity enhancement
   
+  // ========== GOOGLE CLOUD TTS SETTINGS ==========
+  googlePitch: real("google_pitch").default(0), // -10.0 to +10.0 semitones
+  googleVolumeGainDb: real("google_volume_gain_db").default(0), // -10.0 to +10.0 dB
+  
   // ========== PEDAGOGICAL PERSONA REGISTRY ==========
   // Teaching profile metadata for each tutor - shapes AI behavior beyond just voice
   pedagogicalFocus: pedagogicalFocusEnum("pedagogical_focus").default("mixed"), // Primary teaching emphasis
