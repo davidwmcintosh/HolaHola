@@ -718,6 +718,17 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
           false,
           firstAudioChunk.sampleRate
         );
+      } else {
+        console.log(`[SENTENCE_READY] MP3 audio embedded - enqueueing via traditional path: ${bytes.buffer.byteLength} bytes`);
+        const chunk: StreamingAudioChunk = {
+          sentenceIndex,
+          audio: bytes.buffer,
+          durationMs: firstAudioChunk.durationMs,
+          isLast: false,
+          audioFormat: firstAudioChunk.audioFormat || 'mp3',
+          sampleRate: firstAudioChunk.sampleRate || 24000,
+        };
+        playerRef.current.enqueue(chunk);
       }
     } else if (audioStripped) {
       console.log(`[SENTENCE_READY] Audio stripped by proxy adapter - will arrive as separate audio_chunk`);
