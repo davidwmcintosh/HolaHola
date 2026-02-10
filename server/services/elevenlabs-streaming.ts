@@ -312,7 +312,7 @@ export class ElevenLabsStreamingService extends EventEmitter {
       }
       
       const reader = response.body.getReader();
-      const CHUNK_SIZE = 4096;
+      const CHUNK_SIZE = 32768;
       let buffer = Buffer.alloc(0);
       
       while (true) {
