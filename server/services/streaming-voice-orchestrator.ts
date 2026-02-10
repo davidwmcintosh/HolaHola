@@ -7141,7 +7141,12 @@ Remember: Beta testers understand they're helping build something and appreciate
           const wordsPerMinute = 150;
           const wordCount = textWithEmphases.split(/\s+/).length;
           const estimatedDurationMs = Math.max(1000, (wordCount / wordsPerMinute) * 60000 / effectiveSpeakingRate);
-          ttsCallbacks.onAudioChunk(googleResult.audioBuffer, estimatedDurationMs, 'mp3');
+          ttsCallbacks.onAudioChunk({
+            audio: googleResult.audioBuffer,
+            durationMs: estimatedDurationMs,
+            audioFormat: 'mp3',
+            isLast: true,
+          }, 0);
           
           if (session.subtitleMode !== 'off') {
             const estimatedTimings = this.estimateWordTimings(displayText, estimatedDurationMs / 1000);
