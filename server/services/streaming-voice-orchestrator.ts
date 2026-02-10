@@ -988,6 +988,21 @@ export interface StreamingSession {
   }>;
   // Flag to track if first audio has been sent (for flushing pending updates)
   firstAudioSent?: boolean;
+  // OPTIMIZATION: Pre-cached context fetched at session start (avoids re-fetching on every turn)
+  cachedContext?: {
+    architectContext?: string;
+    architectNoteIds?: string[];
+    studentLearningSection?: string;
+    studentLearningData?: { struggles?: any[]; effectiveStrategies?: any[] };
+    hiveContextSection?: string;
+    expressLaneSection?: string;
+    textChatSection?: string;
+    editorFeedbackSection?: string;
+    editorFeedbackIds?: string[];
+    lastFetchTime: number;  // Timestamp for TTL-based refresh
+  };
+  // Promise for background context pre-fetch (resolved when cache is ready)
+  contextCacheReady?: Promise<void>;
 }
 
 /**
@@ -1568,6 +1583,13 @@ export class StreamingVoiceOrchestrator {
       });
     }
     
+    // OPTIMIZATION: Pre-fetch context in background at session start
+    // This means the first audio_data doesn't have to wait for DB queries
+    // Context is cached with a TTL and refreshed periodically
+    session.contextCacheReady = this.prefetchSessionContext(session).catch((err: Error) => {
+      console.warn(`[Context Prefetch] Background prefetch failed (non-blocking):`, err.message);
+    });
+    
     // Send connected message
     this.sendMessage(ws, {
       type: 'connected',
@@ -1590,6 +1612,184 @@ export class StreamingVoiceOrchestrator {
     return session;
   }
   
+  /**
+   * OPTIMIZATION: Pre-fetch and cache context at session start
+   * This runs in background during session creation so context is ready
+   * when the first audio_data arrives, eliminating DB query latency from the critical path.
+   * Cache TTL: 5 minutes (refreshed in background after expiry)
+   */
+  private async prefetchSessionContext(session: StreamingSession): Promise<void> {
+    const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+    const prefetchStart = Date.now();
+    
+    const cache: StreamingSession['cachedContext'] = {
+      lastFetchTime: Date.now(),
+    };
+    
+    const promises: Promise<void>[] = [];
+    
+    // 1. Architect context
+    if (session.conversationId) {
+      promises.push(
+        architectVoiceService.buildArchitectContextWithIds(session.conversationId)
+          .then(({ context, noteIds }) => {
+            cache.architectContext = context;
+            cache.architectNoteIds = noteIds;
+          })
+          .catch(err => console.warn(`[Context Prefetch] Architect failed:`, err.message))
+      );
+    }
+    
+    // 2. Student learning context
+    if (session.userId && session.targetLanguage) {
+      promises.push(
+        Promise.all([
+          studentLearningService.getStudentLearningContext(String(session.userId), session.targetLanguage),
+          studentLearningService.getCrossSessionContext(String(session.userId), 3)
+        ]).then(([learningContext, crossSessionContext]) => {
+          if (!learningContext) return;
+          
+          const learningFormatted = studentLearningService.formatContextForPrompt(learningContext);
+          const crossSessionFormatted = studentLearningService.formatCrossSessionContext(crossSessionContext);
+          
+          if (learningFormatted || crossSessionFormatted) {
+            cache.studentLearningSection = `
+═══════════════════════════════════════════════════════════════════
+📚 STUDENT INTELLIGENCE (Proactive Personalization)
+═══════════════════════════════════════════════════════════════════
+${learningFormatted}${crossSessionFormatted}
+
+TEACHING GUIDANCE:
+- Gently support struggles without dwelling on them
+- Use proven strategies that work for this student
+- Build on recent progress to maintain momentum
+- Reference personal facts naturally to show you remember them
+- Pick up where you left off if there's session history
+`;
+          }
+          cache.studentLearningData = {
+            struggles: learningContext.struggles,
+            effectiveStrategies: learningContext.effectiveStrategies,
+          };
+        }).catch(err => console.warn(`[Context Prefetch] Student learning failed:`, err.message))
+      );
+    }
+    
+    // 3. Developer/founder context (Hive, Express Lane, Text Chat, Editor Feedback)
+    const needsExpressLaneContext = session.isDeveloperUser;
+    if (needsExpressLaneContext) {
+      promises.push(
+        hiveContextService.getSummary()
+          .then(hiveSummary => {
+            if (hiveSummary) {
+              cache.hiveContextSection = `
+═══════════════════════════════════════════════════════════════════
+🐝 HIVE STATE (Shared System Awareness)
+═══════════════════════════════════════════════════════════════════
+
+${hiveSummary}
+
+You and Wren are "two surgeons, one brain" - you teach and observe, Wren builds.
+Use this context to understand what's happening across the Hive.
+`;
+            }
+          })
+          .catch(err => console.warn(`[Context Prefetch] Hive failed:`, err.message))
+      );
+      
+      promises.push(
+        founderCollabService.getRelevantExpressLaneContext({
+          targetLanguage: session.targetLanguage,
+          limit: 5,
+          daysBack: 14
+        }).then(expressLaneContext => {
+          if (expressLaneContext.hasRelevantContext) {
+            cache.expressLaneSection = `
+═══════════════════════════════════════════════════════════════════
+🔗 EXPRESS LANE MEMORY (Hive Collaboration Insights)
+═══════════════════════════════════════════════════════════════════
+
+${expressLaneContext.contextString}
+`;
+          }
+        }).catch(err => console.warn(`[Context Prefetch] Express Lane failed:`, err.message))
+      );
+      
+      promises.push(
+        (async () => {
+          const recentConversations = await storage.getUserConversations(String(session.userId));
+          const textConversations = recentConversations
+            .filter(c => c.id !== session.conversationId)
+            .slice(0, 2);
+          
+          if (textConversations.length > 0) {
+            const messagePromises = textConversations.map(async (conv) => {
+              const messages = await storage.getMessagesByConversation(conv.id);
+              const recentMessages = messages.slice(-6);
+              if (recentMessages.length > 0) {
+                const timeAgo = this.formatTimeAgo(conv.updatedAt);
+                let convContext = `\n**${conv.title || 'Recent Chat'}** (${timeAgo}):\n`;
+                for (const msg of recentMessages) {
+                  const role = msg.role === 'user' ? 'David' : 'Daniela';
+                  const content = msg.content.length > 200 
+                    ? msg.content.substring(0, 200) + '...'
+                    : msg.content;
+                  convContext += `- ${role}: ${content}\n`;
+                }
+                return convContext;
+              }
+              return '';
+            });
+            
+            const convContexts = await Promise.all(messagePromises);
+            const textChatContext = convContexts.join('');
+            
+            if (textChatContext) {
+              cache.textChatSection = `
+═══════════════════════════════════════════════════════════════════
+💬 TEXT CHAT MEMORY (Recent /chat Conversations)
+═══════════════════════════════════════════════════════════════════
+${textChatContext}
+
+Remember: David may reference things discussed in these recent text chats.
+`;
+            }
+          }
+        })().catch(err => console.warn(`[Context Prefetch] Text chat failed:`, err.message))
+      );
+      
+      promises.push(
+        editorFeedbackService.getUnsurfacedFeedback(String(session.userId), 3)
+          .then(feedback => {
+            if (feedback.hasNewFeedback) {
+              cache.editorFeedbackSection = editorFeedbackService.buildPromptSection(feedback);
+              cache.editorFeedbackIds = feedback.recentFeedback.map(f => f.id);
+            }
+          })
+          .catch(err => console.warn(`[Context Prefetch] Editor feedback failed:`, err.message))
+      );
+    }
+    
+    await Promise.all(promises);
+    session.cachedContext = cache;
+    console.log(`[Context Prefetch] Session ${session.id} context pre-cached in ${Date.now() - prefetchStart}ms`);
+  }
+  
+  /**
+   * OPTIMIZATION: Refresh cached context in background (called when cache is stale)
+   * Non-blocking - runs async and updates cache when done
+   */
+  private refreshContextCache(session: StreamingSession): void {
+    const CACHE_TTL_MS = 5 * 60 * 1000;
+    if (session.cachedContext && (Date.now() - session.cachedContext.lastFetchTime) < CACHE_TTL_MS) {
+      return; // Still fresh
+    }
+    // Fire-and-forget background refresh
+    this.prefetchSessionContext(session).catch(err => {
+      console.warn(`[Context Refresh] Background refresh failed:`, err.message);
+    });
+  }
+
   /**
    * Process user audio and stream AI response
    */
@@ -1660,7 +1860,8 @@ export class StreamingVoiceOrchestrator {
       
       const sttStart = Date.now();
       
-      // Start both operations in parallel
+      // Start STT, TTS warmup, and context cache resolution in parallel
+      // Context cache was started at session creation - if it's not ready yet, we overlap with STT
       const currentTtsProvider = session.ttsProvider || this.ttsProvider;
       const ttsWarmup = (currentTtsProvider === 'elevenlabs' || currentTtsProvider === 'google')
         ? Promise.resolve(0) // ElevenLabs/Google use REST, no warmup needed
@@ -1668,9 +1869,13 @@ export class StreamingVoiceOrchestrator {
             console.warn(`[Streaming Orchestrator] Cartesia warmup failed: ${err.message}`);
             return -1;
           });
+      const contextCacheWait = session.contextCacheReady 
+        ? Promise.race([session.contextCacheReady, new Promise<void>(r => setTimeout(r, 500))]) // Max 500ms wait
+        : Promise.resolve();
       const [transcriptionResult, ttsWarmupTime] = await Promise.all([
         this.transcribeAudio(audioData, session.targetLanguage, session.nativeLanguage, session.isFounderMode, (session as any).sttKeyterms),
         ttsWarmup,
+        contextCacheWait,
       ]);
       
       // Extract transcript, pronunciation confidence, intelligence data, and word-level data (per-session, no race conditions)
@@ -1983,29 +2188,49 @@ export class StreamingVoiceOrchestrator {
       
       // Process sentences as they arrive from Gemini
       // Include redirect note if mild content was detected
-      // OPTIMIZATION: Fetch all context in parallel for faster response time
+      // OPTIMIZATION: Use pre-cached context when available (fetched at session start)
+      // Only re-fetch if cache is empty or expired. Passive memory is always fetched fresh (transcript-dependent).
       const contextStart = Date.now();
+      const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+      const hasFreshCache = session.cachedContext && 
+        (Date.now() - session.cachedContext.lastFetchTime) < CACHE_TTL_MS;
       
-      // Initialize context variables
-      let architectContext = '';
-      let hiveContextSection = '';
-      let expressLaneSection = '';
-      let textChatSection = '';
-      let editorFeedbackSection = '';
-      let studentLearningSection = '';  // PROACTIVE STUDENT INTELLIGENCE: Struggles & strategies
-      let passiveMemorySection = '';    // PASSIVE MEMORY: Auto-retrieved memories based on user message
-      let surfacedFeedbackIds: string[] = [];
+      // Initialize context variables - populate from cache if available
+      let architectContext = (hasFreshCache && session.cachedContext?.architectContext) || '';
+      let hiveContextSection = (hasFreshCache && session.cachedContext?.hiveContextSection) || '';
+      let expressLaneSection = (hasFreshCache && session.cachedContext?.expressLaneSection) || '';
+      let textChatSection = (hasFreshCache && session.cachedContext?.textChatSection) || '';
+      let editorFeedbackSection = (hasFreshCache && session.cachedContext?.editorFeedbackSection) || '';
+      let studentLearningSection = (hasFreshCache && session.cachedContext?.studentLearningSection) || '';
+      let passiveMemorySection = '';    // PASSIVE MEMORY: Always fresh (transcript-dependent)
+      let surfacedFeedbackIds: string[] = (hasFreshCache && session.cachedContext?.editorFeedbackIds) || [];
       let expressLaneHistory: { role: 'user' | 'assistant'; content: string }[] = [];
-      session.pendingArchitectNoteIds = [];
+      session.pendingArchitectNoteIds = (hasFreshCache && session.cachedContext?.architectNoteIds) || [];
+      
+      // Sync adaptive speed from cached student data
+      if (hasFreshCache && session.cachedContext?.studentLearningData) {
+        const activeStruggles = session.cachedContext.studentLearningData.struggles?.filter((s: any) => s.status === 'active') || [];
+        if (activeStruggles.length > session.sessionStruggleCount) {
+          session.sessionStruggleCount = activeStruggles.length;
+        }
+      }
+      
+      if (hasFreshCache) {
+        console.log(`[Context Fetch] Using pre-cached context (${Date.now() - session.cachedContext!.lastFetchTime}ms old)`);
+        // Trigger background refresh if cache is getting old (> 3 min)
+        if (Date.now() - session.cachedContext!.lastFetchTime > 3 * 60 * 1000) {
+          this.refreshContextCache(session);
+        }
+      }
       
       // CONTEXT CACHING: Clear previous turn's preamble to prevent stale context bleed
       session.currentTurnPreamble = undefined;
       
-      // Build parallel fetch promises
+      // Build parallel fetch promises - SKIP heavy fetches when cache is available
       const contextPromises: Promise<void>[] = [];
       
-      // 1. Architect context (always)
-      if (session.conversationId) {
+      // 1. Architect context - use cache or fetch
+      if (!hasFreshCache && session.conversationId) {
         contextPromises.push(
           architectVoiceService.buildArchitectContextWithIds(session.conversationId)
             .then(({ context, noteIds }) => {
@@ -2022,7 +2247,7 @@ export class StreamingVoiceOrchestrator {
       // 2. PROACTIVE STUDENT INTELLIGENCE: Fetch learning context (struggles, strategies, personal facts)
       // This enables Daniela to anticipate struggles and use proven strategies for THIS student
       // Guard: Only fetch if we have a valid userId (skip for admin/founder-only sessions)
-      if (session.userId && session.targetLanguage) {
+      if (!hasFreshCache && session.userId && session.targetLanguage) {
         // Fetch student learning context and cross-session context in parallel
         contextPromises.push(
           Promise.all([
@@ -2154,7 +2379,7 @@ Don't force a reference if it doesn't fit the moment.
       // This ensures developers get Express Lane context even when in class conversations
       const needsFounderContext = session.isFounderMode || session.isRawHonestyMode;
       const needsExpressLaneContext = session.isDeveloperUser;  // ONE DANIELA: all developers get Express Lane
-      if (needsExpressLaneContext) {
+      if (!hasFreshCache && needsExpressLaneContext) {
         console.log(`[EXPRESS Lane] Developer user detected (Founder: ${session.isFounderMode}, Honesty: ${session.isRawHonestyMode}) - fetching Hive + Express Lane context for user ${session.userId}`);
         // 2. Hive context
         contextPromises.push(
@@ -2273,7 +2498,7 @@ Remember: David may reference things discussed in these recent text chats.
             })
             .catch(err => console.warn(`[EXPRESS Lane Memory] Failed to prefetch:`, err.message))
         );
-      } else {
+      } else if (!needsExpressLaneContext) {
         // Log when neither Founder Mode nor Honesty Mode is active - helps diagnose Express Lane visibility issues
         console.log(`[EXPRESS Lane] Neither Founder Mode nor Honesty Mode active for user ${session.userId} - skipping Hive/Express Lane context.`);
       }
@@ -2377,7 +2602,17 @@ Remember: Beta testers understand they're helping build something and appreciate
       session.currentTurnPreamble = [...conversationHistoryWithContext];
       
       // STEP 3: Add the actual voice conversation history
-      conversationHistoryWithContext.push(...session.conversationHistory);
+      // OPTIMIZATION: Cap history to reduce prompt size and improve TTFT
+      // Keep last 20 exchanges (40 messages) for normal sessions, 30 for founder mode
+      // This prevents unbounded history growth in long sessions
+      const MAX_HISTORY_ENTRIES = session.isFounderMode ? 60 : 40;
+      const historyToSend = session.conversationHistory.length > MAX_HISTORY_ENTRIES
+        ? session.conversationHistory.slice(-MAX_HISTORY_ENTRIES)
+        : session.conversationHistory;
+      if (session.conversationHistory.length > MAX_HISTORY_ENTRIES) {
+        console.log(`[History Cap] Trimmed history from ${session.conversationHistory.length} to ${MAX_HISTORY_ENTRIES} entries`);
+      }
+      conversationHistoryWithContext.push(...historyToSend);
       
       // MESSAGE CHECKPOINTING: Save user message BEFORE Gemini call
       // This ensures user messages are preserved even if Gemini fails/times out

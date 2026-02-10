@@ -16142,7 +16142,7 @@ Current conversation context:
       const getCharacterName = (gender: 'male' | 'female', voiceName: string) => {
         const charNames = tutorCharacterNames[language];
         if (charNames) return charNames[gender];
-        return voiceName.split(/\s*[--(]\s*/)[0].trim();
+        return voiceName.split(/\s*[\-(]\s*/)[0].trim();
       };
       
       res.json({
