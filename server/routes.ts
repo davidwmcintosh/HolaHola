@@ -15923,7 +15923,7 @@ Current conversation context:
   // Only super admins can modify voice settings including personality, expressiveness, and emotion
   app.post("/api/admin/tutor-voices", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const { language, gender, provider, voiceId, voiceName, languageCode, speakingRate, personality, expressiveness, emotion, isActive, role } = req.body;
+      const { language, gender, provider, voiceId, voiceName, languageCode, speakingRate, personality, expressiveness, emotion, isActive, role, elStability, elSimilarityBoost, elStyle, elSpeakerBoost, googlePitch, googleVolumeGainDb } = req.body;
       
       if (!language || !gender || !provider || !voiceId || !voiceName || !languageCode) {
         return res.status(400).json({ error: "Missing required fields" });
@@ -15933,10 +15933,10 @@ Current conversation context:
       const validRoles = ['tutor', 'assistant', 'support'];
       const validatedRole = validRoles.includes(role) ? role : 'tutor';
       
-      const validTutorProviders = ['cartesia', 'elevenlabs'];
+      const validTutorProviders = ['cartesia', 'elevenlabs', 'google'];
       if (validatedRole === 'tutor' && !validTutorProviders.includes(provider)) {
         return res.status(400).json({ 
-          error: "Main tutors must use Cartesia or ElevenLabs voices." 
+          error: "Main tutors must use Cartesia, ElevenLabs, or Google voices." 
         });
       }
       if ((validatedRole === 'assistant' || validatedRole === 'support') && provider !== 'google') {
@@ -15945,10 +15945,11 @@ Current conversation context:
         });
       }
       
-      // Validate speakingRate: ElevenLabs supports 0.5-2.0, Cartesia supports 0.7-1.3
+      // Validate speakingRate: ElevenLabs supports 0.5-2.0, Google supports 0.25-4.0, Cartesia supports 0.7-1.3
       const isElevenLabs = provider === 'elevenlabs';
-      const rateMin = (validatedRole === 'assistant' || validatedRole === 'support' || isElevenLabs) ? 0.5 : 0.7;
-      const rateMax = (validatedRole === 'assistant' || validatedRole === 'support' || isElevenLabs) ? 2.0 : 1.3;
+      const isGoogle = provider === 'google';
+      const rateMin = (validatedRole === 'assistant' || validatedRole === 'support' || isElevenLabs || isGoogle) ? 0.25 : 0.7;
+      const rateMax = isGoogle ? 4.0 : (validatedRole === 'assistant' || validatedRole === 'support' || isElevenLabs) ? 2.0 : 1.3;
       const validatedSpeakingRate = speakingRate !== undefined 
         ? Math.max(rateMin, Math.min(rateMax, parseFloat(speakingRate))) 
         : 0.9; // Default to natural speed
@@ -15978,6 +15979,12 @@ Current conversation context:
         emotion: validatedEmotion,
         isActive: isActive !== false, // default to true
         role: validatedRole,
+        elStability: provider === 'elevenlabs' ? (elStability ?? 0.5) : null,
+        elSimilarityBoost: provider === 'elevenlabs' ? (elSimilarityBoost ?? 0.75) : null,
+        elStyle: provider === 'elevenlabs' ? (elStyle ?? 0.0) : null,
+        elSpeakerBoost: provider === 'elevenlabs' ? (elSpeakerBoost ?? true) : null,
+        googlePitch: provider === 'google' ? (googlePitch ?? 0) : null,
+        googleVolumeGainDb: provider === 'google' ? (googleVolumeGainDb ?? 0) : null,
       });
       
       // Log the action
@@ -16026,8 +16033,8 @@ Current conversation context:
   app.post("/api/admin/tutor-voices/provider", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { provider } = req.body;
-      if (!provider || !['cartesia', 'elevenlabs'].includes(provider)) {
-        return res.status(400).json({ error: "Provider must be 'cartesia' or 'elevenlabs'" });
+      if (!provider || !['cartesia', 'elevenlabs', 'google'].includes(provider)) {
+        return res.status(400).json({ error: "Provider must be 'cartesia', 'elevenlabs', or 'google'" });
       }
       
       const count = await storage.updateAllTutorVoicesProvider(provider);

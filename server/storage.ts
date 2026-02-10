@@ -5581,7 +5581,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateAllTutorVoicesProvider(provider: string): Promise<number> {
-    const validProviders = ['cartesia', 'elevenlabs'];
+    const validProviders = ['cartesia', 'elevenlabs', 'google'];
     if (!validProviders.includes(provider)) {
       throw new Error(`[Voice Guard] Invalid provider: ${provider}. Must be one of: ${validProviders.join(', ')}`);
     }

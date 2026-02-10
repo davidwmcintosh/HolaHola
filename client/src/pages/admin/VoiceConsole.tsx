@@ -56,6 +56,8 @@ interface TutorVoice {
   elSimilarityBoost?: number;
   elStyle?: number;
   elSpeakerBoost?: boolean;
+  googlePitch?: number;
+  googleVolumeGainDb?: number;
   // Pedagogical persona fields
   pedagogicalFocus?: PedagogicalFocus;
   teachingStyle?: TeachingStyle;
@@ -517,8 +519,8 @@ export function VoiceConsoleContent() {
       elSpeed: voice.speakingRate,
     } : undefined;
     const googleSettings = voice.provider === 'google' ? {
-      googlePitch: (voice as any).googlePitch ?? 0,
-      googleVolumeGainDb: (voice as any).googleVolumeGainDb ?? 0,
+      googlePitch: voice.googlePitch ?? 0,
+      googleVolumeGainDb: voice.googleVolumeGainDb ?? 0,
     } : undefined;
     await handleAudition(voice.voiceId, voice.voiceName, voice.language, voice.languageCode, voice.speakingRate, voice.provider, elSettings, undefined, googleSettings);
   };
@@ -548,8 +550,8 @@ export function VoiceConsoleContent() {
       elStyle: voice.elStyle ?? 0.0,
       elSpeakerBoost: voice.elSpeakerBoost ?? true,
       // Google Cloud TTS settings
-      googlePitch: (voice as any).googlePitch ?? 0,
-      googleVolumeGainDb: (voice as any).googleVolumeGainDb ?? 0,
+      googlePitch: voice.googlePitch ?? 0,
+      googleVolumeGainDb: voice.googleVolumeGainDb ?? 0,
       // Load pedagogical persona fields
       pedagogicalFocus: voice.pedagogicalFocus || 'mixed',
       teachingStyle: voice.teachingStyle || 'adaptive',
@@ -607,6 +609,15 @@ export function VoiceConsoleContent() {
       provider: pendingProvider,
       voiceId: '',
       voiceName: '',
+      elStability: pendingProvider === 'elevenlabs' ? 0.5 : prev.elStability,
+      elSimilarityBoost: pendingProvider === 'elevenlabs' ? 0.75 : prev.elSimilarityBoost,
+      elStyle: pendingProvider === 'elevenlabs' ? 0.0 : prev.elStyle,
+      elSpeakerBoost: pendingProvider === 'elevenlabs' ? true : prev.elSpeakerBoost,
+      googlePitch: pendingProvider === 'google' ? 0 : prev.googlePitch,
+      googleVolumeGainDb: pendingProvider === 'google' ? 0 : prev.googleVolumeGainDb,
+      speakingRate: pendingProvider === 'cartesia' 
+        ? Math.max(0.7, Math.min(1.3, prev.speakingRate))
+        : prev.speakingRate,
     }));
     bulkProviderMutation.mutate(pendingProvider);
     setPendingProvider(null);

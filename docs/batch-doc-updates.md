@@ -8,6 +8,52 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: February 10, 2026 - Voice Console Provider Switch: Full Three-Provider Support
+
+**Status**: COMPLETED
+
+**Overview**: Updated the Voice Console's "Switch Provider" functionality to fully support all three TTS providers (Cartesia, ElevenLabs, Google Cloud TTS). Previously, the bulk provider switch and individual voice save/edit routes only accepted Cartesia and ElevenLabs, blocking Google despite it being the recommended primary provider for production.
+
+#### What Changed
+
+| Area | Before | After |
+|------|--------|-------|
+| Bulk provider switch (backend) | Only accepted `cartesia` or `elevenlabs` | Accepts `cartesia`, `elevenlabs`, or `google` |
+| Voice upsert (backend) | Blocked Google for main tutors | All three providers valid for main tutors |
+| Provider-specific settings (backend) | Only saved common fields | Saves ElevenLabs settings (stability, similarity, style, speaker boost) AND Google settings (pitch, volumeGainDb) |
+| Speaking rate validation | Same range for Google and assistants | Google gets its native 0.25-4.0 range |
+| Schema (tutor_voices table) | `google_pitch` and `google_volume_gain_db` existed in DB but not in Drizzle schema | Both columns now defined in `shared/schema.ts` |
+| Frontend provider switch | Only reset voiceId/voiceName | Resets provider-specific defaults (EL stability/similarity/style, Google pitch/volume) and clamps speakingRate to new provider's range |
+| Frontend edit dialog | Cast google fields via `(voice as any)` | Properly typed `voice.googlePitch` |
+
+#### Provider-Specific Settings Carried Through
+
+When switching providers, the system now:
+1. **Resets voice selection** (voiceId/voiceName cleared - must pick new voice for new provider)
+2. **Resets ElevenLabs defaults** when switching TO ElevenLabs: stability=0.5, similarity=0.75, style=0.0, speakerBoost=true
+3. **Resets Google defaults** when switching TO Google: pitch=0, volumeGainDb=0
+4. **Clamps speakingRate** to Cartesia's 0.7-1.3 range when switching TO Cartesia (Google/EL allow wider ranges)
+5. **Persists settings to DB** - ElevenLabs fields nulled when not EL provider; Google fields nulled when not Google provider
+
+#### Speaking Rate Ranges by Provider
+
+| Provider | Min | Max | Default |
+|----------|-----|-----|---------|
+| Cartesia | 0.7 | 1.3 | 0.9 |
+| ElevenLabs | 0.25 | 2.0 | 0.9 |
+| Google Cloud TTS | 0.25 | 4.0 | 0.9 |
+
+#### Key Files Modified
+
+| File | Changes |
+|------|---------|
+| `shared/schema.ts` | Added `googlePitch` and `googleVolumeGainDb` columns to tutorVoices table definition |
+| `server/routes.ts` | Updated POST /tutor-voices and POST /tutor-voices/provider to accept 'google', persist provider-specific settings |
+| `server/storage.ts` | Updated `updateAllTutorVoicesProvider()` to accept 'google' |
+| `client/src/pages/admin/VoiceConsole.tsx` | Updated `confirmProviderSwitch()` with provider defaults, typed Google fields, defensive nullish guards |
+
+---
+
 ### Session: February 10, 2026 - Google Cloud TTS Migration: Capabilities & Future Optimizations
 
 **Status**: COMPLETED (migration) / ONGOING (optimization backlog)
