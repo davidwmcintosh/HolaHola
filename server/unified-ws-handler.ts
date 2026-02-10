@@ -1129,6 +1129,11 @@ Reference past discussions when relevant, but don't force it.
             if (snapshotItems > 0) {
               console.log(`[Streaming Voice] Loaded student snapshot: ${snapshotItems} items (last session, streak, personal follow-ups)`);
             }
+            if (studentSnapshotContext.lastSession) {
+              console.log(`[Streaming Voice] Last session: "${studentSnapshotContext.lastSession.topic}" - ${studentSnapshotContext.lastSession.daysAgo} days ago`);
+            } else {
+              console.log(`[Streaming Voice] No last session found for userId=${userId}, language=${effectiveLanguage}`);
+            }
           } catch (snapErr: any) {
             console.warn('[Streaming Voice] Could not load student snapshot:', snapErr.message);
           }
@@ -1229,6 +1234,11 @@ Reference past discussions when relevant, but don't force it.
               console.warn('[Streaming Voice] Could not add congrats:', err);
             }
           }
+
+          // Log system prompt size for diagnostics
+          const promptCharCount = systemPrompt.length;
+          const estimatedTokens = Math.ceil(promptCharCount / 4);
+          console.log(`[Streaming Voice] System prompt size: ${promptCharCount} chars (~${estimatedTokens} tokens)`);
 
           // Build additional context for personalized greetings
           // This gives Daniela critical information about what the student wants to work on

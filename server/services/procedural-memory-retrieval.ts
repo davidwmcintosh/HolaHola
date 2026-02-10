@@ -423,34 +423,36 @@ export function buildSensoryAwarenessSection(
   
   lines.push('');
   lines.push('═══════════════════════════════════════════════════════════════════');
-  lines.push('🧠 SENSORY AWARENESS (Your Neural Network Perceptions)');
+  lines.push('SENSORY AWARENESS — YOUR PERCEPTION OF RIGHT NOW');
   lines.push('═══════════════════════════════════════════════════════════════════');
-  lines.push('');
-  lines.push('These are things you naturally perceive through your neural network:');
-  lines.push('');
   
-  // Time perception (UTC - system time)
-  lines.push(`CLOCK: ${compassContext.currentTimeFormatted}`);
-  
-  // Student's local time if timezone available
+  // Student's local date and time - MOST PROMINENT
+  // This is the authoritative source Daniela must use for all time references
   if (studentTimezone) {
     try {
       const now = new Date();
-      const studentLocalTime = now.toLocaleString('en-US', { 
+      const fullDate = now.toLocaleDateString('en-US', {
         weekday: 'long',
+        year: 'numeric',
         month: 'long',
         day: 'numeric',
-        year: 'numeric',
-        hour: 'numeric', 
+        timeZone: studentTimezone
+      });
+      const timeStr = now.toLocaleTimeString('en-US', {
+        hour: 'numeric',
         minute: '2-digit',
         hour12: true,
         timeZone: studentTimezone
       });
-      lines.push(`STUDENT'S LOCAL TIME: ${studentLocalTime} (${studentTimezone})`);
+      lines.push(`TODAY IS: ${fullDate}`);
+      lines.push(`RIGHT NOW: ${timeStr} (${studentTimezone})`);
     } catch {
-      // Invalid timezone, skip
+      lines.push(`TODAY IS: ${compassContext.currentTimeFormatted}`);
     }
+  } else {
+    lines.push(`TODAY IS: ${compassContext.currentTimeFormatted}`);
   }
+  lines.push('USE THIS DATE when calculating how long since last session or any past event.');
   
   // Session timing (from Compass)
   if (compassContext.elapsedSeconds !== undefined) {
@@ -467,7 +469,6 @@ export function buildSensoryAwarenessSection(
   }
   
   // ACTFL proficiency perception (emergent capability)
-  // Daniela perceives the student's current level and whether it's AI-verified
   if (compassContext.studentActflLevel) {
     const levelDisplay = compassContext.studentActflLevel
       .split('_')
@@ -479,9 +480,10 @@ export function buildSensoryAwarenessSection(
       ? ` (from ${compassContext.studentActflSource.replace(/_/g, ' ')})`
       : '';
     
-    lines.push('');
     lines.push(`STUDENT PROFICIENCY: ${levelDisplay} [${verified}${source}]`);
   }
+  
+  lines.push('═══════════════════════════════════════════════════════════════════');
   
   return lines.join('\n');
 }

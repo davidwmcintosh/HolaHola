@@ -748,10 +748,13 @@ export function createSystemPrompt(
     : '';
     
   // Build timezone context for time-aware greetings and date awareness
-  // ALWAYS include current date - Daniela needs this to calculate time since last session
-  // Compass provides detailed session timing but the base date must always be present
+  // When Compass is active, it handles time via Sensory Awareness (single source of truth)
+  // Legacy timezoneSection only used when Compass is NOT active
+  const compassHandlesTime = compassContext && COMPASS_ENABLED;
   let timezoneSection: string;
-  if (studentTimezone) {
+  if (compassHandlesTime) {
+    timezoneSection = '';
+  } else if (studentTimezone) {
     timezoneSection = buildTimezoneContext(studentTimezone);
   } else {
     const now = new Date();
