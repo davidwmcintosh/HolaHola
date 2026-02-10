@@ -37,52 +37,52 @@ const ELEVENLABS_VOICE_MAP: Record<string, { voiceId: string; languageCode: stri
   'english': {
     voiceId: 'EXAVITQu4vr4xnSDxMaL',  // Sarah - premade English
     languageCode: 'en',
-    name: 'Sarah (English)',
+    name: 'Sarah',
   },
   'spanish': {
     voiceId: '1SM7GgM6IMuvQBfpc0as',
     languageCode: 'es',
-    name: 'Ninoska (Spanish Teacher)',
+    name: 'Ninoska',
   },
   'french': {
     voiceId: 'ICk609TItINMseDpChFt',
     languageCode: 'fr',
-    name: 'Lea (French)',
+    name: 'Lea',
   },
   'german': {
     voiceId: 'RFh0TQvtdMlgdYCNjqbv',
     languageCode: 'de',
-    name: 'Nadine (German)',
+    name: 'Nadine',
   },
   'italian': {
     voiceId: 'Ap2b3ZnSIW7h0QbBbxCq',
     languageCode: 'it',
-    name: 'Alessandra (Italian)',
+    name: 'Alessandra',
   },
   'portuguese': {
     voiceId: 'EXAVITQu4vr4xnSDxMaL',  // TODO: Find native Portuguese voice
     languageCode: 'pt',
-    name: 'Sarah (Portuguese - placeholder)',
+    name: 'Sarah',
   },
   'japanese': {
     voiceId: 'MgFk4zRwS0Ov4P4y3Fh1',
     languageCode: 'ja',
-    name: 'Akari (Japanese)',
+    name: 'Akari',
   },
   'mandarin chinese': {
     voiceId: 'EXAVITQu4vr4xnSDxMaL',  // TODO: Find native Mandarin voice
     languageCode: 'zh',
-    name: 'Sarah (Mandarin - placeholder)',
+    name: 'Sarah',
   },
   'korean': {
     voiceId: 'IyGJAPXsNfvITxCLBqjf',
     languageCode: 'ko',
-    name: 'Salang (Korean)',
+    name: 'Salang',
   },
   'hebrew': {
     voiceId: 'EXAVITQu4vr4xnSDxMaL',  // TODO: Find Hebrew voice
     languageCode: 'he',
-    name: 'Sarah (Hebrew - placeholder)',
+    name: 'Sarah',
   },
 };
 
