@@ -189,15 +189,11 @@ export class GeminiLiveTtsService extends EventEmitter {
       this.client!.live.connect({
         model: LIVE_MODEL,
         callbacks: {
-          onopen: () => {},
+          onopen: () => {
+            console.log(`[Gemini Live TTS] WebSocket connected, sending text...`);
+          },
           onmessage: (msg: LiveServerMessage) => {
             if (completed) return;
-
-            const msgKeys = Object.keys(msg || {});
-            const scKeys = msg.serverContent ? Object.keys(msg.serverContent) : [];
-            const mtKeys = msg.serverContent?.modelTurn ? Object.keys(msg.serverContent.modelTurn) : [];
-            const partCount = msg.serverContent?.modelTurn?.parts?.length || 0;
-            console.log(`[Gemini Live TTS] onmessage: keys=${JSON.stringify(msgKeys)} sc=${JSON.stringify(scKeys)} mt=${JSON.stringify(mtKeys)} parts=${partCount} turnComplete=${msg.serverContent?.turnComplete}`);
 
             if (msg.serverContent?.modelTurn?.parts) {
               for (const part of msg.serverContent.modelTurn.parts) {
@@ -222,6 +218,7 @@ export class GeminiLiveTtsService extends EventEmitter {
             }
 
             if (msg.serverContent?.turnComplete) {
+              console.log(`[Gemini Live TTS] Turn complete received after ${chunkIndex} chunks`);
               finalize();
             }
           },
@@ -236,12 +233,14 @@ export class GeminiLiveTtsService extends EventEmitter {
           },
           onclose: () => {
             if (!completed) {
+              console.log(`[Gemini Live TTS] WebSocket closed before turn complete (${chunkIndex} chunks received)`);
               finalize();
             }
           },
         },
         config: {
           responseModalities: [Modality.AUDIO],
+          systemInstruction: 'Read the following text aloud exactly as written. Do not add any extra words or commentary.',
           speechConfig: {
             voiceConfig: {
               prebuiltVoiceConfig: { voiceName },
