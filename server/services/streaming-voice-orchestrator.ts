@@ -4712,6 +4712,25 @@ Remember: Beta testers understand they're helping build something and appreciate
       }).catch(err => console.error('[Telemetry] Failed to log error:', err.message));
       
       this.sendError(session.ws, 'UNKNOWN', error.message, true);
+      
+      // SAFETY NET: Always send response_complete on pipeline error to prevent permanent mic lockout
+      // Without this, the client's isProcessing stays true forever, locking the mic on "Please wait..."
+      this.sendMessage(session.ws, {
+        type: 'response_complete',
+        timestamp: Date.now(),
+        turnId,
+        totalSentences: metrics.sentenceCount,
+        totalDurationMs: Date.now() - startTime,
+        fullText: '',
+        metrics: {
+          sttLatencyMs: metrics.sttLatencyMs,
+          aiFirstTokenMs: metrics.aiFirstTokenMs,
+          ttsFirstChunkMs: metrics.ttsFirstByteMs,
+          totalTtfbMs: 0,
+          sentenceCount: metrics.sentenceCount,
+        },
+      } as StreamingResponseCompleteMessage);
+      
       // Return metrics instead of throwing to prevent socket disconnect
       // The error message has already been sent to the client
       return metrics;
@@ -7624,6 +7643,17 @@ Remember: Beta testers understand they're helping build something and appreciate
       
       // Send error to client but don't throw - allows session to continue with next sentence
       this.sendError(session.ws, 'TTS_ERROR', `Audio generation failed for sentence ${index}`, true);
+      
+      // SAFETY NET: Send sentence_end even on TTS failure to prevent mic lockout
+      // Without this, the client audio player waits forever for this sentence to complete,
+      // blocking checkAllSentencesEnded() → onComplete → checkAndClearProcessing() → mic reopen
+      this.sendMessage(session.ws, {
+        type: 'sentence_end',
+        timestamp: Date.now(),
+        turnId: effectiveTurnId,
+        sentenceIndex: index,
+        totalDurationMs: 0,
+      } as StreamingSentenceEndMessage);
     }
   }
   
