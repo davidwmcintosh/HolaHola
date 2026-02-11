@@ -1812,10 +1812,8 @@ export class TTSService {
             name: voiceId,
           },
           streamingAudioConfig: {
-            audioEncoding: 'LINEAR16',
+            audioEncoding: 'PCM',
             speakingRate,
-            pitch,
-            volumeGainDb,
             sampleRateHertz: 24000,
           },
         },
