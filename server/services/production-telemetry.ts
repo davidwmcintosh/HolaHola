@@ -215,10 +215,14 @@ export function checkStuckSessions(): void {
     const stuckForMs = now.getTime() - session.lastStageAt.getTime();
     
     if (stuckForMs > SESSION_TIMEOUT_MS) {
-      logPipelineStuck(sessionId, session.lastStage, stuckForMs, {
-        userId: session.userId,
-        turnId: session.turnId,
-      });
+      if (session.lastStage === 'session_start') {
+        console.log(`[Pipeline] Session ${sessionId.slice(0, 8)} idle at session_start for ${stuckForMs}ms - cleaning up (user never spoke)`);
+      } else {
+        logPipelineStuck(sessionId, session.lastStage, stuckForMs, {
+          userId: session.userId,
+          turnId: session.turnId,
+        });
+      }
       activeSessions.delete(sessionId);
     }
   }
