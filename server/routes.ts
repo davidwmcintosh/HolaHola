@@ -16865,7 +16865,7 @@ Current conversation context:
       const { getGeminiLiveTtsService } = await import('./services/gemini-live-tts');
       const geminiLiveTtsService = getGeminiLiveTtsService();
       const gender = req.query.gender as 'male' | 'female' | undefined;
-      const voices = geminiTtsService.getVoices(gender);
+      const voices = geminiLiveTtsService.getVoices(gender);
       
       res.json(voices.map(v => ({
         id: v.name,
