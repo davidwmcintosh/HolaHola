@@ -1811,6 +1811,13 @@ export class TTSService {
             languageCode,
             name: voiceId,
           },
+          streamingAudioConfig: {
+            audioEncoding: 'LINEAR16',
+            speakingRate,
+            pitch,
+            volumeGainDb,
+            sampleRateHertz: 24000,
+          },
         },
       });
 

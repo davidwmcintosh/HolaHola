@@ -144,7 +144,7 @@ import { phonemeAnalyticsService } from "./phoneme-analytics-service";
 import { supportPersonaService } from "./support-persona-service";
 import { journeyMemoryService } from "./journey-memory-service";
 import { db, getSharedDb } from "../db";
-import { logVoiceOrchestratorError, trackVoicePipelineStage, logGeminiTimeout } from "./production-telemetry";
+import { logVoiceOrchestratorError, trackVoicePipelineStage, logGeminiTimeout, logTtsFailure, logGeminiNoAudio } from "./production-telemetry";
 // Language segmenter no longer needed - pronunciation handled via Daniela's [lang:word] tags
 import { 
   tutorProcedures, 
@@ -2174,6 +2174,7 @@ Remember: David may reference things discussed in these recent text chats.
       
       // Step 2: Stream AI response with sentence chunking
       const aiStart = Date.now();
+      (metrics as any)._geminiStartTime = aiStart;
       let firstTokenReceived = false;
       let fullText = '';
       let rawFullText = '';  // Preserve raw AI response for COLLAB/SELF_SURGERY extraction
@@ -4046,7 +4047,14 @@ Remember: Beta testers understand they're helping build something and appreciate
       // FALLBACK FOR SILENT RESPONSES: If still no sentences after continuation attempts
       // Send a brief acknowledgment so Daniela doesn't appear unresponsive
       if (metrics.sentenceCount === 0) {
-        console.warn(`[Streaming Orchestrator] Silent response detected - sending fallback.`);
+        const silentElapsed = Date.now() - (metrics as any)._geminiStartTime || 0;
+        console.warn(`[Streaming Orchestrator] Silent response detected after ${silentElapsed}ms - sending fallback.`);
+        logGeminiNoAudio(session.id, silentElapsed, {
+          userId: session.userId?.toString(),
+          turnId: session.turnId,
+          responseLength: fullText.length,
+          hadFunctionCalls,
+        });
         
         // Generate a brief fallback acknowledgment based on language
         const fallbackAcks: Record<string, string> = {
@@ -4892,6 +4900,7 @@ Remember: Beta testers understand they're helping build something and appreciate
       
       // Step 2: Stream AI response with sentence chunking
       const aiStart = Date.now();
+      (metrics as any)._geminiStartTime = aiStart;
       let firstTokenReceived = false;
       let fullText = '';
       
@@ -7023,7 +7032,8 @@ Remember: Beta testers understand they're helping build something and appreciate
       const statusCode = error.status || error.statusCode || error.code || 'unknown';
       const textLength = displayText.length;
       
-      console.error(`[Streaming] TTS error for sentence ${index} (${textLength} chars, status: ${statusCode}):`, error.message);
+      const effectiveTtsProvider = session.ttsProvider || this.ttsProvider;
+      console.error(`[Streaming] TTS error for sentence ${index} (${textLength} chars, provider: ${effectiveTtsProvider}, status: ${statusCode}):`, error.message);
       
       // Emit TTS error for diagnostics with full context for debugging 4xx/5xx issues
       voiceDiagnostics.emit({
@@ -7036,9 +7046,20 @@ Remember: Beta testers understand they're helping build something and appreciate
           mode: 'buffered',
           statusCode,
           textLength,
+          provider: effectiveTtsProvider,
           textPreview: displayText.substring(0, 100),
         }
       });
+      
+      logTtsFailure(session.id, error.message, {
+        userId: session.userId?.toString(),
+        turnId: session.turnId,
+        provider: effectiveTtsProvider,
+        sentenceIndex: index,
+        textLength,
+        mode: 'buffered',
+      });
+      
       // Send error to client but don't throw - allows session to continue
       this.sendError(session.ws, 'TTS_ERROR', `Audio generation failed for sentence ${index}`, true);
     }
@@ -7548,6 +7569,14 @@ Remember: Beta testers understand they're helping build something and appreciate
           streamingSucceeded = true;
         } catch (streamErr: any) {
           console.warn(`[Progressive] Google TTS streaming failed for sentence ${index}, falling back to REST: ${streamErr.message}`);
+          logTtsFailure(session.id, `Streaming failed, falling back to REST: ${streamErr.message}`, {
+            userId: session.userId?.toString(),
+            turnId: session.turnId,
+            provider: 'google-streaming',
+            sentenceIndex: index,
+            textLength: displayText.length,
+            mode: 'progressive-streaming-fallback',
+          });
         }
         
         if (!streamingSucceeded) {
@@ -7565,7 +7594,8 @@ Remember: Beta testers understand they're helping build something and appreciate
       const errorBody = error.body || error.response?.data || error.message;
       const textLength = displayText.length;
       
-      console.error(`[Progressive] TTS error for sentence ${index} (${textLength} chars, status: ${statusCode}):`, error.message);
+      const effectiveTtsProvider = session.ttsProvider || this.ttsProvider;
+      console.error(`[Progressive] TTS error for sentence ${index} (${textLength} chars, provider: ${effectiveTtsProvider}, status: ${statusCode}):`, error.message);
       
       // Emit TTS error for diagnostics with full context for debugging 4xx/5xx issues
       voiceDiagnostics.emit({
@@ -7578,10 +7608,20 @@ Remember: Beta testers understand they're helping build something and appreciate
           mode: 'progressive',
           statusCode,
           textLength,
-          // Include first 100 chars of text for debugging oversized payloads
+          provider: effectiveTtsProvider,
           textPreview: displayText.substring(0, 100),
         }
       });
+      
+      logTtsFailure(session.id, error.message, {
+        userId: session.userId?.toString(),
+        turnId: session.turnId,
+        provider: effectiveTtsProvider,
+        sentenceIndex: index,
+        textLength,
+        mode: 'progressive',
+      });
+      
       // Send error to client but don't throw - allows session to continue with next sentence
       this.sendError(session.ws, 'TTS_ERROR', `Audio generation failed for sentence ${index}`, true);
     }

@@ -67,16 +67,19 @@ export const DANIELA_STT_INTELLIGENCE_ENABLED = true;
  *   - 40ms latency, full SSML emotion tags
  *   - No inline language switching support
  * 
- * Override with TTS_PROVIDER env var (e.g. TTS_PROVIDER=cartesia)
+ * Override with TTS_PRIMARY_PROVIDER env var (e.g. TTS_PRIMARY_PROVIDER=cartesia)
+ * Falls back to TTS_PROVIDER for backward compatibility, then defaults to 'google'
  */
-export const DANIELA_TTS_PROVIDER = (process.env.TTS_PROVIDER || 'elevenlabs') as 'elevenlabs' | 'cartesia';
+export const DANIELA_TTS_PROVIDER = (process.env.TTS_PRIMARY_PROVIDER || process.env.TTS_PROVIDER || 'google') as 'elevenlabs' | 'cartesia' | 'google';
 
 /**
  * TTS model per provider
  */
 export const DANIELA_TTS_MODEL = DANIELA_TTS_PROVIDER === 'elevenlabs' 
   ? 'eleven_flash_v2_5' 
-  : 'sonic-3';
+  : DANIELA_TTS_PROVIDER === 'google'
+    ? 'chirp3-hd'
+    : 'sonic-3';
 
 // ============================================================================
 // RUNTIME VALIDATION
@@ -113,6 +116,11 @@ export function validateVoiceConfig(): { valid: boolean; warnings: string[]; cri
   if (DANIELA_TTS_PROVIDER === 'elevenlabs') {
     if (!process.env.ELEVENLABS_API_KEY) {
       warnings.push(`❌ CRITICAL: ELEVENLABS_API_KEY is not set - Daniela's voice will NOT work`);
+      critical = true;
+    }
+  } else if (DANIELA_TTS_PROVIDER === 'google') {
+    if (!process.env.GOOGLE_CLOUD_TTS_CREDENTIALS) {
+      warnings.push(`❌ CRITICAL: GOOGLE_CLOUD_TTS_CREDENTIALS is not set - Daniela's voice will NOT work`);
       critical = true;
     }
   } else {

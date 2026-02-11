@@ -228,6 +228,53 @@ export function checkStuckSessions(): void {
   }
 }
 
+export async function logTtsFailure(
+  sessionId: string,
+  error: string,
+  context?: { userId?: string; turnId?: string; provider?: string; sentenceIndex?: number; textLength?: number; mode?: string }
+): Promise<void> {
+  const message = `TTS failure (${context?.provider || 'unknown'}): ${error}. Session: ${sessionId}`;
+  console.error(`[Pipeline] ${message}`);
+  
+  await logProductionError(message, {
+    userId: context?.userId,
+    sessionId,
+    route: '/voice-orchestrator',
+    feature: 'voice_chat',
+    additionalContext: {
+      stage: 'tts_failure',
+      provider: context?.provider,
+      turnId: context?.turnId,
+      sentenceIndex: context?.sentenceIndex,
+      textLength: context?.textLength,
+      mode: context?.mode,
+    },
+  });
+}
+
+export async function logGeminiNoAudio(
+  sessionId: string,
+  elapsedMs: number,
+  context?: { userId?: string; turnId?: string; responseLength?: number; hadFunctionCalls?: boolean }
+): Promise<void> {
+  const message = `Gemini produced no speakable text after ${elapsedMs}ms. Session: ${sessionId}`;
+  console.error(`[Pipeline] ${message}`);
+  
+  await logProductionError(message, {
+    userId: context?.userId,
+    sessionId,
+    route: '/voice-orchestrator',
+    feature: 'voice_chat',
+    additionalContext: {
+      stage: 'gemini_no_audio',
+      turnId: context?.turnId,
+      elapsedMs,
+      responseLength: context?.responseLength,
+      hadFunctionCalls: context?.hadFunctionCalls,
+    },
+  });
+}
+
 export function getActiveSessionCount(): number {
   return activeSessions.size;
 }
