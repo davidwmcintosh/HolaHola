@@ -173,7 +173,7 @@ export function SupportAssistModal({
       if (isDrillModeDisabled) {
         initialMessage = "Drill mode voice/text chat is not yet available. Please use the standard drill exercises in the Lessons section. This feature is coming soon!";
       } else {
-        initialMessage = `Hi, I'm Sofia! I'm here to help with any questions or issues you're having.\n\nI see you need help with: "${reason}"\n\nTell me more about what's going on, and I'll do my best to get you sorted out quickly.`;
+        initialMessage = `Hi, I'm Sofia! I'm here to help with any questions or issues you're having.\n\nTell me more about what's going on, and I'll do my best to get you sorted out quickly.`;
       }
       
       setMessages([{
