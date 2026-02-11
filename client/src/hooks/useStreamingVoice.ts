@@ -200,14 +200,11 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     const isComplete = responseCompleteRef.current;
     const noPendingAudio = pendingAudioCountRef.current === 0;
     
+    console.log(`[StreamingVoice] checkAndClearProcessing: complete=${isComplete}, pending=${pendingAudioCountRef.current}`);
+    
     if (isComplete && noPendingAudio) {
-      if (isVerboseLoggingEnabled()) {
-        console.log('[StreamingVoice] Response complete AND no pending audio - clearing isProcessing');
-      }
+      console.log('[StreamingVoice] Response complete AND no pending audio - clearing isProcessing');
       setIsProcessingRef.current(false);
-      // Don't reset responseCompleteRef here - let sendAudio do it
-    } else if (isVerboseLoggingEnabled()) {
-      console.log(`[StreamingVoice] Not clearing: complete=${isComplete}, pending=${pendingAudioCountRef.current}`);
     }
   }, []);
   
@@ -637,10 +634,16 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     
     // Reset processing timeout - audio is arriving (prevents false timeout for function-call paths
     // where sentence_start may not fire but sentence_ready does)
+    // CRITICAL FIX: Restart the timeout instead of clearing it. Previously this cleared to null,
+    // destroying the safety net. If response_complete never arrives after this, the mic locks forever.
     if (processingTimeoutRef.current) {
       clearTimeout(processingTimeoutRef.current);
-      processingTimeoutRef.current = null;
     }
+    processingTimeoutRef.current = setTimeout(() => {
+      console.log('[StreamingVoice] Processing timeout after sentence_ready - resetting stuck state');
+      setIsProcessing(false);
+      setError('Response timeout - please try again');
+    }, PROCESSING_TIMEOUT_MS);
     
     // TUTOR SWITCH: If we were switching tutors, clear the flag now that audio is ready
     setIsSwitchingTutor(false);
@@ -793,6 +796,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     
     trackWsMessage('response_complete');
     
+    console.log(`[StreamingVoice] response_complete received: sentences=${msg.totalSentences}, pending=${pendingAudioCountRef.current}, wasComplete=${responseCompleteRef.current}`);
+    
     // CRITICAL: Tell the audio player how many sentences this turn has
     // This prevents premature loop termination when early sentences finish
     // before later sentences have even arrived
@@ -817,6 +822,16 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     
     // Check if we can clear isProcessing (no pending audio)
     checkAndClearProcessing();
+    
+    // FAILSAFE: If checkAndClearProcessing didn't clear isProcessing (e.g., due to
+    // pendingAudioCount stuck > 0 from a previous bug), schedule a delayed force-clear.
+    // Progressive PCM streaming never increments pendingAudioCount, so if response_complete
+    // arrived, it's safe to clear after a short delay for audio to finish.
+    setTimeout(() => {
+      if (responseCompleteRef.current && pendingAudioCountRef.current === 0) {
+        setIsProcessingRef.current(false);
+      }
+    }, 2000);
   }, [checkAndClearProcessing]);
   
   /**
