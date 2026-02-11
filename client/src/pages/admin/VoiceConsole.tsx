@@ -272,7 +272,7 @@ export function VoiceConsoleContent() {
 
   const { data: geminiVoices, isLoading: isLoadingGeminiVoices } = useQuery<GeminiVoice[]>({
     queryKey: ['/api/admin/gemini-tts-voices'],
-    enabled: isAddDialogOpen && formData.provider === 'gemini',
+    enabled: globalProvider === 'gemini' || formData.provider === 'gemini',
   });
 
   const geminiVoicesAsCv: CartesiaVoice[] = (geminiVoices || [])
