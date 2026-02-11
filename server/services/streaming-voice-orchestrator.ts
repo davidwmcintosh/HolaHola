@@ -7595,7 +7595,32 @@ Remember: Beta testers understand they're helping build something and appreciate
               : estimatedDurationMs;
             const timingDurationMs = actualDurationMs > 0 ? actualDurationMs : estimatedDurationMs;
             const finalTimings = this.estimateWordTimings(displayText, timingDurationMs / 1000);
-            ttsCallbacks.onComplete(finalTimings, timingDurationMs);
+            try {
+              ttsCallbacks.onComplete(finalTimings, timingDurationMs);
+            } catch (callbackErr: any) {
+              console.error(`[Progressive] ttsCallbacks.onComplete threw for sentence ${index}, sending sentence_end as safety net:`, callbackErr.message);
+              try {
+                this.sendMessage(session.ws, {
+                  type: 'audio_chunk',
+                  timestamp: Date.now(),
+                  turnId: effectiveTurnId,
+                  sentenceIndex: index,
+                  chunkIndex: 9999,
+                  isLast: true,
+                  durationMs: 0,
+                  audio: '',
+                  audioFormat: 'pcm_f32le',
+                  sampleRate: 24000,
+                } as StreamingAudioChunkMessage);
+                this.sendMessage(session.ws, {
+                  type: 'sentence_end',
+                  timestamp: Date.now(),
+                  turnId: effectiveTurnId,
+                  sentenceIndex: index,
+                  totalDurationMs: timingDurationMs,
+                } as StreamingSentenceEndMessage);
+              } catch (sendErr) { /* last resort - prevent double throw */ }
+            }
             console.log(`[Progressive] Google TTS streaming complete: sentence ${index}, ${googleStreamChunkIdx} chunks, ${totalBytes} bytes, ${Date.now() - googleStartTime}ms, actualDuration=${Math.round(actualDurationMs)}ms (estimated=${Math.round(estimatedDurationMs)}ms)`);
           },
           onError: (err) => {

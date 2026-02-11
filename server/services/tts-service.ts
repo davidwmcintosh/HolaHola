@@ -1753,15 +1753,28 @@ export class TTSService {
     const wordCount = text.split(/\s+/).length;
     const estimatedTotalDurationMs = Math.max(1000, (wordCount / wordsPerMinute) * 60000 / speakingRate);
 
-    console.log(`[Google TTS Stream] Starting bidirectional stream: ${text.length} chars, voice=${voiceId}, rate=${speakingRate}, est=${Math.round(estimatedTotalDurationMs)}ms`);
+    const STREAM_TIMEOUT_MS = 15000;
+    console.log(`[Google TTS Stream] Starting bidirectional stream: ${text.length} chars, voice=${voiceId}, rate=${speakingRate}, est=${Math.round(estimatedTotalDurationMs)}ms, timeout=${STREAM_TIMEOUT_MS}ms`);
 
     return new Promise<void>((resolve, reject) => {
       const stream = (this.googleBetaClient as any).streamingSynthesize();
       let settled = false;
 
+      let streamTimeout: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+        if (!settled) {
+          console.error(`[Google TTS Stream] TIMEOUT after ${STREAM_TIMEOUT_MS}ms - stream hung. Received ${chunkCount} chunks, ${totalBytes} bytes so far. Force-completing with available audio.`);
+          try { stream.destroy(); } catch (e) { /* ignore destroy errors */ }
+          finish();
+        }
+      }, STREAM_TIMEOUT_MS);
+
       const finish = (err?: Error) => {
         if (settled) return;
         settled = true;
+        if (streamTimeout) {
+          clearTimeout(streamTimeout);
+          streamTimeout = null;
+        }
         if (err) {
           try { onError(err); } catch (e) { console.error('[Google TTS Stream] onError callback threw:', e); }
           reject(err);
