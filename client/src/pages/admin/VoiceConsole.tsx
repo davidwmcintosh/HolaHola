@@ -634,10 +634,10 @@ export function VoiceConsoleContent() {
     upsertMutation.mutate(formData);
   };
 
-  // Filter to only show main tutors (role='tutor'), not assistants
   const mainTutorVoices = voices?.filter(v => v.role === 'tutor' || !v.role) || [];
+  const filteredTutorVoices = mainTutorVoices.filter(v => (v.provider || 'cartesia') === globalProvider);
   
-  const groupedVoices = mainTutorVoices.reduce((acc, voice) => {
+  const groupedVoices = filteredTutorVoices.reduce((acc, voice) => {
     if (!acc[voice.language]) {
       acc[voice.language] = { male: null, female: null };
     }
