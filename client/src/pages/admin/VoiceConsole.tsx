@@ -89,6 +89,13 @@ interface ElevenLabsVoice {
   source?: string;
 }
 
+interface GeminiVoice {
+  id: string;
+  name: string;
+  gender: 'male' | 'female';
+  provider: string;
+}
+
 interface GoogleVoiceOption {
   id: string;
   name: string;
@@ -263,8 +270,22 @@ export function VoiceConsoleContent() {
     isPublic: true,
   }));
 
-  const activeVoices = formData.provider === 'google' ? googleVoices : formData.provider === 'elevenlabs' ? elevenLabsVoices : cartesiaVoices;
-  const isLoadingActiveVoices = formData.provider === 'google' ? isLoadingGoogleVoices : formData.provider === 'elevenlabs' ? isLoadingElevenLabsVoices : isLoadingCartesiaVoices;
+  const { data: geminiVoices, isLoading: isLoadingGeminiVoices } = useQuery<GeminiVoice[]>({
+    queryKey: ['/api/admin/gemini-tts-voices', formData.gender],
+    enabled: isAddDialogOpen && formData.provider === 'gemini',
+  });
+
+  const geminiVoicesAsCv: CartesiaVoice[] = (geminiVoices || []).map(v => ({
+    id: v.id,
+    name: v.name,
+    description: 'Gemini 2.5 Flash TTS',
+    language: '',
+    gender: v.gender,
+    isPublic: true,
+  }));
+
+  const activeVoices = formData.provider === 'google' ? googleVoices : formData.provider === 'elevenlabs' ? elevenLabsVoices : formData.provider === 'gemini' ? geminiVoicesAsCv : cartesiaVoices;
+  const isLoadingActiveVoices = formData.provider === 'google' ? isLoadingGoogleVoices : formData.provider === 'elevenlabs' ? isLoadingElevenLabsVoices : formData.provider === 'gemini' ? isLoadingGeminiVoices : isLoadingCartesiaVoices;
 
   const upsertMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
@@ -301,7 +322,7 @@ export function VoiceConsoleContent() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/tutor-voices"] });
-      const providerLabel = globalProvider === 'google' ? 'Google Cloud TTS' : globalProvider === 'elevenlabs' ? 'ElevenLabs' : 'Cartesia';
+      const providerLabel = globalProvider === 'google' ? 'Google Cloud TTS' : globalProvider === 'elevenlabs' ? 'ElevenLabs' : globalProvider === 'gemini' ? 'Gemini 2.5 Flash TTS' : 'Cartesia';
       toast({ title: "Success", description: `All tutor voices switched to ${providerLabel}` });
     },
     onError: (error: any) => {
@@ -597,6 +618,8 @@ export function VoiceConsoleContent() {
       elSpeakerBoost: pendingProvider === 'elevenlabs' ? true : prev.elSpeakerBoost,
       speakingRate: pendingProvider === 'cartesia' 
         ? Math.max(0.7, Math.min(1.3, prev.speakingRate))
+        : pendingProvider === 'gemini'
+        ? Math.max(0.25, Math.min(4.0, prev.speakingRate))
         : prev.speakingRate,
     }));
     bulkProviderMutation.mutate(pendingProvider);
@@ -650,7 +673,7 @@ export function VoiceConsoleContent() {
                   <DialogHeader>
                     <DialogTitle>{editingVoice ? "Edit Voice" : "Add Voice Configuration"}</DialogTitle>
                     <DialogDescription>
-                      Select a language, gender, and voice for the tutor. Using {globalProvider === 'google' ? 'Google Cloud TTS (Chirp 3 HD)' : globalProvider === 'elevenlabs' ? 'ElevenLabs Flash v2.5' : 'Cartesia Sonic-3'}.
+                      Select a language, gender, and voice for the tutor. Using {globalProvider === 'google' ? 'Google Cloud TTS (Chirp 3 HD)' : globalProvider === 'elevenlabs' ? 'ElevenLabs Flash v2.5' : globalProvider === 'gemini' ? 'Gemini 2.5 Flash TTS' : 'Cartesia Sonic-3'}.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
@@ -689,12 +712,12 @@ export function VoiceConsoleContent() {
                         {isLoadingActiveVoices ? (
                           <div className="flex items-center gap-2 p-3 border rounded-md">
                             <Loader2 className="h-4 w-4 animate-spin" />
-                            <span className="text-sm text-muted-foreground">Loading {formData.provider === 'google' ? 'Google' : formData.provider === 'elevenlabs' ? 'ElevenLabs' : 'Cartesia'} voices...</span>
+                            <span className="text-sm text-muted-foreground">Loading {formData.provider === 'google' ? 'Google' : formData.provider === 'elevenlabs' ? 'ElevenLabs' : formData.provider === 'gemini' ? 'Gemini' : 'Cartesia'} voices...</span>
                           </div>
                         ) : activeVoices.length === 0 ? (
                           <div className="p-3 border rounded-md border-dashed">
                             <p className="text-sm text-muted-foreground">
-                              No voices found. {formData.provider === 'elevenlabs' ? 'Check ElevenLabs API key.' : formData.provider === 'google' ? 'Check Google Cloud TTS credentials.' : `No ${formData.gender} voices for ${SUPPORTED_LANGUAGES.find(l => l.value === formData.language)?.label}.`}
+                              No voices found. {formData.provider === 'elevenlabs' ? 'Check ElevenLabs API key.' : formData.provider === 'google' ? 'Check Google Cloud TTS credentials.' : formData.provider === 'gemini' ? 'Check Gemini API key.' : `No ${formData.gender} voices for ${SUPPORTED_LANGUAGES.find(l => l.value === formData.language)?.label}.`}
                             </p>
                           </div>
                         ) : (
@@ -731,7 +754,7 @@ export function VoiceConsoleContent() {
                               const rate = formData.speakingRate;
                               const rateStr = rate.toFixed(2) + 'x';
                               let label = '';
-                              if (formData.provider === 'google') {
+                              if (formData.provider === 'google' || formData.provider === 'gemini') {
                                 if (rate < 0.6) label = 'Very Slow';
                                 else if (rate < 1.0) label = 'Slow';
                                 else if (rate === 1.0) label = 'Normal';
@@ -756,14 +779,14 @@ export function VoiceConsoleContent() {
                         <Slider
                           value={[formData.speakingRate]}
                           onValueChange={([value]) => setFormData(prev => ({ ...prev, speakingRate: value }))}
-                          min={formData.provider === 'google' ? 0.25 : formData.provider === 'elevenlabs' ? 0.5 : 0.7}
-                          max={formData.provider === 'google' ? 4.0 : formData.provider === 'elevenlabs' ? 2.0 : 1.3}
-                          step={formData.provider === 'google' ? 0.05 : formData.provider === 'elevenlabs' ? 0.05 : 0.1}
+                          min={(formData.provider === 'google' || formData.provider === 'gemini') ? 0.25 : formData.provider === 'elevenlabs' ? 0.5 : 0.7}
+                          max={(formData.provider === 'google' || formData.provider === 'gemini') ? 4.0 : formData.provider === 'elevenlabs' ? 2.0 : 1.3}
+                          step={(formData.provider === 'google' || formData.provider === 'gemini') ? 0.05 : formData.provider === 'elevenlabs' ? 0.05 : 0.1}
                           className="w-full"
                           data-testid="slider-speed"
                         />
                         <div className="flex justify-between text-xs text-muted-foreground">
-                          {formData.provider === 'google' ? (
+                          {(formData.provider === 'google' || formData.provider === 'gemini') ? (
                             <>
                               <span>Slow (0.25)</span>
                               <span>Normal (1.0)</span>
@@ -1116,6 +1139,7 @@ export function VoiceConsoleContent() {
                     <SelectItem value="google">Google Cloud TTS (Chirp 3 HD)</SelectItem>
                     <SelectItem value="cartesia">Cartesia (Sonic-3)</SelectItem>
                     <SelectItem value="elevenlabs">ElevenLabs (Flash v2.5)</SelectItem>
+                    <SelectItem value="gemini">Gemini (2.5 Flash TTS)</SelectItem>
                   </SelectContent>
                 </Select>
                 {bulkProviderMutation.isPending && (
@@ -1130,7 +1154,7 @@ export function VoiceConsoleContent() {
               <DialogHeader>
                 <DialogTitle>Switch TTS Provider</DialogTitle>
                 <DialogDescription>
-                  This will update all tutor voices to use {pendingProvider === 'google' ? 'Google Cloud TTS (Chirp 3 HD)' : pendingProvider === 'elevenlabs' ? 'ElevenLabs Flash v2.5' : 'Cartesia Sonic-3'}. Each tutor will keep its current voice selection but the provider tag will change. You can reassign individual voices afterward.
+                  This will update all tutor voices to use {pendingProvider === 'google' ? 'Google Cloud TTS (Chirp 3 HD)' : pendingProvider === 'elevenlabs' ? 'ElevenLabs Flash v2.5' : pendingProvider === 'gemini' ? 'Gemini 2.5 Flash TTS' : 'Cartesia Sonic-3'}. Each tutor will keep its current voice selection but the provider tag will change. You can reassign individual voices afterward.
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter className="flex gap-2">

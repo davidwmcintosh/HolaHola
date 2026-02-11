@@ -15941,10 +15941,10 @@ Current conversation context:
       const validRoles = ['tutor', 'assistant', 'support'];
       const validatedRole = validRoles.includes(role) ? role : 'tutor';
       
-      const validTutorProviders = ['cartesia', 'elevenlabs', 'google'];
+      const validTutorProviders = ['cartesia', 'elevenlabs', 'google', 'gemini'];
       if (validatedRole === 'tutor' && !validTutorProviders.includes(provider)) {
         return res.status(400).json({ 
-          error: "Main tutors must use Cartesia, ElevenLabs, or Google voices." 
+          error: "Main tutors must use Cartesia, ElevenLabs, Google, or Gemini voices." 
         });
       }
       if ((validatedRole === 'assistant' || validatedRole === 'support') && provider !== 'google') {
@@ -15955,7 +15955,7 @@ Current conversation context:
       
       // Validate speakingRate: ElevenLabs supports 0.5-2.0, Google supports 0.25-4.0, Cartesia supports 0.7-1.3
       const isElevenLabs = provider === 'elevenlabs';
-      const isGoogle = provider === 'google';
+      const isGoogle = provider === 'google' || provider === 'gemini';
       const rateMin = (validatedRole === 'assistant' || validatedRole === 'support' || isElevenLabs || isGoogle) ? 0.25 : 0.7;
       const rateMax = isGoogle ? 4.0 : (validatedRole === 'assistant' || validatedRole === 'support' || isElevenLabs) ? 2.0 : 1.3;
       const validatedSpeakingRate = speakingRate !== undefined 
@@ -16041,8 +16041,8 @@ Current conversation context:
   app.post("/api/admin/tutor-voices/provider", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { provider } = req.body;
-      if (!provider || !['cartesia', 'elevenlabs', 'google'].includes(provider)) {
-        return res.status(400).json({ error: "Provider must be 'cartesia', 'elevenlabs', or 'google'" });
+      if (!provider || !['cartesia', 'elevenlabs', 'google', 'gemini'].includes(provider)) {
+        return res.status(400).json({ error: "Provider must be 'cartesia', 'elevenlabs', 'google', or 'gemini'" });
       }
       
       const count = await storage.updateAllTutorVoicesProvider(provider);
@@ -16861,6 +16861,26 @@ Current conversation context:
     }
   });
   
+  // Fetch available Gemini TTS voices (admin only)
+  app.get("/api/admin/gemini-tts-voices", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { getGeminiTtsStreamingService } = await import('./services/gemini-tts-streaming');
+      const geminiTtsService = getGeminiTtsStreamingService();
+      const gender = req.query.gender as 'male' | 'female' | undefined;
+      const voices = geminiTtsService.getVoices(gender);
+      
+      res.json(voices.map(v => ({
+        id: v.name,
+        name: v.name,
+        gender: v.gender,
+        provider: 'gemini',
+      })));
+    } catch (error: any) {
+      console.error('Error fetching Gemini TTS voices:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // Get TTS emotion metadata for admin voice console (admin/developer only)
   // Returns personality presets, expressiveness levels, and allowed emotions
   app.get("/api/admin/tts-meta", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
@@ -16924,6 +16944,18 @@ Current conversation context:
         return res.send(audioBuffer);
       }
       
+      if (provider === 'gemini') {
+        const { getGeminiTtsStreamingService } = await import('./services/gemini-tts-streaming');
+        const geminiTtsService = getGeminiTtsStreamingService();
+        const audioBuffer = await geminiTtsService.synthesizeToBuffer(text, voiceId || 'Kore');
+        
+        res.set({
+          'Content-Type': 'audio/wav',
+          'Content-Length': audioBuffer.length,
+        });
+        return res.send(audioBuffer);
+      }
+
       if (provider === 'google') {
         const validatedGoogleRate = speakingRate !== undefined
           ? Math.max(0.25, Math.min(4.0, parseFloat(speakingRate)))

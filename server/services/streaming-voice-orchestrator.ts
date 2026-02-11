@@ -29,6 +29,7 @@ import { analyzePronunciation, generateQuickCoaching, PronunciationCoaching } fr
 import { getGeminiStreamingService, SentenceChunk, ExtractedFunctionCall, ConversationHistoryEntry, PartialFunctionCall } from "./gemini-streaming";
 import { getCartesiaStreamingService } from "./cartesia-streaming";
 import { getElevenLabsStreamingService } from "./elevenlabs-streaming";
+import { getGeminiTtsStreamingService } from "./gemini-tts-streaming";
 import { DANIELA_TTS_PROVIDER } from "./voice-config";
 import { WebSocket as WS } from "ws";
 import {
@@ -821,7 +822,7 @@ export interface StreamingSession {
   tutorExpressiveness: number;
   voiceSpeed: VoiceSpeedOption;
   voiceId?: string;
-  ttsProvider?: 'elevenlabs' | 'cartesia' | 'google';  // Per-session TTS provider (from tutor_voices DB record)
+  ttsProvider?: 'elevenlabs' | 'cartesia' | 'google' | 'gemini';  // Per-session TTS provider (from tutor_voices DB record)
   tutorGender: 'male' | 'female';    // Current tutor gender for persona-aware responses
   tutorName: string;                 // Current tutor's first name (e.g., "Daniela", "Agustin")
   systemPrompt: string;
@@ -1283,6 +1284,7 @@ export class StreamingVoiceOrchestrator {
   private geminiService = getGeminiStreamingService();
   private cartesiaService = getCartesiaStreamingService();
   private elevenlabsService = getElevenLabsStreamingService();
+  private geminiTtsService = getGeminiTtsStreamingService();
   private ttsProvider = DANIELA_TTS_PROVIDER;
   
   constructor() {
@@ -1426,8 +1428,7 @@ export class StreamingVoiceOrchestrator {
           console.log(`[PedagogicalPersona] Loaded for ${session.tutorName}: focus=${tutorVoice.pedagogicalFocus}, style=${tutorVoice.teachingStyle}`);
         }
         
-        session.ttsProvider = (tutorVoice.provider === 'elevenlabs' ? 'elevenlabs' : tutorVoice.provider === 'google' ? 'google' : 'cartesia') as 'elevenlabs' | 'cartesia' | 'google';
-        // Store ElevenLabs-specific voice settings on session
+        session.ttsProvider = (tutorVoice.provider === 'elevenlabs' ? 'elevenlabs' : tutorVoice.provider === 'google' ? 'google' : tutorVoice.provider === 'gemini' ? 'gemini' : 'cartesia') as 'elevenlabs' | 'cartesia' | 'google' | 'gemini';
         (session as any).elStability = tutorVoice.elStability ?? 0.5;
         (session as any).elSimilarityBoost = tutorVoice.elSimilarityBoost ?? 0.75;
         (session as any).elStyle = tutorVoice.elStyle ?? 0;
@@ -1517,10 +1518,11 @@ export class StreamingVoiceOrchestrator {
     let ttsWarmupMs = 0;
     let geminiWarmupMs = 0;
     const sessionTtsProvider = session.ttsProvider || this.ttsProvider;
-    const ttsWarmupPromise = (sessionTtsProvider === 'elevenlabs' || sessionTtsProvider === 'google')
+    const ttsWarmupPromise = (sessionTtsProvider === 'elevenlabs' || sessionTtsProvider === 'google' || sessionTtsProvider === 'gemini')
       ? Promise.resolve(0).then(time => {
           ttsWarmupMs = time;
-          console.log(`[Streaming Orchestrator] ${sessionTtsProvider === 'google' ? 'Google Cloud TTS' : 'ElevenLabs'} ready (REST, no warmup needed)`);
+          const providerLabel = sessionTtsProvider === 'google' ? 'Google Cloud TTS' : sessionTtsProvider === 'gemini' ? 'Gemini TTS' : 'ElevenLabs';
+          console.log(`[Streaming Orchestrator] ${providerLabel} ready (REST, no warmup needed)`);
         })
       : this.cartesiaService.ensureConnection()
         .then(time => {
@@ -1863,8 +1865,8 @@ Remember: David may reference things discussed in these recent text chats.
       // Start STT, TTS warmup, and context cache resolution in parallel
       // Context cache was started at session creation - if it's not ready yet, we overlap with STT
       const currentTtsProvider = session.ttsProvider || this.ttsProvider;
-      const ttsWarmup = (currentTtsProvider === 'elevenlabs' || currentTtsProvider === 'google')
-        ? Promise.resolve(0) // ElevenLabs/Google use REST, no warmup needed
+      const ttsWarmup = (currentTtsProvider === 'elevenlabs' || currentTtsProvider === 'google' || currentTtsProvider === 'gemini')
+        ? Promise.resolve(0) // ElevenLabs/Google/Gemini use REST, no warmup needed
         : this.cartesiaService.ensureConnection().catch((err: Error) => {
             console.warn(`[Streaming Orchestrator] Cartesia warmup failed: ${err.message}`);
             return -1;
@@ -4444,7 +4446,7 @@ Remember: Beta testers understand they're helping build something and appreciate
             
               // Update session voice with voiceId, provider, and ElevenLabs settings
               session.voiceId = matchingVoice.voiceId;
-              session.ttsProvider = (matchingVoice.provider === 'elevenlabs' ? 'elevenlabs' : matchingVoice.provider === 'google' ? 'google' : 'cartesia') as 'elevenlabs' | 'cartesia' | 'google';
+              session.ttsProvider = (matchingVoice.provider === 'elevenlabs' ? 'elevenlabs' : matchingVoice.provider === 'google' ? 'google' : matchingVoice.provider === 'gemini' ? 'gemini' : 'cartesia') as 'elevenlabs' | 'cartesia' | 'google' | 'gemini';
               (session as any).elStability = matchingVoice.elStability ?? 0.5;
               (session as any).elSimilarityBoost = matchingVoice.elSimilarityBoost ?? 0.75;
               (session as any).elStyle = matchingVoice.elStyle ?? 0;
@@ -6496,7 +6498,7 @@ Remember: Beta testers understand they're helping build something and appreciate
               tutorName = voiceNameParts[0]?.trim();
               session.isAssistantActive = false;
               session.voiceId = matchingVoice.voiceId;
-              session.ttsProvider = (matchingVoice.provider === 'elevenlabs' ? 'elevenlabs' : matchingVoice.provider === 'google' ? 'google' : 'cartesia') as 'elevenlabs' | 'cartesia' | 'google';
+              session.ttsProvider = (matchingVoice.provider === 'elevenlabs' ? 'elevenlabs' : matchingVoice.provider === 'google' ? 'google' : matchingVoice.provider === 'gemini' ? 'gemini' : 'cartesia') as 'elevenlabs' | 'cartesia' | 'google' | 'gemini';
               (session as any).elStability = matchingVoice.elStability ?? 0.5;
               (session as any).elSimilarityBoost = matchingVoice.elSimilarityBoost ?? 0.75;
               (session as any).elStyle = matchingVoice.elStyle ?? 0;
@@ -6975,6 +6977,31 @@ Remember: Beta testers understand they're helping build something and appreciate
             console.error(`[Non-Progressive] Google TTS streaming error:`, err.message);
           },
         });
+      } else if (effectiveTtsProvider === 'gemini') {
+        const ttsStream = this.geminiTtsService.streamSynthesize(ttsRequest);
+        for await (const audioChunk of ttsStream) {
+          if (audioChunk.audio.length > 0) {
+            if (!firstChunkReceived) {
+              firstChunkReceived = true;
+              if (index === 0 && !metrics.ttsFirstByteMs) {
+                metrics.ttsFirstByteMs = Date.now() - ttsStart;
+              }
+            }
+            audioChunks.push(audioChunk.audio);
+            metrics.audioBytes += audioChunk.audio.length;
+            metrics.audioChunkCount++;
+            totalDurationMs += audioChunk.durationMs;
+            
+            if (audioChunks.length === 1 && audioChunk.audioFormat) {
+              audioFormat = audioChunk.audioFormat;
+              sampleRate = audioChunk.sampleRate || 24000;
+            }
+          }
+          
+          if (audioChunk.isLast) {
+            break;
+          }
+        }
       } else {
         const ttsStream = effectiveTtsProvider === 'elevenlabs'
           ? this.elevenlabsService.streamSynthesize(ttsRequest)
@@ -7627,6 +7654,8 @@ Remember: Beta testers understand they're helping build something and appreciate
             console.error(`[Progressive] Google TTS streaming error for sentence ${index}:`, err.message);
           },
         });
+      } else if (effectiveTtsProvider === 'gemini') {
+        const result = await this.geminiTtsService.streamSynthesizeProgressive(progressiveRequest, ttsCallbacks);
       } else {
         const result = effectiveTtsProvider === 'elevenlabs'
           ? await this.elevenlabsService.streamSynthesizeProgressive(progressiveRequest, ttsCallbacks)
