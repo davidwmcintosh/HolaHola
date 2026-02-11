@@ -5592,6 +5592,17 @@ export class DatabaseStorage implements IStorage {
     return result.length;
   }
 
+  async updateTutorVoiceProviderWithMapping(id: string, provider: string, voiceId: string, voiceName: string): Promise<void> {
+    const validProviders = ['cartesia', 'elevenlabs', 'google', 'gemini'];
+    if (!validProviders.includes(provider)) {
+      throw new Error(`[Voice Guard] Invalid provider: ${provider}. Must be one of: ${validProviders.join(', ')}`);
+    }
+    await getSharedDb().update(tutorVoices)
+      .set({ provider, voiceId, voiceName, updatedAt: new Date() })
+      .where(eq(tutorVoices.id, id))
+      .returning();
+  }
+
   async seedDefaultTutorVoices(): Promise<void> {
     // Check if voices already exist
     const existing = await getSharedDb().select().from(tutorVoices).limit(1);

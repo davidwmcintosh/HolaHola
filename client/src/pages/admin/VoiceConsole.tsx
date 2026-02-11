@@ -540,12 +540,14 @@ export function VoiceConsoleContent() {
     const savedExpressiveness = voice.expressiveness || 3;
     const savedEmotion = voice.emotion || 'friendly';
     
+    const voiceProvider = voice.provider || globalProvider;
+    const providerMatchesVoice = voiceProvider === globalProvider;
     setFormData({
       language: voice.language,
       gender: voice.gender,
-      provider: voice.provider || globalProvider,
-      voiceId: voice.voiceId,
-      voiceName: voice.voiceName,
+      provider: globalProvider,
+      voiceId: providerMatchesVoice ? voice.voiceId : '',
+      voiceName: providerMatchesVoice ? voice.voiceName : '',
       languageCode: voice.languageCode,
       speakingRate: voice.speakingRate || 0.9,
       personality: savedPersonality,
