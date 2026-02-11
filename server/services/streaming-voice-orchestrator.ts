@@ -30,6 +30,7 @@ import { getGeminiStreamingService, SentenceChunk, ExtractedFunctionCall, Conver
 import { getCartesiaStreamingService } from "./cartesia-streaming";
 import { getElevenLabsStreamingService } from "./elevenlabs-streaming";
 import { getGeminiTtsStreamingService } from "./gemini-tts-streaming";
+import { getGeminiLiveTtsService } from "./gemini-live-tts";
 import { DANIELA_TTS_PROVIDER } from "./voice-config";
 import { WebSocket as WS } from "ws";
 import {
@@ -1285,6 +1286,7 @@ export class StreamingVoiceOrchestrator {
   private cartesiaService = getCartesiaStreamingService();
   private elevenlabsService = getElevenLabsStreamingService();
   private geminiTtsService = getGeminiTtsStreamingService();
+  private geminiLiveTtsService = getGeminiLiveTtsService();
   private ttsProvider = DANIELA_TTS_PROVIDER;
   
   constructor() {
@@ -1521,8 +1523,8 @@ export class StreamingVoiceOrchestrator {
     const ttsWarmupPromise = (sessionTtsProvider === 'elevenlabs' || sessionTtsProvider === 'google' || sessionTtsProvider === 'gemini')
       ? Promise.resolve(0).then(time => {
           ttsWarmupMs = time;
-          const providerLabel = sessionTtsProvider === 'google' ? 'Google Cloud TTS' : sessionTtsProvider === 'gemini' ? 'Gemini TTS' : 'ElevenLabs';
-          console.log(`[Streaming Orchestrator] ${providerLabel} ready (REST, no warmup needed)`);
+          const providerLabel = sessionTtsProvider === 'google' ? 'Google Cloud TTS' : sessionTtsProvider === 'gemini' ? 'Gemini Live TTS' : 'ElevenLabs';
+          console.log(`[Streaming Orchestrator] ${providerLabel} ready (${sessionTtsProvider === 'gemini' ? 'WebSocket per-call' : 'REST'}, no warmup needed)`);
         })
       : this.cartesiaService.ensureConnection()
         .then(time => {
@@ -6978,7 +6980,7 @@ Remember: Beta testers understand they're helping build something and appreciate
           },
         });
       } else if (effectiveTtsProvider === 'gemini') {
-        const ttsStream = this.geminiTtsService.streamSynthesize(ttsRequest);
+        const ttsStream = this.geminiLiveTtsService.streamSynthesize(ttsRequest);
         for await (const audioChunk of ttsStream) {
           if (audioChunk.audio.length > 0) {
             if (!firstChunkReceived) {
@@ -7655,7 +7657,7 @@ Remember: Beta testers understand they're helping build something and appreciate
           },
         });
       } else if (effectiveTtsProvider === 'gemini') {
-        const result = await this.geminiTtsService.streamSynthesizeProgressive(progressiveRequest, ttsCallbacks);
+        const result = await this.geminiLiveTtsService.streamSynthesizeProgressive(progressiveRequest, ttsCallbacks);
       } else {
         const result = effectiveTtsProvider === 'elevenlabs'
           ? await this.elevenlabsService.streamSynthesizeProgressive(progressiveRequest, ttsCallbacks)

@@ -271,18 +271,20 @@ export function VoiceConsoleContent() {
   }));
 
   const { data: geminiVoices, isLoading: isLoadingGeminiVoices } = useQuery<GeminiVoice[]>({
-    queryKey: ['/api/admin/gemini-tts-voices', formData.gender],
+    queryKey: ['/api/admin/gemini-tts-voices'],
     enabled: isAddDialogOpen && formData.provider === 'gemini',
   });
 
-  const geminiVoicesAsCv: CartesiaVoice[] = (geminiVoices || []).map(v => ({
-    id: v.id,
-    name: v.name,
-    description: 'Gemini 2.5 Flash TTS',
-    language: '',
-    gender: v.gender,
-    isPublic: true,
-  }));
+  const geminiVoicesAsCv: CartesiaVoice[] = (geminiVoices || [])
+    .filter(v => !formData.gender || v.gender === formData.gender)
+    .map(v => ({
+      id: v.id,
+      name: v.name,
+      description: 'Gemini 2.5 Flash TTS',
+      language: '',
+      gender: v.gender,
+      isPublic: true,
+    }));
 
   const activeVoices = formData.provider === 'google' ? googleVoices : formData.provider === 'elevenlabs' ? elevenLabsVoices : formData.provider === 'gemini' ? geminiVoicesAsCv : cartesiaVoices;
   const isLoadingActiveVoices = formData.provider === 'google' ? isLoadingGoogleVoices : formData.provider === 'elevenlabs' ? isLoadingElevenLabsVoices : formData.provider === 'gemini' ? isLoadingGeminiVoices : isLoadingCartesiaVoices;
