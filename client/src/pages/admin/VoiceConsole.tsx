@@ -727,7 +727,7 @@ export function VoiceConsoleContent() {
                         ) : (
                           <Select value={formData.voiceId} onValueChange={handleVoiceSelect}>
                             <SelectTrigger data-testid="select-voice">
-                              <SelectValue placeholder="Select a voice" />
+                              <SelectValue placeholder={editingVoice && !formData.voiceId ? `Current: ${editingVoice.voiceName} (${editingVoice.provider}) — select new` : "Select a voice"} />
                             </SelectTrigger>
                             <SelectContent>
                               {activeVoices.map(voice => (
