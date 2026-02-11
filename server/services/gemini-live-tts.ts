@@ -35,7 +35,7 @@ const GEMINI_LIVE_VOICES: { name: string; gender: 'male' | 'female' }[] = [
   { name: 'Algenib', gender: 'male' },
 ];
 
-const LIVE_MODEL = 'gemini-live-2.5-flash-preview';
+const LIVE_MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
 const LIVE_SAMPLE_RATE = 24000;
 const SYNTHESIS_TIMEOUT_MS = 15000;
 
@@ -47,7 +47,7 @@ export class GeminiLiveTtsService extends EventEmitter {
     const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '';
     if (apiKey) {
       this.client = new GoogleGenAI({ apiKey });
-      console.log(`[Gemini Live TTS] Initialized (model: ${LIVE_MODEL})`);
+      console.log(`[Gemini Live TTS] Initialized (model: ${LIVE_MODEL} via Live API)`);
     } else {
       console.warn('[Gemini Live TTS] No API key configured');
     }
@@ -192,6 +192,12 @@ export class GeminiLiveTtsService extends EventEmitter {
           onopen: () => {},
           onmessage: (msg: LiveServerMessage) => {
             if (completed) return;
+
+            const msgKeys = Object.keys(msg || {});
+            const scKeys = msg.serverContent ? Object.keys(msg.serverContent) : [];
+            const mtKeys = msg.serverContent?.modelTurn ? Object.keys(msg.serverContent.modelTurn) : [];
+            const partCount = msg.serverContent?.modelTurn?.parts?.length || 0;
+            console.log(`[Gemini Live TTS] onmessage: keys=${JSON.stringify(msgKeys)} sc=${JSON.stringify(scKeys)} mt=${JSON.stringify(mtKeys)} parts=${partCount} turnComplete=${msg.serverContent?.turnComplete}`);
 
             if (msg.serverContent?.modelTurn?.parts) {
               for (const part of msg.serverContent.modelTurn.parts) {
