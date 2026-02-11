@@ -417,6 +417,8 @@ export interface StreamingGenerationConfig {
   onPartialFunctionCall?: OnPartialFunctionCallCallback;  // Called as function name/args stream in
   // Context caching
   enableContextCaching?: boolean;  // Enable system prompt caching (90% cost reduction)
+  // Early abort signal - allows caller to stop stream iteration when all needed content is received
+  abortSignal?: { aborted: boolean };
 }
 
 /**
@@ -781,6 +783,8 @@ export class GeminiStreamingService {
       onPartialFunctionCall,
       // Context caching
       enableContextCaching = false,
+      // Early abort
+      abortSignal,
     } = config;
     
     // Clean up expired caches periodically
@@ -1046,6 +1050,14 @@ export class GeminiStreamingService {
       for await (const chunk of result) {
         if (streamTimedOut) {
           console.warn(`[Gemini Streaming] Breaking out of stream loop after timeout`);
+          break;
+        }
+        
+        // EARLY ABORT: Caller signals that all needed content has been received
+        // (e.g., function call text already sent to TTS - no need to wait for stream close)
+        if (abortSignal?.aborted) {
+          const elapsed = Date.now() - geminiRequestTime;
+          console.log(`[Gemini Streaming] Early abort at ${elapsed}ms - caller received all needed content`);
           break;
         }
         

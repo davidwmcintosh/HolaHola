@@ -2626,16 +2626,18 @@ Remember: Beta testers understand they're helping build something and appreciate
         turnId: String(session.currentTurnId)
       });
       
+      // Abort signal for early stream termination when function call TTS starts
+      const streamAbortSignal = { aborted: false };
+      
       await this.geminiService.streamWithSentenceChunking({
         systemPrompt: session.systemPrompt,  // STATIC base prompt (cacheable)
         conversationHistory: conversationHistoryWithContext,
         userMessage: userMessageWithNote,
-        // Honesty mode needs extra room for verbose, authentic responses
-        // Default 1024 was cutting off Daniela mid-thought
         maxOutputTokens: session.isRawHonestyMode ? 8192 : 4096,
-        enableFunctionCalling: true,  // Enable native Gemini 3 function calling
-        enableContextCaching: true,   // Enable caching for stable system prompt
-        streamFunctionCallArguments: true,  // Enable early intent detection for latency optimization
+        enableFunctionCalling: true,
+        enableContextCaching: true,
+        streamFunctionCallArguments: true,
+        abortSignal: streamAbortSignal,
         onPartialFunctionCall: (partial: PartialFunctionCall) => {
           // EARLY INTENT DETECTION: Preload resources as soon as we know the function name
           // This reduces latency by warming up before full args arrive
@@ -2672,24 +2674,76 @@ Remember: Beta testers understand they're helping build something and appreciate
             session.currentTurnFunctionCalls = [];
           }
           
-          // Route native function calls to command processing (fire-and-forget)
+          // Route native function calls to command processing
           for (const fn of functionCalls) {
             console.log(`[Native Function Call] ${fn.name}(${JSON.stringify(fn.args)})`);
             
-            // GEMINI 3: Collect thought signatures for multi-step function calling
-            // These MUST be passed back in subsequent requests
             if (fn.thoughtSignature) {
               session.currentTurnThoughtSignatures.push(fn.thoughtSignature);
               console.log(`[Thought Signature] Collected signature for ${fn.name} (${session.currentTurnThoughtSignatures.length} total)`);
             }
             
-            // Store function call for proper bundling
             session.currentTurnFunctionCalls.push(fn);
             
-            // Map to legacy command processing (handled same as bracket commands)
-            this.handleNativeFunctionCall(sessionId, session, fn).catch(err => {
+            // Process the function call (voice adjustments, phase shifts, etc.)
+            await this.handleNativeFunctionCall(sessionId, session, fn).catch(err => {
               console.error(`[Native Function Call] Error handling ${fn.name}:`, err.message);
             });
+          }
+          
+          // EARLY TTS: Start TTS immediately for metadata-only function calls
+          // instead of waiting for the Gemini stream to close (saves ~10s latency)
+          const METADATA_ONLY_FC_NAMES = new Set(['voice_adjust', 'voice_reset', 'word_emphasis', 'subtitle', 'show_overlay', 'hide_overlay', 'hold_overlay']);
+          const allMetadataOnly = functionCalls.every(fc => METADATA_ONLY_FC_NAMES.has(fc.name));
+          const embeddedRawText = ((session as any).functionCallText || '').trim();
+          
+          if (allMetadataOnly && embeddedRawText && !session.isInterrupted) {
+            const earlyTtsStart = Date.now();
+            const embeddedText = cleanTextForDisplay(embeddedRawText).trim();
+            if (embeddedText) {
+              console.log(`[Early TTS] Starting TTS immediately for metadata FC text (${embeddedText.length} chars) - not waiting for stream close`);
+              
+              const directBoldWords = extractBoldMarkedWords(embeddedRawText);
+              const accumulatedWords: string[] = (session as any).accumulatedBoldWords || [];
+              const allBoldWords = [...new Set([...directBoldWords, ...accumulatedWords])];
+              
+              const extraction = extractTargetLanguageWithMapping(embeddedText, allBoldWords);
+              const wordMapping: [number, number][] = extraction.wordMapping.size > 0
+                ? Array.from(extraction.wordMapping.entries()) : [];
+              const hasTarget = !!(extraction.targetText && extraction.targetText.trim().length > 0);
+              
+              this.sendMessage(session.ws, {
+                type: 'sentence_start',
+                timestamp: Date.now(),
+                turnId: session.turnId || session.currentTurnId,
+                sentenceIndex: 0,
+                text: embeddedText,
+                hasTargetContent: hasTarget,
+                targetLanguageText: hasTarget ? extraction.targetText : undefined,
+                wordMapping: hasTarget && wordMapping.length > 0 ? wordMapping : undefined,
+              } as StreamingSentenceStartMessage);
+              
+              fullText = embeddedText;
+              metrics.sentenceCount = 1;
+              
+              if (!firstTokenReceived) {
+                metrics.aiFirstTokenMs = Date.now() - aiStart;
+                firstTokenReceived = true;
+                console.log(`[Early TTS] AI first token (via FC): ${metrics.aiFirstTokenMs}ms`);
+              }
+              
+              await this.streamSentenceAudioProgressive(session, { index: 0, text: embeddedText }, embeddedText, metrics, session.turnId || `turn-${Date.now()}`, allBoldWords);
+              
+              (session as any).functionCallText = undefined;
+              (session as any).voiceAdjustText = undefined;
+              (session as any).accumulatedBoldWords = undefined;
+              (session as any).earlyTtsCompleted = true;
+              
+              // Signal Gemini stream to stop - we have everything we need
+              streamAbortSignal.aborted = true;
+              
+              console.log(`[Early TTS] TTS completed in ${Date.now() - earlyTtsStart}ms (started ${earlyTtsStart - geminiStartTime}ms after Gemini request)`);
+            }
           }
         },
         onSentence: async (chunk: SentenceChunk) => {
@@ -3719,43 +3773,49 @@ Remember: Beta testers understand they're helping build something and appreciate
       );
       
       if (metrics.sentenceCount === 0 && hadFunctionCalls && functionsNeedingContinuation.length === 0) {
-        const metadataOnlyFunctions = functionCallsCopy.map(fc => fc.name).join(', ');
-        const rawEmbeddedText = ((session as any).functionCallText || '').trim();
-        const embeddedText = cleanTextForDisplay(rawEmbeddedText).trim();
-        if (embeddedText) {
-          console.log(`[Voice PTT] Metadata functions included embedded text (${embeddedText.length} chars) - using for TTS`);
-          fullText = embeddedText;
-          metrics.sentenceCount = 1;
-          
-          const pttDirectBoldWords = extractBoldMarkedWords(rawEmbeddedText || '');
-          const pttAccumulatedWords: string[] = (session as any).accumulatedBoldWords || [];
-          const pttEmbedBoldWords = [...new Set([...pttDirectBoldWords, ...pttAccumulatedWords])];
-          if (pttAccumulatedWords.length > 0) {
-            console.log(`[Voice PTT] Merged ${pttAccumulatedWords.length} accumulated bold words with ${pttDirectBoldWords.length} direct: ${pttEmbedBoldWords.join(', ')}`);
-          }
-          const pttEmbedExtraction = extractTargetLanguageWithMapping(embeddedText, pttEmbedBoldWords);
-          const pttEmbedWordMapping: [number, number][] = pttEmbedExtraction.wordMapping.size > 0
-            ? Array.from(pttEmbedExtraction.wordMapping.entries()) : [];
-          const pttEmbedHasTarget = !!(pttEmbedExtraction.targetText && pttEmbedExtraction.targetText.trim().length > 0);
-          
-          this.sendMessage(session.ws, {
-            type: 'sentence_start',
-            timestamp: Date.now(),
-            turnId: session.turnId || session.currentTurnId,
-            sentenceIndex: 0,
-            text: embeddedText,
-            hasTargetContent: pttEmbedHasTarget,
-            targetLanguageText: pttEmbedHasTarget ? pttEmbedExtraction.targetText : undefined,
-            wordMapping: pttEmbedHasTarget && pttEmbedWordMapping.length > 0 ? pttEmbedWordMapping : undefined,
-          } as StreamingSentenceStartMessage);
-          
-          await this.streamSentenceAudioProgressive(session, { index: 0, text: embeddedText }, embeddedText, metrics, session.turnId || `turn-${Date.now()}`, pttEmbedBoldWords);
-          (session as any).functionCallText = undefined;
-          (session as any).voiceAdjustText = undefined;
-          (session as any).accumulatedBoldWords = undefined;
+        // Check if early TTS already handled this during streaming
+        if ((session as any).earlyTtsCompleted) {
+          console.log(`[Voice PTT] Early TTS already completed during streaming - skipping post-stream TTS`);
+          (session as any).earlyTtsCompleted = undefined;
         } else {
-          console.warn(`[Voice PTT] Gemini returned only metadata functions (${metadataOnlyFunctions}) - forcing continuation for spoken response`);
-          functionsNeedingContinuation.push(...functionCallsCopy);
+          const metadataOnlyFunctions = functionCallsCopy.map(fc => fc.name).join(', ');
+          const rawEmbeddedText = ((session as any).functionCallText || '').trim();
+          const embeddedText = cleanTextForDisplay(rawEmbeddedText).trim();
+          if (embeddedText) {
+            console.log(`[Voice PTT] Metadata functions included embedded text (${embeddedText.length} chars) - using for TTS`);
+            fullText = embeddedText;
+            metrics.sentenceCount = 1;
+            
+            const pttDirectBoldWords = extractBoldMarkedWords(rawEmbeddedText || '');
+            const pttAccumulatedWords: string[] = (session as any).accumulatedBoldWords || [];
+            const pttEmbedBoldWords = [...new Set([...pttDirectBoldWords, ...pttAccumulatedWords])];
+            if (pttAccumulatedWords.length > 0) {
+              console.log(`[Voice PTT] Merged ${pttAccumulatedWords.length} accumulated bold words with ${pttDirectBoldWords.length} direct: ${pttEmbedBoldWords.join(', ')}`);
+            }
+            const pttEmbedExtraction = extractTargetLanguageWithMapping(embeddedText, pttEmbedBoldWords);
+            const pttEmbedWordMapping: [number, number][] = pttEmbedExtraction.wordMapping.size > 0
+              ? Array.from(pttEmbedExtraction.wordMapping.entries()) : [];
+            const pttEmbedHasTarget = !!(pttEmbedExtraction.targetText && pttEmbedExtraction.targetText.trim().length > 0);
+            
+            this.sendMessage(session.ws, {
+              type: 'sentence_start',
+              timestamp: Date.now(),
+              turnId: session.turnId || session.currentTurnId,
+              sentenceIndex: 0,
+              text: embeddedText,
+              hasTargetContent: pttEmbedHasTarget,
+              targetLanguageText: pttEmbedHasTarget ? pttEmbedExtraction.targetText : undefined,
+              wordMapping: pttEmbedHasTarget && pttEmbedWordMapping.length > 0 ? pttEmbedWordMapping : undefined,
+            } as StreamingSentenceStartMessage);
+            
+            await this.streamSentenceAudioProgressive(session, { index: 0, text: embeddedText }, embeddedText, metrics, session.turnId || `turn-${Date.now()}`, pttEmbedBoldWords);
+            (session as any).functionCallText = undefined;
+            (session as any).voiceAdjustText = undefined;
+            (session as any).accumulatedBoldWords = undefined;
+          } else {
+            console.warn(`[Voice PTT] Gemini returned only metadata functions (${metadataOnlyFunctions}) - forcing continuation for spoken response`);
+            functionsNeedingContinuation.push(...functionCallsCopy);
+          }
         }
       }
       
@@ -5023,15 +5083,18 @@ Remember: Beta testers understand they're helping build something and appreciate
       // This ensures user messages are preserved even if Gemini fails/times out
       await this.checkpointUserMessage(session, transcript);
       
+      // Abort signal for early stream termination when function call TTS starts (open-mic)
+      const streamAbortSignalOpenMic = { aborted: false };
+      
       await this.geminiService.streamWithSentenceChunking({
         systemPrompt: session.systemPrompt,  // STATIC base prompt (cacheable)
         conversationHistory: conversationHistoryWithContext,
         userMessage: userMessageWithNote,
-        // Honesty mode needs extra room for verbose responses
         maxOutputTokens: session.isRawHonestyMode ? 8192 : 4096,
-        enableFunctionCalling: true,  // Enable native Gemini 3 function calling (open-mic)
-        enableContextCaching: true,   // Enable caching for stable system prompt
-        streamFunctionCallArguments: true,  // Enable early intent detection (open-mic)
+        enableFunctionCalling: true,
+        enableContextCaching: true,
+        streamFunctionCallArguments: true,
+        abortSignal: streamAbortSignalOpenMic,
         onPartialFunctionCall: (partial: PartialFunctionCall) => {
           // EARLY INTENT DETECTION (open-mic mode)
           if (partial.name === 'switch_tutor' && !partial.isComplete) {
@@ -5045,7 +5108,6 @@ Remember: Beta testers understand they're helping build something and appreciate
           }
         },
         onFunctionCall: async (functionCalls: ExtractedFunctionCall[]) => {
-          // Initialize thought signature tracking for this turn (same as PTT path)
           if (!session.currentTurnThoughtSignatures) {
             session.currentTurnThoughtSignatures = [];
           }
@@ -5053,22 +5115,75 @@ Remember: Beta testers understand they're helping build something and appreciate
             session.currentTurnFunctionCalls = [];
           }
           
-          // Route native function calls to command processing
           for (const fn of functionCalls) {
             console.log(`[Native Function Call - OpenMic] ${fn.name}(${JSON.stringify(fn.args)})`);
             
-            // GEMINI 3: Collect thought signatures for multi-step function calling
             if (fn.thoughtSignature) {
               session.currentTurnThoughtSignatures.push(fn.thoughtSignature);
               console.log(`[Thought Signature - OpenMic] Collected signature for ${fn.name} (${session.currentTurnThoughtSignatures.length} total)`);
             }
             
-            // Store function call for proper bundling
             session.currentTurnFunctionCalls.push(fn);
             
-            this.handleNativeFunctionCall(sessionId, session, fn).catch(err => {
+            await this.handleNativeFunctionCall(sessionId, session, fn).catch(err => {
               console.error(`[Native Function Call - OpenMic] Error handling ${fn.name}:`, err.message);
             });
+          }
+          
+          // EARLY TTS: Start TTS immediately for metadata-only function calls (open-mic)
+          const METADATA_ONLY_FC_NAMES = new Set(['voice_adjust', 'voice_reset', 'word_emphasis', 'subtitle', 'show_overlay', 'hide_overlay', 'hold_overlay']);
+          const allMetadataOnly = functionCalls.every(fc => METADATA_ONLY_FC_NAMES.has(fc.name));
+          const embeddedRawText = ((session as any).functionCallText || '').trim();
+          
+          if (allMetadataOnly && embeddedRawText && !session.isInterrupted) {
+            const earlyTtsStart = Date.now();
+            const embeddedText = cleanTextForDisplay(embeddedRawText).trim();
+            if (embeddedText) {
+              console.log(`[Early TTS - OpenMic] Starting TTS immediately for metadata FC text (${embeddedText.length} chars)`);
+              
+              session.onTtsStateChange?.(true);
+              
+              const directBoldWords = extractBoldMarkedWords(embeddedRawText);
+              const accumulatedWords: string[] = (session as any).accumulatedBoldWords || [];
+              const allBoldWords = [...new Set([...directBoldWords, ...accumulatedWords])];
+              
+              const extraction = extractTargetLanguageWithMapping(embeddedText, allBoldWords);
+              const wordMapping: [number, number][] = extraction.wordMapping.size > 0
+                ? Array.from(extraction.wordMapping.entries()) : [];
+              const hasTarget = !!(extraction.targetText && extraction.targetText.trim().length > 0);
+              
+              this.sendMessage(session.ws, {
+                type: 'sentence_start',
+                timestamp: Date.now(),
+                turnId: session.turnId || session.currentTurnId,
+                sentenceIndex: 0,
+                text: embeddedText,
+                hasTargetContent: hasTarget,
+                targetLanguageText: hasTarget ? extraction.targetText : undefined,
+                wordMapping: hasTarget && wordMapping.length > 0 ? wordMapping : undefined,
+              } as StreamingSentenceStartMessage);
+              
+              fullText = embeddedText;
+              metrics.sentenceCount = 1;
+              
+              if (!firstTokenReceived) {
+                metrics.aiFirstTokenMs = Date.now() - aiStart;
+                firstTokenReceived = true;
+                console.log(`[Early TTS - OpenMic] AI first token (via FC): ${metrics.aiFirstTokenMs}ms`);
+              }
+              
+              await this.streamSentenceAudioProgressive(session, { index: 0, text: embeddedText }, embeddedText, metrics, session.turnId || `turn-${Date.now()}`, allBoldWords);
+              
+              (session as any).functionCallText = undefined;
+              (session as any).voiceAdjustText = undefined;
+              (session as any).accumulatedBoldWords = undefined;
+              (session as any).earlyTtsCompleted = true;
+              
+              // Signal Gemini stream to stop - we have everything we need (open-mic)
+              streamAbortSignalOpenMic.aborted = true;
+              
+              console.log(`[Early TTS - OpenMic] TTS completed in ${Date.now() - earlyTtsStart}ms`);
+            }
           }
         },
         onSentence: async (chunk: SentenceChunk) => {
@@ -5757,47 +5872,51 @@ Remember: Beta testers understand they're helping build something and appreciate
       // voice_adjust and word_emphasis should ALWAYS accompany spoken text
       // If Gemini only returns these without text, check for embedded text first before forcing continuation
       if (metrics.sentenceCount === 0 && hadFunctionCallsOpenMic && functionsNeedingContinuationOpenMic.length === 0) {
-        const metadataOnlyFunctions = functionCallsCopyOpenMic.map(fc => fc.name).join(', ');
-        
-        // NEW: Check if voice_adjust or other functions included text - use it directly for TTS
-        const rawEmbeddedText = ((session as any).functionCallText || '').trim();
-        const embeddedText = cleanTextForDisplay(rawEmbeddedText).trim();
-        if (embeddedText) {
-          console.log(`[Voice] Metadata functions included embedded text (${embeddedText.length} chars) - using for TTS`);
-          fullText = embeddedText;
-          metrics.sentenceCount = 1;
-          
-          const embeddedDirectBoldWords = extractBoldMarkedWords(rawEmbeddedText || '');
-          const embeddedAccumulatedWords: string[] = (session as any).accumulatedBoldWords || [];
-          const embeddedBoldWords = [...new Set([...embeddedDirectBoldWords, ...embeddedAccumulatedWords])];
-          if (embeddedAccumulatedWords.length > 0) {
-            console.log(`[Voice] Merged ${embeddedAccumulatedWords.length} accumulated bold words with ${embeddedDirectBoldWords.length} direct: ${embeddedBoldWords.join(', ')}`);
-          }
-          const embeddedExtraction = extractTargetLanguageWithMapping(embeddedText, embeddedBoldWords);
-          const embeddedWordMapping: [number, number][] = embeddedExtraction.wordMapping.size > 0
-            ? Array.from(embeddedExtraction.wordMapping.entries()) : [];
-          const embeddedHasTarget = !!(embeddedExtraction.targetText && embeddedExtraction.targetText.trim().length > 0);
-          
-          this.sendMessage(session.ws, {
-            type: 'sentence_start',
-            timestamp: Date.now(),
-            turnId: session.turnId || session.currentTurnId,
-            sentenceIndex: 0,
-            text: embeddedText,
-            hasTargetContent: embeddedHasTarget,
-            targetLanguageText: embeddedHasTarget ? embeddedExtraction.targetText : undefined,
-            wordMapping: embeddedHasTarget && embeddedWordMapping.length > 0 ? embeddedWordMapping : undefined,
-          } as StreamingSentenceStartMessage);
-          
-          await this.streamSentenceAudioProgressive(session, { index: 0, text: embeddedText }, embeddedText, metrics, session.turnId || `turn-${Date.now()}`, embeddedBoldWords);
-          
-          (session as any).functionCallText = undefined;
-          (session as any).voiceAdjustText = undefined;
-          (session as any).accumulatedBoldWords = undefined;
+        // Check if early TTS already handled this during streaming
+        if ((session as any).earlyTtsCompleted) {
+          console.log(`[Voice - OpenMic] Early TTS already completed during streaming - skipping post-stream TTS`);
+          (session as any).earlyTtsCompleted = undefined;
         } else {
-          console.warn(`[Voice] Gemini returned only metadata functions (${metadataOnlyFunctions}) - these should accompany speech, forcing continuation`);
-          // Add metadata functions to continuation list so they get proper follow-up
-          functionsNeedingContinuationOpenMic.push(...functionCallsCopyOpenMic);
+          const metadataOnlyFunctions = functionCallsCopyOpenMic.map(fc => fc.name).join(', ');
+          
+          const rawEmbeddedText = ((session as any).functionCallText || '').trim();
+          const embeddedText = cleanTextForDisplay(rawEmbeddedText).trim();
+          if (embeddedText) {
+            console.log(`[Voice] Metadata functions included embedded text (${embeddedText.length} chars) - using for TTS`);
+            fullText = embeddedText;
+            metrics.sentenceCount = 1;
+            
+            const embeddedDirectBoldWords = extractBoldMarkedWords(rawEmbeddedText || '');
+            const embeddedAccumulatedWords: string[] = (session as any).accumulatedBoldWords || [];
+            const embeddedBoldWords = [...new Set([...embeddedDirectBoldWords, ...embeddedAccumulatedWords])];
+            if (embeddedAccumulatedWords.length > 0) {
+              console.log(`[Voice] Merged ${embeddedAccumulatedWords.length} accumulated bold words with ${embeddedDirectBoldWords.length} direct: ${embeddedBoldWords.join(', ')}`);
+            }
+            const embeddedExtraction = extractTargetLanguageWithMapping(embeddedText, embeddedBoldWords);
+            const embeddedWordMapping: [number, number][] = embeddedExtraction.wordMapping.size > 0
+              ? Array.from(embeddedExtraction.wordMapping.entries()) : [];
+            const embeddedHasTarget = !!(embeddedExtraction.targetText && embeddedExtraction.targetText.trim().length > 0);
+            
+            this.sendMessage(session.ws, {
+              type: 'sentence_start',
+              timestamp: Date.now(),
+              turnId: session.turnId || session.currentTurnId,
+              sentenceIndex: 0,
+              text: embeddedText,
+              hasTargetContent: embeddedHasTarget,
+              targetLanguageText: embeddedHasTarget ? embeddedExtraction.targetText : undefined,
+              wordMapping: embeddedHasTarget && embeddedWordMapping.length > 0 ? embeddedWordMapping : undefined,
+            } as StreamingSentenceStartMessage);
+            
+            await this.streamSentenceAudioProgressive(session, { index: 0, text: embeddedText }, embeddedText, metrics, session.turnId || `turn-${Date.now()}`, embeddedBoldWords);
+            
+            (session as any).functionCallText = undefined;
+            (session as any).voiceAdjustText = undefined;
+            (session as any).accumulatedBoldWords = undefined;
+          } else {
+            console.warn(`[Voice] Gemini returned only metadata functions (${metadataOnlyFunctions}) - these should accompany speech, forcing continuation`);
+            functionsNeedingContinuationOpenMic.push(...functionCallsCopyOpenMic);
+          }
         }
       }
       
