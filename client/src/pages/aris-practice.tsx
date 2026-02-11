@@ -40,6 +40,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useWhiteboard } from "@/hooks/useWhiteboard";
 import { Whiteboard } from "@/components/Whiteboard";
 import { useUser } from "@/lib/auth";
+import { getTutorName } from "@/lib/tutor-avatars";
 import { VoiceLabPanel, VoiceOverride } from "@/components/VoiceLabPanel";
 
 interface DrillContentItem {
@@ -138,9 +139,10 @@ interface SelfPracticeSession {
 }
 
 export default function ArisPractice() {
-  const { language } = useLanguage();
+  const { language, tutorGender } = useLanguage();
   const { toast } = useToast();
   const { user } = useUser();
+  const mainTutorName = getTutorName(language, tutorGender);
   
   const [selectedAssignment, setSelectedAssignment] = useState<ArisDrillAssignment | null>(null);
   const [drillState, setDrillState] = useState<DrillState | null>(null);
@@ -367,7 +369,7 @@ export default function ArisPractice() {
       setDrillState(null);
       toast({
         title: "Practice Complete!",
-        description: "Great work! Your results have been sent to Daniela.",
+        description: `Great work! Your results have been sent to ${mainTutorName}.`,
       });
     },
   });
@@ -1281,14 +1283,14 @@ export default function ArisPractice() {
                 <Sparkles className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                 <h3 className="text-lg font-medium mb-2">No Practice Assigned</h3>
                 <p className="text-muted-foreground max-w-md mx-auto">
-                  Daniela hasn't assigned any practice drills yet. Keep chatting with her, 
-                  and she'll send you focused practice when you need it!
+                  {mainTutorName} hasn't assigned any practice drills yet. Keep chatting with {tutorGender === 'male' ? 'him' : 'her'}, 
+                  and {tutorGender === 'male' ? "he'll" : "she'll"} send you focused practice when you need it!
                 </p>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-6">
                   <Button variant="outline" className="gap-2" asChild>
                     <a href="/chat" data-testid="link-chat-daniela">
                       <MessageCircle className="h-4 w-4" />
-                      Chat with Daniela
+                      Chat with {mainTutorName}
                     </a>
                   </Button>
                   <Button 
@@ -1339,7 +1341,7 @@ export default function ArisPractice() {
                           </h3>
                           {drillContent?.instructions && (
                             <p className="text-sm text-muted-foreground truncate">
-                              From Daniela: {drillContent.instructions}
+                              From {mainTutorName}: {drillContent.instructions}
                             </p>
                           )}
                         </div>
