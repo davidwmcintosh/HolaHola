@@ -16344,39 +16344,28 @@ Current conversation context:
   // Supports both Cartesia (main tutors) and Google Cloud TTS (assistant tutors)
   app.post("/api/admin/voice-audition", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const { voiceId, text, languageCode, speakingRate, emotion, provider = 'cartesia', elStability, elSimilarityBoost, elStyle, elSpeed } = req.body;
+      const { voiceId, text, languageCode: rawLanguageCode, language: langAlias, speakingRate, emotion, provider = 'cartesia', elStability, elSimilarityBoost, elStyle, elSpeed } = req.body;
+      const languageCode = rawLanguageCode || langAlias;
       
       if (!voiceId || !text) {
         return res.status(400).json({ error: "voiceId and text are required" });
       }
       
-      // Handle Google Cloud TTS for assistant tutors
+      // Handle Google Cloud TTS (Chirp 3 HD streaming)
       if (provider === 'google') {
-        const ttsService = new TTSService('google');
-        try {
-          // Map language code to language name for TTSService
-          const languageMap: Record<string, string> = {
-            'fr-FR': 'french', 'es-ES': 'spanish', 'es-US': 'spanish',
-            'de-DE': 'german', 'it-IT': 'italian', 'pt-BR': 'portuguese',
-            'ja-JP': 'japanese', 'ko-KR': 'korean', 'cmn-CN': 'mandarin chinese',
-            'en-US': 'english', 'en-GB': 'english',
-          };
-          const language = languageMap[languageCode] || 'english';
-          
-          const result = await ttsService.synthesize({
-            text,
-            voice: voiceId,
-            language,
-            speakingRate: speakingRate || 1.0,
-            forceProvider: 'google',
-          });
-          res.setHeader('Content-Type', result.contentType || 'audio/mpeg');
-          res.send(result.audioBuffer);
-          return;
-        } catch (error: any) {
-          console.error('[Voice Audition] Google TTS error:', error);
-          return res.status(500).json({ error: 'Voice synthesis failed: ' + error.message });
-        }
+        const validatedGoogleRate = speakingRate !== undefined
+          ? Math.max(0.25, Math.min(4.0, parseFloat(speakingRate)))
+          : 1.0;
+        const { getTTSService } = await import('./services/tts-service');
+        const ttsService = getTTSService();
+        const result = await ttsService.streamSynthesizeToWavBuffer({
+          text,
+          voiceId,
+          speakingRate: validatedGoogleRate,
+        });
+        res.setHeader('Content-Type', result.contentType);
+        res.send(result.audioBuffer);
+        return;
       }
       
       // Handle ElevenLabs TTS
@@ -16413,6 +16402,15 @@ Current conversation context:
         });
         
         res.setHeader('Content-Type', 'audio/mpeg');
+        res.send(audioBuffer);
+        return;
+      }
+
+      if (provider === 'gemini') {
+        const { getGeminiLiveTtsService } = await import('./services/gemini-live-tts');
+        const geminiLiveTtsService = getGeminiLiveTtsService();
+        const audioBuffer = await geminiLiveTtsService.synthesizeToBuffer(text, voiceId || 'Kore');
+        res.setHeader('Content-Type', 'audio/wav');
         res.send(audioBuffer);
         return;
       }
@@ -16912,8 +16910,8 @@ Current conversation context:
     }
   });
   
-  // Preview TTS for admin voice testing (admin/developer only)
-  // This endpoint fully simulates production TTS with phoneme processing and emotion control
+  // Preview TTS for admin voice testing (unified via /api/admin/voice-audition)
+  // Kept as backward-compatible alias
   app.post("/api/admin/tutor-voices/preview", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { voiceId, text, language, speakingRate, emotion, provider, elStability, elSimilarityBoost, elStyle, elSpeed } = req.body;

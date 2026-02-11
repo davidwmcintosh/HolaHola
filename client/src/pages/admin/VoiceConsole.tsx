@@ -494,7 +494,7 @@ export function VoiceConsoleContent() {
       body.elStyle = elSettings.elStyle;
       body.elSpeed = elSettings.elSpeed ?? speakingRate;
     }
-    const response = await fetch("/api/admin/tutor-voices/preview", {
+    const response = await fetch("/api/admin/voice-audition", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
