@@ -9656,6 +9656,14 @@ Return ONLY the ${targetLanguage} phrase:`;
             return null;
           }
           
+          
+          // Filter by difficulty if specified
+          if (difficulty) {
+            const diffLevel = parseInt(String(difficulty), 10);
+            if (!isNaN(diffLevel) && avgDifficulty !== diffLevel) {
+              return null;
+            }
+          }
           // Get sample items for tags/types (limit to 50 for efficiency)
           const sampleItems = await db
             .select({

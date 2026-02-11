@@ -139,7 +139,7 @@ interface SelfPracticeSession {
 }
 
 export default function ArisPractice() {
-  const { language, tutorGender } = useLanguage();
+  const { language, tutorGender, difficulty } = useLanguage();
   const { toast } = useToast();
   const { user } = useUser();
   const mainTutorName = getTutorName(language, tutorGender);
@@ -157,7 +157,13 @@ export default function ArisPractice() {
   const [voiceOverride, setVoiceOverride] = useState<VoiceOverride | null>(null);
   const [activeTab, setActiveTab] = useState("assigned");
   const [catalogLanguageFilter, setCatalogLanguageFilter] = useState<string>("current");
-  const [catalogDifficultyFilter, setCatalogDifficultyFilter] = useState<string>("all");
+  const difficultyToNumeric = (d: string) => {
+    if (d === 'beginner') return '1';
+    if (d === 'intermediate') return '3';
+    if (d === 'advanced') return '4';
+    return 'all';
+  };
+  const [catalogDifficultyFilter, setCatalogDifficultyFilter] = useState<string>(() => difficultyToNumeric(difficulty));
   const [selfPracticeSession, setSelfPracticeSession] = useState<SelfPracticeSession | null>(null);
   const [selfPracticeDrillItems, setSelfPracticeDrillItems] = useState<SelfPracticeDrillItem[]>([]);
   const [loadingLessonId, setLoadingLessonId] = useState<string | null>(null);
@@ -176,6 +182,10 @@ export default function ArisPractice() {
   const STORAGE_KEY_STATE = 'aris-practice-state';
   const STORAGE_KEY_ITEMS = 'aris-practice-items';
   
+  useEffect(() => {
+    setCatalogDifficultyFilter(difficultyToNumeric(difficulty));
+  }, [difficulty]);
+
   // Restore session from localStorage on mount
   useEffect(() => {
     try {
@@ -1217,11 +1227,15 @@ export default function ArisPractice() {
     return "Advanced";
   };
   
-  // Filter catalog - language/difficulty filters are handled server-side
-  // Only client-side filtering needed for "current" language option
   const filteredCatalog = catalogData?.catalog?.filter(item => {
-    if (catalogLanguageFilter === 'current') {
-      return item.targetLanguage === language;
+    if (catalogLanguageFilter === 'current' && item.targetLanguage !== language) {
+      return false;
+    }
+    if (catalogDifficultyFilter !== 'all') {
+      const filterLevel = parseInt(catalogDifficultyFilter, 10);
+      if (!isNaN(filterLevel) && item.difficulty !== filterLevel) {
+        return false;
+      }
     }
     return true;
   }) || [];
