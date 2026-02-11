@@ -517,7 +517,7 @@ class HiveContextService {
   private async getLanguageOverview(): Promise<LanguageOverview[]> {
     try {
       // Get classes grouped by language
-      const classes = await getUserDb().select()
+      const classes = await getSharedDb().select()
         .from(teacherClasses)
         .where(eq(teacherClasses.isActive, true));
       

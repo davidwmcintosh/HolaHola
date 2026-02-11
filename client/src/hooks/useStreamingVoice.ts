@@ -169,7 +169,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   // If no activity for 30+ seconds while isProcessing=true, reset state
   // Increased from 15s to 25s Jan 2026 to handle server delays from RAM pressure
   const processingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const PROCESSING_TIMEOUT_MS = 15000;  // 15 seconds max "thinking" time (voice conversations need responsiveness)
+  const PROCESSING_TIMEOUT_MS = 25000;  // 25 seconds max "thinking" time (function calls + TTS can take 15-20s)
 
   // Refs
   const clientRef = useRef<StreamingVoiceClient | null>(null);
@@ -634,6 +634,13 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     const audioStripped = (firstAudioChunk as any)?.audioStripped === true;
     const hasAudio = firstAudioChunk?.audio && firstAudioChunk.audio.length > 0;
     console.log(`[SENTENCE_READY] Received: sentence=${sentenceIndex}, turn=${turnId}, timings=${firstWordTimings?.length || 0}, hasAudio=${hasAudio}, audioStripped=${audioStripped}`);
+    
+    // Reset processing timeout - audio is arriving (prevents false timeout for function-call paths
+    // where sentence_start may not fire but sentence_ready does)
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+      processingTimeoutRef.current = null;
+    }
     
     // TUTOR SWITCH: If we were switching tutors, clear the flag now that audio is ready
     setIsSwitchingTutor(false);
