@@ -246,7 +246,7 @@ export class GeminiLiveTtsService extends EventEmitter {
         liveSession = session;
         try {
           session.sendClientContent({
-            turns: trimmedText,
+            turns: [{ role: 'user', parts: [{ text: trimmedText }] }],
             turnComplete: true,
           });
           console.log(`[Gemini Live TTS] Sent to Live API (${trimmedText.length} chars)`);
