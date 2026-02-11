@@ -45,7 +45,7 @@ integrations = ["javascript_openai_ai_integrations:1.0.0", "javascript_mem_db:1.
 [userenv]
 
 [userenv.shared]
-TTS_PRIMARY_PROVIDER = "cartesia"
+TTS_PRIMARY_PROVIDER = "google"
 CARTESIA_PRONUNCIATION_DICT_IDS = "{\"spanish\":\"pdict_6PLDfmxcwFMXcNzupDAtGN\",\"french\":\"pdict_bH9XV8ysTebsn7NGkQTRVR\",\"german\":\"pdict_x7RvPGuw4MDAgrXmFbuscG\",\"italian\":\"pdict_hzt7xBGNNwTJmPw8T7mVj2\",\"portuguese\":\"pdict_rBkocHMkYSYbFVcnopCqam\",\"japanese\":\"pdict_dZE2eKzRRt71JDoL6XYMvm\",\"mandarin chinese\":\"pdict_VH25Wo8GMJ2GMtEDU8CdWY\",\"korean\":\"pdict_5fsZLioheLeUoJ17TXzSob\"}"
 APP_NAME = "HolaHola"
 APP_URL = "https://getholahola.com"

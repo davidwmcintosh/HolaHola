@@ -421,9 +421,10 @@ app.use((req, res, next) => {
     const status = await ttsService.getStatus();
     
     console.log(`Provider Configuration:`);
-    console.log(`  • Current Provider: ${status.currentProvider}`);
-    console.log(`  • Google Cloud TTS Available: ${status.googleAvailable ? '✓' : '✗'}`);
-    console.log(`  • OpenAI TTS Available: ${status.openaiAvailable ? '✓' : '✗'}`);
+    console.log(`  • Primary Provider: ${status.currentProvider.toUpperCase()}`);
+    console.log(`  • Google Cloud TTS: ${status.googleAvailable ? '✓ Available' : '✗ Not configured'}`);
+    console.log(`  • Cartesia: ${status.cartesiaAvailable ? '✓ Available' : '✗ Not configured'}`);
+    console.log(`  • OpenAI TTS: ${status.openaiAvailable ? '✓ Available' : '✗ Not configured'}`);
     
     if (status.googleAvailable) {
       console.log(`  • Google Cloud TTS Healthy: ${status.googleHealthy ? '✓' : '✗'}`);
@@ -432,13 +433,13 @@ app.use((req, res, next) => {
       }
     }
     
-    if (status.fallbackEnabled && !status.googleHealthy && status.googleAvailable) {
-      console.warn('\n⚠️  WARNING: Google Cloud TTS is not healthy, using fallback');
-      console.warn('   Voice quality may be degraded');
-      console.warn('   See setup instructions above to enable Google Cloud TTS API');
+    if (status.currentProvider === 'google' && status.googleHealthy) {
+      console.log('\n✓ Google Cloud TTS (Chirp 3 HD) is PRIMARY and healthy');
+    } else if (status.currentProvider === 'google' && !status.googleHealthy) {
+      console.warn('\nWARNING: Google Cloud TTS is PRIMARY but not healthy');
+      console.warn('   Will fall back to other providers if available');
     } else if (status.googleHealthy) {
-      console.log('\n✓ Google Cloud WaveNet TTS is active and healthy');
-      console.log('  Users will receive authentic native pronunciation');
+      console.log(`\n✓ ${status.currentProvider.toUpperCase()} is PRIMARY, Google Cloud TTS available as fallback`);
     }
     
     console.log('─────────────────────────────────────────────────────────────\n');

@@ -25,7 +25,22 @@ export default function Chat() {
   const { language, difficulty, userName } = useLanguage();
   const { learningContext, getSelectedClassName } = useLearningFilter();
   const { setOpen, setOpenMobile } = useSidebar();
-  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(() => {
+    // Don't restore if user explicitly wants a new conversation
+    const forceNew = localStorage.getItem('forceNewConversation') === 'true';
+    if (forceNew) {
+      sessionStorage.removeItem('currentChatConversationId');
+      return null;
+    }
+    // Restore conversation ID from sessionStorage on HMR/page reload
+    // This prevents creating duplicate conversations when the server restarts
+    const stored = sessionStorage.getItem('currentChatConversationId');
+    if (stored) {
+      console.log('[SHARED CHAT] Restored conversation from session:', stored);
+      return stored;
+    }
+    return null;
+  });
   const [isResumedConversation, setIsResumedConversation] = useState(false);
   const resumeHandledRef = useRef(false);
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
@@ -62,13 +77,12 @@ export default function Chat() {
   const creationInProgressRef = useRef(false); // Prevent duplicate conversation creation
   
   // Session-level lock for conversation creation (survives remounts/HMR)
-  // Uses timestamp to auto-expire after 10 seconds (handles stale locks from crashes)
+  // Uses timestamp to auto-expire after 30 seconds (handles server restarts which can take 10-20s)
   const isSessionLocked = () => {
     const lock = sessionStorage.getItem('conversationCreationLock');
     if (!lock) return false;
     const lockTime = parseInt(lock, 10);
-    // Lock expires after 10 seconds
-    return Date.now() - lockTime < 10000;
+    return Date.now() - lockTime < 30000;
   };
   const acquireSessionLock = () => {
     sessionStorage.setItem('conversationCreationLock', Date.now().toString());
@@ -138,6 +152,19 @@ export default function Chat() {
     }
   };
 
+  // Persist conversation ID to sessionStorage so it survives HMR/page reloads
+  // This prevents creating duplicate conversations when the server restarts
+  useEffect(() => {
+    if (conversationId) {
+      sessionStorage.setItem('currentChatConversationId', conversationId);
+    }
+  }, [conversationId]);
+  
+  // NOTE: We intentionally do NOT clear currentChatConversationId on unmount.
+  // HMR remounts would wipe it, defeating the purpose of persistence.
+  // The stored ID is cleared only by: handleNewChat(), forceNewConversation flag,
+  // or overwritten when a new conversation is created.
+  
   // Auto-close sidebar when entering voice chat area
   // This runs ONLY ONCE on initial mount - works for Call Tutor, New Chat, and Start Practicing
   // Empty dependency array ensures user can reopen sidebar after initial close
@@ -435,7 +462,8 @@ export default function Chat() {
 
   const handleNewChat = () => {
     console.log('[SHARED CHAT] User requested new chat - forcing new conversation');
-    // Clear session lock to allow new conversation creation after reload
+    // Clear stored conversation and session lock to allow new conversation creation
+    sessionStorage.removeItem('currentChatConversationId');
     releaseSessionLock();
     // Use shared utility to set force flag
     setForceNewFlag();

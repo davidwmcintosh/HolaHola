@@ -842,8 +842,8 @@ export function addCartesiaPhonemesToText(text: string, targetLanguage?: string)
  * - OpenAI TTS (tts-1, tts-1-hd) - Fast but limited control (not used)
  * 
  * Provider selection via TTS_PRIMARY_PROVIDER env var:
- * - 'cartesia': Use Cartesia as primary (default if CARTESIA_API_KEY set)
- * - 'google': Use Google Cloud as primary (fallback if Cartesia unavailable)
+ * - 'google': Use Google Cloud as primary (default - recommended for production)
+ * - 'cartesia': Use Cartesia as primary (if CARTESIA_API_KEY set)
  * 
  * Model selection via TTS_CARTESIA_MODEL env var:
  * - 'sonic-3': Latest model, 42 languages, emotion/laughter (~90ms latency)
@@ -916,21 +916,26 @@ export class TTSService {
     
     // Log provider status
     console.log(`[TTS Service] Primary provider: ${this.provider.toUpperCase()}`);
+    if (this.googleClient) {
+      console.log(`[TTS Service] ├─ Google Cloud TTS: ✓ ${this.provider === 'google' ? 'PRIMARY' : 'Fallback ready'}`);
+    } else {
+      console.log('[TTS Service] ├─ Google Cloud TTS: ✗ Not configured');
+    }
     if (this.cartesiaClient) {
-      console.log(`[TTS Service] ├─ Cartesia: ✓ Ready (${this.cartesiaModel})`);
+      console.log(`[TTS Service] ├─ Cartesia: ✓ ${this.provider === 'cartesia' ? 'PRIMARY' : 'Available'} (${this.cartesiaModel})`);
     } else {
       console.log('[TTS Service] ├─ Cartesia: ✗ Not configured (set CARTESIA_API_KEY)');
     }
-    if (this.googleClient) {
-      console.log('[TTS Service] └─ Google: ✓ Fallback ready');
+    if (this.openaiClient) {
+      console.log(`[TTS Service] └─ OpenAI: ✓ Available`);
     } else {
-      console.log('[TTS Service] └─ Google: ✗ Not configured');
+      console.log('[TTS Service] └─ OpenAI: ✗ Not configured');
     }
     
     // Validate at least one provider is available
-    if (!this.cartesiaClient && !this.googleClient) {
-      console.error('[TTS Service] ❌ CRITICAL: No TTS provider configured!');
-      console.error('[TTS Service] Set CARTESIA_API_KEY or GOOGLE_CLOUD_TTS_CREDENTIALS');
+    if (!this.cartesiaClient && !this.googleClient && !this.openaiClient) {
+      console.error('[TTS Service] CRITICAL: No TTS provider configured!');
+      console.error('[TTS Service] Set GOOGLE_CLOUD_TTS_CREDENTIALS, CARTESIA_API_KEY, or OPENAI_API_KEY');
     }
   }
 
