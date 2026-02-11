@@ -188,7 +188,7 @@ export function SupportAssistModal({
         synthesizeAndPlay(initialMessage);
       }
     }
-  }, [isOpen, reason, isDrillModeDisabled]);
+  }, [isOpen, reason, isDrillModeDisabled, ticketId]);
 
   useEffect(() => {
     if (scrollRef.current) {
