@@ -6638,6 +6638,24 @@ Remember: Beta testers understand they're helping build something and appreciate
       });
       
       this.sendError(session.ws, 'UNKNOWN', error.message, true);
+      
+      // SAFETY NET: Always send response_complete on pipeline error to prevent permanent mic lockout
+      this.sendMessage(session.ws, {
+        type: 'response_complete',
+        timestamp: Date.now(),
+        turnId,
+        totalSentences: metrics.sentenceCount,
+        totalDurationMs: Date.now() - startTime,
+        fullText: '',
+        metrics: {
+          sttLatencyMs: metrics.sttLatencyMs,
+          aiFirstTokenMs: metrics.aiFirstTokenMs,
+          ttsFirstChunkMs: metrics.ttsFirstByteMs,
+          totalTtfbMs: 0,
+          sentenceCount: metrics.sentenceCount,
+        },
+      } as StreamingResponseCompleteMessage);
+      
       // Return metrics instead of throwing to prevent socket disconnect
       return metrics;
     }
