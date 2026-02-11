@@ -1222,7 +1222,6 @@ export default function ArisPractice() {
   // Get difficulty label
   const getDifficultyLabel = (level: number) => {
     if (level <= 1) return "Beginner";
-    if (level <= 2) return "Elementary";
     if (level <= 3) return "Intermediate";
     return "Advanced";
   };
@@ -1417,7 +1416,6 @@ export default function ArisPractice() {
                   <SelectContent>
                     <SelectItem value="all">All Levels</SelectItem>
                     <SelectItem value="1">Beginner</SelectItem>
-                    <SelectItem value="2">Elementary</SelectItem>
                     <SelectItem value="3">Intermediate</SelectItem>
                     <SelectItem value="4">Advanced</SelectItem>
                   </SelectContent>
