@@ -16931,12 +16931,10 @@ Current conversation context:
         
         const { getTTSService } = await import('./services/tts-service');
         const ttsService = getTTSService();
-        const result = await ttsService.synthesizeWithGoogleDirect({
+        const result = await ttsService.streamSynthesizeToWavBuffer({
           text,
           voiceId,
           speakingRate: validatedGoogleRate,
-          pitch: 0,
-          volumeGainDb: 0,
         });
         
         res.set({

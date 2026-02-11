@@ -1664,52 +1664,68 @@ export class TTSService {
   }
 
   /**
-   * Synthesize speech using Google Cloud TTS with a specific voice ID and parameters.
-   * Used by the Voice Console for previewing/auditioning Google Chirp 3 HD voices.
+   * Synthesize speech using Google Cloud TTS streaming and return a complete WAV buffer.
+   * Used by Voice Lab preview and other non-WebSocket contexts that need a playable audio file.
+   * Uses the same streaming code path as voice sessions for consistency.
    */
-  async synthesizeWithGoogleDirect(params: {
+  async streamSynthesizeToWavBuffer(params: {
     text: string;
     voiceId: string;
     speakingRate?: number;
-    pitch?: number;
-    volumeGainDb?: number;
   }): Promise<TTSResponse> {
-    if (!this.googleClient) {
-      throw new Error('Google Cloud TTS is not available. Set GOOGLE_CLOUD_TTS_CREDENTIALS.');
-    }
-
-    const { text, voiceId, speakingRate = 1.0, pitch = 0, volumeGainDb = 0 } = params;
-    const voiceParts = voiceId.split('-');
-    const languageCode = voiceParts.length >= 2 ? `${voiceParts[0]}-${voiceParts[1]}` : 'en-US';
-
-    console.log(`[Google TTS Direct] Synthesizing ${text.length} chars with voice ${voiceId} (rate: ${speakingRate}, pitch: ${pitch}, volume: ${volumeGainDb}dB)`);
-
-    const request = {
-      input: { text },
-      voice: {
-        languageCode,
-        name: voiceId,
+    const chunks: Buffer[] = [];
+    
+    await this.streamSynthesizeWithGoogle({
+      text: params.text,
+      voiceId: params.voiceId,
+      speakingRate: params.speakingRate,
+      onAudioChunk: (chunk) => {
+        chunks.push(chunk.audio);
       },
-      audioConfig: {
-        audioEncoding: 'MP3' as const,
-        speakingRate,
-        pitch,
-        volumeGainDb,
+      onComplete: () => {},
+      onError: (err) => {
+        console.error('[Google TTS StreamToWav] Streaming error:', err.message);
       },
-    };
-
-    const [response] = await this.googleClient.synthesizeSpeech(request);
-
-    if (!response.audioContent) {
-      throw new Error('Google TTS returned no audio content');
+    });
+    
+    const pcmF32Data = Buffer.concat(chunks);
+    const sampleCount = pcmF32Data.length / 4;
+    const int16Data = Buffer.alloc(sampleCount * 2);
+    for (let i = 0; i < sampleCount; i++) {
+      const f32 = pcmF32Data.readFloatLE(i * 4);
+      const clamped = Math.max(-1, Math.min(1, f32));
+      int16Data.writeInt16LE(Math.round(clamped * 32767), i * 2);
     }
-
-    const audioBuffer = Buffer.from(response.audioContent as Uint8Array);
-    console.log(`[Google TTS Direct] Generated ${audioBuffer.length} bytes`);
-
+    
+    const sampleRate = 24000;
+    const numChannels = 1;
+    const bitsPerSample = 16;
+    const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
+    const blockAlign = numChannels * (bitsPerSample / 8);
+    const dataSize = int16Data.length;
+    const headerSize = 44;
+    
+    const wavBuffer = Buffer.alloc(headerSize + dataSize);
+    wavBuffer.write('RIFF', 0);
+    wavBuffer.writeUInt32LE(headerSize + dataSize - 8, 4);
+    wavBuffer.write('WAVE', 8);
+    wavBuffer.write('fmt ', 12);
+    wavBuffer.writeUInt32LE(16, 16);
+    wavBuffer.writeUInt16LE(1, 20);
+    wavBuffer.writeUInt16LE(numChannels, 22);
+    wavBuffer.writeUInt32LE(sampleRate, 24);
+    wavBuffer.writeUInt32LE(byteRate, 28);
+    wavBuffer.writeUInt16LE(blockAlign, 32);
+    wavBuffer.writeUInt16LE(bitsPerSample, 34);
+    wavBuffer.write('data', 36);
+    wavBuffer.writeUInt32LE(dataSize, 40);
+    int16Data.copy(wavBuffer, headerSize);
+    
+    console.log(`[Google TTS StreamToWav] Generated WAV: ${wavBuffer.length} bytes (${sampleCount} samples, ${(sampleCount / sampleRate).toFixed(2)}s)`);
+    
     return {
-      audioBuffer,
-      contentType: 'audio/mpeg',
+      audioBuffer: wavBuffer,
+      contentType: 'audio/wav',
     };
   }
 
