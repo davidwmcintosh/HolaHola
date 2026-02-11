@@ -89,8 +89,6 @@ export interface VoiceOverride {
   elStability?: number;
   elSimilarityBoost?: number;
   elStyle?: number;
-  googlePitch?: number;
-  googleVolumeGainDb?: number;
 }
 
 interface GoogleVoice {
@@ -156,10 +154,6 @@ export function VoiceLabPanel({
   const [elStability, setElStability] = useState(0.5);
   const [elSimilarityBoost, setElSimilarityBoost] = useState(0.75);
   const [elStyle, setElStyle] = useState(0.0);
-  
-  // Google-specific voice settings
-  const [googlePitch, setGooglePitch] = useState(0);
-  const [googleVolumeGainDb, setGoogleVolumeGainDb] = useState(0);
   
   // Voice selection state (for audition)
   const [selectedVoiceId, setSelectedVoiceId] = useState<string | null>(null);
@@ -256,8 +250,6 @@ export function VoiceLabPanel({
       setElStability(currentVoice.elStability ?? 0.5);
       setElSimilarityBoost(currentVoice.elSimilarityBoost ?? 0.75);
       setElStyle(currentVoice.elStyle ?? 0.0);
-      setGooglePitch(currentOverride?.googlePitch ?? currentVoice.googlePitch ?? 0);
-      setGoogleVolumeGainDb(currentOverride?.googleVolumeGainDb ?? currentVoice.googleVolumeGainDb ?? 0);
       setHasChanges(!!currentOverride);
     }
   }, [currentVoice, currentOverride, isOpen]);
@@ -286,7 +278,6 @@ export function VoiceLabPanel({
       errorTolerance,
       ...(selectedVoiceId && selectedVoiceId !== currentVoice?.voiceId ? { voiceId: selectedVoiceId } : {}),
       ...(isElevenLabs ? { elStability, elSimilarityBoost, elStyle } : {}),
-      ...(isGoogle ? { googlePitch, googleVolumeGainDb } : {}),
     };
     onOverrideChange(override);
     setHasChanges(true);
@@ -313,8 +304,6 @@ export function VoiceLabPanel({
       setElStability(currentVoice.elStability ?? 0.5);
       setElSimilarityBoost(currentVoice.elSimilarityBoost ?? 0.75);
       setElStyle(currentVoice.elStyle ?? 0.0);
-      setGooglePitch(currentVoice.googlePitch ?? 0);
-      setGoogleVolumeGainDb(currentVoice.googleVolumeGainDb ?? 0);
     }
     onOverrideChange(null);
     setHasChanges(false);
@@ -338,7 +327,6 @@ export function VoiceLabPanel({
         errorTolerance,
         ...(selectedVoiceId && selectedVoiceId !== currentVoice.voiceId ? { voiceId: selectedVoiceId } : {}),
         ...(isElevenLabs ? { elStability, elSimilarityBoost, elStyle } : {}),
-        ...(isGoogle ? { googlePitch, googleVolumeGainDb } : {}),
       });
       return res.json();
     },
@@ -359,7 +347,6 @@ export function VoiceLabPanel({
         errorTolerance,
         ...(selectedVoiceId && selectedVoiceId !== currentVoice?.voiceId ? { voiceId: selectedVoiceId } : {}),
         ...(isElevenLabs ? { elStability, elSimilarityBoost, elStyle } : {}),
-        ...(isGoogle ? { googlePitch, googleVolumeGainDb } : {}),
       };
       onOverrideChange(override);
       setHasChanges(false);
@@ -397,10 +384,6 @@ export function VoiceLabPanel({
         bodyData.elSimilarityBoost = elSimilarityBoost;
         bodyData.elStyle = elStyle;
         bodyData.elSpeed = speakingRate;
-      }
-      if (isGoogle) {
-        bodyData.googlePitch = googlePitch;
-        bodyData.googleVolumeGainDb = googleVolumeGainDb;
       }
       const res = await fetch('/api/admin/voice-audition', {
         method: 'POST',
@@ -547,52 +530,7 @@ export function VoiceLabPanel({
               </div>
             </div>
 
-            {isGoogle ? (
-              <>
-                {/* Google Cloud TTS Settings */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label>Pitch</Label>
-                    <span className="text-sm font-medium">{googlePitch.toFixed(1)} st</span>
-                  </div>
-                  <Slider
-                    value={[googlePitch]}
-                    onValueChange={([value]) => setGooglePitch(value)}
-                    min={-10}
-                    max={10}
-                    step={0.5}
-                    className="w-full"
-                    data-testid="slider-voice-lab-google-pitch"
-                  />
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Lower</span>
-                    <span>Default</span>
-                    <span>Higher</span>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label>Volume Gain</Label>
-                    <span className="text-sm font-medium">{googleVolumeGainDb.toFixed(1)} dB</span>
-                  </div>
-                  <Slider
-                    value={[googleVolumeGainDb]}
-                    onValueChange={([value]) => setGoogleVolumeGainDb(value)}
-                    min={-6}
-                    max={6}
-                    step={0.5}
-                    className="w-full"
-                    data-testid="slider-voice-lab-google-volume"
-                  />
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Quieter</span>
-                    <span>Default</span>
-                    <span>Louder</span>
-                  </div>
-                </div>
-              </>
-            ) : isElevenLabs ? (
+            {isGoogle ? null : isElevenLabs ? (
               <>
                 {/* ElevenLabs Voice Settings */}
                 <div className="space-y-3">

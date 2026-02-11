@@ -185,9 +185,6 @@ export function VoiceConsoleContent() {
     elSimilarityBoost: 0.75,
     elStyle: 0.0,
     elSpeakerBoost: true,
-    // Google Cloud TTS settings
-    googlePitch: 0,
-    googleVolumeGainDb: 0,
     // Pedagogical persona fields
     pedagogicalFocus: 'mixed' as PedagogicalFocus,
     teachingStyle: 'adaptive' as TeachingStyle,
@@ -338,8 +335,6 @@ export function VoiceConsoleContent() {
       elSimilarityBoost: 0.75,
       elStyle: 0.0,
       elSpeakerBoost: true,
-      googlePitch: 0,
-      googleVolumeGainDb: 0,
       pedagogicalFocus: 'mixed',
       teachingStyle: 'adaptive',
       errorTolerance: 'medium',
@@ -384,8 +379,7 @@ export function VoiceConsoleContent() {
     voiceId: string, voiceName: string, language: string, languageCode: string, speakingRate: number = 0.9,
     provider?: string,
     elSettings?: { elStability?: number; elSimilarityBoost?: number; elStyle?: number; elSpeed?: number },
-    fallbackPreviewUrl?: string,
-    googleSettings?: { googlePitch?: number; googleVolumeGainDb?: number }
+    fallbackPreviewUrl?: string
   ) => {
     if (playingVoiceId === voiceId && audioElement) {
       audioElement.pause();
@@ -405,13 +399,13 @@ export function VoiceConsoleContent() {
     const phrases = SAMPLE_PHRASES[language] || SAMPLE_PHRASES.english;
     
     try {
-      const targetAudio = await playVoiceSample(voiceId, phrases.target, languageCode, speakingRate, auditionEmotion, provider, elSettings, fallbackPreviewUrl, googleSettings);
+      const targetAudio = await playVoiceSample(voiceId, phrases.target, languageCode, speakingRate, auditionEmotion, provider, elSettings, fallbackPreviewUrl);
       
       targetAudio.onended = async () => {
         if (language !== 'english' && !fallbackPreviewUrl) {
           setAuditionPhase('native');
           try {
-            const nativeAudio = await playVoiceSample(voiceId, phrases.native, 'en', speakingRate, auditionEmotion, provider, elSettings, undefined, googleSettings);
+            const nativeAudio = await playVoiceSample(voiceId, phrases.native, 'en', speakingRate, auditionEmotion, provider, elSettings, undefined);
             nativeAudio.onended = () => {
               setPlayingVoiceId(null);
               setAuditionPhase('idle');
@@ -459,8 +453,7 @@ export function VoiceConsoleContent() {
     emotion?: string,
     provider?: string,
     elSettings?: { elStability?: number; elSimilarityBoost?: number; elStyle?: number; elSpeed?: number },
-    fallbackPreviewUrl?: string,
-    googleSettings?: { googlePitch?: number; googleVolumeGainDb?: number }
+    fallbackPreviewUrl?: string
   ): Promise<HTMLAudioElement> => {
     const body: Record<string, unknown> = {
       voiceId,
@@ -477,10 +470,6 @@ export function VoiceConsoleContent() {
       body.elSimilarityBoost = elSettings.elSimilarityBoost;
       body.elStyle = elSettings.elStyle;
       body.elSpeed = elSettings.elSpeed ?? speakingRate;
-    }
-    if (provider === 'google' && googleSettings) {
-      body.googlePitch = googleSettings.googlePitch ?? 0;
-      body.googleVolumeGainDb = googleSettings.googleVolumeGainDb ?? 0;
     }
     const response = await fetch("/api/admin/tutor-voices/preview", {
       method: "POST",
@@ -518,11 +507,7 @@ export function VoiceConsoleContent() {
       elStyle: voice.elStyle,
       elSpeed: voice.speakingRate,
     } : undefined;
-    const googleSettings = voice.provider === 'google' ? {
-      googlePitch: voice.googlePitch ?? 0,
-      googleVolumeGainDb: voice.googleVolumeGainDb ?? 0,
-    } : undefined;
-    await handleAudition(voice.voiceId, voice.voiceName, voice.language, voice.languageCode, voice.speakingRate, voice.provider, elSettings, undefined, googleSettings);
+    await handleAudition(voice.voiceId, voice.voiceName, voice.language, voice.languageCode, voice.speakingRate, voice.provider, elSettings, undefined);
   };
 
   const handleEdit = (voice: TutorVoice) => {
@@ -549,9 +534,6 @@ export function VoiceConsoleContent() {
       elSimilarityBoost: voice.elSimilarityBoost ?? 0.75,
       elStyle: voice.elStyle ?? 0.0,
       elSpeakerBoost: voice.elSpeakerBoost ?? true,
-      // Google Cloud TTS settings
-      googlePitch: voice.googlePitch ?? 0,
-      googleVolumeGainDb: voice.googleVolumeGainDb ?? 0,
       // Load pedagogical persona fields
       pedagogicalFocus: voice.pedagogicalFocus || 'mixed',
       teachingStyle: voice.teachingStyle || 'adaptive',
@@ -613,8 +595,6 @@ export function VoiceConsoleContent() {
       elSimilarityBoost: pendingProvider === 'elevenlabs' ? 0.75 : prev.elSimilarityBoost,
       elStyle: pendingProvider === 'elevenlabs' ? 0.0 : prev.elStyle,
       elSpeakerBoost: pendingProvider === 'elevenlabs' ? true : prev.elSpeakerBoost,
-      googlePitch: pendingProvider === 'google' ? 0 : prev.googlePitch,
-      googleVolumeGainDb: pendingProvider === 'google' ? 0 : prev.googleVolumeGainDb,
       speakingRate: pendingProvider === 'cartesia' 
         ? Math.max(0.7, Math.min(1.3, prev.speakingRate))
         : prev.speakingRate,
@@ -893,58 +873,6 @@ export function VoiceConsoleContent() {
                       </div>
                     )}
 
-                    {/* Google Cloud TTS Voice Settings */}
-                    {formData.voiceId && formData.provider === 'google' && (
-                      <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
-                        <div className="flex items-center gap-2">
-                          <Volume2 className="h-4 w-4 text-primary" />
-                          <Label className="text-sm font-medium">Google Cloud TTS Settings</Label>
-                        </div>
-
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <Label className="text-xs text-muted-foreground">Pitch</Label>
-                            <span className="text-sm font-medium">{(formData.googlePitch ?? 0) > 0 ? '+' : ''}{(formData.googlePitch ?? 0).toFixed(1)} semitones</span>
-                          </div>
-                          <Slider
-                            value={[formData.googlePitch ?? 0]}
-                            onValueChange={([value]) => setFormData(prev => ({ ...prev, googlePitch: value }))}
-                            min={-10}
-                            max={10}
-                            step={0.5}
-                            className="w-full"
-                            data-testid="slider-google-pitch"
-                          />
-                          <div className="flex justify-between text-xs text-muted-foreground">
-                            <span>Lower (-10)</span>
-                            <span>Default (0)</span>
-                            <span>Higher (+10)</span>
-                          </div>
-                        </div>
-
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <Label className="text-xs text-muted-foreground">Volume Gain</Label>
-                            <span className="text-sm font-medium">{(formData.googleVolumeGainDb ?? 0) > 0 ? '+' : ''}{(formData.googleVolumeGainDb ?? 0).toFixed(1)} dB</span>
-                          </div>
-                          <Slider
-                            value={[formData.googleVolumeGainDb ?? 0]}
-                            onValueChange={([value]) => setFormData(prev => ({ ...prev, googleVolumeGainDb: value }))}
-                            min={-10}
-                            max={10}
-                            step={0.5}
-                            className="w-full"
-                            data-testid="slider-google-volume"
-                          />
-                          <div className="flex justify-between text-xs text-muted-foreground">
-                            <span>Quieter (-10)</span>
-                            <span>Default (0)</span>
-                            <span>Louder (+10)</span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
                     {/* Cartesia Emotion Controls for Audition */}
                     {formData.voiceId && formData.provider === 'cartesia' && ttsMetadata && (
                       <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
@@ -1046,11 +974,7 @@ export function VoiceConsoleContent() {
                                   elStyle: formData.elStyle,
                                   elSpeed: formData.speakingRate,
                                 } : undefined,
-                                selectedVoice?.source === 'library' ? selectedVoice.previewUrl : undefined,
-                                formData.provider === 'google' ? {
-                                  googlePitch: formData.googlePitch,
-                                  googleVolumeGainDb: formData.googleVolumeGainDb,
-                                } : undefined
+                                selectedVoice?.source === 'library' ? selectedVoice.previewUrl : undefined
                               );
                             }}
                             data-testid="button-audition"

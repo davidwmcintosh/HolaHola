@@ -16925,7 +16925,6 @@ Current conversation context:
       }
       
       if (provider === 'google') {
-        const { googlePitch, googleVolumeGainDb } = req.body;
         const validatedGoogleRate = speakingRate !== undefined
           ? Math.max(0.25, Math.min(4.0, parseFloat(speakingRate)))
           : 1.0;
@@ -16936,8 +16935,8 @@ Current conversation context:
           text,
           voiceId,
           speakingRate: validatedGoogleRate,
-          pitch: googlePitch ?? 0,
-          volumeGainDb: googleVolumeGainDb ?? 0,
+          pitch: 0,
+          volumeGainDb: 0,
         });
         
         res.set({
