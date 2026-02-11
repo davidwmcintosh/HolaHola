@@ -16864,8 +16864,8 @@ Current conversation context:
   // Fetch available Gemini TTS voices (admin only)
   app.get("/api/admin/gemini-tts-voices", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const { getGeminiTtsStreamingService } = await import('./services/gemini-tts-streaming');
-      const geminiTtsService = getGeminiTtsStreamingService();
+      const { getGeminiLiveTtsService } = await import('./services/gemini-live-tts');
+      const geminiLiveTtsService = getGeminiLiveTtsService();
       const gender = req.query.gender as 'male' | 'female' | undefined;
       const voices = geminiTtsService.getVoices(gender);
       
@@ -16945,9 +16945,9 @@ Current conversation context:
       }
       
       if (provider === 'gemini') {
-        const { getGeminiTtsStreamingService } = await import('./services/gemini-tts-streaming');
-        const geminiTtsService = getGeminiTtsStreamingService();
-        const audioBuffer = await geminiTtsService.synthesizeToBuffer(text, voiceId || 'Kore');
+        const { getGeminiLiveTtsService } = await import('./services/gemini-live-tts');
+        const geminiLiveTtsService = getGeminiLiveTtsService();
+        const audioBuffer = await geminiLiveTtsService.synthesizeToBuffer(text, voiceId || 'Kore');
         
         res.set({
           'Content-Type': 'audio/wav',
