@@ -8,6 +8,37 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: February 11, 2026 - Google TTS: Single Streaming Code Path (REST Removed)
+
+**Status**: COMPLETED
+
+**Overview**: Consolidated all Google Cloud TTS synthesis to use a single bidirectional gRPC streaming code path. Removed the REST API (`synthesizeWithGoogleDirect()`) entirely — it was only triggering due to a now-fixed encoding bug, not actual streaming instability. Production telemetry confirmed zero streaming failures since the PCM encoding fix.
+
+#### What Changed
+
+| Area | Before | After |
+|------|--------|-------|
+| Voice sessions (progressive) | Streaming with REST fallback on error | Streaming only, errors handled by outer catch + safety nets |
+| Voice sessions (non-progressive) | REST `synthesizeWithGoogleDirect()` | Streaming via `streamSynthesizeWithGoogle()` with chunk collection |
+| Voice Lab preview | REST `synthesizeWithGoogleDirect()` returning MP3 | `streamSynthesizeToWavBuffer()` returning WAV via same streaming path |
+| REST fallback method | `googleTtsRestFallback()` in orchestrator | Removed entirely |
+| REST synthesis method | `synthesizeWithGoogleDirect()` in tts-service | Removed entirely |
+| Streaming params | Accepted `pitch`, `volumeGainDb` (ignored by streaming API) | Only `speakingRate` (what streaming API actually supports) |
+
+#### Key Files Modified
+
+| File | Change |
+|------|--------|
+| `server/services/tts-service.ts` | Added `streamSynthesizeToWavBuffer()`, removed `synthesizeWithGoogleDirect()`, cleaned up unused `pitch`/`volumeGainDb` params from `streamSynthesizeWithGoogle()` |
+| `server/services/streaming-voice-orchestrator.ts` | Converted non-progressive Google path to streaming, removed `googleTtsRestFallback()` method, simplified progressive path (no try/catch/fallback wrapper) |
+| `server/routes.ts` | Voice Lab preview endpoint now uses `streamSynthesizeToWavBuffer()` |
+
+#### Why REST Was Removed
+
+Production telemetry showed only 2 REST fallback events ever recorded — both from the same session, both caused by `INVALID_ARGUMENT: Unsupported audio encoding` (the LINEAR16 bug). Since fixing encoding to PCM, zero fallback events. Streaming is stable.
+
+---
+
 ### Session: February 10, 2026 - Google Cloud TTS Bidirectional Streaming
 
 **Status**: COMPLETED
