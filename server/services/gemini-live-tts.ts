@@ -155,37 +155,55 @@ export class GeminiLiveTtsService extends EventEmitter {
     const emotion = (request as any).emotion as string | undefined;
     const personality = (request as any).personality as string | undefined;
     const expressiveness = (request as any).expressiveness as number | undefined;
+    const nativeLanguage = ((request as any).nativeLanguage as string | undefined) || 'english';
 
     const parts: string[] = [];
 
-    const ACCENT_DIRECTIONS: Record<string, string> = {
-      'en-US': 'SPEAK WITH AN AMERICAN ENGLISH ACCENT.',
-      'en-GB': 'SPEAK WITH A BRITISH ENGLISH ACCENT.',
-      'en-AU': 'SPEAK WITH AN AUSTRALIAN ENGLISH ACCENT.',
-      'en-IN': 'SPEAK WITH AN INDIAN ENGLISH ACCENT.',
-      'es-US': 'SPEAK WITH A LATIN AMERICAN SPANISH ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE LATIN AMERICAN SPANISH SPEAKER.',
-      'es-ES': 'SPEAK WITH A CASTILIAN SPANISH ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE CASTILIAN SPANISH SPEAKER.',
-      'es-MX': 'SPEAK WITH A MEXICAN SPANISH ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE MEXICAN SPANISH SPEAKER.',
-      'es-AR': 'SPEAK WITH AN ARGENTINE SPANISH ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE ARGENTINE SPANISH SPEAKER.',
-      'es-CO': 'SPEAK WITH A COLOMBIAN SPANISH ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE COLOMBIAN SPANISH SPEAKER.',
-      'fr-FR': 'SPEAK WITH A FRENCH ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE FRENCH SPEAKER.',
-      'fr-CA': 'SPEAK WITH A CANADIAN FRENCH ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE QUÉBÉCOIS SPEAKER.',
-      'de-DE': 'SPEAK WITH A GERMAN ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE GERMAN SPEAKER.',
-      'de-AT': 'SPEAK WITH AN AUSTRIAN GERMAN ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE AUSTRIAN GERMAN SPEAKER.',
-      'it-IT': 'SPEAK WITH AN ITALIAN ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE ITALIAN SPEAKER.',
-      'pt-BR': 'SPEAK WITH A BRAZILIAN PORTUGUESE ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE BRAZILIAN PORTUGUESE SPEAKER.',
-      'pt-PT': 'SPEAK WITH A EUROPEAN PORTUGUESE ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE EUROPEAN PORTUGUESE SPEAKER.',
-      'ja-JP': 'SPEAK WITH A JAPANESE ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE JAPANESE SPEAKER.',
-      'zh-CN': 'SPEAK WITH A MANDARIN CHINESE ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE MANDARIN CHINESE SPEAKER.',
-      'zh-TW': 'SPEAK WITH A TAIWANESE MANDARIN ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE TAIWANESE MANDARIN SPEAKER.',
-      'ko-KR': 'SPEAK WITH A KOREAN ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE KOREAN SPEAKER.',
-      'he-IL': 'SPEAK WITH A HEBREW ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE HEBREW SPEAKER.',
+    const NATIVE_LANGUAGE_NAMES: Record<string, string> = {
+      'english': 'English', 'spanish': 'Spanish', 'french': 'French',
+      'german': 'German', 'italian': 'Italian', 'portuguese': 'Portuguese',
+      'japanese': 'Japanese', 'mandarin': 'Mandarin Chinese', 'korean': 'Korean',
+      'arabic': 'Arabic', 'russian': 'Russian', 'hindi': 'Hindi', 'hebrew': 'Hebrew',
+    };
+    const nativeLangName = NATIVE_LANGUAGE_NAMES[nativeLanguage] || 'English';
+
+    const ACCENT_DIRECTIONS: Record<string, { language: string; accent: string }> = {
+      'en-US': { language: 'English', accent: 'AMERICAN ENGLISH' },
+      'en-GB': { language: 'English', accent: 'BRITISH ENGLISH' },
+      'en-AU': { language: 'English', accent: 'AUSTRALIAN ENGLISH' },
+      'en-IN': { language: 'English', accent: 'INDIAN ENGLISH' },
+      'es-US': { language: 'Spanish', accent: 'LATIN AMERICAN SPANISH' },
+      'es-ES': { language: 'Spanish', accent: 'CASTILIAN SPANISH' },
+      'es-MX': { language: 'Spanish', accent: 'MEXICAN SPANISH' },
+      'es-AR': { language: 'Spanish', accent: 'ARGENTINE SPANISH' },
+      'es-CO': { language: 'Spanish', accent: 'COLOMBIAN SPANISH' },
+      'fr-FR': { language: 'French', accent: 'FRENCH' },
+      'fr-CA': { language: 'French', accent: 'CANADIAN FRENCH' },
+      'de-DE': { language: 'German', accent: 'GERMAN' },
+      'de-AT': { language: 'German', accent: 'AUSTRIAN GERMAN' },
+      'it-IT': { language: 'Italian', accent: 'ITALIAN' },
+      'pt-BR': { language: 'Portuguese', accent: 'BRAZILIAN PORTUGUESE' },
+      'pt-PT': { language: 'Portuguese', accent: 'EUROPEAN PORTUGUESE' },
+      'ja-JP': { language: 'Japanese', accent: 'JAPANESE' },
+      'zh-CN': { language: 'Mandarin Chinese', accent: 'MANDARIN CHINESE' },
+      'zh-TW': { language: 'Mandarin Chinese', accent: 'TAIWANESE MANDARIN' },
+      'ko-KR': { language: 'Korean', accent: 'KOREAN' },
+      'he-IL': { language: 'Hebrew', accent: 'HEBREW' },
     };
 
     if (resolvedLanguageCode) {
-      const accentDir = ACCENT_DIRECTIONS[resolvedLanguageCode];
-      if (accentDir) {
-        parts.push(accentDir);
+      const accentInfo = ACCENT_DIRECTIONS[resolvedLanguageCode];
+      if (accentInfo) {
+        const targetLangName = accentInfo.language;
+        const isSameLanguage = nativeLangName.toLowerCase() === targetLangName.toLowerCase();
+        if (isSameLanguage) {
+          parts.push(`SPEAK WITH A ${accentInfo.accent} ACCENT.`);
+        } else {
+          parts.push(`YOU ARE A BILINGUAL ${nativeLangName.toUpperCase()}/${targetLangName.toUpperCase()} SPEAKER.`);
+          parts.push(`WHEN READING ${targetLangName.toUpperCase()} WORDS, USE A NATIVE ${accentInfo.accent} ACCENT AND PRONUNCIATION.`);
+          parts.push(`WHEN READING ${nativeLangName.toUpperCase()} WORDS, SPEAK THEM NATURALLY IN ${nativeLangName.toUpperCase()}.`);
+          parts.push(`SWITCH BETWEEN LANGUAGES SEAMLESSLY BASED ON THE TEXT. DO NOT SPEAK ${nativeLangName.toUpperCase()} WORDS WITH A ${targetLangName.toUpperCase()} ACCENT.`);
+        }
       }
     }
 

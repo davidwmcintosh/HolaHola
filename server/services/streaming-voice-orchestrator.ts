@@ -7550,6 +7550,7 @@ Remember: Beta testers understand they're helping build something and appreciate
         text: textWithEmphases,
         autoDetectLanguage: true,
         targetLanguage: session.targetLanguage,
+        nativeLanguage: session.nativeLanguage || 'english',
         geminiLanguageCode: session.geminiLanguageCode,
         voiceId: session.voiceId,
         speakingRate: effectiveSpeakingRate,
@@ -7557,7 +7558,6 @@ Remember: Beta testers understand they're helping build something and appreciate
         personality: effectivePersonality,
         expressiveness: effectiveExpressiveness,
         vocalStyle: effectiveVocalStyle,
-        // ElevenLabs-specific voice settings from DB
         elStability: (session as any).elStability,
         elSimilarityBoost: (session as any).elSimilarityBoost,
         elStyle: (session as any).elStyle,
