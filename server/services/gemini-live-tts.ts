@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { GoogleGenAI, Modality, Session, LiveServerMessage } from '@google/genai';
+import { GoogleGenAI, Modality } from '@google/genai';
 import { WordTiming } from '@shared/streaming-voice-types';
 import { stripWhiteboardMarkup } from '@shared/whiteboard-types';
 import type {
@@ -20,9 +20,9 @@ const GEMINI_LIVE_VOICES: { name: string; gender: 'male' | 'female' }[] = [
   { name: 'Orus', gender: 'male' },
 ];
 
-const LIVE_MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
-const LIVE_SAMPLE_RATE = 24000;
-const SYNTHESIS_TIMEOUT_MS = 15000;
+const TTS_MODEL = 'gemini-2.5-flash-preview-tts';
+const TTS_SAMPLE_RATE = 24000;
+const CHUNK_SIZE_SAMPLES = 2400;
 
 export const LANGUAGE_ACCENT_VARIANTS: Record<string, { label: string; code: string }[]> = {
   spanish: [
@@ -89,9 +89,9 @@ export class GeminiLiveTtsService extends EventEmitter {
     const apiKey = process.env.GEMINI_API_KEY || '';
     if (apiKey) {
       this.client = new GoogleGenAI({ apiKey });
-      console.log(`[Gemini Live TTS] Initialized (model: ${LIVE_MODEL} via Live API)`);
+      console.log(`[Gemini TTS] Initialized (model: ${TTS_MODEL} via generateContent)`);
     } else {
-      console.warn('[Gemini Live TTS] No API key configured');
+      console.warn('[Gemini TTS] No API key configured');
     }
   }
 
@@ -207,8 +207,6 @@ export class GeminiLiveTtsService extends EventEmitter {
       }
     }
 
-    parts.push('Read the following text aloud exactly as written. Do not add extra words or commentary.');
-
     if (vocalStyle) {
       parts.push(`Delivery: ${vocalStyle}.`);
     } else {
@@ -281,7 +279,7 @@ export class GeminiLiveTtsService extends EventEmitter {
     }
 
     if (!this.client) {
-      throw new Error('Gemini Live TTS client not initialized');
+      throw new Error('Gemini TTS client not initialized');
     }
 
     const voiceName = request.voiceId || 'Kore';
@@ -293,143 +291,89 @@ export class GeminiLiveTtsService extends EventEmitter {
 
     const startTime = Date.now();
     const stylePrompt = this.buildStylePrompt(request, resolvedLanguageCode);
-    console.log(`[Gemini Live TTS] Progressive: "${trimmedText.substring(0, 60)}..." (${trimmedText.length} chars, voice: ${voiceName}, accent: ${resolvedLanguageCode || 'none'}, targetLang: ${(request as any).targetLanguage || 'unset'}, geminiCode: ${(request as any).geminiLanguageCode || 'unset'})`);
-    console.log(`[Gemini Live TTS] Full systemInstruction: "${stylePrompt}"`);
 
-    return new Promise((resolve, reject) => {
-      let chunkIndex = 0;
-      let totalDurationMs = 0;
-      let firstChunkTime: number | null = null;
-      let liveSession: Session | null = null;
-      let completed = false;
-      let silenceTimer: ReturnType<typeof setTimeout> | null = null;
-      const SILENCE_GAP_MS = 500;
+    const ttsPrompt = stylePrompt ? `${stylePrompt}\n\n${trimmedText}` : trimmedText;
 
-      const timeout = setTimeout(() => {
-        if (completed) return;
-        completed = true;
-        if (silenceTimer) clearTimeout(silenceTimer);
-        console.error(`[Gemini Live TTS] Progressive timed out after ${SYNTHESIS_TIMEOUT_MS}ms`);
-        voiceDiagnostics.recordTTSResult(false, undefined, 'daniela');
-        try { liveSession?.close(); } catch {}
-        reject(new Error(`Gemini Live TTS timed out after ${SYNTHESIS_TIMEOUT_MS}ms`));
-      }, SYNTHESIS_TIMEOUT_MS);
+    console.log(`[Gemini TTS] Progressive: "${trimmedText.substring(0, 60)}..." (${trimmedText.length} chars, voice: ${voiceName}, accent: ${resolvedLanguageCode || 'none'}, targetLang: ${targetLanguage || 'unset'})`);
+    console.log(`[Gemini TTS] Style prompt: "${stylePrompt.substring(0, 150)}..."`);
 
-      const finalize = (reason: string) => {
-        if (completed) return;
-        completed = true;
-        clearTimeout(timeout);
-        if (silenceTimer) clearTimeout(silenceTimer);
+    try {
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error(`Gemini TTS timed out after ${SYNTHESIS_TIMEOUT_MS}ms`)), SYNTHESIS_TIMEOUT_MS);
+      });
 
-        const elapsed = Date.now() - startTime;
-        const ttfb = firstChunkTime ? firstChunkTime - startTime : null;
-        const displayText = request.text || '';
-        const finalTimestamps = this.estimateWordTimings(displayText, totalDurationMs / 1000);
-
-        for (let i = 0; i < finalTimestamps.length; i++) {
-          callbacks.onWordTimestamp?.(finalTimestamps[i], i, totalDurationMs);
-        }
-        callbacks.onComplete?.(finalTimestamps, totalDurationMs);
-
-        console.log(`[Gemini Live TTS] Progressive complete (${reason}): ${chunkIndex} chunks, ${Math.round(totalDurationMs)}ms audio, ${elapsed}ms wall, TTFB: ${ttfb ?? 'N/A'}ms`);
-        voiceDiagnostics.recordTTSResult(true, elapsed, 'daniela');
-
-        try { liveSession?.close(); } catch {}
-        resolve({ totalDurationMs, finalTimestamps });
-      };
-
-      const resetSilenceTimer = () => {
-        if (silenceTimer) clearTimeout(silenceTimer);
-        silenceTimer = setTimeout(() => {
-          if (!completed && chunkIndex > 0) {
-            finalize('silence-gap');
-          }
-        }, SILENCE_GAP_MS);
-      };
-
-      this.client!.live.connect({
-        model: LIVE_MODEL,
-        callbacks: {
-          onopen: () => {
-            console.log(`[Gemini Live TTS] WebSocket connected, sending text...`);
-          },
-          onmessage: (msg: LiveServerMessage) => {
-            if (completed) return;
-
-            if (msg.serverContent?.modelTurn?.parts) {
-              for (const part of msg.serverContent.modelTurn.parts) {
-                if (part.inlineData?.data) {
-                  if (!firstChunkTime) firstChunkTime = Date.now();
-
-                  const rawPcm = Buffer.from(part.inlineData.data, 'base64');
-                  const f32Chunk = this.convertS16leToF32le(rawPcm);
-                  const chunkDurationMs = (f32Chunk.length / 4 / LIVE_SAMPLE_RATE) * 1000;
-                  totalDurationMs += chunkDurationMs;
-
-                  callbacks.onAudioChunk?.({
-                    audio: f32Chunk,
-                    durationMs: chunkDurationMs,
-                    isLast: false,
-                    audioFormat: 'pcm_f32le' as any,
-                    sampleRate: LIVE_SAMPLE_RATE,
-                  }, chunkIndex);
-                  chunkIndex++;
-                  resetSilenceTimer();
-                }
-              }
-            }
-
-            if (msg.serverContent?.turnComplete) {
-              finalize('turn-complete');
-            }
-          },
-          onerror: (e: ErrorEvent) => {
-            if (completed) return;
-            completed = true;
-            clearTimeout(timeout);
-            if (silenceTimer) clearTimeout(silenceTimer);
-            console.error(`[Gemini Live TTS] Progressive error:`, e.message || e);
-            voiceDiagnostics.recordTTSResult(false, undefined, 'daniela');
-            try { liveSession?.close(); } catch {}
-            reject(new Error(`Gemini Live TTS error: ${e.message || 'unknown'}`));
-          },
-          onclose: () => {
-            if (!completed) {
-              finalize('ws-close');
-            }
-          },
-        },
-        config: {
-          responseModalities: [Modality.AUDIO],
-          systemInstruction: stylePrompt,
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName },
+      const response = await Promise.race([
+        this.client.models.generateContent({
+          model: TTS_MODEL,
+          contents: [{ parts: [{ text: ttsPrompt }] }],
+          config: {
+            responseModalities: [Modality.AUDIO],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: { voiceName },
+              },
             },
           },
-        },
-      }).then((session) => {
-        liveSession = session;
-        try {
-          session.sendClientContent({
-            turns: [{ role: 'user', parts: [{ text: trimmedText }] }],
-            turnComplete: true,
-          });
-          console.log(`[Gemini Live TTS] Sent to Live API (${trimmedText.length} chars)`);
-        } catch (sendErr: any) {
-          if (completed) return;
-          completed = true;
-          clearTimeout(timeout);
-          reject(new Error(`Failed to send to Gemini Live: ${sendErr.message}`));
-        }
-      }).catch((connectErr: any) => {
-        if (completed) return;
-        completed = true;
-        clearTimeout(timeout);
-        console.error(`[Gemini Live TTS] Connection failed:`, connectErr.message);
-        reject(new Error(`Failed to connect Gemini Live: ${connectErr.message}`));
-      });
-    });
+        }),
+        timeoutPromise,
+      ]);
+
+      const generationTime = Date.now() - startTime;
+
+      const audioPart = response.candidates?.[0]?.content?.parts?.[0];
+      if (!audioPart?.inlineData?.data) {
+        console.error(`[Gemini TTS] No audio data in response`);
+        voiceDiagnostics.recordTTSResult(false, undefined, 'daniela');
+        throw new Error('Gemini TTS returned no audio data');
+      }
+
+      const rawPcmS16 = Buffer.from(audioPart.inlineData.data, 'base64');
+      const fullF32 = this.convertS16leToF32le(rawPcmS16);
+      const totalSamples = fullF32.length / 4;
+      const totalDurationMs = (totalSamples / TTS_SAMPLE_RATE) * 1000;
+
+      console.log(`[Gemini TTS] Generated ${Math.round(totalDurationMs)}ms audio in ${generationTime}ms (${rawPcmS16.length} bytes s16, ${fullF32.length} bytes f32)`);
+
+      const bytesPerChunk = CHUNK_SIZE_SAMPLES * 4;
+      let offset = 0;
+      let chunkIndex = 0;
+
+      while (offset < fullF32.length) {
+        const end = Math.min(offset + bytesPerChunk, fullF32.length);
+        const chunkBuf = fullF32.subarray(offset, end);
+        const chunkDurationMs = ((end - offset) / 4 / TTS_SAMPLE_RATE) * 1000;
+
+        callbacks.onAudioChunk?.({
+          audio: Buffer.from(chunkBuf),
+          durationMs: chunkDurationMs,
+          isLast: false,
+          audioFormat: 'pcm_f32le' as any,
+          sampleRate: TTS_SAMPLE_RATE,
+        }, chunkIndex);
+
+        chunkIndex++;
+        offset = end;
+      }
+
+      const displayText = request.text || '';
+      const finalTimestamps = this.estimateWordTimings(displayText, totalDurationMs / 1000);
+
+      for (let i = 0; i < finalTimestamps.length; i++) {
+        callbacks.onWordTimestamp?.(finalTimestamps[i], i, totalDurationMs);
+      }
+      callbacks.onComplete?.(finalTimestamps, totalDurationMs);
+
+      const elapsed = Date.now() - startTime;
+      console.log(`[Gemini TTS] Progressive complete: ${chunkIndex} chunks, ${Math.round(totalDurationMs)}ms audio, ${elapsed}ms wall (generation: ${generationTime}ms)`);
+      voiceDiagnostics.recordTTSResult(true, elapsed, 'daniela');
+
+      return { totalDurationMs, finalTimestamps };
+    } catch (error: any) {
+      const elapsed = Date.now() - startTime;
+      console.error(`[Gemini TTS] Error after ${elapsed}ms:`, error.message);
+      voiceDiagnostics.recordTTSResult(false, undefined, 'daniela');
+      throw error;
+    }
   }
 
   async *streamSynthesize(request: StreamingSynthesisRequest): AsyncGenerator<StreamingAudioChunk> {
@@ -440,7 +384,7 @@ export class GeminiLiveTtsService extends EventEmitter {
     }
 
     const voiceName = request.voiceId || 'Kore';
-    console.log(`[Gemini Live TTS] streamSynthesize: "${trimmedText.substring(0, 50)}..." (voice: ${voiceName})`);
+    console.log(`[Gemini TTS] streamSynthesize: "${trimmedText.substring(0, 50)}..." (voice: ${voiceName})`);
     const startTime = Date.now();
 
     const allChunks: StreamingAudioChunk[] = [];
@@ -457,12 +401,12 @@ export class GeminiLiveTtsService extends EventEmitter {
         yield chunk;
       }
 
-      yield { audio: Buffer.alloc(0), durationMs: 0, isLast: true, audioFormat: 'pcm_f32le' as any, sampleRate: LIVE_SAMPLE_RATE };
+      yield { audio: Buffer.alloc(0), durationMs: 0, isLast: true, audioFormat: 'pcm_f32le' as any, sampleRate: TTS_SAMPLE_RATE };
 
       const elapsed = Date.now() - startTime;
-      console.log(`[Gemini Live TTS] streamSynthesize complete in ${elapsed}ms`);
+      console.log(`[Gemini TTS] streamSynthesize complete in ${elapsed}ms`);
     } catch (error: any) {
-      console.error('[Gemini Live TTS] streamSynthesize error:', error.message);
+      console.error('[Gemini TTS] streamSynthesize error:', error.message);
       throw error;
     }
   }
@@ -471,7 +415,7 @@ export class GeminiLiveTtsService extends EventEmitter {
     const trimmedText = this.cleanTextForTTS(text);
     if (!trimmedText) return Buffer.alloc(0);
 
-    console.log(`[Gemini Live TTS] synthesizeToBuffer: "${trimmedText.substring(0, 50)}..." voice=${voiceName} lang=${languageHint || 'auto'} accent=${accentLanguage || 'none'} native=${nativeLanguage || 'english'}`);
+    console.log(`[Gemini TTS] synthesizeToBuffer: "${trimmedText.substring(0, 50)}..." voice=${voiceName} lang=${languageHint || 'auto'} accent=${accentLanguage || 'none'} native=${nativeLanguage || 'english'}`);
 
     const allChunks: Buffer[] = [];
     await this.streamSynthesizeProgressive(
@@ -484,7 +428,7 @@ export class GeminiLiveTtsService extends EventEmitter {
 
     const totalF32 = Buffer.concat(allChunks);
     const s16Buffer = this.convertF32leToS16le(totalF32);
-    const wavHeader = this.createWavHeader(s16Buffer.length, LIVE_SAMPLE_RATE, 1, 16);
+    const wavHeader = this.createWavHeader(s16Buffer.length, TTS_SAMPLE_RATE, 1, 16);
     return Buffer.concat([wavHeader, s16Buffer]);
   }
 
@@ -551,5 +495,3 @@ export function getGeminiLiveTtsService(): GeminiLiveTtsService {
   }
   return service;
 }
-
-export { GEMINI_LIVE_VOICES };
