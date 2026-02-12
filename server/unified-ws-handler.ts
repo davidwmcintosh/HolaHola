@@ -2053,8 +2053,23 @@ Reference past discussions when relevant, but don't force it.
               // Clear pending transcript - we're processing directly
               pendingSpeculativeTranscript = null;
               pendingSpeculativeWordCount = 0;
+            } else if (finalTranscript.length === 0) {
+              // COMPLETELY EMPTY transcript - no audio was captured at all
+              // Don't wait for blob STT - it's likely empty too since speculative PTT had the same audio
+              // Send no_speech_detected so client can reset and let user try again
+              pendingSpeculativeTranscript = null;
+              pendingSpeculativeWordCount = 0;
+              speculativeAiAccepted = true; // Prevent audio_data from double-processing
+              console.log(`[SpeculativePTT] Empty transcript - sending no_speech_detected to client`);
+              if (ws.readyState === WS.OPEN) {
+                ws.send(JSON.stringify({
+                  type: 'no_speech_detected',
+                  timestamp: Date.now(),
+                  reason: 'empty_transcript',
+                }));
+              }
             } else {
-              // Not enough words - fallback to blob STT
+              // Has some text but not enough words - fallback to blob STT
               pendingSpeculativeTranscript = null;
               pendingSpeculativeWordCount = 0;
               console.log(`[SpeculativePTT] Transcript too short (${speculativePttWordCount} words), will use blob STT`);

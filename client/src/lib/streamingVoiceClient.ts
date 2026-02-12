@@ -905,6 +905,11 @@ export class StreamingVoiceClient {
           this.handleResponseComplete(message as StreamingResponseCompleteMessage);
           break;
           
+        case 'no_speech_detected':
+          console.log('[WS CLIENT] No speech detected - resetting to idle');
+          this.emit('noSpeechDetected', message);
+          break;
+          
         case 'error':
           this.handleError(message as StreamingErrorMessage);
           break;

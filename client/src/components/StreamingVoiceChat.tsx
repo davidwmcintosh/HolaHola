@@ -700,7 +700,13 @@ export function StreamingVoiceChat({
           tutorGender,  // Pass current tutor gender from context
           rawHonestyMode: isHonestyMode,  // Minimal prompting for authentic conversation
           founderMode: isExplicitFounderMode,  // Only true when explicitly selected
-          // Invalidate messages query when streaming completes to show persisted messages
+          onNoSpeechDetected: () => {
+            console.log('[STREAMING] No speech detected - resetting processing state');
+            setIsProcessing(false);
+            isProcessingRef.current = false;
+            setProcessingStage(null);
+            pttReleaseSentRef.current = false;
+          },
           onResponseComplete: (convId: string) => {
             console.log('[STREAMING] Response complete - refreshing messages for', convId);
             queryClient.invalidateQueries({ queryKey: ["/api/conversations", convId, "messages"] });
@@ -709,6 +715,7 @@ export function StreamingVoiceChat({
             setIsProcessing(false);
             isProcessingRef.current = false;
             setProcessingStage(null);  // Clear processing stage indicator
+            pttReleaseSentRef.current = false;  // Reset for next PTT turn
             // Reset awaiting flag for next utterance
             isAwaitingResponseRef.current = false;
             // TRUE DUPLEX: Keep green light ready if open mic is active

@@ -60,6 +60,8 @@ export interface StreamingSessionConfig {
   rawHonestyMode?: boolean;  // Minimal prompting for authentic conversation with Daniela
   founderMode?: boolean;  // Explicit founder mode flag - only true when user selects "Founder Mode" context
   onResponseComplete?: (conversationId: string) => void;
+  /** Called when server detects no speech during PTT - resets processing state */
+  onNoSpeechDetected?: () => void;
   /** Called when server sends whiteboard updates (e.g., enriched WORD_MAP items) */
   onWhiteboardUpdate?: (items: any[], shouldClear: boolean) => void;
   /** Called when VAD detects speech start (open mic mode) */
@@ -409,6 +411,18 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       setIsProcessing(false);
       setError('Response timeout - please try again');
     }, PROCESSING_TIMEOUT_MS);
+  }, []);
+
+  const handleNoSpeechDetected = useCallback(() => {
+    console.log('[StreamingVoice] No speech detected - resetting to idle');
+    setIsProcessing(false);
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+      processingTimeoutRef.current = null;
+    }
+    if (sessionConfigRef.current?.onNoSpeechDetected) {
+      sessionConfigRef.current.onNoSpeechDetected();
+    }
   }, []);
   
   /**
@@ -1072,6 +1086,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('whiteboardUpdate', handleWhiteboardUpdate);  // Enriched whiteboard items
       clientRef.current.on('pronunciationCoaching', handlePronunciationCoaching);  // Live pronunciation feedback
       clientRef.current.on('error', handleError);
+      clientRef.current.on('noSpeechDetected', handleNoSpeechDetected);  // Empty PTT reset
       clientRef.current.on('vadSpeechStarted', handleVadSpeechStarted);  // Open mic VAD
       clientRef.current.on('vadUtteranceEnd', handleVadUtteranceEnd);  // Open mic VAD
       clientRef.current.on('interimTranscript', handleInterimTranscript);  // Open mic interim
@@ -1112,7 +1127,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       setError(err.message);
       throw err;
     }
-  }, [handleProcessing, handleProcessingPending, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest]);
+  }, [handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest]);
   
   /**
    * Disconnect from streaming voice service
@@ -1136,6 +1151,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.off('whiteboardUpdate', handleWhiteboardUpdate);  // Enriched whiteboard items
       clientRef.current.off('pronunciationCoaching', handlePronunciationCoaching);  // Live pronunciation feedback
       clientRef.current.off('error', handleError);
+      clientRef.current.off('noSpeechDetected', handleNoSpeechDetected);  // Empty PTT reset
       clientRef.current.off('vadSpeechStarted', handleVadSpeechStarted);  // Open mic VAD
       clientRef.current.off('vadUtteranceEnd', handleVadUtteranceEnd);  // Open mic VAD
       clientRef.current.off('interimTranscript', handleInterimTranscript);  // Open mic interim
