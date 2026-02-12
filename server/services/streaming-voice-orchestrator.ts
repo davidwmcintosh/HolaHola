@@ -6930,6 +6930,7 @@ Remember: Beta testers understand they're helping build something and appreciate
           text: textWithEmphases,
           voiceId: session.voiceId || '',
           speakingRate: effectiveSpeakingRate,
+          targetLanguage: session.targetLanguage,
           onAudioChunk: (chunk) => {
             if (chunk.audio.length > 0) {
               if (!firstChunkReceived) {
@@ -7577,6 +7578,7 @@ Remember: Beta testers understand they're helping build something and appreciate
           text: textWithEmphases,
           voiceId: session.voiceId || '',
           speakingRate: effectiveSpeakingRate,
+          targetLanguage: session.targetLanguage,
           onAudioChunk: (audioChunk) => {
             ttsCallbacks.onAudioChunk({
               audio: audioChunk.audio,

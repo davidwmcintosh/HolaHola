@@ -1733,6 +1733,7 @@ export class TTSService {
     text: string;
     voiceId: string;
     speakingRate?: number;
+    targetLanguage?: string;
     onAudioChunk: (chunk: { audio: Buffer; durationMs: number; audioFormat: string; sampleRate: number; isLast?: boolean }) => void;
     onComplete: (totalBytes: number) => void;
     onError: (error: Error) => void;
@@ -1741,9 +1742,19 @@ export class TTSService {
       throw new Error('Google Cloud TTS Beta client not available for streaming. Set GOOGLE_CLOUD_TTS_CREDENTIALS.');
     }
 
-    const { text, voiceId, speakingRate = 1.0, onAudioChunk, onComplete, onError } = params;
-    const voiceParts = voiceId.split('-');
-    const languageCode = voiceParts.length >= 2 ? `${voiceParts[0]}-${voiceParts[1]}` : 'en-US';
+    const { text, voiceId, speakingRate = 1.0, targetLanguage, onAudioChunk, onComplete, onError } = params;
+    let resolvedVoiceId = voiceId;
+    let languageCode: string;
+    if (!voiceId || voiceId.trim() === '') {
+      const langKey = targetLanguage?.toLowerCase() || 'english';
+      const voiceConfig = GOOGLE_VOICE_MAP[langKey] || GOOGLE_VOICE_MAP['english'];
+      resolvedVoiceId = voiceConfig.name;
+      languageCode = voiceConfig.languageCode;
+      console.log(`[Google TTS Stream] No voiceId configured — resolved to ${resolvedVoiceId} (${languageCode}) from target language "${langKey}" for accent consistency`);
+    } else {
+      const voiceParts = voiceId.split('-');
+      languageCode = voiceParts.length >= 2 ? `${voiceParts[0]}-${voiceParts[1]}` : 'en-US';
+    }
     const startTime = Date.now();
     let totalBytes = 0;
     let chunkCount = 0;
@@ -1754,7 +1765,7 @@ export class TTSService {
     const estimatedTotalDurationMs = Math.max(1000, (wordCount / wordsPerMinute) * 60000 / speakingRate);
 
     const STREAM_TIMEOUT_MS = 15000;
-    console.log(`[Google TTS Stream] Starting bidirectional stream: ${text.length} chars, voice=${voiceId}, rate=${speakingRate}, est=${Math.round(estimatedTotalDurationMs)}ms, timeout=${STREAM_TIMEOUT_MS}ms`);
+    console.log(`[Google TTS Stream] Starting bidirectional stream: ${text.length} chars, voice=${resolvedVoiceId} (${languageCode}), rate=${speakingRate}, est=${Math.round(estimatedTotalDurationMs)}ms, timeout=${STREAM_TIMEOUT_MS}ms`);
 
     return new Promise<void>((resolve, reject) => {
       const stream = (this.googleBetaClient as any).streamingSynthesize();
@@ -1836,7 +1847,7 @@ export class TTSService {
         streamingConfig: {
           voice: {
             languageCode,
-            name: voiceId,
+            name: resolvedVoiceId,
           },
           streamingAudioConfig: {
             audioEncoding: 'PCM',
