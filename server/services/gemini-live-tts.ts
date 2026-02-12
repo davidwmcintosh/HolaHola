@@ -278,7 +278,8 @@ export class GeminiLiveTtsService extends EventEmitter {
 
     const voiceName = request.voiceId || 'Kore';
     const targetLanguage = (request as any).targetLanguage as string | undefined;
-    const geminiLanguageCode = (request as any).geminiLanguageCode as string | undefined;
+    const geminiLanguageCode = (request as any).geminiLanguageCode as string | undefined
+      || (request as any).accentLanguage as string | undefined;
     const resolvedLanguageCode = geminiLanguageCode 
       || (targetLanguage ? DEFAULT_LANGUAGE_CODE[targetLanguage.toLowerCase()] : undefined);
     const startTime = Date.now();

@@ -447,6 +447,7 @@ export function VoiceConsoleContent() {
     elSettings?: { elStability?: number; elSimilarityBoost?: number; elStyle?: number; elSpeed?: number },
     fallbackPreviewUrl?: string,
     trackingId?: string,
+    geminiAccentCode?: string,
   ) => {
     const playId = trackingId || voiceId;
     if (playingVoiceId === playId && audioElement) {
@@ -467,7 +468,7 @@ export function VoiceConsoleContent() {
     const phrases = SAMPLE_PHRASES[language] || SAMPLE_PHRASES.english;
     
     try {
-      const targetAudio = await playVoiceSample(voiceId, phrases.target, languageCode, speakingRate, auditionEmotion, provider, elSettings, fallbackPreviewUrl);
+      const targetAudio = await playVoiceSample(voiceId, phrases.target, languageCode, speakingRate, auditionEmotion, provider, elSettings, fallbackPreviewUrl, geminiAccentCode);
       
       targetAudio.onended = async () => {
         if (language !== 'english' && !fallbackPreviewUrl) {
@@ -1094,7 +1095,9 @@ export function VoiceConsoleContent() {
                                   elStyle: formData.elStyle,
                                   elSpeed: formData.speakingRate,
                                 } : undefined,
-                                selectedVoice?.source === 'library' ? selectedVoice.previewUrl : undefined
+                                selectedVoice?.source === 'library' ? selectedVoice.previewUrl : undefined,
+                                undefined,
+                                formData.provider === 'gemini' ? formData.geminiLanguageCode : undefined,
                               );
                             }}
                             data-testid="button-audition"
