@@ -197,26 +197,32 @@ export class GeminiLiveTtsService extends EventEmitter {
     }
 
     if (resolvedLanguageCode) {
-      const LANG_NAMES: Record<string, string> = {
-        'en-US': 'American English', 'en-GB': 'British English', 'en-AU': 'Australian English', 'en-IN': 'Indian English',
-        'es-US': 'Latin American Spanish', 'es-ES': 'Castilian Spanish', 'es-MX': 'Mexican Spanish', 'es-AR': 'Argentine Spanish', 'es-CO': 'Colombian Spanish',
-        'fr-FR': 'French', 'fr-CA': 'Canadian French',
-        'de-DE': 'German', 'de-AT': 'Austrian German',
-        'it-IT': 'Italian',
-        'pt-BR': 'Brazilian Portuguese', 'pt-PT': 'European Portuguese',
-        'ja-JP': 'Japanese',
-        'zh-CN': 'Mandarin Chinese', 'zh-TW': 'Taiwanese Mandarin',
-        'ko-KR': 'Korean',
-        'he-IL': 'Hebrew',
+      const ACCENT_DIRECTIONS: Record<string, string> = {
+        'en-US': 'SPEAK WITH AN AMERICAN ENGLISH ACCENT.',
+        'en-GB': 'SPEAK WITH A BRITISH ENGLISH ACCENT.',
+        'en-AU': 'SPEAK WITH AN AUSTRALIAN ENGLISH ACCENT.',
+        'en-IN': 'SPEAK WITH AN INDIAN ENGLISH ACCENT.',
+        'es-US': 'SPEAK WITH A LATIN AMERICAN SPANISH ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE LATIN AMERICAN SPANISH SPEAKER.',
+        'es-ES': 'SPEAK WITH A CASTILIAN SPANISH ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE CASTILIAN SPANISH SPEAKER.',
+        'es-MX': 'SPEAK WITH A MEXICAN SPANISH ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE MEXICAN SPANISH SPEAKER.',
+        'es-AR': 'SPEAK WITH AN ARGENTINE SPANISH ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE ARGENTINE SPANISH SPEAKER.',
+        'es-CO': 'SPEAK WITH A COLOMBIAN SPANISH ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE COLOMBIAN SPANISH SPEAKER.',
+        'fr-FR': 'SPEAK WITH A FRENCH ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE FRENCH SPEAKER.',
+        'fr-CA': 'SPEAK WITH A CANADIAN FRENCH ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE QUÉBÉCOIS SPEAKER.',
+        'de-DE': 'SPEAK WITH A GERMAN ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE GERMAN SPEAKER.',
+        'de-AT': 'SPEAK WITH AN AUSTRIAN GERMAN ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE AUSTRIAN GERMAN SPEAKER.',
+        'it-IT': 'SPEAK WITH AN ITALIAN ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE ITALIAN SPEAKER.',
+        'pt-BR': 'SPEAK WITH A BRAZILIAN PORTUGUESE ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE BRAZILIAN PORTUGUESE SPEAKER.',
+        'pt-PT': 'SPEAK WITH A EUROPEAN PORTUGUESE ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE EUROPEAN PORTUGUESE SPEAKER.',
+        'ja-JP': 'SPEAK WITH A JAPANESE ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE JAPANESE SPEAKER.',
+        'zh-CN': 'SPEAK WITH A MANDARIN CHINESE ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE MANDARIN CHINESE SPEAKER.',
+        'zh-TW': 'SPEAK WITH A TAIWANESE MANDARIN ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE TAIWANESE MANDARIN SPEAKER.',
+        'ko-KR': 'SPEAK WITH A KOREAN ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE KOREAN SPEAKER.',
+        'he-IL': 'SPEAK WITH A HEBREW ACCENT. YOU MUST SOUND UNMISTAKABLY LIKE A NATIVE HEBREW SPEAKER.',
       };
-      const langName = LANG_NAMES[resolvedLanguageCode];
-      if (langName) {
-        const baseLang = resolvedLanguageCode.split('-')[0];
-        if (baseLang !== 'en') {
-          parts.push(`You are a native ${langName} speaker. Always maintain a ${langName} accent, even when speaking English or other languages.`);
-        } else {
-          parts.push(`Accent: ${langName}.`);
-        }
+      const accentDir = ACCENT_DIRECTIONS[resolvedLanguageCode];
+      if (accentDir) {
+        parts.push(accentDir);
       }
     }
 
@@ -266,25 +272,10 @@ export class GeminiLiveTtsService extends EventEmitter {
     const resolvedLanguageCode = geminiLanguageCode 
       || (targetLanguage ? DEFAULT_LANGUAGE_CODE[targetLanguage.toLowerCase()] : undefined);
 
-    const SUPPORTED_SPEECH_CONFIG_CODES = new Set([
-      'en-US', 'es-US', 'es-ES', 'es-MX', 'fr-FR', 'fr-CA',
-      'de-DE', 'it-IT', 'pt-BR', 'pt-PT', 'ja-JP', 'zh-CN', 'zh-TW',
-      'ko-KR', 'he-IL',
-    ]);
-    const BASE_CODE_FALLBACK: Record<string, string> = {
-      'en': 'en-US', 'es': 'es-US', 'fr': 'fr-FR', 'de': 'de-DE',
-      'it': 'it-IT', 'pt': 'pt-BR', 'ja': 'ja-JP', 'zh': 'zh-CN',
-      'ko': 'ko-KR', 'he': 'he-IL',
-    };
-    const speechConfigCode = resolvedLanguageCode
-      ? (SUPPORTED_SPEECH_CONFIG_CODES.has(resolvedLanguageCode)
-        ? resolvedLanguageCode
-        : BASE_CODE_FALLBACK[resolvedLanguageCode.split('-')[0]] || undefined)
-      : undefined;
-
     const startTime = Date.now();
     const stylePrompt = this.buildStylePrompt(request, resolvedLanguageCode);
-    console.log(`[Gemini Live TTS] Progressive: "${trimmedText.substring(0, 60)}..." (${trimmedText.length} chars, voice: ${voiceName}, langCode: ${speechConfigCode || 'auto'} (accent: ${resolvedLanguageCode || 'none'}), style: "${stylePrompt.substring(0, 100)}")`);
+    console.log(`[Gemini Live TTS] Progressive: "${trimmedText.substring(0, 60)}..." (${trimmedText.length} chars, voice: ${voiceName}, accent: ${resolvedLanguageCode || 'none'}, style: "${stylePrompt.substring(0, 120)}")`);
+    console.log(`[Gemini Live TTS] Note: Native-audio model — accent controlled via systemInstruction, not speechConfig.languageCode`);
 
     return new Promise((resolve, reject) => {
       let chunkIndex = 0;
@@ -393,7 +384,6 @@ export class GeminiLiveTtsService extends EventEmitter {
           responseModalities: [Modality.AUDIO],
           systemInstruction: stylePrompt,
           speechConfig: {
-            ...(speechConfigCode ? { languageCode: speechConfigCode } : {}),
             voiceConfig: {
               prebuiltVoiceConfig: { voiceName },
             },
