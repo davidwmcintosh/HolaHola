@@ -154,20 +154,24 @@ export class GeminiLiveTtsService extends EventEmitter {
       let firstChunkTime: number | null = null;
       let liveSession: Session | null = null;
       let completed = false;
+      let silenceTimer: ReturnType<typeof setTimeout> | null = null;
+      const SILENCE_GAP_MS = 500;
 
       const timeout = setTimeout(() => {
         if (completed) return;
         completed = true;
+        if (silenceTimer) clearTimeout(silenceTimer);
         console.error(`[Gemini Live TTS] Progressive timed out after ${SYNTHESIS_TIMEOUT_MS}ms`);
         voiceDiagnostics.recordTTSResult(false, undefined, 'daniela');
         try { liveSession?.close(); } catch {}
         reject(new Error(`Gemini Live TTS timed out after ${SYNTHESIS_TIMEOUT_MS}ms`));
       }, SYNTHESIS_TIMEOUT_MS);
 
-      const finalize = () => {
+      const finalize = (reason: string) => {
         if (completed) return;
         completed = true;
         clearTimeout(timeout);
+        if (silenceTimer) clearTimeout(silenceTimer);
 
         const elapsed = Date.now() - startTime;
         const ttfb = firstChunkTime ? firstChunkTime - startTime : null;
@@ -179,11 +183,20 @@ export class GeminiLiveTtsService extends EventEmitter {
         }
         callbacks.onComplete?.(finalTimestamps, totalDurationMs);
 
-        console.log(`[Gemini Live TTS] Progressive complete: ${chunkIndex} chunks, ${Math.round(totalDurationMs)}ms audio, ${elapsed}ms total, TTFB: ${ttfb ?? 'N/A'}ms`);
+        console.log(`[Gemini Live TTS] Progressive complete (${reason}): ${chunkIndex} chunks, ${Math.round(totalDurationMs)}ms audio, ${elapsed}ms wall, TTFB: ${ttfb ?? 'N/A'}ms`);
         voiceDiagnostics.recordTTSResult(true, elapsed, 'daniela');
 
         try { liveSession?.close(); } catch {}
         resolve({ totalDurationMs, finalTimestamps });
+      };
+
+      const resetSilenceTimer = () => {
+        if (silenceTimer) clearTimeout(silenceTimer);
+        silenceTimer = setTimeout(() => {
+          if (!completed && chunkIndex > 0) {
+            finalize('silence-gap');
+          }
+        }, SILENCE_GAP_MS);
       };
 
       this.client!.live.connect({
@@ -213,19 +226,20 @@ export class GeminiLiveTtsService extends EventEmitter {
                     sampleRate: LIVE_SAMPLE_RATE,
                   }, chunkIndex);
                   chunkIndex++;
+                  resetSilenceTimer();
                 }
               }
             }
 
             if (msg.serverContent?.turnComplete) {
-              console.log(`[Gemini Live TTS] Turn complete received after ${chunkIndex} chunks`);
-              finalize();
+              finalize('turn-complete');
             }
           },
           onerror: (e: ErrorEvent) => {
             if (completed) return;
             completed = true;
             clearTimeout(timeout);
+            if (silenceTimer) clearTimeout(silenceTimer);
             console.error(`[Gemini Live TTS] Progressive error:`, e.message || e);
             voiceDiagnostics.recordTTSResult(false, undefined, 'daniela');
             try { liveSession?.close(); } catch {}
@@ -233,8 +247,7 @@ export class GeminiLiveTtsService extends EventEmitter {
           },
           onclose: () => {
             if (!completed) {
-              console.log(`[Gemini Live TTS] WebSocket closed before turn complete (${chunkIndex} chunks received)`);
-              finalize();
+              finalize('ws-close');
             }
           },
         },
