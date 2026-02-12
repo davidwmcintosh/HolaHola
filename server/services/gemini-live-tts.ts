@@ -159,6 +159,11 @@ export class GeminiLiveTtsService extends EventEmitter {
 
     const hints: string[] = [];
 
+    const accentDesc = this.getAccentDescription(targetLanguage, nativeLanguage);
+    if (accentDesc) {
+      hints.push(accentDesc);
+    }
+
     if (vocalStyle) {
       hints.push(vocalStyle);
     } else if (emotion && emotion !== 'neutral') {
@@ -171,44 +176,28 @@ export class GeminiLiveTtsService extends EventEmitter {
       if (EMOTION_MAP[emotion]) hints.push(EMOTION_MAP[emotion]);
     }
 
-    const accentHint = this.buildAccentHint(targetLanguage, nativeLanguage);
-
-    if (hints.length > 0 && accentHint) {
-      return `${accentHint} Say ${hints.join(', ')}:`;
-    } else if (accentHint) {
-      return `${accentHint} Read aloud:`;
-    } else if (hints.length > 0) {
+    if (hints.length > 0) {
       return `Say ${hints.join(', ')}:`;
     }
     return '';
   }
 
-  private buildAccentHint(targetLanguage?: string, nativeLanguage?: string): string {
+  private getAccentDescription(targetLanguage?: string, nativeLanguage?: string): string {
     if (!targetLanguage) return '';
 
-    const ACCENT_LABELS: Record<string, string> = {
-      'spanish': 'Mexican Spanish',
-      'french': 'French',
-      'german': 'German',
-      'italian': 'Italian',
-      'portuguese': 'Brazilian Portuguese',
-      'japanese': 'Japanese',
-      'mandarin chinese': 'Mandarin Chinese',
-      'korean': 'Korean',
-      'hebrew': 'Hebrew',
+    const ACCENT_MAP: Record<string, string> = {
+      'spanish': 'with a native Mexican Spanish accent',
+      'french': 'with a native French accent',
+      'german': 'with a native German accent',
+      'italian': 'with a native Italian accent',
+      'portuguese': 'with a native Brazilian Portuguese accent',
+      'japanese': 'with a native Japanese accent',
+      'mandarin chinese': 'with a native Mandarin Chinese accent',
+      'korean': 'with a native Korean accent',
+      'hebrew': 'with a native Hebrew accent',
     };
 
-    const targetAccent = ACCENT_LABELS[targetLanguage.toLowerCase()];
-    if (!targetAccent) return '';
-
-    const nativeLang = nativeLanguage?.toLowerCase() || 'english';
-    const nativeLabel = ACCENT_LABELS[nativeLang] || 'English';
-
-    if (nativeLang === targetLanguage.toLowerCase()) {
-      return `[Voice: native ${targetAccent} speaker]`;
-    }
-
-    return `[Voice: bilingual ${nativeLabel}/${targetAccent} speaker, use ${targetAccent} accent for ${targetAccent} words and ${nativeLabel} accent for ${nativeLabel} words]`;
+    return ACCENT_MAP[targetLanguage.toLowerCase()] || '';
   }
 
   private convertS16leToF32le(s16Buffer: Buffer): Buffer {
@@ -285,6 +274,9 @@ export class GeminiLiveTtsService extends EventEmitter {
           prebuiltVoiceConfig: { voiceName },
         },
       };
+      if (resolvedLanguageCode) {
+        speechConfig.languageCode = resolvedLanguageCode.toLowerCase();
+      }
 
       const response = await Promise.race([
         this.client.models.generateContent({
