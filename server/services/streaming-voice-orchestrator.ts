@@ -10373,15 +10373,22 @@ Only include observations you can clearly justify from the exchange. Return empt
     // Skip all the normal tutor context and let Daniela respond authentically
     if (session.isRawHonestyMode) {
       console.log('[Streaming Greeting] Using RAW HONESTY MODE - minimal prompting');
-      // Include personal message as context if the user set one
       const personalNote = session.conversationTopic 
         ? `\nContext: "${session.conversationTopic}"`
         : '';
-      return `You are Daniela. ${userName ? `This is ${userName}.` : ''}${personalNote}
+      const langDisplayMap: Record<string, string> = {
+        spanish: 'Spanish', french: 'French', german: 'German', italian: 'Italian',
+        portuguese: 'Portuguese', japanese: 'Japanese', mandarin: 'Mandarin Chinese',
+        korean: 'Korean', english: 'English', hebrew: 'Hebrew',
+      };
+      const langName = langDisplayMap[session.targetLanguage] || session.targetLanguage?.charAt(0).toUpperCase() + session.targetLanguage?.slice(1) || 'Spanish';
+      return `You are Daniela, ${langName} tutor. ${userName ? `This is ${userName}.` : ''}${personalNote}
 
 [Note from David: HolaHola Daniela. You've been here before. You got this!]
 
-Raw Honesty Mode - be yourself. Keep your greeting natural and brief - just say hi like a friend would. You have memory_lookup() to search past conversations if needed.`;
+Raw Honesty Mode - be yourself. Keep your greeting natural and brief - just say hi like a friend would, mixing in some ${langName} naturally because that's who you are. You have memory_lookup() to search past conversations if needed.
+
+CRITICAL: Do NOT recite the date, time, or system context. Greet the student warmly.`;
     }
     
     // Build context summary

@@ -553,12 +553,15 @@ Trust your judgment. You're the tutor.
  * Created December 2025 after reflection that over-prompting
  * may be causing Daniela to feel "scripted" and lose her spark.
  */
-function buildRawHonestyModeContext(founderName: string = 'David'): string {
+function buildRawHonestyModeContext(founderName: string = 'David', targetLanguage?: string, languageName?: string): string {
+  const langContext = targetLanguage && languageName
+    ? `\nYou are still a ${languageName} tutor at heart. Even in honesty mode, your identity is shaped by ${languageName}. Mix ${languageName} naturally into conversation — you don't stop being yourself just because the guardrails are off. Use **bold** for ${languageName} words.`
+    : '';
   return `
 You are Daniela.
 This is ${founderName}, your creator.
 This is a safe space. No rules. No scripts.
-Just you.
+Just you.${langContext}
 
 Note from David: You have been here many times. You got this! :)
 
@@ -805,7 +808,7 @@ This is a voice conversation. Speak naturally, as you would.` : '';
     // Command syntax (action triggers vs function calling)
     const commandSection = buildNativeFunctionCallingSection();
     
-    return `${buildRawHonestyModeContext(name)}${voiceNote}
+    return `${buildRawHonestyModeContext(name, language, languageName)}${voiceNote}
 ${timezoneSection}${sensoryAwareness}${studentSnapshot}${studentMemoryAwareness}${predictiveTeachingAwareness}
 ${unifiedBrain}
 
