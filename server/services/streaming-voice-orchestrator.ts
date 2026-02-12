@@ -3292,34 +3292,27 @@ Remember: Beta testers understand they're helping build something and appreciate
                   break;
                 }
                 case 'VOICE_ADJUST': {
-                  // Daniela's real-time voice adjustment - now includes spoken text for one-call efficiency
                   const text = cmd.params.text as string | undefined;
                   const speed = (cmd.params.speed as string | undefined)?.toLowerCase();
                   const emotion = (cmd.params.emotion as string | undefined)?.toLowerCase();
                   const personality = (cmd.params.personality as string | undefined)?.toLowerCase();
+                  const vocalStyle = cmd.params.vocal_style as string | undefined;
                   const reason = cmd.params.reason as string | undefined;
                   
-                  // Map speed strings to numeric values for Cartesia speakingRate (0.7-1.3 range)
-                  // Lower values = slower speech, higher values = faster speech
                   const speedMap: Record<string, number> = {
                     'slowest': 0.7,
                     'slow': 0.8,
-                    'normal': 0.9,  // Default speaking rate
+                    'normal': 0.9,
                     'fast': 1.05,
                     'fastest': 1.2,
                   };
                   
-                  // Map Daniela's emotion names to CartesiaEmotion types
-                  // CartesiaEmotion: 'neutral' | 'happy' | 'excited' | 'friendly' | 'curious' | 
-                  //                  'thoughtful' | 'warm' | 'playful' | 'surprised' | 'proud' | 
-                  //                  'encouraging' | 'calm'
                   const emotionMap: Record<string, string> = {
-                    'positivity': 'happy',      // Positive → happy
-                    'curiosity': 'curious',     // Direct match
-                    'surprise': 'surprised',    // Adjust tense
-                    'anger': 'neutral',         // No anger in Cartesia, fallback to neutral
-                    'sadness': 'thoughtful',    // Sad → thoughtful/reflective
-                    // Also accept direct Cartesia emotions
+                    'positivity': 'happy',
+                    'curiosity': 'curious',
+                    'surprise': 'surprised',
+                    'anger': 'neutral',
+                    'sadness': 'thoughtful',
                     'happy': 'happy',
                     'excited': 'excited',
                     'friendly': 'friendly',
@@ -3334,33 +3327,30 @@ Remember: Beta testers understand they're helping build something and appreciate
                     'neutral': 'neutral',
                   };
                   
-                  // Validate personality if provided
                   const validPersonalities = ['warm', 'calm', 'energetic', 'professional'];
                   const validatedPersonality = personality && validPersonalities.includes(personality) 
                     ? personality as TutorPersonality 
                     : undefined;
                   
-                  // Map the emotion to CartesiaEmotion
                   const mappedEmotion = emotion ? emotionMap[emotion] : undefined;
                   
-                  // Apply to session as voice override (same structure as Voice Lab panel)
                   const currentOverride = (session as any).voiceOverride || {};
                   const newOverride = {
                     ...currentOverride,
                     ...(speed && { speakingRate: speedMap[speed] || 0.9 }),
                     ...(mappedEmotion && { emotion: mappedEmotion }),
                     ...(validatedPersonality && { personality: validatedPersonality }),
+                    ...(vocalStyle && { vocalStyle }),
                   };
                   
                   (session as any).voiceOverride = newOverride;
                   
-                  // If text is provided, store it for TTS synthesis
                   if (text) {
                     (session as any).voiceAdjustText = text;
                     console.log(`[CommandParser→VoiceAdjust] Text included (${text.length} chars): "${text.substring(0, 80)}..."`);
                   }
                   
-                  console.log(`[CommandParser→VoiceAdjust] Applied: speed=${speed || 'unchanged'} (rate=${speed ? speedMap[speed] : 'unchanged'}), emotion=${emotion || 'unchanged'} (mapped=${mappedEmotion || 'unchanged'}), personality=${validatedPersonality || 'unchanged'}, reason=${reason || 'none'}`);
+                  console.log(`[CommandParser→VoiceAdjust] Applied: speed=${speed || 'unchanged'} (rate=${speed ? speedMap[speed] : 'unchanged'}), emotion=${emotion || 'unchanged'} (mapped=${mappedEmotion || 'unchanged'}), personality=${validatedPersonality || 'unchanged'}, vocalStyle=${vocalStyle ? `"${vocalStyle.substring(0, 60)}"` : 'unchanged'}, reason=${reason || 'none'}`);
                   console.log(`[CommandParser→VoiceAdjust] Session override now:`, newOverride);
                   break;
                 }
@@ -7266,6 +7256,7 @@ Remember: Beta testers understand they're helping build something and appreciate
     const effectiveEmotion = voiceOverride?.emotion ?? emotion;
     const effectivePersonality = voiceOverride?.personality ?? session.tutorPersonality;
     const effectiveExpressiveness = voiceOverride?.expressiveness ?? session.tutorExpressiveness;
+    const effectiveVocalStyle = voiceOverride?.vocalStyle as string | undefined;
     
     // === TIMING RACE FIX: Server-side buffering ===
     // Buffer audio chunks until we have at least the first word timing.
@@ -7565,6 +7556,7 @@ Remember: Beta testers understand they're helping build something and appreciate
         emotion: effectiveEmotion,
         personality: effectivePersonality,
         expressiveness: effectiveExpressiveness,
+        vocalStyle: effectiveVocalStyle,
         // ElevenLabs-specific voice settings from DB
         elStability: (session as any).elStability,
         elSimilarityBoost: (session as any).elSimilarityBoost,
@@ -11482,14 +11474,13 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       }
       
       case 'VOICE_ADJUST': {
-        // Daniela's real-time voice adjustment - now includes spoken text for one-call efficiency
         const text = fn.args.text as string | undefined;
         const speed = (fn.args.speed as string | undefined)?.toLowerCase();
         const emotion = (fn.args.emotion as string | undefined)?.toLowerCase();
         const personality = (fn.args.personality as string | undefined)?.toLowerCase();
+        const vocalStyle = fn.args.vocal_style as string | undefined;
         const reason = fn.args.reason as string | undefined;
         
-        // Map speed strings to numeric values for Cartesia speakingRate (0.7-1.3 range)
         const speedMap: Record<string, number> = {
           'slowest': 0.7,
           'slow': 0.8,
@@ -11498,7 +11489,6 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           'fastest': 1.2,
         };
         
-        // Map Daniela's emotion names to CartesiaEmotion types (same as legacy)
         const emotionMap: Record<string, string> = {
           'positivity': 'happy',
           'curiosity': 'curious',
@@ -11519,30 +11509,24 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           'neutral': 'neutral',
         };
         
-        // Validate personality if provided (same as legacy)
         const validPersonalities = ['warm', 'calm', 'energetic', 'professional'];
         const validatedPersonality = personality && validPersonalities.includes(personality) 
           ? personality as TutorPersonality 
           : undefined;
         
-        // Map the emotion to CartesiaEmotion
         const mappedEmotion = emotion ? emotionMap[emotion] : undefined;
         
-        // Apply to session as voice override (same structure as legacy)
         const currentOverride = (session as any).voiceOverride || {};
         const newOverride = {
           ...currentOverride,
           ...(speed && { speakingRate: speedMap[speed] || 0.9 }),
           ...(mappedEmotion && { emotion: mappedEmotion }),
           ...(validatedPersonality && { personality: validatedPersonality }),
+          ...(vocalStyle && { vocalStyle }),
         };
         
         (session as any).voiceOverride = newOverride;
         
-        // If text is provided, store it for TTS synthesis
-        // This allows Daniela to provide voice settings + text in one call
-        // CRITICAL: Use SET (not append) to prevent double-audio when Gemini calls
-        // multiple functions (e.g. voice_adjust + subtitle) with the same spoken text
         if (text) {
           (session as any).voiceAdjustText = text;
           if (!(session as any).functionCallText) {
@@ -11551,7 +11535,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           console.log(`[Native Function→VoiceAdjust] Text included (${text.length} chars): "${text.substring(0, 80)}..."`);
         }
         
-        console.log(`[Native Function→VoiceAdjust] Applied: speed=${speed || 'unchanged'} (rate=${speed ? speedMap[speed] : 'unchanged'}), emotion=${emotion || 'unchanged'} (mapped=${mappedEmotion || 'unchanged'}), personality=${validatedPersonality || 'unchanged'}, reason=${reason || 'none'}`);
+        console.log(`[Native Function→VoiceAdjust] Applied: speed=${speed || 'unchanged'} (rate=${speed ? speedMap[speed] : 'unchanged'}), emotion=${emotion || 'unchanged'} (mapped=${mappedEmotion || 'unchanged'}), personality=${validatedPersonality || 'unchanged'}, vocalStyle=${vocalStyle ? `"${vocalStyle.substring(0, 60)}"` : 'unchanged'}, reason=${reason || 'none'}`);
         console.log(`[Native Function→VoiceAdjust] Session override now:`, newOverride);
         break;
       }

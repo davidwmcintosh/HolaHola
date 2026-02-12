@@ -172,6 +172,74 @@ export class GeminiLiveTtsService extends EventEmitter {
       .trim();
   }
 
+  private buildStylePrompt(request: StreamingSynthesisRequest, resolvedLanguageCode?: string): string {
+    const vocalStyle = (request as any).vocalStyle as string | undefined;
+    const emotion = (request as any).emotion as string | undefined;
+    const personality = (request as any).personality as string | undefined;
+    const expressiveness = (request as any).expressiveness as number | undefined;
+
+    const parts: string[] = [];
+
+    parts.push('Read the following text aloud exactly as written. Do not add extra words or commentary.');
+
+    if (vocalStyle) {
+      parts.push(`Delivery: ${vocalStyle}.`);
+    } else {
+      const styleHints: string[] = [];
+      if (emotion && emotion !== 'neutral') {
+        const EMOTION_TO_STYLE: Record<string, string> = {
+          'happy': 'with a bright, cheerful tone',
+          'excited': 'with high energy and enthusiasm',
+          'friendly': 'in a warm, approachable way',
+          'curious': 'with an inquisitive, interested lilt',
+          'thoughtful': 'in a reflective, measured pace',
+          'warm': 'with genuine warmth',
+          'playful': 'with a light, playful spirit',
+          'surprised': 'with pleasant surprise',
+          'proud': 'with pride and satisfaction',
+          'encouraging': 'in a supportive, encouraging way',
+          'calm': 'in a calm, steady voice',
+        };
+        const hint = EMOTION_TO_STYLE[emotion];
+        if (hint) styleHints.push(hint);
+      }
+      if (personality) {
+        const PERSONALITY_TO_STYLE: Record<string, string> = {
+          'warm': 'like a caring teacher',
+          'calm': 'with a soothing, relaxed presence',
+          'energetic': 'with lively energy',
+          'professional': 'in a clear, polished manner',
+        };
+        const hint = PERSONALITY_TO_STYLE[personality];
+        if (hint) styleHints.push(hint);
+      }
+      if (styleHints.length > 0) {
+        parts.push(`Speak ${styleHints.join(', ')}.`);
+      }
+    }
+
+    if (resolvedLanguageCode) {
+      const LANG_NAMES: Record<string, string> = {
+        'en-US': 'American English', 'en-GB': 'British English', 'en-AU': 'Australian English', 'en-IN': 'Indian English',
+        'es-US': 'Latin American Spanish', 'es-ES': 'Castilian Spanish', 'es-MX': 'Mexican Spanish', 'es-AR': 'Argentine Spanish', 'es-CO': 'Colombian Spanish',
+        'fr-FR': 'French', 'fr-CA': 'Canadian French',
+        'de-DE': 'German', 'de-AT': 'Austrian German',
+        'it-IT': 'Italian',
+        'pt-BR': 'Brazilian Portuguese', 'pt-PT': 'European Portuguese',
+        'ja-JP': 'Japanese',
+        'zh-CN': 'Mandarin Chinese', 'zh-TW': 'Taiwanese Mandarin',
+        'ko-KR': 'Korean',
+        'he-IL': 'Hebrew',
+      };
+      const langName = LANG_NAMES[resolvedLanguageCode];
+      if (langName) {
+        parts.push(`Accent: ${langName}.`);
+      }
+    }
+
+    return parts.join(' ');
+  }
+
   private convertS16leToF32le(s16Buffer: Buffer): Buffer {
     const sampleCount = s16Buffer.length / 2;
     const f32Buffer = Buffer.alloc(sampleCount * 4);
@@ -209,14 +277,13 @@ export class GeminiLiveTtsService extends EventEmitter {
     }
 
     const voiceName = request.voiceId || 'Kore';
-    const languageHint = (request as any).languageHint as string | undefined;
-    const accentLanguage = (request as any).accentLanguage as string | undefined;
     const targetLanguage = (request as any).targetLanguage as string | undefined;
     const geminiLanguageCode = (request as any).geminiLanguageCode as string | undefined;
     const resolvedLanguageCode = geminiLanguageCode 
       || (targetLanguage ? DEFAULT_LANGUAGE_CODE[targetLanguage.toLowerCase()] : undefined);
     const startTime = Date.now();
-    console.log(`[Gemini Live TTS] Progressive: "${trimmedText.substring(0, 60)}..." (${trimmedText.length} chars, voice: ${voiceName}, lang: ${languageHint || 'auto'}, accent: ${accentLanguage || 'none'}, langCode: ${resolvedLanguageCode || 'auto'})`);
+    const stylePrompt = this.buildStylePrompt(request, resolvedLanguageCode);
+    console.log(`[Gemini Live TTS] Progressive: "${trimmedText.substring(0, 60)}..." (${trimmedText.length} chars, voice: ${voiceName}, langCode: ${resolvedLanguageCode || 'auto'}, style: "${stylePrompt.substring(0, 100)}")`);
 
     return new Promise((resolve, reject) => {
       let chunkIndex = 0;
@@ -323,44 +390,7 @@ export class GeminiLiveTtsService extends EventEmitter {
         },
         config: {
           responseModalities: [Modality.AUDIO],
-          systemInstruction: (() => {
-            const langMap: Record<string, string> = {
-              'en': 'English', 'en-US': 'English (US)', 'en-GB': 'English (British)', 'en-IN': 'English (Indian)',
-              'es': 'Spanish', 'es-US': 'Spanish (US)', 'es-ES': 'Spanish (Spain)', 'es-MX': 'Spanish (Mexican)',
-              'fr': 'French', 'fr-FR': 'French',
-              'de': 'German', 'de-DE': 'German',
-              'it': 'Italian', 'it-IT': 'Italian',
-              'pt': 'Portuguese', 'pt-BR': 'Portuguese (Brazilian)',
-              'ja': 'Japanese', 'ja-JP': 'Japanese',
-              'zh': 'Mandarin Chinese', 'zh-CN': 'Mandarin Chinese', 'cmn-CN': 'Mandarin Chinese',
-              'ko': 'Korean', 'ko-KR': 'Korean',
-              'he': 'Hebrew', 'he-IL': 'Hebrew',
-            };
-            const codeToAccentDesc: Record<string, string> = {
-              'es-US': 'a Latin American (US) Spanish',
-              'es-ES': 'a Castilian (Spain) Spanish',
-              'es-MX': 'a Mexican Spanish',
-              'en-US': 'an American English',
-              'en-GB': 'a British English',
-              'en-IN': 'an Indian English',
-              'pt-BR': 'a Brazilian Portuguese',
-            };
-            if (accentLanguage && languageHint === 'en') {
-              const accentLang = langMap[accentLanguage] || accentLanguage;
-              return `You are a native ${accentLang} speaker. Read the following English text with a natural ${accentLang} accent. Do not add any extra words or commentary.`;
-            }
-            if (resolvedLanguageCode) {
-              const accentDesc = codeToAccentDesc[resolvedLanguageCode];
-              const langName = langMap[resolvedLanguageCode] || langMap[languageHint || ''] || targetLanguage || 'the given';
-              if (accentDesc) {
-                return `Read the following text aloud exactly as written with ${accentDesc} accent. Speak naturally. Do not add any extra words or commentary.`;
-              }
-              return `Read the following text aloud exactly as written in ${langName}. Do not add any extra words or commentary. Speak naturally in ${langName}.`;
-            }
-            if (!languageHint) return 'Read the following text aloud exactly as written. Do not add any extra words or commentary.';
-            const langName = langMap[languageHint] || languageHint;
-            return `Read the following text aloud exactly as written in ${langName}. Do not add any extra words or commentary. Speak naturally in ${langName}.`;
-          })(),
+          systemInstruction: stylePrompt,
           speechConfig: {
             ...(resolvedLanguageCode ? { languageCode: resolvedLanguageCode } : {}),
             voiceConfig: {

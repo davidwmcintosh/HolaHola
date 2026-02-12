@@ -106,11 +106,12 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   // === VOICE CONTROL ===
   {
     name: "voice_adjust",
-    description: "Speak with specific emotional coloring. Include your spoken text in the 'text' parameter so voice settings and words are delivered together in one call. Always include text - never call this without your response.",
+    description: "Control how you sound. Include your spoken text in the 'text' parameter. Use vocal_style for rich natural-language delivery direction (e.g. 'speak softly and warmly, like sharing a secret', 'bright and energetic, celebrating a breakthrough'). You can combine vocal_style with speed/emotion or use any subset. Always include text.",
     parametersJsonSchema: {
       type: "object",
       properties: {
         text: { type: "string", description: "What you're saying (the spoken response)" },
+        vocal_style: { type: "string", description: "Free-form vocal delivery direction in natural language. Describe HOW to speak: tone, pace, energy, mood, character. Examples: 'gentle and patient, like explaining to a nervous beginner', 'upbeat and proud, celebrating progress', 'slow and clear, enunciating each syllable for pronunciation practice', 'conspiratorial whisper, like sharing an inside joke'" },
         speed: { type: "string", enum: ["slowest", "slow", "normal", "fast", "fastest"], description: "Speaking speed" },
         emotion: { type: "string", enum: ["happy", "excited", "friendly", "curious", "thoughtful", "warm", "playful", "surprised", "proud", "encouraging", "calm", "neutral"], description: "Emotional tone" },
         personality: { type: "string", enum: ["warm", "calm", "energetic", "professional"], description: "Personality preset" },

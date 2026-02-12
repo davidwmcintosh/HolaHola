@@ -3243,3 +3243,31 @@ Missing any of these steps will cause silent failures — the function either wo
 - Accent dropdown only shows when: (a) provider is Gemini, AND (b) language has 2+ accent variants
 - Gemini Live API uses `languageCode` in `speechConfig` as a pronunciation hint — the model auto-detects language but respects accent guidance
 - Google's Gemini TTS docs confirm style/accent/pace/tone are all controllable via natural language prompts in addition to languageCode
+
+---
+
+### Session: February 12, 2026 - Dynamic Gemini TTS Style Prompts (vocal_style)
+
+**Status**: COMPLETED
+
+**Problem**: The Gemini TTS systemInstruction was static and scripted — always "Read the following text aloud exactly as written with a [language] accent. Speak naturally." regardless of emotional context. Daniela's emotion/personality values from voice_adjust were flowing through the pipeline but being completely ignored by the Gemini TTS layer.
+
+**Solution**: Replaced the static systemInstruction with a dynamic `buildStylePrompt()` that composes per-sentence style direction from three sources (in priority order): (1) Daniela's free-form `vocal_style` from voice_adjust, (2) mapped emotion/personality baseline hints, (3) accent/language from languageCode.
+
+**What was built**:
+1. **New `vocal_style` parameter on voice_adjust**: Free-form natural language field where Daniela describes HOW to speak (e.g. "gentle and patient, like explaining to a nervous beginner", "conspiratorial whisper, like sharing an inside joke"). Daniela decides when and how to use it — no hardcoded rules.
+2. **`buildStylePrompt()` method in gemini-live-tts.ts**: Composes the systemInstruction dynamically per TTS call. If vocal_style is set, it uses that directly. If not, it translates emotion/personality into concise natural-language style hints as a baseline (so the voice isn't flat even without explicit vocal_style).
+3. **Removed old static systemInstruction**: The verbose accent-description IIFE with hardcoded langMap/codeToAccentDesc dictionaries is gone. Accent now uses a single clean line ("Accent: Mexican Spanish.") only when a languageCode is set.
+4. **Per-sentence style changes**: Since each Gemini TTS call creates a fresh WebSocket session, the style prompt can change per sentence — Daniela's vocal_style persists on the session override until changed or reset.
+
+**Key files modified**:
+- `server/services/gemini-function-declarations.ts` — Added `vocal_style` parameter to voice_adjust declaration with rich examples
+- `server/services/gemini-live-tts.ts` — Added `buildStylePrompt()` method, replaced static systemInstruction with dynamic style-aware prompt
+- `server/services/streaming-voice-orchestrator.ts` — Wired `vocal_style` through both VOICE_ADJUST handlers (legacy + native function call), passed `vocalStyle` through TTS request
+
+**Architecture notes**:
+- vocal_style takes precedence: If Daniela provides vocal_style, emotion/personality hints are skipped (vocal_style is richer and more expressive)
+- Emotion/personality baseline: When no vocal_style is set, existing emotion+personality values are translated to concise style hints (e.g. emotion="proud" → "with pride and satisfaction", personality="warm" → "like a caring teacher")
+- Accent stays minimal: Just "Accent: Mexican Spanish." — the speechConfig.languageCode handles the heavy lifting
+- Base instruction always present: "Read the following text aloud exactly as written. Do not add extra words or commentary." prevents Gemini from hallucinating additional speech
+- Latency-conscious: Style prompts are short natural-language phrases, not long paragraphs
