@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Play, Pause, Plus, Edit2, Trash2, Volume2, User, Languages, Loader2, Sparkles, Heart, Headphones, MessageSquare } from "lucide-react";
+import { Play, Pause, Plus, Edit2, Trash2, Volume2, User, Languages, Loader2, Sparkles, Heart, Headphones, MessageSquare, GraduationCap, Scale, Ear } from "lucide-react";
 
 // Personality preset types matching backend
 type PersonalityType = 'warm' | 'calm' | 'energetic' | 'professional';
@@ -1138,6 +1138,46 @@ export function VoiceConsoleContent() {
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 )}
               </div>
+            </CardContent>
+          </Card>
+
+          <Card data-testid="card-teaching-persona">
+            <CardContent className="py-4 px-5">
+              <div className="flex items-center gap-3 mb-3">
+                <GraduationCap className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="font-medium text-sm">Daniela's Teaching Persona</p>
+                  <p className="text-xs text-muted-foreground">
+                    Universal defaults applied across all languages and voices
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="flex items-start gap-2 p-3 rounded-md bg-muted/40">
+                  <Scale className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                  <div>
+                    <p className="text-xs font-medium">Teaching Focus</p>
+                    <p className="text-xs text-muted-foreground">Balanced across grammar, vocabulary, pronunciation, and culture</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2 p-3 rounded-md bg-muted/40">
+                  <Sparkles className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                  <div>
+                    <p className="text-xs font-medium">Teaching Style</p>
+                    <p className="text-xs text-muted-foreground">Adaptive to student energy, blending structure with free conversation</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2 p-3 rounded-md bg-muted/40">
+                  <Ear className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                  <div>
+                    <p className="text-xs font-medium">Error Correction</p>
+                    <p className="text-xs text-muted-foreground">Balanced — corrects important errors without interrupting flow</p>
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-3 italic">
+                These defaults are defined in the system prompt. To change them, update buildPedagogicalPersonaSection in system-prompt.ts.
+              </p>
             </CardContent>
           </Card>
 
