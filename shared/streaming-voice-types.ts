@@ -14,6 +14,7 @@ export type StreamingClientState =
   | 'connected'
   | 'ready'
   | 'processing'
+  | 'streaming'     // Active audio streaming in progress
   | 'reconnecting'  // Auto-reconnecting after unexpected disconnect
   | 'error';
 

@@ -211,7 +211,12 @@ export class GeminiLiveTtsService extends EventEmitter {
       };
       const langName = LANG_NAMES[resolvedLanguageCode];
       if (langName) {
-        parts.push(`Accent: ${langName}.`);
+        const baseLang = resolvedLanguageCode.split('-')[0];
+        if (baseLang !== 'en') {
+          parts.push(`You are a native ${langName} speaker. Always maintain a ${langName} accent, even when speaking English or other languages.`);
+        } else {
+          parts.push(`Accent: ${langName}.`);
+        }
       }
     }
 

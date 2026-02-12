@@ -3038,7 +3038,7 @@ export function StreamingVoiceChat({
           isConnecting={useStreamingMode && (streamingVoice.state.connectionState === 'connecting' || streamingVoice.state.connectionState === 'reconnecting')}
           isUsersTurn={
             // Mic is ONLY unlocked when ALL of these are true:
-            // 1. Connection is 'ready' OR 'connected' (both are valid working states)
+            // 1. Connection is 'ready' OR 'connected' OR 'streaming' (all valid working states)
             // 2. Not processing (not waiting for AI response)
             // 3. Not playing/speaking (AI not talking) - use globalPlaybackState for reliable immediate response
             // 4. Not connecting/reconnecting
@@ -3051,7 +3051,7 @@ export function StreamingVoiceChat({
             // This allows speculative PTT to play audio while user still has control.
             // 
             // ALSO unlock if there's an error but connection is valid (recoverable state)
-            (streamingVoice.state.connectionState === 'ready' || streamingVoice.state.connectionState === 'connected') &&
+            (streamingVoice.state.connectionState === 'ready' || streamingVoice.state.connectionState === 'connected' || streamingVoice.state.connectionState === 'streaming') &&
             !streamingVoice.state.isSwitchingTutor &&  // Mic locked during tutor handoff
             (
               // PTT ACTIVE: If user is holding PTT button, keep mic active regardless of audio state
