@@ -16344,7 +16344,7 @@ Current conversation context:
   // Supports both Cartesia (main tutors) and Google Cloud TTS (assistant tutors)
   app.post("/api/admin/voice-audition", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const { voiceId, text, languageCode: rawLanguageCode, language: langAlias, speakingRate, emotion, provider = 'cartesia', elStability, elSimilarityBoost, elStyle, elSpeed } = req.body;
+      const { voiceId, text, languageCode: rawLanguageCode, language: langAlias, speakingRate, emotion, provider = 'cartesia', elStability, elSimilarityBoost, elStyle, elSpeed, accentLanguage } = req.body;
       const languageCode = rawLanguageCode || langAlias;
       
       if (!voiceId || !text) {
@@ -16409,7 +16409,7 @@ Current conversation context:
       if (provider === 'gemini') {
         const { getGeminiLiveTtsService } = await import('./services/gemini-live-tts');
         const geminiLiveTtsService = getGeminiLiveTtsService();
-        const audioBuffer = await geminiLiveTtsService.synthesizeToBuffer(text, voiceId || 'Kore', languageCode);
+        const audioBuffer = await geminiLiveTtsService.synthesizeToBuffer(text, voiceId || 'Kore', languageCode, accentLanguage);
         res.setHeader('Content-Type', 'audio/wav');
         res.send(audioBuffer);
         return;

@@ -453,9 +453,11 @@ export function VoiceConsoleContent() {
     voiceId: string, voiceName: string, language: string, languageCode: string, speakingRate: number = 0.9,
     provider?: string,
     elSettings?: { elStability?: number; elSimilarityBoost?: number; elStyle?: number; elSpeed?: number },
-    fallbackPreviewUrl?: string
+    fallbackPreviewUrl?: string,
+    trackingId?: string,
   ) => {
-    if (playingVoiceId === voiceId && audioElement) {
+    const playId = trackingId || voiceId;
+    if (playingVoiceId === playId && audioElement) {
       audioElement.pause();
       setPlayingVoiceId(null);
       setAuditionPhase('idle');
@@ -467,7 +469,7 @@ export function VoiceConsoleContent() {
       audioElement.pause();
     }
 
-    setPlayingVoiceId(voiceId);
+    setPlayingVoiceId(playId);
     setAuditionPhase('target');
     
     const phrases = SAMPLE_PHRASES[language] || SAMPLE_PHRASES.english;
@@ -479,7 +481,7 @@ export function VoiceConsoleContent() {
         if (language !== 'english' && !fallbackPreviewUrl) {
           setAuditionPhase('native');
           try {
-            const nativeAudio = await playVoiceSample(voiceId, phrases.native, 'en', speakingRate, auditionEmotion, provider, elSettings, undefined);
+            const nativeAudio = await playVoiceSample(voiceId, phrases.native, 'en', speakingRate, auditionEmotion, provider, elSettings, undefined, languageCode);
             nativeAudio.onended = () => {
               setPlayingVoiceId(null);
               setAuditionPhase('idle');
@@ -527,7 +529,8 @@ export function VoiceConsoleContent() {
     emotion?: string,
     provider?: string,
     elSettings?: { elStability?: number; elSimilarityBoost?: number; elStyle?: number; elSpeed?: number },
-    fallbackPreviewUrl?: string
+    fallbackPreviewUrl?: string,
+    accentLanguageCode?: string,
   ): Promise<HTMLAudioElement> => {
     const body: Record<string, unknown> = {
       voiceId,
@@ -536,6 +539,9 @@ export function VoiceConsoleContent() {
       speakingRate,
       emotion: emotion || auditionEmotion,
     };
+    if (accentLanguageCode) {
+      body.accentLanguage = accentLanguageCode;
+    }
     if (provider) {
       body.provider = provider;
     }
@@ -581,7 +587,7 @@ export function VoiceConsoleContent() {
       elStyle: voice.elStyle,
       elSpeed: voice.speakingRate,
     } : undefined;
-    await handleAudition(voice.voiceId, voice.voiceName, voice.language, voice.languageCode, voice.speakingRate, voice.provider, elSettings, undefined);
+    await handleAudition(voice.voiceId, voice.voiceName, voice.language, voice.languageCode, voice.speakingRate, voice.provider, elSettings, undefined, voice.id);
   };
 
   const handleEdit = (voice: TutorVoice) => {
@@ -1327,7 +1333,7 @@ export function VoiceConsoleContent() {
                                 data-testid={`button-preview-${voice.id}`}
                                 title={`Audition in ${lang.label}${lang.value !== 'english' ? ' + English' : ''}`}
                               >
-                                {playingVoiceId === voice.voiceId ? (
+                                {playingVoiceId === voice.id ? (
                                   <Pause className="h-4 w-4" />
                                 ) : (
                                   <Play className="h-4 w-4" />

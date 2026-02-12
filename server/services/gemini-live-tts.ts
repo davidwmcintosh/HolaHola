@@ -153,6 +153,7 @@ export class GeminiLiveTtsService extends EventEmitter {
 
     const voiceName = request.voiceId || 'Kore';
     const languageHint = (request as any).languageHint as string | undefined;
+    const accentLanguageHint = (request as any).accentLanguageHint as string | undefined;
     const startTime = Date.now();
     console.log(`[Gemini Live TTS] Progressive: "${trimmedText.substring(0, 60)}..." (${trimmedText.length} chars, voice: ${voiceName}, lang: ${languageHint || 'auto'})`);
 
@@ -262,7 +263,6 @@ export class GeminiLiveTtsService extends EventEmitter {
         config: {
           responseModalities: [Modality.AUDIO],
           systemInstruction: (() => {
-            if (!languageHint) return 'Read the following text aloud exactly as written. Do not add any extra words or commentary.';
             const langMap: Record<string, string> = {
               'en': 'English', 'en-US': 'English', 'es': 'Spanish', 'es-US': 'Spanish', 'es-ES': 'Spanish',
               'fr': 'French', 'fr-FR': 'French', 'de': 'German', 'de-DE': 'German',
@@ -270,6 +270,11 @@ export class GeminiLiveTtsService extends EventEmitter {
               'ja': 'Japanese', 'ja-JP': 'Japanese', 'zh': 'Mandarin Chinese', 'cmn-CN': 'Mandarin Chinese',
               'ko': 'Korean', 'ko-KR': 'Korean', 'he': 'Hebrew', 'he-IL': 'Hebrew',
             };
+            if (accentLanguageHint && (!languageHint || languageHint === 'en' || languageHint === 'en-US')) {
+              const accentLang = langMap[accentLanguageHint] || accentLanguageHint;
+              return `You are a native ${accentLang} speaker. Read the following English text aloud exactly as written, naturally, with your ${accentLang} accent. Do not add any extra words or commentary.`;
+            }
+            if (!languageHint) return 'Read the following text aloud exactly as written. Do not add any extra words or commentary.';
             const langName = langMap[languageHint] || languageHint;
             return `Read the following text aloud exactly as written in ${langName}. Do not add any extra words or commentary. Speak naturally in ${langName}.`;
           })(),
@@ -338,15 +343,15 @@ export class GeminiLiveTtsService extends EventEmitter {
     }
   }
 
-  async synthesizeToBuffer(text: string, voiceName: string, languageHint?: string): Promise<Buffer> {
+  async synthesizeToBuffer(text: string, voiceName: string, languageHint?: string, accentLanguageHint?: string): Promise<Buffer> {
     const trimmedText = this.cleanTextForTTS(text);
     if (!trimmedText) return Buffer.alloc(0);
 
-    console.log(`[Gemini Live TTS] synthesizeToBuffer: "${trimmedText.substring(0, 50)}..." voice=${voiceName} lang=${languageHint || 'auto'}`);
+    console.log(`[Gemini Live TTS] synthesizeToBuffer: "${trimmedText.substring(0, 50)}..." voice=${voiceName} lang=${languageHint || 'auto'} accent=${accentLanguageHint || 'none'}`);
 
     const allChunks: Buffer[] = [];
     await this.streamSynthesizeProgressive(
-      { text, voiceId: voiceName, languageHint } as StreamingSynthesisRequest & { languageHint?: string },
+      { text, voiceId: voiceName, languageHint, accentLanguageHint } as StreamingSynthesisRequest & { languageHint?: string; accentLanguageHint?: string },
       {
         onAudioChunk: (chunk) => { allChunks.push(chunk.audio); },
         onComplete: () => {},
