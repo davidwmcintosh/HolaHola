@@ -15931,7 +15931,7 @@ Current conversation context:
   // Only super admins can modify voice settings including personality, expressiveness, and emotion
   app.post("/api/admin/tutor-voices", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const { language, gender, provider, voiceId, voiceName, languageCode, speakingRate, personality, expressiveness, emotion, isActive, role, elStability, elSimilarityBoost, elStyle, elSpeakerBoost, googlePitch, googleVolumeGainDb } = req.body;
+      const { language, gender, provider, voiceId, voiceName, languageCode, speakingRate, personality, expressiveness, emotion, isActive, role, elStability, elSimilarityBoost, elStyle, elSpeakerBoost, googlePitch, googleVolumeGainDb, geminiLanguageCode } = req.body;
       
       if (!language || !gender || !provider || !voiceId || !voiceName || !languageCode) {
         return res.status(400).json({ error: "Missing required fields" });
@@ -15993,6 +15993,7 @@ Current conversation context:
         elSpeakerBoost: provider === 'elevenlabs' ? (elSpeakerBoost ?? true) : null,
         googlePitch: provider === 'google' ? (googlePitch ?? 0) : null,
         googleVolumeGainDb: provider === 'google' ? (googleVolumeGainDb ?? 0) : null,
+        geminiLanguageCode: provider === 'gemini' ? (geminiLanguageCode || null) : null,
       });
       
       // Log the action

@@ -51,29 +51,36 @@ export const LANGUAGE_ACCENT_VARIANTS: Record<string, { label: string; code: str
     { label: 'Spanish (US)', code: 'es-US' },
     { label: 'Spanish (Spain)', code: 'es-ES' },
     { label: 'Spanish (Mexico)', code: 'es-MX' },
+    { label: 'Spanish (Argentina)', code: 'es-AR' },
+    { label: 'Spanish (Colombia)', code: 'es-CO' },
   ],
   english: [
     { label: 'English (US)', code: 'en-US' },
     { label: 'English (UK)', code: 'en-GB' },
+    { label: 'English (Australia)', code: 'en-AU' },
     { label: 'English (India)', code: 'en-IN' },
   ],
   french: [
     { label: 'French (France)', code: 'fr-FR' },
+    { label: 'French (Canada)', code: 'fr-CA' },
   ],
   german: [
     { label: 'German (Germany)', code: 'de-DE' },
+    { label: 'German (Austria)', code: 'de-AT' },
   ],
   italian: [
     { label: 'Italian (Italy)', code: 'it-IT' },
   ],
   portuguese: [
     { label: 'Portuguese (Brazil)', code: 'pt-BR' },
+    { label: 'Portuguese (Portugal)', code: 'pt-PT' },
   ],
   japanese: [
     { label: 'Japanese (Japan)', code: 'ja-JP' },
   ],
   'mandarin chinese': [
-    { label: 'Chinese (Simplified)', code: 'zh-CN' },
+    { label: 'Chinese (Mainland)', code: 'zh-CN' },
+    { label: 'Chinese (Taiwan)', code: 'zh-TW' },
   ],
   korean: [
     { label: 'Korean (Korea)', code: 'ko-KR' },

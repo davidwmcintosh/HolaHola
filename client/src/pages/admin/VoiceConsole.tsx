@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Play, Pause, Plus, Edit2, Trash2, Volume2, User, Languages, Loader2, Sparkles, Heart, Headphones, MessageSquare, GraduationCap, Scale, Ear } from "lucide-react";
+import { Play, Pause, Plus, Edit2, Trash2, Volume2, User, Languages, Loader2, Sparkles, Heart, Headphones, MessageSquare, GraduationCap, Scale, Ear, Globe } from "lucide-react";
 
 // Personality preset types matching backend
 type PersonalityType = 'warm' | 'calm' | 'energetic' | 'professional';
@@ -54,6 +54,7 @@ interface TutorVoice {
   elSpeakerBoost?: boolean;
   googlePitch?: number;
   googleVolumeGainDb?: number;
+  geminiLanguageCode?: string | null;
 }
 
 interface CartesiaVoice {
@@ -231,6 +232,8 @@ export function VoiceConsoleContent() {
     elSimilarityBoost: 0.75,
     elStyle: 0.0,
     elSpeakerBoost: true,
+    // Gemini TTS accent variant
+    geminiLanguageCode: '',
   });
 
   // Fetch configured voices
@@ -242,6 +245,13 @@ export function VoiceConsoleContent() {
   const { data: ttsMetadata } = useQuery<TTSMetadata>({
     queryKey: ["/api/admin/tts-meta"],
   });
+
+  // Fetch accent variants for Gemini TTS
+  const { data: accentVariants } = useQuery<Record<string, { label: string; code: string }[]>>({
+    queryKey: ['/api/admin/accent-variants'],
+    enabled: globalProvider === 'gemini',
+  });
+  const languageAccents = accentVariants?.[formData.language] || [];
 
   // Fetch available Cartesia voices based on selected language and gender
   const { data: cartesiaVoicesData, isLoading: isLoadingCartesiaVoices } = useQuery<{ voices: CartesiaVoice[]; total: number }>({
@@ -393,6 +403,7 @@ export function VoiceConsoleContent() {
       elSimilarityBoost: 0.75,
       elStyle: 0.0,
       elSpeakerBoost: true,
+      geminiLanguageCode: '',
     });
     // Reset emotion audition to defaults (synced with form)
     setAuditionPersonality('warm');
@@ -599,6 +610,8 @@ export function VoiceConsoleContent() {
       elSimilarityBoost: voice.elSimilarityBoost ?? 0.75,
       elStyle: voice.elStyle ?? 0.0,
       elSpeakerBoost: voice.elSpeakerBoost ?? true,
+      // Gemini TTS accent variant
+      geminiLanguageCode: voice.geminiLanguageCode || '',
     });
     // Sync audition controls with saved values so preview uses saved emotion
     setAuditionPersonality(savedPersonality);
@@ -609,12 +622,14 @@ export function VoiceConsoleContent() {
 
   const handleLanguageChange = (value: string) => {
     const lang = SUPPORTED_LANGUAGES.find(l => l.value === value);
+    const defaultAccent = accentVariants?.[value]?.[0]?.code || '';
     setFormData(prev => ({
       ...prev,
       language: value,
       languageCode: lang?.code || '',
-      voiceId: '', // Reset voice selection when language changes
+      voiceId: '',
       voiceName: '',
+      geminiLanguageCode: prev.provider === 'gemini' ? defaultAccent : '',
     }));
   };
 
@@ -797,6 +812,34 @@ export function VoiceConsoleContent() {
                         />
                         <p className="text-xs text-muted-foreground">
                           Display name for this tutor (voice: {activeVoices.find(v => v.id === formData.voiceId)?.name || formData.voiceId})
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Gemini Accent Variant */}
+                    {formData.voiceId && formData.provider === 'gemini' && languageAccents.length > 1 && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Globe className="h-4 w-4 text-muted-foreground" />
+                          <Label>Regional Accent</Label>
+                        </div>
+                        <Select
+                          value={formData.geminiLanguageCode || languageAccents[0]?.code || ''}
+                          onValueChange={(v) => setFormData(prev => ({ ...prev, geminiLanguageCode: v }))}
+                        >
+                          <SelectTrigger data-testid="select-accent-variant">
+                            <SelectValue placeholder="Select accent..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {languageAccents.map(variant => (
+                              <SelectItem key={variant.code} value={variant.code}>
+                                {variant.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Controls the regional pronunciation accent for Gemini TTS
                         </p>
                       </div>
                     )}
@@ -1275,6 +1318,11 @@ export function VoiceConsoleContent() {
                                  voice.speakingRate >= 1.2 ? 'Fast' : 
                                  `${voice.speakingRate}x`}
                               </Badge>
+                              {voice.geminiLanguageCode && (
+                                <Badge variant="outline" className="text-xs flex-shrink-0">
+                                  {voice.geminiLanguageCode}
+                                </Badge>
+                              )}
                               {!voice.isActive && (
                                 <Badge variant="secondary" className="text-xs flex-shrink-0">Inactive</Badge>
                               )}

@@ -1424,6 +1424,9 @@ export class StreamingVoiceOrchestrator {
         (session as any).elSimilarityBoost = tutorVoice.elSimilarityBoost ?? 0.75;
         (session as any).elStyle = tutorVoice.elStyle ?? 0;
         (session as any).elSpeakerBoost = tutorVoice.elSpeakerBoost ?? true;
+        if (tutorVoice.geminiLanguageCode) {
+          session.geminiLanguageCode = tutorVoice.geminiLanguageCode;
+        }
         console.log(`[VoiceDefaults] Loaded tutor baseline from DB: ${config.targetLanguage}/${initialGender} (TTS: ${session.ttsProvider})`, session.voiceDefaults);
       } else {
         // Fallback to standard tutor defaults if voice not in database

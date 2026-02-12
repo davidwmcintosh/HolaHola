@@ -3211,3 +3211,35 @@ Missing any of these steps will cause silent failures — the function either wo
 - Only applies to PTT (push-to-talk) path — open-mic uses persistent Deepgram connections that can't accept new keyterms mid-stream
 - TTS (Cartesia autoDetectLanguage) and STT (Deepgram keyterms) are independent systems
 - Keyterms are most impactful for beginners; advanced students have clearer pronunciation and conversational context that helps Deepgram naturally
+
+---
+
+### Session: February 12, 2026 - Gemini TTS Regional Accent Variant System (Voice Console + Persistent Storage)
+
+**Status**: COMPLETED
+
+**Problem**: The accent variant dropdown for Gemini TTS was only available as a temporary session override in the Voice Lab panel. It was not visible in the Voice Console where Daniela's voice records are managed, and accent settings were not persisted to the database.
+
+**Solution**: Added `gemini_language_code` column to the `tutor_voices` table and wired accent variant selection through the full stack — Voice Console admin UI, API route, database storage, and session initialization.
+
+**What was built**:
+1. **Database**: Added `gemini_language_code` varchar column to `tutor_voices` table (BCP-47 accent codes like 'es-MX', 'en-GB', 'pt-BR')
+2. **Voice Console UI**: Regional Accent dropdown appears in the edit dialog when provider is Gemini and language has multiple accent variants (with Globe icon)
+3. **Voice card display**: Accent badge (e.g. "es-MX") shown on voice records in the language list
+4. **Session initialization**: When a voice session starts, `geminiLanguageCode` from the voice record is loaded into the session automatically
+5. **Expanded accent variants**: Added es-AR, es-CO, en-AU, fr-CA, de-AT, pt-PT, zh-TW (based on Google Gemini TTS supported languages)
+
+**Key files modified**:
+- `shared/schema.ts` — Added `geminiLanguageCode` column to `tutorVoices` table
+- `server/routes.ts` — Added `geminiLanguageCode` to tutor voice upsert handler
+- `server/services/gemini-live-tts.ts` — Expanded `LANGUAGE_ACCENT_VARIANTS` with more regional variants
+- `server/services/streaming-voice-orchestrator.ts` — Loads `geminiLanguageCode` from voice record into session at startup
+- `client/src/pages/admin/VoiceConsole.tsx` — Added accent dropdown, accent badge display, form data field, and edit loading
+- `client/src/components/VoiceLabPanel.tsx` — Already had accent dropdown (session override path)
+
+**Architecture notes**:
+- Two accent paths: Voice Console saves to DB (persistent default), Voice Lab overrides per-session (temporary)
+- Session override takes precedence over DB default when both exist
+- Accent dropdown only shows when: (a) provider is Gemini, AND (b) language has 2+ accent variants
+- Gemini Live API uses `languageCode` in `speechConfig` as a pronunciation hint — the model auto-detects language but respects accent guidance
+- Google's Gemini TTS docs confirm style/accent/pace/tone are all controllable via natural language prompts in addition to languageCode
