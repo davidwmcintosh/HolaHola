@@ -16409,7 +16409,7 @@ Current conversation context:
       if (provider === 'gemini') {
         const { getGeminiLiveTtsService } = await import('./services/gemini-live-tts');
         const geminiLiveTtsService = getGeminiLiveTtsService();
-        const audioBuffer = await geminiLiveTtsService.synthesizeToBuffer(text, voiceId || 'Kore');
+        const audioBuffer = await geminiLiveTtsService.synthesizeToBuffer(text, voiceId || 'Kore', languageCode);
         res.setHeader('Content-Type', 'audio/wav');
         res.send(audioBuffer);
         return;

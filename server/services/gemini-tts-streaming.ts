@@ -15,10 +15,17 @@ import type {
 } from './cartesia-streaming';
 
 const GEMINI_TTS_VOICES: { name: string; gender: 'male' | 'female' }[] = [
+  { name: 'Aoede', gender: 'female' },
   { name: 'Kore', gender: 'female' },
+  { name: 'Leda', gender: 'female' },
+  { name: 'Zephyr', gender: 'female' },
   { name: 'Puck', gender: 'male' },
   { name: 'Charon', gender: 'male' },
-  { name: 'Aoede', gender: 'female' },
+  { name: 'Fenrir', gender: 'male' },
+  { name: 'Orus', gender: 'male' },
+  { name: 'Achernar', gender: 'female' },
+  { name: 'Achird', gender: 'female' },
+  { name: 'Algenib', gender: 'male' },
   { name: 'Algieba', gender: 'male' },
   { name: 'Alnilam', gender: 'male' },
   { name: 'Autonoe', gender: 'female' },
@@ -26,18 +33,18 @@ const GEMINI_TTS_VOICES: { name: string; gender: 'male' | 'female' }[] = [
   { name: 'Despina', gender: 'female' },
   { name: 'Enceladus', gender: 'male' },
   { name: 'Erinome', gender: 'female' },
-  { name: 'Fenrir', gender: 'male' },
   { name: 'Gacrux', gender: 'male' },
   { name: 'Iapetus', gender: 'male' },
   { name: 'Laomedeia', gender: 'female' },
-  { name: 'Leda', gender: 'female' },
-  { name: 'Orus', gender: 'male' },
   { name: 'Pulcherrima', gender: 'female' },
   { name: 'Rasalgethi', gender: 'male' },
   { name: 'Sadachbia', gender: 'male' },
-  { name: 'Achernar', gender: 'female' },
-  { name: 'Achird', gender: 'female' },
-  { name: 'Algenib', gender: 'male' },
+  { name: 'Sadaltager', gender: 'male' },
+  { name: 'Schedar', gender: 'female' },
+  { name: 'Sulafat', gender: 'female' },
+  { name: 'Umbriel', gender: 'male' },
+  { name: 'Vindemiatrix', gender: 'female' },
+  { name: 'Zubenelgenubi', gender: 'male' },
 ];
 
 export class GeminiTtsStreamingService extends EventEmitter {

@@ -105,6 +105,56 @@ interface GoogleVoiceOption {
   languageCode: string;
 }
 
+const DEFAULT_TUTOR_NAMES: Record<string, Record<string, string>> = {
+  'Aoede': {
+    'english': 'Cindy', 'spanish': 'Daniela', 'french': 'Juliette',
+    'italian': 'Liv', 'japanese': 'Sayuri', 'mandarin chinese': 'Hua',
+    'korean': 'Jihyun', 'german': 'Aoede', 'portuguese': 'Aoede', 'hebrew': 'Shira',
+  },
+  'Puck': {
+    'spanish': 'Agustin', 'french': 'Vincent', 'portuguese': 'Camilo',
+    'korean': 'Minho', 'english': 'Puck', 'german': 'Puck',
+    'italian': 'Puck', 'japanese': 'Puck', 'mandarin chinese': 'Puck', 'hebrew': 'Puck',
+  },
+  'Orus': {
+    'english': 'Blake', 'italian': 'Luca', 'german': 'Lukas',
+    'mandarin chinese': 'Tao', 'spanish': 'Orus', 'french': 'Orus',
+    'portuguese': 'Orus', 'japanese': 'Orus', 'korean': 'Orus', 'hebrew': 'Orus',
+  },
+  'Leda': {
+    'german': 'Greta', 'portuguese': 'Isabel',
+    'english': 'Leda', 'spanish': 'Leda', 'french': 'Leda',
+    'italian': 'Leda', 'japanese': 'Leda', 'mandarin chinese': 'Leda',
+    'korean': 'Leda', 'hebrew': 'Leda',
+  },
+  'Fenrir': {
+    'japanese': 'Daisuke', 'english': 'Augustine',
+    'spanish': 'Fenrir', 'french': 'Fenrir', 'german': 'Fenrir',
+    'italian': 'Fenrir', 'portuguese': 'Fenrir', 'mandarin chinese': 'Fenrir',
+    'korean': 'Fenrir', 'hebrew': 'Fenrir',
+  },
+  'Kore': {
+    'english': 'Kore', 'spanish': 'Kore', 'french': 'Kore',
+    'german': 'Kore', 'italian': 'Kore', 'portuguese': 'Kore',
+    'japanese': 'Kore', 'mandarin chinese': 'Kore', 'korean': 'Kore', 'hebrew': 'Kore',
+  },
+  'Charon': {
+    'english': 'Charon', 'spanish': 'Charon', 'french': 'Charon',
+    'german': 'Charon', 'italian': 'Charon', 'portuguese': 'Charon',
+    'japanese': 'Charon', 'mandarin chinese': 'Charon', 'korean': 'Charon', 'hebrew': 'Charon',
+  },
+  'Zephyr': {
+    'english': 'Zephyr', 'spanish': 'Zephyr', 'french': 'Zephyr',
+    'german': 'Zephyr', 'italian': 'Zephyr', 'portuguese': 'Zephyr',
+    'japanese': 'Zephyr', 'mandarin chinese': 'Zephyr', 'korean': 'Zephyr', 'hebrew': 'Zephyr',
+  },
+};
+
+function getDefaultTutorName(voiceId: string, language: string): string {
+  const baseVoice = voiceId.includes('-') ? voiceId.split('-').pop() || voiceId : voiceId;
+  return DEFAULT_TUTOR_NAMES[baseVoice]?.[language] || baseVoice;
+}
+
 const SUPPORTED_LANGUAGES = [
   { value: 'english', label: 'English', code: 'en' },
   { value: 'spanish', label: 'Spanish', code: 'es' },
@@ -595,10 +645,11 @@ export function VoiceConsoleContent() {
   const handleVoiceSelect = (voiceId: string) => {
     const selectedVoice = activeVoices.find(v => v.id === voiceId);
     if (selectedVoice) {
+      const defaultName = getDefaultTutorName(voiceId, formData.language);
       setFormData(prev => ({
         ...prev,
         voiceId: selectedVoice.id,
-        voiceName: selectedVoice.name,
+        voiceName: defaultName,
       }));
     }
   };

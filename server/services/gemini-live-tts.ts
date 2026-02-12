@@ -10,10 +10,17 @@ import type {
 import { voiceDiagnostics } from './voice-diagnostics-service';
 
 const GEMINI_LIVE_VOICES: { name: string; gender: 'male' | 'female' }[] = [
+  { name: 'Aoede', gender: 'female' },
   { name: 'Kore', gender: 'female' },
+  { name: 'Leda', gender: 'female' },
+  { name: 'Zephyr', gender: 'female' },
   { name: 'Puck', gender: 'male' },
   { name: 'Charon', gender: 'male' },
-  { name: 'Aoede', gender: 'female' },
+  { name: 'Fenrir', gender: 'male' },
+  { name: 'Orus', gender: 'male' },
+  { name: 'Achernar', gender: 'female' },
+  { name: 'Achird', gender: 'female' },
+  { name: 'Algenib', gender: 'male' },
   { name: 'Algieba', gender: 'male' },
   { name: 'Alnilam', gender: 'male' },
   { name: 'Autonoe', gender: 'female' },
@@ -21,18 +28,18 @@ const GEMINI_LIVE_VOICES: { name: string; gender: 'male' | 'female' }[] = [
   { name: 'Despina', gender: 'female' },
   { name: 'Enceladus', gender: 'male' },
   { name: 'Erinome', gender: 'female' },
-  { name: 'Fenrir', gender: 'male' },
   { name: 'Gacrux', gender: 'male' },
   { name: 'Iapetus', gender: 'male' },
   { name: 'Laomedeia', gender: 'female' },
-  { name: 'Leda', gender: 'female' },
-  { name: 'Orus', gender: 'male' },
   { name: 'Pulcherrima', gender: 'female' },
   { name: 'Rasalgethi', gender: 'male' },
   { name: 'Sadachbia', gender: 'male' },
-  { name: 'Achernar', gender: 'female' },
-  { name: 'Achird', gender: 'female' },
-  { name: 'Algenib', gender: 'male' },
+  { name: 'Sadaltager', gender: 'male' },
+  { name: 'Schedar', gender: 'female' },
+  { name: 'Sulafat', gender: 'female' },
+  { name: 'Umbriel', gender: 'male' },
+  { name: 'Vindemiatrix', gender: 'female' },
+  { name: 'Zubenelgenubi', gender: 'male' },
 ];
 
 const LIVE_MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
@@ -145,8 +152,9 @@ export class GeminiLiveTtsService extends EventEmitter {
     }
 
     const voiceName = request.voiceId || 'Kore';
+    const languageHint = (request as any).languageHint as string | undefined;
     const startTime = Date.now();
-    console.log(`[Gemini Live TTS] Progressive: "${trimmedText.substring(0, 60)}..." (${trimmedText.length} chars, voice: ${voiceName})`);
+    console.log(`[Gemini Live TTS] Progressive: "${trimmedText.substring(0, 60)}..." (${trimmedText.length} chars, voice: ${voiceName}, lang: ${languageHint || 'auto'})`);
 
     return new Promise((resolve, reject) => {
       let chunkIndex = 0;
@@ -253,7 +261,18 @@ export class GeminiLiveTtsService extends EventEmitter {
         },
         config: {
           responseModalities: [Modality.AUDIO],
-          systemInstruction: 'Read the following text aloud exactly as written. Do not add any extra words or commentary.',
+          systemInstruction: (() => {
+            if (!languageHint) return 'Read the following text aloud exactly as written. Do not add any extra words or commentary.';
+            const langMap: Record<string, string> = {
+              'en': 'English', 'en-US': 'English', 'es': 'Spanish', 'es-US': 'Spanish', 'es-ES': 'Spanish',
+              'fr': 'French', 'fr-FR': 'French', 'de': 'German', 'de-DE': 'German',
+              'it': 'Italian', 'it-IT': 'Italian', 'pt': 'Portuguese', 'pt-BR': 'Portuguese',
+              'ja': 'Japanese', 'ja-JP': 'Japanese', 'zh': 'Mandarin Chinese', 'cmn-CN': 'Mandarin Chinese',
+              'ko': 'Korean', 'ko-KR': 'Korean', 'he': 'Hebrew', 'he-IL': 'Hebrew',
+            };
+            const langName = langMap[languageHint] || languageHint;
+            return `Read the following text aloud exactly as written in ${langName}. Do not add any extra words or commentary. Speak naturally in ${langName}.`;
+          })(),
           speechConfig: {
             voiceConfig: {
               prebuiltVoiceConfig: { voiceName },
@@ -319,15 +338,15 @@ export class GeminiLiveTtsService extends EventEmitter {
     }
   }
 
-  async synthesizeToBuffer(text: string, voiceName: string): Promise<Buffer> {
+  async synthesizeToBuffer(text: string, voiceName: string, languageHint?: string): Promise<Buffer> {
     const trimmedText = this.cleanTextForTTS(text);
     if (!trimmedText) return Buffer.alloc(0);
 
-    console.log(`[Gemini Live TTS] synthesizeToBuffer: "${trimmedText.substring(0, 50)}..." voice=${voiceName}`);
+    console.log(`[Gemini Live TTS] synthesizeToBuffer: "${trimmedText.substring(0, 50)}..." voice=${voiceName} lang=${languageHint || 'auto'}`);
 
     const allChunks: Buffer[] = [];
     await this.streamSynthesizeProgressive(
-      { text, voiceId: voiceName } as StreamingSynthesisRequest,
+      { text, voiceId: voiceName, languageHint } as StreamingSynthesisRequest & { languageHint?: string },
       {
         onAudioChunk: (chunk) => { allChunks.push(chunk.audio); },
         onComplete: () => {},
