@@ -47,7 +47,7 @@ export class GeminiTtsStreamingService extends EventEmitter {
   constructor() {
     super();
     this.model = process.env.GEMINI_TTS_MODEL || 'gemini-2.5-flash-preview-tts';
-    const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '';
+    const apiKey = process.env.GEMINI_API_KEY || '';
     if (apiKey) {
       this.client = new GoogleGenAI({ apiKey });
       console.log(`[Gemini TTS] Initialized (model: ${this.model})`);

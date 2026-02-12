@@ -44,7 +44,7 @@ export class GeminiLiveTtsService extends EventEmitter {
 
   constructor() {
     super();
-    const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '';
+    const apiKey = process.env.GEMINI_API_KEY || '';
     if (apiKey) {
       this.client = new GoogleGenAI({ apiKey });
       console.log(`[Gemini Live TTS] Initialized (model: ${LIVE_MODEL} via Live API)`);
