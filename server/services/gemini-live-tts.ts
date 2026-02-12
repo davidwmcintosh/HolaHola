@@ -23,6 +23,7 @@ const GEMINI_LIVE_VOICES: { name: string; gender: 'male' | 'female' }[] = [
 const TTS_MODEL = 'gemini-2.5-flash-preview-tts';
 const TTS_SAMPLE_RATE = 24000;
 const CHUNK_SIZE_SAMPLES = 2400;
+const SYNTHESIS_TIMEOUT_MS = 30000;
 
 export const LANGUAGE_ACCENT_VARIANTS: Record<string, { label: string; code: string }[]> = {
   spanish: [
