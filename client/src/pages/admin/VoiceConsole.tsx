@@ -628,7 +628,6 @@ export function VoiceConsoleContent() {
       language: value,
       languageCode: lang?.code || '',
       voiceId: '',
-      voiceName: '',
       geminiLanguageCode: prev.provider === 'gemini' ? defaultAccent : '',
     }));
   };
@@ -637,8 +636,7 @@ export function VoiceConsoleContent() {
     setFormData(prev => ({
       ...prev,
       gender: value,
-      voiceId: '', // Reset voice selection when gender changes
-      voiceName: '',
+      voiceId: '',
     }));
   };
 
@@ -649,7 +647,7 @@ export function VoiceConsoleContent() {
       setFormData(prev => ({
         ...prev,
         voiceId: selectedVoice.id,
-        voiceName: defaultName,
+        voiceName: prev.voiceName || defaultName,
       }));
     }
   };
@@ -667,7 +665,6 @@ export function VoiceConsoleContent() {
       ...prev,
       provider: pendingProvider,
       voiceId: '',
-      voiceName: '',
       elStability: pendingProvider === 'elevenlabs' ? 0.5 : prev.elStability,
       elSimilarityBoost: pendingProvider === 'elevenlabs' ? 0.75 : prev.elSimilarityBoost,
       elStyle: pendingProvider === 'elevenlabs' ? 0.0 : prev.elStyle,
