@@ -282,9 +282,26 @@ export class GeminiLiveTtsService extends EventEmitter {
       || (request as any).accentLanguage as string | undefined;
     const resolvedLanguageCode = geminiLanguageCode 
       || (targetLanguage ? DEFAULT_LANGUAGE_CODE[targetLanguage.toLowerCase()] : undefined);
+
+    const SUPPORTED_SPEECH_CONFIG_CODES = new Set([
+      'en-US', 'es-US', 'es-ES', 'es-MX', 'fr-FR', 'fr-CA',
+      'de-DE', 'it-IT', 'pt-BR', 'pt-PT', 'ja-JP', 'zh-CN', 'zh-TW',
+      'ko-KR', 'he-IL',
+    ]);
+    const BASE_CODE_FALLBACK: Record<string, string> = {
+      'en': 'en-US', 'es': 'es-US', 'fr': 'fr-FR', 'de': 'de-DE',
+      'it': 'it-IT', 'pt': 'pt-BR', 'ja': 'ja-JP', 'zh': 'zh-CN',
+      'ko': 'ko-KR', 'he': 'he-IL',
+    };
+    const speechConfigCode = resolvedLanguageCode
+      ? (SUPPORTED_SPEECH_CONFIG_CODES.has(resolvedLanguageCode)
+        ? resolvedLanguageCode
+        : BASE_CODE_FALLBACK[resolvedLanguageCode.split('-')[0]] || undefined)
+      : undefined;
+
     const startTime = Date.now();
     const stylePrompt = this.buildStylePrompt(request, resolvedLanguageCode);
-    console.log(`[Gemini Live TTS] Progressive: "${trimmedText.substring(0, 60)}..." (${trimmedText.length} chars, voice: ${voiceName}, langCode: ${resolvedLanguageCode || 'auto'}, style: "${stylePrompt.substring(0, 100)}")`);
+    console.log(`[Gemini Live TTS] Progressive: "${trimmedText.substring(0, 60)}..." (${trimmedText.length} chars, voice: ${voiceName}, langCode: ${speechConfigCode || 'auto'} (accent: ${resolvedLanguageCode || 'none'}), style: "${stylePrompt.substring(0, 100)}")`);
 
     return new Promise((resolve, reject) => {
       let chunkIndex = 0;
@@ -393,7 +410,7 @@ export class GeminiLiveTtsService extends EventEmitter {
           responseModalities: [Modality.AUDIO],
           systemInstruction: stylePrompt,
           speechConfig: {
-            ...(resolvedLanguageCode ? { languageCode: resolvedLanguageCode } : {}),
+            ...(speechConfigCode ? { languageCode: speechConfigCode } : {}),
             voiceConfig: {
               prebuiltVoiceConfig: { voiceName },
             },
