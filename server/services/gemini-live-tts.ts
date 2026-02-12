@@ -46,6 +46,56 @@ const LIVE_MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
 const LIVE_SAMPLE_RATE = 24000;
 const SYNTHESIS_TIMEOUT_MS = 15000;
 
+export const LANGUAGE_ACCENT_VARIANTS: Record<string, { label: string; code: string }[]> = {
+  spanish: [
+    { label: 'Spanish (US)', code: 'es-US' },
+    { label: 'Spanish (Spain)', code: 'es-ES' },
+    { label: 'Spanish (Mexico)', code: 'es-MX' },
+  ],
+  english: [
+    { label: 'English (US)', code: 'en-US' },
+    { label: 'English (UK)', code: 'en-GB' },
+    { label: 'English (India)', code: 'en-IN' },
+  ],
+  french: [
+    { label: 'French (France)', code: 'fr-FR' },
+  ],
+  german: [
+    { label: 'German (Germany)', code: 'de-DE' },
+  ],
+  italian: [
+    { label: 'Italian (Italy)', code: 'it-IT' },
+  ],
+  portuguese: [
+    { label: 'Portuguese (Brazil)', code: 'pt-BR' },
+  ],
+  japanese: [
+    { label: 'Japanese (Japan)', code: 'ja-JP' },
+  ],
+  'mandarin chinese': [
+    { label: 'Chinese (Simplified)', code: 'zh-CN' },
+  ],
+  korean: [
+    { label: 'Korean (Korea)', code: 'ko-KR' },
+  ],
+  hebrew: [
+    { label: 'Hebrew (Israel)', code: 'he-IL' },
+  ],
+};
+
+const DEFAULT_LANGUAGE_CODE: Record<string, string> = {
+  spanish: 'es-US',
+  english: 'en-US',
+  french: 'fr-FR',
+  german: 'de-DE',
+  italian: 'it-IT',
+  portuguese: 'pt-BR',
+  japanese: 'ja-JP',
+  'mandarin chinese': 'zh-CN',
+  korean: 'ko-KR',
+  hebrew: 'he-IL',
+};
+
 export class GeminiLiveTtsService extends EventEmitter {
   private client: GoogleGenAI | null = null;
 
@@ -154,8 +204,12 @@ export class GeminiLiveTtsService extends EventEmitter {
     const voiceName = request.voiceId || 'Kore';
     const languageHint = (request as any).languageHint as string | undefined;
     const accentLanguage = (request as any).accentLanguage as string | undefined;
+    const targetLanguage = (request as any).targetLanguage as string | undefined;
+    const geminiLanguageCode = (request as any).geminiLanguageCode as string | undefined;
+    const resolvedLanguageCode = geminiLanguageCode 
+      || (targetLanguage ? DEFAULT_LANGUAGE_CODE[targetLanguage.toLowerCase()] : undefined);
     const startTime = Date.now();
-    console.log(`[Gemini Live TTS] Progressive: "${trimmedText.substring(0, 60)}..." (${trimmedText.length} chars, voice: ${voiceName}, lang: ${languageHint || 'auto'}, accent: ${accentLanguage || 'none'})`);
+    console.log(`[Gemini Live TTS] Progressive: "${trimmedText.substring(0, 60)}..." (${trimmedText.length} chars, voice: ${voiceName}, lang: ${languageHint || 'auto'}, accent: ${accentLanguage || 'none'}, langCode: ${resolvedLanguageCode || 'auto'})`);
 
     return new Promise((resolve, reject) => {
       let chunkIndex = 0;
@@ -264,21 +318,44 @@ export class GeminiLiveTtsService extends EventEmitter {
           responseModalities: [Modality.AUDIO],
           systemInstruction: (() => {
             const langMap: Record<string, string> = {
-              'en': 'English', 'en-US': 'English', 'es': 'Spanish', 'es-US': 'Spanish', 'es-ES': 'Spanish',
-              'fr': 'French', 'fr-FR': 'French', 'de': 'German', 'de-DE': 'German',
-              'it': 'Italian', 'it-IT': 'Italian', 'pt': 'Portuguese', 'pt-BR': 'Portuguese',
-              'ja': 'Japanese', 'ja-JP': 'Japanese', 'zh': 'Mandarin Chinese', 'cmn-CN': 'Mandarin Chinese',
-              'ko': 'Korean', 'ko-KR': 'Korean', 'he': 'Hebrew', 'he-IL': 'Hebrew',
+              'en': 'English', 'en-US': 'English (US)', 'en-GB': 'English (British)', 'en-IN': 'English (Indian)',
+              'es': 'Spanish', 'es-US': 'Spanish (US)', 'es-ES': 'Spanish (Spain)', 'es-MX': 'Spanish (Mexican)',
+              'fr': 'French', 'fr-FR': 'French',
+              'de': 'German', 'de-DE': 'German',
+              'it': 'Italian', 'it-IT': 'Italian',
+              'pt': 'Portuguese', 'pt-BR': 'Portuguese (Brazilian)',
+              'ja': 'Japanese', 'ja-JP': 'Japanese',
+              'zh': 'Mandarin Chinese', 'zh-CN': 'Mandarin Chinese', 'cmn-CN': 'Mandarin Chinese',
+              'ko': 'Korean', 'ko-KR': 'Korean',
+              'he': 'Hebrew', 'he-IL': 'Hebrew',
+            };
+            const codeToAccentDesc: Record<string, string> = {
+              'es-US': 'a Latin American (US) Spanish',
+              'es-ES': 'a Castilian (Spain) Spanish',
+              'es-MX': 'a Mexican Spanish',
+              'en-US': 'an American English',
+              'en-GB': 'a British English',
+              'en-IN': 'an Indian English',
+              'pt-BR': 'a Brazilian Portuguese',
             };
             if (accentLanguage && languageHint === 'en') {
               const accentLang = langMap[accentLanguage] || accentLanguage;
               return `You are a native ${accentLang} speaker. Read the following English text with a natural ${accentLang} accent. Do not add any extra words or commentary.`;
+            }
+            if (resolvedLanguageCode) {
+              const accentDesc = codeToAccentDesc[resolvedLanguageCode];
+              const langName = langMap[resolvedLanguageCode] || langMap[languageHint || ''] || targetLanguage || 'the given';
+              if (accentDesc) {
+                return `Read the following text aloud exactly as written with ${accentDesc} accent. Speak naturally. Do not add any extra words or commentary.`;
+              }
+              return `Read the following text aloud exactly as written in ${langName}. Do not add any extra words or commentary. Speak naturally in ${langName}.`;
             }
             if (!languageHint) return 'Read the following text aloud exactly as written. Do not add any extra words or commentary.';
             const langName = langMap[languageHint] || languageHint;
             return `Read the following text aloud exactly as written in ${langName}. Do not add any extra words or commentary. Speak naturally in ${langName}.`;
           })(),
           speechConfig: {
+            ...(resolvedLanguageCode ? { languageCode: resolvedLanguageCode } : {}),
             voiceConfig: {
               prebuiltVoiceConfig: { voiceName },
             },

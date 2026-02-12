@@ -2224,6 +2224,7 @@ Reference past discussions when relevant, but don't force it.
               pedagogicalFocus?: string;
               teachingStyle?: string;
               errorTolerance?: string;
+              geminiLanguageCode?: string;
             } | null;
           };
           
@@ -3859,6 +3860,7 @@ ${buildNativeFunctionCallingSection()}`;
               pedagogicalFocus?: string;
               teachingStyle?: string;
               errorTolerance?: string;
+              geminiLanguageCode?: string;
             } | null;
           };
           

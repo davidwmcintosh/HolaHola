@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Loader2, Volume2, Save, RotateCcw, Play, Sparkles, Users, ArrowRightLeft } from "lucide-react";
+import { Loader2, Volume2, Save, RotateCcw, Play, Sparkles, Users, ArrowRightLeft, Globe } from "lucide-react";
 
 type PersonalityType = 'warm' | 'calm' | 'energetic' | 'professional';
 
@@ -78,6 +78,7 @@ export interface VoiceOverride {
   elStability?: number;
   elSimilarityBoost?: number;
   elStyle?: number;
+  geminiLanguageCode?: string;
 }
 
 interface GoogleVoice {
@@ -141,6 +142,16 @@ export function VoiceLabPanel({
   
   // Voice selection state (for audition)
   const [selectedVoiceId, setSelectedVoiceId] = useState<string | null>(null);
+  
+  // Accent variant state (for Gemini TTS language code)
+  const [selectedAccent, setSelectedAccent] = useState<string>('');
+
+  // Fetch accent variants for language
+  const { data: accentVariants } = useQuery<Record<string, { label: string; code: string }[]>>({
+    queryKey: ['/api/admin/accent-variants'],
+    enabled: isOpen,
+  });
+  const languageAccents = accentVariants?.[language] || [];
 
   // Fetch current tutor voice (main tutor for role='tutor', assistant for role='assistant')
   const { data: currentVoice, isLoading: isLoadingVoice } = useQuery<TutorVoice>({
@@ -164,6 +175,7 @@ export function VoiceLabPanel({
   
   const isElevenLabs = currentVoice?.provider === 'elevenlabs';
   const isGoogle = currentVoice?.provider === 'google';
+  const isGemini = currentVoice?.provider === 'gemini';
 
   // Fetch available Cartesia voices for main tutors (only when using Cartesia)
   const { data: cartesiaVoicesData, isLoading: isLoadingCartesiaVoices } = useQuery<{ voices: CartesiaVoice[]; total: number }>({
@@ -231,6 +243,7 @@ export function VoiceLabPanel({
       setElStability(currentVoice.elStability ?? 0.5);
       setElSimilarityBoost(currentVoice.elSimilarityBoost ?? 0.75);
       setElStyle(currentVoice.elStyle ?? 0.0);
+      setSelectedAccent(currentOverride?.geminiLanguageCode ?? '');
       setHasChanges(!!currentOverride);
     }
   }, [currentVoice, currentOverride, isOpen]);
@@ -256,6 +269,7 @@ export function VoiceLabPanel({
       emotion,
       ...(selectedVoiceId && selectedVoiceId !== currentVoice?.voiceId ? { voiceId: selectedVoiceId } : {}),
       ...(isElevenLabs ? { elStability, elSimilarityBoost, elStyle } : {}),
+      ...(isGemini && selectedAccent ? { geminiLanguageCode: selectedAccent } : {}),
     };
     onOverrideChange(override);
     setHasChanges(true);
@@ -279,6 +293,7 @@ export function VoiceLabPanel({
       setElStability(currentVoice.elStability ?? 0.5);
       setElSimilarityBoost(currentVoice.elSimilarityBoost ?? 0.75);
       setElStyle(currentVoice.elStyle ?? 0.0);
+      setSelectedAccent('');
     }
     onOverrideChange(null);
     setHasChanges(false);
@@ -316,6 +331,7 @@ export function VoiceLabPanel({
         emotion,
         ...(selectedVoiceId && selectedVoiceId !== currentVoice?.voiceId ? { voiceId: selectedVoiceId } : {}),
         ...(isElevenLabs ? { elStability, elSimilarityBoost, elStyle } : {}),
+        ...(isGemini && selectedAccent ? { geminiLanguageCode: selectedAccent } : {}),
       };
       onOverrideChange(override);
       setHasChanges(false);
@@ -472,6 +488,36 @@ export function VoiceLabPanel({
                 Try different voices - click Audition to preview
               </p>
             </div>
+
+            {/* Accent Variant - for Gemini TTS with multiple regional variants */}
+            {isGemini && languageAccents.length > 1 && (
+              <>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-muted-foreground" />
+                    <Label>Accent Variant</Label>
+                  </div>
+                  <Select
+                    value={selectedAccent || languageAccents[0]?.code || ''}
+                    onValueChange={(v) => setSelectedAccent(v)}
+                  >
+                    <SelectTrigger data-testid="select-accent-variant">
+                      <SelectValue placeholder="Select accent..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {languageAccents.map(variant => (
+                        <SelectItem key={variant.code} value={variant.code}>
+                          {variant.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Regional accent for Gemini TTS - changes pronunciation style
+                  </p>
+                </div>
+              </>
+            )}
 
             <Separator />
 

@@ -18021,6 +18021,16 @@ Current conversation context:
     }
   });
   
+  // Admin: Get language accent variants for Gemini TTS
+  app.get("/api/admin/accent-variants", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req: any, res) => {
+    try {
+      const { LANGUAGE_ACCENT_VARIANTS } = await import('./services/gemini-live-tts');
+      res.json(LANGUAGE_ACCENT_VARIANTS);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Admin: Get available Google TTS voices for assistant tutors
   app.get("/api/admin/google-voices/:language?/:gender?", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {

@@ -147,6 +147,7 @@ export interface UseStreamingVoiceReturn {
     personality?: string;
     expressiveness?: number;
     emotion?: string;
+    geminiLanguageCode?: string;
   } | null) => void;
 }
 
@@ -1385,6 +1386,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     personality?: string;
     expressiveness?: number;
     emotion?: string;
+    geminiLanguageCode?: string;
   } | null) => {
     if (clientRef.current) {
       clientRef.current.sendVoiceOverride(override);

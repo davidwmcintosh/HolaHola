@@ -823,6 +823,7 @@ export interface StreamingSession {
   tutorExpressiveness: number;
   voiceSpeed: VoiceSpeedOption;
   voiceId?: string;
+  geminiLanguageCode?: string;  // BCP-47 language code for Gemini TTS accent (e.g., 'es-MX', 'es-ES')
   ttsProvider?: 'elevenlabs' | 'cartesia' | 'google' | 'gemini';  // Per-session TTS provider (from tutor_voices DB record)
   tutorGender: 'male' | 'female';    // Current tutor gender for persona-aware responses
   tutorName: string;                 // Current tutor's first name (e.g., "Daniela", "Agustin")
@@ -6911,6 +6912,7 @@ Remember: Beta testers understand they're helping build something and appreciate
         text: textWithEmphases,
         autoDetectLanguage: true,
         targetLanguage: session.targetLanguage,
+        geminiLanguageCode: session.geminiLanguageCode,
         voiceId: session.voiceId,
         speakingRate: effectiveSpeakingRate,
         emotion: effectiveEmotion,
@@ -7554,6 +7556,7 @@ Remember: Beta testers understand they're helping build something and appreciate
         text: textWithEmphases,
         autoDetectLanguage: true,
         targetLanguage: session.targetLanguage,
+        geminiLanguageCode: session.geminiLanguageCode,
         voiceId: session.voiceId,
         speakingRate: effectiveSpeakingRate,
         emotion: effectiveEmotion,
@@ -10960,6 +10963,7 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
     elStability?: number;
     elSimilarityBoost?: number;
     elStyle?: number;
+    geminiLanguageCode?: string;
   } | null): boolean {
     const session = this.sessions.get(sessionId);
     if (!session) {
@@ -10972,6 +10976,13 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
     if (override?.voiceId) {
       session.voiceId = override.voiceId;
       console.log(`[Streaming Orchestrator] Voice ID updated to: ${override.voiceId.substring(0, 8)}...`);
+    }
+    
+    // If geminiLanguageCode override is provided, update session directly
+    // This controls the accent variant for Gemini TTS (e.g., es-MX vs es-ES)
+    if (override?.geminiLanguageCode !== undefined) {
+      session.geminiLanguageCode = override.geminiLanguageCode || undefined;
+      console.log(`[Streaming Orchestrator] Gemini language code updated to: ${session.geminiLanguageCode || 'auto'}`);
     }
     
     // Apply ElevenLabs settings directly to session (read from session during TTS)

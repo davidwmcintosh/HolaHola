@@ -686,6 +686,7 @@ export class StreamingVoiceClient {
     personality?: string;
     expressiveness?: number;
     emotion?: string;
+    geminiLanguageCode?: string;
   } | null): void {
     if (this.isReady()) {
       this.socket!.emit('message', { 
