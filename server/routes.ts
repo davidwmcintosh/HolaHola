@@ -16345,7 +16345,7 @@ Current conversation context:
   // Supports both Cartesia (main tutors) and Google Cloud TTS (assistant tutors)
   app.post("/api/admin/voice-audition", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const { voiceId, text, languageCode: rawLanguageCode, language: langAlias, speakingRate, emotion, provider = 'cartesia', elStability, elSimilarityBoost, elStyle, elSpeed, accentLanguage } = req.body;
+      const { voiceId, text, languageCode: rawLanguageCode, language: langAlias, speakingRate, emotion, provider = 'cartesia', elStability, elSimilarityBoost, elStyle, elSpeed, accentLanguage, nativeLanguage } = req.body;
       const languageCode = rawLanguageCode || langAlias;
       
       if (!voiceId || !text) {
@@ -16410,7 +16410,7 @@ Current conversation context:
       if (provider === 'gemini') {
         const { getGeminiLiveTtsService } = await import('./services/gemini-live-tts');
         const geminiLiveTtsService = getGeminiLiveTtsService();
-        const audioBuffer = await geminiLiveTtsService.synthesizeToBuffer(text, voiceId || 'Kore', languageCode || undefined, accentLanguage || undefined);
+        const audioBuffer = await geminiLiveTtsService.synthesizeToBuffer(text, voiceId || 'Kore', languageCode || undefined, accentLanguage || undefined, nativeLanguage || 'english');
         res.setHeader('Content-Type', 'audio/wav');
         res.send(audioBuffer);
         return;
@@ -16915,7 +16915,7 @@ Current conversation context:
   // Kept as backward-compatible alias
   app.post("/api/admin/tutor-voices/preview", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const { voiceId, text, language, speakingRate, emotion, provider, elStability, elSimilarityBoost, elStyle, elSpeed } = req.body;
+      const { voiceId, text, language, speakingRate, emotion, provider, elStability, elSimilarityBoost, elStyle, elSpeed, nativeLanguage } = req.body;
       
       if (!voiceId || !text) {
         return res.status(400).json({ error: "voiceId and text are required" });
@@ -16946,7 +16946,7 @@ Current conversation context:
       if (provider === 'gemini') {
         const { getGeminiLiveTtsService } = await import('./services/gemini-live-tts');
         const geminiLiveTtsService = getGeminiLiveTtsService();
-        const audioBuffer = await geminiLiveTtsService.synthesizeToBuffer(text, voiceId || 'Kore');
+        const audioBuffer = await geminiLiveTtsService.synthesizeToBuffer(text, voiceId || 'Kore', language || undefined, undefined, nativeLanguage || 'english');
         
         res.set({
           'Content-Type': 'audio/wav',

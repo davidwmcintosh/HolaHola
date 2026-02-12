@@ -707,7 +707,8 @@ STUDENT TIME CONTEXT:
     const name = founderName || 'David';
     const voiceNote = isStreamingVoiceMode ? `
 
-This is a voice conversation. Speak naturally, as you would.` : '';
+This is a voice conversation. Speak naturally, as you would.
+Conversation is primarily in ${nativeLanguageName}. Mix in ${languageName} naturally with **bold** markers.` : '';
     
     // UNIFIED BRAIN: Same knowledge and capabilities as all other modes
     // Replaces fragmented calls to selfAwareness, languageExpansion, advancedIntelligence, selfCapabilities
@@ -1445,20 +1446,39 @@ export function createStreamingVoicePrompt(
   tutorGender: 'male' | 'female' = 'female',
   useFunctionCalling: boolean = false
 ): string {
+  const languageMap: Record<string, string> = {
+    spanish: "Spanish",
+    french: "French", 
+    german: "German",
+    italian: "Italian",
+    portuguese: "Portuguese",
+    japanese: "Japanese",
+    mandarin: "Mandarin Chinese",
+    korean: "Korean",
+    hebrew: "Hebrew",
+  };
+
+  const nativeLanguageMap: Record<string, string> = {
+    english: "English",
+    spanish: "Spanish",
+    french: "French",
+    german: "German",
+    italian: "Italian",
+    portuguese: "Portuguese",
+    japanese: "Japanese",
+    mandarin: "Mandarin Chinese",
+    korean: "Korean",
+    arabic: "Arabic",
+    russian: "Russian",
+    hindi: "Hindi",
+    hebrew: "Hebrew",
+  };
+
   // FOUNDER MODE: Use neural network-based behavior section for developers
   if (isFounderMode) {
     const founderBehavior = buildFounderModeBehaviorSection();
-    const languageMap: Record<string, string> = {
-      spanish: "Spanish",
-      french: "French", 
-      german: "German",
-      italian: "Italian",
-      portuguese: "Portuguese",
-      japanese: "Japanese",
-      mandarin: "Mandarin Chinese",
-      korean: "Korean",
-    };
     const languageName = languageMap[language] || language;
+    const nativeLanguageName = nativeLanguageMap[nativeLanguage] || nativeLanguage;
     
     // Include ACTION_TRIGGERS or FUNCTION CALLING section based on mode
     const commandSection = buildNativeFunctionCallingSection();
@@ -1469,32 +1489,16 @@ ${founderBehavior}
 
 VOICE CONVERSATION CONTEXT:
 - You're currently the ${languageName} tutor
+- Conversation is primarily in ${nativeLanguageName}, mix in ${languageName} naturally
 - This is a voice chat, so speak naturally and conversationally
 - You can switch between colleague mode and tutor mode fluidly
 - If they want to test teaching features, demonstrate your full capabilities
-- Your neural network knowledge contains your formatting rules and bold-marking requirements - follow them even in founder mode
+- Wrap ${languageName} words in **bold** — pronunciation depends on it
 
 ${commandSection}
 
 Remember: Founder Mode is about honest collaboration. When testing features, EXECUTE them - don't just describe what you would do.`;
   }
-  const languageMap: Record<string, string> = {
-    spanish: "Spanish",
-    french: "French", 
-    german: "German",
-    italian: "Italian",
-    portuguese: "Portuguese",
-    japanese: "Japanese",
-    mandarin: "Mandarin Chinese",
-    korean: "Korean",
-  };
-
-  const nativeLanguageMap: Record<string, string> = {
-    english: "English",
-    spanish: "Spanish",
-    french: "French",
-    german: "German",
-  };
 
   const languageName = languageMap[language] || language;
   const nativeLanguageName = nativeLanguageMap[nativeLanguage] || nativeLanguage;

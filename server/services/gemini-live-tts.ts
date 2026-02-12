@@ -467,15 +467,15 @@ export class GeminiLiveTtsService extends EventEmitter {
     }
   }
 
-  async synthesizeToBuffer(text: string, voiceName: string, languageHint?: string, accentLanguage?: string): Promise<Buffer> {
+  async synthesizeToBuffer(text: string, voiceName: string, languageHint?: string, accentLanguage?: string, nativeLanguage?: string): Promise<Buffer> {
     const trimmedText = this.cleanTextForTTS(text);
     if (!trimmedText) return Buffer.alloc(0);
 
-    console.log(`[Gemini Live TTS] synthesizeToBuffer: "${trimmedText.substring(0, 50)}..." voice=${voiceName} lang=${languageHint || 'auto'} accent=${accentLanguage || 'none'}`);
+    console.log(`[Gemini Live TTS] synthesizeToBuffer: "${trimmedText.substring(0, 50)}..." voice=${voiceName} lang=${languageHint || 'auto'} accent=${accentLanguage || 'none'} native=${nativeLanguage || 'english'}`);
 
     const allChunks: Buffer[] = [];
     await this.streamSynthesizeProgressive(
-      { text, voiceId: voiceName, languageHint, accentLanguage } as StreamingSynthesisRequest & { languageHint?: string; accentLanguage?: string },
+      { text, voiceId: voiceName, languageHint, accentLanguage, nativeLanguage: nativeLanguage || 'english' } as StreamingSynthesisRequest & { languageHint?: string; accentLanguage?: string; nativeLanguage?: string },
       {
         onAudioChunk: (chunk) => { allChunks.push(chunk.audio); },
         onComplete: () => {},
