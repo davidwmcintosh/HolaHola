@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
@@ -748,6 +749,22 @@ export function VoiceConsoleContent() {
                       </div>
                     )}
 
+                    {/* Tutor Name */}
+                    {formData.voiceId && (
+                      <div className="space-y-2">
+                        <Label>Tutor Name</Label>
+                        <Input
+                          placeholder="e.g. Cindy, Sofia, Marco..."
+                          value={formData.voiceName}
+                          onChange={(e) => setFormData(prev => ({ ...prev, voiceName: e.target.value }))}
+                          data-testid="input-tutor-name"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Display name for this tutor (voice: {activeVoices.find(v => v.id === formData.voiceId)?.name || formData.voiceId})
+                        </p>
+                      </div>
+                    )}
+
                     {/* Speed Control */}
                     {formData.voiceId && (
                       <div className="space-y-3">
@@ -1239,6 +1256,7 @@ export function VoiceConsoleContent() {
                               <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                               <span className="text-sm capitalize w-14 flex-shrink-0">{gender}</span>
                               <span className="font-medium text-sm truncate">{voice.voiceName}</span>
+                              <span className="text-xs text-muted-foreground truncate">({voice.voiceId})</span>
                               <Badge variant="outline" className="text-xs flex-shrink-0">
                                 {voice.speakingRate === 0.7 ? 'Slow' : 
                                  voice.speakingRate === 0.9 ? 'Natural' : 
