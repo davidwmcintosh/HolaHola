@@ -1415,20 +1415,8 @@ export class StreamingVoiceOrchestrator {
           expressiveness: tutorVoice.expressiveness || 3,
         };
         
-        // Load pedagogical persona from Persona Registry if available
-        // This shapes teaching style beyond just voice characteristics
-        if (tutorVoice.pedagogicalFocus || tutorVoice.teachingStyle || tutorVoice.personalityTraits) {
-          session.tutorPersona = {
-            pedagogicalFocus: tutorVoice.pedagogicalFocus || undefined,
-            teachingStyle: tutorVoice.teachingStyle || undefined,
-            errorTolerance: tutorVoice.errorTolerance || undefined,
-            vocabularyLevel: tutorVoice.vocabularyLevel || undefined,
-            personalityTraits: tutorVoice.personalityTraits || undefined,
-            scenarioStrengths: tutorVoice.scenarioStrengths || undefined,
-            teachingPhilosophy: tutorVoice.teachingPhilosophy || undefined,
-          };
-          console.log(`[PedagogicalPersona] Loaded for ${session.tutorName}: focus=${tutorVoice.pedagogicalFocus}, style=${tutorVoice.teachingStyle}`);
-        }
+        // Teaching persona is now global (not per-voice) — Daniela uses consistent
+        // teaching principles across all languages and voices. See buildPedagogicalPersonaSection().
         
         session.ttsProvider = (tutorVoice.provider === 'elevenlabs' ? 'elevenlabs' : tutorVoice.provider === 'google' ? 'google' : tutorVoice.provider === 'gemini' ? 'gemini' : 'cartesia') as 'elevenlabs' | 'cartesia' | 'google' | 'gemini';
         (session as any).elStability = tutorVoice.elStability ?? 0.5;
@@ -4468,21 +4456,7 @@ Remember: Beta testers understand they're helping build something and appreciate
               };
               console.log(`[Tutor Switch] Updated voiceDefaults for ${tutorName}:`, session.voiceDefaults);
               
-              // Load pedagogical persona for the new tutor - shapes their teaching style
-              if (matchingVoice.pedagogicalFocus || matchingVoice.teachingStyle || matchingVoice.personalityTraits) {
-                session.tutorPersona = {
-                  pedagogicalFocus: matchingVoice.pedagogicalFocus || undefined,
-                  teachingStyle: matchingVoice.teachingStyle || undefined,
-                  errorTolerance: matchingVoice.errorTolerance || undefined,
-                  vocabularyLevel: matchingVoice.vocabularyLevel || undefined,
-                  personalityTraits: matchingVoice.personalityTraits || undefined,
-                  scenarioStrengths: matchingVoice.scenarioStrengths || undefined,
-                  teachingPhilosophy: matchingVoice.teachingPhilosophy || undefined,
-                };
-                console.log(`[Tutor Switch] Loaded persona for ${tutorName}: focus=${matchingVoice.pedagogicalFocus}, style=${matchingVoice.teachingStyle}`);
-              } else {
-                session.tutorPersona = undefined;  // Clear persona if new tutor doesn't have one
-              }
+              // Teaching persona is now global — no per-voice persona to load on tutor switch
               
               // Clear any active voice overrides to apply new tutor's baseline immediately
               session.voiceOverride = undefined;

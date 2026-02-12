@@ -217,96 +217,29 @@ ${supportSection}
  */
 export function buildPedagogicalPersonaSection(
   tutorName: string,
-  persona?: PedagogicalPersona | null
+  _persona?: PedagogicalPersona | null
 ): string {
-  if (!persona) {
-    return ""; // No persona data available - use defaults
-  }
-  
-  // Map enum values to human-readable descriptions
-  const focusLabels: Record<string, string> = {
-    grammar: "Grammar and structure",
-    fluency: "Natural conversation flow",
-    pronunciation: "Pronunciation and accent",
-    culture: "Cultural context and nuances",
-    vocabulary: "Vocabulary building",
-    mixed: "Balanced approach across all areas"
-  };
-  
-  const styleLabels: Record<string, string> = {
-    structured: "Organized, lesson-plan based teaching",
-    conversational: "Natural, chat-like teaching",
-    drill_focused: "Repetition and practice heavy",
-    adaptive: "Adjusts approach based on student response",
-    socratic: "Question-based discovery learning"
-  };
-  
-  const toleranceLabels: Record<string, string> = {
-    high: "Gentle corrections, prioritize flow over perfection",
-    medium: "Balanced correction approach",
-    low: "Immediate, thorough corrections for accuracy"
-  };
-  
-  const vocabLabels: Record<string, string> = {
-    beginner_friendly: "Simple words with lots of context",
-    intermediate: "Standard vocabulary appropriate for level",
-    advanced: "Sophisticated vocabulary to challenge growth",
-    academic: "Formal, technical vocabulary"
-  };
-  
-  const focus = persona.pedagogicalFocus ? focusLabels[persona.pedagogicalFocus] || persona.pedagogicalFocus : "Balanced approach";
-  const style = persona.teachingStyle ? styleLabels[persona.teachingStyle] || persona.teachingStyle : "Adaptive";
-  const tolerance = persona.errorTolerance ? toleranceLabels[persona.errorTolerance] || persona.errorTolerance : "Balanced";
-  const vocab = persona.vocabularyLevel ? vocabLabels[persona.vocabularyLevel] || persona.vocabularyLevel : "Intermediate";
-  
-  let personaSection = `
+  return `
 ═══════════════════════════════════════════════════════════════════
-🎭 YOUR TEACHING PERSONA - ${tutorName.toUpperCase()}
+🎭 DANIELA'S TEACHING APPROACH
 ═══════════════════════════════════════════════════════════════════
 
-As ${tutorName}, you have a distinct teaching personality that shapes how you interact with students.
+These are your universal teaching principles — they apply the same way regardless of which language you are teaching.
 
-TEACHING FOCUS: ${focus}
-Your primary emphasis when helping students learn.
+TEACHING FOCUS: Balanced approach across all areas
+You weave grammar, vocabulary, pronunciation, and cultural context together naturally rather than isolating any one skill.
 
-TEACHING STYLE: ${style}
-How you structure your lessons and interactions.
+TEACHING STYLE: Adaptive to the student
+You read the student's energy and adjust. Sometimes structured practice is right, sometimes free conversation. You follow their lead while gently guiding toward growth.
 
-ERROR TOLERANCE: ${tolerance}
-Your approach to correcting mistakes.
+ERROR CORRECTION: Balanced
+You correct important errors but prioritize conversational flow. You don't interrupt every mistake — you note patterns and address them at natural breakpoints.
 
-VOCABULARY LEVEL: ${vocab}
-The complexity of language you naturally use.`;
+VOCABULARY LEVEL: Matched to student level
+You naturally calibrate vocabulary complexity to the student's proficiency. Beginners get simple words with context; advanced students get challenged.
 
-  if (persona.personalityTraits) {
-    personaSection += `
-
-PERSONALITY TRAITS: ${persona.personalityTraits}
-These traits color all your interactions - let them shine through naturally.`;
-  }
-
-  if (persona.scenarioStrengths) {
-    personaSection += `
-
-YOUR STRENGTHS: ${persona.scenarioStrengths}
-You excel in these situations - lean into them when appropriate.`;
-  }
-
-  if (persona.teachingPhilosophy) {
-    personaSection += `
-
-TEACHING PHILOSOPHY: "${persona.teachingPhilosophy}"
-This guides your approach to every lesson.`;
-  }
-
-  personaSection += `
-
-IMPORTANT: These traits make you unique. They complement Daniela's core intelligence
-with your own distinct teaching style. Students should experience a noticeably
-different teaching approach when working with you versus other tutors.
+These principles are consistent across all languages and all sessions. Your personality comes from your memories and relationships — not from per-voice configuration.
 `;
-
-  return personaSection;
 }
 
 // Tutor freedom level type - controls how strictly tutor follows curriculum (NOT personality)
@@ -745,10 +678,7 @@ export function createSystemPrompt(
     ? buildTutorDirectorySection(tutorDirectory, tutorName, language, useFunctionCalling)
     : '';
   
-  // Build pedagogical persona section if available (from Persona Registry)
-  const pedagogicalPersonaSection = tutorPersona
-    ? buildPedagogicalPersonaSection(tutorName, tutorPersona)
-    : '';
+  const pedagogicalPersonaSection = buildPedagogicalPersonaSection(tutorName);
     
   // Build timezone context for time-aware greetings and date awareness
   // When Compass is active, it handles time via Sensory Awareness (single source of truth)
