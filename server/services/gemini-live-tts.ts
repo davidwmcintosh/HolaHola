@@ -272,7 +272,7 @@ export class GeminiLiveTtsService extends EventEmitter {
             };
             if (accentLanguageHint && (!languageHint || languageHint === 'en' || languageHint === 'en-US')) {
               const accentLang = langMap[accentLanguageHint] || accentLanguageHint;
-              return `You are a native ${accentLang} speaker. Read the following English text aloud exactly as written, naturally, with your ${accentLang} accent. Do not add any extra words or commentary.`;
+              return `You are a ${accentLang} language tutor whose first language is ${accentLang}. You are speaking English to your student but your accent is strongly ${accentLang}. Read the following text exactly as written with a thick ${accentLang} accent. Do not switch to a native English accent. Do not add any extra words or commentary.`;
             }
             if (!languageHint) return 'Read the following text aloud exactly as written. Do not add any extra words or commentary.';
             const langName = langMap[languageHint] || languageHint;
