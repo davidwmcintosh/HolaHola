@@ -10531,7 +10531,9 @@ Instead, pick up where you left off or ask what they want to practice today.`;
 ${contextParts.join('\n')}
 ${continuityGuidance}
 
-Using this context, speak first to the student with a natural opening message. Open the conversation based on who they are and what you know about them - just like a real tutor would. Be warm, be brief (2 sentences max), and be yourself.`;
+Using this context, speak first to the student with a natural opening message. Open the conversation based on who they are and what you know about them - just like a real tutor would. Be warm, be brief (2 sentences max), and be yourself.
+
+CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just state the date, time, or repeat system context. Greet them by name, welcome them, and set the tone for the lesson. Example: "¡Hola David! Great to see you - ready to practice some Spanish today?"`;
   }
   
   /**
