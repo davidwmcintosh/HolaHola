@@ -481,7 +481,7 @@ export function VoiceConsoleContent() {
         if (language !== 'english' && !fallbackPreviewUrl) {
           setAuditionPhase('native');
           try {
-            const nativeAudio = await playVoiceSample(voiceId, phrases.native, 'en', speakingRate, auditionEmotion, provider, elSettings, undefined, languageCode);
+            const nativeAudio = await playVoiceSample(voiceId, phrases.native, '', speakingRate, auditionEmotion, provider, elSettings, undefined);
             nativeAudio.onended = () => {
               setPlayingVoiceId(null);
               setAuditionPhase('idle');
@@ -530,17 +530,15 @@ export function VoiceConsoleContent() {
     provider?: string,
     elSettings?: { elStability?: number; elSimilarityBoost?: number; elStyle?: number; elSpeed?: number },
     fallbackPreviewUrl?: string,
-    accentLanguageCode?: string,
   ): Promise<HTMLAudioElement> => {
     const body: Record<string, unknown> = {
       voiceId,
       text,
-      language: languageCode,
       speakingRate,
       emotion: emotion || auditionEmotion,
     };
-    if (accentLanguageCode) {
-      body.accentLanguage = accentLanguageCode;
+    if (languageCode) {
+      body.language = languageCode;
     }
     if (provider) {
       body.provider = provider;
