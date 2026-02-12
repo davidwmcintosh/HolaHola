@@ -153,97 +153,25 @@ export class GeminiLiveTtsService extends EventEmitter {
   private buildStylePrompt(request: StreamingSynthesisRequest, resolvedLanguageCode?: string): string {
     const vocalStyle = (request as any).vocalStyle as string | undefined;
     const emotion = (request as any).emotion as string | undefined;
-    const personality = (request as any).personality as string | undefined;
-    const expressiveness = (request as any).expressiveness as number | undefined;
-    const nativeLanguage = ((request as any).nativeLanguage as string | undefined) || 'english';
 
-    const parts: string[] = [];
-
-    const NATIVE_LANGUAGE_NAMES: Record<string, string> = {
-      'english': 'English', 'spanish': 'Spanish', 'french': 'French',
-      'german': 'German', 'italian': 'Italian', 'portuguese': 'Portuguese',
-      'japanese': 'Japanese', 'mandarin': 'Mandarin Chinese', 'korean': 'Korean',
-      'arabic': 'Arabic', 'russian': 'Russian', 'hindi': 'Hindi', 'hebrew': 'Hebrew',
-    };
-    const nativeLangName = NATIVE_LANGUAGE_NAMES[nativeLanguage] || 'English';
-
-    const ACCENT_DIRECTIONS: Record<string, { language: string; accent: string }> = {
-      'en-US': { language: 'English', accent: 'AMERICAN ENGLISH' },
-      'en-GB': { language: 'English', accent: 'BRITISH ENGLISH' },
-      'en-AU': { language: 'English', accent: 'AUSTRALIAN ENGLISH' },
-      'en-IN': { language: 'English', accent: 'INDIAN ENGLISH' },
-      'es-US': { language: 'Spanish', accent: 'LATIN AMERICAN SPANISH' },
-      'es-ES': { language: 'Spanish', accent: 'CASTILIAN SPANISH' },
-      'es-MX': { language: 'Spanish', accent: 'MEXICAN SPANISH' },
-      'es-AR': { language: 'Spanish', accent: 'ARGENTINE SPANISH' },
-      'es-CO': { language: 'Spanish', accent: 'COLOMBIAN SPANISH' },
-      'fr-FR': { language: 'French', accent: 'FRENCH' },
-      'fr-CA': { language: 'French', accent: 'CANADIAN FRENCH' },
-      'de-DE': { language: 'German', accent: 'GERMAN' },
-      'de-AT': { language: 'German', accent: 'AUSTRIAN GERMAN' },
-      'it-IT': { language: 'Italian', accent: 'ITALIAN' },
-      'pt-BR': { language: 'Portuguese', accent: 'BRAZILIAN PORTUGUESE' },
-      'pt-PT': { language: 'Portuguese', accent: 'EUROPEAN PORTUGUESE' },
-      'ja-JP': { language: 'Japanese', accent: 'JAPANESE' },
-      'zh-CN': { language: 'Mandarin Chinese', accent: 'MANDARIN CHINESE' },
-      'zh-TW': { language: 'Mandarin Chinese', accent: 'TAIWANESE MANDARIN' },
-      'ko-KR': { language: 'Korean', accent: 'KOREAN' },
-      'he-IL': { language: 'Hebrew', accent: 'HEBREW' },
-    };
-
-    if (resolvedLanguageCode) {
-      const accentInfo = ACCENT_DIRECTIONS[resolvedLanguageCode];
-      if (accentInfo) {
-        const targetLangName = accentInfo.language;
-        const isSameLanguage = nativeLangName.toLowerCase() === targetLangName.toLowerCase();
-        if (isSameLanguage) {
-          parts.push(`SPEAK WITH A ${accentInfo.accent} ACCENT.`);
-        } else {
-          parts.push(`YOU ARE A BILINGUAL ${nativeLangName.toUpperCase()}/${targetLangName.toUpperCase()} SPEAKER.`);
-          parts.push(`WHEN READING ${targetLangName.toUpperCase()} WORDS, USE A NATIVE ${accentInfo.accent} ACCENT AND PRONUNCIATION.`);
-          parts.push(`WHEN READING ${nativeLangName.toUpperCase()} WORDS, SPEAK THEM NATURALLY IN ${nativeLangName.toUpperCase()}.`);
-          parts.push(`SWITCH BETWEEN LANGUAGES SEAMLESSLY BASED ON THE TEXT. DO NOT SPEAK ${nativeLangName.toUpperCase()} WORDS WITH A ${targetLangName.toUpperCase()} ACCENT.`);
-        }
-      }
-    }
+    const hints: string[] = [];
 
     if (vocalStyle) {
-      parts.push(`Delivery: ${vocalStyle}.`);
-    } else {
-      const styleHints: string[] = [];
-      if (emotion && emotion !== 'neutral') {
-        const EMOTION_TO_STYLE: Record<string, string> = {
-          'happy': 'with a bright, cheerful tone',
-          'excited': 'with high energy and enthusiasm',
-          'friendly': 'in a warm, approachable way',
-          'curious': 'with an inquisitive, interested lilt',
-          'thoughtful': 'in a reflective, measured pace',
-          'warm': 'with genuine warmth',
-          'playful': 'with a light, playful spirit',
-          'surprised': 'with pleasant surprise',
-          'proud': 'with pride and satisfaction',
-          'encouraging': 'in a supportive, encouraging way',
-          'calm': 'in a calm, steady voice',
-        };
-        const hint = EMOTION_TO_STYLE[emotion];
-        if (hint) styleHints.push(hint);
-      }
-      if (personality) {
-        const PERSONALITY_TO_STYLE: Record<string, string> = {
-          'warm': 'like a caring teacher',
-          'calm': 'with a soothing, relaxed presence',
-          'energetic': 'with lively energy',
-          'professional': 'in a clear, polished manner',
-        };
-        const hint = PERSONALITY_TO_STYLE[personality];
-        if (hint) styleHints.push(hint);
-      }
-      if (styleHints.length > 0) {
-        parts.push(`Speak ${styleHints.join(', ')}.`);
-      }
+      hints.push(vocalStyle);
+    } else if (emotion && emotion !== 'neutral') {
+      const EMOTION_MAP: Record<string, string> = {
+        'happy': 'cheerfully', 'excited': 'with excitement', 'friendly': 'warmly',
+        'curious': 'with curiosity', 'thoughtful': 'thoughtfully', 'warm': 'warmly',
+        'playful': 'playfully', 'surprised': 'with surprise', 'proud': 'proudly',
+        'encouraging': 'encouragingly', 'calm': 'calmly',
+      };
+      if (EMOTION_MAP[emotion]) hints.push(EMOTION_MAP[emotion]);
     }
 
-    return parts.join('\n');
+    if (hints.length > 0) {
+      return `Say ${hints.join(', ')}:`;
+    }
+    return '';
   }
 
   private convertS16leToF32le(s16Buffer: Buffer): Buffer {
@@ -266,6 +194,19 @@ export class GeminiLiveTtsService extends EventEmitter {
       s16Buffer.writeInt16LE(Math.round(clamped * 32767), i * 2);
     }
     return s16Buffer;
+  }
+
+  private trimLeadingSilence(f32Buffer: Buffer, threshold = 0.005): Buffer {
+    const sampleCount = f32Buffer.length / 4;
+    let firstVoiceSample = 0;
+    for (let i = 0; i < sampleCount; i++) {
+      if (Math.abs(f32Buffer.readFloatLE(i * 4)) > threshold) {
+        firstVoiceSample = Math.max(0, i - 240);
+        break;
+      }
+    }
+    if (firstVoiceSample === 0) return f32Buffer;
+    return f32Buffer.subarray(firstVoiceSample * 4);
   }
 
   async streamSynthesizeProgressive(
@@ -292,15 +233,24 @@ export class GeminiLiveTtsService extends EventEmitter {
     const startTime = Date.now();
     const stylePrompt = this.buildStylePrompt(request, resolvedLanguageCode);
 
-    const ttsPrompt = stylePrompt ? `${stylePrompt}\n\n${trimmedText}` : trimmedText;
+    const ttsPrompt = stylePrompt ? `${stylePrompt} ${trimmedText}` : trimmedText;
 
-    console.log(`[Gemini TTS] Progressive: "${trimmedText.substring(0, 60)}..." (${trimmedText.length} chars, voice: ${voiceName}, accent: ${resolvedLanguageCode || 'none'}, targetLang: ${targetLanguage || 'unset'})`);
-    console.log(`[Gemini TTS] Style prompt: "${stylePrompt.substring(0, 150)}..."`);
+    console.log(`[Gemini TTS] Progressive: "${trimmedText.substring(0, 60)}..." (${trimmedText.length} chars, voice: ${voiceName}, langCode: ${resolvedLanguageCode || 'none'}, targetLang: ${targetLanguage || 'unset'})`);
+    if (stylePrompt) console.log(`[Gemini TTS] Style: "${stylePrompt}"`);
 
     try {
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => reject(new Error(`Gemini TTS timed out after ${SYNTHESIS_TIMEOUT_MS}ms`)), SYNTHESIS_TIMEOUT_MS);
       });
+
+      const speechConfig: any = {
+        voiceConfig: {
+          prebuiltVoiceConfig: { voiceName },
+        },
+      };
+      if (resolvedLanguageCode) {
+        speechConfig.languageCode = resolvedLanguageCode;
+      }
 
       const response = await Promise.race([
         this.client.models.generateContent({
@@ -308,11 +258,7 @@ export class GeminiLiveTtsService extends EventEmitter {
           contents: [{ parts: [{ text: ttsPrompt }] }],
           config: {
             responseModalities: [Modality.AUDIO],
-            speechConfig: {
-              voiceConfig: {
-                prebuiltVoiceConfig: { voiceName },
-              },
-            },
+            speechConfig,
           },
         }),
         timeoutPromise,
@@ -328,11 +274,14 @@ export class GeminiLiveTtsService extends EventEmitter {
       }
 
       const rawPcmS16 = Buffer.from(audioPart.inlineData.data, 'base64');
-      const fullF32 = this.convertS16leToF32le(rawPcmS16);
+      const rawF32 = this.convertS16leToF32le(rawPcmS16);
+
+      const fullF32 = this.trimLeadingSilence(rawF32);
+      const trimmedSamples = (rawF32.length - fullF32.length) / 4;
       const totalSamples = fullF32.length / 4;
       const totalDurationMs = (totalSamples / TTS_SAMPLE_RATE) * 1000;
 
-      console.log(`[Gemini TTS] Generated ${Math.round(totalDurationMs)}ms audio in ${generationTime}ms (${rawPcmS16.length} bytes s16, ${fullF32.length} bytes f32)`);
+      console.log(`[Gemini TTS] Generated ${Math.round(totalDurationMs)}ms audio in ${generationTime}ms (${rawPcmS16.length} bytes s16, trimmed ${trimmedSamples} silent samples)`);
 
       const bytesPerChunk = CHUNK_SIZE_SAMPLES * 4;
       let offset = 0;
