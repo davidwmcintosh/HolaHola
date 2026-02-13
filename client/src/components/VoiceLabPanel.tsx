@@ -185,9 +185,18 @@ export function VoiceLabPanel({
       if (!res.ok) throw new Error('Failed to fetch voices');
       return res.json();
     },
-    enabled: isOpen && !!language && !isAssistant && !isElevenLabs && !isGoogle,
+    enabled: isOpen && !!language && !isAssistant && !isElevenLabs && !isGoogle && !isGemini,
   });
   const cartesiaVoices = cartesiaVoicesData?.voices || [];
+
+  interface GeminiVoice { id: string; name: string; gender: string; provider: string; }
+  const { data: geminiVoicesData, isLoading: isLoadingGeminiVoices } = useQuery<GeminiVoice[]>({
+    queryKey: ['/api/admin/gemini-tts-voices'],
+    enabled: isOpen && isGemini,
+  });
+  const geminiVoices = (geminiVoicesData || [])
+    .filter(v => !tutorGender || v.gender === tutorGender)
+    .map(v => ({ id: v.id, name: v.name, description: 'Gemini 2.5 Flash TTS', language: '', gender: v.gender }));
 
   const langCodeMap: Record<string, string> = {
     english: 'en', spanish: 'es', french: 'fr', german: 'de',
@@ -229,8 +238,8 @@ export function VoiceLabPanel({
   const googleVoices = googleVoicesData?.voices || [];
 
   // Use appropriate voice list based on role and provider
-  const availableVoices = (isAssistant || isGoogle) ? googleVoices : (isElevenLabs ? elevenLabsVoices : cartesiaVoices);
-  const isLoadingVoices = (isAssistant || isGoogle) ? isLoadingGoogleVoices : (isElevenLabs ? isLoadingElevenLabsVoices : isLoadingCartesiaVoices);
+  const availableVoices = (isAssistant || isGoogle) ? googleVoices : isElevenLabs ? elevenLabsVoices : isGemini ? geminiVoices : cartesiaVoices;
+  const isLoadingVoices = (isAssistant || isGoogle) ? isLoadingGoogleVoices : isElevenLabs ? isLoadingElevenLabsVoices : isGemini ? isLoadingGeminiVoices : isLoadingCartesiaVoices;
 
   // Initialize local state from current voice or override
   useEffect(() => {
@@ -369,6 +378,10 @@ export function VoiceLabPanel({
         bodyData.elSimilarityBoost = elSimilarityBoost;
         bodyData.elStyle = elStyle;
         bodyData.elSpeed = speakingRate;
+      }
+      if (isGemini) {
+        if (selectedAccent) bodyData.accentLanguage = selectedAccent;
+        bodyData.nativeLanguage = 'english';
       }
       const res = await fetch('/api/admin/voice-audition', {
         method: 'POST',
