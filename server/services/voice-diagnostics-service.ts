@@ -54,14 +54,10 @@ export const DANIELA_TTS_FALLBACK_ENABLED = false;
  * Auto-Remediation Configuration
  */
 export const AUTO_REMEDIATION_CONFIG = {
-  // Number of consecutive successes required to restore Cartesia
   successesToRestore: 5,
-  // Number of failures to trigger fallback (for general persona)
   failuresToTrigger: 3,
-  // Latency threshold in ms to trigger fallback
-  latencyThreshold: 2000,
-  // Cooldown period in ms before attempting to restore Cartesia
-  restoreCooldownMs: 60000, // 1 minute
+  latencyThreshold: 30000,
+  restoreCooldownMs: 60000,
 };
 
 /**
@@ -655,7 +651,7 @@ class VoiceDiagnosticsService {
       };
     }
     
-    if (avgLatency > 2000) {
+    if (avgLatency > AUTO_REMEDIATION_CONFIG.latencyThreshold) {
       console.log(`[Voice Diagnostics] TTS DEGRADED: ${avgLatency.toFixed(0)}ms average latency (persona: ${persona}, fallback ${allowFallback ? 'ENABLED' : 'DISABLED'})`);
       return {
         degraded: true,
