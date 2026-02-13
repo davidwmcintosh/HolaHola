@@ -156,6 +156,7 @@ export class GeminiLiveTtsService extends EventEmitter {
     const emotion = (request as any).emotion as string | undefined;
     const targetLanguage = (request as any).targetLanguage as string | undefined;
     const nativeLanguage = (request as any).nativeLanguage as string | undefined;
+    const speakingRate = (request as any).speakingRate as number | undefined;
 
     const hints: string[] = [];
 
@@ -177,25 +178,38 @@ export class GeminiLiveTtsService extends EventEmitter {
       if (EMOTION_MAP[emotion]) hints.push(EMOTION_MAP[emotion]);
     }
 
-    if (hints.length > 0) {
-      return `Say ${hints.join(', ')}:`;
+    if (speakingRate && speakingRate !== 1.0) {
+      if (speakingRate >= 1.3) {
+        hints.push('at a quick, energetic pace');
+      } else if (speakingRate >= 1.1) {
+        hints.push('at a brisk, lively pace');
+      } else if (speakingRate <= 0.7) {
+        hints.push('slowly and clearly');
+      } else if (speakingRate <= 0.85) {
+        hints.push('at a relaxed, unhurried pace');
+      }
     }
-    return '';
+
+    if (hints.length === 0) {
+      return 'Say naturally and conversationally:';
+    }
+
+    return `Say ${hints.join(', ')}:`;
   }
 
   private getAccentDescription(targetLanguage?: string, nativeLanguage?: string): string {
     if (!targetLanguage) return '';
 
     const ACCENT_MAP: Record<string, string> = {
-      'spanish': 'with a CONSISTENT native Mexican Spanish accent throughout the ENTIRE sentence, even when speaking English words',
-      'french': 'with a CONSISTENT native French accent throughout the ENTIRE sentence, even when speaking English words',
-      'german': 'with a CONSISTENT native German accent throughout the ENTIRE sentence, even when speaking English words',
-      'italian': 'with a CONSISTENT native Italian accent throughout the ENTIRE sentence, even when speaking English words',
-      'portuguese': 'with a CONSISTENT native Brazilian Portuguese accent throughout the ENTIRE sentence, even when speaking English words',
-      'japanese': 'with a CONSISTENT native Japanese accent throughout the ENTIRE sentence, even when speaking English words',
-      'mandarin chinese': 'with a CONSISTENT native Mandarin Chinese accent throughout the ENTIRE sentence, even when speaking English words',
-      'korean': 'with a CONSISTENT native Korean accent throughout the ENTIRE sentence, even when speaking English words',
-      'hebrew': 'with a CONSISTENT native Hebrew accent throughout the ENTIRE sentence, even when speaking English words',
+      'spanish': 'in a native Mexican Spanish accent',
+      'french': 'in a native French accent',
+      'german': 'in a native German accent',
+      'italian': 'in a native Italian accent',
+      'portuguese': 'in a native Brazilian Portuguese accent',
+      'japanese': 'in a native Japanese accent',
+      'mandarin chinese': 'in a native Mandarin Chinese accent',
+      'korean': 'in a native Korean accent',
+      'hebrew': 'in a native Hebrew accent',
     };
 
     return ACCENT_MAP[targetLanguage.toLowerCase()] || '';
