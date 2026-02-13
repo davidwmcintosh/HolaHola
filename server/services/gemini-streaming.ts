@@ -405,6 +405,7 @@ export interface StreamingGenerationConfig {
   temperature?: number;
   maxOutputTokens?: number;
   onSentence: OnSentenceCallback;
+  onSentenceEnqueued?: (chunk: SentenceChunk) => void;
   onProgress?: OnProgressCallback;
   onError?: (error: Error) => void;
   // Gemini 3 features
@@ -772,6 +773,7 @@ export class GeminiStreamingService {
       temperature = 0.7,
       maxOutputTokens = 1024,
       onSentence,
+      onSentenceEnqueued,
       onProgress,
       onError,
       // Gemini 3 features
@@ -882,7 +884,9 @@ export class GeminiStreamingService {
     
     const enqueueSentence = (chunk: SentenceChunk) => {
       sentenceQueue.push(chunk);
-      // Fire-and-forget: starts processing if not already running
+      if (onSentenceEnqueued) {
+        try { onSentenceEnqueued(chunk); } catch {}
+      }
       processSentenceQueue();
     };
     

@@ -2712,6 +2712,23 @@ Remember: Beta testers understand they're helping build something and appreciate
       // Abort signal for early stream termination when function call TTS starts
       const streamAbortSignal = { aborted: false };
       
+      // TTS LOOKAHEAD PIPELINE: Pre-generate audio for upcoming sentences
+      // while the current sentence is being processed/streamed.
+      // This overlaps TTS generation of sentence N+1 with streaming of sentence N,
+      // eliminating the 3-6s gap between sentences.
+      const ttsLookaheadMap = new Map<number, Promise<{ audio: Buffer; durationMs: number; timestamps: import('@shared/streaming-voice-types').WordTiming[] } | null>>();
+      const effectiveTtsProvider = session.ttsProvider || this.ttsProvider;
+      const lookaheadTtsRequest = {
+        text: '',
+        autoDetectLanguage: true,
+        targetLanguage: session.targetLanguage,
+        nativeLanguage: session.nativeLanguage || 'english',
+        geminiLanguageCode: session.geminiLanguageCode,
+        voiceId: session.voiceId,
+        speakingRate: getAdaptiveSpeakingRate(session),
+        vocalStyle: (session as any).voiceOverride?.vocalStyle,
+      };
+      
       pipelineTiming.contextFetchEnd = Date.now();
       pipelineTiming.geminiStart = Date.now();
       
@@ -2724,6 +2741,21 @@ Remember: Beta testers understand they're helping build something and appreciate
         enableContextCaching: true,
         streamFunctionCallArguments: true,
         abortSignal: streamAbortSignal,
+        onSentenceEnqueued: (chunk: SentenceChunk) => {
+          if (effectiveTtsProvider !== 'gemini' || session.isInterrupted || streamAbortSignal.aborted) return;
+          const cleaned = cleanTextForDisplay(chunk.text);
+          if (!cleaned || cleaned.length < 2) return;
+          const promise = this.geminiLiveTtsService.preGenerateAudio({
+            ...lookaheadTtsRequest,
+            text: cleaned,
+            vocalStyle: (session as any).voiceOverride?.vocalStyle,
+          } as any).catch(err => {
+            console.warn(`[TTS Lookahead] Pre-gen failed for sentence ${chunk.index}: ${err.message}`);
+            return null;
+          });
+          ttsLookaheadMap.set(chunk.index, promise);
+          console.log(`[TTS Lookahead] Started pre-gen for sentence ${chunk.index}: "${cleaned.substring(0, 40)}..."`);
+        },
         onPartialFunctionCall: (partial: PartialFunctionCall) => {
           // EARLY INTENT DETECTION: Preload resources as soon as we know the function name
           // This reduces latency by warming up before full args arrive
@@ -3828,11 +3860,30 @@ Remember: Beta testers understand they're helping build something and appreciate
             pipelineTiming.ttsFirstCallStart = ttsStart;
           }
           
-          // Use progressive streaming if feature flag enabled (lower latency)
-          if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
-            await this.streamSentenceAudioProgressive(session, chunk, displayText, metrics, turnId);
+          // TTS LOOKAHEAD: Check if pre-generated audio is available from the lookahead pipeline
+          const lookaheadPromise = ttsLookaheadMap.get(chunk.index);
+          ttsLookaheadMap.delete(chunk.index);
+          
+          if (lookaheadPromise) {
+            const preGenResult = await lookaheadPromise;
+            if (preGenResult) {
+              console.log(`[TTS Lookahead] Using pre-generated audio for sentence ${chunk.index} (waited ${Date.now() - ttsStart}ms)`);
+              await this.streamPreGeneratedSentenceAudio(session, chunk, displayText, metrics, turnId, preGenResult);
+            } else {
+              // Pre-generation failed, fall back to progressive
+              if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
+                await this.streamSentenceAudioProgressive(session, chunk, displayText, metrics, turnId);
+              } else {
+                await this.streamSentenceAudio(session, chunk, displayText, metrics, turnId);
+              }
+            }
           } else {
-            await this.streamSentenceAudio(session, chunk, displayText, metrics, turnId);
+            // No lookahead available (first sentence, or non-Gemini TTS)
+            if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
+              await this.streamSentenceAudioProgressive(session, chunk, displayText, metrics, turnId);
+            } else {
+              await this.streamSentenceAudio(session, chunk, displayText, metrics, turnId);
+            }
           }
           
           if (chunk.index === 0) {
@@ -5273,6 +5324,20 @@ Remember: Beta testers understand they're helping build something and appreciate
       // Abort signal for early stream termination when function call TTS starts (open-mic)
       const streamAbortSignalOpenMic = { aborted: false };
       
+      // TTS LOOKAHEAD (OpenMic): Same pipeline as PTT path
+      const ttsLookaheadMapOM = new Map<number, Promise<{ audio: Buffer; durationMs: number; timestamps: import('@shared/streaming-voice-types').WordTiming[] } | null>>();
+      const effectiveTtsProviderOM = session.ttsProvider || this.ttsProvider;
+      const lookaheadTtsRequestOM = {
+        text: '',
+        autoDetectLanguage: true,
+        targetLanguage: session.targetLanguage,
+        nativeLanguage: session.nativeLanguage || 'english',
+        geminiLanguageCode: session.geminiLanguageCode,
+        voiceId: session.voiceId,
+        speakingRate: getAdaptiveSpeakingRate(session),
+        vocalStyle: (session as any).voiceOverride?.vocalStyle,
+      };
+      
       await this.geminiService.streamWithSentenceChunking({
         systemPrompt: session.systemPrompt,  // STATIC base prompt (cacheable)
         conversationHistory: conversationHistoryWithContext,
@@ -5282,6 +5347,20 @@ Remember: Beta testers understand they're helping build something and appreciate
         enableContextCaching: true,
         streamFunctionCallArguments: true,
         abortSignal: streamAbortSignalOpenMic,
+        onSentenceEnqueued: (chunk: SentenceChunk) => {
+          if (effectiveTtsProviderOM !== 'gemini' || session.isInterrupted || streamAbortSignalOpenMic.aborted) return;
+          const cleaned = cleanTextForDisplay(chunk.text);
+          if (!cleaned || cleaned.length < 2) return;
+          const promise = this.geminiLiveTtsService.preGenerateAudio({
+            ...lookaheadTtsRequestOM,
+            text: cleaned,
+            vocalStyle: (session as any).voiceOverride?.vocalStyle,
+          } as any).catch(err => {
+            console.warn(`[TTS Lookahead OM] Pre-gen failed for sentence ${chunk.index}: ${err.message}`);
+            return null;
+          });
+          ttsLookaheadMapOM.set(chunk.index, promise);
+        },
         onPartialFunctionCall: (partial: PartialFunctionCall) => {
           // EARLY INTENT DETECTION (open-mic mode)
           if (partial.name === 'switch_tutor' && !partial.isComplete) {
@@ -6043,8 +6122,21 @@ Remember: Beta testers understand they're helping build something and appreciate
             wordMapping: hasTargetContent && wordMappingArray.length > 0 ? wordMappingArray : undefined,
           } as StreamingSentenceStartMessage);
           
-          // Stream TTS for this sentence
-          if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
+          // TTS LOOKAHEAD (OpenMic): Check if pre-generated audio is available
+          const lookaheadPromiseOM = ttsLookaheadMapOM.get(chunk.index);
+          ttsLookaheadMapOM.delete(chunk.index);
+          
+          if (lookaheadPromiseOM) {
+            const preGenResultOM = await lookaheadPromiseOM;
+            if (preGenResultOM) {
+              console.log(`[TTS Lookahead OM] Using pre-generated audio for sentence ${chunk.index}`);
+              await this.streamPreGeneratedSentenceAudio(session, chunk, displayText, metrics, turnId, preGenResultOM);
+            } else if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
+              await this.streamSentenceAudioProgressive(session, chunk, displayText, metrics, turnId);
+            } else {
+              await this.streamSentenceAudio(session, chunk, displayText, metrics, turnId);
+            }
+          } else if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
             await this.streamSentenceAudioProgressive(session, chunk, displayText, metrics, turnId);
           } else {
             await this.streamSentenceAudio(session, chunk, displayText, metrics, turnId);
