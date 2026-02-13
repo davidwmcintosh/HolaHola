@@ -7858,10 +7858,12 @@ Remember: Beta testers understand they're helping build something and appreciate
           statusCode,
           textLength,
           provider: effectiveTtsProvider,
+          targetLanguage: session.targetLanguage,
           textPreview: displayText.substring(0, 100),
         }
       });
       
+      const finishReason = error.message?.match(/finishReason: (\w+)/)?.[1];
       logTtsFailure(session.id, error.message, {
         userId: session.userId?.toString(),
         turnId: session.turnId,
@@ -7869,36 +7871,20 @@ Remember: Beta testers understand they're helping build something and appreciate
         sentenceIndex: index,
         textLength,
         mode: 'progressive',
+        targetLanguage: session.targetLanguage,
+        finishReason,
+        statusCode: statusCode !== 'unknown' ? statusCode : undefined,
       });
       
-      let fallbackSucceeded = false;
-      if (effectiveTtsProvider === 'gemini') {
-        console.log(`[Progressive] Attempting Google TTS fallback for sentence ${index}...`);
-        try {
-          await this.streamSentenceAudioWithGoogle(session, chunk, displayText, metrics, effectiveTurnId);
-          fallbackSucceeded = true;
-          console.log(`[Progressive] Google TTS fallback succeeded for sentence ${index}`);
-          voiceDiagnostics.emit({
-            sessionId: session.id,
-            stage: 'tts',
-            success: true,
-            metadata: { sentenceIndex: index, mode: 'fallback_google' }
-          });
-        } catch (fallbackErr: any) {
-          console.error(`[Progressive] Google TTS fallback also failed for sentence ${index}:`, fallbackErr.message);
-        }
-      }
-
-      if (!fallbackSucceeded) {
-        this.sendError(session.ws, 'TTS_ERROR', `Audio generation failed for sentence ${index}`, true);
-        this.sendMessage(session.ws, {
-          type: 'sentence_end',
-          timestamp: Date.now(),
-          turnId: effectiveTurnId,
-          sentenceIndex: index,
-          totalDurationMs: 0,
-        } as StreamingSentenceEndMessage);
-      }
+      this.sendError(session.ws, 'TTS_ERROR', `Audio generation failed for sentence ${index}`, true);
+      
+      this.sendMessage(session.ws, {
+        type: 'sentence_end',
+        timestamp: Date.now(),
+        turnId: effectiveTurnId,
+        sentenceIndex: index,
+        totalDurationMs: 0,
+      } as StreamingSentenceEndMessage);
     }
   }
   

@@ -1063,6 +1063,56 @@ class VoiceDiagnosticsService {
         sessionId: e.sessionId,
       }));
     
+    const ttsEvents = events.filter(e => e.stage === 'tts');
+    const ttsProviderMap: Record<string, { total: number; successes: number; failures: number; durations: number[] }> = {};
+    const ttsLanguageMap: Record<string, { total: number; failures: number }> = {};
+    for (const ev of ttsEvents) {
+      const provider = (ev.metadata?.provider as string) || 'unknown';
+      if (!ttsProviderMap[provider]) ttsProviderMap[provider] = { total: 0, successes: 0, failures: 0, durations: [] };
+      ttsProviderMap[provider].total++;
+      if (ev.status === 'success') {
+        ttsProviderMap[provider].successes++;
+        if (ev.durationMs) ttsProviderMap[provider].durations.push(ev.durationMs);
+      } else if (ev.status === 'fail') {
+        ttsProviderMap[provider].failures++;
+      }
+
+      const lang = (ev.metadata?.targetLanguage as string) || (ev.metadata?.language as string);
+      if (lang) {
+        if (!ttsLanguageMap[lang]) ttsLanguageMap[lang] = { total: 0, failures: 0 };
+        ttsLanguageMap[lang].total++;
+        if (ev.status === 'fail') ttsLanguageMap[lang].failures++;
+      }
+    }
+    const ttsBreakdown = {
+      byProvider: Object.entries(ttsProviderMap).map(([provider, d]) => ({
+        provider,
+        total: d.total,
+        successes: d.successes,
+        failures: d.failures,
+        successRate: d.total > 0 ? Math.round((d.successes / d.total) * 100) : 100,
+        avgLatencyMs: d.durations.length > 0 ? Math.round(d.durations.reduce((a, b) => a + b, 0) / d.durations.length) : 0,
+      })),
+      byLanguage: Object.entries(ttsLanguageMap).map(([language, d]) => ({
+        language,
+        total: d.total,
+        failures: d.failures,
+        failureRate: d.total > 0 ? Math.round((d.failures / d.total) * 100) : 0,
+      })),
+      recentTtsFailures: ttsEvents
+        .filter(e => e.status === 'fail')
+        .slice(-5)
+        .reverse()
+        .map(e => ({
+          timestamp: e.timestamp,
+          provider: (e.metadata?.provider as string) || 'unknown',
+          error: e.message,
+          textLength: e.metadata?.textLength,
+          language: e.metadata?.targetLanguage || e.metadata?.language,
+          statusCode: e.metadata?.statusCode,
+        })),
+    };
+
     return {
       summary: {
         totalEvents: events.length,
@@ -1078,6 +1128,7 @@ class VoiceDiagnosticsService {
         e2e: e2eMetrics,
       },
       stageHealth,
+      ttsBreakdown,
       recentFailures,
       timeDistribution,
       remediation: this.getRemediationStatus(),

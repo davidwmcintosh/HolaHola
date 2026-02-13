@@ -884,6 +884,12 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   /**
    * Handle errors - also clears tutor switch state to prevent mic lockout
    */
+  const handleTtsError = useCallback((data: { code: string; message: string }) => {
+    if (import.meta.env.DEV) {
+      console.warn(`[StreamingVoice] TTS audio failed (dev-only): ${data.message}`);
+    }
+  }, []);
+
   const handleError = useCallback((err: Error) => {
     console.error('[StreamingVoice] Error:', err);
     setError(err.message);
@@ -1119,6 +1125,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('whiteboardUpdate', handleWhiteboardUpdate);  // Enriched whiteboard items
       clientRef.current.on('pronunciationCoaching', handlePronunciationCoaching);  // Live pronunciation feedback
       clientRef.current.on('error', handleError);
+      clientRef.current.on('ttsError', handleTtsError);
       clientRef.current.on('noSpeechDetected', handleNoSpeechDetected);  // Empty PTT reset
       clientRef.current.on('vadSpeechStarted', handleVadSpeechStarted);  // Open mic VAD
       clientRef.current.on('vadUtteranceEnd', handleVadUtteranceEnd);  // Open mic VAD

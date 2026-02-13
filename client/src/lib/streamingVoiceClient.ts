@@ -1229,8 +1229,14 @@ export class StreamingVoiceClient {
   }
   
   private handleError(message: StreamingErrorMessage): void {
-    // Always emit error callback first so UI can show the error message
     this.callbacks.onError?.(message.code, message.message, message.recoverable);
+
+    if (message.code === 'TTS_ERROR' && message.recoverable) {
+      this.emit('ttsError', { code: message.code, message: message.message });
+      console.warn(`[StreamingVoice] TTS error (recoverable, session continues): ${message.message}`);
+      return;
+    }
+
     this.emit('error', new Error(message.message));
     
     if (!message.recoverable) {

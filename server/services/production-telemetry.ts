@@ -231,9 +231,24 @@ export function checkStuckSessions(): void {
 export async function logTtsFailure(
   sessionId: string,
   error: string,
-  context?: { userId?: string; turnId?: string; provider?: string; sentenceIndex?: number; textLength?: number; mode?: string }
+  context?: { 
+    userId?: string; 
+    turnId?: string; 
+    provider?: string; 
+    sentenceIndex?: number; 
+    textLength?: number; 
+    mode?: string;
+    targetLanguage?: string;
+    finishReason?: string;
+    retryCount?: number;
+    statusCode?: string | number;
+  }
 ): Promise<void> {
-  const message = `TTS failure (${context?.provider || 'unknown'}): ${error}. Session: ${sessionId}`;
+  const provider = context?.provider || 'unknown';
+  const lang = context?.targetLanguage ? ` [${context.targetLanguage}]` : '';
+  const retries = context?.retryCount !== undefined ? ` (${context.retryCount} retries)` : '';
+  const status = context?.statusCode ? ` status=${context.statusCode}` : '';
+  const message = `TTS failure (${provider})${lang}${retries}${status}: ${error}. Sentence #${context?.sentenceIndex ?? '?'}, ${context?.textLength ?? '?'} chars. Session: ${sessionId}`;
   console.error(`[Pipeline] ${message}`);
   
   await logProductionError(message, {
@@ -243,11 +258,15 @@ export async function logTtsFailure(
     feature: 'voice_chat',
     additionalContext: {
       stage: 'tts_failure',
-      provider: context?.provider,
+      provider,
       turnId: context?.turnId,
       sentenceIndex: context?.sentenceIndex,
       textLength: context?.textLength,
       mode: context?.mode,
+      targetLanguage: context?.targetLanguage,
+      finishReason: context?.finishReason,
+      retryCount: context?.retryCount,
+      statusCode: context?.statusCode,
     },
   });
 }
