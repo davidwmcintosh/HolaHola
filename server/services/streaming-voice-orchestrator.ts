@@ -2042,6 +2042,29 @@ Remember: David may reference things discussed in these recent text chats.
         return metrics;
       }
       
+      // DEDUPLICATION GUARD (PTT path): Prevent same transcript from being processed twice
+      // Mirrors the dedup logic in processOpenMicTranscript to prevent cross-path duplicates
+      const transcriptHash = transcript
+        .trim()
+        .toLowerCase()
+        .replace(/[.,!?;:'"""''…\-—–]/g, '')
+        .replace(/\s+/g, ' ')
+        .substring(0, 100);
+      const now = Date.now();
+      const DEDUP_WINDOW_MS = 60000; // 60 second window to catch duplicates (longer than open-mic's 5s)
+      
+      if (session.lastProcessedTranscriptHash === transcriptHash && 
+          session.lastProcessedTranscriptTime && 
+          (now - session.lastProcessedTranscriptTime) < DEDUP_WINDOW_MS) {
+        console.log(`[DEDUP-PTT] Skipping duplicate transcript (processed ${now - session.lastProcessedTranscriptTime}ms ago): "${transcript.slice(0, 50)}..."`);
+        session.isGenerating = false;
+        return metrics;
+      }
+      
+      // Track this transcript for dedup across both PTT and open-mic paths
+      session.lastProcessedTranscriptHash = transcriptHash;
+      session.lastProcessedTranscriptTime = now;
+      
       // CONTENT MODERATION: Check for severely inappropriate content (block only the worst)
       if (containsSeverelyInappropriateContent(transcript)) {
         console.log('[Streaming Orchestrator] Content moderation: Severely inappropriate content blocked');
@@ -4980,7 +5003,7 @@ Remember: Beta testers understand they're helping build something and appreciate
       .replace(/\s+/g, ' ') // Collapse multiple spaces
       .substring(0, 100);
     const now = Date.now();
-    const DEDUP_WINDOW_MS = 5000; // 5 second window to catch duplicates
+    const DEDUP_WINDOW_MS = 60000; // 60 second window to catch duplicates (increased from 5s)
     
     if (session.lastProcessedTranscriptHash === transcriptHash && 
         session.lastProcessedTranscriptTime && 
@@ -8397,12 +8420,34 @@ Remember: Beta testers understand they're helping build something and appreciate
                               session.checkpointedUserTranscript === normalizedUserTranscript;
       
       if (!wasCheckpointed) {
-        // No checkpoint for this transcript - save user message normally
-        await storage.createMessage({
-          conversationId,
-          role: 'user',
-          content: userTranscript,
-        });
+        // DB-LEVEL DEDUP SAFETY NET: Check if this exact transcript was already saved recently
+        // This catches edge cases where checkpoint state was cleared but message already exists
+        try {
+          const existingMessages = await storage.getMessages(conversationId);
+          const recentUserMessages = existingMessages
+            .filter(m => m.role === 'user')
+            .slice(-3); // Check last 3 user messages
+          const isDuplicate = recentUserMessages.some(m => 
+            this.normalizeTranscriptForCheckpoint(m.content) === normalizedUserTranscript
+          );
+          if (isDuplicate) {
+            console.log(`[Persist] DB dedup: User message already exists in conversation, skipping save`);
+          } else {
+            await storage.createMessage({
+              conversationId,
+              role: 'user',
+              content: userTranscript,
+            });
+          }
+        } catch (dedupErr: any) {
+          // If dedup check fails, save anyway (better duplicate than lost message)
+          console.warn(`[Persist] DB dedup check failed, saving anyway: ${dedupErr.message}`);
+          await storage.createMessage({
+            conversationId,
+            role: 'user',
+            content: userTranscript,
+          });
+        }
       } else {
         console.log(`[Persist] User message already checkpointed, saving AI response only`);
       }
