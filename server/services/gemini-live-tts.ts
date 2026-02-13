@@ -343,8 +343,11 @@ export class GeminiLiveTtsService extends EventEmitter {
         },
       };
 
-      const allF32Buffers: Buffer[] = [];
       let chunkIndex = 0;
+      let cumulativeDurationMs = 0;
+      let wordIndexOffset = 0;
+      const allTimestamps: WordTiming[] = [];
+      let successfulSegments = 0;
 
       for (let segIdx = 0; segIdx < segments.length; segIdx++) {
         const segment = segments[segIdx];
@@ -353,13 +356,37 @@ export class GeminiLiveTtsService extends EventEmitter {
           console.log(`[Gemini TTS] Segment ${segIdx + 1}/${segments.length}: "${segment.substring(0, 50)}..." (${segment.length} chars)`);
         }
 
-        const segF32 = await this.synthesizeSingleSegment(segment, stylePrompt, voiceName, speechConfig);
-        const segGenTime = Date.now() - segStart;
-        if (isMultiSegment) {
-          console.log(`[Gemini TTS] Segment ${segIdx + 1} generated in ${segGenTime}ms (${segF32.length} bytes)`);
+        let segF32: Buffer | null = null;
+        try {
+          segF32 = await this.synthesizeSingleSegment(segment, stylePrompt, voiceName, speechConfig);
+        } catch (segError: any) {
+          console.error(`[Gemini TTS] Segment ${segIdx + 1} failed: ${segError.message}, retrying without style...`);
+          try {
+            segF32 = await this.synthesizeSingleSegment(segment, '', voiceName, speechConfig);
+            console.log(`[Gemini TTS] Segment ${segIdx + 1} retry succeeded (no style)`);
+          } catch (retryError: any) {
+            console.error(`[Gemini TTS] Segment ${segIdx + 1} retry also failed: ${retryError.message}, skipping`);
+            continue;
+          }
         }
 
-        allF32Buffers.push(segF32);
+        successfulSegments++;
+        const segGenTime = Date.now() - segStart;
+        const segSamples = segF32.length / 4;
+        const segDurationMs = (segSamples / TTS_SAMPLE_RATE) * 1000;
+
+        if (isMultiSegment) {
+          console.log(`[Gemini TTS] Segment ${segIdx + 1} generated in ${segGenTime}ms (${Math.round(segDurationMs)}ms audio)`);
+        }
+
+        const segTimestamps = this.estimateWordTimings(segment, segDurationMs / 1000);
+        for (const ts of segTimestamps) {
+          ts.startTime += cumulativeDurationMs / 1000;
+          ts.endTime += cumulativeDurationMs / 1000;
+          allTimestamps.push(ts);
+          callbacks.onWordTimestamp?.(ts, wordIndexOffset, cumulativeDurationMs + segDurationMs);
+          wordIndexOffset++;
+        }
 
         const bytesPerChunk = CHUNK_SIZE_SAMPLES * 4;
         let offset = 0;
@@ -379,28 +406,27 @@ export class GeminiLiveTtsService extends EventEmitter {
           chunkIndex++;
           offset = end;
         }
+
+        cumulativeDurationMs += segDurationMs;
       }
 
-      const totalBytes = allF32Buffers.reduce((sum, b) => sum + b.length, 0);
-      const totalSamples = totalBytes / 4;
-      const totalDurationMs = (totalSamples / TTS_SAMPLE_RATE) * 1000;
+      if (successfulSegments === 0) {
+        voiceDiagnostics.recordTTSResult(false, undefined, 'daniela');
+        throw new Error('Gemini TTS returned no audio data for any segment');
+      }
+
+      const totalDurationMs = cumulativeDurationMs;
       const generationTime = Date.now() - startTime;
 
-      console.log(`[Gemini TTS] Generated ${Math.round(totalDurationMs)}ms audio in ${generationTime}ms (${segments.length} segments, ${chunkIndex} chunks)`);
+      console.log(`[Gemini TTS] Generated ${Math.round(totalDurationMs)}ms audio in ${generationTime}ms (${successfulSegments}/${segments.length} segments, ${chunkIndex} chunks)`);
 
-      const displayText = request.text || '';
-      const finalTimestamps = this.estimateWordTimings(displayText, totalDurationMs / 1000);
-
-      for (let i = 0; i < finalTimestamps.length; i++) {
-        callbacks.onWordTimestamp?.(finalTimestamps[i], i, totalDurationMs);
-      }
-      callbacks.onComplete?.(finalTimestamps, totalDurationMs);
+      callbacks.onComplete?.(allTimestamps, totalDurationMs);
 
       const elapsed = Date.now() - startTime;
-      console.log(`[Gemini TTS] Progressive complete: ${chunkIndex} chunks, ${Math.round(totalDurationMs)}ms audio, ${elapsed}ms wall (generation: ${generationTime}ms)`);
+      console.log(`[Gemini TTS] Progressive complete: ${chunkIndex} chunks, ${Math.round(totalDurationMs)}ms audio, ${elapsed}ms wall`);
       voiceDiagnostics.recordTTSResult(true, elapsed, 'daniela');
 
-      return { totalDurationMs, finalTimestamps };
+      return { totalDurationMs, finalTimestamps: allTimestamps };
     } catch (error: any) {
       const elapsed = Date.now() - startTime;
       console.error(`[Gemini TTS] Error after ${elapsed}ms:`, error.message);
