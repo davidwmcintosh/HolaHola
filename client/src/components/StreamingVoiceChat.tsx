@@ -711,10 +711,35 @@ export function StreamingVoiceChat({
             console.log('[STREAMING] Response complete - refreshing messages for', convId);
             queryClient.invalidateQueries({ queryKey: ["/api/conversations", convId, "messages"] });
             
-            // Reset processing state now that response is complete
-            setIsProcessing(false);
-            isProcessingRef.current = false;
-            setProcessingStage(null);  // Clear processing stage indicator
+            // CRITICAL FIX: Don't clear isProcessing immediately if audio is still buffering
+            // The globalPlaybackState may not have transitioned to 'playing' yet even though
+            // audio chunks have been received. Clearing isProcessing here causes the avatar
+            // to flash from "thinking" to "listening" before audio starts playing.
+            // Instead, defer clearing until audio is actually playing or a safety timeout.
+            const currentPlayback = globalPlaybackStateRef.current;
+            const isAudioPlaying = currentPlayback === 'playing' || currentPlayback === 'buffering';
+            
+            if (isAudioPlaying) {
+              // Audio is already playing - safe to clear immediately
+              setIsProcessing(false);
+              isProcessingRef.current = false;
+              setProcessingStage(null);
+            } else {
+              // Audio hasn't started playing yet - defer clearing isProcessing
+              // The avatar sync useEffect will handle the transition when playback starts
+              console.log('[STREAMING] Response complete but audio not yet playing - deferring isProcessing clear');
+              setProcessingStage(null);
+              
+              // Safety: force-clear after 8s if audio never starts
+              setTimeout(() => {
+                if (isProcessingRef.current) {
+                  console.log('[STREAMING] Safety timeout - force clearing isProcessing');
+                  setIsProcessing(false);
+                  isProcessingRef.current = false;
+                }
+              }, 8000);
+            }
+            
             pttReleaseSentRef.current = false;  // Reset for next PTT turn
             // Reset awaiting flag for next utterance
             isAwaitingResponseRef.current = false;
