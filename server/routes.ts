@@ -16360,10 +16360,16 @@ Current conversation context:
         let resolvedVoiceId = voiceId;
         if (voiceId && !voiceId.includes('Chirp3-HD')) {
           const auditionLangMap: Record<string, string> = {
-            'english': 'en-US', 'spanish': 'es-US', 'french': 'fr-FR', 'german': 'de-DE',
-            'italian': 'it-IT', 'portuguese': 'pt-BR', 'japanese': 'ja-JP',
-            'mandarin chinese': 'cmn-CN', 'mandarin': 'cmn-CN', 'chinese': 'cmn-CN',
-            'korean': 'ko-KR', 'hebrew': 'he-IL',
+            'english': 'en-US', 'en': 'en-US',
+            'spanish': 'es-US', 'es': 'es-US',
+            'french': 'fr-FR', 'fr': 'fr-FR',
+            'german': 'de-DE', 'de': 'de-DE',
+            'italian': 'it-IT', 'it': 'it-IT',
+            'portuguese': 'pt-BR', 'pt': 'pt-BR',
+            'japanese': 'ja-JP', 'ja': 'ja-JP',
+            'mandarin chinese': 'cmn-CN', 'mandarin': 'cmn-CN', 'chinese': 'cmn-CN', 'zh': 'cmn-CN',
+            'korean': 'ko-KR', 'ko': 'ko-KR',
+            'hebrew': 'he-IL', 'he': 'he-IL',
           };
           // Use accentLanguage override if provided (e.g. 'en-GB' for British accent)
           // Otherwise fall back to default language code mapping

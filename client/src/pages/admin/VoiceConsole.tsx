@@ -472,7 +472,7 @@ export function VoiceConsoleContent() {
         if (language !== 'english' && !fallbackPreviewUrl) {
           setAuditionPhase('native');
           try {
-            const nativeAudio = await playVoiceSample(voiceId, phrases.native, 'en', speakingRate, auditionEmotion, provider, elSettings, undefined, languageCode);
+            const nativeAudio = await playVoiceSample(voiceId, phrases.native, 'en', speakingRate, auditionEmotion, provider, elSettings, undefined, undefined);
             nativeAudio.onended = () => {
               setPlayingVoiceId(null);
               setAuditionPhase('idle');
