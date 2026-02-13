@@ -2817,6 +2817,7 @@ Remember: Beta testers understand they're helping build something and appreciate
                   hasTargetContent: hasTarget,
                   targetLanguageText: hasTarget ? extraction.targetText : undefined,
                   wordMapping: hasTarget && wordMapping.length > 0 ? wordMapping : undefined,
+                  ...(i === 0 && sentences.length > 1 ? { totalSentences: sentences.length } : {}),
                 } as StreamingSentenceStartMessage);
 
                 await this.streamSentenceAudioProgressive(session, { index: i, text: sentenceText }, sentenceText, metrics, session.turnId || `turn-${Date.now()}`, allBoldWords);
@@ -3900,6 +3901,7 @@ Remember: Beta testers understand they're helping build something and appreciate
                 hasTargetContent: pttEmbedHasTarget,
                 targetLanguageText: pttEmbedHasTarget ? pttEmbedExtraction.targetText : undefined,
                 wordMapping: pttEmbedHasTarget && pttEmbedWordMapping.length > 0 ? pttEmbedWordMapping : undefined,
+                ...(si === 0 && pttSentences.length > 1 ? { totalSentences: pttSentences.length } : {}),
               } as StreamingSentenceStartMessage);
 
               await this.streamSentenceAudioProgressive(session, { index: si, text: sentenceText }, sentenceText, metrics, session.turnId || `turn-${Date.now()}`, pttEmbedBoldWords);
@@ -5293,6 +5295,7 @@ Remember: Beta testers understand they're helping build something and appreciate
                   hasTargetContent: hasTarget,
                   targetLanguageText: hasTarget ? extraction.targetText : undefined,
                   wordMapping: hasTarget && wordMapping.length > 0 ? wordMapping : undefined,
+                  ...(i === 0 && sentences.length > 1 ? { totalSentences: sentences.length } : {}),
                 } as StreamingSentenceStartMessage);
 
                 await this.streamSentenceAudioProgressive(session, { index: i, text: sentenceText }, sentenceText, metrics, session.turnId || `turn-${Date.now()}`, allBoldWords);
@@ -6037,6 +6040,7 @@ Remember: Beta testers understand they're helping build something and appreciate
                 hasTargetContent: embeddedHasTarget,
                 targetLanguageText: embeddedHasTarget ? embeddedExtraction.targetText : undefined,
                 wordMapping: embeddedHasTarget && embeddedWordMapping.length > 0 ? embeddedWordMapping : undefined,
+                ...(si === 0 && omSentences.length > 1 ? { totalSentences: omSentences.length } : {}),
               } as StreamingSentenceStartMessage);
 
               await this.streamSentenceAudioProgressive(session, { index: si, text: sentenceText }, sentenceText, metrics, session.turnId || `turn-${Date.now()}`, embeddedBoldWords);
@@ -6091,6 +6095,7 @@ Remember: Beta testers understand they're helping build something and appreciate
               hasTargetContent: contHasTarget,
               targetLanguageText: contHasTarget ? contExtraction.targetText : undefined,
               wordMapping: contHasTarget && contWordMapping.length > 0 ? contWordMapping : undefined,
+              ...(si === 0 && contSentences.length > 1 ? { totalSentences: contSentences.length } : {}),
             } as StreamingSentenceStartMessage);
 
             await this.streamSentenceAudioProgressive(session, { index: si, text: sentenceText }, sentenceText, metrics, session.turnId || `turn-${Date.now()}`, contBoldWords);
@@ -10412,6 +10417,7 @@ Only include observations you can clearly justify from the exchange. Return empt
               hasTargetContent,
               targetLanguageText: hasTargetContent ? extraction.targetText : undefined,
               wordMapping: hasTargetContent && wordMappingArray.length > 0 ? wordMappingArray : undefined,
+              ...(si === 0 && greetingSentences.length > 1 ? { totalSentences: greetingSentences.length } : {}),
             } as StreamingSentenceStartMessage);
 
             const isFinal = si === greetingSentences.length - 1;

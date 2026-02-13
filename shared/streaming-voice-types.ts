@@ -129,6 +129,7 @@ export interface StreamingSentenceStartMessage extends StreamingVoiceMessage {
   hasTargetContent: boolean;  // Explicit flag: true = show subtitles, false = hide immediately
   targetLanguageText?: string;  // Target language only (if hasTargetContent is true)
   wordMapping?: [number, number][];  // Maps fullTextWordIndex -> targetTextWordIndex for karaoke in Target mode
+  totalSentences?: number;  // Total sentences in this turn (sent on first sentence to prevent premature idle)
 }
 
 /**

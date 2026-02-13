@@ -873,7 +873,14 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       }
     }, 5000);
   }, [checkAndClearProcessing]);
-  
+
+  const handleExpectedSentenceCount = useCallback((data: { count: number }) => {
+    if (playerRef.current) {
+      console.log(`[StreamingVoice] Early sentence count: ${data.count} sentences expected`);
+      playerRef.current.setExpectedSentenceCount(data.count);
+    }
+  }, []);
+
   /**
    * Handle errors - also clears tutor switch state to prevent mic lockout
    */
@@ -1102,6 +1109,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('processing', handleProcessing);
       clientRef.current.on('processing_pending', handleProcessingPending);  // Immediate thinking signal
       clientRef.current.on('sentenceStart', handleSentenceStart);
+      clientRef.current.on('expectedSentenceCount', handleExpectedSentenceCount);
       clientRef.current.on('sentenceReady', handleSentenceReady);  // NEW: Atomic first audio + timing
       clientRef.current.on('audioChunk', handleAudioChunk);
       clientRef.current.on('wordTiming', handleWordTiming);
@@ -1152,7 +1160,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       setError(err.message);
       throw err;
     }
-  }, [handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest]);
+  }, [handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleExpectedSentenceCount, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest]);
   
   /**
    * Disconnect from streaming voice service
@@ -1167,6 +1175,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.off('processing', handleProcessing);
       clientRef.current.off('processing_pending', handleProcessingPending);  // Immediate thinking signal
       clientRef.current.off('sentenceStart', handleSentenceStart);
+      clientRef.current.off('expectedSentenceCount', handleExpectedSentenceCount);
       clientRef.current.off('sentenceReady', handleSentenceReady);  // NEW: Atomic first audio + timing
       clientRef.current.off('audioChunk', handleAudioChunk);
       clientRef.current.off('wordTiming', handleWordTiming);

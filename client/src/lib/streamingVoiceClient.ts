@@ -1060,6 +1060,9 @@ export class StreamingVoiceClient {
   private handleSentenceStart(message: StreamingSentenceStartMessage): void {
     this.currentSentenceIndex = message.sentenceIndex;
     this.setState('streaming');
+    if (message.totalSentences !== undefined) {
+      this.emit('expectedSentenceCount', { count: message.totalSentences });
+    }
     this.callbacks.onSentenceStart?.(message.sentenceIndex, message.text, message.targetLanguageText);
     this.emit('sentenceStart', message);
   }
