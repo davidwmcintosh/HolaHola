@@ -8410,6 +8410,12 @@ Remember: Beta testers understand they're helping build something and appreciate
       // Clear checkpoint after successful processing
       this.clearMessageCheckpoint(session);
       
+      // Skip saving empty AI responses (e.g., function-call-only turns like voice_adjust)
+      if (!aiResponse || !aiResponse.trim()) {
+        console.log(`[Persist] Skipping empty AI response (function-call-only turn)`);
+        return;
+      }
+      
       // Extract target language text for the AI response
       const targetLanguageText = extractTargetLanguageText(aiResponse);
       const hasTargetLanguage = hasSignificantTargetLanguageContent(targetLanguageText);
