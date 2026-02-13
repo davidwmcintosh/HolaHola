@@ -1743,6 +1743,8 @@ Reference past discussions when relevant, but don't force it.
             speculativePttWordCount = 0;
             speculativePttTriggered = false;
             speculativePttTranscriptUsed = '';
+            speculativePttSessionId++;
+            const currentPttSessionId = speculativePttSessionId;
             
             // CRITICAL: Clear any stale flags from previous turn to prevent cross-turn carryover
             speculativeAiInProgress = false;
@@ -1756,6 +1758,7 @@ Reference past discussions when relevant, but don't force it.
             
             const pttSession = new OpenMicSession(languageCode, {
               onSpeechStarted: () => {
+                if (currentPttSessionId !== speculativePttSessionId) return;
                 console.log('[SpeculativePTT] VAD: Speech started');
                 if (ws.readyState === WS.OPEN) {
                   ws.send(JSON.stringify({
@@ -1765,18 +1768,20 @@ Reference past discussions when relevant, but don't force it.
                 }
               },
               onUtteranceEnd: async (transcript, confidence) => {
-                // In PTT mode, we don't process on utterance end - wait for button release
+                if (currentPttSessionId !== speculativePttSessionId) return;
                 console.log(`[SpeculativePTT] VAD: Utterance end (ignored) - "${transcript}"`);
               },
               onInterimTranscript: (transcript) => {
-                // Update accumulated transcript
+                if (currentPttSessionId !== speculativePttSessionId) {
+                  console.log(`[SpeculativePTT] Ignoring stale transcript from session #${currentPttSessionId} (current: #${speculativePttSessionId}): "${transcript.slice(0, 50)}"`);
+                  return;
+                }
                 speculativePttTranscript = transcript;
                 const words = transcript.trim().split(/\s+/).filter(w => w.length > 0);
                 speculativePttWordCount = words.length;
                 
                 console.log(`[SpeculativePTT] Interim: "${transcript}" (${speculativePttWordCount} words, triggered: ${speculativePttTriggered})`);
                 
-                // Send interim transcript to client for display
                 if (ws.readyState === WS.OPEN) {
                   ws.send(JSON.stringify({
                     type: 'ptt_interim_transcript',
@@ -1786,9 +1791,6 @@ Reference past discussions when relevant, but don't force it.
                   }));
                 }
                 
-                // PHASE 2: SPECULATIVE AI PRE-TRIGGER
-                // When we hit 3+ confident words, start AI generation speculatively
-                // This shaves 200-300ms off response time by starting AI while user is still speaking
                 if (speculativePttWordCount >= SPECULATIVE_AI_TRIGGER_WORDS && 
                     !speculativePttTriggered && 
                     !speculativeAiInProgress &&
@@ -1799,22 +1801,17 @@ Reference past discussions when relevant, but don't force it.
                   
                   console.log(`[SpeculativePTT] PHASE 2: Triggering speculative AI with "${speculativePttTranscriptUsed}"`);
                   
-                  // Fire-and-forget speculative AI call
-                  // The result will stream to client; on PTT release we'll decide whether to use it
                   orchestrator.processOpenMicTranscript(session.id, speculativePttTranscriptUsed, 0.9)
                     .then(() => {
                       console.log(`[SpeculativePTT] PHASE 2: Speculative AI completed`);
                     })
                     .catch((err: Error) => {
                       console.error(`[SpeculativePTT] PHASE 2: Speculative AI failed:`, err.message);
-                      // Don't reset speculativePttTriggered - we'll fall back to normal flow
                     })
                     .finally(() => {
-                      // CRITICAL: Always reset in-progress flag, even on interrupt/cancellation
                       speculativeAiInProgress = false;
                     });
                   
-                  // Notify client that speculative AI has started
                   if (ws.readyState === WS.OPEN) {
                     ws.send(JSON.stringify({
                       type: 'ptt_speculative_ai_started',
@@ -1825,10 +1822,11 @@ Reference past discussions when relevant, but don't force it.
                 }
               },
               onError: (error) => {
+                if (currentPttSessionId !== speculativePttSessionId) return;
                 console.error('[SpeculativePTT] Session error:', error);
-                // Don't send error to client - fallback to normal PTT processing
               },
               onClose: () => {
+                if (currentPttSessionId !== speculativePttSessionId) return;
                 console.log('[SpeculativePTT] Session closed');
                 speculativePttSession = null;
               },
@@ -2798,6 +2796,7 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
   let speculativePttWordCount = 0;
   let speculativePttTriggered = false;
   let speculativePttTranscriptUsed = '';
+  let speculativePttSessionId = 0;
   
   // Pending speculative transcript - set on PTT release, consumed by audio_data
   // This allows bypassing redundant STT when we already have real-time transcript
@@ -3479,6 +3478,8 @@ ${buildNativeFunctionCallingSection()}`;
             speculativePttWordCount = 0;
             speculativePttTriggered = false;
             speculativePttTranscriptUsed = '';
+            speculativePttSessionId++;
+            const currentPttSessionId = speculativePttSessionId;
             
             // CRITICAL: Clear any stale flags from previous turn to prevent cross-turn carryover
             speculativeAiInProgress = false;
@@ -3488,10 +3489,14 @@ ${buildNativeFunctionCallingSection()}`;
             
             const languageCode = getDeepgramLanguageCode(session.targetLanguage || 'spanish');
             const sessionKeyterms = (session as any).sttKeyterms as string[] | undefined;
-            console.log(`[SpeculativePTT] Starting PCM session for language: ${languageCode}${sessionKeyterms?.length ? ` (${sessionKeyterms.length} keyterms)` : ''}`);
+            console.log(`[SpeculativePTT] Starting PCM session #${currentPttSessionId} for language: ${languageCode}${sessionKeyterms?.length ? ` (${sessionKeyterms.length} keyterms)` : ''}`);
             
             const pttSession = new OpenMicSession(languageCode, {
               onSpeechStarted: () => {
+                if (currentPttSessionId !== speculativePttSessionId) {
+                  console.log(`[SpeculativePTT] Ignoring stale speech_started from session #${currentPttSessionId} (current: #${speculativePttSessionId})`);
+                  return;
+                }
                 console.log('[SpeculativePTT] VAD: Speech started');
                 if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
                   ws.send(JSON.stringify({
@@ -3501,11 +3506,14 @@ ${buildNativeFunctionCallingSection()}`;
                 }
               },
               onUtteranceEnd: async (transcript, confidence) => {
-                // In PTT mode, we don't process on utterance end - wait for button release
+                if (currentPttSessionId !== speculativePttSessionId) return;
                 console.log(`[SpeculativePTT] VAD: Utterance end (ignored) - "${transcript}"`);
               },
               onInterimTranscript: (transcript) => {
-                // Update accumulated transcript
+                if (currentPttSessionId !== speculativePttSessionId) {
+                  console.log(`[SpeculativePTT] Ignoring stale transcript from session #${currentPttSessionId} (current: #${speculativePttSessionId}): "${transcript.slice(0, 50)}"`);
+                  return;
+                }
                 speculativePttTranscript = transcript;
                 const words = transcript.trim().split(/\s+/).filter(w => w.length > 0);
                 speculativePttWordCount = words.length;
@@ -3561,10 +3569,11 @@ ${buildNativeFunctionCallingSection()}`;
                 }
               },
               onError: (error) => {
+                if (currentPttSessionId !== speculativePttSessionId) return;
                 console.error('[SpeculativePTT] Session error:', error);
-                // Don't send error to client - fallback to normal PTT processing
               },
               onClose: () => {
+                if (currentPttSessionId !== speculativePttSessionId) return;
                 console.log('[SpeculativePTT] Session closed');
                 speculativePttSession = null;
               },
