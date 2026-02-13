@@ -18058,98 +18058,23 @@ Current conversation context:
       const language = req.params.language?.toLowerCase() || req.query.language?.toLowerCase();
       const gender = req.params.gender?.toLowerCase() || req.query.gender?.toLowerCase();
       
-      // Available Google TTS Chirp 3 HD voices per language and gender
+      // Google TTS Chirp 3 HD base speakers - language-independent
+      // The locale prefix (e.g., es-ES, ja-JP) is determined by language + regional accent selection,
+      // not by the voice choice. Same 8 speakers work across all 30+ locales.
       // Female voices: Aoede, Kore, Leda, Zephyr
       // Male voices: Puck, Charon, Fenrir, Orus
-      const googleVoices = [
-        // English
-        { id: 'en-US-Chirp3-HD-Aoede', name: 'Aoede (Warm, Expressive)', language: 'english', gender: 'female', languageCode: 'en-US' },
-        { id: 'en-US-Chirp3-HD-Kore', name: 'Kore (Clear, Professional)', language: 'english', gender: 'female', languageCode: 'en-US' },
-        { id: 'en-US-Chirp3-HD-Leda', name: 'Leda (Friendly, Natural)', language: 'english', gender: 'female', languageCode: 'en-US' },
-        { id: 'en-US-Chirp3-HD-Zephyr', name: 'Zephyr (Gentle, Calm)', language: 'english', gender: 'female', languageCode: 'en-US' },
-        { id: 'en-US-Chirp3-HD-Puck', name: 'Puck (Energetic, Friendly)', language: 'english', gender: 'male', languageCode: 'en-US' },
-        { id: 'en-US-Chirp3-HD-Charon', name: 'Charon (Deep, Authoritative)', language: 'english', gender: 'male', languageCode: 'en-US' },
-        { id: 'en-US-Chirp3-HD-Fenrir', name: 'Fenrir (Strong, Clear)', language: 'english', gender: 'male', languageCode: 'en-US' },
-        { id: 'en-US-Chirp3-HD-Orus', name: 'Orus (Warm, Supportive)', language: 'english', gender: 'male', languageCode: 'en-US' },
-        // Spanish (US)
-        { id: 'es-US-Chirp3-HD-Aoede', name: 'Aoede (Cálida, Expresiva)', language: 'spanish', gender: 'female', languageCode: 'es-US' },
-        { id: 'es-US-Chirp3-HD-Kore', name: 'Kore (Clara, Profesional)', language: 'spanish', gender: 'female', languageCode: 'es-US' },
-        { id: 'es-US-Chirp3-HD-Leda', name: 'Leda (Amigable, Natural)', language: 'spanish', gender: 'female', languageCode: 'es-US' },
-        { id: 'es-US-Chirp3-HD-Zephyr', name: 'Zephyr (Suave, Tranquila)', language: 'spanish', gender: 'female', languageCode: 'es-US' },
-        { id: 'es-US-Chirp3-HD-Puck', name: 'Puck (Enérgico, Amigable)', language: 'spanish', gender: 'male', languageCode: 'es-US' },
-        { id: 'es-US-Chirp3-HD-Charon', name: 'Charon (Profundo, Autoritario)', language: 'spanish', gender: 'male', languageCode: 'es-US' },
-        { id: 'es-US-Chirp3-HD-Fenrir', name: 'Fenrir (Fuerte, Claro)', language: 'spanish', gender: 'male', languageCode: 'es-US' },
-        { id: 'es-US-Chirp3-HD-Orus', name: 'Orus (Cálido, Apoyo)', language: 'spanish', gender: 'male', languageCode: 'es-US' },
-        // French
-        { id: 'fr-FR-Chirp3-HD-Aoede', name: 'Aoede (Chaleureuse, Expressive)', language: 'french', gender: 'female', languageCode: 'fr-FR' },
-        { id: 'fr-FR-Chirp3-HD-Kore', name: 'Kore (Claire, Professionnelle)', language: 'french', gender: 'female', languageCode: 'fr-FR' },
-        { id: 'fr-FR-Chirp3-HD-Leda', name: 'Leda (Amicale, Naturelle)', language: 'french', gender: 'female', languageCode: 'fr-FR' },
-        { id: 'fr-FR-Chirp3-HD-Zephyr', name: 'Zephyr (Douce, Calme)', language: 'french', gender: 'female', languageCode: 'fr-FR' },
-        { id: 'fr-FR-Chirp3-HD-Puck', name: 'Puck (Énergique, Amical)', language: 'french', gender: 'male', languageCode: 'fr-FR' },
-        { id: 'fr-FR-Chirp3-HD-Charon', name: 'Charon (Profond, Autoritaire)', language: 'french', gender: 'male', languageCode: 'fr-FR' },
-        { id: 'fr-FR-Chirp3-HD-Fenrir', name: 'Fenrir (Fort, Clair)', language: 'french', gender: 'male', languageCode: 'fr-FR' },
-        { id: 'fr-FR-Chirp3-HD-Orus', name: 'Orus (Chaleureux, Bienveillant)', language: 'french', gender: 'male', languageCode: 'fr-FR' },
-        // German
-        { id: 'de-DE-Chirp3-HD-Aoede', name: 'Aoede (Warm, Ausdrucksvoll)', language: 'german', gender: 'female', languageCode: 'de-DE' },
-        { id: 'de-DE-Chirp3-HD-Kore', name: 'Kore (Klar, Professionell)', language: 'german', gender: 'female', languageCode: 'de-DE' },
-        { id: 'de-DE-Chirp3-HD-Leda', name: 'Leda (Freundlich, Natürlich)', language: 'german', gender: 'female', languageCode: 'de-DE' },
-        { id: 'de-DE-Chirp3-HD-Zephyr', name: 'Zephyr (Sanft, Ruhig)', language: 'german', gender: 'female', languageCode: 'de-DE' },
-        { id: 'de-DE-Chirp3-HD-Puck', name: 'Puck (Energisch, Freundlich)', language: 'german', gender: 'male', languageCode: 'de-DE' },
-        { id: 'de-DE-Chirp3-HD-Charon', name: 'Charon (Tief, Autoritär)', language: 'german', gender: 'male', languageCode: 'de-DE' },
-        { id: 'de-DE-Chirp3-HD-Fenrir', name: 'Fenrir (Stark, Deutlich)', language: 'german', gender: 'male', languageCode: 'de-DE' },
-        { id: 'de-DE-Chirp3-HD-Orus', name: 'Orus (Warmherzig, Unterstützend)', language: 'german', gender: 'male', languageCode: 'de-DE' },
-        // Italian
-        { id: 'it-IT-Chirp3-HD-Aoede', name: 'Aoede (Calda, Espressiva)', language: 'italian', gender: 'female', languageCode: 'it-IT' },
-        { id: 'it-IT-Chirp3-HD-Kore', name: 'Kore (Chiara, Professionale)', language: 'italian', gender: 'female', languageCode: 'it-IT' },
-        { id: 'it-IT-Chirp3-HD-Leda', name: 'Leda (Amichevole, Naturale)', language: 'italian', gender: 'female', languageCode: 'it-IT' },
-        { id: 'it-IT-Chirp3-HD-Zephyr', name: 'Zephyr (Dolce, Calma)', language: 'italian', gender: 'female', languageCode: 'it-IT' },
-        { id: 'it-IT-Chirp3-HD-Puck', name: 'Puck (Energico, Amichevole)', language: 'italian', gender: 'male', languageCode: 'it-IT' },
-        { id: 'it-IT-Chirp3-HD-Charon', name: 'Charon (Profondo, Autorevole)', language: 'italian', gender: 'male', languageCode: 'it-IT' },
-        { id: 'it-IT-Chirp3-HD-Fenrir', name: 'Fenrir (Forte, Chiaro)', language: 'italian', gender: 'male', languageCode: 'it-IT' },
-        { id: 'it-IT-Chirp3-HD-Orus', name: 'Orus (Caloroso, Di Supporto)', language: 'italian', gender: 'male', languageCode: 'it-IT' },
-        // Portuguese (Brazil)
-        { id: 'pt-BR-Chirp3-HD-Aoede', name: 'Aoede (Calorosa, Expressiva)', language: 'portuguese', gender: 'female', languageCode: 'pt-BR' },
-        { id: 'pt-BR-Chirp3-HD-Kore', name: 'Kore (Clara, Profissional)', language: 'portuguese', gender: 'female', languageCode: 'pt-BR' },
-        { id: 'pt-BR-Chirp3-HD-Leda', name: 'Leda (Amigável, Natural)', language: 'portuguese', gender: 'female', languageCode: 'pt-BR' },
-        { id: 'pt-BR-Chirp3-HD-Zephyr', name: 'Zephyr (Suave, Calma)', language: 'portuguese', gender: 'female', languageCode: 'pt-BR' },
-        { id: 'pt-BR-Chirp3-HD-Puck', name: 'Puck (Energético, Amigável)', language: 'portuguese', gender: 'male', languageCode: 'pt-BR' },
-        { id: 'pt-BR-Chirp3-HD-Charon', name: 'Charon (Profundo, Autoritário)', language: 'portuguese', gender: 'male', languageCode: 'pt-BR' },
-        { id: 'pt-BR-Chirp3-HD-Fenrir', name: 'Fenrir (Forte, Claro)', language: 'portuguese', gender: 'male', languageCode: 'pt-BR' },
-        { id: 'pt-BR-Chirp3-HD-Orus', name: 'Orus (Caloroso, Apoiador)', language: 'portuguese', gender: 'male', languageCode: 'pt-BR' },
-        // Japanese
-        { id: 'ja-JP-Chirp3-HD-Aoede', name: 'Aoede (温かみ、表現力)', language: 'japanese', gender: 'female', languageCode: 'ja-JP' },
-        { id: 'ja-JP-Chirp3-HD-Kore', name: 'Kore (明瞭、プロ)', language: 'japanese', gender: 'female', languageCode: 'ja-JP' },
-        { id: 'ja-JP-Chirp3-HD-Leda', name: 'Leda (親しみやすい、自然)', language: 'japanese', gender: 'female', languageCode: 'ja-JP' },
-        { id: 'ja-JP-Chirp3-HD-Zephyr', name: 'Zephyr (穏やか、落ち着き)', language: 'japanese', gender: 'female', languageCode: 'ja-JP' },
-        { id: 'ja-JP-Chirp3-HD-Puck', name: 'Puck (活発、親しみやすい)', language: 'japanese', gender: 'male', languageCode: 'ja-JP' },
-        { id: 'ja-JP-Chirp3-HD-Charon', name: 'Charon (深み、威厳)', language: 'japanese', gender: 'male', languageCode: 'ja-JP' },
-        { id: 'ja-JP-Chirp3-HD-Fenrir', name: 'Fenrir (力強い、明瞭)', language: 'japanese', gender: 'male', languageCode: 'ja-JP' },
-        { id: 'ja-JP-Chirp3-HD-Orus', name: 'Orus (温かい、サポート)', language: 'japanese', gender: 'male', languageCode: 'ja-JP' },
-        // Mandarin Chinese
-        { id: 'cmn-CN-Chirp3-HD-Aoede', name: 'Aoede (温暖、富有表现力)', language: 'mandarin chinese', gender: 'female', languageCode: 'cmn-CN' },
-        { id: 'cmn-CN-Chirp3-HD-Kore', name: 'Kore (清晰、专业)', language: 'mandarin chinese', gender: 'female', languageCode: 'cmn-CN' },
-        { id: 'cmn-CN-Chirp3-HD-Leda', name: 'Leda (友好、自然)', language: 'mandarin chinese', gender: 'female', languageCode: 'cmn-CN' },
-        { id: 'cmn-CN-Chirp3-HD-Zephyr', name: 'Zephyr (柔和、平静)', language: 'mandarin chinese', gender: 'female', languageCode: 'cmn-CN' },
-        { id: 'cmn-CN-Chirp3-HD-Puck', name: 'Puck (活力、友好)', language: 'mandarin chinese', gender: 'male', languageCode: 'cmn-CN' },
-        { id: 'cmn-CN-Chirp3-HD-Charon', name: 'Charon (深沉、权威)', language: 'mandarin chinese', gender: 'male', languageCode: 'cmn-CN' },
-        { id: 'cmn-CN-Chirp3-HD-Fenrir', name: 'Fenrir (强劲、清晰)', language: 'mandarin chinese', gender: 'male', languageCode: 'cmn-CN' },
-        { id: 'cmn-CN-Chirp3-HD-Orus', name: 'Orus (温暖、支持)', language: 'mandarin chinese', gender: 'male', languageCode: 'cmn-CN' },
-        // Korean
-        { id: 'ko-KR-Chirp3-HD-Aoede', name: 'Aoede (따뜻함, 표현력)', language: 'korean', gender: 'female', languageCode: 'ko-KR' },
-        { id: 'ko-KR-Chirp3-HD-Kore', name: 'Kore (명확함, 전문성)', language: 'korean', gender: 'female', languageCode: 'ko-KR' },
-        { id: 'ko-KR-Chirp3-HD-Leda', name: 'Leda (친근함, 자연스러움)', language: 'korean', gender: 'female', languageCode: 'ko-KR' },
-        { id: 'ko-KR-Chirp3-HD-Zephyr', name: 'Zephyr (부드러움, 차분함)', language: 'korean', gender: 'female', languageCode: 'ko-KR' },
-        { id: 'ko-KR-Chirp3-HD-Puck', name: 'Puck (활기참, 친근함)', language: 'korean', gender: 'male', languageCode: 'ko-KR' },
-        { id: 'ko-KR-Chirp3-HD-Charon', name: 'Charon (깊이, 권위)', language: 'korean', gender: 'male', languageCode: 'ko-KR' },
-        { id: 'ko-KR-Chirp3-HD-Fenrir', name: 'Fenrir (강함, 명확함)', language: 'korean', gender: 'male', languageCode: 'ko-KR' },
-        { id: 'ko-KR-Chirp3-HD-Orus', name: 'Orus (따뜻함, 지지)', language: 'korean', gender: 'male', languageCode: 'ko-KR' },
+      const baseSpeakers = [
+        { id: 'Aoede', name: 'Aoede (Warm, Expressive)', gender: 'female' },
+        { id: 'Kore', name: 'Kore (Clear, Professional)', gender: 'female' },
+        { id: 'Leda', name: 'Leda (Friendly, Natural)', gender: 'female' },
+        { id: 'Zephyr', name: 'Zephyr (Gentle, Calm)', gender: 'female' },
+        { id: 'Puck', name: 'Puck (Energetic, Friendly)', gender: 'male' },
+        { id: 'Charon', name: 'Charon (Deep, Authoritative)', gender: 'male' },
+        { id: 'Fenrir', name: 'Fenrir (Strong, Clear)', gender: 'male' },
+        { id: 'Orus', name: 'Orus (Warm, Supportive)', gender: 'male' },
       ];
       
-      // Filter by language and gender if provided
-      let filtered = googleVoices;
-      if (language) {
-        filtered = filtered.filter(v => v.language === language);
-      }
+      let filtered = baseSpeakers;
       if (gender) {
         filtered = filtered.filter(v => v.gender === gender);
       }

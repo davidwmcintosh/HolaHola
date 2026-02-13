@@ -89,9 +89,7 @@ interface GeminiVoice {
 interface GoogleVoiceOption {
   id: string;
   name: string;
-  language: string;
   gender: 'male' | 'female';
-  languageCode: string;
 }
 
 const DEFAULT_TUTOR_NAMES: Record<string, Record<string, string>> = {
@@ -296,21 +294,21 @@ export function VoiceConsoleContent() {
     }));
 
   const { data: googleVoicesData, isLoading: isLoadingGoogleVoices } = useQuery<GoogleVoiceOption[]>({
-    queryKey: ["/api/admin/google-voices", formData.language, formData.gender],
+    queryKey: ["/api/admin/google-voices", formData.gender],
     queryFn: async () => {
-      const res = await fetch(`/api/admin/google-voices/${encodeURIComponent(formData.language)}/${formData.gender}`);
+      const res = await fetch(`/api/admin/google-voices/${encodeURIComponent(formData.language || 'english')}/${formData.gender}`);
       if (!res.ok) throw new Error('Failed to fetch Google voices');
       const data = await res.json();
       return data.voices || [];
     },
-    enabled: isAddDialogOpen && !!formData.language && formData.provider === 'google',
+    enabled: isAddDialogOpen && formData.provider === 'google',
   });
 
   const googleVoices: CartesiaVoice[] = (Array.isArray(googleVoicesData) ? googleVoicesData : []).map(v => ({
     id: v.id,
     name: v.name,
-    description: `Google Chirp 3 HD - ${v.languageCode}`,
-    language: v.language,
+    description: 'Google Chirp 3 HD',
+    language: '',
     gender: v.gender,
     isPublic: true,
   }));
@@ -598,22 +596,21 @@ export function VoiceConsoleContent() {
     let mappedVoiceId = voice.voiceId;
     let mappedVoiceName = voice.voiceName;
     if (!providerMatchesVoice) {
-      const langMap: Record<string, string> = {
-        'english': 'en-US', 'spanish': 'es-US', 'french': 'fr-FR', 'german': 'de-DE',
-        'italian': 'it-IT', 'portuguese': 'pt-BR', 'japanese': 'ja-JP',
-        'mandarin chinese': 'cmn-CN', 'mandarin': 'cmn-CN', 'chinese': 'cmn-CN',
-        'korean': 'ko-KR', 'hebrew': 'he-IL',
-      };
       if (globalProvider === 'google' && !voice.voiceId.includes('Chirp3-HD')) {
-        const langCode = langMap[voice.language.toLowerCase()] || 'en-US';
-        mappedVoiceId = `${langCode}-Chirp3-HD-${voice.voiceId}`;
+        // Bare Gemini name (e.g. "Aoede") maps directly to Google base speaker
+        mappedVoiceId = voice.voiceId;
       } else if (globalProvider === 'gemini' && voice.voiceId.includes('Chirp3-HD')) {
+        // Full Chirp name → extract bare speaker name for Gemini
         const match = voice.voiceId.match(/Chirp3-HD-(\w+)$/);
         if (match) mappedVoiceId = match[1];
       } else {
         mappedVoiceId = '';
         mappedVoiceName = '';
       }
+    } else if (voiceProvider === 'google' && voice.voiceId.includes('Chirp3-HD')) {
+      // Existing Google voice with full Chirp name → extract bare speaker for dropdown
+      const match = voice.voiceId.match(/Chirp3-HD-(\w+)$/);
+      if (match) mappedVoiceId = match[1];
     }
     setFormData({
       language: voice.language,
@@ -1411,9 +1408,7 @@ export function VoiceConsoleContent() {
 interface GoogleVoice {
   id: string;
   name: string;
-  language: string;
   gender: 'male' | 'female';
-  languageCode: string;
 }
 
 /**
@@ -1505,7 +1500,6 @@ function AssistantVoiceCard() {
         ...prev,
         voiceId: selected.id,
         voiceName: selected.name,
-        languageCode: selected.languageCode,
       }));
     }
   };
@@ -1945,7 +1939,6 @@ function SofiaVoiceCard() {
         ...prev,
         voiceId: selected.id,
         voiceName: selected.name,
-        languageCode: selected.languageCode,
       }));
     }
   };
