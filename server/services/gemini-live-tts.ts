@@ -278,6 +278,7 @@ export class GeminiLiveTtsService extends EventEmitter {
     speechConfig: any,
   ): Promise<Buffer> {
     const ttsPrompt = stylePrompt ? `${stylePrompt} ${text}` : text;
+    const segStart = Date.now();
 
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => reject(new Error(`Gemini TTS timed out after ${SYNTHESIS_TIMEOUT_MS}ms`)), SYNTHESIS_TIMEOUT_MS);
@@ -295,15 +296,21 @@ export class GeminiLiveTtsService extends EventEmitter {
       timeoutPromise,
     ]);
 
+    const genTimeMs = Date.now() - segStart;
     const audioPart = response.candidates?.[0]?.content?.parts?.[0];
     if (!audioPart?.inlineData?.data) {
       const finishReason = response.candidates?.[0]?.finishReason;
-      console.error(`[Gemini TTS] No audio for segment (finishReason: ${finishReason}, ${text.length} chars)`);
-      throw new Error('Gemini TTS returned no audio data');
+      const candidateCount = response.candidates?.length || 0;
+      const partsCount = response.candidates?.[0]?.content?.parts?.length || 0;
+      console.error(`[Gemini TTS] No audio for segment after ${genTimeMs}ms (finishReason: ${finishReason}, candidates: ${candidateCount}, parts: ${partsCount}, ${text.length} chars, voice: ${voiceName}, promptLen: ${ttsPrompt.length})`);
+      throw new Error(`Gemini TTS returned no audio data (finishReason: ${finishReason})`);
     }
 
     const rawPcmS16 = Buffer.from(audioPart.inlineData.data, 'base64');
-    return this.trimLeadingSilence(this.convertS16leToF32le(rawPcmS16));
+    const result = this.trimLeadingSilence(this.convertS16leToF32le(rawPcmS16));
+    const audioDurationMs = (result.length / 4 / TTS_SAMPLE_RATE) * 1000;
+    console.log(`[Gemini TTS] Segment generated: ${genTimeMs}ms wall → ${Math.round(audioDurationMs)}ms audio (${text.length} chars)`);
+    return result;
   }
 
   async streamSynthesizeProgressive(
@@ -349,16 +356,9 @@ export class GeminiLiveTtsService extends EventEmitter {
       const allTimestamps: WordTiming[] = [];
       let successfulSegments = 0;
 
-      for (let segIdx = 0; segIdx < segments.length; segIdx++) {
-        const segment = segments[segIdx];
-        const segStart = Date.now();
-        if (isMultiSegment) {
-          console.log(`[Gemini TTS] Segment ${segIdx + 1}/${segments.length}: "${segment.substring(0, 50)}..." (${segment.length} chars)`);
-        }
-
-        let segF32: Buffer | null = null;
+      const synthesizeWithRetry = async (segment: string, segIdx: number): Promise<Buffer | null> => {
         try {
-          segF32 = await this.synthesizeSingleSegment(segment, stylePrompt, voiceName, speechConfig);
+          return await this.synthesizeSingleSegment(segment, stylePrompt, voiceName, speechConfig);
         } catch (segError: any) {
           const accentOnly = this.getAccentDescription(
             (request as any).targetLanguage,
@@ -367,58 +367,105 @@ export class GeminiLiveTtsService extends EventEmitter {
           const fallbackStyle = accentOnly ? `Say ${accentOnly}:` : '';
           console.error(`[Gemini TTS] Segment ${segIdx + 1} failed: ${segError.message}, retrying with accent-only style...`);
           try {
-            segF32 = await this.synthesizeSingleSegment(segment, fallbackStyle, voiceName, speechConfig);
+            const result = await this.synthesizeSingleSegment(segment, fallbackStyle, voiceName, speechConfig);
             console.log(`[Gemini TTS] Segment ${segIdx + 1} retry succeeded (accent-only: "${fallbackStyle}")`);
+            return result;
           } catch (retryError: any) {
             console.error(`[Gemini TTS] Segment ${segIdx + 1} retry with accent failed: ${retryError.message}, trying without any style...`);
             try {
-              segF32 = await this.synthesizeSingleSegment(segment, '', voiceName, speechConfig);
+              const result = await this.synthesizeSingleSegment(segment, '', voiceName, speechConfig);
               console.log(`[Gemini TTS] Segment ${segIdx + 1} retry succeeded (no style)`);
+              return result;
             } catch (finalError: any) {
               console.error(`[Gemini TTS] Segment ${segIdx + 1} all retries failed: ${finalError.message}, skipping`);
-              continue;
+              return null;
             }
           }
         }
+      };
 
-        successfulSegments++;
-        const segGenTime = Date.now() - segStart;
-        const segSamples = segF32.length / 4;
-        const segDurationMs = (segSamples / TTS_SAMPLE_RATE) * 1000;
+      if (isMultiSegment) {
+        console.log(`[Gemini TTS] Generating ${segments.length} segments in PARALLEL`);
+        const parallelStart = Date.now();
+        const segmentResults = await Promise.all(
+          segments.map((segment, segIdx) => {
+            console.log(`[Gemini TTS] Segment ${segIdx + 1}/${segments.length}: "${segment.substring(0, 50)}..." (${segment.length} chars)`);
+            return synthesizeWithRetry(segment, segIdx);
+          })
+        );
+        console.log(`[Gemini TTS] All ${segments.length} segments generated in ${Date.now() - parallelStart}ms (parallel)`);
 
-        if (isMultiSegment) {
-          console.log(`[Gemini TTS] Segment ${segIdx + 1} generated in ${segGenTime}ms (${Math.round(segDurationMs)}ms audio)`);
+        for (let segIdx = 0; segIdx < segments.length; segIdx++) {
+          const segF32 = segmentResults[segIdx];
+          if (!segF32) continue;
+
+          successfulSegments++;
+          const segSamples = segF32.length / 4;
+          const segDurationMs = (segSamples / TTS_SAMPLE_RATE) * 1000;
+
+          const segTimestamps = this.estimateWordTimings(segments[segIdx], segDurationMs / 1000);
+          for (const ts of segTimestamps) {
+            ts.startTime += cumulativeDurationMs / 1000;
+            ts.endTime += cumulativeDurationMs / 1000;
+            allTimestamps.push(ts);
+            callbacks.onWordTimestamp?.(ts, wordIndexOffset, cumulativeDurationMs + segDurationMs);
+            wordIndexOffset++;
+          }
+
+          const bytesPerChunk = CHUNK_SIZE_SAMPLES * 4;
+          let offset = 0;
+          while (offset < segF32.length) {
+            const end = Math.min(offset + bytesPerChunk, segF32.length);
+            const chunkBuf = segF32.subarray(offset, end);
+            const chunkDurationMs = ((end - offset) / 4 / TTS_SAMPLE_RATE) * 1000;
+            callbacks.onAudioChunk?.({
+              audio: Buffer.from(chunkBuf),
+              durationMs: chunkDurationMs,
+              isLast: false,
+              audioFormat: 'pcm_f32le' as any,
+              sampleRate: TTS_SAMPLE_RATE,
+            }, chunkIndex);
+            chunkIndex++;
+            offset = end;
+          }
+          cumulativeDurationMs += segDurationMs;
         }
+      } else {
+        const segment = segments[0];
+        const segStart = Date.now();
+        const segF32 = await synthesizeWithRetry(segment, 0);
+        if (segF32) {
+          successfulSegments++;
+          const segGenTime = Date.now() - segStart;
+          const segSamples = segF32.length / 4;
+          const segDurationMs = (segSamples / TTS_SAMPLE_RATE) * 1000;
+          console.log(`[Gemini TTS] Single segment generated in ${segGenTime}ms (${Math.round(segDurationMs)}ms audio)`);
 
-        const segTimestamps = this.estimateWordTimings(segment, segDurationMs / 1000);
-        for (const ts of segTimestamps) {
-          ts.startTime += cumulativeDurationMs / 1000;
-          ts.endTime += cumulativeDurationMs / 1000;
-          allTimestamps.push(ts);
-          callbacks.onWordTimestamp?.(ts, wordIndexOffset, cumulativeDurationMs + segDurationMs);
-          wordIndexOffset++;
+          const segTimestamps = this.estimateWordTimings(segment, segDurationMs / 1000);
+          for (const ts of segTimestamps) {
+            allTimestamps.push(ts);
+            callbacks.onWordTimestamp?.(ts, wordIndexOffset, segDurationMs);
+            wordIndexOffset++;
+          }
+
+          const bytesPerChunk = CHUNK_SIZE_SAMPLES * 4;
+          let offset = 0;
+          while (offset < segF32.length) {
+            const end = Math.min(offset + bytesPerChunk, segF32.length);
+            const chunkBuf = segF32.subarray(offset, end);
+            const chunkDurationMs = ((end - offset) / 4 / TTS_SAMPLE_RATE) * 1000;
+            callbacks.onAudioChunk?.({
+              audio: Buffer.from(chunkBuf),
+              durationMs: chunkDurationMs,
+              isLast: false,
+              audioFormat: 'pcm_f32le' as any,
+              sampleRate: TTS_SAMPLE_RATE,
+            }, chunkIndex);
+            chunkIndex++;
+            offset = end;
+          }
+          cumulativeDurationMs += segDurationMs;
         }
-
-        const bytesPerChunk = CHUNK_SIZE_SAMPLES * 4;
-        let offset = 0;
-        while (offset < segF32.length) {
-          const end = Math.min(offset + bytesPerChunk, segF32.length);
-          const chunkBuf = segF32.subarray(offset, end);
-          const chunkDurationMs = ((end - offset) / 4 / TTS_SAMPLE_RATE) * 1000;
-
-          callbacks.onAudioChunk?.({
-            audio: Buffer.from(chunkBuf),
-            durationMs: chunkDurationMs,
-            isLast: false,
-            audioFormat: 'pcm_f32le' as any,
-            sampleRate: TTS_SAMPLE_RATE,
-          }, chunkIndex);
-
-          chunkIndex++;
-          offset = end;
-        }
-
-        cumulativeDurationMs += segDurationMs;
       }
 
       if (successfulSegments === 0) {
@@ -444,6 +491,102 @@ export class GeminiLiveTtsService extends EventEmitter {
       voiceDiagnostics.recordTTSResult(false, undefined, 'daniela');
       throw error;
     }
+  }
+
+  async preGenerateAudio(request: StreamingSynthesisRequest): Promise<{ audio: Buffer; durationMs: number; timestamps: WordTiming[] } | null> {
+    const trimmedText = this.cleanTextForTTS(request.text || '');
+    if (trimmedText.length === 0 || !this.client) return null;
+
+    const voiceName = request.voiceId || 'Kore';
+    const targetLanguage = (request as any).targetLanguage as string | undefined;
+    const geminiLanguageCode = (request as any).geminiLanguageCode as string | undefined
+      || (request as any).accentLanguage as string | undefined;
+    const resolvedLanguageCode = geminiLanguageCode
+      || (targetLanguage ? DEFAULT_LANGUAGE_CODE[targetLanguage.toLowerCase()] : undefined);
+
+    const startTime = Date.now();
+    const stylePrompt = this.buildStylePrompt(request, resolvedLanguageCode);
+    const segments = this.splitTextForTTS(trimmedText, 200);
+    const speechConfig: any = {
+      voiceConfig: { prebuiltVoiceConfig: { voiceName } },
+    };
+
+    console.log(`[Gemini TTS] Pre-generating: "${trimmedText.substring(0, 50)}..." (${segments.length} segments)`);
+
+    try {
+      const segmentBuffers: Buffer[] = [];
+      const allTimestamps: WordTiming[] = [];
+      let cumulativeDurationMs = 0;
+
+      const results = await Promise.all(
+        segments.map(async (segment, segIdx) => {
+          try {
+            return await this.synthesizeSingleSegment(segment, stylePrompt, voiceName, speechConfig);
+          } catch {
+            try {
+              return await this.synthesizeSingleSegment(segment, '', voiceName, speechConfig);
+            } catch {
+              return null;
+            }
+          }
+        })
+      );
+
+      for (let segIdx = 0; segIdx < segments.length; segIdx++) {
+        const segF32 = results[segIdx];
+        if (!segF32) continue;
+        segmentBuffers.push(segF32);
+        const segDurationMs = (segF32.length / 4 / TTS_SAMPLE_RATE) * 1000;
+        const segTimestamps = this.estimateWordTimings(segments[segIdx], segDurationMs / 1000);
+        for (const ts of segTimestamps) {
+          ts.startTime += cumulativeDurationMs / 1000;
+          ts.endTime += cumulativeDurationMs / 1000;
+          allTimestamps.push(ts);
+        }
+        cumulativeDurationMs += segDurationMs;
+      }
+
+      if (segmentBuffers.length === 0) return null;
+
+      const audio = Buffer.concat(segmentBuffers);
+      console.log(`[Gemini TTS] Pre-generated in ${Date.now() - startTime}ms (${Math.round(cumulativeDurationMs)}ms audio)`);
+      return { audio, durationMs: cumulativeDurationMs, timestamps: allTimestamps };
+    } catch (error: any) {
+      console.error(`[Gemini TTS] Pre-generation failed: ${error.message}`);
+      return null;
+    }
+  }
+
+  streamPreGeneratedAudio(
+    preGenerated: { audio: Buffer; durationMs: number; timestamps: WordTiming[] },
+    callbacks: ProgressiveStreamingCallbacks,
+  ): void {
+    let chunkIndex = 0;
+    let wordIndexOffset = 0;
+
+    for (const ts of preGenerated.timestamps) {
+      callbacks.onWordTimestamp?.(ts, wordIndexOffset, preGenerated.durationMs);
+      wordIndexOffset++;
+    }
+
+    const bytesPerChunk = CHUNK_SIZE_SAMPLES * 4;
+    let offset = 0;
+    while (offset < preGenerated.audio.length) {
+      const end = Math.min(offset + bytesPerChunk, preGenerated.audio.length);
+      const chunkBuf = preGenerated.audio.subarray(offset, end);
+      const chunkDurationMs = ((end - offset) / 4 / TTS_SAMPLE_RATE) * 1000;
+      callbacks.onAudioChunk?.({
+        audio: Buffer.from(chunkBuf),
+        durationMs: chunkDurationMs,
+        isLast: false,
+        audioFormat: 'pcm_f32le' as any,
+        sampleRate: TTS_SAMPLE_RATE,
+      }, chunkIndex);
+      chunkIndex++;
+      offset = end;
+    }
+
+    callbacks.onComplete?.(preGenerated.timestamps, preGenerated.durationMs);
   }
 
   async *streamSynthesize(request: StreamingSynthesisRequest): AsyncGenerator<StreamingAudioChunk> {

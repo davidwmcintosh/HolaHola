@@ -2800,27 +2800,90 @@ Remember: Beta testers understand they're helping build something and appreciate
                 console.log(`[Early TTS] AI first token (via FC): ${metrics.aiFirstTokenMs}ms`);
               }
 
-              for (let i = 0; i < sentences.length; i++) {
-                if (session.isInterrupted) break;
-                const sentenceText = sentences[i];
-                const extraction = extractTargetLanguageWithMapping(sentenceText, allBoldWords);
-                const wordMapping: [number, number][] = extraction.wordMapping.size > 0
-                  ? Array.from(extraction.wordMapping.entries()) : [];
-                const hasTarget = !!(extraction.targetText && extraction.targetText.trim().length > 0);
+              const effectiveTtsProviderPTT = session.ttsProvider || this.ttsProvider;
+              const shouldPipelinePTT = sentences.length > 1 && effectiveTtsProviderPTT === 'gemini' && !session.isAssistantActive;
 
-                this.sendMessage(session.ws, {
-                  type: 'sentence_start',
-                  timestamp: Date.now(),
-                  turnId: session.turnId || session.currentTurnId,
-                  sentenceIndex: i,
-                  text: sentenceText,
-                  hasTargetContent: hasTarget,
-                  targetLanguageText: hasTarget ? extraction.targetText : undefined,
-                  wordMapping: hasTarget && wordMapping.length > 0 ? wordMapping : undefined,
-                  ...(i === 0 && sentences.length > 1 ? { totalSentences: sentences.length } : {}),
-                } as StreamingSentenceStartMessage);
+              if (shouldPipelinePTT) {
+                const MAX_PREGEN_SENTENCES = 4;
+                const preGenCount = Math.min(sentences.length, MAX_PREGEN_SENTENCES);
+                console.log(`[Early TTS] PIPELINED: Pre-generating ${preGenCount}/${sentences.length} sentences in parallel`);
+                const pipelineStartPTT = Date.now();
 
-                await this.streamSentenceAudioProgressive(session, { index: i, text: sentenceText }, sentenceText, metrics, session.turnId || `turn-${Date.now()}`, allBoldWords);
+                const progressiveRequestPTT = {
+                  text: '',
+                  autoDetectLanguage: true,
+                  targetLanguage: session.targetLanguage,
+                  nativeLanguage: session.nativeLanguage || 'english',
+                  geminiLanguageCode: session.geminiLanguageCode,
+                  voiceId: session.voiceId,
+                  speakingRate: getAdaptiveSpeakingRate(session),
+                  vocalStyle: (session as any).voiceOverride?.vocalStyle,
+                };
+
+                const preGenPromisesPTT = sentences.slice(0, preGenCount).map((sentenceText) => {
+                  return this.geminiLiveTtsService.preGenerateAudio({
+                    ...progressiveRequestPTT,
+                    text: sentenceText,
+                  } as any).catch(err => {
+                    console.error(`[Early TTS] Pre-gen failed for sentence: ${err.message}`);
+                    return null;
+                  });
+                });
+
+                const preGenResultsPTT = await Promise.all(preGenPromisesPTT);
+                const successCountPTT = preGenResultsPTT.filter(r => r !== null).length;
+                console.log(`[Early TTS] Pre-generated ${successCountPTT}/${preGenCount} sentences in ${Date.now() - pipelineStartPTT}ms (total: ${sentences.length})`);
+
+                for (let i = 0; i < sentences.length; i++) {
+                  if (session.isInterrupted) break;
+                  const sentenceText = sentences[i];
+                  const extraction = extractTargetLanguageWithMapping(sentenceText, allBoldWords);
+                  const wordMapping: [number, number][] = extraction.wordMapping.size > 0
+                    ? Array.from(extraction.wordMapping.entries()) : [];
+                  const hasTarget = !!(extraction.targetText && extraction.targetText.trim().length > 0);
+
+                  this.sendMessage(session.ws, {
+                    type: 'sentence_start',
+                    timestamp: Date.now(),
+                    turnId: session.turnId || session.currentTurnId,
+                    sentenceIndex: i,
+                    text: sentenceText,
+                    hasTargetContent: hasTarget,
+                    targetLanguageText: hasTarget ? extraction.targetText : undefined,
+                    wordMapping: hasTarget && wordMapping.length > 0 ? wordMapping : undefined,
+                    ...(i === 0 && sentences.length > 1 ? { totalSentences: sentences.length } : {}),
+                  } as StreamingSentenceStartMessage);
+
+                  const preGenResultPTT = preGenResultsPTT[i];
+                  if (preGenResultPTT) {
+                    await this.streamPreGeneratedSentenceAudio(session, { index: i, text: sentenceText }, sentenceText, metrics, session.turnId || `turn-${Date.now()}`, preGenResultPTT);
+                  } else {
+                    await this.streamSentenceAudioProgressive(session, { index: i, text: sentenceText }, sentenceText, metrics, session.turnId || `turn-${Date.now()}`, allBoldWords);
+                  }
+                }
+              } else {
+                for (let i = 0; i < sentences.length; i++) {
+                  if (session.isInterrupted) break;
+                  const sentenceText = sentences[i];
+                  const extraction = extractTargetLanguageWithMapping(sentenceText, allBoldWords);
+                  const wordMapping: [number, number][] = extraction.wordMapping.size > 0
+                    ? Array.from(extraction.wordMapping.entries()) : [];
+                  const hasTarget = !!(extraction.targetText && extraction.targetText.trim().length > 0);
+
+                  this.sendMessage(session.ws, {
+                    type: 'sentence_start',
+                    timestamp: Date.now(),
+                    turnId: session.turnId || session.currentTurnId,
+                    sentenceIndex: i,
+                    text: sentenceText,
+                    hasTargetContent: hasTarget,
+                    targetLanguageText: hasTarget ? extraction.targetText : undefined,
+                    wordMapping: hasTarget && wordMapping.length > 0 ? wordMapping : undefined,
+                    ...(i === 0 && sentences.length > 1 ? { totalSentences: sentences.length } : {}),
+                  } as StreamingSentenceStartMessage);
+
+                  await this.streamSentenceAudioProgressive(session, { index: i, text: sentenceText }, sentenceText, metrics, session.turnId || `turn-${Date.now()}`, allBoldWords);
+                }
               }
 
               fullText = embeddedText;
@@ -2833,7 +2896,7 @@ Remember: Beta testers understand they're helping build something and appreciate
 
               streamAbortSignal.aborted = true;
 
-              console.log(`[Early TTS] TTS completed in ${Date.now() - earlyTtsStart}ms (${sentences.length} sentences, started ${earlyTtsStart - geminiStartTime}ms after Gemini request)`);
+              console.log(`[Early TTS] TTS completed in ${Date.now() - earlyTtsStart}ms (${sentences.length} sentences${shouldPipelinePTT ? ', pipelined' : ''}, started ${earlyTtsStart - geminiStartTime}ms after Gemini request)`);
             }
           }
         },
@@ -5278,27 +5341,90 @@ Remember: Beta testers understand they're helping build something and appreciate
                 console.log(`[Early TTS - OpenMic] AI first token (via FC): ${metrics.aiFirstTokenMs}ms`);
               }
 
-              for (let i = 0; i < sentences.length; i++) {
-                if (session.isInterrupted) break;
-                const sentenceText = sentences[i];
-                const extraction = extractTargetLanguageWithMapping(sentenceText, allBoldWords);
-                const wordMapping: [number, number][] = extraction.wordMapping.size > 0
-                  ? Array.from(extraction.wordMapping.entries()) : [];
-                const hasTarget = !!(extraction.targetText && extraction.targetText.trim().length > 0);
+              const effectiveTtsProvider = session.ttsProvider || this.ttsProvider;
+              const shouldPipeline = sentences.length > 1 && effectiveTtsProvider === 'gemini' && !session.isAssistantActive;
 
-                this.sendMessage(session.ws, {
-                  type: 'sentence_start',
-                  timestamp: Date.now(),
-                  turnId: session.turnId || session.currentTurnId,
-                  sentenceIndex: i,
-                  text: sentenceText,
-                  hasTargetContent: hasTarget,
-                  targetLanguageText: hasTarget ? extraction.targetText : undefined,
-                  wordMapping: hasTarget && wordMapping.length > 0 ? wordMapping : undefined,
-                  ...(i === 0 && sentences.length > 1 ? { totalSentences: sentences.length } : {}),
-                } as StreamingSentenceStartMessage);
+              if (shouldPipeline) {
+                const MAX_PREGEN_SENTENCES = 4;
+                const preGenCount = Math.min(sentences.length, MAX_PREGEN_SENTENCES);
+                console.log(`[Early TTS - OpenMic] PIPELINED: Pre-generating ${preGenCount}/${sentences.length} sentences in parallel`);
+                const pipelineStart = Date.now();
 
-                await this.streamSentenceAudioProgressive(session, { index: i, text: sentenceText }, sentenceText, metrics, session.turnId || `turn-${Date.now()}`, allBoldWords);
+                const progressiveRequest = {
+                  text: '',
+                  autoDetectLanguage: true,
+                  targetLanguage: session.targetLanguage,
+                  nativeLanguage: session.nativeLanguage || 'english',
+                  geminiLanguageCode: session.geminiLanguageCode,
+                  voiceId: session.voiceId,
+                  speakingRate: getAdaptiveSpeakingRate(session),
+                  vocalStyle: (session as any).voiceOverride?.vocalStyle,
+                };
+
+                const preGenPromises = sentences.slice(0, preGenCount).map((sentenceText) => {
+                  return this.geminiLiveTtsService.preGenerateAudio({
+                    ...progressiveRequest,
+                    text: sentenceText,
+                  } as any).catch(err => {
+                    console.error(`[Early TTS - OpenMic] Pre-gen failed for sentence: ${err.message}`);
+                    return null;
+                  });
+                });
+
+                const preGenResults = await Promise.all(preGenPromises);
+                const successCount = preGenResults.filter(r => r !== null).length;
+                console.log(`[Early TTS - OpenMic] Pre-generated ${successCount}/${preGenCount} sentences in ${Date.now() - pipelineStart}ms (total: ${sentences.length})`);
+
+                for (let i = 0; i < sentences.length; i++) {
+                  if (session.isInterrupted) break;
+                  const sentenceText = sentences[i];
+                  const extraction = extractTargetLanguageWithMapping(sentenceText, allBoldWords);
+                  const wordMapping: [number, number][] = extraction.wordMapping.size > 0
+                    ? Array.from(extraction.wordMapping.entries()) : [];
+                  const hasTarget = !!(extraction.targetText && extraction.targetText.trim().length > 0);
+
+                  this.sendMessage(session.ws, {
+                    type: 'sentence_start',
+                    timestamp: Date.now(),
+                    turnId: session.turnId || session.currentTurnId,
+                    sentenceIndex: i,
+                    text: sentenceText,
+                    hasTargetContent: hasTarget,
+                    targetLanguageText: hasTarget ? extraction.targetText : undefined,
+                    wordMapping: hasTarget && wordMapping.length > 0 ? wordMapping : undefined,
+                    ...(i === 0 && sentences.length > 1 ? { totalSentences: sentences.length } : {}),
+                  } as StreamingSentenceStartMessage);
+
+                  const preGenResult = preGenResults[i];
+                  if (preGenResult) {
+                    await this.streamPreGeneratedSentenceAudio(session, { index: i, text: sentenceText }, sentenceText, metrics, session.turnId || `turn-${Date.now()}`, preGenResult);
+                  } else {
+                    await this.streamSentenceAudioProgressive(session, { index: i, text: sentenceText }, sentenceText, metrics, session.turnId || `turn-${Date.now()}`, allBoldWords);
+                  }
+                }
+              } else {
+                for (let i = 0; i < sentences.length; i++) {
+                  if (session.isInterrupted) break;
+                  const sentenceText = sentences[i];
+                  const extraction = extractTargetLanguageWithMapping(sentenceText, allBoldWords);
+                  const wordMapping: [number, number][] = extraction.wordMapping.size > 0
+                    ? Array.from(extraction.wordMapping.entries()) : [];
+                  const hasTarget = !!(extraction.targetText && extraction.targetText.trim().length > 0);
+
+                  this.sendMessage(session.ws, {
+                    type: 'sentence_start',
+                    timestamp: Date.now(),
+                    turnId: session.turnId || session.currentTurnId,
+                    sentenceIndex: i,
+                    text: sentenceText,
+                    hasTargetContent: hasTarget,
+                    targetLanguageText: hasTarget ? extraction.targetText : undefined,
+                    wordMapping: hasTarget && wordMapping.length > 0 ? wordMapping : undefined,
+                    ...(i === 0 && sentences.length > 1 ? { totalSentences: sentences.length } : {}),
+                  } as StreamingSentenceStartMessage);
+
+                  await this.streamSentenceAudioProgressive(session, { index: i, text: sentenceText }, sentenceText, metrics, session.turnId || `turn-${Date.now()}`, allBoldWords);
+                }
               }
 
               fullText = embeddedText;
@@ -5311,7 +5437,7 @@ Remember: Beta testers understand they're helping build something and appreciate
 
               streamAbortSignalOpenMic.aborted = true;
 
-              console.log(`[Early TTS - OpenMic] TTS completed in ${Date.now() - earlyTtsStart}ms (${sentences.length} sentences)`);
+              console.log(`[Early TTS - OpenMic] TTS completed in ${Date.now() - earlyTtsStart}ms (${sentences.length} sentences${shouldPipeline ? ', pipelined' : ''})`);
             }
           }
         },
@@ -7716,15 +7842,11 @@ Remember: Beta testers understand they're helping build something and appreciate
       }
       
     } catch (error: any) {
-      // Extract status code and response body for telemetry
       const statusCode = error.status || error.statusCode || error.code || 'unknown';
-      const errorBody = error.body || error.response?.data || error.message;
       const textLength = displayText.length;
-      
       const effectiveTtsProvider = session.ttsProvider || this.ttsProvider;
       console.error(`[Progressive] TTS error for sentence ${index} (${textLength} chars, provider: ${effectiveTtsProvider}, status: ${statusCode}):`, error.message);
       
-      // Emit TTS error for diagnostics with full context for debugging 4xx/5xx issues
       voiceDiagnostics.emit({
         sessionId: session.id,
         stage: 'tts',
@@ -7749,12 +7871,137 @@ Remember: Beta testers understand they're helping build something and appreciate
         mode: 'progressive',
       });
       
-      // Send error to client but don't throw - allows session to continue with next sentence
+      let fallbackSucceeded = false;
+      if (effectiveTtsProvider === 'gemini') {
+        console.log(`[Progressive] Attempting Google TTS fallback for sentence ${index}...`);
+        try {
+          await this.streamSentenceAudioWithGoogle(session, chunk, displayText, metrics, effectiveTurnId);
+          fallbackSucceeded = true;
+          console.log(`[Progressive] Google TTS fallback succeeded for sentence ${index}`);
+          voiceDiagnostics.emit({
+            sessionId: session.id,
+            stage: 'tts',
+            success: true,
+            metadata: { sentenceIndex: index, mode: 'fallback_google' }
+          });
+        } catch (fallbackErr: any) {
+          console.error(`[Progressive] Google TTS fallback also failed for sentence ${index}:`, fallbackErr.message);
+        }
+      }
+
+      if (!fallbackSucceeded) {
+        this.sendError(session.ws, 'TTS_ERROR', `Audio generation failed for sentence ${index}`, true);
+        this.sendMessage(session.ws, {
+          type: 'sentence_end',
+          timestamp: Date.now(),
+          turnId: effectiveTurnId,
+          sentenceIndex: index,
+          totalDurationMs: 0,
+        } as StreamingSentenceEndMessage);
+      }
+    }
+  }
+  
+  private async streamPreGeneratedSentenceAudio(
+    session: StreamingSession,
+    chunk: SentenceChunk,
+    displayText: string,
+    metrics: StreamingMetrics,
+    turnId: string | number,
+    preGenerated: { audio: Buffer; durationMs: number; timestamps: import('@shared/streaming-voice-types').WordTiming[] }
+  ): Promise<void> {
+    const { index } = chunk;
+    const effectiveTurnId = typeof turnId === 'number' ? turnId : session.currentTurnId;
+    const streamStart = Date.now();
+
+    try {
+      const timings = preGenerated.timestamps.length > 0
+        ? preGenerated.timestamps
+        : this.estimateWordTimings(displayText, preGenerated.durationMs / 1000);
+
+      const CHUNK_SIZE_SAMPLES = 2400;
+      const TTS_SAMPLE_RATE = 24000;
+      const bytesPerChunk = CHUNK_SIZE_SAMPLES * 4;
+
+      const firstChunkEnd = Math.min(bytesPerChunk, preGenerated.audio.length);
+      const firstChunkBuf = preGenerated.audio.subarray(0, firstChunkEnd);
+      const firstChunkDurationMs = (firstChunkEnd / 4 / TTS_SAMPLE_RATE) * 1000;
+
+      this.sendMessage(session.ws, {
+        type: 'sentence_ready',
+        timestamp: Date.now(),
+        turnId: effectiveTurnId,
+        sentenceIndex: index,
+        text: displayText,
+        wordTimings: timings,
+        estimatedDurationMs: preGenerated.durationMs,
+        firstAudioChunk: firstChunkBuf.toString('base64'),
+        firstAudioDurationMs: firstChunkDurationMs,
+        audioFormat: 'pcm_f32le',
+        sampleRate: TTS_SAMPLE_RATE,
+      });
+
+      metrics.ttsFirstByteMs = Date.now() - streamStart;
+
+      let chunkIndex = 1;
+      let offset = firstChunkEnd;
+      while (offset < preGenerated.audio.length) {
+        const end = Math.min(offset + bytesPerChunk, preGenerated.audio.length);
+        const chunkBuf = preGenerated.audio.subarray(offset, end);
+        const chunkDurationMs = ((end - offset) / 4 / TTS_SAMPLE_RATE) * 1000;
+
+        this.sendMessage(session.ws, {
+          type: 'audio_chunk',
+          timestamp: Date.now(),
+          turnId: effectiveTurnId,
+          sentenceIndex: index,
+          chunkIndex,
+          isLast: false,
+          durationMs: chunkDurationMs,
+          audio: chunkBuf.toString('base64'),
+          audioFormat: 'pcm_f32le',
+          sampleRate: TTS_SAMPLE_RATE,
+        } as StreamingAudioChunkMessage);
+        chunkIndex++;
+        offset = end;
+      }
+
+      if (session.subtitleMode !== 'off') {
+        this.sendMessage(session.ws, {
+          type: 'word_timing_final',
+          timestamp: Date.now(),
+          turnId: effectiveTurnId,
+          sentenceIndex: index,
+          words: timings,
+          actualDurationMs: preGenerated.durationMs,
+        } as StreamingWordTimingFinalMessage);
+      }
+
+      this.sendMessage(session.ws, {
+        type: 'audio_chunk',
+        timestamp: Date.now(),
+        turnId: effectiveTurnId,
+        sentenceIndex: index,
+        chunkIndex,
+        isLast: true,
+        durationMs: 0,
+        audio: '',
+        audioFormat: 'pcm_f32le',
+        sampleRate: TTS_SAMPLE_RATE,
+      } as StreamingAudioChunkMessage);
+
+      this.sendMessage(session.ws, {
+        type: 'sentence_end',
+        timestamp: Date.now(),
+        turnId: effectiveTurnId,
+        sentenceIndex: index,
+        totalDurationMs: preGenerated.durationMs,
+      } as StreamingSentenceEndMessage);
+
+      console.log(`[Pre-Gen Stream] Sentence ${index}: Streamed ${chunkIndex} chunks in ${Date.now() - streamStart}ms (${Math.round(preGenerated.durationMs)}ms audio, pre-generated)`);
+    } catch (error: any) {
+      console.error(`[Pre-Gen Stream] Error for sentence ${index}:`, error.message);
       this.sendError(session.ws, 'TTS_ERROR', `Audio generation failed for sentence ${index}`, true);
-      
-      // SAFETY NET: Send sentence_end even on TTS failure to prevent mic lockout
-      // Without this, the client audio player waits forever for this sentence to complete,
-      // blocking checkAllSentencesEnded() → onComplete → checkAndClearProcessing() → mic reopen
       this.sendMessage(session.ws, {
         type: 'sentence_end',
         timestamp: Date.now(),
@@ -7764,7 +8011,7 @@ Remember: Beta testers understand they're helping build something and appreciate
       } as StreamingSentenceEndMessage);
     }
   }
-  
+
   /**
    * Legacy TTS provider synthesis (Google, ElevenLabs, Cartesia)
    * Extracted from the hot path to keep Gemini TTS as the zero-branch default.
