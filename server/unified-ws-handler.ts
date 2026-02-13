@@ -1445,28 +1445,6 @@ Reference past discussions when relevant, but don't force it.
             }
           }
           
-          // Save messages to database for history
-          if (metrics.userTranscript && metrics.aiResponse && conversationId) {
-            try {
-              // Save user message
-              await storage.createMessage({
-                conversationId: conversationId,
-                role: 'user',
-                content: metrics.userTranscript,
-              });
-              
-              // Save assistant message
-              await storage.createMessage({
-                conversationId: conversationId,
-                role: 'assistant',
-                content: metrics.aiResponse,
-              });
-              
-              console.log('[Streaming Voice] Messages saved to database');
-            } catch (err: any) {
-              console.error('[Streaming Voice] Failed to save messages:', err.message);
-            }
-          }
           break;
         }
 
@@ -2899,25 +2877,7 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
             console.log(`[SpeculativePTT] Transcript: "${transcriptToUse}"`);
             
             // Use processOpenMicTranscript which skips STT entirely
-            const metrics = await orchestrator.processOpenMicTranscript(session.id, transcriptToUse, 1.0);
-            
-            // Save messages to database
-            if (metrics.userTranscript && metrics.aiResponse && conversationId) {
-              try {
-                await storage.createMessage({
-                  conversationId: conversationId,
-                  role: 'user',
-                  content: metrics.userTranscript,
-                });
-                await storage.createMessage({
-                  conversationId: conversationId,
-                  role: 'assistant',
-                  content: metrics.aiResponse,
-                });
-              } catch (err: any) {
-                console.error('[Streaming Voice] Failed to save messages:', err.message);
-              }
-            }
+            await orchestrator.processOpenMicTranscript(session.id, transcriptToUse, 1.0);
           } else {
             // Fallback: No speculative transcript available, process blob normally
             if (pendingSpeculativeTranscript) {
@@ -3277,23 +3237,6 @@ ${buildNativeFunctionCallingSection()}`;
               metrics = await orchestrator.processUserAudio(session.id, audioBuffer, audioMessage.format || 'webm');
             }
             
-            // Save messages to database
-            if (metrics.userTranscript && metrics.aiResponse && conversationId) {
-              try {
-                await storage.createMessage({
-                  conversationId: conversationId,
-                  role: 'user',
-                  content: metrics.userTranscript,
-                });
-                await storage.createMessage({
-                  conversationId: conversationId,
-                  role: 'assistant',
-                  content: metrics.aiResponse,
-                });
-              } catch (err: any) {
-                console.error('[Streaming Voice] Failed to save messages:', err.message);
-              }
-            }
           } catch (audioError: any) {
             // Log but don't disconnect - the orchestrator already sent an error message to the client
             console.error('[Streaming Voice] Audio processing error (recoverable):', audioError.message);
