@@ -644,13 +644,12 @@ export function VoiceConsoleContent() {
 
   const handleLanguageChange = (value: string) => {
     const lang = SUPPORTED_LANGUAGES.find(l => l.value === value);
-    const defaultAccent = accentVariants?.[value]?.[0]?.code || '';
     setFormData(prev => ({
       ...prev,
       language: value,
       languageCode: lang?.code || '',
       voiceId: '',
-      geminiLanguageCode: (prev.provider === 'gemini' || prev.provider === 'google') ? defaultAccent : '',
+      geminiLanguageCode: '',
     }));
   };
 
@@ -843,13 +842,14 @@ export function VoiceConsoleContent() {
                           <Label>Regional Accent</Label>
                         </div>
                         <Select
-                          value={formData.geminiLanguageCode || languageAccents[0]?.code || ''}
-                          onValueChange={(v) => setFormData(prev => ({ ...prev, geminiLanguageCode: v }))}
+                          value={formData.geminiLanguageCode || '__default__'}
+                          onValueChange={(v) => setFormData(prev => ({ ...prev, geminiLanguageCode: v === '__default__' ? '' : v }))}
                         >
                           <SelectTrigger data-testid="select-accent-variant">
                             <SelectValue placeholder="Select accent..." />
                           </SelectTrigger>
                           <SelectContent>
+                            <SelectItem value="__default__">Default (no accent override)</SelectItem>
                             {languageAccents.map(variant => (
                               <SelectItem key={variant.code} value={variant.code}>
                                 {variant.label}
