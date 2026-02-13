@@ -187,15 +187,15 @@ export class GeminiLiveTtsService extends EventEmitter {
     if (!targetLanguage) return '';
 
     const ACCENT_MAP: Record<string, string> = {
-      'spanish': 'with a native Mexican Spanish accent',
-      'french': 'with a native French accent',
-      'german': 'with a native German accent',
-      'italian': 'with a native Italian accent',
-      'portuguese': 'with a native Brazilian Portuguese accent',
-      'japanese': 'with a native Japanese accent',
-      'mandarin chinese': 'with a native Mandarin Chinese accent',
-      'korean': 'with a native Korean accent',
-      'hebrew': 'with a native Hebrew accent',
+      'spanish': 'with a CONSISTENT native Mexican Spanish accent throughout the ENTIRE sentence, even when speaking English words',
+      'french': 'with a CONSISTENT native French accent throughout the ENTIRE sentence, even when speaking English words',
+      'german': 'with a CONSISTENT native German accent throughout the ENTIRE sentence, even when speaking English words',
+      'italian': 'with a CONSISTENT native Italian accent throughout the ENTIRE sentence, even when speaking English words',
+      'portuguese': 'with a CONSISTENT native Brazilian Portuguese accent throughout the ENTIRE sentence, even when speaking English words',
+      'japanese': 'with a CONSISTENT native Japanese accent throughout the ENTIRE sentence, even when speaking English words',
+      'mandarin chinese': 'with a CONSISTENT native Mandarin Chinese accent throughout the ENTIRE sentence, even when speaking English words',
+      'korean': 'with a CONSISTENT native Korean accent throughout the ENTIRE sentence, even when speaking English words',
+      'hebrew': 'with a CONSISTENT native Hebrew accent throughout the ENTIRE sentence, even when speaking English words',
     };
 
     return ACCENT_MAP[targetLanguage.toLowerCase()] || '';

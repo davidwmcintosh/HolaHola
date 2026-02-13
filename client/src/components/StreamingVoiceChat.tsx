@@ -716,7 +716,7 @@ export function StreamingVoiceChat({
             // audio chunks have been received. Clearing isProcessing here causes the avatar
             // to flash from "thinking" to "listening" before audio starts playing.
             // Instead, defer clearing until audio is actually playing or a safety timeout.
-            const currentPlayback = globalPlaybackStateRef.current;
+            const currentPlayback = playbackStateRef.current;
             const isAudioPlaying = currentPlayback === 'playing' || currentPlayback === 'buffering';
             
             if (isAudioPlaying) {
@@ -1035,12 +1035,15 @@ export function StreamingVoiceChat({
         setCurrentPlayingMessageId(null);
       }
       
-      // NOTE: We intentionally do NOT clear isProcessingRef here anymore.
-      // isProcessing should stay true until onResponseComplete is called.
-      // This prevents the avatar from going to 'listening' during pauses when
-      // Daniela is still thinking/generating more content.
-      // The avatar state logic already sets to 'speaking' when audio plays,
-      // so the processing state doesn't interfere with the speaking animation.
+      // Clear isProcessing now that audio is actually playing
+      // This is safe because the avatar state logic prioritizes isStreamingPlaying over isProcessing
+      // We NEED to clear it here so that when audio finishes, the avatar doesn't briefly
+      // show "thinking" (which would happen if isProcessing was still true when playback ends)
+      if (isProcessingRef.current) {
+        console.log('[AVATAR SYNC] Audio playing - clearing deferred isProcessing');
+        setIsProcessing(false);
+        isProcessingRef.current = false;
+      }
       
       // Mark that Daniela has spoken at least once this session
       hasDanielaSpokeOnceRef.current = true;
