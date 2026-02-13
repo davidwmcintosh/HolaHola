@@ -165,7 +165,8 @@ export class GeminiLiveTtsService extends EventEmitter {
     }
 
     if (vocalStyle) {
-      hints.push(vocalStyle);
+      const truncated = vocalStyle.length > 50 ? vocalStyle.substring(0, 50).replace(/,\s*$/, '') : vocalStyle;
+      hints.push(truncated);
     } else if (emotion && emotion !== 'neutral') {
       const EMOTION_MAP: Record<string, string> = {
         'happy': 'cheerfully', 'excited': 'with excitement', 'friendly': 'warmly',
@@ -235,6 +236,76 @@ export class GeminiLiveTtsService extends EventEmitter {
     return f32Buffer.subarray(firstVoiceSample * 4);
   }
 
+  private splitTextForTTS(text: string, maxChars: number = 200): string[] {
+    if (text.length <= maxChars) return [text];
+
+    const segments: string[] = [];
+    const sentencePattern = /[^.!?…]+[.!?…]+[\s]*/g;
+    const matches = text.match(sentencePattern);
+
+    if (!matches) {
+      const midpoint = text.lastIndexOf(' ', maxChars);
+      if (midpoint > 50) {
+        segments.push(text.substring(0, midpoint).trim());
+        segments.push(text.substring(midpoint).trim());
+      } else {
+        segments.push(text);
+      }
+      return segments.filter(s => s.length > 0);
+    }
+
+    let current = '';
+    for (const sentence of matches) {
+      if (current.length + sentence.length > maxChars && current.length > 0) {
+        segments.push(current.trim());
+        current = sentence;
+      } else {
+        current += sentence;
+      }
+    }
+
+    const remainder = text.substring(matches.join('').length).trim();
+    if (remainder) current += ' ' + remainder;
+    if (current.trim()) segments.push(current.trim());
+
+    return segments.filter(s => s.length > 0);
+  }
+
+  private async synthesizeSingleSegment(
+    text: string,
+    stylePrompt: string,
+    voiceName: string,
+    speechConfig: any,
+  ): Promise<Buffer> {
+    const ttsPrompt = stylePrompt ? `${stylePrompt} ${text}` : text;
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error(`Gemini TTS timed out after ${SYNTHESIS_TIMEOUT_MS}ms`)), SYNTHESIS_TIMEOUT_MS);
+    });
+
+    const response = await Promise.race([
+      this.client!.models.generateContent({
+        model: TTS_MODEL,
+        contents: [{ parts: [{ text: ttsPrompt }] }],
+        config: {
+          responseModalities: [Modality.AUDIO],
+          speechConfig,
+        },
+      }),
+      timeoutPromise,
+    ]);
+
+    const audioPart = response.candidates?.[0]?.content?.parts?.[0];
+    if (!audioPart?.inlineData?.data) {
+      const finishReason = response.candidates?.[0]?.finishReason;
+      console.error(`[Gemini TTS] No audio for segment (finishReason: ${finishReason}, ${text.length} chars)`);
+      throw new Error('Gemini TTS returned no audio data');
+    }
+
+    const rawPcmS16 = Buffer.from(audioPart.inlineData.data, 'base64');
+    return this.trimLeadingSilence(this.convertS16leToF32le(rawPcmS16));
+  }
+
   async streamSynthesizeProgressive(
     request: StreamingSynthesisRequest,
     callbacks: ProgressiveStreamingCallbacks,
@@ -259,75 +330,63 @@ export class GeminiLiveTtsService extends EventEmitter {
     const startTime = Date.now();
     const stylePrompt = this.buildStylePrompt(request, resolvedLanguageCode);
 
-    const ttsPrompt = stylePrompt ? `${stylePrompt} ${trimmedText}` : trimmedText;
+    const segments = this.splitTextForTTS(trimmedText, 200);
+    const isMultiSegment = segments.length > 1;
 
-    console.log(`[Gemini TTS] Progressive: "${trimmedText.substring(0, 60)}..." (${trimmedText.length} chars, voice: ${voiceName}, langCode: ${resolvedLanguageCode || 'none'}, targetLang: ${targetLanguage || 'unset'})`);
+    console.log(`[Gemini TTS] Progressive: "${trimmedText.substring(0, 60)}..." (${trimmedText.length} chars, voice: ${voiceName}, langCode: ${resolvedLanguageCode || 'none'}, targetLang: ${targetLanguage || 'unset'}${isMultiSegment ? `, split into ${segments.length} segments` : ''})`);
     if (stylePrompt) console.log(`[Gemini TTS] Style: "${stylePrompt}"`);
 
     try {
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error(`Gemini TTS timed out after ${SYNTHESIS_TIMEOUT_MS}ms`)), SYNTHESIS_TIMEOUT_MS);
-      });
-
       const speechConfig: any = {
         voiceConfig: {
           prebuiltVoiceConfig: { voiceName },
         },
       };
 
-      const response = await Promise.race([
-        this.client.models.generateContent({
-          model: TTS_MODEL,
-          contents: [{ parts: [{ text: ttsPrompt }] }],
-          config: {
-            responseModalities: [Modality.AUDIO],
-            speechConfig,
-          },
-        }),
-        timeoutPromise,
-      ]);
-
-      const generationTime = Date.now() - startTime;
-
-      const audioPart = response.candidates?.[0]?.content?.parts?.[0];
-      if (!audioPart?.inlineData?.data) {
-        const finishReason = response.candidates?.[0]?.finishReason;
-        const partKeys = audioPart ? Object.keys(audioPart) : [];
-        console.error(`[Gemini TTS] No audio data in response (finishReason: ${finishReason}, partKeys: ${partKeys.join(',') || 'none'}, candidates: ${response.candidates?.length || 0})`);
-        voiceDiagnostics.recordTTSResult(false, undefined, 'daniela');
-        throw new Error('Gemini TTS returned no audio data');
-      }
-
-      const rawPcmS16 = Buffer.from(audioPart.inlineData.data, 'base64');
-      const rawF32 = this.convertS16leToF32le(rawPcmS16);
-
-      const fullF32 = this.trimLeadingSilence(rawF32);
-      const trimmedSamples = (rawF32.length - fullF32.length) / 4;
-      const totalSamples = fullF32.length / 4;
-      const totalDurationMs = (totalSamples / TTS_SAMPLE_RATE) * 1000;
-
-      console.log(`[Gemini TTS] Generated ${Math.round(totalDurationMs)}ms audio in ${generationTime}ms (${rawPcmS16.length} bytes s16, trimmed ${trimmedSamples} silent samples)`);
-
-      const bytesPerChunk = CHUNK_SIZE_SAMPLES * 4;
-      let offset = 0;
+      const allF32Buffers: Buffer[] = [];
       let chunkIndex = 0;
 
-      while (offset < fullF32.length) {
-        const end = Math.min(offset + bytesPerChunk, fullF32.length);
-        const chunkBuf = fullF32.subarray(offset, end);
-        const chunkDurationMs = ((end - offset) / 4 / TTS_SAMPLE_RATE) * 1000;
+      for (let segIdx = 0; segIdx < segments.length; segIdx++) {
+        const segment = segments[segIdx];
+        const segStart = Date.now();
+        if (isMultiSegment) {
+          console.log(`[Gemini TTS] Segment ${segIdx + 1}/${segments.length}: "${segment.substring(0, 50)}..." (${segment.length} chars)`);
+        }
 
-        callbacks.onAudioChunk?.({
-          audio: Buffer.from(chunkBuf),
-          durationMs: chunkDurationMs,
-          isLast: false,
-          audioFormat: 'pcm_f32le' as any,
-          sampleRate: TTS_SAMPLE_RATE,
-        }, chunkIndex);
+        const segF32 = await this.synthesizeSingleSegment(segment, stylePrompt, voiceName, speechConfig);
+        const segGenTime = Date.now() - segStart;
+        if (isMultiSegment) {
+          console.log(`[Gemini TTS] Segment ${segIdx + 1} generated in ${segGenTime}ms (${segF32.length} bytes)`);
+        }
 
-        chunkIndex++;
-        offset = end;
+        allF32Buffers.push(segF32);
+
+        const bytesPerChunk = CHUNK_SIZE_SAMPLES * 4;
+        let offset = 0;
+        while (offset < segF32.length) {
+          const end = Math.min(offset + bytesPerChunk, segF32.length);
+          const chunkBuf = segF32.subarray(offset, end);
+          const chunkDurationMs = ((end - offset) / 4 / TTS_SAMPLE_RATE) * 1000;
+
+          callbacks.onAudioChunk?.({
+            audio: Buffer.from(chunkBuf),
+            durationMs: chunkDurationMs,
+            isLast: false,
+            audioFormat: 'pcm_f32le' as any,
+            sampleRate: TTS_SAMPLE_RATE,
+          }, chunkIndex);
+
+          chunkIndex++;
+          offset = end;
+        }
       }
+
+      const totalBytes = allF32Buffers.reduce((sum, b) => sum + b.length, 0);
+      const totalSamples = totalBytes / 4;
+      const totalDurationMs = (totalSamples / TTS_SAMPLE_RATE) * 1000;
+      const generationTime = Date.now() - startTime;
+
+      console.log(`[Gemini TTS] Generated ${Math.round(totalDurationMs)}ms audio in ${generationTime}ms (${segments.length} segments, ${chunkIndex} chunks)`);
 
       const displayText = request.text || '';
       const finalTimestamps = this.estimateWordTimings(displayText, totalDurationMs / 1000);
