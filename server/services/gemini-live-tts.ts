@@ -360,13 +360,24 @@ export class GeminiLiveTtsService extends EventEmitter {
         try {
           segF32 = await this.synthesizeSingleSegment(segment, stylePrompt, voiceName, speechConfig);
         } catch (segError: any) {
-          console.error(`[Gemini TTS] Segment ${segIdx + 1} failed: ${segError.message}, retrying without style...`);
+          const accentOnly = this.getAccentDescription(
+            (request as any).targetLanguage,
+            (request as any).nativeLanguage
+          );
+          const fallbackStyle = accentOnly ? `Say ${accentOnly}:` : '';
+          console.error(`[Gemini TTS] Segment ${segIdx + 1} failed: ${segError.message}, retrying with accent-only style...`);
           try {
-            segF32 = await this.synthesizeSingleSegment(segment, '', voiceName, speechConfig);
-            console.log(`[Gemini TTS] Segment ${segIdx + 1} retry succeeded (no style)`);
+            segF32 = await this.synthesizeSingleSegment(segment, fallbackStyle, voiceName, speechConfig);
+            console.log(`[Gemini TTS] Segment ${segIdx + 1} retry succeeded (accent-only: "${fallbackStyle}")`);
           } catch (retryError: any) {
-            console.error(`[Gemini TTS] Segment ${segIdx + 1} retry also failed: ${retryError.message}, skipping`);
-            continue;
+            console.error(`[Gemini TTS] Segment ${segIdx + 1} retry with accent failed: ${retryError.message}, trying without any style...`);
+            try {
+              segF32 = await this.synthesizeSingleSegment(segment, '', voiceName, speechConfig);
+              console.log(`[Gemini TTS] Segment ${segIdx + 1} retry succeeded (no style)`);
+            } catch (finalError: any) {
+              console.error(`[Gemini TTS] Segment ${segIdx + 1} all retries failed: ${finalError.message}, skipping`);
+              continue;
+            }
           }
         }
 

@@ -172,7 +172,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   // If no activity for 30+ seconds while isProcessing=true, reset state
   // Increased from 15s to 25s Jan 2026 to handle server delays from RAM pressure
   const processingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const PROCESSING_TIMEOUT_MS = 25000;  // 25 seconds max "thinking" time (function calls + TTS can take 15-20s)
+  const PROCESSING_TIMEOUT_MS = 60000;  // 60 seconds max "thinking" time (Gemini TTS can take 40-50s for long responses)
 
   // Refs
   const clientRef = useRef<StreamingVoiceClient | null>(null);
@@ -439,14 +439,14 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       console.log(`[StreamingVoice] Sentence ${msg.sentenceIndex} (turn ${msg.turnId}): "${msg.text.substring(0, 40)}..." hasTarget=${msg.hasTargetContent}`);
     }
     
-    // Reset processing timeout - activity is happening (prevents false timeout during long responses)
+    // Activity detected - extend the safety timeout since audio generation is underway
     if (processingTimeoutRef.current) {
       clearTimeout(processingTimeoutRef.current);
       processingTimeoutRef.current = setTimeout(() => {
         console.log('[StreamingVoice] Processing timeout - resetting stuck thinking state');
         setIsProcessing(false);
         setError('Response timeout - please try again');
-      }, PROCESSING_TIMEOUT_MS);
+      }, 180000);
     }
     
     // Store turnId for callbacks (in case processing message wasn't received)
@@ -647,18 +647,17 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     const hasAudio = firstAudioChunk?.audio && firstAudioChunk.audio.length > 0;
     console.log(`[SENTENCE_READY] Received: sentence=${sentenceIndex}, turn=${turnId}, timings=${firstWordTimings?.length || 0}, hasAudio=${hasAudio}, audioStripped=${audioStripped}`);
     
-    // Reset processing timeout - audio is arriving (prevents false timeout for function-call paths
-    // where sentence_start may not fire but sentence_ready does)
-    // CRITICAL FIX: Restart the timeout instead of clearing it. Previously this cleared to null,
-    // destroying the safety net. If response_complete never arrives after this, the mic locks forever.
+    // Audio is arriving - clear the "thinking" timeout since we have proof the response is being generated
+    // Use a longer safety net timeout (3 minutes) to handle very long multi-segment TTS responses
+    // This prevents premature timeout while audio is actively streaming
     if (processingTimeoutRef.current) {
       clearTimeout(processingTimeoutRef.current);
     }
     processingTimeoutRef.current = setTimeout(() => {
-      console.log('[StreamingVoice] Processing timeout after sentence_ready - resetting stuck state');
+      console.log('[StreamingVoice] Safety timeout after sentence_ready - resetting stuck state');
       setIsProcessing(false);
       setError('Response timeout - please try again');
-    }, PROCESSING_TIMEOUT_MS);
+    }, 180000);
     
     // TUTOR SWITCH: If we were switching tutors, clear the flag now that audio is ready
     setIsSwitchingTutor(false);
