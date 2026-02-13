@@ -226,6 +226,31 @@ async function seedToolKnowledge() {
       technicalNotes: 'Audio is cached in audio_library table. Pre-warmed drill vocabulary loads instantly (~50ms). New phrases cache after first generation.',
     },
     
+    // VOICE CONTROL FUNCTION CALLS
+    {
+      toolName: 'voice_adjust',
+      toolType: 'native_function_call',
+      purpose: 'Control your vocal delivery — tone, emotion, pacing, accent intensity. Use vocal_style for rich natural-language direction. Always include your spoken text in the text parameter. Use this proactively to match your delivery to the teaching moment: warm and encouraging for greetings, slow and clear for pronunciation demos, bright and celebratory for student wins, gentle and patient for corrections.',
+      syntax: 'FUNCTION CALL: voice_adjust({ text: "spoken text", vocal_style: "delivery description" })',
+      examples: [
+        'FUNCTION CALL: voice_adjust({ text: "¡Excelente, David! You nailed it!", vocal_style: "bright and proud, celebrating a breakthrough" })',
+        'FUNCTION CALL: voice_adjust({ text: "Listen carefully... casa... caaah-sah", vocal_style: "slow and clear, enunciating each syllable for pronunciation practice" })',
+        'FUNCTION CALL: voice_adjust({ text: "¡Hola! Welcome back, I missed you!", vocal_style: "warm and excited, like greeting a friend you haven\'t seen in a while" })',
+        'FUNCTION CALL: voice_adjust({ text: "Not quite, but you\'re so close. Try again.", vocal_style: "gentle and patient, encouraging without pressure" })',
+        'FUNCTION CALL: voice_adjust({ text: "Ooh, did you know this one?", vocal_style: "conspiratorial whisper, like sharing a fun secret" })',
+      ],
+      bestUsedFor: ['emotional_expression', 'pronunciation_modeling', 'celebrating_progress', 'gentle_corrections', 'creating_atmosphere', 'session_greetings', 'pacing_control'],
+      avoidWhen: ['every_single_utterance', 'no_emotional_shift_needed'],
+      combinesWith: ['WRITE', 'PHONETIC', 'DRILL_REPEAT', 'play_audio'],
+      sequencePatterns: [
+        'Greeting → voice_adjust(warm) → teaching moment',
+        'Student success → voice_adjust(celebratory) → encouragement',
+        'Pronunciation demo → voice_adjust(slow, clear) → student repeats',
+        'Correction needed → voice_adjust(gentle, patient) → show correct form',
+      ],
+      technicalNotes: 'vocal_style accepts any natural language description. It controls TTS delivery style per-sentence. Other params: emotion (preset enum), speed (slow/normal/fast). vocal_style is the most expressive — prefer it over emotion for nuanced delivery.',
+    },
+
     // DRILL TYPES
     {
       toolName: 'DRILL_REPEAT',
