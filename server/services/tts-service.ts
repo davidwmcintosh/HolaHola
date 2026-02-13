@@ -1751,6 +1751,17 @@ export class TTSService {
       resolvedVoiceId = voiceConfig.name;
       languageCode = voiceConfig.languageCode;
       console.log(`[Google TTS Stream] No voiceId configured — resolved to ${resolvedVoiceId} (${languageCode}) from target language "${langKey}" for accent consistency`);
+    } else if (!voiceId.includes('Chirp3-HD') && !voiceId.includes('-')) {
+      const bareToLangCode: Record<string, string> = {
+        'english': 'en-US', 'spanish': 'es-US', 'french': 'fr-FR', 'german': 'de-DE',
+        'italian': 'it-IT', 'portuguese': 'pt-BR', 'japanese': 'ja-JP',
+        'mandarin chinese': 'cmn-CN', 'mandarin': 'cmn-CN', 'chinese': 'cmn-CN',
+        'korean': 'ko-KR', 'hebrew': 'he-IL',
+      };
+      const langKey = targetLanguage?.toLowerCase() || 'english';
+      languageCode = bareToLangCode[langKey] || 'en-US';
+      resolvedVoiceId = `${languageCode}-Chirp3-HD-${voiceId}`;
+      console.log(`[Google TTS Stream] Mapped bare Gemini voice "${voiceId}" → "${resolvedVoiceId}" (${languageCode})`);
     } else {
       const voiceParts = voiceId.split('-');
       languageCode = voiceParts.length >= 2 ? `${voiceParts[0]}-${voiceParts[1]}` : 'en-US';

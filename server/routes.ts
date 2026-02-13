@@ -16357,11 +16357,23 @@ Current conversation context:
         const validatedGoogleRate = speakingRate !== undefined
           ? Math.max(0.25, Math.min(4.0, parseFloat(speakingRate)))
           : 1.0;
+        let resolvedVoiceId = voiceId;
+        if (voiceId && !voiceId.includes('Chirp3-HD')) {
+          const auditionLangMap: Record<string, string> = {
+            'english': 'en-US', 'spanish': 'es-US', 'french': 'fr-FR', 'german': 'de-DE',
+            'italian': 'it-IT', 'portuguese': 'pt-BR', 'japanese': 'ja-JP',
+            'mandarin chinese': 'cmn-CN', 'mandarin': 'cmn-CN', 'chinese': 'cmn-CN',
+            'korean': 'ko-KR', 'hebrew': 'he-IL',
+          };
+          const auditionLangCode = auditionLangMap[(languageCode || 'english').toLowerCase()] || 'en-US';
+          resolvedVoiceId = `${auditionLangCode}-Chirp3-HD-${voiceId}`;
+          console.log(`[Voice Audition] Mapped bare voice name "${voiceId}" → "${resolvedVoiceId}" for Google Cloud TTS`);
+        }
         const { getTTSService } = await import('./services/tts-service');
         const ttsService = getTTSService();
         const result = await ttsService.streamSynthesizeToWavBuffer({
           text,
-          voiceId,
+          voiceId: resolvedVoiceId,
           speakingRate: validatedGoogleRate,
         });
         res.setHeader('Content-Type', result.contentType);

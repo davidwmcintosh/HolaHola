@@ -594,12 +594,33 @@ export function VoiceConsoleContent() {
     
     const voiceProvider = voice.provider || globalProvider;
     const providerMatchesVoice = voiceProvider === globalProvider;
+    
+    let mappedVoiceId = voice.voiceId;
+    let mappedVoiceName = voice.voiceName;
+    if (!providerMatchesVoice) {
+      const langMap: Record<string, string> = {
+        'english': 'en-US', 'spanish': 'es-US', 'french': 'fr-FR', 'german': 'de-DE',
+        'italian': 'it-IT', 'portuguese': 'pt-BR', 'japanese': 'ja-JP',
+        'mandarin chinese': 'cmn-CN', 'mandarin': 'cmn-CN', 'chinese': 'cmn-CN',
+        'korean': 'ko-KR', 'hebrew': 'he-IL',
+      };
+      if (globalProvider === 'google' && !voice.voiceId.includes('Chirp3-HD')) {
+        const langCode = langMap[voice.language.toLowerCase()] || 'en-US';
+        mappedVoiceId = `${langCode}-Chirp3-HD-${voice.voiceId}`;
+      } else if (globalProvider === 'gemini' && voice.voiceId.includes('Chirp3-HD')) {
+        const match = voice.voiceId.match(/Chirp3-HD-(\w+)$/);
+        if (match) mappedVoiceId = match[1];
+      } else {
+        mappedVoiceId = '';
+        mappedVoiceName = '';
+      }
+    }
     setFormData({
       language: voice.language,
       gender: voice.gender,
       provider: globalProvider,
-      voiceId: providerMatchesVoice ? voice.voiceId : '',
-      voiceName: providerMatchesVoice ? voice.voiceName : '',
+      voiceId: mappedVoiceId,
+      voiceName: mappedVoiceName,
       languageCode: voice.languageCode,
       speakingRate: voice.speakingRate || 0.9,
       personality: savedPersonality,

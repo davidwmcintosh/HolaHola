@@ -5585,11 +5585,44 @@ export class DatabaseStorage implements IStorage {
     if (!validProviders.includes(provider)) {
       throw new Error(`[Voice Guard] Invalid provider: ${provider}. Must be one of: ${validProviders.join(', ')}`);
     }
-    const result = await getSharedDb().update(tutorVoices)
-      .set({ provider, updatedAt: new Date() })
-      .where(eq(tutorVoices.role, 'tutor'))
-      .returning();
-    return result.length;
+
+    const langToCode: Record<string, string> = {
+      'english': 'en-US', 'english (us)': 'en-US', 'english (uk)': 'en-GB',
+      'spanish': 'es-US', 'spanish (spain)': 'es-ES', 'spanish (latin america)': 'es-US',
+      'french': 'fr-FR', 'french (canada)': 'fr-CA',
+      'german': 'de-DE', 'italian': 'it-IT',
+      'portuguese': 'pt-BR', 'portuguese (brazil)': 'pt-BR', 'portuguese (portugal)': 'pt-PT',
+      'japanese': 'ja-JP',
+      'mandarin chinese': 'cmn-CN', 'mandarin': 'cmn-CN', 'chinese': 'cmn-CN',
+      'korean': 'ko-KR',
+      'hebrew': 'he-IL',
+    };
+
+    const allVoices = await getSharedDb().select().from(tutorVoices).where(eq(tutorVoices.role, 'tutor'));
+
+    for (const voice of allVoices) {
+      let newVoiceId = voice.voiceId;
+      const oldProvider = voice.provider;
+
+      if (provider === 'google' && (oldProvider === 'gemini' || !voice.voiceId.includes('Chirp3-HD'))) {
+        const baseName = voice.voiceId.replace(/^.*Chirp3-HD-/, '');
+        const langCode = langToCode[voice.language.toLowerCase()] || 'en-US';
+        if (baseName && !baseName.includes('-')) {
+          newVoiceId = `${langCode}-Chirp3-HD-${baseName}`;
+        }
+      } else if (provider === 'gemini' && (oldProvider === 'google' || voice.voiceId.includes('Chirp3-HD'))) {
+        const match = voice.voiceId.match(/Chirp3-HD-(\w+)$/);
+        if (match) {
+          newVoiceId = match[1];
+        }
+      }
+
+      await getSharedDb().update(tutorVoices)
+        .set({ provider, voiceId: newVoiceId, updatedAt: new Date() })
+        .where(eq(tutorVoices.id, voice.id));
+    }
+
+    return allVoices.length;
   }
 
   async updateTutorVoiceProviderWithMapping(id: string, provider: string, voiceId: string, voiceName: string): Promise<void> {
