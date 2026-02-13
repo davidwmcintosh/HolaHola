@@ -7310,6 +7310,7 @@ Remember: Beta testers understand they're helping build something and appreciate
           voiceId: session.voiceId || '',
           speakingRate: effectiveSpeakingRate,
           targetLanguage: session.targetLanguage,
+          accentLanguageCode: session.geminiLanguageCode || undefined,
           onAudioChunk: (chunk) => {
             if (chunk.audio.length > 0) {
               if (!firstChunkReceived) {
@@ -8142,6 +8143,7 @@ Remember: Beta testers understand they're helping build something and appreciate
         voiceId: session.voiceId || '',
         speakingRate: effectiveSpeakingRate,
         targetLanguage: session.targetLanguage,
+        accentLanguageCode: session.geminiLanguageCode || undefined,
         onAudioChunk: (audioChunk) => {
           ttsCallbacks.onAudioChunk({
             audio: audioChunk.audio,

@@ -15993,7 +15993,7 @@ Current conversation context:
         elSpeakerBoost: provider === 'elevenlabs' ? (elSpeakerBoost ?? true) : null,
         googlePitch: provider === 'google' ? (googlePitch ?? 0) : null,
         googleVolumeGainDb: provider === 'google' ? (googleVolumeGainDb ?? 0) : null,
-        geminiLanguageCode: provider === 'gemini' ? (geminiLanguageCode || null) : null,
+        geminiLanguageCode: (provider === 'gemini' || provider === 'google') ? (geminiLanguageCode || null) : null,
       });
       
       // Log the action
@@ -16365,9 +16365,17 @@ Current conversation context:
             'mandarin chinese': 'cmn-CN', 'mandarin': 'cmn-CN', 'chinese': 'cmn-CN',
             'korean': 'ko-KR', 'hebrew': 'he-IL',
           };
-          const auditionLangCode = auditionLangMap[(languageCode || 'english').toLowerCase()] || 'en-US';
+          // Use accentLanguage override if provided (e.g. 'en-GB' for British accent)
+          // Otherwise fall back to default language code mapping
+          const auditionLangCode = accentLanguage || auditionLangMap[(languageCode || 'english').toLowerCase()] || 'en-US';
           resolvedVoiceId = `${auditionLangCode}-Chirp3-HD-${voiceId}`;
-          console.log(`[Voice Audition] Mapped bare voice name "${voiceId}" → "${resolvedVoiceId}" for Google Cloud TTS`);
+          console.log(`[Voice Audition] Mapped bare voice name "${voiceId}" → "${resolvedVoiceId}" for Google Cloud TTS${accentLanguage ? ` (accent override: ${accentLanguage})` : ''}`);
+        } else if (voiceId && voiceId.includes('Chirp3-HD') && accentLanguage) {
+          // Voice already has full name but accent override requested — swap the locale prefix
+          const voiceParts = resolvedVoiceId.split('-');
+          const baseVoiceName = voiceParts[voiceParts.length - 1]; // e.g. "Aoede"
+          resolvedVoiceId = `${accentLanguage}-Chirp3-HD-${baseVoiceName}`;
+          console.log(`[Voice Audition] Swapped accent on full voice name → "${resolvedVoiceId}" (accent override: ${accentLanguage})`);
         }
         const { getTTSService } = await import('./services/tts-service');
         const ttsService = getTTSService();

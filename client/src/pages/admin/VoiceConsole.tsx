@@ -246,10 +246,10 @@ export function VoiceConsoleContent() {
     queryKey: ["/api/admin/tts-meta"],
   });
 
-  // Fetch accent variants for Gemini TTS
+  // Fetch accent variants for Gemini TTS and Google Cloud TTS
   const { data: accentVariants } = useQuery<Record<string, { label: string; code: string }[]>>({
     queryKey: ['/api/admin/accent-variants'],
-    enabled: globalProvider === 'gemini',
+    enabled: globalProvider === 'gemini' || globalProvider === 'google',
   });
   const languageAccents = accentVariants?.[formData.language] || [];
 
@@ -650,7 +650,7 @@ export function VoiceConsoleContent() {
       language: value,
       languageCode: lang?.code || '',
       voiceId: '',
-      geminiLanguageCode: prev.provider === 'gemini' ? defaultAccent : '',
+      geminiLanguageCode: (prev.provider === 'gemini' || prev.provider === 'google') ? defaultAccent : '',
     }));
   };
 
@@ -835,8 +835,8 @@ export function VoiceConsoleContent() {
                       </div>
                     )}
 
-                    {/* Gemini Accent Variant */}
-                    {formData.voiceId && formData.provider === 'gemini' && languageAccents.length > 1 && (
+                    {/* Regional Accent Variant (Gemini + Google Cloud TTS) */}
+                    {formData.voiceId && (formData.provider === 'gemini' || formData.provider === 'google') && languageAccents.length > 1 && (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
                           <Globe className="h-4 w-4 text-muted-foreground" />
@@ -858,7 +858,9 @@ export function VoiceConsoleContent() {
                           </SelectContent>
                         </Select>
                         <p className="text-xs text-muted-foreground">
-                          Controls the regional pronunciation accent for Gemini TTS
+                          {formData.provider === 'google'
+                            ? 'Changes the locale prefix on the voice name (e.g. en-US → en-GB for British accent)'
+                            : 'Controls the regional pronunciation accent for Gemini TTS'}
                         </p>
                       </div>
                     )}
@@ -1118,7 +1120,7 @@ export function VoiceConsoleContent() {
                                 } : undefined,
                                 selectedVoice?.source === 'library' ? selectedVoice.previewUrl : undefined,
                                 undefined,
-                                formData.provider === 'gemini' ? formData.geminiLanguageCode : undefined,
+                                (formData.provider === 'gemini' || formData.provider === 'google') ? formData.geminiLanguageCode : undefined,
                               );
                             }}
                             data-testid="button-audition"

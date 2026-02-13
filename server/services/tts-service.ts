@@ -1734,6 +1734,7 @@ export class TTSService {
     voiceId: string;
     speakingRate?: number;
     targetLanguage?: string;
+    accentLanguageCode?: string;
     onAudioChunk: (chunk: { audio: Buffer; durationMs: number; audioFormat: string; sampleRate: number; isLast?: boolean }) => void;
     onComplete: (totalBytes: number) => void;
     onError: (error: Error) => void;
@@ -1742,7 +1743,7 @@ export class TTSService {
       throw new Error('Google Cloud TTS Beta client not available for streaming. Set GOOGLE_CLOUD_TTS_CREDENTIALS.');
     }
 
-    const { text, voiceId, speakingRate = 1.0, targetLanguage, onAudioChunk, onComplete, onError } = params;
+    const { text, voiceId, speakingRate = 1.0, targetLanguage, accentLanguageCode, onAudioChunk, onComplete, onError } = params;
     let resolvedVoiceId = voiceId;
     let languageCode: string;
     if (!voiceId || voiceId.trim() === '') {
@@ -1750,7 +1751,15 @@ export class TTSService {
       const voiceConfig = GOOGLE_VOICE_MAP[langKey] || GOOGLE_VOICE_MAP['english'];
       resolvedVoiceId = voiceConfig.name;
       languageCode = voiceConfig.languageCode;
-      console.log(`[Google TTS Stream] No voiceId configured — resolved to ${resolvedVoiceId} (${languageCode}) from target language "${langKey}" for accent consistency`);
+      // Apply accent override: swap locale prefix on resolved default voice
+      if (accentLanguageCode && accentLanguageCode !== languageCode) {
+        const baseVoiceName = resolvedVoiceId.split('-').pop();
+        resolvedVoiceId = `${accentLanguageCode}-Chirp3-HD-${baseVoiceName}`;
+        languageCode = accentLanguageCode;
+        console.log(`[Google TTS Stream] No voiceId configured — resolved to ${resolvedVoiceId} (${languageCode}) with accent override from "${langKey}"`);
+      } else {
+        console.log(`[Google TTS Stream] No voiceId configured — resolved to ${resolvedVoiceId} (${languageCode}) from target language "${langKey}" for accent consistency`);
+      }
     } else if (!voiceId.includes('Chirp3-HD') && !voiceId.includes('-')) {
       const bareToLangCode: Record<string, string> = {
         'english': 'en-US', 'spanish': 'es-US', 'french': 'fr-FR', 'german': 'de-DE',
@@ -1759,12 +1768,19 @@ export class TTSService {
         'korean': 'ko-KR', 'hebrew': 'he-IL',
       };
       const langKey = targetLanguage?.toLowerCase() || 'english';
-      languageCode = bareToLangCode[langKey] || 'en-US';
+      languageCode = accentLanguageCode || bareToLangCode[langKey] || 'en-US';
       resolvedVoiceId = `${languageCode}-Chirp3-HD-${voiceId}`;
-      console.log(`[Google TTS Stream] Mapped bare Gemini voice "${voiceId}" → "${resolvedVoiceId}" (${languageCode})`);
+      console.log(`[Google TTS Stream] Mapped bare Gemini voice "${voiceId}" → "${resolvedVoiceId}" (${languageCode})${accentLanguageCode ? ' (accent override)' : ''}`);
     } else {
       const voiceParts = voiceId.split('-');
       languageCode = voiceParts.length >= 2 ? `${voiceParts[0]}-${voiceParts[1]}` : 'en-US';
+      // Apply accent override: swap locale prefix while keeping voice name
+      if (accentLanguageCode && accentLanguageCode !== languageCode) {
+        const baseVoiceName = voiceParts[voiceParts.length - 1];
+        resolvedVoiceId = `${accentLanguageCode}-Chirp3-HD-${baseVoiceName}`;
+        languageCode = accentLanguageCode;
+        console.log(`[Google TTS Stream] Accent override: swapped locale to "${resolvedVoiceId}" (${languageCode})`);
+      }
     }
     const startTime = Date.now();
     let totalBytes = 0;
