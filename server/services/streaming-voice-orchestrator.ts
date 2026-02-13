@@ -2892,6 +2892,7 @@ Remember: Beta testers understand they're helping build something and appreciate
                 for (let i = 0; i < sentences.length; i++) {
                   if (session.isInterrupted) break;
                   const sentenceText = sentences[i];
+                  seenSentences.add(sentenceText.toLowerCase().trim());
                   const extraction = extractTargetLanguageWithMapping(sentenceText, allBoldWords);
                   const wordMapping: [number, number][] = extraction.wordMapping.size > 0
                     ? Array.from(extraction.wordMapping.entries()) : [];
@@ -2920,6 +2921,7 @@ Remember: Beta testers understand they're helping build something and appreciate
                 for (let i = 0; i < sentences.length; i++) {
                   if (session.isInterrupted) break;
                   const sentenceText = sentences[i];
+                  seenSentences.add(sentenceText.toLowerCase().trim());
                   const extraction = extractTargetLanguageWithMapping(sentenceText, allBoldWords);
                   const wordMapping: [number, number][] = extraction.wordMapping.size > 0
                     ? Array.from(extraction.wordMapping.entries()) : [];
@@ -5480,6 +5482,7 @@ Remember: Beta testers understand they're helping build something and appreciate
                 for (let i = 0; i < sentences.length; i++) {
                   if (session.isInterrupted) break;
                   const sentenceText = sentences[i];
+                  seenSentences.add(sentenceText.toLowerCase().trim());
                   const extraction = extractTargetLanguageWithMapping(sentenceText, allBoldWords);
                   const wordMapping: [number, number][] = extraction.wordMapping.size > 0
                     ? Array.from(extraction.wordMapping.entries()) : [];
@@ -5508,6 +5511,7 @@ Remember: Beta testers understand they're helping build something and appreciate
                 for (let i = 0; i < sentences.length; i++) {
                   if (session.isInterrupted) break;
                   const sentenceText = sentences[i];
+                  seenSentences.add(sentenceText.toLowerCase().trim());
                   const extraction = extractTargetLanguageWithMapping(sentenceText, allBoldWords);
                   const wordMapping: [number, number][] = extraction.wordMapping.size > 0
                     ? Array.from(extraction.wordMapping.entries()) : [];
