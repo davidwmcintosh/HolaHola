@@ -1761,16 +1761,11 @@ export class TTSService {
         console.log(`[Google TTS Stream] No voiceId configured — resolved to ${resolvedVoiceId} (${languageCode}) from target language "${langKey}" for accent consistency`);
       }
     } else if (!voiceId.includes('Chirp3-HD') && !voiceId.includes('-')) {
-      const bareToLangCode: Record<string, string> = {
-        'english': 'en-US', 'spanish': 'es-US', 'french': 'fr-FR', 'german': 'de-DE',
-        'italian': 'it-IT', 'portuguese': 'pt-BR', 'japanese': 'ja-JP',
-        'mandarin chinese': 'cmn-CN', 'mandarin': 'cmn-CN', 'chinese': 'cmn-CN',
-        'korean': 'ko-KR', 'hebrew': 'he-IL',
-      };
-      const langKey = targetLanguage?.toLowerCase() || 'english';
-      languageCode = accentLanguageCode || bareToLangCode[langKey] || 'en-US';
+      // Bare speaker name (e.g. "Aoede") — use accent override if set, otherwise en-US base voice
+      // Default = clean base voice with no locale shaping; accent variants are explicit overrides
+      languageCode = accentLanguageCode || 'en-US';
       resolvedVoiceId = `${languageCode}-Chirp3-HD-${voiceId}`;
-      console.log(`[Google TTS Stream] Mapped bare Gemini voice "${voiceId}" → "${resolvedVoiceId}" (${languageCode})${accentLanguageCode ? ' (accent override)' : ''}`);
+      console.log(`[Google TTS Stream] Mapped bare voice "${voiceId}" → "${resolvedVoiceId}" (${languageCode})${accentLanguageCode ? ' (accent override)' : ' (default base voice)'}`);
     } else {
       const voiceParts = voiceId.split('-');
       languageCode = voiceParts.length >= 2 ? `${voiceParts[0]}-${voiceParts[1]}` : 'en-US';
