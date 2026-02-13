@@ -183,10 +183,17 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   // isProcessing should only be cleared when BOTH:
   // 1. Server has sent response_complete (responseCompleteRef = true)
   // 2. No pending audio chunks (pendingAudioCount = 0)
+  // 3. Audio has actually started playing (or no audio was sent)
   const responseCompleteRef = useRef(false);
   const pendingAudioCountRef = useRef(0);
   const setIsProcessingRef = useRef(setIsProcessing);
   setIsProcessingRef.current = setIsProcessing;
+  
+  // Track whether audio has been received in the current turn
+  // When true, isProcessing should stay true until playback actually starts
+  // This prevents the thinking→listening flash when response_complete arrives
+  // before the audio player has transitioned to 'playing' state
+  const audioReceivedInTurnRef = useRef(false);
   
   // Store current session config for callbacks
   const sessionConfigRef = useRef<StreamingSessionConfig | null>(null);
@@ -202,12 +209,17 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   const checkAndClearProcessing = useCallback(() => {
     const isComplete = responseCompleteRef.current;
     const noPendingAudio = pendingAudioCountRef.current === 0;
+    const audioReceived = audioReceivedInTurnRef.current;
     
-    console.log(`[StreamingVoice] checkAndClearProcessing: complete=${isComplete}, pending=${pendingAudioCountRef.current}`);
+    console.log(`[StreamingVoice] checkAndClearProcessing: complete=${isComplete}, pending=${pendingAudioCountRef.current}, audioReceived=${audioReceived}`);
     
     if (isComplete && noPendingAudio) {
-      console.log('[StreamingVoice] Response complete AND no pending audio - clearing isProcessing');
-      setIsProcessingRef.current(false);
+      if (audioReceived) {
+        console.log('[StreamingVoice] Response complete but audio was received - deferring isProcessing clear until playback starts');
+      } else {
+        console.log('[StreamingVoice] Response complete AND no pending audio (no audio turn) - clearing isProcessing');
+        setIsProcessingRef.current(false);
+      }
     }
   }, []);
   
@@ -274,6 +286,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
         if (isVerboseLoggingEnabled()) {
           console.log(`[StreamingVoice] Sentence ${sentenceIndex} started (turn ${currentTurnIdRef.current})`);
         }
+        // Audio is now actually playing - clear the audioReceived guard
+        // so that onComplete/checkAndClearProcessing can clear isProcessing
+        audioReceivedInTurnRef.current = false;
         // Update debug state for tracking
         updateDebugTimingState({ lastOnSentenceStartFired: sentenceIndex });
         // Pass turnId for subtitle packet ordering (prevents phantom subtitles)
@@ -367,6 +382,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     // This ensures thinking indicator shows for server-initiated responses (tutor handoffs, etc.)
     setIsProcessing(true);
     
+    // Reset audio received flag for new turn
+    audioReceivedInTurnRef.current = false;
+    
     // Store turnId for use in callbacks
     currentTurnIdRef.current = msg.turnId;
     
@@ -401,6 +419,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     
     // IMMEDIATELY show thinking indicator
     setIsProcessing(true);
+    audioReceivedInTurnRef.current = false;
     
     // Start processing timeout (same as handleProcessing)
     if (processingTimeoutRef.current) {
@@ -647,6 +666,11 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     const hasAudio = firstAudioChunk?.audio && firstAudioChunk.audio.length > 0;
     console.log(`[SENTENCE_READY] Received: sentence=${sentenceIndex}, turn=${turnId}, timings=${firstWordTimings?.length || 0}, hasAudio=${hasAudio}, audioStripped=${audioStripped}`);
     
+    // Mark that audio has been received in this turn
+    // This prevents checkAndClearProcessing from clearing isProcessing
+    // before the audio player has actually started playing
+    audioReceivedInTurnRef.current = true;
+    
     // Audio is arriving - clear the "thinking" timeout since we have proof the response is being generated
     // Use a longer safety net timeout (3 minutes) to handle very long multi-segment TTS responses
     // This prevents premature timeout while audio is actively streaming
@@ -841,11 +865,13 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     // pendingAudioCount stuck > 0 from a previous bug), schedule a delayed force-clear.
     // Progressive PCM streaming never increments pendingAudioCount, so if response_complete
     // arrived, it's safe to clear after a short delay for audio to finish.
+    // Extended to 5s to give audio player time to start playing (prevents thinking→listening flash)
     setTimeout(() => {
       if (responseCompleteRef.current && pendingAudioCountRef.current === 0) {
+        audioReceivedInTurnRef.current = false;
         setIsProcessingRef.current(false);
       }
-    }, 2000);
+    }, 5000);
   }, [checkAndClearProcessing]);
   
   /**
