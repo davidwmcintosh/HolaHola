@@ -835,7 +835,7 @@ export function VoiceConsoleContent() {
                     )}
 
                     {/* Regional Accent Variant (Gemini + Google Cloud TTS) */}
-                    {formData.voiceId && (formData.provider === 'gemini' || formData.provider === 'google') && languageAccents.length > 1 && (
+                    {formData.voiceId && (formData.provider === 'gemini' || formData.provider === 'google') && (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
                           <Globe className="h-4 w-4 text-muted-foreground" />
