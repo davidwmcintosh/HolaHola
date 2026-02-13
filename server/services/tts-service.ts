@@ -1879,15 +1879,9 @@ export class TTSService {
         },
       });
 
-      const sentences = text.match(/[^.!?]+[.!?]*\s*/g) || [text];
-      for (const sentence of sentences) {
-        const trimmed = sentence.trim();
-        if (trimmed.length > 0) {
-          stream.write({
-            input: { text: trimmed },
-          });
-        }
-      }
+      stream.write({
+        input: { text },
+      });
 
       stream.end();
     });
