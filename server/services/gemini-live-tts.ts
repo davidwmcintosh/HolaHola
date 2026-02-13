@@ -274,9 +274,6 @@ export class GeminiLiveTtsService extends EventEmitter {
           prebuiltVoiceConfig: { voiceName },
         },
       };
-      if (resolvedLanguageCode) {
-        speechConfig.languageCode = resolvedLanguageCode.toLowerCase();
-      }
 
       const response = await Promise.race([
         this.client.models.generateContent({
@@ -294,7 +291,9 @@ export class GeminiLiveTtsService extends EventEmitter {
 
       const audioPart = response.candidates?.[0]?.content?.parts?.[0];
       if (!audioPart?.inlineData?.data) {
-        console.error(`[Gemini TTS] No audio data in response`);
+        const finishReason = response.candidates?.[0]?.finishReason;
+        const partKeys = audioPart ? Object.keys(audioPart) : [];
+        console.error(`[Gemini TTS] No audio data in response (finishReason: ${finishReason}, partKeys: ${partKeys.join(',') || 'none'}, candidates: ${response.candidates?.length || 0})`);
         voiceDiagnostics.recordTTSResult(false, undefined, 'daniela');
         throw new Error('Gemini TTS returned no audio data');
       }
