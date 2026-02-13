@@ -582,7 +582,7 @@ export function VoiceConsoleContent() {
       elStyle: voice.elStyle,
       elSpeed: voice.speakingRate,
     } : undefined;
-    await handleAudition(voice.voiceId, voice.voiceName, voice.language, voice.languageCode, voice.speakingRate, voice.provider, elSettings, undefined, voice.id);
+    await handleAudition(voice.voiceId, voice.voiceName, voice.language, voice.languageCode, voice.speakingRate, voice.provider, elSettings, undefined, voice.id, voice.languageCode);
   };
 
   const handleEdit = (voice: TutorVoice) => {
