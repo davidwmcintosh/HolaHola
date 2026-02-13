@@ -418,6 +418,7 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
   let speculativePttWordCount = 0;  // Track word count for speculation trigger
   let speculativePttTriggered = false;  // Whether we've started speculative AI call
   let speculativePttTranscriptUsed = '';  // The transcript used for speculation
+  let speculativePttGotFinal = false;  // Whether Deepgram sent is_final=true
   
   // Pending speculative transcript - set on PTT release, consumed by audio_data
   // This allows bypassing redundant STT when we already have real-time transcript
@@ -1721,6 +1722,7 @@ Reference past discussions when relevant, but don't force it.
             speculativePttWordCount = 0;
             speculativePttTriggered = false;
             speculativePttTranscriptUsed = '';
+            speculativePttGotFinal = false;
             speculativePttSessionId++;
             const currentPttSessionId = speculativePttSessionId;
             
@@ -1799,6 +1801,10 @@ Reference past discussions when relevant, but don't force it.
                   }
                 }
               },
+              onFinalReceived: () => {
+                if (currentPttSessionId !== speculativePttSessionId) return;
+                speculativePttGotFinal = true;
+              },
               onError: (error) => {
                 if (currentPttSessionId !== speculativePttSessionId) return;
                 console.error('[SpeculativePTT] Session error:', error);
@@ -1858,11 +1864,10 @@ Reference past discussions when relevant, but don't force it.
             }));
           }
           
-          // DON'T close immediately - wait for Deepgram final transcript
-          // Deepgram often sends the true final transcript 200-600ms after we stop sending audio
-          // Use longer wait and early-exit when transcript stabilizes
-          // Increased from 400ms to 600ms Jan 2026 to capture longer phrases
-          const FINAL_WAIT_MS = 600;
+          // DON'T close immediately - wait for Deepgram final transcript (is_final=true)
+          // Without this, we process incomplete interim transcripts and cut off the user's last words
+          // Only early-exit after Deepgram confirms is_final; hard timeout prevents hanging
+          const FINAL_WAIT_MS = 1200;
           const STABLE_CHECK_MS = 50;
           
           let lastTranscript = speculativePttTranscript;
@@ -1882,14 +1887,15 @@ Reference past discussions when relevant, but don't force it.
                 stableCount++;
               }
               
-              // Exit early if transcript has been stable for 150ms (3 checks) AND at least 200ms elapsed
-              // BUT only if we actually HAVE a non-empty transcript - otherwise keep waiting
-              // Empty transcripts should never trigger early exit (Deepgram may still be processing)
-              // OR timeout after FINAL_WAIT_MS
               const hasContent = currentTranscript.trim().length > 0;
-              if ((hasContent && stableCount >= 3 && elapsed >= 200) || elapsed >= FINAL_WAIT_MS) {
+              
+              // Early exit: Deepgram sent is_final=true AND transcript stable for 100ms
+              // Hard timeout: FINAL_WAIT_MS to prevent hanging if is_final never arrives
+              const gotFinalAndStable = speculativePttGotFinal && hasContent && stableCount >= 2;
+              
+              if (gotFinalAndStable || elapsed >= FINAL_WAIT_MS) {
                 clearInterval(checkInterval);
-                console.log(`[SpeculativePTT] Wait complete: elapsed=${elapsed}ms, stable=${stableCount * STABLE_CHECK_MS}ms, hasContent=${hasContent}`);
+                console.log(`[SpeculativePTT] Wait complete: elapsed=${elapsed}ms, stable=${stableCount * STABLE_CHECK_MS}ms, hasContent=${hasContent}, gotFinal=${speculativePttGotFinal}`);
                 resolve();
               }
             }, STABLE_CHECK_MS);
@@ -2775,6 +2781,7 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
   let speculativePttTriggered = false;
   let speculativePttTranscriptUsed = '';
   let speculativePttSessionId = 0;
+  let speculativePttGotFinal = false;
   
   // Pending speculative transcript - set on PTT release, consumed by audio_data
   // This allows bypassing redundant STT when we already have real-time transcript
@@ -3421,6 +3428,7 @@ ${buildNativeFunctionCallingSection()}`;
             speculativePttWordCount = 0;
             speculativePttTriggered = false;
             speculativePttTranscriptUsed = '';
+            speculativePttGotFinal = false;
             speculativePttSessionId++;
             const currentPttSessionId = speculativePttSessionId;
             
@@ -3511,6 +3519,10 @@ ${buildNativeFunctionCallingSection()}`;
                   }
                 }
               },
+              onFinalReceived: () => {
+                if (currentPttSessionId !== speculativePttSessionId) return;
+                speculativePttGotFinal = true;
+              },
               onError: (error) => {
                 if (currentPttSessionId !== speculativePttSessionId) return;
                 console.error('[SpeculativePTT] Session error:', error);
@@ -3571,11 +3583,10 @@ ${buildNativeFunctionCallingSection()}`;
             console.log(`[SpeculativePTT] ⚠️ processing_pending NOT sent (readyState=${ws.readyState}, interimLen=${interimTranscript.length})`);
           }
           
-          // DON'T close immediately - wait for Deepgram final transcript
-          // Deepgram often sends the true final transcript 200-600ms after we stop sending audio
-          // Use longer wait and early-exit when transcript stabilizes
-          // Increased from 400ms to 600ms Jan 2026 to capture longer phrases
-          const FINAL_WAIT_MS = 600;
+          // DON'T close immediately - wait for Deepgram final transcript (is_final=true)
+          // Without this, we process incomplete interim transcripts and cut off the user's last words
+          // Only early-exit after Deepgram confirms is_final; hard timeout prevents hanging
+          const FINAL_WAIT_MS = 1200;
           const STABLE_CHECK_MS = 50;
           
           let lastTranscript = speculativePttTranscript;
@@ -3595,14 +3606,15 @@ ${buildNativeFunctionCallingSection()}`;
                 stableCount++;
               }
               
-              // Exit early if transcript has been stable for 150ms (3 checks) AND at least 200ms elapsed
-              // BUT only if we actually HAVE a non-empty transcript - otherwise keep waiting
-              // Empty transcripts should never trigger early exit (Deepgram may still be processing)
-              // OR timeout after FINAL_WAIT_MS
               const hasContent = currentTranscript.trim().length > 0;
-              if ((hasContent && stableCount >= 3 && elapsed >= 200) || elapsed >= FINAL_WAIT_MS) {
+              
+              // Early exit: Deepgram sent is_final=true AND transcript stable for 100ms
+              // Hard timeout: FINAL_WAIT_MS to prevent hanging if is_final never arrives
+              const gotFinalAndStable = speculativePttGotFinal && hasContent && stableCount >= 2;
+              
+              if (gotFinalAndStable || elapsed >= FINAL_WAIT_MS) {
                 clearInterval(checkInterval);
-                console.log(`[SpeculativePTT] Wait complete: elapsed=${elapsed}ms, stable=${stableCount * STABLE_CHECK_MS}ms, hasContent=${hasContent}`);
+                console.log(`[SpeculativePTT] Wait complete: elapsed=${elapsed}ms, stable=${stableCount * STABLE_CHECK_MS}ms, hasContent=${hasContent}, gotFinal=${speculativePttGotFinal}`);
                 resolve();
               }
             }, STABLE_CHECK_MS);

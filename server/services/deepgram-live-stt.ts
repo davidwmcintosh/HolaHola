@@ -401,6 +401,7 @@ export interface OpenMicEvents {
   onSpeechStarted?: () => void;
   onUtteranceEnd?: (transcript: string, confidence: number, intelligence?: DeepgramIntelligence) => void;
   onInterimTranscript?: (transcript: string) => void;
+  onFinalReceived?: () => void;
   onIntelligence?: (intelligence: DeepgramIntelligence) => void;
   onError?: (error: Error) => void;
   onClose?: () => void;
@@ -734,6 +735,7 @@ export class OpenMicSession {
                 // CRITICAL: Also notify PTT handler of accumulated transcript
                 // This ensures PTT mode sees the full accumulated text, not just interim fragments
                 this.events.onInterimTranscript?.(this.currentTranscript);
+                this.events.onFinalReceived?.();
               }
             } else {
               // For interim results, send accumulated finals + current interim
