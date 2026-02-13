@@ -25,47 +25,47 @@ const TTS_SAMPLE_RATE = 24000;
 const CHUNK_SIZE_SAMPLES = 2400;
 const SYNTHESIS_TIMEOUT_MS = 30000;
 
-export const LANGUAGE_ACCENT_VARIANTS: Record<string, { label: string; code: string }[]> = {
+export const LANGUAGE_ACCENT_VARIANTS: Record<string, { label: string; code: string; googleSupported: boolean }[]> = {
   spanish: [
-    { label: 'Spanish (US)', code: 'es-US' },
-    { label: 'Spanish (Spain)', code: 'es-ES' },
-    { label: 'Spanish (Mexico)', code: 'es-MX' },
-    { label: 'Spanish (Argentina)', code: 'es-AR' },
-    { label: 'Spanish (Colombia)', code: 'es-CO' },
+    { label: 'Spanish (US)', code: 'es-US', googleSupported: true },
+    { label: 'Spanish (Spain)', code: 'es-ES', googleSupported: true },
+    { label: 'Spanish (Mexico)', code: 'es-MX', googleSupported: false },
+    { label: 'Spanish (Argentina)', code: 'es-AR', googleSupported: false },
+    { label: 'Spanish (Colombia)', code: 'es-CO', googleSupported: false },
   ],
   english: [
-    { label: 'English (US)', code: 'en-US' },
-    { label: 'English (UK)', code: 'en-GB' },
-    { label: 'English (Australia)', code: 'en-AU' },
-    { label: 'English (India)', code: 'en-IN' },
+    { label: 'English (US)', code: 'en-US', googleSupported: true },
+    { label: 'English (UK)', code: 'en-GB', googleSupported: true },
+    { label: 'English (Australia)', code: 'en-AU', googleSupported: true },
+    { label: 'English (India)', code: 'en-IN', googleSupported: true },
   ],
   french: [
-    { label: 'French (France)', code: 'fr-FR' },
-    { label: 'French (Canada)', code: 'fr-CA' },
+    { label: 'French (France)', code: 'fr-FR', googleSupported: true },
+    { label: 'French (Canada)', code: 'fr-CA', googleSupported: true },
   ],
   german: [
-    { label: 'German (Germany)', code: 'de-DE' },
-    { label: 'German (Austria)', code: 'de-AT' },
+    { label: 'German (Germany)', code: 'de-DE', googleSupported: true },
+    { label: 'German (Austria)', code: 'de-AT', googleSupported: false },
   ],
   italian: [
-    { label: 'Italian (Italy)', code: 'it-IT' },
+    { label: 'Italian (Italy)', code: 'it-IT', googleSupported: true },
   ],
   portuguese: [
-    { label: 'Portuguese (Brazil)', code: 'pt-BR' },
-    { label: 'Portuguese (Portugal)', code: 'pt-PT' },
+    { label: 'Portuguese (Brazil)', code: 'pt-BR', googleSupported: true },
+    { label: 'Portuguese (Portugal)', code: 'pt-PT', googleSupported: false },
   ],
   japanese: [
-    { label: 'Japanese (Japan)', code: 'ja-JP' },
+    { label: 'Japanese (Japan)', code: 'ja-JP', googleSupported: true },
   ],
   'mandarin chinese': [
-    { label: 'Chinese (Mainland)', code: 'zh-CN' },
-    { label: 'Chinese (Taiwan)', code: 'zh-TW' },
+    { label: 'Chinese (Mainland)', code: 'cmn-CN', googleSupported: true },
+    { label: 'Chinese (Taiwan)', code: 'zh-TW', googleSupported: false },
   ],
   korean: [
-    { label: 'Korean (Korea)', code: 'ko-KR' },
+    { label: 'Korean (Korea)', code: 'ko-KR', googleSupported: true },
   ],
   hebrew: [
-    { label: 'Hebrew (Israel)', code: 'he-IL' },
+    { label: 'Hebrew (Israel)', code: 'he-IL', googleSupported: true },
   ],
 };
 
@@ -77,7 +77,7 @@ const DEFAULT_LANGUAGE_CODE: Record<string, string> = {
   italian: 'it-IT',
   portuguese: 'pt-BR',
   japanese: 'ja-JP',
-  'mandarin chinese': 'zh-CN',
+  'mandarin chinese': 'cmn-CN',
   korean: 'ko-KR',
   hebrew: 'he-IL',
 };

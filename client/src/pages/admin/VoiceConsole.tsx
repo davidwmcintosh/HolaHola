@@ -245,11 +245,14 @@ export function VoiceConsoleContent() {
   });
 
   // Fetch accent variants for Gemini TTS and Google Cloud TTS
-  const { data: accentVariants } = useQuery<Record<string, { label: string; code: string }[]>>({
+  const { data: accentVariants } = useQuery<Record<string, { label: string; code: string; googleSupported: boolean }[]>>({
     queryKey: ['/api/admin/accent-variants'],
     enabled: globalProvider === 'gemini' || globalProvider === 'google',
   });
-  const languageAccents = accentVariants?.[formData.language] || [];
+  const allLanguageAccents = accentVariants?.[formData.language] || [];
+  const languageAccents = formData.provider === 'google'
+    ? allLanguageAccents.filter(v => v.googleSupported)
+    : allLanguageAccents;
 
   // Fetch available Cartesia voices based on selected language and gender
   const { data: cartesiaVoicesData, isLoading: isLoadingCartesiaVoices } = useQuery<{ voices: CartesiaVoice[]; total: number }>({
