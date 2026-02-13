@@ -500,14 +500,21 @@ export interface ClientTextInputMessage {
  * Sentence chunking configuration
  */
 export const SENTENCE_CHUNKING_CONFIG = {
-  /** Minimum characters before considering a sentence break */
-  MIN_SENTENCE_LENGTH: 20,
+  /** Minimum characters before considering a sentence break.
+   *  Raised from 20 to 40 for Gemini TTS — short fragments (<40 chars) create
+   *  unnecessary API call overhead and choppy prosody. Gemini handles longer
+   *  text naturally with better intonation when given complete thoughts. */
+  MIN_SENTENCE_LENGTH: 40,
   
-  /** Maximum characters before forcing a chunk (prevents long waits) */
-  MAX_SENTENCE_LENGTH: 200,
+  /** Maximum characters before forcing a chunk (prevents long waits).
+   *  Raised from 200 to 350 for Gemini TTS — it handles longer text well and
+   *  produces more natural prosody with complete thoughts vs short fragments. */
+  MAX_SENTENCE_LENGTH: 350,
   
-  /** Hard cap for TTS safety - Cartesia rejects payloads >500 chars */
-  TTS_SAFE_MAX_LENGTH: 450,
+  /** Hard cap for TTS safety.
+   *  Raised from 450 (Cartesia's 500-char limit) to 800 for Gemini TTS which
+   *  has no known character limit and produces better results with longer text. */
+  TTS_SAFE_MAX_LENGTH: 800,
   
   /** Punctuation that marks sentence boundaries */
   SENTENCE_ENDINGS: ['.', '!', '?', '。', '！', '？'],
@@ -515,8 +522,10 @@ export const SENTENCE_CHUNKING_CONFIG = {
   /** Punctuation that can break long sentences */
   CLAUSE_BREAKS: [',', ';', ':', '—', '–', '、', '，'],
   
-  /** Maximum time to wait for more tokens before forcing chunk (ms) */
-  CHUNK_TIMEOUT_MS: 500,
+  /** Maximum time to wait for more tokens before forcing chunk (ms).
+   *  Reduced from 500ms to 350ms — with pipelining, we want to emit sentences
+   *  faster since TTS processing happens concurrently with text generation. */
+  CHUNK_TIMEOUT_MS: 350,
   
   /** Heartbeat interval to keep connection alive (ms) */
   HEARTBEAT_INTERVAL_MS: 30000,

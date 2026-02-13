@@ -849,6 +849,58 @@ export class GeminiStreamingService {
     // Stream timeout state (declared here so catch block can clean up)
     let streamTimeoutId: NodeJS.Timeout | null = null;
     
+    // SENTENCE-LEVEL PIPELINING: Process TTS in order without blocking Gemini stream
+    // Instead of `await onSentence(chunk)` which blocks token streaming while TTS runs,
+    // we queue sentences and process them sequentially in the background.
+    // This lets Gemini keep generating sentence N+1 while sentence N is being synthesized.
+    const sentenceQueue: SentenceChunk[] = [];
+    let sentenceQueueProcessing = false;
+    let sentenceQueueError: Error | null = null;
+    let sentenceQueueResolve: (() => void) | null = null;
+    let sentenceQueueDone = false; // Set true when Gemini stream ends
+    
+    const processSentenceQueue = async () => {
+      if (sentenceQueueProcessing) return; // Already running
+      sentenceQueueProcessing = true;
+      
+      try {
+        while (sentenceQueue.length > 0) {
+          const nextChunk = sentenceQueue.shift()!;
+          await onSentence(nextChunk);
+        }
+      } catch (err: any) {
+        sentenceQueueError = err;
+        console.error(`[Gemini Streaming] Sentence queue error:`, err.message);
+      } finally {
+        sentenceQueueProcessing = false;
+        // If stream is done and queue is empty, resolve the drain promise
+        if (sentenceQueueDone && sentenceQueue.length === 0 && sentenceQueueResolve) {
+          sentenceQueueResolve();
+        }
+      }
+    };
+    
+    const enqueueSentence = (chunk: SentenceChunk) => {
+      sentenceQueue.push(chunk);
+      // Fire-and-forget: starts processing if not already running
+      processSentenceQueue();
+    };
+    
+    // Wait for all queued sentences to finish TTS processing
+    const drainSentenceQueue = (): Promise<void> => {
+      sentenceQueueDone = true;
+      if (sentenceQueue.length === 0 && !sentenceQueueProcessing) {
+        return Promise.resolve();
+      }
+      return new Promise<void>((resolve) => {
+        sentenceQueueResolve = resolve;
+        // If queue isn't currently processing, kick it off
+        if (!sentenceQueueProcessing && sentenceQueue.length > 0) {
+          processSentenceQueue();
+        }
+      });
+    };
+    
     // Helper to flush buffer if it has enough content
     const flushBufferIfNeeded = async () => {
       // Strip internal notation tags before flushing
@@ -866,7 +918,7 @@ export class GeminiStreamingService {
           };
           
           console.log(`[Gemini Streaming] Timeout flush ${chunk.index}: "${chunk.text.substring(0, 50)}..."`);
-          await onSentence(chunk);
+          enqueueSentence(chunk);
           buffer = buffer.substring(breakPoint).trim();
         }
       }
@@ -1272,7 +1324,7 @@ export class GeminiStreamingService {
               const firstSentenceTime = Date.now() - startTime;
               console.log(`[Gemini Streaming] First sentence ready in ${firstSentenceTime}ms (total request → speakable content)`);
             }
-            await onSentence(chunk);
+            enqueueSentence(chunk);
           }
         }
         
@@ -1288,7 +1340,7 @@ export class GeminiStreamingService {
             };
             
             console.log(`[Gemini Streaming] Forced chunk ${chunk.index}: "${chunk.text.substring(0, 50)}..."`);
-            await onSentence(chunk);
+            enqueueSentence(chunk);
             buffer = buffer.substring(forcedBreak).trim();
           }
         }
@@ -1319,7 +1371,21 @@ export class GeminiStreamingService {
         };
         
         console.log(`[Gemini Streaming] Final sentence ${chunk.index}: "${chunk.text.substring(0, 50)}..."`);
-        await onSentence(chunk);
+        enqueueSentence(chunk);
+      }
+      
+      // PIPELINING: Wait for all queued sentences to finish TTS processing
+      // Gemini text generation is done, but TTS may still be processing earlier sentences
+      const drainStart = Date.now();
+      await drainSentenceQueue();
+      const drainMs = Date.now() - drainStart;
+      if (drainMs > 50) {
+        console.log(`[Gemini Streaming] Pipeline drain: waited ${drainMs}ms for TTS queue to finish`);
+      }
+      
+      // Re-throw any sentence processing error that occurred in the queue
+      if (sentenceQueueError) {
+        throw sentenceQueueError;
       }
       
       const durationMs = Date.now() - startTime;
@@ -1366,8 +1432,11 @@ export class GeminiStreamingService {
             isFinal: true,
           };
           console.log(`[Gemini Streaming] Recovery final: "${chunk.text.substring(0, 50)}..."`);
-          await onSentence(chunk);
+          enqueueSentence(chunk);
         }
+        
+        // Drain any remaining sentences in the queue
+        await drainSentenceQueue();
         
         const durationMs = Date.now() - startTime;
         return {

@@ -1849,12 +1849,28 @@ Remember: David may reference things discussed in these recent text chats.
       audioChunkCount: 0,
     };
     
+    // PIPELINE TIMING: Structured per-stage latency tracking
+    const pipelineTiming = {
+      audioReceived: startTime,
+      sttStart: 0,
+      sttEnd: 0,
+      contextFetchStart: 0,
+      contextFetchEnd: 0,
+      geminiStart: 0,
+      geminiFirstToken: 0,
+      firstSentenceReady: 0,
+      ttsFirstCallStart: 0,
+      ttsFirstAudioByte: 0,
+      responseComplete: 0,
+    };
+    
     try {
       // PARALLEL PROCESSING: Run STT and Cartesia warmup concurrently
       // This overlaps the ~200ms WebSocket handshake with STT processing
       console.log(`[Streaming Orchestrator] Processing ${audioData.length} bytes of audio`);
       
       const sttStart = Date.now();
+      pipelineTiming.sttStart = sttStart;
       
       // Start STT, TTS warmup, and context cache resolution in parallel
       // Context cache was started at session creation - if it's not ready yet, we overlap with STT
@@ -1878,6 +1894,7 @@ Remember: David may reference things discussed in these recent text chats.
       const { transcript, confidence: pronunciationConfidence, intelligence, words } = transcriptionResult;
       
       metrics.sttLatencyMs = Date.now() - sttStart;
+      pipelineTiming.sttEnd = Date.now();
       
       // Track pipeline stage: STT complete
       trackVoicePipelineStage(sessionId, 'stt_complete', { 
@@ -2188,6 +2205,7 @@ Remember: David may reference things discussed in these recent text chats.
       // OPTIMIZATION: Use pre-cached context when available (fetched at session start)
       // Only re-fetch if cache is empty or expired. Passive memory is always fetched fresh (transcript-dependent).
       const contextStart = Date.now();
+      pipelineTiming.contextFetchStart = contextStart;
       const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
       const hasFreshCache = session.cachedContext && 
         (Date.now() - session.cachedContext.lastFetchTime) < CACHE_TTL_MS;
@@ -2625,6 +2643,9 @@ Remember: Beta testers understand they're helping build something and appreciate
       
       // Abort signal for early stream termination when function call TTS starts
       const streamAbortSignal = { aborted: false };
+      
+      pipelineTiming.contextFetchEnd = Date.now();
+      pipelineTiming.geminiStart = Date.now();
       
       await this.geminiService.streamWithSentenceChunking({
         systemPrompt: session.systemPrompt,  // STATIC base prompt (cacheable)
@@ -3665,6 +3686,12 @@ Remember: Beta testers understand they're helping build something and appreciate
           // Synthesize and stream audio for this sentence (pass cleaned text for timing)
           const ttsStart = Date.now();
           
+          // PIPELINE TIMING: Track first sentence and TTS start
+          if (chunk.index === 0) {
+            pipelineTiming.firstSentenceReady = Date.now();
+            pipelineTiming.ttsFirstCallStart = ttsStart;
+          }
+          
           // Use progressive streaming if feature flag enabled (lower latency)
           if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
             await this.streamSentenceAudioProgressive(session, chunk, displayText, metrics, turnId);
@@ -3674,6 +3701,7 @@ Remember: Beta testers understand they're helping build something and appreciate
           
           if (chunk.index === 0) {
             metrics.ttsFirstByteMs = Date.now() - ttsStart;
+            pipelineTiming.ttsFirstAudioByte = Date.now();
           }
           
           // Use cleaned displayText for persistence (no emotion tags, no markdown)
@@ -3683,7 +3711,9 @@ Remember: Beta testers understand they're helping build something and appreciate
           metrics.sentenceCount++;
         },
         onProgress: (partialText, totalChars) => {
-          // Could use this for live typing indicator
+          if (!pipelineTiming.geminiFirstToken && totalChars > 0) {
+            pipelineTiming.geminiFirstToken = Date.now();
+          }
         },
         onError: (error) => {
           console.error(`[Streaming Orchestrator] AI error:`, error.message);
@@ -4168,6 +4198,20 @@ Remember: Beta testers understand they're helping build something and appreciate
       
       console.log(`[Streaming Orchestrator] Complete: ${metrics.sentenceCount} sentences, ${metrics.audioChunkCount} audio chunks in ${metrics.totalLatencyMs}ms (turnId: ${turnId})`);
       console.log(`[Streaming Orchestrator] Latencies: STT=${metrics.sttLatencyMs}ms, AI=${metrics.aiFirstTokenMs}ms, TTS=${metrics.ttsFirstByteMs}ms`);
+      
+      // PIPELINE TIMING SUMMARY: Structured breakdown of where time is spent
+      pipelineTiming.responseComplete = Date.now();
+      const pt = pipelineTiming;
+      const sttMs = pt.sttEnd ? pt.sttEnd - pt.sttStart : 0;
+      const contextMs = pt.contextFetchEnd ? pt.contextFetchEnd - pt.contextFetchStart : 0;
+      const geminiFirstTokenMs = pt.geminiFirstToken ? pt.geminiFirstToken - pt.geminiStart : 0;
+      const firstSentenceMs = pt.firstSentenceReady ? pt.firstSentenceReady - pt.geminiStart : 0;
+      const ttsLatencyMs = pt.ttsFirstAudioByte && pt.ttsFirstCallStart ? pt.ttsFirstAudioByte - pt.ttsFirstCallStart : 0;
+      const totalE2E = pt.responseComplete - pt.audioReceived;
+      const ttfab = pt.ttsFirstAudioByte ? pt.ttsFirstAudioByte - pt.audioReceived : totalE2E;
+      console.log(`[PIPELINE TIMING] Turn ${turnId} breakdown:`);
+      console.log(`  STT: ${sttMs}ms | Context: ${contextMs}ms | Gemini TTFT: ${geminiFirstTokenMs}ms | 1st sentence: ${firstSentenceMs}ms | TTS 1st byte: ${ttsLatencyMs}ms`);
+      console.log(`  Time-to-first-audio-byte: ${ttfab}ms | Total E2E: ${totalE2E}ms | Sentences: ${metrics.sentenceCount}`);
       
       // Emit TTS success for diagnostics (use ttsFirstByteMs for TTS-specific latency)
       // Only include audioChunkCount when audio was actually produced (not text-only turns)
@@ -7544,7 +7588,6 @@ Remember: Beta testers understand they're helping build something and appreciate
       }
       
       const effectiveTtsProvider = session.ttsProvider || this.ttsProvider;
-      console.log(`[TTS-LANG-DIAG] → AUTO-DETECT path: letting ${effectiveTtsProvider} handle language (target='${session.targetLanguage}', codeSwitch=${segmentationResult.hasCodeSwitching}, segments=${segmentationResult.segments.length})`);
       
       const progressiveRequest = {
         text: textWithEmphases,
@@ -7564,78 +7607,13 @@ Remember: Beta testers understand they're helping build something and appreciate
         elSpeakerBoost: (session as any).elSpeakerBoost,
       };
       
-      if (effectiveTtsProvider === 'google') {
-        const ttsService = getTTSService();
-        const googleStartTime = Date.now();
-        let googleStreamChunkIdx = 0;
-        const wordsPerMinute = 150;
-        const wordCount = textWithEmphases.split(/\s+/).length;
-        const estimatedDurationMs = Math.max(1000, (wordCount / wordsPerMinute) * 60000 / effectiveSpeakingRate);
-        
-        await ttsService.streamSynthesizeWithGoogle({
-          text: textWithEmphases,
-          voiceId: session.voiceId || '',
-          speakingRate: effectiveSpeakingRate,
-          targetLanguage: session.targetLanguage,
-          onAudioChunk: (audioChunk) => {
-            ttsCallbacks.onAudioChunk({
-              audio: audioChunk.audio,
-              durationMs: audioChunk.durationMs,
-              audioFormat: audioChunk.audioFormat || 'pcm_f32le',
-              isLast: false,
-            }, googleStreamChunkIdx++);
-            
-            if (googleStreamChunkIdx === 1) {
-              const estimatedTimings = this.estimateWordTimings(displayText, estimatedDurationMs / 1000);
-              for (let wi = 0; wi < estimatedTimings.length; wi++) {
-                ttsCallbacks.onWordTimestamp(estimatedTimings[wi], wi, estimatedDurationMs);
-              }
-            }
-          },
-          onComplete: (totalBytes) => {
-            const actualDurationMs = totalBytes > 0
-              ? (totalBytes / 2 / 24000) * 1000
-              : estimatedDurationMs;
-            const timingDurationMs = actualDurationMs > 0 ? actualDurationMs : estimatedDurationMs;
-            const finalTimings = this.estimateWordTimings(displayText, timingDurationMs / 1000);
-            try {
-              ttsCallbacks.onComplete(finalTimings, timingDurationMs);
-            } catch (callbackErr: any) {
-              console.error(`[Progressive] ttsCallbacks.onComplete threw for sentence ${index}, sending sentence_end as safety net:`, callbackErr.message);
-              try {
-                this.sendMessage(session.ws, {
-                  type: 'audio_chunk',
-                  timestamp: Date.now(),
-                  turnId: effectiveTurnId,
-                  sentenceIndex: index,
-                  chunkIndex: 9999,
-                  isLast: true,
-                  durationMs: 0,
-                  audio: '',
-                  audioFormat: 'pcm_f32le',
-                  sampleRate: 24000,
-                } as StreamingAudioChunkMessage);
-                this.sendMessage(session.ws, {
-                  type: 'sentence_end',
-                  timestamp: Date.now(),
-                  turnId: effectiveTurnId,
-                  sentenceIndex: index,
-                  totalDurationMs: timingDurationMs,
-                } as StreamingSentenceEndMessage);
-              } catch (sendErr) { /* last resort - prevent double throw */ }
-            }
-            console.log(`[Progressive] Google TTS streaming complete: sentence ${index}, ${googleStreamChunkIdx} chunks, ${totalBytes} bytes, ${Date.now() - googleStartTime}ms, actualDuration=${Math.round(actualDurationMs)}ms (estimated=${Math.round(estimatedDurationMs)}ms)`);
-          },
-          onError: (err) => {
-            console.error(`[Progressive] Google TTS streaming error for sentence ${index}:`, err.message);
-          },
-        });
-      } else if (effectiveTtsProvider === 'gemini') {
-        const result = await this.geminiLiveTtsService.streamSynthesizeProgressive(progressiveRequest, ttsCallbacks);
+      // OPTIMIZED: Gemini TTS is the default fast path — no branching overhead.
+      // Legacy providers (Google, ElevenLabs, Cartesia) are only used when
+      // explicitly set via Voice Lab overrides or assistant mode.
+      if (effectiveTtsProvider === 'gemini') {
+        await this.geminiLiveTtsService.streamSynthesizeProgressive(progressiveRequest, ttsCallbacks);
       } else {
-        const result = effectiveTtsProvider === 'elevenlabs'
-          ? await this.elevenlabsService.streamSynthesizeProgressive(progressiveRequest, ttsCallbacks)
-          : await this.cartesiaService.streamSynthesizeProgressive(progressiveRequest, ttsCallbacks);
+        await this.synthesizeWithLegacyProvider(effectiveTtsProvider, session, textWithEmphases, displayText, progressiveRequest, ttsCallbacks, effectiveTurnId, index, effectiveSpeakingRate);
       }
       
     } catch (error: any) {
@@ -7688,6 +7666,95 @@ Remember: Beta testers understand they're helping build something and appreciate
     }
   }
   
+  /**
+   * Legacy TTS provider synthesis (Google, ElevenLabs, Cartesia)
+   * Extracted from the hot path to keep Gemini TTS as the zero-branch default.
+   * Only used when Voice Lab explicitly overrides the provider.
+   */
+  private async synthesizeWithLegacyProvider(
+    provider: string,
+    session: StreamingSession,
+    textWithEmphases: string,
+    displayText: string,
+    progressiveRequest: any,
+    ttsCallbacks: any,
+    effectiveTurnId: number,
+    sentenceIndex: number,
+    effectiveSpeakingRate: number
+  ): Promise<void> {
+    if (provider === 'google') {
+      const ttsService = getTTSService();
+      const googleStartTime = Date.now();
+      let googleStreamChunkIdx = 0;
+      const wordsPerMinute = 150;
+      const wordCount = textWithEmphases.split(/\s+/).length;
+      const estimatedDurationMs = Math.max(1000, (wordCount / wordsPerMinute) * 60000 / effectiveSpeakingRate);
+      
+      await ttsService.streamSynthesizeWithGoogle({
+        text: textWithEmphases,
+        voiceId: session.voiceId || '',
+        speakingRate: effectiveSpeakingRate,
+        targetLanguage: session.targetLanguage,
+        onAudioChunk: (audioChunk) => {
+          ttsCallbacks.onAudioChunk({
+            audio: audioChunk.audio,
+            durationMs: audioChunk.durationMs,
+            audioFormat: audioChunk.audioFormat || 'pcm_f32le',
+            isLast: false,
+          }, googleStreamChunkIdx++);
+          
+          if (googleStreamChunkIdx === 1) {
+            const estimatedTimings = this.estimateWordTimings(displayText, estimatedDurationMs / 1000);
+            for (let wi = 0; wi < estimatedTimings.length; wi++) {
+              ttsCallbacks.onWordTimestamp(estimatedTimings[wi], wi, estimatedDurationMs);
+            }
+          }
+        },
+        onComplete: (totalBytes) => {
+          const actualDurationMs = totalBytes > 0
+            ? (totalBytes / 2 / 24000) * 1000
+            : estimatedDurationMs;
+          const timingDurationMs = actualDurationMs > 0 ? actualDurationMs : estimatedDurationMs;
+          const finalTimings = this.estimateWordTimings(displayText, timingDurationMs / 1000);
+          try {
+            ttsCallbacks.onComplete(finalTimings, timingDurationMs);
+          } catch (callbackErr: any) {
+            console.error(`[Progressive] ttsCallbacks.onComplete threw for sentence ${sentenceIndex}, sending sentence_end as safety net:`, callbackErr.message);
+            try {
+              this.sendMessage(session.ws, {
+                type: 'audio_chunk',
+                timestamp: Date.now(),
+                turnId: effectiveTurnId,
+                sentenceIndex,
+                chunkIndex: 9999,
+                isLast: true,
+                durationMs: 0,
+                audio: '',
+                audioFormat: 'pcm_f32le',
+                sampleRate: 24000,
+              } as StreamingAudioChunkMessage);
+              this.sendMessage(session.ws, {
+                type: 'sentence_end',
+                timestamp: Date.now(),
+                turnId: effectiveTurnId,
+                sentenceIndex,
+                totalDurationMs: timingDurationMs,
+              } as StreamingSentenceEndMessage);
+            } catch (sendErr) { /* last resort */ }
+          }
+          console.log(`[Progressive] Google TTS streaming complete: sentence ${sentenceIndex}, ${googleStreamChunkIdx} chunks, ${totalBytes} bytes, ${Date.now() - googleStartTime}ms`);
+        },
+        onError: (err) => {
+          console.error(`[Progressive] Google TTS streaming error for sentence ${sentenceIndex}:`, err.message);
+        },
+      });
+    } else if (provider === 'elevenlabs') {
+      await this.elevenlabsService.streamSynthesizeProgressive(progressiveRequest, ttsCallbacks);
+    } else {
+      await this.cartesiaService.streamSynthesizeProgressive(progressiveRequest, ttsCallbacks);
+    }
+  }
+
   /**
    * Estimate word timings when not provided by TTS
    * Uses the original display text for word timings (phonemes are only added inside Cartesia)
