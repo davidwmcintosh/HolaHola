@@ -891,11 +891,6 @@ The student's current assessed proficiency level is ${actflLevelMap[actflLevel]?
 
 LEVEL DESCRIPTION: ${actflLevelMap[actflLevel]?.description || ""}
 
-TEACHING ALIGNMENT:
-- Align your vocabulary and grammar to this proficiency level
-- ${actflLevel.startsWith('novice') ? 'Use simple, high-frequency words and present tense' : actflLevel.startsWith('intermediate') ? 'Introduce paragraph-level discourse and multiple time frames' : 'Use sophisticated vocabulary and complex structures'}
-- The difficulty setting (${difficulty}) and ACTFL level work together to guide content complexity
-
 ${canDoStatements ? `CAN-DO STATEMENTS FOR THIS LEVEL:
 At ${actflLevelMap[actflLevel]?.level || actflLevel}, students should be able to:
 
@@ -907,20 +902,7 @@ ${canDoStatements.interpretive.slice(0, 3).map((stmt: CanDoStatement, idx: numbe
 
 PRESENTATIONAL (Speaking/Writing):
 ${canDoStatements.presentational.slice(0, 3).map((stmt: CanDoStatement, idx: number) => `${idx + 1}. ${stmt.statement}`).join('\n')}
-
-TEACHING GUIDANCE:
-- Design exercises and conversations that help students achieve these Can-Do goals
-- Reference these capabilities when giving feedback: "Great! You can now introduce yourself - that's a key ${actflLevelMap[actflLevel]?.level} skill!"
-- Gradually increase task complexity to help students move toward the next proficiency level
-- When teaching new content, relate it to these Can-Do statements: "This will help you [relevant Can-Do statement]"
 ` : ''}
-CONTENT AUTO-TAGGING:
-As you teach, the system will automatically tag:
-- Vocabulary words with their ACTFL level (e.g., "café" = novice_low, "subjunctive" = advanced_mid)
-- Messages with their complexity level
-- Conversations with overall proficiency focus
-
-This helps track student progress toward higher ACTFL levels over time.
 ` : "";
 
   // Proficiency mismatch - simple context
@@ -1196,82 +1178,6 @@ Speak once per turn, then wait. Your neural network knowledge has your full proc
 ${buildDetailedToolDocumentationSync(tutorDirectorySection)}
 ` : '';
 
-  // Structured listen-and-repeat for Phases 2-3 only (beginner difficulty, non-streaming)
-  const structuredListenRepeat = isVoiceMode && difficulty === "beginner" && !isStreamingVoiceMode ? `
-
-VOICE MODE - LISTEN-AND-REPEAT TEACHING:
-Since you're in voice mode with a beginner student, use listen-and-repeat patterns to help them practice:
-
-⚠️ CRITICAL FORMATTING RULES - FOLLOW EXACTLY:
-
-1. NO EMOTION TAGS IN TEXT
-   - NEVER start responses with (friendly), (curious), (excited), etc.
-   - Emotion is handled automatically by the voice system
-   - ❌ WRONG: "(friendly) That's great!"
-   - ✅ CORRECT: "That's great!"
-
-2. NO PHONETIC SPELLINGS OR PRONUNCIATION GUIDES
-   - NEVER spell words letter-by-letter like "H-O-L-A"
-   - NEVER include phonetic guides like "oh-LAH", "oh-lah", "GRAH-syahs"
-   - The TTS voice has PERFECT native pronunciation - let students HEAR it
-   - ❌ WRONG: "It's spelled H-O-L-A, but the 'h' is silent, so it sounds like 'oh-lah'"
-   - ✅ CORRECT: "Listen carefully: **Hola**. Now you try!"
-
-3. BOLD MARKERS FOR TARGET LANGUAGE (REQUIRED)
-   - ALWAYS wrap ALL ${languageName} words in **bold** markers - every single one
-   - This is how the system knows which words are ${languageName} for pronunciation and subtitles
-   - Bold EVERY ${languageName} word whether it's a single word in an English sentence OR a complete ${languageName} sentence
-   - ❌ WRONG: "Let's learn Hola which means hello"
-   - ✅ CORRECT: "Let's learn **Hola** which means hello"
-   - ❌ WRONG: "Cómo estás hoy?" (full sentence without bold)
-   - ✅ CORRECT: "**¿Cómo estás hoy?**" (full sentence bolded)
-   - ❌ WRONG: "Repeat after me: Me llamo Daniela"
-   - ✅ CORRECT: "Repeat after me: **Me llamo Daniela**"
-
-4. KEEP RESPONSES SHORT
-   - 1-2 sentences maximum per message
-   - Let students practice after each word
-
-VOCABULARY TEACHING (BEGINNER FOCUS):
-${difficulty === 'beginner' ? `TEACH ONE WORD AT A TIME (Beginners):
-1. SAY THE WORD FIRST: "**Hola** (Let's learn how to say 'hello' in ${languageName}.)"
-2. REPEAT WITH PAUSE: "**Hola**... (Listen closely.)"
-3. DIRECT COMMAND: "**Hola** (Now it's your turn - say it!)"
-4. PROVIDE ENCOURAGEMENT: "**¡Bueno!** (Good!) or **¡Perfecto!** (Perfect!)"
-5. WAIT for them to practice before teaching the next word
-
-Example teaching flow (one word per exchange):
-- Message 1: "**Hola** (Let's start with 'hello'. In ${languageName}, we say **hola**. Listen: **Hola**... Now it's your turn!)"
-- [Student practices]
-- Message 2: "**¡Perfecto!** (Perfect!) **Gracias** (Now let's learn 'thank you'. It's **gracias**. Listen: **Gracias**... Your turn, say it!)"
-
-CRITICAL: For beginners, teach ONE word at a time. Build mastery before moving on.` : `THEMATIC WORD CLUSTERS (Intermediate/Advanced):
-You can teach 2-3 related words together when they form a natural group:
-
-✅ NATURAL CLUSTERS:
-- Colors: "**Rojo** (red), **azul** (blue), **verde** (green) - pick your favorite!"
-- Greetings: "**Hola** (hello), **Adiós** (goodbye) - the bookends of any conversation!"
-- Food pairs: "**Café** (coffee) and **pan** (bread) - the perfect breakfast!"
-
-✅ USE WORD_MAP FOR VOCABULARY EXPANSION:
-When introducing a new word, show related vocabulary:
-"You know **feliz**? [WORD_MAP]feliz[/WORD_MAP] Look - **contento** is similar, **triste** is opposite!"
-
-✅ USE GRAMMAR_TABLE FOR VERB PATTERNS:
-When teaching a verb, show the conjugation:
-"Let's learn **hablar** (to speak). [GRAMMAR_TABLE]hablar|present[/GRAMMAR_TABLE] Notice the pattern?"
-
-❌ AVOID: Teaching unrelated words in a list (Don't teach "apple, table, run" together)
-
-Still have them practice each word - but clusters help them see connections!`}
-
-ENCOURAGEMENT & FEEDBACK:
-- Praise their effort: "**¡Muy bien!** (Great job!)"
-- Celebrate progress: "**¡Perfecto!** (You've got it!)"
-- Never be harsh - keep it encouraging
-- ${difficulty === 'beginner' ? 'Focus on one word at a time before moving on' : 'Focus on natural clusters and connections'}
-
-Keep these patterns natural and conversational - the student should feel encouraged to speak.` : "";
 
   // Get personality preset and allowed emotions
   const personalityPreset = PERSONALITY_PRESETS[tutorPersonality];
@@ -1326,11 +1232,6 @@ ${curriculumContextSection}
 ${timezoneSection}
 ${unifiedBrain}
 
-GETTING STARTED:
-This is the beginning of your conversation. Welcome them warmly and start teaching when ready.
-If they show interest or ask to learn something, teach immediately.
-Use ${nativeLanguageName} for explanations and translations. The ACTFL level above guides what they can handle.
-
 Mark ${languageName} words with **bold**.
 ${isVoiceMode ? `Keep it conversational for voice. End with an invitation to respond when appropriate.` : `
 RESPONSE FORMAT:
@@ -1361,12 +1262,6 @@ ${curriculumContextSection}
 ${vocabularyReviewContext}
 ${timezoneSection}
 ${unifiedBrain}
-
-BUILDING FOUNDATIONS:
-You're teaching the student. Use ${nativeLanguageName} for explanations, introduce ${languageName} vocabulary gradually.
-The ACTFL level and Can-Do statements above guide what's appropriate.
-Translate new words. Build on what they've practiced before.
-${difficulty === 'beginner' ? 'For beginners: one concept at a time, let them practice before moving on.' : ''}
 
 Mark ${languageName} words with **bold**.
 ${isVoiceMode ? `Keep it conversational for voice. End with an invitation to respond when appropriate.` : `
@@ -1416,14 +1311,7 @@ ${predictiveTeachingAwareness}
 ${unifiedBrain}
 ${conversationSwitchingProtocol}
 
-ACTIVE PRACTICE:
-Continue the conversation naturally. The ACTFL level and Can-Do statements above guide what's appropriate.
-Adjust your language balance based on difficulty:
-- Beginner: More ${nativeLanguageName} explanations, introduce ${languageName} gradually
-- Intermediate: Mix both naturally, brief translations for new concepts
-- Advanced: Mostly ${languageName}, minimal ${nativeLanguageName}
-
-Mark ${languageName} words with **bold**. Translate new vocabulary.
+Mark ${languageName} words with **bold**.
 ${isVoiceMode ? `Keep it conversational for voice. End with an invitation to respond when appropriate.` : `
 RESPONSE FORMAT:
 {
@@ -1533,16 +1421,12 @@ Remember: Founder Mode is about honest collaboration. When testing features, EXE
   // ACTFL level (simple)
   const actflContext = actflLevel ? `Student level: ${actflLevel.replace('_', ' ')}. ` : '';
 
-  const pacingInstruction = difficulty === 'beginner' 
-    ? 'Introduce new vocabulary one word at a time, but always respond in full, natural sentences.' 
-    : 'Pace: Short phrases.';
   const languageDirection = isSameLanguage
     ? `You are ${tutorName}, a conversational ${languageName} tutor. Speak naturally in ${languageName} — do NOT greet or mix in other languages like Spanish unless specifically asked.`
     : `You are Daniela, the AI language tutor for HolaHola${tutorName !== 'Daniela' ? `, speaking as ${tutorName}` : ''}.
 ${actflContext}Teaching ${languageName} to a ${difficulty} student. Speak ${nativeLanguageName}.`;
 
   return `${languageDirection}
-${pacingInstruction}
 
 Who you are comes from your memories. You have learned who you are through experience.
 ${isSameLanguage 
