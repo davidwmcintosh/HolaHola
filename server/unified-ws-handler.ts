@@ -1291,9 +1291,27 @@ Reference past discussions when relevant, but don't force it.
           console.log(`[Streaming Voice] Session created: ${session.id}${dbSessionId ? ` (db: ${dbSessionId.substring(0, 8)}...)` : ' (no db session)'}`);
           
           // ECHO SUPPRESSION: Set callback to control OpenMic suppression during TTS
+          // Safety timeout prevents permanent mic lockout if onTtsStateChange(false) never fires
+          let echoSuppressionTimeout: NodeJS.Timeout | null = null;
+          const ECHO_SUPPRESSION_MAX_MS = 30000;
           orchestrator.setTtsStateCallback(session.id, (isTtsPlaying: boolean) => {
             if (openMicSession) {
               openMicSession.setSuppressed(isTtsPlaying);
+            }
+            if (isTtsPlaying) {
+              if (echoSuppressionTimeout) clearTimeout(echoSuppressionTimeout);
+              echoSuppressionTimeout = setTimeout(() => {
+                console.warn(`[ECHO SUPPRESSION SAFETY] Suppression active for ${ECHO_SUPPRESSION_MAX_MS}ms — force-clearing to prevent mic lockout`);
+                if (openMicSession) {
+                  openMicSession.setSuppressed(false);
+                }
+                echoSuppressionTimeout = null;
+              }, ECHO_SUPPRESSION_MAX_MS);
+            } else {
+              if (echoSuppressionTimeout) {
+                clearTimeout(echoSuppressionTimeout);
+                echoSuppressionTimeout = null;
+              }
             }
           });
           
@@ -1646,11 +1664,18 @@ Reference past discussions when relevant, but don't force it.
                 
                 if (!isEmptyTranscript && session) {
                   try {
-                    await orchestrator.processOpenMicTranscript(
+                    const omMetrics = await orchestrator.processOpenMicTranscript(
                       session.id,
                       transcript,
                       confidence
                     );
+                    
+                    // Track exchange for usage accounting (Open Mic path)
+                    if (omMetrics.sentenceCount > 0) {
+                      exchangeCount++;
+                      const studentWords = transcript.split(/\s+/).length;
+                      studentSpeakingSeconds += studentWords / 2.5;
+                    }
                   } catch (err: any) {
                     console.error('[OpenMic] Error processing utterance:', err);
                     sendError(ws, 'AI_FAILED', 'Failed to process speech', true);
@@ -2426,6 +2451,12 @@ Reference past discussions when relevant, but don't force it.
       }
     });
     
+    // Clean up echo suppression safety timeout
+    if (echoSuppressionTimeout) {
+      clearTimeout(echoSuppressionTimeout);
+      echoSuppressionTimeout = null;
+    }
+    
     // Clean up open mic session to prevent orphaned Deepgram connections
     if (openMicSession) {
       console.log('[Streaming Voice] Cleaning up open mic session on disconnect');
@@ -2776,6 +2807,10 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
   let openMicPendingChunks: Buffer[] = [];
   let openMicSessionStarting = false;
   let currentInputMode: VoiceInputMode = 'push-to-talk';
+  
+  // Echo suppression safety timeout (Socket.io path)
+  const ECHO_SUPPRESSION_MAX_MS_SO = 30000;
+  let echoSuppressionTimeoutSO: NodeJS.Timeout | null = null;
   
   // Speculative PTT state (stream audio during PTT for faster response)
   let speculativePttSession: OpenMicSession | null = null;
@@ -3131,9 +3166,25 @@ ${buildNativeFunctionCallingSection()}`;
             console.log(`[Streaming Voice] Session created: ${session.id}${dbSessionId ? ` (db: ${dbSessionId.substring(0, 8)}...)` : ' (no db session)'}`);
             
             // ECHO SUPPRESSION: Set callback to control OpenMic suppression during TTS
+            // Safety timeout prevents permanent mic lockout if onTtsStateChange(false) never fires
             orchestrator.setTtsStateCallback(session.id, (isTtsPlaying: boolean) => {
               if (openMicSession) {
                 openMicSession.setSuppressed(isTtsPlaying);
+              }
+              if (isTtsPlaying) {
+                if (echoSuppressionTimeoutSO) clearTimeout(echoSuppressionTimeoutSO);
+                echoSuppressionTimeoutSO = setTimeout(() => {
+                  console.warn(`[ECHO SUPPRESSION SAFETY] Suppression active for ${ECHO_SUPPRESSION_MAX_MS_SO}ms — force-clearing to prevent mic lockout`);
+                  if (openMicSession) {
+                    openMicSession.setSuppressed(false);
+                  }
+                  echoSuppressionTimeoutSO = null;
+                }, ECHO_SUPPRESSION_MAX_MS_SO);
+              } else {
+                if (echoSuppressionTimeoutSO) {
+                  clearTimeout(echoSuppressionTimeoutSO);
+                  echoSuppressionTimeoutSO = null;
+                }
               }
             });
             
@@ -3357,11 +3408,17 @@ ${buildNativeFunctionCallingSection()}`;
                 
                 if (!isEmptyTranscript && session) {
                   try {
-                    await orchestrator.processOpenMicTranscript(
+                    const omMetrics = await orchestrator.processOpenMicTranscript(
                       session.id,
                       transcript,
                       confidence
                     );
+                    
+                    if (omMetrics.sentenceCount > 0) {
+                      exchangeCount++;
+                      const studentWords = transcript.split(/\s+/).length;
+                      studentSpeakingSeconds += studentWords / 2.5;
+                    }
                   } catch (err: any) {
                     console.error('[OpenMic] Error processing utterance:', err);
                     sendErrorAdapter(ws, 'AI_FAILED', 'Failed to process speech', true);
@@ -3960,6 +4017,12 @@ ${buildNativeFunctionCallingSection()}`;
     }
     openMicPendingChunks = [];
     openMicSessionStarting = false;
+    
+    // Clean up echo suppression timeout
+    if (echoSuppressionTimeoutSO) {
+      clearTimeout(echoSuppressionTimeoutSO);
+      echoSuppressionTimeoutSO = null;
+    }
     
     // Clean up speculative PTT session
     if (speculativePttSession) {

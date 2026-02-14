@@ -967,6 +967,7 @@ export interface StreamingSession {
   hiveChannelId?: string;            // Hive collaboration channel ID for Daniela-Editor collaboration
   pendingArchitectNoteIds: string[]; // Architect notes awaiting delivery (cleared on interrupt)
   onTtsStateChange?: (isTtsPlaying: boolean) => void;  // Callback to suppress OpenMic during TTS
+  postTtsSuppressionTimer?: NodeJS.Timeout | null;     // Timer for delayed echo suppression release
   // Adaptive Speech Rate tracking
   recentSttConfidences: number[];     // Rolling window of last N STT confidence scores
   sessionStruggleCount: number;       // Count of struggles detected this session
@@ -5113,6 +5114,7 @@ Remember: Beta testers understand they're helping build something and appreciate
         session.lastProcessedTranscriptTime && 
         (now - session.lastProcessedTranscriptTime) < DEDUP_WINDOW_MS) {
       console.log(`[DEDUP] Skipping duplicate transcript (processed ${now - session.lastProcessedTranscriptTime}ms ago): "${transcript.slice(0, 50)}..."`);
+      this.sendGuardResetSignal(session, 'dedup');
       return {
         sessionId,
         sttLatencyMs: 0,
@@ -5134,6 +5136,7 @@ Remember: Beta testers understand they're helping build something and appreciate
     if (session.lastResponseCompletedTime && 
         (now - session.lastResponseCompletedTime) < RESPONSE_COOLDOWN_MS) {
       console.log(`[DEDUP] Skipping rapid-fire transcript (response completed ${now - session.lastResponseCompletedTime}ms ago): "${transcript.slice(0, 50)}..."`);
+      this.sendGuardResetSignal(session, 'rapid_fire');
       return {
         sessionId,
         sttLatencyMs: 0,
@@ -5159,6 +5162,7 @@ Remember: Beta testers understand they're helping build something and appreciate
       
       if (isExtension) {
         console.log(`[DEDUP] Skipping extension transcript while generating (overlap detected): "${transcript.slice(0, 50)}..."`);
+        this.sendGuardResetSignal(session, 'in_flight');
         return {
           sessionId,
           sttLatencyMs: 0,
@@ -5551,6 +5555,10 @@ Remember: Beta testers understand they're helping build something and appreciate
             if (embeddedText) {
               (session as any).earlyTtsActive = true;
               
+              if (session.postTtsSuppressionTimer) {
+                clearTimeout(session.postTtsSuppressionTimer);
+                session.postTtsSuppressionTimer = null;
+              }
               session.onTtsStateChange?.(true);
 
               const directBoldWords = extractBoldMarkedWords(embeddedRawText);
@@ -5726,6 +5734,11 @@ Remember: Beta testers understand they're helping build something and appreciate
             console.log(`[Streaming Orchestrator] AI first token: ${metrics.aiFirstTokenMs}ms`);
             
             // ECHO SUPPRESSION: Notify OpenMic to suppress transcripts while TTS plays
+            // Clear any pending post-TTS suppression release from a previous response
+            if (session.postTtsSuppressionTimer) {
+              clearTimeout(session.postTtsSuppressionTimer);
+              session.postTtsSuppressionTimer = null;
+            }
             session.onTtsStateChange?.(true);
           }
           
@@ -6948,8 +6961,16 @@ Remember: Beta testers understand they're helping build something and appreciate
       // Response complete
       metrics.totalLatencyMs = Date.now() - startTime;
       
-      // ECHO SUPPRESSION: Re-enable OpenMic transcription now that TTS is done
-      session.onTtsStateChange?.(false);
+      // ECHO SUPPRESSION: Delay re-enabling OpenMic transcription to allow client-side
+      // audio playback to complete. The server finishes sending TTS chunks before the client
+      // finishes playing them, so clearing suppression immediately would let Deepgram pick up
+      // TTS echo from the speakers as user speech, causing false utterance processing.
+      const POST_TTS_SUPPRESSION_HOLD_MS = 2500;
+      if (session.postTtsSuppressionTimer) clearTimeout(session.postTtsSuppressionTimer);
+      session.postTtsSuppressionTimer = setTimeout(() => {
+        session.onTtsStateChange?.(false);
+        session.postTtsSuppressionTimer = null;
+      }, POST_TTS_SUPPRESSION_HOLD_MS);
       
       this.sendMessage(session.ws, {
         type: 'response_complete',
@@ -7124,7 +7145,12 @@ Remember: Beta testers understand they're helping build something and appreciate
     } catch (error: any) {
       // Clear generating flag on error
       session.isGenerating = false;
-      // ECHO SUPPRESSION: Re-enable OpenMic transcription on error too
+      // ECHO SUPPRESSION: Re-enable OpenMic transcription on error
+      // Clear immediately on error (no TTS was playing, so no echo risk)
+      if (session.postTtsSuppressionTimer) {
+        clearTimeout(session.postTtsSuppressionTimer);
+        session.postTtsSuppressionTimer = null;
+      }
       session.onTtsStateChange?.(false);
       
       // STRUCTURED ERROR LOGGING: Capture Gemini failure patterns for debugging
@@ -10330,6 +10356,31 @@ Only include observations you can clearly justify from the exchange. Return empt
   }
 
   /**
+   * Send a lightweight response_complete to the client when a guard silently drops a transcript.
+   * This prevents the client from getting stuck in 'processing' state indefinitely.
+   * The client already transitioned to 'processing' when it received vad_utterance_end,
+   * so without this signal, it would wait forever for a response_complete that never comes.
+   */
+  private sendGuardResetSignal(session: StreamingSession, guardName: string): void {
+    console.log(`[GUARD RESET] Sending reset signal to client (guard: ${guardName})`);
+    this.sendMessage(session.ws, {
+      type: 'response_complete',
+      timestamp: Date.now(),
+      turnId: `guard-reset-${Date.now()}`,
+      totalSentences: 0,
+      totalDurationMs: 0,
+      fullText: '',
+      metrics: {
+        sttLatencyMs: 0,
+        aiFirstTokenMs: 0,
+        ttsFirstChunkMs: 0,
+        totalTtfbMs: 0,
+        sentenceCount: 0,
+      },
+    } as StreamingResponseCompleteMessage);
+  }
+
+  /**
    * Send a JSON message over WebSocket
    * Includes deduplication for audio_chunk to prevent double audio bug
    * Uses both chunk-ID and content-hash deduplication for comprehensive protection
@@ -11487,6 +11538,12 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
       //   // Audio from browser is WebM/Opus - Azure requires PCM 16kHz WAV
       //   // Would need: const wavBuffer = await transcodeToWav(Buffer.concat(sessionData.audioChunks));
       // }
+      
+      // Clean up post-TTS suppression timer
+      if (session.postTtsSuppressionTimer) {
+        clearTimeout(session.postTtsSuppressionTimer);
+        session.postTtsSuppressionTimer = null;
+      }
       
       session.isActive = false;
       

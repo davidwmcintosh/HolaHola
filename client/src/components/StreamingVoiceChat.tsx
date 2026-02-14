@@ -274,6 +274,10 @@ export function StreamingVoiceChat({
   // Note: The actual sync happens AFTER streamingVoice is initialized below
   const connectionStateRef = useRef<string>('disconnected');
   
+  // OPEN MIC SAFETY: Failsafe timer to auto-recover from stuck 'processing' state
+  const openMicProcessingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const OPEN_MIC_PROCESSING_TIMEOUT_MS = 35000;
+
   // Store last audio for replay functionality
   const [lastAudioBlob, setLastAudioBlob] = useState<Blob | null>(null);
   const [lastMessageId, setLastMessageId] = useState<string | null>(null);
@@ -852,6 +856,21 @@ export function StreamingVoiceChat({
             setIsProcessing(true);
             isProcessingRef.current = true;
             isAwaitingResponseRef.current = true;
+            
+            // SAFETY: Start failsafe timer to recover from stuck processing state
+            if (openMicProcessingTimeoutRef.current) clearTimeout(openMicProcessingTimeoutRef.current);
+            openMicProcessingTimeoutRef.current = setTimeout(() => {
+              const currentState = openMicStateRef.current;
+              if (currentState === 'processing') {
+                console.warn(`[OPEN MIC SAFETY] Processing stuck for ${OPEN_MIC_PROCESSING_TIMEOUT_MS}ms — force-recovering to ready state`);
+                setOpenMicState('ready');
+                setIsProcessing(false);
+                isProcessingRef.current = false;
+                isAwaitingResponseRef.current = false;
+                setAvatarState('listening');
+              }
+              openMicProcessingTimeoutRef.current = null;
+            }, OPEN_MIC_PROCESSING_TIMEOUT_MS);
           },
           onInterimTranscript: (transcript) => {
             console.log('[OPEN MIC] Interim transcript:', transcript);
@@ -1106,6 +1125,11 @@ export function StreamingVoiceChat({
       hasDanielaSpokeOnceRef.current = true;
       // Stop ringing when audio starts playing (Daniela "picks up")
       stopRinging();
+      // SAFETY: Clear processing timeout since response arrived
+      if (openMicProcessingTimeoutRef.current) {
+        clearTimeout(openMicProcessingTimeoutRef.current);
+        openMicProcessingTimeoutRef.current = null;
+      }
       // TRUE DUPLEX: Keep green light ON while Daniela speaks
       // Don't check openMicActiveRef - just show green if we're in open-mic mode
       if (inputModeRef.current === 'open-mic' && openMicState !== 'ready') {
@@ -2708,6 +2732,21 @@ export function StreamingVoiceChat({
                 }
                 setOpenMicState('processing');
                 isAwaitingResponseRef.current = true;
+                
+                // SAFETY: Start failsafe timer for reconnect path too
+                if (openMicProcessingTimeoutRef.current) clearTimeout(openMicProcessingTimeoutRef.current);
+                openMicProcessingTimeoutRef.current = setTimeout(() => {
+                  const currentState = openMicStateRef.current;
+                  if (currentState === 'processing') {
+                    console.warn(`[OPEN MIC SAFETY] Processing stuck for ${OPEN_MIC_PROCESSING_TIMEOUT_MS}ms (reconnect) — force-recovering`);
+                    setOpenMicState('ready');
+                    setIsProcessing(false);
+                    isProcessingRef.current = false;
+                    isAwaitingResponseRef.current = false;
+                    setAvatarState('listening');
+                  }
+                  openMicProcessingTimeoutRef.current = null;
+                }, OPEN_MIC_PROCESSING_TIMEOUT_MS);
               },
               onInterimTranscript: (transcript) => {
                 console.log('[OPEN MIC] Interim transcript:', transcript);
