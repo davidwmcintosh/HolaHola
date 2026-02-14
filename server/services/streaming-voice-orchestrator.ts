@@ -59,6 +59,63 @@ import { parseWhiteboardMarkup, WhiteboardItem, WordMapItem, isWordMapItem, stri
 import { commandParserService, ParsedCommand } from "./command-parser";
 import { usageService } from "./usage-service";
 
+const TEXT_FC_COMMAND_MAP: Record<string, string> = {
+  'switch_tutor': 'SWITCH_TUTOR', 'phase_shift': 'PHASE_SHIFT',
+  'actfl_update': 'ACTFL_UPDATE', 'syllabus_progress': 'SYLLABUS_PROGRESS',
+  'call_support': 'CALL_SUPPORT', 'call_assistant': 'CALL_ASSISTANT',
+};
+
+function extractBalancedBraces(text: string, startIdx: number): string | null {
+  let depth = 0;
+  let inStr = false;
+  let esc = false;
+  for (let i = startIdx; i < text.length; i++) {
+    const ch = text[i];
+    if (esc) { esc = false; continue; }
+    if (ch === '\\') { esc = true; continue; }
+    if (ch === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (ch === '{') depth++;
+    if (ch === '}') { depth--; if (depth === 0) return text.substring(startIdx, i + 1); }
+  }
+  return null;
+}
+
+function parseTextFcArgs(raw: string): Record<string, unknown> | null {
+  try {
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    try {
+      let inString = false;
+      let escapeNext = false;
+      let result = '';
+      const cleaned = raw.replace(/,(\s*[}\]])/g, '$1');
+      for (let i = 0; i < cleaned.length; i++) {
+        const ch = cleaned[i];
+        if (escapeNext) { result += ch; escapeNext = false; continue; }
+        if (ch === '\\') { result += ch; escapeNext = true; continue; }
+        if (ch === '"' || ch === "'") {
+          if (!inString) { result += '"'; inString = true; continue; }
+          if (inString) { result += '"'; inString = false; continue; }
+        }
+        if (!inString && /[a-zA-Z_]/.test(ch)) {
+          const keyMatch = cleaned.substring(i).match(/^([a-zA-Z_][\w-]*)\s*:/);
+          if (keyMatch) {
+            result += `"${keyMatch[1]}":`;
+            i += keyMatch[0].length - 1;
+            continue;
+          }
+        }
+        result += ch;
+      }
+      return JSON.parse(result) as Record<string, unknown>;
+    } catch (e2) {
+      console.warn(`[Text FC Parser] Failed to parse args: ${(e2 as Error).message}, raw: ${raw.substring(0, 120)}`);
+      return null;
+    }
+  }
+}
+
 /**
  * Lightweight metrics logger for performance monitoring
  * Uses structured JSON format for easy parsing by log aggregators
@@ -453,7 +510,10 @@ function cleanTextForDisplay(text: string): string {
   // This catches new functions added in the future that aren't in the list above
   text = text.replace(/\b[a-z_]{2,30}\s*\(\s*\{[\s\S]*?\}\s*\)/g, '');
   // Also catch FUNCTION CALL: prefix that might leak from tool_knowledge docs
+  // Pattern 1: Full "FUNCTION CALL: func_name(...)" 
   text = text.replace(/FUNCTION\s+CALL\s*:\s*\w+\s*\([^)]*\)/gi, '');
+  // Pattern 2: Orphaned "FUNCTION CALL:" prefix (left behind after per-function regexes strip the call)
+  text = text.replace(/FUNCTION\s+CALL\s*:?\s*/gi, '');
   
   // Strip MEMORY_LOOKUP tags (internal command triggers - should not be spoken)
   // Pattern: MEMORY_LOOKUP query="..." domains="..." (with or without brackets)
@@ -3063,6 +3123,23 @@ Remember: Beta testers understand they're helping build something and appreciate
           // Whiteboard parser handles bracketed commands; CommandParser handles JSON commands
           const commandParseResult = commandParserService.parse(chunk.text);
           
+          // TEXT-BASED FUNCTION CALL FALLBACK (PTT): Gemini sometimes writes function calls as literal text
+          // e.g. "FUNCTION CALL: switch_tutor({ target: "male" })" instead of native tool calls
+          const textFcHeaderPTT = chunk.text.match(/FUNCTION\s+CALL\s*:\s*(\w+)\s*\(\s*\{/i);
+          const fcArgsRawPTT = textFcHeaderPTT ? extractBalancedBraces(chunk.text, textFcHeaderPTT.index! + textFcHeaderPTT[0].length - 1) : null;
+          if (textFcHeaderPTT && fcArgsRawPTT && commandParseResult.commands.length === 0) {
+            const fcNamePTT = textFcHeaderPTT[1].toLowerCase();
+            console.log(`[Text FC Fallback - PTT] Detected text-based function call: ${fcNamePTT}(${fcArgsRawPTT.substring(0, 80)})`);
+            const fcArgsPTT = parseTextFcArgs(fcArgsRawPTT);
+            if (fcArgsPTT) {
+              const cmdTypePTT = TEXT_FC_COMMAND_MAP[fcNamePTT];
+              if (cmdTypePTT) {
+                commandParseResult.commands.push({ type: cmdTypePTT as any, params: fcArgsPTT, source: 'text_fc_fallback' as any });
+                console.log(`[Text FC Fallback - PTT] Injected command: ${cmdTypePTT}(${JSON.stringify(fcArgsPTT)})`);
+              }
+            }
+          }
+          
           // Log all detected commands for observability
           if (commandParseResult.commands.length > 0) {
             console.log(`[CommandParser] Detected ${commandParseResult.commands.length} commands in chunk ${chunk.index}:`, 
@@ -3929,7 +4006,12 @@ Remember: Beta testers understand they're helping build something and appreciate
             // GOOGLE BATCH MODE: Collect sentences for combined TTS after Gemini completes.
             // Sends full paragraph as ONE input to Chirp 3 HD for natural cross-sentence prosody.
             // Skip sentence_start and TTS here — handled post-streaming.
-            batchedSentences.push({ chunk, displayText, rawText: chunk.text });
+            // Skip empty sentences (e.g. text-based function calls stripped by cleanTextForDisplay)
+            if (displayText.trim().length > 1) {
+              batchedSentences.push({ chunk, displayText, rawText: chunk.text });
+            } else {
+              console.log(`[Google Batch] Skipping empty sentence ${chunk.index} from batch (cleaned to: "${displayText}")`);
+            }
           } else {
             // Notify client of new sentence with cleaned text and word mapping
             this.sendMessage(session.ws, {
@@ -5759,6 +5841,28 @@ Remember: Beta testers understand they're helping build something and appreciate
           // Process ALL action commands through command-parser for consistent single-execution
           const openMicCommandResult = commandParserService.parse(chunk.text);
           
+          // TEXT-BASED FUNCTION CALL FALLBACK: Gemini sometimes writes function calls as literal text
+          // e.g. "FUNCTION CALL: switch_tutor({ target: "male" })" instead of using native tool calls
+          // Parse these and inject them as commands so they still execute
+          const textFcHeader = chunk.text.match(/FUNCTION\s+CALL\s*:\s*(\w+)\s*\(\s*\{/i);
+          const fcArgsRaw = textFcHeader ? extractBalancedBraces(chunk.text, textFcHeader.index! + textFcHeader[0].length - 1) : null;
+          if (textFcHeader && fcArgsRaw && openMicCommandResult.commands.length === 0) {
+            const fcName = textFcHeader[1].toLowerCase();
+            console.log(`[Text FC Fallback - OpenMic] Detected text-based function call: ${fcName}(${fcArgsRaw.substring(0, 80)})`);
+            const fcArgs = parseTextFcArgs(fcArgsRaw);
+            if (fcArgs) {
+              const cmdType = TEXT_FC_COMMAND_MAP[fcName];
+              if (cmdType) {
+                openMicCommandResult.commands.push({
+                  type: cmdType as any,
+                  params: fcArgs,
+                  source: 'text_fc_fallback' as any,
+                });
+                console.log(`[Text FC Fallback - OpenMic] Injected command: ${cmdType}(${JSON.stringify(fcArgs)})`);
+              }
+            }
+          }
+          
           if (openMicCommandResult.commands.length > 0) {
             console.log(`[CommandParser - OpenMic] Detected ${openMicCommandResult.commands.length} commands in chunk ${chunk.index}:`,
               openMicCommandResult.commands.map(c => `${c.type}(${c.source})`));
@@ -6317,8 +6421,12 @@ Remember: Beta testers understand they're helping build something and appreciate
           console.log(`[SENTENCE_START EMIT - OpenMic] sentence=${chunk.index}, hasTarget=${hasTargetContent}, displayText="${displayText.substring(0, 60)}", batchMode=${isGoogleBatchModeOM}, earlyTtsActive=${(session as any).earlyTtsActive || false}`);
           
           if (isGoogleBatchModeOM) {
-            batchedSentencesOM.push({ chunk, displayText, rawText: chunk.text });
-            console.log(`[Google Batch - OpenMic] Deferred sentence ${chunk.index} to batch (${batchedSentencesOM.length} total)`);
+            if (displayText.trim().length > 1) {
+              batchedSentencesOM.push({ chunk, displayText, rawText: chunk.text });
+              console.log(`[Google Batch - OpenMic] Deferred sentence ${chunk.index} to batch (${batchedSentencesOM.length} total)`);
+            } else {
+              console.log(`[Google Batch - OpenMic] Skipping empty sentence ${chunk.index} from batch (cleaned to: "${displayText}")`);
+            }
           } else {
             console.log(`[INDIVIDUAL TTS - OpenMic] Sentence ${chunk.index}: starting individual TTS (non-batch path), earlyTtsActive=${(session as any).earlyTtsActive || false}`);
             this.sendMessage(session.ws, {
