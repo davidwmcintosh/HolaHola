@@ -2844,6 +2844,9 @@ Remember: Beta testers understand they're helping build something and appreciate
             const earlyTtsStart = Date.now();
             const embeddedText = cleanTextForDisplay(embeddedRawText).trim();
             if (embeddedText) {
+              // SET EARLY: Signal that Early TTS is handling audio so onSentence skips
+              (session as any).earlyTtsActive = true;
+              
               const directBoldWords = extractBoldMarkedWords(embeddedRawText);
               const accumulatedWords: string[] = (session as any).accumulatedBoldWords || [];
               const allBoldWords = [...new Set([...directBoldWords, ...accumulatedWords])];
@@ -2993,6 +2996,12 @@ Remember: Beta testers understand they're helping build something and appreciate
           }
         },
         onSentence: async (chunk: SentenceChunk) => {
+          // EARLY TTS GUARD: Skip if function call handler is running or completed batch TTS
+          if ((session as any).earlyTtsActive || (session as any).earlyTtsCompleted) {
+            console.log(`[Streaming Orchestrator] Skipping onSentence ${chunk.index} - Early TTS active/completed (PTT)`);
+            return;
+          }
+          
           // BARGE-IN CHECK: Stop processing if user interrupted
           if (session.isInterrupted) {
             console.log(`[Streaming Orchestrator] Skipping sentence ${chunk.index} - user barged in`);
@@ -3986,7 +3995,7 @@ Remember: Beta testers understand they're helping build something and appreciate
       // GOOGLE BATCH TTS: After Gemini finishes generating ALL sentences,
       // combine them into one paragraph and send as a single TTS call.
       // This gives Chirp 3 HD the full context for natural cross-sentence prosody.
-      if (isGoogleBatchMode && batchedSentences.length > 0 && !session.isInterrupted) {
+      if (isGoogleBatchMode && batchedSentences.length > 0 && !session.isInterrupted && !(session as any).earlyTtsActive && !(session as any).earlyTtsCompleted) {
         const combinedDisplayText = batchedSentences.map(s => s.displayText).join(' ');
         console.log(`[Google Batch TTS] Combining ${batchedSentences.length} sentences (${combinedDisplayText.length} chars) for single TTS call`);
         
@@ -4082,6 +4091,7 @@ Remember: Beta testers understand they're helping build something and appreciate
         if ((session as any).earlyTtsCompleted) {
           console.log(`[Voice PTT] Early TTS already completed during streaming - skipping post-stream TTS`);
           (session as any).earlyTtsCompleted = undefined;
+          (session as any).earlyTtsActive = undefined;
         } else {
           const metadataOnlyFunctions = functionCallsCopy.map(fc => fc.name).join(', ');
           const rawEmbeddedText = ((session as any).functionCallText || '').trim();
@@ -5511,6 +5521,9 @@ Remember: Beta testers understand they're helping build something and appreciate
             const earlyTtsStart = Date.now();
             const embeddedText = cleanTextForDisplay(embeddedRawText).trim();
             if (embeddedText) {
+              // SET EARLY: Signal that Early TTS is handling audio so onSentence skips
+              (session as any).earlyTtsActive = true;
+              
               session.onTtsStateChange?.(true);
 
               const directBoldWords = extractBoldMarkedWords(embeddedRawText);
@@ -5662,6 +5675,12 @@ Remember: Beta testers understand they're helping build something and appreciate
           }
         },
         onSentence: async (chunk: SentenceChunk) => {
+          // EARLY TTS GUARD: Skip if function call handler is running or completed batch TTS
+          if ((session as any).earlyTtsActive || (session as any).earlyTtsCompleted || streamAbortSignalOpenMic.aborted) {
+            console.log(`[Streaming Orchestrator] Skipping onSentence ${chunk.index} - Early TTS active/completed (open mic)`);
+            return;
+          }
+          
           // BARGE-IN CHECK: Stop processing if user interrupted
           if (session.isInterrupted) {
             console.log(`[Streaming Orchestrator] Skipping sentence ${chunk.index} - user barged in (open mic)`);
@@ -6292,7 +6311,7 @@ Remember: Beta testers understand they're helping build something and appreciate
       
       console.log(`[Streaming Orchestrator] AI complete: ${actualSentenceCount} sentences`);
       
-      if (isGoogleBatchModeOM && batchedSentencesOM.length > 0 && !session.isInterrupted) {
+      if (isGoogleBatchModeOM && batchedSentencesOM.length > 0 && !session.isInterrupted && !(session as any).earlyTtsActive && !(session as any).earlyTtsCompleted) {
         const combinedDisplayText = batchedSentencesOM.map(s => s.displayText).join(' ');
         console.log(`[Google Batch TTS - OpenMic] Combining ${batchedSentencesOM.length} sentences (${combinedDisplayText.length} chars) for single TTS call`);
         
@@ -6391,6 +6410,7 @@ Remember: Beta testers understand they're helping build something and appreciate
         if ((session as any).earlyTtsCompleted) {
           console.log(`[Voice - OpenMic] Early TTS already completed during streaming - skipping post-stream TTS`);
           (session as any).earlyTtsCompleted = undefined;
+          (session as any).earlyTtsActive = undefined;
         } else {
           const metadataOnlyFunctions = functionCallsCopyOpenMic.map(fc => fc.name).join(', ');
           
@@ -7777,6 +7797,15 @@ Remember: Beta testers understand they're helping build something and appreciate
     }
     
     const { text: originalText, index } = chunk;
+    
+    // DEFENSE-IN-DEPTH: Prevent two simultaneous TTS streams for the same sentenceIndex
+    const activeTtsKey = `tts-active-${index}`;
+    if ((session as any)[activeTtsKey]) {
+      console.warn(`[Progressive DEDUP] Blocking duplicate TTS for sentenceIndex ${index} (already active) - text: "${displayText.substring(0, 60)}"`);
+      return;
+    }
+    (session as any)[activeTtsKey] = true;
+    
     const emotion = this.selectEmotionForContext(originalText, session);
     const effectiveTurnId = turnId ?? session.currentTurnId;
     
@@ -8102,6 +8131,9 @@ Remember: Beta testers understand they're helping build something and appreciate
         await this.synthesizeWithLegacyProvider(effectiveTtsProvider, session, textWithEmphases, displayText, progressiveRequest, ttsCallbacks, effectiveTurnId, index, effectiveSpeakingRate);
       }
       
+      // Clean up active TTS tracking after completion
+      (session as any)[activeTtsKey] = false;
+      
     } catch (error: any) {
       const statusCode = error.status || error.statusCode || error.code || 'unknown';
       const textLength = displayText.length;
@@ -8146,6 +8178,9 @@ Remember: Beta testers understand they're helping build something and appreciate
         sentenceIndex: index,
         totalDurationMs: 0,
       } as StreamingSentenceEndMessage);
+      
+      // Clean up active TTS tracking on error
+      (session as any)[activeTtsKey] = false;
     }
   }
   
