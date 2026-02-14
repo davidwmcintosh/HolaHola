@@ -216,6 +216,19 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     if (isComplete && noPendingAudio) {
       if (audioReceived) {
         console.log('[StreamingVoice] Response complete but audio was received - deferring isProcessing clear until playback starts');
+        // SAFETY: If playback never starts (decode error, autoplay block, etc),
+        // onSentenceStart never fires and mic stays locked forever. Schedule a
+        // deferred clear — if onSentenceStart fires in time, it will clear
+        // audioReceivedInTurnRef and the next checkAndClearProcessing call will
+        // handle cleanup normally. This 10s timeout is a safety net only.
+        setTimeout(() => {
+          if (audioReceivedInTurnRef.current && responseCompleteRef.current && pendingAudioCountRef.current === 0) {
+            const ctxState = playerRef.current?.getAudioContextState?.() || 'unknown';
+            console.log(`[StreamingVoice] audioReceived guard timeout: playback never started after 10s — force-clearing (ctxState=${ctxState})`);
+            audioReceivedInTurnRef.current = false;
+            setIsProcessingRef.current(false);
+          }
+        }, 10000);
       } else {
         console.log('[StreamingVoice] Response complete AND no pending audio (no audio turn) - clearing isProcessing');
         setIsProcessingRef.current(false);
@@ -711,8 +724,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     audioReceivedInTurnRef.current = true;
     
     // Audio is arriving - clear the "thinking" timeout since we have proof the response is being generated
-    // Use a longer safety net timeout (3 minutes) to handle very long multi-segment TTS responses
-    // This prevents premature timeout while audio is actively streaming
+    // Use a safety net timeout (45s) to handle multi-segment TTS responses
+    // 45s is sufficient for even long responses while preventing extended mobile lockout
     if (processingTimeoutRef.current) {
       clearTimeout(processingTimeoutRef.current);
     }
@@ -720,7 +733,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       console.log('[StreamingVoice] Safety timeout after sentence_ready - resetting stuck state');
       setIsProcessing(false);
       setError('Response timeout - please try again');
-    }, 180000);
+    }, 45000);
     
     // TUTOR SWITCH: If we were switching tutors, clear the flag now that audio is ready
     setIsSwitchingTutor(false);
