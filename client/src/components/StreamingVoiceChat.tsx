@@ -21,6 +21,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { type Message, type User } from "@shared/schema";
 import { processVoiceMessage, synthesizeSpeech, requestSlowRepeat, type WordTiming } from "@/lib/restVoiceApi";
+import { getStreamingAudioPlayer } from "@/lib/audioUtils";
 import { InstructorAvatar, type AvatarState } from "@/components/InstructorAvatar";
 import { CompactDifficultyControl } from "@/components/CompactDifficultyControl";
 import { LanguageSelector } from "@/components/LanguageSelector";
@@ -465,6 +466,41 @@ export function StreamingVoiceChat({
     };
   }, []);
 
+  // MOBILE AUDIO UNLOCK: Resume AudioContext on first user interaction
+  // Mobile browsers (iOS Safari, Chrome) suspend AudioContext until a user gesture
+  // Since voice chat auto-connects via useEffect (not a direct tap), audio stays blocked
+  useEffect(() => {
+    if (!useStreamingMode) return;
+    
+    let unlocked = false;
+    const unlockAudio = async () => {
+      if (unlocked) return;
+      unlocked = true;
+      
+      try {
+        const player = getStreamingAudioPlayer();
+        await player.resumeAudioContext();
+        console.log('[MOBILE AUDIO] AudioContext unlocked via user gesture');
+      } catch (err) {
+        console.warn('[MOBILE AUDIO] Failed to unlock AudioContext:', err);
+      }
+      
+      document.removeEventListener('touchstart', unlockAudio, true);
+      document.removeEventListener('touchend', unlockAudio, true);
+      document.removeEventListener('click', unlockAudio, true);
+    };
+    
+    document.addEventListener('touchstart', unlockAudio, true);
+    document.addEventListener('touchend', unlockAudio, true);
+    document.addEventListener('click', unlockAudio, true);
+    
+    return () => {
+      document.removeEventListener('touchstart', unlockAudio, true);
+      document.removeEventListener('touchend', unlockAudio, true);
+      document.removeEventListener('click', unlockAudio, true);
+    };
+  }, [useStreamingMode]);
+  
   // Telephone ringing sound functions
   const startRinging = () => {
     if (ringingAudioRef.current?.isPlaying) return;
