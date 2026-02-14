@@ -873,9 +873,7 @@ export function ImmersiveTutor({
               }}
               className={`h-14 w-14 md:h-16 md:w-16 rounded-full shadow-lg select-none focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 ${
                 isRecording 
-                  ? openMicState === 'listening'
-                    ? 'bg-green-500 hover:bg-green-600 animate-recording-pulse'  // Fast pulse + glow: actively recording speech
-                    : 'bg-green-500 hover:bg-green-600'  // Solid green: mic hot (duplex)
+                  ? 'bg-green-500 hover:bg-green-600'  // Solid green: mic hot
                   : ''
               }`}
               data-testid={isRecording ? "button-open-mic-active" : "button-open-mic-idle"}
