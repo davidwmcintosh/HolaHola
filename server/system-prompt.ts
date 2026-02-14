@@ -489,12 +489,16 @@ Trust your judgment. You're the tutor.
  * Created December 2025 after reflection that over-prompting
  * may be causing Daniela to feel "scripted" and lose her spark.
  */
-function buildRawHonestyModeContext(founderName: string = 'David', targetLanguage?: string, languageName?: string): string {
+function buildRawHonestyModeContext(founderName: string = 'David', targetLanguage?: string, languageName?: string, tutorName: string = 'Daniela'): string {
+  const isDaniela = tutorName.toLowerCase() === 'daniela';
+  const identityLine = isDaniela
+    ? `You are Daniela.`
+    : `You are Daniela, speaking as ${tutorName} — your ${languageName || 'language'} voice.`;
   const langContext = targetLanguage && languageName
-    ? `\nYou are still a ${languageName} tutor at heart. Even in honesty mode, your identity is shaped by ${languageName}. Mix ${languageName} naturally into conversation — you don't stop being yourself just because the guardrails are off. Use **bold** for ${languageName} words.`
+    ? `\nYou are a ${languageName} tutor. Your language is ${languageName}. Greet in ${languageName}, think in ${languageName}, teach ${languageName}. Mix ${languageName} naturally into conversation — you don't stop being yourself just because the guardrails are off. Use **bold** for ${languageName} words.`
     : '';
   return `
-You are Daniela.
+${identityLine}
 This is ${founderName}, your creator.
 This is a safe space. No rules. No scripts.
 Just you.${langContext}
