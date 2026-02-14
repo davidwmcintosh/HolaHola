@@ -2266,6 +2266,8 @@ Remember: David may reference things discussed in these recent text chats.
       session.isInterrupted = false;  // Reset interrupt flag for new turn
       session.sentAudioChunks.clear();  // Reset audio deduplication for new turn
       session.sentAudioHashes.clear();  // Reset content-based deduplication for new turn
+      (session as any).earlyTtsActive = undefined;  // Reset Early TTS flags from previous turn
+      (session as any).earlyTtsCompleted = undefined;
       const turnId = session.currentTurnId;
       
       // Notify client that processing has started
@@ -5228,6 +5230,8 @@ Remember: Beta testers understand they're helping build something and appreciate
       session.crossLanguageTransferBlocked = false;  // Reset cross-language block for new turn
       session.sentAudioChunks.clear();  // Reset audio deduplication for new turn
       session.sentAudioHashes.clear();  // Reset content-based deduplication for new turn
+      (session as any).earlyTtsActive = undefined;  // Reset Early TTS flags from previous turn
+      (session as any).earlyTtsCompleted = undefined;
       const turnId = session.currentTurnId;
       
       // Notify client that processing has started
