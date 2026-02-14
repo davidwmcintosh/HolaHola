@@ -2199,8 +2199,10 @@ Reference past discussions when relevant, but don't force it.
                 (capturedSession as any).isLanguageSwitchHandoff = false;
                 // Skip trying to deliver intro on old session - it will fail anyway
                 console.log(`[Streaming Voice] Pending handoff intro stored - will be delivered on new session`);
+              } else if ((capturedSession as any).greetingTriggeredByOrchestrator) {
+                console.log(`[Streaming Voice] Same-language switch - greeting already triggered by orchestrator, skipping`);
+                (capturedSession as any).greetingTriggeredByOrchestrator = false;
               } else {
-                // Same-language switch - try to deliver intro on current session
                 console.log(`[Streaming Voice] Same-language switch - ${tutorFirstName} introducing themselves`);
                 await orchestrator.processVoiceSwitchIntro(capturedSessionId, tutorFirstName, newGender);
               }
@@ -3342,6 +3344,9 @@ ${buildNativeFunctionCallingSection()}`;
                     timestamp: Date.now()
                   });
                   (session as any).isLanguageSwitchHandoff = false;
+                } else if ((session as any).greetingTriggeredByOrchestrator) {
+                  console.log(`[Streaming Voice] Same-language switch - greeting already triggered by orchestrator, skipping`);
+                  (session as any).greetingTriggeredByOrchestrator = false;
                 } else {
                   console.log(`[Streaming Voice] Same-language switch - ${tutorFirstName} introducing themselves`);
                   await orchestrator.processVoiceSwitchIntro(session.id, tutorFirstName, voiceMsg.tutorGender);

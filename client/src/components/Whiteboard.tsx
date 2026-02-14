@@ -3778,7 +3778,7 @@ export function Whiteboard({ items, onClear, onDrillResponse, onDrillStart, onDr
   
   return (
     <div 
-      className="fixed bottom-28 left-0 right-0 z-40 px-4 pointer-events-none"
+      className="fixed bottom-44 left-0 right-0 z-40 px-4 pointer-events-none"
       data-testid="whiteboard-container"
     >
       <div className="max-w-2xl mx-auto pointer-events-auto">

@@ -96,7 +96,7 @@ const DEFAULT_TUTOR_NAMES: Record<string, Record<string, string>> = {
   'Aoede': {
     'english': 'Cindy', 'spanish': 'Daniela', 'french': 'Juliette',
     'italian': 'Liv', 'japanese': 'Sayuri', 'mandarin chinese': 'Hua',
-    'korean': 'Jihyun', 'german': 'Aoede', 'portuguese': 'Aoede', 'hebrew': 'Shira',
+    'korean': 'Jihyun', 'german': 'Aoede', 'portuguese': 'Aoede', 'hebrew': 'Yael',
   },
   'Puck': {
     'spanish': 'Agustin', 'french': 'Vincent', 'portuguese': 'Camilo',

@@ -8,6 +8,12 @@ export type SubtitleMode = "off" | "target" | "all";
 export type TutorGender = "male" | "female";
 export type VoiceSpeed = "slower" | "slow" | "normal" | "fast" | "faster";
 
+function normalizeLanguageCode(lang: string): string {
+  const lower = lang.toLowerCase().trim();
+  if (lower === 'mandarin chinese' || lower === 'chinese') return 'mandarin';
+  return lower;
+}
+
 interface LanguageContextType {
   language: string;
   setLanguage: (lang: string) => void;
@@ -27,7 +33,7 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState(() => {
-    const savedLanguage = localStorage.getItem("language") || "spanish";
+    const savedLanguage = normalizeLanguageCode(localStorage.getItem("language") || "spanish");
     console.log('[LanguageContext] Initializing with language:', savedLanguage, '(from localStorage)');
     return savedLanguage;
   });
@@ -76,10 +82,11 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       });
 
       // Sync target language
-      if (user.targetLanguage && user.targetLanguage !== language) {
-        console.log('[LanguageContext] Updating language from user preferences:', user.targetLanguage);
-        setLanguageState(user.targetLanguage);
-        localStorage.setItem("language", user.targetLanguage);
+      const normalizedTargetLang = user.targetLanguage ? normalizeLanguageCode(user.targetLanguage) : null;
+      if (normalizedTargetLang && normalizedTargetLang !== language) {
+        console.log('[LanguageContext] Updating language from user preferences:', normalizedTargetLang);
+        setLanguageState(normalizedTargetLang);
+        localStorage.setItem("language", normalizedTargetLang);
       }
 
       // Sync difficulty level
@@ -114,9 +121,10 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, [userName]);
 
   const setLanguage = (lang: string) => {
-    console.log('[LanguageContext] Setting language:', lang);
-    localStorage.setItem("language", lang);
-    setLanguageState(lang);
+    const normalized = normalizeLanguageCode(lang);
+    console.log('[LanguageContext] Setting language:', normalized);
+    localStorage.setItem("language", normalized);
+    setLanguageState(normalized);
     
     // Also save to database so it persists across sessions and syncs with server
     apiRequest("PUT", "/api/user/preferences", { targetLanguage: lang })

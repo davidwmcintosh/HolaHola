@@ -5034,6 +5034,17 @@ Remember: Beta testers understand they're helping build something and appreciate
               isLanguageSwitch,
               requiresGreeting: true, // New tutor always speaks their own intro
             });
+            
+            // Trigger new tutor's greeting directly from orchestrator (PTT path)
+            // Previously relied on client's update_voice → WS handler, which caused race conditions
+            // Set flag to prevent WS handler from triggering a duplicate greeting
+            if (tutorName && !isAssistantSwitch) {
+              (session as any).greetingTriggeredByOrchestrator = true;
+              console.log(`[Tutor Switch] PTT: Triggering ${tutorName}'s greeting`);
+              this.processVoiceSwitchIntro(sessionId, tutorName, targetGender).catch((err: Error) => {
+                console.error(`[Tutor Switch] Failed to generate greeting:`, err.message);
+              });
+            }
           } // End of else (main tutor switch)
         } catch (err: any) {
           console.error(`[Tutor Switch] Error during handoff:`, err.message);
