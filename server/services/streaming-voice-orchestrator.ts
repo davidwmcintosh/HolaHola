@@ -2741,6 +2741,8 @@ Remember: Beta testers understand they're helping build something and appreciate
       // eliminating the 3-6s gap between sentences.
       const ttsLookaheadMap = new Map<number, Promise<{ audio: Buffer; durationMs: number; timestamps: import('@shared/streaming-voice-types').WordTiming[] } | null>>();
       const effectiveTtsProvider = session.ttsProvider || this.ttsProvider;
+      const isGoogleBatchMode = effectiveTtsProvider === 'google';
+      const batchedSentences: { chunk: SentenceChunk; displayText: string; rawText: string }[] = [];
       const lookaheadTtsRequest = {
         text: '',
         autoDetectLanguage: true,
@@ -3862,58 +3864,65 @@ Remember: Beta testers understand they're helping build something and appreciate
           const hasTargetContent = !!(extraction.targetText && extraction.targetText.trim().length > 0);
           
           // ALWAYS log sentence_start for debugging
-          console.log(`[SENTENCE_START EMIT] sentence=${chunk.index}, hasTarget=${hasTargetContent}, targetText="${(extraction.targetText || '').substring(0, 50)}"`);
+          console.log(`[SENTENCE_START EMIT] sentence=${chunk.index}, hasTarget=${hasTargetContent}, targetText="${(extraction.targetText || '').substring(0, 50)}"${isGoogleBatchMode ? ' (BATCH: deferred)' : ''}`);
           
-          // Notify client of new sentence with cleaned text and word mapping
-          this.sendMessage(session.ws, {
-            type: 'sentence_start',
-            timestamp: Date.now(),
-            turnId,
-            sentenceIndex: chunk.index,
-            text: displayText,
-            hasTargetContent,
-            targetLanguageText: hasTargetContent ? extraction.targetText : undefined,
-            wordMapping: hasTargetContent && wordMappingArray.length > 0 ? wordMappingArray : undefined,
-          } as StreamingSentenceStartMessage);
-          
-          // Synthesize and stream audio for this sentence (pass cleaned text for timing)
-          const ttsStart = Date.now();
-          
-          // PIPELINE TIMING: Track first sentence and TTS start
-          if (chunk.index === 0) {
-            pipelineTiming.firstSentenceReady = Date.now();
-            pipelineTiming.ttsFirstCallStart = ttsStart;
-          }
-          
-          // TTS LOOKAHEAD: Check if pre-generated audio is available from the lookahead pipeline
-          const lookaheadPromise = ttsLookaheadMap.get(chunk.index);
-          ttsLookaheadMap.delete(chunk.index);
-          
-          if (lookaheadPromise) {
-            const preGenResult = await lookaheadPromise;
-            if (preGenResult) {
-              console.log(`[TTS Lookahead] Using pre-generated audio for sentence ${chunk.index} (waited ${Date.now() - ttsStart}ms)`);
-              await this.streamPreGeneratedSentenceAudio(session, chunk, displayText, metrics, turnId, preGenResult);
+          if (isGoogleBatchMode) {
+            // GOOGLE BATCH MODE: Collect sentences for combined TTS after Gemini completes.
+            // Sends full paragraph as ONE input to Chirp 3 HD for natural cross-sentence prosody.
+            // Skip sentence_start and TTS here — handled post-streaming.
+            batchedSentences.push({ chunk, displayText, rawText: chunk.text });
+          } else {
+            // Notify client of new sentence with cleaned text and word mapping
+            this.sendMessage(session.ws, {
+              type: 'sentence_start',
+              timestamp: Date.now(),
+              turnId,
+              sentenceIndex: chunk.index,
+              text: displayText,
+              hasTargetContent,
+              targetLanguageText: hasTargetContent ? extraction.targetText : undefined,
+              wordMapping: hasTargetContent && wordMappingArray.length > 0 ? wordMappingArray : undefined,
+            } as StreamingSentenceStartMessage);
+            
+            // Synthesize and stream audio for this sentence (pass cleaned text for timing)
+            const ttsStart = Date.now();
+            
+            // PIPELINE TIMING: Track first sentence and TTS start
+            if (chunk.index === 0) {
+              pipelineTiming.firstSentenceReady = Date.now();
+              pipelineTiming.ttsFirstCallStart = ttsStart;
+            }
+            
+            // TTS LOOKAHEAD: Check if pre-generated audio is available from the lookahead pipeline
+            const lookaheadPromise = ttsLookaheadMap.get(chunk.index);
+            ttsLookaheadMap.delete(chunk.index);
+            
+            if (lookaheadPromise) {
+              const preGenResult = await lookaheadPromise;
+              if (preGenResult) {
+                console.log(`[TTS Lookahead] Using pre-generated audio for sentence ${chunk.index} (waited ${Date.now() - ttsStart}ms)`);
+                await this.streamPreGeneratedSentenceAudio(session, chunk, displayText, metrics, turnId, preGenResult);
+              } else {
+                // Pre-generation failed, fall back to progressive
+                if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
+                  await this.streamSentenceAudioProgressive(session, chunk, displayText, metrics, turnId);
+                } else {
+                  await this.streamSentenceAudio(session, chunk, displayText, metrics, turnId);
+                }
+              }
             } else {
-              // Pre-generation failed, fall back to progressive
+              // No lookahead available (first sentence, or non-Gemini TTS)
               if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
                 await this.streamSentenceAudioProgressive(session, chunk, displayText, metrics, turnId);
               } else {
                 await this.streamSentenceAudio(session, chunk, displayText, metrics, turnId);
               }
             }
-          } else {
-            // No lookahead available (first sentence, or non-Gemini TTS)
-            if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
-              await this.streamSentenceAudioProgressive(session, chunk, displayText, metrics, turnId);
-            } else {
-              await this.streamSentenceAudio(session, chunk, displayText, metrics, turnId);
+            
+            if (chunk.index === 0) {
+              metrics.ttsFirstByteMs = Date.now() - ttsStart;
+              pipelineTiming.ttsFirstAudioByte = Date.now();
             }
-          }
-          
-          if (chunk.index === 0) {
-            metrics.ttsFirstByteMs = Date.now() - ttsStart;
-            pipelineTiming.ttsFirstAudioByte = Date.now();
           }
           
           // Use cleaned displayText for persistence (no emotion tags, no markdown)
@@ -3940,6 +3949,40 @@ Remember: Beta testers understand they're helping build something and appreciate
           this.sendError(session.ws, 'AI_FAILED', error.message, true);
         },
       });
+      
+      // GOOGLE BATCH TTS: After Gemini finishes generating ALL sentences,
+      // combine them into one paragraph and send as a single TTS call.
+      // This gives Chirp 3 HD the full context for natural cross-sentence prosody.
+      if (isGoogleBatchMode && batchedSentences.length > 0 && !session.isInterrupted) {
+        const combinedDisplayText = batchedSentences.map(s => s.displayText).join(' ');
+        console.log(`[Google Batch TTS] Combining ${batchedSentences.length} sentences (${combinedDisplayText.length} chars) for single TTS call`);
+        
+        // Send one sentence_start with combined text (sentenceIndex=0 for the batch)
+        this.sendMessage(session.ws, {
+          type: 'sentence_start',
+          timestamp: Date.now(),
+          turnId,
+          sentenceIndex: 0,
+          text: combinedDisplayText,
+          hasTargetContent: false,
+        } as StreamingSentenceStartMessage);
+        
+        const batchTtsStart = Date.now();
+        pipelineTiming.firstSentenceReady = batchTtsStart;
+        pipelineTiming.ttsFirstCallStart = batchTtsStart;
+        
+        // Single TTS call with the full paragraph
+        const batchChunk: SentenceChunk = { index: 0, text: combinedDisplayText, isComplete: true, isFinal: true };
+        if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
+          await this.streamSentenceAudioProgressive(session, batchChunk, combinedDisplayText, metrics, turnId);
+        } else {
+          await this.streamSentenceAudio(session, batchChunk, combinedDisplayText, metrics, turnId);
+        }
+        
+        metrics.ttsFirstByteMs = Date.now() - batchTtsStart;
+        pipelineTiming.ttsFirstAudioByte = Date.now();
+        console.log(`[Google Batch TTS] Complete. TTS duration: ${Date.now() - batchTtsStart}ms for ${batchedSentences.length} sentences`);
+      }
       
       // Update conversation history
       session.conversationHistory.push({ role: 'user', content: transcript });
