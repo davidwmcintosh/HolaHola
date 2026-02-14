@@ -258,6 +258,7 @@ export function StreamingVoiceChat({
   const [inputMode, setInputMode] = useState<VoiceInputMode>('push-to-talk');
   // Open mic visual state for feedback
   const [openMicState, setOpenMicState] = useState<OpenMicState>('idle');
+  const openMicStateRef = useRef<OpenMicState>('idle');
   // Track if we're awaiting/playing a response (to ignore VAD events)
   const isAwaitingResponseRef = useRef(false);
   // Track previous input mode to detect mode changes
@@ -265,6 +266,7 @@ export function StreamingVoiceChat({
   // CRITICAL: Track current inputMode for use in callbacks (avoids stale closure)
   const inputModeRef = useRef<VoiceInputMode>(inputMode);
   inputModeRef.current = inputMode; // Always keep in sync
+  openMicStateRef.current = openMicState; // Always keep in sync
   // CRITICAL: Track current avatarState for use in callbacks (avoids stale closure)
   const avatarStateRef = useRef<AvatarState>(avatarState);
   avatarStateRef.current = avatarState; // Always keep in sync
@@ -854,9 +856,16 @@ export function StreamingVoiceChat({
           onInterimTranscript: (transcript) => {
             console.log('[OPEN MIC] Interim transcript:', transcript);
             
-            // BARGE-IN: Interrupt tutor when we have ACTUAL transcribed speech
-            // This is more reliable than VAD alone, which can trigger on TTS echo
+            // Reinforce 'listening' state when we get actual words from Deepgram
+            // This ensures the recording indicator shows even if VAD speech_started was delayed
             if (transcript && transcript.trim().length > 0) {
+              if (openMicStateRef.current === 'ready' && hasDanielaSpokeOnceRef.current) {
+                console.log('[OPEN MIC] Interim transcript received while ready - setting listening state');
+                setOpenMicState('listening');
+              }
+              
+              // BARGE-IN: Interrupt tutor when we have ACTUAL transcribed speech
+              // This is more reliable than VAD alone, which can trigger on TTS echo
               if (avatarStateRef.current === 'speaking' || isAwaitingResponseRef.current) {
                 console.log('[BARGE-IN] User speaking with transcript - stopping audio and sending interrupt');
                 // CRITICAL: Stop audio playback immediately on client side
@@ -2699,9 +2708,15 @@ export function StreamingVoiceChat({
               onInterimTranscript: (transcript) => {
                 console.log('[OPEN MIC] Interim transcript:', transcript);
                 
-                // BARGE-IN: Interrupt tutor when we have ACTUAL transcribed speech
-                // This is more reliable than VAD alone, which can trigger on TTS echo
+                // Reinforce 'listening' state when we get actual words from Deepgram (reconnect path)
                 if (transcript && transcript.trim().length > 0) {
+                  if (openMicStateRef.current === 'ready' && hasDanielaSpokeOnceRef.current) {
+                    console.log('[OPEN MIC] Interim transcript received while ready (reconnect) - setting listening state');
+                    setOpenMicState('listening');
+                  }
+                  
+                  // BARGE-IN: Interrupt tutor when we have ACTUAL transcribed speech
+                  // This is more reliable than VAD alone, which can trigger on TTS echo
                   if (avatarStateRef.current === 'speaking' || isAwaitingResponseRef.current) {
                     console.log('[BARGE-IN] User speaking with transcript - stopping audio and sending interrupt');
                     // CRITICAL: Stop audio playback immediately on client side

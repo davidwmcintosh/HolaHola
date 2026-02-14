@@ -887,16 +887,13 @@ export function ImmersiveTutor({
                   onRecordingStart();
                 }
               }}
-              className={`h-14 w-14 md:h-16 md:w-16 rounded-full shadow-lg select-none focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 transition-all ${
+              className={`h-14 w-14 md:h-16 md:w-16 rounded-full shadow-lg select-none focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 ${
                 isRecording 
                   ? openMicState === 'listening'
-                    ? 'bg-green-500 hover:bg-green-600 scale-110'  // Enlarged + rapid pulse: actively recording speech
+                    ? 'bg-green-500 hover:bg-green-600 animate-recording-pulse'  // Fast pulse + glow: actively recording speech
                     : 'bg-green-500 hover:bg-green-600'  // Solid green: mic hot (duplex)
                   : ''
               }`}
-              style={isRecording && openMicState === 'listening' ? {
-                animation: 'pulse 0.6s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-              } : undefined}
               data-testid={isRecording ? "button-open-mic-active" : "button-open-mic-idle"}
               aria-pressed={isRecording}
               aria-label={isRecording ? "Mic hot - tap to stop" : "Tap to start"}
