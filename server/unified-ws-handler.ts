@@ -3327,6 +3327,26 @@ ${buildNativeFunctionCallingSection()}`;
               
               if (tutorVoice?.voiceId) {
                 orchestrator.updateSessionVoice(session.id, tutorVoice.voiceId, tutorVoice.provider);
+                
+                const voiceNameParts = tutorVoice.voiceName?.split(/\s*[-–]\s*/) || [];
+                const tutorFirstName = voiceNameParts[0]?.trim() || (voiceMsg.tutorGender === 'male' ? 'your new tutor' : 'your new tutor');
+                
+                const isLanguageSwitch = (session as any).isLanguageSwitchHandoff || false;
+                
+                if (isLanguageSwitch && userId) {
+                  console.log(`[Streaming Voice] Cross-language handoff - storing pending intro for ${tutorFirstName}`);
+                  pendingHandoffIntros.set(userId, {
+                    tutorName: tutorFirstName,
+                    gender: voiceMsg.tutorGender,
+                    language: targetLanguage,
+                    timestamp: Date.now()
+                  });
+                  (session as any).isLanguageSwitchHandoff = false;
+                } else {
+                  console.log(`[Streaming Voice] Same-language switch - ${tutorFirstName} introducing themselves`);
+                  await orchestrator.processVoiceSwitchIntro(session.id, tutorFirstName, voiceMsg.tutorGender);
+                }
+                
                 ws.send(JSON.stringify({
                   type: 'voice_updated',
                   timestamp: Date.now(),
