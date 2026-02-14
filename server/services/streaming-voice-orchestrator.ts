@@ -5395,6 +5395,11 @@ Remember: Beta testers understand they're helping build something and appreciate
       // TTS LOOKAHEAD (OpenMic): Same pipeline as PTT path
       const ttsLookaheadMapOM = new Map<number, Promise<{ audio: Buffer; durationMs: number; timestamps: import('@shared/streaming-voice-types').WordTiming[] } | null>>();
       const effectiveTtsProviderOM = session.ttsProvider || this.ttsProvider;
+      const isGoogleBatchModeOM = effectiveTtsProviderOM === 'google';
+      const batchedSentencesOM: { chunk: SentenceChunk; displayText: string; rawText: string }[] = [];
+      if (isGoogleBatchModeOM) {
+        console.log(`[Google Batch TTS - OpenMic] Batch mode ACTIVE — sentences will be collected and combined for single TTS call`);
+      }
       const lookaheadTtsRequestOM = {
         text: '',
         autoDetectLanguage: true,
@@ -6178,38 +6183,40 @@ Remember: Beta testers understand they're helping build something and appreciate
             this.addSttKeyterms(session, boldWords);
           }
           
-          console.log(`[SENTENCE_START EMIT - OpenMic] sentence=${chunk.index}, hasTarget=${hasTargetContent}, targetText="${(extraction.targetText || '').substring(0, 50)}", displayText="${displayText.substring(0, 60)}"`);
+          console.log(`[SENTENCE_START EMIT - OpenMic] sentence=${chunk.index}, hasTarget=${hasTargetContent}, targetText="${(extraction.targetText || '').substring(0, 50)}", displayText="${displayText.substring(0, 60)}"${isGoogleBatchModeOM ? ' (BATCH: deferred)' : ''}`);
           
-          // Send sentence start
-          this.sendMessage(session.ws, {
-            type: 'sentence_start',
-            timestamp: Date.now(),
-            turnId,
-            sentenceIndex: chunk.index,
-            text: displayText,
-            hasTargetContent,
-            targetLanguageText: hasTargetContent ? extraction.targetText : undefined,
-            wordMapping: hasTargetContent && wordMappingArray.length > 0 ? wordMappingArray : undefined,
-          } as StreamingSentenceStartMessage);
-          
-          // TTS LOOKAHEAD (OpenMic): Check if pre-generated audio is available
-          const lookaheadPromiseOM = ttsLookaheadMapOM.get(chunk.index);
-          ttsLookaheadMapOM.delete(chunk.index);
-          
-          if (lookaheadPromiseOM) {
-            const preGenResultOM = await lookaheadPromiseOM;
-            if (preGenResultOM) {
-              console.log(`[TTS Lookahead OM] Using pre-generated audio for sentence ${chunk.index}`);
-              await this.streamPreGeneratedSentenceAudio(session, chunk, displayText, metrics, turnId, preGenResultOM);
+          if (isGoogleBatchModeOM) {
+            batchedSentencesOM.push({ chunk, displayText, rawText: chunk.text });
+          } else {
+            this.sendMessage(session.ws, {
+              type: 'sentence_start',
+              timestamp: Date.now(),
+              turnId,
+              sentenceIndex: chunk.index,
+              text: displayText,
+              hasTargetContent,
+              targetLanguageText: hasTargetContent ? extraction.targetText : undefined,
+              wordMapping: hasTargetContent && wordMappingArray.length > 0 ? wordMappingArray : undefined,
+            } as StreamingSentenceStartMessage);
+            
+            const lookaheadPromiseOM = ttsLookaheadMapOM.get(chunk.index);
+            ttsLookaheadMapOM.delete(chunk.index);
+            
+            if (lookaheadPromiseOM) {
+              const preGenResultOM = await lookaheadPromiseOM;
+              if (preGenResultOM) {
+                console.log(`[TTS Lookahead OM] Using pre-generated audio for sentence ${chunk.index}`);
+                await this.streamPreGeneratedSentenceAudio(session, chunk, displayText, metrics, turnId, preGenResultOM);
+              } else if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
+                await this.streamSentenceAudioProgressive(session, chunk, displayText, metrics, turnId);
+              } else {
+                await this.streamSentenceAudio(session, chunk, displayText, metrics, turnId);
+              }
             } else if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
               await this.streamSentenceAudioProgressive(session, chunk, displayText, metrics, turnId);
             } else {
               await this.streamSentenceAudio(session, chunk, displayText, metrics, turnId);
             }
-          } else if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
-            await this.streamSentenceAudioProgressive(session, chunk, displayText, metrics, turnId);
-          } else {
-            await this.streamSentenceAudio(session, chunk, displayText, metrics, turnId);
           }
           
           fullText += displayText + ' ';
@@ -6218,6 +6225,31 @@ Remember: Beta testers understand they're helping build something and appreciate
       });
       
       console.log(`[Streaming Orchestrator] AI complete: ${actualSentenceCount} sentences`);
+      
+      if (isGoogleBatchModeOM && batchedSentencesOM.length > 0 && !session.isInterrupted) {
+        const combinedDisplayText = batchedSentencesOM.map(s => s.displayText).join(' ');
+        console.log(`[Google Batch TTS - OpenMic] Combining ${batchedSentencesOM.length} sentences (${combinedDisplayText.length} chars) for single TTS call`);
+        
+        this.sendMessage(session.ws, {
+          type: 'sentence_start',
+          timestamp: Date.now(),
+          turnId,
+          sentenceIndex: 0,
+          text: combinedDisplayText,
+          hasTargetContent: false,
+        } as StreamingSentenceStartMessage);
+        
+        const batchTtsStartOM = Date.now();
+        const batchChunkOM: SentenceChunk = { index: 0, text: combinedDisplayText, isComplete: true, isFinal: true };
+        if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
+          await this.streamSentenceAudioProgressive(session, batchChunkOM, combinedDisplayText, metrics, turnId);
+        } else {
+          await this.streamSentenceAudio(session, batchChunkOM, combinedDisplayText, metrics, turnId);
+        }
+        
+        metrics.ttsFirstByteMs = Date.now() - batchTtsStartOM;
+        console.log(`[Google Batch TTS - OpenMic] Complete. TTS duration: ${Date.now() - batchTtsStartOM}ms for ${batchedSentencesOM.length} sentences`);
+      }
       
       // Update conversation history
       if (transcript.trim()) {
