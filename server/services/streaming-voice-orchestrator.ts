@@ -2819,6 +2819,15 @@ Remember: Beta testers understand they're helping build something and appreciate
             session.currentTurnFunctionCalls = [];
           }
           
+          const METADATA_ONLY_FC_NAMES = new Set(['voice_adjust', 'voice_reset', 'word_emphasis', 'subtitle', 'show_overlay', 'hide_overlay', 'hold_overlay']);
+          const allMetadataOnly = functionCalls.every(fc => METADATA_ONLY_FC_NAMES.has(fc.name));
+          const hasTextArg = functionCalls.some(fc => fc.args?.text && String(fc.args.text).trim().length > 0);
+          
+          if (allMetadataOnly && hasTextArg && !session.isInterrupted) {
+            (session as any).earlyTtsActive = true;
+            console.log(`[Early TTS] PRE-SIGNAL: earlyTtsActive=true BEFORE handleNativeFunctionCall (${functionCalls.map(f => f.name).join(',')})`);
+          }
+          
           // Route native function calls to command processing
           for (const fn of functionCalls) {
             console.log(`[Native Function Call] ${fn.name}(${JSON.stringify(fn.args)})`);
@@ -2838,15 +2847,12 @@ Remember: Beta testers understand they're helping build something and appreciate
           
           // EARLY TTS: Start TTS immediately for metadata-only function calls
           // instead of waiting for the Gemini stream to close (saves ~10s latency)
-          const METADATA_ONLY_FC_NAMES = new Set(['voice_adjust', 'voice_reset', 'word_emphasis', 'subtitle', 'show_overlay', 'hide_overlay', 'hold_overlay']);
-          const allMetadataOnly = functionCalls.every(fc => METADATA_ONLY_FC_NAMES.has(fc.name));
           const embeddedRawText = ((session as any).functionCallText || '').trim();
           
           if (allMetadataOnly && embeddedRawText && !session.isInterrupted) {
             const earlyTtsStart = Date.now();
             const embeddedText = cleanTextForDisplay(embeddedRawText).trim();
             if (embeddedText) {
-              // SET EARLY: Signal that Early TTS is handling audio so onSentence skips
               (session as any).earlyTtsActive = true;
               
               const directBoldWords = extractBoldMarkedWords(embeddedRawText);
@@ -2994,7 +3000,13 @@ Remember: Beta testers understand they're helping build something and appreciate
               streamAbortSignal.aborted = true;
 
               console.log(`[Early TTS] TTS completed in ${Date.now() - earlyTtsStart}ms (${sentences.length} sentences${shouldPipelinePTT ? ', pipelined' : ''}, started ${earlyTtsStart - geminiStartTime}ms after Gemini request)`);
+            } else if ((session as any).earlyTtsActive) {
+              console.log(`[Early TTS] DEFENSIVE RESET: embeddedText empty after clean, clearing pre-signaled earlyTtsActive`);
+              (session as any).earlyTtsActive = false;
             }
+          } else if ((session as any).earlyTtsActive && !embeddedRawText) {
+            console.log(`[Early TTS] DEFENSIVE RESET: no embeddedRawText, clearing pre-signaled earlyTtsActive`);
+            (session as any).earlyTtsActive = false;
           }
         },
         onSentence: async (chunk: SentenceChunk) => {
@@ -5444,6 +5456,7 @@ Remember: Beta testers understand they're helping build something and appreciate
       const effectiveTtsProviderOM = session.ttsProvider || this.ttsProvider;
       const isGoogleBatchModeOM = effectiveTtsProviderOM === 'google';
       const batchedSentencesOM: { chunk: SentenceChunk; displayText: string; rawText: string }[] = [];
+      console.log(`[OpenMic TTS Config] provider=${effectiveTtsProviderOM}, sessionProvider=${session.ttsProvider || 'none'}, fallback=${this.ttsProvider}, batchMode=${isGoogleBatchModeOM}`);
       if (isGoogleBatchModeOM) {
         console.log(`[Google Batch TTS - OpenMic] Batch mode ACTIVE — sentences will be collected and combined for single TTS call`);
       }
@@ -5501,6 +5514,15 @@ Remember: Beta testers understand they're helping build something and appreciate
             session.currentTurnFunctionCalls = [];
           }
           
+          const METADATA_ONLY_FC_NAMES = new Set(['voice_adjust', 'voice_reset', 'word_emphasis', 'subtitle', 'show_overlay', 'hide_overlay', 'hold_overlay']);
+          const allMetadataOnly = functionCalls.every(fc => METADATA_ONLY_FC_NAMES.has(fc.name));
+          const hasTextArg = functionCalls.some(fc => fc.args?.text && String(fc.args.text).trim().length > 0);
+          
+          if (allMetadataOnly && hasTextArg && !session.isInterrupted) {
+            (session as any).earlyTtsActive = true;
+            console.log(`[Early TTS - OpenMic] PRE-SIGNAL: earlyTtsActive=true BEFORE handleNativeFunctionCall (${functionCalls.map(f => f.name).join(',')})`);
+          }
+          
           for (const fn of functionCalls) {
             console.log(`[Native Function Call - OpenMic] ${fn.name}(${JSON.stringify(fn.args)})`);
             
@@ -5517,15 +5539,12 @@ Remember: Beta testers understand they're helping build something and appreciate
           }
           
           // EARLY TTS: Start TTS immediately for metadata-only function calls (open-mic)
-          const METADATA_ONLY_FC_NAMES = new Set(['voice_adjust', 'voice_reset', 'word_emphasis', 'subtitle', 'show_overlay', 'hide_overlay', 'hold_overlay']);
-          const allMetadataOnly = functionCalls.every(fc => METADATA_ONLY_FC_NAMES.has(fc.name));
           const embeddedRawText = ((session as any).functionCallText || '').trim();
           
           if (allMetadataOnly && embeddedRawText && !session.isInterrupted) {
             const earlyTtsStart = Date.now();
             const embeddedText = cleanTextForDisplay(embeddedRawText).trim();
             if (embeddedText) {
-              // SET EARLY: Signal that Early TTS is handling audio so onSentence skips
               (session as any).earlyTtsActive = true;
               
               session.onTtsStateChange?.(true);
@@ -5675,7 +5694,13 @@ Remember: Beta testers understand they're helping build something and appreciate
               streamAbortSignalOpenMic.aborted = true;
 
               console.log(`[Early TTS - OpenMic] TTS completed in ${Date.now() - earlyTtsStart}ms (${sentences.length} sentences${isGoogleBatchModeFCOM ? ', Google batch' : shouldPipeline ? ', pipelined' : ''})`);
+            } else if ((session as any).earlyTtsActive) {
+              console.log(`[Early TTS - OpenMic] DEFENSIVE RESET: embeddedText empty after clean, clearing pre-signaled earlyTtsActive`);
+              (session as any).earlyTtsActive = false;
             }
+          } else if ((session as any).earlyTtsActive && !embeddedRawText) {
+            console.log(`[Early TTS - OpenMic] DEFENSIVE RESET: no embeddedRawText, clearing pre-signaled earlyTtsActive`);
+            (session as any).earlyTtsActive = false;
           }
         },
         onSentence: async (chunk: SentenceChunk) => {
@@ -6272,11 +6297,13 @@ Remember: Beta testers understand they're helping build something and appreciate
             this.addSttKeyterms(session, boldWords);
           }
           
-          console.log(`[SENTENCE_START EMIT - OpenMic] sentence=${chunk.index}, hasTarget=${hasTargetContent}, targetText="${(extraction.targetText || '').substring(0, 50)}", displayText="${displayText.substring(0, 60)}"${isGoogleBatchModeOM ? ' (BATCH: deferred)' : ''}`);
+          console.log(`[SENTENCE_START EMIT - OpenMic] sentence=${chunk.index}, hasTarget=${hasTargetContent}, displayText="${displayText.substring(0, 60)}", batchMode=${isGoogleBatchModeOM}, earlyTtsActive=${(session as any).earlyTtsActive || false}`);
           
           if (isGoogleBatchModeOM) {
             batchedSentencesOM.push({ chunk, displayText, rawText: chunk.text });
+            console.log(`[Google Batch - OpenMic] Deferred sentence ${chunk.index} to batch (${batchedSentencesOM.length} total)`);
           } else {
+            console.log(`[INDIVIDUAL TTS - OpenMic] Sentence ${chunk.index}: starting individual TTS (non-batch path), earlyTtsActive=${(session as any).earlyTtsActive || false}`);
             this.sendMessage(session.ws, {
               type: 'sentence_start',
               timestamp: Date.now(),
@@ -6315,6 +6342,9 @@ Remember: Beta testers understand they're helping build something and appreciate
       
       console.log(`[Streaming Orchestrator] AI complete: ${actualSentenceCount} sentences`);
       
+      if (isGoogleBatchModeOM && batchedSentencesOM.length > 0) {
+        console.log(`[Google Batch TTS - OpenMic] Post-stream check: ${batchedSentencesOM.length} batched, earlyTtsActive=${(session as any).earlyTtsActive}, earlyTtsCompleted=${(session as any).earlyTtsCompleted}, interrupted=${session.isInterrupted}`);
+      }
       if (isGoogleBatchModeOM && batchedSentencesOM.length > 0 && !session.isInterrupted && !(session as any).earlyTtsActive && !(session as any).earlyTtsCompleted) {
         const combinedDisplayText = batchedSentencesOM.map(s => s.displayText).join(' ');
         console.log(`[Google Batch TTS - OpenMic] Combining ${batchedSentencesOM.length} sentences (${combinedDisplayText.length} chars) for single TTS call`);
