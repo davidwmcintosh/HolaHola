@@ -1103,6 +1103,7 @@ export class GeminiStreamingService {
       // Process streamed tokens
       let chunkCount = 0;
       let lastLogTime = Date.now();
+      let lastFinishReason: string | undefined;
       for await (const chunk of result) {
         if (streamTimedOut) {
           console.warn(`[Gemini Streaming] Breaking out of stream loop after timeout`);
@@ -1125,6 +1126,12 @@ export class GeminiStreamingService {
           firstChunkReceived = true;
           const ttfb = Date.now() - geminiRequestTime;
           console.log(`[Gemini Streaming] TTFB: ${ttfb}ms (time-to-first-token from Gemini)`);
+        }
+        
+        // Track finishReason from candidates (last chunk with a reason wins)
+        const chunkFinishReason = (chunk as any).candidates?.[0]?.finishReason;
+        if (chunkFinishReason) {
+          lastFinishReason = chunkFinishReason;
         }
         
         // Debug: Log chunk activity every 5 seconds during long waits
@@ -1362,6 +1369,13 @@ export class GeminiStreamingService {
         onError?.(timeoutError);
       }
       
+      // TRUNCATION DETECTION: Log if Gemini stopped due to token limit
+      if (lastFinishReason && lastFinishReason !== 'STOP') {
+        console.warn(`[Gemini Streaming] ⚠️ FINISH REASON: ${lastFinishReason} — response may be truncated (${fullText.length} chars, ${functionCallsProcessed} FCs)`);
+      } else if (lastFinishReason === 'STOP') {
+        console.log(`[Gemini Streaming] finishReason: STOP (normal completion)`);
+      }
+      
       // Strip internal notation tags from remaining buffer before final output
       buffer = stripInternalNotationTags(buffer);
       
@@ -1395,7 +1409,8 @@ export class GeminiStreamingService {
       const durationMs = Date.now() - startTime;
       const functionCallLog = functionCallsProcessed > 0 ? `, ${functionCallsProcessed} function calls` : '';
       const timeoutLog = streamTimedOut ? ' [TIMED OUT]' : '';
-      console.log(`[Gemini Streaming] Complete: ${sentenceIndex} sentences, ${fullText.length} chars${functionCallLog} in ${durationMs}ms${timeoutLog}`);
+      const finishReasonLog = lastFinishReason && lastFinishReason !== 'STOP' ? ` [${lastFinishReason}]` : '';
+      console.log(`[Gemini Streaming] Complete: ${sentenceIndex} sentences, ${fullText.length} chars${functionCallLog} in ${durationMs}ms${timeoutLog}${finishReasonLog}`);
       
       return {
         fullText,

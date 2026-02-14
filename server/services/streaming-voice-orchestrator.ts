@@ -59,6 +59,13 @@ import { parseWhiteboardMarkup, WhiteboardItem, WordMapItem, isWordMapItem, stri
 import { commandParserService, ParsedCommand } from "./command-parser";
 import { usageService } from "./usage-service";
 
+function ensureTrailingPunctuation(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed) return trimmed;
+  if (/[.!?\u2026\u3002\uff01\uff1f]["'\u201c\u201d\u2019\u2018)\]]*$/.test(trimmed)) return trimmed;
+  return trimmed + '.';
+}
+
 const TEXT_FC_COMMAND_MAP: Record<string, string> = {
   'switch_tutor': 'SWITCH_TUTOR', 'phase_shift': 'PHASE_SHIFT',
   'actfl_update': 'ACTFL_UPDATE', 'syllabus_progress': 'SYLLABUS_PROGRESS',
@@ -2910,7 +2917,7 @@ Remember: Beta testers understand they're helping build something and appreciate
           
           // EARLY TTS: Start TTS immediately for metadata-only function calls
           // instead of waiting for the Gemini stream to close (saves ~10s latency)
-          const embeddedRawText = ((session as any).functionCallText || '').trim();
+          const embeddedRawText = ensureTrailingPunctuation(((session as any).functionCallText || '').trim());
           
           if (allMetadataOnly && embeddedRawText && !session.isInterrupted && !isGoogleBatchMode) {
             const earlyTtsStart = Date.now();
@@ -4193,7 +4200,7 @@ Remember: Beta testers understand they're helping build something and appreciate
           (session as any).earlyTtsActive = undefined;
         } else {
           const metadataOnlyFunctions = functionCallsCopy.map(fc => fc.name).join(', ');
-          const rawEmbeddedText = ((session as any).functionCallText || '').trim();
+          const rawEmbeddedText = ensureTrailingPunctuation(((session as any).functionCallText || '').trim());
           const embeddedText = cleanTextForDisplay(rawEmbeddedText).trim();
           if (embeddedText) {
             const pttDirectBoldWords = extractBoldMarkedWords(rawEmbeddedText || '');
@@ -5629,7 +5636,7 @@ Remember: Beta testers understand they're helping build something and appreciate
           }
           
           // EARLY TTS: Start TTS immediately for metadata-only function calls (open-mic)
-          const embeddedRawText = ((session as any).functionCallText || '').trim();
+          const embeddedRawText = ensureTrailingPunctuation(((session as any).functionCallText || '').trim());
           
           if (allMetadataOnly && embeddedRawText && !session.isInterrupted && !isGoogleBatchModeOM) {
             const earlyTtsStart = Date.now();
@@ -6573,7 +6580,7 @@ Remember: Beta testers understand they're helping build something and appreciate
         } else {
           const metadataOnlyFunctions = functionCallsCopyOpenMic.map(fc => fc.name).join(', ');
           
-          const rawEmbeddedText = ((session as any).functionCallText || '').trim();
+          const rawEmbeddedText = ensureTrailingPunctuation(((session as any).functionCallText || '').trim());
           const embeddedText = cleanTextForDisplay(rawEmbeddedText).trim();
           if (embeddedText) {
             const embeddedDirectBoldWords = extractBoldMarkedWords(rawEmbeddedText || '');
@@ -6628,7 +6635,7 @@ Remember: Beta testers understand they're helping build something and appreciate
         
         // PRIORITY CHECK: If voice_adjust already provided embedded text, use it NOW and skip continuation
         // This handles cases like voice_adjust + play_audio or voice_adjust + take_note
-        const rawEmbeddedTextBeforeContinuation = ((session as any).functionCallText || '').trim();
+        const rawEmbeddedTextBeforeContinuation = ensureTrailingPunctuation(((session as any).functionCallText || '').trim());
         const embeddedTextBeforeContinuation = cleanTextForDisplay(rawEmbeddedTextBeforeContinuation).trim();
         if (embeddedTextBeforeContinuation) {
           const contDirectBoldWords = extractBoldMarkedWords(rawEmbeddedTextBeforeContinuation || '');
@@ -6859,7 +6866,7 @@ Remember: Beta testers understand they're helping build something and appreciate
                  recursiveDepth < MAX_RECURSIVE_FC_DEPTH) {
             
             // CHECK: If voice_adjust already provided embedded text, use it and stop looping
-            const rawEmbeddedTextFromFC = ((session as any).functionCallText || '').trim();
+            const rawEmbeddedTextFromFC = ensureTrailingPunctuation(((session as any).functionCallText || '').trim());
             const embeddedTextFromFC = cleanTextForDisplay(rawEmbeddedTextFromFC).trim();
             if (embeddedTextFromFC) {
               console.log(`[Multi-Step FC - OpenMic] Found embedded text (${embeddedTextFromFC.length} chars) - using for TTS and stopping continuation`);
@@ -11144,7 +11151,7 @@ Only include observations you can clearly justify from the exchange. Return empt
       
       // FALLBACK: If no text was produced but function calls provided text, use that
       // This handles the case where Gemini only returns function calls (e.g., voice_adjust, drill, phase_shift with text)
-      const functionCallText = ((session as any).functionCallText as string | undefined)?.trim();
+      const functionCallText = ensureTrailingPunctuation(((session as any).functionCallText as string | undefined)?.trim() || '');
       if (metrics.sentenceCount === 0 && functionCallText) {
         console.log(`[Streaming Greeting] No AI text produced, using function call text: "${functionCallText.substring(0, 80)}..."`);
         
