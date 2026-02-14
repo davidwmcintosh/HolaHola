@@ -791,9 +791,13 @@ export function ImmersiveTutor({
             : inputMode === 'open-mic'
               ? isPlaying
                 ? ""
-                : isRecording || openMicState === 'processing' || openMicState === 'ready' || openMicState === 'listening'
-                  ? ""
-                  : "Tap to connect"
+                : openMicState === 'listening'
+                  ? "Recording..."
+                  : isProcessing && openMicState === 'processing'
+                    ? "Processing..."
+                    : isRecording || openMicState === 'ready'
+                      ? "Listening..."
+                      : "Tap to connect"
               : isRecording || isPttButtonHeld
                 ? "Release to send"
                 : isMicPreparing 
@@ -812,9 +816,13 @@ export function ImmersiveTutor({
             : inputMode === 'open-mic'
               ? isPlaying
                 ? ""  // No instruction when Daniela is talking - indicator shows "Daniela"
-                : isRecording || openMicState === 'processing' || openMicState === 'ready' || openMicState === 'listening'
-                  ? ""  // No instruction when listening - indicator shows state
-                  : "Tap to connect"  // Mic off
+                : openMicState === 'listening'
+                  ? "Recording..."
+                  : isProcessing && openMicState === 'processing'
+                    ? "Processing..."
+                    : isRecording || openMicState === 'ready'
+                      ? "Listening..."
+                      : "Tap to connect"  // Mic off
               : isRecording || isPttButtonHeld
                 ? "Release to send"  // Button held takes priority - stable UI during speculative processing
                 : isMicPreparing 
@@ -879,13 +887,16 @@ export function ImmersiveTutor({
                   onRecordingStart();
                 }
               }}
-              className={`h-14 w-14 md:h-16 md:w-16 rounded-full shadow-lg select-none focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 ${
+              className={`h-14 w-14 md:h-16 md:w-16 rounded-full shadow-lg select-none focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 transition-all ${
                 isRecording 
                   ? openMicState === 'listening'
-                    ? 'animate-pulse bg-green-500 hover:bg-green-600'  // Pulsing: user speaking
+                    ? 'bg-green-500 hover:bg-green-600 scale-110'  // Enlarged + rapid pulse: actively recording speech
                     : 'bg-green-500 hover:bg-green-600'  // Solid green: mic hot (duplex)
                   : ''
               }`}
+              style={isRecording && openMicState === 'listening' ? {
+                animation: 'pulse 0.6s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              } : undefined}
               data-testid={isRecording ? "button-open-mic-active" : "button-open-mic-idle"}
               aria-pressed={isRecording}
               aria-label={isRecording ? "Mic hot - tap to stop" : "Tap to start"}
