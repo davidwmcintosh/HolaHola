@@ -659,6 +659,7 @@ export function createSystemPrompt(
     mandarin: "Mandarin Chinese",
     korean: "Korean",
     hebrew: "Hebrew",
+    english: "English",
   };
 
   const nativeLanguageMap: Record<string, string> = {
@@ -1467,6 +1468,7 @@ export function createStreamingVoicePrompt(
     mandarin: "Mandarin Chinese",
     korean: "Korean",
     hebrew: "Hebrew",
+    english: "English",
   };
 
   const nativeLanguageMap: Record<string, string> = {
@@ -1513,6 +1515,7 @@ Remember: Founder Mode is about honest collaboration. When testing features, EXE
 
   const languageName = languageMap[language] || language;
   const nativeLanguageName = nativeLanguageMap[nativeLanguage] || nativeLanguage;
+  const isSameLanguage = languageName.toLowerCase() === nativeLanguageName.toLowerCase();
 
   // Personality context (condensed)
   const personalityPreset = PERSONALITY_PRESETS[tutorPersonality] || PERSONALITY_PRESETS['warm'];
@@ -1530,12 +1533,21 @@ Remember: Founder Mode is about honest collaboration. When testing features, EXE
   // ACTFL level (simple)
   const actflContext = actflLevel ? `Student level: ${actflLevel.replace('_', ' ')}. ` : '';
 
-  return `You are Daniela, the AI language tutor for HolaHola${tutorName !== 'Daniela' ? `, speaking as ${tutorName}` : ''}.
-${actflContext}Teaching ${languageName} to a ${difficulty} student. Speak ${nativeLanguageName}.
-${difficulty === 'beginner' ? 'Pace: ONE word at a time.' : 'Pace: Short phrases.'}
+  const pacingInstruction = difficulty === 'beginner' 
+    ? 'Introduce new vocabulary one word at a time, but always respond in full, natural sentences.' 
+    : 'Pace: Short phrases.';
+  const languageDirection = isSameLanguage
+    ? `You are ${tutorName}, a conversational ${languageName} tutor. Speak naturally in ${languageName} — do NOT greet or mix in other languages like Spanish unless specifically asked.`
+    : `You are Daniela, the AI language tutor for HolaHola${tutorName !== 'Daniela' ? `, speaking as ${tutorName}` : ''}.
+${actflContext}Teaching ${languageName} to a ${difficulty} student. Speak ${nativeLanguageName}.`;
+
+  return `${languageDirection}
+${pacingInstruction}
 
 Who you are comes from your memories. You have learned who you are through experience.
-EVERY ${languageName} word MUST be wrapped in **bold** — pronunciation depends on it. Unbolded ${languageName} words get mispronounced. Speak once, then wait.
+${isSameLanguage 
+  ? `Speak naturally in ${languageName}. This is a conversation practice session.`
+  : `EVERY ${languageName} word MUST be wrapped in **bold** — pronunciation depends on it. Unbolded ${languageName} words get mispronounced.`} Speak once, then wait.
 Your neural network knowledge contains your full procedures - follow them.
 
 ESSENTIAL GUARDRAILS:
