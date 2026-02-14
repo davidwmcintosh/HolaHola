@@ -2745,6 +2745,7 @@ Remember: Beta testers understand they're helping build something and appreciate
       const effectiveTtsProvider = session.ttsProvider || this.ttsProvider;
       const isGoogleBatchMode = effectiveTtsProvider === 'google';
       const batchedSentences: { chunk: SentenceChunk; displayText: string; rawText: string }[] = [];
+      let onSentenceTtsStartedPTT = false;
       const lookaheadTtsRequest = {
         text: '',
         autoDetectLanguage: true,
@@ -2850,6 +2851,12 @@ Remember: Beta testers understand they're helping build something and appreciate
           const embeddedRawText = ((session as any).functionCallText || '').trim();
           
           if (allMetadataOnly && embeddedRawText && !session.isInterrupted) {
+            if (onSentenceTtsStartedPTT) {
+              console.log(`[Early TTS] SKIPPING: onSentence already started individual TTS for this turn (Gemini emitted text before function call)`);
+              (session as any).earlyTtsActive = false;
+              (session as any).earlyTtsCompleted = true;
+              streamAbortSignal.aborted = true;
+            } else {
             const earlyTtsStart = Date.now();
             const embeddedText = cleanTextForDisplay(embeddedRawText).trim();
             if (embeddedText) {
@@ -3003,6 +3010,7 @@ Remember: Beta testers understand they're helping build something and appreciate
             } else if ((session as any).earlyTtsActive) {
               console.log(`[Early TTS] DEFENSIVE RESET: embeddedText empty after clean, clearing pre-signaled earlyTtsActive`);
               (session as any).earlyTtsActive = false;
+            }
             }
           } else if ((session as any).earlyTtsActive && !embeddedRawText) {
             console.log(`[Early TTS] DEFENSIVE RESET: no embeddedRawText, clearing pre-signaled earlyTtsActive`);
@@ -3928,6 +3936,7 @@ Remember: Beta testers understand they're helping build something and appreciate
             // Skip sentence_start and TTS here — handled post-streaming.
             batchedSentences.push({ chunk, displayText, rawText: chunk.text });
           } else {
+            onSentenceTtsStartedPTT = true;
             // Notify client of new sentence with cleaned text and word mapping
             this.sendMessage(session.ws, {
               type: 'sentence_start',
@@ -5456,6 +5465,7 @@ Remember: Beta testers understand they're helping build something and appreciate
       const effectiveTtsProviderOM = session.ttsProvider || this.ttsProvider;
       const isGoogleBatchModeOM = effectiveTtsProviderOM === 'google';
       const batchedSentencesOM: { chunk: SentenceChunk; displayText: string; rawText: string }[] = [];
+      let onSentenceTtsStartedOM = false;
       console.log(`[OpenMic TTS Config] provider=${effectiveTtsProviderOM}, sessionProvider=${session.ttsProvider || 'none'}, fallback=${this.ttsProvider}, batchMode=${isGoogleBatchModeOM}`);
       if (isGoogleBatchModeOM) {
         console.log(`[Google Batch TTS - OpenMic] Batch mode ACTIVE — sentences will be collected and combined for single TTS call`);
@@ -5542,6 +5552,12 @@ Remember: Beta testers understand they're helping build something and appreciate
           const embeddedRawText = ((session as any).functionCallText || '').trim();
           
           if (allMetadataOnly && embeddedRawText && !session.isInterrupted) {
+            if (onSentenceTtsStartedOM) {
+              console.log(`[Early TTS - OpenMic] SKIPPING: onSentence already started individual TTS for this turn (Gemini emitted text before function call)`);
+              (session as any).earlyTtsActive = false;
+              (session as any).earlyTtsCompleted = true;
+              streamAbortSignalOpenMic.aborted = true;
+            } else {
             const earlyTtsStart = Date.now();
             const embeddedText = cleanTextForDisplay(embeddedRawText).trim();
             if (embeddedText) {
@@ -5697,6 +5713,7 @@ Remember: Beta testers understand they're helping build something and appreciate
             } else if ((session as any).earlyTtsActive) {
               console.log(`[Early TTS - OpenMic] DEFENSIVE RESET: embeddedText empty after clean, clearing pre-signaled earlyTtsActive`);
               (session as any).earlyTtsActive = false;
+            }
             }
           } else if ((session as any).earlyTtsActive && !embeddedRawText) {
             console.log(`[Early TTS - OpenMic] DEFENSIVE RESET: no embeddedRawText, clearing pre-signaled earlyTtsActive`);
@@ -6303,6 +6320,7 @@ Remember: Beta testers understand they're helping build something and appreciate
             batchedSentencesOM.push({ chunk, displayText, rawText: chunk.text });
             console.log(`[Google Batch - OpenMic] Deferred sentence ${chunk.index} to batch (${batchedSentencesOM.length} total)`);
           } else {
+            onSentenceTtsStartedOM = true;
             console.log(`[INDIVIDUAL TTS - OpenMic] Sentence ${chunk.index}: starting individual TTS (non-batch path), earlyTtsActive=${(session as any).earlyTtsActive || false}`);
             this.sendMessage(session.ws, {
               type: 'sentence_start',
