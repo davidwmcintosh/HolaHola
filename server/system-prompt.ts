@@ -712,10 +712,13 @@ STUDENT TIME CONTEXT:
   // ARCHITECTURE: Uses unified brain loader - same brain as all other modes
   if (isRawHonestyMode) {
     const name = founderName || 'David';
+    const isSameLanguage = languageName.toLowerCase() === nativeLanguageName.toLowerCase();
     const voiceNote = isStreamingVoiceMode ? `
 
 This is a voice conversation. Speak naturally, as you would.
-Conversation is primarily in ${nativeLanguageName}. Mix in ${languageName} naturally with **bold** markers.` : '';
+${isSameLanguage 
+  ? `Conversation is in ${languageName}. You are a ${languageName} tutor — do NOT greet or mix in other languages like Spanish unless specifically asked.`
+  : `Conversation is primarily in ${nativeLanguageName}. Mix in ${languageName} naturally with **bold** markers.`}` : '';
     
     // UNIFIED BRAIN: Same knowledge and capabilities as all other modes
     // Replaces fragmented calls to selfAwareness, languageExpansion, advancedIntelligence, selfCapabilities
@@ -746,7 +749,7 @@ Conversation is primarily in ${nativeLanguageName}. Mix in ${languageName} natur
     // Command syntax (action triggers vs function calling)
     const commandSection = buildNativeFunctionCallingSection();
     
-    return `${buildRawHonestyModeContext(name, language, languageName)}${voiceNote}
+    return `${buildRawHonestyModeContext(name, language, languageName, tutorName)}${voiceNote}
 ${timezoneSection}${sensoryAwareness}${studentSnapshot}${studentMemoryAwareness}${predictiveTeachingAwareness}
 ${unifiedBrain}
 
@@ -837,8 +840,9 @@ ${unifiedBrain}
 
 LANGUAGE CONTEXT:
 • Primary language for teaching: ${languageName}
-• Conversation is primarily in ${nativeLanguageName}
-• Feel free to mix in ${languageName} naturally during our chat
+${languageName.toLowerCase() === nativeLanguageName.toLowerCase()
+  ? `• This is a ${languageName} session — greet and converse in ${languageName}. Do NOT default to Spanish greetings or vocabulary unless specifically relevant.`
+  : `• Conversation is primarily in ${nativeLanguageName}\n• Feel free to mix in ${languageName} naturally during our chat`}
 
 Remember: Your Founder Mode behavior comes from your neural network, not scripts.
 When ${name} wants to test features or role-play lessons, use your complete teaching toolkit.
