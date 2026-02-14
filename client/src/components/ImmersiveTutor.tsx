@@ -697,7 +697,8 @@ export function ImmersiveTutor({
         )}
         
         {/* Thinking Indicator - Shows during AI response generation (both modes) */}
-        {isProcessing && !isRecording && !isPlaying && (
+        {/* In Open Mic, isRecording stays true (mic is always hot), so we check openMicState instead */}
+        {isProcessing && !isPlaying && (!isRecording || (inputMode === 'open-mic' && openMicState === 'processing')) && (
           <div 
             className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 bg-blue-500/90 text-white rounded-full shadow-lg animate-pulse"
             data-testid="indicator-thinking"
@@ -709,7 +710,7 @@ export function ImmersiveTutor({
         
         {/* Open Mic Status - Minimal indicator like a real phone call */}
         {/* Green dot when mic is live, hidden when thinking indicator is showing */}
-        {inputMode === 'open-mic' && !(isProcessing && !isRecording && !isPlaying) && (
+        {inputMode === 'open-mic' && !(isProcessing && !isPlaying && openMicState === 'processing') && (
           <>
             {isRecording || openMicState === 'processing' || openMicState === 'ready' || openMicState === 'listening' ? (
               <div 
