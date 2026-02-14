@@ -471,6 +471,13 @@ export class StreamingAudioPlayer {
   }
   
   /**
+   * Get the current AudioContext state for external monitoring (e.g., mobile recovery)
+   */
+  getAudioContextState(): AudioContextState | 'uninitialized' {
+    return this.audioContext ? this.audioContext.state : 'uninitialized';
+  }
+  
+  /**
    * Get the combined audio blob for replay
    * Returns null if no audio has been played yet
    */

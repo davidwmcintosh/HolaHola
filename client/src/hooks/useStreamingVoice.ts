@@ -366,6 +366,43 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   }, []);
   
   /**
+   * Mobile visibility recovery: Resume AudioContext and clear stuck isProcessing
+   * when user returns to the app after screen lock / app switch.
+   * 
+   * On mobile browsers (especially iOS Safari and Chrome), the AudioContext gets
+   * suspended when the app goes to background. This causes the audio player's
+   * timing loop to stall, so onComplete/onSentenceStart callbacks never fire,
+   * and isProcessing stays true forever — permanently locking the mic button.
+   */
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[StreamingVoice] App became visible — checking AudioContext and processing state');
+        
+        if (playerRef.current) {
+          playerRef.current.resumeAudioContext().catch(() => {});
+        }
+        
+        setTimeout(() => {
+          if (responseCompleteRef.current && pendingAudioCountRef.current === 0) {
+            console.log('[StreamingVoice] Visibility recovery: response was complete, clearing stuck isProcessing');
+            audioReceivedInTurnRef.current = false;
+            setIsProcessingRef.current(false);
+          } else if (responseCompleteRef.current) {
+            console.log('[StreamingVoice] Visibility recovery: response complete but pendingAudio > 0, force-clearing');
+            pendingAudioCountRef.current = 0;
+            audioReceivedInTurnRef.current = false;
+            setIsProcessingRef.current(false);
+          }
+        }, 500);
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+  
+  /**
    * Handle processing message (new turn started)
    * This sets the turnId for subtitle packet ordering, preventing phantom subtitles
    * 
@@ -459,13 +496,15 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     }
     
     // Activity detected - extend the safety timeout since audio generation is underway
+    // 45s is enough for even long multi-sentence TTS to complete (reduced from 180s
+    // which left mobile users stuck for 3 minutes when AudioContext suspended)
     if (processingTimeoutRef.current) {
       clearTimeout(processingTimeoutRef.current);
       processingTimeoutRef.current = setTimeout(() => {
         console.log('[StreamingVoice] Processing timeout - resetting stuck thinking state');
         setIsProcessing(false);
         setError('Response timeout - please try again');
-      }, 180000);
+      }, 45000);
     }
     
     // Store turnId for callbacks (in case processing message wasn't received)
@@ -872,6 +911,24 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
         setIsProcessingRef.current(false);
       }
     }, 1000);
+    
+    // HARD FAILSAFE: Clear stuck isProcessing after 20 seconds.
+    // On mobile, AudioContext suspension can prevent ALL audio callbacks from firing,
+    // leaving isProcessing stuck true permanently (mic locked). Only triggers when
+    // the audio context is suspended/closed (mobile background) or playback is idle,
+    // NOT during active playback — avoids premature mic unlock mid-sentence.
+    setTimeout(() => {
+      if (!responseCompleteRef.current) return;
+      const player = playerRef.current;
+      const ctxState = player?.getAudioContextState?.() || 'unknown';
+      const isStuck = ctxState === 'suspended' || ctxState === 'closed' || ctxState === 'uninitialized' || pendingAudioCountRef.current === 0;
+      if (isStuck) {
+        console.log(`[StreamingVoice] Hard failsafe: force-clearing isProcessing 20s after response_complete (ctxState=${ctxState}, pending=${pendingAudioCountRef.current})`);
+        pendingAudioCountRef.current = 0;
+        audioReceivedInTurnRef.current = false;
+        setIsProcessingRef.current(false);
+      }
+    }, 20000);
   }, [checkAndClearProcessing]);
 
   const handleExpectedSentenceCount = useCallback((data: { count: number }) => {
