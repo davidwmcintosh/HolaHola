@@ -865,13 +865,13 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     // pendingAudioCount stuck > 0 from a previous bug), schedule a delayed force-clear.
     // Progressive PCM streaming never increments pendingAudioCount, so if response_complete
     // arrived, it's safe to clear after a short delay for audio to finish.
-    // Extended to 5s to give audio player time to start playing (prevents thinking→listening flash)
+    // 1s is sufficient — the audio player's timing loop handles actual playback state
     setTimeout(() => {
       if (responseCompleteRef.current && pendingAudioCountRef.current === 0) {
         audioReceivedInTurnRef.current = false;
         setIsProcessingRef.current(false);
       }
-    }, 5000);
+    }, 1000);
   }, [checkAndClearProcessing]);
 
   const handleExpectedSentenceCount = useCallback((data: { count: number }) => {

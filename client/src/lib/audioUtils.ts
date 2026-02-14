@@ -1620,7 +1620,7 @@ export class StreamingAudioPlayer {
           return;
         }
         
-        // SAFETY NET: If we're 5+ seconds past the last sentence's end time, force stop
+        // SAFETY NET: If we're 1+ second past the last sentence's end time, force stop
         // This prevents zombie loops when state tracking fails
         if (this.sentenceSchedule.size > 0) {
           let maxEndTime = 0;
@@ -1632,7 +1632,7 @@ export class StreamingAudioPlayer {
           }
           
           const secondsPastEnd = now - maxEndTime;
-          if (secondsPastEnd > 5) {
+          if (secondsPastEnd > 1) {
             console.warn(`[SAFETY NET] Loop running ${secondsPastEnd.toFixed(1)}s past last audio - forcing stop`);
             this.isPlaying = false;
             this.setState('idle');
