@@ -912,23 +912,37 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       }
     }, 1000);
     
-    // HARD FAILSAFE: Clear stuck isProcessing after 20 seconds.
-    // On mobile, AudioContext suspension can prevent ALL audio callbacks from firing,
-    // leaving isProcessing stuck true permanently (mic locked). Only triggers when
-    // the audio context is suspended/closed (mobile background) or playback is idle,
-    // NOT during active playback — avoids premature mic unlock mid-sentence.
+    // TIERED HARD FAILSAFE: Two tiers to cover both mobile and desktop lockout.
+    //
+    // Tier 1 (20s): AudioContext-aware — catches mobile suspension where audio callbacks
+    // never fire because the OS suspended the AudioContext. Only triggers when context
+    // is suspended/closed/uninitialized, preventing premature mic unlock on desktop.
     setTimeout(() => {
       if (!responseCompleteRef.current) return;
       const player = playerRef.current;
       const ctxState = player?.getAudioContextState?.() || 'unknown';
-      const isStuck = ctxState === 'suspended' || ctxState === 'closed' || ctxState === 'uninitialized' || pendingAudioCountRef.current === 0;
-      if (isStuck) {
-        console.log(`[StreamingVoice] Hard failsafe: force-clearing isProcessing 20s after response_complete (ctxState=${ctxState}, pending=${pendingAudioCountRef.current})`);
+      if (ctxState === 'suspended' || ctxState === 'closed' || ctxState === 'uninitialized') {
+        console.log(`[StreamingVoice] Tier-1 failsafe (20s): AudioContext ${ctxState} — force-clearing isProcessing (pending=${pendingAudioCountRef.current})`);
         pendingAudioCountRef.current = 0;
         audioReceivedInTurnRef.current = false;
         setIsProcessingRef.current(false);
       }
     }, 20000);
+    
+    // Tier 2 (45s): Unconditional — catches ALL stuck states including desktop scenarios
+    // where AudioContext is "running" but audio callbacks silently failed (decode error,
+    // timing loop stall, race condition). 45s is well beyond any legitimate single-turn
+    // audio playback duration. If response_complete arrived 45s ago and mic is still
+    // locked, something is definitively stuck.
+    setTimeout(() => {
+      if (!responseCompleteRef.current) return;
+      const player = playerRef.current;
+      const ctxState = player?.getAudioContextState?.() || 'unknown';
+      console.log(`[StreamingVoice] Tier-2 failsafe (45s): unconditional force-clear isProcessing (ctxState=${ctxState}, pending=${pendingAudioCountRef.current})`);
+      pendingAudioCountRef.current = 0;
+      audioReceivedInTurnRef.current = false;
+      setIsProcessingRef.current(false);
+    }, 45000);
   }, [checkAndClearProcessing]);
 
   const handleExpectedSentenceCount = useCallback((data: { count: number }) => {
