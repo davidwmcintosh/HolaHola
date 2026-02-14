@@ -755,10 +755,8 @@ export function ImmersiveTutor({
 
       {/* Floating Microphone Button - compact layout with safe bottom padding */}
       <div className="flex-shrink-0 pt-2 pb-6 flex flex-col items-center gap-2">
-        {/* Input Mode Toggle - Developer only (Open Mic still in development) */}
-        {/* TODO: Unmask for all users when Open Mic is production-ready */}
-        {/* See docs/batch-doc-updates.md for tracking */}
-        {setInputMode && isDeveloper && (
+        {/* Input Mode Toggle - Available to all users */}
+        {setInputMode && (
           <div className="flex items-center gap-2 mb-1">
             <Button
               variant="outline"
