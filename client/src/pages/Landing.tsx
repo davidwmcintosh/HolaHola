@@ -14,7 +14,7 @@ import italianFemale from "@assets/Tutor_Images/Female/Italian_Female_Talking_No
 import japaneseFemale from "@assets/Tutor_Images/Female/Japanese_Female_Talking_No_Background.jpg";
 import chineseMale from "@assets/Tutor_Images/Male/Chinese_Male_Talking.jpg";
 import koreanFemale from "@assets/Tutor_Images/Female/Korean_Female_Talking_No_Background.jpg";
-import englishFemale from "@assets/Tutor_Images/Female/English_Talking-No_Background.jpg";
+import englishFemale from "@assets/Cindy-No-Background_1771031411355.jpeg";
 import portugueseFemale from "@assets/Tutor_Images/Female/Portuguese_Female_Talking_No_Background.jpg";
 
 // Featured tutors with fallback names - actual names fetched from database

@@ -7,7 +7,7 @@ import chineseFemaleTalking from "@assets/Tutor_Images/Female/Chinese_Female_Tal
 import chineseFemaleThinking from "@assets/Tutor_Images/Female/Chinese_Female_Thinking_No_Background.jpg";
 
 import englishFemaleListening from "@assets/Tutor_Images/Female/English_Listening_No_Background.jpg";
-import englishFemaleTalking from "@assets/Tutor_Images/Female/English_Talking-No_Background.jpg";
+import englishFemaleTalking from "@assets/Cindy-No-Background_1771031411355.jpeg";
 import englishFemaleThinking from "@assets/Tutor_Images/Female/English_Thinking_No_Background.jpg";
 
 import frenchFemaleListening from "@assets/Tutor_Images/Female/French_Female_Listening_No_Background.jpg";
