@@ -696,9 +696,8 @@ export function ImmersiveTutor({
           </div>
         )}
         
-        {/* Thinking Indicator - Shows during AI response generation (push-to-talk only) */}
-        {/* Only show when processing AND not recording AND not already playing */}
-        {isProcessing && !isRecording && !isPlaying && inputMode === 'push-to-talk' && (
+        {/* Thinking Indicator - Shows during AI response generation (both modes) */}
+        {isProcessing && !isRecording && !isPlaying && (
           <div 
             className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 bg-blue-500/90 text-white rounded-full shadow-lg animate-pulse"
             data-testid="indicator-thinking"
@@ -709,17 +708,15 @@ export function ImmersiveTutor({
         )}
         
         {/* Open Mic Status - Minimal indicator like a real phone call */}
-        {/* Just a small green dot when mic is live, nothing else */}
-        {inputMode === 'open-mic' && (
+        {/* Green dot when mic is live, hidden when thinking indicator is showing */}
+        {inputMode === 'open-mic' && !(isProcessing && !isRecording && !isPlaying) && (
           <>
             {isRecording || openMicState === 'processing' || openMicState === 'ready' || openMicState === 'listening' ? (
-              // MIC HOT: Small green dot - no text, no distraction
               <div 
                 className="absolute top-4 right-4 w-4 h-4 bg-green-500 rounded-full shadow-lg"
                 data-testid="indicator-mic-hot"
               />
             ) : (
-              // MIC OFF: Small gray dot
               <div 
                 className="absolute top-4 right-4 w-4 h-4 bg-gray-400 rounded-full shadow-lg opacity-50"
                 data-testid="indicator-mic-off"

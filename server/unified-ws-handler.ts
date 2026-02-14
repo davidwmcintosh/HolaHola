@@ -1634,14 +1634,17 @@ Reference past discussions when relevant, but don't force it.
               onUtteranceEnd: async (transcript, confidence) => {
                 console.log(`[OpenMic] VAD: Utterance end - "${transcript}" (${(confidence * 100).toFixed(0)}%)`);
                 
+                const isEmptyTranscript = !transcript.trim() || transcript.trim() === '[EMPTY_TRANSCRIPT]';
+                
                 if (ws.readyState === WS.OPEN) {
                   ws.send(JSON.stringify({
                     type: 'vad_utterance_end',
                     timestamp: Date.now(),
+                    empty: isEmptyTranscript,
                   }));
                 }
                 
-                if (transcript.trim() && session) {
+                if (!isEmptyTranscript && session) {
                   try {
                     await orchestrator.processOpenMicTranscript(
                       session.id,
@@ -1652,6 +1655,8 @@ Reference past discussions when relevant, but don't force it.
                     console.error('[OpenMic] Error processing utterance:', err);
                     sendError(ws, 'AI_FAILED', 'Failed to process speech', true);
                   }
+                } else if (isEmptyTranscript) {
+                  console.log('[OpenMic] Empty transcript - skipping AI processing, resetting client state');
                 }
               },
               onInterimTranscript: (transcript) => {
@@ -3340,14 +3345,17 @@ ${buildNativeFunctionCallingSection()}`;
               onUtteranceEnd: async (transcript, confidence) => {
                 console.log(`[OpenMic] VAD: Utterance end - "${transcript}" (${(confidence * 100).toFixed(0)}%)`);
                 
+                const isEmptyTranscript = !transcript.trim() || transcript.trim() === '[EMPTY_TRANSCRIPT]';
+                
                 if (ws.readyState === SocketIOWebSocketAdapter.OPEN) {
                   ws.send(JSON.stringify({
                     type: 'vad_utterance_end',
                     timestamp: Date.now(),
+                    empty: isEmptyTranscript,
                   }));
                 }
                 
-                if (transcript.trim() && session) {
+                if (!isEmptyTranscript && session) {
                   try {
                     await orchestrator.processOpenMicTranscript(
                       session.id,
@@ -3358,6 +3366,8 @@ ${buildNativeFunctionCallingSection()}`;
                     console.error('[OpenMic] Error processing utterance:', err);
                     sendErrorAdapter(ws, 'AI_FAILED', 'Failed to process speech', true);
                   }
+                } else if (isEmptyTranscript) {
+                  console.log('[OpenMic] Empty transcript - skipping AI processing, resetting client state');
                 }
               },
               onInterimTranscript: (transcript) => {

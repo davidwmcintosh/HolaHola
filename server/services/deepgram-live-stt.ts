@@ -424,6 +424,7 @@ export class OpenMicSession {
   private keepaliveInterval: NodeJS.Timeout | null = null;
   private isSuppressed = false;
   private lastFinalSegment = '';  // Deduplication: Track last final segment to prevent duplicates
+  private emptySpeechFinalTimeout: NodeJS.Timeout | null = null;
   
   constructor(language: string, events: OpenMicEvents, keyterms?: string[]) {
     this.language = language;
@@ -545,6 +546,12 @@ export class OpenMicSession {
         
         this.connection.on(LiveTranscriptionEvents.UtteranceEnd, () => {
           console.log(`[OpenMic] Utterance end - transcript: "${this.currentTranscript}"`);
+          
+          // Clear the safety timeout since real UtteranceEnd arrived
+          if (this.emptySpeechFinalTimeout) {
+            clearTimeout(this.emptySpeechFinalTimeout);
+            this.emptySpeechFinalTimeout = null;
+          }
           
           // ECHO SUPPRESSION: Don't process utterance end while TTS is playing
           if (this.isSuppressed) {
@@ -765,6 +772,24 @@ export class OpenMicSession {
           // This gives users more time to pause and think without being cut off
           if (data.speech_final) {
             console.log(`[OpenMic] Speech final detected (NOT auto-submitting - waiting for UtteranceEnd)`);
+            
+            // SAFETY: When speech_final fires with empty transcript, Deepgram may never
+            // send UtteranceEnd (no real utterance to end). Set a fallback timeout to
+            // prevent the user from being stuck in limbo forever.
+            if (!this.currentTranscript.trim() && !transcript.trim()) {
+              if (this.emptySpeechFinalTimeout) clearTimeout(this.emptySpeechFinalTimeout);
+              this.emptySpeechFinalTimeout = setTimeout(() => {
+                this.emptySpeechFinalTimeout = null;
+                if (this.isSuppressed) return;
+                console.log('[OpenMic] SAFETY: UtteranceEnd never arrived after empty speech_final - forcing utterance end');
+                this.events.onUtteranceEnd?.('[EMPTY_TRANSCRIPT]', 0);
+                this.currentTranscript = '';
+                this.currentConfidence = 0;
+                this.currentIntelligence = {};
+                this.lastFinalSegment = '';
+                this.bestInterimForSegment = '';
+              }, 2000);
+            }
           }
         });
         
@@ -891,6 +916,10 @@ export class OpenMicSession {
     if (this.keepaliveInterval) {
       clearInterval(this.keepaliveInterval);
       this.keepaliveInterval = null;
+    }
+    if (this.emptySpeechFinalTimeout) {
+      clearTimeout(this.emptySpeechFinalTimeout);
+      this.emptySpeechFinalTimeout = null;
     }
     
     if (this.connection) {

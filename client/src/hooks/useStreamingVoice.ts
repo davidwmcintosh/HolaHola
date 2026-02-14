@@ -67,7 +67,7 @@ export interface StreamingSessionConfig {
   /** Called when VAD detects speech start (open mic mode) */
   onVadSpeechStarted?: () => void;
   /** Called when VAD detects utterance end (open mic mode) */
-  onVadUtteranceEnd?: (transcript: string) => void;
+  onVadUtteranceEnd?: (transcript: string, empty?: boolean) => void;
   /** Called when interim transcript available (open mic mode) */
   onInterimTranscript?: (transcript: string) => void;
   /** Called when open mic session closes (e.g., Deepgram timeout) */
@@ -961,11 +961,11 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   /**
    * Handle VAD utterance end event (open mic mode)
    */
-  const handleVadUtteranceEnd = useCallback((message: { type: string; transcript?: string }) => {
+  const handleVadUtteranceEnd = useCallback((message: { type: string; transcript?: string; empty?: boolean }) => {
     if (isVerboseLoggingEnabled()) {
-      console.log('[StreamingVoice] VAD utterance end, transcript:', message.transcript);
+      console.log('[StreamingVoice] VAD utterance end, transcript:', message.transcript, 'empty:', message.empty);
     }
-    sessionConfigRef.current?.onVadUtteranceEnd?.(message.transcript || '');
+    sessionConfigRef.current?.onVadUtteranceEnd?.(message.transcript || '', message.empty);
   }, []);
   
   /**

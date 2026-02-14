@@ -836,13 +836,20 @@ export function StreamingVoiceChat({
               console.log('[OPEN MIC] Daniela hasnt spoken yet - keeping mic blue (waiting for her to answer)');
             }
           },
-          onVadUtteranceEnd: (transcript) => {
-            console.log('[OPEN MIC] VAD utterance end, transcript:', transcript);
+          onVadUtteranceEnd: (transcript, empty) => {
+            console.log('[OPEN MIC] VAD utterance end, transcript:', transcript, 'empty:', empty);
+            if (empty) {
+              console.log('[OPEN MIC] Empty transcript - resetting to listening (no AI call needed)');
+              setOpenMicState('ready');
+              setIsProcessing(false);
+              isProcessingRef.current = false;
+              isAwaitingResponseRef.current = false;
+              return;
+            }
             setOpenMicState('processing');
-            // CRITICAL: Set isProcessing so ImmersiveTutor shows "thinking" avatar
             setIsProcessing(true);
             isProcessingRef.current = true;
-            isAwaitingResponseRef.current = true; // Block further VAD until response complete
+            isAwaitingResponseRef.current = true;
           },
           onInterimTranscript: (transcript) => {
             console.log('[OPEN MIC] Interim transcript:', transcript);
@@ -2676,8 +2683,16 @@ export function StreamingVoiceChat({
                   console.log('[OPEN MIC] Daniela hasnt spoken yet - keeping mic blue (reconnect)');
                 }
               },
-              onVadUtteranceEnd: (transcript) => {
-                console.log('[OPEN MIC] VAD utterance end, transcript:', transcript);
+              onVadUtteranceEnd: (transcript, empty) => {
+                console.log('[OPEN MIC] VAD utterance end (reconnect), transcript:', transcript, 'empty:', empty);
+                if (empty) {
+                  console.log('[OPEN MIC] Empty transcript (reconnect) - resetting to listening');
+                  setOpenMicState('ready');
+                  setIsProcessing(false);
+                  isProcessingRef.current = false;
+                  isAwaitingResponseRef.current = false;
+                  return;
+                }
                 setOpenMicState('processing');
                 isAwaitingResponseRef.current = true;
               },
