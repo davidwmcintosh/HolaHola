@@ -1611,35 +1611,32 @@ export class StreamingAudioPlayer {
       
       // FALLBACK: Periodically check if we should stop (every 30 frames)
       if (frameCount % 30 === 0) {
-        const allEnded = this.checkAllSentencesEnded();
-        if (allEnded) {
+        // ROBUST END DETECTION: Directly mark sentences as ended and check completion
+        // This mirrors the minimal loop's reliable approach — doesn't depend on
+        // expectedSentenceCount or the "else" branch running first
+        const FALLBACK_GRACE = 0.15;
+        const fallbackEntries = Array.from(this.sentenceSchedule.entries());
+        let fallbackAllEnded = true;
+        let fallbackAnyStarted = false;
+        for (const [fbIdx, fbEntry] of fallbackEntries) {
+          const fbEndTime = fbEntry.endCtxTime ?? (fbEntry.startCtxTime + fbEntry.totalDuration);
+          if (!fbEntry.started && now >= fbEntry.startCtxTime) {
+            fbEntry.started = true;
+          }
+          if (!fbEntry.ended && now >= fbEndTime + FALLBACK_GRACE) {
+            fbEntry.ended = true;
+            if (!fbEntry.started) fbEntry.started = true;
+            this.notifySentenceEnd(fbIdx);
+          }
+          if (fbEntry.started) fallbackAnyStarted = true;
+          if (!fbEntry.ended) fallbackAllEnded = false;
+        }
+        if (fallbackAnyStarted && fallbackAllEnded && fallbackEntries.length > 0) {
           this.isPlaying = false;
           this.setState('idle');
           this.stopPrecisionTiming();
           this.notifyComplete();
           return;
-        }
-        
-        // SAFETY NET: If we're 1+ second past the last sentence's end time, force stop
-        // This prevents zombie loops when state tracking fails
-        if (this.sentenceSchedule.size > 0) {
-          let maxEndTime = 0;
-          const scheduleIter = Array.from(this.sentenceSchedule.values());
-          for (let i = 0; i < scheduleIter.length; i++) {
-            const entry = scheduleIter[i];
-            const endT = entry.endCtxTime ?? (entry.startCtxTime + entry.totalDuration);
-            if (endT > maxEndTime) maxEndTime = endT;
-          }
-          
-          const secondsPastEnd = now - maxEndTime;
-          if (secondsPastEnd > 1) {
-            console.warn(`[SAFETY NET] Loop running ${secondsPastEnd.toFixed(1)}s past last audio - forcing stop`);
-            this.isPlaying = false;
-            this.setState('idle');
-            this.stopPrecisionTiming();
-            this.notifyComplete();
-            return; // Force exit
-          }
         }
       }
       
