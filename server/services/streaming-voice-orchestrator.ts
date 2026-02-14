@@ -2858,9 +2858,42 @@ Remember: Beta testers understand they're helping build something and appreciate
               }
 
               const effectiveTtsProviderPTT = session.ttsProvider || this.ttsProvider;
+              const isGoogleBatchModeFCPTT = effectiveTtsProviderPTT === 'google';
               const shouldPipelinePTT = sentences.length > 1 && effectiveTtsProviderPTT === 'gemini' && !session.isAssistantActive;
 
-              if (shouldPipelinePTT) {
+              if (isGoogleBatchModeFCPTT && !session.isInterrupted) {
+                console.log(`[Google Batch TTS - FC PTT] Combining ${sentences.length} sentences (${embeddedText.length} chars) for single TTS call`);
+                const batchTtsStartFC = Date.now();
+
+                for (let i = 0; i < sentences.length; i++) {
+                  seenSentences.add(sentences[i].toLowerCase().trim());
+                }
+
+                const batchExtraction = extractTargetLanguageWithMapping(embeddedText, allBoldWords);
+                const batchWordMapping: [number, number][] = batchExtraction.wordMapping.size > 0
+                  ? Array.from(batchExtraction.wordMapping.entries()) : [];
+                const batchHasTarget = !!(batchExtraction.targetText && batchExtraction.targetText.trim().length > 0);
+
+                this.sendMessage(session.ws, {
+                  type: 'sentence_start',
+                  timestamp: Date.now(),
+                  turnId: session.turnId || session.currentTurnId,
+                  sentenceIndex: 0,
+                  text: embeddedText,
+                  hasTargetContent: batchHasTarget,
+                  targetLanguageText: batchHasTarget ? batchExtraction.targetText : undefined,
+                  wordMapping: batchHasTarget && batchWordMapping.length > 0 ? batchWordMapping : undefined,
+                } as StreamingSentenceStartMessage);
+
+                const batchChunkFC: SentenceChunk = { index: 0, text: embeddedText, isComplete: true, isFinal: true };
+                if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
+                  await this.streamSentenceAudioProgressive(session, batchChunkFC, embeddedText, metrics, session.turnId || `turn-${Date.now()}`, allBoldWords);
+                } else {
+                  await this.streamSentenceAudio(session, batchChunkFC, embeddedText, metrics, session.turnId || `turn-${Date.now()}`);
+                }
+
+                console.log(`[Google Batch TTS - FC PTT] Complete. TTS duration: ${Date.now() - batchTtsStartFC}ms for ${sentences.length} sentences`);
+              } else if (shouldPipelinePTT) {
                 const MAX_PREGEN_SENTENCES = 4;
                 const preGenCount = Math.min(sentences.length, MAX_PREGEN_SENTENCES);
                 console.log(`[Early TTS] PIPELINED: Pre-generating ${preGenCount}/${sentences.length} sentences in parallel`);
@@ -5494,9 +5527,42 @@ Remember: Beta testers understand they're helping build something and appreciate
               }
 
               const effectiveTtsProvider = session.ttsProvider || this.ttsProvider;
+              const isGoogleBatchModeFCOM = effectiveTtsProvider === 'google';
               const shouldPipeline = sentences.length > 1 && effectiveTtsProvider === 'gemini' && !session.isAssistantActive;
 
-              if (shouldPipeline) {
+              if (isGoogleBatchModeFCOM && !session.isInterrupted) {
+                console.log(`[Google Batch TTS - FC OpenMic] Combining ${sentences.length} sentences (${embeddedText.length} chars) for single TTS call`);
+                const batchTtsStartFC = Date.now();
+
+                for (let i = 0; i < sentences.length; i++) {
+                  seenSentences.add(sentences[i].toLowerCase().trim());
+                }
+
+                const batchExtraction = extractTargetLanguageWithMapping(embeddedText, allBoldWords);
+                const batchWordMapping: [number, number][] = batchExtraction.wordMapping.size > 0
+                  ? Array.from(batchExtraction.wordMapping.entries()) : [];
+                const batchHasTarget = !!(batchExtraction.targetText && batchExtraction.targetText.trim().length > 0);
+
+                this.sendMessage(session.ws, {
+                  type: 'sentence_start',
+                  timestamp: Date.now(),
+                  turnId: session.turnId || session.currentTurnId,
+                  sentenceIndex: 0,
+                  text: embeddedText,
+                  hasTargetContent: batchHasTarget,
+                  targetLanguageText: batchHasTarget ? batchExtraction.targetText : undefined,
+                  wordMapping: batchHasTarget && batchWordMapping.length > 0 ? batchWordMapping : undefined,
+                } as StreamingSentenceStartMessage);
+
+                const batchChunkFC: SentenceChunk = { index: 0, text: embeddedText, isComplete: true, isFinal: true };
+                if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
+                  await this.streamSentenceAudioProgressive(session, batchChunkFC, embeddedText, metrics, session.turnId || `turn-${Date.now()}`, allBoldWords);
+                } else {
+                  await this.streamSentenceAudio(session, batchChunkFC, embeddedText, metrics, session.turnId || `turn-${Date.now()}`);
+                }
+
+                console.log(`[Google Batch TTS - FC OpenMic] Complete. TTS duration: ${Date.now() - batchTtsStartFC}ms for ${sentences.length} sentences`);
+              } else if (shouldPipeline) {
                 const MAX_PREGEN_SENTENCES = 4;
                 const preGenCount = Math.min(sentences.length, MAX_PREGEN_SENTENCES);
                 console.log(`[Early TTS - OpenMic] PIPELINED: Pre-generating ${preGenCount}/${sentences.length} sentences in parallel`);
@@ -5591,7 +5657,7 @@ Remember: Beta testers understand they're helping build something and appreciate
 
               streamAbortSignalOpenMic.aborted = true;
 
-              console.log(`[Early TTS - OpenMic] TTS completed in ${Date.now() - earlyTtsStart}ms (${sentences.length} sentences${shouldPipeline ? ', pipelined' : ''})`);
+              console.log(`[Early TTS - OpenMic] TTS completed in ${Date.now() - earlyTtsStart}ms (${sentences.length} sentences${isGoogleBatchModeFCOM ? ', Google batch' : shouldPipeline ? ', pipelined' : ''})`);
             }
           }
         },
@@ -10854,34 +10920,63 @@ Only include observations you can clearly justify from the exchange. Return empt
         if (displayText) {
           const boldWords = extractBoldMarkedWords(functionCallText || '');
           const greetingSentences = splitTextIntoSentences(displayText);
-          console.log(`[Streaming Greeting] Splitting function call text (${displayText.length} chars) → ${greetingSentences.length} sentences for pipelined TTS`);
+          const effectiveTtsProviderGreeting = session.ttsProvider || this.ttsProvider;
+          const isGoogleBatchModeGreeting = effectiveTtsProviderGreeting === 'google';
+          console.log(`[Streaming Greeting] Splitting function call text (${displayText.length} chars) → ${greetingSentences.length} sentences for pipelined TTS${isGoogleBatchModeGreeting ? ' (Google batch mode)' : ''}`);
 
-          for (let si = 0; si < greetingSentences.length; si++) {
-            if (session.isInterrupted) break;
-            const sentenceText = greetingSentences[si];
-            const extraction = extractTargetLanguageWithMapping(sentenceText, boldWords);
-            const wordMappingArray: [number, number][] = extraction.wordMapping.size > 0
-              ? Array.from(extraction.wordMapping.entries())
-              : [];
-            const hasTargetContent = !!(extraction.targetText && extraction.targetText.trim().length > 0);
+          if (isGoogleBatchModeGreeting && !session.isInterrupted) {
+            const greetingExtraction = extractTargetLanguageWithMapping(displayText, boldWords);
+            const greetingWordMapping: [number, number][] = greetingExtraction.wordMapping.size > 0
+              ? Array.from(greetingExtraction.wordMapping.entries()) : [];
+            const greetingHasTarget = !!(greetingExtraction.targetText && greetingExtraction.targetText.trim().length > 0);
 
             this.sendMessage(session.ws, {
               type: 'sentence_start',
               timestamp: Date.now(),
               turnId,
-              sentenceIndex: si,
-              text: sentenceText,
-              hasTargetContent,
-              targetLanguageText: hasTargetContent ? extraction.targetText : undefined,
-              wordMapping: hasTargetContent && wordMappingArray.length > 0 ? wordMappingArray : undefined,
-              ...(si === 0 && greetingSentences.length > 1 ? { totalSentences: greetingSentences.length } : {}),
+              sentenceIndex: 0,
+              text: displayText,
+              hasTargetContent: greetingHasTarget,
+              targetLanguageText: greetingHasTarget ? greetingExtraction.targetText : undefined,
+              wordMapping: greetingHasTarget && greetingWordMapping.length > 0 ? greetingWordMapping : undefined,
             } as StreamingSentenceStartMessage);
 
-            const isFinal = si === greetingSentences.length - 1;
+            const batchChunkGreeting: SentenceChunk = { index: 0, text: displayText, isComplete: true, isFinal: true };
+            const batchTtsStartGreeting = Date.now();
             if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
-              await this.streamSentenceAudioProgressive(session, { index: si, text: sentenceText, isFinal }, sentenceText, metrics, turnId);
+              await this.streamSentenceAudioProgressive(session, batchChunkGreeting, displayText, metrics, turnId, boldWords);
             } else {
-              await this.streamSentenceAudio(session, { index: si, text: sentenceText, isFinal }, sentenceText, metrics, turnId);
+              await this.streamSentenceAudio(session, batchChunkGreeting, displayText, metrics, turnId);
+            }
+            console.log(`[Google Batch TTS - Greeting] Complete. TTS duration: ${Date.now() - batchTtsStartGreeting}ms for ${greetingSentences.length} sentences`);
+          } else {
+            for (let si = 0; si < greetingSentences.length; si++) {
+              if (session.isInterrupted) break;
+              const sentenceText = greetingSentences[si];
+              const extraction = extractTargetLanguageWithMapping(sentenceText, boldWords);
+              const wordMappingArray: [number, number][] = extraction.wordMapping.size > 0
+                ? Array.from(extraction.wordMapping.entries())
+                : [];
+              const hasTargetContent = !!(extraction.targetText && extraction.targetText.trim().length > 0);
+
+              this.sendMessage(session.ws, {
+                type: 'sentence_start',
+                timestamp: Date.now(),
+                turnId,
+                sentenceIndex: si,
+                text: sentenceText,
+                hasTargetContent,
+                targetLanguageText: hasTargetContent ? extraction.targetText : undefined,
+                wordMapping: hasTargetContent && wordMappingArray.length > 0 ? wordMappingArray : undefined,
+                ...(si === 0 && greetingSentences.length > 1 ? { totalSentences: greetingSentences.length } : {}),
+              } as StreamingSentenceStartMessage);
+
+              const isFinal = si === greetingSentences.length - 1;
+              if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
+                await this.streamSentenceAudioProgressive(session, { index: si, text: sentenceText, isFinal }, sentenceText, metrics, turnId);
+              } else {
+                await this.streamSentenceAudio(session, { index: si, text: sentenceText, isFinal }, sentenceText, metrics, turnId);
+              }
             }
           }
           
