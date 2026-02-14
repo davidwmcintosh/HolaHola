@@ -856,11 +856,12 @@ export function StreamingVoiceChat({
           onInterimTranscript: (transcript) => {
             console.log('[OPEN MIC] Interim transcript:', transcript);
             
-            // Reinforce 'listening' state when we get actual words from Deepgram
-            // This ensures the recording indicator shows even if VAD speech_started was delayed
+            // Reinforce 'listening' state when we get actual transcribed words from Deepgram
+            // Having real transcript text is the most reliable indicator the user is speaking
             if (transcript && transcript.trim().length > 0) {
-              if (openMicStateRef.current === 'ready' && hasDanielaSpokeOnceRef.current) {
-                console.log('[OPEN MIC] Interim transcript received while ready - setting listening state');
+              const currentOMState = openMicStateRef.current;
+              if (currentOMState !== 'listening' && currentOMState !== 'processing') {
+                console.log('[OPEN MIC] Interim transcript with words - forcing listening state (was:', currentOMState, ')');
                 setOpenMicState('listening');
               }
               
@@ -2708,10 +2709,11 @@ export function StreamingVoiceChat({
               onInterimTranscript: (transcript) => {
                 console.log('[OPEN MIC] Interim transcript:', transcript);
                 
-                // Reinforce 'listening' state when we get actual words from Deepgram (reconnect path)
+                // Reinforce 'listening' state when we get actual transcribed words (reconnect path)
                 if (transcript && transcript.trim().length > 0) {
-                  if (openMicStateRef.current === 'ready' && hasDanielaSpokeOnceRef.current) {
-                    console.log('[OPEN MIC] Interim transcript received while ready (reconnect) - setting listening state');
+                  const currentOMState = openMicStateRef.current;
+                  if (currentOMState !== 'listening' && currentOMState !== 'processing') {
+                    console.log('[OPEN MIC] Interim transcript with words (reconnect) - forcing listening state (was:', currentOMState, ')');
                     setOpenMicState('listening');
                   }
                   

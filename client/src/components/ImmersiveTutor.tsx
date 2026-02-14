@@ -789,15 +789,7 @@ export function ImmersiveTutor({
           const instructionText = isConnecting 
             ? `Calling ${tutorGender === 'male' ? maleVoiceName : femaleVoiceName}...` 
             : inputMode === 'open-mic'
-              ? isPlaying
-                ? ""
-                : openMicState === 'listening'
-                  ? "Recording..."
-                  : isProcessing && openMicState === 'processing'
-                    ? "Processing..."
-                    : isRecording || openMicState === 'ready'
-                      ? "Listening..."
-                      : "Tap to connect"
+              ? ""
               : isRecording || isPttButtonHeld
                 ? "Release to send"
                 : isMicPreparing 
@@ -814,23 +806,15 @@ export function ImmersiveTutor({
           {isConnecting 
             ? `Calling ${tutorGender === 'male' ? maleVoiceName : femaleVoiceName}...` 
             : inputMode === 'open-mic'
-              ? isPlaying
-                ? ""  // No instruction when Daniela is talking - indicator shows "Daniela"
-                : openMicState === 'listening'
-                  ? "Recording..."
-                  : isProcessing && openMicState === 'processing'
-                    ? "Processing..."
-                    : isRecording || openMicState === 'ready'
-                      ? "Listening..."
-                      : "Tap to connect"  // Mic off
+              ? ""
               : isRecording || isPttButtonHeld
-                ? "Release to send"  // Button held takes priority - stable UI during speculative processing
+                ? "Release to send"
                 : isMicPreparing 
                   ? "Preparing mic..." 
                   : isProcessing 
                     ? "Processing..." 
                     : isPlaying || !isUsersTurn
-                      ? "Please wait..."  // Locked out while Daniela speaks or connection not ready
+                      ? "Please wait..."
                       : "Hold to speak"
           }
         </p>
