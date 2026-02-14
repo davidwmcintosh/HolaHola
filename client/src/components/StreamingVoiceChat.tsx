@@ -1097,6 +1097,10 @@ export function StreamingVoiceChat({
         setIsProcessing(false);
         isProcessingRef.current = false;
       }
+      if (isAwaitingResponseRef.current) {
+        console.log('[AVATAR SYNC] Audio playing - clearing isAwaitingResponse');
+        isAwaitingResponseRef.current = false;
+      }
       
       // Mark that Daniela has spoken at least once this session
       hasDanielaSpokeOnceRef.current = true;
@@ -1108,17 +1112,16 @@ export function StreamingVoiceChat({
         console.log('[OPEN MIC DUPLEX] Daniela speaking - showing green light (duplex mode)');
         setOpenMicState('ready');
       }
-    } else if (!streamProcessing && !isProcessingRef.current) {
-      // Not processing (hook) AND not processing (component) AND not playing - reset state
-      // CRITICAL: Don't reset if component's isProcessing is true (user just finished speaking)
-      // The hook's streamProcessing only tracks server-side processing, not our local "thinking" state
+    } else if (!streamProcessing && !isProcessingRef.current && !isAwaitingResponseRef.current) {
+      // Not processing (hook) AND not processing (component) AND not awaiting response AND not playing
+      // The isAwaitingResponseRef guard prevents the "thinking→listening→speaking" blip:
+      // Without it, when streamProcessing clears but audio hasn't started yet, the avatar
+      // briefly drops to "listening" before audio chunks arrive and push it to "speaking"
       
       // OPEN MIC: Show listening immediately when Daniela finishes speaking
       // CRITICAL: Only do this if Daniela has actually spoken at least once (prevents premature green light)
       if (inputModeRef.current === 'open-mic' && hasDanielaSpokeOnceRef.current) {
         console.log('[OPEN MIC] Playback finished - transitioning to listening');
-        // Clear awaiting flag when playback completes
-        isAwaitingResponseRef.current = false;
         
         // IMMEDIATELY show listening state - don't wait for ref checks
         // This fixes the delay where avatar stays in idle/speaking for 4-10 seconds
