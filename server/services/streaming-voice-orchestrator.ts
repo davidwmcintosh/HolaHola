@@ -948,7 +948,7 @@ export function trackStruggle(session: StreamingSession): void {
  */
 export interface StreamingSession {
   id: string;
-  userId: number;
+  userId: string;
   conversationId: string;  // UUID string
   targetLanguage: string;
   nativeLanguage: string;
@@ -1457,7 +1457,7 @@ export class StreamingVoiceOrchestrator {
    */
   async createSession(
     ws: WS,
-    userId: number,
+    userId: string,
     config: ClientStartSessionMessage,
     systemPrompt: string,
     conversationHistory: Array<ConversationHistoryEntry>,

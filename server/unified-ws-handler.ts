@@ -1274,7 +1274,7 @@ Reference past discussions when relevant, but don't force it.
 
           session = await orchestrator.createSession(
             ws,
-            parseInt(userId!),
+            userId!,
             config,
             systemPrompt,
             conversationHistory,
@@ -3171,7 +3171,7 @@ ${buildNativeFunctionCallingSection()}`;
             // Create session with correct parameters
             session = await orchestrator.createSession(
               ws as any,
-              parseInt(userId!),
+              userId!,
               config,
               systemPrompt,
               conversationHistory,

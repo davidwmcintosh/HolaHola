@@ -2998,7 +2998,7 @@ export const hiveConsciousnessService = new HiveConsciousnessService();
  * @returns Formatted conversation history for Gemini (role: user/model pairs)
  */
 export async function getExpressLaneHistoryForVoice(
-  founderId: number,
+  founderId: string | number,
   limit: number = 15
 ): Promise<{ role: 'user' | 'model'; content: string }[]> {
   try {
