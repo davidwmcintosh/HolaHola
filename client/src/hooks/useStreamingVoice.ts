@@ -12,6 +12,7 @@ import { getStreamingVoiceClient, StreamingVoiceClient } from '../lib/streamingV
 import { getStreamingAudioPlayer, StreamingAudioPlayer, StreamingAudioChunk, StreamingPlaybackState, isVerboseLoggingEnabled } from '../lib/audioUtils';
 import { useStreamingSubtitles, UseStreamingSubtitlesReturn } from './useStreamingSubtitles';
 import { logAudioChunkReceived, updateDebugTimingState, trackWsMessage } from '../lib/debugTimingState';
+import { setGlobalPlaybackState } from '../lib/playbackStateStore';
 import { 
   STREAMING_FEATURE_FLAGS,
   type StreamingClientState,
@@ -227,6 +228,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
             console.log(`[StreamingVoice] audioReceived guard timeout: playback never started after 10s — force-clearing (ctxState=${ctxState})`);
             audioReceivedInTurnRef.current = false;
             setIsProcessingRef.current(false);
+            setGlobalPlaybackState('idle');
+            playerRef.current?.stop?.();
           }
         }, 10000);
       } else {
@@ -917,7 +920,10 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     // pendingAudioCount stuck > 0 from a previous bug), schedule a delayed force-clear.
     // Progressive PCM streaming never increments pendingAudioCount, so if response_complete
     // arrived, it's safe to clear after a short delay for audio to finish.
-    // 1s is sufficient — the audio player's timing loop handles actual playback state
+    // 1s is sufficient — the audio player's timing loop handles actual playback state.
+    // NOTE: We don't reset globalPlaybackState here because 1s is too early —
+    // audio may legitimately still be playing. Only the longer failsafes (10s/20s/45s)
+    // should force-reset playback state.
     setTimeout(() => {
       if (responseCompleteRef.current && pendingAudioCountRef.current === 0) {
         audioReceivedInTurnRef.current = false;
@@ -935,10 +941,12 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       const player = playerRef.current;
       const ctxState = player?.getAudioContextState?.() || 'unknown';
       if (ctxState === 'suspended' || ctxState === 'closed' || ctxState === 'uninitialized') {
-        console.log(`[StreamingVoice] Tier-1 failsafe (20s): AudioContext ${ctxState} — force-clearing isProcessing (pending=${pendingAudioCountRef.current})`);
+        console.log(`[StreamingVoice] Tier-1 failsafe (20s): AudioContext ${ctxState} — force-clearing isProcessing AND playback state (pending=${pendingAudioCountRef.current})`);
         pendingAudioCountRef.current = 0;
         audioReceivedInTurnRef.current = false;
         setIsProcessingRef.current(false);
+        setGlobalPlaybackState('idle');
+        player?.stop?.();
       }
     }, 20000);
     
@@ -951,10 +959,12 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       if (!responseCompleteRef.current) return;
       const player = playerRef.current;
       const ctxState = player?.getAudioContextState?.() || 'unknown';
-      console.log(`[StreamingVoice] Tier-2 failsafe (45s): unconditional force-clear isProcessing (ctxState=${ctxState}, pending=${pendingAudioCountRef.current})`);
+      console.log(`[StreamingVoice] Tier-2 failsafe (45s): unconditional force-clear isProcessing AND playback state (ctxState=${ctxState}, pending=${pendingAudioCountRef.current})`);
       pendingAudioCountRef.current = 0;
       audioReceivedInTurnRef.current = false;
       setIsProcessingRef.current(false);
+      setGlobalPlaybackState('idle');
+      player?.stop?.();
     }, 45000);
   }, [checkAndClearProcessing]);
 
