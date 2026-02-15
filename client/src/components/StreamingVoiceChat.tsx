@@ -1641,14 +1641,11 @@ export function StreamingVoiceChat({
       // Don't trigger if no conversation or processing
       if (!currentConversationRef.current || isProcessingRef.current) return;
       
-      // INTERRUPT: If audio is playing, send interrupt signal instead of blocking
-      // This allows user to barge-in and stop Daniela mid-speech
+      // BARGE-IN: If audio is playing, interrupt AND start recording in one keypress
       if (playbackStateRef.current !== 'idle') {
-        console.log(`[KEYBOARD] Sending interrupt - playbackState='${playbackStateRef.current}' (user barge-in via Enter key)`);
+        console.log(`[KEYBOARD] Barge-in: interrupt + record - playbackState='${playbackStateRef.current}'`);
+        streamingVoice.stop();
         streamingVoice.sendInterrupt();
-        // Don't start recording immediately - let interrupt handler reset state
-        event.preventDefault();
-        return;
       }
       
       // Prevent default behavior
@@ -3300,7 +3297,10 @@ export function StreamingVoiceChat({
           openMicState={openMicState}
           isPttButtonHeld={isPttButtonHeld}
           playbackState={globalPlaybackState}
-          onInterrupt={streamingVoice.sendInterrupt}
+          onInterrupt={() => {
+            streamingVoice.stop();
+            streamingVoice.sendInterrupt();
+          }}
           voiceOverride={voiceOverride}
           onVoiceOverrideChange={setVoiceOverride}
           onHelpClick={() => setIsSupportModalOpen(true)}

@@ -4217,27 +4217,55 @@ Remember: Beta testers understand they're helping build something and appreciate
             fullText = embeddedText;
             metrics.sentenceCount = pttSentences.length;
 
-            for (let si = 0; si < pttSentences.length; si++) {
-              if (session.isInterrupted) break;
-              const sentenceText = pttSentences[si];
-              const pttEmbedExtraction = extractTargetLanguageWithMapping(sentenceText, pttEmbedBoldWords);
-              const pttEmbedWordMapping: [number, number][] = pttEmbedExtraction.wordMapping.size > 0
-                ? Array.from(pttEmbedExtraction.wordMapping.entries()) : [];
-              const pttEmbedHasTarget = !!(pttEmbedExtraction.targetText && pttEmbedExtraction.targetText.trim().length > 0);
+            const effectiveTtsProviderPostFC = session.ttsProvider || this.ttsProvider;
+            if (effectiveTtsProviderPostFC === 'google' && pttSentences.length > 1 && !session.isInterrupted) {
+              console.log(`[Google Batch TTS - Post-FC PTT] Combining ${pttSentences.length} sentences (${embeddedText.length} chars) for single TTS call`);
+              const batchTtsStartPostFC = Date.now();
+
+              const pttBatchExtraction = extractTargetLanguageWithMapping(embeddedText, pttEmbedBoldWords);
+              const pttBatchWordMapping: [number, number][] = pttBatchExtraction.wordMapping.size > 0
+                ? Array.from(pttBatchExtraction.wordMapping.entries()) : [];
+              const pttBatchHasTarget = !!(pttBatchExtraction.targetText && pttBatchExtraction.targetText.trim().length > 0);
 
               this.sendMessage(session.ws, {
                 type: 'sentence_start',
                 timestamp: Date.now(),
                 turnId: session.turnId || session.currentTurnId,
-                sentenceIndex: si,
-                text: sentenceText,
-                hasTargetContent: pttEmbedHasTarget,
-                targetLanguageText: pttEmbedHasTarget ? pttEmbedExtraction.targetText : undefined,
-                wordMapping: pttEmbedHasTarget && pttEmbedWordMapping.length > 0 ? pttEmbedWordMapping : undefined,
-                ...(si === 0 && pttSentences.length > 1 ? { totalSentences: pttSentences.length } : {}),
+                sentenceIndex: 0,
+                text: embeddedText,
+                hasTargetContent: pttBatchHasTarget,
+                targetLanguageText: pttBatchHasTarget ? pttBatchExtraction.targetText : undefined,
+                wordMapping: pttBatchHasTarget && pttBatchWordMapping.length > 0 ? pttBatchWordMapping : undefined,
               } as StreamingSentenceStartMessage);
 
-              await this.streamSentenceAudioProgressive(session, { index: si, text: sentenceText }, sentenceText, metrics, session.turnId || `turn-${Date.now()}`, pttEmbedBoldWords);
+              const batchChunkPostFC: SentenceChunk = { index: 0, text: embeddedText, isComplete: true, isFinal: true };
+              await this.streamSentenceAudioProgressive(session, batchChunkPostFC, embeddedText, metrics, session.turnId || `turn-${Date.now()}`, pttEmbedBoldWords);
+
+              metrics.sentenceCount = 1;
+              console.log(`[Google Batch TTS - Post-FC PTT] Complete. TTS duration: ${Date.now() - batchTtsStartPostFC}ms for ${pttSentences.length} sentences`);
+            } else {
+              for (let si = 0; si < pttSentences.length; si++) {
+                if (session.isInterrupted) break;
+                const sentenceText = pttSentences[si];
+                const pttEmbedExtraction = extractTargetLanguageWithMapping(sentenceText, pttEmbedBoldWords);
+                const pttEmbedWordMapping: [number, number][] = pttEmbedExtraction.wordMapping.size > 0
+                  ? Array.from(pttEmbedExtraction.wordMapping.entries()) : [];
+                const pttEmbedHasTarget = !!(pttEmbedExtraction.targetText && pttEmbedExtraction.targetText.trim().length > 0);
+
+                this.sendMessage(session.ws, {
+                  type: 'sentence_start',
+                  timestamp: Date.now(),
+                  turnId: session.turnId || session.currentTurnId,
+                  sentenceIndex: si,
+                  text: sentenceText,
+                  hasTargetContent: pttEmbedHasTarget,
+                  targetLanguageText: pttEmbedHasTarget ? pttEmbedExtraction.targetText : undefined,
+                  wordMapping: pttEmbedHasTarget && pttEmbedWordMapping.length > 0 ? pttEmbedWordMapping : undefined,
+                  ...(si === 0 && pttSentences.length > 1 ? { totalSentences: pttSentences.length } : {}),
+                } as StreamingSentenceStartMessage);
+
+                await this.streamSentenceAudioProgressive(session, { index: si, text: sentenceText }, sentenceText, metrics, session.turnId || `turn-${Date.now()}`, pttEmbedBoldWords);
+              }
             }
             (session as any).functionCallText = undefined;
             (session as any).voiceAdjustText = undefined;
@@ -6610,27 +6638,55 @@ Remember: Beta testers understand they're helping build something and appreciate
             fullText = embeddedText;
             metrics.sentenceCount = omSentences.length;
 
-            for (let si = 0; si < omSentences.length; si++) {
-              if (session.isInterrupted) break;
-              const sentenceText = omSentences[si];
-              const embeddedExtraction = extractTargetLanguageWithMapping(sentenceText, embeddedBoldWords);
-              const embeddedWordMapping: [number, number][] = embeddedExtraction.wordMapping.size > 0
-                ? Array.from(embeddedExtraction.wordMapping.entries()) : [];
-              const embeddedHasTarget = !!(embeddedExtraction.targetText && embeddedExtraction.targetText.trim().length > 0);
+            const effectiveTtsProviderPostFCOM = session.ttsProvider || this.ttsProvider;
+            if (effectiveTtsProviderPostFCOM === 'google' && omSentences.length > 1 && !session.isInterrupted) {
+              console.log(`[Google Batch TTS - Post-FC OpenMic] Combining ${omSentences.length} sentences (${embeddedText.length} chars) for single TTS call`);
+              const batchTtsStartPostFCOM = Date.now();
+
+              const omBatchExtraction = extractTargetLanguageWithMapping(embeddedText, embeddedBoldWords);
+              const omBatchWordMapping: [number, number][] = omBatchExtraction.wordMapping.size > 0
+                ? Array.from(omBatchExtraction.wordMapping.entries()) : [];
+              const omBatchHasTarget = !!(omBatchExtraction.targetText && omBatchExtraction.targetText.trim().length > 0);
 
               this.sendMessage(session.ws, {
                 type: 'sentence_start',
                 timestamp: Date.now(),
                 turnId: session.turnId || session.currentTurnId,
-                sentenceIndex: si,
-                text: sentenceText,
-                hasTargetContent: embeddedHasTarget,
-                targetLanguageText: embeddedHasTarget ? embeddedExtraction.targetText : undefined,
-                wordMapping: embeddedHasTarget && embeddedWordMapping.length > 0 ? embeddedWordMapping : undefined,
-                ...(si === 0 && omSentences.length > 1 ? { totalSentences: omSentences.length } : {}),
+                sentenceIndex: 0,
+                text: embeddedText,
+                hasTargetContent: omBatchHasTarget,
+                targetLanguageText: omBatchHasTarget ? omBatchExtraction.targetText : undefined,
+                wordMapping: omBatchHasTarget && omBatchWordMapping.length > 0 ? omBatchWordMapping : undefined,
               } as StreamingSentenceStartMessage);
 
-              await this.streamSentenceAudioProgressive(session, { index: si, text: sentenceText }, sentenceText, metrics, session.turnId || `turn-${Date.now()}`, embeddedBoldWords);
+              const batchChunkPostFCOM: SentenceChunk = { index: 0, text: embeddedText, isComplete: true, isFinal: true };
+              await this.streamSentenceAudioProgressive(session, batchChunkPostFCOM, embeddedText, metrics, session.turnId || `turn-${Date.now()}`, embeddedBoldWords);
+
+              metrics.sentenceCount = 1;
+              console.log(`[Google Batch TTS - Post-FC OpenMic] Complete. TTS duration: ${Date.now() - batchTtsStartPostFCOM}ms for ${omSentences.length} sentences`);
+            } else {
+              for (let si = 0; si < omSentences.length; si++) {
+                if (session.isInterrupted) break;
+                const sentenceText = omSentences[si];
+                const embeddedExtraction = extractTargetLanguageWithMapping(sentenceText, embeddedBoldWords);
+                const embeddedWordMapping: [number, number][] = embeddedExtraction.wordMapping.size > 0
+                  ? Array.from(embeddedExtraction.wordMapping.entries()) : [];
+                const embeddedHasTarget = !!(embeddedExtraction.targetText && embeddedExtraction.targetText.trim().length > 0);
+
+                this.sendMessage(session.ws, {
+                  type: 'sentence_start',
+                  timestamp: Date.now(),
+                  turnId: session.turnId || session.currentTurnId,
+                  sentenceIndex: si,
+                  text: sentenceText,
+                  hasTargetContent: embeddedHasTarget,
+                  targetLanguageText: embeddedHasTarget ? embeddedExtraction.targetText : undefined,
+                  wordMapping: embeddedHasTarget && embeddedWordMapping.length > 0 ? embeddedWordMapping : undefined,
+                  ...(si === 0 && omSentences.length > 1 ? { totalSentences: omSentences.length } : {}),
+                } as StreamingSentenceStartMessage);
+
+                await this.streamSentenceAudioProgressive(session, { index: si, text: sentenceText }, sentenceText, metrics, session.turnId || `turn-${Date.now()}`, embeddedBoldWords);
+              }
             }
 
             (session as any).functionCallText = undefined;

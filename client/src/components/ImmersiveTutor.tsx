@@ -898,14 +898,15 @@ export function ImmersiveTutor({
                   'isUsersTurn:', isUsersTurn, 'playbackState:', playbackState, 
                   'isPointerRecordingRef:', isPointerRecordingRef.current);
                 
-                // INTERRUPT: If audio is playing, send interrupt signal first
+                // BARGE-IN: If audio is playing, interrupt AND start recording in one press
+                let justInterrupted = false;
                 if (playbackState !== 'idle' && onInterrupt) {
-                  console.log(`[PTT-POINTER-DEBUG] Sending interrupt - playbackState='${playbackState}' (user barge-in)`);
+                  console.log(`[PTT-POINTER-DEBUG] Barge-in: interrupt + record - playbackState='${playbackState}'`);
                   onInterrupt();
-                  return;
+                  justInterrupted = true;
                 }
                 
-                if (isUsersTurn && !isRecording && !isMicPreparing && !isPointerRecordingRef.current) {
+                if ((isUsersTurn || justInterrupted) && !isRecording && !isMicPreparing && !isPointerRecordingRef.current) {
                   isPointerRecordingRef.current = true;
                   pttPointerTypeRef.current = pointerType;
                   onRecordingStart(pointerType);
