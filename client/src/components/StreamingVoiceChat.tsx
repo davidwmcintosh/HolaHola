@@ -36,7 +36,7 @@ import { useWhiteboard } from "@/hooks/useWhiteboard";
 import { getTutorNames } from "@/lib/tutor-avatars";
 import { SupportAssistModal } from "@/components/SupportAssistModal";
 import { SofiaNotification } from "@/components/SofiaNotification";
-import { setSofiaNotificationCallback, resetSofiaNotificationState, type SofiaUserNotification } from "@/lib/lockoutDiagnostics";
+import { setSofiaNotificationCallback, setRemediationCallback, resetSofiaNotificationState, type SofiaUserNotification } from "@/lib/lockoutDiagnostics";
 import type { VoiceInputMode, OpenMicState } from "@shared/streaming-voice-types";
 import type { VoiceOverride } from "./VoiceLabPanel";
 
@@ -446,11 +446,19 @@ export function StreamingVoiceChat({
     setSofiaNotificationCallback((notification) => {
       setSofiaNotification(notification);
     });
+    setRemediationCallback(() => {
+      console.warn('[StreamingVoiceChat] Sofia remediation: force-resetting mic state');
+      setIsProcessing(false);
+      isProcessingRef.current = false;
+      setGlobalPlaybackState('idle');
+      streamingVoice.forceResetProcessing?.();
+    });
     return () => {
       setSofiaNotificationCallback(null);
+      setRemediationCallback(null);
       resetSofiaNotificationState();
     };
-  }, []);
+  }, [streamingVoice]);
 
   // Pre-warm microphone on component mount for instant recording
   // This requests mic permission early and caches the stream

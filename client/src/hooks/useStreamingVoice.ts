@@ -1600,10 +1600,14 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   }, []);
   
   const forceResetProcessing = useCallback(() => {
-    console.warn('[StreamingVoice] forceResetProcessing called by watchdog');
+    console.warn('[StreamingVoice] forceResetProcessing called — clearing all audio and processing state');
     setIsProcessing(false);
     setError(null);
+    setGlobalPlaybackState('idle');
     playerRef.current?.stop?.();
+    responseCompleteRef.current = false;
+    pendingAudioCountRef.current = 0;
+    audioReceivedInTurnRef.current = false;
     if (processingTimeoutRef.current) {
       clearTimeout(processingTimeoutRef.current);
       processingTimeoutRef.current = null;

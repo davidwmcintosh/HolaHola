@@ -158,11 +158,17 @@ const SOFIA_USER_MESSAGES: Record<string, Omit<SofiaUserNotification, 'trigger'>
 };
 
 type SofiaNotificationCallback = (notification: SofiaUserNotification) => void;
+type RemediationCallback = () => void;
 let sofiaNotifyCallback: SofiaNotificationCallback | null = null;
+let remediationCallback: RemediationCallback | null = null;
 let sofiaNotifiedThisSession = false;
 
 export function setSofiaNotificationCallback(cb: SofiaNotificationCallback | null): void {
   sofiaNotifyCallback = cb;
+}
+
+export function setRemediationCallback(cb: RemediationCallback | null): void {
+  remediationCallback = cb;
 }
 
 export function resetSofiaNotificationState(): void {
@@ -175,6 +181,11 @@ function notifyUserViaSofia(trigger: string): void {
   if (!msg) return;
   sofiaNotifiedThisSession = true;
   sofiaNotifyCallback({ trigger, ...msg });
+  const LOCKOUT_TRIGGERS = ['lockout_watchdog_8s', 'failsafe_tier1_20s', 'failsafe_tier2_45s'];
+  if (remediationCallback && LOCKOUT_TRIGGERS.includes(trigger)) {
+    console.log(`[VoiceDiag] Auto-remediation: force-resetting mic for trigger=${trigger}`);
+    remediationCallback();
+  }
 }
 
 function getDiagStore() {
