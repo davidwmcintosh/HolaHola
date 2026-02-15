@@ -1008,7 +1008,10 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   const handleError = useCallback((err: Error) => {
     console.error('[StreamingVoice] Error:', err);
     diagMarkError('ws_error', err.message);
-    reportDiagnostic('error');
+    const isCreditsError = err.message?.includes('credits have been used up') || err.message?.includes('Insufficient tutoring hours');
+    if (!isCreditsError) {
+      reportDiagnostic('error');
+    }
     setError(err.message);
     setIsProcessing(false);
     setGlobalPlaybackState('idle');
