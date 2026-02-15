@@ -11834,8 +11834,21 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
         const sessionElapsedSeconds = Math.floor((Date.now() - session.startTime) / 1000);
         const projectedRemaining = balance.remainingSeconds - sessionElapsedSeconds;
         
+        // DEFENSIVE: Detect anomalous elapsed time (stale session object)
+        // If session claims to be running for > 2 hours but balance is healthy,
+        // this is likely a stale in-memory session reference — skip enforcement
+        const MAX_REASONABLE_SESSION_SECONDS = 7200; // 2 hours
+        if (sessionElapsedSeconds > MAX_REASONABLE_SESSION_SECONDS && balance.remainingSeconds > MAX_REASONABLE_SESSION_SECONDS) {
+          console.warn(`[CreditGuard] ANOMALY: Session ${session.id} elapsed=${sessionElapsedSeconds}s but balance=${balance.remainingSeconds}s remaining. Likely stale session — skipping enforcement, clearing interval.`);
+          if (session.creditCheckIntervalId) {
+            clearInterval(session.creditCheckIntervalId);
+            session.creditCheckIntervalId = undefined;
+          }
+          return;
+        }
+        
         if (projectedRemaining <= 0) {
-          console.log(`[CreditGuard] Session ${session.id} - credits exhausted (remaining: ${balance.remainingSeconds}s, elapsed: ${sessionElapsedSeconds}s). Ending session.`);
+          console.log(`[CreditGuard] Session ${session.id} - credits exhausted (balance.remaining=${balance.remainingSeconds}s, sessionElapsed=${sessionElapsedSeconds}s, projected=${projectedRemaining}s, userId=${session.userId}). Ending session.`);
           
           this.sendMessage(session.ws, {
             type: 'error',

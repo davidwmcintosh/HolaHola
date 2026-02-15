@@ -669,8 +669,25 @@ export function StreamingVoiceChat({
   useEffect(() => {
     const { error: streamError, connectionState } = streamingVoice.state;
     
+    if (!streamError || connectionState !== 'disconnected') return;
+    
+    // Credits exhausted - show clear message and redirect to account
+    if (streamError.includes('credits have been used up') || streamError.includes('Insufficient tutoring hours')) {
+      console.log('[STREAMING] Credits exhausted - redirecting to account page');
+      stopRinging();
+      toast({
+        title: "Session hours used up",
+        description: "Visit your Account page to add more hours.",
+        variant: "destructive",
+      });
+      setTimeout(() => {
+        navigate(`/chat`);
+      }, 2500);
+      return;
+    }
+    
     // Check for unrecoverable errors (after all reconnect attempts failed)
-    if (streamError && streamError.includes('Please restart') && connectionState === 'disconnected') {
+    if (streamError.includes('Please restart')) {
       console.log('[STREAMING] Unrecoverable error - redirecting to language hub');
       stopRinging();
       toast({
@@ -678,7 +695,6 @@ export function StreamingVoiceChat({
         description: "Unable to reconnect. Please try again.",
         variant: "destructive",
       });
-      // Navigate back to language hub after short delay
       setTimeout(() => {
         navigate(`/chat`);
       }, 1500);

@@ -914,6 +914,13 @@ export class StreamingVoiceClient {
           this.handleError(message as StreamingErrorMessage);
           break;
           
+        case 'credits_exhausted':
+          console.warn('[WS CLIENT] Credits exhausted message received');
+          this.emit('error', new Error(message.message || 'Your session credits have been used up. Visit your Account page to add more hours.'));
+          this.setState('error');
+          this.intentionalDisconnect = true;
+          break;
+          
         case 'feedback':
           // Pedagogical feedback (one-word rule, pronunciation tips, etc.)
           this.emit('feedback', message as { type: string; feedbackType: string; message: string });
