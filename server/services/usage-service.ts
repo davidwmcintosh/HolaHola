@@ -515,6 +515,42 @@ export class UsageService {
   }
   
   /**
+   * Clean up zombie sessions - active sessions that have been running unreasonably long
+   * These are sessions where the WebSocket died silently (mobile sleep, network drop)
+   * but the close event never fired, leaving the DB session "active" indefinitely.
+   * Sessions with 0 exchanges won't be charged (existing safeguard), so this just
+   * prevents the credit guard from seeing phantom elapsed time.
+   */
+  async cleanupZombieSessions(maxAgeSeconds: number = 7200): Promise<number> {
+    const cutoff = new Date(Date.now() - maxAgeSeconds * 1000);
+    
+    const zombies = await db
+      .select({ id: voiceSessions.id, userId: voiceSessions.userId, startedAt: voiceSessions.startedAt })
+      .from(voiceSessions)
+      .where(
+        and(
+          eq(voiceSessions.status, 'active'),
+          sql`${voiceSessions.startedAt} < ${cutoff}`
+        )
+      );
+    
+    if (zombies.length === 0) return 0;
+    
+    console.log(`[UsageService] Found ${zombies.length} zombie sessions older than ${maxAgeSeconds}s`);
+    
+    for (const zombie of zombies) {
+      try {
+        await this.endSession(zombie.id);
+        console.log(`[UsageService] Cleaned up zombie session ${zombie.id} (user: ${zombie.userId}, started: ${zombie.startedAt})`);
+      } catch (err: any) {
+        console.warn(`[UsageService] Failed to clean zombie session ${zombie.id}:`, err.message);
+      }
+    }
+    
+    return zombies.length;
+  }
+  
+  /**
    * Check if a payment has already been processed (idempotency check)
    */
   async checkExistingPayment(stripePaymentId: string): Promise<UsageLedger | null> {

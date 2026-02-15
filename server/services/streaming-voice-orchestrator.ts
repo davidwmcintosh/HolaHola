@@ -11834,6 +11834,20 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
         const sessionElapsedSeconds = Math.floor((Date.now() - session.startTime) / 1000);
         const projectedRemaining = balance.remainingSeconds - sessionElapsedSeconds;
         
+        // DEFENSIVE: Detect stale/zombie sessions using last activity time
+        // If no student activity for > 10 minutes, this session is dead — clean it up
+        const idleSinceLastActivity = Math.floor((Date.now() - session.lastActivityTime) / 1000);
+        const MAX_IDLE_SECONDS = 600; // 10 minutes with no activity = zombie
+        if (idleSinceLastActivity > MAX_IDLE_SECONDS) {
+          console.warn(`[CreditGuard] ZOMBIE: Session ${session.id} idle for ${idleSinceLastActivity}s (no activity since ${new Date(session.lastActivityTime).toISOString()}). Cleaning up.`);
+          if (session.creditCheckIntervalId) {
+            clearInterval(session.creditCheckIntervalId);
+            session.creditCheckIntervalId = undefined;
+          }
+          this.endSession(session.id);
+          return;
+        }
+        
         // DEFENSIVE: Detect anomalous elapsed time (stale session object)
         // If session claims to be running for > 2 hours but balance is healthy,
         // this is likely a stale in-memory session reference — skip enforcement
@@ -11844,6 +11858,7 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
             clearInterval(session.creditCheckIntervalId);
             session.creditCheckIntervalId = undefined;
           }
+          this.endSession(session.id);
           return;
         }
         

@@ -487,6 +487,22 @@ app.use((req, res, next) => {
     const { voiceTelemetry } = await import('./services/voice-pipeline-telemetry');
     voiceTelemetry.start();
     
+    // Start zombie session cleanup - catches sessions where WebSocket died silently
+    // (mobile sleep, network drop) but the close event never fired
+    const { usageService } = await import('./services/usage-service');
+    const ZOMBIE_CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // Every 5 minutes
+    const ZOMBIE_MAX_AGE_SECONDS = 7200; // 2 hours
+    setInterval(async () => {
+      try {
+        const cleaned = await usageService.cleanupZombieSessions(ZOMBIE_MAX_AGE_SECONDS);
+        if (cleaned > 0) {
+          console.log(`[ZombieCleanup] Cleaned ${cleaned} zombie sessions`);
+        }
+      } catch (err: any) {
+        console.warn(`[ZombieCleanup] Error:`, err.message);
+      }
+    }, ZOMBIE_CLEANUP_INTERVAL_MS);
+    
     console.log('[CONSOLIDATION] Sync-bridge retired - Neon routing is primary');
   });
 })();
