@@ -333,9 +333,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       onError: (err) => {
         console.error('[StreamingVoice] Playback error:', err);
         setError(err.message);
-        // On error, clear everything immediately
         setIsProcessingRef.current(false);
-        // Note: Don't reset refs here - player.stop() will handle that
+        setGlobalPlaybackState('idle');
+        playerRef.current?.stop?.();
       },
       onPendingAudioChange: (count) => {
         if (isVerboseLoggingEnabled()) {
@@ -446,9 +446,11 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clearTimeout(processingTimeoutRef.current);
     }
     processingTimeoutRef.current = setTimeout(() => {
-      console.log('[StreamingVoice] Processing timeout - resetting stuck thinking state');
+      console.log('[StreamingVoice] Processing timeout - resetting stuck thinking state + playback');
       setIsProcessing(false);
       setError('Response timeout - please try again');
+      setGlobalPlaybackState('idle');
+      playerRef.current?.stop?.();
     }, PROCESSING_TIMEOUT_MS);
     
     // CRITICAL FIX: Reset audio player for new turn
@@ -479,9 +481,11 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clearTimeout(processingTimeoutRef.current);
     }
     processingTimeoutRef.current = setTimeout(() => {
-      console.log('[StreamingVoice] Processing timeout - resetting stuck thinking state');
+      console.log('[StreamingVoice] Processing timeout (pending) - resetting stuck thinking state + playback');
       setIsProcessing(false);
       setError('Response timeout - please try again');
+      setGlobalPlaybackState('idle');
+      playerRef.current?.stop?.();
     }, PROCESSING_TIMEOUT_MS);
   }, []);
 
@@ -733,9 +737,11 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clearTimeout(processingTimeoutRef.current);
     }
     processingTimeoutRef.current = setTimeout(() => {
-      console.log('[StreamingVoice] Safety timeout after sentence_ready - resetting stuck state');
+      console.log('[StreamingVoice] Safety timeout after sentence_ready - resetting stuck state + playback');
       setIsProcessing(false);
       setError('Response timeout - please try again');
+      setGlobalPlaybackState('idle');
+      playerRef.current?.stop?.();
     }, 45000);
     
     // TUTOR SWITCH: If we were switching tutors, clear the flag now that audio is ready
@@ -988,6 +994,13 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     console.error('[StreamingVoice] Error:', err);
     setError(err.message);
     setIsProcessing(false);
+    setGlobalPlaybackState('idle');
+    playerRef.current?.stop?.();
+    
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+      processingTimeoutRef.current = null;
+    }
     
     // Clear tutor switch state to prevent mic lockout on errors
     if (tutorSwitchTimeoutRef.current) {
@@ -1349,9 +1362,11 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clearTimeout(processingTimeoutRef.current);
     }
     processingTimeoutRef.current = setTimeout(() => {
-      console.log('[StreamingVoice] Processing timeout - resetting stuck thinking state');
+      console.log('[StreamingVoice] Processing timeout (sendAudio) - resetting stuck thinking state + playback');
       setIsProcessing(false);
       setError('Response timeout - please try again');
+      setGlobalPlaybackState('idle');
+      playerRef.current?.stop?.();
     }, PROCESSING_TIMEOUT_MS);
     
     // Clear stored audio from previous response before new request
@@ -1454,9 +1469,11 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clearTimeout(processingTimeoutRef.current);
     }
     processingTimeoutRef.current = setTimeout(() => {
-      console.log('[StreamingVoice] Greeting timeout - resetting stuck thinking state');
+      console.log('[StreamingVoice] Greeting timeout - resetting stuck thinking state + playback');
       setIsProcessing(false);
       setError('Response timeout - please try again');
+      setGlobalPlaybackState('idle');
+      playerRef.current?.stop?.();
     }, PROCESSING_TIMEOUT_MS);
     
     // Clear stored audio
@@ -1544,6 +1561,17 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     }
   }, []);
   
+  const forceResetProcessing = useCallback(() => {
+    console.warn('[StreamingVoice] forceResetProcessing called by watchdog');
+    setIsProcessing(false);
+    setError(null);
+    playerRef.current?.stop?.();
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+      processingTimeoutRef.current = null;
+    }
+  }, []);
+
   // Store disconnect in a ref so cleanup can use latest version without dependency
   const disconnectRef = useRef(disconnect);
   disconnectRef.current = disconnect;
@@ -1589,5 +1617,6 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     sendDrillResult,
     sendTextInput,
     sendVoiceOverride,
+    forceResetProcessing,
   };
 }

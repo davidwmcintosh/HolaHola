@@ -51,6 +51,10 @@ export function setGlobalPlaybackState(newState: PlaybackState): void {
 /**
  * Get current playback state (snapshot for useSyncExternalStore)
  */
+export function getGlobalPlaybackState(): PlaybackState {
+  return getStore().state;
+}
+
 function getSnapshot(): PlaybackState {
   return getStore().state;
 }

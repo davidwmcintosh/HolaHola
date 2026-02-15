@@ -28,7 +28,7 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { VoiceChatViewManager } from "@/components/VoiceChatViewManager";
 import { useStreamingVoice } from "@/hooks/useStreamingVoice";
-import { usePlaybackState } from "@/lib/playbackStateStore";
+import { usePlaybackState, getGlobalPlaybackState } from "@/lib/playbackStateStore";
 import { useUser } from "@/lib/auth";
 import { useLearningFilter } from "@/contexts/LearningFilterContext";
 import { useToast } from "@/hooks/use-toast";
@@ -1057,6 +1057,42 @@ export function StreamingVoiceChat({
     });
   }, [isProcessing, streamingVoice.state.connectionState, streamingVoice.state.isProcessing, 
       globalPlaybackState, streamingVoice.state.isSwitchingTutor, streamingVoice.state.error, isPttButtonHeld]);
+  
+  // UNIVERSAL MIC LOCKOUT FAILSAFE
+  // Interval-based watchdog: checks every 5s whether mic has been locked too long.
+  // Uses a monotonic "last voice activity" timestamp that only updates on actual pipeline
+  // events (processing start, audio chunk, response_complete, playback state changes).
+  // If mic is locked and no voice activity for 20s, force-resets ALL three mic-gating states.
+  const lastVoiceActivityRef = useRef<number>(Date.now());
+  const MIC_LOCK_MAX_IDLE_MS = 20000;
+  
+  useEffect(() => {
+    lastVoiceActivityRef.current = Date.now();
+  }, [globalPlaybackState, streamingVoice.state.isProcessing]);
+  
+  useEffect(() => {
+    if (!useStreamingMode) return;
+    
+    const watchdogInterval = setInterval(() => {
+      const currentPlayback = getGlobalPlaybackState();
+      const isAudioActive = currentPlayback === 'playing' || currentPlayback === 'buffering';
+      const isMicLocked = isProcessingRef.current || isAudioActive;
+      
+      if (!isMicLocked) return;
+      
+      const idleMs = Date.now() - lastVoiceActivityRef.current;
+      if (idleMs >= MIC_LOCK_MAX_IDLE_MS) {
+        console.warn(`[MIC WATCHDOG] Mic locked with no activity for ${Math.round(idleMs / 1000)}s — force-resetting ALL state`);
+        setIsProcessing(false);
+        isProcessingRef.current = false;
+        setGlobalPlaybackState('idle');
+        streamingVoice.forceResetProcessing?.();
+        lastVoiceActivityRef.current = Date.now();
+      }
+    }, 5000);
+    
+    return () => clearInterval(watchdogInterval);
+  }, [useStreamingMode, streamingVoice]);
   
   // Sync streaming voice state with component state
   // CRITICAL: Use globalPlaybackState from the global store, NOT streamingVoice.state.playbackState
