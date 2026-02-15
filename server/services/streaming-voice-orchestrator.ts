@@ -513,6 +513,28 @@ function cleanTextForDisplay(text: string): string {
     // Pattern 4: function_name{...} - direct brace format
     text = text.replace(new RegExp(fnName + '\\s*\\{[^}]*\\}', 'gi'), '');
   }
+  
+  // Strip bare function names that are compound underscore terms (safe — won't appear in natural speech)
+  // These are internal system function names that should NEVER be spoken aloud
+  const safeToStripBare = [
+    'voice_adjust', 'voice_reset', 'play_audio', 'show_image', 'show_overlay',
+    'hide_overlay', 'clear_whiteboard', 'word_emphasis', 'hold_whiteboard',
+    'phase_shift', 'take_note', 'switch_tutor', 'actfl_update',
+    'syllabus_progress', 'call_support', 'call_assistant', 'request_text_input',
+    'memory_lookup', 'recall_express_lane_image', 'express_lane_lookup',
+    'express_lane_post', 'hive_suggestion', 'self_surgery', 'grammar_table',
+    'word_map', 'pronunciation_tag', 'first_meeting_complete',
+  ];
+  for (const fnName of safeToStripBare) {
+    text = text.replace(new RegExp('\\b' + fnName + '\\b', 'gi'), '');
+  }
+  
+  // Strip legacy startcall/endcall format from older Gemini responses
+  // Pattern: startcall:default_api:voice_adjust{...}end
+  text = text.replace(/startcall:[^}]*\}?end/gi, '');
+  text = text.replace(/\bstartcall\b/gi, '');
+  text = text.replace(/\bendcall\b/gi, '');
+  
   // Ultra catch-all: Strip any remaining word_word(...) pattern that looks like a function call
   // This catches new functions added in the future that aren't in the list above
   text = text.replace(/\b[a-z_]{2,30}\s*\(\s*\{[\s\S]*?\}\s*\)/g, '');
