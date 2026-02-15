@@ -46,6 +46,7 @@ import { usageService } from './services/usage-service';
 import { shouldRunPlacementAfterSession, completePlacementAssessment } from './services/placement-assessment-service';
 import { sessionCompassService, COMPASS_ENABLED } from './services/session-compass-service';
 import { architectVoiceService } from './services/architect-voice-service';
+import { voiceTelemetry } from './services/voice-pipeline-telemetry';
 import { updateToolEventEngagement, mapWhiteboardTypeToToolType } from './services/pedagogical-insights-service';
 import { buildNeuralNetworkPromptSection } from './services/neural-network-retrieval';
 import { getPredictiveTeachingContext, getStudentSnapshotData, type PredictiveTeachingContext, type StudentSnapshotContext } from './services/procedural-memory-retrieval';
@@ -389,6 +390,8 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
   
   // Generate unique connection ID for telemetry correlation
   const connectionId = `conn_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+  let telemetrySessionId = connectionId;
+  let telemetryUserId = 'unknown';
   const connectionStartTime = Date.now();
   
   // Emit connection open telemetry for production debugging
@@ -1289,6 +1292,13 @@ Reference past discussions when relevant, but don't force it.
           session.tutorDirectory = tutorDirectory;
 
           console.log(`[Streaming Voice] Session created: ${session.id}${dbSessionId ? ` (db: ${dbSessionId.substring(0, 8)}...)` : ' (no db session)'}`);
+          telemetrySessionId = dbSessionId || session.id;
+          telemetryUserId = userId!;
+          voiceTelemetry.log(telemetrySessionId, telemetryUserId, 'session_start', {
+            connectionId, language: effectiveLanguage, tutorMode: config.tutorMode || 'main',
+            browser: req.headers['user-agent']?.substring(0, 120),
+            inputMode: currentInputMode,
+          });
           
           // ECHO SUPPRESSION: Set callback to control OpenMic suppression during TTS
           // Safety timeout prevents permanent mic lockout if onTtsStateChange(false) never fires
@@ -1435,6 +1445,17 @@ Reference past discussions when relevant, but don't force it.
             }
             metrics = await orchestrator.processUserAudio(session.id, audioBuffer, audioMessage.format || 'webm');
           }
+          
+          voiceTelemetry.log(telemetrySessionId, telemetryUserId, 'turn_complete', {
+            hasTranscript: !!metrics.userTranscript,
+            hasResponse: !!metrics.aiResponse,
+            transcriptPreview: metrics.userTranscript?.substring(0, 80),
+            responsePreview: metrics.aiResponse?.substring(0, 80),
+            latencyMs: metrics.latencyMs,
+            sttMs: metrics.sttLatencyMs,
+            llmMs: metrics.llmLatencyMs,
+            ttsMs: metrics.ttsLatencyMs,
+          });
           
           // Track exchange for usage accounting
           if (metrics.userTranscript && metrics.aiResponse) {
@@ -2435,6 +2456,11 @@ Reference past discussions when relevant, but don't force it.
   ws.on('close', (code, reason) => {
     console.log(`[Streaming Voice] Closed: ${code} - ${reason}`);
     clearInterval(heartbeatInterval);  // Clean up heartbeat
+    
+    voiceTelemetry.log(telemetrySessionId, telemetryUserId, 'ws_disconnect', {
+      code, reason: reason?.toString() || '', exchangeCount,
+      durationMs: Date.now() - connectionStartTime,
+    });
     
     // Emit connection close telemetry for production debugging
     const connectionDurationMs = Date.now() - connectionStartTime;

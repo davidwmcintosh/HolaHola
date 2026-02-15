@@ -7942,3 +7942,25 @@ export const insertBrainDailyMetricSchema = createInsertSchema(brainDailyMetrics
 export type InsertBrainDailyMetric = z.infer<typeof insertBrainDailyMetricSchema>;
 export type BrainDailyMetric = typeof brainDailyMetrics.$inferSelect;
 
+// Voice pipeline telemetry - persistent event log for debugging user voice issues
+// Each row = one event in a voice session (connect, tts_start, audio_sent, error, etc.)
+export const voicePipelineEvents = pgTable("voice_pipeline_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  eventType: varchar("event_type", { length: 64 }).notNull(),
+  eventData: jsonb("event_data"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_vpe_session").on(table.sessionId),
+  index("idx_vpe_user_time").on(table.userId, table.createdAt),
+  index("idx_vpe_type").on(table.eventType),
+]);
+
+export const insertVoicePipelineEventSchema = createInsertSchema(voicePipelineEvents).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertVoicePipelineEvent = z.infer<typeof insertVoicePipelineEventSchema>;
+export type VoicePipelineEvent = typeof voicePipelineEvents.$inferSelect;
+

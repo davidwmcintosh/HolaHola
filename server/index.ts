@@ -483,6 +483,10 @@ app.use((req, res, next) => {
     // Start Sofia Issue Monitoring Worker - detects patterns and emits EXPRESS Lane alerts
     supportPersonaService.startIssueMonitoringWorker(5); // Run every 5 minutes
     
+    // Start voice pipeline telemetry (batched writes to DB)
+    const { voiceTelemetry } = await import('./services/voice-pipeline-telemetry');
+    voiceTelemetry.start();
+    
     console.log('[CONSOLIDATION] Sync-bridge retired - Neon routing is primary');
   });
 })();
