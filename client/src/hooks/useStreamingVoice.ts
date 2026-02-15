@@ -13,6 +13,7 @@ import { getStreamingAudioPlayer, StreamingAudioPlayer, StreamingAudioChunk, Str
 import { useStreamingSubtitles, UseStreamingSubtitlesReturn } from './useStreamingSubtitles';
 import { logAudioChunkReceived, updateDebugTimingState, trackWsMessage } from '../lib/debugTimingState';
 import { setGlobalPlaybackState } from '../lib/playbackStateStore';
+import { diagSetSession, diagSetHookRefs, diagEvent, diagMarkConnect, diagMarkFirstAudio, diagMarkResponseComplete, diagMarkDisconnect, diagMarkTurnStart, diagMarkError, diagMarkTtsError, diagMarkFailsafe, reportDiagnostic, startLockoutWatchdog, startGreetingSilenceWatchdog } from '../lib/lockoutDiagnostics';
 import { 
   STREAMING_FEATURE_FLAGS,
   type StreamingClientState,
@@ -162,7 +163,11 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   const [connectionState, setConnectionState] = useState<StreamingClientState>('disconnected');
   const [playbackState, setPlaybackState] = useState<StreamingPlaybackState>('idle');
   const [isProcessing, setIsProcessing] = useState(false);
+  const isProcessingRef = useRef(false);
+  isProcessingRef.current = isProcessing;
   const [isSwitchingTutor, setIsSwitchingTutor] = useState(false);  // Mic lockout during tutor handoff
+  const isSwitchingTutorRef = useRef(false);
+  isSwitchingTutorRef.current = isSwitchingTutor;
   const [error, setError] = useState<string | null>(null);
   const [metrics, setMetrics] = useState<StreamingMetrics | null>(null);
   
@@ -554,6 +559,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   const handleAudioChunk = useCallback((msg: StreamingAudioChunkMessage) => {
     console.log('[HOOK handleAudioChunk] CALLED! sentence=', msg.sentenceIndex, 'chunk=', msg.chunkIndex, 'audioLen=', msg.audio?.length || 0);
     
+    diagMarkFirstAudio();
+    
     // CRITICAL DEBUG: Track chunks via debug panel state (reliable visibility)
     logAudioChunkReceived(msg.sentenceIndex);
     
@@ -894,6 +901,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     }
     
     trackWsMessage('response_complete');
+    diagMarkResponseComplete(msg.totalSentences || 0);
     
     console.log(`[StreamingVoice] response_complete received: sentences=${msg.totalSentences}, pending=${pendingAudioCountRef.current}, wasComplete=${responseCompleteRef.current}`);
     
@@ -948,6 +956,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       const ctxState = player?.getAudioContextState?.() || 'unknown';
       if (ctxState === 'suspended' || ctxState === 'closed' || ctxState === 'uninitialized') {
         console.log(`[StreamingVoice] Tier-1 failsafe (20s): AudioContext ${ctxState} — force-clearing isProcessing AND playback state (pending=${pendingAudioCountRef.current})`);
+        diagMarkFailsafe('tier1_20s', { ctxState, pending: pendingAudioCountRef.current });
+        reportDiagnostic('failsafe_tier1_20s', { failsafeTier: 'tier1_20s' });
         pendingAudioCountRef.current = 0;
         audioReceivedInTurnRef.current = false;
         setIsProcessingRef.current(false);
@@ -966,12 +976,16 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       const player = playerRef.current;
       const ctxState = player?.getAudioContextState?.() || 'unknown';
       console.log(`[StreamingVoice] Tier-2 failsafe (45s): unconditional force-clear isProcessing AND playback state (ctxState=${ctxState}, pending=${pendingAudioCountRef.current})`);
+      diagMarkFailsafe('tier2_45s', { ctxState, pending: pendingAudioCountRef.current });
+      reportDiagnostic('failsafe_tier2_45s', { failsafeTier: 'tier2_45s' });
       pendingAudioCountRef.current = 0;
       audioReceivedInTurnRef.current = false;
       setIsProcessingRef.current(false);
       setGlobalPlaybackState('idle');
       player?.stop?.();
     }, 45000);
+    
+    startLockoutWatchdog();
   }, [checkAndClearProcessing]);
 
   const handleExpectedSentenceCount = useCallback((data: { count: number }) => {
@@ -985,6 +999,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    * Handle errors - also clears tutor switch state to prevent mic lockout
    */
   const handleTtsError = useCallback((data: { code: string; message: string }) => {
+    diagMarkTtsError(data.code, data.message);
     if (import.meta.env.DEV) {
       console.warn(`[StreamingVoice] TTS audio failed (dev-only): ${data.message}`);
     }
@@ -992,6 +1007,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
 
   const handleError = useCallback((err: Error) => {
     console.error('[StreamingVoice] Error:', err);
+    diagMarkError('ws_error', err.message);
+    reportDiagnostic('error');
     setError(err.message);
     setIsProcessing(false);
     setGlobalPlaybackState('idle');
@@ -1249,6 +1266,22 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
         console.log('[StreamingVoice] WebSocket connected, starting session...');
       }
       
+      diagSetSession({
+        conversationId: config.conversationId,
+        userId: null,
+        language: config.targetLanguage,
+        inputMode: config.inputMode,
+      });
+      diagSetHookRefs({
+        isProcessingFn: () => isProcessingRef.current,
+        pendingAudioCountFn: () => pendingAudioCountRef.current,
+        audioReceivedInTurnFn: () => audioReceivedInTurnRef.current,
+        responseCompleteFn: () => responseCompleteRef.current,
+        isSwitchingTutorFn: () => isSwitchingTutorRef.current,
+      });
+      diagMarkConnect();
+      startGreetingSilenceWatchdog();
+      
       // Start session with config - this triggers server to send 'connected' message
       // which will transition state to 'ready'
       clientRef.current.startSession({
@@ -1280,6 +1313,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    * Disconnect from streaming voice service
    */
   const disconnect = useCallback(() => {
+    diagMarkDisconnect('user_disconnect');
     if (isVerboseLoggingEnabled()) {
       console.log('[StreamingVoice] Disconnecting');
     }
@@ -1351,6 +1385,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     }
     
     // Reset state for new request
+    diagMarkTurnStart();
     responseCompleteRef.current = false;
     pendingAudioCountRef.current = 0;
     setIsProcessing(true);

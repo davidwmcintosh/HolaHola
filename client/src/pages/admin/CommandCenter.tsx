@@ -25,6 +25,7 @@ import { JourneyMemoryContent } from "@/pages/admin/JourneyMemory";
 import { FluencyCoverageContent } from "@/pages/admin/FluencyCoverage";
 import { LessonDraftsContent } from "@/pages/admin/LessonDrafts";
 import { VoiceIntelligenceContent } from "@/pages/admin/VoiceIntelligence";
+import { ClientDiagnosticsViewer } from "@/components/admin/ClientDiagnosticsViewer";
 import { SyncControlCenterContent } from "@/pages/admin/SyncControlCenter";
 import { 
   LayoutDashboard,
@@ -1839,6 +1840,7 @@ export default function CommandCenter() {
           </TabsContent>
 
           <TabsContent value="voice-intelligence" className="space-y-4">
+            <ClientDiagnosticsViewer />
             <VoiceIntelligenceContent />
           </TabsContent>
 

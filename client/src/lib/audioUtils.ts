@@ -2,6 +2,7 @@ import { resetDebugTimingState, logEmptyChunkProcessed, logSentenceTransition, l
 import type { ClientTelemetryEventType } from '../../../shared/streaming-voice-types';
 import { getClientTelemetryEmitter } from './streamingVoiceClient';
 import { setGlobalPlaybackState } from './playbackStateStore';
+import { diagMarkMismatchRecovery, diagEvent } from './lockoutDiagnostics';
 
 // Wrapper for telemetry emitter
 function getTelemetryEmitter() {
@@ -1793,6 +1794,7 @@ export class StreamingAudioPlayer {
       const allReceivedEnded = allReceivedEntries.length > 0 && allReceivedEntries.every(([_, entry]) => entry.ended && entry.endCtxTime !== undefined);
       const debugState = window.__debugTimingState;
       if (allReceivedEnded && debugState?.wsResponseCompleteReceived) {
+        diagMarkMismatchRecovery(this.expectedSentenceCount!, this.sentenceSchedule.size);
         logResult(true, `MISMATCH_RECOVERY: expected ${this.expectedSentenceCount} but only ${this.sentenceSchedule.size} arrived, all ended + response_complete received`);
         return true;
       }

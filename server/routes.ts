@@ -9,6 +9,7 @@ import { aiLimiter, voiceLimiter, authLimiter, mutationLimiter, hiveExternalLimi
 import { requireRole, allowRoles, loadAuthenticatedUser, requireFounder, requireAgentToken, logAgentAction, getAgentAuditLog, isAgentTokenConfigured } from "./middleware/rbac";
 import { voiceDiagnostics } from "./services/voice-diagnostics-service";
 import { voiceIntelligenceService } from "./services/voice-intelligence-service";
+import { voiceTelemetry } from "./services/voice-pipeline-telemetry";
 import {
   insertConversationSchema,
   insertMessageSchema,
@@ -58,6 +59,7 @@ import {
   textbookVisualAssets,
   journeySnapshots,
   learningMilestones,
+  voicePipelineEvents,
 } from "@shared/schema";
 import { hasTeacherAccess, hasDeveloperAccess } from "@shared/permissions";
 import OpenAI, { toFile } from "openai";
@@ -5705,7 +5707,73 @@ ${memoryContext}
   });
 
   // ===== NEW REST-Based Voice API (Whisper + GPT + TTS) =====
-  
+
+  // Client-side voice session diagnostics — receives snapshots when the client
+  // detects anomalies (lockout, silence, failsafe fires, etc.)
+  app.post("/api/voice/client-diagnostic", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getRequestUserId(req);
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      const snapshot = req.body;
+      const conversationId = snapshot?.session?.conversationId || 'unknown';
+      console.log(`[VoiceDiag] Client diagnostic received: trigger=${snapshot?.trigger}, user=${userId}, conversation=${conversationId}`);
+      voiceTelemetry.log(
+        conversationId,
+        userId,
+        `client_diag_${snapshot?.trigger || 'unknown'}`,
+        snapshot,
+      );
+      res.json({ ok: true });
+    } catch (error: any) {
+      console.error("[VoiceDiag] Error storing client diagnostic:", error);
+      res.status(500).json({ error: "Failed to store diagnostic" });
+    }
+  });
+
+  // Admin endpoint: fetch recent client diagnostics for analysis
+  app.get("/api/voice/client-diagnostics", isAuthenticated, loadAuthenticatedUser(storage), allowRoles(['admin', 'developer']), async (req: any, res) => {
+    try {
+      const userId = getRequestUserId(req);
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+      const trigger = req.query.trigger as string | undefined;
+      const targetUser = req.query.userId as string | undefined;
+
+      const sharedDb = getSharedDb();
+      let query = sharedDb
+        .select()
+        .from(voicePipelineEvents)
+        .where(
+          trigger
+            ? eq(voicePipelineEvents.eventType, `client_diag_${trigger}`)
+            : sql`${voicePipelineEvents.eventType} LIKE 'client_diag_%'`
+        )
+        .orderBy(desc(voicePipelineEvents.createdAt))
+        .limit(limit);
+
+      if (targetUser) {
+        query = sharedDb
+          .select()
+          .from(voicePipelineEvents)
+          .where(
+            and(
+              sql`${voicePipelineEvents.eventType} LIKE 'client_diag_%'`,
+              eq(voicePipelineEvents.userId, targetUser)
+            )
+          )
+          .orderBy(desc(voicePipelineEvents.createdAt))
+          .limit(limit);
+      }
+
+      const results = await query;
+      res.json({ diagnostics: results, count: results.length });
+    } catch (error: any) {
+      console.error("[VoiceDiag] Error fetching client diagnostics:", error);
+      res.status(500).json({ error: "Failed to fetch diagnostics" });
+    }
+  });
+
   // Get active voice session for user (allows client to reconnect to existing session)
   app.get("/api/voice/active-session", isAuthenticated, async (req: any, res) => {
     try {
