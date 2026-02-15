@@ -7712,10 +7712,20 @@ Remember: Beta testers understand they're helping build something and appreciate
     try {
       // Apply word emphases SSML tags if any pending
       // These come from word_emphasis function calls during Gemini streaming
-      const textWithEmphases = applyWordEmphases(displayText, session.pendingWordEmphases);
+      // CRITICAL: Only apply Cartesia SSML tags when Cartesia is the TTS provider.
+      // Other providers (Gemini, Google Cloud TTS) will speak <volume>, <speed>, <pause>
+      // tags as literal text, causing users to hear system markup spoken aloud.
+      const nonProgTtsProvider = session.ttsProvider || this.ttsProvider;
+      const textWithEmphases = nonProgTtsProvider === 'cartesia'
+        ? applyWordEmphases(displayText, session.pendingWordEmphases)
+        : displayText;
       if (session.pendingWordEmphases && session.pendingWordEmphases.length > 0) {
-        console.log(`[Non-Progressive TTS] Applied ${session.pendingWordEmphases.length} word emphases`);
-        // Clear emphases after applying (per-sentence processing)
+        if (nonProgTtsProvider === 'cartesia') {
+          console.log(`[Non-Progressive TTS] Applied ${session.pendingWordEmphases.length} word emphases (Cartesia SSML)`);
+        } else {
+          console.log(`[Non-Progressive TTS] Skipped ${session.pendingWordEmphases.length} word emphases (provider: ${nonProgTtsProvider} — Cartesia SSML not supported)`);
+        }
+        // Clear emphases after processing (per-sentence)
         session.pendingWordEmphases = [];
       }
       
@@ -8191,10 +8201,21 @@ Remember: Beta testers understand they're helping build something and appreciate
     try {
       // Apply word emphases SSML tags if any pending
       // These come from word_emphasis function calls during Gemini streaming
-      const textWithEmphases = applyWordEmphases(displayText, session.pendingWordEmphases);
+      // CRITICAL: Only apply Cartesia SSML tags when Cartesia is the TTS provider.
+      // Other providers (Gemini, Google Cloud TTS) don't understand Cartesia's
+      // <volume>, <speed>, <pause> tags and will speak them as literal text —
+      // causing users to hear words like "volume", "speed", "pause" spoken aloud.
+      const effectiveTtsProviderForEmphases = session.ttsProvider || this.ttsProvider;
+      const textWithEmphases = effectiveTtsProviderForEmphases === 'cartesia'
+        ? applyWordEmphases(displayText, session.pendingWordEmphases)
+        : displayText;
       if (session.pendingWordEmphases && session.pendingWordEmphases.length > 0) {
-        console.log(`[Progressive TTS] Applied ${session.pendingWordEmphases.length} word emphases`);
-        // Clear emphases after applying (per-sentence processing)
+        if (effectiveTtsProviderForEmphases === 'cartesia') {
+          console.log(`[Progressive TTS] Applied ${session.pendingWordEmphases.length} word emphases (Cartesia SSML)`);
+        } else {
+          console.log(`[Progressive TTS] Skipped ${session.pendingWordEmphases.length} word emphases (provider: ${effectiveTtsProviderForEmphases} — Cartesia SSML not supported)`);
+        }
+        // Clear emphases after processing (per-sentence)
         session.pendingWordEmphases = [];
       }
       

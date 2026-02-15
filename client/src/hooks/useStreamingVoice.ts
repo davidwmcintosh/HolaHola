@@ -12,7 +12,7 @@ import { getStreamingVoiceClient, StreamingVoiceClient } from '../lib/streamingV
 import { getStreamingAudioPlayer, StreamingAudioPlayer, StreamingAudioChunk, StreamingPlaybackState, isVerboseLoggingEnabled } from '../lib/audioUtils';
 import { useStreamingSubtitles, UseStreamingSubtitlesReturn } from './useStreamingSubtitles';
 import { logAudioChunkReceived, updateDebugTimingState, trackWsMessage } from '../lib/debugTimingState';
-import { setGlobalPlaybackState } from '../lib/playbackStateStore';
+import { setGlobalPlaybackState, getGlobalPlaybackState } from '../lib/playbackStateStore';
 import { diagSetSession, diagSetHookRefs, diagEvent, diagMarkConnect, diagMarkFirstAudio, diagMarkResponseComplete, diagMarkDisconnect, diagMarkTurnStart, diagMarkError, diagMarkTtsError, diagMarkFailsafe, reportDiagnostic, startLockoutWatchdog, startGreetingSilenceWatchdog } from '../lib/lockoutDiagnostics';
 import { 
   STREAMING_FEATURE_FLAGS,
@@ -966,23 +966,51 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       }
     }, 20000);
     
-    // Tier 2 (45s): Unconditional — catches ALL stuck states including desktop scenarios
-    // where AudioContext is "running" but audio callbacks silently failed (decode error,
-    // timing loop stall, race condition). 45s is well beyond any legitimate single-turn
-    // audio playback duration. If response_complete arrived 45s ago and mic is still
-    // locked, something is definitively stuck.
+    // Tier 2 (45s): Catches stuck states including desktop scenarios where AudioContext
+    // is "running" but audio callbacks silently failed (decode error, timing loop stall,
+    // race condition). If response_complete arrived 45s ago and mic is still locked,
+    // something is likely stuck.
+    // PLAYBACK-AWARE: If audio is actively playing at 45s, defer to 90s to allow
+    // legitimate long responses to finish. Only force-reset immediately if audio
+    // is NOT playing (genuinely stuck state).
     setTimeout(() => {
       if (!responseCompleteRef.current) return;
       const player = playerRef.current;
       const ctxState = player?.getAudioContextState?.() || 'unknown';
-      console.log(`[StreamingVoice] Tier-2 failsafe (45s): unconditional force-clear isProcessing AND playback state (ctxState=${ctxState}, pending=${pendingAudioCountRef.current})`);
-      diagMarkFailsafe('tier2_45s', { ctxState, pending: pendingAudioCountRef.current });
-      reportDiagnostic('failsafe_tier2_45s', { failsafeTier: 'tier2_45s' });
-      pendingAudioCountRef.current = 0;
-      audioReceivedInTurnRef.current = false;
-      setIsProcessingRef.current(false);
-      setGlobalPlaybackState('idle');
-      player?.stop?.();
+      const currentPlayback = getGlobalPlaybackState();
+      
+      if (currentPlayback === 'playing') {
+        console.log(`[StreamingVoice] Tier-2 failsafe (45s): audio still playing — deferring to 90s (ctxState=${ctxState})`);
+        // Audio is legitimately playing. Defer the force-reset to 90s.
+        // Still reset isProcessing so mic unlocks when audio finishes naturally.
+        pendingAudioCountRef.current = 0;
+        audioReceivedInTurnRef.current = false;
+        setIsProcessingRef.current(false);
+        
+        // Schedule a final hard stop at 90s as absolute safety net
+        setTimeout(() => {
+          if (!responseCompleteRef.current) return;
+          const finalPlayback = getGlobalPlaybackState();
+          const finalCtxState = player?.getAudioContextState?.() || 'unknown';
+          console.log(`[StreamingVoice] Tier-2 extended failsafe (90s): force-clear (playback=${finalPlayback}, ctxState=${finalCtxState})`);
+          diagMarkFailsafe('tier2_90s', { ctxState: finalCtxState, pending: pendingAudioCountRef.current });
+          reportDiagnostic('failsafe_tier2_45s', { failsafeTier: 'tier2_90s' });
+          pendingAudioCountRef.current = 0;
+          audioReceivedInTurnRef.current = false;
+          setIsProcessingRef.current(false);
+          setGlobalPlaybackState('idle');
+          player?.stop?.();
+        }, 45000); // Additional 45s = 90s total
+      } else {
+        console.log(`[StreamingVoice] Tier-2 failsafe (45s): audio NOT playing — force-clear (playback=${currentPlayback}, ctxState=${ctxState}, pending=${pendingAudioCountRef.current})`);
+        diagMarkFailsafe('tier2_45s', { ctxState, pending: pendingAudioCountRef.current });
+        reportDiagnostic('failsafe_tier2_45s', { failsafeTier: 'tier2_45s' });
+        pendingAudioCountRef.current = 0;
+        audioReceivedInTurnRef.current = false;
+        setIsProcessingRef.current(false);
+        setGlobalPlaybackState('idle');
+        player?.stop?.();
+      }
     }, 45000);
     
     startLockoutWatchdog();
