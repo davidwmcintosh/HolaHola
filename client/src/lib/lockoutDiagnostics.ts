@@ -466,7 +466,7 @@ export function startLockoutWatchdog(): ReturnType<typeof setTimeout> {
 
     const isProc = store.isProcessingFn?.() ?? false;
     const playbackState = window.__playbackStateStore?.state;
-    if (isProc || playbackState === 'playing') {
+    if (isProc && playbackState !== 'playing') {
       reportDiagnostic('lockout_watchdog_8s');
     }
   }, 8000);
