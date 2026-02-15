@@ -4130,6 +4130,8 @@ Remember: Beta testers understand they're helping build something and appreciate
         metrics.ttsFirstByteMs = Date.now() - batchTtsStart;
         pipelineTiming.ttsFirstAudioByte = Date.now();
         console.log(`[Google Batch TTS] Complete. TTS duration: ${Date.now() - batchTtsStart}ms for ${batchedSentences.length} sentences`);
+        
+        metrics.sentenceCount = 1;
       }
       
       // Update conversation history
@@ -6511,6 +6513,8 @@ Remember: Beta testers understand they're helping build something and appreciate
         
         metrics.ttsFirstByteMs = Date.now() - batchTtsStartOM;
         console.log(`[Google Batch TTS - OpenMic] Complete. TTS duration: ${Date.now() - batchTtsStartOM}ms for ${batchedSentencesOM.length} sentences`);
+        
+        metrics.sentenceCount = 1;
       }
       
       // Update conversation history
@@ -11199,6 +11203,9 @@ Only include observations you can clearly justify from the exchange. Return empt
               await this.streamSentenceAudio(session, batchChunkGreeting, displayText, metrics, turnId);
             }
             console.log(`[Google Batch TTS - Greeting] Complete. TTS duration: ${Date.now() - batchTtsStartGreeting}ms for ${greetingSentences.length} sentences`);
+            
+            fullText = displayText;
+            metrics.sentenceCount = 1;
           } else {
             for (let si = 0; si < greetingSentences.length; si++) {
               if (session.isInterrupted) break;
@@ -11228,10 +11235,9 @@ Only include observations you can clearly justify from the exchange. Return empt
                 await this.streamSentenceAudio(session, { index: si, text: sentenceText, isFinal }, sentenceText, metrics, turnId);
               }
             }
+            fullText = displayText;
+            metrics.sentenceCount = greetingSentences.length;
           }
-          
-          fullText = displayText;
-          metrics.sentenceCount = greetingSentences.length;
         }
       }
       

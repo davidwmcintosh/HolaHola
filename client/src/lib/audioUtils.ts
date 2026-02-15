@@ -1789,6 +1789,13 @@ export class StreamingAudioPlayer {
     
     // Check if we've received all expected sentences
     if (this.sentenceSchedule.size < this.expectedSentenceCount) {
+      const allReceivedEntries = Array.from(this.sentenceSchedule.entries());
+      const allReceivedEnded = allReceivedEntries.length > 0 && allReceivedEntries.every(([_, entry]) => entry.ended && entry.endCtxTime !== undefined);
+      const debugState = window.__debugTimingState;
+      if (allReceivedEnded && debugState?.wsResponseCompleteReceived) {
+        logResult(true, `MISMATCH_RECOVERY: expected ${this.expectedSentenceCount} but only ${this.sentenceSchedule.size} arrived, all ended + response_complete received`);
+        return true;
+      }
       logResult(false, `size(${this.sentenceSchedule.size}) < expected(${this.expectedSentenceCount})`);
       return false;
     }
