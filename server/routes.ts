@@ -533,6 +533,14 @@ const upload = multer({
   },
 });
 
+const sofiaDiagThrottle = new Map<string, number>();
+setInterval(() => {
+  const cutoff = Date.now() - 120_000;
+  for (const [k, v] of sofiaDiagThrottle) {
+    if (v < cutoff) sofiaDiagThrottle.delete(k);
+  }
+}, 120_000);
+
 export async function registerRoutes(app: Express): Promise<void> {
   // Set up Replit Auth with rate limiting
   await setupAuth(app, authLimiter);
@@ -5716,13 +5724,70 @@ ${memoryContext}
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
       const snapshot = req.body;
       const conversationId = snapshot?.session?.conversationId || 'unknown';
-      console.log(`[VoiceDiag] Client diagnostic received: trigger=${snapshot?.trigger}, user=${userId}, conversation=${conversationId}`);
+      const trigger = snapshot?.trigger || 'unknown';
+      console.log(`[VoiceDiag] Client diagnostic received: trigger=${trigger}, user=${userId}, conversation=${conversationId}`);
       voiceTelemetry.log(
         conversationId,
         userId,
-        `client_diag_${snapshot?.trigger || 'unknown'}`,
+        `client_diag_${trigger}`,
         snapshot,
       );
+
+      const SOFIA_TRIGGERS: Record<string, string> = {
+        lockout_watchdog_8s: 'microphone',
+        failsafe_tier1_20s: 'no_audio',
+        failsafe_tier2_45s: 'no_audio',
+        greeting_silence_15s: 'no_audio',
+        mismatch_recovery: 'no_audio',
+        error: 'connection',
+        tts_error: 'no_audio',
+      };
+      const sofiaIssueType = SOFIA_TRIGGERS[trigger];
+      const sofiaDiagThrottleKey = `${userId}:${conversationId}:${trigger}`;
+      const now = Date.now();
+      const lastSofiaReport = sofiaDiagThrottle.get(sofiaDiagThrottleKey);
+      const SOFIA_DIAG_COOLDOWN_MS = 60_000;
+      if (sofiaIssueType && (!lastSofiaReport || (now - lastSofiaReport) >= SOFIA_DIAG_COOLDOWN_MS)) {
+        sofiaDiagThrottle.set(sofiaDiagThrottleKey, now);
+        const device = snapshot?.device || {};
+        const audio = snapshot?.audio || {};
+        const sentences = snapshot?.sentences || {};
+        const description = `[AUTO-DETECTED] Voice issue: ${trigger}. ` +
+          `Sentences expected=${sentences.expectedCount ?? '?'} received=${sentences.receivedCount ?? '?'}. ` +
+          `Audio playing=${audio.isPlaying ?? '?'}, context=${audio.audioContextState ?? '?'}. ` +
+          `Device: ${device.userAgent?.substring(0, 80) || 'unknown'}`;
+
+        supportPersonaService.createIssueReport({
+          userId,
+          issueType: sofiaIssueType,
+          userDescription: description,
+          voiceDiagnostics: {
+            sessionId: snapshot?.session?.sessionId,
+            conversationId,
+            ttsProvider: snapshot?.session?.ttsProvider,
+            audioState: audio.audioContextState,
+            isPlaying: audio.isPlaying,
+            sentenceCount: sentences.expectedCount,
+            receivedSentences: sentences.receivedCount,
+            trigger,
+          } as any,
+          deviceInfo: {
+            browser: device.userAgent?.substring(0, 120),
+            os: device.platform,
+            device: (device.screenWidth || 0) < 768 ? 'mobile' : 'desktop',
+          },
+          clientTelemetry: {
+            trigger,
+            timing: snapshot?.timing,
+            hookState: snapshot?.hookState,
+            timeline: (snapshot?.timeline || []).slice(-10),
+            ws: snapshot?.ws,
+          },
+          generateAnalysis: true,
+          mode: process.env.NODE_ENV === 'production' ? 'user' : 'dev',
+        }).catch(e => console.warn('[VoiceDiag] Sofia report failed (non-blocking):', e));
+      }
+
       res.json({ ok: true });
     } catch (error: any) {
       console.error("[VoiceDiag] Error storing client diagnostic:", error);
