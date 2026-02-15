@@ -112,6 +112,71 @@ declare global {
 const MAX_TIMELINE_EVENTS = 50;
 const MIN_REPORT_INTERVAL_MS = 30000;
 
+export interface SofiaUserNotification {
+  trigger: string;
+  title: string;
+  message: string;
+  suggestion: string;
+}
+
+const SOFIA_USER_MESSAGES: Record<string, Omit<SofiaUserNotification, 'trigger'>> = {
+  lockout_watchdog_8s: {
+    title: "Microphone paused",
+    message: "It looks like your microphone got stuck. I've freed it up for you.",
+    suggestion: "Try speaking again. If it keeps happening, refresh the page.",
+  },
+  failsafe_tier1_20s: {
+    title: "Audio hiccup",
+    message: "The audio got interrupted. This can happen on mobile when your screen locks or another app takes over.",
+    suggestion: "Try tapping the screen first, then speak again. Keeping the app in the foreground helps.",
+  },
+  failsafe_tier2_45s: {
+    title: "Session recovered",
+    message: "Your voice session ran into a snag, but I've reset things so you can keep going.",
+    suggestion: "If this keeps happening, try refreshing the page or switching to a different browser.",
+  },
+  greeting_silence_15s: {
+    title: "Taking longer than usual",
+    message: "The tutor's greeting is taking a while to come through.",
+    suggestion: "Check your internet connection. If there's no sound after a few more seconds, try disconnecting and reconnecting.",
+  },
+  error: {
+    title: "Something went wrong",
+    message: "There was a brief connection issue with your voice session.",
+    suggestion: "This usually resolves on its own. If it doesn't, try refreshing the page.",
+  },
+  tts_error: {
+    title: "Audio issue",
+    message: "There was a problem generating the tutor's voice.",
+    suggestion: "The system will try again automatically. If you don't hear anything, try refreshing.",
+  },
+  mismatch_recovery: {
+    title: "Audio recovered",
+    message: "A small audio sync issue was automatically fixed.",
+    suggestion: "Everything should be working now. No action needed.",
+  },
+};
+
+type SofiaNotificationCallback = (notification: SofiaUserNotification) => void;
+let sofiaNotifyCallback: SofiaNotificationCallback | null = null;
+let sofiaNotifiedThisSession = false;
+
+export function setSofiaNotificationCallback(cb: SofiaNotificationCallback | null): void {
+  sofiaNotifyCallback = cb;
+}
+
+export function resetSofiaNotificationState(): void {
+  sofiaNotifiedThisSession = false;
+}
+
+function notifyUserViaSofia(trigger: string): void {
+  if (sofiaNotifiedThisSession || !sofiaNotifyCallback) return;
+  const msg = SOFIA_USER_MESSAGES[trigger];
+  if (!msg) return;
+  sofiaNotifiedThisSession = true;
+  sofiaNotifyCallback({ trigger, ...msg });
+}
+
 function getDiagStore() {
   if (!window.__voiceSessionDiag) {
     window.__voiceSessionDiag = {
@@ -378,6 +443,7 @@ export function reportDiagnostic(trigger: string, extras?: { failsafeTier?: stri
     processing: snapshot.hookState.isProcessing,
   });
   void sendSnapshot(snapshot);
+  notifyUserViaSofia(trigger);
 }
 
 export function startLockoutWatchdog(): ReturnType<typeof setTimeout> {

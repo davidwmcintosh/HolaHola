@@ -35,6 +35,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useWhiteboard } from "@/hooks/useWhiteboard";
 import { getTutorNames } from "@/lib/tutor-avatars";
 import { SupportAssistModal } from "@/components/SupportAssistModal";
+import { SofiaNotification } from "@/components/SofiaNotification";
+import { setSofiaNotificationCallback, resetSofiaNotificationState, type SofiaUserNotification } from "@/lib/lockoutDiagnostics";
 import type { VoiceInputMode, OpenMicState } from "@shared/streaming-voice-types";
 import type { VoiceOverride } from "./VoiceLabPanel";
 
@@ -283,6 +285,7 @@ export function StreamingVoiceChat({
   const [lastMessageId, setLastMessageId] = useState<string | null>(null);
   const [isSlowRepeatLoading, setIsSlowRepeatLoading] = useState(false);
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
+  const [sofiaNotification, setSofiaNotification] = useState<SofiaUserNotification | null>(null);
   
   // Whiteboard hook - tutor-controlled visual teaching aids
   const whiteboard = useWhiteboard();
@@ -439,6 +442,16 @@ export function StreamingVoiceChat({
     prevInputModeRef.current = inputMode;
   }, [inputMode, streamingVoice]);
   
+  useEffect(() => {
+    setSofiaNotificationCallback((notification) => {
+      setSofiaNotification(notification);
+    });
+    return () => {
+      setSofiaNotificationCallback(null);
+      resetSofiaNotificationState();
+    };
+  }, []);
+
   // Pre-warm microphone on component mount for instant recording
   // This requests mic permission early and caches the stream
   // NOTE: This may fail on browsers that require user gesture for mic access
@@ -727,6 +740,8 @@ export function StreamingVoiceChat({
     const connectStreaming = async () => {
       try {
         console.log('[STREAMING] Connecting to streaming voice...');
+        resetSofiaNotificationState();
+        setSofiaNotification(null);
         // Founder mode is ONLY enabled when user explicitly selects "Founder Mode" in the learning context filter
         // This prevents developers from accidentally entering founder mode when doing self-directed practice
         const isExplicitFounderMode = learningContext === 'founder-mode';
@@ -3206,7 +3221,7 @@ export function StreamingVoiceChat({
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-background" data-testid="rest-voice-chat">
       {/* Immersive Voice Chat with View Manager - Full Screen */}
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden relative">
         <VoiceChatViewManager
           conversationId={conversationId}
           messages={messages}
@@ -3289,6 +3304,10 @@ export function StreamingVoiceChat({
           voiceOverride={voiceOverride}
           onVoiceOverrideChange={setVoiceOverride}
           onHelpClick={() => setIsSupportModalOpen(true)}
+        />
+        <SofiaNotification
+          notification={sofiaNotification}
+          onDismiss={() => setSofiaNotification(null)}
         />
       </div>
       
