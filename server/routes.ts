@@ -17437,8 +17437,8 @@ Current conversation context:
         user?.email === (process.env.FOUNDER_EMAIL || 'davidwmcintosh@gmail.com');
       const supportMode = isDevUser ? 'dev' : 'user';
       
-      // Get voice diagnostics for dev mode users
-      const voiceDiagnosticsContext = isDevUser ? voiceDiagnostics.getSupportDiagnostics() : undefined;
+      // Voice diagnostics for ALL users — Sofia uses them internally for smart diagnosis
+      const voiceDiagnosticsContext = voiceDiagnostics.getSupportDiagnostics();
       
       const result = await supportPersonaService.generateResponse({
         ticketId,
@@ -17606,8 +17606,8 @@ Current conversation context:
           user?.email === (process.env.FOUNDER_EMAIL || 'davidwmcintosh@gmail.com');
         const supportMode = isDevUser ? 'dev' : 'user';
         
-        // Get voice diagnostics for dev mode users
-        const voiceDiagnosticsContext = isDevUser ? voiceDiagnostics.getSupportDiagnostics() : undefined;
+        // Voice diagnostics for ALL users — Sofia uses them internally for smart diagnosis
+        const voiceDiagnosticsContext = voiceDiagnostics.getSupportDiagnostics();
         
         const result = await supportPersonaService.generateResponse({
           ticketId,
