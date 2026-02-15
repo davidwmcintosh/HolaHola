@@ -26,10 +26,11 @@ import {
   type SupportMessage,
   type SupportKnowledgeBase,
 } from "@shared/schema";
-import { eq, desc, and, or, like, sql } from "drizzle-orm";
+import { eq, desc, and, or, like, sql, gte } from "drizzle-orm";
 import { buildSupportPersonaPrompt, shouldHandoffToSupport, type SupportVoiceDiagnostics, type ProductionFaultContext } from "../support-system-prompt";
 import { hiveCollaborationService, type BeaconType } from "./hive-collaboration-service";
 import { founderCollabService } from "./founder-collaboration-service";
+import { voiceSessions, messages } from "@shared/schema";
 
 // Initialize Gemini client (consistent with Daniela and Aris)
 // Uses fallback pattern: AI_INTEGRATIONS_GEMINI_API_KEY || GEMINI_API_KEY
@@ -662,6 +663,78 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
   }
 
   // ============================================================================
+  // SESSION DIAGNOSTICS - Real data for Sofia's analysis
+  // ============================================================================
+
+  private async getUserSessionDiagnostics(userId: string): Promise<string> {
+    try {
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+      
+      const recentSessions = await getSharedDb().select({
+        id: voiceSessions.id,
+        conversationId: voiceSessions.conversationId,
+        startedAt: voiceSessions.startedAt,
+        endedAt: voiceSessions.endedAt,
+        status: voiceSessions.status,
+        exchangeCount: voiceSessions.exchangeCount,
+        language: voiceSessions.language,
+        durationSeconds: voiceSessions.durationSeconds,
+      })
+        .from(voiceSessions)
+        .where(and(
+          eq(voiceSessions.userId, userId),
+          gte(voiceSessions.startedAt, twoHoursAgo),
+        ))
+        .orderBy(desc(voiceSessions.startedAt))
+        .limit(5);
+      
+      if (recentSessions.length === 0) {
+        return 'No voice sessions found in last 2 hours.';
+      }
+      
+      let diagnosticText = `RECENT VOICE SESSIONS (last 2 hours):\n`;
+      
+      for (const session of recentSessions) {
+        const startTime = session.startedAt ? new Date(session.startedAt).toLocaleTimeString() : 'unknown';
+        const endTime = session.endedAt ? new Date(session.endedAt).toLocaleTimeString() : 'still active';
+        const duration = session.durationSeconds ? `${session.durationSeconds}s` : 'ongoing';
+        
+        diagnosticText += `\n  Session ${session.id.substring(0, 8)}... (${session.language}):\n`;
+        diagnosticText += `    Started: ${startTime}, Ended: ${endTime}, Status: ${session.status}, Duration: ${duration}\n`;
+        diagnosticText += `    Exchanges: ${session.exchangeCount || 0}\n`;
+        
+        if (session.conversationId) {
+          const sessionMessages = await getSharedDb().select({
+            role: messages.role,
+            content: messages.content,
+            createdAt: messages.createdAt,
+          })
+            .from(messages)
+            .where(eq(messages.conversationId, session.conversationId))
+            .orderBy(messages.createdAt)
+            .limit(10);
+          
+          if (sessionMessages.length > 0) {
+            diagnosticText += `    Messages (${sessionMessages.length}):\n`;
+            for (const msg of sessionMessages) {
+              const time = msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString() : '';
+              const preview = (msg.content || '').substring(0, 120);
+              diagnosticText += `      [${msg.role}] ${time}: ${preview}${(msg.content || '').length > 120 ? '...' : ''}\n`;
+            }
+          } else {
+            diagnosticText += `    Messages: none stored\n`;
+          }
+        }
+      }
+      
+      return diagnosticText;
+    } catch (err: any) {
+      console.warn('[Sofia] Failed to load session diagnostics:', err.message);
+      return 'Session diagnostics unavailable (database query failed).';
+    }
+  }
+
+  // ============================================================================
   // AI RESPONSE GENERATION
   // ============================================================================
 
@@ -775,6 +848,30 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
       };
     }
 
+    // Fetch REAL session data so Sofia can diagnose actual issues instead of guessing
+    let sessionDiagnostics = '';
+    if (ticket?.userId) {
+      sessionDiagnostics = await this.getUserSessionDiagnostics(ticket.userId);
+    }
+    
+    // Build client telemetry context for the prompt (not just the issue report)
+    let clientTelemetryContext = '';
+    if (params.clientTelemetry) {
+      const tel = params.clientTelemetry;
+      const parts: string[] = [];
+      if (tel.audioContext?.state) parts.push(`AudioContext state: ${tel.audioContext.state}`);
+      if (tel.voiceClient?.connectionState) parts.push(`WebSocket: ${tel.voiceClient.connectionState}`);
+      if (tel.voiceClient?.socketConnected !== undefined) parts.push(`Socket connected: ${tel.voiceClient.socketConnected}`);
+      if (tel.voiceClient?.reconnectCount !== undefined) parts.push(`Reconnect attempts: ${tel.voiceClient.reconnectCount}`);
+      if (tel.voiceClient?.lastConversationId) parts.push(`Last conversation: ${tel.voiceClient.lastConversationId}`);
+      if (tel.voiceClient?.hasActiveSession !== undefined) parts.push(`Active session: ${tel.voiceClient.hasActiveSession}`);
+      if (tel.device?.browser) parts.push(`Browser: ${tel.device.browser}`);
+      if (tel.device?.platform) parts.push(`Platform: ${tel.device.platform}`);
+      if (parts.length > 0) {
+        clientTelemetryContext = `\nCLIENT TELEMETRY (live snapshot from user's device):\n  ${parts.join('\n  ')}\n`;
+      }
+    }
+    
     const systemPrompt = buildSupportPersonaPrompt({
       userName: params.userName,
       deviceInfo: params.deviceInfo,
@@ -786,7 +883,7 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
       mode: params.mode,
       voiceDiagnostics: params.voiceDiagnostics,
       productionFaultContext,
-    }) + knowledgeContext;
+    }) + knowledgeContext + (sessionDiagnostics ? `\n\n═══════════════════════════════════════════════════════════════════\n📊 SESSION DIAGNOSTICS (from database - REAL DATA)\n═══════════════════════════════════════════════════════════════════\n${sessionDiagnostics}` : '') + (clientTelemetryContext ? `\n\n═══════════════════════════════════════════════════════════════════\n📡 CLIENT DEVICE TELEMETRY (from user's browser)\n═══════════════════════════════════════════════════════════════════\n${clientTelemetryContext}` : '');
 
     // Build Gemini conversation history from stored messages
     // NOTE: The user message is already stored in DB before generateResponse is called,
