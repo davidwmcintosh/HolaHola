@@ -5839,6 +5839,93 @@ ${memoryContext}
     }
   });
 
+  app.get("/api/voice/client-diagnostics/summary", isAuthenticated, loadAuthenticatedUser(storage), allowRoles(['admin', 'developer']), async (req: any, res) => {
+    try {
+      const userId = getRequestUserId(req);
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+      const hours = Math.min(parseInt(req.query.hours as string) || 24, 168);
+      const since = new Date(Date.now() - hours * 60 * 60 * 1000);
+
+      const sharedDb = getSharedDb();
+
+      const byTrigger = await sharedDb.execute(sql`
+        SELECT 
+          REPLACE(event_type, 'client_diag_', '') as trigger,
+          COUNT(*)::int as count,
+          COUNT(DISTINCT user_id)::int as unique_users,
+          MAX(created_at) as last_seen
+        FROM voice_pipeline_events
+        WHERE event_type LIKE 'client_diag_%'
+          AND created_at >= ${since}
+        GROUP BY event_type
+        ORDER BY count DESC
+      `);
+
+      const byDevice = await sharedDb.execute(sql`
+        SELECT
+          CASE 
+            WHEN (metadata->>'device'->'screenWidth')::text IS NOT NULL 
+              AND (metadata->'device'->>'screenWidth')::int < 768 THEN 'mobile'
+            ELSE 'desktop'
+          END as device_type,
+          COUNT(*)::int as count
+        FROM voice_pipeline_events
+        WHERE event_type LIKE 'client_diag_%'
+          AND created_at >= ${since}
+        GROUP BY device_type
+      `);
+
+      const byUser = await sharedDb.execute(sql`
+        SELECT 
+          user_id,
+          COUNT(*)::int as issue_count,
+          array_agg(DISTINCT REPLACE(event_type, 'client_diag_', '')) as triggers,
+          MAX(created_at) as last_seen
+        FROM voice_pipeline_events
+        WHERE event_type LIKE 'client_diag_%'
+          AND created_at >= ${since}
+        GROUP BY user_id
+        ORDER BY issue_count DESC
+        LIMIT 20
+      `);
+
+      const hourly = await sharedDb.execute(sql`
+        SELECT 
+          date_trunc('hour', created_at) as hour,
+          COUNT(*)::int as count
+        FROM voice_pipeline_events
+        WHERE event_type LIKE 'client_diag_%'
+          AND created_at >= ${since}
+        GROUP BY hour
+        ORDER BY hour DESC
+        LIMIT 48
+      `);
+
+      const remediated = await sharedDb.execute(sql`
+        SELECT COUNT(*)::int as total
+        FROM voice_pipeline_events
+        WHERE event_type IN ('client_diag_lockout_watchdog_8s', 'client_diag_failsafe_tier1_20s', 'client_diag_failsafe_tier2_45s')
+          AND created_at >= ${since}
+      `);
+
+      const totalEvents = byTrigger.rows.reduce((sum: number, r: any) => sum + (r.count || 0), 0);
+
+      res.json({
+        period: { hours, since: since.toISOString() },
+        totalEvents,
+        autoRemediated: (remediated.rows[0] as any)?.total || 0,
+        byTrigger: byTrigger.rows,
+        byDevice: byDevice.rows,
+        topAffectedUsers: byUser.rows,
+        hourlyTrend: hourly.rows,
+      });
+    } catch (error: any) {
+      console.error("[VoiceDiag] Error fetching diagnostic summary:", error);
+      res.status(500).json({ error: "Failed to fetch diagnostic summary" });
+    }
+  });
+
   // Get active voice session for user (allows client to reconnect to existing session)
   app.get("/api/voice/active-session", isAuthenticated, async (req: any, res) => {
     try {
