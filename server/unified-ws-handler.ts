@@ -2793,7 +2793,10 @@ export function setupSocketIOHandler(io: SocketIOServer) {
     const conversationId = socket.handshake.query.conversationId as string || null;
     console.log('[Socket.io Voice] ConversationId:', conversationId);
     
-    // Client telemetry handler for end-to-end voice diagnostics
+    socket.on('heartbeat', () => {
+      socket.emit('heartbeat_ack');
+    });
+    
     socket.on('client_telemetry', (event: any) => {
       handleClientTelemetry(socket.id, event);
     });

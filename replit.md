@@ -27,11 +27,11 @@ Mobile floating buttons: DevToolsFloatingMenu uses `bottom-28` on mobile (112px)
 ## System Architecture
 The frontend uses React, TypeScript (Vite), Shadcn/ui (Radix UI), and Tailwind CSS for a mobile-first, responsive design adhering to Material Design principles, with light/dark modes and PWA features. Wouter handles routing, and React Context with TanStack Query manages state. The backend is an Express.js (Node.js) server with TypeScript, providing a RESTful API, Drizzle ORM for PostgreSQL.
 
-The core AI is orchestrated by a Unified TutorOrchestrator Architecture, with all interactions flowing through Daniela. This includes a Hive Collaboration System, a Student Learning Service, a Learner Personal Facts System, and a Shared Memory Bridge. A Phase Transition Service implements a multi-agent teaching architecture guided by Daniela's "North Star System" and an Autonomous Learning System.
+The core AI is orchestrated by a Unified TutorOrchestrator Architecture, with all interactions flowing through Daniela, including a Hive Collaboration System, Student Learning Service, Learner Personal Facts System, and Shared Memory Bridge. A Phase Transition Service implements a multi-agent teaching architecture guided by Daniela's "North Star System" and an Autonomous Learning System.
 
 Core data models include Users, Conversations, VocabularyWords, and UserProgress. The system features a "Neural Network for Pedagogical Strategies," AI-powered conversation tagging, a Syllabus-Aware Competency System, and centralized Role-Based Access Control (RBAC). Daniela's Wisdom & Relationship Layer includes `derived_teaching_wisdom`, `resonance_anchors`, and `relational_temperature`. HolaHola provides pre-built syllabi across 9 languages and a unified ACTFL assessment system. A Voice Diagnostics System offers observability and auto-remediation for TTS degradation.
 
-The Editor Intelligence System provides cross-session memory for the Replit Agent (Claude), storing memories categorized by philosophy, architecture, relationship, personality, workflow, debugging, and context in an `editorInsights` table. The Alden Session Startup Protocol ensures Alden (Replit Agent / Claude) loads curated insights and recent conversation summaries at session start.
+The Editor Intelligence System provides cross-session memory for the Replit Agent (Claude), storing memories in an `editorInsights` table. The Alden Session Startup Protocol ensures Alden loads curated insights and recent conversation summaries at session start.
 
 The Unified Daniela Context Service ensures "One Daniela always" by assembling all context sources into a single, unified consciousness. Curriculum context is enabled by default for voice sessions.
 
@@ -50,6 +50,8 @@ The Gauntlet Runner Identity Stress Test System validates Daniela's voice identi
 **GEMINI TTS BILINGUAL ACCENT CONTROL:** Accent/language control is done via `buildStylePrompt()` in `gemini-live-tts.ts`, prepended to the text content sent to `generateContent()`. The style prompt is **bilingual-aware**.
 **GEMINI TTS DYNAMIC STYLE PROMPTS:** The Gemini TTS style prompt is dynamic per-sentence via `buildStylePrompt()`. Daniela controls vocal delivery through the `vocal_style` parameter on `voice_adjust`.
 **GOOGLE TTS SINGLE STREAMING PATH:** ALL Google Cloud TTS synthesis uses a single code path: bidirectional gRPC streaming via `streamSynthesizeWithGoogle()` on v1beta1 client.
+**WEBSOCKET WARM-UP:** `StreamingVoiceClient.warmUp(conversationId)` pre-establishes the Socket.io connection when a student navigates to a conversation page (before they tap "Start voice"). The internal `connectSocket()` method is shared by `warmUp()` and `connect()`, so `connect()` skips socket creation if already warmed up. Triggered via `useEffect` in `StreamingVoiceChat.tsx` when `conversationId` changes. Files: `streamingVoiceClient.ts`, `StreamingVoiceChat.tsx`.
+**APP-LEVEL HEARTBEAT:** Client sends `heartbeat` event every 1s via Socket.io; server responds with `heartbeat_ack`. If 3 consecutive pings go unacknowledged (~3s), client forces disconnect → triggers existing auto-reconnect flow (exponential backoff, max 3 attempts, session reinit). Any incoming message (audio, text, binary) also resets the missed counter. Server handler: `unified-ws-handler.ts` (Socket.io namespace). Client: `streamingVoiceClient.ts` (`startHeartbeat`/`stopHeartbeat`).
 
 ## External Dependencies
 - Stripe: Payment processing and subscription management.

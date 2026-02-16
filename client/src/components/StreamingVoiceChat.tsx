@@ -36,6 +36,7 @@ import { useWhiteboard } from "@/hooks/useWhiteboard";
 import { getTutorNames } from "@/lib/tutor-avatars";
 import { SupportAssistModal } from "@/components/SupportAssistModal";
 import { setRemediationCallback } from "@/lib/lockoutDiagnostics";
+import { getStreamingVoiceClient } from "@/lib/streamingVoiceClient";
 import type { VoiceInputMode, OpenMicState } from "@shared/streaming-voice-types";
 import type { VoiceOverride } from "./VoiceLabPanel";
 
@@ -1306,11 +1307,16 @@ export function StreamingVoiceChat({
         console.log('[VOICE] TTS pre-warming skipped');
       });
       
-      // Wait for both in parallel
       await Promise.all([warmDeepgram, warmTts]);
     };
     warmServices();
   }, []);
+
+  useEffect(() => {
+    if (!conversationId) return;
+    const client = getStreamingVoiceClient();
+    client.warmUp(conversationId);
+  }, [conversationId]);
 
   // Cleanup on unmount or conversation change
   useEffect(() => {

@@ -244,6 +244,15 @@ export class StreamingVoiceClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private intentionalDisconnect = false;  // Track if disconnect was user-initiated
   
+  // Heartbeat state for fast drop detection
+  private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+  private missedHeartbeats = 0;
+  private readonly HEARTBEAT_INTERVAL_MS = 1000;  // Send ping every 1s
+  private readonly MAX_MISSED_HEARTBEATS = 3;     // 3 missed = ~3s detection
+  
+  // Warm-up state
+  private isWarmedUp = false;  // Socket connected but no session started
+  
   constructor() {
     // Initialization complete
   }
@@ -331,26 +340,71 @@ export class StreamingVoiceClient {
   }
   
   /**
+   * Check if socket is already warmed up (connected but no session)
+   */
+  isSocketWarmedUp(): boolean {
+    return this.isWarmedUp && (this.socket?.connected ?? false);
+  }
+  
+  /**
+   * Pre-connect Socket.io without starting a session.
+   * Called when student navigates to a conversation page so the socket
+   * is ready by the time they tap "Start voice". If socket is already
+   * connected for this conversationId, this is a no-op.
+   */
+  async warmUp(conversationId: string): Promise<void> {
+    if (this.socket?.connected && this.lastConversationId === conversationId) {
+      return;
+    }
+    
+    if (this.socket?.connected && this.lastConversationId !== conversationId) {
+      this.socket.disconnect();
+      this.socket = null;
+      this.stopHeartbeat();
+    }
+    
+    this.lastConversationId = conversationId;
+    this.intentionalDisconnect = false;
+    this.isWarmedUp = false;
+    
+    try {
+      await this.connectSocket(conversationId);
+      this.isWarmedUp = true;
+      console.log('[StreamingVoice] Warm-up complete — socket ready for', conversationId.substring(0, 8));
+    } catch (err: any) {
+      console.warn('[StreamingVoice] Warm-up failed (non-blocking):', err.message);
+    }
+  }
+  
+  /**
    * Connect to streaming voice via Socket.io
    * Socket.io handles transport negotiation (WebSocket → polling fallback)
    * This works reliably through Replit's proxy
    */
   async connect(conversationId: string): Promise<void> {
-    if (this.socket?.connected) {
+    if (this.socket?.connected && this.lastConversationId === conversationId) {
       return;
     }
     
-    // Store conversationId for potential reconnection
     this.lastConversationId = conversationId;
     this.intentionalDisconnect = false;
     
-    // Clear any pending reconnect timer
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
     
-    // Increment connection ID to invalidate any pending events from old connections
+    if (!this.socket?.connected) {
+      await this.connectSocket(conversationId);
+    }
+    
+    this.isWarmedUp = false;
+  }
+  
+  /**
+   * Internal: establish Socket.io connection (shared by warmUp and connect)
+   */
+  private async connectSocket(conversationId: string): Promise<void> {
     this.connectionId++;
     const currentConnectionId = this.connectionId;
     
@@ -359,19 +413,15 @@ export class StreamingVoiceClient {
     try {
       console.log('[StreamingVoice] Creating Socket.io connection to /voice namespace...');
       
-      // Connect to the /voice namespace with conversationId in query
-      // Use WebSocket directly - polling has issues with large audio messages
       this.socket = io('/voice', {
         query: { conversationId },
-        transports: ['websocket'],  // WebSocket only - large audio messages fail over polling
-        upgrade: false,  // No upgrade needed, already on WebSocket
-        reconnection: false,  // We handle reconnection manually
+        transports: ['websocket'],
+        upgrade: false,
+        reconnection: false,
       });
       
-      // Wire up telemetry emitter to socket
       telemetryEmitter.setSocket(this.socket);
       
-      // Create a promise that resolves when connection is ready
       const connectionPromise = new Promise<void>((resolve, reject) => {
         const socket = this.socket!;
         let resolved = false;
@@ -392,16 +442,15 @@ export class StreamingVoiceClient {
           this.reconnectAttempts = 0;
           this.intentionalDisconnect = false;
           this.setState('connected');
+          this.startHeartbeat();
           resolve();
         };
         
-        // Socket.io event handlers
         socket.on('connect', () => {
           console.log('[StreamingVoice] Socket.io connect event fired!');
           completeConnection('connect');
         });
         
-        // Debug: catch-all to see what events are being received
         socket.onAny((eventName: string, ...args: any[]) => {
           if (eventName === 'message') {
             const data = args[0];
@@ -409,11 +458,11 @@ export class StreamingVoiceClient {
             if (msgType === 'processing' || msgType === 'processing_pending') {
               console.log('[SOCKET.IO CONTROL MSG] ★★★ Received:', msgType, JSON.stringify(data));
             } else if (msgType === 'audio_chunk_part' || msgType === 'word_timing_delta') {
-              // Reduce noise - don't log every audio/timing part
+              // Reduce noise
             } else {
               console.log('[SOCKET.IO onAny] EVENT:', eventName, 'TYPE:', msgType, 'HAS AUDIO:', !!data?.audio);
             }
-          } else {
+          } else if (eventName !== 'heartbeat_ack') {
             console.log('[SOCKET.IO onAny] EVENT:', eventName);
           }
         });
@@ -429,23 +478,25 @@ export class StreamingVoiceClient {
           }
         });
         
-        // Handle JSON messages from server
         socket.on('message', (data: any) => {
+          this.missedHeartbeats = 0;
           console.log('[WS SOCKET ON MESSAGE] Received:', data?.type || 'unknown', 'data:', JSON.stringify(data).slice(0, 100));
           
-          // First message = connection confirmed (even if connect didn't fire)
           if (!resolved) {
             console.log('[StreamingVoice] First message received (connection confirmed)');
             completeConnection('first-message');
           }
-          // Process the message
           if (this.connectionId === currentConnectionId) {
             this.handleSocketMessage(data);
           }
         });
         
-        // Handle binary data from server
+        socket.on('heartbeat_ack', () => {
+          this.missedHeartbeats = 0;
+        });
+        
         socket.on('binary', (data: ArrayBuffer) => {
+          this.missedHeartbeats = 0;
           if (this.connectionId === currentConnectionId) {
             this.handleBinaryData(data);
           }
@@ -453,6 +504,7 @@ export class StreamingVoiceClient {
         
         socket.on('disconnect', (reason) => {
           console.log('[StreamingVoice] Socket.io disconnect:', reason);
+          this.stopHeartbeat();
           if (!resolved) {
             if (connectionTimeout) {
               clearTimeout(connectionTimeout);
@@ -465,7 +517,6 @@ export class StreamingVoiceClient {
           }
         });
         
-        // Check if already connected (shouldn't happen, but just in case)
         if (socket.connected) {
           console.log('[StreamingVoice] Socket.io already connected!');
           completeConnection('already-connected');
@@ -476,7 +527,7 @@ export class StreamingVoiceClient {
           if (resolved) return;
           console.log('[StreamingVoice] Socket.io connection timeout');
           reject(new Error('Socket.io connection timeout'));
-        }, 30000);  // 30 seconds for Replit proxy negotiation
+        }, 30000);
       });
       
       await connectionPromise;
@@ -488,6 +539,45 @@ export class StreamingVoiceClient {
       this.setState('error');
       throw error;
     }
+  }
+  
+  /**
+   * Start application-level heartbeat for fast drop detection.
+   * Sends ping every 1s; if 3 consecutive pings go unacknowledged (~3s),
+   * triggers disconnect → auto-reconnect flow.
+   */
+  private startHeartbeat(): void {
+    this.stopHeartbeat();
+    this.missedHeartbeats = 0;
+    
+    this.heartbeatInterval = setInterval(() => {
+      if (!this.socket?.connected) {
+        this.stopHeartbeat();
+        return;
+      }
+      
+      this.missedHeartbeats++;
+      
+      if (this.missedHeartbeats > this.MAX_MISSED_HEARTBEATS) {
+        console.warn(`[StreamingVoice] Heartbeat: ${this.missedHeartbeats} missed — connection stale, forcing reconnect`);
+        this.stopHeartbeat();
+        this.socket?.disconnect();
+        return;
+      }
+      
+      this.socket.emit('heartbeat', { ts: Date.now() });
+    }, this.HEARTBEAT_INTERVAL_MS);
+  }
+  
+  /**
+   * Stop the heartbeat timer
+   */
+  private stopHeartbeat(): void {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+    this.missedHeartbeats = 0;
   }
   
   /**
@@ -715,21 +805,20 @@ export class StreamingVoiceClient {
    * Disconnect and cleanup (user-initiated)
    */
   disconnect(): void {
-    // Mark as intentional to prevent auto-reconnect
     this.intentionalDisconnect = true;
     this.reconnectAttempts = 0;
+    this.isWarmedUp = false;
     
-    // Clear any pending reconnect timer
+    this.stopHeartbeat();
+    
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
     
-    // Clear stored session config to prevent stale reconnection
     this.lastSessionConfig = null;
     
     if (this.socket) {
-      // Send end session message
       if (this.socket.connected) {
         this.socket.emit('message', { type: 'end_session' });
       }
