@@ -12574,6 +12574,20 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
   
+  app.get("/api/admin/sofia-health-digests", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+      const digests = await supportPersonaService.getHealthDigests(limit);
+      res.json({
+        digests,
+        count: digests.length,
+      });
+    } catch (error: any) {
+      console.error('[Sofia Health] Error fetching digests:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ===== Voice Pipeline Diagnostics (Founder Only) =====
   // Production monitoring for voice pipeline health
   

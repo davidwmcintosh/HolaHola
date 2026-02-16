@@ -1,9 +1,25 @@
 import { getSharedDb } from '../neon-db';
 import { sql } from 'drizzle-orm';
 
+export interface HealthTransition {
+  previousStatus: string;
+  newStatus: string;
+  direction: 'degraded' | 'recovered' | 'worsened';
+  reasons: string[];
+  metrics: any;
+  timestamp: Date;
+}
+
+type TransitionCallback = (transition: HealthTransition) => Promise<void>;
+
 let lastHealthStatus: string = 'green';
 let monitorInterval: ReturnType<typeof setInterval> | null = null;
 let summaryInterval: ReturnType<typeof setInterval> | null = null;
+let onStatusChangeCallbacks: TransitionCallback[] = [];
+
+export function onHealthStatusChange(callback: TransitionCallback): void {
+  onStatusChangeCallbacks.push(callback);
+}
 
 async function computeHealthStatus(): Promise<{ status: string; reasons: string[]; metrics: any }> {
   const sharedDb = getSharedDb();
@@ -60,12 +76,35 @@ async function computeHealthStatus(): Promise<{ status: string; reasons: string[
 
 async function runHealthCheck(): Promise<void> {
   try {
-    const { status, reasons } = await computeHealthStatus();
+    const { status, reasons, metrics } = await computeHealthStatus();
 
     if (status !== lastHealthStatus) {
-      const direction = status === 'green' ? 'RECOVERED' : 'DEGRADED';
-      console.log(`[VoiceHealthMonitor] ${direction}: ${lastHealthStatus} → ${status} | ${reasons.join('; ')}`);
+      const previousStatus = lastHealthStatus;
+      const direction: HealthTransition['direction'] = 
+        status === 'green' ? 'recovered' : 
+        (previousStatus === 'green' ? 'degraded' : 
+        (status === 'red' && previousStatus === 'yellow' ? 'worsened' : 'degraded'));
+      
+      console.log(`[VoiceHealthMonitor] ${direction.toUpperCase()}: ${previousStatus} → ${status} | ${reasons.join('; ')}`);
+      
+      const transition: HealthTransition = {
+        previousStatus,
+        newStatus: status,
+        direction,
+        reasons,
+        metrics,
+        timestamp: new Date(),
+      };
+
       lastHealthStatus = status;
+
+      for (const callback of onStatusChangeCallbacks) {
+        try {
+          await callback(transition);
+        } catch (err: any) {
+          console.warn(`[VoiceHealthMonitor] Transition callback error:`, err.message);
+        }
+      }
     }
 
     if (status === 'red') {

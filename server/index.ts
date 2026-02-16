@@ -505,7 +505,10 @@ app.use((req, res, next) => {
     
     console.log('[CONSOLIDATION] Sync-bridge retired - Neon routing is primary');
 
-    const { startVoiceHealthMonitor } = await import('./services/voice-health-monitor');
+    const { startVoiceHealthMonitor, onHealthStatusChange } = await import('./services/voice-health-monitor');
+    onHealthStatusChange(async (transition) => {
+      await supportPersonaService.handleHealthTransition(transition);
+    });
     startVoiceHealthMonitor();
 
     const DIAG_RETENTION_DAYS = 30;

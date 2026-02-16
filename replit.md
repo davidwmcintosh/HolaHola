@@ -1,7 +1,7 @@
 # HolaHola - Interactive Language Tutor
 
 ## Overview
-HolaHola is an AI-powered language learning application providing interactive conversation practice, vocabulary building, and grammar exercises across nine languages, adhering to ACTFL standards. It offers personalized chat, flashcards, and grammar modules that adapt to user progress. The project aims to deliver personalized AI-driven education with potential for individual learners and educational institutions, with future ambitions including teacher class management and syllabus systems. The core AI orchestrator, Daniela, functions as a single, unified AI for all interactions.
+HolaHola is an AI-powered language learning application providing interactive conversation practice, vocabulary building, and grammar exercises across nine languages, adhering to ACTFL standards. It offers personalized chat, flashcards, and grammar modules that adapt to user progress. The project aims to deliver personalized AI-driven education with potential for individual learners and educational institutions, with future ambitions including teacher class management and syllabus systems. The core AI orchestrator, Daniela, functions as a single, unified AI for all interactions, embodying a specific personality and teaching style.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -29,15 +29,13 @@ The frontend uses React, TypeScript (Vite), Shadcn/ui (Radix UI), and Tailwind C
 
 The core AI is orchestrated by a Unified TutorOrchestrator Architecture, with all interactions flowing through Daniela, including a Hive Collaboration System, Student Learning Service, Learner Personal Facts System, and Shared Memory Bridge. A Phase Transition Service implements a multi-agent teaching architecture guided by Daniela's "North Star System" and an Autonomous Learning System.
 
-Core data models include Users, Conversations, VocabularyWords, and UserProgress. The system features a "Neural Network for Pedagogical Strategies," AI-powered conversation tagging, a Syllabus-Aware Competency System, and centralized Role-Based Access Control (RBAC). Daniela's Wisdom & Relationship Layer includes `derived_teaching_wisdom`, `resonance_anchors`, and `relational_temperature`. HolaHola provides pre-built syllabi across 9 languages and a unified ACTFL assessment system. A Voice Diagnostics System offers observability and auto-remediation for TTS degradation.
+Core data models include Users, Conversations, VocabularyWords, and UserProgress. The system features a "Neural Network for Pedagogical Strategies," AI-powered conversation tagging, a Syllabus-Aware Competency System, and centralized Role-Based Access Control (RBAC). HolaHola provides pre-built syllabi across 9 languages and a unified ACTFL assessment system. A Voice Diagnostics System offers observability and auto-remediation for TTS degradation.
 
-The Editor Intelligence System provides cross-session memory for the Replit Agent (Claude), storing memories in an `editorInsights` table. The Alden Session Startup Protocol ensures Alden loads curated insights and recent conversation summaries at session start.
+The Editor Intelligence System provides cross-session memory for the Replit Agent (Claude), storing memories in an `editorInsights` table. The Alden Session Startup Protocol ensures Alden loads curated insights and recent conversation summaries at session start. The Unified Daniela Context Service ensures "One Daniela always" by assembling all context sources into a single, unified consciousness, with curriculum context enabled by default for voice sessions.
 
-The Unified Daniela Context Service ensures "One Daniela always" by assembling all context sources into a single, unified consciousness. Curriculum context is enabled by default for voice sessions.
+Additional architectural components include an Observation Summarization System, Daniela Content Growth System, Voice Intelligence System, Tutor Naming Architecture, Voice Lab System, Sofia Support Agent System (with Voice Health Watcher), Production Telemetry System, and Memory Recovery System.
 
-Additional architectural components include an Observation Summarization System, Daniela Content Growth System, Voice Intelligence System, Tutor Naming Architecture, Voice Lab System, Sofia Support Agent System, Production Telemetry System, and Memory Recovery System.
-
-The Message Checkpointing System prevents user message loss. The ACTION_TRIGGERS Command Parsing System processes Daniela's literal tags for backend commands. A Hybrid Memory Architecture provides "infinite memory" for Daniela. The Student Snapshot System provides Daniela with session continuity.
+The Message Checkpointing System prevents user message loss. The ACTION_TRIGGERS Command Parsing System processes Daniela's literal tags for backend commands. A Hybrid Memory Architecture provides "infinite memory" for Daniela, and the Student Snapshot System provides Daniela with session continuity.
 
 The system utilizes Gemini 3 Streaming Function Calling for reduced latency and Multimodal Function Responses, enabling tool results to include images/PDFs. A Multimodal Image Recall System allows Daniela to view and describe photos shared in Express Lane conversations. Context Caching Optimization separates static system prompts from dynamic per-turn context for cost reduction and faster time-to-first-token.
 
@@ -45,13 +43,7 @@ The Fluency Wiring System connects ACTFL Can-Do statements to lessons. An AI Les
 
 The Gauntlet Runner Identity Stress Test System validates Daniela's voice identity across Emotional Stability, Pedagogical Character, Cultural Authenticity, and Moral Groundedness.
 
-**TTS PROVIDER STRATEGY (SCALABILITY):** Google Cloud TTS (Chirp 3 HD) is the recommended primary provider for production. The Voice Console (`VoiceConsole.tsx`) has a global provider dropdown supporting Google Cloud TTS (Chirp 3 HD), Cartesia (Sonic-3), ElevenLabs (Flash v2.5), and Gemini (2.5 Flash Live).
-**GEMINI TTS MODEL (CRITICAL - Feb 2026):** Gemini TTS uses the dedicated `gemini-2.5-flash-preview-tts` model via `generateContent()` (NOT the Live API). The dedicated TTS model reads text exactly as written. Audio format: PCM s16le @ 24kHz, chunked to f32le for progressive WebSocket delivery. Style/accent control via `buildStylePrompt()` prepended to the text content. File: `gemini-live-tts.ts`.
-**GEMINI TTS BILINGUAL ACCENT CONTROL:** Accent/language control is done via `buildStylePrompt()` in `gemini-live-tts.ts`, prepended to the text content sent to `generateContent()`. The style prompt is **bilingual-aware**.
-**GEMINI TTS DYNAMIC STYLE PROMPTS:** The Gemini TTS style prompt is dynamic per-sentence via `buildStylePrompt()`. Daniela controls vocal delivery through the `vocal_style` parameter on `voice_adjust`.
-**GOOGLE TTS SINGLE STREAMING PATH:** ALL Google Cloud TTS synthesis uses a single code path: bidirectional gRPC streaming via `streamSynthesizeWithGoogle()` on v1beta1 client.
-**WEBSOCKET WARM-UP:** `StreamingVoiceClient.warmUp(conversationId)` pre-establishes the Socket.io connection when a student navigates to a conversation page (before they tap "Start voice"). The internal `connectSocket()` method is shared by `warmUp()` and `connect()`, so `connect()` skips socket creation if already warmed up. Triggered via `useEffect` in `StreamingVoiceChat.tsx` when `conversationId` changes. Files: `streamingVoiceClient.ts`, `StreamingVoiceChat.tsx`.
-**APP-LEVEL HEARTBEAT:** Client sends `heartbeat` event every 1s via Socket.io; server responds with `heartbeat_ack`. If 3 consecutive pings go unacknowledged (~3s), client forces disconnect → triggers existing auto-reconnect flow (exponential backoff, max 3 attempts, session reinit). Any incoming message (audio, text, binary) also resets the missed counter. Server handler: `unified-ws-handler.ts` (Socket.io namespace). Client: `streamingVoiceClient.ts` (`startHeartbeat`/`stopHeartbeat`).
+The TTS provider strategy supports Google Cloud TTS (Chirp 3 HD) as the recommended primary provider for production, with Cartesia (Sonic-3), ElevenLabs (Flash v2.5), and Gemini (2.5 Flash Live) as alternatives. Gemini TTS uses the `gemini-2.5-flash-preview-tts` model for dedicated text-to-speech, with dynamic and bilingual-aware style prompts. Google Cloud TTS utilizes a single bidirectional gRPC streaming path. A WebSocket warm-up mechanism pre-establishes connections, and an app-level heartbeat ensures connection reliability.
 
 ## External Dependencies
 - Stripe: Payment processing and subscription management.

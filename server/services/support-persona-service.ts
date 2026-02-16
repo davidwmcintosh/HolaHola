@@ -31,6 +31,7 @@ import { buildSupportPersonaPrompt, shouldHandoffToSupport, type SupportVoiceDia
 import { hiveCollaborationService, type BeaconType } from "./hive-collaboration-service";
 import { founderCollabService } from "./founder-collaboration-service";
 import { voiceSessions, messages } from "@shared/schema";
+import type { HealthTransition } from "./voice-health-monitor";
 
 // Initialize Gemini client (consistent with Daniela and Aris)
 // Uses fallback pattern: AI_INTEGRATIONS_GEMINI_API_KEY || GEMINI_API_KEY
@@ -516,7 +517,7 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
     
     try {
       const response = await gemini.models.generateContent({
-        model: 'gemini-2.0-flash-lite',
+        model: 'gemini-2.5-flash',
         contents: [{ role: 'user', parts: [{ text: params.userDescription }] }],
         config: {
           systemInstruction: systemPrompt,
@@ -1434,6 +1435,239 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
         console.log(`[Sofia Monitor] Pattern alert: ${count}x ${issueType}`);
       }
     }
+  }
+  // ============================================================================
+  // VOICE HEALTH WATCHER - Sofia reacts to health status transitions
+  // ============================================================================
+  
+  private healthDigestCooldown: Date | null = null;
+  private readonly HEALTH_DIGEST_COOLDOWN_MS = 10 * 60 * 1000;
+  private lastRemediationActions: Map<string, Date> = new Map();
+  private readonly REMEDIATION_COOLDOWN_MS = 30 * 60 * 1000;
+
+  async handleHealthTransition(transition: HealthTransition): Promise<void> {
+    const now = new Date();
+    if (this.healthDigestCooldown && (now.getTime() - this.healthDigestCooldown.getTime()) < this.HEALTH_DIGEST_COOLDOWN_MS) {
+      console.log(`[Sofia Health] Skipping digest — cooldown active (${Math.round((this.HEALTH_DIGEST_COOLDOWN_MS - (now.getTime() - this.healthDigestCooldown.getTime())) / 1000)}s remaining)`);
+      return;
+    }
+    this.healthDigestCooldown = now;
+
+    console.log(`[Sofia Health] Processing transition: ${transition.previousStatus} → ${transition.newStatus} (${transition.direction})`);
+
+    const [analysis, remediationResults] = await Promise.all([
+      this.analyzeHealthTransition(transition),
+      transition.direction !== 'recovered' ? this.applySafeRemediation(transition) : Promise.resolve([]),
+    ]);
+
+    await this.recordHealthDigest(transition, analysis, remediationResults);
+  }
+
+  private async analyzeHealthTransition(transition: HealthTransition): Promise<string> {
+    const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      const fallback = `Voice health ${transition.direction}: ${transition.previousStatus} → ${transition.newStatus}. Reasons: ${transition.reasons.join('; ')}`;
+      console.log(`[Sofia Health] No API key — using fallback analysis`);
+      return fallback;
+    }
+
+    try {
+      const gemini = getGeminiClient();
+      const metricsJson = JSON.stringify(transition.metrics, null, 2);
+
+      const prompt = `You are Sofia, the technical support specialist at HolaHola (AI language learning platform).
+
+The voice health monitoring system detected a status change:
+- Previous: ${transition.previousStatus}
+- Current: ${transition.newStatus}
+- Direction: ${transition.direction}
+- Reasons: ${transition.reasons.join('; ')}
+- Timestamp: ${transition.timestamp.toISOString()}
+
+Raw metrics:
+${metricsJson}
+
+Event types tracked: lockout_watchdog_8s (student mic locked out >8s), failsafe_tier1_20s (no audio after 20s), failsafe_tier2_45s (no audio after 45s), greeting_silence_15s (no greeting audio within 15s), error (general voice error), tts_error (TTS provider failure), mismatch_recovery (audio state recovery).
+
+Provide a concise technical analysis (3-5 sentences):
+1. What likely caused this transition
+2. Which students/devices are most affected
+3. What specific action should be taken
+4. Expected timeline for resolution (if degraded) or confirmation of stability (if recovered)`;
+
+      const response = await gemini.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: {
+          maxOutputTokens: 300,
+          temperature: 0.3,
+        },
+      });
+
+      const text = response.text?.trim();
+      if (text) {
+        console.log(`[Sofia Health] Generated ${text.length} char analysis for ${transition.direction} transition`);
+        return text;
+      }
+    } catch (err: any) {
+      console.warn(`[Sofia Health] Analysis generation failed:`, err.message);
+    }
+
+    return `Voice health ${transition.direction}: ${transition.previousStatus} → ${transition.newStatus}. ${transition.reasons.join('; ')}`;
+  }
+
+  private async applySafeRemediation(transition: HealthTransition): Promise<Array<{ action: string; result: string; applied: boolean }>> {
+    const results: Array<{ action: string; result: string; applied: boolean }> = [];
+    const now = new Date();
+
+    const hasRecentAction = (key: string): boolean => {
+      const last = this.lastRemediationActions.get(key);
+      return !!last && (now.getTime() - last.getTime()) < this.REMEDIATION_COOLDOWN_MS;
+    };
+
+    if (transition.newStatus === 'red' || transition.newStatus === 'yellow') {
+      if (!hasRecentAction('stale_session_cleanup')) {
+        try {
+          const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+          const staleResult = await getSharedDb().execute(sql`
+            UPDATE voice_sessions 
+            SET status = 'ended', ended_at = NOW()
+            WHERE status = 'active' 
+              AND started_at < ${twoHoursAgo}
+              AND ended_at IS NULL
+          `);
+          const cleaned = staleResult.rowCount || 0;
+          this.lastRemediationActions.set('stale_session_cleanup', now);
+          results.push({
+            action: 'stale_session_cleanup',
+            result: `Cleaned ${cleaned} stale voice sessions (active >2h without end)`,
+            applied: true,
+          });
+          if (cleaned > 0) {
+            console.log(`[Sofia Health] Remediation: cleaned ${cleaned} stale sessions`);
+          }
+        } catch (err: any) {
+          results.push({ action: 'stale_session_cleanup', result: `Failed: ${err.message}`, applied: false });
+        }
+      } else {
+        results.push({ action: 'stale_session_cleanup', result: 'Skipped — cooldown active', applied: false });
+      }
+    }
+
+    if (transition.newStatus === 'red') {
+      const ttsErrors = transition.reasons.some(r => r.toLowerCase().includes('error'));
+      if (ttsErrors && !hasRecentAction('kb_tts_troubleshoot')) {
+        try {
+          const existingArticle = await getSharedDb().select()
+            .from(supportKnowledgeBase)
+            .where(like(supportKnowledgeBase.title, '%Voice Session%Troubleshoot%'))
+            .limit(1);
+
+          if (existingArticle.length === 0) {
+            await getSharedDb().insert(supportKnowledgeBase)
+              .values({
+                title: 'Voice Session Troubleshooting (Auto-Generated)',
+                problem: 'Students experiencing voice session issues including audio failures, long pauses, or connection drops',
+                solution: 'Try refreshing the page, check microphone permissions, or switch browsers. If issues persist, the technical team has been notified.',
+                steps: JSON.stringify([
+                  'Refresh the page and try starting a new voice session',
+                  'Check that your microphone is not being used by another app',
+                  'Try a different browser (Chrome recommended)',
+                  'Ensure stable internet connection',
+                  'If on mobile, try closing other apps to free resources',
+                ]),
+                keywords: ['voice', 'audio', 'microphone', 'connection', 'session', 'not working'],
+                category: 'technical',
+                isActive: true,
+              });
+            this.lastRemediationActions.set('kb_tts_troubleshoot', now);
+            results.push({ action: 'kb_article_creation', result: 'Created voice troubleshooting knowledge base article', applied: true });
+            console.log(`[Sofia Health] Remediation: created KB article for voice troubleshooting`);
+          } else {
+            results.push({ action: 'kb_article_creation', result: 'Article already exists', applied: false });
+          }
+        } catch (err: any) {
+          results.push({ action: 'kb_article_creation', result: `Failed: ${err.message}`, applied: false });
+        }
+      }
+
+      if (!hasRecentAction('pattern_tracking')) {
+        try {
+          const dominantReason = transition.reasons[0] || 'unknown';
+          await this.trackPattern({
+            patternType: `health_${transition.newStatus}`,
+            description: `Health monitor detected ${transition.direction}: ${dominantReason}`,
+            affectedBrowsers: [],
+            affectedDevices: [],
+          });
+          this.lastRemediationActions.set('pattern_tracking', now);
+          results.push({ action: 'pattern_tracking', result: `Tracked pattern: health_${transition.newStatus}`, applied: true });
+        } catch (err: any) {
+          results.push({ action: 'pattern_tracking', result: `Failed: ${err.message}`, applied: false });
+        }
+      }
+    }
+
+    if (transition.direction === 'recovered') {
+      results.push({ action: 'recovery_noted', result: `System recovered: ${transition.previousStatus} → green`, applied: true });
+    }
+
+    return results;
+  }
+
+  private async recordHealthDigest(
+    transition: HealthTransition,
+    analysis: string,
+    remediationResults: Array<{ action: string; result: string; applied: boolean }>
+  ): Promise<void> {
+    try {
+      const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
+      const appliedActions = remediationResults.filter(r => r.applied);
+
+      const [report] = await getUserDb().insert(sofiaIssueReports)
+        .values({
+          userId: 'system',
+          issueType: 'voice_health_transition',
+          userDescription: `[HEALTH ${transition.direction.toUpperCase()}] ${transition.previousStatus} → ${transition.newStatus}: ${transition.reasons.join('; ')}`,
+          sofiaAnalysis: analysis,
+          diagnosticSnapshot: {
+            source: 'health_monitor',
+            transition: {
+              previousStatus: transition.previousStatus,
+              newStatus: transition.newStatus,
+              direction: transition.direction,
+              reasons: transition.reasons,
+              timestamp: transition.timestamp.toISOString(),
+            },
+            metrics: transition.metrics,
+            remediation: remediationResults,
+          },
+          environment,
+          status: transition.direction === 'recovered' ? 'resolved' : 'actionable',
+        })
+        .returning();
+
+      console.log(`[Sofia Health] Digest recorded: ${report.id} (${transition.direction}, ${appliedActions.length} actions applied)`);
+
+      await founderCollabService.emitSofiaIssueAlert({
+        reportId: report.id,
+        issueType: 'voice_health_transition',
+        userDescription: `[HEALTH ${transition.direction.toUpperCase()}] ${transition.previousStatus} → ${transition.newStatus}`,
+        environment,
+        hasVoiceDiagnostics: true,
+        hasClientTelemetry: false,
+      }).catch(e => console.warn('[Sofia Health] Failed to emit alert:', e));
+    } catch (err: any) {
+      console.error(`[Sofia Health] Failed to record digest:`, err.message);
+    }
+  }
+
+  async getHealthDigests(limit: number = 20): Promise<any[]> {
+    return getUserDb().select()
+      .from(sofiaIssueReports)
+      .where(eq(sofiaIssueReports.issueType, 'voice_health_transition'))
+      .orderBy(desc(sofiaIssueReports.createdAt))
+      .limit(limit);
   }
 }
 
