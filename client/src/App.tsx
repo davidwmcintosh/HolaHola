@@ -47,6 +47,7 @@ const CurriculumBuilder = lazy(() => import("@/pages/curriculum-builder"));
 const CurriculumLibrary = lazy(() => import("@/pages/curriculum-library"));
 const ClassCreationHub = lazy(() => import("@/pages/class-creation-hub"));
 const CommandCenter = lazy(() => import("@/pages/admin/CommandCenter"));
+const MissionControl = lazy(() => import("@/pages/admin/MissionControl"));
 const AdminVoiceConsole = lazy(() => import("@/pages/admin/VoiceConsole"));
 const AdminNorthStar = lazy(() => import("@/pages/admin/NorthStar"));
 const AdminDeveloperDashboard = lazy(() => import("@/pages/admin/DeveloperDashboard"));
@@ -107,7 +108,7 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
   
   // Only chat page is full-height for authenticated users
   // Landing page (/) is full-height for unauthenticated users
-  const isFullHeightPage = location === "/chat" || (!isAuthenticated && !isLoading && location === "/");
+  const isFullHeightPage = location === "/chat" || location === "/admin/mission" || (!isAuthenticated && !isLoading && location === "/");
 
   const content = (
     <Suspense fallback={<PageLoader />}>
@@ -203,12 +204,13 @@ function Router() {
         <Route path="/student/join-class" component={StudentJoinClass} />
         <Route path="/student/assignments" component={StudentAssignments} />
         
-        {/* Admin Routes - Command Center consolidates all admin features */}
-        <Route path="/admin" component={CommandCenter} />
+        {/* Admin Routes - specific paths before /admin catch-all */}
+        <Route path="/admin/mission" component={MissionControl} />
         <Route path="/admin/voices" component={AdminVoiceConsole} />
         <Route path="/admin/north-star" component={AdminNorthStar} />
         <Route path="/admin/developer" component={AdminDeveloperDashboard} />
         <Route path="/admin/brain-health" component={AdminBrainHealth} />
+        <Route path="/admin" component={CommandCenter} />
         
         <Route path="/settings" component={Settings} />
         <Route path="/pricing" component={Pricing} />

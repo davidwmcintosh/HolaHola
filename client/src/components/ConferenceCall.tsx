@@ -16,7 +16,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useFounderCollab, type ConnectionState } from "@/hooks/useFounderCollab";
 import type { CollaborationMessage } from "@shared/schema";
@@ -214,38 +213,32 @@ export function ConferenceCall() {
   const isConnected = founderCollab.isConnected;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-12rem)]" data-testid="conference-call-container">
-      <div className="flex items-center justify-between gap-3 mb-3 px-1 flex-wrap">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5">
-            <Users className="h-5 w-5 text-primary" />
-            <h3 className="font-semibold text-sm" data-testid="text-conference-title">Conference</h3>
-          </div>
+    <div className="flex flex-col h-full" data-testid="conference-call-container">
+      <div className="flex items-center justify-between gap-2 px-3 py-1.5 border-b bg-muted/30 flex-wrap">
+        <div className="flex items-center gap-2">
           <ConnectionBadge state={founderCollab.state.connectionState} />
-        </div>
-        <div className="flex items-center gap-1">
           <div className="flex -space-x-1.5">
             {["daniela", "wren", "editor"].map(role => {
               const cfg = getAgentConfig(role);
               return (
-                <Avatar key={role} className="h-6 w-6 border-2 border-background">
-                  <AvatarFallback className={`${cfg.color} text-[9px] font-bold`}>{cfg.initials}</AvatarFallback>
+                <Avatar key={role} className="h-5 w-5 border-2 border-background">
+                  <AvatarFallback className={`${cfg.color} text-[8px] font-bold`}>{cfg.initials}</AvatarFallback>
                 </Avatar>
               );
             })}
           </div>
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={() => { if (isPlaying) stopAudio(); setAudioEnabled(!audioEnabled); }}
-            data-testid="button-conference-audio-toggle"
-          >
-            {audioEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-          </Button>
         </div>
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={() => { if (isPlaying) stopAudio(); setAudioEnabled(!audioEnabled); }}
+          data-testid="button-conference-audio-toggle"
+        >
+          {audioEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+        </Button>
       </div>
 
-      <Card className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden">
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3" data-testid="conference-messages">
           {messages.length === 0 && isConnected && (
             <div className="text-center text-sm text-muted-foreground py-8" data-testid="text-conference-empty">
@@ -366,10 +359,10 @@ export function ConferenceCall() {
             </div>
           </div>
         </div>
-      </Card>
+      </div>
 
       {isPlaying && (
-        <div className="flex items-center justify-center gap-2 mt-2 text-xs text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 px-3 py-1.5 border-t text-xs text-muted-foreground">
           <Volume2 className="h-3 w-3 animate-pulse" />
           <span>{playingAgent ? `${getAgentConfig(playingAgent).label} is speaking...` : "Speaking..."}</span>
           <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={stopAudio} data-testid="button-conference-stop-audio">

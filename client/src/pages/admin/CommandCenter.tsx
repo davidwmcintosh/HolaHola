@@ -7937,7 +7937,9 @@ function AldenChatTab() {
 function ConferenceTab() {
   return (
     <Suspense fallback={<div className="flex items-center justify-center p-8"><Loader2 className="h-6 w-6 animate-spin" /></div>}>
-      <LazyConferenceCall />
+      <div className="h-[calc(100vh-14rem)]">
+        <LazyConferenceCall />
+      </div>
     </Suspense>
   );
 }
