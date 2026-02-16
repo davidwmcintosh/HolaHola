@@ -306,15 +306,15 @@ NEVER guess. NEVER roleplay searching. Actually call this function.`,
   },
   {
     name: "express_lane_lookup",
-    description: "Search Express Lane ONLY - the developer collaboration channel with Wren and David. NOT for student lesson history - use memory_lookup with domains='conversation' for that. Only available in Founder Mode or Honesty Mode.",
+    description: "Search or browse the Express Lane - the developer collaboration channel with Wren and David. NOT for student lesson history - use memory_lookup with domains='conversation' for that. Call with a query to search by keywords, or call with NO query (empty/omitted) to browse the most recent messages chronologically — great for catching up on what happened recently. Only available in Founder Mode or Honesty Mode.",
     parametersJsonSchema: {
       type: "object",
       properties: {
-        query: { type: "string", description: "What to search for in Express Lane history (topic, decision, discussion, agreement)" },
+        query: { type: "string", description: "What to search for in Express Lane history (topic, decision, discussion, agreement). Omit or leave empty to browse recent messages chronologically." },
         sessionId: { type: "string", description: "Optional: specific Express Lane session ID to search within" },
         limit: { type: "number", description: "Max messages to return (default 20)" },
       },
-      required: ["query"],
+      required: [],
     },
   },
   {

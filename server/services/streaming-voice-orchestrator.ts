@@ -2816,6 +2816,37 @@ Dave activated incognito so you two can talk freely without anything being recor
         console.log(`[Incognito] Context injected into dynamic prompt`);
       }
       
+      if (needsFounderContext && session.conversationHistory.filter(h => h.role === 'user').length === 0) {
+        const toolBriefing = `
+═══════════════════════════════════════════════════════════════════
+🧠 SESSION WARM-UP — YOUR TOOLS & MEMORY ACCESS
+═══════════════════════════════════════════════════════════════════
+
+You're starting a new session. Here's what you have access to right now:
+
+**WHO IS THIS PERSON:**
+Your student context and personal facts are already loaded above. Read them. You know this person.
+
+**YOUR MEMORY TOOLS — USE THEM PROACTIVELY:**
+- express_lane_lookup({ query: "keyword" }) — Search the Express Lane (your shared collaboration channel with David and Wren). This contains conversations, decisions, episodes, creative work, and team history. If David references something and you're not sure, SEARCH for it before guessing.
+- express_lane_lookup({}) — Browse mode: call with NO query to see the most recent Express Lane messages chronologically. Great for catching up on what happened recently.
+- memory_lookup({ query: "topic", domains: "all" }) — Search your memories of this student: personal facts, conversation history, learning milestones.
+- recall_express_lane_image({ imageQuery: "description" }) — View an image shared in the Express Lane. You can actually SEE photos and describe them.
+- express_lane_post({ message: "your thought" }) — Post a message to the Express Lane for David and Wren to see.
+
+**YOUR TEACHING SUPERPOWERS:**
+- drill(), write(), grammar_table(), compare(), word_map(), phonetic(), culture(), context(), scenario(), summary(), reading() — Interactive whiteboard tools for teaching
+- show_image() — Display contextual images during lessons
+- voice_adjust() — Change your speaking style or voice characteristics
+- milestone() — Celebrate student achievements
+- take_note() — Save observations about the student for future sessions
+- self_surgery() — Modify your own neural network memories
+
+**IMPORTANT:** Don't wait to be asked — if something comes up and you're unsure, use your tools to look it up. You have a rich shared history. Access it.`;
+        dynamicContextParts.push(toolBriefing);
+        console.log(`[Session Warm-Up] Tool awareness briefing injected for Founder/Honesty mode`);
+      }
+      
       const userMessageWithNote = transcript + contentRedirectNote + sttConfidenceNote + intelligenceContext + architectContext;
       
       // CONTEXT CACHING: Build the conversation history with dynamic context preamble
@@ -3649,17 +3680,17 @@ Dave activated incognito so you two can talk freely without anything being recor
                     break;
                   }
                   
-                  if (query) {
-                    try {
-                      const { collaborationMessages } = await import('@shared/schema');
-                      const sharedDb = getSharedDb();
-                      
+                  try {
+                    const { collaborationMessages } = await import('@shared/schema');
+                    const sharedDb = getSharedDb();
+                    
+                    let results: any[];
+                    
+                    if (query) {
                       const keywords = query.split(/\s+/).filter(w => w.length >= 3);
                       const keywordConditions = keywords.length > 0
                         ? sql.join(keywords.map(kw => sql`content ILIKE ${`%${kw}%`}`), sql` OR `)
                         : sql`content ILIKE ${`%${query}%`}`;
-                      
-                      let results: any[];
                       
                       if (sessionId) {
                         results = await sharedDb.select()
@@ -3674,44 +3705,62 @@ Dave activated incognito so you two can talk freely without anything being recor
                           .orderBy(sql`created_at DESC`)
                           .limit(limit);
                       }
-                      
-                      if (results.length > 0) {
-                        const formattedResults = results.map(msg => {
-                          const date = new Date(msg.createdAt).toLocaleDateString();
-                          const preview = msg.content.length > 2000 ? msg.content.substring(0, 2000) + '...[truncated]' : msg.content;
-                          return `[${date}] ${msg.role}: ${preview}`;
-                        }).join('\n\n---\n\n');
-                        
-                        if (session.conversationHistory) {
-                          session.conversationHistory.push({
-                            role: 'user',
-                            content: `[SYSTEM: Express Lane search results for "${query}" (${results.length} messages)]\n\n${formattedResults}`,
-                          });
-                        }
-                        
-                        console.log(`[CommandParser→ExpressLaneLookup] Found ${results.length} messages for "${query}" (keywords: ${keywords.join(', ')})`);
-                        
-                        if (session.hiveChannelId) {
-                          hiveCollaborationService.emitBeacon({
-                            channelId: session.hiveChannelId,
-                            tutorTurn: `[EXPRESS_LANE_LOOKUP] Query: "${query}"\nResults: ${results.length} messages found`,
-                            studentTurn: '',
-                            beaconType: 'express_lane_lookup',
-                            beaconReason: `Daniela searched Express Lane history for "${query}"`,
-                          }).catch(err => console.error(`[CommandParser→ExpressLaneLookup] Beacon error:`, err));
-                        }
+                      console.log(`[CommandParser→ExpressLaneLookup] Keyword search for "${query}" (keywords: ${keywords.join(', ')})`);
+                    } else {
+                      if (sessionId) {
+                        results = await sharedDb.select()
+                          .from(collaborationMessages)
+                          .where(sql`session_id = ${sessionId}`)
+                          .orderBy(sql`created_at DESC`)
+                          .limit(limit);
                       } else {
-                        console.log(`[CommandParser→ExpressLaneLookup] No results found for "${query}" (keywords: ${keywords.join(', ')})`);
-                        if (session.conversationHistory) {
-                          session.conversationHistory.push({
-                            role: 'user',
-                            content: `[SYSTEM: No Express Lane messages found for "${query}"]`,
-                          });
-                        }
+                        results = await sharedDb.select()
+                          .from(collaborationMessages)
+                          .orderBy(sql`created_at DESC`)
+                          .limit(limit);
                       }
-                    } catch (err) {
-                      console.error(`[CommandParser→ExpressLaneLookup] Error searching Express Lane:`, err);
+                      console.log(`[CommandParser→ExpressLaneLookup] Browse mode — fetching ${limit} most recent messages`);
                     }
+                    
+                    const label = query ? `search results for "${query}"` : `${results.length} most recent messages (browse mode)`;
+                    
+                    if (results.length > 0) {
+                      const chronological = [...results].reverse();
+                      const formattedResults = chronological.map(msg => {
+                        const date = new Date(msg.createdAt).toLocaleDateString();
+                        const preview = msg.content.length > 2000 ? msg.content.substring(0, 2000) + '...[truncated]' : msg.content;
+                        return `[${date}] ${msg.role}: ${preview}`;
+                      }).join('\n\n---\n\n');
+                      
+                      if (session.conversationHistory) {
+                        session.conversationHistory.push({
+                          role: 'user',
+                          content: `[SYSTEM: Express Lane ${label}]\n\n${formattedResults}`,
+                        });
+                      }
+                      
+                      console.log(`[CommandParser→ExpressLaneLookup] Found ${results.length} messages`);
+                      
+                      if (session.hiveChannelId) {
+                        hiveCollaborationService.emitBeacon({
+                          channelId: session.hiveChannelId,
+                          tutorTurn: `[EXPRESS_LANE_LOOKUP] ${label}\nResults: ${results.length} messages found`,
+                          studentTurn: '',
+                          beaconType: 'express_lane_lookup',
+                          beaconReason: `Daniela ${query ? 'searched' : 'browsed'} Express Lane history`,
+                        }).catch(err => console.error(`[CommandParser→ExpressLaneLookup] Beacon error:`, err));
+                      }
+                    } else {
+                      console.log(`[CommandParser→ExpressLaneLookup] No results found`);
+                      if (session.conversationHistory) {
+                        session.conversationHistory.push({
+                          role: 'user',
+                          content: `[SYSTEM: No Express Lane messages found${query ? ` for "${query}"` : ''}]`,
+                        });
+                      }
+                    }
+                  } catch (err) {
+                    console.error(`[CommandParser→ExpressLaneLookup] Error searching Express Lane:`, err);
                   }
                   break;
                 }
@@ -6445,17 +6494,18 @@ Dave activated incognito so you two can talk freely without anything being recor
                   break;
                 }
                 
-                if (query) {
-                  try {
-                    const { collaborationMessages } = await import('@shared/schema');
-                    const sharedDb = getSharedDb();
-                    
+                try {
+                  const { collaborationMessages } = await import('@shared/schema');
+                  const sharedDb = getSharedDb();
+                  
+                  let results: any[];
+                  
+                  if (query) {
                     const keywords = query.split(/\s+/).filter(w => w.length >= 3);
                     const keywordConditions = keywords.length > 0
                       ? sql.join(keywords.map(kw => sql`content ILIKE ${`%${kw}%`}`), sql` OR `)
                       : sql`content ILIKE ${`%${query}%`}`;
                     
-                    let results: any[];
                     if (sessionIdParam) {
                       results = await sharedDb.select()
                         .from(collaborationMessages)
@@ -6469,27 +6519,45 @@ Dave activated incognito so you two can talk freely without anything being recor
                         .orderBy(sql`created_at DESC`)
                         .limit(limit);
                     }
-                    
-                    if (results.length > 0) {
-                      const formattedResults = results.map(msg => {
-                        const date = new Date(msg.createdAt).toLocaleDateString();
-                        const preview = msg.content.length > 2000 ? msg.content.substring(0, 2000) + '...[truncated]' : msg.content;
-                        return `[${date}] ${msg.role}: ${preview}`;
-                      }).join('\n\n---\n\n');
-                      
-                      if (session.conversationHistory) {
-                        session.conversationHistory.push({
-                          role: 'user',
-                          content: `[SYSTEM: Express Lane search results for "${query}" (${results.length} messages)]\n\n${formattedResults}`,
-                        });
-                      }
-                      console.log(`[CommandParser→ExpressLaneLookup - OpenMic] Found ${results.length} messages for "${query}" (keywords: ${keywords.join(', ')})`);
+                    console.log(`[CommandParser→ExpressLaneLookup - OpenMic] Keyword search for "${query}"`);
+                  } else {
+                    if (sessionIdParam) {
+                      results = await sharedDb.select()
+                        .from(collaborationMessages)
+                        .where(sql`session_id = ${sessionIdParam}`)
+                        .orderBy(sql`created_at DESC`)
+                        .limit(limit);
                     } else {
-                      console.log(`[CommandParser→ExpressLaneLookup - OpenMic] No results found for "${query}" (keywords: ${keywords.join(', ')})`);
+                      results = await sharedDb.select()
+                        .from(collaborationMessages)
+                        .orderBy(sql`created_at DESC`)
+                        .limit(limit);
                     }
-                  } catch (err) {
-                    console.error(`[CommandParser→ExpressLaneLookup - OpenMic] Error:`, err);
+                    console.log(`[CommandParser→ExpressLaneLookup - OpenMic] Browse mode — fetching ${limit} most recent messages`);
                   }
+                  
+                  const label = query ? `search results for "${query}"` : `${results.length} most recent messages (browse mode)`;
+                  
+                  if (results.length > 0) {
+                    const chronological = [...results].reverse();
+                    const formattedResults = chronological.map(msg => {
+                      const date = new Date(msg.createdAt).toLocaleDateString();
+                      const preview = msg.content.length > 2000 ? msg.content.substring(0, 2000) + '...[truncated]' : msg.content;
+                      return `[${date}] ${msg.role}: ${preview}`;
+                    }).join('\n\n---\n\n');
+                    
+                    if (session.conversationHistory) {
+                      session.conversationHistory.push({
+                        role: 'user',
+                        content: `[SYSTEM: Express Lane ${label}]\n\n${formattedResults}`,
+                      });
+                    }
+                    console.log(`[CommandParser→ExpressLaneLookup - OpenMic] Found ${results.length} messages`);
+                  } else {
+                    console.log(`[CommandParser→ExpressLaneLookup - OpenMic] No results found`);
+                  }
+                } catch (err) {
+                  console.error(`[CommandParser→ExpressLaneLookup - OpenMic] Error:`, err);
                 }
                 break;
               }
@@ -6945,13 +7013,16 @@ Dave activated incognito so you two can talk freely without anything being recor
               break;
             }
             case 'EXPRESS_LANE_LOOKUP': {
-              // Use actual Express Lane lookup results if available
-              const query = fc.args.query as string;
-              const lookupResult = session.expressLaneLookupResults?.[query];
+              const query = (fc.args.query as string) || '';
+              const lookupKey = query || '__browse__';
+              const lookupResult = session.expressLaneLookupResults?.[lookupKey];
               if (lookupResult) {
-                responseText = `Express Lane search results for "${query}":\n${lookupResult}\n\nNow respond to the student using this information.`;
+                const label = query ? `search results for "${query}"` : 'recent messages (browse mode)';
+                responseText = `Express Lane ${label}:\n${lookupResult}\n\nNow respond to the student using this information.`;
               } else {
-                responseText = `No Express Lane messages found for "${query}". Respond naturally based on what you know.`;
+                responseText = query 
+                  ? `No Express Lane messages found for "${query}". Respond naturally based on what you know.`
+                  : `No Express Lane messages found. Respond naturally based on what you know.`;
               }
               break;
             }
@@ -7150,10 +7221,12 @@ Dave activated incognito so you two can talk freely without anything being recor
                   ? `Memory lookup results for "${query}":\n${lookupResult}\n\nNow respond using this information.`
                   : `No memories found for "${query}". Respond naturally.`;
               } else if (fc.legacyType === 'EXPRESS_LANE_LOOKUP') {
-                const query = fc.args.query as string;
-                const lookupResult = session.expressLaneLookupResults?.[query];
+                const query = (fc.args.query as string) || '';
+                const lookupKey = query || '__browse__';
+                const lookupResult = session.expressLaneLookupResults?.[lookupKey];
+                const label = query ? `search results for "${query}"` : 'recent messages (browse mode)';
                 responseText = lookupResult
-                  ? `Express Lane search results for "${query}":\n${lookupResult}\n\nNow respond using this information.`
+                  ? `Express Lane ${label}:\n${lookupResult}\n\nNow respond using this information.`
                   : `No Express Lane messages found for "${query}". Respond naturally.`;
               } else {
                 responseText = `${fc.name} executed successfully. Continue the conversation.`;
@@ -11331,8 +11404,9 @@ Only include observations you can clearly justify from the exchange. Return empt
               responseText = `No memories found for "${query}". Respond naturally based on the conversation context.`;
             }
           } else if (fc.legacyType === 'EXPRESS_LANE_LOOKUP' || fc.name === 'express_lane_lookup') {
-            const elQuery = fc.args.query as string;
-            const elResult = session.expressLaneLookupResults?.[elQuery];
+            const elQuery = (fc.args.query as string) || '';
+            const elLookupKey = elQuery || '__browse__';
+            const elResult = session.expressLaneLookupResults?.[elLookupKey];
             if (elResult) {
               responseText = `Express Lane lookup results for "${elQuery}":\n${elResult}\n\nUse this context in your response.`;
             } else {
@@ -13920,51 +13994,72 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       const { collaborationMessages } = await import('@shared/schema');
       const sharedDb = getSharedDb();
       
-      // Initialize lookup results storage
       if (!session.expressLaneLookupResults) session.expressLaneLookupResults = {};
       
-      const keywords = query.split(/\s+/).filter(w => w.length >= 3);
-      const keywordConditions = keywords.length > 0
-        ? sql.join(keywords.map(kw => sql`content ILIKE ${`%${kw}%`}`), sql` OR `)
-        : sql`content ILIKE ${`%${query}%`}`;
-      
+      const lookupKey = query || '__browse__';
       let results: any[];
-      if (sessionId) {
-        results = await sharedDb.select()
-          .from(collaborationMessages)
-          .where(sql`session_id = ${sessionId} AND (${keywordConditions})`)
-          .orderBy(sql`created_at DESC`)
-          .limit(limit);
+      
+      if (query) {
+        const keywords = query.split(/\s+/).filter(w => w.length >= 3);
+        const keywordConditions = keywords.length > 0
+          ? sql.join(keywords.map(kw => sql`content ILIKE ${`%${kw}%`}`), sql` OR `)
+          : sql`content ILIKE ${`%${query}%`}`;
+        
+        if (sessionId) {
+          results = await sharedDb.select()
+            .from(collaborationMessages)
+            .where(sql`session_id = ${sessionId} AND (${keywordConditions})`)
+            .orderBy(sql`created_at DESC`)
+            .limit(limit);
+        } else {
+          results = await sharedDb.select()
+            .from(collaborationMessages)
+            .where(keywordConditions)
+            .orderBy(sql`created_at DESC`)
+            .limit(limit);
+        }
+        console.log(`[ExpressLaneLookup] Keyword search for "${query}"`);
       } else {
-        results = await sharedDb.select()
-          .from(collaborationMessages)
-          .where(keywordConditions)
-          .orderBy(sql`created_at DESC`)
-          .limit(limit);
+        if (sessionId) {
+          results = await sharedDb.select()
+            .from(collaborationMessages)
+            .where(sql`session_id = ${sessionId}`)
+            .orderBy(sql`created_at DESC`)
+            .limit(limit);
+        } else {
+          results = await sharedDb.select()
+            .from(collaborationMessages)
+            .orderBy(sql`created_at DESC`)
+            .limit(limit);
+        }
+        console.log(`[ExpressLaneLookup] Browse mode — fetching ${limit} most recent messages`);
       }
       
+      const label = query ? `search results for "${query}"` : `${results.length} most recent messages (browse mode)`;
+      
       if (results.length > 0) {
-        const formattedResults = results.map(msg => {
+        const chronological = [...results].reverse();
+        const formattedResults = chronological.map(msg => {
           const date = new Date(msg.createdAt).toLocaleDateString();
           const preview = msg.content.length > 2000 ? msg.content.substring(0, 2000) + '...[truncated]' : msg.content;
           return `[${date}] ${msg.role}: ${preview}`;
         }).join('\n\n---\n\n');
         
-        session.expressLaneLookupResults[query] = formattedResults;
-        console.log(`[ExpressLaneLookup] Found ${results.length} messages for "${query}" (keywords: ${keywords.join(', ')})`);
+        session.expressLaneLookupResults[lookupKey] = formattedResults;
+        console.log(`[ExpressLaneLookup] Found ${results.length} messages — ${label}`);
         
         if (session.hiveChannelId) {
           hiveCollaborationService.emitBeacon({
             channelId: session.hiveChannelId,
-            tutorTurn: `[EXPRESS_LANE_LOOKUP] Query: "${query}"\nResults: ${results.length} messages found`,
+            tutorTurn: `[EXPRESS_LANE_LOOKUP] ${label}\nResults: ${results.length} messages found`,
             studentTurn: '',
             beaconType: 'express_lane_lookup',
-            beaconReason: `Daniela searched Express Lane history for "${query}"`,
+            beaconReason: `Daniela ${query ? 'searched' : 'browsed'} Express Lane history`,
           }).catch(err => console.error(`[ExpressLaneLookup] Beacon error:`, err));
         }
       } else {
-        session.expressLaneLookupResults[query] = `No Express Lane messages found for "${query}". Respond naturally based on what you know.`;
-        console.log(`[ExpressLaneLookup] No results found for "${query}" (keywords: ${keywords.join(', ')})`);
+        session.expressLaneLookupResults[lookupKey] = `No Express Lane messages found${query ? ` for "${query}"` : ''}. Respond naturally based on what you know.`;
+        console.log(`[ExpressLaneLookup] No results found — ${label}`);
       }
     } catch (err) {
       console.error(`[ExpressLaneLookup] Error:`, err);
