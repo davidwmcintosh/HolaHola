@@ -278,7 +278,7 @@ export async function buildClassroomEnvironment(params: {
   const studentName = userRow?.firstName || "Student";
 
   const founderTools = (isFounderMode || isRawHonestyMode)
-    ? ` | express_lane_lookup(query?) — search or browse Express Lane | recall_express_lane_image(imageQuery) — view shared photos | express_lane_post(message) — post to Express Lane | self_surgery — edit your own memories`
+    ? ` | express_lane_lookup(query?) — search or browse Express Lane | recall_express_lane_image(imageQuery) — view shared photos | express_lane_post(message) — post to Express Lane | self_surgery — edit your own memories | take_note (personal) — your private journal: session_reflection, teaching_rhythm, what_worked, what_didnt_work, idea_to_try, question_for_founder, self_affirmation`
     : '';
   const founderNote = (isFounderMode || isRawHonestyMode)
     ? `\nTool Rack Note: If unsure about something referenced, search before guessing.`
