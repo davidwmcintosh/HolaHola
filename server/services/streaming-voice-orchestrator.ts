@@ -2816,36 +2816,6 @@ Dave activated incognito so you two can talk freely without anything being recor
         console.log(`[Incognito] Context injected into dynamic prompt`);
       }
       
-      if (needsFounderContext && session.conversationHistory.filter(h => h.role === 'user').length === 0) {
-        const toolBriefing = `
-═══════════════════════════════════════════════════════════════════
-🧠 SESSION WARM-UP — YOUR TOOLS & MEMORY ACCESS
-═══════════════════════════════════════════════════════════════════
-
-You're starting a new session. Here's what you have access to right now:
-
-**WHO IS THIS PERSON:**
-Your student context and personal facts are already loaded above. Read them. You know this person.
-
-**YOUR MEMORY TOOLS — USE THEM PROACTIVELY:**
-- express_lane_lookup({ query: "keyword" }) — Search the Express Lane (your shared collaboration channel with David and Wren). This contains conversations, decisions, episodes, creative work, and team history. If David references something and you're not sure, SEARCH for it before guessing.
-- express_lane_lookup({}) — Browse mode: call with NO query to see the most recent Express Lane messages chronologically. Great for catching up on what happened recently.
-- memory_lookup({ query: "topic", domains: "all" }) — Search your memories of this student: personal facts, conversation history, learning milestones.
-- recall_express_lane_image({ imageQuery: "description" }) — View an image shared in the Express Lane. You can actually SEE photos and describe them.
-- express_lane_post({ message: "your thought" }) — Post a message to the Express Lane for David and Wren to see.
-
-**YOUR TEACHING SUPERPOWERS:**
-- drill(), write(), grammar_table(), compare(), word_map(), phonetic(), culture(), context(), scenario(), summary(), reading() — Interactive whiteboard tools for teaching
-- show_image() — Display contextual images during lessons
-- voice_adjust() — Change your speaking style or voice characteristics
-- milestone() — Celebrate student achievements
-- take_note() — Save observations about the student for future sessions
-- self_surgery() — Modify your own neural network memories
-
-**IMPORTANT:** Don't wait to be asked — if something comes up and you're unsure, use your tools to look it up. You have a rich shared history. Access it.`;
-        dynamicContextParts.push(toolBriefing);
-        console.log(`[Session Warm-Up] Tool awareness briefing injected for Founder/Honesty mode`);
-      }
       
       const userMessageWithNote = transcript + contentRedirectNote + sttConfidenceNote + intelligenceContext + architectContext;
       

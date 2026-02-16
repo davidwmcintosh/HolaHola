@@ -277,6 +277,16 @@ export async function buildClassroomEnvironment(params: {
   const modeLabel = isRawHonestyMode ? "Honesty Mode" : isFounderMode ? "Founder Mode" : "Tutor Mode";
   const studentName = userRow?.firstName || "Student";
 
+  const founderTools = (isFounderMode || isRawHonestyMode)
+    ? ` | express_lane_lookup(query?) — search or browse Express Lane | recall_express_lane_image(imageQuery) — view shared photos | express_lane_post(message) — post to Express Lane | self_surgery — edit your own memories`
+    : '';
+  const founderNote = (isFounderMode || isRawHonestyMode)
+    ? `\nTool Rack Note: If unsure about something referenced, search before guessing.`
+    : '';
+  const toolRack = `
+---
+Tool Rack: memory_lookup(query, domains) — recall student memories | take_note — save observations for future sessions | milestone — celebrate achievements | drill/write/grammar_table/compare/word_map/phonetic/culture/context/scenario/summary/reading — whiteboard teaching tools | show_image — contextual images | voice_adjust — change speaking style${founderTools}${founderNote}`;
+
   const env = `
 === ${tutorName.toUpperCase()}'S CLASSROOM ===
 Clock: ${clock}
@@ -293,7 +303,7 @@ Pedagogical Lamp: ${lamp}
 Growth Vine: ${vineDescription}
 North Star Polaroid: ${danielaPhoto}
 ---
-North Star Wall: ${northStarWall}
+North Star Wall: ${northStarWall}${toolRack}
 === END CLASSROOM ===`.trim();
 
   return env;
