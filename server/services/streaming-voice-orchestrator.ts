@@ -991,6 +991,7 @@ export interface StreamingSession {
   isActive: boolean;
   isFounderMode: boolean;  // Founder Mode uses English STT regardless of target language
   isRawHonestyMode: boolean;  // Raw Honesty Mode - minimal prompting for authentic conversation
+  isIncognito: boolean;  // Incognito Mode - no DB writes, no memory persistence, no permanent record
   isDeveloperUser: boolean;  // True if user has developer/admin role (for unified Daniela consciousness)
   isBetaTester: boolean;   // Beta tester mode - Daniela knows user is helping debug/test new features
   idleTimeoutId?: NodeJS.Timeout;  // Timer for idle cleanup
@@ -1527,6 +1528,7 @@ export class StreamingVoiceOrchestrator {
       isActive: true,
       isFounderMode,  // Founder Mode uses English STT regardless of target language
       isRawHonestyMode,  // Raw Honesty Mode - minimal prompting for authentic conversation
+      isIncognito: false,  // Incognito Mode - toggled mid-session, no DB writes when active
       isDeveloperUser,  // True if user has developer/admin role (for unified Daniela consciousness)
       isBetaTester,   // Beta tester mode - Daniela knows user is helping debug/test new features
       lastActivityTime: Date.now(),
@@ -3373,7 +3375,7 @@ Remember: Beta testers understand they're helping build something and appreciate
                   // This marks the end of the "first conversation" experience
                   const summary = cmd.params.summary as string | undefined;
                   
-                  if (session.userId) {
+                  if (session.userId && !session.isIncognito) {
                     try {
                       await storage.updateUser(session.userId, { hasCompletedFirstMeeting: true });
                       console.log(`[CommandParser→FirstMeeting] Marked complete for user ${session.userId}${summary ? `: "${summary}"` : ''}`);
@@ -3388,6 +3390,8 @@ Remember: Beta testers understand they're helping build something and appreciate
                     } catch (err) {
                       console.error(`[CommandParser→FirstMeeting] Error updating user:`, err);
                     }
+                  } else if (session.isIncognito) {
+                    console.log(`[CommandParser→FirstMeeting] INCOGNITO - skipping DB update`);
                   } else {
                     console.log(`[CommandParser→FirstMeeting] Ignored (no userId in session)`);
                   }
@@ -3395,6 +3399,10 @@ Remember: Beta testers understand they're helping build something and appreciate
                 }
                 case 'TAKE_NOTE': {
                   // Daniela's personal notebook - DIRECT INSERT, no approval required
+                  if (session.isIncognito) {
+                    console.log(`[CommandParser→TakeNote] INCOGNITO - skipping note persistence`);
+                    break;
+                  }
                   const noteType = cmd.params.type as string | undefined;
                   const title = cmd.params.title as string | undefined;
                   const content = cmd.params.content as string | undefined;
@@ -4618,7 +4626,7 @@ Remember: Beta testers understand they're helping build something and appreciate
       
       // INCREMENTAL MEMORY CHECKPOINT: Persist student utterance immediately for crash recovery
       // This ensures memories aren't lost if session ends abruptly (network loss, navigation, etc)
-      if (transcript.trim() && session.userId) {
+      if (transcript.trim() && session.userId && !session.isIncognito) {
         memoryCheckpointService.checkpointUtterance(
           String(session.userId),
           sessionId,
@@ -6183,7 +6191,7 @@ Remember: Beta testers understand they're helping build something and appreciate
               case 'FIRST_MEETING_COMPLETE': {
                 // Daniela signals she knows the student well enough
                 const summary = cmd.params.summary as string | undefined;
-                if (session.userId) {
+                if (session.userId && !session.isIncognito) {
                   try {
                     await storage.updateUser(session.userId, { hasCompletedFirstMeeting: true });
                     console.log(`[CommandParser→FirstMeeting - OpenMic] Marked complete for user ${session.userId}`);
@@ -6196,11 +6204,17 @@ Remember: Beta testers understand they're helping build something and appreciate
                   } catch (err) {
                     console.error(`[CommandParser→FirstMeeting - OpenMic] Error:`, err);
                   }
+                } else if (session.isIncognito) {
+                  console.log(`[CommandParser→FirstMeeting - OpenMic] INCOGNITO - skipping`);
                 }
                 break;
               }
               case 'TAKE_NOTE': {
                 // Daniela's personal notebook - DIRECT INSERT, no approval required
+                if (session.isIncognito) {
+                  console.log(`[CommandParser→TakeNote - OpenMic] INCOGNITO - skipping note persistence`);
+                  break;
+                }
                 const noteType = cmd.params.type as string | undefined;
                 const title = cmd.params.title as string | undefined;
                 const noteContent = cmd.params.content as string | undefined;
@@ -6655,7 +6669,7 @@ Remember: Beta testers understand they're helping build something and appreciate
         
         // INCREMENTAL MEMORY CHECKPOINT: Persist student utterance immediately for crash recovery
         // This ensures memories aren't lost if session ends abruptly (network loss, navigation, etc)
-        if (session.userId) {
+        if (session.userId && !session.isIncognito) {
           memoryCheckpointService.checkpointUtterance(
             String(session.userId),
             sessionId,
@@ -8901,6 +8915,10 @@ Remember: Beta testers understand they're helping build something and appreciate
     session: StreamingSession,
     transcript: string
   ): Promise<void> {
+    if (session.isIncognito) {
+      console.log(`[Checkpoint] INCOGNITO - skipping user message checkpoint`);
+      return;
+    }
     try {
       // Normalize for reliable matching (same as dedupe logic)
       const normalizedTranscript = this.normalizeTranscriptForCheckpoint(transcript);
@@ -8946,6 +8964,10 @@ Remember: Beta testers understand they're helping build something and appreciate
     session: StreamingSession,
     pronunciationConfidence: number = 0
   ): Promise<void> {
+    if (session.isIncognito) {
+      console.log(`[Persist] INCOGNITO - skipping message persistence`);
+      return;
+    }
     try {
       // CRITICAL FIX: Ensure conversation exists before saving messages
       // Client may connect with conversationId but never send start_session message.
@@ -11487,10 +11509,12 @@ Only include observations you can clearly justify from the exchange. Return empt
       // Start idle timeout - tutor waiting for student's first response
       this.startIdleTimeout(session);
       
-      // Persist greeting message to database
-      this.persistGreetingMessage(session.conversationId, fullText.trim()).catch((err: Error) => {
-        console.error('[Streaming Greeting] Failed to persist greeting:', err.message);
-      });
+      // Persist greeting message to database (skip in incognito mode)
+      if (!session.isIncognito) {
+        this.persistGreetingMessage(session.conversationId, fullText.trim()).catch((err: Error) => {
+          console.error('[Streaming Greeting] Failed to persist greeting:', err.message);
+        });
+      }
       
       return metrics;
       
@@ -11768,6 +11792,7 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
         history: [...session.conversationHistory], // Clone before deletion
         wordAnalyses: [...session.sessionWordAnalyses], // Clone word-level data for phoneme analysis
         dbSessionId: session.dbSessionId,
+        isIncognito: session.isIncognito,  // Preserve incognito state for async operations
         // Azure pronunciation assessment data
         audioChunks: [...session.sessionAudioChunks], // Clone audio chunks for Azure analysis
         transcripts: [...session.sessionTranscripts], // Clone transcripts for reference text
@@ -11798,9 +11823,14 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
       // PHASE TRANSITION: End the teaching phase session
       phaseTransitionService.endSession(String(session.userId));
       
+      // INCOGNITO: Skip all post-session persistence when in incognito mode
+      if (sessionData.isIncognito) {
+        console.log(`[Streaming Orchestrator] INCOGNITO - skipping all post-session persistence (memory extraction, title gen, phoneme analytics)`);
+      }
+      
       // MEMORY EXTRACTION: Async extraction of personal facts from conversation
       // Runs in background after session ends - doesn't block cleanup
-      if (sessionData.history.length >= 4) {
+      if (sessionData.history.length >= 4 && !sessionData.isIncognito) {
         learnerMemoryExtractionService.extractFromConversation(
           sessionData.userId,
           sessionData.language,
@@ -11817,7 +11847,7 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
       
       // TITLE GENERATION: Auto-generate title for voice conversations without one
       // Runs in background after session ends - helps users find conversations later
-      if (sessionData.history.length >= 4 && sessionData.conversationId) {
+      if (sessionData.history.length >= 4 && sessionData.conversationId && !sessionData.isIncognito) {
         (async () => {
           try {
             const conversation = await storage.getConversation(sessionData.conversationId, sessionData.userId);
@@ -11844,7 +11874,7 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
       
       // PHONEME ANALYTICS: Async analysis of word-level pronunciation data
       // Stores phoneme struggles with confidence-based severity for pattern synthesis
-      if (sessionData.wordAnalyses.length > 0) {
+      if (sessionData.wordAnalyses.length > 0 && !sessionData.isIncognito) {
         phonemeAnalyticsService.analyzeAndStorePhonemes(
           sessionData.userId,
           sessionData.language,
@@ -13093,6 +13123,10 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       
       case 'TAKE_NOTE': {
         // Daniela's personal notebook - DIRECT INSERT, no approval required
+        if (session.isIncognito) {
+          console.log(`[Native Function→TakeNote] INCOGNITO - skipping note persistence`);
+          break;
+        }
         const noteType = fn.args.type as string | undefined;
         const title = fn.args.title as string | undefined;
         const content = fn.args.content as string | undefined;
@@ -13245,7 +13279,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       
       case 'FIRST_MEETING_COMPLETE': {
         const summary = fn.args.summary as string | undefined;
-        if (session.userId) {
+        if (session.userId && !session.isIncognito) {
           try {
             await storage.updateUser(session.userId, { hasCompletedFirstMeeting: true });
             console.log(`[Native Function→FirstMeeting] Marked complete for user ${session.userId}`);
@@ -13258,6 +13292,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           } catch (err) {
             console.error(`[Native Function→FirstMeeting] Error:`, err);
           }
+        } else if (session.isIncognito) {
+          console.log(`[Native Function→FirstMeeting] INCOGNITO - skipping`);
         }
         break;
       }

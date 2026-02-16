@@ -16,7 +16,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, Loader2 } from "lucide-react";
+import { Mic, MicOff, Loader2, EyeOff } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { type Message, type User } from "@shared/schema";
@@ -247,6 +247,8 @@ export function StreamingVoiceChat({
   
   // Voice Lab: Session-level voice overrides (admin only - applies to next TTS call)
   const [voiceOverride, setVoiceOverride] = useState<VoiceOverride | null>(null);
+  // Incognito mode: off-the-record voice sessions (Founder/Honesty mode only)
+  const [isIncognito, setIsIncognito] = useState(false);
   const isPttButtonHeldRef = useRef(false); // Synchronous ref for guards (state is async)
   const activeInputTypeRef = useRef<'mouse' | 'touch' | 'keyboard' | null>(null); // Track which input started recording
   const [isMicPreparing, setIsMicPreparing] = useState(false); // Show "Preparing mic..." before actual recording starts
@@ -2590,6 +2592,12 @@ export function StreamingVoiceChat({
     }
   };
 
+  const handleToggleIncognito = () => {
+    const newState = !isIncognito;
+    setIsIncognito(newState);
+    streamingVoice.sendToggleIncognito(newState);
+  };
+
   const handleEndCall = () => {
     console.log('[END CALL] User requested to end voice session');
     
@@ -2606,6 +2614,7 @@ export function StreamingVoiceChat({
     // 3. Sends end_session message and closes WebSocket
     streamingVoice.disconnect();
     streamingConnectedRef.current = false;
+    setIsIncognito(false);
     
     // Stop open mic recording if active
     if (openMicActiveRef.current) {
@@ -3222,6 +3231,21 @@ export function StreamingVoiceChat({
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-background" data-testid="rest-voice-chat">
+      {/* Incognito Mode Toggle - Founder/Honesty mode only */}
+      {(isDeveloper || isAdmin) && (learningContext === 'founder-mode' || learningContext === 'honesty-mode') && streamingVoice.state.connectionState !== 'disconnected' && (
+        <div className="absolute top-3 left-3 z-50">
+          <Button
+            size="sm"
+            variant={isIncognito ? "destructive" : "outline"}
+            onClick={handleToggleIncognito}
+            className="gap-1.5 opacity-80 hover:opacity-100"
+            data-testid="button-toggle-incognito"
+          >
+            <EyeOff className="w-3.5 h-3.5" />
+            {isIncognito ? "Incognito ON" : "Incognito"}
+          </Button>
+        </div>
+      )}
       {/* Immersive Voice Chat with View Manager - Full Screen */}
       <div className="flex-1 min-h-0 overflow-hidden relative">
         <VoiceChatViewManager

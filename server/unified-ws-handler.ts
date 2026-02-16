@@ -1556,6 +1556,24 @@ Reference past discussions when relevant, but don't force it.
           break;
         }
 
+        case 'toggle_incognito': {
+          if (!session) break;
+          const incognitoEnabled = !!(message as any).enabled;
+          const sess = orchestrator.getSession(session.id);
+          if (sess && (sess.isFounderMode || sess.isRawHonestyMode)) {
+            sess.isIncognito = incognitoEnabled;
+            console.log(`[Streaming Voice] Incognito mode ${incognitoEnabled ? 'ENABLED' : 'DISABLED'} for session ${session.id}`);
+            ws.send(JSON.stringify({
+              type: 'incognito_changed',
+              timestamp: Date.now(),
+              enabled: incognitoEnabled,
+            }));
+          } else {
+            console.warn(`[Streaming Voice] Incognito toggle rejected - not in Founder/Honesty mode`);
+          }
+          break;
+        }
+
         case 'set_input_mode': {
           const modeMessage = message as { type: 'set_input_mode'; inputMode: VoiceInputMode };
           currentInputMode = modeMessage.inputMode;
@@ -3385,6 +3403,22 @@ ${buildNativeFunctionCallingSection()}`;
         case 'user_activity':
           if (session) orchestrator.resetIdleTimeoutForSession(session.id);
           break;
+
+        case 'toggle_incognito': {
+          if (!session) break;
+          const incogEnabled = !!(message as any).enabled;
+          const sessObj = orchestrator.getSession(session.id);
+          if (sessObj && (sessObj.isFounderMode || sessObj.isRawHonestyMode)) {
+            sessObj.isIncognito = incogEnabled;
+            console.log(`[Streaming Voice] Incognito mode ${incogEnabled ? 'ENABLED' : 'DISABLED'} for session ${session.id} (open-mic path)`);
+            ws.send(JSON.stringify({
+              type: 'incognito_changed',
+              timestamp: Date.now(),
+              enabled: incogEnabled,
+            }));
+          }
+          break;
+        }
         
         case 'update_voice': {
           const voiceMsg = message as { type: 'update_voice'; tutorGender: 'male' | 'female' };

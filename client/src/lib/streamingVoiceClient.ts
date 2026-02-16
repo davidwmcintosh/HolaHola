@@ -687,6 +687,12 @@ export class StreamingVoiceClient {
       this.socket.emit('message', { type: 'ptt_release' });
     }
   }
+
+  sendToggleIncognito(enabled: boolean): void {
+    if (this.socket?.connected) {
+      this.socket.emit('message', { type: 'toggle_incognito', enabled });
+    }
+  }
   
   /**
    * Convert ArrayBuffer to base64 string

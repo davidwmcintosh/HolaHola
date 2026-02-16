@@ -1539,6 +1539,10 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     playerRef.current?.releasePlayback();
     clientRef.current?.sendPttRelease();
   }, []);
+
+  const sendToggleIncognito = useCallback((enabled: boolean) => {
+    clientRef.current?.sendToggleIncognito(enabled);
+  }, []);
   
   /**
    * Request AI-generated personalized greeting
@@ -1717,6 +1721,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     sendInterrupt,
     sendUserActivity,
     sendPttRelease,
+    sendToggleIncognito,
     sendDrillResult,
     sendTextInput,
     sendVoiceOverride,
