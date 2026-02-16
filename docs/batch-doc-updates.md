@@ -3702,3 +3702,33 @@ Daniela can change her personal photo (North Star Polaroid) anytime. Parameters:
 - Pedagogical lamp derived from STT confidence + struggle count heuristic
 - Photo stored via existing `product_config` table (no schema changes needed)
 - Applied to ALL modes: tutor, founder, and honesty (via isFounderMode/isRawHonestyMode flags in output)
+
+### Session: February 16, 2026 - Context Injection Telemetry System
+
+**Status**: COMPLETED
+
+**Overview**: Closed critical monitoring gap where 5 context injection systems (classroom, student intelligence, hive, express lane, editor feedback) had no persistent telemetry — only console.log coverage. Without telemetry, context injection failures meant Daniela teaches "blind" with no visibility into what went wrong or how often.
+
+#### Architecture
+
+**Event Type**: `context_injection` added to existing `brain_events` table
+**Logging Method**: `brainHealthTelemetry.logContextInjection()` — reuses existing batching/flushing infrastructure
+**Event Data**: `contextSource`, `success` boolean, `latencyMs`, `richness` (element count), `errorMessage`
+
+#### Instrumented Sources (both PTT and OpenMic paths)
+
+1. **Classroom Environment** — Tracks whiteboard items + session images as richness metric
+2. **Student Intelligence** — Tracks struggles + strategies count as richness; wrapped around parallel Promise.all for learning context + cross-session context
+3. **Hive Context** — Founder/developer mode only; tracks Hive consciousness state injection
+4. **Express Lane** — Founder/developer mode only; tracks collaboration insight message count
+5. **Editor Feedback** — Tracks unsurfaced editor feedback items injected into context
+
+#### Admin Endpoint
+
+`GET /api/admin/brain-health/context-injection?hoursBack=24` — Returns per-source success rates, average latencies, failure counts, and identifies the slowest context source. Founder-only access.
+
+#### Key Files Modified
+
+- `server/services/brain-health-telemetry.ts` — Added `ContextInjectionEventData` interface, `logContextInjection()` method, `getContextInjectionHealth()` analytics method
+- `server/services/streaming-voice-orchestrator.ts` — Instrumented 5 context sources in PTT path and 2 in OpenMic path (classroom + student intelligence)
+- `server/routes.ts` — Added `/api/admin/brain-health/context-injection` endpoint

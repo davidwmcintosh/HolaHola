@@ -2537,6 +2537,7 @@ Remember: David may reference things discussed in these recent text chats.
       // Guard: Only fetch if we have a valid userId (skip for admin/founder-only sessions)
       if (!hasFreshCache && session.userId && session.targetLanguage) {
         // Fetch student learning context and cross-session context in parallel
+        const siStart = Date.now();
         contextPromises.push(
           Promise.all([
             studentLearningService.getStudentLearningContext(String(session.userId), session.targetLanguage),
@@ -2564,7 +2565,13 @@ TEACHING GUIDANCE:
 - Reference personal facts naturally to show you remember them
 - Pick up where you left off if there's session history
 `;
-                console.log(`[Student Intelligence] Injecting learning context: ${learningContext.struggles?.length || 0} struggles, ${learningContext.effectiveStrategies?.length || 0} strategies, ${crossSessionContext.recentSessions.length} recent sessions`);
+                const struggles = learningContext.struggles?.length || 0;
+                const strategies = learningContext.effectiveStrategies?.length || 0;
+                console.log(`[Student Intelligence] Injecting learning context: ${struggles} struggles, ${strategies} strategies, ${crossSessionContext.recentSessions.length} recent sessions`);
+                brainHealthTelemetry.logContextInjection({
+                  sessionId: session.id, userId: String(session.userId), targetLanguage: session.targetLanguage,
+                  contextSource: 'student_intelligence', success: true, latencyMs: Date.now() - siStart, richness: struggles + strategies,
+                }).catch(() => {});
                 
                 // ADAPTIVE SPEED: Sync session struggle count from persistent data
                 // This enables adaptive speech rate to slow down for students with known struggles
@@ -2575,7 +2582,13 @@ TEACHING GUIDANCE:
                 }
               }
             })
-            .catch(err => console.warn(`[Student Intelligence] Failed:`, err.message))
+            .catch(err => {
+              console.warn(`[Student Intelligence] Failed:`, err.message);
+              brainHealthTelemetry.logContextInjection({
+                sessionId: session.id, userId: String(session.userId), targetLanguage: session.targetLanguage,
+                contextSource: 'student_intelligence', success: false, latencyMs: Date.now() - siStart, errorMessage: err.message,
+              }).catch(() => {});
+            })
         );
         
         // 3. PASSIVE MEMORY INJECTION: Auto-search memories based on user message keywords
@@ -2670,6 +2683,7 @@ Don't force a reference if it doesn't fit the moment.
       if (!hasFreshCache && needsExpressLaneContext) {
         console.log(`[EXPRESS Lane] Developer user detected (Founder: ${session.isFounderMode}, Honesty: ${session.isRawHonestyMode}) - fetching Hive + Express Lane context for user ${session.userId}`);
         // 2. Hive context
+        const hiveStart = Date.now();
         contextPromises.push(
           hiveContextService.getSummary()
             .then(hiveSummary => {
@@ -2685,12 +2699,23 @@ You and Wren are "two surgeons, one brain" - you teach and observe, Wren builds.
 Use this context to understand what's happening across the Hive.
 `;
                 console.log(`[Hive Context] Injecting Hive state into Founder Mode session`);
+                brainHealthTelemetry.logContextInjection({
+                  sessionId: session.id, userId: String(session.userId), targetLanguage: session.targetLanguage,
+                  contextSource: 'hive', success: true, latencyMs: Date.now() - hiveStart, richness: 1,
+                }).catch(() => {});
               }
             })
-            .catch(err => console.warn(`[Hive Context] Failed:`, err.message))
+            .catch(err => {
+              console.warn(`[Hive Context] Failed:`, err.message);
+              brainHealthTelemetry.logContextInjection({
+                sessionId: session.id, userId: String(session.userId), targetLanguage: session.targetLanguage,
+                contextSource: 'hive', success: false, latencyMs: Date.now() - hiveStart, errorMessage: err.message,
+              }).catch(() => {});
+            })
         );
         
         // 3. Express Lane context - CRITICAL for unified consciousness
+        const elStart = Date.now();
         contextPromises.push(
           founderCollabService.getRelevantExpressLaneContext({
             targetLanguage: session.targetLanguage,
@@ -2707,9 +2732,19 @@ Use this context to understand what's happening across the Hive.
 ${expressLaneContext.contextString}
 `;
                 console.log(`[Express Lane] Injected ${expressLaneContext.messageCount} Hive collaboration insights`);
+                brainHealthTelemetry.logContextInjection({
+                  sessionId: session.id, userId: String(session.userId), targetLanguage: session.targetLanguage,
+                  contextSource: 'express_lane', success: true, latencyMs: Date.now() - elStart, richness: expressLaneContext.messageCount,
+                }).catch(() => {});
               }
             })
-            .catch(err => console.warn(`[Express Lane] Failed:`, err.message))
+            .catch(err => {
+              console.warn(`[Express Lane] Failed:`, err.message);
+              brainHealthTelemetry.logContextInjection({
+                sessionId: session.id, userId: String(session.userId), targetLanguage: session.targetLanguage,
+                contextSource: 'express_lane', success: false, latencyMs: Date.now() - elStart, errorMessage: err.message,
+              }).catch(() => {});
+            })
         );
         
         // 4. Text Chat memory
@@ -2763,6 +2798,7 @@ Remember: David may reference things discussed in these recent text chats.
         );
         
         // 5. Editor feedback
+        const efStart = Date.now();
         contextPromises.push(
           editorFeedbackService.getUnsurfacedFeedback(String(session.userId), 3)
             .then(feedback => {
@@ -2770,9 +2806,19 @@ Remember: David may reference things discussed in these recent text chats.
                 editorFeedbackSection = editorFeedbackService.buildPromptSection(feedback);
                 surfacedFeedbackIds = feedback.recentFeedback.map(f => f.id);
                 console.log(`[Editor Feedback] Injecting ${feedback.recentFeedback.length} insights into context`);
+                brainHealthTelemetry.logContextInjection({
+                  sessionId: session.id, userId: String(session.userId), targetLanguage: session.targetLanguage,
+                  contextSource: 'editor_feedback', success: true, latencyMs: Date.now() - efStart, richness: feedback.recentFeedback.length,
+                }).catch(() => {});
               }
             })
-            .catch(err => console.warn(`[Editor Feedback] Failed:`, err.message))
+            .catch(err => {
+              console.warn(`[Editor Feedback] Failed:`, err.message);
+              brainHealthTelemetry.logContextInjection({
+                sessionId: session.id, userId: String(session.userId), targetLanguage: session.targetLanguage,
+                contextSource: 'editor_feedback', success: false, latencyMs: Date.now() - efStart, errorMessage: err.message,
+              }).catch(() => {});
+            })
         );
         
         // 6. Express Lane history for conversation context
@@ -2823,6 +2869,7 @@ Remember: David may reference things discussed in these recent text chats.
       
       // CLASSROOM ENVIRONMENT: Daniela's virtual classroom with clock, credits, whiteboard, resonance shelf, etc.
       if (session.userId) {
+        const classroomStart = Date.now();
         try {
           const creditBalance = await usageService.getBalanceWithBypass(String(session.userId));
           const { buildClassroomEnvironment } = await import('./classroom-environment');
@@ -2843,9 +2890,19 @@ Remember: David may reference things discussed in these recent text chats.
             tutorName: session.tutorName || 'Daniela',
           });
           dynamicContextParts.push(classroomEnv);
-          console.log(`[Classroom] Environment injected (PTT) — ${session.classroomWhiteboardItems?.length || 0} board items, ${session.classroomSessionImages?.length || 0} images`);
+          const boardItems = session.classroomWhiteboardItems?.length || 0;
+          const images = session.classroomSessionImages?.length || 0;
+          console.log(`[Classroom] Environment injected (PTT) — ${boardItems} board items, ${images} images`);
+          brainHealthTelemetry.logContextInjection({
+            sessionId: session.id, userId: String(session.userId), targetLanguage: session.targetLanguage,
+            contextSource: 'classroom', success: true, latencyMs: Date.now() - classroomStart, richness: boardItems + images,
+          }).catch(() => {});
         } catch (err: any) {
           console.warn(`[Classroom] Failed to build environment:`, err.message);
+          brainHealthTelemetry.logContextInjection({
+            sessionId: session.id, userId: String(session.userId), targetLanguage: session.targetLanguage,
+            contextSource: 'classroom', success: false, latencyMs: Date.now() - classroomStart, errorMessage: err.message,
+          }).catch(() => {});
         }
       }
       
@@ -5616,6 +5673,7 @@ Dave activated incognito so you two can talk freely without anything being recor
       // PROACTIVE STUDENT INTELLIGENCE: Fetch learning context and cross-session history
       // Guard: Only fetch if we have a valid userId (skip for admin/founder-only sessions)
       if (session.userId && session.targetLanguage) {
+        const siStartOM = Date.now();
         contextPromises.push(
           Promise.all([
             studentLearningService.getStudentLearningContext(String(session.userId), session.targetLanguage),
@@ -5627,7 +5685,12 @@ Dave activated incognito so you two can talk freely without anything being recor
               
               if (learningFormatted || crossSessionFormatted) {
                 studentLearningSection = `\n\n[STUDENT PROFILE]${learningFormatted}${crossSessionFormatted}`;
-                console.log(`[Student Intelligence] Open mic: ${learningContext.struggles?.length || 0} struggles, ${crossSessionContext.recentSessions.length} recent sessions`);
+                const struggles = learningContext.struggles?.length || 0;
+                console.log(`[Student Intelligence] Open mic: ${struggles} struggles, ${crossSessionContext.recentSessions.length} recent sessions`);
+                brainHealthTelemetry.logContextInjection({
+                  sessionId: session.id, userId: String(session.userId), targetLanguage: session.targetLanguage,
+                  contextSource: 'student_intelligence', success: true, latencyMs: Date.now() - siStartOM, richness: struggles,
+                }).catch(() => {});
                 
                 // ADAPTIVE SPEED: Sync session struggle count from persistent data
                 const activeStruggles = learningContext.struggles?.filter(s => s.status === 'active') || [];
@@ -5637,7 +5700,13 @@ Dave activated incognito so you two can talk freely without anything being recor
                 }
               }
             })
-            .catch(err => console.warn(`[Student Intelligence] Failed (open mic):`, err.message))
+            .catch(err => {
+              console.warn(`[Student Intelligence] Failed (open mic):`, err.message);
+              brainHealthTelemetry.logContextInjection({
+                sessionId: session.id, userId: String(session.userId), targetLanguage: session.targetLanguage,
+                contextSource: 'student_intelligence', success: false, latencyMs: Date.now() - siStartOM, errorMessage: err.message,
+              }).catch(() => {});
+            })
         );
         
         // PASSIVE MEMORY INJECTION (OpenMic): Auto-search memories based on user message keywords
@@ -5715,6 +5784,7 @@ Dave activated incognito so you two can talk freely without anything being recor
       
       // CLASSROOM ENVIRONMENT (OpenMic): Daniela's virtual classroom with clock, credits, whiteboard, etc.
       if (session.userId) {
+        const classroomStartOM = Date.now();
         try {
           const creditBalance = await usageService.getBalanceWithBypass(String(session.userId));
           const { buildClassroomEnvironment } = await import('./classroom-environment');
@@ -5735,9 +5805,19 @@ Dave activated incognito so you two can talk freely without anything being recor
             tutorName: session.tutorName || 'Daniela',
           });
           dynamicContextPartsOpenMic.push(classroomEnv);
-          console.log(`[Classroom] Environment injected (OpenMic) — ${session.classroomWhiteboardItems?.length || 0} board items, ${session.classroomSessionImages?.length || 0} images`);
+          const boardItems = session.classroomWhiteboardItems?.length || 0;
+          const images = session.classroomSessionImages?.length || 0;
+          console.log(`[Classroom] Environment injected (OpenMic) — ${boardItems} board items, ${images} images`);
+          brainHealthTelemetry.logContextInjection({
+            sessionId: session.id, userId: String(session.userId), targetLanguage: session.targetLanguage,
+            contextSource: 'classroom', success: true, latencyMs: Date.now() - classroomStartOM, richness: boardItems + images,
+          }).catch(() => {});
         } catch (err: any) {
           console.warn(`[Classroom - OpenMic] Failed to build environment:`, err.message);
+          brainHealthTelemetry.logContextInjection({
+            sessionId: session.id, userId: String(session.userId), targetLanguage: session.targetLanguage,
+            contextSource: 'classroom', success: false, latencyMs: Date.now() - classroomStartOM, errorMessage: err.message,
+          }).catch(() => {});
         }
       }
       

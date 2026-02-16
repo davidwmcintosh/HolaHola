@@ -3,8 +3,8 @@ import { brainEvents, brainDailyMetrics, type InsertBrainEvent } from '@shared/s
 import { eq, and, gte, lte, sql, desc } from 'drizzle-orm';
 import crypto from 'crypto';
 
-type BrainEventType = 'memory_retrieval' | 'memory_injection' | 'memory_lookup_tool' | 'fact_extraction' | 'action_trigger' | 'tool_call';
-type BrainEventSource = 'passive_lookup' | 'active_function' | 'extraction_service' | 'streaming_orchestrator' | 'openmicFlow';
+type BrainEventType = 'memory_retrieval' | 'memory_injection' | 'memory_lookup_tool' | 'fact_extraction' | 'action_trigger' | 'tool_call' | 'context_injection';
+type BrainEventSource = 'passive_lookup' | 'active_function' | 'extraction_service' | 'streaming_orchestrator' | 'openmicFlow' | 'context_assembly';
 
 interface MemoryEventData {
   sessionId?: string;
@@ -47,6 +47,19 @@ interface FactExtractionEventData {
   factType: string;
   factSpecificity: 'specific' | 'vague';
   latencyMs?: number;
+}
+
+type ContextSource = 'classroom' | 'curriculum' | 'student_intelligence' | 'hive' | 'express_lane' | 'editor_feedback' | 'neural_network' | 'journey' | 'unified_total';
+
+interface ContextInjectionEventData {
+  sessionId?: string;
+  userId?: string;
+  targetLanguage?: string;
+  contextSource: ContextSource;
+  success: boolean;
+  latencyMs: number;
+  richness?: number;
+  errorMessage?: string;
 }
 
 class BrainHealthTelemetry {
@@ -178,6 +191,22 @@ class BrainHealthTelemetry {
       factType: data.factType,
       factSpecificity: data.factSpecificity,
       latencyMs: data.latencyMs,
+    };
+    this.queueEvent(event);
+  }
+
+  async logContextInjection(data: ContextInjectionEventData): Promise<void> {
+    const event: InsertBrainEvent = {
+      eventType: 'context_injection',
+      eventSource: 'context_assembly',
+      sessionId: data.sessionId,
+      userId: data.userId,
+      targetLanguage: data.targetLanguage,
+      toolName: data.contextSource,
+      latencyMs: data.latencyMs,
+      wasUsed: data.success,
+      resultsCount: data.richness,
+      queryTerms: data.errorMessage || undefined,
     };
     this.queueEvent(event);
   }
@@ -405,6 +434,66 @@ class BrainHealthTelemetry {
       specificityRate,
       factTypeBreakdown,
     };
+  }
+
+  async getContextHealthSummary(hoursBack: number = 24): Promise<{
+    totalInjections: number;
+    successRate: number;
+    avgLatencyMs: number;
+    bySource: Record<string, { total: number; successes: number; failures: number; avgLatency: number; avgRichness: number }>;
+    recentFailures: { source: string; error: string; timestamp: Date }[];
+  }> {
+    const since = new Date(Date.now() - hoursBack * 60 * 60 * 1000);
+
+    const events = await db
+      .select()
+      .from(brainEvents)
+      .where(and(
+        eq(brainEvents.eventType, 'context_injection'),
+        gte(brainEvents.createdAt, since)
+      ))
+      .orderBy(desc(brainEvents.createdAt));
+
+    const totalInjections = events.length;
+    const successes = events.filter(e => e.wasUsed === true).length;
+    const successRate = totalInjections > 0 ? successes / totalInjections : 1;
+
+    const latencies = events.map(e => e.latencyMs).filter((l): l is number => l !== null);
+    const avgLatencyMs = latencies.length > 0
+      ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length)
+      : 0;
+
+    const bySource: Record<string, { total: number; successes: number; failures: number; avgLatency: number; avgRichness: number }> = {};
+    for (const event of events) {
+      const source = event.toolName || 'unknown';
+      if (!bySource[source]) {
+        bySource[source] = { total: 0, successes: 0, failures: 0, avgLatency: 0, avgRichness: 0 };
+      }
+      const s = bySource[source];
+      s.total++;
+      if (event.wasUsed) s.successes++;
+      else s.failures++;
+      if (event.latencyMs) s.avgLatency += event.latencyMs;
+      if (event.resultsCount) s.avgRichness += event.resultsCount;
+    }
+    for (const source of Object.keys(bySource)) {
+      const s = bySource[source];
+      if (s.total > 0) {
+        s.avgLatency = Math.round(s.avgLatency / s.total);
+        s.avgRichness = Math.round((s.avgRichness / s.total) * 10) / 10;
+      }
+    }
+
+    const recentFailures = events
+      .filter(e => e.wasUsed === false)
+      .slice(0, 10)
+      .map(e => ({
+        source: e.toolName || 'unknown',
+        error: e.queryTerms || 'Unknown error',
+        timestamp: e.createdAt,
+      }));
+
+    return { totalInjections, successRate, avgLatencyMs, bySource, recentFailures };
   }
 
   async getStudentCoverage(): Promise<{
@@ -908,6 +997,56 @@ class BrainHealthTelemetry {
       healthScore,
       recommendation,
     };
+  }
+
+  async getContextInjectionHealth(hoursBack: number = 24): Promise<{
+    sources: Record<string, { total: number; successes: number; failures: number; avgLatencyMs: number; successRate: number }>;
+    overallSuccessRate: number;
+    totalEvents: number;
+    slowestSource: string | null;
+  }> {
+    const since = new Date(Date.now() - hoursBack * 60 * 60 * 1000);
+    const rows = await db.select()
+      .from(brainEvents)
+      .where(and(
+        eq(brainEvents.eventType, 'context_injection'),
+        gte(brainEvents.createdAt, since)
+      ));
+
+    const sources: Record<string, { total: number; successes: number; failures: number; totalLatency: number; avgLatencyMs: number; successRate: number }> = {};
+    for (const row of rows) {
+      const src = row.toolName || 'unknown';
+      if (!sources[src]) {
+        sources[src] = { total: 0, successes: 0, failures: 0, totalLatency: 0, avgLatencyMs: 0, successRate: 0 };
+      }
+      sources[src].total++;
+      if (row.wasUsed) sources[src].successes++;
+      else sources[src].failures++;
+      sources[src].totalLatency += (row.latencyMs || 0);
+    }
+
+    let slowestSource: string | null = null;
+    let slowestAvg = 0;
+    for (const [src, stats] of Object.entries(sources)) {
+      stats.avgLatencyMs = stats.total > 0 ? Math.round(stats.totalLatency / stats.total) : 0;
+      stats.successRate = stats.total > 0 ? Math.round((stats.successes / stats.total) * 100) : 0;
+      if (stats.avgLatencyMs > slowestAvg) {
+        slowestAvg = stats.avgLatencyMs;
+        slowestSource = src;
+      }
+    }
+
+    const totalEvents = rows.length;
+    const totalSuccesses = Object.values(sources).reduce((a, s) => a + s.successes, 0);
+    const overallSuccessRate = totalEvents > 0 ? Math.round((totalSuccesses / totalEvents) * 100) : 100;
+
+    const cleanSources: Record<string, { total: number; successes: number; failures: number; avgLatencyMs: number; successRate: number }> = {};
+    for (const [src, stats] of Object.entries(sources)) {
+      const { totalLatency, ...rest } = stats;
+      cleanSources[src] = rest;
+    }
+
+    return { sources: cleanSources, overallSuccessRate, totalEvents, slowestSource };
   }
 
   shutdown(): void {

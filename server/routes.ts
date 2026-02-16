@@ -26657,6 +26657,17 @@ You have full access to your neural network knowledge.
     }
   });
 
+  app.get("/api/admin/brain-health/context-injection", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const hoursBack = parseInt(req.query.hoursBack as string) || 24;
+      const data = await brainHealthTelemetry.getContextInjectionHealth(hoursBack);
+      res.json(data);
+    } catch (error: any) {
+      console.error("[BrainHealth] Context injection health error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ============================================
   // Journey Memory System Admin Routes
   // ============================================

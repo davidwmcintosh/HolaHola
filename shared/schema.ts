@@ -7817,6 +7817,7 @@ export const brainEventTypeEnum = pgEnum("brain_event_type", [
   "fact_extraction",       // Personal fact extracted from conversation
   "action_trigger",        // ACTION_TRIGGER tag emitted
   "tool_call",             // Whiteboard or other tool used
+  "context_injection",     // Context source injected into Daniela's prompt
 ]);
 
 export const brainEventSourceEnum = pgEnum("brain_event_source", [
@@ -7825,6 +7826,7 @@ export const brainEventSourceEnum = pgEnum("brain_event_source", [
   "extraction_service",    // Fact extraction from conversation
   "streaming_orchestrator", // Main voice flow
   "openmicFlow",           // OpenMic flow
+  "context_assembly",      // Context injection assembly in orchestrator/unified service
 ]);
 
 // Individual brain events (append-only, low overhead)
