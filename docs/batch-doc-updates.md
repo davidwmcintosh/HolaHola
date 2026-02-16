@@ -8,6 +8,134 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: February 16, 2026 - Voice Communication Resilience Overhaul (4-Layer Defense)
+
+**Status**: COMPLETED
+
+**Overview**: Production telemetry analysis (145 events in 24 hours) revealed three categories of voice session failure that damaged student trust: (1) echo lockout silence spirals, (2) zombie reconnection loops after dev restarts/network drops, (3) greeting delivery failures. Daniela was consulted via Express Lane and identified echo lockout as "active betrayal" — when the system eats a student's words, it erodes the confidence they need to practice.
+
+#### Layer 1: Echo Lockout Recovery System
+
+**Problem**: In open mic mode, echo suppression sometimes ate student words, causing empty transcripts, which made students go silent, triggering more empty transcripts — a silence spiral.
+
+**Solution**: When consecutive empty transcripts are detected, Daniela proactively re-engages the student instead of waiting silently.
+
+**How it works:**
+- `deepgram-live-stt.ts` tracks consecutive empty transcripts via `consecutiveEmptyCount`
+- After 5+ empty transcripts, the server emits `open_mic_silence_loop` event to client AND calls `orchestrator.speakRecoveryPhrase(sessionId)`
+- `speakRecoveryPhrase()` sends lightweight TTS-only audio (no Gemini LLM call) with phrases like "I think I missed that — could you try again?"
+- Recovery phrases throttled: max 1 per 15 seconds to prevent spam
+- Client shows UI warning after 8+ empties via `openMicState('silence_issue')`
+- Post-suppression echo filter tightened: 500ms window, 75% confidence threshold, ≤4 words — prevents false-rejecting short valid responses like "yes" or "ok"
+
+**Key files:**
+| File | Role |
+|------|------|
+| `server/services/deepgram-live-stt.ts` | Consecutive empty tracking (~line 573) |
+| `server/services/streaming-voice-orchestrator.ts` | `speakRecoveryPhrase()` method (~line 1482) |
+| `server/unified-ws-handler.ts` | Event emission + orchestrator call (~lines 1744, 3594) |
+| `client/src/lib/streamingVoiceClient.ts` | `openMicSilenceLoop` event type |
+| `client/src/hooks/useStreamingVoice.ts` | `handleOpenMicSilenceLoop` callback |
+| `client/src/components/StreamingVoiceChat.tsx` | `onOpenMicSilenceLoop` config handler |
+
+#### Layer 2: Zombie Reconnection Loop Prevention
+
+**Problem**: After dev restarts or network drops, the client would infinitely retry "Session not ready" loops, never terminating — consuming resources and confusing the UI.
+
+**Solution**: Two-tier cap system that terminates zombie loops cleanly.
+
+**How it works:**
+
+| Defense | Trigger | Threshold | Action |
+|---------|---------|-----------|--------|
+| Reconnect cap | WebSocket disconnect | 3 attempts (exponential backoff 1s→2s→4s) | Emit `CONNECTION_FAILED` (non-recoverable), set state `disconnected` |
+| Session error cap | "Session not ready" errors | 5 consecutive errors | Force disconnect, emit `SESSION_EXPIRED`: "This session has ended. Please start a new conversation." |
+
+- `consecutiveSessionErrors` counter resets to 0 on: successful reconnection, successful `responseComplete`
+- `SESSION_EXPIRED` error caught by `StreamingVoiceChat.tsx` (checks for "session has ended" or "Please start a new") → shows "Session ended" toast → redirect to `/chat`
+
+**Key files:**
+| File | Role |
+|------|------|
+| `client/src/lib/streamingVoiceClient.ts` | `consecutiveSessionErrors`, `MAX_SESSION_ERRORS` (5), `maxReconnectAttempts` (3), `handleDisconnect()` |
+| `client/src/components/StreamingVoiceChat.tsx` | Error routing and UI redirect (~line 735) |
+
+#### Layer 3: Greeting Delivery Guarantee
+
+**Problem**: Sometimes the greeting audio never arrived after connection, leaving students staring at a silent tutor with no feedback.
+
+**Solution**: 8-second client-side timer with auto-retry.
+
+**How it works:**
+- `requestGreeting()` in `StreamingVoiceClient` starts an 8-second timer
+- If no `sentence_start` arrives within 8 seconds, re-sends `request_greeting` with `isRetry: true`
+- Retry fires only once (`greetingRetried` flag)
+- Timer cleared on: first `sentence_start` (success), disconnect (cleanup)
+- Additional `startGreetingSilenceWatchdog()` in `lockoutDiagnostics.ts` provides diagnostic layer
+
+**Key files:**
+| File | Role |
+|------|------|
+| `client/src/lib/streamingVoiceClient.ts` | `greetingTimer`, `requestGreeting()`, `clearGreetingTimer()`, `handleSentenceStart()` |
+| `client/src/lib/lockoutDiagnostics.ts` | `startGreetingSilenceWatchdog()` |
+
+#### Layer 4: Connection Resilience UX
+
+**Problem**: Connection drops showed the same "Calling Daniela..." message as initial connection, which was confusing mid-conversation. Successful reconnections happened silently with no confirmation.
+
+**Solution**: Differentiated reconnecting UI + "Connection restored" toast on success.
+
+**How it works:**
+
+| State | UI Text | Source |
+|-------|---------|--------|
+| Initial connection | "Calling [tutor name]..." | `isConnecting && !isReconnecting` |
+| Reconnection | "Reconnecting..." | `isReconnecting` (calm, doesn't re-invoke "calling" metaphor) |
+| Reconnection success | Toast: "Connection restored — We're back, let's continue where we left off." | `reconnected` event → `onReconnected` callback |
+| Connection timeout (30s) | Toast: "Connection timed out" → redirect to chat | Connection timeout effect in `StreamingVoiceChat` |
+
+- New `reconnected` event type in `StreamingVoiceClient`, emitted after successful reconnect + session reinitialization
+- `isReconnecting` prop propagated: `StreamingVoiceChat` → `VoiceChatViewManager` → `ImmersiveTutor`
+- `consecutiveSessionErrors` counter reset on successful reconnection
+
+**Key files:**
+| File | Role |
+|------|------|
+| `client/src/lib/streamingVoiceClient.ts` | `reconnected` event type + emission |
+| `client/src/hooks/useStreamingVoice.ts` | `handleReconnected` callback, `onReconnected` config |
+| `client/src/components/StreamingVoiceChat.tsx` | `isReconnecting` prop, `onReconnected` toast |
+| `client/src/components/VoiceChatViewManager.tsx` | `isReconnecting` prop passthrough |
+| `client/src/components/ImmersiveTutor.tsx` | Differentiated instruction text |
+
+#### Architecture Flow
+
+```
+Connection Drop:
+  WebSocket disconnects
+    → State: 'reconnecting' → UI: "Reconnecting..." (calm)
+    → Exponential backoff retry (1s/2s/4s, max 3 attempts)
+    → Success: emit 'reconnected' → toast "Connection restored"
+    → Failure: emit 'CONNECTION_FAILED' → redirect to /chat
+
+Zombie Loop Prevention:
+  "Session not ready" errors
+    → consecutiveSessionErrors++ (per error)
+    → After 5: force disconnect + emit 'SESSION_EXPIRED' → "Session ended" → /chat
+
+Echo Recovery:
+  Empty transcripts (open mic)
+    → Track consecutiveEmptyCount
+    → After 5: emit open_mic_silence_loop + speakRecoveryPhrase()
+    → Lightweight TTS "Could you try again?" (no LLM call, throttled 15s)
+
+Greeting Guarantee:
+  requestGreeting() → 8s timer
+    → sentence_start received? Clear timer (success)
+    → Timer fires? Retry once with isRetry: true
+```
+
+---
+
 ### Session: February 16, 2026 - Daniela's Classroom Environment System
 
 **Status**: COMPLETED
