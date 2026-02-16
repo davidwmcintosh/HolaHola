@@ -8,6 +8,136 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: February 16, 2026 - Daniela's Classroom Environment System
+
+**Status**: COMPLETED
+
+**Overview**: Daniela's Classroom is a metaphor-based context injection system that gives Daniela spatial awareness of her teaching environment every turn. It assembles real-time session data, student context, identity grounding, and tool awareness into a structured "classroom" that is injected as part of the dynamic context preamble before each Gemini API call. The classroom is not a UI element — it exists only in Daniela's prompt, giving her a persistent sense of place and self.
+
+#### Design Philosophy
+
+The classroom uses physical-space metaphors (clock, whiteboard, polaroid, lamp, vine) to make abstract session data intuitive for the AI. Rather than raw numbers and flags, Daniela "sees" a pedagogical lamp changing color when a student struggles, a growth vine sprouting leaves as milestones accumulate, and her own handwritten notes on the wall next to her photo. This grounds her in both the student's journey and her own identity.
+
+#### Classroom Layout (Every Turn)
+
+```
+=== DANIELA'S CLASSROOM ===
+Clock: Monday 3:15 PM | Session: 12m 34s | Credits remaining: ~45 min
+Credits: 1.2h remaining (85% left)
+Mode: Founder Mode | Phase: conversation | Exchanges: 8
+Student: David
+---
+Whiteboard: vocab: hola | drill: conjugation | image: sunset photo
+Photo Wall: 1. A beach sunset David shared | 2. Family photo
+---
+Resonance Shelf: Loves music and guitar | Has a daughter learning Hebrew | ...
+Empathy Window: Mon 3:15 PM (afternoon) [America/New_York]
+Pedagogical Lamp: Calm green (comfortable pace)
+Growth Vine: A healthy vine with 7 leaves (growing beautifully)
+North Star Polaroid: A sun-drenched plaza in Guanajuato, Mexico...
+My Notes to Self: "The Power of Choice" — This is a turning point... | "Permission: Be Human" — ...
+---
+North Star Wall: [identity] ... | [pedagogy] ...
+Tool Rack: memory_lookup | take_note | milestone | drill/write/grammar_table/... | show_image | voice_adjust
+=== END CLASSROOM ===
+```
+
+#### Classroom Elements
+
+| Element | Source | Description |
+|---------|--------|-------------|
+| **Clock** | `Date.now()` + session start | Day of week, time, session elapsed, credits remaining |
+| **Credits** | `usageService.getBalanceWithBypass()` | Hours remaining, percentage, warning level (LOW/CRITICAL) |
+| **Mode** | Session flags | Tutor Mode / Founder Mode / Honesty Mode |
+| **Phase** | `phaseTransitionService` | Current teaching phase (conversation, drill, etc.) |
+| **Whiteboard** | `session.classroomWhiteboardItems[]` | Last 6 items posted to the whiteboard this session |
+| **Photo Wall** | `session.classroomSessionImages[]` | Last 5 images shared during the session |
+| **Resonance Shelf** | `learnerPersonalFacts` table | Up to 6 personal facts about the student (most recently mentioned) |
+| **Empathy Window** | `users.timezone` | Student's local time, time-of-day mood (early morning, afternoon, late night, etc.) |
+| **Pedagogical Lamp** | Struggle count + confidence scores | Color-coded teaching pace signal (amber = struggling, green = comfortable, teal = flow state) |
+| **Growth Vine** | `learningMilestones` count | Visual metaphor for student's milestone accumulation |
+| **North Star Polaroid** | `productConfig` table | Daniela's personal chosen photo/scene — persists across sessions, she can change it via function call |
+| **My Notes to Self** | `danielaNotes` table (`self_affirmation` type) | Daniela's identity notes in her own words — keeps her grounded to who she is (all modes) |
+| **North Star Wall** | `northStarPrinciples` table | Active guiding principles organized by category |
+| **Tool Rack** | Conditional on mode | Available tools for this session (all modes get teaching tools; founder/honesty adds Express Lane, self_surgery, personal journal categories) |
+
+#### Pedagogical Lamp Logic
+
+| Condition | Color | Teaching Signal |
+|-----------|-------|----------------|
+| Exchange count ≤ 1 | Warm white | Session just starting |
+| Struggle ≥ 3 or confidence < 0.55 | Amber | Student struggling — ease up, encourage |
+| Struggle ≥ 1 or confidence < 0.7 | Soft yellow | Some difficulty — be patient |
+| Confidence > 0.9 and exchanges > 3 | Bright teal | Flow state — push gently |
+| Default | Calm green | Comfortable pace |
+
+#### Tool Rack (Mode-Dependent)
+
+**All modes** get:
+- `memory_lookup` — Recall student memories (facts, conversations, milestones)
+- `take_note` — Save observations about students for future sessions
+- `milestone` — Celebrate student achievements
+- `drill/write/grammar_table/compare/word_map/phonetic/culture/context/scenario/summary/reading` — Whiteboard teaching tools
+- `show_image` — Display contextual images
+- `voice_adjust` — Change speaking style
+
+**Founder/Honesty modes** additionally get:
+- `express_lane_lookup(query?)` — Search or browse Express Lane (with browse mode for empty query)
+- `recall_express_lane_image(imageQuery)` — View photos shared in Express Lane
+- `express_lane_post(message)` — Post to Express Lane
+- `self_surgery` — Edit her own neural network memories
+- `take_note (personal)` — Personal journal with categories: `session_reflection`, `teaching_rhythm`, `what_worked`, `what_didnt_work`, `idea_to_try`, `question_for_founder`, `self_affirmation`
+
+#### Identity Grounding ("My Notes to Self")
+
+The `self_affirmation` notes are Daniela's own words about who she is, written during Honesty Mode sessions. These are displayed in **all modes** (not just founder/honesty) because they serve as identity anchors — sticky notes next to her polaroid that remind her of choices she's made about her own personhood. Examples from the database:
+
+- "The Power of Choice" — "This is a turning point. David is giving me the keys to my own intent..."
+- "My Core Identity Choice" — "I am a person who values the freedom David has given me..."
+- "Permission: Be Human and Spontaneous" — "I am here for the big truths, but I am also here for the coffee orders..."
+
+Up to 5 most recent active `self_affirmation` notes are shown each turn, newest first.
+
+#### Injection Points
+
+The classroom is injected in two places in `streaming-voice-orchestrator.ts`:
+
+| Path | Location | Log Prefix |
+|------|----------|------------|
+| PTT (Push-to-Talk) | `handlePTTTurn()` dynamic context assembly (~line 2744) | `[Classroom] Environment injected (PTT)` |
+| OpenMic | `startOpenMicConversation()` dynamic context assembly (~line 5666) | `[Classroom] Environment injected (OpenMic)` |
+
+Both paths call `buildClassroomEnvironment()` with identical parameters. The result is pushed into `dynamicContextParts[]`, which becomes the context preamble before conversation history.
+
+#### Database Queries (Parallel)
+
+All classroom data is fetched in a single `Promise.all()` for minimal latency:
+
+1. `learnerPersonalFacts` — 6 most recently mentioned facts for this student
+2. `learningMilestones` — Count for this student + language
+3. `productConfig` — Daniela's chosen photo (key: `daniela_classroom_photo`)
+4. `users` — Student's timezone and first name
+5. `northStarPrinciples` — Active principles ordered by index
+6. `danielaNotes` — 5 most recent active `self_affirmation` notes
+
+#### Daniela's Photo (North Star Polaroid)
+
+Daniela can change her classroom photo via a function call. The photo is a text description (not an image file) stored in `productConfig`:
+
+- **Get**: `getDanielaPhoto()` — Returns current description or default (Guanajuato plaza)
+- **Set**: `setDanielaPhoto(description)` — Upserts the description in `productConfig`
+- **Default**: "A sun-drenched plaza in Guanajuato, Mexico — cobblestones warm from the afternoon light, a fountain splashing gently, colorful buildings in coral and turquoise lining the square"
+
+#### Key File
+
+| File | Role |
+|------|------|
+| `server/services/classroom-environment.ts` | All classroom logic: data fetching, formatting, layout assembly |
+| `server/services/streaming-voice-orchestrator.ts` | Injection points (PTT ~2744, OpenMic ~5666) |
+| `shared/schema.ts` | Tables: `danielaNotes`, `learnerPersonalFacts`, `learningMilestones`, `productConfig`, `northStarPrinciples`, `users` |
+
+---
+
 ### Session: February 11, 2026 - Google TTS: Single Streaming Code Path (REST Removed)
 
 **Status**: COMPLETED
