@@ -1,25 +1,17 @@
-import { GoogleGenAI } from "@google/genai";
+import Anthropic from "@anthropic-ai/sdk";
 import { buildAldenSystemPrompt } from "../alden-system-prompt";
-import { ALDEN_FUNCTION_DECLARATIONS, executeAldenTool } from "./alden-functions";
+import { ALDEN_TOOLS, executeAldenTool } from "./alden-functions";
 
-let geminiClient: GoogleGenAI | null = null;
+let anthropicClient: Anthropic | null = null;
 
-function getGeminiClient(): GoogleGenAI {
-  if (geminiClient) return geminiClient;
+function getAnthropicClient(): Anthropic {
+  if (anthropicClient) return anthropicClient;
 
-  const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    console.warn('[Alden] No Gemini API key found');
-  }
-
-  geminiClient = new GoogleGenAI({
-    apiKey: apiKey || '',
-    httpOptions: {
-      apiVersion: "",
-      baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || '',
-    },
+  anthropicClient = new Anthropic({
+    apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
+    baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
   });
-  return geminiClient;
+  return anthropicClient;
 }
 
 interface AldenChatParams {
@@ -41,88 +33,83 @@ export async function generateAldenResponse(params: AldenChatParams): Promise<Al
   const toolsUsed: string[] = [];
 
   try {
-    const client = getGeminiClient();
+    const client = getAnthropicClient();
     const systemPrompt = buildAldenSystemPrompt({ founderName, timezone });
 
-    const geminiContents: any[] = [];
+    const messages: Anthropic.MessageParam[] = [];
 
     for (const msg of conversationHistory.slice(-20)) {
-      geminiContents.push({
-        role: msg.role === 'user' ? 'user' : 'model',
-        parts: [{ text: msg.content }],
+      messages.push({
+        role: msg.role === 'user' ? 'user' : 'assistant',
+        content: msg.content,
       });
     }
 
-    geminiContents.push({
+    messages.push({
       role: 'user',
-      parts: [{ text: userMessage }],
+      content: userMessage,
     });
 
     let aldenResponse: string | null = null;
 
     for (let round = 0; round < MAX_AGENT_ROUNDS; round++) {
-      const result = await client.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: geminiContents,
-        config: {
-          systemInstruction: systemPrompt,
-          temperature: 0.7,
-          maxOutputTokens: 2048,
-          tools: [{ functionDeclarations: ALDEN_FUNCTION_DECLARATIONS }],
-        },
+      const result = await client.messages.create({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 8192,
+        system: systemPrompt,
+        messages,
+        tools: ALDEN_TOOLS,
       });
 
-      const candidate = result.candidates?.[0];
-      if (!candidate?.content?.parts) {
-        console.warn('[Alden] No response parts from Gemini');
+      const textBlocks = result.content.filter(
+        (block): block is Anthropic.TextBlock => block.type === 'text'
+      );
+      const toolUseBlocks = result.content.filter(
+        (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use'
+      );
+
+      if (textBlocks.length > 0) {
+        aldenResponse = textBlocks.map(b => b.text).join('\n');
+      }
+
+      if (toolUseBlocks.length === 0 || result.stop_reason === 'end_turn') {
         break;
       }
 
-      geminiContents.push({
-        role: 'model',
-        parts: candidate.content.parts,
+      console.log(`[Alden Chat] Round ${round + 1}: ${toolUseBlocks.length} tool call(s) — ${toolUseBlocks.map(t => t.name).join(', ')}`);
+
+      messages.push({
+        role: 'assistant',
+        content: result.content,
       });
 
-      const functionCalls = candidate.content.parts.filter((p: any) => p.functionCall);
-      const textParts = candidate.content.parts.filter((p: any) => p.text);
+      const toolResults: Anthropic.ToolResultBlockParam[] = [];
 
-      if (textParts.length > 0) {
-        aldenResponse = textParts.map((p: any) => p.text).join('\n');
-      }
-
-      if (functionCalls.length === 0) {
-        break;
-      }
-
-      console.log(`[Alden Chat] Round ${round + 1}: ${functionCalls.length} tool call(s) — ${functionCalls.map((f: any) => f.functionCall.name).join(', ')}`);
-
-      const toolResponseParts: any[] = [];
-
-      for (const fc of functionCalls) {
-        const toolName = fc.functionCall.name;
-        const toolArgs = fc.functionCall.args || {};
-        toolsUsed.push(toolName);
+      for (const toolUse of toolUseBlocks) {
+        toolsUsed.push(toolUse.name);
 
         try {
-          const result = await executeAldenTool(toolName, toolArgs as Record<string, any>);
-          toolResponseParts.push({
-            functionResponse: {
-              name: toolName,
-              response: { result: result.data },
-            },
+          const toolResult = await executeAldenTool(toolUse.name, (toolUse.input as Record<string, any>) || {});
+          toolResults.push({
+            type: 'tool_result',
+            tool_use_id: toolUse.id,
+            content: JSON.stringify(toolResult.data),
           });
         } catch (err: any) {
-          console.warn(`[Alden Chat] Tool ${toolName} failed:`, err.message);
-          toolResponseParts.push({
-            functionResponse: {
-              name: toolName,
-              response: { result: { error: err.message } },
-            },
+          console.warn(`[Alden Chat] Tool ${toolUse.name} failed:`, err.message);
+          toolResults.push({
+            type: 'tool_result',
+            tool_use_id: toolUse.id,
+            content: JSON.stringify({ error: err.message }),
+            is_error: true,
           });
         }
       }
 
-      geminiContents.push({ role: 'user', parts: toolResponseParts });
+      messages.push({
+        role: 'user',
+        content: toolResults,
+      });
     }
 
     if (!aldenResponse) {
@@ -141,4 +128,4 @@ export async function generateAldenResponse(params: AldenChatParams): Promise<Al
   }
 }
 
-console.log('[Alden Persona Service] Loaded — Alden voice chat ready');
+console.log('[Alden Persona Service] Loaded — Alden voice chat ready (Claude)');

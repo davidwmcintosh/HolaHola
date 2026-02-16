@@ -1,4 +1,4 @@
-import { FunctionDeclaration } from "@google/genai";
+import Anthropic from "@anthropic-ai/sdk";
 import { getSharedDb } from "../neon-db";
 import { getUserDb } from "../db";
 import { 
@@ -11,70 +11,70 @@ import { sql, desc, eq, and, gte } from "drizzle-orm";
 import { computeHealthStatus } from "./voice-health-monitor";
 import { founderCollabService } from "./founder-collaboration-service";
 
-export const ALDEN_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
+export const ALDEN_TOOLS: Anthropic.Tool[] = [
   {
     name: "get_system_health",
     description: "Get real-time system health: voice pipeline status (green/yellow/red), active voice sessions count, server uptime, and TTS provider status.",
-    parametersJsonSchema: {
-      type: "object",
+    input_schema: {
+      type: "object" as const,
       properties: {},
     },
   },
   {
     name: "get_database_stats",
     description: "Get database statistics: table row counts for key tables (users, conversations, voice sessions, vocabulary), connection pool status, and recent growth metrics.",
-    parametersJsonSchema: {
-      type: "object",
+    input_schema: {
+      type: "object" as const,
       properties: {},
     },
   },
   {
     name: "get_user_analytics",
     description: "Get user analytics: total users, active learners (last 7 days), new registrations (last 30 days), language distribution, and subscription tier breakdown.",
-    parametersJsonSchema: {
-      type: "object",
+    input_schema: {
+      type: "object" as const,
       properties: {},
     },
   },
   {
     name: "get_voice_session_metrics",
     description: "Get voice session metrics: total sessions, sessions today, average duration, TTS provider usage breakdown, error rate, and recent session activity.",
-    parametersJsonSchema: {
-      type: "object",
+    input_schema: {
+      type: "object" as const,
       properties: {
-        days: { type: "number", description: "Number of days to analyze (default 7, max 30)" },
+        days: { type: "number" as const, description: "Number of days to analyze (default 7, max 30)" },
       },
     },
   },
   {
     name: "get_recent_errors",
     description: "Get recent errors and issues: voice pipeline failures, API errors, and Sofia-reported issues from the last N hours.",
-    parametersJsonSchema: {
-      type: "object",
+    input_schema: {
+      type: "object" as const,
       properties: {
-        hours: { type: "number", description: "Hours to look back (default 24, max 72)" },
+        hours: { type: "number" as const, description: "Hours to look back (default 24, max 72)" },
       },
     },
   },
   {
     name: "get_sofia_report",
     description: "Get Sofia's latest health digests and issue reports. Shows what Sofia has found through her autonomous monitoring.",
-    parametersJsonSchema: {
-      type: "object",
+    input_schema: {
+      type: "object" as const,
       properties: {
-        limit: { type: "number", description: "Number of reports to retrieve (default 5, max 20)" },
+        limit: { type: "number" as const, description: "Number of reports to retrieve (default 5, max 20)" },
       },
     },
   },
   {
     name: "search_editor_memories",
     description: "Search Alden's persistent memory (editor insights) for past context, architectural decisions, debugging notes, and project history.",
-    parametersJsonSchema: {
-      type: "object",
+    input_schema: {
+      type: "object" as const,
       properties: {
-        query: { type: "string", description: "Search term or topic to find in memories" },
+        query: { type: "string" as const, description: "Search term or topic to find in memories" },
         category: { 
-          type: "string", 
+          type: "string" as const, 
           description: "Filter by category: philosophy, architecture, relationship, debugging, personality, workflow, context, journal" 
         },
       },
@@ -84,12 +84,12 @@ export const ALDEN_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: "post_to_express_lane",
     description: "Post a message to the Express Lane collaboration channel. Use this to share findings, coordinate with Daniela/Wren, or log important observations.",
-    parametersJsonSchema: {
-      type: "object",
+    input_schema: {
+      type: "object" as const,
       properties: {
-        content: { type: "string", description: "The message content to post" },
+        content: { type: "string" as const, description: "The message content to post" },
         metadata: {
-          type: "object",
+          type: "object" as const,
           description: "Optional metadata (e.g., { source: 'alden-chat', topic: 'health-check' })",
         },
       },
