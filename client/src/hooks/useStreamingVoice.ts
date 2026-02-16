@@ -153,6 +153,8 @@ export interface UseStreamingVoiceReturn {
     emotion?: string;
     geminiLanguageCode?: string;
   } | null) => void;
+  sendToggleIncognito: (enabled: boolean) => void;
+  forceResetProcessing: () => void;
 }
 
 /**
