@@ -108,6 +108,7 @@ const validateEditorSecret = (secret: string): boolean => {
   return secret === editorSecret;
 };
 import { supportPersonaService } from "./services/support-persona-service";
+import { generateAldenResponse } from "./services/alden-persona-service";
 import { founderCollabService } from "./services/founder-collaboration-service";
 import { founderCollabWSBroker } from "./services/founder-collab-ws-broker";
 import { memoryConsolidationService } from "./services/memory-consolidation-service";
@@ -12584,6 +12585,61 @@ Return ONLY the ${targetLanguage} phrase:`;
       });
     } catch (error: any) {
       console.error('[Sofia Health] Error fetching digests:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===== Alden Chat API (Founder Only) =====
+  
+  app.post("/api/alden/message", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { message, conversationHistory, timezone } = req.body;
+      
+      if (!message || typeof message !== 'string') {
+        return res.status(400).json({ error: 'Message is required' });
+      }
+      
+      const user = req.user;
+      const founderName = user?.firstName || 'David';
+      
+      const result = await generateAldenResponse({
+        userMessage: message,
+        conversationHistory: conversationHistory || [],
+        founderName,
+        timezone,
+      });
+      
+      res.json({
+        reply: result.response,
+        toolsUsed: result.toolsUsed,
+      });
+    } catch (error: any) {
+      console.error('[Alden API] Error:', error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/alden/synthesize", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { text } = req.body;
+      
+      if (!text || typeof text !== 'string') {
+        return res.status(400).json({ error: 'Text is required' });
+      }
+      
+      const { TTSService } = await import('./services/tts-service');
+      const tts = new TTSService();
+      
+      const result = await tts.synthesize({
+        text,
+        language: 'english',
+        forceProvider: 'google',
+      });
+      
+      res.set('Content-Type', result.contentType);
+      res.send(result.audioBuffer);
+    } catch (error: any) {
+      console.error('[Alden TTS] Error:', error.message);
       res.status(500).json({ error: error.message });
     }
   });

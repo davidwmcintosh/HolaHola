@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -110,6 +110,7 @@ import {
   Target,
   Percent,
   Map as MapIcon,
+  Bot,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -1566,6 +1567,7 @@ export default function CommandCenter() {
     {
       label: 'Hive',
       tabs: [
+        { id: "alden-chat", label: "Alden", icon: Bot, roles: ['founder'] },
         { id: "editor-chat", label: "EXPRESS Lane", icon: MessageSquare, roles: ['admin', 'developer'] },
         { id: "dept-chat", label: "Dept Chat", icon: Lock, roles: ['admin', 'developer'] },
         { id: "collaboration", label: "Collab", icon: Handshake, roles: ['admin', 'developer'] },
@@ -1797,6 +1799,10 @@ export default function CommandCenter() {
 
           <TabsContent value="dept-chat" className="space-y-4">
             <DepartmentChatTab />
+          </TabsContent>
+
+          <TabsContent value="alden-chat" className="space-y-4">
+            <AldenChatTab />
           </TabsContent>
 
           <TabsContent value="editor-chat" className="space-y-4">
@@ -7915,6 +7921,16 @@ interface AgendaItem {
   notes: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+const LazyAldenChat = lazy(() => import("@/components/AldenChat").then(m => ({ default: m.AldenChat })));
+
+function AldenChatTab() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center p-8"><Loader2 className="h-6 w-6 animate-spin" /></div>}>
+      <LazyAldenChat />
+    </Suspense>
+  );
 }
 
 function EditorChatTab() {
