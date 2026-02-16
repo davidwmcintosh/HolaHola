@@ -54,7 +54,8 @@ export function InstructorAvatar({ state, openMicState, className = "" }: Instru
   // No indicator shows when: idle or no open mic session
   const showGreenLight = openMicState === 'ready' || openMicState === 'listening';
   const showBlueProcessing = openMicState === 'processing';
-  const isActivelyListening = openMicState === 'listening';  // User is speaking
+  const isActivelyListening = openMicState === 'listening';
+  const showSilenceIssue = openMicState === 'silence_issue';
 
   // Get animation classes based on state
   const getAnimationClass = () => {
@@ -96,6 +97,15 @@ export function InstructorAvatar({ state, openMicState, className = "" }: Instru
             }`}>
               <div className={`w-2 h-2 bg-white rounded-full ${isActivelyListening ? 'animate-pulse' : ''}`} />
               {isActivelyListening ? "Listening" : "Your turn"}
+            </div>
+          </div>
+        )}
+        
+        {showSilenceIssue && (
+          <div className="absolute -top-2 -right-2 z-10">
+            <div className="bg-amber-500 text-white rounded-full px-3 py-1 text-xs font-medium flex items-center gap-1 animate-pulse">
+              <div className="w-2 h-2 bg-white rounded-full" />
+              Mic quiet
             </div>
           </div>
         )}

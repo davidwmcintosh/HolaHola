@@ -997,8 +997,12 @@ export function StreamingVoiceChat({
               console.log('[OPEN MIC] Server closed during Daniela speaking - will restart when done');
             }
           },
-          // Voice-initiated tutor switch - update UI state when student asks to switch tutors
-          // Supports both intra-language (gender only) and cross-language (gender + language) handoffs
+          onOpenMicSilenceLoop: (emptyCount, msSinceLast) => {
+            console.warn(`[OPEN MIC] Silence loop: ${emptyCount} empties, ${msSinceLast}ms since last speech`);
+            if (emptyCount >= 8 && inputModeRef.current === 'open-mic') {
+              setOpenMicState('silence_issue');
+            }
+          },
           onTutorHandoff: (handoff) => {
             const { targetGender, targetLanguage, tutorName, isLanguageSwitch, isAssistant } = handoff;
             
@@ -2902,23 +2906,23 @@ export function StreamingVoiceChat({
               },
               onOpenMicSessionClosed: () => {
                 console.log('[OPEN MIC] Server session closed (reconnect context)');
-                // Session closed handler in reconnection context
                 if (!isAwaitingResponseRef.current) {
                   setOpenMicState('idle');
                 }
               },
-              // Voice-initiated tutor switch - update UI state when student asks to switch tutors
-              // Supports both intra-language (gender only) and cross-language (gender + language) handoffs
+              onOpenMicSilenceLoop: (emptyCount, msSinceLast) => {
+                console.warn(`[OPEN MIC] Silence loop (reconnect): ${emptyCount} empties`);
+                if (emptyCount >= 8 && inputModeRef.current === 'open-mic') {
+                  setOpenMicState('silence_issue');
+                }
+              },
               onTutorHandoff: (handoff) => {
                 const { targetGender, targetLanguage, tutorName, isLanguageSwitch, isAssistant } = handoff;
                 
-                // ASSISTANT HANDOFF: Navigate to assistant practice page
                 if (isAssistant) {
                   console.log(`[TUTOR HANDOFF] Assistant handoff to ${tutorName} - navigating to practice page (reconnect context)`);
-                  // Disconnect from streaming voice before navigation
                   streamingVoice.disconnect();
                   streamingConnectedRef.current = false;
-                  // Navigate to assistant practice page
                   window.location.href = '/practice';
                   return;
                 }

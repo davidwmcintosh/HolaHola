@@ -1736,6 +1736,18 @@ Reference past discussions when relevant, but don't force it.
                   }
                 } else if (isEmptyTranscript) {
                   console.log('[OpenMic] Empty transcript - skipping AI processing, resetting client state');
+                  
+                  if (openMicSession) {
+                    const diag = openMicSession.getDiagnostics();
+                    if (diag.inSilenceLoop && ws.readyState === WS.OPEN) {
+                      ws.send(JSON.stringify({
+                        type: 'open_mic_silence_loop',
+                        timestamp: Date.now(),
+                        consecutiveEmptyCount: diag.consecutiveEmptyCount,
+                        msSinceLastSuccessfulTranscript: diag.msSinceLastSuccessfulTranscript,
+                      }));
+                    }
+                  }
                 }
               },
               onInterimTranscript: (transcript) => {
@@ -3567,6 +3579,18 @@ ${buildNativeFunctionCallingSection()}`;
                   }
                 } else if (isEmptyTranscript) {
                   console.log('[OpenMic] Empty transcript - skipping AI processing, resetting client state');
+                  
+                  if (openMicSession) {
+                    const diag = openMicSession.getDiagnostics();
+                    if (diag.inSilenceLoop && ws.readyState === WS.OPEN) {
+                      ws.send(JSON.stringify({
+                        type: 'open_mic_silence_loop',
+                        timestamp: Date.now(),
+                        consecutiveEmptyCount: diag.consecutiveEmptyCount,
+                        msSinceLastSuccessfulTranscript: diag.msSinceLastSuccessfulTranscript,
+                      }));
+                    }
+                  }
                 }
               },
               onInterimTranscript: (transcript) => {

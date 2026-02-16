@@ -425,6 +425,9 @@ export class OpenMicSession {
   private isSuppressed = false;
   private lastFinalSegment = '';  // Deduplication: Track last final segment to prevent duplicates
   private emptySpeechFinalTimeout: NodeJS.Timeout | null = null;
+  private consecutiveEmptyCount = 0;
+  private suppressionEndedAt = 0;
+  private lastSuccessfulTranscriptAt = 0;
   
   constructor(language: string, events: OpenMicEvents, keyterms?: string[]) {
     this.language = language;
@@ -444,8 +447,11 @@ export class OpenMicSession {
         this.currentTranscript = '';
         this.currentConfidence = 0;
         this.currentIntelligence = {};
-        this.lastFinalSegment = '';  // Reset dedup tracker when suppressed
-        this.bestInterimForSegment = '';  // Reset Spanish preservation tracker
+        this.lastFinalSegment = '';
+        this.bestInterimForSegment = '';
+      } else {
+        this.suppressionEndedAt = Date.now();
+        this.consecutiveEmptyCount = 0;
       }
     }
   }
@@ -564,18 +570,23 @@ export class OpenMicSession {
             return;
           }
           
-          // Always call onUtteranceEnd - even with empty transcript
-          // This prevents timeout waiting for a transcript that will never come
-          // Empty transcripts can happen when:
-          // - Audio is too quiet
-          // - Language not recognized
-          // - Short utterance clipped
+          // CONSECUTIVE EMPTY TRACKING for silence loop detection
+          if (!this.currentTranscript.trim()) {
+            this.consecutiveEmptyCount++;
+            console.log(`[OpenMic] Empty transcript #${this.consecutiveEmptyCount} - signaling [EMPTY_TRANSCRIPT] to prevent timeout`);
+            if (this.consecutiveEmptyCount >= 5) {
+              console.warn(`[OpenMic] SILENCE LOOP DETECTED: ${this.consecutiveEmptyCount} consecutive empty transcripts — mic may be picking up nothing or ambient noise only`);
+            }
+          } else {
+            if (this.consecutiveEmptyCount > 0) {
+              console.log(`[OpenMic] Silence broken after ${this.consecutiveEmptyCount} empty transcripts`);
+            }
+            this.consecutiveEmptyCount = 0;
+            this.lastSuccessfulTranscriptAt = Date.now();
+          }
+          
           const intel = Object.keys(this.currentIntelligence).length > 0 ? this.currentIntelligence : undefined;
           this.events.onUtteranceEnd?.(this.currentTranscript.trim() || '[EMPTY_TRANSCRIPT]', this.currentConfidence, intel);
-          
-          if (!this.currentTranscript.trim()) {
-            console.log('[OpenMic] Empty transcript - signaling [EMPTY_TRANSCRIPT] to prevent timeout');
-          }
           
           this.currentTranscript = '';
           this.currentConfidence = 0;
@@ -671,9 +682,21 @@ export class OpenMicSession {
           if (transcript.length > 0) {
             // ECHO SUPPRESSION: Don't accumulate or emit while TTS is playing
             if (this.isSuppressed) {
-              // Still log but don't process
               console.log(`[OpenMic] Transcript suppressed (TTS playing): "${transcript.slice(0, 50)}..."`);
               return;
+            }
+            
+            // POST-SUPPRESSION ECHO LEAKAGE DETECTION
+            // After TTS stops, the mic can pick up residual audio from speakers
+            // for ~500ms. Only reject very low confidence transcripts to avoid
+            // false-rejecting legitimate short replies like "yes", "ok".
+            const POST_SUPPRESSION_GRACE_MS = 500;
+            const msSinceSuppression = Date.now() - this.suppressionEndedAt;
+            if (this.suppressionEndedAt > 0 && msSinceSuppression < POST_SUPPRESSION_GRACE_MS) {
+              if (confidence < 0.75 && transcript.split(/\s+/).length <= 4) {
+                console.log(`[OpenMic] ECHO LEAKAGE rejected (${msSinceSuppression}ms post-suppression, ${(confidence * 100).toFixed(0)}% conf): "${transcript}"`);
+                return;
+              }
             }
             
             if (data.is_final) {
@@ -900,6 +923,33 @@ export class OpenMicSession {
   }
   
   private hasLoggedFirstChunk = false;
+  
+  /**
+   * Get diagnostic state for voice health monitoring
+   */
+  getDiagnostics(): {
+    isOpen: boolean;
+    isSuppressed: boolean;
+    consecutiveEmptyCount: number;
+    chunkCount: number;
+    totalAudioSeconds: number;
+    msSinceLastSuccessfulTranscript: number;
+    msSinceSuppressionEnded: number;
+    inSilenceLoop: boolean;
+  } {
+    return {
+      isOpen: this.isOpen,
+      isSuppressed: this.isSuppressed,
+      consecutiveEmptyCount: this.consecutiveEmptyCount,
+      chunkCount: this.chunkCount,
+      totalAudioSeconds: parseFloat((this.totalBytes / 2 / 16000).toFixed(1)),
+      msSinceLastSuccessfulTranscript: this.lastSuccessfulTranscriptAt > 0 
+        ? Date.now() - this.lastSuccessfulTranscriptAt : -1,
+      msSinceSuppressionEnded: this.suppressionEndedAt > 0 
+        ? Date.now() - this.suppressionEndedAt : -1,
+      inSilenceLoop: this.consecutiveEmptyCount >= 5,
+    };
+  }
   
   /**
    * Check if session is active

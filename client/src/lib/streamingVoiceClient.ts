@@ -1093,6 +1093,11 @@ export class StreamingVoiceClient {
           this.emit('openMicSessionClosed', message);
           break;
           
+        case 'open_mic_silence_loop':
+          console.warn(`[StreamingVoice] Silence loop detected: ${message.consecutiveEmptyCount} consecutive empty transcripts`);
+          this.emit('openMicSilenceLoop', message);
+          break;
+          
         case 'subtitle_mode_change':
           // Server command to change subtitle mode (from tutor [SUBTITLE on/off/target] command)
           console.log('[StreamingVoice] Subtitle mode change from server:', message.mode);

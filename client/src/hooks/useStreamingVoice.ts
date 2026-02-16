@@ -74,6 +74,8 @@ export interface StreamingSessionConfig {
   onInterimTranscript?: (transcript: string) => void;
   /** Called when open mic session closes (e.g., Deepgram timeout) */
   onOpenMicSessionClosed?: () => void;
+  /** Called when OpenMic detects consecutive empty transcripts (silence loop) */
+  onOpenMicSilenceLoop?: (consecutiveEmptyCount: number, msSinceLastSuccessfulTranscript: number) => void;
   /** 
    * Called when voice-initiated tutor handoff occurs (student asked to switch tutors)
    * Supports both intra-language (gender only) and cross-language (gender + language) handoffs
@@ -1179,6 +1181,11 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     sessionConfigRef.current?.onOpenMicSessionClosed?.();
   }, []);
   
+  const handleOpenMicSilenceLoop = useCallback((message: { consecutiveEmptyCount: number; msSinceLastSuccessfulTranscript: number }) => {
+    console.warn(`[StreamingVoice] Silence loop: ${message.consecutiveEmptyCount} empty transcripts, ${message.msSinceLastSuccessfulTranscript}ms since last speech`);
+    sessionConfigRef.current?.onOpenMicSilenceLoop?.(message.consecutiveEmptyCount, message.msSinceLastSuccessfulTranscript);
+  }, []);
+  
   /**
    * Handle subtitle mode change from server (tutor [SUBTITLE on/off/target] command)
    */
@@ -1321,6 +1328,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('vadUtteranceEnd', handleVadUtteranceEnd);  // Open mic VAD
       clientRef.current.on('interimTranscript', handleInterimTranscript);  // Open mic interim
       clientRef.current.on('openMicSessionClosed', handleOpenMicSessionClosed);  // Open mic session ended
+      clientRef.current.on('openMicSilenceLoop', handleOpenMicSilenceLoop);  // Open mic silence loop detection
       clientRef.current.on('tutorHandoff', handleTutorHandoff);  // Voice-initiated tutor switch
       clientRef.current.on('subtitleModeChange', handleSubtitleModeChange);  // Server subtitle mode command
       clientRef.current.on('customOverlay', handleCustomOverlay);  // Server custom overlay command
@@ -1373,7 +1381,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       setError(err.message);
       throw err;
     }
-  }, [handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleExpectedSentenceCount, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest]);
+  }, [handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleExpectedSentenceCount, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest]);
   
   /**
    * Disconnect from streaming voice service
@@ -1403,6 +1411,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.off('vadSpeechStarted', handleVadSpeechStarted);  // Open mic VAD
       clientRef.current.off('vadUtteranceEnd', handleVadUtteranceEnd);  // Open mic VAD
       clientRef.current.off('interimTranscript', handleInterimTranscript);  // Open mic interim
+      clientRef.current.off('openMicSilenceLoop', handleOpenMicSilenceLoop);  // Open mic silence loop
       clientRef.current.off('subtitleModeChange', handleSubtitleModeChange);  // Server subtitle mode command
       clientRef.current.off('customOverlay', handleCustomOverlay);  // Server custom overlay command
       clientRef.current.off('textInputRequest', handleTextInputRequest);  // Server text input request
@@ -1433,7 +1442,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       tutorSwitchTimeoutRef.current = null;
     }
     setIsSwitchingTutor(false);
-  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, subtitles]);
+  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, subtitles]);
   
   /**
    * Send audio for processing

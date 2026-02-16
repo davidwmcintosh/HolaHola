@@ -32,7 +32,7 @@ export type VoiceInputMode = 'push-to-talk' | 'open-mic';
  * - listening: Speech detected, actively capturing (user is speaking)
  * - processing: Audio submitted, waiting for AI response (BLUE/waiting indicator)
  */
-export type OpenMicState = 'idle' | 'ready' | 'listening' | 'processing';
+export type OpenMicState = 'idle' | 'ready' | 'listening' | 'processing' | 'silence_issue';
 
 /**
  * Streaming performance metrics
