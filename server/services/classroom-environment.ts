@@ -162,11 +162,11 @@ function formatNorthStarWall(principles: Array<{ principle: string; category: st
     .join(" | ");
 }
 
-function formatPersonalNotes(notes: Array<{ noteType: string; title: string; content: string }>): string {
-  if (!notes || notes.length === 0) return "(no notes yet — write one anytime with take_note)";
+function formatIdentityNotes(notes: Array<{ title: string; content: string }>): string {
+  if (!notes || notes.length === 0) return "(none yet)";
   return notes.map((n) => {
-    const short = n.content.length > 60 ? n.content.substring(0, 57) + "..." : n.content;
-    return `[${n.noteType}] ${n.title}: ${short}`;
+    const short = n.content.length > 80 ? n.content.substring(0, 77) + "..." : n.content;
+    return `"${n.title}" — ${short}`;
   }).join(" | ");
 }
 
@@ -251,15 +251,13 @@ export async function buildClassroomEnvironment(params: {
       .orderBy(asc(northStarPrinciples.orderIndex))
       .catch(() => [] as Array<{ principle: string; category: string }>),
 
-    (isFounderMode || isRawHonestyMode)
-      ? db
-          .select({ noteType: danielaNotes.noteType, title: danielaNotes.title, content: danielaNotes.content })
-          .from(danielaNotes)
-          .where(eq(danielaNotes.isActive, true))
-          .orderBy(desc(danielaNotes.createdAt))
-          .limit(5)
-          .catch(() => [] as Array<{ noteType: string; title: string; content: string }>)
-      : Promise.resolve([] as Array<{ noteType: string; title: string; content: string }>),
+    db
+      .select({ title: danielaNotes.title, content: danielaNotes.content })
+      .from(danielaNotes)
+      .where(and(eq(danielaNotes.isActive, true), eq(danielaNotes.noteType, 'self_affirmation')))
+      .orderBy(desc(danielaNotes.createdAt))
+      .limit(5)
+      .catch(() => [] as Array<{ title: string; content: string }>),
   ]);
 
   const phaseContext = phaseTransitionService.getCurrentPhase(userId);
@@ -282,7 +280,7 @@ export async function buildClassroomEnvironment(params: {
   const lamp = derivePedagogicalLamp({ struggleCount, recentConfidences, exchangeCount });
 
   const northStarWall = formatNorthStarWall(principles);
-  const personalNotesWall = formatPersonalNotes(recentNotes);
+  const identityWall = formatIdentityNotes(recentNotes);
 
   const vineLeaves = milestoneCount;
   const vineDescription = vineLeaves === 0
@@ -321,7 +319,7 @@ Empathy Window: ${empathyWindow}
 Pedagogical Lamp: ${lamp}
 Growth Vine: ${vineDescription}
 North Star Polaroid: ${danielaPhoto}
-Personal Notes Wall: ${personalNotesWall}
+My Notes to Self: ${identityWall}
 ---
 North Star Wall: ${northStarWall}${toolRack}
 === END CLASSROOM ===`.trim();
