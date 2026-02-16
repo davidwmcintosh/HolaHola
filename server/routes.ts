@@ -5865,8 +5865,7 @@ ${memoryContext}
       const byDevice = await sharedDb.execute(sql`
         SELECT
           CASE 
-            WHEN (metadata->>'device'->'screenWidth')::text IS NOT NULL 
-              AND (metadata->'device'->>'screenWidth')::int < 768 THEN 'mobile'
+            WHEN (event_data->'device'->>'screenWidth')::int < 768 THEN 'mobile'
             ELSE 'desktop'
           END as device_type,
           COUNT(*)::int as count

@@ -394,21 +394,33 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   }, []);
   
   /**
-   * Mobile visibility recovery: Resume AudioContext and clear stuck isProcessing
-   * when user returns to the app after screen lock / app switch.
+   * Mobile AudioContext recovery — two layers:
    * 
-   * On mobile browsers (especially iOS Safari and Chrome), the AudioContext gets
-   * suspended when the app goes to background. This causes the audio player's
-   * timing loop to stall, so onComplete/onSentenceStart callbacks never fire,
-   * and isProcessing stays true forever — permanently locking the mic button.
+   * 1. visibilitychange: When user returns from screen lock / app switch,
+   *    resume AudioContext immediately and clear stuck processing state.
+   * 
+   * 2. User interaction fallback (touchstart/click): If the AudioContext is
+   *    still suspended after visibility resume (Chrome requires a user gesture),
+   *    the next tap will resume it. This also catches the greeting-silence case
+   *    where audio was generated but never played because the context was suspended.
    */
   useEffect(() => {
+    let needsInteractionResume = false;
+
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        console.log('[StreamingVoice] App became visible — checking AudioContext and processing state');
+        console.log('[StreamingVoice] App became visible — resuming AudioContext');
         
         if (playerRef.current) {
-          playerRef.current.resumeAudioContext().catch(() => {});
+          playerRef.current.resumeAudioContext().then(() => {
+            const state = playerRef.current?.getAudioContextState?.();
+            if (state === 'suspended') {
+              needsInteractionResume = true;
+              console.log('[StreamingVoice] AudioContext still suspended after resume — will retry on next user tap');
+            }
+          }).catch(() => {
+            needsInteractionResume = true;
+          });
         }
         
         setTimeout(() => {
@@ -425,9 +437,27 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
         }, 500);
       }
     };
+
+    const handleUserInteraction = () => {
+      if (!needsInteractionResume) return;
+      needsInteractionResume = false;
+      if (playerRef.current) {
+        const state = playerRef.current.getAudioContextState?.();
+        if (state === 'suspended' || state === 'uninitialized') {
+          console.log('[StreamingVoice] User gesture detected — resuming AudioContext');
+          playerRef.current.resumeAudioContext().catch(() => {});
+        }
+      }
+    };
     
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('touchstart', handleUserInteraction, { passive: true });
+    document.addEventListener('click', handleUserInteraction);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('touchstart', handleUserInteraction);
+      document.removeEventListener('click', handleUserInteraction);
+    };
   }, []);
   
   /**

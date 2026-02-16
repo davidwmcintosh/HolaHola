@@ -433,16 +433,29 @@ export class StreamingAudioPlayer {
    * Lazy initialization to comply with autoplay policies
    */
   private getAudioContext(): AudioContext {
+    if (this.audioContext && this.audioContext.state === 'closed') {
+      console.warn('[AudioPlayer] AudioContext was closed — creating fresh one');
+      this.audioContext = null;
+      this.masterGainNode = null;
+    }
     if (!this.audioContext) {
       this.audioContext = new AudioContext({ sampleRate: 24000 });
-      // Assign unique ID for debugging
       (this.audioContext as any).__debugId = `ctx_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
       
-      // Create master gain node for consistent volume control
-      // Gain of 1.0 = no change (preserves dynamics), but provides a control point
       this.masterGainNode = this.audioContext.createGain();
       this.masterGainNode.gain.value = 1.0;
       this.masterGainNode.connect(this.audioContext.destination);
+      
+      this.audioContext.addEventListener('statechange', () => {
+        const state = this.audioContext?.state;
+        console.log(`[AudioPlayer] AudioContext statechange → ${state}`);
+        if (state === 'suspended') {
+          console.log('[AudioPlayer] AudioContext suspended by OS — attempting auto-resume');
+          this.audioContext?.resume().catch(err => {
+            console.warn('[AudioPlayer] Auto-resume failed (will retry on user gesture):', err);
+          });
+        }
+      });
     }
     return this.audioContext;
   }
@@ -461,13 +474,12 @@ export class StreamingAudioPlayer {
     return this.masterGainNode;
   }
   
-  /**
-   * Resume AudioContext if suspended (required for autoplay policy)
-   */
   async resumeAudioContext(): Promise<void> {
     const ctx = this.getAudioContext();
     if (ctx.state === 'suspended') {
+      console.log('[AudioPlayer] Resuming suspended AudioContext');
       await ctx.resume();
+      console.log(`[AudioPlayer] AudioContext resumed → ${ctx.state}`);
     }
   }
   
