@@ -508,6 +508,13 @@ export function StreamingVoiceChat({
         console.warn('[MOBILE AUDIO] Failed to unlock AudioContext:', err);
       }
       
+      // Also resume ringing AudioContext if it was started before user gesture
+      if (ringingAudioRef.current?.context?.state === 'suspended') {
+        ringingAudioRef.current.context.resume().then(() => {
+          console.log('[MOBILE AUDIO] Ringing AudioContext also resumed via user gesture');
+        }).catch(() => {});
+      }
+      
       document.removeEventListener('touchstart', unlockAudio, true);
       document.removeEventListener('touchend', unlockAudio, true);
       document.removeEventListener('click', unlockAudio, true);
@@ -525,31 +532,44 @@ export function StreamingVoiceChat({
   }, [useStreamingMode]);
   
   // Telephone ringing sound functions
-  const startRinging = () => {
+  const startRinging = async () => {
     if (ringingAudioRef.current?.isPlaying) return;
     
     try {
       const context = new (window.AudioContext || (window as any).webkitAudioContext)();
+      
+      // AudioContext may start suspended if no user gesture has occurred yet (open-mic auto-connect)
+      if (context.state === 'suspended') {
+        try {
+          await context.resume();
+          console.log('[RINGING] AudioContext was suspended, resumed successfully');
+        } catch (resumeErr) {
+          console.warn('[RINGING] AudioContext resume failed (no user gesture yet) - ringing will be silent:', resumeErr);
+        }
+      }
+      
       const gainNode = context.createGain();
       gainNode.connect(context.destination);
-      gainNode.gain.value = 0.15; // Subtle volume
+      gainNode.gain.value = 0.15;
       
-      // Create a classic telephone ring pattern (two-tone alternating)
       const playRingCycle = () => {
         if (!ringingAudioRef.current?.isPlaying) return;
         
-        // First tone (higher pitch)
+        // Resume context if it got suspended between rings (belt-and-suspenders)
+        if (context.state === 'suspended') {
+          context.resume().catch(() => {});
+        }
+        
         const osc1 = context.createOscillator();
         osc1.type = 'sine';
-        osc1.frequency.value = 440; // A4
+        osc1.frequency.value = 440;
         osc1.connect(gainNode);
         osc1.start(context.currentTime);
         osc1.stop(context.currentTime + 0.4);
         
-        // Second tone (lower pitch, slight delay)
         const osc2 = context.createOscillator();
         osc2.type = 'sine';
-        osc2.frequency.value = 480; // B4 flat
+        osc2.frequency.value = 480;
         osc2.connect(gainNode);
         osc2.start(context.currentTime + 0.05);
         osc2.stop(context.currentTime + 0.35);
@@ -562,17 +582,15 @@ export function StreamingVoiceChat({
         isPlaying: true,
       };
       
-      // Play initial ring
       playRingCycle();
       
-      // Ring pattern: ring for 0.4s, pause for 2.1s, repeat (relaxed pacing - feels shorter wait)
       ringingAudioRef.current.oscillatorInterval = setInterval(() => {
         if (ringingAudioRef.current?.isPlaying) {
           playRingCycle();
         }
       }, 2500);
       
-      console.log('[RINGING] Started telephone ring sound');
+      console.log('[RINGING] Started telephone ring sound (context state:', context.state, ')');
     } catch (err) {
       console.error('[RINGING] Failed to start ring sound:', err);
     }
