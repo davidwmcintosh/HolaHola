@@ -1482,6 +1482,173 @@ Keep responses concise and helpful (2-4 sentences unless detailed steps are need
     await this.recordHealthDigest(transition, analysis, actions);
   }
 
+  async handleContextHealthTransition(transition: {
+    previousStatus: string;
+    newStatus: string;
+    direction: 'degraded' | 'recovered' | 'worsened';
+    reasons: string[];
+    sourceBreakdown: Record<string, any>;
+    timestamp: Date;
+  }): Promise<void> {
+    const now = new Date();
+    if (this.healthDigestCooldown && (now.getTime() - this.healthDigestCooldown.getTime()) < this.HEALTH_DIGEST_COOLDOWN_MS) {
+      console.log(`[Sofia Agent] Context health — skipping, cooldown active`);
+      return;
+    }
+    this.healthDigestCooldown = now;
+
+    console.log(`[Sofia Agent] Context health transition: ${transition.previousStatus} → ${transition.newStatus} (${transition.direction})`);
+
+    const { analysis, actions } = await this.runSofiaContextHealthAgent(transition);
+
+    const healthTransition: HealthTransition = {
+      previousStatus: transition.previousStatus,
+      newStatus: transition.newStatus,
+      direction: transition.direction,
+      reasons: transition.reasons,
+      metrics: transition.sourceBreakdown,
+      timestamp: transition.timestamp,
+    };
+    await this.recordHealthDigest(healthTransition, `[CONTEXT] ${analysis}`, actions);
+  }
+
+  private async runSofiaContextHealthAgent(transition: {
+    previousStatus: string;
+    newStatus: string;
+    direction: string;
+    reasons: string[];
+    sourceBreakdown: Record<string, any>;
+    timestamp: Date;
+  }): Promise<{
+    analysis: string;
+    actions: Array<{ action: string; result: string; applied: boolean }>;
+  }> {
+    const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      const fallback = `Context health ${transition.direction}: ${transition.previousStatus} → ${transition.newStatus}. Reasons: ${transition.reasons.join('; ')}`;
+      return { analysis: fallback, actions: [] };
+    }
+
+    const { SOFIA_HEALTH_FUNCTION_DECLARATIONS, executeSofiaTool } = await import('./sofia-health-functions');
+
+    try {
+      const gemini = getGeminiClient();
+      const breakdownJson = JSON.stringify(transition.sourceBreakdown, null, 2);
+
+      const systemPrompt = `You are Sofia, the autonomous context health diagnostic agent at HolaHola (AI language learning platform).
+
+A CONTEXT INJECTION health transition was detected. This means Daniela's awareness systems (classroom environment, student intelligence, hive consciousness, express lane, editor feedback) are experiencing issues. When these fail, Daniela teaches "blind" — she can't remember the student, see the whiteboard, or use proven teaching strategies.
+
+CONTEXT SOURCES:
+- classroom: Daniela's virtual classroom (whiteboard, credits, images) — CRITICAL
+- student_intelligence: Student struggles, strategies, cross-session memory — CRITICAL
+- hive: Hive consciousness state (founder/developer only) — OPTIONAL
+- express_lane: Collaboration insights (founder/developer only) — OPTIONAL
+- editor_feedback: Editor insights for Daniela (founder/developer only) — OPTIONAL
+
+WORKFLOW:
+1. Use get_context_injection_health to see current per-source success rates and latencies
+2. If critical sources (classroom, student_intelligence) are failing: escalate_to_founder immediately
+3. If optional sources are failing: use disable_optional_context_source to temporarily bypass them and keep the pipeline fast
+4. If failures look transient: use refresh_context_cache to force re-fetch
+5. Track recurring patterns with track_pattern
+6. Provide final analysis
+
+REMEDIATION PRIORITY:
+- Critical source failure → escalate immediately + refresh cache
+- Optional source slow/failing → disable it for 30min + track pattern
+- All sources recovering → confirm stability, no action needed
+
+CONSTRAINTS:
+- NEVER disable classroom or student_intelligence — they are non-negotiable
+- Tools have 30-minute cooldowns
+- Be concise (3-5 sentences final analysis)`;
+
+      const seedMessage = `Context injection health transition detected:
+- Previous status: ${transition.previousStatus}
+- Current status: ${transition.newStatus}
+- Direction: ${transition.direction}
+- Reasons: ${transition.reasons.join('; ')}
+- Timestamp: ${transition.timestamp.toISOString()}
+
+Per-source breakdown:
+${breakdownJson}
+
+Investigate and take appropriate remediation actions.`;
+
+      type ContentPart = { text: string } | { functionCall: { name: string; args: Record<string, any> } } | { functionResponse: { name: string; response: { result: any } } };
+      type ContentMessage = { role: 'user' | 'model'; parts: ContentPart[] };
+
+      const conversationHistory: ContentMessage[] = [
+        { role: 'user', parts: [{ text: seedMessage }] },
+      ];
+
+      const allActions: Array<{ action: string; result: string; applied: boolean }> = [];
+      let finalAnalysis = '';
+
+      for (let round = 0; round < this.MAX_AGENT_ROUNDS; round++) {
+        const response = await gemini.models.generateContent({
+          model: 'gemini-3-flash-preview',
+          contents: conversationHistory,
+          config: {
+            systemInstruction: systemPrompt,
+            maxOutputTokens: 800,
+            temperature: 0.3,
+            tools: [{ functionDeclarations: SOFIA_HEALTH_FUNCTION_DECLARATIONS }],
+          },
+        });
+
+        const candidate = response.candidates?.[0];
+        if (!candidate?.content?.parts) break;
+
+        const parts = candidate.content.parts;
+        conversationHistory.push({ role: 'model', parts: parts as ContentPart[] });
+
+        const functionCalls = parts.filter((p: any) => p.functionCall);
+
+        if (functionCalls.length === 0) {
+          const textParts = parts.filter((p: any) => p.text);
+          finalAnalysis = textParts.map((p: any) => p.text).join('\n').trim();
+          console.log(`[Sofia Agent] Context analysis after ${round + 1} rounds (${allActions.length} actions)`);
+          break;
+        }
+
+        console.log(`[Sofia Agent] Context round ${round + 1}: ${functionCalls.map((p: any) => p.functionCall.name).join(', ')}`);
+
+        const toolResponseParts: ContentPart[] = [];
+
+        for (const part of functionCalls) {
+          const fc = (part as any).functionCall;
+          try {
+            const result = await executeSofiaTool(fc.name, fc.args || {});
+            const isMutating = ['refresh_context_cache', 'disable_optional_context_source', 'escalate_to_founder', 'track_pattern'].includes(fc.name);
+            if (isMutating) {
+              allActions.push({ action: fc.name, result: JSON.stringify(result.data), applied: result.success });
+            }
+            toolResponseParts.push({ functionResponse: { name: fc.name, response: { result: result.data } } });
+          } catch (err: any) {
+            toolResponseParts.push({ functionResponse: { name: fc.name, response: { result: { error: err.message } } } });
+            allActions.push({ action: fc.name, result: `Error: ${err.message}`, applied: false });
+          }
+        }
+
+        conversationHistory.push({ role: 'user', parts: toolResponseParts });
+      }
+
+      if (!finalAnalysis) {
+        finalAnalysis = `Context health ${transition.direction}: ${transition.previousStatus} → ${transition.newStatus}. ${allActions.length} actions taken. ${transition.reasons.join('; ')}`;
+      }
+
+      return { analysis: finalAnalysis, actions: allActions };
+    } catch (err: any) {
+      console.error(`[Sofia Agent] Context agent loop failed:`, err.message);
+      return {
+        analysis: `Context health ${transition.direction}: ${transition.previousStatus} → ${transition.newStatus}. Agent error: ${err.message}`,
+        actions: [],
+      };
+    }
+  }
+
   private async runSofiaHealthAgent(transition: HealthTransition): Promise<{
     analysis: string;
     actions: Array<{ action: string; result: string; applied: boolean }>;

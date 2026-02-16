@@ -2032,6 +2032,20 @@ Remember: David may reference things discussed in these recent text chats.
     });
   }
 
+  refreshAllSessionCaches(): number {
+    let count = 0;
+    for (const [, session] of this.sessions) {
+      if (session.cachedContext) {
+        session.cachedContext.lastFetchTime = 0;
+      }
+      this.prefetchSessionContext(session).catch(err => {
+        console.warn(`[Context Refresh] Force refresh failed for session ${session.id}:`, err.message);
+      });
+      count++;
+    }
+    return count;
+  }
+
   /**
    * Process user audio and stream AI response
    */
@@ -2683,8 +2697,11 @@ Don't force a reference if it doesn't fit the moment.
       if (!hasFreshCache && needsExpressLaneContext) {
         console.log(`[EXPRESS Lane] Developer user detected (Founder: ${session.isFounderMode}, Honesty: ${session.isRawHonestyMode}) - fetching Hive + Express Lane context for user ${session.userId}`);
         // 2. Hive context
+        const { isContextSourceDisabled } = await import('./sofia-health-functions');
         const hiveStart = Date.now();
-        contextPromises.push(
+        if (isContextSourceDisabled('hive')) {
+          console.log(`[Hive Context] Skipped — temporarily disabled by Sofia`);
+        } else contextPromises.push(
           hiveContextService.getSummary()
             .then(hiveSummary => {
               if (hiveSummary) {
@@ -2716,7 +2733,9 @@ Use this context to understand what's happening across the Hive.
         
         // 3. Express Lane context - CRITICAL for unified consciousness
         const elStart = Date.now();
-        contextPromises.push(
+        if (isContextSourceDisabled('express_lane')) {
+          console.log(`[Express Lane] Skipped — temporarily disabled by Sofia`);
+        } else contextPromises.push(
           founderCollabService.getRelevantExpressLaneContext({
             targetLanguage: session.targetLanguage,
             limit: 5,
@@ -2799,7 +2818,9 @@ Remember: David may reference things discussed in these recent text chats.
         
         // 5. Editor feedback
         const efStart = Date.now();
-        contextPromises.push(
+        if (isContextSourceDisabled('editor_feedback')) {
+          console.log(`[Editor Feedback] Skipped — temporarily disabled by Sofia`);
+        } else contextPromises.push(
           editorFeedbackService.getUnsurfacedFeedback(String(session.userId), 3)
             .then(feedback => {
               if (feedback.hasNewFeedback) {

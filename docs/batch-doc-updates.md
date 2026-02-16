@@ -3732,3 +3732,26 @@ Daniela can change her personal photo (North Star Polaroid) anytime. Parameters:
 - `server/services/brain-health-telemetry.ts` — Added `ContextInjectionEventData` interface, `logContextInjection()` method, `getContextInjectionHealth()` analytics method
 - `server/services/streaming-voice-orchestrator.ts` — Instrumented 5 context sources in PTT path and 2 in OpenMic path (classroom + student intelligence)
 - `server/routes.ts` — Added `/api/admin/brain-health/context-injection` endpoint
+
+### Context Health Monitor + Sofia Context Remediation Agent
+
+**What was built**: Autonomous Context Health Monitor (parallel to Voice Health Monitor) that checks context injection health every 15 minutes and triggers Sofia remediation when status degrades.
+
+**How it works:**
+- `context-health-monitor.ts` runs on 15-minute intervals, calling `brainHealthTelemetry.getContextInjectionHealth(1)` to assess per-source success rates
+- Status thresholds: GREEN (all sources >80% success), YELLOW (any source 50-80%), RED (any critical source <50%)
+- Critical sources: `classroom`, `student_intelligence` (Daniela teaching blind is a broken promise)
+- Optional sources: `hive`, `express_lane`, `editor_feedback` (can be temporarily disabled)
+- Status transitions trigger Sofia's Context Health Agent via `supportPersonaService.handleContextHealthTransition()`
+- Sofia uses context-specific remediation playbook: critical failures → immediate founder escalation + cache refresh; optional failures → disable source for 30min + track pattern
+
+**Sofia Remediation Tools added:**
+- `get_context_injection_health` — Per-source success rates, latencies, failure counts
+- `refresh_context_cache` — Force re-fetch of context caches to recover from transient failures
+- `disable_optional_context_source` — Temporarily bypass slow/failing optional sources (30-min auto-reenable, cannot disable critical sources)
+
+**Key Files Modified:**
+- `server/services/context-health-monitor.ts` — New file: autonomous monitor with GREEN/YELLOW/RED thresholds, status transition detection
+- `server/services/sofia-health-functions.ts` — Added 3 context remediation tools to Sofia's toolkit
+- `server/services/support-persona-service.ts` — Added `handleContextHealthTransition()` and `runSofiaContextHealthAgent()` with context-specific system prompt
+- `server/index.ts` — Wired context health monitor transitions to Sofia

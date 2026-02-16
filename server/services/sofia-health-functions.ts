@@ -126,12 +126,65 @@ export const SOFIA_HEALTH_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
       required: ["summary", "severity"],
     },
   },
+  {
+    name: "get_context_injection_health",
+    description: "Get real-time health metrics for Daniela's context injection sources (classroom, student_intelligence, hive, express_lane, editor_feedback). Shows per-source success rates, latencies, and failure counts. Use to investigate when Daniela may be teaching without full context awareness.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        hours_back: { type: "number", description: "How many hours to look back (default 1, max 24)" },
+      },
+    },
+  },
+  {
+    name: "refresh_context_cache",
+    description: "Force a context cache refresh for all active voice sessions. Use when context injection failures are detected to attempt recovery. Safe action — sessions will re-fetch context on next turn.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "disable_optional_context_source",
+    description: "Temporarily disable a non-critical context source (hive, express_lane, editor_feedback) that is persistently failing or slow, to keep the main voice pipeline fast. Critical sources (classroom, student_intelligence) cannot be disabled. The source re-enables automatically after 30 minutes.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        source: { type: "string", enum: ["hive", "express_lane", "editor_feedback"], description: "The optional context source to temporarily disable" },
+        reason: { type: "string", description: "Why you're disabling this source (for audit trail)" },
+      },
+      required: ["source", "reason"],
+    },
+  },
 ];
 
 export type SofiaToolResult = { success: boolean; data: any };
 
 const remediationCooldowns = new Map<string, Date>();
 const REMEDIATION_COOLDOWN_MS = 30 * 60 * 1000;
+
+const disabledContextSources = new Map<string, { disabledAt: Date; reason: string; reenableAt: Date }>();
+const CONTEXT_DISABLE_DURATION_MS = 30 * 60 * 1000;
+
+export function isContextSourceDisabled(source: string): boolean {
+  const entry = disabledContextSources.get(source);
+  if (!entry) return false;
+  if (Date.now() > entry.reenableAt.getTime()) {
+    disabledContextSources.delete(source);
+    console.log(`[Sofia Agent] Auto-reenabled context source: ${source}`);
+    return false;
+  }
+  return true;
+}
+
+export function getDisabledContextSources(): Map<string, { disabledAt: Date; reason: string; reenableAt: Date }> {
+  for (const [src, entry] of disabledContextSources.entries()) {
+    if (Date.now() > entry.reenableAt.getTime()) {
+      disabledContextSources.delete(src);
+    }
+  }
+  return disabledContextSources;
+}
 
 function checkCooldown(actionKey: string): boolean {
   const last = remediationCooldowns.get(actionKey);
@@ -311,6 +364,54 @@ export async function executeSofiaTool(
       setCooldown('escalation');
       console.log(`[Sofia Agent] Escalated to founder (${args.severity}): ${args.summary}`);
       return { success: true, data: { escalated: true, severity: args.severity } };
+    }
+
+    case "get_context_injection_health": {
+      const { brainHealthTelemetry } = await import('./brain-health-telemetry');
+      const hoursBack = Math.min(args.hours_back || 1, 24);
+      const health = await brainHealthTelemetry.getContextInjectionHealth(hoursBack);
+      const disabled = getDisabledContextSources();
+      const disabledList: Record<string, { reason: string; reenableAt: string }> = {};
+      for (const [src, entry] of disabled.entries()) {
+        disabledList[src] = { reason: entry.reason, reenableAt: entry.reenableAt.toISOString() };
+      }
+      return { success: true, data: { ...health, disabledSources: disabledList } };
+    }
+
+    case "refresh_context_cache": {
+      if (checkCooldown('context_cache_refresh')) {
+        return { success: false, data: { reason: "Cooldown active — context cache was already refreshed within the last 30 minutes" } };
+      }
+      try {
+        const { getStreamingVoiceOrchestrator } = await import('./streaming-voice-orchestrator');
+        const orchestrator = getStreamingVoiceOrchestrator();
+        const refreshed = orchestrator.refreshAllSessionCaches();
+        setCooldown('context_cache_refresh');
+        console.log(`[Sofia Agent] Remediation: refreshed context cache for ${refreshed} active sessions`);
+        return { success: true, data: { sessionsRefreshed: refreshed } };
+      } catch (err: any) {
+        return { success: false, data: { error: `Cache refresh failed: ${err.message}` } };
+      }
+    }
+
+    case "disable_optional_context_source": {
+      const source = args.source;
+      const reason = args.reason;
+      if (!['hive', 'express_lane', 'editor_feedback'].includes(source)) {
+        return { success: false, data: { error: `Cannot disable critical source: ${source}. Only optional sources (hive, express_lane, editor_feedback) can be disabled.` } };
+      }
+      if (checkCooldown(`disable_${source}`)) {
+        return { success: false, data: { reason: `Cooldown active — ${source} disable action was already taken within the last 30 minutes` } };
+      }
+      const now = new Date();
+      disabledContextSources.set(source, {
+        disabledAt: now,
+        reason,
+        reenableAt: new Date(now.getTime() + CONTEXT_DISABLE_DURATION_MS),
+      });
+      setCooldown(`disable_${source}`);
+      console.log(`[Sofia Agent] Remediation: disabled optional context source '${source}' for 30min — reason: ${reason}`);
+      return { success: true, data: { source, disabled: true, reenableAt: new Date(now.getTime() + CONTEXT_DISABLE_DURATION_MS).toISOString(), reason } };
     }
 
     default:

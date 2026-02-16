@@ -511,6 +511,12 @@ app.use((req, res, next) => {
     });
     startVoiceHealthMonitor();
 
+    const { startContextHealthMonitor, onContextHealthStatusChange } = await import('./services/context-health-monitor');
+    onContextHealthStatusChange(async (transition) => {
+      await supportPersonaService.handleContextHealthTransition(transition);
+    });
+    startContextHealthMonitor();
+
     const DIAG_RETENTION_DAYS = 30;
     const DIAG_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
     const { generateDailySummary } = await import('./services/voice-health-monitor');
