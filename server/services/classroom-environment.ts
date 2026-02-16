@@ -1,6 +1,6 @@
 import { db } from "../db";
-import { learnerPersonalFacts, learningMilestones, productConfig, users } from "@shared/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { learnerPersonalFacts, learningMilestones, productConfig, users, northStarPrinciples } from "@shared/schema";
+import { eq, and, desc, sql, asc } from "drizzle-orm";
 import { phaseTransitionService } from "./phase-transition-service";
 
 const DANIELA_PHOTO_CONFIG_KEY = "daniela_classroom_photo";
@@ -149,6 +149,19 @@ function derivePedagogicalLamp(sessionData: {
   return "Calm green (comfortable pace)";
 }
 
+function formatNorthStarWall(principles: Array<{ principle: string; category: string }>): string {
+  if (!principles || principles.length === 0) return "(principles not yet imprinted)";
+  const byCategory: Record<string, string[]> = {};
+  for (const p of principles) {
+    const cat = p.category || "general";
+    if (!byCategory[cat]) byCategory[cat] = [];
+    byCategory[cat].push(p.principle);
+  }
+  return Object.entries(byCategory)
+    .map(([cat, items]) => `[${cat}] ${items.join(" / ")}`)
+    .join(" | ");
+}
+
 function formatPhotoWall(images: string[]): string {
   if (!images || images.length === 0) return "(no images shared yet)";
   return images.slice(-5).map((img, i) => `${i + 1}. ${img}`).join(" | ");
@@ -187,7 +200,7 @@ export async function buildClassroomEnvironment(params: {
     tutorName,
   } = params;
 
-  const [personalFacts, milestoneCount, danielaPhoto, userRow] = await Promise.all([
+  const [personalFacts, milestoneCount, danielaPhoto, userRow, principles] = await Promise.all([
     db
       .select({ factType: learnerPersonalFacts.factType, fact: learnerPersonalFacts.fact })
       .from(learnerPersonalFacts)
@@ -222,6 +235,13 @@ export async function buildClassroomEnvironment(params: {
       .limit(1)
       .then((r) => r[0])
       .catch(() => null),
+
+    db
+      .select({ principle: northStarPrinciples.principle, category: northStarPrinciples.category })
+      .from(northStarPrinciples)
+      .where(eq(northStarPrinciples.isActive, true))
+      .orderBy(asc(northStarPrinciples.orderIndex))
+      .catch(() => [] as Array<{ principle: string; category: string }>),
   ]);
 
   const phaseContext = phaseTransitionService.getCurrentPhase(userId);
@@ -242,6 +262,8 @@ export async function buildClassroomEnvironment(params: {
   const resonanceShelf = formatResonanceShelf(personalFacts);
   const empathyWindow = formatEmpathyWindow(userRow?.timezone);
   const lamp = derivePedagogicalLamp({ struggleCount, recentConfidences, exchangeCount });
+
+  const northStarWall = formatNorthStarWall(principles);
 
   const vineLeaves = milestoneCount;
   const vineDescription = vineLeaves === 0
@@ -270,6 +292,8 @@ Empathy Window: ${empathyWindow}
 Pedagogical Lamp: ${lamp}
 Growth Vine: ${vineDescription}
 North Star Polaroid: ${danielaPhoto}
+---
+North Star Wall: ${northStarWall}
 === END CLASSROOM ===`.trim();
 
   return env;
