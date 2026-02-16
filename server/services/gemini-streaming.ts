@@ -868,14 +868,15 @@ export class GeminiStreamingService {
       try {
         while (sentenceQueue.length > 0) {
           const nextChunk = sentenceQueue.shift()!;
-          await onSentence(nextChunk);
+          try {
+            await onSentence(nextChunk);
+          } catch (err: any) {
+            if (!sentenceQueueError) sentenceQueueError = err;
+            console.error(`[Gemini Streaming] Sentence queue error on sentence ${nextChunk.index}:`, err.message);
+          }
         }
-      } catch (err: any) {
-        sentenceQueueError = err;
-        console.error(`[Gemini Streaming] Sentence queue error:`, err.message);
       } finally {
         sentenceQueueProcessing = false;
-        // If stream is done and queue is empty, resolve the drain promise
         if (sentenceQueueDone && sentenceQueue.length === 0 && sentenceQueueResolve) {
           sentenceQueueResolve();
         }
@@ -902,6 +903,13 @@ export class GeminiStreamingService {
         if (!sentenceQueueProcessing && sentenceQueue.length > 0) {
           processSentenceQueue();
         }
+        // Safety timeout: prevent infinite hang if queue gets stuck
+        setTimeout(() => {
+          if (sentenceQueueResolve === resolve) {
+            console.warn(`[Gemini Streaming] Sentence queue drain timeout after 30s (${sentenceQueue.length} items remaining, processing=${sentenceQueueProcessing})`);
+            resolve();
+          }
+        }, 30000);
       });
     };
     

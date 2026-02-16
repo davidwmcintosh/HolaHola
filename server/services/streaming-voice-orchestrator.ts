@@ -6540,13 +6540,22 @@ Remember: Beta testers understand they're helping build something and appreciate
           }
           
           // Now handle early returns for deduplication/limits (after commands and whiteboard are processed)
-          if (!displayText) return;
+          if (!displayText) {
+            console.log(`[OpenMic] Sentence ${chunk.index} skipped: empty displayText after cleaning (raw: "${chunk.text.substring(0, 60)}")`);
+            return;
+          }
           
           const normalizedText = displayText.toLowerCase().trim();
-          if (seenSentences.has(normalizedText)) return;
+          if (seenSentences.has(normalizedText)) {
+            console.log(`[OpenMic] Sentence ${chunk.index} skipped: duplicate text "${displayText.substring(0, 40)}"`);
+            return;
+          }
           seenSentences.add(normalizedText);
           
-          if (actualSentenceCount >= MAX_SENTENCES) return;
+          if (actualSentenceCount >= MAX_SENTENCES) {
+            console.log(`[OpenMic] Sentence ${chunk.index} skipped: reached MAX_SENTENCES (${MAX_SENTENCES})`);
+            return;
+          }
           actualSentenceCount++;
           
           // Extract target language with word mapping
