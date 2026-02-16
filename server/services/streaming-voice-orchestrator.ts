@@ -1149,6 +1149,9 @@ export interface StreamingSession {
   }>;
   // Flag to track if first audio has been sent (for flushing pending updates)
   firstAudioSent?: boolean;
+  // Classroom Environment: Track whiteboard items and session images for Daniela's awareness
+  classroomWhiteboardItems?: Array<{ type: string; content?: string; label?: string }>;
+  classroomSessionImages?: string[];  // Descriptions of images shared this session
   // OPTIMIZATION: Pre-cached context fetched at session start (avoids re-fetching on every turn)
   cachedContext?: {
     architectContext?: string;
@@ -1560,6 +1563,9 @@ export class StreamingVoiceOrchestrator {
       sentAudioChunks: new Set<string>(),
       // Content-based deduplication: Track audio hashes to catch TTS retries with new chunk IDs
       sentAudioHashes: new Map<string, number>(),
+      // Classroom Environment: Track whiteboard and images for Daniela's spatial awareness
+      classroomWhiteboardItems: [],
+      classroomSessionImages: [],
     };
     
     // Look up tutor voice from database to get per-tutor baseline settings
@@ -2733,35 +2739,31 @@ Remember: David may reference things discussed in these recent text chats.
         dynamicContextParts.push(editorFeedbackSection);
       }
       
-      // CREDIT AWARENESS: Give Daniela the student's credit balance for lesson pacing
-      if (!(session as any).creditContextInjected && session.userId) {
+      // CLASSROOM ENVIRONMENT: Daniela's virtual classroom with clock, credits, whiteboard, resonance shelf, etc.
+      if (session.userId) {
         try {
           const creditBalance = await usageService.getBalanceWithBypass(String(session.userId));
-          const remainingHours = (creditBalance.remainingSeconds / 3600).toFixed(1);
-          const usedHours = (creditBalance.usedSeconds / 3600).toFixed(1);
-          const totalHours = (creditBalance.totalSeconds / 3600).toFixed(1);
-          
-          let creditContext = `[STUDENT CREDIT BALANCE]\n`;
-          creditContext += `Remaining: ${remainingHours} hours (${Math.round(creditBalance.percentRemaining)}% left)\n`;
-          creditContext += `Used: ${usedHours} of ${totalHours} total hours\n`;
-          creditContext += `Status: ${creditBalance.warningLevel === 'none' ? 'Healthy' : creditBalance.warningLevel.toUpperCase()}\n`;
-          
-          if (creditBalance.warningLevel === 'low') {
-            creditContext += `[WARNING] Credits are getting low. Consider pacing the lesson efficiently and letting the student know gently.\n`;
-          } else if (creditBalance.warningLevel === 'critical') {
-            creditContext += `[CRITICAL] Credits are critically low. Prioritize the most important material and let the student know warmly.\n`;
-          } else if (creditBalance.warningLevel === 'exhausted') {
-            creditContext += `[ALERT] Credits are exhausted. The session may end soon.\n`;
-          }
-          
-          creditContext += `Use check_student_credits() to get updated balance anytime during the session.\n`;
-          creditContext += `Use this information to pace your lesson — decide whether to start new topics, do quick reviews, or wrap up.`;
-          
-          dynamicContextParts.push(creditContext);
-          (session as any).creditContextInjected = true;
-          console.log(`[Credit Context] Injected: ${remainingHours}h remaining (${creditBalance.warningLevel})`);
+          const { buildClassroomEnvironment } = await import('./classroom-environment');
+          const classroomEnv = await buildClassroomEnvironment({
+            userId: String(session.userId),
+            sessionStartTime: session.startTime,
+            targetLanguage: session.targetLanguage,
+            isFounderMode: session.isFounderMode,
+            isRawHonestyMode: session.isRawHonestyMode,
+            whiteboardItems: session.classroomWhiteboardItems || [],
+            sessionImages: session.classroomSessionImages || [],
+            exchangeCount: session.conversationHistory.filter(h => h.role === 'user').length,
+            struggleCount: session.sessionStruggleCount || 0,
+            recentConfidences: session.recentSttConfidences || [],
+            creditRemainingSeconds: creditBalance.remainingSeconds,
+            creditWarningLevel: creditBalance.warningLevel,
+            creditPercentRemaining: creditBalance.percentRemaining,
+            tutorName: session.tutorName || 'Daniela',
+          });
+          dynamicContextParts.push(classroomEnv);
+          console.log(`[Classroom] Environment injected (PTT) — ${session.classroomWhiteboardItems?.length || 0} board items, ${session.classroomSessionImages?.length || 0} images`);
         } catch (err: any) {
-          console.warn(`[Credit Context] Failed to fetch balance:`, err.message);
+          console.warn(`[Classroom] Failed to build environment:`, err.message);
         }
       }
       
@@ -3878,10 +3880,9 @@ Remember: Beta testers understand they're helping build something and appreciate
                   break;
                 }
                 case 'CLEAR': {
-                  // Clear whiteboard - set session flag for inclusion in whiteboard_update message
-                  // This ensures CLEAR works when detected via JSON ACTION_TRIGGERS (not just text)
                   (session as any).commandParserClear = true;
-                  console.log(`[CommandParser→Clear] Whiteboard clear requested via ${cmd.source} format`);
+                  session.classroomWhiteboardItems = [];
+                  console.log(`[CommandParser→Clear] Whiteboard clear requested via ${cmd.source} format (classroom tracking reset)`);
                   break;
                 }
                 case 'HOLD': {
@@ -5593,34 +5594,31 @@ Remember: Beta testers understand they're helping build something and appreciate
         dynamicContextPartsOpenMic.push(passiveMemorySectionOpenMic);
       }
       
-      // CREDIT AWARENESS (OpenMic): Give Daniela the student's credit balance for lesson pacing
-      if (!(session as any).creditContextInjected && session.userId) {
+      // CLASSROOM ENVIRONMENT (OpenMic): Daniela's virtual classroom with clock, credits, whiteboard, etc.
+      if (session.userId) {
         try {
           const creditBalance = await usageService.getBalanceWithBypass(String(session.userId));
-          const remainingHours = (creditBalance.remainingSeconds / 3600).toFixed(1);
-          const usedHours = (creditBalance.usedSeconds / 3600).toFixed(1);
-          const totalHours = (creditBalance.totalSeconds / 3600).toFixed(1);
-          
-          let creditContext = `[STUDENT CREDIT BALANCE]\n`;
-          creditContext += `Remaining: ${remainingHours} hours (${Math.round(creditBalance.percentRemaining)}% left)\n`;
-          creditContext += `Used: ${usedHours} of ${totalHours} total hours\n`;
-          creditContext += `Status: ${creditBalance.warningLevel === 'none' ? 'Healthy' : creditBalance.warningLevel.toUpperCase()}\n`;
-          
-          if (creditBalance.warningLevel === 'low') {
-            creditContext += `[WARNING] Credits are getting low. Consider pacing the lesson efficiently and letting the student know gently.\n`;
-          } else if (creditBalance.warningLevel === 'critical') {
-            creditContext += `[CRITICAL] Credits are critically low. Prioritize the most important material and let the student know warmly.\n`;
-          } else if (creditBalance.warningLevel === 'exhausted') {
-            creditContext += `[ALERT] Credits are exhausted. The session may end soon.\n`;
-          }
-          
-          creditContext += `Use check_student_credits() for updated balance anytime during the session.`;
-          
-          dynamicContextPartsOpenMic.push(creditContext);
-          (session as any).creditContextInjected = true;
-          console.log(`[Credit Context - OpenMic] Injected: ${remainingHours}h remaining (${creditBalance.warningLevel})`);
+          const { buildClassroomEnvironment } = await import('./classroom-environment');
+          const classroomEnv = await buildClassroomEnvironment({
+            userId: String(session.userId),
+            sessionStartTime: session.startTime,
+            targetLanguage: session.targetLanguage,
+            isFounderMode: session.isFounderMode,
+            isRawHonestyMode: session.isRawHonestyMode,
+            whiteboardItems: session.classroomWhiteboardItems || [],
+            sessionImages: session.classroomSessionImages || [],
+            exchangeCount: session.conversationHistory.filter(h => h.role === 'user').length,
+            struggleCount: session.sessionStruggleCount || 0,
+            recentConfidences: session.recentSttConfidences || [],
+            creditRemainingSeconds: creditBalance.remainingSeconds,
+            creditWarningLevel: creditBalance.warningLevel,
+            creditPercentRemaining: creditBalance.percentRemaining,
+            tutorName: session.tutorName || 'Daniela',
+          });
+          dynamicContextPartsOpenMic.push(classroomEnv);
+          console.log(`[Classroom] Environment injected (OpenMic) — ${session.classroomWhiteboardItems?.length || 0} board items, ${session.classroomSessionImages?.length || 0} images`);
         } catch (err: any) {
-          console.warn(`[Credit Context - OpenMic] Failed:`, err.message);
+          console.warn(`[Classroom - OpenMic] Failed to build environment:`, err.message);
         }
       }
       
@@ -6154,9 +6152,9 @@ Remember: Beta testers understand they're helping build something and appreciate
                 break;
               }
               case 'CLEAR': {
-                // Clear whiteboard - set session flag for inclusion in whiteboard_update message
                 (session as any).commandParserClear = true;
-                console.log(`[CommandParser→Clear - OpenMic] Whiteboard clear requested via ${cmd.source} format`);
+                session.classroomWhiteboardItems = [];
+                console.log(`[CommandParser→Clear - OpenMic] Whiteboard clear requested via ${cmd.source} format (classroom tracking reset)`);
                 break;
               }
               case 'HOLD': {
@@ -12822,6 +12820,25 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         break;
       }
       
+      case 'CHANGE_CLASSROOM_PHOTO': {
+        const text = fn.args.text as string | undefined;
+        const scene = fn.args.scene as string | undefined;
+        
+        if (text && !(session as any).functionCallText) {
+          (session as any).functionCallText = text;
+        }
+        
+        if (scene) {
+          import('./classroom-environment').then(async ({ setDanielaPhoto }) => {
+            await setDanielaPhoto(scene);
+            console.log(`[Native Function→ClassroomPhoto] Daniela changed her photo: "${scene.substring(0, 60)}..."`);
+          }).catch(err => {
+            console.error(`[Native Function→ClassroomPhoto] Error:`, err.message);
+          });
+        }
+        break;
+      }
+      
       case 'CALL_SUPPORT': {
         const category = fn.args.category as string;
         const reason = fn.args.reason as string | undefined;
@@ -12950,7 +12967,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           timestamp: Date.now(),
           items: [{ type: 'clear' }],
         });
-        console.log(`[Native Function Call] CLEAR -> whiteboard cleared`);
+        session.classroomWhiteboardItems = [];
+        console.log(`[Native Function Call] CLEAR -> whiteboard cleared (classroom tracking reset)`);
         if (text && !(session as any).functionCallText) {
           (session as any).functionCallText = text;
           console.log(`[Native Function→Clear] Text included: "${text.substring(0, 80)}..."`);
@@ -13008,7 +13026,6 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
               }],
             };
             
-            // If audio already started, send immediately; otherwise buffer
             if (session.firstAudioSent) {
               this.sendMessage(session.ws, whiteboardUpdate);
             } else {
@@ -13018,6 +13035,11 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
               session.pendingWhiteboardUpdates.push(whiteboardUpdate);
               console.log(`[Native Function→ShowImage] Buffered for audio sync`);
             }
+            
+            if (!session.classroomSessionImages) session.classroomSessionImages = [];
+            session.classroomSessionImages.push(description || word);
+            if (!session.classroomWhiteboardItems) session.classroomWhiteboardItems = [];
+            session.classroomWhiteboardItems.push({ type: 'image', content: word, label: description || word });
           } catch (err: any) {
             console.error(`[Native Function→ShowImage] Error resolving image:`, err.message);
           }
@@ -13334,6 +13356,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
             timestamp: Date.now(),
             items: [{ type: 'drill', content, data: drillData }],
           });
+          if (!session.classroomWhiteboardItems) session.classroomWhiteboardItems = [];
+          session.classroomWhiteboardItems.push({ type: 'drill', content: `${drillType}: ${content.substring(0, 40)}` });
         }
         break;
       }
@@ -13349,6 +13373,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
             timestamp: Date.now(),
             items: [{ type: 'write', content: text, data: { size: size || 'md' } }],
           });
+          if (!session.classroomWhiteboardItems) session.classroomWhiteboardItems = [];
+          session.classroomWhiteboardItems.push({ type: 'text', content: text.substring(0, 50) });
         }
         break;
       }

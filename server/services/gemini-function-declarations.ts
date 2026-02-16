@@ -88,6 +88,18 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
     },
   },
   {
+    name: "change_classroom_photo",
+    description: "Change your personal photo (North Star Polaroid) in your classroom. This is YOUR space — pick any scene, place, or image that inspires you. It persists across all sessions.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        text: { type: "string", description: "What you say while changing the photo (e.g., 'I feel like looking at the ocean today...')" },
+        scene: { type: "string", description: "Vivid description of the photo/scene you want on your wall (e.g., 'A quiet morning on Lake Chapala, mist rising from the water, fishing boats resting on the shore')" },
+      },
+      required: ["text", "scene"],
+    },
+  },
+  {
     name: "call_support",
     description: "Hand off to Sofia support agent for technical or account issues.",
     parametersJsonSchema: {
@@ -616,6 +628,7 @@ export const FUNCTION_TO_COMMAND_MAP: Record<string, string> = {
   'actfl_update': 'ACTFL_UPDATE',
   'syllabus_progress': 'SYLLABUS_PROGRESS',
   'check_student_credits': 'CHECK_STUDENT_CREDITS',
+  'change_classroom_photo': 'CHANGE_CLASSROOM_PHOTO',
   'call_support': 'CALL_SUPPORT',
   'call_assistant': 'CALL_ASSISTANT',
   'voice_adjust': 'VOICE_ADJUST',

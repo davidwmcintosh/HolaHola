@@ -3301,3 +3301,47 @@ Missing any of these steps will cause silent failures — the function either wo
 - Uses `usageService.getBalanceWithBypass()` to skip auth checks (system-level call)
 - Text from `text` parameter is spoken as TTS via standard `functionCallText` pattern
 - No emoji in any credit context strings (text-only warnings per project guidelines)
+
+---
+
+### Session: February 16, 2026 - Daniela's Virtual Classroom Environment
+
+**Status**: COMPLETED
+
+**Overview**: Built a "virtual classroom" for Daniela — a structured context block injected into EVERY turn (PTT and OpenMic) across ALL modes (tutor, founder, honesty). Instead of scattered context fragments, Daniela now sees a compact unified environment snapshot with 10 components inspired by her own classroom design ideas.
+
+#### The 10 Classroom Components
+
+| Component | What Daniela Sees | Data Source |
+|-----------|------------------|-------------|
+| Clock | Day, time, session elapsed, credits remaining | `Date.now()`, session.startTime, usageService |
+| Credit Counter | Hours remaining, percent left, warning level | usageService.getBalanceWithBypass() |
+| Whiteboard | Current items on board (drills, vocab, images, text) | session.classroomWhiteboardItems (tracked live) |
+| Photo Wall | Images shared during this session | session.classroomSessionImages (tracked live) |
+| Resonance Shelf | Student's personal interests/passions (up to 6) | learner_personal_facts table |
+| Empathy Window | Student's local time, day, time-of-day mood | users.timezone (IANA) |
+| Pedagogical Lamp | Session temperature (amber/green/teal) | STT confidence + struggle count |
+| North Star Polaroid | Daniela's personal photo/scene (persistent) | product_config table |
+| Growth Vine | Plant metaphor for student breakthroughs | learning_milestones count |
+| Student Dashboard | Mode, phase, exchange count, student name | Session state + phase service |
+
+#### New Function Call: `change_classroom_photo`
+Daniela can change her personal photo (North Star Polaroid) anytime. Parameters:
+- `text`: What she says while changing ("I feel like looking at the ocean today...")
+- `scene`: Vivid description of the scene she wants on her wall
+- Stored in `product_config` table (key: `daniela_classroom_photo`)
+- Persists across all sessions
+
+#### Key Files
+- `server/services/classroom-environment.ts` — NEW: `buildClassroomEnvironment()`, `getDanielaPhoto()`, `setDanielaPhoto()`
+- `server/services/gemini-function-declarations.ts` — Added `change_classroom_photo` declaration + FUNCTION_TO_COMMAND_MAP entry
+- `server/services/streaming-voice-orchestrator.ts` — Replaced credit-only injection with full classroom in both PTT (~line 2742) and OpenMic (~line 5598) paths; added CHANGE_CLASSROOM_PHOTO handler (~line 12831); added whiteboard/image tracking in SHOW_IMAGE, DRILL, WRITE, CLEAR handlers; added session fields `classroomWhiteboardItems` and `classroomSessionImages`
+
+#### Architecture Notes
+- Classroom is injected EVERY turn (not once per session) — Daniela always has live awareness
+- All 4 DB queries run in parallel (Promise.all) to minimize latency
+- Whiteboard items tracked live via session fields, cleared on CLEAR command
+- Default Daniela photo: "A sun-drenched plaza in Guanajuato, Mexico..."
+- Pedagogical lamp derived from STT confidence + struggle count heuristic
+- Photo stored via existing `product_config` table (no schema changes needed)
+- Applied to ALL modes: tutor, founder, and honesty (via isFounderMode/isRawHonestyMode flags in output)
