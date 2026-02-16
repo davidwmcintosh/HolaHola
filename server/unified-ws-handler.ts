@@ -1470,8 +1470,9 @@ Reference past discussions when relevant, but don't force it.
             // Track TTS characters (for cost calculation)
             ttsCharacters += metrics.aiResponse.length;
             
-            // Update usage session metrics periodically (every 5 exchanges)
-            if (usageSession && exchangeCount % 5 === 0) {
+            // Update usage session metrics after every exchange
+            // Critical: must flush immediately so endAllActiveSessions() sees correct count
+            if (usageSession) {
               try {
                 await usageService.updateSessionMetrics(usageSession.id, {
                   exchangeCount,
@@ -1696,6 +1697,20 @@ Reference past discussions when relevant, but don't force it.
                       exchangeCount++;
                       const studentWords = transcript.split(/\s+/).length;
                       studentSpeakingSeconds += studentWords / 2.5;
+                      
+                      // Flush to DB immediately so endAllActiveSessions() sees correct count
+                      if (usageSession) {
+                        try {
+                          await usageService.updateSessionMetrics(usageSession.id, {
+                            exchangeCount,
+                            studentSpeakingSeconds: Math.round(studentSpeakingSeconds),
+                            tutorSpeakingSeconds: Math.round(tutorSpeakingSeconds),
+                            ttsCharacters,
+                          });
+                        } catch (updateErr: any) {
+                          console.warn('[Streaming Voice] Could not update OM session metrics:', updateErr.message);
+                        }
+                      }
                     }
                   } catch (err: any) {
                     console.error('[OpenMic] Error processing utterance:', err);
@@ -3332,7 +3347,6 @@ ${buildNativeFunctionCallingSection()}`;
             }
             
             // Track exchange for usage accounting (Socket.io adapter path)
-            // This was missing — exchange_count stayed 0 and credits were never charged
             if (metrics.userTranscript && metrics.aiResponse) {
               exchangeCount++;
               
@@ -3342,7 +3356,8 @@ ${buildNativeFunctionCallingSection()}`;
               tutorSpeakingSeconds += tutorWords / 2.5;
               ttsCharacters += metrics.aiResponse.length;
               
-              if (usageSession && exchangeCount % 5 === 0) {
+              // Flush to DB immediately so endAllActiveSessions() sees correct count
+              if (usageSession) {
                 try {
                   await usageService.updateSessionMetrics(usageSession.id, {
                     exchangeCount,
@@ -3497,6 +3512,20 @@ ${buildNativeFunctionCallingSection()}`;
                       exchangeCount++;
                       const studentWords = transcript.split(/\s+/).length;
                       studentSpeakingSeconds += studentWords / 2.5;
+                      
+                      // Flush to DB immediately so endAllActiveSessions() sees correct count
+                      if (usageSession) {
+                        try {
+                          await usageService.updateSessionMetrics(usageSession.id, {
+                            exchangeCount,
+                            studentSpeakingSeconds: Math.round(studentSpeakingSeconds),
+                            tutorSpeakingSeconds: Math.round(tutorSpeakingSeconds),
+                            ttsCharacters,
+                          });
+                        } catch (updateErr: any) {
+                          console.warn('[Streaming Voice] Could not update OM session metrics:', updateErr.message);
+                        }
+                      }
                     }
                   } catch (err: any) {
                     console.error('[OpenMic] Error processing utterance:', err);
