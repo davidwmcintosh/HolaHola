@@ -332,6 +332,18 @@ export function StreamingVoiceChat({
     isPlaying: boolean;
   } | null>(null);
   
+  // Pre-create ringing AudioContext eagerly at mount time (within navigation gesture context)
+  // This avoids the suspended-context problem when startRinging is called from useEffect later
+  const ringingContextRef = useRef<AudioContext | null>(null);
+  if (!ringingContextRef.current && typeof window !== 'undefined') {
+    try {
+      ringingContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      console.log('[RINGING] Pre-created AudioContext at mount, state:', ringingContextRef.current.state);
+    } catch (e) {
+      console.warn('[RINGING] Failed to pre-create AudioContext:', e);
+    }
+  }
+  
   // Mic warm-up: cache stream for instant recording start
   const cachedStreamRef = useRef<MediaStream | null>(null);
   const micWarmedUpRef = useRef(false);
@@ -514,6 +526,12 @@ export function StreamingVoiceChat({
         }).catch(() => {});
       }
       
+      if (ringingContextRef.current?.state === 'suspended') {
+        ringingContextRef.current.resume().then(() => {
+          console.log('[MOBILE AUDIO] Pre-created ringing context resumed via user gesture');
+        }).catch(() => {});
+      }
+      
       if (openMicAudioContextRef.current?.state === 'suspended') {
         openMicAudioContextRef.current.resume().then(() => {
           console.log('[MOBILE AUDIO] Open-mic AudioContext resumed via user gesture — mic should now capture real audio');
@@ -541,9 +559,11 @@ export function StreamingVoiceChat({
     if (ringingAudioRef.current?.isPlaying) return;
     
     try {
-      const context = new (window.AudioContext || (window as any).webkitAudioContext)();
+      // Reuse the pre-created context (created at mount time within gesture context)
+      // Fall back to creating a new one if somehow missing
+      const context = ringingContextRef.current || new (window.AudioContext || (window as any).webkitAudioContext)();
+      ringingContextRef.current = null; // Consumed — will be cleaned up via ringingAudioRef
       
-      // AudioContext may start suspended if no user gesture has occurred yet (open-mic auto-connect)
       if (context.state === 'suspended') {
         try {
           await context.resume();
@@ -552,6 +572,8 @@ export function StreamingVoiceChat({
           console.warn('[RINGING] AudioContext resume failed (no user gesture yet) - ringing will be silent:', resumeErr);
         }
       }
+      
+      console.log('[RINGING] Using AudioContext, state:', context.state);
       
       const gainNode = context.createGain();
       gainNode.connect(context.destination);
