@@ -2356,6 +2356,8 @@ Remember: David may reference things discussed in these recent text chats.
       session.isInterrupted = false;  // Reset interrupt flag for new turn
       session.sentAudioChunks.clear();  // Reset audio deduplication for new turn
       session.sentAudioHashes.clear();  // Reset content-based deduplication for new turn
+      session.firstAudioSent = false;   // Reset so whiteboard updates buffer until audio starts
+      session.pendingWhiteboardUpdates = [];  // Clear stale pending updates from previous turn
       (session as any).earlyTtsActive = undefined;  // Reset Early TTS flags from previous turn
       (session as any).earlyTtsCompleted = undefined;
       const turnId = session.currentTurnId;
@@ -5400,6 +5402,8 @@ Remember: Beta testers understand they're helping build something and appreciate
       session.crossLanguageTransferBlocked = false;  // Reset cross-language block for new turn
       session.sentAudioChunks.clear();  // Reset audio deduplication for new turn
       session.sentAudioHashes.clear();  // Reset content-based deduplication for new turn
+      session.firstAudioSent = false;   // Reset so whiteboard updates buffer until audio starts
+      session.pendingWhiteboardUpdates = [];  // Clear stale pending updates from previous turn
       (session as any).earlyTtsActive = undefined;  // Reset Early TTS flags from previous turn
       (session as any).earlyTtsCompleted = undefined;
       const turnId = session.currentTurnId;
@@ -10663,6 +10667,21 @@ Only include observations you can clearly justify from the exchange. Return empt
         if (targetSession?.sentAudioChunks) {
           targetSession.sentAudioChunks.add(dedupeKey);
         }
+        
+        // Mark first audio sent and flush any pending whiteboard updates (e.g. show_image)
+        // Without this, images buffered before audio starts are never delivered to the client
+        if (targetSession && !targetSession.firstAudioSent) {
+          targetSession.firstAudioSent = true;
+          if (targetSession.pendingWhiteboardUpdates && targetSession.pendingWhiteboardUpdates.length > 0) {
+            const pending = targetSession.pendingWhiteboardUpdates;
+            targetSession.pendingWhiteboardUpdates = [];
+            console.log(`[SendMessage] Flushing ${pending.length} pending whiteboard update(s) on first audio`);
+            for (const update of pending) {
+              const updateJson = JSON.stringify(update);
+              ws.send(updateJson);
+            }
+          }
+        }
       }
       
       const json = JSON.stringify(message);
@@ -10999,6 +11018,8 @@ Only include observations you can clearly justify from the exchange. Return empt
       session.currentTurnId++;
       session.sentAudioChunks.clear();  // Reset audio deduplication for new turn
       session.sentAudioHashes.clear();  // Reset content-based deduplication for new turn
+      session.firstAudioSent = false;   // Reset so whiteboard updates buffer until audio starts
+      session.pendingWhiteboardUpdates = [];
       const turnId = session.currentTurnId;
       
       // Notify client that greeting is being generated
@@ -12230,6 +12251,8 @@ DON'T:
     session.currentTurnId++;
     session.sentAudioChunks.clear();  // Reset audio deduplication for new turn
     session.sentAudioHashes.clear();  // Reset content-based deduplication for new turn
+    session.firstAudioSent = false;   // Reset so whiteboard updates buffer until audio starts
+    session.pendingWhiteboardUpdates = [];
     const turnId = session.currentTurnId;
     const switchStartTime = Date.now();
     let fullText = '';

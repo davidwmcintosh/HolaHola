@@ -162,6 +162,8 @@ type RemediationCallback = () => void;
 let sofiaNotifyCallback: SofiaNotificationCallback | null = null;
 let remediationCallback: RemediationCallback | null = null;
 let sofiaNotifiedThisSession = false;
+let lastSofiaNotificationTime = 0;
+const SOFIA_COOLDOWN_MS = 5 * 60 * 1000;
 
 export function setSofiaNotificationCallback(cb: SofiaNotificationCallback | null): void {
   sofiaNotifyCallback = cb;
@@ -177,9 +179,15 @@ export function resetSofiaNotificationState(): void {
 
 function notifyUserViaSofia(trigger: string): void {
   if (sofiaNotifiedThisSession || !sofiaNotifyCallback) return;
+  const now = Date.now();
+  if (now - lastSofiaNotificationTime < SOFIA_COOLDOWN_MS) {
+    console.log(`[VoiceDiag] Sofia cooldown active (${Math.round((SOFIA_COOLDOWN_MS - (now - lastSofiaNotificationTime)) / 1000)}s remaining), suppressing: ${trigger}`);
+    return;
+  }
   const msg = SOFIA_USER_MESSAGES[trigger];
   if (!msg) return;
   sofiaNotifiedThisSession = true;
+  lastSofiaNotificationTime = now;
   sofiaNotifyCallback({ trigger, ...msg });
   const LOCKOUT_TRIGGERS = ['lockout_watchdog_8s', 'failsafe_tier1_20s', 'failsafe_tier2_45s'];
   if (remediationCallback && LOCKOUT_TRIGGERS.includes(trigger)) {

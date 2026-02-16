@@ -3328,6 +3328,31 @@ ${buildNativeFunctionCallingSection()}`;
               metrics = await orchestrator.processUserAudio(session.id, audioBuffer, audioMessage.format || 'webm');
             }
             
+            // Track exchange for usage accounting (Socket.io adapter path)
+            // This was missing — exchange_count stayed 0 and credits were never charged
+            if (metrics.userTranscript && metrics.aiResponse) {
+              exchangeCount++;
+              
+              const studentWords = metrics.userTranscript.split(/\s+/).length;
+              const tutorWords = metrics.aiResponse.split(/\s+/).length;
+              studentSpeakingSeconds += studentWords / 2.5;
+              tutorSpeakingSeconds += tutorWords / 2.5;
+              ttsCharacters += metrics.aiResponse.length;
+              
+              if (usageSession && exchangeCount % 5 === 0) {
+                try {
+                  await usageService.updateSessionMetrics(usageSession.id, {
+                    exchangeCount,
+                    studentSpeakingSeconds: Math.round(studentSpeakingSeconds),
+                    tutorSpeakingSeconds: Math.round(tutorSpeakingSeconds),
+                    ttsCharacters,
+                  });
+                } catch (updateErr: any) {
+                  console.warn('[Streaming Voice] Could not update session metrics:', updateErr.message);
+                }
+              }
+            }
+            
           } catch (audioError: any) {
             // Log but don't disconnect - the orchestrator already sent an error message to the client
             console.error('[Streaming Voice] Audio processing error (recoverable):', audioError.message);
