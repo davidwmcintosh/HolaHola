@@ -28,7 +28,7 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { VoiceChatViewManager } from "@/components/VoiceChatViewManager";
 import { useStreamingVoice } from "@/hooks/useStreamingVoice";
-import { usePlaybackState, getGlobalPlaybackState } from "@/lib/playbackStateStore";
+import { usePlaybackState, getGlobalPlaybackState, setGlobalPlaybackState } from "@/lib/playbackStateStore";
 import { useUser } from "@/lib/auth";
 import { useLearningFilter } from "@/contexts/LearningFilterContext";
 import { useToast } from "@/hooks/use-toast";
