@@ -3654,34 +3654,33 @@ Dave activated incognito so you two can talk freely without anything being recor
                       const { collaborationMessages } = await import('@shared/schema');
                       const sharedDb = getSharedDb();
                       
-                      // Search Express Lane messages (stored in collaboration_messages)
+                      const keywords = query.split(/\s+/).filter(w => w.length >= 3);
+                      const keywordConditions = keywords.length > 0
+                        ? sql.join(keywords.map(kw => sql`content ILIKE ${`%${kw}%`}`), sql` OR `)
+                        : sql`content ILIKE ${`%${query}%`}`;
+                      
                       let results: any[];
                       
                       if (sessionId) {
-                        // Search within specific session
                         results = await sharedDb.select()
                           .from(collaborationMessages)
-                          .where(sql`session_id = ${sessionId} AND (
-                            content ILIKE ${`%${query}%`} OR 
-                            role ILIKE ${`%${query}%`}
-                          )`)
+                          .where(sql`session_id = ${sessionId} AND (${keywordConditions})`)
                           .orderBy(sql`created_at DESC`)
                           .limit(limit);
                       } else {
-                        // Search across all sessions
                         results = await sharedDb.select()
                           .from(collaborationMessages)
-                          .where(sql`content ILIKE ${`%${query}%`} OR role ILIKE ${`%${query}%`}`)
+                          .where(keywordConditions)
                           .orderBy(sql`created_at DESC`)
                           .limit(limit);
                       }
                       
                       if (results.length > 0) {
-                        // Format results for conversation context
                         const formattedResults = results.map(msg => {
                           const date = new Date(msg.createdAt).toLocaleDateString();
-                          return `[${date}] ${msg.role}: ${msg.content}`;
-                        }).join('\n');
+                          const preview = msg.content.length > 2000 ? msg.content.substring(0, 2000) + '...[truncated]' : msg.content;
+                          return `[${date}] ${msg.role}: ${preview}`;
+                        }).join('\n\n---\n\n');
                         
                         if (session.conversationHistory) {
                           session.conversationHistory.push({
@@ -3690,9 +3689,8 @@ Dave activated incognito so you two can talk freely without anything being recor
                           });
                         }
                         
-                        console.log(`[CommandParser→ExpressLaneLookup] Found ${results.length} messages for "${query}"`);
+                        console.log(`[CommandParser→ExpressLaneLookup] Found ${results.length} messages for "${query}" (keywords: ${keywords.join(', ')})`);
                         
-                        // Emit beacon
                         if (session.hiveChannelId) {
                           hiveCollaborationService.emitBeacon({
                             channelId: session.hiveChannelId,
@@ -3703,7 +3701,7 @@ Dave activated incognito so you two can talk freely without anything being recor
                           }).catch(err => console.error(`[CommandParser→ExpressLaneLookup] Beacon error:`, err));
                         }
                       } else {
-                        console.log(`[CommandParser→ExpressLaneLookup] No results found for "${query}"`);
+                        console.log(`[CommandParser→ExpressLaneLookup] No results found for "${query}" (keywords: ${keywords.join(', ')})`);
                         if (session.conversationHistory) {
                           session.conversationHistory.push({
                             role: 'user',
@@ -6452,17 +6450,22 @@ Dave activated incognito so you two can talk freely without anything being recor
                     const { collaborationMessages } = await import('@shared/schema');
                     const sharedDb = getSharedDb();
                     
+                    const keywords = query.split(/\s+/).filter(w => w.length >= 3);
+                    const keywordConditions = keywords.length > 0
+                      ? sql.join(keywords.map(kw => sql`content ILIKE ${`%${kw}%`}`), sql` OR `)
+                      : sql`content ILIKE ${`%${query}%`}`;
+                    
                     let results: any[];
                     if (sessionIdParam) {
                       results = await sharedDb.select()
                         .from(collaborationMessages)
-                        .where(sql`session_id = ${sessionIdParam} AND (content ILIKE ${`%${query}%`} OR role ILIKE ${`%${query}%`})`)
+                        .where(sql`session_id = ${sessionIdParam} AND (${keywordConditions})`)
                         .orderBy(sql`created_at DESC`)
                         .limit(limit);
                     } else {
                       results = await sharedDb.select()
                         .from(collaborationMessages)
-                        .where(sql`content ILIKE ${`%${query}%`} OR role ILIKE ${`%${query}%`}`)
+                        .where(keywordConditions)
                         .orderBy(sql`created_at DESC`)
                         .limit(limit);
                     }
@@ -6470,8 +6473,9 @@ Dave activated incognito so you two can talk freely without anything being recor
                     if (results.length > 0) {
                       const formattedResults = results.map(msg => {
                         const date = new Date(msg.createdAt).toLocaleDateString();
-                        return `[${date}] ${msg.role}: ${msg.content}`;
-                      }).join('\n');
+                        const preview = msg.content.length > 2000 ? msg.content.substring(0, 2000) + '...[truncated]' : msg.content;
+                        return `[${date}] ${msg.role}: ${preview}`;
+                      }).join('\n\n---\n\n');
                       
                       if (session.conversationHistory) {
                         session.conversationHistory.push({
@@ -6479,9 +6483,9 @@ Dave activated incognito so you two can talk freely without anything being recor
                           content: `[SYSTEM: Express Lane search results for "${query}" (${results.length} messages)]\n\n${formattedResults}`,
                         });
                       }
-                      console.log(`[CommandParser→ExpressLaneLookup - OpenMic] Found ${results.length} messages for "${query}"`);
+                      console.log(`[CommandParser→ExpressLaneLookup - OpenMic] Found ${results.length} messages for "${query}" (keywords: ${keywords.join(', ')})`);
                     } else {
-                      console.log(`[CommandParser→ExpressLaneLookup - OpenMic] No results found for "${query}"`);
+                      console.log(`[CommandParser→ExpressLaneLookup - OpenMic] No results found for "${query}" (keywords: ${keywords.join(', ')})`);
                     }
                   } catch (err) {
                     console.error(`[CommandParser→ExpressLaneLookup - OpenMic] Error:`, err);
@@ -13919,17 +13923,22 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       // Initialize lookup results storage
       if (!session.expressLaneLookupResults) session.expressLaneLookupResults = {};
       
+      const keywords = query.split(/\s+/).filter(w => w.length >= 3);
+      const keywordConditions = keywords.length > 0
+        ? sql.join(keywords.map(kw => sql`content ILIKE ${`%${kw}%`}`), sql` OR `)
+        : sql`content ILIKE ${`%${query}%`}`;
+      
       let results: any[];
       if (sessionId) {
         results = await sharedDb.select()
           .from(collaborationMessages)
-          .where(sql`session_id = ${sessionId} AND (content ILIKE ${`%${query}%`} OR role::text ILIKE ${`%${query}%`})`)
+          .where(sql`session_id = ${sessionId} AND (${keywordConditions})`)
           .orderBy(sql`created_at DESC`)
           .limit(limit);
       } else {
         results = await sharedDb.select()
           .from(collaborationMessages)
-          .where(sql`content ILIKE ${`%${query}%`} OR role::text ILIKE ${`%${query}%`}`)
+          .where(keywordConditions)
           .orderBy(sql`created_at DESC`)
           .limit(limit);
       }
@@ -13937,14 +13946,13 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       if (results.length > 0) {
         const formattedResults = results.map(msg => {
           const date = new Date(msg.createdAt).toLocaleDateString();
-          return `[${date}] ${msg.role}: ${msg.content}`;
-        }).join('\n');
+          const preview = msg.content.length > 2000 ? msg.content.substring(0, 2000) + '...[truncated]' : msg.content;
+          return `[${date}] ${msg.role}: ${preview}`;
+        }).join('\n\n---\n\n');
         
-        // Store results for multi-step FC to use (like memoryLookupResults)
         session.expressLaneLookupResults[query] = formattedResults;
-        console.log(`[ExpressLaneLookup] Found ${results.length} messages for "${query}"`);
+        console.log(`[ExpressLaneLookup] Found ${results.length} messages for "${query}" (keywords: ${keywords.join(', ')})`);
         
-        // Emit beacon if in Founder Mode
         if (session.hiveChannelId) {
           hiveCollaborationService.emitBeacon({
             channelId: session.hiveChannelId,
@@ -13955,9 +13963,8 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           }).catch(err => console.error(`[ExpressLaneLookup] Beacon error:`, err));
         }
       } else {
-        // Store "no results" for multi-step FC to use
         session.expressLaneLookupResults[query] = `No Express Lane messages found for "${query}". Respond naturally based on what you know.`;
-        console.log(`[ExpressLaneLookup] No results found for "${query}"`);
+        console.log(`[ExpressLaneLookup] No results found for "${query}" (keywords: ${keywords.join(', ')})`);
       }
     } catch (err) {
       console.error(`[ExpressLaneLookup] Error:`, err);
