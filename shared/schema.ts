@@ -7965,3 +7965,26 @@ export const insertVoicePipelineEventSchema = createInsertSchema(voicePipelineEv
 export type InsertVoicePipelineEvent = z.infer<typeof insertVoicePipelineEventSchema>;
 export type VoicePipelineEvent = typeof voicePipelineEvents.$inferSelect;
 
+export const voiceDiagDailySummaries = pgTable("voice_diag_daily_summaries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  summaryDate: date("summary_date").notNull(),
+  totalEvents: integer("total_events").notNull().default(0),
+  uniqueUsers: integer("unique_users").notNull().default(0),
+  errorCount: integer("error_count").notNull().default(0),
+  mobileCount: integer("mobile_count").notNull().default(0),
+  desktopCount: integer("desktop_count").notNull().default(0),
+  byTrigger: jsonb("by_trigger").notNull().default({}),
+  healthStatus: varchar("health_status", { length: 10 }).notNull().default('green'),
+  peakHourlyRate: integer("peak_hourly_rate").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_vdds_date").on(table.summaryDate),
+]);
+
+export const insertVoiceDiagDailySummarySchema = createInsertSchema(voiceDiagDailySummaries).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertVoiceDiagDailySummary = z.infer<typeof insertVoiceDiagDailySummarySchema>;
+export type VoiceDiagDailySummary = typeof voiceDiagDailySummaries.$inferSelect;
+

@@ -6005,6 +6005,52 @@ ${memoryContext}
     }
   });
 
+  app.get("/api/voice/health-trends", isAuthenticated, loadAuthenticatedUser(storage), allowRoles(['admin', 'developer']), async (req: any, res) => {
+    try {
+      const days = Math.min(parseInt(req.query.days as string) || 30, 365);
+      const sharedDb = getSharedDb();
+
+      const summaries = await sharedDb.execute(sql`
+        SELECT 
+          summary_date,
+          total_events,
+          unique_users,
+          error_count,
+          mobile_count,
+          desktop_count,
+          by_trigger,
+          health_status,
+          peak_hourly_rate
+        FROM voice_diag_daily_summaries
+        WHERE summary_date >= CURRENT_DATE - ${days}
+        ORDER BY summary_date DESC
+      `);
+
+      const totalDays = summaries.rows.length;
+      const greenDays = summaries.rows.filter((r: any) => r.health_status === 'green').length;
+      const yellowDays = summaries.rows.filter((r: any) => r.health_status === 'yellow').length;
+      const redDays = summaries.rows.filter((r: any) => r.health_status === 'red').length;
+      const totalEvents = summaries.rows.reduce((sum: number, r: any) => sum + (r.total_events || 0), 0);
+      const avgEventsPerDay = totalDays > 0 ? Math.round(totalEvents / totalDays) : 0;
+
+      res.json({
+        period: { days, totalDaysWithData: totalDays },
+        overview: {
+          totalEvents,
+          avgEventsPerDay,
+          greenDays,
+          yellowDays,
+          redDays,
+          uptimePercent: totalDays > 0 ? Math.round((greenDays / totalDays) * 100) : 100,
+        },
+        dailySummaries: summaries.rows,
+      });
+    } catch (error: any) {
+      console.error("[VoiceHealth] Error fetching trends:", error);
+      res.status(500).json({ error: "Failed to fetch health trends" });
+    }
+  });
+
   // Get active voice session for user (allows client to reconnect to existing session)
   app.get("/api/voice/active-session", isAuthenticated, async (req: any, res) => {
     try {

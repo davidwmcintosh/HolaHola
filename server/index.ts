@@ -505,10 +505,15 @@ app.use((req, res, next) => {
     
     console.log('[CONSOLIDATION] Sync-bridge retired - Neon routing is primary');
 
+    const { startVoiceHealthMonitor } = await import('./services/voice-health-monitor');
+    startVoiceHealthMonitor();
+
     const DIAG_RETENTION_DAYS = 30;
     const DIAG_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
+    const { generateDailySummary } = await import('./services/voice-health-monitor');
     const runDiagRetention = async () => {
       try {
+        await generateDailySummary();
         const { getSharedDb } = await import('./neon-db');
         const { sql } = await import('drizzle-orm');
         const sharedDb = getSharedDb();
