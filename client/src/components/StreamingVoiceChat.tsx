@@ -645,26 +645,23 @@ export function StreamingVoiceChat({
   // Play ringing sound during voice connection
   // Ringing should continue through 'connecting' → 'connected' → 'ready' → until AUDIO PLAYS
   // IMPORTANT: Don't ring on reconnects if Daniela has already spoken (prevents mid-call ringing)
+  // NOTE: Ringing is started explicitly in connectStreaming() below, not from connectionState,
+  // because warm-up can pre-connect the socket causing connect() to skip the 'connecting' state.
   useEffect(() => {
     if (!useStreamingMode) return;
     
     const { connectionState } = streamingVoice.state;
     
-    // Start ringing when connecting (WebSocket opening)
+    // Start ringing when connecting (WebSocket opening) — fallback for non-warmed connections
     // BUT only if Daniela hasn't spoken yet (prevents ringing during reconnects)
     if (connectionState === 'connecting' && !hasDanielaSpokeOnceRef.current) {
       startRinging();
     }
-    // Continue ringing during 'connected', 'ready', and 'reconnecting' states
-    // Ringing continues until audio actually starts playing (hasDanielaSpokeOnceRef becomes true)
     
     // Stop ringing on connection failure only (not on 'ready' - wait for audio)
     if (connectionState === 'disconnected' || connectionState === 'error') {
       stopRinging();
     }
-    
-    // Note: We only cleanup on unmount, NOT on state changes
-    // This allows ringing to continue through state transitions until audio plays
   }, [streamingVoice.state.connectionState, useStreamingMode]);
   
   // Connection timeout: If stuck ringing/connecting for too long, redirect to language hub
@@ -805,8 +802,11 @@ export function StreamingVoiceChat({
     const connectStreaming = async () => {
       try {
         console.log('[STREAMING] Connecting to streaming voice...');
-        // Founder mode is ONLY enabled when user explicitly selects "Founder Mode" in the learning context filter
-        // This prevents developers from accidentally entering founder mode when doing self-directed practice
+        
+        if (!hasDanielaSpokeOnceRef.current) {
+          startRinging();
+        }
+        
         const isExplicitFounderMode = learningContext === 'founder-mode';
         
         await streamingVoice.connect({
