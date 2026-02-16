@@ -508,10 +508,15 @@ export function StreamingVoiceChat({
         console.warn('[MOBILE AUDIO] Failed to unlock AudioContext:', err);
       }
       
-      // Also resume ringing AudioContext if it was started before user gesture
       if (ringingAudioRef.current?.context?.state === 'suspended') {
         ringingAudioRef.current.context.resume().then(() => {
           console.log('[MOBILE AUDIO] Ringing AudioContext also resumed via user gesture');
+        }).catch(() => {});
+      }
+      
+      if (openMicAudioContextRef.current?.state === 'suspended') {
+        openMicAudioContextRef.current.resume().then(() => {
+          console.log('[MOBILE AUDIO] Open-mic AudioContext resumed via user gesture — mic should now capture real audio');
         }).catch(() => {});
       }
       
@@ -2458,16 +2463,28 @@ export function StreamingVoiceChat({
       });
       openMicStreamRef.current = stream;
       
-      // Create AudioContext - browser may not honor 16kHz request
-      // We'll detect actual rate and resample if needed
       const audioContext = new AudioContext({ sampleRate: 16000 });
       openMicAudioContextRef.current = audioContext;
+      
+      if (audioContext.state === 'suspended') {
+        console.warn(`[OPEN MIC] AudioContext started SUSPENDED — attempting resume (may need user gesture)`);
+        try {
+          await audioContext.resume();
+          console.log(`[OPEN MIC] AudioContext resumed successfully, state: ${audioContext.state}`);
+        } catch (resumeErr) {
+          console.error('[OPEN MIC] Failed to resume AudioContext:', resumeErr);
+        }
+      }
+      
+      if (audioContext.state !== 'running') {
+        console.error(`[OPEN MIC] AudioContext state is "${audioContext.state}" — mic audio will be SILENT. Needs user gesture to unlock.`);
+      }
       
       const actualSampleRate = audioContext.sampleRate;
       const targetSampleRate = 16000;
       const needsResampling = actualSampleRate !== targetSampleRate;
       
-      console.log(`[OPEN MIC] AudioContext sample rate: ${actualSampleRate}Hz (target: ${targetSampleRate}Hz, resampling: ${needsResampling})`);
+      console.log(`[OPEN MIC] AudioContext state: ${audioContext.state}, sample rate: ${actualSampleRate}Hz (target: ${targetSampleRate}Hz, resampling: ${needsResampling})`);
       
       const source = audioContext.createMediaStreamSource(stream);
       
@@ -2490,20 +2507,28 @@ export function StreamingVoiceChat({
         
         let inputBuffer = event.inputBuffer.getChannelData(0);
         
-        // Resample to 16kHz if browser used a different rate
         if (needsResampling) {
           inputBuffer = resampleAudio(inputBuffer, actualSampleRate, targetSampleRate);
         }
         
-        // Convert Float32Array to Int16Array (linear16 PCM)
+        const sequenceId = openMicSequenceIdRef.current++;
+        
+        if (sequenceId === 10 || sequenceId === 50 || sequenceId === 200) {
+          let sum = 0;
+          for (let i = 0; i < inputBuffer.length; i++) sum += inputBuffer[i] * inputBuffer[i];
+          const rmsDb = 10 * Math.log10(sum / inputBuffer.length + 1e-10);
+          const ctxState = openMicAudioContextRef.current?.state || 'unknown';
+          console.log(`[OPEN MIC DIAG] chunk#${sequenceId} RMS=${rmsDb.toFixed(1)}dB, ctxState=${ctxState}`);
+          if (rmsDb < -60) {
+            console.warn(`[OPEN MIC DIAG] ⚠️ Very low audio level at chunk#${sequenceId} — mic may not be capturing. Check AudioContext state and permissions.`);
+          }
+        }
+        
         const pcm16 = new Int16Array(inputBuffer.length);
         for (let i = 0; i < inputBuffer.length; i++) {
-          // Clamp and scale float [-1, 1] to int16 [-32768, 32767]
           const s = Math.max(-1, Math.min(1, inputBuffer[i]));
           pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
         }
-        
-        const sequenceId = openMicSequenceIdRef.current++;
         const sent = streamingVoice.sendStreamingChunk(pcm16.buffer, sequenceId);
         
         // Track consecutive failures for logging (but don't stop recording)
