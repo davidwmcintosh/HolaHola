@@ -35,8 +35,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useWhiteboard } from "@/hooks/useWhiteboard";
 import { getTutorNames } from "@/lib/tutor-avatars";
 import { SupportAssistModal } from "@/components/SupportAssistModal";
-import { SofiaNotification } from "@/components/SofiaNotification";
-import { setSofiaNotificationCallback, setRemediationCallback, resetSofiaNotificationState, type SofiaUserNotification } from "@/lib/lockoutDiagnostics";
+import { setRemediationCallback } from "@/lib/lockoutDiagnostics";
 import type { VoiceInputMode, OpenMicState } from "@shared/streaming-voice-types";
 import type { VoiceOverride } from "./VoiceLabPanel";
 
@@ -285,7 +284,6 @@ export function StreamingVoiceChat({
   const [lastMessageId, setLastMessageId] = useState<string | null>(null);
   const [isSlowRepeatLoading, setIsSlowRepeatLoading] = useState(false);
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
-  const [sofiaNotification, setSofiaNotification] = useState<SofiaUserNotification | null>(null);
   
   // Whiteboard hook - tutor-controlled visual teaching aids
   const whiteboard = useWhiteboard();
@@ -443,20 +441,15 @@ export function StreamingVoiceChat({
   }, [inputMode, streamingVoice]);
   
   useEffect(() => {
-    setSofiaNotificationCallback((notification) => {
-      setSofiaNotification(notification);
-    });
     setRemediationCallback(() => {
-      console.warn('[StreamingVoiceChat] Sofia remediation: force-resetting mic state');
+      console.warn('[StreamingVoiceChat] Auto-remediation: force-resetting mic state');
       setIsProcessing(false);
       isProcessingRef.current = false;
       setGlobalPlaybackState('idle');
       streamingVoice.forceResetProcessing?.();
     });
     return () => {
-      setSofiaNotificationCallback(null);
       setRemediationCallback(null);
-      resetSofiaNotificationState();
     };
   }, [streamingVoice]);
 
@@ -764,8 +757,6 @@ export function StreamingVoiceChat({
     const connectStreaming = async () => {
       try {
         console.log('[STREAMING] Connecting to streaming voice...');
-        resetSofiaNotificationState();
-        setSofiaNotification(null);
         // Founder mode is ONLY enabled when user explicitly selects "Founder Mode" in the learning context filter
         // This prevents developers from accidentally entering founder mode when doing self-directed practice
         const isExplicitFounderMode = learningContext === 'founder-mode';
@@ -3312,10 +3303,6 @@ export function StreamingVoiceChat({
           voiceOverride={voiceOverride}
           onVoiceOverrideChange={setVoiceOverride}
           onHelpClick={() => setIsSupportModalOpen(true)}
-        />
-        <SofiaNotification
-          notification={sofiaNotification}
-          onDismiss={() => setSofiaNotification(null)}
         />
       </div>
       
