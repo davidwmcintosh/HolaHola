@@ -5,7 +5,7 @@ import { storage } from "./storage";
 import { db, getUserDb, getSharedDb } from "./db";
 import { eq, and, gte, desc, sql, isNotNull, inArray } from "drizzle-orm";
 import { stripeService } from "./stripeService";
-import { aiLimiter, voiceLimiter, authLimiter, mutationLimiter, hiveExternalLimiter } from "./middleware/rate-limiter";
+import { aiLimiter, voiceLimiter, authLimiter, mutationLimiter, hiveExternalLimiter, generalLimiter } from "./middleware/rate-limiter";
 import { requireRole, allowRoles, loadAuthenticatedUser, requireFounder, requireAgentToken, logAgentAction, getAgentAuditLog, isAgentTokenConfigured } from "./middleware/rbac";
 import { voiceDiagnostics } from "./services/voice-diagnostics-service";
 import { voiceIntelligenceService } from "./services/voice-intelligence-service";
@@ -5925,7 +5925,7 @@ ${memoryContext}
     }
   });
 
-  app.get("/api/voice/health-score", async (_req: any, res) => {
+  app.get("/api/voice/health-score", generalLimiter, async (_req: any, res) => {
     try {
       const sharedDb = getSharedDb();
       const now = new Date();
