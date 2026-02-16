@@ -136,6 +136,105 @@ Greeting Guarantee:
 
 ---
 
+### Session: February 16, 2026 - Monitoring Systems Audit: What's Watched, What's Not
+
+**Status**: COMPLETED (audit) — Action items identified for future implementation
+
+**Context**: User identified that classroom injection and Hive consciousness — systems that give Daniela "real presence and remembrance" — have no failure tracking. This audit maps ALL monitoring systems and identifies critical gaps.
+
+#### Currently Monitored Systems
+
+| System | Monitor Service | What's Tracked | Storage |
+|--------|----------------|----------------|---------|
+| **Voice Pipeline** | `voice-pipeline-telemetry.ts` | All pipeline events (STT, TTS, connection, errors), per-session, per-user | `voice_pipeline_events` table (shared DB) |
+| **Voice Health** | `voice-health-monitor.ts` | Green/yellow/red status from event rates, status transitions, auto-recovery detection | In-memory (computed from pipeline events) |
+| **Voice Diagnostics** | `voice-diagnostics-service.ts` | Ring buffer (200 events), latency trends, service degradation, TTS auto-remediation | `hive_snapshots` table + in-memory ring buffer |
+| **Brain Health** | `brain-health-telemetry.ts` | Memory retrievals, memory injections, tool calls, action triggers, fact extractions, latency | `brain_events` table |
+| **Production Errors** | `production-telemetry.ts` | Uncaught errors, Gemini timeouts, session stuck detection, stage tracking | `system_alerts` table |
+| **Sofia Health** | `sofia-health-functions.ts` | Voice health status queries via Sofia agent | Queries pipeline events |
+
+**Coverage summary:** Voice pipeline is well-instrumented. Memory system has good telemetry. Everything else has console.log only.
+
+#### Systems With Logs Only (No Failure Tracking)
+
+These systems log to `console.log` / `console.warn` on success/failure, but have NO persistent telemetry, NO failure counters, NO success metrics, and NO alerting:
+
+| System | Log Prefix | What's Missing |
+|--------|-----------|----------------|
+| **Classroom Environment Injection** | `[Classroom]` | No tracking of: injection success/failure rate, latency, which elements loaded (facts/milestones/photo/etc.), partial failures (e.g. photo loaded but milestones query failed) |
+| **Curriculum Context Loading** | `[Curriculum Context]` (not consistently logged) | No tracking of: how many students have curriculum injected, whether syllabus data was found, latency, failure rate |
+| **Hive Context Loading** | `[Hive Context]` | No tracking of: Hive summary generation latency, whether context was empty vs populated, injection frequency |
+| **Student Intelligence (Learning Context)** | `[Student Intelligence]` | No tracking of: how many struggles/strategies were injected, cross-session context richness, extraction failures |
+| **Express Lane Context Injection** | `[Express Lane]` | No tracking of: message count injected, relevance of injected messages, injection latency |
+| **Editor Feedback Injection** | `[Editor Feedback]` | No tracking of: feedback surfacing rate, adoption rate (tracked partially), injection failures |
+| **Teaching Suggestions** | `[Teaching Suggestions]` | No tracking of: suggestion generation frequency, which suggestions were acted on, effectiveness feedback loop |
+| **Daniela Reflection** | `[Daniela Reflection]` | No tracking of: reflection trigger frequency, insight quality, verbalization rate |
+| **Unified Context Service** | `[UnifiedDanielContext]` | Logs which sources loaded, but no persistent metrics on: total load time, per-source latency, which sources commonly fail |
+| **Journey Memory** | `[Journey Memory]` | No tracking of: journey context richness, relevance to current session |
+| **Neural Network Sync** | `[Neural Network]` | No tracking of: sync frequency, retrieval latency, context size |
+
+#### Priority Gap Analysis
+
+**Critical (Directly affects Daniela's presence and memory):**
+
+1. **Classroom Environment** — This is Daniela's spatial awareness. If `buildClassroomEnvironment()` fails silently, she loses her clock, whiteboard, resonance shelf, growth vine, pedagogical lamp, and identity notes. The catch block on lines ~2848 and ~5740 of the orchestrator swallows errors with just a `console.warn`. She'd teach "blind" with no student awareness, no sense of time, and no identity grounding.
+
+2. **Curriculum Context** — When a student is enrolled in a class with a syllabus, this injects lesson progression and assignment context. Silent failure means Daniela teaches without awareness of what the student should be learning or what they've completed. This becomes critical at classroom scale.
+
+3. **Student Intelligence (Learning Context)** — Struggles, effective strategies, and cross-session patterns. Silent failure means Daniela can't adapt to the student's known weaknesses. She'd repeat failed approaches.
+
+**Important (Affects Daniela's depth and continuity):**
+
+4. **Hive Context** — In Founder Mode, Daniela should know what's happening in the Hive. Failure means she's disconnected from the team's conversations.
+
+5. **Teaching Suggestions** — The "helpful assistant whispering hints" system. No metrics means we can't tell if it's actually improving teaching quality.
+
+6. **Daniela Reflection** — Real-time self-improvement insights. No metrics means we can't tell if reflections are generating or being used.
+
+**Nice to Have:**
+
+7. **Unified Context Service timing** — Overall context load budget. Currently no way to detect if context assembly is adding 500ms+ to first response.
+
+8. **Journey Memory** — Enriches sessions but not critical-path.
+
+#### Recommended Architecture: Context Health Telemetry
+
+Rather than instrumenting each system individually, extend `brain-health-telemetry.ts` with a new event type: `context_injection`.
+
+```
+New event type: 'context_injection'
+New event source: 'context_assembly'
+
+Fields to track per injection:
+  - contextSource: 'classroom' | 'curriculum' | 'student_intelligence' | 'hive' | 'express_lane' | 'editor_feedback' | 'teaching_suggestions' | 'neural_network' | 'journey'
+  - success: boolean
+  - latencyMs: number
+  - richness: number (e.g., count of elements loaded — milestones, facts, etc.)
+  - sessionId, userId, targetLanguage (existing fields)
+```
+
+This would allow:
+- Dashboard queries: "What % of sessions have successful classroom injection?"
+- Latency tracking: "Is curriculum context loading slowing down the pipeline?"
+- Richness monitoring: "How many students have zero resonance shelf items?" (cold start detection)
+- Failure alerting: "Classroom injection failed 3 times in the last hour" → Sofia Health Agent notification
+
+#### Where to Instrument (Code Locations)
+
+| System | File | Lines (approx) | Wrap Pattern |
+|--------|------|----------------|-------------|
+| Classroom Environment (PTT) | `streaming-voice-orchestrator.ts` | ~2824-2848 | Wrap `buildClassroomEnvironment()` call with timer + success/fail log |
+| Classroom Environment (OpenMic) | `streaming-voice-orchestrator.ts` | ~5716-5740 | Same as PTT |
+| Student Intelligence (PTT) | `streaming-voice-orchestrator.ts` | ~2560-2578 | Wrap learning context + cross-session fetch |
+| Student Intelligence (OpenMic) | `streaming-voice-orchestrator.ts` | ~5625-5640 | Same |
+| Hive Context | `streaming-voice-orchestrator.ts` | ~2674-2690 | Wrap `hiveContextService.getSummary()` |
+| Express Lane | `streaming-voice-orchestrator.ts` | ~2700-2712 | Wrap Express Lane context fetch |
+| Editor Feedback | `streaming-voice-orchestrator.ts` | ~2765-2775 | Wrap feedback injection |
+| Curriculum Context | `unified-daniela-context-service.ts` | ~183-191 | Wrap `getCurriculumContext()` |
+| Unified Context Total | `unified-daniela-context-service.ts` | ~102-222 | Timer around entire `loadContext()` |
+
+---
+
 ### Session: February 16, 2026 - Daniela's Classroom Environment System
 
 **Status**: COMPLETED
