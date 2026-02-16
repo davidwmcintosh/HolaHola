@@ -504,5 +504,29 @@ app.use((req, res, next) => {
     }, ZOMBIE_CLEANUP_INTERVAL_MS);
     
     console.log('[CONSOLIDATION] Sync-bridge retired - Neon routing is primary');
+
+    const DIAG_RETENTION_DAYS = 30;
+    const DIAG_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
+    const runDiagRetention = async () => {
+      try {
+        const { getSharedDb } = await import('./neon-db');
+        const { sql } = await import('drizzle-orm');
+        const sharedDb = getSharedDb();
+        const cutoff = new Date(Date.now() - DIAG_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+        const result = await sharedDb.execute(sql`
+          DELETE FROM voice_pipeline_events
+          WHERE event_type LIKE 'client_diag_%'
+            AND created_at < ${cutoff}
+        `);
+        const deleted = (result as any).rowCount || 0;
+        if (deleted > 0) {
+          console.log(`[DiagRetention] Purged ${deleted} diagnostic events older than ${DIAG_RETENTION_DAYS} days`);
+        }
+      } catch (err: any) {
+        console.warn(`[DiagRetention] Error:`, err.message);
+      }
+    };
+    setTimeout(runDiagRetention, 60000);
+    setInterval(runDiagRetention, DIAG_CLEANUP_INTERVAL_MS);
   });
 })();

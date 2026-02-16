@@ -7955,6 +7955,7 @@ export const voicePipelineEvents = pgTable("voice_pipeline_events", {
   index("idx_vpe_session").on(table.sessionId),
   index("idx_vpe_user_time").on(table.userId, table.createdAt),
   index("idx_vpe_type").on(table.eventType),
+  index("idx_vpe_type_time").on(table.eventType, table.createdAt),
 ]);
 
 export const insertVoicePipelineEventSchema = createInsertSchema(voicePipelineEvents).omit({

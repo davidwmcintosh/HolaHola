@@ -5925,6 +5925,86 @@ ${memoryContext}
     }
   });
 
+  app.get("/api/voice/health-score", async (_req: any, res) => {
+    try {
+      const sharedDb = getSharedDb();
+      const now = new Date();
+      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+      const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+      const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+      const [last1h, last6h, last24h] = await Promise.all([
+        sharedDb.execute(sql`
+          SELECT 
+            COUNT(*)::int as total,
+            COUNT(DISTINCT user_id)::int as users,
+            COUNT(*) FILTER (WHERE event_type IN ('client_diag_error', 'client_diag_tts_error'))::int as errors
+          FROM voice_pipeline_events
+          WHERE event_type LIKE 'client_diag_%' AND created_at >= ${oneHourAgo}
+        `),
+        sharedDb.execute(sql`
+          SELECT 
+            COUNT(*)::int as total,
+            COUNT(DISTINCT user_id)::int as users,
+            COUNT(*) FILTER (WHERE event_type IN ('client_diag_error', 'client_diag_tts_error'))::int as errors
+          FROM voice_pipeline_events
+          WHERE event_type LIKE 'client_diag_%' AND created_at >= ${sixHoursAgo}
+        `),
+        sharedDb.execute(sql`
+          SELECT 
+            COUNT(*)::int as total,
+            COUNT(DISTINCT user_id)::int as users,
+            COUNT(*) FILTER (WHERE event_type IN ('client_diag_error', 'client_diag_tts_error'))::int as errors,
+            array_agg(DISTINCT REPLACE(event_type, 'client_diag_', '')) as trigger_types
+          FROM voice_pipeline_events
+          WHERE event_type LIKE 'client_diag_%' AND created_at >= ${twentyFourHoursAgo}
+        `),
+      ]);
+
+      const h1 = last1h.rows[0] as any;
+      const h6 = last6h.rows[0] as any;
+      const h24 = last24h.rows[0] as any;
+
+      const eventsPerUserPer6h = h6.users > 0 ? h6.total / h6.users : 0;
+      let status: 'green' | 'yellow' | 'red' = 'green';
+      let reasons: string[] = [];
+
+      if (h1.errors > 5 || h1.total > 20) {
+        status = 'red';
+        reasons.push(`${h1.total} events in last hour (${h1.errors} errors) affecting ${h1.users} users`);
+      } else if (h1.errors > 0 || h1.total > 5) {
+        status = status === 'red' ? 'red' : 'yellow';
+        reasons.push(`${h1.total} events in last hour affecting ${h1.users} users`);
+      }
+
+      if (eventsPerUserPer6h > 10) {
+        status = 'red';
+        reasons.push(`High event rate: ${eventsPerUserPer6h.toFixed(1)} events/user over 6h`);
+      } else if (eventsPerUserPer6h > 5) {
+        status = status === 'red' ? 'red' : 'yellow';
+        reasons.push(`Elevated event rate: ${eventsPerUserPer6h.toFixed(1)} events/user over 6h`);
+      }
+
+      if (reasons.length === 0) {
+        reasons.push('All systems nominal');
+      }
+
+      res.json({
+        status,
+        timestamp: now.toISOString(),
+        reasons,
+        metrics: {
+          last1h: { events: h1.total, users: h1.users, errors: h1.errors },
+          last6h: { events: h6.total, users: h6.users, errors: h6.errors },
+          last24h: { events: h24.total, users: h24.users, errors: h24.errors, triggerTypes: h24.trigger_types },
+        },
+      });
+    } catch (error: any) {
+      console.error("[VoiceHealth] Error computing health score:", error);
+      res.status(500).json({ status: 'red', reasons: ['Health check query failed'], error: error.message });
+    }
+  });
+
   // Get active voice session for user (allows client to reconnect to existing session)
   app.get("/api/voice/active-session", isAuthenticated, async (req: any, res) => {
     try {
