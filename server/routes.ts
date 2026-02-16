@@ -12630,9 +12630,27 @@ Return ONLY the ${targetLanguage} phrase:`;
       const { TTSService } = await import('./services/tts-service');
       const tts = new TTSService();
       
+      let voiceId: string | undefined;
+      let speakingRate: number | undefined;
+      
+      try {
+        const sharedDb = getSharedDb();
+        const [aldenVoice] = await sharedDb.select().from(tutorVoices)
+          .where(and(eq(tutorVoices.role, 'alden'), eq(tutorVoices.isActive, true)))
+          .limit(1);
+        if (aldenVoice) {
+          voiceId = aldenVoice.voiceId;
+          speakingRate = aldenVoice.speakingRate || undefined;
+        }
+      } catch (e) {
+        // Fall through to default voice
+      }
+      
       const result = await tts.synthesize({
         text,
         language: 'english',
+        voiceId,
+        speakingRate,
         forceProvider: 'google',
       });
       
@@ -16352,8 +16370,8 @@ Current conversation context:
         return res.status(400).json({ error: "Missing required fields" });
       }
       
-      // Validate role (tutor, assistant, or support - default to tutor)
-      const validRoles = ['tutor', 'assistant', 'support'];
+      // Validate role (tutor, assistant, support, or alden - default to tutor)
+      const validRoles = ['tutor', 'assistant', 'support', 'alden'];
       const validatedRole = validRoles.includes(role) ? role : 'tutor';
       
       const validTutorProviders = ['cartesia', 'elevenlabs', 'google', 'gemini'];
@@ -16362,9 +16380,9 @@ Current conversation context:
           error: "Main tutors must use Cartesia, ElevenLabs, Google, or Gemini voices." 
         });
       }
-      if ((validatedRole === 'assistant' || validatedRole === 'support') && provider !== 'google') {
+      if ((validatedRole === 'assistant' || validatedRole === 'support' || validatedRole === 'alden') && provider !== 'google') {
         return res.status(400).json({ 
-          error: "Assistant tutors and support must use Google voices." 
+          error: "Assistant tutors, support, and Alden must use Google voices." 
         });
       }
       

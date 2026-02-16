@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Play, Pause, Plus, Edit2, Trash2, Volume2, User, Languages, Loader2, Sparkles, Heart, Headphones, MessageSquare, GraduationCap, Scale, Ear, Globe } from "lucide-react";
+import { Play, Pause, Plus, Edit2, Trash2, Volume2, User, Languages, Loader2, Sparkles, Heart, Headphones, MessageSquare, GraduationCap, Scale, Ear, Globe, Bot } from "lucide-react";
 
 // Personality preset types matching backend
 type PersonalityType = 'warm' | 'calm' | 'energetic' | 'professional';
@@ -36,7 +36,7 @@ interface TutorVoice {
   id: string;
   language: string;
   gender: 'male' | 'female';
-  role: 'tutor' | 'assistant';
+  role: 'tutor' | 'assistant' | 'support' | 'alden';
   provider: string;
   voiceId: string;
   voiceName: string;
@@ -1400,6 +1400,9 @@ export function VoiceConsoleContent() {
           
           {/* Sofia Support Agent Voice */}
           <SofiaVoiceCard />
+          
+          {/* Alden Co-Founder Voice */}
+          <AldenVoiceCard />
         </div>
       </div>
   );
@@ -2329,6 +2332,369 @@ function SofiaVoiceCard() {
               data-testid="button-save-sofia"
             >
               {updateMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Changes'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}
+
+/**
+ * Alden Co-Founder Voice Configuration
+ * Alden uses Google Cloud TTS (English only) — founder-only AI co-founder persona
+ * Powered by Claude (Anthropic) for LLM, Google Chirp3 HD for voice
+ */
+function AldenVoiceCard() {
+  const { toast } = useToast();
+  const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isCreateMode, setIsCreateMode] = useState(false);
+  
+  const [formData, setFormData] = useState({
+    gender: 'male' as 'male' | 'female',
+    voiceId: '',
+    voiceName: '',
+    languageCode: 'en-US',
+    speakingRate: 1.0,
+  });
+  
+  const { data: allVoices, isLoading } = useQuery<TutorVoice[]>({
+    queryKey: ["/api/admin/tutor-voices"],
+  });
+  
+  const aldenVoice = allVoices?.find(v => v.role === 'alden') || null;
+  
+  const { data: googleVoicesData, isLoading: isLoadingGoogleVoices } = useQuery<{ voices: GoogleVoice[]; total: number }>({
+    queryKey: ["/api/admin/google-voices", "english", formData.gender],
+    queryFn: async () => {
+      const url = `/api/admin/google-voices/english/${encodeURIComponent(formData.gender)}`;
+      const response = await fetch(url, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch Google voices');
+      return response.json();
+    },
+    enabled: isEditDialogOpen,
+  });
+  
+  const googleVoices = googleVoicesData?.voices || [];
+  
+  const saveMutation = useMutation({
+    mutationFn: async (data: { 
+      language: string; 
+      gender: string; 
+      provider: string; 
+      voiceId: string; 
+      voiceName: string; 
+      languageCode: string; 
+      speakingRate: number;
+      role: string;
+    }) => {
+      return apiRequest("POST", "/api/admin/tutor-voices", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/tutor-voices"] });
+      toast({ title: "Success", description: "Alden voice configuration saved" });
+      setIsEditDialogOpen(false);
+      setIsCreateMode(false);
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+  
+  const handleEdit = (voice: TutorVoice) => {
+    setIsCreateMode(false);
+    setFormData({
+      gender: voice.gender as 'male' | 'female',
+      voiceId: voice.voiceId,
+      voiceName: voice.voiceName,
+      languageCode: voice.languageCode,
+      speakingRate: voice.speakingRate || 1.0,
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleCreate = () => {
+    setIsCreateMode(true);
+    setFormData({
+      gender: 'male',
+      voiceId: '',
+      voiceName: '',
+      languageCode: 'en-US',
+      speakingRate: 1.0,
+    });
+    setIsEditDialogOpen(true);
+  };
+  
+  const handleVoiceSelect = (voiceId: string) => {
+    const selected = googleVoices.find(v => v.id === voiceId);
+    if (selected) {
+      setFormData(prev => ({
+        ...prev,
+        voiceId: selected.id,
+        voiceName: selected.name,
+      }));
+    }
+  };
+  
+  const handleSave = () => {
+    saveMutation.mutate({
+      language: 'english',
+      gender: formData.gender,
+      provider: 'google',
+      voiceId: formData.voiceId,
+      voiceName: formData.voiceName,
+      languageCode: formData.languageCode,
+      speakingRate: formData.speakingRate,
+      role: 'alden',
+    });
+  };
+
+  const ALDEN_SAMPLE = "Hey David. I've been looking at the system metrics — everything looks stable. Voice sessions are running smoothly, and Sofia hasn't flagged any issues in the last 24 hours.";
+
+  const handleAudition = async (voice: TutorVoice) => {
+    setPlayingVoiceId(voice.id);
+    
+    try {
+      const response = await fetch('/api/admin/assistant-voice-preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          voiceId: voice.voiceId,
+          text: ALDEN_SAMPLE,
+          language: voice.languageCode,
+          speakingRate: voice.speakingRate || 1.0,
+        }),
+      });
+      
+      if (!response.ok) throw new Error('Failed to generate audio');
+      
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      
+      audio.onended = () => {
+        setPlayingVoiceId(null);
+        URL.revokeObjectURL(url);
+      };
+      audio.onerror = () => {
+        setPlayingVoiceId(null);
+        URL.revokeObjectURL(url);
+        toast({ title: "Error", description: "Failed to play audio", variant: "destructive" });
+      };
+      
+      await audio.play();
+    } catch (error: any) {
+      setPlayingVoiceId(null);
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+  
+  const handlePreviewInDialog = async () => {
+    if (!formData.voiceId) return;
+    
+    try {
+      const response = await fetch('/api/admin/assistant-voice-preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          voiceId: formData.voiceId,
+          text: ALDEN_SAMPLE,
+          language: formData.languageCode,
+          speakingRate: formData.speakingRate,
+        }),
+      });
+      
+      if (!response.ok) throw new Error('Failed to generate audio');
+      
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.onended = () => URL.revokeObjectURL(url);
+      await audio.play();
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  return (
+    <Card className="mt-6" data-testid="card-alden-voice">
+      <CardHeader>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Bot className="h-5 w-5" />
+              Alden - Co-Founder
+            </CardTitle>
+            <CardDescription>
+              AI co-founder voice (English only, powered by Claude + Google Chirp3 HD)
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30">
+              Claude + Google TTS
+            </Badge>
+            {!aldenVoice && (
+              <Button size="sm" variant="outline" onClick={handleCreate} data-testid="button-add-alden-voice">
+                <Plus className="h-4 w-4 mr-1" />
+                Configure
+              </Button>
+            )}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {isLoading ? (
+          <Skeleton className="h-20 w-full" />
+        ) : !aldenVoice ? (
+          <p className="text-center text-muted-foreground py-4" data-testid="text-alden-no-voice">
+            No Alden voice configured. Click "Configure" to set up a Google Cloud TTS voice.
+          </p>
+        ) : (
+          <div
+            className="flex items-center justify-between p-3 rounded-lg border bg-card hover-elevate"
+            data-testid={`card-alden-voice-${aldenVoice.id}`}
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-full bg-blue-500/10 text-blue-600">
+                <Bot className="h-4 w-4" />
+              </div>
+              <div>
+                <div className="font-medium text-sm">{aldenVoice.voiceName}</div>
+                <div className="text-xs text-muted-foreground">
+                  {aldenVoice.gender} · {aldenVoice.languageCode} · {aldenVoice.speakingRate}x · Google Chirp3 HD
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => handleAudition(aldenVoice)}
+                data-testid={`button-play-alden-${aldenVoice.id}`}
+              >
+                {playingVoiceId === aldenVoice.id ? (
+                  <Pause className="h-4 w-4" />
+                ) : (
+                  <Play className="h-4 w-4" />
+                )}
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => handleEdit(aldenVoice)}
+                data-testid={`button-edit-alden-${aldenVoice.id}`}
+              >
+                <Edit2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+        
+        <p className="text-xs text-muted-foreground text-center pt-2">
+          Alden speaks English only. His voice is used in the founder-only Command Center chat.
+        </p>
+      </CardContent>
+      
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{isCreateMode ? "Configure" : "Edit"} Alden Voice</DialogTitle>
+            <DialogDescription>
+              Set the Google Cloud TTS voice for Alden's spoken responses.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Gender</Label>
+              <Select value={formData.gender} onValueChange={(v: 'male' | 'female') => setFormData(prev => ({ ...prev, gender: v }))}>
+                <SelectTrigger data-testid="select-alden-gender">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="male">Male</SelectItem>
+                  <SelectItem value="female">Female</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Voice</Label>
+              {isLoadingGoogleVoices ? (
+                <div className="flex items-center gap-2 p-3 border rounded-md">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm text-muted-foreground">Loading voices...</span>
+                </div>
+              ) : (
+                <Select value={formData.voiceId} onValueChange={handleVoiceSelect}>
+                  <SelectTrigger data-testid="select-alden-voice">
+                    <SelectValue placeholder="Select a voice" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {googleVoices.map(voice => (
+                      <SelectItem key={voice.id} value={voice.id}>
+                        <div className="flex flex-col">
+                          <span>{voice.name}</span>
+                          <span className="text-xs text-muted-foreground">{voice.id}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Speaking Rate</Label>
+                <span className="text-sm text-muted-foreground">{formData.speakingRate.toFixed(1)}x</span>
+              </div>
+              <Slider
+                value={[formData.speakingRate]}
+                onValueChange={([value]) => setFormData(prev => ({ ...prev, speakingRate: value }))}
+                min={0.5}
+                max={2.0}
+                step={0.1}
+                data-testid="slider-alden-speed"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Slow (0.5)</span>
+                <span>Normal (1.0)</span>
+                <span>Fast (2.0)</span>
+              </div>
+            </div>
+            
+            {formData.voiceId && (
+              <Button
+                variant="outline"
+                onClick={handlePreviewInDialog}
+                className="w-full"
+                data-testid="button-preview-alden"
+              >
+                <Play className="h-4 w-4 mr-2" />
+                Preview Voice
+              </Button>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSave} 
+              disabled={saveMutation.isPending || !formData.voiceId}
+              data-testid="button-save-alden"
+            >
+              {saveMutation.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Saving...

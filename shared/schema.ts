@@ -333,7 +333,7 @@ export const updateLanguagePreferencesSchema = z.object({
 export type UpdateLanguagePreferences = z.infer<typeof updateLanguagePreferencesSchema>;
 
 // Tutor role enum - distinguishes main tutors from practice partner assistants and support agents
-export const tutorRoleEnum = pgEnum("tutor_role", ["tutor", "assistant", "support"]);
+export const tutorRoleEnum = pgEnum("tutor_role", ["tutor", "assistant", "support", "alden"]);
 
 // Pedagogical focus options for tutor personas
 export const pedagogicalFocusEnum = pgEnum("pedagogical_focus", [
