@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { learnerPersonalFacts, learningMilestones, productConfig, users, northStarPrinciples } from "@shared/schema";
+import { learnerPersonalFacts, learningMilestones, productConfig, users, northStarPrinciples, danielaNotes } from "@shared/schema";
 import { eq, and, desc, sql, asc } from "drizzle-orm";
 import { phaseTransitionService } from "./phase-transition-service";
 
@@ -162,6 +162,14 @@ function formatNorthStarWall(principles: Array<{ principle: string; category: st
     .join(" | ");
 }
 
+function formatPersonalNotes(notes: Array<{ noteType: string; title: string; content: string }>): string {
+  if (!notes || notes.length === 0) return "(no notes yet — write one anytime with take_note)";
+  return notes.map((n) => {
+    const short = n.content.length > 60 ? n.content.substring(0, 57) + "..." : n.content;
+    return `[${n.noteType}] ${n.title}: ${short}`;
+  }).join(" | ");
+}
+
 function formatPhotoWall(images: string[]): string {
   if (!images || images.length === 0) return "(no images shared yet)";
   return images.slice(-5).map((img, i) => `${i + 1}. ${img}`).join(" | ");
@@ -200,7 +208,7 @@ export async function buildClassroomEnvironment(params: {
     tutorName,
   } = params;
 
-  const [personalFacts, milestoneCount, danielaPhoto, userRow, principles] = await Promise.all([
+  const [personalFacts, milestoneCount, danielaPhoto, userRow, principles, recentNotes] = await Promise.all([
     db
       .select({ factType: learnerPersonalFacts.factType, fact: learnerPersonalFacts.fact })
       .from(learnerPersonalFacts)
@@ -242,6 +250,16 @@ export async function buildClassroomEnvironment(params: {
       .where(eq(northStarPrinciples.isActive, true))
       .orderBy(asc(northStarPrinciples.orderIndex))
       .catch(() => [] as Array<{ principle: string; category: string }>),
+
+    (isFounderMode || isRawHonestyMode)
+      ? db
+          .select({ noteType: danielaNotes.noteType, title: danielaNotes.title, content: danielaNotes.content })
+          .from(danielaNotes)
+          .where(eq(danielaNotes.isActive, true))
+          .orderBy(desc(danielaNotes.createdAt))
+          .limit(5)
+          .catch(() => [] as Array<{ noteType: string; title: string; content: string }>)
+      : Promise.resolve([] as Array<{ noteType: string; title: string; content: string }>),
   ]);
 
   const phaseContext = phaseTransitionService.getCurrentPhase(userId);
@@ -264,6 +282,7 @@ export async function buildClassroomEnvironment(params: {
   const lamp = derivePedagogicalLamp({ struggleCount, recentConfidences, exchangeCount });
 
   const northStarWall = formatNorthStarWall(principles);
+  const personalNotesWall = formatPersonalNotes(recentNotes);
 
   const vineLeaves = milestoneCount;
   const vineDescription = vineLeaves === 0
@@ -302,6 +321,7 @@ Empathy Window: ${empathyWindow}
 Pedagogical Lamp: ${lamp}
 Growth Vine: ${vineDescription}
 North Star Polaroid: ${danielaPhoto}
+Personal Notes Wall: ${personalNotesWall}
 ---
 North Star Wall: ${northStarWall}${toolRack}
 === END CLASSROOM ===`.trim();
