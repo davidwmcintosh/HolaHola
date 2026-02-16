@@ -2960,7 +2960,7 @@ Dave activated incognito so you two can talk freely without anything being recor
             session.currentTurnFunctionCalls = [];
           }
           
-          const METADATA_ONLY_FC_NAMES = new Set(['voice_adjust', 'voice_reset', 'word_emphasis', 'subtitle', 'show_overlay', 'hide_overlay', 'hold_overlay']);
+          const METADATA_ONLY_FC_NAMES = new Set(['voice_adjust', 'voice_reset', 'word_emphasis', 'subtitle', 'show_overlay', 'hide_overlay', 'hold_overlay', 'take_note', 'milestone']);
           const allMetadataOnly = functionCalls.every(fc => METADATA_ONLY_FC_NAMES.has(fc.name));
           const hasTextArg = functionCalls.some(fc => fc.args?.text && String(fc.args.text).trim().length > 0);
           
@@ -4273,7 +4273,7 @@ Dave activated incognito so you two can talk freely without anything being recor
       // This sends function results back to Gemini and gets actual spoken text
       // OPTIMIZATION: Exclude metadata-only functions from needing continuation
       // These are speech annotations, not actions requiring a response - they work in a single call
-      const METADATA_ONLY_FUNCTIONS = new Set(['VOICE_ADJUST', 'VOICE_RESET', 'WORD_EMPHASIS', 'SUBTITLE', 'SHOW', 'HIDE', 'HOLD']);
+      const METADATA_ONLY_FUNCTIONS = new Set(['VOICE_ADJUST', 'VOICE_RESET', 'WORD_EMPHASIS', 'SUBTITLE', 'SHOW', 'HIDE', 'HOLD', 'TAKE_NOTE', 'MILESTONE']);
       const functionsNeedingContinuation = functionCallsCopy.filter(
         fc => !METADATA_ONLY_FUNCTIONS.has(fc.legacyType || '')
       );
@@ -4362,9 +4362,8 @@ Dave activated incognito so you two can talk freely without anything being recor
       }
       
       if (metrics.sentenceCount === 0 && hadFunctionCalls && functionsNeedingContinuation.length > 0) {
-        console.log(`[Multi-Step FC] Function calls with no text detected - continuing conversation`);
-        console.log(`[Multi-Step FC] Functions executed: ${functionCallsCopy.map(fc => fc.name).join(', ')}`);
-        console.log(`[Multi-Step FC] Functions needing continuation: ${functionsNeedingContinuation.map(fc => fc.name).join(', ') || 'none'}`);
+        console.log(`[Multi-Step FC] Functions need continuation: ${functionsNeedingContinuation.map(fc => fc.name).join(', ')}`);
+        console.log(`[Multi-Step FC] All functions executed: ${functionCallsCopy.map(fc => fc.name).join(', ')}`);
         
         // Await any pending memory lookups before building responses
         if (session.pendingMemoryLookupPromises?.length) {
@@ -5777,7 +5776,7 @@ Dave activated incognito so you two can talk freely without anything being recor
             session.currentTurnFunctionCalls = [];
           }
           
-          const METADATA_ONLY_FC_NAMES = new Set(['voice_adjust', 'voice_reset', 'word_emphasis', 'subtitle', 'show_overlay', 'hide_overlay', 'hold_overlay']);
+          const METADATA_ONLY_FC_NAMES = new Set(['voice_adjust', 'voice_reset', 'word_emphasis', 'subtitle', 'show_overlay', 'hide_overlay', 'hold_overlay', 'take_note', 'milestone']);
           const allMetadataOnly = functionCalls.every(fc => METADATA_ONLY_FC_NAMES.has(fc.name));
           const hasTextArg = functionCalls.some(fc => fc.args?.text && String(fc.args.text).trim().length > 0);
           
@@ -6755,7 +6754,7 @@ Dave activated incognito so you two can talk freely without anything being recor
       // If Gemini called functions but produced no text, continue the conversation
       // OPTIMIZATION: Exclude metadata-only functions from needing continuation
       // These are speech annotations, not actions requiring a response - they work in a single call
-      const METADATA_ONLY_FUNCTIONS_OPENMIC = new Set(['VOICE_ADJUST', 'VOICE_RESET', 'WORD_EMPHASIS', 'SUBTITLE', 'SHOW', 'HIDE', 'HOLD']);
+      const METADATA_ONLY_FUNCTIONS_OPENMIC = new Set(['VOICE_ADJUST', 'VOICE_RESET', 'WORD_EMPHASIS', 'SUBTITLE', 'SHOW', 'HIDE', 'HOLD', 'TAKE_NOTE', 'MILESTONE']);
       const functionsNeedingContinuationOpenMic = functionCallsCopyOpenMic.filter(
         fc => !METADATA_ONLY_FUNCTIONS_OPENMIC.has(fc.legacyType || '')
       );
@@ -6849,12 +6848,11 @@ Dave activated incognito so you two can talk freely without anything being recor
       }
       
       if (metrics.sentenceCount === 0 && hadFunctionCallsOpenMic && functionsNeedingContinuationOpenMic.length > 0) {
-        console.log(`[Multi-Step FC - OpenMic] Function calls with no text detected - continuing conversation`);
-        console.log(`[Multi-Step FC - OpenMic] Functions executed: ${functionCallsCopyOpenMic.map(fc => fc.name).join(', ')}`);
-        console.log(`[Multi-Step FC - OpenMic] Functions needing continuation: ${functionsNeedingContinuationOpenMic.map(fc => fc.name).join(', ') || 'none'}`);
+        console.log(`[Multi-Step FC - OpenMic] Functions need continuation: ${functionsNeedingContinuationOpenMic.map(fc => fc.name).join(', ')}`);
+        console.log(`[Multi-Step FC - OpenMic] All functions executed: ${functionCallsCopyOpenMic.map(fc => fc.name).join(', ')}`);
         
         // PRIORITY CHECK: If voice_adjust already provided embedded text, use it NOW and skip continuation
-        // This handles cases like voice_adjust + play_audio or voice_adjust + take_note
+        // This handles cases like voice_adjust + play_audio where voice_adjust has embedded spoken text
         const rawEmbeddedTextBeforeContinuation = ensureTrailingPunctuation(((session as any).functionCallText || '').trim());
         const embeddedTextBeforeContinuation = cleanTextForDisplay(rawEmbeddedTextBeforeContinuation).trim();
         if (embeddedTextBeforeContinuation) {
