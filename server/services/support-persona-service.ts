@@ -517,7 +517,7 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
     
     try {
       const response = await gemini.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3-flash-preview',
         contents: [{ role: 'user', parts: [{ text: params.userDescription }] }],
         config: {
           systemInstruction: systemPrompt,
@@ -915,7 +915,7 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
       console.log(`[Sofia] Calling Gemini API for ticket ${params.ticketId} (mode: ${params.mode})`);
       
       const response = await gemini.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3-flash-preview',
         contents: geminiContents,
         config: {
           systemInstruction: systemPrompt,
@@ -1496,7 +1496,7 @@ Provide a concise technical analysis (3-5 sentences):
 4. Expected timeline for resolution (if degraded) or confirmation of stability (if recovered)`;
 
       const response = await gemini.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3-flash-preview',
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
           maxOutputTokens: 300,
