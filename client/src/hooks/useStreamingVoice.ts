@@ -195,6 +195,13 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   const setIsProcessingRef = useRef(setIsProcessing);
   setIsProcessingRef.current = setIsProcessing;
   
+  // Turn counter: prevents stale failsafe timers from old turns from firing during
+  // new turns. Each timer captures the turn number at creation time and bails if
+  // the current turn has advanced. Without this, old 45s timers see
+  // responseCompleteRef=true (set by a NEWER turn) and incorrectly fire, calling
+  // player.stop() which cuts off audio mid-sentence and triggers Sofia popups.
+  const turnCounterRef = useRef(0);
+  
   // Track whether audio has been received in the current turn
   // When true, isProcessing should stay true until playback actually starts
   // This prevents the thinking→listening flash when response_complete arrives
@@ -930,15 +937,15 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     // Check if we can clear isProcessing (no pending audio)
     checkAndClearProcessing();
     
+    // Increment turn counter so stale failsafe timers from previous turns bail out.
+    // Without this, a 45s timer from Turn 1 fires during Turn 3, sees
+    // responseCompleteRef=true (set by Turn 3), and incorrectly stops audio.
+    const thisTurn = ++turnCounterRef.current;
+    
     // FAILSAFE: If checkAndClearProcessing didn't clear isProcessing (e.g., due to
     // pendingAudioCount stuck > 0 from a previous bug), schedule a delayed force-clear.
-    // Progressive PCM streaming never increments pendingAudioCount, so if response_complete
-    // arrived, it's safe to clear after a short delay for audio to finish.
-    // 1s is sufficient — the audio player's timing loop handles actual playback state.
-    // NOTE: We don't reset globalPlaybackState here because 1s is too early —
-    // audio may legitimately still be playing. Only the longer failsafes (10s/20s/45s)
-    // should force-reset playback state.
     setTimeout(() => {
+      if (turnCounterRef.current !== thisTurn) return;
       if (responseCompleteRef.current && pendingAudioCountRef.current === 0) {
         audioReceivedInTurnRef.current = false;
         setIsProcessingRef.current(false);
@@ -946,16 +953,17 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     }, 1000);
     
     // TIERED HARD FAILSAFE: Two tiers to cover both mobile and desktop lockout.
+    // Each timer checks turnCounterRef to avoid acting on a stale turn.
     //
     // Tier 1 (20s): AudioContext-aware — catches mobile suspension where audio callbacks
-    // never fire because the OS suspended the AudioContext. Only triggers when context
-    // is suspended/closed/uninitialized, preventing premature mic unlock on desktop.
+    // never fire because the OS suspended the AudioContext.
     setTimeout(() => {
+      if (turnCounterRef.current !== thisTurn) return;
       if (!responseCompleteRef.current) return;
       const player = playerRef.current;
       const ctxState = player?.getAudioContextState?.() || 'unknown';
       if (ctxState === 'suspended' || ctxState === 'closed' || ctxState === 'uninitialized') {
-        console.log(`[StreamingVoice] Tier-1 failsafe (20s): AudioContext ${ctxState} — force-clearing isProcessing AND playback state (pending=${pendingAudioCountRef.current})`);
+        console.log(`[StreamingVoice] Tier-1 failsafe (20s): AudioContext ${ctxState} — force-clearing (turn=${thisTurn}, pending=${pendingAudioCountRef.current})`);
         diagMarkFailsafe('tier1_20s', { ctxState, pending: pendingAudioCountRef.current });
         reportDiagnostic('failsafe_tier1_20s', { failsafeTier: 'tier1_20s' });
         pendingAudioCountRef.current = 0;
@@ -966,33 +974,28 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       }
     }, 20000);
     
-    // Tier 2 (45s): Catches stuck states including desktop scenarios where AudioContext
-    // is "running" but audio callbacks silently failed (decode error, timing loop stall,
-    // race condition). If response_complete arrived 45s ago and mic is still locked,
-    // something is likely stuck.
-    // PLAYBACK-AWARE: If audio is actively playing at 45s, defer to 90s to allow
-    // legitimate long responses to finish. Only force-reset immediately if audio
-    // is NOT playing (genuinely stuck state).
+    // Tier 2 (45s): Catches stuck states where AudioContext is "running" but audio
+    // callbacks silently failed. Playback-aware: if audio is actively playing or
+    // buffering, defer to 90s instead of force-stopping.
     setTimeout(() => {
+      if (turnCounterRef.current !== thisTurn) return;
       if (!responseCompleteRef.current) return;
       const player = playerRef.current;
       const ctxState = player?.getAudioContextState?.() || 'unknown';
       const currentPlayback = getGlobalPlaybackState();
       
-      if (currentPlayback === 'playing') {
-        console.log(`[StreamingVoice] Tier-2 failsafe (45s): audio still playing — deferring to 90s (ctxState=${ctxState})`);
-        // Audio is legitimately playing. Defer the force-reset to 90s.
-        // Still reset isProcessing so mic unlocks when audio finishes naturally.
+      if (currentPlayback === 'playing' || currentPlayback === 'buffering') {
+        console.log(`[StreamingVoice] Tier-2 failsafe (45s): audio active (${currentPlayback}) — deferring to 90s, unlocking mic (turn=${thisTurn})`);
         pendingAudioCountRef.current = 0;
         audioReceivedInTurnRef.current = false;
         setIsProcessingRef.current(false);
         
-        // Schedule a final hard stop at 90s as absolute safety net
         setTimeout(() => {
+          if (turnCounterRef.current !== thisTurn) return;
           if (!responseCompleteRef.current) return;
           const finalPlayback = getGlobalPlaybackState();
           const finalCtxState = player?.getAudioContextState?.() || 'unknown';
-          console.log(`[StreamingVoice] Tier-2 extended failsafe (90s): force-clear (playback=${finalPlayback}, ctxState=${finalCtxState})`);
+          console.log(`[StreamingVoice] Tier-2 extended failsafe (90s): force-clear (playback=${finalPlayback}, ctxState=${finalCtxState}, turn=${thisTurn})`);
           diagMarkFailsafe('tier2_90s', { ctxState: finalCtxState, pending: pendingAudioCountRef.current });
           reportDiagnostic('failsafe_tier2_45s', { failsafeTier: 'tier2_90s' });
           pendingAudioCountRef.current = 0;
@@ -1000,9 +1003,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
           setIsProcessingRef.current(false);
           setGlobalPlaybackState('idle');
           player?.stop?.();
-        }, 45000); // Additional 45s = 90s total
+        }, 45000);
       } else {
-        console.log(`[StreamingVoice] Tier-2 failsafe (45s): audio NOT playing — force-clear (playback=${currentPlayback}, ctxState=${ctxState}, pending=${pendingAudioCountRef.current})`);
+        console.log(`[StreamingVoice] Tier-2 failsafe (45s): audio NOT active (${currentPlayback}) — force-clear (turn=${thisTurn}, pending=${pendingAudioCountRef.current})`);
         diagMarkFailsafe('tier2_45s', { ctxState, pending: pendingAudioCountRef.current });
         reportDiagnostic('failsafe_tier2_45s', { failsafeTier: 'tier2_45s' });
         pendingAudioCountRef.current = 0;
