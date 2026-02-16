@@ -207,6 +207,8 @@ type StreamingEventType =
   | 'vadUtteranceEnd'    // Open mic: VAD detected utterance end
   | 'interimTranscript'  // Open mic: Real-time interim transcript
   | 'openMicSessionClosed' // Open mic: Server session closed (e.g., Deepgram timeout)
+  | 'openMicSilenceLoop'  // Open mic: Consecutive empty transcripts detected
+  | 'reconnected'         // Successfully reconnected after a drop
   | 'inputModeChanged'   // Input mode switched
   | 'responseComplete'
   | 'feedback'
@@ -243,6 +245,8 @@ export class StreamingVoiceClient {
   private lastSessionConfig: StreamingSessionConfig | null = null;  // Store for reconnect
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private intentionalDisconnect = false;  // Track if disconnect was user-initiated
+  private consecutiveSessionErrors = 0;
+  private readonly MAX_SESSION_ERRORS = 5;
   
   // Heartbeat state for fast drop detection
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
@@ -706,6 +710,9 @@ export class StreamingVoiceClient {
     return btoa(binary);
   }
   
+  private greetingTimer: ReturnType<typeof setTimeout> | null = null;
+  private greetingRetried = false;
+
   /**
    * Request AI-generated personalized greeting
    * Called when starting a new conversation or resuming a previous one
@@ -722,6 +729,29 @@ export class StreamingVoiceClient {
       userName,
       isResumed,
     });
+
+    if (this.greetingTimer) clearTimeout(this.greetingTimer);
+    this.greetingRetried = false;
+    this.greetingTimer = setTimeout(() => {
+      if (this.greetingRetried) return;
+      this.greetingRetried = true;
+      console.warn('[StreamingVoice] Greeting delivery timeout (8s) — re-requesting greeting');
+      if (this.isReady()) {
+        this.socket!.emit('message', {
+          type: 'request_greeting',
+          userName,
+          isResumed,
+          isRetry: true,
+        });
+      }
+    }, 8000);
+  }
+
+  private clearGreetingTimer(): void {
+    if (this.greetingTimer) {
+      clearTimeout(this.greetingTimer);
+      this.greetingTimer = null;
+    }
   }
   
   /**
@@ -1165,6 +1195,7 @@ export class StreamingVoiceClient {
   }
   
   private handleSentenceStart(message: StreamingSentenceStartMessage): void {
+    this.clearGreetingTimer();
     this.currentSentenceIndex = message.sentenceIndex;
     this.setState('streaming');
     if (message.totalSentences !== undefined) {
@@ -1329,6 +1360,7 @@ export class StreamingVoiceClient {
   }
   
   private handleResponseComplete(message: StreamingResponseCompleteMessage): void {
+    this.consecutiveSessionErrors = 0;
     // Transition back to 'ready' so client can send more audio
     this.setState('ready');
     this.callbacks.onResponseComplete?.(message.fullText ?? '', message.totalSentences);
@@ -1342,6 +1374,32 @@ export class StreamingVoiceClient {
       this.emit('ttsError', { code: message.code, message: message.message });
       console.warn(`[StreamingVoice] TTS error (recoverable, session continues): ${message.message}`);
       return;
+    }
+
+    if (message.message?.includes('Session not ready')) {
+      this.consecutiveSessionErrors++;
+      console.warn(`[StreamingVoice] Session not ready error #${this.consecutiveSessionErrors}/${this.MAX_SESSION_ERRORS}`);
+      if (this.consecutiveSessionErrors >= this.MAX_SESSION_ERRORS) {
+        console.error(`[StreamingVoice] Too many session errors — ending zombie reconnection loop`);
+        this.intentionalDisconnect = true;
+        if (this.reconnectTimer) {
+          clearTimeout(this.reconnectTimer);
+          this.reconnectTimer = null;
+        }
+        this.reconnectAttempts = this.maxReconnectAttempts;
+        if (this.socket) {
+          this.socket.disconnect();
+          this.socket = null;
+          this.sessionId = null;
+        }
+        this.setState('disconnected');
+        this.emit('error', { 
+          code: 'SESSION_EXPIRED', 
+          message: 'This session has ended. Please start a new conversation.',
+          recoverable: false 
+        });
+        return;
+      }
     }
 
     this.emit('error', new Error(message.message));
@@ -1391,6 +1449,7 @@ export class StreamingVoiceClient {
   private handleDisconnect(): void {
     this.socket = null;
     this.sessionId = null;
+    this.clearGreetingTimer();
     
     // Skip auto-reconnect if disconnect was user-initiated
     if (this.intentionalDisconnect) {
@@ -1423,6 +1482,7 @@ export class StreamingVoiceClient {
         try {
           await this.connect(this.lastConversationId!);
           this.reconnectAttempts = 0;
+          this.consecutiveSessionErrors = 0;
           this.intentionalDisconnect = false;
           
           // CRITICAL: Reinitialize the server-side session after reconnection
@@ -1431,6 +1491,8 @@ export class StreamingVoiceClient {
             console.log('[StreamingVoice] Reconnected - reinitializing session');
             this.startSession(this.lastSessionConfig);
           }
+
+          this.emit('reconnected', { timestamp: Date.now() });
         } catch (err) {
           // handleDisconnect will be called again, triggering next attempt
         }

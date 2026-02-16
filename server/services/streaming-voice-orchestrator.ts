@@ -1473,6 +1473,86 @@ export class StreamingVoiceOrchestrator {
       console.log(`[Streaming Orchestrator] TTS state callback set for session ${sessionId}`);
     }
   }
+
+  /**
+   * Speak a short recovery phrase via TTS when echo suppression ate the student's words.
+   * Lightweight path — no Gemini call, just direct TTS synthesis.
+   * Daniela gently re-engages: "I think I missed that — could you try again?"
+   */
+  async speakRecoveryPhrase(sessionId: string): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (!session || !session.isActive) return;
+
+    const recoveryKey = `lastRecoveryPhrase`;
+    const lastRecovery = (session as any)[recoveryKey] as number | undefined;
+    const now = Date.now();
+    if (lastRecovery && now - lastRecovery < 15000) {
+      console.log(`[Recovery] Skipping — last recovery phrase was ${Math.round((now - lastRecovery) / 1000)}s ago`);
+      return;
+    }
+    (session as any)[recoveryKey] = now;
+
+    const phrases: Record<string, string[]> = {
+      spanish: [
+        "I think I missed what you said — could you try again?",
+        "Sorry about that — I didn't quite catch it. One more time?",
+        "Hmm, it seems like there was a little hiccup. Could you repeat that for me?",
+      ],
+      french: [
+        "I think I missed what you said — could you try again?",
+        "Sorry about that — I didn't quite catch it. One more time?",
+      ],
+      default: [
+        "I think I missed what you said — could you try again?",
+        "Sorry about that — I didn't quite catch it. Can you say that one more time?",
+        "It looks like there was a small audio hiccup. Could you repeat that?",
+      ],
+    };
+
+    const langPhrases = phrases[session.targetLanguage] || phrases.default;
+    const phrase = langPhrases[Math.floor(Math.random() * langPhrases.length)];
+
+    console.log(`[Recovery] Speaking re-engagement phrase for session ${sessionId}: "${phrase}"`);
+
+    const turnId = `recovery-${now}`;
+    const sentenceChunk = { index: 0, text: phrase };
+    const metrics: StreamingMetrics = {
+      sttMs: 0, contextFetchMs: 0, geminiMs: 0, geminiFirstTokenMs: 0,
+      ttsMs: 0, ttsFirstByteMs: 0, totalMs: 0,
+      sentenceCount: 1, functionCallCount: 0,
+    };
+
+    try {
+      this.sendMessage(session.ws, {
+        type: 'sentence_start',
+        timestamp: now,
+        turnId: turnId as any,
+        sentenceIndex: 0,
+        text: phrase,
+      } as any);
+
+      await this.streamSentenceAudioProgressive(session, sentenceChunk, phrase, metrics, turnId as any);
+
+      this.sendMessage(session.ws, {
+        type: 'sentence_end',
+        timestamp: Date.now(),
+        turnId: turnId as any,
+        sentenceIndex: 0,
+      } as any);
+
+      this.sendMessage(session.ws, {
+        type: 'response_complete',
+        timestamp: Date.now(),
+        turnId: turnId as any,
+        metrics,
+        isRecoveryPhrase: true,
+      } as any);
+
+      console.log(`[Recovery] Re-engagement phrase delivered successfully`);
+    } catch (err: any) {
+      console.error(`[Recovery] Failed to speak recovery phrase: ${err.message}`);
+    }
+  }
   
   /**
    * Create a new streaming session

@@ -83,8 +83,7 @@ interface ImmersiveTutorProps {
   isProcessing?: boolean;
   isPlaying: boolean;
   isConnecting?: boolean;
-  // Explicit "user's turn" flag - mic is ONLY unlocked when this is true
-  // This is the inverse of mic lockout and covers ALL non-user-turn states
+  isReconnecting?: boolean;
   isUsersTurn?: boolean;
   onToggleView?: () => void;
   onEndCall?: () => void;
@@ -138,6 +137,7 @@ export function ImmersiveTutor({
   isProcessing = false,
   isPlaying,
   isConnecting = false,
+  isReconnecting = false,
   isUsersTurn = true,
   onToggleView,
   onEndCall,
@@ -783,37 +783,22 @@ export function ImmersiveTutor({
         
         {/* Instruction text - simple two-state model */}
         {/* Debug: Log instruction text state changes */}
-        {(() => {
-          const instructionText = isConnecting 
-            ? `Calling ${tutorGender === 'male' ? maleVoiceName : femaleVoiceName}...` 
-            : inputMode === 'open-mic'
-              ? ""
-              : isRecording || isPttButtonHeld
-                ? "Release to send"
-                : isMicPreparing 
-                  ? "Preparing mic..." 
-                  : isProcessing 
-                    ? "Processing..." 
-                    : isPlaying || !isUsersTurn
-                      ? "Please wait..."
-                      : "Hold to speak";
-          console.log(`[INSTRUCTION DEBUG] text="${instructionText}" isPttButtonHeld=${isPttButtonHeld} isRecording=${isRecording} isPlaying=${isPlaying} isUsersTurn=${isUsersTurn} isProcessing=${isProcessing}`);
-          return null;
-        })()}
         <p className="text-xs text-muted-foreground" data-testid="text-mic-instruction">
-          {isConnecting 
-            ? `Calling ${tutorGender === 'male' ? maleVoiceName : femaleVoiceName}...` 
-            : inputMode === 'open-mic'
-              ? ""
-              : isRecording || isPttButtonHeld
-                ? "Release to send"
-                : isMicPreparing 
-                  ? "Preparing mic..." 
-                  : isProcessing 
-                    ? "Processing..." 
-                    : isPlaying || !isUsersTurn
-                      ? "Please wait..."
-                      : "Hold to speak"
+          {isReconnecting
+            ? "Reconnecting..."
+            : isConnecting 
+              ? `Calling ${tutorGender === 'male' ? maleVoiceName : femaleVoiceName}...` 
+              : inputMode === 'open-mic'
+                ? ""
+                : isRecording || isPttButtonHeld
+                  ? "Release to send"
+                  : isMicPreparing 
+                    ? "Preparing mic..." 
+                    : isProcessing 
+                      ? "Processing..." 
+                      : isPlaying || !isUsersTurn
+                        ? "Please wait..."
+                        : "Hold to speak"
           }
         </p>
         

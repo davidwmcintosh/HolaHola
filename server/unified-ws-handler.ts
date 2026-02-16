@@ -1746,6 +1746,13 @@ Reference past discussions when relevant, but don't force it.
                         consecutiveEmptyCount: diag.consecutiveEmptyCount,
                         msSinceLastSuccessfulTranscript: diag.msSinceLastSuccessfulTranscript,
                       }));
+
+                      if (diag.consecutiveEmptyCount === 5 && session?.id) {
+                        console.log('[OpenMic] Triggering Daniela recovery phrase (echo ate student words)');
+                        orchestrator.speakRecoveryPhrase(session.id).catch((err: any) =>
+                          console.error('[OpenMic] Recovery phrase failed:', err.message)
+                        );
+                      }
                     }
                   }
                 }
@@ -3582,13 +3589,20 @@ ${buildNativeFunctionCallingSection()}`;
                   
                   if (openMicSession) {
                     const diag = openMicSession.getDiagnostics();
-                    if (diag.inSilenceLoop && ws.readyState === WS.OPEN) {
+                    if (diag.inSilenceLoop && ws.readyState === SocketIOWebSocketAdapter.OPEN) {
                       ws.send(JSON.stringify({
                         type: 'open_mic_silence_loop',
                         timestamp: Date.now(),
                         consecutiveEmptyCount: diag.consecutiveEmptyCount,
                         msSinceLastSuccessfulTranscript: diag.msSinceLastSuccessfulTranscript,
                       }));
+
+                      if (diag.consecutiveEmptyCount === 5 && session?.id) {
+                        console.log('[OpenMic] Triggering Daniela recovery phrase (echo ate student words)');
+                        orchestrator.speakRecoveryPhrase(session.id).catch((err: any) =>
+                          console.error('[OpenMic] Recovery phrase failed:', err.message)
+                        );
+                      }
                     }
                   }
                 }

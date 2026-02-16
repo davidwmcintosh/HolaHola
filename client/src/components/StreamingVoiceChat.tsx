@@ -732,13 +732,13 @@ export function StreamingVoiceChat({
       return;
     }
     
-    // Check for unrecoverable errors (after all reconnect attempts failed)
-    if (streamError.includes('Please restart')) {
+    // Check for unrecoverable errors (after all reconnect attempts failed or session expired)
+    if (streamError.includes('Please restart') || streamError.includes('session has ended') || streamError.includes('Please start a new')) {
       console.log('[STREAMING] Unrecoverable error - redirecting to language hub');
       stopRinging();
       toast({
-        title: "Connection lost",
-        description: "Unable to reconnect. Please try again.",
+        title: "Session ended",
+        description: "The connection was lost. Let's start fresh!",
         variant: "destructive",
       });
       setTimeout(() => {
@@ -1002,6 +1002,12 @@ export function StreamingVoiceChat({
             if (emptyCount >= 8 && inputModeRef.current === 'open-mic') {
               setOpenMicState('silence_issue');
             }
+          },
+          onReconnected: () => {
+            toast({
+              title: "Connection restored",
+              description: "We're back — let's continue where we left off.",
+            });
           },
           onTutorHandoff: (handoff) => {
             const { targetGender, targetLanguage, tutorName, isLanguageSwitch, isAssistant } = handoff;
@@ -2916,6 +2922,12 @@ export function StreamingVoiceChat({
                   setOpenMicState('silence_issue');
                 }
               },
+              onReconnected: () => {
+                toast({
+                  title: "Connection restored",
+                  description: "We're back — let's continue where we left off.",
+                });
+              },
               onTutorHandoff: (handoff) => {
                 const { targetGender, targetLanguage, tutorName, isLanguageSwitch, isAssistant } = handoff;
                 
@@ -3327,6 +3339,7 @@ export function StreamingVoiceChat({
           isProcessing={isProcessing}
           isPlaying={globalPlaybackState === 'playing' || globalPlaybackState === 'buffering'}
           isConnecting={useStreamingMode && (streamingVoice.state.connectionState === 'connecting' || streamingVoice.state.connectionState === 'reconnecting')}
+          isReconnecting={useStreamingMode && streamingVoice.state.connectionState === 'reconnecting'}
           isUsersTurn={
             // Mic is ONLY unlocked when ALL of these are true:
             // 1. Connection is 'ready' OR 'connected' OR 'streaming' (all valid working states)
