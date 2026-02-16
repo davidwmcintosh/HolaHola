@@ -1598,10 +1598,18 @@ export class TTSService {
     
     // If a specific voice override is provided (e.g., for assistant tutors), use it directly
     if (voiceOverride) {
-      // Parse the voice name to extract language code (e.g., "es-ES-Chirp3-HD-Eosi" → "es-ES")
-      const voiceParts = voiceOverride.split('-');
-      const languageCode = voiceParts.length >= 2 ? `${voiceParts[0]}-${voiceParts[1]}` : 'en-US';
-      voiceConfig = { name: voiceOverride, languageCode };
+      if (voiceOverride.includes('Chirp3-HD')) {
+        const voiceParts = voiceOverride.split('-');
+        const languageCode = voiceParts.length >= 2 ? `${voiceParts[0]}-${voiceParts[1]}` : 'en-US';
+        voiceConfig = { name: voiceOverride, languageCode };
+      } else if (!voiceOverride.includes('-')) {
+        const langCode = 'en-US';
+        voiceConfig = { name: `${langCode}-Chirp3-HD-${voiceOverride}`, languageCode: langCode };
+      } else {
+        const voiceParts = voiceOverride.split('-');
+        const languageCode = voiceParts.length >= 2 ? `${voiceParts[0]}-${voiceParts[1]}` : 'en-US';
+        voiceConfig = { name: voiceOverride, languageCode };
+      }
       console.log(`[Google TTS] Using voice override: ${voiceConfig.name} (${voiceConfig.languageCode}) for assistant tutor`);
     } else if (usesSSML) {
       // Use Neural2 voice for SSML compatibility
