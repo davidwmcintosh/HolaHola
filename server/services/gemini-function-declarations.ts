@@ -76,6 +76,18 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
     },
   },
   {
+    name: "check_student_credits",
+    description: "Check the student's current credit balance, usage, and remaining session time. Use this to pace lessons, warn about low credits, or answer questions about their account. Returns real-time balance data.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        text: { type: "string", description: "What you say to the student while checking (e.g., 'Let me check your balance for you...')" },
+        reason: { type: "string", description: "Why you're checking (e.g., 'student asked', 'lesson pacing', 'proactive check')" },
+      },
+      required: ["text"],
+    },
+  },
+  {
     name: "call_support",
     description: "Hand off to Sofia support agent for technical or account issues.",
     parametersJsonSchema: {
@@ -603,6 +615,7 @@ export const FUNCTION_TO_COMMAND_MAP: Record<string, string> = {
   'phase_shift': 'PHASE_SHIFT',
   'actfl_update': 'ACTFL_UPDATE',
   'syllabus_progress': 'SYLLABUS_PROGRESS',
+  'check_student_credits': 'CHECK_STUDENT_CREDITS',
   'call_support': 'CALL_SUPPORT',
   'call_assistant': 'CALL_ASSISTANT',
   'voice_adjust': 'VOICE_ADJUST',

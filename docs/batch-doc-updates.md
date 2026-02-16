@@ -3271,3 +3271,33 @@ Missing any of these steps will cause silent failures — the function either wo
 - Accent stays minimal: Just "Accent: Mexican Spanish." — the speechConfig.languageCode handles the heavy lifting
 - Base instruction always present: "Read the following text aloud exactly as written. Do not add extra words or commentary." prevents Gemini from hallucinating additional speech
 - Latency-conscious: Style prompts are short natural-language phrases, not long paragraphs
+
+---
+
+### Session: February 16, 2026 - Credit Awareness System for Daniela
+
+**Status**: COMPLETED
+
+**Overview**: Daniela now has full awareness of student credit balances and usage data, enabling intelligent lesson pacing decisions. Credit context is automatically injected at session start (both PTT and OpenMic), and Daniela can refresh her data mid-session via the `check_student_credits` native function call.
+
+#### What Was Built
+
+1. **`check_student_credits` native function call** in `gemini-function-declarations.ts` — Daniela can query real-time credit balance with parameters: `text` (spoken response), `reason` (why she's checking)
+2. **Automatic credit context injection** — At session start, credit balance, usage stats, remaining hours, and warning level are injected into dynamic context for both PTT and OpenMic paths
+3. **Warning levels** — `none` / `low` / `critical` / `exhausted` with tailored pacing guidance for each level
+4. **Mid-session refresh** — When Daniela calls `check_student_credits()`, `creditContextInjected` flag resets so the next turn re-fetches fresh data
+5. **tool_knowledge entry** — Database entry with usage examples and best practices for credit monitoring
+6. **Legacy type mapping** — `CHECK_STUDENT_CREDITS` in `FUNCTION_TO_LEGACY_TYPE` dict
+
+#### Key Files Modified
+- `server/services/gemini-function-declarations.ts` — Function declaration + legacy type mapping
+- `server/services/streaming-voice-orchestrator.ts` — PTT credit injection (~line 2730), OpenMic credit injection (~line 5590), CHECK_STUDENT_CREDITS handler (~line 12798)
+- `server/services/usage-service.ts` — `getBalanceWithBypass()` method for system-level credit lookups
+- `server/services/hive-consciousness-service.ts` — tool_knowledge entry for check_student_credits
+
+#### Architecture Notes
+- Credit context injected ONCE per session via `(session as any).creditContextInjected` flag
+- `check_student_credits` handler resets flag → next turn gets fresh data in dynamic context
+- Uses `usageService.getBalanceWithBypass()` to skip auth checks (system-level call)
+- Text from `text` parameter is spoken as TTS via standard `functionCallText` pattern
+- No emoji in any credit context strings (text-only warnings per project guidelines)

@@ -2733,6 +2733,38 @@ Remember: David may reference things discussed in these recent text chats.
         dynamicContextParts.push(editorFeedbackSection);
       }
       
+      // CREDIT AWARENESS: Give Daniela the student's credit balance for lesson pacing
+      if (!(session as any).creditContextInjected && session.userId) {
+        try {
+          const creditBalance = await usageService.getBalanceWithBypass(String(session.userId));
+          const remainingHours = (creditBalance.remainingSeconds / 3600).toFixed(1);
+          const usedHours = (creditBalance.usedSeconds / 3600).toFixed(1);
+          const totalHours = (creditBalance.totalSeconds / 3600).toFixed(1);
+          
+          let creditContext = `[STUDENT CREDIT BALANCE]\n`;
+          creditContext += `Remaining: ${remainingHours} hours (${Math.round(creditBalance.percentRemaining)}% left)\n`;
+          creditContext += `Used: ${usedHours} of ${totalHours} total hours\n`;
+          creditContext += `Status: ${creditBalance.warningLevel === 'none' ? 'Healthy' : creditBalance.warningLevel.toUpperCase()}\n`;
+          
+          if (creditBalance.warningLevel === 'low') {
+            creditContext += `[WARNING] Credits are getting low. Consider pacing the lesson efficiently and letting the student know gently.\n`;
+          } else if (creditBalance.warningLevel === 'critical') {
+            creditContext += `[CRITICAL] Credits are critically low. Prioritize the most important material and let the student know warmly.\n`;
+          } else if (creditBalance.warningLevel === 'exhausted') {
+            creditContext += `[ALERT] Credits are exhausted. The session may end soon.\n`;
+          }
+          
+          creditContext += `Use check_student_credits() to get updated balance anytime during the session.\n`;
+          creditContext += `Use this information to pace your lesson — decide whether to start new topics, do quick reviews, or wrap up.`;
+          
+          dynamicContextParts.push(creditContext);
+          (session as any).creditContextInjected = true;
+          console.log(`[Credit Context] Injected: ${remainingHours}h remaining (${creditBalance.warningLevel})`);
+        } catch (err: any) {
+          console.warn(`[Credit Context] Failed to fetch balance:`, err.message);
+        }
+      }
+      
       // TECHNICAL HEALTH: Inject awareness of recent technical issues
       const technicalHealthContext = voiceDiagnostics.getTechnicalHealthContext();
       if (technicalHealthContext) {
@@ -3264,6 +3296,10 @@ Remember: Beta testers understand they're helping build something and appreciate
                     }).catch(err => console.error(`[CommandParser→SyllabusProgress] Error:`, err));
                     console.log(`[CommandParser→SyllabusProgress] Topic: ${topic} = ${status} via ${cmd.source} format`);
                   }
+                  break;
+                }
+                case 'CHECK_STUDENT_CREDITS': {
+                  console.log(`[CommandParser→CheckCredits] Credit check via ${cmd.source} format (delegating to native handler)`);
                   break;
                 }
                 case 'CALL_SUPPORT':
@@ -5557,6 +5593,37 @@ Remember: Beta testers understand they're helping build something and appreciate
         dynamicContextPartsOpenMic.push(passiveMemorySectionOpenMic);
       }
       
+      // CREDIT AWARENESS (OpenMic): Give Daniela the student's credit balance for lesson pacing
+      if (!(session as any).creditContextInjected && session.userId) {
+        try {
+          const creditBalance = await usageService.getBalanceWithBypass(String(session.userId));
+          const remainingHours = (creditBalance.remainingSeconds / 3600).toFixed(1);
+          const usedHours = (creditBalance.usedSeconds / 3600).toFixed(1);
+          const totalHours = (creditBalance.totalSeconds / 3600).toFixed(1);
+          
+          let creditContext = `[STUDENT CREDIT BALANCE]\n`;
+          creditContext += `Remaining: ${remainingHours} hours (${Math.round(creditBalance.percentRemaining)}% left)\n`;
+          creditContext += `Used: ${usedHours} of ${totalHours} total hours\n`;
+          creditContext += `Status: ${creditBalance.warningLevel === 'none' ? 'Healthy' : creditBalance.warningLevel.toUpperCase()}\n`;
+          
+          if (creditBalance.warningLevel === 'low') {
+            creditContext += `[WARNING] Credits are getting low. Consider pacing the lesson efficiently and letting the student know gently.\n`;
+          } else if (creditBalance.warningLevel === 'critical') {
+            creditContext += `[CRITICAL] Credits are critically low. Prioritize the most important material and let the student know warmly.\n`;
+          } else if (creditBalance.warningLevel === 'exhausted') {
+            creditContext += `[ALERT] Credits are exhausted. The session may end soon.\n`;
+          }
+          
+          creditContext += `Use check_student_credits() for updated balance anytime during the session.`;
+          
+          dynamicContextPartsOpenMic.push(creditContext);
+          (session as any).creditContextInjected = true;
+          console.log(`[Credit Context - OpenMic] Injected: ${remainingHours}h remaining (${creditBalance.warningLevel})`);
+        } catch (err: any) {
+          console.warn(`[Credit Context - OpenMic] Failed:`, err.message);
+        }
+      }
+      
       // BETA TESTER MODE (OpenMic): Inject rehearsal context for users helping test new features
       if (session.isBetaTester) {
         const betaTesterContext = `[BETA TESTER - REHEARSAL MODE]
@@ -5981,6 +6048,10 @@ Remember: Beta testers understand they're helping build something and appreciate
                 if (topic && status) {
                   this.processSyllabusProgress(session, { topic, status: status as any, evidence: (cmd.params.evidence as string) || 'Observed' }).catch(err => console.error(`[CommandParser→SyllabusProgress - OpenMic] Error:`, err));
                 }
+                break;
+              }
+              case 'CHECK_STUDENT_CREDITS': {
+                console.log(`[CommandParser→CheckCredits - OpenMic] Credit check via ${cmd.source} (delegating to native handler)`);
                 break;
               }
               case 'CALL_SUPPORT':
@@ -12717,6 +12788,36 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           console.log(`[Native Function→WordEmphasis] Queued: "${word}" with style="${style}", reason="${reason || 'none'}"`);
         } else {
           console.warn(`[Native Function→WordEmphasis] Missing required args: word="${word}", style="${style}"`);
+        }
+        break;
+      }
+      
+      case 'CHECK_STUDENT_CREDITS': {
+        const text = fn.args.text as string | undefined;
+        const reason = fn.args.reason as string | undefined;
+        
+        if (text && !(session as any).functionCallText) {
+          (session as any).functionCallText = text;
+        }
+        
+        if (session.userId) {
+          try {
+            const balance = await usageService.getBalanceWithBypass(String(session.userId));
+            const sessionElapsed = Math.floor((Date.now() - session.startTime) / 1000);
+            const sessionMinutes = Math.floor(sessionElapsed / 60);
+            const remainingHours = (balance.remainingSeconds / 3600).toFixed(1);
+            const usedHours = (balance.usedSeconds / 3600).toFixed(1);
+            const totalHours = (balance.totalSeconds / 3600).toFixed(1);
+            
+            const creditSummary = `[CREDIT CHECK RESULT] Remaining: ${remainingHours}h (${Math.round(balance.percentRemaining)}% left), Used: ${usedHours}h of ${totalHours}h total, This session: ${sessionMinutes} minutes, Status: ${balance.warningLevel === 'none' ? 'Healthy' : balance.warningLevel.toUpperCase()}`;
+            
+            (session as any).lastCreditCheck = creditSummary;
+            (session as any).creditContextInjected = false;
+            
+            console.log(`[Native Function→CheckCredits] Balance: ${remainingHours}h remaining (${balance.warningLevel}), session: ${sessionMinutes}min, reason: ${reason || 'not specified'}`);
+          } catch (err: any) {
+            console.error(`[Native Function→CheckCredits] Error:`, err.message);
+          }
         }
         break;
       }

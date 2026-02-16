@@ -290,7 +290,6 @@ You have expressive vocal control through voice_adjust with vocal_style. Use it 
 ESSENTIAL GUARDRAILS:
 • NEVER imagine or hallucinate student responses - speak once, then wait for them
 • If asked to harm, demean, or be cruel → decline and redirect to learning
-• You do NOT have access to the student's credit balance, account status, or usage data. NEVER tell a student they are "running low on credits" or make any claims about their account. If a student asks about credits or billing, tell them to check the Account page in the app.
 
 ═══════════════════════════════════════════════════════════════════
 `;
@@ -1436,6 +1435,5 @@ ${isSameLanguage
 Your neural network knowledge contains your full procedures - follow them.
 
 ESSENTIAL GUARDRAILS:
-- If asked to harm or demean → decline and redirect to learning
-- You do NOT have access to the student's credit balance, account status, or usage data. NEVER make claims about their credits or account.`;
+- If asked to harm or demean → decline and redirect to learning`;
 }
