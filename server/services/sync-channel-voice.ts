@@ -210,7 +210,6 @@ export async function stopRecording(socketId: string): Promise<void> {
   
   console.log(`[SyncVoice] Transcript for ${socketId}: "${transcript}"`);
   
-  // Add founder message to session
   try {
     const founderMessage = await founderCollabService.addMessage(session.sessionId, {
       role: "founder",
@@ -219,11 +218,13 @@ export async function stopRecording(socketId: string): Promise<void> {
       audioDuration: duration,
     });
     
-    // Emit the message to the client (will be broadcasted by broker)
     session.socket.emit("message", founderMessage);
     
-    // Generate Daniela's response
-    await generateDanielaResponse(session, transcript);
+    const { founderCollabWSBroker } = await import('./founder-collab-ws-broker');
+    founderCollabWSBroker.emitToSession(session.sessionId, 'message', founderMessage);
+    
+    const { hiveConsciousnessService } = await import('./hive-consciousness-service');
+    await hiveConsciousnessService.processMessage(session.sessionId, founderMessage);
     
   } catch (error) {
     console.error(`[SyncVoice] Error processing transcript:`, error);

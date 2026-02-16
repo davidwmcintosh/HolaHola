@@ -44,6 +44,7 @@ interface AgentResponse {
 interface ParticipationDecision {
   daniela: boolean;
   wren: boolean;
+  alden: boolean;
   reason: string;
 }
 
@@ -238,21 +239,24 @@ class HiveConsciousnessService {
       .map(m => `[${getRoleDisplayName(m.role)}]: ${m.content.substring(0, 200)}`)
       .join('\n');
     
-    const routerPrompt = `You are the participation router for a 3-way collaboration chat between:
+    const routerPrompt = `You are the participation router for a 4-way collaboration chat between:
 - FOUNDER (David): The product visionary and decision maker
 - DANIELA: The AI language tutor - expert in pedagogy, teaching strategies, student psychology, language learning
 - WREN: The technical builder - expert in code, architecture, databases, APIs, implementation
+- ALDEN: The development steward - expert in system health, diagnostics, platform operations, deployment, and operational decisions
 
 Your job: Decide who should respond to the founder's message.
 
 RULES:
-1. If founder explicitly mentions "daniela", "wren", or "team" - those mentioned MUST respond
+1. If founder explicitly mentions "daniela", "wren", "alden", or "team"/"everyone"/"all" - those mentioned MUST respond
 2. If it's a question or discussion topic - at least ONE agent should respond
 3. If it's teaching/pedagogy related - Daniela should respond
-4. If it's technical/code related - Wren should respond  
-5. If it's general collaboration/planning - both can add value
-6. If it's a simple acknowledgment ("ok", "thanks", "got it") - neither needs to respond
-7. When in doubt, have someone respond - silence kills collaboration
+4. If it's technical/code related - Wren should respond
+5. If it's about system health, diagnostics, platform status, deployment, or operational concerns - Alden should respond
+6. If it's general collaboration/planning - multiple agents can add value
+7. If it's a simple acknowledgment ("ok", "thanks", "got it") - nobody needs to respond
+8. When in doubt, have someone respond - silence kills collaboration
+9. Alden is distinct from Wren: Wren builds/codes, Alden monitors/diagnoses/operates
 
 Recent conversation:
 ${contextSummary || "(No recent context)"}
@@ -261,7 +265,7 @@ New message from FOUNDER:
 "${message.content}"
 
 Respond with ONLY valid JSON (no markdown, no backticks):
-{"daniela": true/false, "wren": true/false, "reason": "brief explanation"}`;
+{"daniela": true/false, "wren": true/false, "alden": true/false, "reason": "brief explanation"}`;
 
     try {
       const response = await callGemini(GEMINI_MODELS.FLASH, [
@@ -272,16 +276,16 @@ Respond with ONLY valid JSON (no markdown, no backticks):
       const cleanResponse = response.replace(/```json\n?|\n?```/g, '').trim();
       const decision = JSON.parse(cleanResponse) as ParticipationDecision;
       
-      console.log(`[Hive Router] Decision: Daniela=${decision.daniela}, Wren=${decision.wren} | ${decision.reason}`);
+      if (decision.alden === undefined) decision.alden = false;
+      console.log(`[Hive Router] Decision: Daniela=${decision.daniela}, Wren=${decision.wren}, Alden=${decision.alden} | ${decision.reason}`);
       
       return decision;
     } catch (error) {
-      // FAIL-SAFE: If AI call fails, default to Daniela responding
-      // Better to have one response than silence
       console.error('[Hive Router] AI router failed, defaulting to Daniela:', error);
       return {
         daniela: true,
         wren: false,
+        alden: false,
         reason: 'Router fallback - AI call failed'
       };
     }
@@ -908,8 +912,7 @@ IDENTITY BOUNDARY: You are Daniela. Speak ONLY as yourself. Do NOT speak for, im
       return;
     }
     
-    // Don't respond to our own messages
-    if (message.role === 'daniela' || message.role === 'wren' || message.role === 'system') {
+    if (message.role === 'daniela' || message.role === 'wren' || message.role === 'editor' || message.role === 'system') {
       return;
     }
     
@@ -956,24 +959,20 @@ IDENTITY BOUNDARY: You are Daniela. Speak ONLY as yourself. Do NOT speak for, im
       // One intelligent call decides who should respond - no more regex patterns!
       const decision = await this.determineParticipation(message, recentMessages);
       
-      // Execute the decision
-      if (decision.daniela && decision.wren) {
-        // Both respond - Daniela first, then Wren
-        console.log('[Hive Consciousness] Both agents responding...');
-        await this.generateDanielaResponse(sessionId, message);
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        await this.generateWrenResponse(sessionId, message);
-      } else if (decision.daniela) {
-        // Just Daniela
-        console.log('[Hive Consciousness] Daniela responding...');
-        await this.generateDanielaResponse(sessionId, message);
-      } else if (decision.wren) {
-        // Just Wren
-        console.log('[Hive Consciousness] Wren responding...');
-        await this.generateWrenResponse(sessionId, message);
-      } else {
-        // Neither - but log it so we can see what was skipped
+      const responders: Array<() => Promise<void>> = [];
+      if (decision.daniela) responders.push(() => this.generateDanielaResponse(sessionId, message));
+      if (decision.wren) responders.push(() => this.generateWrenResponse(sessionId, message));
+      if (decision.alden) responders.push(() => this.generateAldenResponse(sessionId, message));
+      
+      if (responders.length === 0) {
         console.log(`[Hive Consciousness] No response needed: ${decision.reason}`);
+      } else {
+        const names = [decision.daniela && 'Daniela', decision.wren && 'Wren', decision.alden && 'Alden'].filter(Boolean).join(', ');
+        console.log(`[Hive Consciousness] ${names} responding...`);
+        for (let i = 0; i < responders.length; i++) {
+          if (i > 0) await new Promise(resolve => setTimeout(resolve, 1500));
+          await responders[i]();
+        }
       }
       
       // AI-POWERED INSIGHT DETECTION (async, non-blocking)
@@ -2208,6 +2207,48 @@ ${architecturalContext}${buildWrenInsightsSection()}${crossEnvContext}`;
       
     } catch (error) {
       console.error('[Hive Consciousness] Wren response error:', error);
+    }
+  }
+  
+  private async generateAldenResponse(sessionId: string, incomingMessage: CollaborationMessage): Promise<void> {
+    const recentMessages = await founderCollabService.getLatestMessages(sessionId, 10);
+    
+    const conversationHistory: Array<{ role: 'user' | 'model'; content: string }> = recentMessages.map((m: CollaborationMessage) => ({
+      role: (m.role === 'founder' ? 'user' : 'model') as 'user' | 'model',
+      content: `[${getRoleDisplayName(m.role)}]: ${m.content}`
+    }));
+    
+    try {
+      const { generateAldenResponse: callAlden } = await import('./alden-persona-service');
+      
+      const result = await callAlden({
+        userMessage: incomingMessage.content,
+        conversationHistory,
+        founderName: 'David',
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      });
+      
+      if (!result.response) {
+        console.warn('[Hive Consciousness] Alden generated empty response');
+        return;
+      }
+      
+      const metadata: Record<string, any> = { timestamp: new Date().toISOString() };
+      if (result.toolsUsed.length > 0) {
+        metadata.toolsUsed = result.toolsUsed;
+      }
+      
+      await founderCollabWSBroker.addAndBroadcastMessage(sessionId, {
+        role: 'editor',
+        content: sanitizeAgentResponse(result.response),
+        messageType: 'text',
+        metadata,
+      });
+      
+      console.log(`[Hive Consciousness] Alden responded: "${result.response.substring(0, 100)}..." (tools: ${result.toolsUsed.join(', ') || 'none'})`);
+      
+    } catch (error) {
+      console.error('[Hive Consciousness] Alden response error:', error);
     }
   }
   

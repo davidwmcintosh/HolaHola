@@ -1567,7 +1567,7 @@ export default function CommandCenter() {
     {
       label: 'Hive',
       tabs: [
-        { id: "alden-chat", label: "Alden", icon: Bot, roles: ['founder'] },
+        { id: "conference", label: "Conference", icon: Phone, roles: ['founder'] },
         { id: "editor-chat", label: "EXPRESS Lane", icon: MessageSquare, roles: ['admin', 'developer'] },
         { id: "dept-chat", label: "Dept Chat", icon: Lock, roles: ['admin', 'developer'] },
         { id: "collaboration", label: "Collab", icon: Handshake, roles: ['admin', 'developer'] },
@@ -1797,12 +1797,12 @@ export default function CommandCenter() {
             <SofiaIssueReportsTab />
           </TabsContent>
 
-          <TabsContent value="dept-chat" className="space-y-4">
-            <DepartmentChatTab />
+          <TabsContent value="conference" className="space-y-4">
+            <ConferenceTab />
           </TabsContent>
 
-          <TabsContent value="alden-chat" className="space-y-4">
-            <AldenChatTab />
+          <TabsContent value="dept-chat" className="space-y-4">
+            <DepartmentChatTab />
           </TabsContent>
 
           <TabsContent value="editor-chat" className="space-y-4">
@@ -7924,11 +7924,20 @@ interface AgendaItem {
 }
 
 const LazyAldenChat = lazy(() => import("@/components/AldenChat").then(m => ({ default: m.AldenChat })));
+const LazyConferenceCall = lazy(() => import("@/components/ConferenceCall").then(m => ({ default: m.ConferenceCall })));
 
 function AldenChatTab() {
   return (
     <Suspense fallback={<div className="flex items-center justify-center p-8"><Loader2 className="h-6 w-6 animate-spin" /></div>}>
       <LazyAldenChat />
+    </Suspense>
+  );
+}
+
+function ConferenceTab() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center p-8"><Loader2 className="h-6 w-6 animate-spin" /></div>}>
+      <LazyConferenceCall />
     </Suspense>
   );
 }

@@ -12662,6 +12662,61 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  app.post("/api/conference/synthesize", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { text, agent } = req.body;
+      
+      if (!text || typeof text !== 'string') {
+        return res.status(400).json({ error: 'Text is required' });
+      }
+      
+      const validAgents = ['daniela', 'wren', 'editor', 'alden'];
+      const agentRole = validAgents.includes(agent) ? agent : 'daniela';
+      const dbRole = agentRole === 'alden' ? 'alden' : agentRole === 'editor' ? 'alden' : agentRole === 'wren' ? 'support' : 'tutor';
+      
+      const { TTSService } = await import('./services/tts-service');
+      const tts = new TTSService();
+      
+      let voiceId: string | undefined;
+      let speakingRate: number | undefined;
+      
+      try {
+        const sharedDb = getSharedDb();
+        if (agentRole === 'alden' || agentRole === 'editor') {
+          const [voice] = await sharedDb.select().from(tutorVoices)
+            .where(and(eq(tutorVoices.role, 'alden'), eq(tutorVoices.isActive, true)))
+            .limit(1);
+          if (voice) { voiceId = voice.voiceId; speakingRate = voice.speakingRate || undefined; }
+        } else if (agentRole === 'wren') {
+          const [voice] = await sharedDb.select().from(tutorVoices)
+            .where(and(eq(tutorVoices.role, 'support'), eq(tutorVoices.isActive, true)))
+            .limit(1);
+          if (voice) { voiceId = voice.voiceId; speakingRate = voice.speakingRate || undefined; }
+        } else {
+          const [voice] = await sharedDb.select().from(tutorVoices)
+            .where(and(eq(tutorVoices.role, 'tutor'), eq(tutorVoices.isActive, true), eq(tutorVoices.language, 'english')))
+            .limit(1);
+          if (voice) { voiceId = voice.voiceId; speakingRate = voice.speakingRate || undefined; }
+        }
+      } catch (e) {
+      }
+      
+      const result = await tts.synthesize({
+        text,
+        language: 'english',
+        voiceId,
+        speakingRate,
+        forceProvider: 'google',
+      });
+      
+      res.set('Content-Type', result.contentType);
+      res.send(result.audioBuffer);
+    } catch (error: any) {
+      console.error('[Conference TTS] Error:', error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ===== Voice Pipeline Diagnostics (Founder Only) =====
   // Production monitoring for voice pipeline health
   
