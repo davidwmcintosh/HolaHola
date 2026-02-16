@@ -1631,7 +1631,8 @@ export class TTSService {
     const effectiveSpeakingRate = speakingRate ?? 0.9;
     console.log(`[Google TTS] Speaking rate: ${effectiveSpeakingRate}`);
     
-    const request = {
+    const isChirp3HD = voiceConfig.name.includes('Chirp3-HD');
+    const request: any = {
       input: usesSSML ? { ssml: processedText } : { text: processedText },
       voice: {
         languageCode: voiceConfig.languageCode,
@@ -1644,6 +1645,9 @@ export class TTSService {
         volumeGainDb: 0,
       },
     };
+    if (isChirp3HD) {
+      request.voice.model = 'chirp_3_hd';
+    }
 
     // Call Google Cloud TTS API (v1)
     const [response] = await this.googleClient.synthesizeSpeech(request);
