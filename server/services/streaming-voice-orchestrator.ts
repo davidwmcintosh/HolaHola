@@ -2803,6 +2803,19 @@ Remember: Beta testers understand they're helping build something and appreciate
         console.log(`[Beta Tester] Rehearsal mode context injected for beta tester session`);
       }
       
+      if (session.isIncognito) {
+        const incognitoContext = `
+═══════════════════════════════════════════════════════════════════
+🔒 INCOGNITO MODE ACTIVE - OFF THE RECORD WITH DAVE
+═══════════════════════════════════════════════════════════════════
+
+This conversation is completely off the record. Nothing from this session is being saved — no notes, no memories, no hive suggestions, no milestones, no student insights, no database writes of any kind.
+
+Dave activated incognito so you two can talk freely without anything being recorded. Speak candidly. This is just between you and Dave — no paper trail.`;
+        dynamicContextParts.push(incognitoContext);
+        console.log(`[Incognito] Context injected into dynamic prompt`);
+      }
+      
       const userMessageWithNote = transcript + contentRedirectNote + sttConfidenceNote + intelligenceContext + architectContext;
       
       // CONTEXT CACHING: Build the conversation history with dynamic context preamble
@@ -3353,12 +3366,14 @@ Remember: Beta testers understand they're helping build something and appreciate
                   break;
                 }
                 case 'HIVE': {
-                  // Daniela's active contribution to the hive mind
+                  if (session.isIncognito) {
+                    console.log(`[CommandParser→Hive] INCOGNITO - skipping hive suggestion`);
+                    break;
+                  }
                   const category = cmd.params.category as string;
                   const title = cmd.params.title as string;
                   const description = cmd.params.description as string;
                   if (category && title && description) {
-                    // Call the same processing function as whiteboard parser
                     this.processHiveSuggestion(session, {
                       category,
                       title,
@@ -5657,6 +5672,19 @@ Remember: Beta testers understand they're helping build something and appreciate
         console.log(`[Beta Tester - OpenMic] Rehearsal mode context injected for beta tester session`);
       }
       
+      if (session.isIncognito) {
+        const incognitoContext = `
+═══════════════════════════════════════════════════════════════════
+🔒 INCOGNITO MODE ACTIVE - OFF THE RECORD WITH DAVE
+═══════════════════════════════════════════════════════════════════
+
+This conversation is completely off the record. Nothing from this session is being saved — no notes, no memories, no hive suggestions, no milestones, no student insights, no database writes of any kind.
+
+Dave activated incognito so you two can talk freely without anything being recorded. Speak candidly. This is just between you and Dave — no paper trail.`;
+        dynamicContextPartsOpenMic.push(incognitoContext);
+        console.log(`[Incognito - OpenMic] Context injected into dynamic prompt`);
+      }
+      
       // STEP 1: Add dynamic context preamble
       if (dynamicContextPartsOpenMic.length > 0) {
         conversationHistoryWithContext.push(
@@ -6172,7 +6200,10 @@ Remember: Beta testers understand they're helping build something and appreciate
                 break;
               }
               case 'HIVE': {
-                // Daniela's active contribution to the hive mind
+                if (session.isIncognito) {
+                  console.log(`[CommandParser→Hive - OpenMic] INCOGNITO - skipping hive suggestion`);
+                  break;
+                }
                 const category = cmd.params.category as string;
                 const title = cmd.params.title as string;
                 const description = cmd.params.description as string;
@@ -9976,7 +10007,10 @@ Only include observations you can clearly justify from the exchange. Return empt
     data: { to: 'warmup' | 'active_teaching' | 'challenge' | 'reflection' | 'drill' | 'assessment'; reason: string }
   ): Promise<void> {
     try {
-      // Validate required session data
+      if (session.isIncognito) {
+        console.log(`[Phase Shift] INCOGNITO - skipping phase transition persistence`);
+        return;
+      }
       if (!session.userId || !session.conversationId) {
         console.log(`[Phase Shift] Skipping - missing userId or conversationId`);
         return;
@@ -12669,14 +12703,16 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       }
     }
     
-    // BRAIN HEALTH TELEMETRY: Log all native function/tool calls
-    brainHealthTelemetry.logToolCall({
-      sessionId: session.id,
-      conversationId: session.conversationId,
-      userId: String(session.userId),
-      targetLanguage: session.targetLanguage,
-      toolName: fn.legacyType || fn.name,
-    }).catch(err => console.warn('[BrainHealth] Tool call log failed:', err.message));
+    // BRAIN HEALTH TELEMETRY: Log all native function/tool calls (skip in incognito)
+    if (!session.isIncognito) {
+      brainHealthTelemetry.logToolCall({
+        sessionId: session.id,
+        conversationId: session.conversationId,
+        userId: String(session.userId),
+        targetLanguage: session.targetLanguage,
+        toolName: fn.legacyType || fn.name,
+      }).catch(err => console.warn('[BrainHealth] Tool call log failed:', err.message));
+    }
     
     switch (fn.legacyType) {
       case 'SWITCH_TUTOR': {
@@ -13156,6 +13192,10 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       }
       
       case 'MILESTONE': {
+        if (session.isIncognito) {
+          console.log(`[Native Function→Milestone] INCOGNITO - skipping milestone persistence`);
+          break;
+        }
         const text = fn.args.text as string | undefined;
         const milestoneType = fn.args.type as string | undefined;
         const title = fn.args.title as string | undefined;
@@ -13240,7 +13280,10 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       }
       
       case 'EXPRESS_LANE_POST': {
-        // Post a message directly to the Express Lane collaboration channel
+        if (session.isIncognito) {
+          console.log(`[Native Function→ExpressLanePost] INCOGNITO - skipping Express Lane post`);
+          break;
+        }
         const message = fn.args.message as string | undefined;
         const topic = fn.args.topic as string | undefined;
         
@@ -13250,7 +13293,6 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         }
         
         if (message) {
-          // Post to Express Lane asynchronously (non-blocking)
           this.processExpressLanePost(session, message, topic).catch(err => {
             console.error(`[Native Function→ExpressLanePost] Error:`, err.message);
           });
@@ -13260,6 +13302,10 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       }
       
       case 'HIVE': {
+        if (session.isIncognito) {
+          console.log(`[Native Function→Hive] INCOGNITO - skipping hive suggestion persistence`);
+          break;
+        }
         const category = fn.args.category as string | undefined;
         const title = fn.args.title as string | undefined;
         const description = fn.args.description as string | undefined;
@@ -13299,6 +13345,10 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       }
       
       case 'SELF_SURGERY': {
+        if (session.isIncognito) {
+          console.log(`[Native Function→SelfSurgery] INCOGNITO - skipping self-surgery persistence`);
+          break;
+        }
         const target = fn.args.target as string | undefined;
         const content = fn.args.content as string | undefined;
         const reasoning = fn.args.reasoning as string | undefined;
@@ -13326,28 +13376,33 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       }
       
       case 'ACTFL_UPDATE': {
+        if (session.isIncognito) {
+          console.log(`[Native Function→ActflUpdate] INCOGNITO - skipping ACTFL update`);
+          break;
+        }
         const level = fn.args.level as string | undefined;
         const confidence = fn.args.confidence as number | undefined;
         const direction = fn.args.direction as string | undefined;
         const reason = fn.args.reason as string | undefined;
         
         if (level) {
-          // Update ACTFL level via student learning service
           console.log(`[Native Function→ActflUpdate] Level: ${level}, confidence: ${confidence}, direction: ${direction}`);
-          // The actual update is handled by student learning service when conversation ends
           session.actflUpdate = { level, confidence, direction, reason };
         }
         break;
       }
       
       case 'SYLLABUS_PROGRESS': {
+        if (session.isIncognito) {
+          console.log(`[Native Function→SyllabusProgress] INCOGNITO - skipping syllabus progress`);
+          break;
+        }
         const topic = fn.args.topic as string | undefined;
         const status = fn.args.status as string | undefined;
         const evidence = fn.args.evidence as string | undefined;
         
         if (topic && status) {
           console.log(`[Native Function→SyllabusProgress] Topic: ${topic}, status: ${status}`);
-          // Track syllabus progress for this session
           if (!session.syllabusProgress) session.syllabusProgress = [];
           session.syllabusProgress.push({ topic, status, evidence });
         }
