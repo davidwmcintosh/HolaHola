@@ -785,29 +785,9 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
       }
     }
 
-    const messages = await this.getMessages(params.ticketId);
-    const relevantArticles = await this.findRelevantArticles(params.userMessage);
-    
-    let knowledgeContext = '';
-    if (relevantArticles.length > 0) {
-      knowledgeContext = '\n\nRELEVANT TROUBLESHOOTING GUIDES:\n';
-      relevantArticles.forEach((article, i) => {
-        knowledgeContext += `\n${i + 1}. ${article.title}\n`;
-        knowledgeContext += `   Problem: ${article.problem}\n`;
-        knowledgeContext += `   Solution: ${article.solution}\n`;
-        if (article.steps) {
-          const steps = article.steps as string[];
-          if (Array.isArray(steps)) {
-            knowledgeContext += `   Steps:\n`;
-            steps.forEach((step, j) => {
-              knowledgeContext += `     ${j + 1}. ${step}\n`;
-            });
-          }
-        }
-      });
-    }
-
+    const ticketMessages = await this.getMessages(params.ticketId);
     const ticket = await this.getTicket(params.ticketId);
+
     const previousTickets = await getUserDb().select({
       category: supportTickets.category,
       status: supportTickets.status,
@@ -820,59 +800,6 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
       .orderBy(desc(supportTickets.createdAt))
       .limit(5);
 
-    // Load recent runtime faults for self-diagnosis (both dev and user modes)
-    // This enables Sofia to explain her own failures in any context
-    let productionFaultContext: ProductionFaultContext | undefined;
-    try {
-      const recentFaults = await this.getRecentRuntimeFaults();
-      const activeCount = recentFaults.filter(f => f.status !== 'resolved').length;
-      const prodCount = recentFaults.filter(f => f.environment === 'production').length;
-      
-      productionFaultContext = {
-        recentFaults: recentFaults.map(f => ({
-          errorType: f.issueType?.replace('runtime_fault:', '').replace('voice_fault:', '') || 'unknown',
-          errorMessage: f.userDescription || 'No description',
-          timestamp: f.createdAt?.toISOString() || 'unknown',
-          environment: f.environment || 'unknown',
-          resolved: f.status === 'resolved',
-        })),
-        faultSummary: recentFaults.length > 0
-          ? `${recentFaults.length} fault(s) in last 24h: ${activeCount} active, ${prodCount} from production`
-          : 'No runtime faults recorded in last 24 hours',
-        crossEnvAvailable: true,
-      };
-    } catch (err) {
-      console.warn('[Sofia] Failed to load production faults for context:', err);
-      productionFaultContext = { 
-        crossEnvAvailable: false,
-        faultSummary: 'Telemetry unavailable - sync may be pending',
-      };
-    }
-
-    // Fetch REAL session data so Sofia can diagnose actual issues instead of guessing
-    let sessionDiagnostics = '';
-    if (ticket?.userId) {
-      sessionDiagnostics = await this.getUserSessionDiagnostics(ticket.userId);
-    }
-    
-    // Build client telemetry context for the prompt (not just the issue report)
-    let clientTelemetryContext = '';
-    if (params.clientTelemetry) {
-      const tel = params.clientTelemetry;
-      const parts: string[] = [];
-      if (tel.audioContext?.state) parts.push(`AudioContext state: ${tel.audioContext.state}`);
-      if (tel.voiceClient?.connectionState) parts.push(`WebSocket: ${tel.voiceClient.connectionState}`);
-      if (tel.voiceClient?.socketConnected !== undefined) parts.push(`Socket connected: ${tel.voiceClient.socketConnected}`);
-      if (tel.voiceClient?.reconnectCount !== undefined) parts.push(`Reconnect attempts: ${tel.voiceClient.reconnectCount}`);
-      if (tel.voiceClient?.lastConversationId) parts.push(`Last conversation: ${tel.voiceClient.lastConversationId}`);
-      if (tel.voiceClient?.hasActiveSession !== undefined) parts.push(`Active session: ${tel.voiceClient.hasActiveSession}`);
-      if (tel.device?.browser) parts.push(`Browser: ${tel.device.browser}`);
-      if (tel.device?.platform) parts.push(`Platform: ${tel.device.platform}`);
-      if (parts.length > 0) {
-        clientTelemetryContext = `\nCLIENT TELEMETRY (live snapshot from user's device):\n  ${parts.join('\n  ')}\n`;
-      }
-    }
-    
     const systemPrompt = buildSupportPersonaPrompt({
       userName: params.userName,
       deviceInfo: params.deviceInfo,
@@ -883,15 +810,25 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
       })),
       mode: params.mode,
       voiceDiagnostics: params.voiceDiagnostics,
-      productionFaultContext,
-    }) + knowledgeContext + (sessionDiagnostics ? `\n\n═══════════════════════════════════════════════════════════════════\n📊 SESSION DIAGNOSTICS (from database - REAL DATA)\n═══════════════════════════════════════════════════════════════════\n${sessionDiagnostics}` : '') + (clientTelemetryContext ? `\n\n═══════════════════════════════════════════════════════════════════\n📡 CLIENT DEVICE TELEMETRY (from user's browser)\n═══════════════════════════════════════════════════════════════════\n${clientTelemetryContext}` : '');
+    }) + `\n\nYou have tools available to investigate the student's issue. Use them proactively:
+- search_knowledge_base: Look up troubleshooting guides matching the student's problem
+- get_user_sessions: Check their recent voice sessions for anomalies
+- get_runtime_faults: Check for system-wide errors
+- get_voice_health: Check current voice system health status
+- create_issue_report: Track significant issues for follow-up
+- resolve_ticket: Mark the issue as resolved when addressed
+- escalate_ticket: Escalate critical issues to the founder
+- handoff_to_daniela: Send the student back to Daniela for learning questions
 
-    // Build Gemini conversation history from stored messages
-    // NOTE: The user message is already stored in DB before generateResponse is called,
-    // so we don't need to append it again - it's already in the messages array
-    const geminiContents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
+WORKFLOW: When a student describes a problem, investigate using tools FIRST, then respond with informed guidance. Do NOT guess — use your tools to check real data.
+Keep responses concise and helpful (2-4 sentences unless detailed steps are needed).`;
+
+    type ContentPart = { text: string } | { functionCall: { name: string; args: Record<string, any> } } | { functionResponse: { name: string; response: { result: any } } };
+    type ContentMessage = { role: 'user' | 'model'; parts: ContentPart[] };
+
+    const geminiContents: ContentMessage[] = [];
     
-    for (const msg of messages) {
+    for (const msg of ticketMessages) {
       if (msg.role === 'user') {
         geminiContents.push({ role: 'user', parts: [{ text: msg.content }] });
       } else if (msg.role === 'support_agent') {
@@ -899,42 +836,128 @@ Acknowledge their issue, provide helpful guidance, and let them know you're here
       }
     }
 
+    let clientContextNote = '';
+    if (params.clientTelemetry) {
+      const tel = params.clientTelemetry;
+      const parts: string[] = [];
+      if (tel.audioContext?.state) parts.push(`AudioContext: ${tel.audioContext.state}`);
+      if (tel.voiceClient?.connectionState) parts.push(`WebSocket: ${tel.voiceClient.connectionState}`);
+      if (tel.device?.browser) parts.push(`Browser: ${tel.device.browser}`);
+      if (tel.device?.platform) parts.push(`Platform: ${tel.device.platform}`);
+      if (parts.length > 0) clientContextNote = ` [Client: ${parts.join(', ')}]`;
+    }
+
+    if (geminiContents.length > 0) {
+      const lastUserMsg = geminiContents[geminiContents.length - 1];
+      if (lastUserMsg.role === 'user' && clientContextNote) {
+        const lastText = (lastUserMsg.parts[0] as { text: string }).text;
+        lastUserMsg.parts = [{ text: lastText + clientContextNote }];
+      }
+    }
+
     try {
       const gemini = getGeminiClient();
       
-      // Pre-flight check: Verify API key is available
       const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
       if (!apiKey) {
-        console.error('[Sofia] CRITICAL: No Gemini API key available');
+        console.error('[Sofia Helpline] CRITICAL: No Gemini API key available');
         return {
           response: "I'm sorry, our AI system is temporarily unavailable. Please return to Daniela and try again later.",
           shouldReturnToDaniela: true,
         };
       }
+
+      const { SOFIA_HELPLINE_FUNCTION_DECLARATIONS, executeSofiaHelplineTool } = await import('./sofia-helpline-functions');
+
+      const toolContext = {
+        ticketId: params.ticketId,
+        userId: ticket?.userId || '',
+        deviceInfo: params.deviceInfo,
+        clientTelemetry: params.clientTelemetry,
+        mode: params.mode,
+      };
+
+      console.log(`[Sofia Helpline] Starting agentic response for ticket ${params.ticketId} (mode: ${params.mode})`);
       
-      console.log(`[Sofia] Calling Gemini API for ticket ${params.ticketId} (mode: ${params.mode})`);
-      
-      const response = await gemini.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: geminiContents,
-        config: {
-          systemInstruction: systemPrompt,
-          maxOutputTokens: 1024,
-          temperature: 0.6,
-        },
-      });
-
-      const sofiaResponse = response.text || "I apologize, I'm having trouble responding. Please try again.";
-
-      const shouldReturnToDaniela = this.detectDanielaRedirect(sofiaResponse);
-
+      const MAX_HELPLINE_ROUNDS = 3;
+      let sofiaResponse = '';
+      let shouldReturnToDaniela = false;
       let knowledgeUsed: string | undefined;
-      if (relevantArticles.length > 0) {
-        await this.trackArticleUsage(relevantArticles[0].id);
-        knowledgeUsed = relevantArticles[0].id;
+
+      for (let round = 0; round < MAX_HELPLINE_ROUNDS; round++) {
+        const response = await gemini.models.generateContent({
+          model: 'gemini-3-flash-preview',
+          contents: geminiContents,
+          config: {
+            systemInstruction: systemPrompt,
+            maxOutputTokens: 1024,
+            temperature: 0.6,
+            tools: [{ functionDeclarations: SOFIA_HELPLINE_FUNCTION_DECLARATIONS }],
+          },
+        });
+
+        const candidate = response.candidates?.[0];
+        if (!candidate?.content?.parts) {
+          console.warn(`[Sofia Helpline] No response parts in round ${round + 1}`);
+          break;
+        }
+
+        const parts = candidate.content.parts;
+        geminiContents.push({ role: 'model', parts: parts as ContentPart[] });
+
+        const functionCalls = parts.filter((p: any) => p.functionCall);
+
+        if (functionCalls.length === 0) {
+          const textParts = parts.filter((p: any) => p.text);
+          sofiaResponse = textParts.map((p: any) => p.text).join('\n').trim();
+          console.log(`[Sofia Helpline] Final response after ${round + 1} rounds (${sofiaResponse.length} chars)`);
+          break;
+        }
+
+        console.log(`[Sofia Helpline] Round ${round + 1}: ${functionCalls.map((p: any) => p.functionCall.name).join(', ')}`);
+
+        const toolResponseParts: ContentPart[] = [];
+
+        for (const part of functionCalls) {
+          const fc = (part as any).functionCall;
+          const toolName = fc.name;
+          const toolArgs = fc.args || {};
+
+          try {
+            const result = await executeSofiaHelplineTool(toolName, toolArgs, toolContext);
+
+            if (result.sideEffects?.shouldReturnToDaniela) shouldReturnToDaniela = true;
+            if (result.sideEffects?.knowledgeUsed) knowledgeUsed = result.sideEffects.knowledgeUsed;
+
+            toolResponseParts.push({
+              functionResponse: {
+                name: toolName,
+                response: { result: result.data },
+              },
+            });
+          } catch (err: any) {
+            console.warn(`[Sofia Helpline] Tool ${toolName} failed:`, err.message);
+            toolResponseParts.push({
+              functionResponse: {
+                name: toolName,
+                response: { result: { error: err.message } },
+              },
+            });
+          }
+        }
+
+        geminiContents.push({ role: 'user', parts: toolResponseParts });
       }
 
-      console.log(`[Sofia] Generated response for ticket ${params.ticketId}`);
+      if (!sofiaResponse) {
+        sofiaResponse = "I apologize, I'm having trouble responding right now. Please try again in a moment.";
+      }
+
+      if (!shouldReturnToDaniela) {
+        shouldReturnToDaniela = this.detectDanielaRedirect(sofiaResponse);
+      }
+
+      console.log(`[Sofia Helpline] Generated response for ticket ${params.ticketId}`);
       
       return {
         response: sofiaResponse,
