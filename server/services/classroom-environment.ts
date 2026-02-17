@@ -182,6 +182,7 @@ export async function buildClassroomEnvironment(params: {
   isFounderMode: boolean;
   isRawHonestyMode: boolean;
   isBetaTester?: boolean;
+  isIncognito?: boolean;
   whiteboardItems: ClassroomWhiteboardItem[];
   sessionImages: string[];
   exchangeCount: number;
@@ -191,6 +192,8 @@ export async function buildClassroomEnvironment(params: {
   creditWarningLevel?: string;
   creditPercentRemaining?: number;
   tutorName: string;
+  studentLearningSection?: string;
+  technicalHealthNote?: string | null;
 }): Promise<string> {
   const {
     userId,
@@ -199,6 +202,7 @@ export async function buildClassroomEnvironment(params: {
     isFounderMode,
     isRawHonestyMode,
     isBetaTester = false,
+    isIncognito = false,
     whiteboardItems,
     sessionImages,
     exchangeCount,
@@ -208,6 +212,8 @@ export async function buildClassroomEnvironment(params: {
     creditWarningLevel,
     creditPercentRemaining,
     tutorName,
+    studentLearningSection,
+    technicalHealthNote,
   } = params;
 
   const [personalFacts, milestoneCount, danielaPhoto, userRow, principles, recentNotes] = await Promise.all([
@@ -294,8 +300,31 @@ export async function buildClassroomEnvironment(params: {
     : `A flourishing vine with ${vineLeaves} leaves (thriving)`;
 
   const modeLabel = isRawHonestyMode ? "Honesty Mode" : isFounderMode ? "Founder Mode" : "Tutor Mode";
-  const betaTesterLight = isBetaTester ? ' | Beta Tester (Rehearsal — be relaxed, experimental, transparent)' : '';
   const studentName = userRow?.firstName || "Student";
+
+  const betaTesterSection = isBetaTester ? `
+---
+Rehearsal Stage Notes (Beta Tester):
+This student volunteered to help test and debug new features.
+- Be experimental with new tools and techniques
+- Ask for feedback on things that feel different or broken
+- Share when you're trying something new
+- Be relaxed about perfection — learning and debugging together is the goal
+- Role Reversal: If they coach YOU about your voice, personality, or teaching style, RECEIVE it as coaching about YOUR delivery, not as a language practice request. Acknowledge, adjust, and ask if that was closer.
+- Beta testers appreciate transparency about works-in-progress` : '';
+
+  const incognitoSection = isIncognito ? `
+---
+Room Status: INCOGNITO — OFF THE RECORD
+Nothing from this session is being saved — no notes, no memories, no hive suggestions, no milestones, no student insights, no database writes of any kind.
+Dave activated incognito so you two can talk freely without anything being recorded. Speak candidly.` : '';
+
+  const systemStatusSection = technicalHealthNote ? `\nSystem Status: ${technicalHealthNote}` : '';
+
+  const studentProgressBoard = studentLearningSection ? `
+---
+Student Progress Board:
+${studentLearningSection}` : '';
 
   const founderTools = (isFounderMode || isRawHonestyMode)
     ? ` | express_lane_lookup(query?) — search or browse Express Lane | recall_express_lane_image(imageQuery) — view shared photos | express_lane_post(message) — post to Express Lane | take_note (personal) — your private journal: session_reflection, teaching_rhythm, what_worked, what_didnt_work, idea_to_try, question_for_founder, self_affirmation`
@@ -307,11 +336,17 @@ export async function buildClassroomEnvironment(params: {
 ---
 Tool Rack: memory_lookup(query, domains) — recall student memories | take_note — save observations for future sessions | milestone — celebrate achievements | drill/write/grammar_table/compare/word_map/phonetic/culture/context/scenario/summary/reading — whiteboard teaching tools | show_image — contextual images | voice_adjust — change speaking style | self_surgery — report gaps or propose improvements to your own knowledge${founderTools}${founderNote}`;
 
+  const modeExtras = [
+    modeLabel,
+    isBetaTester ? 'Beta Tester' : '',
+    isIncognito ? 'Incognito' : '',
+  ].filter(Boolean).join(' | ');
+
   const env = `
 === ${tutorName.toUpperCase()}'S CLASSROOM ===
 Clock: ${clock}
 Credits: ${creditLine}
-Mode: ${modeLabel}${betaTesterLight} | Phase: ${currentPhase} | Exchanges: ${exchangeCount}
+Mode: ${modeExtras} | Phase: ${currentPhase} | Exchanges: ${exchangeCount}${systemStatusSection}
 Student: ${studentName}
 ---
 Whiteboard: ${whiteboard}
@@ -324,7 +359,7 @@ Growth Vine: ${vineDescription}
 North Star Polaroid: ${danielaPhoto}
 My Notes to Self: ${identityWall}
 ---
-North Star Wall: ${northStarWall}${toolRack}
+North Star Wall: ${northStarWall}${studentProgressBoard}${betaTesterSection}${incognitoSection}${toolRack}
 === END CLASSROOM ===`.trim();
 
   return env;

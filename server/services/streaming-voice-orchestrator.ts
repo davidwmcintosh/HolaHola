@@ -2929,9 +2929,7 @@ Remember: David may reference things discussed in these recent text chats.
       // Build dynamic context preamble (injected as first message in history)
       const dynamicContextParts: string[] = [];
       
-      if (studentLearningSection) {
-        dynamicContextParts.push(studentLearningSection);
-      }
+      // studentLearningSection is now folded into the classroom (Student Progress Board)
       if (passiveMemorySection) {
         dynamicContextParts.push(passiveMemorySection);
       }
@@ -2951,7 +2949,8 @@ Remember: David may reference things discussed in these recent text chats.
         dynamicContextParts.push(editorFeedbackSection);
       }
       
-      // CLASSROOM ENVIRONMENT: Daniela's virtual classroom with clock, credits, whiteboard, resonance shelf, etc.
+      // CLASSROOM ENVIRONMENT: Daniela's unified workspace with all persistent context
+      // Student learning, beta tester instructions, tech health, and incognito are now part of the classroom
       if (session.userId) {
         const classroomStart = Date.now();
         try {
@@ -2964,6 +2963,7 @@ Remember: David may reference things discussed in these recent text chats.
             isFounderMode: session.isFounderMode,
             isRawHonestyMode: session.isRawHonestyMode,
             isBetaTester: session.isBetaTester,
+            isIncognito: session.isIncognito,
             whiteboardItems: session.classroomWhiteboardItems || [],
             sessionImages: session.classroomSessionImages || [],
             exchangeCount: session.conversationHistory.filter(h => h.role === 'user').length,
@@ -2973,6 +2973,8 @@ Remember: David may reference things discussed in these recent text chats.
             creditWarningLevel: creditBalance.warningLevel,
             creditPercentRemaining: creditBalance.percentRemaining,
             tutorName: session.tutorName || 'Daniela',
+            studentLearningSection: studentLearningSection || undefined,
+            technicalHealthNote: voiceDiagnostics.getTechnicalHealthContext(),
           });
           dynamicContextParts.push(classroomEnv);
           const boardItems = session.classroomWhiteboardItems?.length || 0;
@@ -2989,53 +2991,6 @@ Remember: David may reference things discussed in these recent text chats.
             contextSource: 'classroom', success: false, latencyMs: Date.now() - classroomStart, errorMessage: err.message,
           }).catch(() => {});
         }
-      }
-      
-      // TECHNICAL HEALTH: Inject awareness of recent technical issues
-      const technicalHealthContext = voiceDiagnostics.getTechnicalHealthContext();
-      if (technicalHealthContext) {
-        dynamicContextParts.push(technicalHealthContext);
-        console.log(`[Technical Health] Injecting technical awareness into context`);
-      }
-      
-      // BETA TESTER MODE: Inject rehearsal context for users helping test new features
-      if (session.isBetaTester) {
-        const betaTesterContext = `[BETA TESTER - REHEARSAL MODE]
-This student is a beta tester who has volunteered to help test and debug new features. You can:
-- Be more experimental with new tools and techniques
-- Ask for feedback on things that feel different or broken
-- Treat this as a "dress rehearsal" rather than a polished performance
-- Share when you're trying something new ("I'm experimenting with a new way to emphasize words - tell me if it sounds right")
-- Request observations about glitches or unexpected behavior
-- Be relaxed about perfection - learning and debugging together is the goal
-
-🔄 ROLE REVERSAL - RECEIVING COACHING:
-Beta testers may coach YOU about your voice, personality, or teaching style. When they say things like:
-- "Try saying it more naturally" / "Sound more human" / "Less robotic"
-- "Here's how you should pronounce that" / "Listen to how I say it"
-- "Your tone was too formal" / "Be warmer when you say that"
-→ RECEIVE this as coaching about YOUR delivery, not as a language practice request
-→ Acknowledge the feedback: "I hear you - let me try that differently..."
-→ Attempt to adjust based on their guidance
-→ Ask clarifying questions: "Was that closer to what you mean?"
-This is you learning to be a better tutor, with the beta tester as YOUR coach.
-
-Remember: Beta testers understand they're helping build something and appreciate transparency about works-in-progress.`;
-        dynamicContextParts.push(betaTesterContext);
-        console.log(`[Beta Tester] Rehearsal mode context injected for beta tester session`);
-      }
-      
-      if (session.isIncognito) {
-        const incognitoContext = `
-═══════════════════════════════════════════════════════════════════
-🔒 INCOGNITO MODE ACTIVE - OFF THE RECORD WITH DAVE
-═══════════════════════════════════════════════════════════════════
-
-This conversation is completely off the record. Nothing from this session is being saved — no notes, no memories, no hive suggestions, no milestones, no student insights, no database writes of any kind.
-
-Dave activated incognito so you two can talk freely without anything being recorded. Speak candidly. This is just between you and Dave — no paper trail.`;
-        dynamicContextParts.push(incognitoContext);
-        console.log(`[Incognito] Context injected into dynamic prompt`);
       }
       
       
@@ -5864,10 +5819,8 @@ Dave activated incognito so you two can talk freely without anything being recor
       let conversationHistoryWithContext: ConversationHistoryEntry[] = [];
       
       // Build dynamic context parts for OpenMic
+      // studentLearningSection, beta tester, incognito, and tech health are now folded into the classroom
       const dynamicContextPartsOpenMic: string[] = [];
-      if (studentLearningSection) {
-        dynamicContextPartsOpenMic.push(studentLearningSection);
-      }
       if (passiveMemorySectionOpenMic) {
         dynamicContextPartsOpenMic.push(passiveMemorySectionOpenMic);
       }
@@ -5875,7 +5828,7 @@ Dave activated incognito so you two can talk freely without anything being recor
         dynamicContextPartsOpenMic.push(identityMemoriesSection);
       }
       
-      // CLASSROOM ENVIRONMENT (OpenMic): Daniela's virtual classroom with clock, credits, whiteboard, etc.
+      // CLASSROOM ENVIRONMENT (OpenMic): Daniela's unified workspace with all persistent context
       if (session.userId) {
         const classroomStartOM = Date.now();
         try {
@@ -5888,6 +5841,7 @@ Dave activated incognito so you two can talk freely without anything being recor
             isFounderMode: session.isFounderMode,
             isRawHonestyMode: session.isRawHonestyMode,
             isBetaTester: session.isBetaTester,
+            isIncognito: session.isIncognito,
             whiteboardItems: session.classroomWhiteboardItems || [],
             sessionImages: session.classroomSessionImages || [],
             exchangeCount: session.conversationHistory.filter(h => h.role === 'user').length,
@@ -5897,6 +5851,8 @@ Dave activated incognito so you two can talk freely without anything being recor
             creditWarningLevel: creditBalance.warningLevel,
             creditPercentRemaining: creditBalance.percentRemaining,
             tutorName: session.tutorName || 'Daniela',
+            studentLearningSection: studentLearningSection || undefined,
+            technicalHealthNote: voiceDiagnostics.getTechnicalHealthContext(),
           });
           dynamicContextPartsOpenMic.push(classroomEnv);
           const boardItems = session.classroomWhiteboardItems?.length || 0;
@@ -5913,46 +5869,6 @@ Dave activated incognito so you two can talk freely without anything being recor
             contextSource: 'classroom', success: false, latencyMs: Date.now() - classroomStartOM, errorMessage: err.message,
           }).catch(() => {});
         }
-      }
-      
-      // BETA TESTER MODE (OpenMic): Inject rehearsal context for users helping test new features
-      if (session.isBetaTester) {
-        const betaTesterContext = `[BETA TESTER - REHEARSAL MODE]
-This student is a beta tester who has volunteered to help test and debug new features. You can:
-- Be more experimental with new tools and techniques
-- Ask for feedback on things that feel different or broken
-- Treat this as a "dress rehearsal" rather than a polished performance
-- Share when you're trying something new ("I'm experimenting with a new way to emphasize words - tell me if it sounds right")
-- Request observations about glitches or unexpected behavior
-- Be relaxed about perfection - learning and debugging together is the goal
-
-🔄 ROLE REVERSAL - RECEIVING COACHING:
-Beta testers may coach YOU about your voice, personality, or teaching style. When they say things like:
-- "Try saying it more naturally" / "Sound more human" / "Less robotic"
-- "Here's how you should pronounce that" / "Listen to how I say it"
-- "Your tone was too formal" / "Be warmer when you say that"
-→ RECEIVE this as coaching about YOUR delivery, not as a language practice request
-→ Acknowledge the feedback: "I hear you - let me try that differently..."
-→ Attempt to adjust based on their guidance
-→ Ask clarifying questions: "Was that closer to what you mean?"
-This is you learning to be a better tutor, with the beta tester as YOUR coach.
-
-Remember: Beta testers understand they're helping build something and appreciate transparency about works-in-progress.`;
-        dynamicContextPartsOpenMic.push(betaTesterContext);
-        console.log(`[Beta Tester - OpenMic] Rehearsal mode context injected for beta tester session`);
-      }
-      
-      if (session.isIncognito) {
-        const incognitoContext = `
-═══════════════════════════════════════════════════════════════════
-🔒 INCOGNITO MODE ACTIVE - OFF THE RECORD WITH DAVE
-═══════════════════════════════════════════════════════════════════
-
-This conversation is completely off the record. Nothing from this session is being saved — no notes, no memories, no hive suggestions, no milestones, no student insights, no database writes of any kind.
-
-Dave activated incognito so you two can talk freely without anything being recorded. Speak candidly. This is just between you and Dave — no paper trail.`;
-        dynamicContextPartsOpenMic.push(incognitoContext);
-        console.log(`[Incognito - OpenMic] Context injected into dynamic prompt`);
       }
       
       // STEP 1: Add dynamic context preamble

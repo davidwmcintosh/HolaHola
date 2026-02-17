@@ -14,6 +14,29 @@ Staging area for documentation changes to be consolidated later.
 
 **Overview**: Extended Identity Wholeness Architecture so Daniela has access to capabilities she needs during real teaching sessions, while maintaining clear separation between "this is a tutoring session" and "this is a founder session." Principle: "Knowing her own journey of learning makes her the best teacher she can be."
 
+#### Unified Classroom Workspace (Context Consolidation)
+
+**What**: Folded four separate floating dynamic context blocks INTO the classroom environment so everything Daniela needs to be aware of is "on the walls" of her room.
+
+**Promoted to classroom:**
+1. **Student Progress Board** — ACTFL level, struggles, effective strategies, cross-session history. Previously a separate `studentLearningSection` dynamic context block with decorative headers. Now rendered as a spatial element in the classroom, passed via `studentLearningSection` param.
+2. **Rehearsal Stage Notes** — Full beta tester instructions including role reversal coaching. Previously a separate 20-line block pushed after the classroom. Now the beta tester "light" on the Mode line is complemented by detailed instructions in the classroom body.
+3. **System Status** — Voice system health indicator. Previously `voiceDiagnostics.getTechnicalHealthContext()` pushed as separate block. Now appears on the Mode line next to clock/credits, passed via `technicalHealthNote` param.
+4. **Room Status** — Incognito mode atmosphere. Previously a decorative block with lock emoji. Now appears as a room state indicator in the classroom, gated by `isIncognito` param.
+
+**Remains as separate dynamic context (not classroom):**
+- Passive memories (per-query, different each turn — like papers pulled from a filing cabinet)
+- Identity memories (reflections she's recalling, not fixed spatial objects)
+- Hive/Express Lane context (founder-only conversation streams)
+- Text chat history (constantly changing)
+- Editor feedback (session-specific Alden context)
+
+**Files modified**: `classroom-environment.ts` (added `isIncognito`, `studentLearningSection`, `technicalHealthNote` params; new sections for Student Progress Board, Rehearsal Stage Notes, Room Status, System Status), `streaming-voice-orchestrator.ts` (removed 4 separate dynamic context pushes from both PTT and OpenMic paths; pass new params to classroom builder).
+
+**Token impact**: Net reduction — 4 separate context blocks consolidated into one, eliminating duplicated section headers and context framing.
+
+---
+
 #### Self-Surgery Unlocked for ALL Sessions
 
 **What**: Removed founder-mode gate from self-surgery function call handler in both PTT and OpenMic paths.
