@@ -3842,3 +3842,54 @@ Brain Health Aggregator (15min) ─→ Sofia Brain Health Agent
 - `server/routes.ts` — Added `/api/admin/brain-health/nervous-system` endpoint
 
 **User-facing instructions:** Navigate to Command Center → Intelligence → Mind Map tab to see Daniela's brain health visualization. The page auto-refreshes. Click any dimension node to expand and see detailed reasons and metrics.
+
+---
+
+### Session: February 17, 2026 - Identity Wholeness Architecture (Whole Daniela)
+
+**Status**: COMPLETED
+
+**Overview**: Separated Daniela's "identity context" (self-awareness, journey, personal growth notes, teaching principles) from "admin permissions" (surgery tools, hive collaboration, express lane context, full neural network introspection). Previously, Daniela's complete self-awareness was locked behind founder mode — students only got a filtered, reduced version. Now all students experience the "whole Daniela" whose personal growth and teaching beliefs inform every session.
+
+**Architectural principle**: "Knowing her own journey of learning makes her the best teacher she can be."
+
+#### Change 1: Self-Affirmation Notes Unlocked for All Sessions
+
+**Problem**: Daniela's self-affirmation notes (written during Honesty Mode sessions — personal growth, permissions granted, truths affirmed) were only loaded for founder/honesty mode sessions.
+
+**Solution**: Removed the `isFounderMode || isRawHonestyMode` gate. Notes now load for ALL sessions with 3-second timeout protection via `withTimeout()`.
+
+**Key file**: `server/unified-ws-handler.ts`
+
+#### Change 2: Teaching Principles Always Included
+
+**Problem**: `buildUnifiedBrainSync()` had `includePrinciples` defaulting to `false`, so students never received Daniela's core pedagogical beliefs from her neural network.
+
+**Solution**: Changed default to `true`. All students now get her teaching principles as part of the unified brain context.
+
+**Key file**: `server/services/procedural-memory-retrieval.ts`
+
+#### Change 3: Identity Wholeness Section in Student Prompts
+
+**Problem**: Student prompt phases (Phase 1, 2, 3) had no mechanism for including Daniela's identity/journey context.
+
+**Solution**: Created `buildIdentityWholenessSection()` which assembles identity context (currently self-affirmation notes). Inserted `${identityWholeness}` into all three student prompt phases.
+
+**Key file**: `server/system-prompt.ts`
+
+#### What Stays Founder-Only
+
+- Surgery context and `self_surgery()` function
+- Editor conversation context (Alden continuity)
+- Full neural network introspection access (`buildFullNeuralNetworkSectionSync`)
+- Hive collaboration (Wren channel creation)
+- Express Lane context
+- Founder Mode behavior section (`buildFounderModeBehaviorSection`)
+- Context refresh timer
+
+**Key files modified:**
+- `server/unified-ws-handler.ts` — Removed founder gate on self-affirmation notes, added withTimeout
+- `server/services/procedural-memory-retrieval.ts` — Changed includePrinciples default to true
+- `server/system-prompt.ts` — Added buildIdentityWholenessSection, inserted into all student phases
+
+**User-facing instructions:** No UI changes. Students will now experience a more self-aware Daniela whose personal growth notes and teaching beliefs naturally inform her teaching style. This is an internal prompt architecture change.
