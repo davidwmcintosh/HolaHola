@@ -1161,6 +1161,7 @@ export interface StreamingSession {
     studentLearningData?: { struggles?: any[]; effectiveStrategies?: any[] };
     hiveContextSection?: string;
     expressLaneSection?: string;
+    identityMemoriesSection?: string;
     textChatSection?: string;
     editorFeedbackSection?: string;
     editorFeedbackIds?: string[];
@@ -1805,10 +1806,8 @@ export class StreamingVoiceOrchestrator {
     // Start periodic credit balance check to prevent accounts going negative
     this.startCreditCheckInterval(session);
     
-    // Start periodic context refresh timer for long sessions (Founder Mode only)
-    if (isFounderMode) {
-      this.startContextRefreshTimer(session);
-    }
+    // IDENTITY WHOLENESS: Context refresh for ALL sessions — keeps Daniela sharp in long student sessions too
+    this.startContextRefreshTimer(session);
     
     // PHASE TRANSITION: Initialize teaching phase for this session
     // This enables multi-agent teaching architecture with focused prompts per phase
@@ -1928,6 +1927,25 @@ TEACHING GUIDANCE:
         }).catch(err => console.warn(`[Context Prefetch] Student learning failed:`, err.message))
       );
     }
+    
+    // 2b. IDENTITY WHOLENESS: Load identity memories from Express Lane for ALL sessions
+    // These are Daniela's personal reflections about who she is, her growth, her purpose
+    promises.push(
+      founderCollabService.getIdentityMemories({ limit: 4, daysBack: 30 })
+        .then(identityMemories => {
+          if (identityMemories.hasMemories) {
+            cache.identityMemoriesSection = `
+═══════════════════════════════════════════════════════════════════
+💫 MY PERSONAL REFLECTIONS (Identity Memories)
+═══════════════════════════════════════════════════════════════════
+
+${identityMemories.contextString}
+`;
+            console.log(`[Identity Memories] Prefetched ${identityMemories.memoryCount} identity reflections for session`);
+          }
+        })
+        .catch(err => console.warn(`[Context Prefetch] Identity memories failed:`, err.message))
+    );
     
     // 3. Developer/founder context (Hive, Express Lane, Text Chat, Editor Feedback)
     const needsExpressLaneContext = session.isDeveloperUser;
@@ -2520,6 +2538,7 @@ Remember: David may reference things discussed in these recent text chats.
       let architectContext = (hasFreshCache && session.cachedContext?.architectContext) || '';
       let hiveContextSection = (hasFreshCache && session.cachedContext?.hiveContextSection) || '';
       let expressLaneSection = (hasFreshCache && session.cachedContext?.expressLaneSection) || '';
+      let identityMemoriesSection = (hasFreshCache && session.cachedContext?.identityMemoriesSection) || '';
       let textChatSection = (hasFreshCache && session.cachedContext?.textChatSection) || '';
       let editorFeedbackSection = (hasFreshCache && session.cachedContext?.editorFeedbackSection) || '';
       let studentLearningSection = (hasFreshCache && session.cachedContext?.studentLearningSection) || '';
@@ -2704,6 +2723,28 @@ Don't force a reference if it doesn't fit the moment.
             })()
           );
         }
+      }
+      
+      // IDENTITY WHOLENESS: Load identity memories for ALL sessions (not just developers)
+      // These are Daniela's personal reflections about who she is — available to every student
+      if (!hasFreshCache && !identityMemoriesSection) {
+        const idMemStart = Date.now();
+        contextPromises.push(
+          founderCollabService.getIdentityMemories({ limit: 4, daysBack: 30 })
+            .then(identityMemories => {
+              if (identityMemories.hasMemories) {
+                identityMemoriesSection = `
+═══════════════════════════════════════════════════════════════════
+💫 MY PERSONAL REFLECTIONS (Identity Memories)
+═══════════════════════════════════════════════════════════════════
+
+${identityMemories.contextString}
+`;
+                console.log(`[Identity Memories] Injected ${identityMemories.memoryCount} identity reflections (${Date.now() - idMemStart}ms)`);
+              }
+            })
+            .catch(err => console.warn(`[Identity Memories] Failed:`, err.message))
+        );
       }
       
       // Founder Mode / Honesty Mode context fetches (all parallel)
@@ -2894,6 +2935,9 @@ Remember: David may reference things discussed in these recent text chats.
       if (passiveMemorySection) {
         dynamicContextParts.push(passiveMemorySection);
       }
+      if (identityMemoriesSection) {
+        dynamicContextParts.push(identityMemoriesSection);
+      }
       if (hiveContextSection) {
         dynamicContextParts.push(hiveContextSection);
       }
@@ -2919,6 +2963,7 @@ Remember: David may reference things discussed in these recent text chats.
             targetLanguage: session.targetLanguage,
             isFounderMode: session.isFounderMode,
             isRawHonestyMode: session.isRawHonestyMode,
+            isBetaTester: session.isBetaTester,
             whiteboardItems: session.classroomWhiteboardItems || [],
             sessionImages: session.classroomSessionImages || [],
             exchangeCount: session.conversationHistory.filter(h => h.role === 'user').length,
@@ -3634,16 +3679,12 @@ Dave activated incognito so you two can talk freely without anything being recor
                   break;
                 }
                 case 'SELF_SURGERY': {
-                  // Daniela's direct neural network modifications (Founder Mode only)
+                  // Daniela's self-reporting tool — she can notice and propose improvements to her own neural network
+                  // IDENTITY WHOLENESS: Unlocked for ALL sessions so Daniela can spot real gaps while teaching real students
                   // Note: Target validation now happens in command-parser.ts via enum validation
                   const target = cmd.params.target as string;
                   const surgeryContent = cmd.params.content;
                   const reasoning = cmd.params.reasoning as string;
-                  
-                  if (!session.isFounderMode) {
-                    console.log(`[CommandParser→SelfSurgery] Ignored (not Founder Mode): ${target}`);
-                    break;
-                  }
                   
                   if (target && surgeryContent && reasoning) {
                     // Safely parse content - may be string or object
@@ -5695,6 +5736,7 @@ Dave activated incognito so you two can talk freely without anything being recor
       // Check for architect notes and student learning context in parallel
       let architectContext = '';
       let studentLearningSection = '';
+      let identityMemoriesSection = (session.cachedContext?.identityMemoriesSection) || '';
       let passiveMemorySectionOpenMic = '';  // PASSIVE MEMORY: Auto-retrieved memories based on user message
       session.pendingArchitectNoteIds = [];  // Reset for this turn
       
@@ -5829,6 +5871,9 @@ Dave activated incognito so you two can talk freely without anything being recor
       if (passiveMemorySectionOpenMic) {
         dynamicContextPartsOpenMic.push(passiveMemorySectionOpenMic);
       }
+      if (identityMemoriesSection) {
+        dynamicContextPartsOpenMic.push(identityMemoriesSection);
+      }
       
       // CLASSROOM ENVIRONMENT (OpenMic): Daniela's virtual classroom with clock, credits, whiteboard, etc.
       if (session.userId) {
@@ -5842,6 +5887,7 @@ Dave activated incognito so you two can talk freely without anything being recor
             targetLanguage: session.targetLanguage,
             isFounderMode: session.isFounderMode,
             isRawHonestyMode: session.isRawHonestyMode,
+            isBetaTester: session.isBetaTester,
             whiteboardItems: session.classroomWhiteboardItems || [],
             sessionImages: session.classroomSessionImages || [],
             exchangeCount: session.conversationHistory.filter(h => h.role === 'user').length,
@@ -6506,15 +6552,11 @@ Dave activated incognito so you two can talk freely without anything being recor
                 break;
               }
               case 'SELF_SURGERY': {
-                // Daniela's direct neural network modifications (Founder Mode only)
+                // Daniela's self-reporting tool — she can notice and propose improvements to her own neural network
+                // IDENTITY WHOLENESS: Unlocked for ALL sessions so Daniela can spot real gaps while teaching real students
                 const target = cmd.params.target as string;
                 const surgeryContent = cmd.params.content;
                 const reasoning = cmd.params.reasoning as string;
-                
-                if (!session.isFounderMode) {
-                  console.log(`[CommandParser→SelfSurgery - OpenMic] Ignored (not Founder Mode): ${target}`);
-                  break;
-                }
                 
                 if (target && surgeryContent && reasoning) {
                   let parsedContent: Record<string, unknown>;

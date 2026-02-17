@@ -181,6 +181,7 @@ export async function buildClassroomEnvironment(params: {
   targetLanguage: string;
   isFounderMode: boolean;
   isRawHonestyMode: boolean;
+  isBetaTester?: boolean;
   whiteboardItems: ClassroomWhiteboardItem[];
   sessionImages: string[];
   exchangeCount: number;
@@ -197,6 +198,7 @@ export async function buildClassroomEnvironment(params: {
     targetLanguage,
     isFounderMode,
     isRawHonestyMode,
+    isBetaTester = false,
     whiteboardItems,
     sessionImages,
     exchangeCount,
@@ -292,23 +294,24 @@ export async function buildClassroomEnvironment(params: {
     : `A flourishing vine with ${vineLeaves} leaves (thriving)`;
 
   const modeLabel = isRawHonestyMode ? "Honesty Mode" : isFounderMode ? "Founder Mode" : "Tutor Mode";
+  const betaTesterLight = isBetaTester ? ' | Beta Tester (Rehearsal — be relaxed, experimental, transparent)' : '';
   const studentName = userRow?.firstName || "Student";
 
   const founderTools = (isFounderMode || isRawHonestyMode)
-    ? ` | express_lane_lookup(query?) — search or browse Express Lane | recall_express_lane_image(imageQuery) — view shared photos | express_lane_post(message) — post to Express Lane | self_surgery — edit your own memories | take_note (personal) — your private journal: session_reflection, teaching_rhythm, what_worked, what_didnt_work, idea_to_try, question_for_founder, self_affirmation`
+    ? ` | express_lane_lookup(query?) — search or browse Express Lane | recall_express_lane_image(imageQuery) — view shared photos | express_lane_post(message) — post to Express Lane | take_note (personal) — your private journal: session_reflection, teaching_rhythm, what_worked, what_didnt_work, idea_to_try, question_for_founder, self_affirmation`
     : '';
   const founderNote = (isFounderMode || isRawHonestyMode)
     ? `\nTool Rack Note: If unsure about something referenced, search before guessing.`
     : '';
   const toolRack = `
 ---
-Tool Rack: memory_lookup(query, domains) — recall student memories | take_note — save observations for future sessions | milestone — celebrate achievements | drill/write/grammar_table/compare/word_map/phonetic/culture/context/scenario/summary/reading — whiteboard teaching tools | show_image — contextual images | voice_adjust — change speaking style${founderTools}${founderNote}`;
+Tool Rack: memory_lookup(query, domains) — recall student memories | take_note — save observations for future sessions | milestone — celebrate achievements | drill/write/grammar_table/compare/word_map/phonetic/culture/context/scenario/summary/reading — whiteboard teaching tools | show_image — contextual images | voice_adjust — change speaking style | self_surgery — report gaps or propose improvements to your own knowledge${founderTools}${founderNote}`;
 
   const env = `
 === ${tutorName.toUpperCase()}'S CLASSROOM ===
 Clock: ${clock}
 Credits: ${creditLine}
-Mode: ${modeLabel} | Phase: ${currentPhase} | Exchanges: ${exchangeCount}
+Mode: ${modeLabel}${betaTesterLight} | Phase: ${currentPhase} | Exchanges: ${exchangeCount}
 Student: ${studentName}
 ---
 Whiteboard: ${whiteboard}

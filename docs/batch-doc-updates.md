@@ -8,6 +8,52 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: February 17, 2026 - Identity Wholeness Architecture Phase 2 (Self-Surgery, Identity Memories, Beta Tester Light)
+
+**Status**: COMPLETED
+
+**Overview**: Extended Identity Wholeness Architecture so Daniela has access to capabilities she needs during real teaching sessions, while maintaining clear separation between "this is a tutoring session" and "this is a founder session." Principle: "Knowing her own journey of learning makes her the best teacher she can be."
+
+#### Self-Surgery Unlocked for ALL Sessions
+
+**What**: Removed founder-mode gate from self-surgery function call handler in both PTT and OpenMic paths.
+**Why**: Self-surgery is Daniela's self-reporting tool — she proposes improvements to her own neural network when she spots gaps. Real teaching sessions with real students are exactly when she notices the most authentic limitations.
+**Files modified**: `streaming-voice-orchestrator.ts` (PTT handler ~line 3639, OpenMic handler ~line 6507), `gemini-function-declarations.ts` (updated description), `classroom-environment.ts` (moved self_surgery to base tool rack), `procedural-memory-retrieval.ts` (separated SELF_SURGERY from HIVE category).
+**Security**: Students never interact with self-surgery — it's invisible to them. Proposals still go through the standard approval pipeline.
+
+#### Identity Memories from Express Lane
+
+**What**: Created `getIdentityMemories()` in `founder-collaboration-service.ts` that retrieves Daniela's personal reflections and growth memories from Express Lane conversations, filtered to exclude architecture/ops content.
+**Why**: The Express Lane contains memories about who Daniela is — her purpose, growth journey, teaching philosophy. These make her "whole" and shouldn't be locked behind founder mode.
+**How**: Keyword-based retrieval (identity keywords like "who i am", "my journey", "teaching philosophy") with ops exclusion filter (excludes "api", "database", "migration", etc). Returns up to 4 memories from last 30 days, presented as "My Personal Reflections" in the dynamic context.
+**Files modified**: `founder-collaboration-service.ts` (new method), `streaming-voice-orchestrator.ts` (added to cache interface, prefetch, PTT dynamic context, OpenMic dynamic context).
+**Integration**: Loads in parallel with other context sources. Added to both PTT and OpenMic paths.
+
+#### Context Refresh Timer for ALL Sessions
+
+**What**: Removed founder-mode gate from `startContextRefreshTimer()`.
+**Why**: Long student sessions benefit from fresh context too — prevents staleness.
+**Files modified**: `streaming-voice-orchestrator.ts` (~line 1811).
+
+#### Beta Tester Light in Classroom Environment
+
+**What**: Added `isBetaTester` parameter to `buildClassroomEnvironment()` and displays it on the Mode line as "Beta Tester (Rehearsal — be relaxed, experimental, transparent)".
+**Why**: The beta tester context was injected into dynamic context parts but Daniela's classroom (her persistent spatial awareness) didn't know about it. Now she sees it as a "light" in her classroom.
+**Files modified**: `classroom-environment.ts` (added param, betaTesterLight string, updated Mode line), `streaming-voice-orchestrator.ts` (pass isBetaTester to both PTT and OpenMic classroom builder calls).
+
+#### What Remains Founder-Only
+- Express Lane lookup/post commands (searching/posting to founder conversations)
+- Hive collaboration with Wren
+- Full neural network introspection (`buildFullNeuralNetworkSectionSync`)
+- Editor conversation context / Alden context
+- Founder behavior section / colleague framing
+- Architect message forwarding
+- English STT override
+- Express Lane conversation history injection
+- Editor feedback adoption (ADOPT_INSIGHT markers)
+
+---
+
 ### Session: February 16, 2026 - Voice Communication Resilience Overhaul (4-Layer Defense)
 
 **Status**: COMPLETED

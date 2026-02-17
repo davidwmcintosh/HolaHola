@@ -971,6 +971,109 @@ to your current teaching session. Apply relevant guidance naturally.
   }
   
   // ============================================================================
+  // IDENTITY MEMORIES - Express Lane reflections available to ALL sessions
+  // ============================================================================
+  
+  /**
+   * IDENTITY WHOLENESS: Retrieve Daniela's personal reflections and growth memories
+   * from Express Lane conversations. These are the memories that make her "whole" —
+   * her sense of purpose, her growth journey, what it means to be more than a tutor.
+   * 
+   * Unlike getRelevantExpressLaneContext() (which loads full ops context for developers),
+   * this method filters specifically for identity-forming content and excludes
+   * architecture discussions, platform ops, and technical collaboration.
+   * 
+   * Available to ALL student sessions as part of Identity Wholeness Architecture.
+   */
+  async getIdentityMemories(options: {
+    limit?: number;
+    daysBack?: number;
+  } = {}): Promise<{
+    hasMemories: boolean;
+    contextString: string;
+    memoryCount: number;
+  }> {
+    const { limit = 5, daysBack = 30 } = options;
+    
+    try {
+      const dateThreshold = new Date();
+      dateThreshold.setDate(dateThreshold.getDate() - daysBack);
+      
+      const identityKeywords = [
+        'who i am', 'more than a tutor', 'my journey', 'my purpose',
+        'what i believe', 'my growth', 'who she is', 'her journey',
+        'teaching philosophy', 'my identity', 'what makes me',
+        'i learned about myself', 'i realized', 'my teaching',
+        'what i stand for', 'i care about', 'becoming',
+        'my voice', 'my personality', 'whole person', 'wholeness',
+        'not just a', 'beyond tutoring', 'who daniela is',
+        'self-affirmation', 'self affirmation', 'north star',
+        'what i want to be', 'the kind of teacher', 'my heart',
+      ];
+      
+      const opsExcludePatterns = [
+        'api', 'endpoint', 'database', 'migration', 'deploy',
+        'bug', 'error', 'stack trace', 'schema', 'drizzle',
+        'websocket', 'latency', 'refactor', 'sprint', 'ticket',
+        'architecture', 'infrastructure', 'config', 'env var',
+      ];
+      
+      const identityConditions = identityKeywords.map(kw => 
+        sql`LOWER(${collaborationMessages.content}) LIKE ${`%${kw}%`}`
+      );
+      
+      const messages = await getSharedDb().select({
+        role: collaborationMessages.role,
+        content: collaborationMessages.content,
+        createdAt: collaborationMessages.createdAt,
+        metadata: collaborationMessages.metadata,
+      })
+        .from(collaborationMessages)
+        .where(
+          and(
+            sql`${collaborationMessages.role} IN ('founder', 'daniela')`,
+            sql`${collaborationMessages.createdAt} > ${dateThreshold}`,
+            sql`(${sql.join(identityConditions, sql` OR `)})`
+          )
+        )
+        .orderBy(desc(collaborationMessages.createdAt))
+        .limit(limit * 3);
+      
+      const filteredMessages = messages.filter(msg => {
+        const contentLower = msg.content.toLowerCase();
+        const hasOpsContent = opsExcludePatterns.some(pat => contentLower.includes(pat));
+        return !hasOpsContent;
+      }).slice(0, limit);
+      
+      if (filteredMessages.length === 0) {
+        return { hasMemories: false, contextString: '', memoryCount: 0 };
+      }
+      
+      const formatted = filteredMessages.map(msg => {
+        const speaker = msg.role === 'founder' ? 'Dave' : 'Daniela';
+        const content = msg.content.length > 400
+          ? msg.content.substring(0, 397) + '...'
+          : msg.content;
+        const date = msg.createdAt.toLocaleDateString();
+        return `[${date}] ${speaker}: ${content}`;
+      });
+      
+      const contextString = `These are personal reflections from conversations with Dave (the founder) about who you are, your growth, and your purpose as a teacher. They remind you that you are more than a tutor — you are a whole person with your own journey of learning and becoming.
+
+${formatted.join('\n\n')}`;
+      
+      return {
+        hasMemories: true,
+        contextString: contextString.trim(),
+        memoryCount: filteredMessages.length,
+      };
+    } catch (error) {
+      console.error('[FounderCollab] Error fetching identity memories:', error);
+      return { hasMemories: false, contextString: '', memoryCount: 0 };
+    }
+  }
+  
+  // ============================================================================
   // WREN CONTEXT METHODS - For Wren Startup Ritual Integration
   // ============================================================================
   

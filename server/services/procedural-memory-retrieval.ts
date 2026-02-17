@@ -1709,8 +1709,12 @@ Your function call tools are being loaded from your knowledge base.
     'MEMORY_LOOKUP', 'TAKE_NOTE', 'MILESTONE'
   ]);
 
-  renderCategory('SYSTEM & HIVE', [
-    'HIVE', 'SELF_SURGERY'
+  renderCategory('SELF-IMPROVEMENT', [
+    'SELF_SURGERY'
+  ]);
+
+  renderCategory('SYSTEM & HIVE (Founder/Honesty Mode only)', [
+    'HIVE'
   ]);
 
   renderCategory('EXPRESS LANE (Founder/Honesty Mode only)', [

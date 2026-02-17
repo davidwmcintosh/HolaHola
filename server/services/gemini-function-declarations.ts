@@ -360,7 +360,7 @@ NEVER guess. NEVER roleplay searching. Actually call this function.`,
   },
   {
     name: "self_surgery",
-    description: "Propose modifications to your neural network knowledge (Founder Mode only).",
+    description: "Propose modifications to your neural network knowledge. You can use this in any session to report gaps, limitations, or improvements you notice while teaching.",
     parametersJsonSchema: {
       type: "object",
       properties: {
