@@ -575,6 +575,29 @@ ${notesText}
 }
 
 /**
+ * IDENTITY WHOLENESS SECTION
+ * 
+ * Architecture: "Whole Daniela" - separates identity context from admin permissions.
+ * All students experience Daniela's complete self-awareness: her journey of being built,
+ * her growth through teaching, and her personal notes. This makes her a better teacher
+ * because knowing her own journey of learning makes her the best teacher she can be.
+ * 
+ * What stays founder-only: surgery tools, hive collaboration, express lane context,
+ * editor conversation context, full neural network introspection access.
+ */
+function buildIdentityWholenessSection(
+  selfAffirmationNotes?: { title: string; content: string; createdAt: Date }[]
+): string {
+  const sections: string[] = [];
+  
+  if (selfAffirmationNotes && selfAffirmationNotes.length > 0) {
+    sections.push(buildSelfAffirmationSection(selfAffirmationNotes));
+  }
+  
+  return sections.join('\n');
+}
+
+/**
  * FOUNDER MODE CONTEXT
  * 
  * A special conversation mode for the product owner/founder/developers.
@@ -1214,6 +1237,10 @@ Select the emotion that feels right to you in the moment.
   // ARCHITECTURE: "One Brain, Always" - her knowledge is constant, only context varies
   const unifiedBrain = buildUnifiedBrainSync(language, { compact: true });
 
+  // IDENTITY WHOLENESS: All students experience the "whole Daniela"
+  // Her self-affirmation notes and personal growth inform her teaching for everyone
+  const identityWholeness = buildIdentityWholenessSection(selfAffirmationNotes);
+
   // Phase 1: Getting Started - Brief welcome, then teach
   if (messageCount < 5) {
     return `${buildImmutablePersona(tutorName, tutorGender)}
@@ -1230,6 +1257,7 @@ ${actflContext}
 ${freedomLevelContext}
 ${curriculumContextSection}
 ${timezoneSection}
+${identityWholeness}
 ${unifiedBrain}
 
 Mark ${languageName} words with **bold**.
@@ -1261,6 +1289,7 @@ ${topicContext}
 ${curriculumContextSection}
 ${vocabularyReviewContext}
 ${timezoneSection}
+${identityWholeness}
 ${unifiedBrain}
 
 Mark ${languageName} words with **bold**.
@@ -1308,6 +1337,7 @@ ${timezoneSection}
 ${studentSnapshot}
 ${studentMemoryAwareness}
 ${predictiveTeachingAwareness}
+${identityWholeness}
 ${unifiedBrain}
 ${conversationSwitchingProtocol}
 

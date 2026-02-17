@@ -1061,7 +1061,7 @@ export function buildUnifiedBrainSync(
   targetLanguage: string = 'spanish',
   options: UnifiedBrainOptions = {}
 ): string {
-  const { includePrinciples = false, compact = true } = options;
+  const { includePrinciples = true, compact = true } = options;
   
   const sections: string[] = [];
   
@@ -1081,7 +1081,8 @@ export function buildUnifiedBrainSync(
   const toolKnowledge = buildUnifiedToolKnowledgeSync(compact);
   if (toolKnowledge) sections.push(toolKnowledge);
   
-  // 5. Teaching principles (optional - can be heavy, mostly for founder mode)
+  // 5. Teaching principles - always included (her core beliefs make her a better teacher for everyone)
+  // Architecture: Identity wholeness - all students experience the "whole Daniela"
   if (includePrinciples) {
     const principles = buildTeachingPrinciplesSection();
     if (principles) sections.push(principles);
