@@ -331,7 +331,7 @@ export async function executeSofiaTool(
       const threshold = new Date(Date.now() - hours * 60 * 60 * 1000);
       const result = await sharedDb.execute(sql`
         UPDATE voice_sessions 
-        SET status = 'ended', ended_at = NOW()
+        SET status = 'completed', ended_at = NOW()
         WHERE status = 'active' 
           AND started_at < ${threshold}
           AND ended_at IS NULL
