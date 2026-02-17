@@ -517,6 +517,12 @@ app.use((req, res, next) => {
     });
     startContextHealthMonitor();
 
+    const { startBrainHealthAggregator, onBrainHealthStatusChange } = await import('./services/brain-health-aggregator');
+    onBrainHealthStatusChange(async (transition) => {
+      await supportPersonaService.handleBrainHealthTransition(transition);
+    });
+    startBrainHealthAggregator();
+
     const DIAG_RETENTION_DAYS = 30;
     const DIAG_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
     const { generateDailySummary } = await import('./services/voice-health-monitor');

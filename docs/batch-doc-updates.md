@@ -3755,3 +3755,73 @@ Daniela can change her personal photo (North Star Polaroid) anytime. Parameters:
 - `server/services/sofia-health-functions.ts` — Added 3 context remediation tools to Sofia's toolkit
 - `server/services/support-persona-service.ts` — Added `handleContextHealthTransition()` and `runSofiaContextHealthAgent()` with context-specific system prompt
 - `server/index.ts` — Wired context health monitor transitions to Sofia
+
+---
+
+### Session: February 17, 2026 - Unified Brain Health Aggregator & Sofia Brain Health Agent
+
+**Status**: COMPLETED
+
+**Overview**: Deployed Daniela's complete nervous system — a unified Brain Health Aggregator that assesses 6 cognitive dimensions every 15 minutes, with Sofia as the autonomous diagnostic/remediation agent. This gives Sofia full-body visibility across memory, neural network retrieval, neural sync, student learning, tool orchestration, and context injection, completing the "wholly functioning brain and voice and nervous system."
+
+#### Brain Health Aggregator (`brain-health-aggregator.ts`)
+
+**What it does:** Single monitor composing 6 independent health assessments into a unified GREEN/YELLOW/RED score (0-100). Runs every 15 minutes.
+
+**Health Dimensions:**
+1. **Memory** — Retrieval freshness, relevance, injection rates, redundancy. When degraded, Daniela forgets students. Idle periods auto-return GREEN.
+2. **Neural Retrieval** — Knowledge base tables (10 tables: procedures, principles, error patterns, bridges, nuances, dialects, subtlety cues, emotional patterns, creativity templates, best practices + tool knowledge). Empty critical tables = instant RED.
+3. **Neural Sync** — Dev↔Prod sync pipeline. Tracks promotion queue backlog and last sync timestamp. Stale >24h = YELLOW, >48h = RED.
+4. **Student Learning** — Per-student coverage rates, fact extraction quality. Low coverage or many sparse students = degraded.
+5. **Tool Orchestration** — Function call latency, failure rates, anomalies from telemetry. High failure rates or latency = degraded.
+6. **Context Injection** — Per-source context assembly success rates. Critical sources (classroom, student_intelligence) failing = instant escalation.
+
+**Scoring:** Overall score = weighted average (Memory 25%, Neural Retrieval 20%, Neural Sync 10%, Student Learning 20%, Tool Orchestration 10%, Context Injection 15%). GREEN ≥70, YELLOW ≥40, RED <40.
+
+**Status transitions:** Detected when overall status changes between checks. Triggers Sofia's Brain Health Agent via `supportPersonaService.handleBrainHealthTransition()`.
+
+#### Sofia Brain Health Agent
+
+**What it does:** When the Brain Health Aggregator detects a status transition, Sofia autonomously investigates using 7 brain health tools, takes safe remediations, and records a health digest.
+
+**Remediation priority (inside-out, closest to student first):**
+- Memory starvation → `trigger_memory_recovery` immediately
+- Context injection failure → `refresh_context_cache` + escalate if persistent
+- Neural network tables empty → escalate (needs human seeding)
+- Sync backlog growing → `track_pattern` + escalate if >48h stale
+- Tool latency spikes → `track_pattern`, no safe auto-fix
+- Optional source failures → `disable_optional_context_source` for 30min
+
+**Sofia Brain Health Tools (7 new tools in `sofia-health-functions.ts`):**
+- `get_brain_health_report` — Full 6-dimension assessment with per-dimension scores
+- `get_memory_health` — Detailed memory metrics (freshness, relevance, injection rates, redundancy)
+- `get_neural_network_health` — 10-table knowledge base counts, empty table detection
+- `get_neural_sync_health` — Promotion queue status, last sync timestamps
+- `get_student_learning_health` — Per-student coverage, sparse student detection
+- `trigger_memory_recovery` — Force memory recovery worker to run immediately
+- `run_brain_anomaly_detection` — Cross-system anomaly detection for latency/failure patterns
+
+**Shared cooldown:** All 3 health agents (voice, context, brain) share a single 30-minute cooldown — prevents Sofia from being overwhelmed by simultaneous transitions from different monitors.
+
+#### Bug Fix: Neural Retrieval Assessment
+
+**Problem:** Destructuring 11 variables from 10 Promise.all queries (phantom `idioms` table that doesn't exist) caused `Cannot read properties of undefined (reading '0')` error, making neural retrieval always return assessment error.
+
+**Fix:** Removed `idioms` variable — there are 10 neural network tables, not 11.
+
+#### Complete Nervous System Architecture
+
+All three monitors run in parallel, feeding Sofia with unified health visibility:
+```
+Voice Health Monitor (15min) ──→ Sofia Voice Health Agent
+Context Health Monitor (15min) ─→ Sofia Context Health Agent
+Brain Health Aggregator (15min) ─→ Sofia Brain Health Agent
+                                      ↕ (shared 30-min cooldown)
+```
+
+**Key Files Modified:**
+- `server/services/brain-health-aggregator.ts` — New: unified 6-dimension health monitor
+- `server/services/brain-health-telemetry.ts` — New: telemetry data collection for memory, neural, student, tool, context metrics
+- `server/services/sofia-health-functions.ts` — Added 7 brain health remediation tools
+- `server/services/support-persona-service.ts` — Added `handleBrainHealthTransition()` and `runSofiaBrainHealthAgent()` with comprehensive system prompt
+- `server/index.ts` — Wired brain health aggregator transitions to Sofia

@@ -156,6 +156,66 @@ export const SOFIA_HEALTH_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
       required: ["source", "reason"],
     },
   },
+  {
+    name: "get_brain_health_report",
+    description: "Get a comprehensive brain health report across ALL dimensions: memory system, neural network retrieval, neural network sync, student learning, tool orchestration, and context injection. Returns per-dimension status (green/yellow/red), scores, and specific issues. This is the most complete diagnostic tool available.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "get_memory_health",
+    description: "Get detailed memory system health: retrieval freshness, relevance scores, injection rates, redundancy detection, and memory starvation (sessions where Daniela had no memory about the student). Low relevance means Daniela is recalling irrelevant facts. High redundancy means she keeps fetching the same memories.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        days: { type: "number", description: "Days to look back (default 1, max 7)" },
+      },
+    },
+  },
+  {
+    name: "get_neural_network_health",
+    description: "Get neural network knowledge base health: counts for all 10 tables (procedures, principles, error patterns, bridges, cultural nuances, dialects, subtlety cues, emotional patterns, creativity templates, best practices) plus tool knowledge. Identifies empty tables that leave Daniela without pedagogical intelligence.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "get_neural_sync_health",
+    description: "Get neural network sync pipeline health: pending promotion queue size, last sync timestamp, environment info. A large backlog means approved knowledge isn't reaching production. Long time since last sync means the learning loop is broken.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "get_student_learning_health",
+    description: "Get student learning intelligence health: coverage rates, fact extraction quality, sparse vs rich memory students. Identifies students who are 'invisible' to the intelligence system — Daniela teaches them without personalization.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "trigger_memory_recovery",
+    description: "Trigger the memory recovery worker to process orphaned conversation candidates that weren't properly extracted for personal facts. This recovers lost learning data. Safe action with cooldown.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "run_brain_anomaly_detection",
+    description: "Run anomaly detection across brain events to find specific problems: high latency spikes, low relevance retrievals, high redundancy, extraction failures, and memory starvation. Returns severity-rated anomalies with affected event counts.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        hours_back: { type: "number", description: "Hours to analyze (default 6, max 24)" },
+      },
+    },
+  },
 ];
 
 export type SofiaToolResult = { success: boolean; data: any };
@@ -412,6 +472,135 @@ export async function executeSofiaTool(
       setCooldown(`disable_${source}`);
       console.log(`[Sofia Agent] Remediation: disabled optional context source '${source}' for 30min — reason: ${reason}`);
       return { success: true, data: { source, disabled: true, reenableAt: new Date(now.getTime() + CONTEXT_DISABLE_DURATION_MS).toISOString(), reason } };
+    }
+
+    case "get_brain_health_report": {
+      const { runBrainHealthCheck } = await import('./brain-health-aggregator');
+      const report = await runBrainHealthCheck();
+      const summary: Record<string, any> = {
+        overallStatus: report.overallStatus,
+        overallScore: report.overallScore,
+        timestamp: report.timestamp.toISOString(),
+        dimensions: {} as Record<string, any>,
+      };
+      for (const [key, dim] of Object.entries(report.dimensions)) {
+        summary.dimensions[key] = {
+          status: dim.status,
+          score: dim.score,
+          reasons: dim.reasons,
+        };
+      }
+      return { success: true, data: summary };
+    }
+
+    case "get_memory_health": {
+      const { brainHealthTelemetry: bht } = await import('./brain-health-telemetry');
+      const days = Math.min(args.days || 1, 7);
+      const memHealth = await bht.getMemoryHealthMetrics(days);
+      const studentCoverage = await bht.getStudentCoverage();
+      return {
+        success: true,
+        data: {
+          ...memHealth,
+          injectionRatePercent: Math.round(memHealth.injectionRate * 100),
+          redundancyRatePercent: Math.round(memHealth.redundancyRate * 100),
+          studentsWithRichMemory: studentCoverage.studentsWithRichMemory,
+          studentsWithSparseMemory: studentCoverage.studentsWithSparseMemory,
+          totalActiveStudents: studentCoverage.studentsWithActivity,
+        },
+      };
+    }
+
+    case "get_neural_network_health": {
+      const { runBrainHealthCheck: runCheck } = await import('./brain-health-aggregator');
+      const report = await runCheck();
+      const nnDim = report.dimensions.neuralRetrieval;
+      return {
+        success: true,
+        data: {
+          status: nnDim.status,
+          score: nnDim.score,
+          reasons: nnDim.reasons,
+          tableCounts: nnDim.metrics.tableCounts || {},
+          toolCount: nnDim.metrics.toolCount || 0,
+          totalKnowledge: nnDim.metrics.totalKnowledge || 0,
+        },
+      };
+    }
+
+    case "get_neural_sync_health": {
+      const { neuralNetworkSync: nnSync } = await import('./neural-network-sync');
+      const syncStats = await nnSync.getSyncStats();
+      const hoursSinceSync = syncStats.lastSyncTime
+        ? Math.round((Date.now() - syncStats.lastSyncTime.getTime()) / (1000 * 60 * 60))
+        : null;
+      return {
+        success: true,
+        data: {
+          ...syncStats,
+          lastSyncTime: syncStats.lastSyncTime?.toISOString() || null,
+          hoursSinceLastSync: hoursSinceSync,
+          syncHealthy: hoursSinceSync === null || hoursSinceSync < 48,
+          backlogHealthy: syncStats.pendingPromotions < 10,
+        },
+      };
+    }
+
+    case "get_student_learning_health": {
+      const { brainHealthTelemetry: bht2 } = await import('./brain-health-telemetry');
+      const coverage = await bht2.getStudentCoverage();
+      const factMetrics = await bht2.getFactExtractionMetrics(1);
+      return {
+        success: true,
+        data: {
+          coverage: {
+            totalStudents: coverage.studentsWithActivity,
+            richMemory: coverage.studentsWithRichMemory,
+            sparseMemory: coverage.studentsWithSparseMemory,
+            topStudents: coverage.coverageByStudent.slice(0, 5),
+          },
+          factQuality: {
+            ...factMetrics,
+            specificityRatePercent: Math.round(factMetrics.specificityRate * 100),
+          },
+        },
+      };
+    }
+
+    case "trigger_memory_recovery": {
+      if (checkCooldown('memory_recovery')) {
+        return { success: false, data: { reason: "Cooldown active — memory recovery was already triggered within the last 30 minutes" } };
+      }
+      try {
+        const { memoryRecoveryWorker } = await import('./memory-recovery-worker');
+        const result = await memoryRecoveryWorker.runRecovery();
+        setCooldown('memory_recovery');
+        console.log(`[Sofia Agent] Remediation: triggered memory recovery — ${result.candidatesProcessed} processed, ${result.factsExtracted} facts recovered`);
+        return { success: true, data: result };
+      } catch (err: any) {
+        return { success: false, data: { error: `Memory recovery failed: ${err.message}` } };
+      }
+    }
+
+    case "run_brain_anomaly_detection": {
+      const { brainHealthTelemetry: bht3 } = await import('./brain-health-telemetry');
+      const hoursBack = Math.min(args.hours_back || 6, 24);
+      const anomalyResult = await bht3.detectAnomalies(hoursBack);
+      return {
+        success: true,
+        data: {
+          healthScore: anomalyResult.healthScore,
+          anomalyCount: anomalyResult.anomalies.length,
+          criticalCount: anomalyResult.anomalies.filter(a => a.severity === 'critical').length,
+          anomalies: anomalyResult.anomalies.map(a => ({
+            type: a.type,
+            severity: a.severity,
+            message: a.message,
+            affectedEvents: a.affectedEvents,
+          })),
+          recommendation: anomalyResult.recommendation,
+        },
+      };
     }
 
     default:

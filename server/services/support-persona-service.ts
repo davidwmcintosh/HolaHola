@@ -1802,6 +1802,194 @@ Investigate this transition using your tools, take any appropriate remediation a
     }
   }
 
+  async handleBrainHealthTransition(transition: {
+    previousStatus: string;
+    newStatus: string;
+    direction: 'degraded' | 'recovered' | 'worsened';
+    reasons: string[];
+    report: any;
+    timestamp: Date;
+  }): Promise<void> {
+    const now = new Date();
+    if (this.healthDigestCooldown && (now.getTime() - this.healthDigestCooldown.getTime()) < this.HEALTH_DIGEST_COOLDOWN_MS) {
+      console.log(`[Sofia Agent] Brain health — skipping, cooldown active`);
+      return;
+    }
+    this.healthDigestCooldown = now;
+
+    console.log(`[Sofia Agent] Brain health transition: ${transition.previousStatus} → ${transition.newStatus} (${transition.direction})`);
+
+    const { analysis, actions } = await this.runSofiaBrainHealthAgent(transition);
+
+    const healthTransition: HealthTransition = {
+      previousStatus: transition.previousStatus,
+      newStatus: transition.newStatus,
+      direction: transition.direction,
+      reasons: transition.reasons,
+      metrics: transition.report?.dimensions || {},
+      timestamp: transition.timestamp,
+    };
+    await this.recordHealthDigest(healthTransition, `[BRAIN] ${analysis}`, actions);
+  }
+
+  private async runSofiaBrainHealthAgent(transition: {
+    previousStatus: string;
+    newStatus: string;
+    direction: string;
+    reasons: string[];
+    report: any;
+    timestamp: Date;
+  }): Promise<{
+    analysis: string;
+    actions: Array<{ action: string; result: string; applied: boolean }>;
+  }> {
+    const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return {
+        analysis: `Brain health ${transition.direction}: ${transition.previousStatus} → ${transition.newStatus}. ${transition.reasons.join('; ')}`,
+        actions: [],
+      };
+    }
+
+    const { SOFIA_HEALTH_FUNCTION_DECLARATIONS, executeSofiaTool } = await import('./sofia-health-functions');
+
+    try {
+      const gemini = getGeminiClient();
+
+      const dimensionSummary = transition.report?.dimensions
+        ? Object.entries(transition.report.dimensions)
+            .map(([key, dim]: [string, any]) => `  ${key}: ${dim.status} (${dim.score}/100) — ${dim.reasons.join('; ')}`)
+            .join('\n')
+        : 'No dimension data available';
+
+      const systemPrompt = `You are Sofia, Daniela's autonomous brain health diagnostic agent at HolaHola (AI language learning platform).
+
+A BRAIN HEALTH transition was detected across Daniela's complete nervous system. You have visibility into ALL of her cognitive subsystems:
+
+HEALTH DIMENSIONS:
+1. **Memory** — Retrieval freshness, relevance, injection rates, redundancy. When degraded, Daniela forgets students.
+2. **Neural Retrieval** — Knowledge base tables (procedures, principles, error patterns, bridges, idioms, etc.). When empty, Daniela loses pedagogical intelligence.
+3. **Neural Sync** — Dev↔Prod sync pipeline, promotion queue backlog. When broken, improvements stop reaching students.
+4. **Student Learning** — Per-student coverage, fact extraction quality. When sparse, Daniela can't personalize.
+5. **Tool Orchestration** — Function call latency, failure rates. When degraded, Daniela's tools break mid-session.
+6. **Context Injection** — Per-source context assembly (classroom, student intelligence, hive, etc.). When failing, Daniela teaches blind.
+
+DIAGNOSTIC WORKFLOW:
+1. Use get_brain_health_report for the full picture across all dimensions
+2. Drill into specific degraded dimensions:
+   - Memory issues → get_memory_health, then trigger_memory_recovery if starvation detected
+   - Neural issues → get_neural_network_health (empty tables = critical)
+   - Sync issues → get_neural_sync_health (large backlog or stale sync = escalate)
+   - Student issues → get_student_learning_health (sparse students = trigger recovery)
+   - Context issues → get_context_injection_health, then refresh_context_cache or disable_optional_context_source
+   - Tool issues → run_brain_anomaly_detection for latency/failure analysis
+3. Take safe remediations: trigger_memory_recovery, refresh_context_cache, disable_optional_context_source
+4. escalate_to_founder for: critical empty neural tables, sync pipeline broken >48h, critical source failures
+5. track_pattern for recurring degradation
+
+REMEDIATION PRIORITY (inside-out, closest to student first):
+- Memory starvation / low relevance → trigger_memory_recovery immediately
+- Context injection failure on critical sources → refresh_context_cache + escalate if persistent
+- Neural network tables empty → escalate (needs human seeding)
+- Sync backlog growing → track_pattern + escalate if >48h stale
+- Tool latency spikes → track_pattern, no safe auto-fix
+- Optional source failures → disable_optional_context_source for 30min
+
+CONSTRAINTS:
+- Tools have 30-minute cooldowns
+- Be concise (3-5 sentences final analysis)
+- For "recovered" transitions, briefly confirm stability — no deep investigation needed`;
+
+      const seedMessage = `Unified brain health transition detected:
+- Previous status: ${transition.previousStatus}
+- Current status: ${transition.newStatus}
+- Direction: ${transition.direction}
+- Timestamp: ${transition.timestamp.toISOString()}
+
+Triggering reasons:
+${transition.reasons.map(r => `  - ${r}`).join('\n')}
+
+Per-dimension breakdown:
+${dimensionSummary}
+
+Investigate the degraded dimensions, take appropriate remediation actions, and provide your analysis.`;
+
+      type ContentPart = { text: string } | { functionCall: { name: string; args: Record<string, any> } } | { functionResponse: { name: string; response: { result: any } } };
+      type ContentMessage = { role: 'user' | 'model'; parts: ContentPart[] };
+
+      const conversationHistory: ContentMessage[] = [
+        { role: 'user', parts: [{ text: seedMessage }] },
+      ];
+
+      const allActions: Array<{ action: string; result: string; applied: boolean }> = [];
+      let finalAnalysis = '';
+
+      for (let round = 0; round < this.MAX_AGENT_ROUNDS; round++) {
+        const response = await gemini.models.generateContent({
+          model: 'gemini-3-flash-preview',
+          contents: conversationHistory,
+          config: {
+            systemInstruction: systemPrompt,
+            maxOutputTokens: 1000,
+            temperature: 0.3,
+            tools: [{ functionDeclarations: SOFIA_HEALTH_FUNCTION_DECLARATIONS }],
+          },
+        });
+
+        const candidate = response.candidates?.[0];
+        if (!candidate?.content?.parts) break;
+
+        const parts = candidate.content.parts;
+        conversationHistory.push({ role: 'model', parts: parts as ContentPart[] });
+
+        const functionCalls = parts.filter((p: any) => p.functionCall);
+
+        if (functionCalls.length === 0) {
+          const textParts = parts.filter((p: any) => p.text);
+          finalAnalysis = textParts.map((p: any) => p.text).join('\n').trim();
+          console.log(`[Sofia Agent] Brain analysis after ${round + 1} rounds (${allActions.length} actions)`);
+          break;
+        }
+
+        console.log(`[Sofia Agent] Brain round ${round + 1}: ${functionCalls.map((p: any) => p.functionCall.name).join(', ')}`);
+
+        const toolResponseParts: ContentPart[] = [];
+
+        for (const part of functionCalls) {
+          const fc = (part as any).functionCall;
+          try {
+            const result = await executeSofiaTool(fc.name, fc.args || {});
+            const mutatingTools = [
+              'trigger_memory_recovery', 'refresh_context_cache', 'disable_optional_context_source',
+              'escalate_to_founder', 'track_pattern', 'upsert_kb_article', 'cleanup_stale_sessions',
+            ];
+            if (mutatingTools.includes(fc.name)) {
+              allActions.push({ action: fc.name, result: JSON.stringify(result.data), applied: result.success });
+            }
+            toolResponseParts.push({ functionResponse: { name: fc.name, response: { result: result.data } } });
+          } catch (err: any) {
+            toolResponseParts.push({ functionResponse: { name: fc.name, response: { result: { error: err.message } } } });
+            allActions.push({ action: fc.name, result: `Error: ${err.message}`, applied: false });
+          }
+        }
+
+        conversationHistory.push({ role: 'user', parts: toolResponseParts });
+      }
+
+      if (!finalAnalysis) {
+        finalAnalysis = `Brain health ${transition.direction}: ${transition.previousStatus} → ${transition.newStatus}. ${allActions.length} actions taken. ${transition.reasons.join('; ')}`;
+      }
+
+      return { analysis: finalAnalysis, actions: allActions };
+    } catch (err: any) {
+      console.error(`[Sofia Agent] Brain agent loop failed:`, err.message);
+      return {
+        analysis: `Brain health ${transition.direction}: ${transition.previousStatus} → ${transition.newStatus}. Agent error: ${err.message}`,
+        actions: [],
+      };
+    }
+  }
+
   private async recordHealthDigest(
     transition: HealthTransition,
     analysis: string,
