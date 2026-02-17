@@ -73,41 +73,7 @@ export function LearningContextFilter({
     queryKey: ["/api/user/languages"],
   });
 
-  // Smart-filter languages: show languages user is enrolled in, has as target, OR has progress in
-  const availableLanguages = useMemo(() => {
-    // Developers/admins see all languages without filtering
-    if (isDeveloper) {
-      return allLanguages;
-    }
-    
-    // Get unique languages from enrolled classes
-    const enrolledLanguages = new Set(
-      enrolledClasses
-        .filter(e => e.isActive && e.class?.language)
-        .map(e => e.class.language.toLowerCase())
-    );
-
-    // Add user's self-directed target language
-    if (user?.targetLanguage) {
-      enrolledLanguages.add(user.targetLanguage.toLowerCase());
-    }
-
-    // Add all languages user has progress in
-    if (userLanguagesData?.languages) {
-      userLanguagesData.languages.forEach(lang => enrolledLanguages.add(lang.toLowerCase()));
-    }
-
-    // If no enrollments, no target language, and no progress, show all languages (new user)
-    if (enrolledLanguages.size === 0) {
-      return allLanguages;
-    }
-
-    // Filter to only show relevant languages, but always include "All Languages" option
-    const filteredLanguages = allLanguages.filter(lang => 
-      lang.value === "all" || enrolledLanguages.has(lang.value.toLowerCase())
-    );
-    return filteredLanguages;
-  }, [enrolledClasses, user?.targetLanguage, userLanguagesData?.languages, isDeveloper, allLanguages]);
+  const availableLanguages = allLanguages;
 
   const selectedLanguage = availableLanguages.find((lang) => lang.value === language) 
     || allLanguages.find((lang) => lang.value === language);
