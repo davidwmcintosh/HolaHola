@@ -1,7 +1,7 @@
 # HolaHola - Interactive Language Tutor
 
 ## Overview
-HolaHola is an AI-powered language learning application providing interactive conversation practice, vocabulary building, and grammar exercises across ten languages, adhering to ACTFL standards. It offers personalized chat, flashcards, and grammar modules that adapt to user progress, all orchestrated by Daniela, a unified AI with a distinct personality. The project aims to become a leading AI-driven educational platform focused on advanced technology and pedagogical innovation for language acquisition.
+HolaHola is an AI-powered language learning application providing interactive conversation practice, vocabulary building, and grammar exercises across ten languages, adhering to ACTFL standards. It offers personalized chat, flashcards, and grammar modules that adapt to user progress, all orchestrated by Daniela, a unified AI with a distinct personality. The project aims to become a leading AI-driven educational platform focused on advanced technology and pedagogical innovation for language acquisition, with a vision to become the leading AI-driven educational platform for language acquisition.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
