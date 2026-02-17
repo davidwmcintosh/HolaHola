@@ -540,6 +540,12 @@ app.use((req, res, next) => {
       startBrainHealthAggregator();
     }, 18000);
 
+    // +25s: Wren Security Audit Worker
+    setTimeout(async () => {
+      const { startSecurityAuditWorker } = await import('./services/wren-security-audit-worker');
+      startSecurityAuditWorker();
+    }, 25000);
+
     // +60s: Diagnostic retention (daily cleanup, no rush)
     setTimeout(async () => {
       const DIAG_RETENTION_DAYS = 30;

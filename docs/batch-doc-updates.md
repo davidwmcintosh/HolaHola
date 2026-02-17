@@ -14,6 +14,39 @@ Staging area for documentation changes to be consolidated later.
 
 **Overview**: Extended Identity Wholeness Architecture so Daniela has access to capabilities she needs during real teaching sessions, while maintaining clear separation between "this is a tutoring session" and "this is a founder session." Principle: "Knowing her own journey of learning makes her the best teacher she can be."
 
+#### Wren Security Officer
+
+**What**: Gave Wren a dedicated cybersecurity role — automated security audits that scan the codebase for vulnerabilities and report findings through the Hive.
+
+**How it works**:
+- `wren-security-audit-service.ts` — Heuristic scanners that check for:
+  1. **Exposed secrets** — Hardcoded API keys, tokens, private keys in source (with false positive filtering for process.env references)
+  2. **SQL injection** — Unparameterized queries, string concatenation in SQL, template literals without Drizzle's sql tag
+  3. **Missing auth** — Mutation endpoints (POST/PUT/PATCH/DELETE) without authentication checks
+  4. **Input validation** — Direct req.body access without Zod/schema validation
+  5. **XSS risks** — dangerouslySetInnerHTML without DOMPurify sanitization
+- `wren-security-audit-worker.ts` — Scheduled worker (every 6h, 30s initial delay):
+  1. Runs all heuristic scanners
+  2. Creates/finds dedicated "Wren Security Officer" Hive session
+  3. Posts compact severity summary to Hive
+  4. Sends findings to Gemini Flash for AI-enriched analysis (with secret evidence redacted)
+  5. Posts full report with risk assessment and prioritized action items
+  6. Wren Intelligence auto-captures findings as insights shared with Daniela via neural sync
+
+**Key design decisions**:
+- Heuristic scanners (not LLM-first) for speed and reliability — AI enrichment is additive
+- Secret evidence always redacted before any AI analysis
+- Worker uses concurrency guard to prevent overlapping audits
+- Session lookup is dynamic (finds founder ID from existing sessions, no hardcoded user IDs)
+- `triggerSecurityAudit()` exported for on-demand runs
+
+**Files created**: `server/services/wren-security-audit-service.ts`, `server/services/wren-security-audit-worker.ts`
+**Files modified**: `server/index.ts` (worker startup at +25s)
+
+**First audit results**: 26 findings (25 SQL injection patterns, 1 XSS risk), Overall Risk: HIGH per Gemini analysis. Most SQL injection findings are likely false positives from Drizzle ORM's tagged template usage — scanner refinement needed.
+
+---
+
 #### Unified Classroom Workspace (Context Consolidation)
 
 **What**: Folded four separate floating dynamic context blocks INTO the classroom environment so everything Daniela needs to be aware of is "on the walls" of her room.
