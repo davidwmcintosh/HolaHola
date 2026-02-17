@@ -352,7 +352,7 @@ export function detectSyllabusQuery(userMessage: string): {
     const match = userMessage.match(pattern);
     if (match) {
       const lang = match[1].toLowerCase();
-      const validLanguages = ['spanish', 'french', 'german', 'italian', 'portuguese', 'japanese', 'mandarin', 'chinese', 'korean'];
+      const validLanguages = ['spanish', 'french', 'german', 'italian', 'portuguese', 'japanese', 'mandarin', 'chinese', 'korean', 'english', 'hebrew'];
       if (validLanguages.some(l => lang.includes(l))) {
         return { isSyllabusQuery: true, queryType: 'tutor_switch', targetLanguage: lang };
       }

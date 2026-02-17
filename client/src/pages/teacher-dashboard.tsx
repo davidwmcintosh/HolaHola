@@ -55,6 +55,7 @@ const languageLabels: Record<string, string> = {
   korean: "Korean",
   chinese: "Chinese",
   english: "English",
+  hebrew: "Hebrew",
 };
 
 const actflLabels: Record<string, string> = {
@@ -244,6 +245,7 @@ export default function TeacherDashboard() {
                           <SelectItem value="korean">Korean</SelectItem>
                           <SelectItem value="chinese">Chinese</SelectItem>
                           <SelectItem value="english">English</SelectItem>
+                          <SelectItem value="hebrew">Hebrew</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />

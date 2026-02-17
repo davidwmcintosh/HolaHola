@@ -105,7 +105,8 @@ const LANGUAGE_OPTIONS = [
   { value: 'korean', label: 'Korean' },
   { value: 'italian', label: 'Italian' },
   { value: 'portuguese', label: 'Portuguese' },
-  { value: 'arabic', label: 'Arabic' },
+  { value: 'english', label: 'English' },
+  { value: 'hebrew', label: 'Hebrew' },
 ];
 
 const DIFFICULTY_OPTIONS = [

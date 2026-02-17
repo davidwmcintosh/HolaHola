@@ -971,6 +971,7 @@ export function normalizeSwitchTutorAttributes(
       'portuguese': 'portuguese',
       'korean': 'korean',
       'english': 'english',
+      'hebrew': 'hebrew',
     };
     targetLanguage = languageMap[langLower] || langLower;
   }

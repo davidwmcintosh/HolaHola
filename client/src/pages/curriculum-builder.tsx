@@ -316,6 +316,7 @@ export default function CurriculumBuilder() {
                             <SelectItem value="japanese">Japanese</SelectItem>
                             <SelectItem value="korean">Korean</SelectItem>
                             <SelectItem value="chinese">Chinese</SelectItem>
+                            <SelectItem value="hebrew">Hebrew</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />

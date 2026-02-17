@@ -265,9 +265,9 @@ export default function Landing() {
                 <div className="h-14 w-14 rounded-full bg-gradient-to-br from-cyan-500/20 to-cyan-600/10 flex items-center justify-center">
                   <Globe className="h-7 w-7 text-cyan-600 dark:text-cyan-400" />
                 </div>
-                <h3 className="font-semibold text-lg">9 Languages</h3>
+                <h3 className="font-semibold text-lg">10 Languages</h3>
                 <p className="text-sm text-muted-foreground">
-                  Spanish, French, German, Italian, Portuguese, Japanese, Mandarin, Korean & English
+                  Spanish, French, German, Italian, Portuguese, Japanese, Mandarin, Korean, English & Hebrew
                 </p>
               </div>
             </CardContent>

@@ -93,6 +93,7 @@ const LANGUAGE_OPTIONS = [
   { value: "korean", label: "Korean", flag: "🇰🇷" },
   { value: "mandarin", label: "Mandarin Chinese", flag: "🇨🇳" },
   { value: "english", label: "English (ESL)", flag: "🇺🇸" },
+  { value: "hebrew", label: "Hebrew", flag: "🇮🇱" },
 ];
 
 function getLanguageFlag(language: string): string {

@@ -27,6 +27,7 @@ const languageOptions = [
   { value: "japanese", label: "Japanese" },
   { value: "mandarin", label: "Mandarin Chinese" },
   { value: "korean", label: "Korean" },
+  { value: "hebrew", label: "Hebrew" },
 ];
 
 export default function CulturalTips() {

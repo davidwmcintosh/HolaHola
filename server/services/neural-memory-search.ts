@@ -82,6 +82,8 @@ const TUTOR_NAME_TO_LANGUAGE: Record<string, string> = {
   'tao': 'mandarin chinese',
   'blake': 'english',
   'cindy': 'english',
+  'yael': 'hebrew',
+  'noam': 'hebrew',
 };
 
 /**

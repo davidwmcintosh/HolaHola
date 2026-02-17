@@ -197,7 +197,7 @@ export default function Settings() {
 
   // Build list of languages for the selector
   // Combine user's practiced languages with all available languages
-  const allLanguages = ['spanish', 'french', 'german', 'italian', 'portuguese', 'japanese', 'mandarin', 'korean', 'arabic'];
+  const allLanguages = ['spanish', 'french', 'german', 'italian', 'portuguese', 'japanese', 'mandarin', 'korean', 'english', 'hebrew'];
   const userLanguages = userLanguagesData?.languages || [];
   const availableLanguages = Array.from(new Set([...userLanguages, ...allLanguages]));
   
@@ -395,7 +395,9 @@ export default function Settings() {
     portuguese: "Portuguese",
     japanese: "Japanese",
     mandarin: "Mandarin Chinese",
-    korean: "Korean"
+    korean: "Korean",
+    english: "English",
+    hebrew: "Hebrew"
   };
 
   const subscription = subscriptionData?.subscription;
@@ -485,7 +487,7 @@ export default function Settings() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {['english', 'spanish', 'french', 'german', 'italian', 'portuguese', 'japanese', 'mandarin', 'korean', 'arabic'].map((lang) => (
+                      {['english', 'spanish', 'french', 'german', 'italian', 'portuguese', 'japanese', 'mandarin', 'korean', 'hebrew'].map((lang) => (
                         <SelectItem key={lang} value={lang} data-testid={`select-native-${lang}`}>
                           <span className="capitalize">{languageNames[lang] || lang}</span>
                         </SelectItem>

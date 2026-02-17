@@ -82,6 +82,7 @@ const LANGUAGES = [
   { value: "korean", label: "Korean" },
   { value: "mandarin", label: "Mandarin" },
   { value: "english", label: "English" },
+  { value: "hebrew", label: "Hebrew" },
 ];
 
 function getCoverageColor(percent: number): string {

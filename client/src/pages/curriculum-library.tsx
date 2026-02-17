@@ -79,6 +79,7 @@ export default function CurriculumLibrary() {
     { value: "japanese", label: "Japanese" },
     { value: "mandarin chinese", label: "Mandarin Chinese" },
     { value: "korean", label: "Korean" },
+    { value: "hebrew", label: "Hebrew" },
   ];
 
   const getActflLabel = (level: string) => {

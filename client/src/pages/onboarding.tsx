@@ -15,7 +15,7 @@ type Message = {
   content: string;
 };
 
-const INITIAL_MESSAGE = "Hi! I'm your language learning assistant. I'm excited to help you on your language learning journey! What language would you like to learn? (English, Spanish, French, German, Italian, Portuguese, Japanese, Mandarin Chinese, or Korean)";
+const INITIAL_MESSAGE = "Hi! I'm your language learning assistant. I'm excited to help you on your language learning journey! What language would you like to learn? (English, Spanish, French, German, Italian, Portuguese, Japanese, Mandarin Chinese, Korean, or Hebrew)";
 
 export default function Onboarding() {
   const [, setLocation] = useLocation();
@@ -64,7 +64,7 @@ export default function Onboarding() {
     const userInput = input.toLowerCase().trim();
     setInput("");
 
-    const languages = ["english", "spanish", "french", "german", "italian", "portuguese", "japanese", "mandarin", "korean", "mandarin chinese"];
+    const languages = ["english", "spanish", "french", "german", "italian", "portuguese", "japanese", "mandarin", "korean", "mandarin chinese", "hebrew"];
 
     try {
       if (step === "language") {
@@ -89,7 +89,7 @@ export default function Onboarding() {
             ...prev,
             {
               role: "assistant",
-              content: "I didn't quite catch that. Please choose one of: English, Spanish, French, German, Italian, Portuguese, Japanese, Mandarin Chinese, or Korean.",
+              content: "I didn't quite catch that. Please choose one of: English, Spanish, French, German, Italian, Portuguese, Japanese, Mandarin Chinese, Korean, or Hebrew.",
             },
           ]);
         }

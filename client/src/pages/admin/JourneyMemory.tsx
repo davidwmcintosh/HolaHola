@@ -213,6 +213,7 @@ export function JourneyMemoryContent() {
                 <SelectItem value="mandarin">Mandarin</SelectItem>
                 <SelectItem value="japanese">Japanese</SelectItem>
                 <SelectItem value="korean">Korean</SelectItem>
+                <SelectItem value="hebrew">Hebrew</SelectItem>
               </SelectContent>
             </Select>
             

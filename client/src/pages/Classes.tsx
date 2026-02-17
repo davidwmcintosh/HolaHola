@@ -90,6 +90,7 @@ const LANGUAGES = [
   { value: 'korean', label: 'Korean' },
   { value: 'mandarin chinese', label: 'Mandarin' },
   { value: 'english', label: 'English' },
+  { value: 'hebrew', label: 'Hebrew' },
 ];
 
 const LEVELS = [

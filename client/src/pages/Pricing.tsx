@@ -170,6 +170,7 @@ function getLanguageLabel(language: string): string {
     korean: 'Korean',
     'mandarin chinese': 'Mandarin',
     english: 'English',
+    hebrew: 'Hebrew',
   };
   return labels[language.toLowerCase()] || language;
 }

@@ -143,6 +143,7 @@ export default function ClassCreationHub() {
     { value: "mandarin", label: "Mandarin Chinese" },
     { value: "korean", label: "Korean" },
     { value: "english", label: "English" },
+    { value: "hebrew", label: "Hebrew" },
   ];
 
   const getActflLabel = (level: string) => {

@@ -2261,7 +2261,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(userProgressTable.userId, userId));
     
     // Filter out invalid language entries (like UUIDs that got mistakenly stored)
-    const validLanguages = ['spanish', 'french', 'german', 'italian', 'portuguese', 'japanese', 'mandarin', 'korean'];
+    const validLanguages = ['spanish', 'french', 'german', 'italian', 'portuguese', 'japanese', 'mandarin', 'korean', 'english', 'hebrew'];
     return results
       .map(r => r.language.toLowerCase())
       .filter(lang => validLanguages.includes(lang));

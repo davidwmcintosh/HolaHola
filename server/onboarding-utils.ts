@@ -79,7 +79,7 @@ export async function extractLanguageFromMessage(
 ): Promise<LanguageExtractionResult> {
   const supportedLanguages = [
     "english", "spanish", "french", "german", "italian", 
-    "portuguese", "japanese", "mandarin", "korean"
+    "portuguese", "japanese", "mandarin", "korean", "hebrew"
   ];
 
   console.log('[LANG-EXTRACT] Input message:', userMessage);
@@ -142,7 +142,7 @@ export async function extractNativeLanguageFromMessage(
 ): Promise<LanguageExtractionResult> {
   const supportedNativeLanguages = [
     "english", "spanish", "french", "german", "italian", 
-    "portuguese", "japanese", "mandarin", "korean", "arabic", "russian", "hindi"
+    "portuguese", "japanese", "mandarin", "korean", "hebrew", "arabic", "russian", "hindi"
   ];
 
   console.log('[NATIVE-LANG-EXTRACT] Input message:', userMessage);
@@ -206,7 +206,7 @@ export async function detectLanguage(
 ): Promise<LanguageDetectionResult> {
   const supportedLanguages = [
     "spanish", "french", "german", "italian",
-    "portuguese", "japanese", "mandarin", "korean", "english"
+    "portuguese", "japanese", "mandarin", "korean", "english", "hebrew"
   ];
 
   const completion = await openai.chat.completions.create({
@@ -275,7 +275,7 @@ export async function detectTargetLanguageChangeRequest(
 ): Promise<TargetLanguageChangeRequest> {
   const supportedTargetLanguages = [
     "spanish", "french", "german", "italian", 
-    "portuguese", "japanese", "mandarin", "korean", "english"
+    "portuguese", "japanese", "mandarin", "korean", "english", "hebrew"
   ];
 
   console.log('[TARGET-LANG-CHANGE] Checking message:', userMessage);
@@ -353,7 +353,7 @@ export async function detectNativeLanguageChangeRequest(
 ): Promise<NativeLanguageChangeRequest> {
   const supportedNativeLanguages = [
     "english", "spanish", "french", "german", "italian", 
-    "portuguese", "japanese", "mandarin", "korean", "arabic", "russian", "hindi"
+    "portuguese", "japanese", "mandarin", "korean", "hebrew", "arabic", "russian", "hindi"
   ];
 
   console.log('[NATIVE-LANG-CHANGE] Checking message:', userMessage);

@@ -170,6 +170,7 @@ const LANGUAGE_TO_ISO_CODE: Record<string, string> = {
   'japanese': 'ja',
   'mandarin chinese': 'zh',
   'korean': 'ko',
+  'hebrew': 'he',
 };
 
 function getLanguageCode(language: string | undefined): string | undefined {
@@ -4067,7 +4068,7 @@ Return a JSON array of suggestions with this format:
         const languageChangeKeywords = [
           'switch', 'change', 'learn', 'start', 'instead', 'different',
           'spanish', 'french', 'german', 'italian', 'portuguese', 
-          'japanese', 'mandarin', 'korean', 'english'
+          'japanese', 'mandarin', 'korean', 'english', 'hebrew'
         ];
         const messageContent = messageData.content.toLowerCase();
         const mightWantLanguageChange = languageChangeKeywords.some(keyword => 
@@ -4377,6 +4378,7 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
                 'russian': ['да', 'нет', 'я', 'ты', 'он', 'она', 'и', 'в', 'на', 'не'],
                 'japanese': ['はい', 'いいえ', 'ね', 'よ', 'か', 'な', 'の', 'を', 'に', 'が'],
                 'korean': ['네', '아니', '예', '나', '너', '그', '이', '의', '가', '을'],
+                'hebrew': ['כן', 'לא', 'אני', 'את', 'הוא', 'היא', 'של', 'על', 'עם', 'זה'],
                 'mandarin': chineseWords,
                 'mandarin chinese': chineseWords, // Support both variants
                 'chinese': chineseWords  // Support all variants
@@ -4786,7 +4788,7 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
       const languageChangeKeywords = [
         'switch', 'change', 'learn', 'start', 'instead', 'different',
         'spanish', 'french', 'german', 'italian', 'portuguese', 
-        'japanese', 'mandarin', 'korean', 'english'
+        'japanese', 'mandarin', 'korean', 'english', 'hebrew'
       ];
       const textMessageContent = messageData.content.toLowerCase();
       const textMightWantLanguageChange = languageChangeKeywords.some(keyword => 

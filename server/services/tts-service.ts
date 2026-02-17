@@ -329,6 +329,7 @@ const GOOGLE_VOICE_MAP: Record<string, { name: string; languageCode: string }> =
   'japanese': { name: 'ja-JP-Chirp-HD-O', languageCode: 'ja-JP' }, // Japanese, Chirp 3 HD
   'mandarin chinese': { name: 'cmn-CN-Chirp-HD-O', languageCode: 'cmn-CN' }, // Mandarin Chinese, Chirp 3 HD
   'korean': { name: 'ko-KR-Chirp-HD-O', languageCode: 'ko-KR' }, // Korean, Chirp 3 HD
+  'hebrew': { name: 'he-IL-Chirp-HD-O', languageCode: 'he-IL' }, // Hebrew, Chirp 3 HD
 };
 
 /**
@@ -345,6 +346,7 @@ const GOOGLE_SSML_VOICE_MAP: Record<string, { name: string; languageCode: string
   'japanese': { name: 'ja-JP-Neural2-B', languageCode: 'ja-JP' }, // Female Neural2
   'mandarin chinese': { name: 'cmn-CN-Wavenet-A', languageCode: 'cmn-CN' }, // Female Wavenet
   'korean': { name: 'ko-KR-Neural2-A', languageCode: 'ko-KR' }, // Female Neural2
+  'hebrew': { name: 'he-IL-Wavenet-A', languageCode: 'he-IL' }, // Female Wavenet
 };
 
 /**
@@ -399,6 +401,10 @@ export const GOOGLE_ASSISTANT_VOICE_MAP: Record<string, GenderedVoiceConfig> = {
   'korean': {
     female: { name: 'ko-KR-Neural2-A', languageCode: 'ko-KR' },
     male: { name: 'ko-KR-Neural2-C', languageCode: 'ko-KR' },
+  },
+  'hebrew': {
+    female: { name: 'he-IL-Wavenet-A', languageCode: 'he-IL' },
+    male: { name: 'he-IL-Wavenet-D', languageCode: 'he-IL' },
   },
 };
 
