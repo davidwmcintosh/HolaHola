@@ -49,9 +49,16 @@ const SECRET_FALSE_POSITIVES = [
 ];
 
 const SQL_INJECTION_PATTERNS: Array<{ pattern: RegExp; name: string }> = [
-  { pattern: /`[^`]*\$\{[^}]*\}[^`]*(?:SELECT|INSERT|UPDATE|DELETE|DROP|ALTER|WHERE|FROM)/gi, name: 'Template literal in SQL' },
-  { pattern: /(?:query|execute|raw)\s*\(\s*['"`][^'"`]*\+/gi, name: 'String concatenation in query' },
-  { pattern: /(?:query|execute|raw)\s*\(\s*`[^`]*\$\{(?!sql)/gi, name: 'Unparameterized template in query' },
+  { pattern: /(?:query|execute|raw)\s*\(\s*['"][^'"]*\+/gi, name: 'String concatenation in query call' },
+  { pattern: /(?:\.raw|\.execute)\s*\(\s*`[^`]*\$\{(?!.*sql\b)/gi, name: 'Unparameterized template in raw/execute' },
+  { pattern: /(?:pg|pool|client)\.query\s*\(\s*`[^`]*\$\{/gi, name: 'Unparameterized pg.query template' },
+];
+
+const SQL_INJECTION_SAFE_PATTERNS = [
+  /sql`/,
+  /sql\.raw\(/,
+  /\$\d+/,
+  /\.prepare\(/,
 ];
 
 const AUTH_MIDDLEWARE_PATTERNS = [
@@ -175,20 +182,24 @@ export class WrenSecurityAuditService {
       const content = readFileSafe(filePath);
       if (!content) continue;
 
-      if (content.includes('drizzle-orm') && !content.includes('.raw(') && !content.includes('.execute(sql`')) {
-        continue;
-      }
+      const hasRawQueryPatterns = content.includes('.raw(')
+        || content.includes('.execute(')
+        || content.includes('pg.query')
+        || content.includes('pool.query')
+        || content.includes('client.query');
+      if (!hasRawQueryPatterns) continue;
 
       const lines = content.split('\n');
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
-        if (line.trimStart().startsWith('//')) continue;
+        if (line.trimStart().startsWith('//') || line.trimStart().startsWith('*')) continue;
 
         for (const { pattern, name } of SQL_INJECTION_PATTERNS) {
           pattern.lastIndex = 0;
           if (pattern.test(line)) {
-            const context = lines.slice(Math.max(0, i - 1), i + 2).join('\n');
-            if (context.includes('sql`') && context.includes('drizzle')) continue;
+            const context = lines.slice(Math.max(0, i - 3), i + 4).join('\n');
+            const isSafe = SQL_INJECTION_SAFE_PATTERNS.some(p => p.test(context));
+            if (isSafe) continue;
 
             findings.push({
               category: 'sql_injection',
@@ -220,9 +231,23 @@ export class WrenSecurityAuditService {
     const routePattern = /app\.(get|post|put|patch|delete)\s*\(\s*['"`](\/api\/[^'"`]+)['"`]/;
 
     const publicEndpoints = new Set([
-      '/api/auth', '/api/health', '/api/tutor-voices',
-      '/api/stripe/webhook', '/api/sync/',
+      '/api/auth/user',
+      '/api/auth/password/login',
+      '/api/auth/password/logout',
+      '/api/auth/password/request-reset',
+      '/api/auth/password/reset',
+      '/api/auth/invitations/verify',
+      '/api/auth/invitations/complete',
+      '/api/health',
+      '/api/version',
+      '/api/tutor-voices',
+      '/api/stripe/webhook',
     ]);
+
+    const publicPrefixes = [
+      '/api/auth/',
+      '/api/stripe/webhook',
+    ];
 
     for (let i = 0; i < lines.length; i++) {
       const match = lines[i].match(routePattern);
@@ -231,7 +256,7 @@ export class WrenSecurityAuditService {
       const method = match[1];
       const endpoint = match[2];
 
-      if (publicEndpoints.has(endpoint) || Array.from(publicEndpoints).some(p => endpoint.startsWith(p))) {
+      if (publicEndpoints.has(endpoint) || publicPrefixes.some(p => endpoint.startsWith(p))) {
         continue;
       }
 

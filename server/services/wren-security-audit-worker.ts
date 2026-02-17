@@ -1,8 +1,8 @@
 import { wrenSecurityAuditService, type SecurityFinding } from './wren-security-audit-service';
 import { founderCollabService } from './founder-collaboration-service';
 import { getSharedDb } from '../db';
-import { founderSessions } from '@shared/schema';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { founderSessions, users } from '@shared/schema';
+import { eq, and, desc, sql, or, inArray } from 'drizzle-orm';
 
 const AUDIT_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const SECURITY_SESSION_TITLE = 'Wren Security Officer';
@@ -26,6 +26,24 @@ const stats: AuditStats = {
   lastSeverityCounts: {},
 };
 
+async function resolveFounderId(): Promise<string> {
+  const [fromSession] = await getSharedDb()
+    .select({ founderId: founderSessions.founderId })
+    .from(founderSessions)
+    .orderBy(desc(founderSessions.createdAt))
+    .limit(1);
+  if (fromSession?.founderId) return fromSession.founderId;
+
+  const [adminUser] = await getSharedDb()
+    .select({ id: users.id })
+    .from(users)
+    .where(inArray(users.role, ['admin', 'developer']))
+    .limit(1);
+  if (adminUser?.id) return adminUser.id;
+
+  throw new Error('No founder/admin user found — cannot create security session');
+}
+
 async function getOrCreateSecuritySession(): Promise<string> {
   try {
     const [existing] = await getSharedDb().select()
@@ -39,16 +57,10 @@ async function getOrCreateSecuritySession(): Promise<string> {
 
     if (existing) return existing.id;
 
-    const [founderRow] = await getSharedDb()
-      .select({ founderId: founderSessions.founderId })
-      .from(founderSessions)
-      .orderBy(desc(founderSessions.createdAt))
-      .limit(1);
-
-    const founderId = founderRow?.founderId || '49847136';
+    const founderId = await resolveFounderId();
 
     const session = await founderCollabService.createSession(founderId, SECURITY_SESSION_TITLE);
-    console.log(`[Wren Security Worker] Created Hive session: ${session.id}`);
+    console.log(`[Wren Security Worker] Created Hive session: ${session.id} (founder: ${founderId})`);
     return session.id;
   } catch (err: any) {
     console.error(`[Wren Security Worker] Failed to get/create session:`, err.message);
