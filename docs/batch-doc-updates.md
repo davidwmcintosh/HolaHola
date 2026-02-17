@@ -8,6 +8,47 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: February 17, 2026 — Lyra Learning Experience Analyst + Curriculum Timestamps
+
+**Status**: COMPLETED
+
+#### Lyra Learning Experience Analyst
+
+**What**: Built Lyra — the platform's automated learning experience analyst. Lyra runs periodic sweeps of content quality, student success metrics, and onboarding health, then posts findings to a dedicated Hive session with AI-enriched analysis.
+
+**How it works**:
+- `lyra-analytics-service.ts` — Three analysis domains:
+  1. **Content Quality** — Stale lessons (90+ days since update), empty descriptions, missing ACTFL levels, language coverage gaps, orphaned drills
+  2. **Student Success** — Lesson completion drop-off (below 40%), drill struggle patterns (avg score < 60%), streak retention, ACTFL bottlenecks
+  3. **Onboarding** — Signup-to-first-conversation rate, return rate (2+ conversations), average days to first chat
+- `lyra-analytics-worker.ts` — Scheduled worker (every 12h, 45s initial delay):
+  1. Runs all data extraction queries
+  2. Generates heuristic-based insights with confidence scores
+  3. Creates/finds dedicated "Lyra Learning Experience Analyst" Hive session
+  4. Posts compact summary report
+  5. Enriches with Gemini Flash for content quality assessment
+  6. Enriches with Claude (Sonnet 4.5) for cross-domain pattern analysis
+  7. Insights below 85% confidence flagged for Daniela review
+
+**Hybrid LLM approach**:
+- Gemini Flash: Batch content assessment (fast, structured output via schema)
+- Claude Sonnet 4.5: Nuanced cross-domain pattern analysis connecting content gaps → student struggles → onboarding drop-off
+
+**On-demand**: `triggerLyraAnalysis()` exported from worker module.
+
+**Files created**: `server/services/lyra-analytics-service.ts`, `server/services/lyra-analytics-worker.ts`
+**Files modified**: `server/index.ts` (added Lyra worker startup at +35s), `shared/schema.ts` (added timestamps to curriculum_lessons and curriculum_units)
+
+#### Curriculum Timestamps Added
+
+**What**: Added `created_at` and `updated_at` timestamp columns to `curriculum_lessons` and `curriculum_units` tables in the Drizzle schema.
+
+**Why**: These tables were missing timestamps, which prevented Lyra from detecting stale content. The columns already existed in the database (added at table creation time) but were not declared in the Drizzle schema.
+
+**Files modified**: `shared/schema.ts`
+
+---
+
 ### Session: February 17, 2026 - Identity Wholeness Architecture Phase 2 (Self-Surgery, Identity Memories, Beta Tester Light)
 
 **Status**: COMPLETED

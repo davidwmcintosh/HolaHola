@@ -546,6 +546,12 @@ app.use((req, res, next) => {
       startSecurityAuditWorker();
     }, 25000);
 
+    // +35s: Lyra Learning Experience Analyst Worker
+    setTimeout(async () => {
+      const { startLyraAnalyticsWorker } = await import('./services/lyra-analytics-worker');
+      startLyraAnalyticsWorker();
+    }, 35000);
+
     // +60s: Diagnostic retention (daily cleanup, no rush)
     setTimeout(async () => {
       const DIAG_RETENTION_DAYS = 30;

@@ -941,6 +941,8 @@ export const curriculumUnits = pgTable("curriculum_units", {
   // JSON object containing teacher's promises for this unit
   // Structure: { promises: string[], reviewPoints: string[], prerequisites: string[] }
   commitments: jsonb("commitments"), // Teacher promises block: what students can expect
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 // Requirement tier enum - for bundle content classification (must be defined before curriculumLessons)
@@ -979,6 +981,8 @@ export const curriculumLessons = pgTable("curriculum_lessons", {
   bundleId: varchar("bundle_id"), // Optional: groups lessons into cohesive learning bundles
   // Linked drill lesson - for conversation↔drill pairing
   linkedDrillLessonId: varchar("linked_drill_lesson_id"), // Links a conversation lesson to its paired drill lesson
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 // ===== Drill Lesson Content =====
