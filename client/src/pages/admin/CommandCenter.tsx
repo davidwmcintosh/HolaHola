@@ -1512,6 +1512,16 @@ function PersonalFactsBrowserTab() {
   );
 }
 
+const LazySessionEconomics = lazy(() => import("@/pages/admin/SessionEconomics"));
+
+function SessionEconomicsTab() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center p-8"><Loader2 className="h-6 w-6 animate-spin" /></div>}>
+      <LazySessionEconomics />
+    </Suspense>
+  );
+}
+
 const FOUNDER_USER_ID = '49847136';
 
 export default function CommandCenter() {
@@ -1563,6 +1573,7 @@ export default function CommandCenter() {
         { id: "velocity", label: "Velocity", icon: TrendingUp, roles: ['admin', 'developer'] },
         { id: "memory-metrics", label: "Memory", icon: Activity, roles: ['admin', 'developer'] },
         { id: "option-b-telemetry", label: "Option B", icon: Database, roles: ['admin', 'developer'] },
+        { id: "session-economics", label: "Economics", icon: DollarSign, roles: ['admin', 'developer'] },
       ]
     },
     {
@@ -1841,6 +1852,10 @@ export default function CommandCenter() {
 
           <TabsContent value="option-b-telemetry" className="space-y-4">
             <OptionBTelemetryTab />
+          </TabsContent>
+
+          <TabsContent value="session-economics" className="space-y-4">
+            <SessionEconomicsTab />
           </TabsContent>
 
           <TabsContent value="fluency-coverage" className="space-y-4">

@@ -12900,6 +12900,51 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
   
   // Voice Analytics Dashboard - comprehensive metrics for admin/support
+  // SESSION ECONOMICS: Cost analysis and pricing intelligence
+  app.get("/api/admin/session-economics", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { sessionEconomicsService } = await import("./services/session-economics-service");
+      const { startDate, endDate, language } = req.query;
+      const snapshot = await sessionEconomicsService.getSnapshot(
+        startDate as string,
+        endDate as string,
+        language as string
+      );
+      res.json(snapshot);
+    } catch (error: any) {
+      console.error("[Session Economics] Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/admin/session-economics/pricing", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { sessionEconomicsService } = await import("./services/session-economics-service");
+      const analysis = await sessionEconomicsService.getPricingAnalysis();
+      res.json(analysis);
+    } catch (error: any) {
+      console.error("[Session Economics] Pricing error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/admin/session-economics/sessions", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { sessionEconomicsService } = await import("./services/session-economics-service");
+      const { limit, offset, language, userId } = req.query;
+      const sessions = await sessionEconomicsService.getSessionDetails(
+        Number(limit) || 50,
+        Number(offset) || 0,
+        language as string,
+        userId as string
+      );
+      res.json({ sessions });
+    } catch (error: any) {
+      console.error("[Session Economics] Sessions error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.get("/api/admin/voice-analytics", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {
       const analytics = voiceDiagnostics.getComprehensiveAnalytics();

@@ -1168,6 +1168,12 @@ export interface StreamingSession {
   };
   // Promise for background context pre-fetch (resolved when cache is ready)
   contextCacheReady?: Promise<void>;
+  // SESSION ECONOMICS TELEMETRY: Track TTS characters and STT seconds for cost analysis
+  telemetryTtsCharacters: number;       // Total characters sent to TTS providers this session
+  telemetrySttSeconds: number;          // Total seconds of STT audio processed this session
+  telemetryExchangeCount: number;       // Total user-AI exchanges this session
+  telemetryStudentSpeakingMs: number;   // Total milliseconds of student speech detected
+  telemetryTutorSpeakingMs: number;     // Total milliseconds of tutor audio generated
 }
 
 /**
@@ -1641,6 +1647,12 @@ export class StreamingVoiceOrchestrator {
         emotion: 'friendly',
         expressiveness: 3,
       },
+      // SESSION ECONOMICS TELEMETRY
+      telemetryTtsCharacters: 0,
+      telemetrySttSeconds: 0,
+      telemetryExchangeCount: 0,
+      telemetryStudentSpeakingMs: 0,
+      telemetryTutorSpeakingMs: 0,
       // Deduplication: Track sent audio chunks to prevent double audio bug
       sentAudioChunks: new Set<string>(),
       // Content-based deduplication: Track audio hashes to catch TTS retries with new chunk IDs
@@ -2172,6 +2184,13 @@ Remember: David may reference things discussed in these recent text chats.
         latencyMs: metrics.sttLatencyMs,
         metadata: { confidence: pronunciationConfidence, hasTranscript: !!transcript.trim() }
       });
+      
+      // SESSION ECONOMICS: Track STT seconds and exchange count
+      // Estimate audio duration from buffer size: WebM/Opus at ~32kbps ≈ 4000 bytes/sec
+      const estimatedSttSeconds = Math.max(1, audioData.length / 4000);
+      session.telemetrySttSeconds += estimatedSttSeconds;
+      session.telemetryStudentSpeakingMs += estimatedSttSeconds * 1000;
+      session.telemetryExchangeCount += 1;
       
       // Track STT confidence for adaptive speech rate
       trackSttConfidence(session, pronunciationConfidence);
@@ -5572,6 +5591,14 @@ Dave activated incognito so you two can talk freely without anything being recor
     session.lastProcessedTranscriptHash = transcriptHash;
     session.lastProcessedTranscriptTime = now;
     
+    // SESSION ECONOMICS: Track exchange count for open-mic path
+    // STT seconds estimated from transcript length (~3 words/sec speaking rate)
+    const estimatedWordCount = transcript.trim().split(/\s+/).length;
+    const estimatedOpenMicSttSec = Math.max(1, estimatedWordCount / 3);
+    session.telemetrySttSeconds += estimatedOpenMicSttSec;
+    session.telemetryStudentSpeakingMs += estimatedOpenMicSttSec * 1000;
+    session.telemetryExchangeCount += 1;
+    
     // Mark that we're now generating a response
     session.isGenerating = true;
     
@@ -8424,6 +8451,9 @@ Dave activated incognito so you two can talk freely without anything being recor
     turnId?: number,
     preExtractedBoldWords?: string[]
   ): Promise<void> {
+    // SESSION ECONOMICS: Count TTS characters for cost tracking
+    session.telemetryTtsCharacters += (chunk.text || '').length;
+    
     // ASSISTANT MODE: Use Google TTS instead of Cartesia for practice partners
     // Falls back to non-progressive streaming since Google doesn't support streaming
     if (session.isAssistantActive) {
@@ -8838,6 +8868,10 @@ Dave activated incognito so you two can talk freely without anything being recor
     turnId: string | number,
     preGenerated: { audio: Buffer; durationMs: number; timestamps: import('@shared/streaming-voice-types').WordTiming[] }
   ): Promise<void> {
+    // SESSION ECONOMICS: Count TTS characters (pre-generated path)
+    session.telemetryTtsCharacters += (chunk.text || '').length;
+    session.telemetryTutorSpeakingMs += preGenerated.durationMs || 0;
+    
     const { index } = chunk;
     const effectiveTurnId = typeof turnId === 'number' ? turnId : session.currentTurnId;
     const streamStart = Date.now();
@@ -12045,6 +12079,22 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
   endSession(sessionId: string): void {
     const session = this.sessions.get(sessionId);
     if (session) {
+      // SESSION ECONOMICS: Flush telemetry to voice_sessions before cleanup
+      if (session.dbSessionId && (session.telemetryTtsCharacters > 0 || session.telemetrySttSeconds > 0)) {
+        const telemetryData = {
+          ttsCharacters: Math.round(session.telemetryTtsCharacters),
+          sttSeconds: Math.round(session.telemetrySttSeconds),
+          exchangeCount: session.telemetryExchangeCount,
+          studentSpeakingSeconds: Math.round(session.telemetryStudentSpeakingMs / 1000),
+          tutorSpeakingSeconds: Math.round(session.telemetryTutorSpeakingMs / 1000),
+        };
+        usageService.updateSessionMetrics(session.dbSessionId, telemetryData).then(() => {
+          console.log(`[Session Economics] ✓ Flushed telemetry for session ${session.dbSessionId}: ${telemetryData.ttsCharacters} TTS chars, ${telemetryData.sttSeconds}s STT, ${telemetryData.exchangeCount} exchanges`);
+        }).catch((err: Error) => {
+          console.warn(`[Session Economics] Failed to flush telemetry:`, err.message);
+        });
+      }
+      
       // Capture session data for async memory extraction and phoneme analytics before deletion
       const sessionData = {
         userId: String(session.userId),
