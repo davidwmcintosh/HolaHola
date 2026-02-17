@@ -26690,6 +26690,58 @@ You have full access to your neural network knowledge.
     }
   });
 
+  app.post("/api/admin/brain-health/full-check", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      console.log('[NervousSystem] Full systems check triggered by', req.user?.email || 'unknown');
+      const startTime = Date.now();
+
+      const { runBrainHealthCheck } = await import('./services/brain-health-aggregator');
+      const report = await runBrainHealthCheck();
+
+      const { computeContextHealthStatus } = await import('./services/context-health-monitor');
+      const contextHealth = await computeContextHealthStatus();
+
+      const digests = await supportPersonaService.getHealthDigests(10);
+
+      let ttsHealth: any = { primary: 'unknown', healthy: false };
+      try {
+        const svc = await import('./services/tts-service');
+        if (svc.getTtsServiceHealth) {
+          ttsHealth = svc.getTtsServiceHealth();
+        }
+      } catch { /* ignore */ }
+
+      const elapsed = Date.now() - startTime;
+
+      const allGreen = report.overallStatus === 'green' && contextHealth.status !== 'red';
+      const hasWarnings = report.overallStatus === 'yellow' || contextHealth.status === 'yellow';
+      const verdict = allGreen ? 'GO' : hasWarnings ? 'CAUTION' : 'NO-GO';
+
+      const summary: string[] = [];
+      for (const [key, dim] of Object.entries(report.dimensions)) {
+        const d = dim as any;
+        const icon = d.status === 'green' ? 'PASS' : d.status === 'yellow' ? 'WARN' : 'FAIL';
+        summary.push(`${icon}: ${d.name} — ${d.score}/100`);
+      }
+
+      console.log(`[NervousSystem] Full check complete: ${verdict} (${elapsed}ms) — Score: ${report.overallScore}`);
+
+      res.json({
+        verdict,
+        brain: report,
+        context: contextHealth,
+        tts: ttsHealth,
+        recentDigests: digests.slice(0, 10),
+        summary,
+        elapsed,
+        checkedAt: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      console.error('[NervousSystem] Full check error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ============================================
   // Journey Memory System Admin Routes
   // ============================================

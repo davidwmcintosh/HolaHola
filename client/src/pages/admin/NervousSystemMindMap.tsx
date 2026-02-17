@@ -1,5 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useState } from "react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,7 +15,6 @@ import {
   BookOpen,
   Users,
   Network,
-  RefreshCw,
   Volume2,
   Shield,
   Database,
@@ -308,12 +309,43 @@ function DigestCard({ digest }: { digest: any }) {
   );
 }
 
+interface FullCheckResult {
+  verdict: "GO" | "CAUTION" | "NO-GO";
+  brain: BrainReport;
+  context: NervousSystemData["context"];
+  tts: { primary?: string; healthy?: boolean };
+  summary: string[];
+  elapsed: number;
+  checkedAt: string;
+  recentDigests: NervousSystemData["recentDigests"];
+}
+
 export function NervousSystemMindMap() {
   const [expandedDimensions, setExpandedDimensions] = useState<Set<string>>(new Set());
+  const [checkResult, setCheckResult] = useState<FullCheckResult | null>(null);
+  const { toast } = useToast();
 
-  const { data, isLoading, refetch, isFetching } = useQuery<NervousSystemData>({
+  const { data, isLoading } = useQuery<NervousSystemData>({
     queryKey: ["/api/admin/brain-health/nervous-system"],
     refetchInterval: 60000,
+  });
+
+  const fullCheck = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/brain-health/full-check");
+      return res.json() as Promise<FullCheckResult>;
+    },
+    onSuccess: (result) => {
+      setCheckResult(result);
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/brain-health/nervous-system"] });
+      toast({
+        title: result.verdict === "GO" ? "All Systems Go" : result.verdict === "CAUTION" ? "Caution" : "Issues Found",
+        description: `Score: ${result.brain.overallScore}/100 — checked in ${result.elapsed}ms`,
+      });
+    },
+    onError: () => {
+      toast({ title: "Check Failed", description: "Could not complete systems check", variant: "destructive" });
+    },
   });
 
   const toggleDimension = (name: string) => {
@@ -362,6 +394,12 @@ export function NervousSystemMindMap() {
     ([k]) => k === "neuralSync" || k === "toolOrchestration"
   );
 
+  const verdictColors = {
+    GO: { bg: "bg-emerald-500/10", border: "border-emerald-500/30", text: "text-emerald-600 dark:text-emerald-400", label: "ALL SYSTEMS GO" },
+    CAUTION: { bg: "bg-amber-500/10", border: "border-amber-500/30", text: "text-amber-600 dark:text-amber-400", label: "CAUTION — ISSUES DETECTED" },
+    "NO-GO": { bg: "bg-red-500/10", border: "border-red-500/30", text: "text-red-600 dark:text-red-400", label: "NO-GO — CRITICAL ISSUES" },
+  };
+
   return (
     <div className="space-y-6" data-testid="nervous-system-mind-map">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -381,16 +419,72 @@ export function NervousSystemMindMap() {
             {brain.overallStatus.toUpperCase()}
           </Badge>
           <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => refetch()}
-            disabled={isFetching}
-            data-testid="button-refresh"
+            onClick={() => fullCheck.mutate()}
+            disabled={fullCheck.isPending}
+            data-testid="button-full-check"
           >
-            {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            {fullCheck.isPending ? (
+              <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Running Check...</>
+            ) : (
+              <><Activity className="h-4 w-4 mr-2" /> Run All Systems Check</>
+            )}
           </Button>
         </div>
       </div>
+
+      {checkResult && (
+        <Card className={`${verdictColors[checkResult.verdict].border} border`} data-testid="card-verdict">
+          <CardContent className="py-4">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-md ${verdictColors[checkResult.verdict].bg}`}>
+                  {checkResult.verdict === "GO" ? (
+                    <CheckCircle2 className={`h-5 w-5 ${verdictColors[checkResult.verdict].text}`} />
+                  ) : checkResult.verdict === "CAUTION" ? (
+                    <AlertTriangle className={`h-5 w-5 ${verdictColors[checkResult.verdict].text}`} />
+                  ) : (
+                    <AlertTriangle className={`h-5 w-5 ${verdictColors[checkResult.verdict].text}`} />
+                  )}
+                </div>
+                <div>
+                  <div className={`font-semibold ${verdictColors[checkResult.verdict].text}`} data-testid="text-verdict">
+                    {verdictColors[checkResult.verdict].label}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Score: {checkResult.brain.overallScore}/100 | Checked in {checkResult.elapsed}ms | {new Date(checkResult.checkedAt).toLocaleTimeString()}
+                  </div>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setCheckResult(null)}
+                data-testid="button-dismiss-verdict"
+              >
+                Dismiss
+              </Button>
+            </div>
+            <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-1">
+              {checkResult.summary.map((line, i) => {
+                const isPassing = line.startsWith("PASS");
+                const isWarning = line.startsWith("WARN");
+                return (
+                  <div key={i} className="flex items-center gap-1.5 text-xs" data-testid={`text-check-line-${i}`}>
+                    {isPassing ? (
+                      <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
+                    ) : isWarning ? (
+                      <AlertTriangle className="h-3 w-3 text-amber-500 shrink-0" />
+                    ) : (
+                      <AlertTriangle className="h-3 w-3 text-red-500 shrink-0" />
+                    )}
+                    <span className="text-muted-foreground">{line.replace(/^(PASS|WARN|FAIL): /, "")}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className={`${overallColors.border} border col-span-1`}>
