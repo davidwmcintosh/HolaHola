@@ -59,6 +59,33 @@ const STREAMING_VOICE_PATH = '/api/voice/stream/ws';
 const REALTIME_PATH = '/api/realtime/ws';
 
 /**
+ * Promise timeout utility - prevents indefinite hangs on DB queries or service calls.
+ * Returns fallback value if the promise doesn't resolve within the timeout.
+ */
+function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  label: string,
+  fallback: T
+): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => {
+      setTimeout(() => {
+        console.warn(`[SessionInit] ⚠ ${label} timed out after ${timeoutMs}ms — using fallback`);
+        resolve(fallback);
+      }, timeoutMs);
+    }),
+  ]);
+}
+
+/**
+ * Track active Socket.io connections per conversationId to prevent duplicates.
+ * When a new connection arrives for an already-active conversation, the old one is closed.
+ */
+const activeVoiceConnections = new Map<string, SocketIOWebSocketAdapter>();
+
+/**
  * Normalize language keys for consistent comparison
  * Handles variations like "mandarin" vs "mandarin chinese"
  */
@@ -116,6 +143,10 @@ class SocketIOWebSocketAdapter {
   
   get readyState(): number {
     return this.socket.connected ? SocketIOWebSocketAdapter.OPEN : SocketIOWebSocketAdapter.CLOSED;
+  }
+  
+  get socketId(): string {
+    return this.socket.id;
   }
   
   get conversationId(): string | null {
@@ -2860,6 +2891,23 @@ export function setupSocketIOHandler(io: SocketIOServer) {
     // Create adapter that makes Socket.io look like ws
     const adapter = new SocketIOWebSocketAdapter(socket, conversationId);
     
+    // DUPLICATE CONNECTION GUARD: Close old connection if a new one arrives for the same conversation
+    if (conversationId) {
+      const existing = activeVoiceConnections.get(conversationId);
+      if (existing && existing.readyState === SocketIOWebSocketAdapter.OPEN) {
+        console.warn(`[Socket.io Voice] ⚠ Duplicate connection for ${conversationId} — closing old one (${existing.socketId})`);
+        try { existing.close(4000, 'Replaced by new connection'); } catch (e) { /* ignore */ }
+      }
+      activeVoiceConnections.set(conversationId, adapter);
+      
+      // Clean up tracking when this connection closes
+      socket.on('disconnect', () => {
+        if (activeVoiceConnections.get(conversationId) === adapter) {
+          activeVoiceConnections.delete(conversationId);
+        }
+      });
+    }
+    
     // Create a mock IncomingMessage for the handler
     const mockReq = {
       url: `/api/voice/stream/ws?conversationId=${conversationId || ''}`,
@@ -3040,40 +3088,68 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
           const rawHonestyMode = config.rawHonestyMode || false;
           
           try {
-            // Get user and conversation
-            const user = userId ? await storage.getUser(userId) : null;
-            const userName = user?.firstName || 'friend';
-            let conversation = (conversationId && userId) ? await storage.getConversation(conversationId, userId) : null;
+            const initStart = Date.now();
+            const SESSION_INIT_TIMEOUT = 3000; // 3s timeout for each DB operation
+            console.log(`[SessionInit] Starting session init pipeline...`);
             
-            // CRITICAL FIX: Ensure conversation exists in database
-            // Client sends conversationId but may not have created the record.
-            // Without this, FK constraint on messages table causes silent write failures.
+            // ══════════════════════════════════════════════════════════════
+            // PHASE 1: Parallel DB lookups (all independent, all with timeouts)
+            // These queries previously ran SEQUENTIALLY, causing 10s+ stalls
+            // when any single query hung. Now they run in parallel with 3s timeouts.
+            // ══════════════════════════════════════════════════════════════
+            const effectiveLanguage = normalizeLanguageKey(config.targetLanguage || 'spanish');
+            
+            const [user, conversation_raw, isDeveloper, messages, tutorVoice] = await Promise.all([
+              withTimeout(
+                userId ? storage.getUser(userId) : Promise.resolve(null),
+                SESSION_INIT_TIMEOUT, 'getUser', null
+              ),
+              withTimeout(
+                (conversationId && userId) ? storage.getConversation(conversationId, userId) : Promise.resolve(null),
+                SESSION_INIT_TIMEOUT, 'getConversation', null
+              ),
+              withTimeout(
+                usageService.checkDeveloperBypass(userId!),
+                SESSION_INIT_TIMEOUT, 'checkDeveloperBypass', false
+              ),
+              withTimeout(
+                conversationId ? storage.getMessagesByConversation(conversationId) : Promise.resolve([]),
+                SESSION_INIT_TIMEOUT, 'getMessages', [] as any[]
+              ),
+              withTimeout(
+                storage.getTutorVoice(effectiveLanguage, tutorGender),
+                SESSION_INIT_TIMEOUT, 'getTutorVoice', null
+              ),
+            ]);
+            
+            const phase1Ms = Date.now() - initStart;
+            console.log(`[SessionInit] Phase 1 (parallel DB lookups) completed in ${phase1Ms}ms`);
+            
+            const userName = user?.firstName || 'friend';
+            let conversation = conversation_raw;
+            
+            // Ensure conversation exists (quick insert if missing)
             if (conversationId && userId && !conversation) {
               console.log(`[Streaming Voice] Creating missing conversation: ${conversationId}`);
               try {
-                conversation = await storage.createConversation({
-                  id: conversationId,
-                  userId: userId,
-                  language: config.targetLanguage || 'spanish',
-                  title: 'Voice Session',
-                });
-                console.log(`[Streaming Voice] ✓ Conversation created: ${conversationId}`);
+                conversation = await withTimeout(
+                  storage.createConversation({
+                    id: conversationId,
+                    userId: userId,
+                    language: config.targetLanguage || 'spanish',
+                    title: 'Voice Session',
+                  }),
+                  SESSION_INIT_TIMEOUT, 'createConversation', null
+                );
+                if (conversation) console.log(`[Streaming Voice] ✓ Conversation created: ${conversationId}`);
               } catch (createErr: any) {
                 console.error(`[Streaming Voice] Failed to create conversation: ${createErr.message}`);
               }
             }
             
-            // Calculate Founder Mode (enables hive collaboration)
-            // Uses explicit flag from client - only true when user selects "Founder Mode" in learning context
-            const isDeveloper = await usageService.checkDeveloperBypass(userId!);
             const isFounderMode = isDeveloper && config.founderMode === true;
-            const messages = conversationId ? await storage.getMessagesByConversation(conversationId) : [];
             
-            // Get tutor voice - normalize language key for consistency
-            const effectiveLanguage = normalizeLanguageKey(config.targetLanguage || 'spanish');
-            const tutorVoice = await storage.getTutorVoice(effectiveLanguage, tutorGender);
             const voiceId = tutorVoice?.voiceId || '';
-            // Extract tutor name from voice config, or default based on gender
             let tutorName = tutorGender === 'male' ? 'Agustin' : 'Daniela';
             if (tutorVoice?.voiceName) {
               const voiceNameParts = tutorVoice.voiceName.split(/\s*[-–]\s*/);
@@ -3083,36 +3159,79 @@ function handleStreamingVoiceConnectionWithAdapter(ws: SocketIOWebSocketAdapter,
             }
             console.log(`[Streaming Voice] Session using tutor: ${tutorName} (${tutorGender})`);
             
-            // Initialize Daniela's Compass for time-aware tutoring
-            if (COMPASS_ENABLED && conversationId && userId) {
-              try {
-                const classId = (conversation as any)?.classId || null;
-                compassSession = await sessionCompassService.initializeSession({
-                  conversationId: conversationId,
-                  userId: userId,
-                  classId,
-                  scheduledDurationMinutes: 30,
-                });
-                if (compassSession) {
-                  compassContext = await sessionCompassService.getCompassContext(conversationId);
-                  sessionStartTime = Date.now();
-                  console.log(`[Compass Init] ✓ Session created: ${compassSession.id} for conversation ${conversationId}`);
-                } else {
-                  console.log(`[Compass Init] Returned null (isEnabled check failed?)`);
-                }
-              } catch (compassErr: any) {
-                console.warn(`[Compass Init] Error: ${compassErr.message}`);
-              }
-            } else {
-              console.log(`[Compass Init] Skipped: COMPASS_ENABLED=${COMPASS_ENABLED}, conversationId=${!!conversationId}, userId=${!!userId}`);
+            // ══════════════════════════════════════════════════════════════
+            // PHASE 2: Parallel enrichment (compass, neural network, usage session)
+            // These are independent and can ALL run at the same time.
+            // Each has a timeout so one slow query can't block the others.
+            // ══════════════════════════════════════════════════════════════
+            const phase2Start = Date.now();
+            
+            const compassPromise = (COMPASS_ENABLED && conversationId && userId)
+              ? withTimeout(
+                  (async () => {
+                    const classId = (conversation as any)?.classId || null;
+                    const sess = await sessionCompassService.initializeSession({
+                      conversationId, userId, classId, scheduledDurationMinutes: 30,
+                    });
+                    if (sess) {
+                      const ctx = await sessionCompassService.getCompassContext(conversationId);
+                      sessionStartTime = Date.now();
+                      console.log(`[Compass Init] ✓ Session created: ${sess.id} for conversation ${conversationId}`);
+                      return { session: sess, context: ctx };
+                    }
+                    console.log(`[Compass Init] Returned null (isEnabled check failed?)`);
+                    return null;
+                  })(),
+                  SESSION_INIT_TIMEOUT, 'compassInit', null
+                )
+              : Promise.resolve(null);
+            
+            const neuralNetworkPromise = withTimeout(
+              buildNeuralNetworkPromptSection(effectiveLanguage, config.nativeLanguage || 'english'),
+              SESSION_INIT_TIMEOUT, 'neuralNetwork', ''
+            );
+            
+            const usageSessionPromise = withTimeout(
+              (async () => {
+                const classId = conversation?.classId || undefined;
+                return await usageService.startSession(
+                  userId!, conversationId || undefined, config.targetLanguage, classId
+                );
+              })(),
+              SESSION_INIT_TIMEOUT, 'usageSession', null as UsageVoiceSession | null
+            );
+            
+            const [compassResult, neuralNetworkContext, usageSessionResult] = await Promise.all([
+              compassPromise.catch((err: any) => { console.warn(`[Compass Init] Error: ${err.message}`); return null; }),
+              neuralNetworkPromise.catch((err: any) => { console.warn(`[Neural Network] Error: ${err.message}`); return ''; }),
+              usageSessionPromise.catch((err: any) => { console.warn(`[Usage Session] Error: ${err.message}`); return null; }),
+            ]);
+            
+            const phase2Ms = Date.now() - phase2Start;
+            console.log(`[SessionInit] Phase 2 (parallel enrichment) completed in ${phase2Ms}ms`);
+            
+            // Apply compass results
+            if (compassResult) {
+              compassSession = compassResult.session;
+              compassContext = compassResult.context;
             }
             
-            // Generate system prompt - use minimal prompt for honesty mode
+            // Apply usage session
+            let dbSessionId: string | undefined;
+            if (usageSessionResult) {
+              usageSession = usageSessionResult;
+              dbSessionId = usageSessionResult.id;
+              console.log(`[Streaming Voice] Usage session started: ${usageSessionResult.id}${isDeveloper ? ' (developer)' : ''}`);
+            } else {
+              console.warn('[Streaming Voice] Could not start usage session — continuing without');
+            }
+            
+            // ══════════════════════════════════════════════════════════════
+            // PHASE 3: Build system prompt (synchronous, fast)
+            // ══════════════════════════════════════════════════════════════
             let systemPrompt: string;
             if (rawHonestyMode) {
-              // Sanitize userName to prevent prompt injection (keep only alphanumeric and basic chars)
               const safeName = (userName || 'friend').replace(/[^a-zA-Z0-9\s\-']/g, '').substring(0, 50);
-              // RAW HONESTY MODE: Minimal prompting for authentic conversation
               systemPrompt = `You are ${tutorName}.
 This is ${safeName}, your creator.
 
@@ -3135,36 +3254,28 @@ ${buildNativeFunctionCallingSection()}`;
                 effectiveLanguage,
                 config.difficultyLevel || 'beginner',
                 config.nativeLanguage || 'english',
-                user?.actflLevel || null, // Use user's actual ACTFL level from database
-                (user?.tutorPersonality || 'warm') as any, // Use user's actual tutor personality preference
-                user?.tutorExpressiveness || 3, // Use user's actual expressiveness preference
-                isFounderMode, // Pass Founder Mode flag for neural network behavior
-                tutorName, // Current tutor name (e.g., "Agustin" or "Daniela")
-                tutorGender, // Current tutor gender
-                true // useFunctionCalling - matches orchestrator's enableFunctionCalling: true
+                user?.actflLevel || null,
+                (user?.tutorPersonality || 'warm') as any,
+                user?.tutorExpressiveness || 3,
+                isFounderMode,
+                tutorName,
+                tutorGender,
+                true
               );
               if (isFounderMode) {
                 console.log(`[Streaming Voice] Using FOUNDER MODE prompt with ${tutorName} (${tutorGender})`);
               }
             }
             
-            try {
-              const neuralNetworkContext = await buildNeuralNetworkPromptSection(
-                effectiveLanguage,
-                config.nativeLanguage || 'english'
-              );
-              if (neuralNetworkContext) {
-                systemPrompt += neuralNetworkContext;
-                console.log(`[Streaming Voice] ✓ Neural network context appended for ${effectiveLanguage}`);
-              } else {
-                console.warn('[Streaming Voice] ⚠ Neural network context was empty - bold-marking relies on fallback in prompt');
-              }
-            } catch (nnErr: any) {
-              console.warn('[Streaming Voice] ⚠ Could not build neural network context (fallback guardrails in prompt):', nnErr.message);
+            // Append neural network context (already fetched in Phase 2)
+            if (neuralNetworkContext) {
+              systemPrompt += neuralNetworkContext;
+              console.log(`[Streaming Voice] ✓ Neural network context appended for ${effectiveLanguage}`);
+            } else {
+              console.warn('[Streaming Voice] ⚠ Neural network context was empty — bold-marking relies on fallback in prompt');
             }
             
-            // Append Daniela's Compass context to the system prompt
-            // When Compass is active, it handles time via Sensory Awareness (single source of truth)
+            // Append Compass or timezone context
             if (compassContext && COMPASS_ENABLED) {
               const compassBlock = buildCompassContextBlock(compassContext);
               systemPrompt += '\n\n' + compassBlock;
@@ -3182,46 +3293,27 @@ ${buildNativeFunctionCallingSection()}`;
               console.log(`[Streaming Voice] No timezone found for user, using UTC date fallback`);
             }
             
-            // Build conversation history for context
-            // CRITICAL: Check for language mismatch to prevent tutors speaking wrong language
+            // Build conversation history
             const conversationLang = (conversation?.language || '').toLowerCase();
             const targetLang = (config.targetLanguage || '').toLowerCase();
             const isLanguageMismatch = conversationLang && targetLang && conversationLang !== targetLang;
             
             let conversationHistory: Array<{ role: 'user' | 'model'; content: string }>;
             if (isLanguageMismatch) {
-              console.log(`[Streaming Voice] Language mismatch detected: conversation=${conversationLang}, target=${targetLang} - clearing history`);
+              console.log(`[Streaming Voice] Language mismatch detected: conversation=${conversationLang}, target=${targetLang} — clearing history`);
               conversationHistory = [];
             } else {
-              // CRITICAL: Map 'assistant' role to 'model' for Gemini API compatibility
-              // Database stores 'assistant' but Gemini expects 'user' | 'model'
               conversationHistory = messages.map(m => ({
                 role: m.role === 'user' ? 'user' as const : 'model' as const,
                 content: m.content,
               }));
-              
               if (conversationHistory.length > 0) {
                 console.log(`[Streaming Voice] Loaded ${conversationHistory.length} messages from conversation history`);
               }
             }
             
-            // IMPORTANT: Start usage tracking session BEFORE orchestrator session
-            // This enables memory extraction, usage analytics, and dbSessionId for FK references
-            let dbSessionId: string | undefined;
-            try {
-              const classId = conversation?.classId || undefined;
-              usageSession = await usageService.startSession(
-                userId!,
-                conversationId || undefined,
-                config.targetLanguage,
-                classId
-              );
-              dbSessionId = usageSession.id;
-              console.log(`[Streaming Voice] Usage session started: ${usageSession.id}${isDeveloper ? ' (developer)' : ''}`);
-            } catch (usageErr: any) {
-              console.warn('[Streaming Voice] Could not start usage session:', usageErr.message);
-              // Continue without usage session - dbSessionId will be undefined
-            }
+            const totalInitMs = Date.now() - initStart;
+            console.log(`[SessionInit] ✓ Pipeline complete in ${totalInitMs}ms (phase1=${phase1Ms}ms, phase2=${phase2Ms}ms)`);
             
             // Create session with correct parameters
             session = await orchestrator.createSession(
