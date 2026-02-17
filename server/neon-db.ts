@@ -34,7 +34,12 @@ function getDb() {
   }
   
   if (!pool) {
-    pool = new Pool({ connectionString: DATABASE_URL });
+    pool = new Pool({
+      connectionString: DATABASE_URL,
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000,
+    });
     db = drizzle({ client: pool, schema });
   }
   

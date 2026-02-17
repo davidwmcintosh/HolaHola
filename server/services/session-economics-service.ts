@@ -1,6 +1,6 @@
 import { db } from "../db";
-import { voiceSessions, conversations, usageLedger, users } from "@shared/schema";
-import { eq, and, sql, gte, lte, desc, ne, isNull, or, gt } from "drizzle-orm";
+import { voiceSessions, usageLedger } from "@shared/schema";
+import { eq, and, sql, gte, lte, desc, isNull, or, gt, count, sum } from "drizzle-orm";
 
 export const COST_CONSTANTS = {
   TTS_COST_PER_CHAR: 0.000015,
@@ -64,6 +64,24 @@ export interface EconomicsSnapshot {
   };
 }
 
+const snapshotCache = new Map<string, { data: EconomicsSnapshot; expiresAt: number }>();
+const CACHE_TTL_MS = 5 * 60 * 1000;
+
+function buildConditions(startDate: string, endDate: string, language?: string, excludeTest: boolean = true) {
+  const conditions: any[] = [
+    gt(voiceSessions.durationSeconds, 10),
+    gte(voiceSessions.startedAt, new Date(startDate)),
+    lte(voiceSessions.startedAt, new Date(endDate + 'T23:59:59')),
+  ];
+  if (excludeTest) {
+    conditions.push(or(eq(voiceSessions.isTestSession, false), isNull(voiceSessions.isTestSession)));
+  }
+  if (language) {
+    conditions.push(eq(voiceSessions.language, language));
+  }
+  return and(...conditions);
+}
+
 function calculateSessionCost(
   ttsChars: number,
   sttSeconds: number,
@@ -112,40 +130,46 @@ export class SessionEconomicsService {
     language?: string,
     excludeTestSessions: boolean = true
   ): Promise<EconomicsSnapshot> {
-    const conditions: any[] = [];
-
-    if (excludeTestSessions) {
-      conditions.push(
-        or(eq(voiceSessions.isTestSession, false), isNull(voiceSessions.isTestSession))
-      );
-    }
-
-    conditions.push(gt(voiceSessions.durationSeconds, 10));
-
     const effectiveStart = startDate || '2025-01-01';
     const effectiveEnd = endDate || new Date().toISOString().split('T')[0];
-
-    conditions.push(gte(voiceSessions.startedAt, new Date(effectiveStart)));
-    conditions.push(lte(voiceSessions.startedAt, new Date(effectiveEnd + 'T23:59:59')));
-
-    if (language) {
-      conditions.push(eq(voiceSessions.language, language));
+    
+    const cacheKey = `${effectiveStart}|${effectiveEnd}|${language || 'all'}|${excludeTestSessions}`;
+    const cached = snapshotCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.data;
     }
 
-    const sessions = await db
-      .select({
-        id: voiceSessions.id,
-        userId: voiceSessions.userId,
-        language: voiceSessions.language,
-        durationSeconds: voiceSessions.durationSeconds,
-        ttsCharacters: voiceSessions.ttsCharacters,
-        sttSeconds: voiceSessions.sttSeconds,
-        exchangeCount: voiceSessions.exchangeCount,
-        startedAt: voiceSessions.startedAt,
-      })
-      .from(voiceSessions)
-      .where(and(...conditions))
-      .orderBy(desc(voiceSessions.startedAt));
+    const whereConditions = buildConditions(effectiveStart, effectiveEnd, language, excludeTestSessions);
+
+    const [sessions, creditsResult] = await Promise.all([
+      db
+        .select({
+          id: voiceSessions.id,
+          userId: voiceSessions.userId,
+          language: voiceSessions.language,
+          durationSeconds: voiceSessions.durationSeconds,
+          ttsCharacters: voiceSessions.ttsCharacters,
+          sttSeconds: voiceSessions.sttSeconds,
+          exchangeCount: voiceSessions.exchangeCount,
+          startedAt: voiceSessions.startedAt,
+        })
+        .from(voiceSessions)
+        .where(whereConditions)
+        .orderBy(desc(voiceSessions.startedAt)),
+
+      db
+        .select({
+          totalCredits: sql<number>`COALESCE(SUM(ABS(${usageLedger.creditSeconds})), 0)`,
+        })
+        .from(usageLedger)
+        .where(
+          and(
+            gte(usageLedger.createdAt, new Date(effectiveStart)),
+            lte(usageLedger.createdAt, new Date(effectiveEnd + 'T23:59:59')),
+            sql`${usageLedger.creditSeconds} < 0`
+          )
+        ),
+    ]);
 
     let totalTtsCost = 0;
     let totalSttCost = 0;
@@ -181,7 +205,7 @@ export class SessionEconomicsService {
       const existing = languageMap.get(lang) || { sessions: 0, seconds: 0, exchanges: 0, cost: 0 };
       existing.sessions++;
       existing.seconds += duration;
-      existing.exchanges += exchanges;
+      existing.exchanges += exchanges || Math.max(1, Math.floor(duration / 30));
       existing.cost += cost.total;
       languageMap.set(lang, existing);
 
@@ -190,7 +214,7 @@ export class SessionEconomicsService {
         const dayData = dayMap.get(dayKey) || { sessions: 0, minutes: 0, exchanges: 0, cost: 0, users: new Set<string>() };
         dayData.sessions++;
         dayData.minutes += duration / 60;
-        dayData.exchanges += exchanges;
+        dayData.exchanges += exchanges || Math.max(1, Math.floor(duration / 30));
         dayData.cost += cost.total;
         dayData.users.add(s.userId);
         dayMap.set(dayKey, dayData);
@@ -198,21 +222,9 @@ export class SessionEconomicsService {
     }
 
     const totalHours = totalDurationSeconds / 3600;
+    const creditsConsumedSeconds = Number(creditsResult[0]?.totalCredits) || 0;
 
-    let creditsConsumedSeconds = 0;
-    const ledgerEntries = await db
-      .select({ creditSeconds: usageLedger.creditSeconds })
-      .from(usageLedger)
-      .where(
-        and(
-          gte(usageLedger.createdAt, new Date(effectiveStart)),
-          lte(usageLedger.createdAt, new Date(effectiveEnd + 'T23:59:59')),
-          sql`${usageLedger.creditSeconds} < 0`
-        )
-      );
-    for (const entry of ledgerEntries) {
-      creditsConsumedSeconds += Math.abs(entry.creditSeconds || 0);
-    }
+    const platformCost = totalCost - (totalTtsCost + totalSttCost + totalLlmCost);
 
     const byLanguage = Array.from(languageMap.entries())
       .map(([lang, data]) => ({
@@ -236,9 +248,7 @@ export class SessionEconomicsService {
       }))
       .sort((a, b) => a.date.localeCompare(b.date));
 
-    const platformCost = totalCost - (totalTtsCost + totalSttCost + totalLlmCost);
-
-    return {
+    const snapshot: EconomicsSnapshot = {
       period: { start: effectiveStart, end: effectiveEnd },
       totalSessions: sessions.length,
       totalDurationHours: Math.round(totalHours * 100) / 100,
@@ -268,6 +278,9 @@ export class SessionEconomicsService {
           : 0,
       },
     };
+
+    snapshotCache.set(cacheKey, { data: snapshot, expiresAt: Date.now() + CACHE_TTL_MS });
+    return snapshot;
   }
 
   async getSessionDetails(

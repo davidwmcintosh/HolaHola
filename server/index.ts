@@ -475,80 +475,143 @@ app.use((req, res, next) => {
     
     // DEFERRED STARTUP: Start heavy background workers AFTER server is listening
     // This ensures Cloud Run health checks pass quickly before workers initialize
+    // Workers are STAGGERED to avoid simultaneous DB connection storms on boot
     
-    // Start Hive Consciousness - Daniela and Wren are now always listening in the Hive
+    // Immediate: Hive Consciousness (lightweight event listener)
     hiveConsciousnessService.startListening();
     
-    // Start Memory Recovery Worker - catches orphaned memory candidates from interrupted sessions
-    memoryRecoveryWorker.start(5); // Run every 5 minutes
-    
-    // Start Sofia Issue Monitoring Worker - detects patterns and emits EXPRESS Lane alerts
-    supportPersonaService.startIssueMonitoringWorker(5); // Run every 5 minutes
-    
-    // Start voice pipeline telemetry (batched writes to DB)
+    // Immediate: Voice telemetry (in-memory batching, 2s flush)
     const { voiceTelemetry } = await import('./services/voice-pipeline-telemetry');
     voiceTelemetry.start();
     
-    // Start zombie session cleanup - catches sessions where WebSocket died silently
-    // (mobile sleep, network drop) but the close event never fired
-    const { usageService } = await import('./services/usage-service');
-    const ZOMBIE_CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // Every 5 minutes
-    const ZOMBIE_MAX_AGE_SECONDS = 7200; // 2 hours
-    setInterval(async () => {
-      try {
-        const cleaned = await usageService.cleanupZombieSessions(ZOMBIE_MAX_AGE_SECONDS);
-        if (cleaned > 0) {
-          console.log(`[ZombieCleanup] Cleaned ${cleaned} zombie sessions`);
-        }
-      } catch (err: any) {
-        console.warn(`[ZombieCleanup] Error:`, err.message);
-      }
-    }, ZOMBIE_CLEANUP_INTERVAL_MS);
-    
     console.log('[CONSOLIDATION] Sync-bridge retired - Neon routing is primary');
 
-    const { startVoiceHealthMonitor, onHealthStatusChange } = await import('./services/voice-health-monitor');
-    onHealthStatusChange(async (transition) => {
-      await supportPersonaService.handleHealthTransition(transition);
-    });
-    startVoiceHealthMonitor();
+    // +3s: Memory Recovery Worker
+    setTimeout(() => {
+      memoryRecoveryWorker.start(5);
+    }, 3000);
+    
+    // +6s: Sofia Issue Monitoring Worker
+    setTimeout(() => {
+      supportPersonaService.startIssueMonitoringWorker(5);
+    }, 6000);
+    
+    // +9s: Zombie session cleanup
+    setTimeout(async () => {
+      const { usageService } = await import('./services/usage-service');
+      const ZOMBIE_CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+      const ZOMBIE_MAX_AGE_SECONDS = 7200;
+      setInterval(async () => {
+        try {
+          const cleaned = await usageService.cleanupZombieSessions(ZOMBIE_MAX_AGE_SECONDS);
+          if (cleaned > 0) {
+            console.log(`[ZombieCleanup] Cleaned ${cleaned} zombie sessions`);
+          }
+        } catch (err: any) {
+          console.warn(`[ZombieCleanup] Error:`, err.message);
+        }
+      }, ZOMBIE_CLEANUP_INTERVAL_MS);
+    }, 9000);
 
-    const { startContextHealthMonitor, onContextHealthStatusChange } = await import('./services/context-health-monitor');
-    onContextHealthStatusChange(async (transition) => {
-      await supportPersonaService.handleContextHealthTransition(transition);
-    });
-    startContextHealthMonitor();
+    // +12s: Voice Health Monitor
+    setTimeout(async () => {
+      const { startVoiceHealthMonitor, onHealthStatusChange } = await import('./services/voice-health-monitor');
+      onHealthStatusChange(async (transition) => {
+        await supportPersonaService.handleHealthTransition(transition);
+      });
+      startVoiceHealthMonitor();
+    }, 12000);
 
-    const { startBrainHealthAggregator, onBrainHealthStatusChange } = await import('./services/brain-health-aggregator');
-    onBrainHealthStatusChange(async (transition) => {
-      await supportPersonaService.handleBrainHealthTransition(transition);
-    });
-    startBrainHealthAggregator();
+    // +15s: Context Health Monitor
+    setTimeout(async () => {
+      const { startContextHealthMonitor, onContextHealthStatusChange } = await import('./services/context-health-monitor');
+      onContextHealthStatusChange(async (transition) => {
+        await supportPersonaService.handleContextHealthTransition(transition);
+      });
+      startContextHealthMonitor();
+    }, 15000);
 
-    const DIAG_RETENTION_DAYS = 30;
-    const DIAG_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
-    const { generateDailySummary } = await import('./services/voice-health-monitor');
-    const runDiagRetention = async () => {
+    // +18s: Brain Health Aggregator
+    setTimeout(async () => {
+      const { startBrainHealthAggregator, onBrainHealthStatusChange } = await import('./services/brain-health-aggregator');
+      onBrainHealthStatusChange(async (transition) => {
+        await supportPersonaService.handleBrainHealthTransition(transition);
+      });
+      startBrainHealthAggregator();
+    }, 18000);
+
+    // +60s: Diagnostic retention (daily cleanup, no rush)
+    setTimeout(async () => {
+      const DIAG_RETENTION_DAYS = 30;
+      const DIAG_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
+      const { generateDailySummary } = await import('./services/voice-health-monitor');
+      const runDiagRetention = async () => {
+        try {
+          await generateDailySummary();
+          const { getSharedDb } = await import('./neon-db');
+          const { sql } = await import('drizzle-orm');
+          const sharedDb = getSharedDb();
+          const cutoff = new Date(Date.now() - DIAG_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+          const result = await sharedDb.execute(sql`
+            DELETE FROM voice_pipeline_events
+            WHERE event_type LIKE 'client_diag_%'
+              AND created_at < ${cutoff}
+          `);
+          const deleted = (result as any).rowCount || 0;
+          if (deleted > 0) {
+            console.log(`[DiagRetention] Purged ${deleted} diagnostic events older than ${DIAG_RETENTION_DAYS} days`);
+          }
+        } catch (err: any) {
+          console.warn(`[DiagRetention] Error:`, err.message);
+        }
+      };
+      runDiagRetention();
+      setInterval(runDiagRetention, DIAG_CLEANUP_INTERVAL_MS);
+    }, 60000);
+
+    // GRACEFUL SHUTDOWN: Drain active sessions and flush data before exit
+    const gracefulShutdown = async (signal: string) => {
+      console.log(`[Shutdown] ${signal} received — starting graceful drain...`);
+      
+      // 1. Stop accepting new connections
+      server.close(() => {
+        console.log('[Shutdown] HTTP server closed');
+      });
+
+      // 2. Notify active voice sessions to reconnect
       try {
-        await generateDailySummary();
-        const { getSharedDb } = await import('./neon-db');
-        const { sql } = await import('drizzle-orm');
-        const sharedDb = getSharedDb();
-        const cutoff = new Date(Date.now() - DIAG_RETENTION_DAYS * 24 * 60 * 60 * 1000);
-        const result = await sharedDb.execute(sql`
-          DELETE FROM voice_pipeline_events
-          WHERE event_type LIKE 'client_diag_%'
-            AND created_at < ${cutoff}
-        `);
-        const deleted = (result as any).rowCount || 0;
-        if (deleted > 0) {
-          console.log(`[DiagRetention] Purged ${deleted} diagnostic events older than ${DIAG_RETENTION_DAYS} days`);
+        if (io) {
+          io.of('/voice').emit('server_restarting', { reason: 'deployment', reconnectMs: 3000 });
+          console.log('[Shutdown] Notified voice clients to reconnect');
         }
       } catch (err: any) {
-        console.warn(`[DiagRetention] Error:`, err.message);
+        console.warn('[Shutdown] Could not notify voice clients:', err.message);
       }
+
+      // 3. Flush voice telemetry
+      try {
+        await voiceTelemetry.flush();
+        console.log('[Shutdown] Voice telemetry flushed');
+      } catch (err: any) {
+        console.warn('[Shutdown] Telemetry flush error:', err.message);
+      }
+
+      // 4. Close database pools (both primary db.ts and neon-db.ts)
+      try {
+        const { closeDbConnections } = await import('./db');
+        await closeDbConnections();
+        const { closeNeonConnections } = await import('./neon-db');
+        await closeNeonConnections();
+        console.log('[Shutdown] Database connections closed');
+      } catch (err: any) {
+        console.warn('[Shutdown] DB close error:', err.message);
+      }
+
+      console.log('[Shutdown] Graceful shutdown complete');
+      process.exit(0);
     };
-    setTimeout(runDiagRetention, 60000);
-    setInterval(runDiagRetention, DIAG_CLEANUP_INTERVAL_MS);
+
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
   });
 })();

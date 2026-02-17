@@ -20,9 +20,14 @@ let _db: ReturnType<typeof drizzle> | null = null;
 
 function getDb() {
   if (!pool) {
-    pool = new Pool({ connectionString: DATABASE_URL });
+    pool = new Pool({
+      connectionString: DATABASE_URL,
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000,
+    });
     _db = drizzle({ client: pool, schema });
-    console.log("[DB] Database pool initialized");
+    console.log("[DB] Database pool initialized (max: 20, idle: 30s, timeout: 5s)");
   }
   return _db!;
 }
@@ -50,6 +55,15 @@ export function getDbForTable(_tableName: string) {
 
 export function isNeonRoutingEnabled(): boolean {
   return true;
+}
+
+export async function closeDbConnections(): Promise<void> {
+  if (pool) {
+    await pool.end();
+    pool = null;
+    _db = null;
+    console.log("[DB] Database pool closed");
+  }
 }
 
 // Legacy exports for compatibility
