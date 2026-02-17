@@ -983,11 +983,16 @@ Reference past discussions when relevant, but don't force it.
           let selfAffirmationNotes: { title: string; content: string; createdAt: Date }[] = [];
           {
             try {
-              const notes = await storage.getDanielaNotes({ 
-                noteType: 'self_affirmation', 
-                activeOnly: true, 
-                limit: 5 
-              });
+              const notes = await withTimeout(
+                storage.getDanielaNotes({ 
+                  noteType: 'self_affirmation', 
+                  activeOnly: true, 
+                  limit: 5 
+                }),
+                3000,
+                'self-affirmation notes',
+                []
+              );
               selfAffirmationNotes = notes.map(n => ({
                 title: n.title,
                 content: n.content,
