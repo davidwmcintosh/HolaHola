@@ -96,6 +96,14 @@ export const ALDEN_TOOLS: Anthropic.Tool[] = [
       required: ["content"],
     },
   },
+  {
+    name: "run_full_systems_check",
+    description: "Run a complete systems diagnostic across ALL of Daniela's cognitive architecture. Returns a GO/CAUTION/NO-GO verdict with scores for all 6 brain health dimensions (Memory, Neural Retrieval, Neural Sync, Student Learning, Tool Orchestration, Context Injection), plus voice pipeline and TTS provider status. Use this when the founder asks 'how is the system running?' or wants a status report.",
+    input_schema: {
+      type: "object" as const,
+      properties: {},
+    },
+  },
 ];
 
 export async function executeAldenTool(
@@ -351,6 +359,58 @@ export async function executeAldenTool(
         };
       }
 
+      case "run_full_systems_check": {
+        const startTime = Date.now();
+
+        const { runBrainHealthCheck } = await import('./brain-health-aggregator');
+        const brainReport = await runBrainHealthCheck();
+
+        const { computeContextHealthStatus } = await import('./context-health-monitor');
+        const contextHealth = await computeContextHealthStatus();
+
+        const healthStatus = await computeHealthStatus();
+
+        const sharedDb = getSharedDb();
+        const [activeSessionCount] = await sharedDb.select({
+          count: sql<number>`count(*)`,
+        }).from(voiceSessions)
+          .where(eq(voiceSessions.isActive, true));
+
+        const elapsed = Date.now() - startTime;
+
+        const allGreen = brainReport.overallStatus === 'green' && contextHealth.status !== 'red';
+        const hasWarnings = brainReport.overallStatus === 'yellow' || contextHealth.status === 'yellow';
+        const verdict = allGreen ? 'GO' : hasWarnings ? 'CAUTION' : 'NO-GO';
+
+        const dimensionSummaries: string[] = [];
+        for (const [key, dim] of Object.entries(brainReport.dimensions)) {
+          const d = dim as any;
+          const icon = d.status === 'green' ? 'PASS' : d.status === 'yellow' ? 'WARN' : 'FAIL';
+          dimensionSummaries.push(`${icon}: ${d.name} — ${d.score}/100${d.reasons?.length ? ' (' + d.reasons[0] + ')' : ''}`);
+        }
+
+        return {
+          data: {
+            verdict,
+            overallScore: brainReport.overallScore,
+            overallStatus: brainReport.overallStatus,
+            dimensions: dimensionSummaries,
+            voicePipeline: {
+              status: healthStatus.status,
+              score: healthStatus.score,
+            },
+            contextInjection: {
+              status: contextHealth.status,
+              reasons: contextHealth.reasons,
+            },
+            activeSessions: Number(activeSessionCount?.count || 0),
+            serverUptime: Math.floor(process.uptime()),
+            memoryUsageMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+            checkDurationMs: elapsed,
+          },
+        };
+      }
+
       default:
         return { data: { error: `Unknown tool: ${toolName}` } };
     }
@@ -360,4 +420,4 @@ export async function executeAldenTool(
   }
 }
 
-console.log('[Alden Functions] Loaded — 8 platform management tools ready');
+console.log('[Alden Functions] Loaded — 9 platform management tools ready');
