@@ -25,6 +25,7 @@ interface ContentAuditData {
   missingActflLevels: Array<{ id: string; name: string; type: string; language: string }>;
   orphanedDrills: Array<{ id: string; prompt: string; lessonName: string }>;
   languageCoverage: Array<{ language: string; pathCount: number; unitCount: number; lessonCount: number; drillCount: number }>;
+  templatedContent: Array<{ language: string; templated_count: number; total_count: number; pct_templated: number }>;
 }
 
 interface StudentSuccessData {
@@ -101,12 +102,50 @@ export class LyraAnalyticsService {
       ORDER BY lesson_count DESC
     `);
 
+    const templatedContent = await db.execute(sql`
+      SELECT cp.language,
+        COUNT(*) FILTER (WHERE 
+          cl.description LIKE 'Practice real conversations about%'
+          OR cl.description LIKE 'Master % through interactive practice%'
+          OR cl.description LIKE 'Unlock the patterns of%'
+          OR cl.description LIKE 'Explore the rich culture behind%'
+          OR cl.description LIKE 'Learn essential % vocabulary%'
+          OR cl.description LIKE 'Practice speaking, fill-in-the-blank%'
+        ) as templated_count,
+        COUNT(*) as total_count,
+        ROUND(
+          COUNT(*) FILTER (WHERE 
+            cl.description LIKE 'Practice real conversations about%'
+            OR cl.description LIKE 'Master % through interactive practice%'
+            OR cl.description LIKE 'Unlock the patterns of%'
+            OR cl.description LIKE 'Explore the rich culture behind%'
+            OR cl.description LIKE 'Learn essential % vocabulary%'
+            OR cl.description LIKE 'Practice speaking, fill-in-the-blank%'
+          )::numeric * 100 / GREATEST(COUNT(*), 1), 1
+        ) as pct_templated
+      FROM curriculum_lessons cl
+      JOIN curriculum_units cu ON cl.curriculum_unit_id = cu.id
+      JOIN curriculum_paths cp ON cu.curriculum_path_id = cp.id
+      WHERE cp.is_published = true
+      GROUP BY cp.language
+      HAVING COUNT(*) FILTER (WHERE 
+        cl.description LIKE 'Practice real conversations about%'
+        OR cl.description LIKE 'Master % through interactive practice%'
+        OR cl.description LIKE 'Unlock the patterns of%'
+        OR cl.description LIKE 'Explore the rich culture behind%'
+        OR cl.description LIKE 'Learn essential % vocabulary%'
+        OR cl.description LIKE 'Practice speaking, fill-in-the-blank%'
+      ) > 0
+      ORDER BY pct_templated DESC
+    `);
+
     return {
       staleContent: (staleContent.rows || []) as any[],
       emptyDescriptions: (emptyDescriptions.rows || []) as any[],
       missingActflLevels: (missingActflLevels.rows || []) as any[],
       orphanedDrills: (orphanedDrills.rows || []) as any[],
       languageCoverage: (languageCoverage.rows || []) as any[],
+      templatedContent: (templatedContent.rows || []) as any[],
     };
   }
 
@@ -129,9 +168,16 @@ export class LyraAnalyticsService {
                ELSE 0
              END as completion_rate
       FROM syllabus_progress sp
+      JOIN users u ON sp.student_id = u.id
       JOIN curriculum_lessons cl ON sp.lesson_id = cl.id
       JOIN curriculum_units cu ON cl.curriculum_unit_id = cu.id
       JOIN curriculum_paths cp ON cu.curriculum_path_id = cp.id
+      WHERE u.email NOT LIKE '%@example.com'
+        AND u.id NOT LIKE 'textbook-card-%'
+        AND u.id NOT LIKE 'audio-test-%'
+        AND u.id NOT LIKE 'cache-test-%'
+        AND u.id NOT LIKE 'admin_%'
+        AND u.first_name IS NOT NULL AND u.first_name != ''
       GROUP BY sp.lesson_id, cl.name, cu.name, cp.language
       HAVING COUNT(*) FILTER (WHERE sp.status != 'not_started') >= 3
       ORDER BY completion_rate ASC
@@ -147,8 +193,15 @@ export class LyraAnalyticsService {
              SUM(udp.attempts) as attempt_count,
              COUNT(DISTINCT udp.user_id) as user_count
       FROM user_drill_progress udp
+      JOIN users u ON udp.user_id = u.id
       JOIN curriculum_drill_items di ON udp.drill_item_id = di.id
       WHERE udp.attempts >= 2
+        AND u.email NOT LIKE '%@example.com'
+        AND u.id NOT LIKE 'textbook-card-%'
+        AND u.id NOT LIKE 'audio-test-%'
+        AND u.id NOT LIKE 'cache-test-%'
+        AND u.id NOT LIKE 'admin_%'
+        AND u.first_name IS NOT NULL AND u.first_name != ''
       GROUP BY udp.drill_item_id, di.prompt, di.target_text, di.target_language
       HAVING AVG(udp.average_score) < 0.6
       ORDER BY avg_score ASC
@@ -161,7 +214,14 @@ export class LyraAnalyticsService {
              COUNT(*) FILTER (WHERE up.current_streak = 0 AND up.longest_streak > 3) as broken_streaks,
              COUNT(*) as active_users
       FROM user_progress up
+      JOIN users u ON up.user_id = u.id
       WHERE up.total_practice_days > 0
+        AND u.email NOT LIKE '%@example.com'
+        AND u.id NOT LIKE 'textbook-card-%'
+        AND u.id NOT LIKE 'audio-test-%'
+        AND u.id NOT LIKE 'cache-test-%'
+        AND u.id NOT LIKE 'admin_%'
+        AND u.first_name IS NOT NULL AND u.first_name != ''
       GROUP BY up.language
       ORDER BY broken_streaks DESC
     `);
@@ -172,6 +232,13 @@ export class LyraAnalyticsService {
              ROUND(AVG(ap.avg_pronunciation_confidence)::numeric, 2) as avg_pronunciation,
              COUNT(*) as user_count
       FROM actfl_progress ap
+      JOIN users u ON ap.user_id = u.id
+      WHERE u.email NOT LIKE '%@example.com'
+        AND u.id NOT LIKE 'textbook-card-%'
+        AND u.id NOT LIKE 'audio-test-%'
+        AND u.id NOT LIKE 'cache-test-%'
+        AND u.id NOT LIKE 'admin_%'
+        AND u.first_name IS NOT NULL AND u.first_name != ''
       GROUP BY ap.language
       HAVING COUNT(*) >= 2
       ORDER BY avg_tasks_completed ASC
@@ -188,7 +255,22 @@ export class LyraAnalyticsService {
   async gatherOnboardingData(): Promise<OnboardingData> {
     const db = getSharedDb();
 
+    const realUserFilter = sql`
+      u.role = 'student'
+      AND u.is_beta_tester = true
+      AND u.email NOT LIKE '%@example.com'
+      AND u.id NOT LIKE 'textbook-card-%'
+      AND u.id NOT LIKE 'audio-test-%'
+      AND u.id NOT LIKE 'cache-test-%'
+      AND u.id NOT LIKE 'admin_%'
+      AND u.first_name IS NOT NULL
+      AND u.first_name != ''
+    `;
+
     const onboardingStats = await db.execute(sql`
+      WITH real_users AS (
+        SELECT u.* FROM users u WHERE ${realUserFilter}
+      )
       SELECT 
         COUNT(*) as total_users,
         COUNT(*) FILTER (WHERE EXISTS (
@@ -206,11 +288,13 @@ export class LyraAnalyticsService {
           ))
           ELSE NULL END
         )::numeric, 1) as avg_days_to_first_chat
-      FROM users u
-      WHERE u.role = 'student'
+      FROM real_users u
     `);
 
     const returnRateResult = await db.execute(sql`
+      WITH real_users AS (
+        SELECT u.* FROM users u WHERE ${realUserFilter}
+      )
       SELECT 
         ROUND(
           COUNT(DISTINCT u.id) FILTER (WHERE (
@@ -220,18 +304,19 @@ export class LyraAnalyticsService {
             SELECT 1 FROM conversations c WHERE c.user_id = u.id
           )), 1), 1
         ) as return_rate_7d
-      FROM users u
-      WHERE u.role = 'student'
+      FROM real_users u
     `);
 
     const recentSignups = await db.execute(sql`
+      WITH real_users AS (
+        SELECT u.* FROM users u WHERE ${realUserFilter}
+      )
       SELECT 
         EXTRACT(DAY FROM NOW() - u.created_at)::int as days_since_signup,
         EXISTS (SELECT 1 FROM conversations c WHERE c.user_id = u.id) as has_conversation,
         (SELECT COUNT(*) FROM conversations c WHERE c.user_id = u.id)::int as conversation_count
-      FROM users u
-      WHERE u.role = 'student'
-        AND u.created_at > NOW() - INTERVAL '30 days'
+      FROM real_users u
+      WHERE u.created_at > NOW() - INTERVAL '30 days'
       ORDER BY u.created_at DESC
       LIMIT 50
     `);
@@ -308,6 +393,38 @@ export class LyraAnalyticsService {
           needsReview: false,
         });
       }
+    }
+
+    if (data.templatedContent.length > 0) {
+      const totalTemplated = data.templatedContent.reduce((sum, t) => sum + Number(t.templated_count), 0);
+      const languagesAffected = data.templatedContent.filter(t => Number(t.pct_templated) > 20);
+      const worst = data.templatedContent[0];
+      insights.push({
+        category: 'content_quality',
+        severity: languagesAffected.length > 5 ? 'high' : 'medium',
+        confidence: 0.98,
+        title: `${totalTemplated} lessons across ${languagesAffected.length} languages still use templated placeholder descriptions`,
+        description: (() => {
+          const allLanguages = data.languageCoverage.map(c => c.language);
+          const templatedLanguages = new Set(data.templatedContent.map(t => t.language));
+          const cleanLanguages = allLanguages.filter(lang => !templatedLanguages.has(lang));
+          const cleanNote = cleanLanguages.length > 0 
+            ? ` ${cleanLanguages.join(', ')} ${cleanLanguages.length === 1 ? 'has' : 'have'} fully original descriptions.` 
+            : '';
+          return `${worst.language} has the most: ${worst.templated_count} of ${worst.total_count} lessons (${worst.pct_templated}%) use auto-generated descriptions like "Practice real conversations about..." instead of real pedagogical content.${cleanNote}`;
+        })(),
+        data: { 
+          totalTemplated, 
+          byLanguage: data.templatedContent.map(t => ({
+            language: t.language,
+            templated: Number(t.templated_count),
+            total: Number(t.total_count),
+            pct: Number(t.pct_templated),
+          }))
+        },
+        recommendation: `Replace templated descriptions with hand-crafted pedagogical content, starting with the highest-traffic languages after Spanish. Each description should explain what students will learn, prerequisite knowledge, and expected outcomes.`,
+        needsReview: false,
+      });
     }
 
     return insights;
@@ -408,6 +525,7 @@ export class LyraAnalyticsService {
         emptyDescriptions: contentData.emptyDescriptions.length,
         missingActfl: contentData.missingActflLevels.length,
         languageCoverage: contentData.languageCoverage,
+        templatedContent: contentData.templatedContent,
       },
       studentSummary: {
         lowCompletionLessons: studentData.lessonDropoff.filter(l => Number(l.completion_rate) < 40).length,
@@ -461,7 +579,7 @@ Write your analysis as Lyra. Sign off with your name. Keep it 3-5 paragraphs —
   }
 
   async enrichContentWithGemini(contentData: ContentAuditData): Promise<string | null> {
-    if (contentData.staleContent.length === 0 && contentData.emptyDescriptions.length === 0 && contentData.missingActflLevels.length === 0) {
+    if (contentData.staleContent.length === 0 && contentData.emptyDescriptions.length === 0 && contentData.missingActflLevels.length === 0 && contentData.templatedContent.length === 0) {
       return null;
     }
 
@@ -481,6 +599,7 @@ Write your analysis as Lyra. Sign off with your name. Keep it 3-5 paragraphs —
               emptyDescriptions: contentData.emptyDescriptions.length,
               missingActfl: contentData.missingActflLevels.length,
               coverage: contentData.languageCoverage,
+              templatedContent: contentData.templatedContent,
             }, null, 2)}`,
           },
         ],

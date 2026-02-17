@@ -16,6 +16,10 @@ Staging area for documentation changes to be consolidated later.
 
 **What**: Built Lyra — the platform's automated learning experience analyst. Lyra runs periodic sweeps of content quality, student success metrics, and onboarding health, then posts findings to a dedicated Hive session with AI-enriched analysis.
 
+**v2 improvements (same session)**:
+- **Test user filtering**: Onboarding and student success queries now exclude synthetic/test users (e.g., `textbook-card-test`, `audio-test-*`, `cache-test-*`, `admin_*`, `@example.com` emails, users without names). Only real beta testers are counted. This fixed misleading metrics (was showing 10 users/60% conversion; now correctly shows 5 beta testers/100% conversion).
+- **Templated content detection**: New content quality scanner detects auto-generated placeholder descriptions across all languages. Identifies 6 template patterns (e.g., "Practice real conversations about...", "Master X through interactive practice!", "Unlock the patterns of...", etc.). Currently flags 8 languages with templated content — only Spanish has fully original descriptions. Both Gemini and Claude enrichments now receive this data for analysis.
+
 **How it works**:
 - `lyra-analytics-service.ts` — Three analysis domains:
   1. **Content Quality** — Stale lessons (90+ days since update), empty descriptions, missing ACTFL levels, language coverage gaps, orphaned drills
