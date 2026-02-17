@@ -31,7 +31,7 @@ function rateLimitHandler(req: Request, res: Response) {
  */
 export const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requests per window
+  max: 500, // 500 requests per window (SPA makes many calls on load)
   message: 'Too many requests from this IP, please try again after 15 minutes',
   standardHeaders: true, // Return rate limit info in `RateLimit-*` headers
   legacyHeaders: false, // Disable `X-RateLimit-*` headers
@@ -46,7 +46,7 @@ export const generalLimiter = rateLimit({
  */
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // 10 attempts per window (more generous for auth flow)
+  max: 60, // 60 attempts per window (SPA checks auth on every navigation)
   message: 'Too many login attempts from this IP, please try again after 15 minutes',
   standardHeaders: true,
   legacyHeaders: false,
@@ -132,8 +132,8 @@ if (process.env.NODE_ENV === 'development') {
   console.log('[Rate Limiting] ✓ Hive External: 10 req/min (ENABLED in dev)');
 } else {
   console.log('[Rate Limiting] ✓ Rate limiting ENABLED for production');
-  console.log('  • General API: 100 req/15min');
-  console.log('  • Auth: 10 req/15min');
+  console.log('  • General API: 500 req/15min');
+  console.log('  • Auth: 60 req/15min');
   console.log('  • AI/Chat: 30 req/min');
   console.log('  • Voice: 40 req/min');
   console.log('  • Mutations: 50 req/15min');

@@ -18,6 +18,8 @@ import { supportPersonaService } from "./services/support-persona-service";
 
 const app = express();
 
+app.set('trust proxy', 1);
+
 // CRITICAL: Create HTTP server FIRST, before any middleware
 // This allows us to attach WebSocket upgrade handler BEFORE Express/Vite interfere
 const server = createServer(app);
