@@ -3825,3 +3825,20 @@ Brain Health Aggregator (15min) ─→ Sofia Brain Health Agent
 - `server/services/sofia-health-functions.ts` — Added 7 brain health remediation tools
 - `server/services/support-persona-service.ts` — Added `handleBrainHealthTransition()` and `runSofiaBrainHealthAgent()` with comprehensive system prompt
 - `server/index.ts` — Wired brain health aggregator transitions to Sofia
+
+### Daniela Nervous System Mind Map Dashboard (Feb 17, 2026)
+
+**What was built:** A visual "Nervous System Mind Map" dashboard for Daniela's brain health — a real-time view of her cognitive architecture organized into three categories: Cognitive Core, Student Interface, and Infrastructure. Shows overall health score, individual dimension scores with expandable details, voice pipeline overview, context injection breakdown, and recent Sofia health digests.
+
+**How it works:**
+- API endpoint `/api/admin/brain-health/nervous-system` (RBAC: admin/developer) calls `runBrainHealthCheck()`, `checkContextInjectionHealth()`, and queries recent Sofia digests
+- Frontend component auto-refreshes every 60 seconds, uses animated SVG score ring for overall health
+- Dimensions are mapped to cognitive categories using explicit `dimensionKey` props (not name heuristics)
+- All interactive elements use shadcn `Button` component (not raw `<button>`) per design guidelines
+
+**Key files modified:**
+- `client/src/pages/admin/NervousSystemMindMap.tsx` — New mind map dashboard component
+- `client/src/pages/admin/CommandCenter.tsx` — Added "Mind Map" tab to Intelligence tab group
+- `server/routes.ts` — Added `/api/admin/brain-health/nervous-system` endpoint
+
+**User-facing instructions:** Navigate to Command Center → Intelligence → Mind Map tab to see Daniela's brain health visualization. The page auto-refreshes. Click any dimension node to expand and see detailed reasons and metrics.

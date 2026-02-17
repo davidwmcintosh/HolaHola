@@ -26668,6 +26668,28 @@ You have full access to your neural network knowledge.
     }
   });
 
+
+  app.get("/api/admin/brain-health/nervous-system", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const { runBrainHealthCheck } = await import('./services/brain-health-aggregator');
+      const report = await runBrainHealthCheck();
+
+      const digests = await supportPersonaService.getHealthDigests(10);
+
+      const { computeContextHealthStatus } = await import('./services/context-health-monitor');
+      const contextHealth = await computeContextHealthStatus();
+
+      res.json({
+        brain: report,
+        context: contextHealth,
+        recentDigests: digests.slice(0, 10),
+      });
+    } catch (error: any) {
+      console.error('[NervousSystem] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ============================================
   // Journey Memory System Admin Routes
   // ============================================

@@ -21,6 +21,7 @@ import { useUser } from "@/lib/auth";
 import { SyllabusBuilder } from "@/components/SyllabusBuilder";
 import { useFounderCollab } from "@/hooks/useFounderCollab";
 import { BrainHealthContent } from "@/pages/admin/BrainHealth";
+import { NervousSystemMindMap } from "@/pages/admin/NervousSystemMindMap";
 import { JourneyMemoryContent } from "@/pages/admin/JourneyMemory";
 import { FluencyCoverageContent } from "@/pages/admin/FluencyCoverage";
 import { LessonDraftsContent } from "@/pages/admin/LessonDrafts";
@@ -1578,6 +1579,7 @@ export default function CommandCenter() {
     {
       label: 'Intelligence',
       tabs: [
+        { id: "nervous-system", label: "Mind Map", icon: Activity, roles: ['developer', 'admin'] },
         { id: "neural-network", label: "Neural Net", icon: Zap, roles: ['developer', 'admin'] },
         { id: "brain-surgery", label: "Surgery", icon: Brain, roles: ['developer', 'admin'] },
         { id: "brain-health", label: "Health", icon: Heart, roles: ['developer', 'admin'] },
@@ -1759,6 +1761,10 @@ export default function CommandCenter() {
 
           <TabsContent value="brain-surgery" className="space-y-4">
             <BrainSurgeryTab />
+          </TabsContent>
+
+          <TabsContent value="nervous-system" className="space-y-4">
+            <NervousSystemMindMap />
           </TabsContent>
 
           <TabsContent value="brain-health" className="space-y-4">
