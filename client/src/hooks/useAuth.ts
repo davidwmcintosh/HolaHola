@@ -1,16 +1,48 @@
 // Replit Auth Integration - useAuth hook
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import type { User } from "@shared/schema";
 import { getQueryFn, apiRequest } from "@/lib/queryClient";
 
 export function useAuth() {
+  const queryClient = useQueryClient();
   const { data: user, isLoading } = useQuery<User | null>({
     queryKey: ["/api/auth/user"],
     queryFn: getQueryFn({ on401: "returnNull" }),
     retry: false,
-    staleTime: 30000, // Cache auth status for 30 seconds to prevent rapid re-fetching
+    staleTime: 30000,
   });
+  
+  const retryCountRef = useRef(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
+  useEffect(() => {
+    if (isLoading) return;
+    
+    if (!user && retryCountRef.current < 3) {
+      const hasSessionEvidence = !!localStorage.getItem("userName");
+      
+      if (hasSessionEvidence) {
+        const delay = retryCountRef.current === 0 ? 1000 : 2000;
+        console.log(`[Auth] Got 401 but user session evidence exists — retrying in ${delay}ms (attempt ${retryCountRef.current + 1}/3)`);
+        
+        retryTimerRef.current = setTimeout(() => {
+          retryCountRef.current++;
+          queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+        }, delay);
+      }
+    }
+    
+    if (user) {
+      retryCountRef.current = 0;
+    }
+    
+    return () => {
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+      }
+    };
+  }, [user, isLoading, queryClient]);
   
   // Sync timezone when user is authenticated
   // This runs once per page load to handle traveling users
