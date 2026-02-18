@@ -4301,3 +4301,20 @@ Brain Health Aggregator (15min) ─→ Sofia Brain Health Agent
 
 #### User-facing instructions
 When Daniela loads a scenario during voice chat, the left-side Scene panel will display the scenario context (location, goals, vocabulary) and expandable props (menus, maps, documents, etc.) with structured, bilingual content that students can reference during the roleplay conversation.
+
+---
+
+### Future Maintenance: Eliminate Legacy Command Map
+
+**Status**: BACKLOG
+
+#### Problem
+`FUNCTION_TO_COMMAND_MAP` in `gemini-function-declarations.ts` translates Gemini's snake_case function names (e.g., `play_audio`) into UPPER_CASE command strings (e.g., `PLAY`) used by the orchestrator's `switch/case` handlers. Most entries are just mechanical uppercasing (`write` → `WRITE`), but a handful have shortened or renamed commands (e.g., `play_audio` → `PLAY`, `show_overlay` → `SHOW`, `request_text_input` → `TEXT_INPUT`).
+
+#### Proposed fix
+Rename the orchestrator's case labels to match the exact uppercased function names (e.g., `case 'PLAY_AUDIO':` instead of `case 'PLAY':`). Once every case label matches `name.toUpperCase()`, the map can be deleted entirely since the fallback (`name.toUpperCase()`) already handles it. Also rename the `legacyType` field on `ExtractedFunctionCall` to just `command` for clarity.
+
+#### Scope
+- ~50 case labels across `handleNativeFunctionCall()` in `streaming-voice-orchestrator.ts`
+- A few references to `legacyType` in filtering logic (e.g., `METADATA_ONLY_FUNCTIONS`)
+- Low risk but wide blast radius — best done as a focused cleanup session with no other changes
