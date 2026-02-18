@@ -8,6 +8,30 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: February 18, 2026 — Drill Duplication Fix & Dedicated Numbers Chapters
+
+**Status**: COMPLETED
+
+#### What was built
+1. **Drill seed deduplication fix** — Root cause: `onConflictDoNothing()` was ineffective because `curriculum_drill_items` has no unique constraint on `(lesson_id, prompt, target_text, item_type)` — only a UUID primary key. Every server restart inserted all drills again. Fixed by adding `lessonHasDrillItems()` check that skips seeding if a lesson already has any drill items.
+
+2. **Database cleanup** — Removed ~951,000 duplicate drill items (from 956,335 down to 5,136). Cleaned per-lesson using `DISTINCT ON (lesson_id, prompt, target_text, item_type)` keeping oldest rows.
+
+3. **Dedicated Numbers chapters** — Created 9 new `curriculum_units` (one per language except Hebrew) named "Unit 2: [Localized Numbers Title] - Numbers & Counting". Moved the existing Numbers 0-20 drill lessons from Greetings units into these new units. Shifted `order_index` of subsequent units to maintain proper ordering (Greetings → Numbers → Family → ...).
+
+4. **Numbers chapter classifier** — Re-added `numbers` detection to `classifyChapterType()` in `ChapterIntroduction.tsx` with keywords for all 9 languages (number, número, nombres, zahlen, numeri, 数字, 숫자, sūji, shùzì, sutja, números).
+
+#### Key files modified
+- `server/seeds/drill-content.ts` — Added `lessonHasDrillItems()` guard; removed broken `onConflictDoNothing()`
+- `client/src/components/ChapterIntroduction.tsx` — Added numbers chapter type classification
+
+#### Database changes
+- 9 new rows in `curriculum_units` (Numbers chapters)
+- 9 `curriculum_lessons` rows updated (moved to new units)
+- ~951,000 duplicate `curriculum_drill_items` rows deleted
+
+---
+
 ### Session: February 18, 2026 — Multi-Language Chapter Intros & Visual Assets
 
 **Status**: COMPLETED

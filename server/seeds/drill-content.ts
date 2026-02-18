@@ -260,6 +260,14 @@ const FAMILY: Record<string, Array<{ word: string; meaning: string; alternatives
   ],
 };
 
+async function lessonHasDrillItems(lessonId: string): Promise<boolean> {
+  const existing = await db.select({ id: curriculumDrillItems.id })
+    .from(curriculumDrillItems)
+    .where(eq(curriculumDrillItems.lessonId, lessonId))
+    .limit(1);
+  return existing.length > 0;
+}
+
 export async function seedDrillContent() {
   console.log("[Drill Seed] Starting drill content seeding...");
   
@@ -267,15 +275,18 @@ export async function seedDrillContent() {
   let greetingsCreated = 0;
   let familyCreated = 0;
 
-  // Seed number drills for each language
   for (const [language, lessonId] of Object.entries(NUMBER_LESSONS)) {
     const numbers = NUMBERS[language];
     if (!numbers) continue;
 
+    if (await lessonHasDrillItems(lessonId)) {
+      console.log(`[Drill Seed] Skipping ${language} numbers — items already exist`);
+      continue;
+    }
+
     for (let i = 0; i <= 20; i++) {
       const word = numbers[i];
       
-      // Listen & Repeat drill item
       try {
         await db.insert(curriculumDrillItems).values({
           lessonId,
@@ -288,9 +299,8 @@ export async function seedDrillContent() {
           acceptableAlternatives: [],
           difficulty: i <= 10 ? 1 : 2,
           tags: ["numbers", "basic"],
-        }).onConflictDoNothing();
+        });
         
-        // Number dictation drill item
         await db.insert(curriculumDrillItems).values({
           lessonId,
           itemType: "number_dictation",
@@ -302,19 +312,23 @@ export async function seedDrillContent() {
           acceptableAlternatives: [],
           difficulty: i <= 10 ? 1 : 2,
           tags: ["numbers", "listening"],
-        }).onConflictDoNothing();
+        });
         
         numbersCreated += 2;
       } catch (e) {
-        // Ignore duplicates
+        // Ignore errors
       }
     }
   }
 
-  // Seed greeting drills for each language
   for (const [language, lessonId] of Object.entries(GREETING_LESSONS)) {
     const greetings = GREETINGS[language];
     if (!greetings) continue;
+
+    if (await lessonHasDrillItems(lessonId)) {
+      console.log(`[Drill Seed] Skipping ${language} greetings — items already exist`);
+      continue;
+    }
 
     for (let i = 0; i < greetings.length; i++) {
       const greeting = greetings[i];
@@ -331,25 +345,28 @@ export async function seedDrillContent() {
           acceptableAlternatives: greeting.alternatives || [],
           difficulty: 1,
           tags: ["greetings", "phrases"],
-        }).onConflictDoNothing();
+        });
         
         greetingsCreated++;
       } catch (e) {
-        // Ignore duplicates
+        // Ignore errors
       }
     }
   }
 
-  // Seed family vocabulary drills for each language
   for (const [language, lessonId] of Object.entries(FAMILY_LESSONS)) {
     const familyWords = FAMILY[language];
     if (!familyWords) continue;
+
+    if (await lessonHasDrillItems(lessonId)) {
+      console.log(`[Drill Seed] Skipping ${language} family — items already exist`);
+      continue;
+    }
 
     for (let i = 0; i < familyWords.length; i++) {
       const member = familyWords[i];
       
       try {
-        // Listen & Repeat drill item
         await db.insert(curriculumDrillItems).values({
           lessonId,
           itemType: "listen_repeat",
@@ -361,9 +378,8 @@ export async function seedDrillContent() {
           acceptableAlternatives: member.alternatives || [],
           difficulty: 1,
           tags: ["family", "vocabulary"],
-        }).onConflictDoNothing();
+        });
         
-        // Translate & Speak drill item (meaning -> target word)
         await db.insert(curriculumDrillItems).values({
           lessonId,
           itemType: "translate_speak",
@@ -375,11 +391,11 @@ export async function seedDrillContent() {
           acceptableAlternatives: member.alternatives || [],
           difficulty: 1,
           tags: ["family", "speaking"],
-        }).onConflictDoNothing();
+        });
         
         familyCreated += 2;
       } catch (e) {
-        // Ignore duplicates
+        // Ignore errors
       }
     }
   }
