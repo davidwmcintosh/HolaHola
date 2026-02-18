@@ -144,7 +144,7 @@ export default function ScenarioBrowser() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate("/chat")}
+          onClick={() => navigate("/")}
           data-testid="button-back-to-chat"
         >
           <ArrowLeft className="w-4 h-4" />
