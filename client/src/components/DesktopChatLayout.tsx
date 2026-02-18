@@ -69,7 +69,7 @@ export function DesktopChatLayout({
         />
       )}
 
-      <div className="flex-1 min-h-0 min-w-0 relative max-w-4xl">
+      <div className="flex-1 min-h-0 min-w-0 relative">
         {children}
       </div>
 

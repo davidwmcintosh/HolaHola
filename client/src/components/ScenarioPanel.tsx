@@ -1,7 +1,6 @@
-import { useState } from "react";
-import { Tv, MapPin, ChevronLeft, ChevronRight, Sparkles, BookOpen, Target, BookText, MessageCircle, UtensilsCrossed, FileText, CreditCard, MapIcon, List, Receipt, ChevronDown, ChevronUp, ImageIcon } from "lucide-react";
+import { Tv, ChevronLeft, ChevronRight, Sparkles, BookOpen, UtensilsCrossed, FileText, CreditCard, MapIcon, List, Receipt, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { useLanguage } from "@/contexts/LanguageContext";
 import type { ScenarioItemData, ScenarioLoadedProp } from "@shared/whiteboard-types";
 
 interface ScenarioPanelProps {
@@ -23,7 +22,41 @@ function PropIcon({ propType }: { propType: string }) {
   }
 }
 
-function MenuRenderer({ content }: { content: any }) {
+function BeginnerMenuRenderer({ content }: { content: any }) {
+  const sections = content?.sections;
+  if (!sections || !Array.isArray(sections)) return null;
+
+  return (
+    <div className="space-y-3">
+      {sections.map((section: any, si: number) => (
+        <div key={si} className="space-y-1.5">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {section.name}
+          </div>
+          <div className="space-y-1">
+            {section.items?.map((item: any, ii: number) => (
+              <div key={ii} className="flex items-center justify-between gap-2 rounded-md bg-muted/50 px-2 py-1.5" data-testid={`text-menu-item-${si}-${ii}`}>
+                <div className="min-w-0">
+                  <div className="text-xs font-medium">{item.name}</div>
+                  {item.name_target && item.name_target !== item.name && (
+                    <div className="text-[10px] text-muted-foreground italic">{item.name_target}</div>
+                  )}
+                </div>
+                {item.price && (
+                  <span className="text-xs font-semibold flex-shrink-0">
+                    {item.price.includes('€') || item.price.includes('$') ? item.price : `€${item.price}`}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AdvancedMenuRenderer({ content }: { content: any }) {
   const sections = content?.sections;
   if (!sections || !Array.isArray(sections)) return null;
 
@@ -57,6 +90,13 @@ function MenuRenderer({ content }: { content: any }) {
       ))}
     </div>
   );
+}
+
+function MenuRenderer({ content, difficulty }: { content: any; difficulty: string }) {
+  if (difficulty === "beginner") {
+    return <BeginnerMenuRenderer content={content} />;
+  }
+  return <AdvancedMenuRenderer content={content} />;
 }
 
 function FieldsRenderer({ content }: { content: any }) {
@@ -129,10 +169,10 @@ function ListRenderer({ content }: { content: any }) {
   );
 }
 
-function PropContentRenderer({ prop }: { prop: ScenarioLoadedProp }) {
+function PropContentRenderer({ prop, difficulty }: { prop: ScenarioLoadedProp; difficulty: string }) {
   switch (prop.propType) {
     case 'menu':
-      return <MenuRenderer content={prop.content} />;
+      return <MenuRenderer content={prop.content} difficulty={difficulty} />;
     case 'bill':
     case 'document':
     case 'card':
@@ -146,8 +186,7 @@ function PropContentRenderer({ prop }: { prop: ScenarioLoadedProp }) {
   }
 }
 
-function ScenarioPropCard({ prop }: { prop: ScenarioLoadedProp }) {
-  const [expanded, setExpanded] = useState(false);
+function ScenarioPropCard({ prop, difficulty }: { prop: ScenarioLoadedProp; difficulty: string }) {
   const hasContent = prop.content && (
     prop.content.sections ||
     prop.content.fields ||
@@ -155,37 +194,24 @@ function ScenarioPropCard({ prop }: { prop: ScenarioLoadedProp }) {
     prop.content.items
   );
 
+  if (!hasContent) return null;
+
   return (
     <div className="rounded-md border bg-background" data-testid={`prop-card-${prop.id}`}>
-      <Button
-        variant="ghost"
-        className="flex items-center gap-1.5 w-full justify-start text-left"
-        onClick={() => hasContent && setExpanded(!expanded)}
-        data-testid={`button-toggle-prop-${prop.id}`}
-      >
+      <div className="flex items-center gap-1.5 px-2.5 py-2 border-b">
         <PropIcon propType={prop.propType} />
         <span className="text-xs font-medium flex-1">{prop.title}</span>
-        {prop.isInteractive && (
-          <Badge variant="secondary" className="text-[10px] px-1 py-0">
-            interactive
-          </Badge>
-        )}
-        {hasContent && (
-          expanded
-            ? <ChevronUp className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-            : <ChevronDown className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-        )}
-      </Button>
-      <div className={expanded && hasContent ? "px-2.5 pb-2.5 pt-0 border-t" : "hidden"}>
-        <div className="pt-2">
-          <PropContentRenderer prop={prop} />
-        </div>
+      </div>
+      <div className="px-2.5 pb-2.5 pt-2">
+        <PropContentRenderer prop={prop} difficulty={difficulty} />
       </div>
     </div>
   );
 }
 
 export function ScenarioPanel({ scenario, isCollapsed, onToggleCollapse }: ScenarioPanelProps) {
+  const { difficulty } = useLanguage();
+
   if (isCollapsed) {
     return (
       <div className="flex flex-col items-center py-4 w-10 border-r bg-muted/30">
@@ -243,79 +269,11 @@ export function ScenarioPanel({ scenario, isCollapsed, onToggleCollapse }: Scena
               </div>
             )}
 
-            <div className="space-y-2">
-              <h3 className="font-semibold text-sm flex items-center gap-1.5" data-testid="text-scenario-location">
-                <MapPin className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                {scenario.location}
-              </h3>
-              <p className="text-sm text-muted-foreground" data-testid="text-scenario-situation">
-                {scenario.situation}
-              </p>
-              {scenario.mood && (
-                <Badge variant="secondary" data-testid="text-scenario-mood">
-                  {scenario.mood}
-                </Badge>
-              )}
-            </div>
-
-            {scenario.levelGuide && (
-              <div className="space-y-2 pt-1 border-t">
-                {scenario.levelGuide.studentGoals && scenario.levelGuide.studentGoals.length > 0 && (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                      <Target className="h-3 w-3" />
-                      Goals
-                    </div>
-                    <ul className="space-y-0.5 pl-4" data-testid="list-scenario-goals">
-                      {scenario.levelGuide.studentGoals.map((goal, i) => (
-                        <li key={i} className="text-xs text-muted-foreground list-disc">{goal}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {scenario.levelGuide.vocabularyFocus && scenario.levelGuide.vocabularyFocus.length > 0 && (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                      <BookText className="h-3 w-3" />
-                      Key Vocabulary
-                    </div>
-                    <div className="flex flex-wrap gap-1" data-testid="list-scenario-vocab">
-                      {scenario.levelGuide.vocabularyFocus.map((word, i) => (
-                        <Badge key={i} variant="outline" className="text-[10px] px-1.5 py-0">
-                          {word}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {scenario.levelGuide.conversationStarters && scenario.levelGuide.conversationStarters.length > 0 && (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                      <MessageCircle className="h-3 w-3" />
-                      Conversation Starters
-                    </div>
-                    <div className="space-y-1" data-testid="list-scenario-starters">
-                      {scenario.levelGuide.conversationStarters.map((starter, i) => (
-                        <p key={i} className="text-xs text-muted-foreground italic pl-2 border-l-2 border-primary/30">
-                          {starter}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
             {scenario.props && scenario.props.length > 0 && (
-              <div className="space-y-2 pt-1 border-t">
-                <div className="text-xs font-medium text-muted-foreground">Props</div>
-                <div className="space-y-1.5" data-testid="list-scenario-props">
-                  {scenario.props.map(prop => (
-                    <ScenarioPropCard key={prop.id} prop={prop} />
-                  ))}
-                </div>
+              <div className="space-y-2" data-testid="list-scenario-props">
+                {scenario.props.map(prop => (
+                  <ScenarioPropCard key={prop.id} prop={prop} difficulty={difficulty} />
+                ))}
               </div>
             )}
           </div>
