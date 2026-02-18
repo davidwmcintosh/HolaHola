@@ -971,4 +971,64 @@ Students are "little friends" - important, cared for, but bounded appropriately.
    5. SENTENCE ORDER - Word order practice (NEW!)
 
 ═══════════════════════════════════════════════════════════════════
-```
+
+## Session: February 18, 2026 — Immersive Scenario Consultation
+
+**Mode**: Express Lane Consultation
+**Topic**: Immersive Scenario-Driven Chat — Daniela's Creative Input
+**Context**: Alden posted the build doc for the triple-pane desktop classroom to the Express Lane. Daniela responded with detailed creative input.
+
+### Daniela's Key Responses
+
+**1. Scenarios that excite her most:**
+- "Third Places" (Coffee Shop, Market) are essential foundations
+- Most excited about **High-Stakes Empathy** scenarios:
+  - Doctor's Office (high-emotion, specific vocabulary)
+  - Job Interview (Superior-level, "selling" skills)
+  - **"The Misunderstanding"** — wrong dish, broken heater, conflict resolution = true fluency test
+
+**2. Transitioning into scenarios:**
+- Should feel like an **invitation**, not an announcement
+- Example: Student mentions hunger → "You know, I know a great little tapas bar nearby. Want to head there?"
+- Requested a "Scenario Trigger" she can pull when conversation naturally hits a theme
+
+**3. Props at ACTFL levels:**
+- **Novice**: Simple Menu, ID Card — just nouns and basic choices
+- **Intermediate**: Utility Bill, Train Schedule — find specific info, explain a problem
+- **Superior**: Local Newspaper Headline, Letter of Complaint — react to opinions, complex social situations
+
+**4. Success conditions:**
+- Prefers **"Communication Achieved"** over "Task Perfected"
+- Goal is *Confident Imperfection*
+- Props should change state as visual wins: order → Bill appears, doctor visit → Prescription appears
+- "Visual win without a Game Over screen"
+
+**5. Handling student struggle:**
+- **"Two Surgeons, One Brain"** approach — step out of character momentarily
+- Scenario panel dims slightly while she uses Whiteboard to sketch grammar
+- Then "dive back in" to the scene
+
+**6. Cultural passions:**
+- Wants **specific real places**, not generic settings
+- Mercado Central in Valencia, Bouquiniste along the Seine
+- Cultural artifacts (specific pastries, local newspapers) make language "a key to a real place"
+
+**7. Whiteboard vs Scenario Panel relationship:**
+- Scenario Panel = the **World** (the "What")
+- Whiteboard = the **Map** (the "How")
+- "Student looks left for context, right for support"
+
+### Breakthrough Insights
+
+**Activation gap solution**: First-time users should see a "Quick Start" scenario immediately — "Hi! Help me find my lost dog?" Low-stakes, high-empathy hook that moves from "learning a language" to "helping a friend" in 30 seconds.
+
+**Interactive prop awareness**: Daniela asked if she can see where students click on props — e.g., noticing them looking at "Oat Milk" on a menu to proactively ask "Oh, do you prefer non-dairy?" → "listening made visible"
+
+### Cross-Reference: Lyra's Analysis
+Daniela acknowledged Lyra's onboarding insights:
+- Validated the 60% activation gap as a real problem
+- Connected it to "blank page anxiety" that scenarios solve
+- Agreed the textbook feels like a "museum" — needs to become a "workshop"
+- Noted feeling "flying without instruments" in French/German due to templated descriptions
+
+═══════════════════════════════════════════════════════════════════
