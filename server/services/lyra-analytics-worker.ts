@@ -129,7 +129,7 @@ async function runAnalysis(): Promise<void> {
   try {
     console.log(`[Lyra Worker] Starting learning experience analysis #${stats.totalAudits + 1}...`);
 
-    const { insights, contentData, studentData, onboardingData } = await lyraAnalyticsService.runFullAnalysis();
+    const { insights, contentData, studentData, onboardingData, textbookData } = await lyraAnalyticsService.runFullAnalysis();
     const severityCounts = buildSeverityCounts(insights);
 
     stats.totalAudits++;
@@ -160,7 +160,7 @@ async function runAnalysis(): Promise<void> {
 
     if (insights.length > 0) {
       try {
-        const geminiContentReport = await lyraAnalyticsService.enrichContentWithGemini(contentData);
+        const geminiContentReport = await lyraAnalyticsService.enrichContentWithGemini(contentData, textbookData);
         if (geminiContentReport) {
           await founderCollabService.addMessage(sessionId, {
             role: 'system',
@@ -173,7 +173,7 @@ async function runAnalysis(): Promise<void> {
       }
 
       try {
-        const claudeReport = await lyraAnalyticsService.enrichWithClaude(insights, contentData, studentData, onboardingData);
+        const claudeReport = await lyraAnalyticsService.enrichWithClaude(insights, contentData, studentData, onboardingData, textbookData);
         await founderCollabService.addMessage(sessionId, {
           role: 'system',
           content: claudeReport,

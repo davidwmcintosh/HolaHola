@@ -9,7 +9,7 @@ const anthropic = new Anthropic({
 });
 
 export interface LyraInsight {
-  category: 'content_quality' | 'content_freshness' | 'student_success' | 'onboarding' | 'coverage_gap';
+  category: 'content_quality' | 'content_freshness' | 'student_success' | 'onboarding' | 'coverage_gap' | 'textbook_engagement';
   severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
   confidence: number;
   title: string;
@@ -42,6 +42,19 @@ interface OnboardingData {
   avgDaysToFirstChat: number;
   returnRate7d: number;
   recentSignups: Array<{ daysSinceSignup: number; hasConversation: boolean; conversationCount: number }>;
+}
+
+interface TextbookEngagementData {
+  totalSections: number;
+  totalViewed: number;
+  totalCompleted: number;
+  uniqueUsers: number;
+  uniqueLessons: number;
+  totalLessons: number;
+  visualAssetCount: number;
+  userBreakdown: Array<{ firstName: string; sectionsTouched: number; completed: number; viewedOnly: number; drillsDone: number; timeSpentSeconds: number }>;
+  languageBreakdown: Array<{ language: string; users: number; lastActivity: string }>;
+  completionByType: Array<{ sectionType: string; viewed: number; completed: number }>;
 }
 
 export class LyraAnalyticsService {
@@ -334,6 +347,120 @@ export class LyraAnalyticsService {
     };
   }
 
+  async gatherTextbookData(): Promise<TextbookEngagementData> {
+    const db = getSharedDb();
+
+    const realUserFilter = `
+      u.email NOT LIKE '%@example.com'
+      AND u.id NOT LIKE 'textbook-card-%'
+      AND u.id NOT LIKE 'audio-test-%'
+      AND u.id NOT LIKE 'cache-test-%'
+      AND u.id NOT LIKE 'admin_%'
+      AND u.first_name IS NOT NULL AND u.first_name != ''
+    `;
+
+    const overviewResult = await db.execute(sql`
+      SELECT
+        COUNT(*) as total_sections,
+        COUNT(*) FILTER (WHERE tsp.viewed) as total_viewed,
+        COUNT(*) FILTER (WHERE tsp.completed) as total_completed,
+        COUNT(DISTINCT tsp.user_id) as unique_users,
+        COUNT(DISTINCT tsp.lesson_id) as unique_lessons
+      FROM textbook_section_progress tsp
+      JOIN users u ON tsp.user_id = u.id
+      WHERE u.email NOT LIKE '%@example.com'
+        AND u.id NOT LIKE 'textbook-card-%'
+        AND u.id NOT LIKE 'audio-test-%'
+        AND u.id NOT LIKE 'cache-test-%'
+        AND u.id NOT LIKE 'admin_%'
+        AND u.first_name IS NOT NULL AND u.first_name != ''
+    `);
+
+    const totalLessonsResult = await db.execute(sql`SELECT COUNT(*) as total FROM curriculum_lessons`);
+
+    const visualAssetResult = await db.execute(sql`SELECT COUNT(*) as total FROM textbook_visual_assets`);
+
+    const userBreakdown = await db.execute(sql`
+      SELECT u.first_name,
+        COUNT(*) as sections_touched,
+        SUM(CASE WHEN tsp.completed THEN 1 ELSE 0 END) as completed,
+        SUM(CASE WHEN tsp.viewed AND NOT tsp.completed THEN 1 ELSE 0 END) as viewed_only,
+        SUM(tsp.drills_completed) as drills_done,
+        SUM(tsp.time_spent_seconds) as time_spent_seconds
+      FROM textbook_section_progress tsp
+      JOIN users u ON tsp.user_id = u.id
+      WHERE u.email NOT LIKE '%@example.com'
+        AND u.id NOT LIKE 'textbook-card-%'
+        AND u.id NOT LIKE 'audio-test-%'
+        AND u.id NOT LIKE 'cache-test-%'
+        AND u.id NOT LIKE 'admin_%'
+        AND u.first_name IS NOT NULL AND u.first_name != ''
+      GROUP BY u.first_name
+      ORDER BY sections_touched DESC
+    `);
+
+    const languageBreakdown = await db.execute(sql`
+      SELECT tup.language, COUNT(DISTINCT tup.user_id) as users,
+        MAX(tup.updated_at)::text as last_activity
+      FROM textbook_user_position tup
+      JOIN users u ON tup.user_id = u.id
+      WHERE u.email NOT LIKE '%@example.com'
+        AND u.id NOT LIKE 'textbook-card-%'
+        AND u.id NOT LIKE 'audio-test-%'
+        AND u.id NOT LIKE 'cache-test-%'
+        AND u.id NOT LIKE 'admin_%'
+        AND u.first_name IS NOT NULL AND u.first_name != ''
+      GROUP BY tup.language
+    `);
+
+    const completionByType = await db.execute(sql`
+      SELECT tsp.section_type,
+        COUNT(*) FILTER (WHERE tsp.viewed) as viewed,
+        COUNT(*) FILTER (WHERE tsp.completed) as completed
+      FROM textbook_section_progress tsp
+      JOIN users u ON tsp.user_id = u.id
+      WHERE u.email NOT LIKE '%@example.com'
+        AND u.id NOT LIKE 'textbook-card-%'
+        AND u.id NOT LIKE 'audio-test-%'
+        AND u.id NOT LIKE 'cache-test-%'
+        AND u.id NOT LIKE 'admin_%'
+        AND u.first_name IS NOT NULL AND u.first_name != ''
+      GROUP BY tsp.section_type
+    `);
+
+    const overview = (overviewResult.rows || [])[0] as any || {};
+    const totalLessons = ((totalLessonsResult.rows || [])[0] as any)?.total || 0;
+    const visualAssets = ((visualAssetResult.rows || [])[0] as any)?.total || 0;
+
+    return {
+      totalSections: parseInt(overview.total_sections || '0'),
+      totalViewed: parseInt(overview.total_viewed || '0'),
+      totalCompleted: parseInt(overview.total_completed || '0'),
+      uniqueUsers: parseInt(overview.unique_users || '0'),
+      uniqueLessons: parseInt(overview.unique_lessons || '0'),
+      totalLessons: parseInt(totalLessons),
+      visualAssetCount: parseInt(visualAssets),
+      userBreakdown: (userBreakdown.rows || []).map((r: any) => ({
+        firstName: r.first_name,
+        sectionsTouched: parseInt(r.sections_touched || '0'),
+        completed: parseInt(r.completed || '0'),
+        viewedOnly: parseInt(r.viewed_only || '0'),
+        drillsDone: parseInt(r.drills_done || '0'),
+        timeSpentSeconds: parseInt(r.time_spent_seconds || '0'),
+      })),
+      languageBreakdown: (languageBreakdown.rows || []).map((r: any) => ({
+        language: r.language,
+        users: parseInt(r.users || '0'),
+        lastActivity: r.last_activity || '',
+      })),
+      completionByType: (completionByType.rows || []).map((r: any) => ({
+        sectionType: r.section_type || 'unknown',
+        viewed: parseInt(r.viewed || '0'),
+        completed: parseInt(r.completed || '0'),
+      })),
+    };
+  }
+
   generateContentInsights(data: ContentAuditData): LyraInsight[] {
     const insights: LyraInsight[] = [];
 
@@ -514,7 +641,163 @@ export class LyraAnalyticsService {
     return insights;
   }
 
-  async enrichWithClaude(insights: LyraInsight[], contentData: ContentAuditData, studentData: StudentSuccessData, onboardingData: OnboardingData): Promise<string> {
+  generateTextbookInsights(data: TextbookEngagementData): LyraInsight[] {
+    const insights: LyraInsight[] = [];
+    const lessonReachPct = data.totalLessons > 0 ? Math.round((data.uniqueLessons / data.totalLessons) * 100) : 0;
+    const completionRate = data.totalViewed > 0 ? Math.round((data.totalCompleted / data.totalViewed) * 100) : 0;
+    const totalTimeMinutes = data.userBreakdown.reduce((sum, u) => sum + u.timeSpentSeconds, 0) / 60;
+    const avgSectionsPerUser = data.uniqueUsers > 0 ? Math.round(data.totalViewed / data.uniqueUsers) : 0;
+    const totalDrillsDone = data.userBreakdown.reduce((sum, u) => sum + u.drillsDone, 0);
+
+    if (data.uniqueUsers > 0) {
+      const severity = completionRate === 0 ? 'high' : completionRate < 25 ? 'medium' : 'info';
+      insights.push({
+        category: 'textbook_engagement',
+        severity,
+        confidence: 0.92,
+        title: `Interactive Textbook: ${data.uniqueUsers} users viewed ${data.totalViewed} sections, completed ${data.totalCompleted} (${completionRate}% completion)`,
+        description: (() => {
+          const userList = data.userBreakdown.map(u => `${u.firstName} (${u.sectionsTouched} viewed, ${u.completed} completed)`).join(', ');
+          const pattern = completionRate === 0
+            ? 'Browse-but-don\'t-commit pattern: every interaction is view-only with zero completions. Students are using the textbook as a quick-reference rather than a study tool — or the completion mechanism isn\'t engaging enough to trigger.'
+            : `${completionRate}% of viewed sections are being completed. ${completionRate < 25 ? 'Most students view but don\'t finish sections.' : 'Completion is healthy.'}`;
+          return `${pattern} Per-user breakdown: ${userList}.`;
+        })(),
+        data: {
+          uniqueUsers: data.uniqueUsers,
+          totalViewed: data.totalViewed,
+          totalCompleted: data.totalCompleted,
+          completionRate,
+          avgSectionsPerUser,
+          userBreakdown: data.userBreakdown,
+        },
+        recommendation: completionRate === 0
+          ? 'Investigate why zero completions: Is the "mark complete" action too hidden? Is there no reward/feedback for finishing? Consider auto-completing sections after viewing all content, or adding a clear "I got this" button with satisfying feedback.'
+          : 'Monitor completion rate as more users engage. The current rate is a baseline to improve against.',
+        needsReview: data.uniqueUsers < 5,
+      });
+    }
+
+    if (lessonReachPct < 5 && data.totalLessons > 50) {
+      insights.push({
+        category: 'textbook_engagement',
+        severity: 'medium',
+        confidence: 0.88,
+        title: `Textbook content reach: only ${data.uniqueLessons} of ${data.totalLessons} lessons (${lessonReachPct}%) have been explored`,
+        description: `Students are only scratching the surface of available content. This could mean the textbook entry point is hard to find, the chapter list is overwhelming, or students default to voice chat with Daniela instead.`,
+        data: { uniqueLessons: data.uniqueLessons, totalLessons: data.totalLessons, reachPct: lessonReachPct },
+        recommendation: `Make the textbook more discoverable: surface it in post-conversation summaries ("Want to review what we covered? Check Chapter 3"), add contextual links from drill results, or show a "Related textbook section" card after voice sessions.`,
+        needsReview: false,
+      });
+    }
+
+    if (totalDrillsDone === 0 && data.totalViewed > 5) {
+      insights.push({
+        category: 'textbook_engagement',
+        severity: 'medium',
+        confidence: 0.85,
+        title: `Zero drills attempted through the textbook despite ${data.totalViewed} section views`,
+        description: `Students are viewing lesson cards that contain drill previews and "Start Drill" buttons, but nobody has actually launched a drill from the textbook. The drill CTA may not be compelling enough, or students may not realize they can practice directly from the textbook.`,
+        data: { totalViewed: data.totalViewed, drillsDone: totalDrillsDone },
+        recommendation: `Make drill entry points more prominent: use a distinct visual treatment for the drill button, add a "Try one now" inline mini-drill, or auto-expand the first drill preview to show what students are missing.`,
+        needsReview: false,
+      });
+    }
+
+    if (totalTimeMinutes === 0 && data.totalViewed > 0) {
+      insights.push({
+        category: 'textbook_engagement',
+        severity: 'low',
+        confidence: 0.7,
+        title: `Time tracking reads zero across all textbook interactions`,
+        description: `${data.totalViewed} section views recorded but zero seconds of tracked time. Either users are glancing and moving on instantly, or the time tracking mechanism is not capturing data. This makes it hard to measure engagement depth.`,
+        data: { totalViewed: data.totalViewed, totalTimeMinutes: 0 },
+        recommendation: `Verify the time_spent_seconds field is being updated. If it's a tracking gap, add a timer that starts on section view and saves on navigation away. If users genuinely spend zero time, the content may not be engaging enough to linger on.`,
+        needsReview: true,
+      });
+    }
+
+    if (data.visualAssetCount === 0) {
+      insights.push({
+        category: 'textbook_engagement',
+        severity: 'medium',
+        confidence: 0.95,
+        title: `Interactive Textbook has zero visual assets linked to chapters or lessons`,
+        description: `The textbook_visual_assets table is completely empty. The textbook is designed around visual learning with infographics and images, but the dynamic asset system has no content. Only hard-coded Spanish chapter introductions have images. Every other language and chapter has no visual enrichment.`,
+        data: { visualAssetCount: 0 },
+        recommendation: `Populate visual assets for at least the top 3 languages. Use AI-generated infographics for grammar concepts, vocabulary cards, and cultural context images. The VisualAssetGallery component is already built and ready — it just needs data.`,
+        needsReview: false,
+      });
+    }
+
+    const languagesUsed = data.languageBreakdown.map(l => l.language);
+    const languagesNotUsed = data.totalLessons > 0 ? 10 - languagesUsed.length : 0;
+    if (languagesUsed.length > 0 && languagesNotUsed > 5) {
+      insights.push({
+        category: 'textbook_engagement',
+        severity: 'low',
+        confidence: 0.8,
+        title: `Textbook usage concentrated in ${languagesUsed.length} language(s): ${languagesUsed.join(', ')}`,
+        description: `${languagesNotUsed} of 10 supported languages have never been opened in the textbook. ${data.languageBreakdown.map(l => `${l.language} (${l.users} user${l.users !== 1 ? 's' : ''})`).join(', ')}.`,
+        data: { languagesUsed: data.languageBreakdown, languagesNotUsed },
+        recommendation: `This likely mirrors the overall language interest of beta testers rather than a textbook-specific problem. Focus textbook improvements on the active languages first.`,
+        needsReview: false,
+      });
+    }
+
+    const spanishOnlyIntros = true;
+    if (spanishOnlyIntros && languagesUsed.some(l => l !== 'spanish')) {
+      insights.push({
+        category: 'textbook_engagement',
+        severity: 'high',
+        confidence: 0.98,
+        title: `Chapter introductions (Daniela's narrative, infographics, cultural spotlights) only exist for Spanish`,
+        description: `The ChapterIntroduction component has hand-crafted narrative content with images, infographics (sun-arc greetings, formal/informal comparisons, phrase grids), and cultural spotlights — but only for 4 Spanish chapter topics. Students opening Italian, French, or any other language see blank chapter headers with no narrative context. This is the highest-impact visual gap.`,
+        data: {
+          existingIntroTopics: ['greetings', 'numbers', 'family', 'daily routines'],
+          languagesWithoutIntros: languagesUsed.filter(l => l !== 'spanish'),
+          componentsAvailable: ['SunArcGreetings', 'FormalInformalComparison', 'QuickPhraseGrid', 'CulturalSpotlight'],
+        },
+        recommendation: `Extend ChapterIntroduction to support all active languages. The infographic components (SunArcGreetings, FormalInformalComparison, QuickPhraseGrid) are language-agnostic by design — they just need localized content data. Consider using AI to generate draft narrative content per chapter, then manually curate. Start with Italian (3 users) and French (1 user).`,
+        needsReview: false,
+      });
+    }
+
+    if (data.uniqueUsers > 0) {
+      insights.push({
+        category: 'textbook_engagement',
+        severity: 'medium',
+        confidence: 0.9,
+        title: `Textbook design/UX audit: structural observations from current implementation`,
+        description: (() => {
+          const observations: string[] = [];
+          observations.push('Sections auto-mark as "viewed" the moment a chapter loads (bulk mutation in useEffect), which inflates view counts — users haven\'t actually read individual sections.');
+          observations.push('"Practice with Daniela" button navigates to /chat without passing lesson context, so Daniela doesn\'t know which chapter the student just studied.');
+          observations.push('"Start Drill" button logs to console but doesn\'t navigate anywhere — drills launched from textbook are non-functional.');
+          observations.push('No search or filtering — students must scroll through all chapters sequentially with no way to jump to a topic.');
+          observations.push('The "Start Lesson" button (for non-drill, non-conversation types) has no onClick handler — it\'s a dead button.');
+          observations.push('ChapterRecap shows achievement badges, vocabulary summaries, and key phrases — but since completions are always 0, achievement badges never appear in practice.');
+          return observations.map((o, i) => `(${i + 1}) ${o}`).join(' ');
+        })(),
+        data: {
+          uxIssues: [
+            { area: 'view tracking', issue: 'bulk auto-view on chapter load', impact: 'inflated metrics' },
+            { area: 'daniela integration', issue: 'no lesson context passed to chat', impact: 'missed personalization' },
+            { area: 'drill launcher', issue: 'console.log only, no navigation', impact: 'broken feature' },
+            { area: 'navigation', issue: 'no search or topic filtering', impact: 'discoverability' },
+            { area: 'start lesson button', issue: 'no onClick handler', impact: 'dead UI element' },
+            { area: 'achievement system', issue: 'zero completions means badges never appear', impact: 'no reward loop' },
+          ],
+        },
+        recommendation: `Priority fixes: (1) Make "Start Drill" actually navigate to the drill runner with the correct section ID. (2) Pass chapter/lesson context when navigating to Daniela so she can reference what the student just read. (3) Change view tracking to individual section interactions (scroll into view or click to expand) rather than bulk-marking on chapter load. (4) Add an onClick handler to the "Start Lesson" button. These four fixes would transform the textbook from a passive viewer into an active learning tool.`,
+        needsReview: false,
+      });
+    }
+
+    return insights;
+  }
+
+  async enrichWithClaude(insights: LyraInsight[], contentData: ContentAuditData, studentData: StudentSuccessData, onboardingData: OnboardingData, textbookData?: TextbookEngagementData): Promise<string> {
     if (insights.length === 0) {
       return 'No findings to analyze. All systems healthy.';
     }
@@ -538,6 +821,19 @@ export class LyraAnalyticsService {
         returnRate: onboardingData.returnRate7d,
         totalStudents: onboardingData.totalUsers,
       },
+      ...(textbookData ? {
+        textbookSummary: {
+          uniqueUsers: textbookData.uniqueUsers,
+          sectionsViewed: textbookData.totalViewed,
+          sectionsCompleted: textbookData.totalCompleted,
+          completionRate: textbookData.totalViewed > 0 ? Math.round((textbookData.totalCompleted / textbookData.totalViewed) * 100) : 0,
+          lessonsReached: textbookData.uniqueLessons,
+          totalLessonsAvailable: textbookData.totalLessons,
+          visualAssets: textbookData.visualAssetCount,
+          languagesUsed: textbookData.languageBreakdown,
+          userEngagement: textbookData.userBreakdown,
+        },
+      } : {}),
     };
 
     try {
@@ -554,6 +850,7 @@ Analyze these findings from your latest audit and write a thoughtful, actionable
 2. What's the single most impactful thing we should fix first?
 3. What should Daniela know to teach better right now?
 4. What's working well that we should protect?
+5. For any Interactive Textbook findings: What design and UX improvements would make the textbook feel like a polished learning experience? Think about visual hierarchy, engagement loops, and how the textbook connects to Daniela's voice sessions.
 
 Be direct, warm, and constructive. This goes to the team via the Express Lane.
 
@@ -565,7 +862,7 @@ ${insights.map((i, idx) => `${idx + 1}. [${i.severity.toUpperCase()}] ${i.title}
    ${i.description}
    Recommendation: ${i.recommendation}`).join('\n\n')}
 
-Write your analysis as Lyra. Sign off with your name. Keep it 3-5 paragraphs — substantive but not exhausting.`
+Write your analysis as Lyra. Sign off with your name. Keep it 4-6 paragraphs — substantive but not exhausting. Give the textbook section proper attention if there are textbook findings.`
           }
         ],
       });
@@ -578,42 +875,65 @@ Write your analysis as Lyra. Sign off with your name. Keep it 3-5 paragraphs —
     }
   }
 
-  async enrichContentWithGemini(contentData: ContentAuditData): Promise<string | null> {
-    if (contentData.staleContent.length === 0 && contentData.emptyDescriptions.length === 0 && contentData.missingActflLevels.length === 0 && contentData.templatedContent.length === 0) {
+  async enrichContentWithGemini(contentData: ContentAuditData, textbookData?: TextbookEngagementData): Promise<string | null> {
+    const hasContentIssues = contentData.staleContent.length > 0 || contentData.emptyDescriptions.length > 0 || contentData.missingActflLevels.length > 0 || contentData.templatedContent.length > 0;
+    const hasTextbookData = textbookData && textbookData.uniqueUsers > 0;
+    if (!hasContentIssues && !hasTextbookData) {
       return null;
     }
 
     try {
-      const result = await callGeminiWithSchema<{ assessment: string; topActions: string[] }>(
+      const auditPayload: Record<string, any> = {
+        staleCount: contentData.staleContent.length,
+        staleExamples: contentData.staleContent.slice(0, 5),
+        emptyDescriptions: contentData.emptyDescriptions.length,
+        missingActfl: contentData.missingActflLevels.length,
+        coverage: contentData.languageCoverage,
+        templatedContent: contentData.templatedContent,
+      };
+
+      if (hasTextbookData) {
+        auditPayload.interactiveTextbook = {
+          uniqueUsers: textbookData!.uniqueUsers,
+          sectionsViewed: textbookData!.totalViewed,
+          sectionsCompleted: textbookData!.totalCompleted,
+          completionRate: textbookData!.totalViewed > 0 ? Math.round((textbookData!.totalCompleted / textbookData!.totalViewed) * 100) : 0,
+          lessonsReachedVsTotal: `${textbookData!.uniqueLessons}/${textbookData!.totalLessons}`,
+          visualAssets: textbookData!.visualAssetCount,
+          languagesUsed: textbookData!.languageBreakdown,
+          userEngagement: textbookData!.userBreakdown,
+          designNotes: 'Chapter introductions with narrative content, infographics, and cultural spotlights only exist for Spanish. Other languages show plain chapter headers. Visual asset gallery system is built but empty. The "Start Drill" button only logs to console. Sections auto-mark as viewed on chapter load.',
+        };
+      }
+
+      const result = await callGeminiWithSchema<{ assessment: string; topActions: string[]; textbookDesignSuggestions?: string[] }>(
         GEMINI_MODELS.FLASH,
         [
           {
             role: 'system',
-            content: `You are a curriculum quality auditor for a language learning platform. Analyze the content data and identify the most important quality issues. Be concise and actionable.`,
+            content: `You are a curriculum quality auditor and learning experience designer for HolaHola, an AI-powered language learning platform. Analyze the content data and Interactive Textbook engagement. Identify the most important quality and design issues. Be concise, actionable, and think about what would make the textbook feel like a premium, polished learning experience.`,
           },
           {
             role: 'user',
-            content: `Content audit data:\n${JSON.stringify({
-              staleCount: contentData.staleContent.length,
-              staleExamples: contentData.staleContent.slice(0, 5),
-              emptyDescriptions: contentData.emptyDescriptions.length,
-              missingActfl: contentData.missingActflLevels.length,
-              coverage: contentData.languageCoverage,
-              templatedContent: contentData.templatedContent,
-            }, null, 2)}`,
+            content: `Content and textbook audit data:\n${JSON.stringify(auditPayload, null, 2)}`,
           },
         ],
         {
           type: 'object',
           properties: {
-            assessment: { type: 'string', description: 'Brief assessment of content quality (2-3 sentences)' },
-            topActions: { type: 'array', items: { type: 'string' }, description: 'Top 3 action items' },
+            assessment: { type: 'string', description: 'Brief assessment of content quality and textbook experience (3-4 sentences)' },
+            topActions: { type: 'array', items: { type: 'string' }, description: 'Top 3-5 action items covering both content quality and textbook UX' },
+            textbookDesignSuggestions: { type: 'array', items: { type: 'string' }, description: 'If textbook data is present: 2-3 specific design/UX suggestions to improve engagement and visual polish' },
           },
           required: ['assessment', 'topActions'],
         }
       );
 
-      return `**Content Quality Assessment (Gemini Flash):** ${result.assessment}\n\nActions:\n${result.topActions.map((a, i) => `${i + 1}. ${a}`).join('\n')}`;
+      let report = `**Content & Textbook Assessment (Gemini Flash):** ${result.assessment}\n\nActions:\n${result.topActions.map((a, i) => `${i + 1}. ${a}`).join('\n')}`;
+      if (result.textbookDesignSuggestions && result.textbookDesignSuggestions.length > 0) {
+        report += `\n\nTextbook Design Suggestions:\n${result.textbookDesignSuggestions.map((s, i) => `${i + 1}. ${s}`).join('\n')}`;
+      }
+      return report;
     } catch (err: any) {
       console.error('[Lyra] Gemini content enrichment failed:', err.message);
       return null;
@@ -640,13 +960,14 @@ ${insights.slice(0, 5).map(i => `- [${i.severity.toUpperCase()}] ${i.title}`).jo
 *Lyra — Learning Experience Analyst (AI summary unavailable)*`;
   }
 
-  async runFullAnalysis(): Promise<{ insights: LyraInsight[]; contentData: ContentAuditData; studentData: StudentSuccessData; onboardingData: OnboardingData }> {
+  async runFullAnalysis(): Promise<{ insights: LyraInsight[]; contentData: ContentAuditData; studentData: StudentSuccessData; onboardingData: OnboardingData; textbookData: TextbookEngagementData }> {
     const startTime = Date.now();
     console.log('[Lyra] Starting full learning experience analysis...');
 
-    let contentData: ContentAuditData = { staleContent: [], emptyDescriptions: [], missingActflLevels: [], orphanedDrills: [], languageCoverage: [] };
+    let contentData: ContentAuditData = { staleContent: [], emptyDescriptions: [], missingActflLevels: [], orphanedDrills: [], languageCoverage: [], templatedContent: [] };
     let studentData: StudentSuccessData = { lessonDropoff: [], drillStruggles: [], streakBreakers: [], actflBottlenecks: [] };
     let onboardingData: OnboardingData = { totalUsers: 0, usersWithConversation: 0, conversionRate: 0, avgDaysToFirstChat: 0, returnRate7d: 0, recentSignups: [] };
+    let textbookData: TextbookEngagementData = { totalSections: 0, totalViewed: 0, totalCompleted: 0, uniqueUsers: 0, uniqueLessons: 0, totalLessons: 0, visualAssetCount: 0, userBreakdown: [], languageBreakdown: [], completionByType: [] };
 
     try {
       contentData = await this.gatherContentAuditData();
@@ -669,10 +990,19 @@ ${insights.slice(0, 5).map(i => `- [${i.severity.toUpperCase()}] ${i.title}`).jo
       console.error('[Lyra] Onboarding analysis failed:', err.message);
     }
 
+    try {
+      textbookData = await this.gatherTextbookData();
+      const completionRate = textbookData.totalViewed > 0 ? Math.round((textbookData.totalCompleted / textbookData.totalViewed) * 100) : 0;
+      console.log(`[Lyra] Textbook: ${textbookData.uniqueUsers} users, ${textbookData.totalViewed} viewed, ${textbookData.totalCompleted} completed (${completionRate}%), ${textbookData.visualAssetCount} visual assets`);
+    } catch (err: any) {
+      console.error('[Lyra] Textbook analysis failed:', err.message);
+    }
+
     const insights: LyraInsight[] = [
       ...this.generateContentInsights(contentData),
       ...this.generateStudentInsights(studentData),
       ...this.generateOnboardingInsights(onboardingData),
+      ...this.generateTextbookInsights(textbookData),
     ];
 
     insights.sort((a, b) => {
@@ -683,7 +1013,7 @@ ${insights.slice(0, 5).map(i => `- [${i.severity.toUpperCase()}] ${i.title}`).jo
     const elapsed = Date.now() - startTime;
     console.log(`[Lyra] Analysis complete: ${insights.length} insights in ${elapsed}ms`);
 
-    return { insights, contentData, studentData, onboardingData };
+    return { insights, contentData, studentData, onboardingData, textbookData };
   }
 }
 

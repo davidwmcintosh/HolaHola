@@ -8,6 +8,42 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: February 18, 2026 — Lyra v3: Interactive Textbook Analysis Domain
+
+**Status**: COMPLETED
+
+#### Interactive Textbook Analysis Domain
+
+**What**: Added a fourth analysis domain to Lyra — **Textbook Engagement** — covering both quantitative engagement metrics AND qualitative design/UX audit of the Interactive Textbook. Lyra now reports on textbook usage patterns, visual asset gaps, and specific UX issues that need fixing.
+
+**Data gathered** (`gatherTextbookData()`):
+- Section view/completion counts (from `textbook_section_progress`)
+- Per-user breakdown (who viewed what, completed what, drills attempted, time spent)
+- Language breakdown (from `textbook_user_position`)
+- Completion rates by section type
+- Visual asset count (from `textbook_visual_assets`)
+- Total lessons available vs. lessons reached through textbook
+
+**Insights generated** (`generateTextbookInsights()`):
+1. **Engagement overview** — Users, views, completions, completion rate with browse-but-don't-commit pattern detection
+2. **Content reach** — % of lessons explored through textbook (currently ~2%)
+3. **Drill launch failure** — Zero drills attempted despite section views (Start Drill button only logs to console)
+4. **Time tracking gap** — Zero seconds tracked across all interactions
+5. **Visual asset gap** — Empty textbook_visual_assets table
+6. **Language concentration** — Which languages are being used
+7. **Spanish-only chapter intros** — ChapterIntroduction narrative/infographics only exist for Spanish
+8. **Design/UX audit** — Six structural issues: bulk auto-view on chapter load, no lesson context passed to Daniela, dead buttons, no search/filtering, achievement badges never appearing
+
+**Enrichment updates**:
+- Claude's cross-domain analysis now includes textbook data and has a new analysis dimension (point 5) for textbook design/UX
+- Gemini Flash content audit now includes textbook engagement data + design observations, returns textbook-specific design suggestions
+
+**Key files modified**: `server/services/lyra-analytics-service.ts`, `server/services/lyra-analytics-worker.ts`
+
+**Current metrics** (from first run): 4 users, 49 sections viewed, 0 completed (0%), 0 visual assets, 0 drills, 0 time tracked
+
+---
+
 ### Session: February 17, 2026 — Lyra Learning Experience Analyst + Curriculum Timestamps
 
 **Status**: COMPLETED
