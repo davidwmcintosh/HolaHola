@@ -46,7 +46,7 @@ export function DesktopChatLayout({
   activeScenario,
 }: DesktopChatLayoutProps) {
   const screenSize = useScreenSize();
-  const [scenarioCollapsed, setScenarioCollapsed] = useState(true);
+  const [scenarioCollapsed, setScenarioCollapsed] = useState(false);
   const [whiteboardCollapsed, setWhiteboardCollapsed] = useState(false);
 
   useEffect(() => {
@@ -60,7 +60,7 @@ export function DesktopChatLayout({
   }
 
   return (
-    <div className="flex h-full min-h-0" data-testid="desktop-chat-layout">
+    <div className="flex h-full min-h-0 justify-center" data-testid="desktop-chat-layout">
       {screenSize === "desktop" && (
         <ScenarioPanel
           scenario={activeScenario}
@@ -69,7 +69,7 @@ export function DesktopChatLayout({
         />
       )}
 
-      <div className="flex-1 min-h-0 min-w-0 relative">
+      <div className="flex-1 min-h-0 min-w-0 relative max-w-4xl">
         {children}
       </div>
 

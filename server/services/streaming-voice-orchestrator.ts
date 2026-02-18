@@ -13933,7 +13933,33 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
             const { scenarios, scenarioProps, scenarioLevelGuides, userScenarioHistory } = await import('@shared/schema');
             const sharedDb = getSharedDb();
 
-            const [scenario] = await sharedDb.select().from(scenarios).where(eq(scenarios.slug, slug)).limit(1);
+            let [scenario] = await sharedDb.select().from(scenarios).where(eq(scenarios.slug, slug)).limit(1);
+
+            if (!scenario) {
+              const allScenarios = await sharedDb.select({ slug: scenarios.slug }).from(scenarios);
+              const allSlugs = allScenarios.map(s => s.slug);
+              const inputWords = slug.toLowerCase().split(/[-_\s]+/).filter(w => w.length > 0);
+              let bestSlug: string | null = null;
+              let bestScore = 0;
+              for (const realSlug of allSlugs) {
+                const realWords = realSlug.toLowerCase().split(/[-_\s]+/);
+                let score = 0;
+                for (const iw of inputWords) {
+                  for (const rw of realWords) {
+                    if (iw === rw) { score += 3; }
+                    else if (rw.startsWith(iw) || iw.startsWith(rw)) { score += 2; }
+                    else if (rw.includes(iw) || iw.includes(rw)) { score += 1; }
+                  }
+                }
+                if (score > bestScore) { bestScore = score; bestSlug = realSlug; }
+              }
+              if (bestSlug && bestScore >= 2) {
+                console.log(`[Native Function→LoadScenario] Fuzzy match: "${slug}" → "${bestSlug}" (score: ${bestScore})`);
+                [scenario] = await sharedDb.select().from(scenarios).where(eq(scenarios.slug, bestSlug)).limit(1);
+              } else {
+                console.warn(`[Native Function→LoadScenario] No match for "${slug}". Available: ${allSlugs.join(', ')}`);
+              }
+            }
 
             if (scenario) {
               const props = await sharedDb.select().from(scenarioProps)

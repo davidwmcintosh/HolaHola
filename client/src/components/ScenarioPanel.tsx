@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MapPin, ChevronLeft, ChevronRight, Sparkles, BookOpen, Target, BookText, MessageCircle, UtensilsCrossed, FileText, CreditCard, MapIcon, List, Receipt, ChevronDown, ChevronUp, ImageIcon } from "lucide-react";
+import { Tv, MapPin, ChevronLeft, ChevronRight, Sparkles, BookOpen, Target, BookText, MessageCircle, UtensilsCrossed, FileText, CreditCard, MapIcon, List, Receipt, ChevronDown, ChevronUp, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { ScenarioItemData, ScenarioLoadedProp } from "@shared/whiteboard-types";
@@ -197,14 +197,12 @@ export function ScenarioPanel({ scenario, isCollapsed, onToggleCollapse }: Scena
         >
           <ChevronRight className="h-4 w-4" />
         </Button>
-        {scenario && (
-          <div className="mt-4 writing-mode-vertical text-xs text-muted-foreground rotate-180" style={{ writingMode: 'vertical-rl' }}>
-            <span className="flex items-center gap-1">
-              <MapPin className="h-3 w-3" />
-              {scenario.location}
-            </span>
-          </div>
-        )}
+        <div className="mt-4 writing-mode-vertical text-xs text-muted-foreground rotate-180" style={{ writingMode: 'vertical-rl' }}>
+          <span className="flex items-center gap-1">
+            <Tv className="h-3 w-3" />
+            {scenario ? scenario.location : 'Studio'}
+          </span>
+        </div>
       </div>
     );
   }
@@ -213,8 +211,8 @@ export function ScenarioPanel({ scenario, isCollapsed, onToggleCollapse }: Scena
     <div className="flex flex-col w-[280px] border-r bg-muted/30 min-h-0 overflow-hidden" data-testid="panel-scenario">
       <div className="flex items-center justify-between p-3 border-b">
         <div className="flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-muted-foreground" />
-          <span className="font-medium text-sm">Scene</span>
+          <Tv className="h-4 w-4 text-muted-foreground" />
+          <span className="font-medium text-sm">Studio</span>
         </div>
         <Button
           variant="ghost"
@@ -326,9 +324,9 @@ export function ScenarioPanel({ scenario, isCollapsed, onToggleCollapse }: Scena
             <div className="rounded-full bg-muted p-4 mb-4">
               <BookOpen className="h-8 w-8 text-muted-foreground" />
             </div>
-            <p className="text-sm font-medium text-muted-foreground mb-1">No active scene</p>
+            <p className="text-sm font-medium text-muted-foreground mb-1">Ready for action</p>
             <p className="text-xs text-muted-foreground max-w-[200px]">
-              Daniela will set the scene when a scenario begins
+              Scenarios, images, and media will appear here during your lesson
             </p>
           </div>
         )}
