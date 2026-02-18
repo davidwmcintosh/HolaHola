@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Tv, ChevronLeft, ChevronRight, Sparkles, BookOpen, UtensilsCrossed, FileText, CreditCard, MapIcon, List, Receipt, ImageIcon, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -24,6 +25,37 @@ function PropIcon({ propType }: { propType: string }) {
   }
 }
 
+function MenuItemImage({ query }: { query: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/menu-image?q=${encodeURIComponent(query)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (!cancelled && data.url) setUrl(data.url);
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [query]);
+
+  if (loading) {
+    return <div className="w-10 h-10 rounded bg-muted/60 animate-pulse flex-shrink-0" />;
+  }
+  if (!url) return null;
+
+  return (
+    <img
+      src={url}
+      alt={query}
+      className="w-10 h-10 rounded object-cover flex-shrink-0"
+      loading="lazy"
+    />
+  );
+}
+
 function BeginnerMenuRenderer({ content }: { content: any }) {
   const sections = content?.sections;
   if (!sections || !Array.isArray(sections)) return null;
@@ -33,19 +65,23 @@ function BeginnerMenuRenderer({ content }: { content: any }) {
       {sections.map((section: any, si: number) => (
         <div key={si} className="space-y-1.5">
           <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            {section.name}
+            {section.name_target || section.name}
+            {section.name_target && section.name_target !== section.name && (
+              <span className="ml-1 font-normal normal-case">({section.name})</span>
+            )}
           </div>
           <div className="space-y-1">
             {section.items?.map((item: any, ii: number) => (
-              <div key={ii} className="flex items-center justify-between gap-2 rounded-md bg-muted/50 px-2 py-1.5" data-testid={`text-menu-item-${si}-${ii}`}>
-                <div className="min-w-0">
-                  <div className="text-xs font-medium">{item.name}</div>
+              <div key={ii} className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1.5" data-testid={`text-menu-item-${si}-${ii}`}>
+                <MenuItemImage query={item.name} />
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-semibold">{item.name_target || item.name}</div>
                   {item.name_target && item.name_target !== item.name && (
-                    <div className="text-[10px] text-muted-foreground italic">{item.name_target}</div>
+                    <div className="text-[10px] text-muted-foreground">{item.name}</div>
                   )}
                 </div>
                 {item.price && (
-                  <span className="text-xs font-semibold flex-shrink-0">
+                  <span className="text-[11px] font-semibold flex-shrink-0 text-muted-foreground">
                     {item.price.includes('€') || item.price.includes('$') ? item.price : `€${item.price}`}
                   </span>
                 )}

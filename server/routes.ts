@@ -553,6 +553,48 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Set up Replit Auth with rate limiting
   await setupAuth(app, authLimiter);
 
+  const menuImageCache = new Map<string, { url: string; ts: number }>();
+  const MENU_IMAGE_TTL = 24 * 60 * 60 * 1000;
+
+  app.get('/api/menu-image', async (req: any, res) => {
+    const q = (req.query.q as string || '').trim();
+    if (!q) return res.status(400).json({ error: 'Missing q parameter' });
+
+    const cacheKey = q.toLowerCase();
+    const cached = menuImageCache.get(cacheKey);
+    if (cached && Date.now() - cached.ts < MENU_IMAGE_TTL) {
+      return res.json({ url: cached.url });
+    }
+
+    const UNSPLASH_KEY = process.env.UNSPLASH_ACCESS_KEY;
+    if (!UNSPLASH_KEY) {
+      return res.json({ url: null });
+    }
+
+    try {
+      const response = await fetch(
+        `https://api.unsplash.com/photos/random?query=${encodeURIComponent(q + ' food drink')}&orientation=squarish&content_filter=high`,
+        {
+          headers: {
+            'Authorization': `Client-ID ${UNSPLASH_KEY}`,
+            'Accept-Version': 'v1'
+          }
+        }
+      );
+      if (!response.ok) {
+        return res.json({ url: null });
+      }
+      const data = await response.json();
+      const url = data.urls?.small || data.urls?.thumb || null;
+      if (url) {
+        menuImageCache.set(cacheKey, { url, ts: Date.now() });
+      }
+      res.json({ url });
+    } catch {
+      res.json({ url: null });
+    }
+  });
+
   // Version endpoint - verify production deployment
   app.get('/api/version', (_req, res) => {
     res.json({
