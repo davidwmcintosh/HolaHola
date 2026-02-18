@@ -73,7 +73,7 @@ export type WhiteboardTagType = keyof typeof WHITEBOARD_TAGS;
 /**
  * Whiteboard item display types (lowercase for UI styling)
  */
-export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'call_support' | 'call_assistant' | 'actfl_update' | 'syllabus_progress' | 'phase_shift' | 'hive' | 'self_surgery' | 'pronunciation_coaching' | 'assistant_handoff';
+export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'call_support' | 'call_assistant' | 'actfl_update' | 'syllabus_progress' | 'phase_shift' | 'hive' | 'self_surgery' | 'pronunciation_coaching' | 'assistant_handoff' | 'dialogue';
 
 /**
  * Drill types for inline micro-exercises
@@ -765,6 +765,24 @@ export interface SelfSurgeryItem extends WhiteboardItemBase {
   data: SelfSurgeryItemData;
 }
 
+export interface DialogueLine {
+  speaker: 'tutor' | 'student';
+  text: string;
+}
+
+export interface DialogueItemData {
+  title?: string;
+  lines: DialogueLine[];
+  tutorName?: string;
+  studentName?: string;
+}
+
+export interface DialogueItem extends WhiteboardItemBase {
+  type: 'dialogue';
+  content: string;
+  data: DialogueItemData;
+}
+
 export type WhiteboardItem = 
   | WriteItem 
   | PhoneticItem 
@@ -791,7 +809,8 @@ export type WhiteboardItem =
   | SyllabusProgressItem
   | PhaseShiftItem
   | HiveItem
-  | SelfSurgeryItem;
+  | SelfSurgeryItem
+  | DialogueItem;
 
 /**
  * Legacy interface for backward compatibility
