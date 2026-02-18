@@ -97,6 +97,16 @@ export default function ScenarioBrowser() {
 
   const { data: scenarios = [], isLoading } = useQuery<Scenario[]>({
     queryKey: ["/api/scenarios", language],
+    queryFn: async () => {
+      const res = await fetch(`/api/scenarios?language=${encodeURIComponent(language)}`, {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const text = (await res.text()) || res.statusText;
+        throw new Error(text);
+      }
+      return res.json();
+    },
   });
 
   const filteredScenarios = useMemo(() => {
