@@ -4,6 +4,13 @@ import { WhiteboardPanel } from "./WhiteboardPanel";
 import type { WhiteboardItem } from "@shared/whiteboard-types";
 import type { ScenarioItemData } from "@shared/whiteboard-types";
 
+export interface StudioImage {
+  word: string;
+  description: string;
+  imageUrl: string;
+  context?: string;
+}
+
 interface DesktopChatLayoutProps {
   children: React.ReactNode;
   whiteboardItems: WhiteboardItem[];
@@ -11,6 +18,7 @@ interface DesktopChatLayoutProps {
   onDrillComplete?: (drillId: string, drillType: string, isCorrect: boolean, responseTimeMs: number, toolContent?: string) => void;
   onTextInputSubmit?: (itemId: string, response: string) => void;
   activeScenario?: ScenarioItemData | null;
+  studioImages?: StudioImage[];
 }
 
 type ScreenSize = "mobile" | "tablet" | "desktop";
@@ -44,6 +52,7 @@ export function DesktopChatLayout({
   onDrillComplete,
   onTextInputSubmit,
   activeScenario,
+  studioImages,
 }: DesktopChatLayoutProps) {
   const screenSize = useScreenSize();
   const [scenarioCollapsed, setScenarioCollapsed] = useState(false);
@@ -66,6 +75,7 @@ export function DesktopChatLayout({
           scenario={activeScenario}
           isCollapsed={scenarioCollapsed}
           onToggleCollapse={() => setScenarioCollapsed((prev) => !prev)}
+          studioImages={studioImages}
         />
       )}
 

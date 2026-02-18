@@ -145,6 +145,7 @@ interface StreamingVoiceChatProps {
   useDesktopWhiteboard?: boolean;
   onScenarioLoaded?: (scenario: any) => void;
   onScenarioEnded?: (data: { scenarioId?: string; scenarioSlug?: string; performanceNotes?: string }) => void;
+  onStudioImage?: (image: { word: string; description: string; imageUrl: string; context?: string }) => void;
 }
 
 export function StreamingVoiceChat({ 
@@ -162,6 +163,7 @@ export function StreamingVoiceChat({
   useDesktopWhiteboard = false,
   onScenarioLoaded,
   onScenarioEnded,
+  onStudioImage,
 }: StreamingVoiceChatProps) {
   const [, navigate] = useLocation();
   const { language, difficulty, setLanguage, subtitleMode, setSubtitleMode, tutorGender, voiceSpeed, setTutorGender, setVoiceSpeed } = useLanguage();
@@ -935,9 +937,20 @@ export function StreamingVoiceChat({
               // Since invalidation is async, we'll set lastMessageId in a separate effect
             }
           },
-          // Handle whiteboard updates from server (e.g., enriched WORD_MAP items)
           onWhiteboardUpdate: (items, shouldClear) => {
-            whiteboard.addOrUpdateItems(items, shouldClear);
+            const imageItems = items.filter((item: any) => item.type === 'image' && item.data?.imageUrl);
+            const otherItems = items.filter((item: any) => !(item.type === 'image' && item.data?.imageUrl));
+            imageItems.forEach((img: any) => {
+              onStudioImage?.({
+                word: img.data.word || img.content,
+                description: img.data.description || img.content,
+                imageUrl: img.data.imageUrl,
+                context: img.data.context,
+              });
+            });
+            if (otherItems.length > 0 || shouldClear) {
+              whiteboard.addOrUpdateItems(otherItems, shouldClear);
+            }
           },
           onScenarioLoaded: (scenario) => {
             onScenarioLoaded?.(scenario);
@@ -2897,7 +2910,19 @@ export function StreamingVoiceChat({
               tutorGender,  // Pass current tutor gender from context
               rawHonestyMode: isHonestyMode,  // Minimal prompting for authentic conversation
               onWhiteboardUpdate: (items, shouldClear) => {
-                whiteboard.addOrUpdateItems(items, shouldClear);
+                const imageItems = items.filter((item: any) => item.type === 'image' && item.data?.imageUrl);
+                const otherItems = items.filter((item: any) => !(item.type === 'image' && item.data?.imageUrl));
+                imageItems.forEach((img: any) => {
+                  onStudioImage?.({
+                    word: img.data.word || img.content,
+                    description: img.data.description || img.content,
+                    imageUrl: img.data.imageUrl,
+                    context: img.data.context,
+                  });
+                });
+                if (otherItems.length > 0 || shouldClear) {
+                  whiteboard.addOrUpdateItems(otherItems, shouldClear);
+                }
               },
               onScenarioLoaded: (scenario) => {
                 onScenarioLoaded?.(scenario);

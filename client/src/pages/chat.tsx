@@ -61,6 +61,7 @@ export default function Chat() {
   const useDesktopWhiteboard = !isMobile && mode === "voice";
   
   const [loadedScenarioData, setLoadedScenarioData] = useState<any>(null);
+  const [studioImages, setStudioImages] = useState<Array<{ word: string; description: string; imageUrl: string; context?: string }>>([]);
   
   const whiteboardScenario = whiteboardItems.find(isScenarioItem)?.data as ScenarioItemData | undefined ?? null;
   const activeScenario: ScenarioItemData | null = loadedScenarioData
@@ -674,6 +675,7 @@ export default function Chat() {
           onDrillComplete={whiteboardCallbacksRef.current?.drillComplete}
           onTextInputSubmit={whiteboardCallbacksRef.current?.textInputSubmit}
           activeScenario={activeScenario}
+          studioImages={studioImages}
         >
           {/* Main chat area */}
           <div className="h-full relative">
@@ -692,7 +694,8 @@ export default function Chat() {
                   whiteboardCallbacksRef={whiteboardCallbacksRef}
                   useDesktopWhiteboard={useDesktopWhiteboard}
                   onScenarioLoaded={setLoadedScenarioData}
-                  onScenarioEnded={() => setLoadedScenarioData(null)}
+                  onScenarioEnded={() => { setLoadedScenarioData(null); setStudioImages([]); }}
+                  onStudioImage={(img) => setStudioImages(prev => [...prev.slice(-4), img])}
                 />
             ) : (
               <ChatInterface 

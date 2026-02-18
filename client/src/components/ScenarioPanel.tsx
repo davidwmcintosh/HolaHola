@@ -1,12 +1,14 @@
-import { Tv, ChevronLeft, ChevronRight, Sparkles, BookOpen, UtensilsCrossed, FileText, CreditCard, MapIcon, List, Receipt, ImageIcon } from "lucide-react";
+import { Tv, ChevronLeft, ChevronRight, Sparkles, BookOpen, UtensilsCrossed, FileText, CreditCard, MapIcon, List, Receipt, ImageIcon, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { ScenarioItemData, ScenarioLoadedProp } from "@shared/whiteboard-types";
+import type { StudioImage } from "./DesktopChatLayout";
 
 interface ScenarioPanelProps {
   scenario?: ScenarioItemData | null;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
+  studioImages?: StudioImage[];
 }
 
 function PropIcon({ propType }: { propType: string }) {
@@ -209,7 +211,46 @@ function ScenarioPropCard({ prop, difficulty }: { prop: ScenarioLoadedProp; diff
   );
 }
 
-export function ScenarioPanel({ scenario, isCollapsed, onToggleCollapse }: ScenarioPanelProps) {
+function StudioImageGallery({ images }: { images: StudioImage[] }) {
+  const latestImage = images[images.length - 1];
+  const previousImages = images.slice(0, -1);
+
+  return (
+    <div className="space-y-2" data-testid="studio-image-gallery">
+      <div className="rounded-md overflow-hidden border bg-background" data-testid={`studio-image-${latestImage.word}`}>
+        <img
+          src={latestImage.imageUrl}
+          alt={latestImage.description}
+          className="w-full h-44 object-cover"
+          data-testid="img-studio-latest"
+        />
+        <div className="px-2.5 py-2">
+          <p className="text-sm font-semibold">{latestImage.word}</p>
+          {latestImage.description && latestImage.description !== latestImage.word && (
+            <p className="text-xs text-muted-foreground">{latestImage.description}</p>
+          )}
+        </div>
+      </div>
+
+      {previousImages.length > 0 && (
+        <div className="grid grid-cols-2 gap-1.5">
+          {previousImages.map((img, i) => (
+            <div key={`${img.word}-${i}`} className="rounded-md overflow-hidden border bg-background" data-testid={`studio-image-prev-${i}`}>
+              <img
+                src={img.imageUrl}
+                alt={img.description}
+                className="w-full h-20 object-cover"
+              />
+              <p className="text-[11px] font-medium px-1.5 py-1 truncate">{img.word}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function ScenarioPanel({ scenario, isCollapsed, onToggleCollapse, studioImages }: ScenarioPanelProps) {
   const { difficulty } = useLanguage();
 
   if (isCollapsed) {
@@ -269,6 +310,10 @@ export function ScenarioPanel({ scenario, isCollapsed, onToggleCollapse }: Scena
               </div>
             )}
 
+            {studioImages && studioImages.length > 0 && (
+              <StudioImageGallery images={studioImages} />
+            )}
+
             {scenario.props && scenario.props.length > 0 && (
               <div className="space-y-2" data-testid="list-scenario-props">
                 {scenario.props.map(prop => (
@@ -278,14 +323,20 @@ export function ScenarioPanel({ scenario, isCollapsed, onToggleCollapse }: Scena
             )}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center h-full text-center py-12">
-            <div className="rounded-full bg-muted p-4 mb-4">
-              <BookOpen className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <p className="text-sm font-medium text-muted-foreground mb-1">Ready for action</p>
-            <p className="text-xs text-muted-foreground max-w-[200px]">
-              Scenarios, images, and media will appear here during your lesson
-            </p>
+          <div className="space-y-3">
+            {studioImages && studioImages.length > 0 ? (
+              <StudioImageGallery images={studioImages} />
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-center py-12">
+                <div className="rounded-full bg-muted p-4 mb-4">
+                  <BookOpen className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Ready for action</p>
+                <p className="text-xs text-muted-foreground max-w-[200px]">
+                  Scenarios, images, and media will appear here during your lesson
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
