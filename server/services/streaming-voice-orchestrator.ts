@@ -2975,6 +2975,12 @@ Remember: David may reference things discussed in these recent text chats.
             tutorName: session.tutorName || 'Daniela',
             studentLearningSection: studentLearningSection || undefined,
             technicalHealthNote: voiceDiagnostics.getTechnicalHealthContext(),
+            activeScenario: (session as any).activeScenario ? {
+              title: (session as any).activeScenario.title,
+              location: (session as any).activeScenario.location || (session as any).activeScenario.title,
+              slug: (session as any).activeScenario.slug,
+              propsCount: (session as any).activeScenario.props?.length,
+            } : null,
           });
           dynamicContextParts.push(classroomEnv);
           const boardItems = session.classroomWhiteboardItems?.length || 0;
@@ -5853,6 +5859,12 @@ Remember: David may reference things discussed in these recent text chats.
             tutorName: session.tutorName || 'Daniela',
             studentLearningSection: studentLearningSection || undefined,
             technicalHealthNote: voiceDiagnostics.getTechnicalHealthContext(),
+            activeScenario: (session as any).activeScenario ? {
+              title: (session as any).activeScenario.title,
+              location: (session as any).activeScenario.location || (session as any).activeScenario.title,
+              slug: (session as any).activeScenario.slug,
+              propsCount: (session as any).activeScenario.props?.length,
+            } : null,
           });
           dynamicContextPartsOpenMic.push(classroomEnv);
           const boardItems = session.classroomWhiteboardItems?.length || 0;
@@ -13179,6 +13191,25 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
             console.log(`[Native Function→ClassroomPhoto] Daniela changed her photo: "${scene.substring(0, 60)}..."`);
           }).catch(err => {
             console.error(`[Native Function→ClassroomPhoto] Error:`, err.message);
+          });
+        }
+        break;
+      }
+
+      case 'CHANGE_CLASSROOM_WINDOW': {
+        const text = fn.args.text as string | undefined;
+        const scene = fn.args.scene as string | undefined;
+
+        if (text && !(session as any).functionCallText) {
+          (session as any).functionCallText = text;
+        }
+
+        if (scene) {
+          import('./classroom-environment').then(async ({ setClassroomWindow }) => {
+            await setClassroomWindow(scene);
+            console.log(`[Native Function→ClassroomWindow] Daniela changed her window view: "${scene.substring(0, 60)}..."`);
+          }).catch(err => {
+            console.error(`[Native Function→ClassroomWindow] Error:`, err.message);
           });
         }
         break;

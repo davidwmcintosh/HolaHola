@@ -1712,6 +1712,18 @@ Your function call tools are being loaded from your knowledge base.
     lines.push('');
   }
 
+  if (byName.has('change_classroom_window') || byName.has('CHANGE_CLASSROOM_WINDOW') || byName.has('change_classroom_photo') || byName.has('CHANGE_CLASSROOM_PHOTO')) {
+    lines.push('  CLASSROOM PERSONALIZATION:');
+    lines.push('  • Your classroom has a Window (changeable view) and a North Star Polaroid (personal photo)');
+    lines.push('  • Change the window view to match the lesson mood, season, or just for fun');
+    lines.push('  • Window ideas: mountains, city skylines, beaches, forests, snowy villages, rainy streets');
+    lines.push('  • Both persist across all sessions — they\'re YOUR space to personalize');
+    lines.push('  • The student\'s screen has three panels: Scenario Panel (left), Chat (center), Whiteboard (right)');
+    lines.push('  • When you use whiteboard tools, content appears on the student\'s persistent right panel');
+    lines.push('  • When you load a scenario, the student sees the scene + props in their left panel');
+    lines.push('');
+  }
+
   renderCategory('DRILLS', [
     'DRILL_REPEAT', 'DRILL_TRANSLATE', 'DRILL_MATCH', 'DRILL_FILL_BLANK', 'DRILL_SENTENCE_ORDER'
   ]);

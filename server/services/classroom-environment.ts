@@ -4,6 +4,7 @@ import { eq, and, desc, sql, asc } from "drizzle-orm";
 import { phaseTransitionService } from "./phase-transition-service";
 
 const DANIELA_PHOTO_CONFIG_KEY = "daniela_classroom_photo";
+const DANIELA_WINDOW_CONFIG_KEY = "daniela_classroom_window";
 
 export interface ClassroomWhiteboardItem {
   type: string;
@@ -64,6 +65,49 @@ export async function setDanielaPhoto(description: string): Promise<void> {
     console.log(`[Classroom] Daniela photo updated: "${description.substring(0, 60)}..."`);
   } catch (err: any) {
     console.error(`[Classroom] Failed to save Daniela photo:`, err.message);
+  }
+}
+
+export async function getClassroomWindow(): Promise<string> {
+  try {
+    const [config] = await db
+      .select()
+      .from(productConfig)
+      .where(eq(productConfig.key, DANIELA_WINDOW_CONFIG_KEY))
+      .limit(1);
+
+    if (config?.value) {
+      return config.value;
+    }
+  } catch (err: any) {
+    console.warn(`[Classroom] Failed to fetch window view:`, err.message);
+  }
+  return "Rolling green mountains at golden hour — soft clouds drifting through valleys, wildflowers dotting the hillside, a gentle breeze carrying the scent of pine";
+}
+
+export async function setClassroomWindow(description: string): Promise<void> {
+  try {
+    const [existing] = await db
+      .select()
+      .from(productConfig)
+      .where(eq(productConfig.key, DANIELA_WINDOW_CONFIG_KEY))
+      .limit(1);
+
+    if (existing) {
+      await db
+        .update(productConfig)
+        .set({ value: description, updatedAt: new Date() })
+        .where(eq(productConfig.key, DANIELA_WINDOW_CONFIG_KEY));
+    } else {
+      await db.insert(productConfig).values({
+        key: DANIELA_WINDOW_CONFIG_KEY,
+        value: description,
+        description: "The view from Daniela's classroom window — she can change it to any scene she likes",
+      });
+    }
+    console.log(`[Classroom] Window view updated: "${description.substring(0, 60)}..."`);
+  } catch (err: any) {
+    console.error(`[Classroom] Failed to save window view:`, err.message);
   }
 }
 
@@ -194,6 +238,7 @@ export async function buildClassroomEnvironment(params: {
   tutorName: string;
   studentLearningSection?: string;
   technicalHealthNote?: string | null;
+  activeScenario?: { title: string; location: string; slug: string; propsCount?: number } | null;
 }): Promise<string> {
   const {
     userId,
@@ -214,9 +259,10 @@ export async function buildClassroomEnvironment(params: {
     tutorName,
     studentLearningSection,
     technicalHealthNote,
+    activeScenario,
   } = params;
 
-  const [personalFacts, milestoneCount, danielaPhoto, userRow, principles, recentNotes] = await Promise.all([
+  const [personalFacts, milestoneCount, danielaPhoto, classroomWindow, userRow, principles, recentNotes] = await Promise.all([
     db
       .select({ factType: learnerPersonalFacts.factType, fact: learnerPersonalFacts.fact })
       .from(learnerPersonalFacts)
@@ -243,6 +289,8 @@ export async function buildClassroomEnvironment(params: {
       .catch(() => 0),
 
     getDanielaPhoto(),
+
+    getClassroomWindow(),
 
     db
       .select({ timezone: users.timezone, firstName: users.firstName })
@@ -334,7 +382,11 @@ ${studentLearningSection}` : '';
     : '';
   const toolRack = `
 ---
-Tool Rack: memory_lookup(query, domains) — recall student memories | take_note — save observations for future sessions | milestone — celebrate achievements | drill/write/grammar_table/compare/word_map/phonetic/culture/context/scenario/summary/reading — whiteboard teaching tools | show_image — contextual images | voice_adjust — change speaking style | self_surgery — report gaps or propose improvements to your own knowledge${founderTools}${founderNote}`;
+Tool Rack: memory_lookup(query, domains) — recall student memories | take_note — save observations for future sessions | milestone — celebrate achievements | drill/write/grammar_table/compare/word_map/phonetic/culture/context/scenario/summary/reading — whiteboard teaching tools | show_image — contextual images | voice_adjust — change speaking style | load_scenario/end_scenario — immersive roleplay scenes | change_classroom_window — change your window view | self_surgery — report gaps or propose improvements to your own knowledge${founderTools}${founderNote}`;
+
+  const scenarioSection = activeScenario
+    ? `\nActive Scene: "${activeScenario.title}" at ${activeScenario.location} [${activeScenario.slug}]${activeScenario.propsCount ? ` — ${activeScenario.propsCount} props visible` : ''}`
+    : '';
 
   const modeExtras = [
     modeLabel,
@@ -349,13 +401,15 @@ Credits: ${creditLine}
 Mode: ${modeExtras} | Phase: ${currentPhase} | Exchanges: ${exchangeCount}${systemStatusSection}
 Student: ${studentName}
 ---
+Student's Screen: [Left: Scenario Panel${activeScenario ? ' (active — showing scene + props)' : ' (collapsed)'}] | [Center: Chat/Voice] | [Right: Whiteboard Panel (persistent)]
 Whiteboard: ${whiteboard}
-Photo Wall: ${photoWall}
+Photo Wall: ${photoWall}${scenarioSection}
 ---
 Resonance Shelf: ${resonanceShelf}
 Empathy Window: ${empathyWindow}
 Pedagogical Lamp: ${lamp}
 Growth Vine: ${vineDescription}
+Classroom Window: ${classroomWindow}
 North Star Polaroid: ${danielaPhoto}
 My Notes to Self: ${identityWall}
 ---

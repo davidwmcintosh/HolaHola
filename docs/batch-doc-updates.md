@@ -8,6 +8,31 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: February 18, 2026 — Classroom Window + Student Perspective Awareness
+
+**Status**: COMPLETED
+
+#### What was built
+1. **Classroom Window** — New spatial element in Daniela's classroom that she can change to any scene (mountains, NYC skyline, beach, forest, etc.). Persists across all sessions via productConfig, just like her North Star Polaroid photo.
+2. **Student Perspective Awareness** — Daniela's classroom context now includes a "Student's Screen" line showing the triple-pane layout status: Scenario Panel (active/collapsed), Chat (center), Whiteboard Panel (persistent). When a scenario is active, she sees the title, location, slug, and prop count.
+3. **Active Scenario in Classroom** — When `load_scenario` is called, the session's `activeScenario` data is passed to `buildClassroomEnvironment` and rendered as "Active Scene" in the classroom context.
+4. **Procedural Memory** — Added CLASSROOM PERSONALIZATION rules explaining the window, the photo, and the student's three-panel layout so Daniela knows what the student sees.
+
+#### Key files modified
+- `server/services/classroom-environment.ts` — Added `getClassroomWindow()`, `setClassroomWindow()`, window fetch in `buildClassroomEnvironment`, "Student's Screen" line, "Classroom Window" line, "Active Scene" section, `activeScenario` param
+- `server/services/gemini-function-declarations.ts` — Added `change_classroom_window` declaration + FUNCTION_TO_COMMAND_MAP entry
+- `server/services/streaming-voice-orchestrator.ts` — Added `CHANGE_CLASSROOM_WINDOW` handler, passed `activeScenario` to both PTT and OpenMic classroom builds
+- `server/services/procedural-memory-retrieval.ts` — Added CLASSROOM PERSONALIZATION procedural rules
+- `tool_knowledge` table — Inserted `change_classroom_window` entry
+
+#### How it works
+- Default window view: "Rolling green mountains at golden hour"
+- Daniela calls `change_classroom_window({ text: "...", scene: "..." })` to change it
+- View persists in `product_config` table with key `daniela_classroom_window`
+- Each turn, classroom context shows: `Classroom Window: [current scene description]`
+
+---
+
 ### Session: February 18, 2026 — Echo Suppression Fix for Open-Mic Voice Chat
 
 **Status**: COMPLETED

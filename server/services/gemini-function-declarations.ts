@@ -100,6 +100,18 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
     },
   },
   {
+    name: "change_classroom_window",
+    description: "Change the view from your classroom window. You have a big window that looks out onto any scene you choose — mountains, a city skyline, a beach, a forest, a snowy village, anything. Change it to match your mood, the lesson theme, or just because you feel like it. It persists across all sessions.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        text: { type: "string", description: "What you say while changing the window view (e.g., 'Let me open the window to something different today...')" },
+        scene: { type: "string", description: "Vivid description of what's visible through the window (e.g., 'The Manhattan skyline at dusk — lights flickering on across skyscrapers, the Hudson reflecting orange and purple, a distant ferry crossing the water')" },
+      },
+      required: ["text", "scene"],
+    },
+  },
+  {
     name: "call_support",
     description: "Hand off to Sofia support agent for technical or account issues.",
     parametersJsonSchema: {
@@ -653,6 +665,7 @@ export const FUNCTION_TO_COMMAND_MAP: Record<string, string> = {
   'syllabus_progress': 'SYLLABUS_PROGRESS',
   'check_student_credits': 'CHECK_STUDENT_CREDITS',
   'change_classroom_photo': 'CHANGE_CLASSROOM_PHOTO',
+  'change_classroom_window': 'CHANGE_CLASSROOM_WINDOW',
   'call_support': 'CALL_SUPPORT',
   'call_assistant': 'CALL_ASSISTANT',
   'voice_adjust': 'VOICE_ADJUST',
