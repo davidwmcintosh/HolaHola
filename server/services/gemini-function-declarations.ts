@@ -415,6 +415,22 @@ NEVER guess. NEVER roleplay searching. Actually call this function.`,
     },
   },
   {
+    name: "dialogue",
+    description: "Display a practice dialogue script on the whiteboard with clear tutor and student speaker labels. Use this when teaching conversational patterns, roleplay scripts, or when a struggling student needs to see the conversation flow before speaking. Each line is labeled as either 'tutor' (your part) or 'student' (their part). Student lines can include blanks (___) for fill-in practice. Perfect for scenarios, greetings, ordering food, introductions, etc.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        text: { type: "string", description: "What you say to introduce the dialogue (spoken aloud, e.g., 'Here's a script for us to practice together!')" },
+        title: { type: "string", description: "Optional title for the dialogue (e.g., 'Meeting Someone New', 'Ordering Coffee')" },
+        lines: {
+          type: "string",
+          description: "The dialogue lines, one per line, each prefixed with 'T:' for tutor or 'S:' for student. Example:\nT: ¡Hola! ¿Cómo te llamas?\nS: Me llamo ___. Mucho gusto.\nT: Encantada. ¿De dónde eres?\nS: Soy de ___.",
+        },
+      },
+      required: ["text", "lines"],
+    },
+  },
+  {
     name: "grammar_table",
     description: "Display a grammar table with rows and columns. Perfect for conjugations, comparisons, or structured information.",
     parametersJsonSchema: {
@@ -711,6 +727,7 @@ export const FUNCTION_TO_COMMAND_MAP: Record<string, string> = {
   // === NEW UNIFIED TOOLS ===
   'drill': 'DRILL',
   'write': 'WRITE',
+  'dialogue': 'DIALOGUE',
   'grammar_table': 'GRAMMAR_TABLE',
   'compare': 'COMPARE',
   'word_map': 'WORD_MAP',

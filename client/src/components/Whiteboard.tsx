@@ -58,6 +58,9 @@ import {
   Type,
   Headphones,
   MessageSquare,
+  MessageCircle,
+  User,
+  GraduationCap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -86,8 +89,10 @@ import type {
   TextInputItem,
   DrillState,
   MatchPair,
+  DialogueItem,
+  DialogueLine,
 } from "@shared/whiteboard-types";
-import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isToneItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isTextInputItem, isMatchingDrill, isFillBlankDrill, isSentenceOrderDrill, isMultipleChoiceDrill, isTrueFalseDrill, isConjugationDrill, isDictationDrill, isSpeakDrill, isCognateMatchDrill, isFalseFriendTrapDrill, getDrillInstructions } from "@shared/whiteboard-types";
+import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isToneItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isTextInputItem, isDialogueItem, isMatchingDrill, isFillBlankDrill, isSentenceOrderDrill, isMultipleChoiceDrill, isTrueFalseDrill, isConjugationDrill, isDictationDrill, isSpeakDrill, isCognateMatchDrill, isFalseFriendTrapDrill, getDrillInstructions } from "@shared/whiteboard-types";
 import type { CognatePair, FalseFriendOption } from "@shared/whiteboard-types";
 import type { ToneItem } from "@shared/whiteboard-types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -2263,6 +2268,78 @@ function isWriteItem(item: WhiteboardItem): item is WriteItem {
   return item.type === 'write';
 }
 
+interface DialogueItemDisplayProps {
+  item: DialogueItem;
+  index: number;
+}
+
+const DialogueItemDisplay = ({ item, index }: DialogueItemDisplayProps) => {
+  const { data } = item;
+  const lines = data?.lines || [];
+  const tutorName = data?.tutorName || 'Daniela';
+  const studentName = data?.studentName || 'You';
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+      className="flex flex-col gap-2 p-4 rounded-lg border bg-violet-500/10 border-violet-500/30"
+      data-testid={`whiteboard-item-dialogue-${index}`}
+    >
+      {data?.title && (
+        <div className="flex items-center gap-2 mb-1">
+          <MessageCircle className="h-4 w-4 text-violet-600 dark:text-violet-400 opacity-60" />
+          <span className="text-sm font-semibold text-violet-700 dark:text-violet-300">
+            {data.title}
+          </span>
+        </div>
+      )}
+      <div className="flex flex-col gap-1.5">
+        {lines.map((line: DialogueLine, i: number) => {
+          const isTutor = line.speaker === 'tutor';
+          return (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, x: isTutor ? -10 : 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.15 + i * 0.08 }}
+              className={`flex items-start gap-2 px-3 py-2 rounded-md ${
+                isTutor
+                  ? 'bg-violet-500/15 border-l-2 border-violet-500/50'
+                  : 'bg-emerald-500/15 border-l-2 border-emerald-500/50'
+              }`}
+              data-testid={`dialogue-line-${line.speaker}-${i}`}
+            >
+              <div className={`flex items-center gap-1.5 shrink-0 mt-0.5 ${
+                isTutor 
+                  ? 'text-violet-600 dark:text-violet-400' 
+                  : 'text-emerald-600 dark:text-emerald-400'
+              }`}>
+                {isTutor 
+                  ? <GraduationCap className="h-3.5 w-3.5" /> 
+                  : <User className="h-3.5 w-3.5" />
+                }
+                <span className="text-xs font-bold uppercase tracking-wide">
+                  {isTutor ? tutorName : studentName}
+                </span>
+              </div>
+              <span className={`text-base font-medium leading-relaxed ${
+                isTutor 
+                  ? 'text-violet-800 dark:text-violet-200' 
+                  : 'text-emerald-800 dark:text-emerald-200'
+              }`}>
+                {parseFormattedText(line.text)}
+              </span>
+            </motion.div>
+          );
+        })}
+      </div>
+    </motion.div>
+  );
+};
+
 interface TextItemDisplayProps {
   item: WhiteboardItem;
   index: number;
@@ -3763,6 +3840,10 @@ const WhiteboardItemDisplay = ({
   
   if (isTextInputItem(item)) {
     return <TextInputItemDisplay item={item} index={index} onSubmit={onTextInputSubmit} />;
+  }
+
+  if (isDialogueItem(item)) {
+    return <DialogueItemDisplay item={item} index={index} />;
   }
   
   return <TextItemDisplay item={item} index={index} />;

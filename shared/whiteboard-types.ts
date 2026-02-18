@@ -2603,6 +2603,10 @@ export function isTextInputItem(item: WhiteboardItem): item is TextInputItem {
   return item.type === 'text_input';
 }
 
+export function isDialogueItem(item: WhiteboardItem): item is DialogueItem {
+  return item.type === 'dialogue';
+}
+
 /**
  * Check if a drill item is a matching drill
  */

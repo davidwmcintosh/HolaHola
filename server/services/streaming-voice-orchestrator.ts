@@ -13780,6 +13780,43 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         break;
       }
       
+      case 'DIALOGUE': {
+        const dialogueText = fn.args.text as string | undefined;
+        const linesRaw = fn.args.lines as string | undefined;
+        const title = fn.args.title as string | undefined;
+
+        if (dialogueText && !(session as any).functionCallText) {
+          (session as any).functionCallText = dialogueText;
+          console.log(`[Native Function→Dialogue] Text included: "${dialogueText.substring(0, 50)}..."`);
+        }
+
+        if (linesRaw) {
+          const lines = linesRaw.split('\n').filter((l: string) => l.trim()).map((line: string) => {
+            const trimmed = line.trim();
+            if (trimmed.startsWith('T:') || trimmed.startsWith('t:')) {
+              return { speaker: 'tutor' as const, text: trimmed.substring(2).trim() };
+            } else if (trimmed.startsWith('S:') || trimmed.startsWith('s:')) {
+              return { speaker: 'student' as const, text: trimmed.substring(2).trim() };
+            }
+            return { speaker: 'tutor' as const, text: trimmed };
+          });
+
+          const tutorName = session.tutorName || 'Daniela';
+          const studentName = session.studentName || 'You';
+          const contentSummary = lines.map(l => `${l.speaker === 'tutor' ? tutorName : studentName}: ${l.text}`).join(' | ');
+
+          console.log(`[Native Function→Dialogue] ${lines.length} lines, title: "${title || 'untitled'}"`);
+          this.sendMessage(session.ws, {
+            type: 'whiteboard_update',
+            timestamp: Date.now(),
+            items: [{ type: 'dialogue', content: contentSummary.substring(0, 100), data: { title, lines, tutorName, studentName } }],
+          });
+          if (!session.classroomWhiteboardItems) session.classroomWhiteboardItems = [];
+          session.classroomWhiteboardItems.push({ type: 'dialogue', content: `Dialogue: ${title || contentSummary.substring(0, 40)}` });
+        }
+        break;
+      }
+
       case 'GRAMMAR_TABLE': {
         const headers = fn.args.headers as string | undefined;
         const rows = fn.args.rows as string | undefined;
