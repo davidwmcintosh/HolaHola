@@ -150,11 +150,24 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
 // Replit Auth Integration - Router with authentication check
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
-  const [currentPath] = useLocation();
+  const [currentPath, setLocation] = useLocation();
 
   useEffect(() => {
     console.log(`[Router] Render: path=${currentPath}, auth=${isAuthenticated}, loading=${isLoading}`);
   }, [currentPath, isAuthenticated, isLoading]);
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && currentPath !== "/") {
+      const alreadyNavigated = sessionStorage.getItem("holahola_session_started");
+      if (!alreadyNavigated) {
+        sessionStorage.setItem("holahola_session_started", "1");
+        setLocation("/");
+      }
+    }
+    if (!isLoading && isAuthenticated) {
+      sessionStorage.setItem("holahola_session_started", "1");
+    }
+  }, [isLoading, isAuthenticated]);
 
   // Show loading screen while checking authentication
   if (isLoading) {

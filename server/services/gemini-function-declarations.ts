@@ -503,7 +503,7 @@ NEVER guess. NEVER roleplay searching. Actually call this function.`,
     parametersJsonSchema: {
       type: "object",
       properties: {
-        slug: { type: "string", description: "The scenario slug identifier. Available slugs: 'coffee-shop', 'restaurant', 'grocery-store', 'hotel-checkin', 'airport-checkin', 'taxi-ride', 'doctors-office', 'lost-and-found', 'job-interview', 'office-meeting', 'first-date', 'house-party', 'museum-visit', 'local-festival'. Use these exact slugs." },
+        slug: { type: "string", description: "The scenario slug identifier. Available slugs: 'coffee-shop', 'restaurant', 'grocery-store', 'hotel-checkin', 'airport-checkin', 'taxi-ride', 'doctors-office', 'lost-and-found', 'job-interview', 'office-meeting', 'dinner-with-friend', 'house-party', 'museum-visit', 'local-festival'. Use these exact slugs." },
         spoken_text: { type: "string", description: "What Daniela says to introduce and set up the scenario (spoken aloud)" },
       },
       required: ["slug", "spoken_text"],

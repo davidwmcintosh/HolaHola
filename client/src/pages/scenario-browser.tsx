@@ -19,23 +19,6 @@ const CATEGORY_CONFIG: Record<string, { label: string; icon: typeof MapPin; colo
   cultural: { label: "Cultural", icon: Palette, color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300" },
 };
 
-function getDifficultyLabel(minLevel: string | null): { label: string; color: string } {
-  if (!minLevel) return { label: "All Levels", color: "text-muted-foreground" };
-  const level = minLevel.toLowerCase();
-  if (level.startsWith("novice_low") || level.startsWith("novice_mid")) {
-    return { label: "Beginner friendly", color: "text-green-600 dark:text-green-400" };
-  }
-  if (level.startsWith("novice_high")) {
-    return { label: "Some experience helpful", color: "text-blue-600 dark:text-blue-400" };
-  }
-  if (level.startsWith("intermediate_low") || level.startsWith("intermediate_mid")) {
-    return { label: "Intermediate", color: "text-amber-600 dark:text-amber-400" };
-  }
-  if (level.startsWith("intermediate_high")) {
-    return { label: "Upper intermediate", color: "text-orange-600 dark:text-orange-400" };
-  }
-  return { label: "Advanced", color: "text-red-600 dark:text-red-400" };
-}
 
 function ScenarioCard({ scenario, onStart }: { scenario: Scenario; onStart: () => void }) {
   const config = CATEGORY_CONFIG[scenario.category] || CATEGORY_CONFIG.daily;
@@ -64,13 +47,6 @@ function ScenarioCard({ scenario, onStart }: { scenario: Scenario; onStart: () =
         <p className="text-sm text-muted-foreground line-clamp-2" data-testid={`text-scenario-desc-${scenario.slug}`}>
           {scenario.description}
         </p>
-
-        <div className="flex items-center gap-2 text-xs mt-auto">
-          {(() => {
-            const diff = getDifficultyLabel(scenario.minActflLevel);
-            return <span className={diff.color} data-testid={`text-difficulty-${scenario.slug}`}>{diff.label}</span>;
-          })()}
-        </div>
 
         <Button
           size="sm"

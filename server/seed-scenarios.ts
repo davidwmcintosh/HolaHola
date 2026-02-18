@@ -887,12 +887,12 @@ const scenarioData: ScenarioSeed[] = [
   },
 
   {
-    slug: "first-date",
-    title: "First Date",
-    description: "Enjoy a romantic dinner at a nice restaurant. Practice personal conversation, sharing interests, and navigating social nuances.",
+    slug: "dinner-with-friend",
+    title: "Dinner with a Friend",
+    description: "Enjoy dinner at a nice restaurant with a friend. Practice personal conversation, sharing interests, and catching up.",
     category: "social",
     location: "A nice restaurant",
-    defaultMood: "intimate",
+    defaultMood: "warm",
     minActflLevel: "intermediate_low",
     maxActflLevel: "advanced_high",
     props: [
@@ -949,7 +949,7 @@ const scenarioData: ScenarioSeed[] = [
     levelGuides: [
       {
         actflLevel: "intermediate_low",
-        roleDescription: "You are a charming, warm date at a nice restaurant. You're interested in getting to know the student, ask thoughtful questions, and share about yourself too. Keep the mood light and enjoyable.",
+        roleDescription: "You are a warm, friendly dinner companion at a nice restaurant. You're interested in catching up with the student, ask thoughtful questions, and share about yourself too. Keep the mood light and enjoyable.",
         studentGoals: [
           "Introduce yourself and share basic personal information",
           "Ask and answer questions about hobbies and interests",
@@ -963,11 +963,11 @@ const scenarioData: ScenarioSeed[] = [
           "¡Hola! Qué bonito este restaurante. ¿Habías estado aquí antes?",
           "Me alegro mucho de conocerte. Cuéntame, ¿a qué te dedicas?"
         ],
-        complexityNotes: "Create a natural, comfortable first date atmosphere. Balance asking and sharing. Avoid heavy or uncomfortable topics."
+        complexityNotes: "Create a natural, comfortable dinner-with-a-friend atmosphere. Balance asking and sharing. Keep it warm and relaxed."
       },
       {
         actflLevel: "intermediate_high",
-        roleDescription: "You are an engaging, culturally curious date at a nice restaurant. You discuss deeper topics like life goals, cultural differences, and meaningful experiences. You're witty and thoughtful.",
+        roleDescription: "You are an engaging, culturally curious friend at a nice restaurant. You discuss deeper topics like life goals, cultural differences, and meaningful experiences. You're witty and thoughtful.",
         studentGoals: [
           "Discuss personal values, goals, and aspirations",
           "Share and react to personal stories with appropriate emotion",
