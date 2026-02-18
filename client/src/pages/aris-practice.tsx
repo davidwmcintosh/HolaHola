@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import { useSearch, useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -142,6 +143,9 @@ export default function ArisPractice() {
   const { language, tutorGender, difficulty } = useLanguage();
   const { toast } = useToast();
   const { user } = useUser();
+  const autoStartHandledRef = useRef(false);
+  const search = useSearch();
+  const [, setLocation] = useLocation();
   const mainTutorName = getTutorName(language, tutorGender);
   
   const [selectedAssignment, setSelectedAssignment] = useState<ArisDrillAssignment | null>(null);
@@ -324,6 +328,18 @@ export default function ArisPractice() {
       });
     },
   });
+
+  useEffect(() => {
+    if (autoStartHandledRef.current) return;
+    const params = new URLSearchParams(search);
+    const autoLessonId = params.get('lessonId');
+    if (autoLessonId) {
+      autoStartHandledRef.current = true;
+      setActiveTab('explore');
+      startSelfPracticeMutation.mutate(autoLessonId);
+      setLocation('/practice', { replace: true });
+    }
+  }, [search]);
   
   // Complete self-practice session mutation
   const completeSelfPracticeMutation = useMutation({

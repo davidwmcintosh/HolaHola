@@ -340,16 +340,16 @@ export default function InteractiveTextbook() {
   }, [savePositionMutation]);
 
   const handleStartConversation = useCallback(() => {
-    setLocation('/chat');
-  }, [setLocation]);
+    const lessonContext = selectedChapter ? `textbook_chapter=${encodeURIComponent(selectedChapter.title)}` : '';
+    setLocation(lessonContext ? `/chat?${lessonContext}` : '/chat');
+  }, [setLocation, selectedChapter]);
 
   const handleStartDrill = useCallback((sectionId: string) => {
-    console.log('Start drill for section:', sectionId);
-    // Save position when starting a drill
     if (selectedChapter) {
       savePositionMutation.mutate({ chapterId: selectedChapter.id, lessonId: sectionId });
     }
-  }, [selectedChapter, savePositionMutation]);
+    setLocation(`/practice?lessonId=${encodeURIComponent(sectionId)}`);
+  }, [selectedChapter, savePositionMutation, setLocation]);
 
   const handleReviewFlashcards = useCallback(() => {
     setLocation('/review');

@@ -8,6 +8,30 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: February 18, 2026 — Interactive Textbook UX Fixes (Lyra-Identified)
+
+**Status**: COMPLETED
+
+#### What was built
+Fixed 4 dead/broken UX elements in the Interactive Textbook, all identified by Lyra v3 textbook analysis:
+
+1. **Start Drill button** — Was dead (`console.log` only). Now navigates to `/practice?lessonId=xxx` and auto-starts the drill session. Added `useSearch` + auto-start `useEffect` to `aris-practice.tsx`.
+
+2. **Practice with Daniela button** — Was navigating to `/chat` without context. Now passes `?textbook_chapter=ChapterTitle` to chat, forces a new conversation, and sets the conversation title to `Textbook: {chapter}` so Daniela has context about what the student is studying.
+
+3. **Start Lesson button** — Had no `onClick` handler. Now calls `onStartConversation` to navigate to chat with chapter context.
+
+4. **View tracking** — Was bulk-marking ALL sections as viewed on chapter load (inflating metrics to 49 views from a single chapter open). Now uses `IntersectionObserver` (50% threshold) per `VisualLessonCard` to mark sections viewed only when scrolled into view.
+
+#### Key files modified
+- `client/src/pages/aris-practice.tsx` — Added `useSearch`/`useLocation`, auto-start `useEffect` for `?lessonId` param
+- `client/src/pages/interactive-textbook.tsx` — Updated `handleStartConversation` and `handleStartDrill` handlers
+- `client/src/components/TextbookChapterView.tsx` — Added `IntersectionObserver` view tracking, `onViewed` prop, fixed Start Lesson onClick
+- `client/src/pages/chat.tsx` — Added `textbook_chapter` query param handling, `textbookContext` state, forces new conversation for textbook navigation
+- `server/routes.ts` — Reads `textbookChapter` from conversation creation body, sets conversation title
+
+---
+
 ### Session: February 18, 2026 — Lyra v3: Interactive Textbook Analysis Domain
 
 **Status**: COMPLETED

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -93,15 +93,43 @@ function VisualLessonCard({
   section,
   index,
   onStartConversation,
-  onStartDrill
+  onStartDrill,
+  onViewed
 }: {
   section: Section;
   index: number;
   onStartConversation: () => void;
   onStartDrill: () => void;
+  onViewed: () => void;
 }) {
+  const viewedRef = useRef(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el || viewedRef.current) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      viewedRef.current = true;
+      onViewed();
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !viewedRef.current) {
+          viewedRef.current = true;
+          onViewed();
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.5 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [onViewed]);
+
   return (
     <Card 
+      ref={cardRef}
       className="overflow-hidden touch-manipulation"
       data-testid={`visual-lesson-card-${section.id}`}
     >
@@ -195,6 +223,7 @@ function VisualLessonCard({
               <Button 
                 className="flex-1 min-h-[44px] touch-manipulation" 
                 variant="secondary"
+                onClick={onStartConversation}
                 data-testid={`button-start-lesson-${section.id}`}
               >
                 <Play className="h-4 w-4 mr-2" />
@@ -217,7 +246,11 @@ export function TextbookChapterView({
   onReviewFlashcards
 }: TextbookChapterViewProps) {
   const completedCount = chapter.sections.filter(s => s.isComplete).length;
-  const viewedChapterRef = useRef<string | null>(null);
+  const viewedSectionsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    viewedSectionsRef.current = new Set();
+  }, [chapter.id]);
   
   const saveProgressMutation = useMutation({
     mutationFn: async (data: { lessonId: string; viewed?: boolean; completed?: boolean; drillScore?: number }) => {
@@ -228,16 +261,13 @@ export function TextbookChapterView({
       });
     },
   });
-  
-  // Mark all sections as viewed when chapter first loads (once per chapter)
-  useEffect(() => {
-    if (chapter.id && chapter.id !== viewedChapterRef.current && chapter.sections.length > 0) {
-      viewedChapterRef.current = chapter.id;
-      chapter.sections.forEach(section => {
-        saveProgressMutation.mutate({ lessonId: section.id, viewed: true });
-      });
+
+  const handleSectionViewed = useCallback((sectionId: string) => {
+    if (!viewedSectionsRef.current.has(sectionId)) {
+      viewedSectionsRef.current.add(sectionId);
+      saveProgressMutation.mutate({ lessonId: sectionId, viewed: true });
     }
-  }, [chapter.id]);
+  }, [saveProgressMutation]);
   
   const handleReviewFlashcards = () => {
     if (onReviewFlashcards) {
@@ -297,6 +327,7 @@ export function TextbookChapterView({
             index={index}
             onStartConversation={onStartConversation}
             onStartDrill={() => onStartDrill(section.id)}
+            onViewed={() => handleSectionViewed(section.id)}
           />
         ))}
       </div>

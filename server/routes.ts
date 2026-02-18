@@ -3431,13 +3431,19 @@ export async function registerRoutes(app: Express): Promise<void> {
         console.log('[CONVERSATION CREATE] Recent conversation has', existingMessages.length, 'messages, canReuse:', canReuseConversation);
       }
       
+      const textbookChapter = req.body.textbookChapter;
+      if (textbookChapter) {
+        console.log('[CONVERSATION CREATE] Textbook chapter context:', textbookChapter);
+      }
+
       if (canReuseConversation && recentConversation) {
-        // Reuse existing conversation (only if it has messages)
         conversation = recentConversation;
         console.log('[CONVERSATION REUSE] Using existing conversation:', conversation.id);
         isNewConversation = false;
       } else {
-        // Create new conversation only if none exists or explicitly requested
+        const conversationTitle = textbookChapter 
+          ? `Textbook: ${textbookChapter}` 
+          : null;
         conversation = await storage.createConversation({
           ...data,
           userId,
@@ -3445,7 +3451,8 @@ export async function registerRoutes(app: Express): Promise<void> {
           onboardingStep: isOnboarding ? "name" : null,
           userName: isOnboarding ? null : userName,
           nativeLanguage: userNativeLanguage || data.nativeLanguage || "english",
-          classId: classId, // Link to student's enrolled class if any
+          classId: classId,
+          title: conversationTitle,
         } as typeof conversations.$inferInsert);
         
         console.log('[CONVERSATION CREATE] Created new conversation:', conversation.id, classId ? `(class: ${classId})` : '(self-directed)');

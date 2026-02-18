@@ -42,6 +42,7 @@ export default function Chat() {
     return null;
   });
   const [isResumedConversation, setIsResumedConversation] = useState(false);
+  const [textbookContext, setTextbookContext] = useState<string | null>(null);
   const resumeHandledRef = useRef(false);
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   const [isCheckingActiveSession, setIsCheckingActiveSession] = useState(true); // Start true to block auto-create until checked
@@ -218,19 +219,28 @@ export default function Chat() {
       });
   }, [conversationId, forceNewConversation]);
   
-  // Handle resume parameter from URL - allows resuming a specific conversation
+  // Handle resume parameter and textbook context from URL
   useEffect(() => {
     if (resumeHandledRef.current) return;
     
     const params = new URLSearchParams(search);
     const resumeId = params.get('resume');
+    const textbookChapter = params.get('textbook_chapter');
     
     if (resumeId) {
       console.log('[SHARED CHAT] Resuming conversation from URL:', resumeId);
       resumeHandledRef.current = true;
       setConversationId(resumeId);
-      setIsResumedConversation(true); // Mark as resumed to trigger welcome-back greeting
-      // Clear the URL parameter to avoid re-resuming on refresh
+      setIsResumedConversation(true);
+      setLocation('/chat', { replace: true });
+    } else if (textbookChapter) {
+      console.log('[SHARED CHAT] Navigated from textbook chapter:', textbookChapter);
+      resumeHandledRef.current = true;
+      setTextbookContext(textbookChapter);
+      sessionStorage.setItem('textbook_chapter_context', textbookChapter);
+      setForceNewConversation(true);
+      setConversationId(null);
+      sessionStorage.removeItem('currentChatConversationId');
       setLocation('/chat', { replace: true });
     }
   }, [search, setLocation]);
@@ -407,7 +417,12 @@ export default function Chat() {
       const selectedClassId = isInClassMode ? learningContext : 
         (isHonestyMode ? 'honesty-mode' : undefined);
       
-      console.log('[SHARED CHAT] Creating shared conversation...', isOnboardingComplete ? '(post-onboarding)' : '(onboarding)', 'forceNew:', forceNewConversation, 'mode:', mode, 'classId:', selectedClassId, 'founderMode:', isFounderMode);
+      const pendingTextbookChapter = sessionStorage.getItem('textbook_chapter_context');
+      if (pendingTextbookChapter) {
+        sessionStorage.removeItem('textbook_chapter_context');
+      }
+      
+      console.log('[SHARED CHAT] Creating shared conversation...', isOnboardingComplete ? '(post-onboarding)' : '(onboarding)', 'forceNew:', forceNewConversation, 'mode:', mode, 'classId:', selectedClassId, 'founderMode:', isFounderMode, 'textbookChapter:', pendingTextbookChapter);
       setIsCreatingConversation(true);
       
       apiRequest("POST", "/api/conversations", {
@@ -417,10 +432,11 @@ export default function Chat() {
         title: null,
         isOnboarding: !isOnboardingComplete,
         includeConversationHistory: isOnboardingComplete,
-        forceNew: forceNewConversation, // Force new conversation if user clicked "New Chat"
-        mode, // Pass current mode (text or voice) to backend for greeting logic
-        classId: selectedClassId, // Pass selected class from learning context
-        founderMode: isFounderMode, // Enable Founder Mode for developer open collaboration
+        forceNew: forceNewConversation,
+        mode,
+        classId: selectedClassId,
+        founderMode: isFounderMode,
+        textbookChapter: pendingTextbookChapter || undefined,
       })
         .then(res => res.json())
         .then(async (data) => {
