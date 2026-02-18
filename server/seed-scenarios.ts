@@ -3,6 +3,8 @@ import ws from 'ws';
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import { eq } from 'drizzle-orm';
 import { scenarios, scenarioProps, scenarioLevelGuides } from '@shared/schema';
+import { coffeeShopMenus, groceryStoreMenus } from './data/language-menus-cafe-grocery';
+import { restaurantMenus, localFestivalMenus } from './data/language-menus-restaurant-festival';
 
 neonConfig.webSocketConstructor = ws;
 
@@ -58,6 +60,7 @@ const scenarioData: ScenarioSeed[] = [
         propType: "menu",
         title: "Coffee Menu",
         content: {
+          byLanguage: coffeeShopMenus,
           sections: [
             {
               name: "Hot Drinks",
@@ -197,6 +200,7 @@ const scenarioData: ScenarioSeed[] = [
         propType: "menu",
         title: "Price Board",
         content: {
+          byLanguage: groceryStoreMenus,
           sections: [
             {
               name: "Fruits",
@@ -283,6 +287,7 @@ const scenarioData: ScenarioSeed[] = [
         propType: "menu",
         title: "Restaurant Menu",
         content: {
+          byLanguage: restaurantMenus,
           sections: [
             {
               name: "Starters",
@@ -900,6 +905,7 @@ const scenarioData: ScenarioSeed[] = [
         propType: "menu",
         title: "Restaurant Menu",
         content: {
+          byLanguage: restaurantMenus,
           sections: [
             {
               name: "Appetizers",
@@ -1189,6 +1195,7 @@ const scenarioData: ScenarioSeed[] = [
         propType: "menu",
         title: "Food Menu",
         content: {
+          byLanguage: localFestivalMenus,
           sections: [
             {
               name: "Main Dishes",

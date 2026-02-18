@@ -130,11 +130,20 @@ function AdvancedMenuRenderer({ content }: { content: any }) {
   );
 }
 
+function resolveMenuContent(content: any, language: string, difficulty: string): any {
+  const resolved = content?.byLanguage?.[language]?.[difficulty]
+    || content?.byLanguage?.[language]?.beginner
+    || content;
+  return resolved;
+}
+
 function MenuRenderer({ content, difficulty }: { content: any; difficulty: string }) {
+  const { language } = useLanguage();
+  const resolved = resolveMenuContent(content, language, difficulty);
   if (difficulty === "beginner") {
-    return <BeginnerMenuRenderer content={content} />;
+    return <BeginnerMenuRenderer content={resolved} />;
   }
-  return <AdvancedMenuRenderer content={content} />;
+  return <AdvancedMenuRenderer content={resolved} />;
 }
 
 function FieldsRenderer({ content }: { content: any }) {
