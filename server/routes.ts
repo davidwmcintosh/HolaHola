@@ -61,6 +61,11 @@ import {
   journeySnapshots,
   learningMilestones,
   voicePipelineEvents,
+  scenarios,
+  scenarioProps,
+  scenarioLevelGuides,
+  userScenarioHistory,
+  insertScenarioSchema,
 } from "@shared/schema";
 import { hasTeacherAccess, hasDeveloperAccess } from "@shared/permissions";
 import OpenAI, { toFile } from "openai";
@@ -27099,6 +27104,170 @@ You have full access to your neural network knowledge.
       });
     } catch (error: any) {
       console.error("[Journey Admin] Stats error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ===== Immersive Scenario System Routes =====
+
+  app.get("/api/scenarios", async (req, res) => {
+    try {
+      const { category, language, level } = req.query;
+      const sharedDb = getSharedDb();
+
+      let query = sharedDb.select().from(scenarios).where(eq(scenarios.isActive, true));
+
+      const allScenarios = await query;
+
+      let filtered = allScenarios;
+      if (category && typeof category === "string") {
+        filtered = filtered.filter((s) => s.category === category);
+      }
+      if (language && typeof language === "string") {
+        filtered = filtered.filter((s) => s.languages?.includes(language));
+      }
+
+      res.json(filtered);
+    } catch (error: any) {
+      console.error("[Scenarios] List error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/scenarios/:idOrSlug", async (req, res) => {
+    try {
+      const { idOrSlug } = req.params;
+      const sharedDb = getSharedDb();
+
+      let scenario = await sharedDb.select().from(scenarios)
+        .where(eq(scenarios.slug, idOrSlug))
+        .limit(1);
+
+      if (!scenario.length) {
+        scenario = await sharedDb.select().from(scenarios)
+          .where(eq(scenarios.id, idOrSlug))
+          .limit(1);
+      }
+
+      if (!scenario.length) {
+        return res.status(404).json({ error: "Scenario not found" });
+      }
+
+      const props = await sharedDb.select().from(scenarioProps)
+        .where(eq(scenarioProps.scenarioId, scenario[0].id))
+        .orderBy(scenarioProps.displayOrder);
+
+      const levelGuides = await sharedDb.select().from(scenarioLevelGuides)
+        .where(eq(scenarioLevelGuides.scenarioId, scenario[0].id));
+
+      res.json({
+        ...scenario[0],
+        props,
+        levelGuides,
+      });
+    } catch (error: any) {
+      console.error("[Scenarios] Get error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/scenarios/:scenarioId/level-guide/:actflLevel", async (req, res) => {
+    try {
+      const { scenarioId, actflLevel } = req.params;
+      const sharedDb = getSharedDb();
+
+      const guide = await sharedDb.select().from(scenarioLevelGuides)
+        .where(and(
+          eq(scenarioLevelGuides.scenarioId, scenarioId),
+          eq(scenarioLevelGuides.actflLevel, actflLevel),
+        ))
+        .limit(1);
+
+      if (!guide.length) {
+        return res.status(404).json({ error: "Level guide not found" });
+      }
+
+      res.json(guide[0]);
+    } catch (error: any) {
+      console.error("[Scenarios] Level guide error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/scenarios/:scenarioId/start", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getRequestUserId(req);
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+
+      const { scenarioId } = req.params;
+      const { conversationId, actflLevel } = req.body;
+      const sharedDb = getSharedDb();
+
+      const scenario = await sharedDb.select().from(scenarios)
+        .where(eq(scenarios.id, scenarioId))
+        .limit(1);
+
+      if (!scenario.length) {
+        return res.status(404).json({ error: "Scenario not found" });
+      }
+
+      const [history] = await sharedDb.insert(userScenarioHistory).values({
+        userId,
+        scenarioId,
+        conversationId: conversationId || null,
+        actflLevel: actflLevel || null,
+      }).returning();
+
+      res.json({ historyId: history.id, scenario: scenario[0] });
+    } catch (error: any) {
+      console.error("[Scenarios] Start error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/scenarios/:scenarioId/complete", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getRequestUserId(req);
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+
+      const { scenarioId } = req.params;
+      const { historyId, durationSeconds, performanceNotes } = req.body;
+      const sharedDb = getSharedDb();
+
+      if (historyId) {
+        await sharedDb.update(userScenarioHistory)
+          .set({
+            completedAt: new Date(),
+            durationSeconds: durationSeconds || null,
+            performanceNotes: performanceNotes || null,
+          })
+          .where(and(
+            eq(userScenarioHistory.id, historyId),
+            eq(userScenarioHistory.userId, userId),
+          ));
+      }
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("[Scenarios] Complete error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/user/scenario-history", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getRequestUserId(req);
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+
+      const sharedDb = getSharedDb();
+      const history = await sharedDb.select().from(userScenarioHistory)
+        .where(eq(userScenarioHistory.userId, userId))
+        .orderBy(desc(userScenarioHistory.startedAt))
+        .limit(50);
+
+      res.json(history);
+    } catch (error: any) {
+      console.error("[Scenarios] History error:", error);
       res.status(500).json({ error: error.message });
     }
   });

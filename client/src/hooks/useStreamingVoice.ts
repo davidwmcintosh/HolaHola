@@ -91,6 +91,10 @@ export interface StreamingSessionConfig {
   onCustomOverlay?: (action: 'show' | 'hide', text?: string) => void;
   /** Called when server requests text input from student (tutor [TEXT_INPUT: prompt] command) */
   onTextInputRequest?: (prompt: string) => void;
+  /** Called when an immersive scenario is loaded from the library */
+  onScenarioLoaded?: (scenario: any) => void;
+  /** Called when the active scenario ends */
+  onScenarioEnded?: (data: { scenarioId?: string; scenarioSlug?: string; performanceNotes?: string }) => void;
 }
 
 /**
@@ -1219,6 +1223,20 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     console.log('[StreamingVoice] Text input request from tutor:', prompt?.substring(0, 50));
     sessionConfigRef.current?.onTextInputRequest?.(prompt);
   }, []);
+
+  const handleScenarioLoaded = useCallback((message: any) => {
+    console.log('[StreamingVoice] Scenario loaded:', message.scenario?.title);
+    sessionConfigRef.current?.onScenarioLoaded?.(message.scenario);
+  }, []);
+
+  const handleScenarioEnded = useCallback((message: any) => {
+    console.log('[StreamingVoice] Scenario ended:', message.scenarioSlug);
+    sessionConfigRef.current?.onScenarioEnded?.({
+      scenarioId: message.scenarioId,
+      scenarioSlug: message.scenarioSlug,
+      performanceNotes: message.performanceNotes,
+    });
+  }, []);
   
   /**
    * Handle tutor handoff - triggered after current tutor says goodbye
@@ -1341,6 +1359,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('subtitleModeChange', handleSubtitleModeChange);  // Server subtitle mode command
       clientRef.current.on('customOverlay', handleCustomOverlay);  // Server custom overlay command
       clientRef.current.on('textInputRequest', handleTextInputRequest);  // Server text input request
+      clientRef.current.on('scenarioLoaded', handleScenarioLoaded);
+      clientRef.current.on('scenarioEnded', handleScenarioEnded);
       
       // Connect WebSocket
       await clientRef.current.connect(config.conversationId);
@@ -1389,7 +1409,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       setError(err.message);
       throw err;
     }
-  }, [handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleExpectedSentenceCount, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest]);
+  }, [handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleExpectedSentenceCount, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleScenarioLoaded, handleScenarioEnded]);
   
   /**
    * Disconnect from streaming voice service
@@ -1424,6 +1444,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.off('subtitleModeChange', handleSubtitleModeChange);  // Server subtitle mode command
       clientRef.current.off('customOverlay', handleCustomOverlay);  // Server custom overlay command
       clientRef.current.off('textInputRequest', handleTextInputRequest);  // Server text input request
+      clientRef.current.off('scenarioLoaded', handleScenarioLoaded);
+      clientRef.current.off('scenarioEnded', handleScenarioEnded);
       clientRef.current.disconnect();
       clientRef.current = null;
     }

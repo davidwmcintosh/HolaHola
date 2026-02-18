@@ -3,6 +3,7 @@ import { useSearch, useLocation } from "wouter";
 import { ChatInterface, type SupportHandoffContext } from "@/components/ChatInterface";
 import { StreamingVoiceChat as VoiceChat } from "@/components/StreamingVoiceChat";
 import { SupportAssistModal } from "@/components/SupportAssistModal";
+import { DesktopChatLayout } from "@/components/DesktopChatLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,9 @@ import { useCredits } from "@/contexts/UsageContext";
 import { InsufficientCreditsDialog } from "@/components/InsufficientCreditsDialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { DevToolsFloatingMenu } from "@/components/DevToolsFloatingMenu";
+import type { WhiteboardItem, ScenarioItemData } from "@shared/whiteboard-types";
+import { isScenarioItem } from "@shared/whiteboard-types";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function Chat() {
   const search = useSearch();
@@ -51,6 +55,34 @@ export default function Chat() {
   const [showInsufficientCreditsDialog, setShowInsufficientCreditsDialog] = useState(false);
   const { isExhausted, isLow, isCritical } = useCredits();
   const [className, setClassName] = useState<string | null>(null);
+  const isMobile = useIsMobile();
+  
+  const [whiteboardItems, setWhiteboardItems] = useState<WhiteboardItem[]>([]);
+  const useDesktopWhiteboard = !isMobile && mode === "voice";
+  
+  const [loadedScenarioData, setLoadedScenarioData] = useState<any>(null);
+  
+  const whiteboardScenario = whiteboardItems.find(isScenarioItem)?.data as ScenarioItemData | undefined ?? null;
+  const activeScenario: ScenarioItemData | null = loadedScenarioData
+    ? {
+        location: loadedScenarioData.location || loadedScenarioData.title,
+        situation: loadedScenarioData.description,
+        mood: loadedScenarioData.defaultMood,
+        imageUrl: loadedScenarioData.imageUrl,
+        isLoading: false,
+        scenarioId: loadedScenarioData.id,
+        scenarioSlug: loadedScenarioData.slug,
+        props: loadedScenarioData.props,
+        levelGuide: loadedScenarioData.levelGuide,
+      }
+    : whiteboardScenario;
+  
+  // Ref for whiteboard callbacks from StreamingVoiceChat (drill/text/clear)
+  const whiteboardCallbacksRef = useRef<{
+    clear: () => void;
+    drillComplete: (drillId: string, drillType: string, isCorrect: boolean, responseTimeMs: number, toolContent?: string) => void;
+    textInputSubmit: (itemId: string, response: string) => void;
+  } | null>(null);
   
   // Support handoff state - Daniela hands off to Support Agent
   const [supportHandoffContext, setSupportHandoffContext] = useState<SupportHandoffContext | null>(null);
@@ -636,29 +668,42 @@ export default function Chat() {
         onOpenChange={setShowInsufficientCreditsDialog}
       />
       <div className="flex-1 min-h-0 flex">
-        {/* Main chat area */}
-        <div className="flex-1 min-h-0 relative">
-          {mode === "voice" ? (
-              <VoiceChat 
-                conversationId={conversationId} 
+        <DesktopChatLayout
+          whiteboardItems={whiteboardItems}
+          onClearWhiteboard={whiteboardCallbacksRef.current?.clear}
+          onDrillComplete={whiteboardCallbacksRef.current?.drillComplete}
+          onTextInputSubmit={whiteboardCallbacksRef.current?.textInputSubmit}
+          activeScenario={activeScenario}
+        >
+          {/* Main chat area */}
+          <div className="h-full relative">
+            {mode === "voice" ? (
+                <VoiceChat 
+                  conversationId={conversationId} 
+                  setConversationId={setConversationId}
+                  setCurrentConversationOnboarding={setCurrentConversationOnboarding}
+                  isResumedConversation={isResumedConversation}
+                  onResumeHandled={() => setIsResumedConversation(false)}
+                  onLanguageHandoff={handleLanguageHandoff}
+                  onLanguageHandoffComplete={completeLanguageHandoff}
+                  isExhausted={isExhausted}
+                  onInsufficientCredits={handleInsufficientCredits}
+                  onWhiteboardItemsChange={setWhiteboardItems}
+                  whiteboardCallbacksRef={whiteboardCallbacksRef}
+                  useDesktopWhiteboard={useDesktopWhiteboard}
+                  onScenarioLoaded={setLoadedScenarioData}
+                  onScenarioEnded={() => setLoadedScenarioData(null)}
+                />
+            ) : (
+              <ChatInterface 
+                conversationId={conversationId}
                 setConversationId={setConversationId}
                 setCurrentConversationOnboarding={setCurrentConversationOnboarding}
-                isResumedConversation={isResumedConversation}
-                onResumeHandled={() => setIsResumedConversation(false)}
-                onLanguageHandoff={handleLanguageHandoff}
-                onLanguageHandoffComplete={completeLanguageHandoff}
-                isExhausted={isExhausted}
-                onInsufficientCredits={handleInsufficientCredits}
+                onSupportHandoff={setSupportHandoffContext}
               />
-          ) : (
-            <ChatInterface 
-              conversationId={conversationId}
-              setConversationId={setConversationId}
-              setCurrentConversationOnboarding={setCurrentConversationOnboarding}
-              onSupportHandoff={setSupportHandoffContext}
-            />
-          )}
-        </div>
+            )}
+          </div>
+        </DesktopChatLayout>
         
         {/* Founder Collaboration Sync Panel - visible in Founder Mode */}
         {isFounderMode && (

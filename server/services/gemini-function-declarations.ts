@@ -486,6 +486,30 @@ NEVER guess. NEVER roleplay searching. Actually call this function.`,
     },
   },
   {
+    name: "load_scenario",
+    description: "Load an immersive scenario from the scenario library by slug. This fetches the scenario's props, level guide, and sets up the roleplay context. Use this when the student wants to practice a specific real-world situation (e.g. ordering at a restaurant, checking into a hotel). The scenario panel and whiteboard will display interactive props.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        slug: { type: "string", description: "The scenario slug identifier (e.g. 'cafe-ordering', 'hotel-checkin', 'grocery-shopping')" },
+        spoken_text: { type: "string", description: "What Daniela says to introduce and set up the scenario (spoken aloud)" },
+      },
+      required: ["slug", "spoken_text"],
+    },
+  },
+  {
+    name: "end_scenario",
+    description: "End the current active scenario and return to free conversation. Use when the student has completed the roleplay goals or wants to move on. Summarizes what was practiced.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        spoken_text: { type: "string", description: "What Daniela says to wrap up the scenario (spoken aloud)" },
+        performance_notes: { type: "string", description: "Brief assessment of how the student performed in the scenario" },
+      },
+      required: ["spoken_text"],
+    },
+  },
+  {
     name: "summary",
     description: "Display a bullet-point summary of what was learned.",
     parametersJsonSchema: {
@@ -657,6 +681,8 @@ export const FUNCTION_TO_COMMAND_MAP: Record<string, string> = {
   'culture': 'CULTURE',
   'context': 'CONTEXT',
   'scenario': 'SCENARIO',
+  'load_scenario': 'LOAD_SCENARIO',
+  'end_scenario': 'END_SCENARIO',
   'summary': 'SUMMARY',
   'reading': 'READING',
   'play_audio': 'PLAY',

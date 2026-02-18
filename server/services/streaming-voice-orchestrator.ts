@@ -13857,6 +13857,170 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         }
         break;
       }
+
+      case 'LOAD_SCENARIO': {
+        const slug = fn.args.slug as string | undefined;
+        const spokenText = (fn.args.spoken_text || fn.args.text) as string | undefined;
+
+        if (slug) {
+          try {
+            const { scenarios, scenarioProps, scenarioLevelGuides, userScenarioHistory } = await import('@shared/schema');
+            const sharedDb = getSharedDb();
+
+            const [scenario] = await sharedDb.select().from(scenarios).where(eq(scenarios.slug, slug)).limit(1);
+
+            if (scenario) {
+              const props = await sharedDb.select().from(scenarioProps)
+                .where(eq(scenarioProps.scenarioId, scenario.id))
+                .orderBy(scenarioProps.displayOrder);
+
+              let levelGuide = null;
+              const studentLevel = (session as any).studentActflLevel || 'novice_mid';
+              const [guide] = await sharedDb.select().from(scenarioLevelGuides)
+                .where(and(
+                  eq(scenarioLevelGuides.scenarioId, scenario.id),
+                  eq(scenarioLevelGuides.actflLevel, studentLevel)
+                ))
+                .limit(1);
+              levelGuide = guide || null;
+
+              (session as any).activeScenario = {
+                id: scenario.id,
+                slug: scenario.slug,
+                title: scenario.title,
+                description: scenario.description,
+                category: scenario.category,
+                location: scenario.location,
+                defaultMood: scenario.defaultMood,
+                props: props.map(p => ({
+                  id: p.id,
+                  propType: p.propType,
+                  title: p.title,
+                  content: p.content,
+                  displayOrder: p.displayOrder,
+                  isInteractive: p.isInteractive,
+                })),
+                levelGuide: levelGuide ? {
+                  roleDescription: levelGuide.roleDescription,
+                  studentGoals: levelGuide.studentGoals,
+                  vocabularyFocus: levelGuide.vocabularyFocus,
+                  grammarFocus: levelGuide.grammarFocus,
+                  conversationStarters: levelGuide.conversationStarters,
+                  complexityNotes: levelGuide.complexityNotes,
+                } : null,
+                startedAt: Date.now(),
+              };
+
+              if (session.userId) {
+                sharedDb.insert(userScenarioHistory).values({
+                  userId: String(session.userId),
+                  scenarioId: scenario.id,
+                  conversationId: session.conversationId || undefined,
+                  actflLevel: studentLevel,
+                }).catch(err => console.warn('[LoadScenario] History insert failed:', err.message));
+              }
+
+              console.log(`[Native Function→LoadScenario] Loaded "${scenario.title}" (${slug}) with ${props.length} props`);
+
+              this.sendMessage(session.ws, {
+                type: 'scenario_loaded',
+                timestamp: Date.now(),
+                scenario: {
+                  id: scenario.id,
+                  slug: scenario.slug,
+                  title: scenario.title,
+                  description: scenario.description,
+                  category: scenario.category,
+                  location: scenario.location,
+                  defaultMood: scenario.defaultMood,
+                  imageUrl: scenario.imageUrl,
+                  props: (session as any).activeScenario.props,
+                  levelGuide: (session as any).activeScenario.levelGuide,
+                },
+              });
+
+              this.sendMessage(session.ws, {
+                type: 'whiteboard_update',
+                timestamp: Date.now(),
+                items: [{ type: 'scenario', content: scenario.description, data: {
+                  location: scenario.location || scenario.title,
+                  situation: scenario.description,
+                  mood: scenario.defaultMood,
+                  isLoading: false,
+                  scenarioId: scenario.id,
+                  scenarioSlug: scenario.slug,
+                }}],
+              });
+            } else {
+              console.warn(`[Native Function→LoadScenario] Scenario not found: ${slug}`);
+              this.sendMessage(session.ws, {
+                type: 'whiteboard_update',
+                timestamp: Date.now(),
+                items: [{ type: 'scenario', content: `Scenario "${slug}" not found`, data: {
+                  location: 'Unknown',
+                  situation: `Could not find scenario: ${slug}`,
+                  mood: 'neutral',
+                  isLoading: false,
+                }}],
+              });
+            }
+          } catch (err: any) {
+            console.error(`[Native Function→LoadScenario] Error:`, err);
+          }
+        }
+        if (spokenText && !(session as any).functionCallText) {
+          (session as any).functionCallText = spokenText;
+        }
+        break;
+      }
+
+      case 'END_SCENARIO': {
+        const spokenText = (fn.args.spoken_text || fn.args.text) as string | undefined;
+        const performanceNotes = fn.args.performance_notes as string | undefined;
+        const activeScenario = (session as any).activeScenario;
+
+        if (activeScenario) {
+          console.log(`[Native Function→EndScenario] Ending "${activeScenario.title}"`);
+
+          if (session.userId && activeScenario.id) {
+            try {
+              const { userScenarioHistory } = await import('@shared/schema');
+              const sharedDb = getSharedDb();
+              const durationSeconds = Math.round((Date.now() - (activeScenario.startedAt || Date.now())) / 1000);
+
+              await sharedDb.update(userScenarioHistory)
+                .set({
+                  completedAt: new Date(),
+                  durationSeconds,
+                  performanceNotes: performanceNotes || undefined,
+                })
+                .where(and(
+                  eq(userScenarioHistory.userId, String(session.userId)),
+                  eq(userScenarioHistory.scenarioId, activeScenario.id),
+                ));
+            } catch (err: any) {
+              console.warn('[EndScenario] History update failed:', err.message);
+            }
+          }
+
+          this.sendMessage(session.ws, {
+            type: 'scenario_ended',
+            timestamp: Date.now(),
+            scenarioId: activeScenario.id,
+            scenarioSlug: activeScenario.slug,
+            performanceNotes: performanceNotes || undefined,
+          });
+
+          (session as any).activeScenario = null;
+        } else {
+          console.log('[Native Function→EndScenario] No active scenario to end');
+        }
+
+        if (spokenText && !(session as any).functionCallText) {
+          (session as any).functionCallText = spokenText;
+        }
+        break;
+      }
       
       case 'SUMMARY': {
         const points = fn.args.points as string | undefined;

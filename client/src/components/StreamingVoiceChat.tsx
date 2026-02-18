@@ -136,6 +136,15 @@ interface StreamingVoiceChatProps {
   onLanguageHandoffComplete?: () => void;
   isExhausted?: boolean;
   onInsufficientCredits?: () => void;
+  onWhiteboardItemsChange?: (items: import("@shared/whiteboard-types").WhiteboardItem[]) => void;
+  whiteboardCallbacksRef?: React.MutableRefObject<{
+    clear: () => void;
+    drillComplete: (drillId: string, drillType: string, isCorrect: boolean, responseTimeMs: number, toolContent?: string) => void;
+    textInputSubmit: (itemId: string, response: string) => void;
+  } | null>;
+  useDesktopWhiteboard?: boolean;
+  onScenarioLoaded?: (scenario: any) => void;
+  onScenarioEnded?: (data: { scenarioId?: string; scenarioSlug?: string; performanceNotes?: string }) => void;
 }
 
 export function StreamingVoiceChat({ 
@@ -147,7 +156,12 @@ export function StreamingVoiceChat({
   onLanguageHandoff,
   onLanguageHandoffComplete,
   isExhausted,
-  onInsufficientCredits
+  onInsufficientCredits,
+  onWhiteboardItemsChange,
+  whiteboardCallbacksRef,
+  useDesktopWhiteboard = false,
+  onScenarioLoaded,
+  onScenarioEnded,
 }: StreamingVoiceChatProps) {
   const [, navigate] = useLocation();
   const { language, difficulty, setLanguage, subtitleMode, setSubtitleMode, tutorGender, voiceSpeed, setTutorGender, setVoiceSpeed } = useLanguage();
@@ -291,6 +305,16 @@ export function StreamingVoiceChat({
   // Whiteboard hook - tutor-controlled visual teaching aids
   const whiteboard = useWhiteboard();
   
+  // Sync whiteboard items to parent for desktop panel rendering
+  const onWhiteboardItemsChangeRef = useRef(onWhiteboardItemsChange);
+  onWhiteboardItemsChangeRef.current = onWhiteboardItemsChange;
+  useEffect(() => {
+    onWhiteboardItemsChangeRef.current?.(whiteboard.items);
+  }, [whiteboard.items]);
+  
+  // Expose whiteboard callbacks to parent via ref (for desktop panel drill/text interactions)
+  // This needs to be set after streamingVoice is available, so we use a separate effect below
+  const whiteboardCallbacksRefLocal = whiteboardCallbacksRef;
   
   // Cache for slow repeat audio - so subsequent presses just replay
   const slowRepeatCacheRef = useRef<{ messageId: string; audioBlob: Blob } | null>(null);
@@ -323,6 +347,31 @@ export function StreamingVoiceChat({
   const useStreamingMode = ENABLE_STREAMING_MODE && streamingVoice.isSupported();
   // Keep connectionStateRef in sync (must be after streamingVoice is defined)
   connectionStateRef.current = streamingVoice.state.connectionState;
+  
+  // Populate whiteboard callbacks ref for desktop panel (after streamingVoice is available)
+  useEffect(() => {
+    if (whiteboardCallbacksRefLocal) {
+      whiteboardCallbacksRefLocal.current = {
+        clear: whiteboard.clear,
+        drillComplete: (drillId, drillType, isCorrect, responseTimeMs, toolContent) => {
+          if (useStreamingMode) {
+            streamingVoice.sendDrillResult(drillId, drillType, isCorrect, responseTimeMs, toolContent);
+          }
+        },
+        textInputSubmit: (itemId, response) => {
+          if (useStreamingMode) {
+            streamingVoice.sendTextInput(itemId, response);
+          }
+        },
+      };
+    }
+    return () => {
+      if (whiteboardCallbacksRefLocal) {
+        whiteboardCallbacksRefLocal.current = null;
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [whiteboardCallbacksRefLocal, useStreamingMode]);
   
   // Telephone ringing sound during connection
   const ringingAudioRef = useRef<{ 
@@ -889,6 +938,12 @@ export function StreamingVoiceChat({
           // Handle whiteboard updates from server (e.g., enriched WORD_MAP items)
           onWhiteboardUpdate: (items, shouldClear) => {
             whiteboard.addOrUpdateItems(items, shouldClear);
+          },
+          onScenarioLoaded: (scenario) => {
+            onScenarioLoaded?.(scenario);
+          },
+          onScenarioEnded: (data) => {
+            onScenarioEnded?.(data);
           },
           onVadSpeechStarted: () => {
             // TRUE DUPLEX: Always handle VAD speech events for visual feedback
@@ -2844,6 +2899,12 @@ export function StreamingVoiceChat({
               onWhiteboardUpdate: (items, shouldClear) => {
                 whiteboard.addOrUpdateItems(items, shouldClear);
               },
+              onScenarioLoaded: (scenario) => {
+                onScenarioLoaded?.(scenario);
+              },
+              onScenarioEnded: (data) => {
+                onScenarioEnded?.(data);
+              },
               onVadSpeechStarted: () => {
                 // TRUE DUPLEX: Always handle VAD speech events for visual feedback
                 // NOTE: We no longer interrupt on VAD alone - echo/feedback can trigger false VAD
@@ -3388,7 +3449,7 @@ export function StreamingVoiceChat({
           onResetData={() => resetDataMutation.mutate()}
           isReloadingCredits={reloadCreditsMutation.isPending}
           isResettingData={resetDataMutation.isPending}
-          whiteboardItems={whiteboard.items}
+          whiteboardItems={useDesktopWhiteboard ? [] : whiteboard.items}
           onClearWhiteboard={whiteboard.clear}
           onDrillComplete={(drillId, drillType, isCorrect, responseTimeMs, toolContent) => {
             if (useStreamingMode) {

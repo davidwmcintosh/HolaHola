@@ -4222,3 +4222,26 @@ Brain Health Aggregator (15min) ─→ Sofia Brain Health Agent
 - `server/system-prompt.ts` — Added buildIdentityWholenessSection, inserted into all student phases
 
 **User-facing instructions:** No UI changes. Students will now experience a more self-aware Daniela whose personal growth notes and teaching beliefs naturally inform her teaching style. This is an internal prompt architecture change.
+
+---
+
+### Session: February 18, 2026 — Scenario Procedural Memory & Rich Prop Renderers (Phase 4c + 5)
+
+**Status**: COMPLETED
+
+#### What was built
+1. **Procedural memory for scenarios (Phase 4c)** — Added LOAD_SCENARIO and END_SCENARIO tool knowledge entries to the database, and an 'IMMERSIVE SCENARIOS' render category with scenario rules in `buildDetailedToolDocumentationSync()`. Daniela now has documented knowledge of when/how to use scenario functions.
+
+2. **Rich prop renderers (Phase 5)** — Enhanced ScenarioPanel.tsx with type-specific renderers for all prop types:
+   - **MenuRenderer**: Displays menu sections with item names (target language), descriptions, and prices
+   - **FieldsRenderer**: Displays bills, documents, and cards as label-value field pairs
+   - **MapRenderer**: Numbered location list with target language names and descriptions
+   - **ListRenderer**: Checklist-style items with checkboxes and target language names
+   - Props are expandable/collapsible via Shadcn Button toggle
+
+#### Key files modified
+- `server/services/procedural-memory-retrieval.ts` — Added IMMERSIVE SCENARIOS category with LOAD_SCENARIO and END_SCENARIO tools, plus scenario rules block
+- `client/src/components/ScenarioPanel.tsx` — Added MenuRenderer, FieldsRenderer, MapRenderer, ListRenderer components; refactored ScenarioPropCard with expand/collapse using Shadcn Button
+
+#### User-facing instructions
+When Daniela loads a scenario during voice chat, the left-side Scene panel will display the scenario context (location, goals, vocabulary) and expandable props (menus, maps, documents, etc.) with structured, bilingual content that students can reference during the roleplay conversation.

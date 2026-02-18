@@ -219,6 +219,8 @@ type StreamingEventType =
   | 'subtitleModeChange' // Server command to change subtitle mode
   | 'customOverlay'      // Server command to show/hide custom overlay
   | 'textInputRequest'   // Server command to request text input
+  | 'scenarioLoaded'     // Immersive scenario loaded from library
+  | 'scenarioEnded'      // Active scenario ended
   | 'error';
 
 /**
@@ -1141,9 +1143,18 @@ export class StreamingVoiceClient {
           break;
           
         case 'text_input_request':
-          // Server command to request text input (from tutor [TEXT_INPUT: prompt] command)
           console.log('[StreamingVoice] Text input request from server:', message.prompt?.substring(0, 50));
           this.emit('textInputRequest', message as { type: string; prompt: string; timestamp: number });
+          break;
+
+        case 'scenario_loaded':
+          console.log('[StreamingVoice] Scenario loaded:', message.scenario?.title);
+          this.emit('scenarioLoaded', message);
+          break;
+
+        case 'scenario_ended':
+          console.log('[StreamingVoice] Scenario ended:', message.scenarioSlug);
+          this.emit('scenarioEnded', message);
           break;
           
         case 'activity':

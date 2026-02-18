@@ -3817,6 +3817,50 @@ export function Whiteboard({ items, onClear, onDrillResponse, onDrillStart, onDr
 }
 
 /**
+ * Panel whiteboard variant for desktop right panel
+ * Renders whiteboard items in a scrollable panel layout (no fixed positioning)
+ * Used by DesktopChatLayout's right panel
+ */
+export function PanelWhiteboard({ 
+  items,
+  onClear,
+  onDrillResponse,
+  onDrillStart,
+  onDrillComplete,
+  onTextInputSubmit,
+  language: propLanguage,
+}: WhiteboardProps) {
+  const { language: contextLanguage } = useLanguage();
+  const language = propLanguage || contextLanguage;
+  
+  if (items.length === 0) {
+    return null;
+  }
+  
+  return (
+    <div 
+      className="flex flex-col gap-2"
+      data-testid="panel-whiteboard-content"
+    >
+      <AnimatePresence mode="sync">
+        {items.map((item, index) => (
+          <WhiteboardItemDisplay 
+            key={item.id || `${item.type}-${item.content}-${index}`} 
+            item={item} 
+            index={index}
+            onDrillResponse={onDrillResponse}
+            onDrillStart={onDrillStart}
+            onDrillComplete={onDrillComplete}
+            onTextInputSubmit={onTextInputSubmit}
+            language={language}
+          />
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/**
  * Compact whiteboard variant for inline display
  * Used when whiteboard should appear within the chat flow
  */

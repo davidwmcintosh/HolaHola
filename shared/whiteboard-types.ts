@@ -330,8 +330,30 @@ export interface ScenarioItemData {
   location: string;
   situation: string;
   mood?: string;
-  imageUrl?: string;          // Scene image (optional, from AI generation)
+  imageUrl?: string;
   isLoading?: boolean;
+  scenarioId?: string;
+  scenarioSlug?: string;
+  props?: ScenarioLoadedProp[];
+  levelGuide?: ScenarioLevelGuideData | null;
+}
+
+export interface ScenarioLoadedProp {
+  id: string;
+  propType: string;
+  title: string;
+  content: any;
+  displayOrder: number;
+  isInteractive?: boolean | null;
+}
+
+export interface ScenarioLevelGuideData {
+  roleDescription?: string | null;
+  studentGoals?: string[] | null;
+  vocabularyFocus?: string[] | null;
+  grammarFocus?: string[] | null;
+  conversationStarters?: string[] | null;
+  complexityNotes?: string | null;
 }
 
 /**

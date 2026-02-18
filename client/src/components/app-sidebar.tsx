@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, Languages, History, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Shield, X, Target, Search, Sparkles, HelpCircle } from "lucide-react";
+import { BookOpen, Languages, History, Settings, Lightbulb, LogOut, Globe, Award, GraduationCap, Shield, X, Target, Search, Sparkles, HelpCircle, MapPin } from "lucide-react";
 import holaholaLogo from "@assets/holaholamainlogoBackgroundRemoved_1765308837223.png";
 import { Link, useLocation } from "wouter";
 import {
@@ -29,6 +29,7 @@ const dashboardItem = { title: "Language Hub", url: "/", icon: Target };
 
 // Library menu items - Practice with Assistant moved to Language Hub
 const libraryMenuItems = [
+  { title: "Scenarios", url: "/scenarios", icon: MapPin },
   { title: "Vocabulary", url: "/vocabulary", icon: BookOpen },
   { title: "Grammar", url: "/grammar", icon: Languages },
   { title: "Past Chats", url: "/history", icon: History },

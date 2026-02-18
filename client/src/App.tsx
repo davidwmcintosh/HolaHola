@@ -56,6 +56,7 @@ const AdminSessionEconomics = lazy(() => import("@/pages/admin/SessionEconomics"
 const Lessons = lazy(() => import("@/pages/lessons"));
 const ReviewHub = lazy(() => import("@/pages/review-hub"));
 const ArisPractice = lazy(() => import("@/pages/aris-practice"));
+const ScenarioBrowser = lazy(() => import("@/pages/scenario-browser"));
 const PronunciationDrill = lazy(() => import("@/pages/pronunciation-drill"));
 const SessionReplay = lazy(() => import("@/pages/session-replay"));
 const InteractiveTextbook = lazy(() => import("@/pages/interactive-textbook"));
@@ -184,6 +185,7 @@ function Router() {
         <Route path="/can-do-progress" component={CanDoProgress} />
         <Route path="/lessons" component={Lessons} />
         <Route path="/practice" component={ArisPractice} />
+        <Route path="/scenarios" component={ScenarioBrowser} />
         <Route path="/aris" component={ArisPractice} />
         <Route path="/pronunciation" component={PronunciationDrill} />
         <Route path="/pronunciation-drill" component={PronunciationDrill} />

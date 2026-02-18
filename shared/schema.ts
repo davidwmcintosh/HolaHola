@@ -7995,3 +7995,95 @@ export const insertVoiceDiagDailySummarySchema = createInsertSchema(voiceDiagDai
 export type InsertVoiceDiagDailySummary = z.infer<typeof insertVoiceDiagDailySummarySchema>;
 export type VoiceDiagDailySummary = typeof voiceDiagDailySummaries.$inferSelect;
 
+// ===== Immersive Scenario System =====
+
+export const scenarioCategoryEnum = pgEnum('scenario_category', [
+  'social',
+  'professional',
+  'travel',
+  'daily',
+  'emergency',
+  'cultural',
+]);
+
+export const scenarios = pgTable("scenarios", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  slug: varchar("slug").notNull().unique(),
+  title: varchar("title").notNull(),
+  titleTranslations: jsonb("title_translations").default({}),
+  description: text("description").notNull(),
+  category: scenarioCategoryEnum("category").notNull(),
+  location: varchar("location"),
+  defaultMood: varchar("default_mood").default("casual"),
+  imageUrl: varchar("image_url"),
+  minActflLevel: varchar("min_actfl_level").default("novice_low"),
+  maxActflLevel: varchar("max_actfl_level").default("distinguished"),
+  languages: text("languages").array().notNull(),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertScenarioSchema = createInsertSchema(scenarios).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertScenario = z.infer<typeof insertScenarioSchema>;
+export type Scenario = typeof scenarios.$inferSelect;
+
+export const scenarioProps = pgTable("scenario_props", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  scenarioId: varchar("scenario_id").notNull().references(() => scenarios.id, { onDelete: "cascade" }),
+  propType: varchar("prop_type").notNull(),
+  title: varchar("title").notNull(),
+  titleTranslations: jsonb("title_translations").default({}),
+  content: jsonb("content").notNull(),
+  displayOrder: integer("display_order").notNull().default(0),
+  actflLevelVariants: jsonb("actfl_level_variants"),
+  isInteractive: boolean("is_interactive").default(false),
+});
+
+export const insertScenarioPropSchema = createInsertSchema(scenarioProps).omit({
+  id: true,
+});
+export type InsertScenarioProp = z.infer<typeof insertScenarioPropSchema>;
+export type ScenarioProp = typeof scenarioProps.$inferSelect;
+
+export const scenarioLevelGuides = pgTable("scenario_level_guides", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  scenarioId: varchar("scenario_id").notNull().references(() => scenarios.id, { onDelete: "cascade" }),
+  actflLevel: varchar("actfl_level").notNull(),
+  roleDescription: text("role_description"),
+  studentGoals: text("student_goals").array(),
+  vocabularyFocus: text("vocabulary_focus").array(),
+  grammarFocus: text("grammar_focus").array(),
+  conversationStarters: text("conversation_starters").array(),
+  complexityNotes: text("complexity_notes"),
+});
+
+export const insertScenarioLevelGuideSchema = createInsertSchema(scenarioLevelGuides).omit({
+  id: true,
+});
+export type InsertScenarioLevelGuide = z.infer<typeof insertScenarioLevelGuideSchema>;
+export type ScenarioLevelGuide = typeof scenarioLevelGuides.$inferSelect;
+
+export const userScenarioHistory = pgTable("user_scenario_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  scenarioId: varchar("scenario_id").notNull().references(() => scenarios.id),
+  conversationId: varchar("conversation_id"),
+  actflLevel: varchar("actfl_level"),
+  completedAt: timestamp("completed_at"),
+  startedAt: timestamp("started_at").notNull().defaultNow(),
+  durationSeconds: integer("duration_seconds"),
+  performanceNotes: text("performance_notes"),
+});
+
+export const insertUserScenarioHistorySchema = createInsertSchema(userScenarioHistory).omit({
+  id: true,
+  startedAt: true,
+});
+export type InsertUserScenarioHistory = z.infer<typeof insertUserScenarioHistorySchema>;
+export type UserScenarioHistory = typeof userScenarioHistory.$inferSelect;
+

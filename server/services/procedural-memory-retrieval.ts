@@ -1697,6 +1697,21 @@ Your function call tools are being loaded from your knowledge base.
     'IMAGE', 'PLAY_AUDIO'
   ]);
 
+  renderCategory('IMMERSIVE SCENARIOS', [
+    'LOAD_SCENARIO', 'END_SCENARIO'
+  ]);
+
+  if (byName.has('LOAD_SCENARIO')) {
+    lines.push('  SCENARIO RULES:');
+    lines.push('  • Use load_scenario when student wants conversation practice in a real-world context');
+    lines.push('  • The scenario loads props (menus, maps, tickets) onto the whiteboard automatically');
+    lines.push('  • Stay in character for the scenario role (waiter, shopkeeper, hotel clerk, etc.)');
+    lines.push('  • Adapt difficulty to student\'s ACTFL level - level-specific goals load automatically');
+    lines.push('  • Use end_scenario when the interaction reaches a natural conclusion');
+    lines.push('  • Include performance_notes in end_scenario to track what the student practiced');
+    lines.push('');
+  }
+
   renderCategory('DRILLS', [
     'DRILL_REPEAT', 'DRILL_TRANSLATE', 'DRILL_MATCH', 'DRILL_FILL_BLANK', 'DRILL_SENTENCE_ORDER'
   ]);
