@@ -33,7 +33,7 @@ export function WhiteboardPanel({
         </Button>
         {items.length > 0 && (
           <div className="mt-3 flex flex-col items-center gap-1">
-            <Pencil className="h-3.5 w-3.5 text-primary" />
+            <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-xs text-muted-foreground">{items.length}</span>
           </div>
         )}
@@ -45,7 +45,7 @@ export function WhiteboardPanel({
     <div className="flex flex-col w-[320px] border-l bg-muted/30 min-h-0 overflow-hidden" data-testid="panel-whiteboard">
       <div className="flex items-center justify-between p-3 border-b">
         <div className="flex items-center gap-2">
-          <Pencil className="h-4 w-4 text-primary" />
+          <Pencil className="h-4 w-4 text-muted-foreground" />
           <span className="font-medium text-sm">Whiteboard</span>
           {items.length > 0 && (
             <span className="text-xs text-muted-foreground">({items.length})</span>
@@ -58,7 +58,6 @@ export function WhiteboardPanel({
               size="icon"
               onClick={onClear}
               data-testid="button-clear-whiteboard-panel"
-              className="h-7 w-7"
             >
               <X className="h-3.5 w-3.5" />
             </Button>

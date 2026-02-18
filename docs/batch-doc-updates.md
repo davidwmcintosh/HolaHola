@@ -8,6 +8,28 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: February 18, 2026 — Echo Suppression Fix for Open-Mic Voice Chat
+
+**Status**: COMPLETED
+
+#### What was built
+Critical bug fix for voice interaction where Daniela's speech would stop/start due to false barge-in from echo/mic feedback during open-mic mode with Google Batch TTS.
+
+#### Root cause
+Several TTS paths in the open-mic flow (Google Batch TTS post-stream, Post-FC embedded text, Multi-Step FC continuation) never called `session.onTtsStateChange?.(true)` before starting TTS. This meant the OpenMicSession was never suppressed, allowing Deepgram to pick up Daniela's own TTS output as "user speech" and trigger false barge-in interruptions.
+
+#### Fix applied
+Added `session.onTtsStateChange?.(true)` with preceding `postTtsSuppressionTimer` cleanup before TTS starts in all 4 affected paths:
+1. Regular Google Batch TTS post-stream path (re-assert before batch plays)
+2. Post-FC OpenMic metadata functions embedded text path
+3. Multi-Step FC embedded text TTS path
+4. Multi-Step FC continuation onSentence callback (first sentence)
+
+#### Key files modified
+- `server/services/streaming-voice-orchestrator.ts` — Added echo suppression activation in 4 TTS code paths
+
+---
+
 ### Session: February 18, 2026 — Immersive Scenario-Driven Chat Build Doc
 
 **Status**: COMPLETED

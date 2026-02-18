@@ -213,7 +213,7 @@ export function ScenarioPanel({ scenario, isCollapsed, onToggleCollapse }: Scena
     <div className="flex flex-col w-[280px] border-r bg-muted/30 min-h-0 overflow-hidden" data-testid="panel-scenario">
       <div className="flex items-center justify-between p-3 border-b">
         <div className="flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-primary" />
+          <MapPin className="h-4 w-4 text-muted-foreground" />
           <span className="font-medium text-sm">Scene</span>
         </div>
         <Button
@@ -247,7 +247,7 @@ export function ScenarioPanel({ scenario, isCollapsed, onToggleCollapse }: Scena
 
             <div className="space-y-2">
               <h3 className="font-semibold text-sm flex items-center gap-1.5" data-testid="text-scenario-location">
-                <MapPin className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                <MapPin className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                 {scenario.location}
               </h3>
               <p className="text-sm text-muted-foreground" data-testid="text-scenario-situation">
