@@ -99,15 +99,41 @@ const scenarioData: ScenarioSeed[] = [
         propType: "bill",
         title: "Receipt/Bill",
         content: {
-          title: "Receipt",
-          fields: [
-            { label: "Establishment", value: "The Coffee Shop" },
-            { label: "Date", value: "Today" },
-            { label: "Items", value: "(dynamic)" },
-            { label: "Subtotal", value: "0.00€" },
-            { label: "Tax (IVA 10%)", value: "0.00€" },
-            { label: "Total", value: "0.00€" }
-          ]
+          byDifficulty: {
+            beginner: {
+              title: "Receipt / Recibo",
+              fields: [
+                { label: "Store / Establecimiento", value: "The Coffee Shop" },
+                { label: "Date / Fecha", value: "Today" },
+                { label: "Items / Artículos", value: "(dynamic)" },
+                { label: "Subtotal", value: "0.00€" },
+                { label: "Tax / Impuesto (IVA 10%)", value: "0.00€" },
+                { label: "Total", value: "0.00€" }
+              ]
+            },
+            intermediate: {
+              title: "Recibo de Compra",
+              fields: [
+                { label: "Establecimiento", value: "The Coffee Shop" },
+                { label: "Fecha", value: "Hoy" },
+                { label: "Artículos", value: "(dynamic)" },
+                { label: "Subtotal", value: "0.00€" },
+                { label: "IVA (10%)", value: "0.00€" },
+                { label: "Total", value: "0.00€" }
+              ]
+            },
+            advanced: {
+              title: "Ticket de Caja",
+              fields: [
+                { label: "Establecimiento", value: "The Coffee Shop" },
+                { label: "Fecha", value: "Hoy" },
+                { label: "Detalle de consumo", value: "(dynamic)" },
+                { label: "Base imponible", value: "0.00€" },
+                { label: "IVA (10%)", value: "0.00€" },
+                { label: "Total a pagar", value: "0.00€" }
+              ]
+            }
+          }
         },
         displayOrder: 1,
         isInteractive: false
@@ -116,14 +142,38 @@ const scenarioData: ScenarioSeed[] = [
         propType: "document",
         title: "Daily Specials",
         content: {
-          title: "Today's Specials / Ofertas del Día",
-          fields: [
-            { label: "Featured Coffee / Café destacado", value: "Colombian single origin pour-over / Café de Colombia de origen único — €3.80" },
-            { label: "Seasonal Drink / Bebida de temporada", value: "Iced matcha latte / Matcha latte frío — €4.20" },
-            { label: "Fresh Pastry / Bollería fresca", value: "Almond croissant / Cruasán de almendras — €2.80" },
-            { label: "Lunch Combo / Menú del día", value: "Sandwich + coffee + pastry / Bocadillo + café + bollería — €7.50" },
-            { label: "Happy Hour (16-18h)", value: "2nd drink half price / 2ª bebida a mitad de precio" }
-          ]
+          byDifficulty: {
+            beginner: {
+              title: "Today's Specials / Ofertas del Día",
+              fields: [
+                { label: "Featured Coffee / Café destacado", value: "Colombian pour-over coffee — €3.80" },
+                { label: "Seasonal Drink / Bebida de temporada", value: "Iced matcha latte — €4.20" },
+                { label: "Fresh Pastry / Bollería fresca", value: "Almond croissant — €2.80" },
+                { label: "Lunch Combo / Menú del día", value: "Sandwich + coffee + pastry — €7.50" },
+                { label: "Happy Hour (16-18h)", value: "2nd drink half price" }
+              ]
+            },
+            intermediate: {
+              title: "Ofertas del Día",
+              fields: [
+                { label: "Café destacado", value: "Café de Colombia de origen único, preparado en pour-over — €3.80" },
+                { label: "Bebida de temporada", value: "Matcha latte frío con leche de avena — €4.20" },
+                { label: "Bollería fresca", value: "Cruasán de almendras recién horneado — €2.80" },
+                { label: "Menú del día", value: "Bocadillo + café + bollería — €7.50" },
+                { label: "Hora feliz (16-18h)", value: "2ª bebida a mitad de precio" }
+              ]
+            },
+            advanced: {
+              title: "Sugerencias de la Casa",
+              fields: [
+                { label: "Selección del barista", value: "Café de origen colombiano, filtrado artesanalmente en pour-over — €3.80" },
+                { label: "Creación de temporada", value: "Matcha latte glacé con leche de avena y un toque de vainilla — €4.20" },
+                { label: "Del obrador", value: "Cruasán de almendra tostada, glaseado con almíbar — €2.80" },
+                { label: "Menú mediodía", value: "Bocadillo artesano + café del día + bollería de la casa — €7.50" },
+                { label: "Hora dorada (16-18h)", value: "Segunda consumición al 50%" }
+              ]
+            }
+          }
         },
         displayOrder: 2,
         isInteractive: false
@@ -254,14 +304,38 @@ const scenarioData: ScenarioSeed[] = [
         propType: "bill",
         title: "Receipt/Bill",
         content: {
-          title: "Market Receipt",
-          fields: [
-            { label: "Establishment", value: "Local Market" },
-            { label: "Date", value: "Today" },
-            { label: "Items", value: "(dynamic)" },
-            { label: "Subtotal", value: "0.00€" },
-            { label: "Total", value: "0.00€" }
-          ]
+          byDifficulty: {
+            beginner: {
+              title: "Receipt / Recibo",
+              fields: [
+                { label: "Store / Establecimiento", value: "Local Market" },
+                { label: "Date / Fecha", value: "Today" },
+                { label: "Items / Artículos", value: "(dynamic)" },
+                { label: "Subtotal", value: "0.00€" },
+                { label: "Total", value: "0.00€" }
+              ]
+            },
+            intermediate: {
+              title: "Recibo de Compra",
+              fields: [
+                { label: "Establecimiento", value: "Local Market" },
+                { label: "Fecha", value: "Hoy" },
+                { label: "Artículos", value: "(dynamic)" },
+                { label: "Subtotal", value: "0.00€" },
+                { label: "Total", value: "0.00€" }
+              ]
+            },
+            advanced: {
+              title: "Ticket de Compra",
+              fields: [
+                { label: "Establecimiento", value: "Local Market" },
+                { label: "Fecha", value: "Hoy" },
+                { label: "Detalle de productos", value: "(dynamic)" },
+                { label: "Base imponible", value: "0.00€" },
+                { label: "Total a pagar", value: "0.00€" }
+              ]
+            }
+          }
         },
         displayOrder: 2,
         isInteractive: false
@@ -364,15 +438,41 @@ const scenarioData: ScenarioSeed[] = [
         propType: "bill",
         title: "Check/Bill",
         content: {
-          title: "The Restaurant - Check",
-          fields: [
-            { label: "Table", value: "Mesa 7" },
-            { label: "Server", value: "Marco" },
-            { label: "Items", value: "(dynamic)" },
-            { label: "Subtotal", value: "0.00€" },
-            { label: "Service (coperto)", value: "2.50€" },
-            { label: "Total", value: "0.00€" }
-          ]
+          byDifficulty: {
+            beginner: {
+              title: "Check / Cuenta",
+              fields: [
+                { label: "Table / Mesa", value: "Mesa 7" },
+                { label: "Server / Camarero", value: "Marco" },
+                { label: "Items / Artículos", value: "(dynamic)" },
+                { label: "Subtotal", value: "0.00€" },
+                { label: "Cover Charge / Cubierto", value: "2.50€" },
+                { label: "Total", value: "0.00€" }
+              ]
+            },
+            intermediate: {
+              title: "Cuenta del Restaurante",
+              fields: [
+                { label: "Mesa", value: "Mesa 7" },
+                { label: "Camarero", value: "Marco" },
+                { label: "Consumiciones", value: "(dynamic)" },
+                { label: "Subtotal", value: "0.00€" },
+                { label: "Servicio de mesa (coperto)", value: "2.50€" },
+                { label: "Total", value: "0.00€" }
+              ]
+            },
+            advanced: {
+              title: "Nota de Consumo",
+              fields: [
+                { label: "Mesa", value: "Mesa 7" },
+                { label: "Atendido por", value: "Marco" },
+                { label: "Detalle de consumiciones", value: "(dynamic)" },
+                { label: "Base imponible", value: "0.00€" },
+                { label: "Servicio de cubierto", value: "2.50€" },
+                { label: "Total a pagar", value: "0.00€" }
+              ]
+            }
+          }
         },
         displayOrder: 1,
         isInteractive: false
@@ -381,15 +481,41 @@ const scenarioData: ScenarioSeed[] = [
         propType: "document",
         title: "Daily Specials",
         content: {
-          title: "Today's Specials / Platos del Día",
-          fields: [
-            { label: "Chef's Starter / Entrante del chef", value: "Burrata with roasted peppers / Burrata con pimientos asados — €9.50" },
-            { label: "Soup of the Day / Sopa del día", value: "Minestrone — €6.00" },
-            { label: "Today's Catch / Pescado del día", value: "Grilled sea bass with lemon / Lubina a la plancha con limón — €16.00" },
-            { label: "Special Pasta / Pasta especial", value: "Truffle ravioli / Ravioli de trufa — €14.50" },
-            { label: "Dessert Special / Postre del día", value: "Limoncello semifreddo — €7.50" },
-            { label: "Wine Pairing / Maridaje", value: "Vermentino di Sardegna (glass) — €6.00" }
-          ]
+          byDifficulty: {
+            beginner: {
+              title: "Today's Specials / Platos del Día",
+              fields: [
+                { label: "Chef's Starter / Entrante del chef", value: "Burrata with roasted peppers — €9.50" },
+                { label: "Soup of the Day / Sopa del día", value: "Minestrone — €6.00" },
+                { label: "Today's Catch / Pescado del día", value: "Grilled sea bass with lemon — €16.00" },
+                { label: "Special Pasta / Pasta especial", value: "Truffle ravioli — €14.50" },
+                { label: "Dessert Special / Postre del día", value: "Limoncello semifreddo — €7.50" },
+                { label: "Wine Pairing / Maridaje", value: "Vermentino di Sardegna (glass) — €6.00" }
+              ]
+            },
+            intermediate: {
+              title: "Sugerencias del Día",
+              fields: [
+                { label: "Entrante del chef", value: "Burrata cremosa con pimientos asados y rúcula — €9.50" },
+                { label: "Sopa del día", value: "Minestrone con verduras de temporada — €6.00" },
+                { label: "Pescado del día", value: "Lubina a la plancha con limón y hierbas — €16.00" },
+                { label: "Pasta especial", value: "Ravioli rellenos de trufa negra con mantequilla — €14.50" },
+                { label: "Postre del día", value: "Semifrío de limoncello con ralladura de limón — €7.50" },
+                { label: "Maridaje", value: "Vermentino di Sardegna (copa) — €6.00" }
+              ]
+            },
+            advanced: {
+              title: "Le Proposte dello Chef",
+              fields: [
+                { label: "Entrante de la casa", value: "Burrata pugliese sobre lecho de pimientos del piquillo asados al carbón, con rúcula silvestre y reducción de balsámico — €9.50" },
+                { label: "De la olla", value: "Minestrone alla genovese, con verduras de la huerta del día — €6.00" },
+                { label: "Del mar", value: "Lubina salvaje a la plancha, servida con emulsión de limón de Amalfi y alcaparras de Pantelleria — €16.00" },
+                { label: "Primo piatto", value: "Ravioli artigianali rellenos de trufa negra del Périgord, con mantequilla nocciola y parmigiano — €14.50" },
+                { label: "Dolce della casa", value: "Semifreddo al limoncello di Sorrento con crumble de almendra y coulis de frutos rojos — €7.50" },
+                { label: "In abbinamento", value: "Vermentino di Sardegna DOC, cosecha 2024 (copa) — €6.00" }
+              ]
+            }
+          }
         },
         displayOrder: 2,
         isInteractive: false
@@ -448,18 +574,50 @@ const scenarioData: ScenarioSeed[] = [
         propType: "document",
         title: "Boarding Pass",
         content: {
-          title: "Boarding Pass / Tarjeta de Embarque",
-          fields: [
-            { label: "Passenger / Pasajero", value: "(Student Name)" },
-            { label: "Flight / Vuelo", value: "IB 3214" },
-            { label: "From / Origen", value: "Madrid (MAD)" },
-            { label: "To / Destino", value: "Barcelona (BCN)" },
-            { label: "Date / Fecha", value: "18 Feb 2026" },
-            { label: "Gate / Puerta", value: "B22" },
-            { label: "Seat / Asiento", value: "14A" },
-            { label: "Boarding / Embarque", value: "10:30" },
-            { label: "Departure / Salida", value: "11:15" }
-          ]
+          byDifficulty: {
+            beginner: {
+              title: "Boarding Pass / Tarjeta de Embarque",
+              fields: [
+                { label: "Passenger / Pasajero", value: "(Student Name)" },
+                { label: "Flight / Vuelo", value: "IB 3214" },
+                { label: "From / Origen", value: "Madrid (MAD)" },
+                { label: "To / Destino", value: "Barcelona (BCN)" },
+                { label: "Date / Fecha", value: "18 Feb 2026" },
+                { label: "Gate / Puerta", value: "B22" },
+                { label: "Seat / Asiento", value: "14A" },
+                { label: "Boarding Time / Embarque", value: "10:30" },
+                { label: "Departure / Salida", value: "11:15" }
+              ]
+            },
+            intermediate: {
+              title: "Tarjeta de Embarque",
+              fields: [
+                { label: "Pasajero", value: "(Student Name)" },
+                { label: "Vuelo", value: "IB 3214" },
+                { label: "Origen", value: "Madrid (MAD)" },
+                { label: "Destino", value: "Barcelona (BCN)" },
+                { label: "Fecha", value: "18 Feb 2026" },
+                { label: "Puerta de embarque", value: "B22" },
+                { label: "Asiento", value: "14A" },
+                { label: "Hora de embarque", value: "10:30" },
+                { label: "Hora de salida", value: "11:15" }
+              ]
+            },
+            advanced: {
+              title: "Tarjeta de Embarque — Iberia",
+              fields: [
+                { label: "Nombre del pasajero", value: "(Student Name)" },
+                { label: "N.º de vuelo", value: "IB 3214" },
+                { label: "Aeropuerto de origen", value: "Madrid-Barajas Adolfo Suárez (MAD)" },
+                { label: "Aeropuerto de destino", value: "Barcelona-El Prat Josep Tarradellas (BCN)" },
+                { label: "Fecha de viaje", value: "18 Feb 2026" },
+                { label: "Puerta", value: "B22" },
+                { label: "Plaza asignada", value: "14A — Ventanilla" },
+                { label: "Inicio de embarque", value: "10:30 h" },
+                { label: "Salida prevista", value: "11:15 h" }
+              ]
+            }
+          }
         },
         displayOrder: 0,
         isInteractive: false
@@ -484,16 +642,44 @@ const scenarioData: ScenarioSeed[] = [
         propType: "card",
         title: "Passport",
         content: {
-          title: "Passport / Pasaporte",
-          fields: [
-            { label: "Country / País", value: "United States" },
-            { label: "Surname / Apellido", value: "(Student Name)" },
-            { label: "Given Names / Nombre", value: "(Student Name)" },
-            { label: "Passport No.", value: "X12345678" },
-            { label: "Date of Birth", value: "15 Mar 1995" },
-            { label: "Expiry / Vencimiento", value: "22 Jun 2030" },
-            { label: "Nationality / Nacionalidad", value: "American / Estadounidense" }
-          ]
+          byDifficulty: {
+            beginner: {
+              title: "Passport / Pasaporte",
+              fields: [
+                { label: "Country / País", value: "United States" },
+                { label: "Last Name / Apellido", value: "(Student Name)" },
+                { label: "First Name / Nombre", value: "(Student Name)" },
+                { label: "Passport Number / Nº Pasaporte", value: "X12345678" },
+                { label: "Date of Birth / Nacimiento", value: "15 Mar 1995" },
+                { label: "Expiry Date / Vencimiento", value: "22 Jun 2030" },
+                { label: "Nationality / Nacionalidad", value: "American" }
+              ]
+            },
+            intermediate: {
+              title: "Pasaporte",
+              fields: [
+                { label: "País emisor", value: "United States" },
+                { label: "Apellido", value: "(Student Name)" },
+                { label: "Nombre", value: "(Student Name)" },
+                { label: "Nº de pasaporte", value: "X12345678" },
+                { label: "Fecha de nacimiento", value: "15 Mar 1995" },
+                { label: "Fecha de vencimiento", value: "22 Jun 2030" },
+                { label: "Nacionalidad", value: "Estadounidense" }
+              ]
+            },
+            advanced: {
+              title: "Documento de Viaje — Pasaporte",
+              fields: [
+                { label: "País de expedición", value: "United States of America" },
+                { label: "Apellidos", value: "(Student Name)" },
+                { label: "Nombres de pila", value: "(Student Name)" },
+                { label: "Número de pasaporte", value: "X12345678" },
+                { label: "Fecha de nacimiento", value: "15 Mar 1995" },
+                { label: "Válido hasta", value: "22 Jun 2030" },
+                { label: "Nacionalidad", value: "Estadounidense" }
+              ]
+            }
+          }
         },
         displayOrder: 2,
         isInteractive: false
@@ -552,16 +738,44 @@ const scenarioData: ScenarioSeed[] = [
         propType: "card",
         title: "Room Key Card",
         content: {
-          title: "Room Key Card / Carte de Chambre",
-          fields: [
-            { label: "Guest / Invitado", value: "(Student Name)" },
-            { label: "Room / Habitación", value: "412" },
-            { label: "Floor / Piso", value: "4th / Cuarto" },
-            { label: "Check-in", value: "18 Feb 2026, 15:00" },
-            { label: "Check-out", value: "21 Feb 2026, 11:00" },
-            { label: "Wi-Fi Password", value: "Hotel2026" },
-            { label: "Breakfast / Desayuno", value: "7:00 - 10:30, Main Dining Room" }
-          ]
+          byDifficulty: {
+            beginner: {
+              title: "Room Key Card / Tarjeta de Habitación",
+              fields: [
+                { label: "Guest / Huésped", value: "(Student Name)" },
+                { label: "Room / Habitación", value: "412" },
+                { label: "Floor / Piso", value: "4th" },
+                { label: "Check-in", value: "18 Feb 2026, 15:00" },
+                { label: "Check-out", value: "21 Feb 2026, 11:00" },
+                { label: "Wi-Fi Password / Contraseña Wi-Fi", value: "Hotel2026" },
+                { label: "Breakfast / Desayuno", value: "7:00 - 10:30, Main Dining Room" }
+              ]
+            },
+            intermediate: {
+              title: "Tarjeta de Habitación",
+              fields: [
+                { label: "Huésped", value: "(Student Name)" },
+                { label: "Habitación", value: "412" },
+                { label: "Planta", value: "4ª planta" },
+                { label: "Fecha de entrada", value: "18 Feb 2026, 15:00" },
+                { label: "Fecha de salida", value: "21 Feb 2026, 11:00" },
+                { label: "Contraseña Wi-Fi", value: "Hotel2026" },
+                { label: "Desayuno", value: "7:00 - 10:30, Comedor principal" }
+              ]
+            },
+            advanced: {
+              title: "Llave Electrónica de Habitación",
+              fields: [
+                { label: "Nombre del huésped", value: "(Student Name)" },
+                { label: "N.º de habitación", value: "412" },
+                { label: "Planta", value: "Cuarta planta" },
+                { label: "Registro de entrada", value: "18 Feb 2026, 15:00 h" },
+                { label: "Registro de salida", value: "21 Feb 2026, 11:00 h" },
+                { label: "Clave de acceso Wi-Fi", value: "Hotel2026" },
+                { label: "Servicio de desayuno", value: "De 7:00 a 10:30 h — Salón comedor principal" }
+              ]
+            }
+          }
         },
         displayOrder: 0,
         isInteractive: false
@@ -586,17 +800,47 @@ const scenarioData: ScenarioSeed[] = [
         propType: "bill",
         title: "Hotel Invoice",
         content: {
-          title: "Hotel Invoice",
-          fields: [
-            { label: "Establishment", value: "Grand Hotel" },
-            { label: "Guest", value: "(Student Name)" },
-            { label: "Room", value: "412" },
-            { label: "Nights", value: "3" },
-            { label: "Room Charge", value: "(dynamic)" },
-            { label: "Extras", value: "(dynamic)" },
-            { label: "Tax (IVA 10%)", value: "0.00€" },
-            { label: "Total", value: "0.00€" }
-          ]
+          byDifficulty: {
+            beginner: {
+              title: "Hotel Bill / Factura del Hotel",
+              fields: [
+                { label: "Hotel / Establecimiento", value: "Grand Hotel" },
+                { label: "Guest / Huésped", value: "(Student Name)" },
+                { label: "Room / Habitación", value: "412" },
+                { label: "Nights / Noches", value: "3" },
+                { label: "Room Charge / Cargo habitación", value: "(dynamic)" },
+                { label: "Extras", value: "(dynamic)" },
+                { label: "Tax / Impuesto (IVA 10%)", value: "0.00€" },
+                { label: "Total", value: "0.00€" }
+              ]
+            },
+            intermediate: {
+              title: "Factura del Hotel",
+              fields: [
+                { label: "Establecimiento", value: "Grand Hotel" },
+                { label: "Huésped", value: "(Student Name)" },
+                { label: "Habitación", value: "412" },
+                { label: "Noches", value: "3" },
+                { label: "Cargo por alojamiento", value: "(dynamic)" },
+                { label: "Servicios adicionales", value: "(dynamic)" },
+                { label: "IVA (10%)", value: "0.00€" },
+                { label: "Total", value: "0.00€" }
+              ]
+            },
+            advanced: {
+              title: "Factura de Alojamiento",
+              fields: [
+                { label: "Establecimiento hotelero", value: "Grand Hotel" },
+                { label: "Nombre del huésped", value: "(Student Name)" },
+                { label: "N.º de habitación", value: "412" },
+                { label: "Estancia (noches)", value: "3" },
+                { label: "Tarifa de alojamiento", value: "(dynamic)" },
+                { label: "Cargos por servicios complementarios", value: "(dynamic)" },
+                { label: "IVA (10%)", value: "0.00€" },
+                { label: "Importe total", value: "0.00€" }
+              ]
+            }
+          }
         },
         displayOrder: 2,
         isInteractive: false
@@ -605,17 +849,47 @@ const scenarioData: ScenarioSeed[] = [
         propType: "document",
         title: "Guest Registration Card",
         content: {
-          title: "Guest Registration Card / Ficha de Registro",
-          fields: [
-            { label: "Full Name / Nombre completo", value: "(to be filled)" },
-            { label: "Nationality / Nacionalidad", value: "(to be filled)" },
-            { label: "Passport No. / Nº Pasaporte", value: "(to be filled)" },
-            { label: "Check-in Date / Fecha entrada", value: "18 Feb 2026" },
-            { label: "Check-out Date / Fecha salida", value: "21 Feb 2026" },
-            { label: "Room Type / Tipo habitación", value: "Double / Doble" },
-            { label: "Special Requests / Peticiones especiales", value: "(to be filled)" },
-            { label: "Signature / Firma", value: "________________" }
-          ]
+          byDifficulty: {
+            beginner: {
+              title: "Guest Registration Card / Ficha de Registro",
+              fields: [
+                { label: "Full Name / Nombre completo", value: "(to be filled)" },
+                { label: "Nationality / Nacionalidad", value: "(to be filled)" },
+                { label: "Passport Number / Nº Pasaporte", value: "(to be filled)" },
+                { label: "Check-in Date / Fecha entrada", value: "18 Feb 2026" },
+                { label: "Check-out Date / Fecha salida", value: "21 Feb 2026" },
+                { label: "Room Type / Tipo habitación", value: "Double" },
+                { label: "Special Requests / Peticiones especiales", value: "(to be filled)" },
+                { label: "Signature / Firma", value: "________________" }
+              ]
+            },
+            intermediate: {
+              title: "Ficha de Registro de Huésped",
+              fields: [
+                { label: "Nombre completo", value: "(to be filled)" },
+                { label: "Nacionalidad", value: "(to be filled)" },
+                { label: "Nº de pasaporte", value: "(to be filled)" },
+                { label: "Fecha de entrada", value: "18 Feb 2026" },
+                { label: "Fecha de salida", value: "21 Feb 2026" },
+                { label: "Tipo de habitación", value: "Doble" },
+                { label: "Peticiones especiales", value: "(to be filled)" },
+                { label: "Firma del huésped", value: "________________" }
+              ]
+            },
+            advanced: {
+              title: "Parte de Entrada de Viajeros",
+              fields: [
+                { label: "Nombre y apellidos", value: "(to be filled)" },
+                { label: "Nacionalidad", value: "(to be filled)" },
+                { label: "Número de documento de identidad / Pasaporte", value: "(to be filled)" },
+                { label: "Fecha de ingreso", value: "18 Feb 2026" },
+                { label: "Fecha prevista de salida", value: "21 Feb 2026" },
+                { label: "Categoría de habitación", value: "Habitación doble estándar" },
+                { label: "Observaciones y solicitudes del huésped", value: "(to be filled)" },
+                { label: "Firma del titular", value: "________________" }
+              ]
+            }
+          }
         },
         displayOrder: 3,
         isInteractive: true
@@ -690,14 +964,38 @@ const scenarioData: ScenarioSeed[] = [
         propType: "document",
         title: "Fare Meter",
         content: {
-          title: "Taxi Fare / Tarifa del Taxi",
-          fields: [
-            { label: "Base Fare / Banderazo", value: "$13.10 MXN" },
-            { label: "Per km / Por kilómetro", value: "$5.40 MXN" },
-            { label: "Per minute (waiting) / Por minuto (espera)", value: "$1.84 MXN" },
-            { label: "Night surcharge / Recargo nocturno", value: "+20%" },
-            { label: "Estimated total", value: "(varies by destination)" }
-          ]
+          byDifficulty: {
+            beginner: {
+              title: "Taxi Fare / Tarifa del Taxi",
+              fields: [
+                { label: "Base Fare / Banderazo", value: "$13.10 MXN" },
+                { label: "Per km / Por kilómetro", value: "$5.40 MXN" },
+                { label: "Per minute (waiting) / Por minuto (espera)", value: "$1.84 MXN" },
+                { label: "Night surcharge / Recargo nocturno", value: "+20%" },
+                { label: "Estimated total / Total estimado", value: "(varies by destination)" }
+              ]
+            },
+            intermediate: {
+              title: "Tarifa del Taxi",
+              fields: [
+                { label: "Banderazo", value: "$13.10 MXN" },
+                { label: "Por kilómetro", value: "$5.40 MXN" },
+                { label: "Por minuto de espera", value: "$1.84 MXN" },
+                { label: "Recargo nocturno", value: "+20%" },
+                { label: "Total estimado", value: "(varía según destino)" }
+              ]
+            },
+            advanced: {
+              title: "Taxímetro — Tarifas Vigentes",
+              fields: [
+                { label: "Bajada de bandera", value: "$13.10 MXN" },
+                { label: "Tarifa por kilómetro recorrido", value: "$5.40 MXN" },
+                { label: "Tiempo de espera por minuto", value: "$1.84 MXN" },
+                { label: "Recargo por servicio nocturno (22:00–06:00)", value: "+20%" },
+                { label: "Importe estimado del servicio", value: "(variable según trayecto)" }
+              ]
+            }
+          }
         },
         displayOrder: 1,
         isInteractive: false
@@ -706,16 +1004,44 @@ const scenarioData: ScenarioSeed[] = [
         propType: "bill",
         title: "Taxi Receipt",
         content: {
-          title: "Taxi Receipt",
-          fields: [
-            { label: "Driver", value: "(dynamic)" },
-            { label: "From", value: "(dynamic)" },
-            { label: "To", value: "(dynamic)" },
-            { label: "Distance", value: "(dynamic)" },
-            { label: "Fare", value: "$0.00 MXN" },
-            { label: "Tip", value: "$0.00 MXN" },
-            { label: "Total", value: "$0.00 MXN" }
-          ]
+          byDifficulty: {
+            beginner: {
+              title: "Taxi Receipt / Recibo de Taxi",
+              fields: [
+                { label: "Driver / Conductor", value: "(dynamic)" },
+                { label: "From / Origen", value: "(dynamic)" },
+                { label: "To / Destino", value: "(dynamic)" },
+                { label: "Distance / Distancia", value: "(dynamic)" },
+                { label: "Fare / Tarifa", value: "$0.00 MXN" },
+                { label: "Tip / Propina", value: "$0.00 MXN" },
+                { label: "Total", value: "$0.00 MXN" }
+              ]
+            },
+            intermediate: {
+              title: "Recibo de Taxi",
+              fields: [
+                { label: "Conductor", value: "(dynamic)" },
+                { label: "Origen", value: "(dynamic)" },
+                { label: "Destino", value: "(dynamic)" },
+                { label: "Distancia recorrida", value: "(dynamic)" },
+                { label: "Tarifa", value: "$0.00 MXN" },
+                { label: "Propina", value: "$0.00 MXN" },
+                { label: "Total", value: "$0.00 MXN" }
+              ]
+            },
+            advanced: {
+              title: "Comprobante de Servicio de Taxi",
+              fields: [
+                { label: "Nombre del operador", value: "(dynamic)" },
+                { label: "Punto de abordaje", value: "(dynamic)" },
+                { label: "Punto de descenso", value: "(dynamic)" },
+                { label: "Kilometraje recorrido", value: "(dynamic)" },
+                { label: "Importe del servicio", value: "$0.00 MXN" },
+                { label: "Propina", value: "$0.00 MXN" },
+                { label: "Total a pagar", value: "$0.00 MXN" }
+              ]
+            }
+          }
         },
         displayOrder: 2,
         isInteractive: false
@@ -724,14 +1050,38 @@ const scenarioData: ScenarioSeed[] = [
         propType: "card",
         title: "Hotel Business Card",
         content: {
-          title: "Hotel Business Card / Tarjeta del Hotel",
-          fields: [
-            { label: "Hotel", value: "Hotel Zócalo Centro" },
-            { label: "Address / Dirección", value: "Av. 5 de Mayo 61, Centro Histórico, CDMX" },
-            { label: "Phone / Teléfono", value: "+52 55 5130 5130" },
-            { label: "Near / Cerca de", value: "Zócalo, Templo Mayor, Palacio Nacional" },
-            { label: "Metro", value: "Línea 2 - Estación Zócalo" }
-          ]
+          byDifficulty: {
+            beginner: {
+              title: "Hotel Business Card / Tarjeta del Hotel",
+              fields: [
+                { label: "Hotel", value: "Hotel Zócalo Centro" },
+                { label: "Address / Dirección", value: "Av. 5 de Mayo 61, Centro Histórico, CDMX" },
+                { label: "Phone / Teléfono", value: "+52 55 5130 5130" },
+                { label: "Near / Cerca de", value: "Zócalo, Templo Mayor, Palacio Nacional" },
+                { label: "Metro", value: "Línea 2 - Estación Zócalo" }
+              ]
+            },
+            intermediate: {
+              title: "Tarjeta del Hotel",
+              fields: [
+                { label: "Hotel", value: "Hotel Zócalo Centro" },
+                { label: "Dirección", value: "Av. 5 de Mayo 61, Centro Histórico, CDMX" },
+                { label: "Teléfono", value: "+52 55 5130 5130" },
+                { label: "Puntos de interés cercanos", value: "Zócalo, Templo Mayor, Palacio Nacional" },
+                { label: "Estación de metro", value: "Línea 2 - Estación Zócalo" }
+              ]
+            },
+            advanced: {
+              title: "Hotel Zócalo Centro — Tarjeta de Presentación",
+              fields: [
+                { label: "Establecimiento", value: "Hotel Zócalo Centro" },
+                { label: "Domicilio", value: "Av. 5 de Mayo 61, Col. Centro Histórico, Alcaldía Cuauhtémoc, C.P. 06000, CDMX" },
+                { label: "Conmutador", value: "+52 55 5130 5130" },
+                { label: "Ubicación privilegiada", value: "A pasos del Zócalo capitalino, Templo Mayor y Palacio Nacional" },
+                { label: "Transporte público", value: "Metro Línea 2 — Estación Zócalo (salida Centro Histórico)" }
+              ]
+            }
+          }
         },
         displayOrder: 3,
         isInteractive: false
@@ -790,16 +1140,44 @@ const scenarioData: ScenarioSeed[] = [
         propType: "document",
         title: "Resume",
         content: {
-          title: "Curriculum Vitae / Resume",
-          fields: [
-            { label: "Name / Nombre", value: "(Student Name)" },
-            { label: "Position Applied / Puesto", value: "Marketing Coordinator" },
-            { label: "Education / Formación", value: "Bachelor in Business Administration" },
-            { label: "Experience / Experiencia", value: "3 years in digital marketing" },
-            { label: "Skills / Habilidades", value: "Social media, data analysis, content creation" },
-            { label: "Languages / Idiomas", value: "English (native), Spanish (intermediate)" },
-            { label: "References / Referencias", value: "Available upon request" }
-          ]
+          byDifficulty: {
+            beginner: {
+              title: "Resume / Curriculum Vitae",
+              fields: [
+                { label: "Name / Nombre", value: "(Student Name)" },
+                { label: "Position Applied / Puesto", value: "Marketing Coordinator" },
+                { label: "Education / Formación", value: "Bachelor in Business Administration" },
+                { label: "Experience / Experiencia", value: "3 years in digital marketing" },
+                { label: "Skills / Habilidades", value: "Social media, data analysis, content creation" },
+                { label: "Languages / Idiomas", value: "English (native), Spanish (intermediate)" },
+                { label: "References / Referencias", value: "Available upon request" }
+              ]
+            },
+            intermediate: {
+              title: "Curriculum Vitae",
+              fields: [
+                { label: "Nombre completo", value: "(Student Name)" },
+                { label: "Puesto solicitado", value: "Coordinador/a de Marketing" },
+                { label: "Formación académica", value: "Licenciatura en Administración de Empresas" },
+                { label: "Experiencia profesional", value: "3 años en marketing digital" },
+                { label: "Competencias", value: "Redes sociales, análisis de datos, creación de contenido" },
+                { label: "Idiomas", value: "Inglés (nativo), español (intermedio)" },
+                { label: "Referencias", value: "Disponibles a solicitud" }
+              ]
+            },
+            advanced: {
+              title: "Curriculum Vitae",
+              fields: [
+                { label: "Datos personales", value: "(Student Name)" },
+                { label: "Cargo al que aspira", value: "Coordinador/a de Marketing" },
+                { label: "Formación académica", value: "Grado en Administración y Dirección de Empresas" },
+                { label: "Trayectoria profesional", value: "Tres años de experiencia en estrategia de marketing digital, gestión de campañas y optimización de contenidos" },
+                { label: "Competencias clave", value: "Gestión de redes sociales, análisis de métricas y KPIs, producción de contenido multimedia" },
+                { label: "Perfil lingüístico", value: "Inglés (lengua materna), español (nivel intermedio — B1/B2)" },
+                { label: "Referencias profesionales", value: "Se facilitan a petición de la empresa" }
+              ]
+            }
+          }
         },
         displayOrder: 0,
         isInteractive: false
@@ -808,16 +1186,44 @@ const scenarioData: ScenarioSeed[] = [
         propType: "document",
         title: "Job Posting",
         content: {
-          title: "Job Posting / Oferta de Empleo",
-          fields: [
-            { label: "Company / Empresa", value: "The Company" },
-            { label: "Position / Puesto", value: "Marketing Coordinator" },
-            { label: "Location / Ubicación", value: "Hybrid / Remote" },
-            { label: "Salary / Salario", value: "€45,000 - €55,000" },
-            { label: "Requirements / Requisitos", value: "2+ years marketing experience, bilingual, data-driven" },
-            { label: "Benefits / Beneficios", value: "Flexible hours, gym membership, language courses" },
-            { label: "Start Date / Fecha de inicio", value: "April 2026" }
-          ]
+          byDifficulty: {
+            beginner: {
+              title: "Job Posting / Oferta de Empleo",
+              fields: [
+                { label: "Company / Empresa", value: "The Company" },
+                { label: "Position / Puesto", value: "Marketing Coordinator" },
+                { label: "Location / Ubicación", value: "Hybrid / Remote" },
+                { label: "Salary / Salario", value: "€45,000 - €55,000" },
+                { label: "Requirements / Requisitos", value: "2+ years marketing experience, bilingual, data-driven" },
+                { label: "Benefits / Beneficios", value: "Flexible hours, gym membership, language courses" },
+                { label: "Start Date / Fecha de inicio", value: "April 2026" }
+              ]
+            },
+            intermediate: {
+              title: "Oferta de Empleo",
+              fields: [
+                { label: "Empresa", value: "The Company" },
+                { label: "Puesto", value: "Coordinador/a de Marketing" },
+                { label: "Modalidad", value: "Híbrido / Remoto" },
+                { label: "Salario", value: "€45,000 - €55,000" },
+                { label: "Requisitos", value: "Más de 2 años de experiencia en marketing, perfil bilingüe, orientación analítica" },
+                { label: "Beneficios", value: "Horario flexible, membresía de gimnasio, cursos de idiomas" },
+                { label: "Fecha de incorporación", value: "April 2026" }
+              ]
+            },
+            advanced: {
+              title: "Convocatoria de Empleo — Recursos Humanos",
+              fields: [
+                { label: "Razón social", value: "The Company" },
+                { label: "Vacante", value: "Coordinador/a de Marketing" },
+                { label: "Modalidad de trabajo", value: "Formato híbrido con opción de teletrabajo" },
+                { label: "Banda salarial", value: "€45,000 - €55,000 brutos anuales" },
+                { label: "Perfil requerido", value: "Mínimo dos años de experiencia demostrable en marketing digital, dominio bilingüe español-inglés, capacidad analítica y orientación a resultados" },
+                { label: "Paquete de beneficios", value: "Jornada flexible, abono a centro deportivo, formación continua en idiomas" },
+                { label: "Incorporación prevista", value: "April 2026" }
+              ]
+            }
+          }
         },
         displayOrder: 1,
         isInteractive: false
@@ -826,17 +1232,47 @@ const scenarioData: ScenarioSeed[] = [
         propType: "document",
         title: "Job Description",
         content: {
-          title: "Job Description / Descripción del Puesto",
-          fields: [
-            { label: "Title / Puesto", value: "Marketing Coordinator" },
-            { label: "Department / Departamento", value: "Marketing & Communications" },
-            { label: "Reports To / Reporta a", value: "VP of Marketing" },
-            { label: "Responsibilities", value: "Lead social media strategy, manage campaigns, analyze performance data, coordinate with design team" },
-            { label: "Requirements", value: "2+ years marketing experience, bilingual (Spanish/English), proficiency in analytics tools" },
-            { label: "Benefits / Beneficios", value: "Flexible hours, gym membership, language courses, 25 vacation days" },
-            { label: "Salary Range / Rango salarial", value: "€45,000 - €55,000" },
-            { label: "Start Date / Inicio", value: "April 2026" }
-          ]
+          byDifficulty: {
+            beginner: {
+              title: "Job Description / Descripción del Puesto",
+              fields: [
+                { label: "Title / Puesto", value: "Marketing Coordinator" },
+                { label: "Department / Departamento", value: "Marketing & Communications" },
+                { label: "Reports To / Reporta a", value: "VP of Marketing" },
+                { label: "Responsibilities / Responsabilidades", value: "Lead social media strategy, manage campaigns, analyze performance data, coordinate with design team" },
+                { label: "Requirements / Requisitos", value: "2+ years marketing experience, bilingual (Spanish/English), proficiency in analytics tools" },
+                { label: "Benefits / Beneficios", value: "Flexible hours, gym membership, language courses, 25 vacation days" },
+                { label: "Salary Range / Rango salarial", value: "€45,000 - €55,000" },
+                { label: "Start Date / Inicio", value: "April 2026" }
+              ]
+            },
+            intermediate: {
+              title: "Descripción del Puesto",
+              fields: [
+                { label: "Puesto", value: "Coordinador/a de Marketing" },
+                { label: "Departamento", value: "Marketing y Comunicación" },
+                { label: "Dependencia jerárquica", value: "VP of Marketing" },
+                { label: "Responsabilidades", value: "Liderar la estrategia de redes sociales, gestionar campañas, analizar datos de rendimiento, coordinar con el equipo de diseño" },
+                { label: "Requisitos", value: "Más de 2 años de experiencia en marketing, bilingüe español-inglés, dominio de herramientas analíticas" },
+                { label: "Beneficios", value: "Horario flexible, membresía de gimnasio, cursos de idiomas, 25 días de vacaciones" },
+                { label: "Rango salarial", value: "€45,000 - €55,000" },
+                { label: "Fecha de incorporación", value: "April 2026" }
+              ]
+            },
+            advanced: {
+              title: "Ficha Descriptiva del Puesto — Dirección de Personas",
+              fields: [
+                { label: "Denominación del puesto", value: "Coordinador/a de Marketing" },
+                { label: "Área funcional", value: "Dirección de Marketing y Comunicación Corporativa" },
+                { label: "Dependencia orgánica", value: "Vicepresidencia de Marketing" },
+                { label: "Funciones y responsabilidades", value: "Diseño y ejecución de la estrategia de presencia en redes sociales, planificación y supervisión de campañas digitales, análisis de indicadores de rendimiento (KPIs), y coordinación interdepartamental con el equipo creativo" },
+                { label: "Requisitos del perfil", value: "Experiencia mínima de dos años en marketing digital, competencia bilingüe español-inglés acreditada, y manejo avanzado de plataformas de analítica web" },
+                { label: "Condiciones y beneficios", value: "Jornada flexible, acceso a centro deportivo, plan de formación en idiomas, y 25 días hábiles de vacaciones anuales" },
+                { label: "Retribución bruta anual", value: "€45,000 - €55,000" },
+                { label: "Incorporación prevista", value: "April 2026" }
+              ]
+            }
+          }
         },
         displayOrder: 2,
         isInteractive: false
@@ -896,17 +1332,47 @@ const scenarioData: ScenarioSeed[] = [
         propType: "document",
         title: "Meeting Agenda",
         content: {
-          title: "Meeting Agenda / Agenda de la Reunión",
-          fields: [
-            { label: "Meeting / Reunión", value: "Weekly Marketing Sync" },
-            { label: "Date / Fecha", value: "Tuesday, 10:00 AM" },
-            { label: "Duration / Duración", value: "45 minutes" },
-            { label: "Item 1", value: "Q1 Campaign Results Review" },
-            { label: "Item 2", value: "Social Media Strategy Update" },
-            { label: "Item 3", value: "New Product Launch Plan" },
-            { label: "Item 4", value: "Budget Allocation Discussion" },
-            { label: "Item 5", value: "Action Items & Next Steps" }
-          ]
+          byDifficulty: {
+            beginner: {
+              title: "Meeting Agenda / Agenda de la Reunión",
+              fields: [
+                { label: "Meeting / Reunión", value: "Weekly Marketing Sync" },
+                { label: "Date / Fecha", value: "Tuesday, 10:00 AM" },
+                { label: "Duration / Duración", value: "45 minutes" },
+                { label: "Item 1 / Punto 1", value: "Q1 Campaign Results Review" },
+                { label: "Item 2 / Punto 2", value: "Social Media Strategy Update" },
+                { label: "Item 3 / Punto 3", value: "New Product Launch Plan" },
+                { label: "Item 4 / Punto 4", value: "Budget Allocation Discussion" },
+                { label: "Item 5 / Punto 5", value: "Action Items & Next Steps" }
+              ]
+            },
+            intermediate: {
+              title: "Agenda de la Reunión",
+              fields: [
+                { label: "Reunión", value: "Sincronización semanal de Marketing" },
+                { label: "Fecha y hora", value: "Martes, 10:00" },
+                { label: "Duración", value: "45 minutos" },
+                { label: "Punto 1", value: "Revisión de resultados de campañas del T1" },
+                { label: "Punto 2", value: "Actualización de la estrategia en redes sociales" },
+                { label: "Punto 3", value: "Plan de lanzamiento de nuevo producto" },
+                { label: "Punto 4", value: "Discusión sobre asignación de presupuesto" },
+                { label: "Punto 5", value: "Tareas pendientes y próximos pasos" }
+              ]
+            },
+            advanced: {
+              title: "Orden del Día — Reunión de Departamento de Marketing",
+              fields: [
+                { label: "Convocatoria", value: "Reunión semanal de coordinación del área de Marketing" },
+                { label: "Fecha y hora de inicio", value: "Martes, 10:00 h" },
+                { label: "Duración prevista", value: "45 minutos" },
+                { label: "1.º punto", value: "Análisis de resultados de las campañas del primer trimestre" },
+                { label: "2.º punto", value: "Informe de situación de la estrategia de redes sociales" },
+                { label: "3.º punto", value: "Propuesta de plan de lanzamiento del nuevo producto" },
+                { label: "4.º punto", value: "Debate sobre la distribución presupuestaria" },
+                { label: "5.º punto", value: "Asignación de acciones de seguimiento y plazos" }
+              ]
+            }
+          }
         },
         displayOrder: 0,
         isInteractive: false
@@ -915,13 +1381,35 @@ const scenarioData: ScenarioSeed[] = [
         propType: "document",
         title: "Notes Pad",
         content: {
-          title: "Meeting Notes / Notas de la Reunión",
-          fields: [
-            { label: "Key Decisions", value: "(to be filled during meeting)" },
-            { label: "Action Items", value: "(to be filled during meeting)" },
-            { label: "Deadlines", value: "(to be filled during meeting)" },
-            { label: "Follow-up Meeting", value: "(to be scheduled)" }
-          ]
+          byDifficulty: {
+            beginner: {
+              title: "Meeting Notes / Notas de la Reunión",
+              fields: [
+                { label: "Key Decisions / Decisiones clave", value: "(to be filled during meeting)" },
+                { label: "Action Items / Tareas", value: "(to be filled during meeting)" },
+                { label: "Deadlines / Plazos", value: "(to be filled during meeting)" },
+                { label: "Follow-up Meeting / Próxima reunión", value: "(to be scheduled)" }
+              ]
+            },
+            intermediate: {
+              title: "Notas de la Reunión",
+              fields: [
+                { label: "Decisiones tomadas", value: "(to be filled during meeting)" },
+                { label: "Tareas asignadas", value: "(to be filled during meeting)" },
+                { label: "Plazos de entrega", value: "(to be filled during meeting)" },
+                { label: "Próxima reunión", value: "(to be scheduled)" }
+              ]
+            },
+            advanced: {
+              title: "Acta de Reunión — Notas del Secretario",
+              fields: [
+                { label: "Acuerdos adoptados", value: "(to be filled during meeting)" },
+                { label: "Acciones de seguimiento y responsables", value: "(to be filled during meeting)" },
+                { label: "Fechas límite comprometidas", value: "(to be filled during meeting)" },
+                { label: "Convocatoria de la próxima sesión", value: "(to be scheduled)" }
+              ]
+            }
+          }
         },
         displayOrder: 1,
         isInteractive: true
@@ -930,17 +1418,47 @@ const scenarioData: ScenarioSeed[] = [
         propType: "document",
         title: "Q1 Performance Chart",
         content: {
-          title: "Q1 Performance Summary / Resumen de Rendimiento Q1",
-          fields: [
-            { label: "Social Media Reach / Alcance redes", value: "↑ 34% vs Q4 (1.2M impressions)" },
-            { label: "Website Traffic / Tráfico web", value: "↑ 18% (45K monthly visitors)" },
-            { label: "Conversion Rate / Tasa de conversión", value: "↓ 2.1% (was 2.8% in Q4)" },
-            { label: "Email Open Rate / Apertura emails", value: "→ 22% (stable)" },
-            { label: "Ad Spend / Gasto publicitario", value: "€12,500 (↑ 15% over budget)" },
-            { label: "New Leads / Nuevos leads", value: "340 (target: 400)" },
-            { label: "Top Campaign", value: "Spring Launch — 3.2% CTR" },
-            { label: "Action Needed / Acción requerida", value: "Conversion rate decline needs investigation" }
-          ]
+          byDifficulty: {
+            beginner: {
+              title: "Q1 Performance Summary / Resumen de Rendimiento Q1",
+              fields: [
+                { label: "Social Media Reach / Alcance redes", value: "↑ 34% vs Q4 (1.2M impressions)" },
+                { label: "Website Traffic / Tráfico web", value: "↑ 18% (45K monthly visitors)" },
+                { label: "Conversion Rate / Tasa de conversión", value: "↓ 2.1% (was 2.8% in Q4)" },
+                { label: "Email Open Rate / Apertura emails", value: "→ 22% (stable)" },
+                { label: "Ad Spend / Gasto publicitario", value: "€12,500 (↑ 15% over budget)" },
+                { label: "New Leads / Nuevos leads", value: "340 (target: 400)" },
+                { label: "Top Campaign / Mejor campaña", value: "Spring Launch — 3.2% CTR" },
+                { label: "Action Needed / Acción requerida", value: "Conversion rate decline needs investigation" }
+              ]
+            },
+            intermediate: {
+              title: "Resumen de Rendimiento — Primer Trimestre",
+              fields: [
+                { label: "Alcance en redes sociales", value: "↑ 34% respecto al T4 (1,2 millones de impresiones)" },
+                { label: "Tráfico web", value: "↑ 18% (45.000 visitantes mensuales)" },
+                { label: "Tasa de conversión", value: "↓ 2,1% (era 2,8% en el T4)" },
+                { label: "Tasa de apertura de emails", value: "→ 22% (estable)" },
+                { label: "Gasto publicitario", value: "€12.500 (↑ 15% por encima del presupuesto)" },
+                { label: "Nuevos leads generados", value: "340 (objetivo: 400)" },
+                { label: "Campaña destacada", value: "Spring Launch — 3,2% CTR" },
+                { label: "Acción requerida", value: "Investigar la caída en la tasa de conversión" }
+              ]
+            },
+            advanced: {
+              title: "Informe de Indicadores Clave — T1 2026",
+              fields: [
+                { label: "Alcance orgánico y pagado en RRSS", value: "Incremento interanual del 34% frente al T4 (1,2 M de impresiones acumuladas)" },
+                { label: "Volumen de tráfico web", value: "Crecimiento del 18% (45.000 usuarios únicos mensuales)" },
+                { label: "Ratio de conversión", value: "Descenso al 2,1% (2,8% en el trimestre anterior)" },
+                { label: "Tasa de apertura de campañas de email marketing", value: "22% — sin variación significativa" },
+                { label: "Inversión publicitaria ejecutada", value: "€12.500 (desviación del +15% sobre presupuesto aprobado)" },
+                { label: "Captación de nuevos contactos cualificados", value: "340 leads (objetivo trimestral: 400)" },
+                { label: "Campaña con mejor rendimiento", value: "Spring Launch — CTR del 3,2%" },
+                { label: "Punto crítico pendiente de resolución", value: "Analizar las causas del retroceso en la tasa de conversión y proponer medidas correctivas" }
+              ]
+            }
+          }
         },
         displayOrder: 2,
         isInteractive: false
@@ -1032,16 +1550,44 @@ const scenarioData: ScenarioSeed[] = [
         propType: "card",
         title: "Party Invitation",
         content: {
-          title: "Party Invitation / Invitación a la Fiesta",
-          fields: [
-            { label: "Host / Anfitriona", value: "María Rodríguez" },
-            { label: "What / Qué", value: "Housewarming party / Fiesta de bienvenida" },
-            { label: "When / Cuándo", value: "Saturday 8 PM / Sábado 20:00" },
-            { label: "Where / Dónde", value: "Av. Corrientes 1234, Piso 5, Depto B, Buenos Aires" },
-            { label: "Bring / Traer", value: "Something to drink or share / Algo para tomar o picar" },
-            { label: "Dress Code", value: "Casual / Informal" },
-            { label: "RSVP", value: "WhatsApp: +54 11 5555-1234" }
-          ]
+          byDifficulty: {
+            beginner: {
+              title: "Party Invitation / Invitación a la Fiesta",
+              fields: [
+                { label: "Host / Anfitriona", value: "María Rodríguez" },
+                { label: "What / Qué", value: "Housewarming party / Fiesta de bienvenida" },
+                { label: "When / Cuándo", value: "Saturday 8 PM / Sábado 20:00" },
+                { label: "Where / Dónde", value: "Av. Corrientes 1234, Piso 5, Depto B, Buenos Aires" },
+                { label: "Bring / Traer", value: "Something to drink or share / Algo para tomar o picar" },
+                { label: "Dress Code", value: "Casual / Informal" },
+                { label: "RSVP", value: "WhatsApp: +54 11 5555-1234" }
+              ]
+            },
+            intermediate: {
+              title: "Invitación a la Fiesta",
+              fields: [
+                { label: "Anfitriona", value: "María Rodríguez" },
+                { label: "Evento", value: "Fiesta de bienvenida a la casa nueva" },
+                { label: "Fecha y hora", value: "Sábado a las 20:00" },
+                { label: "Dirección", value: "Av. Corrientes 1234, Piso 5, Depto B, Buenos Aires" },
+                { label: "Qué traer", value: "Algo para tomar o algo para picar" },
+                { label: "Vestimenta", value: "Informal" },
+                { label: "Confirmación", value: "WhatsApp: +54 11 5555-1234" }
+              ]
+            },
+            advanced: {
+              title: "¡Vení a casa! — Invitación de María",
+              fields: [
+                { label: "Anfitriona", value: "María Rodríguez" },
+                { label: "¿Qué festejamos?", value: "¡Me mudé! Vení a conocer el depto nuevo y a pasarla bien" },
+                { label: "¿Cuándo?", value: "Este sábado a partir de las 20 h" },
+                { label: "¿Dónde?", value: "Av. Corrientes 1234, 5.º B, CABA" },
+                { label: "Traé", value: "Lo que quieras para tomar o picar — la idea es compartir" },
+                { label: "Onda", value: "Relajada, vení como estés" },
+                { label: "Avisame por WhatsApp", value: "+54 11 5555-1234" }
+              ]
+            }
+          }
         },
         displayOrder: 2,
         isInteractive: false
@@ -1151,15 +1697,41 @@ const scenarioData: ScenarioSeed[] = [
         propType: "bill",
         title: "Check/Bill",
         content: {
-          title: "Restaurant Check",
-          fields: [
-            { label: "Establishment", value: "Trattoria Bella" },
-            { label: "Date", value: "Today" },
-            { label: "Items", value: "(dynamic)" },
-            { label: "Subtotal", value: "0.00€" },
-            { label: "Service (coperto)", value: "2.50€" },
-            { label: "Total", value: "0.00€" }
-          ]
+          byDifficulty: {
+            beginner: {
+              title: "Restaurant Check / Cuenta del Restaurante",
+              fields: [
+                { label: "Restaurant / Restaurante", value: "Trattoria Bella" },
+                { label: "Date / Fecha", value: "Today" },
+                { label: "Items / Artículos", value: "(dynamic)" },
+                { label: "Subtotal", value: "0.00€" },
+                { label: "Service / Servicio (coperto)", value: "2.50€" },
+                { label: "Total", value: "0.00€" }
+              ]
+            },
+            intermediate: {
+              title: "Cuenta del Restaurante",
+              fields: [
+                { label: "Restaurante", value: "Trattoria Bella" },
+                { label: "Fecha", value: "Hoy" },
+                { label: "Consumiciones", value: "(dynamic)" },
+                { label: "Subtotal", value: "0.00€" },
+                { label: "Servicio de mesa (coperto)", value: "2.50€" },
+                { label: "Total", value: "0.00€" }
+              ]
+            },
+            advanced: {
+              title: "Nota de Consumo — Trattoria Bella",
+              fields: [
+                { label: "Establecimiento", value: "Trattoria Bella" },
+                { label: "Fecha", value: "Hoy" },
+                { label: "Detalle de consumiciones", value: "(dynamic)" },
+                { label: "Base imponible", value: "0.00€" },
+                { label: "Servicio de cubierto", value: "2.50€" },
+                { label: "Total a pagar", value: "0.00€" }
+              ]
+            }
+          }
         },
         displayOrder: 2,
         isInteractive: false
@@ -1219,15 +1791,41 @@ const scenarioData: ScenarioSeed[] = [
         propType: "card",
         title: "Symptom Card",
         content: {
-          title: "Symptom Card / Tarjeta de Síntomas",
-          fields: [
-            { label: "Head / Cabeza", value: "Headache, dizziness / Dolor de cabeza, mareos" },
-            { label: "Throat / Garganta", value: "Sore throat, cough / Dolor de garganta, tos" },
-            { label: "Stomach / Estómago", value: "Nausea, pain / Náuseas, dolor" },
-            { label: "Body / Cuerpo", value: "Fever, fatigue / Fiebre, cansancio" },
-            { label: "Duration / Duración", value: "Since when? / ¿Desde cuándo?" },
-            { label: "Intensity (1-10)", value: "How much does it hurt? / ¿Cuánto le duele?" }
-          ]
+          byDifficulty: {
+            beginner: {
+              title: "Symptom Card / Tarjeta de Síntomas",
+              fields: [
+                { label: "Head / Cabeza", value: "Headache, dizziness" },
+                { label: "Throat / Garganta", value: "Sore throat, cough" },
+                { label: "Stomach / Estómago", value: "Nausea, pain" },
+                { label: "Body / Cuerpo", value: "Fever, fatigue" },
+                { label: "Duration / Duración", value: "Since when?" },
+                { label: "Intensity (1-10) / Intensidad", value: "How much does it hurt?" }
+              ]
+            },
+            intermediate: {
+              title: "Tarjeta de Síntomas",
+              fields: [
+                { label: "Cabeza", value: "Dolor de cabeza, mareos, visión borrosa" },
+                { label: "Garganta", value: "Dolor de garganta, tos, dificultad para tragar" },
+                { label: "Estómago", value: "Náuseas, dolor abdominal, acidez" },
+                { label: "Cuerpo", value: "Fiebre, cansancio, dolor muscular" },
+                { label: "Duración", value: "¿Desde cuándo tiene los síntomas?" },
+                { label: "Intensidad (1-10)", value: "¿Cuánto le duele?" }
+              ]
+            },
+            advanced: {
+              title: "Ficha de Evaluación Sintomatológica",
+              fields: [
+                { label: "Región cefálica", value: "Cefalea, vértigo, fotosensibilidad" },
+                { label: "Región orofaríngea", value: "Odinofagia, tos productiva/seca, disfagia" },
+                { label: "Región abdominal", value: "Náuseas, epigastralgia, pirosis" },
+                { label: "Sintomatología general", value: "Hipertermia, astenia, mialgias generalizadas" },
+                { label: "Tiempo de evolución", value: "¿Desde cuándo presenta el cuadro clínico?" },
+                { label: "Escala de dolor (EVA 1-10)", value: "Valoración subjetiva de la intensidad del dolor" }
+              ]
+            }
+          }
         },
         displayOrder: 0,
         isInteractive: true
@@ -1236,16 +1834,44 @@ const scenarioData: ScenarioSeed[] = [
         propType: "document",
         title: "Prescription",
         content: {
-          title: "Prescription / Receta Médica",
-          fields: [
-            { label: "Doctor", value: "Dr. Santos" },
-            { label: "Patient / Paciente", value: "(Student Name)" },
-            { label: "Diagnosis / Diagnóstico", value: "(to be determined)" },
-            { label: "Medication / Medicamento", value: "(to be prescribed)" },
-            { label: "Dosage / Dosis", value: "(instructions)" },
-            { label: "Duration / Duración", value: "(days of treatment)" },
-            { label: "Follow-up / Seguimiento", value: "(return date if needed)" }
-          ]
+          byDifficulty: {
+            beginner: {
+              title: "Prescription / Receta Médica",
+              fields: [
+                { label: "Doctor", value: "Dr. Santos" },
+                { label: "Patient / Paciente", value: "(Student Name)" },
+                { label: "Diagnosis / Diagnóstico", value: "(to be determined)" },
+                { label: "Medication / Medicamento", value: "(to be prescribed)" },
+                { label: "Dosage / Dosis", value: "(instructions)" },
+                { label: "Duration / Duración", value: "(days of treatment)" },
+                { label: "Follow-up / Seguimiento", value: "(return date if needed)" }
+              ]
+            },
+            intermediate: {
+              title: "Receta Médica",
+              fields: [
+                { label: "Médico", value: "Dr. Santos" },
+                { label: "Paciente", value: "(Student Name)" },
+                { label: "Diagnóstico", value: "(to be determined)" },
+                { label: "Medicamento", value: "(to be prescribed)" },
+                { label: "Posología", value: "(instructions)" },
+                { label: "Duración del tratamiento", value: "(days of treatment)" },
+                { label: "Consulta de seguimiento", value: "(return date if needed)" }
+              ]
+            },
+            advanced: {
+              title: "Receta Médica — Prescripción Facultativa",
+              fields: [
+                { label: "Facultativo prescriptor", value: "Dr. Santos" },
+                { label: "Datos del paciente", value: "(Student Name)" },
+                { label: "Diagnóstico clínico", value: "(to be determined)" },
+                { label: "Principio activo / Especialidad farmacéutica", value: "(to be prescribed)" },
+                { label: "Posología y vía de administración", value: "(instructions)" },
+                { label: "Duración del tratamiento", value: "(days of treatment)" },
+                { label: "Revisión y seguimiento", value: "(return date if needed)" }
+              ]
+            }
+          }
         },
         displayOrder: 1,
         isInteractive: false
@@ -1254,17 +1880,47 @@ const scenarioData: ScenarioSeed[] = [
         propType: "document",
         title: "Patient Intake Form",
         content: {
-          title: "Patient Intake Form / Formulario del Paciente",
-          fields: [
-            { label: "Full Name / Nombre completo", value: "(to be filled)" },
-            { label: "Date of Birth / Fecha de nacimiento", value: "(to be filled)" },
-            { label: "Known Allergies / Alergias conocidas", value: "(to be filled)" },
-            { label: "Current Medications / Medicamentos actuales", value: "(to be filled)" },
-            { label: "Previous Surgeries / Cirugías previas", value: "None / Ninguna" },
-            { label: "Family History / Antecedentes familiares", value: "(to be filled)" },
-            { label: "Reason for Visit / Motivo de consulta", value: "(to be filled)" },
-            { label: "Insurance / Seguro médico", value: "(to be filled)" }
-          ]
+          byDifficulty: {
+            beginner: {
+              title: "Patient Intake Form / Formulario del Paciente",
+              fields: [
+                { label: "Full Name / Nombre completo", value: "(to be filled)" },
+                { label: "Date of Birth / Fecha de nacimiento", value: "(to be filled)" },
+                { label: "Known Allergies / Alergias conocidas", value: "(to be filled)" },
+                { label: "Current Medications / Medicamentos actuales", value: "(to be filled)" },
+                { label: "Previous Surgeries / Cirugías previas", value: "(to be filled)" },
+                { label: "Family History / Antecedentes familiares", value: "(to be filled)" },
+                { label: "Reason for Visit / Motivo de consulta", value: "(to be filled)" },
+                { label: "Insurance / Seguro médico", value: "(to be filled)" }
+              ]
+            },
+            intermediate: {
+              title: "Formulario de Ingreso del Paciente",
+              fields: [
+                { label: "Nombre completo", value: "(to be filled)" },
+                { label: "Fecha de nacimiento", value: "(to be filled)" },
+                { label: "Alergias conocidas", value: "(to be filled)" },
+                { label: "Medicación actual", value: "(to be filled)" },
+                { label: "Cirugías previas", value: "(to be filled)" },
+                { label: "Antecedentes familiares", value: "(to be filled)" },
+                { label: "Motivo de consulta", value: "(to be filled)" },
+                { label: "Seguro médico", value: "(to be filled)" }
+              ]
+            },
+            advanced: {
+              title: "Historial Clínico — Formulario de Admisión",
+              fields: [
+                { label: "Nombre y apellidos del paciente", value: "(to be filled)" },
+                { label: "Fecha de nacimiento", value: "(to be filled)" },
+                { label: "Alergias medicamentosas y ambientales", value: "(to be filled)" },
+                { label: "Tratamiento farmacológico en curso", value: "(to be filled)" },
+                { label: "Antecedentes quirúrgicos", value: "(to be filled)" },
+                { label: "Antecedentes patológicos familiares", value: "(to be filled)" },
+                { label: "Motivo de la consulta actual", value: "(to be filled)" },
+                { label: "Entidad aseguradora / N.º de póliza", value: "(to be filled)" }
+              ]
+            }
+          }
         },
         displayOrder: 2,
         isInteractive: true
@@ -1324,15 +1980,41 @@ const scenarioData: ScenarioSeed[] = [
         propType: "card",
         title: "Item Description Card",
         content: {
-          title: "Lost Item Report / Reporte de Objeto Perdido",
-          fields: [
-            { label: "Item Type / Tipo de objeto", value: "(backpack, phone, wallet, etc.)" },
-            { label: "Color", value: "(describe color)" },
-            { label: "Brand / Marca", value: "(if applicable)" },
-            { label: "Contents / Contenido", value: "(what was inside)" },
-            { label: "Last Seen / Visto por última vez", value: "(location and time)" },
-            { label: "Contact / Contacto", value: "(phone or email)" }
-          ]
+          byDifficulty: {
+            beginner: {
+              title: "Lost Item Report / Reporte de Objeto Perdido",
+              fields: [
+                { label: "Item Type / Tipo de objeto", value: "(backpack, phone, wallet, etc.)" },
+                { label: "Color", value: "(describe color)" },
+                { label: "Brand / Marca", value: "(if applicable)" },
+                { label: "Contents / Contenido", value: "(what was inside)" },
+                { label: "Last Seen / Visto por última vez", value: "(location and time)" },
+                { label: "Contact / Contacto", value: "(phone or email)" }
+              ]
+            },
+            intermediate: {
+              title: "Reporte de Objeto Perdido",
+              fields: [
+                { label: "Tipo de objeto", value: "(mochila, teléfono, cartera, etc.)" },
+                { label: "Color", value: "(describir color)" },
+                { label: "Marca", value: "(si corresponde)" },
+                { label: "Contenido", value: "(qué había dentro)" },
+                { label: "Visto por última vez", value: "(lugar y hora)" },
+                { label: "Datos de contacto", value: "(teléfono o correo electrónico)" }
+              ]
+            },
+            advanced: {
+              title: "Formulario de Denuncia de Extravío",
+              fields: [
+                { label: "Naturaleza del objeto extraviado", value: "(mochila, dispositivo móvil, billetera, etc.)" },
+                { label: "Coloración y características visuales", value: "(describir color y señas particulares)" },
+                { label: "Marca y modelo", value: "(si corresponde)" },
+                { label: "Relación de contenido", value: "(descripción detallada del contenido)" },
+                { label: "Última localización conocida", value: "(ubicación exacta y hora aproximada)" },
+                { label: "Datos de contacto del reclamante", value: "(teléfono y correo electrónico)" }
+              ]
+            }
+          }
         },
         displayOrder: 0,
         isInteractive: true
@@ -1357,19 +2039,53 @@ const scenarioData: ScenarioSeed[] = [
         propType: "document",
         title: "Claim Form",
         content: {
-          title: "Lost Item Claim Form / Formulario de Reclamación",
-          fields: [
-            { label: "Claimant Name / Nombre", value: "(to be filled)" },
-            { label: "ID / Documento de identidad", value: "(to be filled)" },
-            { label: "Date of Loss / Fecha de pérdida", value: "(to be filled)" },
-            { label: "Time / Hora aproximada", value: "(to be filled)" },
-            { label: "Location / Lugar", value: "(platform, train, waiting area)" },
-            { label: "Item Description / Descripción", value: "(to be filled)" },
-            { label: "Estimated Value / Valor estimado", value: "(to be filled)" },
-            { label: "Contact Phone / Teléfono", value: "(to be filled)" },
-            { label: "Contact Email / Correo", value: "(to be filled)" },
-            { label: "Signature / Firma", value: "________________" }
-          ]
+          byDifficulty: {
+            beginner: {
+              title: "Lost Item Claim Form / Formulario de Reclamación",
+              fields: [
+                { label: "Claimant Name / Nombre", value: "(to be filled)" },
+                { label: "ID / Documento de identidad", value: "(to be filled)" },
+                { label: "Date of Loss / Fecha de pérdida", value: "(to be filled)" },
+                { label: "Time / Hora aproximada", value: "(to be filled)" },
+                { label: "Location / Lugar", value: "(to be filled)" },
+                { label: "Item Description / Descripción", value: "(to be filled)" },
+                { label: "Estimated Value / Valor estimado", value: "(to be filled)" },
+                { label: "Contact Phone / Teléfono", value: "(to be filled)" },
+                { label: "Contact Email / Correo", value: "(to be filled)" },
+                { label: "Signature / Firma", value: "________________" }
+              ]
+            },
+            intermediate: {
+              title: "Formulario de Reclamación de Objeto Perdido",
+              fields: [
+                { label: "Nombre del reclamante", value: "(to be filled)" },
+                { label: "Documento de identidad", value: "(to be filled)" },
+                { label: "Fecha de la pérdida", value: "(to be filled)" },
+                { label: "Hora aproximada", value: "(to be filled)" },
+                { label: "Lugar del extravío", value: "(to be filled)" },
+                { label: "Descripción del objeto", value: "(to be filled)" },
+                { label: "Valor estimado", value: "(to be filled)" },
+                { label: "Teléfono de contacto", value: "(to be filled)" },
+                { label: "Correo electrónico", value: "(to be filled)" },
+                { label: "Firma", value: "________________" }
+              ]
+            },
+            advanced: {
+              title: "Formulario de Reclamación de Objetos Extraviados — Oficina de Objetos Perdidos",
+              fields: [
+                { label: "Nombre completo del reclamante", value: "(to be filled)" },
+                { label: "Tipo y número de documento de identidad", value: "(to be filled)" },
+                { label: "Fecha del extravío", value: "(to be filled)" },
+                { label: "Hora aproximada del suceso", value: "(to be filled)" },
+                { label: "Ubicación exacta del extravío (andén, vagón, sala de espera)", value: "(to be filled)" },
+                { label: "Descripción pormenorizada del objeto", value: "(to be filled)" },
+                { label: "Valor declarado del objeto", value: "(to be filled)" },
+                { label: "Teléfono de contacto", value: "(to be filled)" },
+                { label: "Dirección de correo electrónico", value: "(to be filled)" },
+                { label: "Firma del declarante", value: "________________" }
+              ]
+            }
+          }
         },
         displayOrder: 2,
         isInteractive: true
@@ -1429,17 +2145,47 @@ const scenarioData: ScenarioSeed[] = [
         propType: "document",
         title: "Event Program",
         content: {
-          title: "Festival Program / Programa del Festival",
-          fields: [
-            { label: "Event / Evento", value: "Local Cultural Festival 2026" },
-            { label: "10:00 - Opening Ceremony", value: "Ceremonia de apertura en Plaza Independencia" },
-            { label: "11:30 - Wine Tasting", value: "Degustación de vinos en la Bodega Central" },
-            { label: "13:00 - Traditional Lunch", value: "Almuerzo criollo con asado y empanadas" },
-            { label: "15:00 - Folklore Show", value: "Show de música y danza folclórica" },
-            { label: "17:00 - Grape Harvest", value: "Cosecha simbólica de uvas" },
-            { label: "20:00 - Queen Coronation", value: "Coronación de la Reina de la Vendimia" },
-            { label: "22:00 - Fireworks", value: "Fuegos artificiales y cierre del festival" }
-          ]
+          byDifficulty: {
+            beginner: {
+              title: "Festival Program / Programa del Festival",
+              fields: [
+                { label: "Event / Evento", value: "Local Cultural Festival 2026" },
+                { label: "10:00 - Opening Ceremony / Apertura", value: "Opening at Plaza Independencia" },
+                { label: "11:30 - Wine Tasting / Degustación", value: "Wine tasting at Bodega Central" },
+                { label: "13:00 - Traditional Lunch / Almuerzo", value: "BBQ and empanadas lunch" },
+                { label: "15:00 - Folklore Show / Folclore", value: "Music and dance show" },
+                { label: "17:00 - Grape Harvest / Cosecha", value: "Symbolic grape harvest" },
+                { label: "20:00 - Queen Coronation / Coronación", value: "Queen of the Harvest crowning" },
+                { label: "22:00 - Fireworks / Fuegos artificiales", value: "Fireworks and closing" }
+              ]
+            },
+            intermediate: {
+              title: "Programa del Festival",
+              fields: [
+                { label: "Evento", value: "Festival Cultural Local 2026" },
+                { label: "10:00 - Ceremonia de apertura", value: "Apertura oficial en Plaza Independencia" },
+                { label: "11:30 - Degustación de vinos", value: "Cata de vinos regionales en la Bodega Central" },
+                { label: "13:00 - Almuerzo criollo", value: "Asado y empanadas con música en vivo" },
+                { label: "15:00 - Show folclórico", value: "Espectáculo de música y danza folclórica" },
+                { label: "17:00 - Cosecha de uvas", value: "Cosecha simbólica en los viñedos del festival" },
+                { label: "20:00 - Coronación de la Reina", value: "Coronación de la Reina de la Vendimia" },
+                { label: "22:00 - Fuegos artificiales", value: "Cierre del festival con fuegos artificiales" }
+              ]
+            },
+            advanced: {
+              title: "Programa Oficial — Fiesta Nacional de la Vendimia 2026",
+              fields: [
+                { label: "Evento", value: "Festival Cultural Local 2026" },
+                { label: "10:00 h — Acto inaugural", value: "Ceremonia inaugural en la explanada de Plaza Independencia con presencia del intendente y autoridades provinciales" },
+                { label: "11:30 h — Degustación enológica", value: "Cata comentada de varietales de la región cuyana en las instalaciones de Bodega Central" },
+                { label: "13:00 h — Almuerzo criollo", value: "Asado a la cruz y empanadas artesanales con acompañamiento de conjunto folclórico en vivo" },
+                { label: "15:00 h — Espectáculo de folclore", value: "Gala de música y danza folclórica con elencos de ballet provinciales" },
+                { label: "17:00 h — Vendimia simbólica", value: "Cosecha ceremonial de las primeras uvas de la temporada en los viñedos de la explanada" },
+                { label: "20:00 h — Coronación", value: "Elección y coronación de la Reina Nacional de la Vendimia en el Teatro Griego Frank Romero Day" },
+                { label: "22:00 h — Cierre y pirotecnia", value: "Gran espectáculo de fuegos artificiales y cierre oficial del festival" }
+              ]
+            }
+          }
         },
         displayOrder: 0,
         isInteractive: false
@@ -1485,13 +2231,35 @@ const scenarioData: ScenarioSeed[] = [
         propType: "bill",
         title: "Festival Receipt",
         content: {
-          title: "Festival Receipt",
-          fields: [
-            { label: "Vendor", value: "Festival Food Stall" },
-            { label: "Items", value: "(dynamic)" },
-            { label: "Subtotal", value: "0 ARS" },
-            { label: "Total", value: "0 ARS" }
-          ]
+          byDifficulty: {
+            beginner: {
+              title: "Festival Receipt / Recibo del Festival",
+              fields: [
+                { label: "Vendor / Puesto", value: "Festival Food Stall" },
+                { label: "Items / Artículos", value: "(dynamic)" },
+                { label: "Subtotal", value: "0 ARS" },
+                { label: "Total", value: "0 ARS" }
+              ]
+            },
+            intermediate: {
+              title: "Recibo del Festival",
+              fields: [
+                { label: "Puesto de comida", value: "Festival Food Stall" },
+                { label: "Artículos", value: "(dynamic)" },
+                { label: "Subtotal", value: "0 ARS" },
+                { label: "Total", value: "0 ARS" }
+              ]
+            },
+            advanced: {
+              title: "Comprobante de Consumo — Festival de la Vendimia",
+              fields: [
+                { label: "Puesto expendedor", value: "Festival Food Stall" },
+                { label: "Detalle de consumiciones", value: "(dynamic)" },
+                { label: "Subtotal", value: "0 ARS" },
+                { label: "Total a pagar", value: "0 ARS" }
+              ]
+            }
+          }
         },
         displayOrder: 2,
         isInteractive: false
@@ -1551,17 +2319,47 @@ const scenarioData: ScenarioSeed[] = [
         propType: "document",
         title: "Exhibit Guide",
         content: {
-          title: "Exhibit Guide / Guía de la Exposición",
-          fields: [
-            { label: "Museum / Museo", value: "Art Museum" },
-            { label: "Gallery 1", value: "Las Meninas - Diego Velázquez (1656)" },
-            { label: "Gallery 2", value: "El Tres de Mayo - Francisco de Goya (1814)" },
-            { label: "Gallery 3", value: "The Garden of Earthly Delights - El Bosco (1500)" },
-            { label: "Gallery 4", value: "The Annunciation - Fra Angelico (1426)" },
-            { label: "Special Exhibition", value: "Sorolla: Light and Color (temporary)" },
-            { label: "Hours / Horario", value: "Mon-Sat 10:00-20:00, Sun 10:00-17:00" },
-            { label: "Audio Guide", value: "Available in 12 languages / Disponible en 12 idiomas" }
-          ]
+          byDifficulty: {
+            beginner: {
+              title: "Exhibit Guide / Guía de la Exposición",
+              fields: [
+                { label: "Museum / Museo", value: "Museo del Prado" },
+                { label: "Gallery 1 / Sala 1", value: "Las Meninas - Diego Velázquez (1656)" },
+                { label: "Gallery 2 / Sala 2", value: "El Tres de Mayo - Francisco de Goya (1814)" },
+                { label: "Gallery 3 / Sala 3", value: "The Garden of Earthly Delights - El Bosco (1500)" },
+                { label: "Gallery 4 / Sala 4", value: "The Annunciation - Fra Angelico (1426)" },
+                { label: "Special Exhibition / Exposición especial", value: "Sorolla: Light and Color (temporary)" },
+                { label: "Hours / Horario", value: "Mon-Sat 10:00-20:00, Sun 10:00-17:00" },
+                { label: "Audio Guide / Audioguía", value: "Available in 12 languages" }
+              ]
+            },
+            intermediate: {
+              title: "Guía de la Exposición",
+              fields: [
+                { label: "Museo", value: "Museo del Prado" },
+                { label: "Sala 1", value: "Las Meninas - Diego Velázquez (1656)" },
+                { label: "Sala 2", value: "El Tres de Mayo - Francisco de Goya (1814)" },
+                { label: "Sala 3", value: "El jardín de las delicias - El Bosco (1500)" },
+                { label: "Sala 4", value: "La Anunciación - Fra Angelico (1426)" },
+                { label: "Exposición temporal", value: "Sorolla: Luz y Color (temporal)" },
+                { label: "Horario de visita", value: "Lunes a sábado 10:00-20:00, domingos 10:00-17:00" },
+                { label: "Audioguía", value: "Disponible en 12 idiomas" }
+              ]
+            },
+            advanced: {
+              title: "Guía de Salas — Museo Nacional del Prado",
+              fields: [
+                { label: "Institución", value: "Museo del Prado" },
+                { label: "Sala 12 — Pintura barroca española", value: "Las Meninas - Diego Velázquez (1656), óleo sobre lienzo" },
+                { label: "Sala 39 — Goya y la Guerra de la Independencia", value: "El Tres de Mayo de 1808 - Francisco de Goya (1814), óleo sobre lienzo" },
+                { label: "Sala 56A — Pintura flamenca", value: "El jardín de las delicias - El Bosco (c. 1500), tríptico, óleo sobre tabla" },
+                { label: "Sala 49 — Pintura italiana del Quattrocento", value: "La Anunciación - Fra Angelico (c. 1426), temple sobre tabla" },
+                { label: "Exposición temporal — Ala norte", value: "Sorolla: Luz y Color — Retrospectiva antológica (exposición temporal)" },
+                { label: "Horario de apertura al público", value: "De lunes a sábado de 10:00 a 20:00 h; domingos y festivos de 10:00 a 17:00 h" },
+                { label: "Servicio de audioguía", value: "Disponible en 12 idiomas en los mostradores de información de planta baja" }
+              ]
+            }
+          }
         },
         displayOrder: 0,
         isInteractive: false
@@ -1570,13 +2368,35 @@ const scenarioData: ScenarioSeed[] = [
         propType: "document",
         title: "Audio Tour Notes",
         content: {
-          title: "Audio Tour Notes / Notas del Audio Tour",
-          fields: [
-            { label: "Las Meninas", value: "A painting within a painting. Velázquez places himself in the scene, challenging the viewer's perspective." },
-            { label: "El Tres de Mayo", value: "Goya's powerful anti-war statement. The central figure's white shirt and outstretched arms create a Christ-like image." },
-            { label: "The Garden", value: "A triptych depicting paradise, earthly pleasures, and hell. Full of symbolic creatures and surreal imagery." },
-            { label: "Discussion Prompt", value: "Which painting moves you most? Why?" }
-          ]
+          byDifficulty: {
+            beginner: {
+              title: "Audio Tour Notes / Notas del Audio Tour",
+              fields: [
+                { label: "Las Meninas", value: "A painting inside a painting. The artist painted himself in the scene." },
+                { label: "El Tres de Mayo", value: "A powerful painting about war. The man in white has his arms open wide." },
+                { label: "The Garden / El jardín", value: "Three panels showing paradise, earthly life, and hell. Many strange creatures." },
+                { label: "Discussion Prompt / Tema de conversación", value: "Which painting do you like the most? Why?" }
+              ]
+            },
+            intermediate: {
+              title: "Notas del Recorrido con Audioguía",
+              fields: [
+                { label: "Las Meninas", value: "Un cuadro dentro de otro cuadro. Velázquez se incluye en la escena, desafiando la perspectiva del espectador." },
+                { label: "El Tres de Mayo", value: "Una poderosa declaración contra la guerra. La camisa blanca y los brazos abiertos del personaje central evocan una imagen cristológica." },
+                { label: "El jardín de las delicias", value: "Un tríptico que representa el paraíso, los placeres terrenales y el infierno, lleno de criaturas simbólicas e imágenes surrealistas." },
+                { label: "Tema de reflexión", value: "¿Qué obra le conmueve más? ¿Por qué?" }
+              ]
+            },
+            advanced: {
+              title: "Notas de la Audioguía — Recorrido por las Obras Maestras",
+              fields: [
+                { label: "Las Meninas — Diego Velázquez (1656)", value: "Obra cumbre del Barroco español. Velázquez subvierte las convenciones del retrato cortesano al situarse a sí mismo en la composición, generando un juego de espejos y miradas que disuelve la frontera entre el espacio pictórico y el del espectador." },
+                { label: "El Tres de Mayo de 1808 — Francisco de Goya (1814)", value: "Manifiesto visual contra la barbarie bélica. La figura central, con su camisa blanca resplandeciente y los brazos abiertos en gesto de crucifixión laica, encarna la resistencia del pueblo español frente al pelotón de fusilamiento napoleónico." },
+                { label: "El jardín de las delicias — El Bosco (c. 1500)", value: "Tríptico enigmático que despliega una cosmogonía alegórica: del Edén primigenio a los deleites carnales y, finalmente, al tormento infernal. La profusión de seres fantásticos y la iconografía hermética han suscitado siglos de interpretación erudita." },
+                { label: "Reflexión para el visitante", value: "¿Qué obra le interpela con mayor intensidad? ¿Qué recursos formales emplea el artista para provocar esa reacción?" }
+              ]
+            }
+          }
         },
         displayOrder: 1,
         isInteractive: false
@@ -1585,14 +2405,38 @@ const scenarioData: ScenarioSeed[] = [
         propType: "bill",
         title: "Ticket Receipt",
         content: {
-          title: "Museum Ticket Receipt",
-          fields: [
-            { label: "Museum", value: "Museo del Prado" },
-            { label: "Tickets", value: "(dynamic)" },
-            { label: "Audio Guide", value: "(dynamic)" },
-            { label: "Gift Shop", value: "(dynamic)" },
-            { label: "Total", value: "0.00€" }
-          ]
+          byDifficulty: {
+            beginner: {
+              title: "Museum Ticket Receipt / Recibo de Entrada",
+              fields: [
+                { label: "Museum / Museo", value: "Museo del Prado" },
+                { label: "Tickets / Entradas", value: "(dynamic)" },
+                { label: "Audio Guide / Audioguía", value: "(dynamic)" },
+                { label: "Gift Shop / Tienda", value: "(dynamic)" },
+                { label: "Total", value: "0.00€" }
+              ]
+            },
+            intermediate: {
+              title: "Recibo de Entrada al Museo",
+              fields: [
+                { label: "Museo", value: "Museo del Prado" },
+                { label: "Entradas", value: "(dynamic)" },
+                { label: "Audioguía", value: "(dynamic)" },
+                { label: "Tienda del museo", value: "(dynamic)" },
+                { label: "Total", value: "0.00€" }
+              ]
+            },
+            advanced: {
+              title: "Comprobante de Admisión — Museo Nacional del Prado",
+              fields: [
+                { label: "Institución", value: "Museo del Prado" },
+                { label: "Concepto de entradas", value: "(dynamic)" },
+                { label: "Servicio de audioguía", value: "(dynamic)" },
+                { label: "Artículos de la tienda del museo", value: "(dynamic)" },
+                { label: "Total a pagar", value: "0.00€" }
+              ]
+            }
+          }
         },
         displayOrder: 2,
         isInteractive: false

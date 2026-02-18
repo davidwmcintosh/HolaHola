@@ -14077,15 +14077,62 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
             p.title?.toLowerCase() === propTitle.toLowerCase()
           );
 
-          if (targetProp && targetProp.content?.fields) {
+          const resolvedContent = targetProp?.content?.byDifficulty
+            ? (targetProp.content.byDifficulty[session.difficultyLevel]
+              || targetProp.content.byDifficulty.intermediate
+              || targetProp.content.byDifficulty.beginner
+              || targetProp.content)
+            : targetProp?.content;
+
+          const BILL_LABEL_ALIASES: Record<string, string[]> = {
+            'items': ['artículos', 'detalle de consumo', 'detalle de consumiciones', 'artículos adquiridos', 'detalle'],
+            'subtotal': ['base imponible', 'subtotal'],
+            'total': ['total', 'total a pagar', 'importe total'],
+            'tax': ['iva', 'impuesto', 'tax'],
+            'establishment': ['establecimiento', 'local', 'comercio'],
+            'date': ['fecha', 'date'],
+            'driver': ['conductor', 'chofer'],
+            'fare': ['tarifa', 'importe del trayecto'],
+            'tip': ['propina'],
+            'from': ['origen', 'recogida'],
+            'to': ['destino', 'destino final'],
+            'distance': ['distancia', 'recorrido'],
+            'vendor': ['puesto', 'vendedor'],
+            'tickets': ['entradas', 'admisión'],
+            'audio guide': ['audioguía', 'guía de audio'],
+            'gift shop': ['tienda', 'tienda del museo'],
+            'service': ['servicio', 'coperto', 'cubierto'],
+            'guest': ['huésped', 'titular'],
+            'room': ['habitación'],
+            'nights': ['noches', 'estancias'],
+            'room charge': ['tarifa de alojamiento', 'cargo de habitación'],
+            'extras': ['cargos por servicios complementarios', 'extras'],
+          };
+
+          if (targetProp && resolvedContent?.fields) {
             for (const update of updates) {
-              const field = targetProp.content.fields.find((f: any) =>
-                f.label?.toLowerCase() === update.label.toLowerCase()
-              );
+              const updateLabel = update.label.toLowerCase();
+              const field = resolvedContent.fields.find((f: any) => {
+                const fl = f.label?.toLowerCase() || '';
+                if (fl === updateLabel) return true;
+                if (fl.includes(' / ')) {
+                  const parts = fl.split(' / ').map((s: string) => s.trim().toLowerCase());
+                  if (parts.some((p: string) => p === updateLabel || updateLabel.includes(p) || p.includes(updateLabel))) return true;
+                }
+                if (fl.includes(updateLabel) || updateLabel.includes(fl)) return true;
+                const aliases = BILL_LABEL_ALIASES[updateLabel];
+                if (aliases && aliases.some(a => fl.includes(a) || a.includes(fl))) return true;
+                for (const [key, vals] of Object.entries(BILL_LABEL_ALIASES)) {
+                  if (vals.some(v => v === updateLabel || updateLabel.includes(v))) {
+                    if (fl.includes(key) || key.includes(fl) || vals.some(v => fl.includes(v))) return true;
+                  }
+                }
+                return false;
+              });
               if (field) {
                 field.value = update.value;
               } else {
-                targetProp.content.fields.push({ label: update.label, value: update.value });
+                resolvedContent.fields.push({ label: update.label, value: update.value });
               }
             }
 
@@ -14096,7 +14143,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
               timestamp: Date.now(),
               propTitle,
               updates,
-              updatedFields: targetProp.content.fields,
+              updatedFields: resolvedContent.fields,
             });
           } else {
             console.warn(`[Native Function→UpdateProp] Prop "${propTitle}" not found or has no fields`);

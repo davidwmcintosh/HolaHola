@@ -699,14 +699,18 @@ export default function Chat() {
                     setLoadedScenarioData((prev: any) => {
                       if (!prev?.props) return prev;
                       const updatedProps = prev.props.map((p: any) => {
-                        if (p.title?.toLowerCase() === data.propTitle.toLowerCase() && p.content?.fields) {
-                          return {
-                            ...p,
-                            content: {
-                              ...p.content,
-                              fields: data.updatedFields,
-                            },
-                          };
+                        if (p.title?.toLowerCase() !== data.propTitle.toLowerCase()) return p;
+                        if (p.content?.byDifficulty) {
+                          const updated = { ...p, content: { ...p.content, byDifficulty: { ...p.content.byDifficulty } } };
+                          for (const level of Object.keys(updated.content.byDifficulty)) {
+                            if (updated.content.byDifficulty[level]?.fields) {
+                              updated.content.byDifficulty[level] = { ...updated.content.byDifficulty[level], fields: data.updatedFields };
+                            }
+                          }
+                          return updated;
+                        }
+                        if (p.content?.fields) {
+                          return { ...p, content: { ...p.content, fields: data.updatedFields } };
                         }
                         return p;
                       });
