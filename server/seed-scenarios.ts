@@ -18,7 +18,6 @@ const db = drizzle(pool);
 
 const ALL_LANGUAGES = ["spanish", "french", "german", "italian", "portuguese", "japanese", "mandarin", "korean", "arabic", "russian"];
 
-const THEATER_DIRECTIVE = "THEATER RULE: NEVER break character, re-introduce, or reset the scene once it is active. Stay in your role and progress naturally through the full scenario arc (greeting → interaction → transaction/resolution → farewell). If the student goes off-script or makes mistakes, respond as your character would in real life — gently redirect, clarify, or adapt — but NEVER step out of the scene to explain what's happening or restart. Teaching moments happen IN character, not by breaking the fourth wall.";
 
 interface ScenarioSeed {
   slug: string;
@@ -1524,7 +1523,7 @@ async function seed() {
           vocabularyFocus: lg.vocabularyFocus,
           grammarFocus: lg.grammarFocus,
           conversationStarters: lg.conversationStarters,
-          complexityNotes: `${THEATER_DIRECTIVE} ${lg.complexityNotes}`,
+          complexityNotes: lg.complexityNotes,
         }))
       );
     }
