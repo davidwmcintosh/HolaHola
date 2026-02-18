@@ -2,12 +2,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles, Globe, Users, BookOpen, Lightbulb } from "lucide-react";
 import { SunArcGreetings, FormalInformalComparison, QuickPhraseGrid } from "./TextbookInfographics";
+import { languageChapterData } from "@/data/chapter-intro-content";
 
 import familyGatheringImg from "@assets/stock_images/family_gathering_aro_0f321ed1.jpg";
 import coffeeShopImg from "@assets/stock_images/coffee_shop_friends__69e794a8.jpg";
 import danielaTutorImg from "@assets/generated_images/daniela_tutor_welcome_illustration.png";
-import numbersVocabImg from "@assets/generated_images/spanish_numbers_vocabulary_card.png";
-import familyTreeImg from "@assets/generated_images/spanish_family_vocabulary_tree.png";
 
 interface ChapterIntroductionProps {
   chapterNumber: number;
@@ -16,154 +15,77 @@ interface ChapterIntroductionProps {
   className?: string;
 }
 
-interface NarrativeSection {
-  title: string;
-  content: string;
-  image?: string;
-  imageAlt?: string;
-  tip?: string;
-  infographic?: 'sunArcGreetings' | 'formalInformal' | 'quickPhrases';
-}
+const chapterImages: Record<string, string[]> = {
+  greetings: [coffeeShopImg],
+  numbers: [],
+  family: [familyGatheringImg],
+  daily: [coffeeShopImg],
+};
 
-interface ChapterContentData {
-  welcomeText: string;
-  narrativeSections: NarrativeSection[];
-  culturalSpotlight?: {
-    title: string;
-    content: string;
-    image?: string;
-  };
-}
-
-// Match content by title keywords for flexibility
-function getContentByTitle(title: string): ChapterContentData | null {
-  const lowerTitle = title.toLowerCase();
-  
-  if (lowerTitle.includes('greet') || lowerTitle.includes('hello') || lowerTitle.includes('introduction')) {
-    return greetingsContent;
+function classifyChapterType(title: string): string | null {
+  const lower = title.toLowerCase();
+  if (lower.includes('greet') || lower.includes('hello') || lower.includes('introduction') || lower.includes('bonjour') || lower.includes('hallo') || lower.includes('ciao') || lower.includes('saluti') || lower.includes('はじめまして') || lower.includes('hajimemashite') || lower.includes('안녕하세요') || lower.includes('annyeong') || lower.includes('olá') || lower.includes('saudaç') || lower.includes('你好') || lower.includes('nǐ hǎo') || lower.includes('שלום') || lower.includes('¡hola')) {
+    return 'greetings';
   }
-  if (lowerTitle.includes('number') || lowerTitle.includes('count')) {
-    return numbersContent;
+  if (lower.includes('family') || lower.includes('familia') || lower.includes('famille') || lower.includes('meine familie') || lower.includes('famiglia') || lower.includes('família') || lower.includes('家族') || lower.includes('가족') || lower.includes('משפחה')) {
+    return 'family';
   }
-  if (lowerTitle.includes('family') || lowerTitle.includes('familia')) {
-    return familyContent;
-  }
-  if (lowerTitle.includes('review') || lowerTitle.includes('routine') || lowerTitle.includes('daily')) {
-    return dailyRoutinesContent;
+  if (lower.includes('review') || lower.includes('routine') || lower.includes('daily') || lower.includes('quotidien') || lower.includes('alltag') || lower.includes('quotidiana') || lower.includes('rotina') || lower.includes('毎日') || lower.includes('일상') || lower.includes('日常')) {
+    return 'daily';
   }
   return null;
 }
 
-const dailyRoutinesContent: ChapterContentData = {
-  welcomeText: "Let's refresh what you know and build your daily vocabulary! This chapter reviews essential Spanish basics and introduces simple phrases for everyday life. Perfect for warming up or solidifying your foundation.",
-  narrativeSections: [
-    {
-      title: "Greetings Throughout the Day",
-      content: "Spanish greetings change with the time of day. Start your morning with 'Buenos días', switch to 'Buenas tardes' after lunch, and greet the evening with 'Buenas noches'. These simple phrases open every conversation!",
-      infographic: 'sunArcGreetings',
-      tip: "Unlike English 'Good night' (only for goodbye), 'Buenas noches' works for both greeting and farewell."
-    },
-    {
-      title: "Essential Courtesy",
-      content: "Two magic words will take you far: 'Por favor' (please) and 'Gracias' (thank you). Add '¿Cómo estás?' (How are you?) and 'Muy bien' (Very well) to start friendly exchanges anywhere you go.",
-      infographic: 'quickPhrases'
-    },
-    {
-      title: "Simple Daily Words",
-      content: "Build your vocabulary with everyday words: 'el día' (the day), 'la mañana' (the morning), 'la noche' (the night), 'hoy' (today), 'mañana' (tomorrow). These building blocks appear in countless conversations.",
-      tip: "Notice that 'mañana' means both 'morning' and 'tomorrow' - context tells you which!"
-    }
-  ],
-  culturalSpotlight: {
-    title: "La Sobremesa",
-    content: "In Spanish-speaking cultures, meals are a time for connection. 'Sobremesa' is the cherished tradition of lingering at the table after eating, just talking and enjoying company. It's where real bonds are formed!",
-    image: coffeeShopImg
-  }
-};
-
-const greetingsContent: ChapterContentData = {
-  welcomeText: "Welcome to your Spanish journey! In this chapter, you'll learn the essential building blocks of Spanish conversation - greetings, introductions, and the art of making a great first impression.",
-  narrativeSections: [
-    {
-      title: "The Art of Greeting",
-      content: "In Spanish-speaking cultures, greetings are more than just words - they're a warm embrace of connection. Unlike quick 'hi and bye' exchanges, Spanish greetings often come with genuine warmth: a kiss on the cheek among friends, a firm handshake in business, and always, always eye contact.",
-      image: coffeeShopImg,
-      imageAlt: "Friends having coffee and conversation",
-      tip: "Pro tip: In most Latin American countries, a single kiss on the cheek is common. In Spain, it's usually two!"
-    },
-    {
-      title: "Time Matters",
-      content: "Spanish has different greetings for different times of day. 'Buenos días' greets the morning sun, 'Buenas tardes' welcomes the afternoon, and 'Buenas noches' embraces the evening. Pay attention to when the sun is in the sky!",
-      infographic: 'sunArcGreetings'
-    },
-    {
-      title: "Formal vs. Informal",
-      content: "Spanish distinguishes between formal and informal speech through 'usted' and 'tú'. Think of 'usted' as the respectful distance you'd keep with your boss or an elder, while 'tú' is the comfortable closeness of friends and family.",
-      infographic: 'formalInformal',
-      tip: "When in doubt, start formal! It's always better to be too polite than too casual."
-    }
-  ],
-  culturalSpotlight: {
-    title: "¡Sobremesa!",
-    content: "One of the most beautiful Spanish traditions is 'sobremesa' - the time spent lingering at the table after a meal, just talking and enjoying company. This is where real conversations happen, where bonds are strengthened. No rushing, no checking phones - just connection.",
-    image: familyGatheringImg
-  }
-};
-
-const numbersContent: ChapterContentData = {
-  welcomeText: "Numbers are the universal language! In this chapter, you'll master counting in Spanish from zero to a million. Whether you're shopping, telling time, or sharing your phone number, numbers will become second nature.",
-  narrativeSections: [
-    {
-      title: "Counting from Zero",
-      content: "Spanish numbers follow patterns that make them easier to learn than you might think. Start with uno, dos, tres and build from there. The first fifteen numbers are unique, but after that, predictable patterns emerge that will help you count to infinity!",
-      image: numbersVocabImg,
-      imageAlt: "Spanish numbers vocabulary card",
-      tip: "Notice that 'uno' becomes 'un' before masculine nouns: 'un libro' (one book), but stays 'una' for feminine: 'una mesa' (one table)."
-    },
-    {
-      title: "Numbers in Daily Life",
-      content: "From asking '¿Cuánto cuesta?' (How much does it cost?) to giving your phone number digit by digit, numbers appear everywhere. Practice by counting everyday objects, reading prices, or doing simple math problems in Spanish.",
-      tip: "When giving phone numbers in Spanish, people often say digits in pairs: 55-12-34 instead of 5-5-1-2-3-4."
-    }
-  ],
-  culturalSpotlight: {
-    title: "El Regateo (Bargaining)",
-    content: "In many Spanish-speaking countries, bargaining is an art form, especially in markets and small shops. Knowing your numbers well gives you confidence to negotiate prices. Start by asking 'Me puede hacer un descuento?' (Can you give me a discount?) and see where the conversation goes!"
-  }
-};
-
-const familyContent: ChapterContentData = {
-  welcomeText: "Family is at the heart of Spanish-speaking culture. In this chapter, you'll learn to talk about your loved ones and understand the beautiful, sometimes complex, family structures that define Latin identity.",
-  narrativeSections: [
-    {
-      title: "La Familia",
-      content: "In Spanish-speaking cultures, 'family' often extends far beyond the nuclear unit. Cousins might be as close as siblings, and 'tíos' (aunts and uncles) play significant roles in raising children. The vocabulary reflects this richness.",
-      image: familyTreeImg,
-      imageAlt: "Spanish family vocabulary tree",
-      tip: "Many Spanish speakers use 'tío/tía' affectionately for close friends too - it's like calling someone 'dude' or 'hon'!"
-    },
-    {
-      title: "Extended Family Bonds",
-      content: "Spanish has specific words for family relationships that English groups together. 'Suegra' is mother-in-law, 'cuñado' is brother-in-law, and 'compadre' describes a special bond between godparents and parents.",
-      image: familyGatheringImg,
-      imageAlt: "Family gathering"
-    }
-  ],
-  culturalSpotlight: {
-    title: "Los Apellidos",
-    content: "Spanish naming conventions are unique - most people carry two last names: their father's surname followed by their mother's. This tradition honors both sides of the family and helps trace lineage. So 'García López' tells a story of two families joined together.",
-    image: familyGatheringImg
-  }
-};
+function normalizeLanguageKey(language: string): string {
+  const lower = language.toLowerCase();
+  if (lower === 'mandarin chinese' || lower === 'mandarin') return 'mandarin';
+  return lower;
+}
 
 export function ChapterIntroduction({ chapterNumber, chapterTitle, language, className = "" }: ChapterIntroductionProps) {
-  // Try to match content by title first (more accurate), fall back to number
-  const content = chapterTitle ? getContentByTitle(chapterTitle) : null;
+  const langKey = normalizeLanguageKey(language);
+  const langData = languageChapterData[langKey];
   
-  if (!content || language !== "spanish") {
-    return null;
-  }
+  if (!langData || !chapterTitle) return null;
   
+  const chapterType = classifyChapterType(chapterTitle);
+  if (!chapterType) return null;
+  
+  const content = langData.chapters[chapterType];
+  if (!content) return null;
+  
+  const images = chapterImages[chapterType] || [];
+
+  const renderInfographic = (type: string) => {
+    switch (type) {
+      case 'sunArcGreetings':
+        return (
+          <SunArcGreetings
+            className="w-full"
+            morning={langData.greetings.morning}
+            afternoon={langData.greetings.afternoon}
+            evening={langData.greetings.evening}
+          />
+        );
+      case 'formalInformal':
+        return (
+          <FormalInformalComparison
+            className="w-full"
+            items={langData.formalInformal}
+          />
+        );
+      case 'quickPhrases':
+        return (
+          <QuickPhraseGrid
+            className="w-full"
+            phrases={langData.quickPhrases}
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className={`space-y-6 ${className}`}>
       <Card className="overflow-hidden border-primary/20 bg-gradient-to-br from-primary/5 to-transparent" data-testid="card-daniela-introduction">
@@ -172,7 +94,7 @@ export function ChapterIntroduction({ chapterNumber, chapterTitle, language, cla
             <div className="hidden md:block flex-shrink-0">
               <img 
                 src={danielaTutorImg} 
-                alt="Daniela, your Spanish tutor" 
+                alt="Your language tutor" 
                 className="w-24 h-24 rounded-full object-cover border-2 border-primary/20"
                 data-testid="img-daniela-avatar"
               />
@@ -180,7 +102,7 @@ export function ChapterIntroduction({ chapterNumber, chapterTitle, language, cla
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-2">
                 <Sparkles className="h-4 w-4 text-amber-500" />
-                <span className="text-sm font-medium text-amber-600 dark:text-amber-400" data-testid="text-daniela-intro-label">Daniela's Introduction</span>
+                <span className="text-sm font-medium text-amber-600 dark:text-amber-400" data-testid="text-daniela-intro-label">Your Tutor's Introduction</span>
               </div>
               <p className="text-muted-foreground leading-relaxed" data-testid="text-welcome-message">
                 {content.welcomeText}
@@ -191,49 +113,17 @@ export function ChapterIntroduction({ chapterNumber, chapterTitle, language, cla
       </Card>
       
       {content.narrativeSections.map((section, index) => {
-        const hasVisual = section.image || section.infographic;
-        
-        const renderInfographic = () => {
-          switch (section.infographic) {
-            case 'sunArcGreetings':
-              return <SunArcGreetings className="w-full" />;
-            case 'formalInformal':
-              return (
-                <FormalInformalComparison 
-                  className="w-full"
-                  items={[
-                    { formal: "¿Cómo está usted?", informal: "¿Cómo estás?", context: "How are you?" },
-                    { formal: "Mucho gusto", informal: "¡Hola!", context: "Nice to meet you / Hi!" },
-                    { formal: "Con permiso", informal: "Oye", context: "Excuse me / Hey" },
-                  ]}
-                />
-              );
-            case 'quickPhrases':
-              return (
-                <QuickPhraseGrid 
-                  className="w-full"
-                  phrases={[
-                    { phrase: "Hola", meaning: "Hello" },
-                    { phrase: "Adiós", meaning: "Goodbye" },
-                    { phrase: "Por favor", meaning: "Please" },
-                    { phrase: "Gracias", meaning: "Thank you" },
-                  ]}
-                />
-              );
-            default:
-              return null;
-          }
-        };
+        const hasVisual = images[index] || section.infographic;
         
         return (
           <Card key={index} className="overflow-hidden" data-testid={`card-narrative-section-${index}`}>
             <CardContent className="p-0">
               <div className={`flex flex-col ${index % 2 === 1 ? 'md:flex-row-reverse' : 'md:flex-row'}`}>
-                {section.image && (
+                {images[index] && !section.infographic && (
                   <div className="md:w-2/5 flex-shrink-0">
                     <img 
-                      src={section.image} 
-                      alt={section.imageAlt || section.title}
+                      src={images[index]} 
+                      alt={section.title}
                       className="w-full h-48 md:h-full object-cover"
                       data-testid={`img-narrative-${index}`}
                     />
@@ -241,7 +131,7 @@ export function ChapterIntroduction({ chapterNumber, chapterTitle, language, cla
                 )}
                 {section.infographic && (
                   <div className="md:w-2/5 flex-shrink-0 p-4 bg-muted/20 flex items-center justify-center" data-testid={`infographic-${index}`}>
-                    {renderInfographic()}
+                    {renderInfographic(section.infographic)}
                   </div>
                 )}
                 <div className={`flex-1 p-4 md:p-6 ${!hasVisual ? 'md:max-w-none' : ''}`}>
@@ -276,25 +166,13 @@ export function ChapterIntroduction({ chapterNumber, chapterTitle, language, cla
                 Cultural Spotlight
               </Badge>
             </div>
-            <div className="flex flex-col md:flex-row gap-4">
-              {content.culturalSpotlight.image && (
-                <div className="md:w-1/3 flex-shrink-0">
-                  <img 
-                    src={content.culturalSpotlight.image} 
-                    alt="Cultural context"
-                    className="w-full h-48 md:h-40 object-cover rounded-lg"
-                    data-testid="img-cultural-spotlight"
-                  />
-                </div>
-              )}
-              <div className="flex-1">
-                <h4 className="font-semibold text-purple-700 dark:text-purple-300 mb-2" data-testid="text-cultural-title">
-                  {content.culturalSpotlight.title}
-                </h4>
-                <p className="text-muted-foreground leading-relaxed" data-testid="text-cultural-content">
-                  {content.culturalSpotlight.content}
-                </p>
-              </div>
+            <div className="flex-1">
+              <h4 className="font-semibold text-purple-700 dark:text-purple-300 mb-2" data-testid="text-cultural-title">
+                {content.culturalSpotlight.title}
+              </h4>
+              <p className="text-muted-foreground leading-relaxed" data-testid="text-cultural-content">
+                {content.culturalSpotlight.content}
+              </p>
             </div>
           </CardContent>
         </Card>

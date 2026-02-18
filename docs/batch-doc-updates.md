@@ -8,6 +8,31 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: February 18, 2026 — Multi-Language Chapter Intros & Visual Assets
+
+**Status**: COMPLETED
+
+#### What was built
+Extended chapter introductions from Spanish-only to all 10 supported languages, and seeded the visual assets table.
+
+1. **Language-generic chapter intro data** — Created `client/src/data/chapter-intro-content.ts` with per-language phrase dictionaries for all 10 languages (Spanish, French, German, Italian, Japanese, Korean, Mandarin, Portuguese, English, Hebrew). Each language has: time-of-day greetings, formal/informal pairs, quick phrases, and 4 chapter intro content blocks (greetings, numbers, family, daily) with unique cultural spotlights.
+
+2. **ChapterIntroduction refactor** — Rewrote from hardcoded Spanish content to data-driven template system. Uses `classifyChapterType()` to match chapter titles to content types via keyword matching across all languages. `normalizeLanguageKey()` handles language name variations.
+
+3. **SunArcGreetings localization** — Updated SVG infographic to accept `morning`, `afternoon`, `evening` props instead of hardcoded "Buenos días" etc. Defaults preserved for backward compatibility.
+
+4. **Visual assets seeded** — Inserted 28 records into `textbook_visual_assets` table: hero images for greetings/daily/family chapters across all languages, plus Spanish-specific vocabulary and infographic AI-generated assets.
+
+#### Key files modified
+- `client/src/data/chapter-intro-content.ts` — NEW: Per-language chapter intro data (~1000 lines)
+- `client/src/components/ChapterIntroduction.tsx` — Rewritten to use data-driven templates
+- `client/src/components/TextbookInfographics.tsx` — SunArcGreetings accepts language props
+
+#### User-facing instructions
+Chapter introductions now appear for greetings, numbers, family, and daily routine chapters in ALL 10 languages. Previously only Spanish chapters showed introductions. The infographics (sun arc, formal/informal comparison, quick phrases) display content in the target language.
+
+---
+
 ### Session: February 18, 2026 — Interactive Textbook UX Fixes (Lyra-Identified)
 
 **Status**: COMPLETED

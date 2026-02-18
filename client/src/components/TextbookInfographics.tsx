@@ -1,8 +1,11 @@
 interface SunArcGreetingsProps {
   className?: string;
+  morning?: string;
+  afternoon?: string;
+  evening?: string;
 }
 
-export function SunArcGreetings({ className = '' }: SunArcGreetingsProps) {
+export function SunArcGreetings({ className = '', morning = 'Buenos días', afternoon = 'Buenas tardes', evening = 'Buenas noches' }: SunArcGreetingsProps) {
   return (
     <div className={`relative w-full ${className}`}>
       <svg 
@@ -77,7 +80,7 @@ export function SunArcGreetings({ className = '' }: SunArcGreetingsProps) {
         
         <g className="text-xs">
           <text x="60" y="160" textAnchor="middle" className="fill-foreground font-semibold text-sm">
-            Buenos días
+            {morning}
           </text>
           <text x="60" y="173" textAnchor="middle" className="fill-muted-foreground text-xs">
             morning
@@ -86,7 +89,7 @@ export function SunArcGreetings({ className = '' }: SunArcGreetingsProps) {
         
         <g className="text-xs">
           <text x="200" y="100" textAnchor="middle" className="fill-foreground font-semibold text-sm">
-            Buenas tardes
+            {afternoon}
           </text>
           <text x="200" y="113" textAnchor="middle" className="fill-muted-foreground text-xs">
             afternoon
@@ -95,7 +98,7 @@ export function SunArcGreetings({ className = '' }: SunArcGreetingsProps) {
         
         <g className="text-xs">
           <text x="340" y="160" textAnchor="middle" className="fill-foreground font-semibold text-sm">
-            Buenas noches
+            {evening}
           </text>
           <text x="340" y="173" textAnchor="middle" className="fill-muted-foreground text-xs">
             evening/night
