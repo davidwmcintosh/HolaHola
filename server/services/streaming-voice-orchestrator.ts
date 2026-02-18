@@ -6878,6 +6878,15 @@ Remember: David may reference things discussed in these recent text chats.
         const combinedDisplayText = batchedSentencesOM.map(s => s.displayText).join(' ');
         console.log(`[Google Batch TTS - OpenMic] Combining ${batchedSentencesOM.length} sentences (${combinedDisplayText.length} chars) for single TTS call`);
         
+        // ECHO SUPPRESSION: Re-assert before batch TTS starts
+        // onSentence set suppression when first text arrived from Gemini, but TTS was deferred.
+        // A previous turn's postTtsSuppressionTimer may have released it in the gap.
+        if (session.postTtsSuppressionTimer) {
+          clearTimeout(session.postTtsSuppressionTimer);
+          session.postTtsSuppressionTimer = null;
+        }
+        session.onTtsStateChange?.(true);
+        
         this.sendMessage(session.ws, {
           type: 'sentence_start',
           timestamp: Date.now(),
@@ -6994,6 +7003,16 @@ Remember: David may reference things discussed in these recent text chats.
             fullText = embeddedText;
             metrics.sentenceCount = omSentences.length;
 
+            // ECHO SUPPRESSION: Activate before Post-FC TTS starts
+            // When Gemini returns only function calls (no text sentences), onSentence never fires,
+            // so onTtsStateChange(true) was never called. We must suppress here to prevent
+            // Daniela's audio from being picked up by the open mic as user speech.
+            if (session.postTtsSuppressionTimer) {
+              clearTimeout(session.postTtsSuppressionTimer);
+              session.postTtsSuppressionTimer = null;
+            }
+            session.onTtsStateChange?.(true);
+
             const effectiveTtsProviderPostFCOM = session.ttsProvider || this.ttsProvider;
             if (effectiveTtsProviderPostFCOM === 'google' && omSentences.length > 1 && !session.isInterrupted) {
               console.log(`[Google Batch TTS - Post-FC OpenMic] Combining ${omSentences.length} sentences (${embeddedText.length} chars) for single TTS call`);
@@ -7075,6 +7094,13 @@ Remember: David may reference things discussed in these recent text chats.
           console.log(`[Multi-Step FC - OpenMic] Found embedded text (${embeddedTextBeforeContinuation.length} chars) → ${contSentences.length} sentences for pipelined TTS`);
           fullText = embeddedTextBeforeContinuation;
           metrics.sentenceCount = contSentences.length;
+
+          // ECHO SUPPRESSION: Activate before Multi-Step FC TTS
+          if (session.postTtsSuppressionTimer) {
+            clearTimeout(session.postTtsSuppressionTimer);
+            session.postTtsSuppressionTimer = null;
+          }
+          session.onTtsStateChange?.(true);
 
           for (let si = 0; si < contSentences.length; si++) {
             if (session.isInterrupted) break;
@@ -7258,6 +7284,15 @@ Remember: David may reference things discussed in these recent text chats.
                 
                 if (actualSentenceCount >= MAX_SENTENCES) return;
                 actualSentenceCount++;
+                
+                // ECHO SUPPRESSION: Activate on first continuation sentence TTS
+                if (chunk.index === 0 || metrics.sentenceCount === 0) {
+                  if (session.postTtsSuppressionTimer) {
+                    clearTimeout(session.postTtsSuppressionTimer);
+                    session.postTtsSuppressionTimer = null;
+                  }
+                  session.onTtsStateChange?.(true);
+                }
                 
                 console.log(`[Multi-Step FC - OpenMic] Continuation sentence ${chunk.index}: "${contDisplayText.substring(0, 50)}..."`);
                 
