@@ -8,6 +8,15 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: February 18, 2026 — Classroom Remodel Procedure Doc
+
+**Status**: COMPLETED
+
+#### What was built
+Created `docs/classroom-remodel-procedure.md` — a complete step-by-step procedure for adding, modifying, or removing elements from Daniela's virtual classroom. Covers display-only elements, persistent elements, and Daniela-changeable elements with the full function call checklist. Includes a reference table of all existing classroom elements, key files, and common mistakes.
+
+---
+
 ### Session: February 18, 2026 — Classroom Window + Student Perspective Awareness
 
 **Status**: COMPLETED
