@@ -69,7 +69,7 @@ export function DesktopChatLayout({
   }
 
   return (
-    <div className="flex h-full min-h-0 justify-center" data-testid="desktop-chat-layout">
+    <div className="flex h-full min-h-0 w-full max-w-[1400px] mx-auto" data-testid="desktop-chat-layout">
       {screenSize === "desktop" && (
         <ScenarioPanel
           scenario={activeScenario}
