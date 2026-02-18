@@ -25,53 +25,69 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PendingJoinCodeHandler } from "@/components/PendingJoinCodeHandler";
 import { BUILD_TIME } from "./buildtime";
 
-// Lazy load all page components for code splitting
-const Landing = lazy(() => import("@/pages/Landing"));
-const Onboarding = lazy(() => import("@/pages/onboarding"));
-const Dashboard = lazy(() => import("@/pages/dashboard"));
-const Chat = lazy(() => import("@/pages/chat"));
-const ChatIdeas = lazy(() => import("@/pages/chat-ideas"));
-const CulturalTips = lazy(() => import("@/pages/cultural-tips"));
-const Vocabulary = lazy(() => import("@/pages/vocabulary"));
-const Grammar = lazy(() => import("@/pages/grammar"));
-const History = lazy(() => import("@/pages/history"));
-const CanDoProgress = lazy(() => import("@/pages/can-do-progress"));
-const Settings = lazy(() => import("@/pages/settings"));
-const TeacherDashboard = lazy(() => import("@/pages/teacher-dashboard"));
-const ClassManagement = lazy(() => import("@/pages/class-management"));
-const AssignmentCreator = lazy(() => import("@/pages/assignment-creator"));
-const AssignmentGrading = lazy(() => import("@/pages/assignment-grading"));
-const StudentJoinClass = lazy(() => import("@/pages/student-join-class"));
-const StudentAssignments = lazy(() => import("@/pages/student-assignments"));
-const CurriculumBuilder = lazy(() => import("@/pages/curriculum-builder"));
-const CurriculumLibrary = lazy(() => import("@/pages/curriculum-library"));
-const ClassCreationHub = lazy(() => import("@/pages/class-creation-hub"));
-const CommandCenter = lazy(() => import("@/pages/admin/CommandCenter"));
-const MissionControl = lazy(() => import("@/pages/admin/MissionControl"));
-const AdminVoiceConsole = lazy(() => import("@/pages/admin/VoiceConsole"));
-const AdminNorthStar = lazy(() => import("@/pages/admin/NorthStar"));
-const AdminDeveloperDashboard = lazy(() => import("@/pages/admin/DeveloperDashboard"));
-const AdminBrainHealth = lazy(() => import("@/pages/admin/BrainHealth"));
-const AdminSessionEconomics = lazy(() => import("@/pages/admin/SessionEconomics"));
-const Lessons = lazy(() => import("@/pages/lessons"));
-const ReviewHub = lazy(() => import("@/pages/review-hub"));
-const ArisPractice = lazy(() => import("@/pages/aris-practice"));
-const ScenarioBrowser = lazy(() => import("@/pages/scenario-browser"));
-const PronunciationDrill = lazy(() => import("@/pages/pronunciation-drill"));
-const SessionReplay = lazy(() => import("@/pages/session-replay"));
-const InteractiveTextbook = lazy(() => import("@/pages/interactive-textbook"));
-const NotFound = lazy(() => import("@/pages/not-found"));
+function lazyWithRetry(importFn: () => Promise<any>, retries = 3, delay = 1500) {
+  return lazy(() => {
+    return new Promise((resolve, reject) => {
+      function attempt(left: number) {
+        importFn().then(resolve).catch((err: any) => {
+          if (left > 0) {
+            console.log(`[LazyLoad] Import failed, retrying in ${delay}ms (${left} left)...`);
+            setTimeout(() => attempt(left - 1), delay);
+          } else {
+            reject(err);
+          }
+        });
+      }
+      attempt(retries);
+    });
+  });
+}
 
-// Auth pages
-const Login = lazy(() => import("@/pages/auth/Login"));
-const Signup = lazy(() => import("@/pages/auth/Signup"));
-const GetStarted = lazy(() => import("@/pages/auth/GetStarted"));
-const Pricing = lazy(() => import("@/pages/Pricing"));
-const Classes = lazy(() => import("@/pages/Classes"));
-const ClassDetail = lazy(() => import("@/pages/ClassDetail"));
-const CompleteRegistration = lazy(() => import("@/pages/auth/CompleteRegistration"));
-const ForgotPassword = lazy(() => import("@/pages/auth/ForgotPassword"));
-const ResetPassword = lazy(() => import("@/pages/auth/ResetPassword"));
+const Landing = lazyWithRetry(() => import("@/pages/Landing"));
+const Onboarding = lazyWithRetry(() => import("@/pages/onboarding"));
+const Dashboard = lazyWithRetry(() => import("@/pages/dashboard"));
+const Chat = lazyWithRetry(() => import("@/pages/chat"));
+const ChatIdeas = lazyWithRetry(() => import("@/pages/chat-ideas"));
+const CulturalTips = lazyWithRetry(() => import("@/pages/cultural-tips"));
+const Vocabulary = lazyWithRetry(() => import("@/pages/vocabulary"));
+const Grammar = lazyWithRetry(() => import("@/pages/grammar"));
+const History = lazyWithRetry(() => import("@/pages/history"));
+const CanDoProgress = lazyWithRetry(() => import("@/pages/can-do-progress"));
+const Settings = lazyWithRetry(() => import("@/pages/settings"));
+const TeacherDashboard = lazyWithRetry(() => import("@/pages/teacher-dashboard"));
+const ClassManagement = lazyWithRetry(() => import("@/pages/class-management"));
+const AssignmentCreator = lazyWithRetry(() => import("@/pages/assignment-creator"));
+const AssignmentGrading = lazyWithRetry(() => import("@/pages/assignment-grading"));
+const StudentJoinClass = lazyWithRetry(() => import("@/pages/student-join-class"));
+const StudentAssignments = lazyWithRetry(() => import("@/pages/student-assignments"));
+const CurriculumBuilder = lazyWithRetry(() => import("@/pages/curriculum-builder"));
+const CurriculumLibrary = lazyWithRetry(() => import("@/pages/curriculum-library"));
+const ClassCreationHub = lazyWithRetry(() => import("@/pages/class-creation-hub"));
+const CommandCenter = lazyWithRetry(() => import("@/pages/admin/CommandCenter"));
+const MissionControl = lazyWithRetry(() => import("@/pages/admin/MissionControl"));
+const AdminVoiceConsole = lazyWithRetry(() => import("@/pages/admin/VoiceConsole"));
+const AdminNorthStar = lazyWithRetry(() => import("@/pages/admin/NorthStar"));
+const AdminDeveloperDashboard = lazyWithRetry(() => import("@/pages/admin/DeveloperDashboard"));
+const AdminBrainHealth = lazyWithRetry(() => import("@/pages/admin/BrainHealth"));
+const AdminSessionEconomics = lazyWithRetry(() => import("@/pages/admin/SessionEconomics"));
+const Lessons = lazyWithRetry(() => import("@/pages/lessons"));
+const ReviewHub = lazyWithRetry(() => import("@/pages/review-hub"));
+const ArisPractice = lazyWithRetry(() => import("@/pages/aris-practice"));
+const ScenarioBrowser = lazyWithRetry(() => import("@/pages/scenario-browser"));
+const PronunciationDrill = lazyWithRetry(() => import("@/pages/pronunciation-drill"));
+const SessionReplay = lazyWithRetry(() => import("@/pages/session-replay"));
+const InteractiveTextbook = lazyWithRetry(() => import("@/pages/interactive-textbook"));
+const NotFound = lazyWithRetry(() => import("@/pages/not-found"));
+
+const Login = lazyWithRetry(() => import("@/pages/auth/Login"));
+const Signup = lazyWithRetry(() => import("@/pages/auth/Signup"));
+const GetStarted = lazyWithRetry(() => import("@/pages/auth/GetStarted"));
+const Pricing = lazyWithRetry(() => import("@/pages/Pricing"));
+const Classes = lazyWithRetry(() => import("@/pages/Classes"));
+const ClassDetail = lazyWithRetry(() => import("@/pages/ClassDetail"));
+const CompleteRegistration = lazyWithRetry(() => import("@/pages/auth/CompleteRegistration"));
+const ForgotPassword = lazyWithRetry(() => import("@/pages/auth/ForgotPassword"));
+const ResetPassword = lazyWithRetry(() => import("@/pages/auth/ResetPassword"));
 
 // Loading fallback component
 function PageLoader() {
