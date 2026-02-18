@@ -111,6 +111,22 @@ const scenarioData: ScenarioSeed[] = [
         },
         displayOrder: 1,
         isInteractive: false
+      },
+      {
+        propType: "document",
+        title: "Daily Specials",
+        content: {
+          title: "Today's Specials / Ofertas del Día",
+          fields: [
+            { label: "Featured Coffee / Café destacado", value: "Colombian single origin pour-over / Café de Colombia de origen único — €3.80" },
+            { label: "Seasonal Drink / Bebida de temporada", value: "Iced matcha latte / Matcha latte frío — €4.20" },
+            { label: "Fresh Pastry / Bollería fresca", value: "Almond croissant / Cruasán de almendras — €2.80" },
+            { label: "Lunch Combo / Menú del día", value: "Sandwich + coffee + pastry / Bocadillo + café + bollería — €7.50" },
+            { label: "Happy Hour (16-18h)", value: "2nd drink half price / 2ª bebida a mitad de precio" }
+          ]
+        },
+        displayOrder: 2,
+        isInteractive: false
       }
     ],
     levelGuides: [
@@ -360,6 +376,23 @@ const scenarioData: ScenarioSeed[] = [
         },
         displayOrder: 1,
         isInteractive: false
+      },
+      {
+        propType: "document",
+        title: "Daily Specials",
+        content: {
+          title: "Today's Specials / Platos del Día",
+          fields: [
+            { label: "Chef's Starter / Entrante del chef", value: "Burrata with roasted peppers / Burrata con pimientos asados — €9.50" },
+            { label: "Soup of the Day / Sopa del día", value: "Minestrone — €6.00" },
+            { label: "Today's Catch / Pescado del día", value: "Grilled sea bass with lemon / Lubina a la plancha con limón — €16.00" },
+            { label: "Special Pasta / Pasta especial", value: "Truffle ravioli / Ravioli de trufa — €14.50" },
+            { label: "Dessert Special / Postre del día", value: "Limoncello semifreddo — €7.50" },
+            { label: "Wine Pairing / Maridaje", value: "Vermentino di Sardegna (glass) — €6.00" }
+          ]
+        },
+        displayOrder: 2,
+        isInteractive: false
       }
     ],
     levelGuides: [
@@ -445,6 +478,24 @@ const scenarioData: ScenarioSeed[] = [
           ]
         },
         displayOrder: 1,
+        isInteractive: false
+      },
+      {
+        propType: "card",
+        title: "Passport",
+        content: {
+          title: "Passport / Pasaporte",
+          fields: [
+            { label: "Country / País", value: "United States" },
+            { label: "Surname / Apellido", value: "(Student Name)" },
+            { label: "Given Names / Nombre", value: "(Student Name)" },
+            { label: "Passport No.", value: "X12345678" },
+            { label: "Date of Birth", value: "15 Mar 1995" },
+            { label: "Expiry / Vencimiento", value: "22 Jun 2030" },
+            { label: "Nationality / Nacionalidad", value: "American / Estadounidense" }
+          ]
+        },
+        displayOrder: 2,
         isInteractive: false
       }
     ],
@@ -549,6 +600,25 @@ const scenarioData: ScenarioSeed[] = [
         },
         displayOrder: 2,
         isInteractive: false
+      },
+      {
+        propType: "document",
+        title: "Guest Registration Card",
+        content: {
+          title: "Guest Registration Card / Ficha de Registro",
+          fields: [
+            { label: "Full Name / Nombre completo", value: "(to be filled)" },
+            { label: "Nationality / Nacionalidad", value: "(to be filled)" },
+            { label: "Passport No. / Nº Pasaporte", value: "(to be filled)" },
+            { label: "Check-in Date / Fecha entrada", value: "18 Feb 2026" },
+            { label: "Check-out Date / Fecha salida", value: "21 Feb 2026" },
+            { label: "Room Type / Tipo habitación", value: "Double / Doble" },
+            { label: "Special Requests / Peticiones especiales", value: "(to be filled)" },
+            { label: "Signature / Firma", value: "________________" }
+          ]
+        },
+        displayOrder: 3,
+        isInteractive: true
       }
     ],
     levelGuides: [
@@ -649,6 +719,22 @@ const scenarioData: ScenarioSeed[] = [
         },
         displayOrder: 2,
         isInteractive: false
+      },
+      {
+        propType: "card",
+        title: "Hotel Business Card",
+        content: {
+          title: "Hotel Business Card / Tarjeta del Hotel",
+          fields: [
+            { label: "Hotel", value: "Hotel Zócalo Centro" },
+            { label: "Address / Dirección", value: "Av. 5 de Mayo 61, Centro Histórico, CDMX" },
+            { label: "Phone / Teléfono", value: "+52 55 5130 5130" },
+            { label: "Near / Cerca de", value: "Zócalo, Templo Mayor, Palacio Nacional" },
+            { label: "Metro", value: "Línea 2 - Estación Zócalo" }
+          ]
+        },
+        displayOrder: 3,
+        isInteractive: false
       }
     ],
     levelGuides: [
@@ -735,6 +821,25 @@ const scenarioData: ScenarioSeed[] = [
         },
         displayOrder: 1,
         isInteractive: false
+      },
+      {
+        propType: "document",
+        title: "Job Description",
+        content: {
+          title: "Job Description / Descripción del Puesto",
+          fields: [
+            { label: "Title / Puesto", value: "Marketing Coordinator" },
+            { label: "Department / Departamento", value: "Marketing & Communications" },
+            { label: "Reports To / Reporta a", value: "VP of Marketing" },
+            { label: "Responsibilities", value: "Lead social media strategy, manage campaigns, analyze performance data, coordinate with design team" },
+            { label: "Requirements", value: "2+ years marketing experience, bilingual (Spanish/English), proficiency in analytics tools" },
+            { label: "Benefits / Beneficios", value: "Flexible hours, gym membership, language courses, 25 vacation days" },
+            { label: "Salary Range / Rango salarial", value: "€45,000 - €55,000" },
+            { label: "Start Date / Inicio", value: "April 2026" }
+          ]
+        },
+        displayOrder: 2,
+        isInteractive: false
       }
     ],
     levelGuides: [
@@ -820,6 +925,25 @@ const scenarioData: ScenarioSeed[] = [
         },
         displayOrder: 1,
         isInteractive: true
+      },
+      {
+        propType: "document",
+        title: "Q1 Performance Chart",
+        content: {
+          title: "Q1 Performance Summary / Resumen de Rendimiento Q1",
+          fields: [
+            { label: "Social Media Reach / Alcance redes", value: "↑ 34% vs Q4 (1.2M impressions)" },
+            { label: "Website Traffic / Tráfico web", value: "↑ 18% (45K monthly visitors)" },
+            { label: "Conversion Rate / Tasa de conversión", value: "↓ 2.1% (was 2.8% in Q4)" },
+            { label: "Email Open Rate / Apertura emails", value: "→ 22% (stable)" },
+            { label: "Ad Spend / Gasto publicitario", value: "€12,500 (↑ 15% over budget)" },
+            { label: "New Leads / Nuevos leads", value: "340 (target: 400)" },
+            { label: "Top Campaign", value: "Spring Launch — 3.2% CTR" },
+            { label: "Action Needed / Acción requerida", value: "Conversion rate decline needs investigation" }
+          ]
+        },
+        displayOrder: 2,
+        isInteractive: false
       }
     ],
     levelGuides: [
@@ -903,6 +1027,24 @@ const scenarioData: ScenarioSeed[] = [
         },
         displayOrder: 1,
         isInteractive: true
+      },
+      {
+        propType: "card",
+        title: "Party Invitation",
+        content: {
+          title: "Party Invitation / Invitación a la Fiesta",
+          fields: [
+            { label: "Host / Anfitriona", value: "María Rodríguez" },
+            { label: "What / Qué", value: "Housewarming party / Fiesta de bienvenida" },
+            { label: "When / Cuándo", value: "Saturday 8 PM / Sábado 20:00" },
+            { label: "Where / Dónde", value: "Av. Corrientes 1234, Piso 5, Depto B, Buenos Aires" },
+            { label: "Bring / Traer", value: "Something to drink or share / Algo para tomar o picar" },
+            { label: "Dress Code", value: "Casual / Informal" },
+            { label: "RSVP", value: "WhatsApp: +54 11 5555-1234" }
+          ]
+        },
+        displayOrder: 2,
+        isInteractive: false
       }
     ],
     levelGuides: [
@@ -1107,6 +1249,25 @@ const scenarioData: ScenarioSeed[] = [
         },
         displayOrder: 1,
         isInteractive: false
+      },
+      {
+        propType: "document",
+        title: "Patient Intake Form",
+        content: {
+          title: "Patient Intake Form / Formulario del Paciente",
+          fields: [
+            { label: "Full Name / Nombre completo", value: "(to be filled)" },
+            { label: "Date of Birth / Fecha de nacimiento", value: "(to be filled)" },
+            { label: "Known Allergies / Alergias conocidas", value: "(to be filled)" },
+            { label: "Current Medications / Medicamentos actuales", value: "(to be filled)" },
+            { label: "Previous Surgeries / Cirugías previas", value: "None / Ninguna" },
+            { label: "Family History / Antecedentes familiares", value: "(to be filled)" },
+            { label: "Reason for Visit / Motivo de consulta", value: "(to be filled)" },
+            { label: "Insurance / Seguro médico", value: "(to be filled)" }
+          ]
+        },
+        displayOrder: 2,
+        isInteractive: true
       }
     ],
     levelGuides: [
@@ -1191,6 +1352,27 @@ const scenarioData: ScenarioSeed[] = [
         },
         displayOrder: 1,
         isInteractive: false
+      },
+      {
+        propType: "document",
+        title: "Claim Form",
+        content: {
+          title: "Lost Item Claim Form / Formulario de Reclamación",
+          fields: [
+            { label: "Claimant Name / Nombre", value: "(to be filled)" },
+            { label: "ID / Documento de identidad", value: "(to be filled)" },
+            { label: "Date of Loss / Fecha de pérdida", value: "(to be filled)" },
+            { label: "Time / Hora aproximada", value: "(to be filled)" },
+            { label: "Location / Lugar", value: "(platform, train, waiting area)" },
+            { label: "Item Description / Descripción", value: "(to be filled)" },
+            { label: "Estimated Value / Valor estimado", value: "(to be filled)" },
+            { label: "Contact Phone / Teléfono", value: "(to be filled)" },
+            { label: "Contact Email / Correo", value: "(to be filled)" },
+            { label: "Signature / Firma", value: "________________" }
+          ]
+        },
+        displayOrder: 2,
+        isInteractive: true
       }
     ],
     levelGuides: [
