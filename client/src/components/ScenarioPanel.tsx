@@ -146,15 +146,26 @@ function MenuRenderer({ content, difficulty }: { content: any; difficulty: strin
   return <AdvancedMenuRenderer content={resolved} />;
 }
 
-function FieldsRenderer({ content }: { content: any }) {
-  const fields = content?.fields;
+function resolveFieldsContent(content: any, difficulty: string): any {
+  if (content?.byDifficulty) {
+    return content.byDifficulty[difficulty]
+      || content.byDifficulty.intermediate
+      || content.byDifficulty.beginner
+      || content;
+  }
+  return content;
+}
+
+function FieldsRenderer({ content, difficulty }: { content: any; difficulty: string }) {
+  const resolved = resolveFieldsContent(content, difficulty);
+  const fields = resolved?.fields;
   if (!fields || !Array.isArray(fields)) return null;
 
   return (
     <div className="space-y-1">
-      {content.title && (
+      {resolved.title && (
         <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
-          {content.title}
+          {resolved.title}
         </div>
       )}
       {fields.map((field: any, i: number) => (
@@ -223,7 +234,7 @@ function PropContentRenderer({ prop, difficulty }: { prop: ScenarioLoadedProp; d
     case 'bill':
     case 'document':
     case 'card':
-      return <FieldsRenderer content={prop.content} />;
+      return <FieldsRenderer content={prop.content} difficulty={difficulty} />;
     case 'map':
       return <MapRenderer content={prop.content} />;
     case 'list':
