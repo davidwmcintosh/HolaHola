@@ -9313,13 +9313,49 @@ Return ONLY the ${targetLanguage} phrase:`;
       
       console.log('[Textbook API] Found paths:', paths.length, paths.map(p => p.name));
       
-      // Find the primary curriculum path (usually "Language 1" for beginners)
-      const primaryPath = paths.find(p => 
-        p.name.toLowerCase().includes('1') || 
-        p.startLevel?.toLowerCase().includes('novice')
-      ) || paths[0];
+      // Select curriculum path based on student's current ACTFL level
+      const userProgress = await storage.getOrCreateUserProgress(normalizedLanguage, userId);
+      const actflLevel = userProgress.currentActflLevel || 'novice_low';
       
-      console.log('[Textbook API] Primary path:', primaryPath?.name || 'none');
+      // Allow explicit path override via query param (for manual path switching)
+      const requestedPathId = req.query.pathId as string | undefined;
+      
+      let primaryPath = requestedPathId 
+        ? paths.find(p => p.id === requestedPathId)
+        : undefined;
+      
+      if (!primaryPath) {
+        // Map: find the path whose start_level matches the student's current ACTFL level
+        const ACTFL_ORDER = ['novice_low', 'novice_mid', 'novice_high', 'intermediate_low', 'intermediate_mid', 'intermediate_high', 'advanced_low', 'advanced_mid', 'advanced_high'];
+        const studentLevelIndex = ACTFL_ORDER.indexOf(actflLevel);
+        
+        primaryPath = paths.find(p => p.startLevel === actflLevel);
+        
+        if (!primaryPath && studentLevelIndex >= 0) {
+          primaryPath = paths.find(p => {
+            const startIdx = ACTFL_ORDER.indexOf(p.startLevel || '');
+            const endIdx = ACTFL_ORDER.indexOf(p.endLevel || '');
+            return startIdx >= 0 && endIdx >= 0 && studentLevelIndex >= startIdx && studentLevelIndex <= endIdx;
+          });
+        }
+        
+        if (!primaryPath) {
+          primaryPath = paths.find(p => 
+            p.name.toLowerCase().includes('1') || 
+            p.startLevel?.toLowerCase().includes('novice_low')
+          ) || paths[0];
+        }
+      }
+      
+      console.log('[Textbook API] Student ACTFL level:', actflLevel, '→ Selected path:', primaryPath?.name || 'none');
+      
+      // Also return all available paths so the frontend can offer path switching
+      const allPaths = paths.map(p => ({
+        id: p.id,
+        name: p.name,
+        startLevel: p.startLevel,
+        endLevel: p.endLevel,
+      }));
       
       if (!primaryPath) {
         return res.json({
@@ -9405,6 +9441,8 @@ Return ONLY the ${targetLanguage} phrase:`;
           startLevel: primaryPath.startLevel,
           endLevel: primaryPath.endLevel,
         },
+        allPaths,
+        studentActflLevel: actflLevel,
         chapters,
         totalChapters: chapters.length,
         completedChapters: chapters.filter(c => c.progress === 100).length,

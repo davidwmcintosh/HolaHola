@@ -12,8 +12,16 @@ import {
   Play,
   CheckCircle2,
   Lock,
-  Sparkles
+  Sparkles,
+  GraduationCap
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Link, useLocation } from "wouter";
 import { TextbookChapterView } from "@/components/TextbookChapterView";
@@ -68,15 +76,19 @@ interface Recommendation {
   lessonsTotal: number;
 }
 
+interface CurriculumPathInfo {
+  id: string;
+  name: string;
+  description?: string;
+  startLevel: string;
+  endLevel: string;
+}
+
 interface TextbookData {
   language: string;
-  curriculumPath?: {
-    id: string;
-    name: string;
-    description: string;
-    startLevel: string;
-    endLevel: string;
-  };
+  curriculumPath?: CurriculumPathInfo;
+  allPaths?: CurriculumPathInfo[];
+  studentActflLevel?: string;
   chapters: Chapter[];
   totalChapters: number;
   completedChapters: number;
@@ -185,6 +197,13 @@ function ChapterSkeleton() {
 
 type ChapterFilter = 'all' | 'in-progress' | 'completed' | 'not-started';
 
+function formatActflLevel(level: string): string {
+  return level
+    .split('_')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
 function ChapterListView({
   chapters,
   textbookData,
@@ -193,6 +212,7 @@ function ChapterListView({
   isLoading,
   error,
   onOpenChapter,
+  onPathChange,
   savedPositionChapterId,
   recommendation,
 }: {
@@ -203,6 +223,7 @@ function ChapterListView({
   isLoading: boolean;
   error: Error | null;
   onOpenChapter: (chapter: Chapter) => void;
+  onPathChange?: (pathId: string) => void;
   savedPositionChapterId?: string | null;
   recommendation?: Recommendation | null;
 }) {
@@ -252,11 +273,37 @@ function ChapterListView({
           <p className="text-muted-foreground mt-1">
             Your {languageDisplayName} visual learning guide
           </p>
-          {textbookData?.curriculumPath && (
+          {textbookData?.curriculumPath && textbookData.allPaths && textbookData.allPaths.length > 1 ? (
+            <div className="flex items-center gap-2 mt-1">
+              <GraduationCap className="h-3.5 w-3.5 text-muted-foreground" />
+              <Select
+                value={textbookData.curriculumPath.id}
+                onValueChange={(pathId) => {
+                  if (onPathChange) onPathChange(pathId);
+                }}
+              >
+                <SelectTrigger className="h-7 text-xs w-auto min-w-[160px]" data-testid="select-curriculum-path">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {textbookData.allPaths.map(p => (
+                    <SelectItem key={p.id} value={p.id} data-testid={`option-path-${p.id}`}>
+                      {p.name.replace(/ - High School| - Advanced/g, '')}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {textbookData.studentActflLevel && (
+                <Badge variant="outline" className="text-xs" data-testid="badge-actfl-level">
+                  {formatActflLevel(textbookData.studentActflLevel)}
+                </Badge>
+              )}
+            </div>
+          ) : textbookData?.curriculumPath ? (
             <p className="text-xs text-muted-foreground mt-0.5">
               {textbookData.curriculumPath.name}
             </p>
-          )}
+          ) : null}
         </div>
         
         <div className="flex items-center gap-3">
@@ -391,11 +438,18 @@ export default function InteractiveTextbook() {
   const { language } = useLanguage();
   const [, setLocation] = useLocation();
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
+  const [selectedPathId, setSelectedPathId] = useState<string | null>(null);
   
   const languageDisplayName = language.charAt(0).toUpperCase() + language.slice(1);
   
+  const pathQuery = selectedPathId ? `?pathId=${selectedPathId}` : '';
   const { data: textbookData, isLoading, error } = useQuery<TextbookData>({
-    queryKey: ['/api/textbook', language],
+    queryKey: ['/api/textbook', language, selectedPathId || 'auto'],
+    queryFn: async () => {
+      const res = await fetch(`/api/textbook/${language}${pathQuery}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to load textbook');
+      return res.json();
+    },
   });
   
   const { data: positionData } = useQuery<{ position: { lastChapterId?: string } | null }>({
@@ -441,6 +495,11 @@ export default function InteractiveTextbook() {
     setLocation('/review');
   }, [setLocation]);
 
+  const handlePathChange = useCallback((pathId: string) => {
+    setSelectedPathId(pathId);
+    setSelectedChapter(null);
+  }, []);
+
   if (selectedChapter) {
     return (
       <TextbookChapterView
@@ -463,6 +522,7 @@ export default function InteractiveTextbook() {
       isLoading={isLoading}
       error={error as Error | null}
       onOpenChapter={handleOpenChapter}
+      onPathChange={handlePathChange}
       savedPositionChapterId={positionData?.position?.lastChapterId}
       recommendation={recommendationData?.recommendation}
     />

@@ -15,13 +15,7 @@ import {
   CheckCircle2,
   Play
 } from "lucide-react";
-import { 
-  LessonSnapshot,
-  ObjectivesHighlight,
-  VocabularyStudyGuide,
-  UsefulPhrases,
-  PreparationTips
-} from "./TextbookInfographics";
+import { LessonPrepCard } from "./TextbookInfographics";
 import { ChapterRecap } from "./ChapterRecap";
 import { ChapterIntroduction } from "./ChapterIntroduction";
 import { apiRequest } from "@/lib/queryClient";
@@ -93,12 +87,14 @@ function getLessonTypeIcon(type: string) {
 function VisualLessonCard({
   section,
   index,
+  language,
   onStartConversation,
   onStartDrill,
   onViewed
 }: {
   section: Section;
   index: number;
+  language?: string;
   onStartConversation: () => void;
   onStartDrill: () => void;
   onViewed: () => void;
@@ -171,31 +167,12 @@ function VisualLessonCard({
             <p className="text-sm text-muted-foreground">{section.description}</p>
           )}
           
-          {section.objectives && section.objectives.length > 0 && (
-            <ObjectivesHighlight 
-              objectives={section.objectives} 
-              title="After this lesson, I can..."
-            />
-          )}
-          
-          {section.drills && section.drills.length > 0 && (
-            <VocabularyStudyGuide 
-              drills={section.drills}
-              title="Study These Words First"
-            />
-          )}
-          
-          {section.conversationTopic && section.drills && section.drills.length > 0 && (
-            <UsefulPhrases 
-              drills={section.drills}
-              topic={section.conversationTopic}
-            />
-          )}
-          
-          <PreparationTips 
-            lessonType={section.lessonType}
-            conversationTopic={section.conversationTopic}
+          <LessonPrepCard
             objectives={section.objectives}
+            drills={section.drills}
+            conversationTopic={section.conversationTopic}
+            lessonType={section.lessonType}
+            language={language}
           />
           
           <div className="flex gap-2 flex-wrap sm:flex-nowrap">
@@ -327,6 +304,7 @@ export function TextbookChapterView({
             key={section.id}
             section={section}
             index={index}
+            language={language}
             onStartConversation={onStartConversation}
             onStartDrill={() => onStartDrill(section.id)}
             onViewed={() => handleSectionViewed(section.id)}

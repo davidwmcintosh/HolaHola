@@ -272,27 +272,6 @@ export function VisualVocabCard({
   );
 }
 
-export const SAMPLE_GREETINGS_DATA = {
-  formalInformal: [
-    { formal: "Usted", informal: "Tú", context: '"you" - addressing someone' },
-    { formal: "¿Cómo está?", informal: "¿Cómo estás?", context: '"How are you?"' },
-    { formal: "Mucho gusto", informal: "¡Hola!", context: "meeting someone" },
-  ],
-  nameExchange: [
-    { speaker: 'A' as const, text: "¡Hola! ¿Cómo te llamas?", translation: "Hi! What's your name?" },
-    { speaker: 'B' as const, text: "Me llamo María. ¿Y tú?", translation: "My name is María. And you?" },
-    { speaker: 'A' as const, text: "Soy Carlos. ¡Mucho gusto!", translation: "I'm Carlos. Nice to meet you!" },
-    { speaker: 'B' as const, text: "¡Igualmente!", translation: "Likewise!" },
-  ],
-  quickPhrases: [
-    { phrase: "¡Hola!", meaning: "Hello!" },
-    { phrase: "¡Adiós!", meaning: "Goodbye!" },
-    { phrase: "Por favor", meaning: "Please" },
-    { phrase: "Gracias", meaning: "Thank you" },
-    { phrase: "De nada", meaning: "You're welcome" },
-    { phrase: "Perdón", meaning: "Excuse me/Sorry" },
-  ]
-};
 
 interface DrillItem {
   id: string;
@@ -559,6 +538,7 @@ interface PreparationTipsProps {
   lessonType: string;
   conversationTopic?: string;
   objectives?: string[];
+  language?: string;
   className?: string;
 }
 
@@ -566,13 +546,15 @@ export function PreparationTips({
   lessonType, 
   conversationTopic, 
   objectives,
+  language,
   className = '' 
 }: PreparationTipsProps) {
   const tips: string[] = [];
+  const langDisplay = language ? language.charAt(0).toUpperCase() + language.slice(1) : 'the target language';
   
   if (lessonType === 'conversation' && conversationTopic) {
     tips.push(`Think about your own experience with: ${conversationTopic}`);
-    tips.push("Daniela will guide you - just try to respond in Spanish!");
+    tips.push(`Daniela will guide you \u2014 just try to respond in ${langDisplay}!`);
   } else if (lessonType === 'drill') {
     tips.push("Practice saying each word out loud before starting");
     tips.push("Focus on pronunciation, not just understanding");
@@ -591,7 +573,7 @@ export function PreparationTips({
         tips.push("Organize your thoughts on how you'd explain this topic");
       }
       if (lowerObj.includes('routine') || lowerObj.includes('daily')) {
-        tips.push("Review time words: por la mañana, por la tarde, por la noche");
+        tips.push("Review time-of-day vocabulary for this language before starting");
       }
       if (lowerObj.includes('culture') || lowerObj.includes('custom')) {
         tips.push("Think about cultural differences you've noticed or read about");
@@ -719,6 +701,186 @@ export function ObjectivesHighlight({
           +{objectives.length - 4} more objectives
         </p>
       )}
+    </div>
+  );
+}
+
+interface LessonPrepCardProps {
+  objectives?: string[];
+  drills?: DrillItem[];
+  conversationTopic?: string;
+  lessonType: string;
+  language?: string;
+  className?: string;
+}
+
+export function LessonPrepCard({
+  objectives,
+  drills = [],
+  conversationTopic,
+  lessonType,
+  language,
+  className = ''
+}: LessonPrepCardProps) {
+  const langDisplay = language ? language.charAt(0).toUpperCase() + language.slice(1) : 'the target language';
+  
+  const vocabDrills = drills
+    .filter(d => d.itemType === 'listen_repeat' || d.itemType === 'translate_speak')
+    .filter(d => d.targetText && d.targetText.length < 50)
+    .slice(0, 6);
+  
+  const phraseDrills = drills
+    .filter(d => d.targetText && d.targetText.split(' ').length >= 2)
+    .slice(0, 4);
+
+  const conversationScriptLines = conversationTopic ? drills
+    .filter(d => d.targetText && d.prompt)
+    .slice(0, 3)
+    .map((d, i) => ({
+      speaker: i % 2 === 0 ? 'Daniela' as const : 'You' as const,
+      line: d.targetText,
+      translation: d.prompt,
+    })) : [];
+
+  const hasObjectives = objectives && objectives.length > 0;
+  const hasVocab = vocabDrills.length > 0;
+  const hasPhrases = phraseDrills.length > 0;
+  const hasConversation = !!conversationTopic;
+  const hasScript = conversationScriptLines.length > 0;
+  
+  if (!hasObjectives && !hasVocab && !hasPhrases && !hasConversation) return null;
+
+  return (
+    <div className={`rounded-lg border bg-card overflow-hidden ${className}`} data-testid="lesson-prep-card">
+      <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-4 py-3 border-b">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center">
+            <svg viewBox="0 0 24 24" className="w-4 h-4 text-primary" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+          </div>
+          <div>
+            <h4 className="text-sm font-semibold">Lesson Prep</h4>
+            <p className="text-xs text-muted-foreground">What you'll learn and practice</p>
+          </div>
+        </div>
+      </div>
+      
+      <div className="p-4 space-y-4">
+        {hasObjectives && (
+          <div data-testid="prep-can-do-goals">
+            <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <circle cx="12" cy="12" r="6" />
+                <circle cx="12" cy="12" r="2" fill="currentColor" />
+              </svg>
+              After this lesson, I can...
+            </p>
+            <ul className="space-y-1.5">
+              {objectives!.slice(0, 4).map((obj, i) => (
+                <li 
+                  key={i} 
+                  className="flex items-start gap-2.5 p-2 rounded-md bg-muted/30"
+                  data-testid={`prep-objective-${i}`}
+                >
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${
+                    i === 0 ? 'bg-green-500/20 text-green-600 dark:text-green-400' :
+                    i === 1 ? 'bg-blue-500/20 text-blue-600 dark:text-blue-400' :
+                    i === 2 ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400' :
+                    'bg-purple-500/20 text-purple-600 dark:text-purple-400'
+                  }`}>
+                    {i + 1}
+                  </div>
+                  <span className="text-sm leading-relaxed">{obj}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        
+        {hasConversation && (
+          <div className="rounded-md bg-primary/5 border border-primary/15 p-3" data-testid="prep-conversation-preview">
+            <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+              Conversation Preview
+            </p>
+            <p className="text-sm font-medium mb-1">{conversationTopic}</p>
+            {hasScript && (
+              <div className="mt-2 space-y-1.5 border-t border-primary/10 pt-2">
+                {conversationScriptLines.map((line, i) => (
+                  <div key={i} className="flex items-start gap-2" data-testid={`prep-script-line-${i}`}>
+                    <span className={`text-xs font-semibold shrink-0 mt-0.5 ${
+                      line.speaker === 'Daniela' 
+                        ? 'text-violet-600 dark:text-violet-400' 
+                        : 'text-emerald-600 dark:text-emerald-400'
+                    }`}>
+                      {line.speaker === 'Daniela' ? 'T:' : 'S:'}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium leading-snug">{line.line}</p>
+                      <p className="text-xs text-muted-foreground">{line.translation}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground mt-2">
+              Daniela will guide you \u2014 just try to respond in {langDisplay}!
+            </p>
+          </div>
+        )}
+        
+        {hasVocab && (
+          <div data-testid="prep-vocabulary">
+            <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+              Key Vocabulary
+            </p>
+            <div className="grid grid-cols-2 gap-1.5">
+              {vocabDrills.map((drill, i) => (
+                <div 
+                  key={drill.id || i} 
+                  className="p-2 rounded-md bg-muted/30 border border-transparent"
+                  data-testid={`prep-vocab-${i}`}
+                >
+                  <p className="font-medium text-sm truncate">{drill.targetText}</p>
+                  {drill.prompt && (
+                    <p className="text-xs text-muted-foreground truncate">{drill.prompt}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        {hasPhrases && (
+          <div data-testid="prep-phrases">
+            <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+              </svg>
+              Useful Phrases
+            </p>
+            <div className="space-y-1.5">
+              {phraseDrills.map((drill, i) => (
+                <div 
+                  key={drill.id || i} 
+                  className="p-2 rounded-md bg-green-500/5 border border-green-500/15"
+                  data-testid={`prep-phrase-${i}`}
+                >
+                  <p className="font-medium text-sm">{drill.targetText}</p>
+                  <p className="text-xs text-muted-foreground">{drill.prompt}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
