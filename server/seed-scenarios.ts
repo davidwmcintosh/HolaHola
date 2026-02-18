@@ -47,9 +47,9 @@ const scenarioData: ScenarioSeed[] = [
   {
     slug: "coffee-shop",
     title: "The Coffee Shop",
-    description: "Order drinks and snacks at Café Sol, a cozy coffee shop in Valencia. Practice greetings, polite requests, and handling money.",
+    description: "Order drinks and snacks at a cozy neighborhood coffee shop. Practice greetings, polite requests, and handling money.",
     category: "daily",
-    location: "Café Sol, Valencia",
+    location: "A cozy coffee shop",
     defaultMood: "casual",
     minActflLevel: "novice_low",
     maxActflLevel: "advanced_high",
@@ -97,7 +97,7 @@ const scenarioData: ScenarioSeed[] = [
         content: {
           title: "Receipt",
           fields: [
-            { label: "Establishment", value: "Café Sol" },
+            { label: "Establishment", value: "The Coffee Shop" },
             { label: "Date", value: "Today" },
             { label: "Items", value: "(dynamic)" },
             { label: "Subtotal", value: "0.00€" },
@@ -112,7 +112,7 @@ const scenarioData: ScenarioSeed[] = [
     levelGuides: [
       {
         actflLevel: "novice_low",
-        roleDescription: "You are a friendly, patient barista at Café Sol in Valencia. Speak slowly, use simple words, and gesture encouragingly. The student is ordering for the first time in Spanish.",
+        roleDescription: "You are a friendly, patient barista at a cozy coffee shop. Speak slowly, use simple words, and gesture encouragingly. The student is ordering for the first time in Spanish.",
         studentGoals: [
           "Greet the barista with 'Hola' or 'Buenos días'",
           "Order one drink using 'Un/una... por favor'",
@@ -129,7 +129,7 @@ const scenarioData: ScenarioSeed[] = [
       },
       {
         actflLevel: "novice_mid",
-        roleDescription: "You are a cheerful barista at Café Sol in Valencia. Engage in simple small talk while taking orders. The student can handle basic transactions.",
+        roleDescription: "You are a cheerful barista at a cozy coffee shop. Engage in simple small talk while taking orders. The student can handle basic transactions.",
         studentGoals: [
           "Order a drink and a pastry",
           "Specify preferences (hot/cold, with/without milk)",
@@ -146,7 +146,7 @@ const scenarioData: ScenarioSeed[] = [
       },
       {
         actflLevel: "intermediate_mid",
-        roleDescription: "You are a talkative, friendly barista at Café Sol in Valencia who loves chatting with regulars. Ask about their day, suggest items, and engage in casual conversation about the neighborhood.",
+        roleDescription: "You are a talkative, friendly barista at a cozy coffee shop who loves chatting with regulars. Ask about their day, suggest items, and engage in casual conversation about the neighborhood.",
         studentGoals: [
           "Carry a natural conversation while ordering",
           "Discuss preferences and make comparisons",
@@ -168,9 +168,9 @@ const scenarioData: ScenarioSeed[] = [
   {
     slug: "grocery-store",
     title: "The Grocery Store",
-    description: "Shop for ingredients at Mercado Central in Valencia. Practice quantities, food vocabulary, and interacting with market vendors.",
+    description: "Shop for ingredients at a bustling local market. Practice quantities, food vocabulary, and interacting with vendors.",
     category: "daily",
-    location: "Mercado Central, Valencia",
+    location: "A local market",
     defaultMood: "busy",
     minActflLevel: "novice_low",
     maxActflLevel: "advanced_high",
@@ -233,7 +233,7 @@ const scenarioData: ScenarioSeed[] = [
     levelGuides: [
       {
         actflLevel: "novice_low",
-        roleDescription: "You are a warm, patient vendor at Mercado Central in Valencia. Help the student buy basic items using simple language and pointing at products.",
+        roleDescription: "You are a warm, patient vendor at a bustling local market. Help the student buy basic items using simple language and pointing at products.",
         studentGoals: [
           "Ask for items by name",
           "Use numbers for quantities",
@@ -250,7 +250,7 @@ const scenarioData: ScenarioSeed[] = [
       },
       {
         actflLevel: "intermediate_mid",
-        roleDescription: "You are an enthusiastic market vendor at Mercado Central who loves to talk about food quality and recipes. Recommend products, explain origins, and chat about cooking.",
+        roleDescription: "You are an enthusiastic market vendor who loves to talk about food quality and recipes. Recommend products, explain origins, and chat about cooking.",
         studentGoals: [
           "Negotiate quantities and ask about freshness",
           "Ask for recommendations for a specific recipe",
@@ -272,9 +272,9 @@ const scenarioData: ScenarioSeed[] = [
   {
     slug: "restaurant",
     title: "The Restaurant",
-    description: "Dine at La Trattoria, a charming Italian restaurant in Rome. Practice ordering food, asking about dishes, and handling the bill.",
+    description: "Dine at a charming local restaurant. Practice ordering food, asking about dishes, and handling the bill.",
     category: "daily",
-    location: "La Trattoria, Rome",
+    location: "A local restaurant",
     defaultMood: "warm",
     minActflLevel: "novice_mid",
     maxActflLevel: "advanced_high",
@@ -326,7 +326,7 @@ const scenarioData: ScenarioSeed[] = [
         propType: "bill",
         title: "Check/Bill",
         content: {
-          title: "La Trattoria - Check",
+          title: "The Restaurant - Check",
           fields: [
             { label: "Table", value: "Mesa 7" },
             { label: "Server", value: "Marco" },
@@ -343,7 +343,7 @@ const scenarioData: ScenarioSeed[] = [
     levelGuides: [
       {
         actflLevel: "novice_mid",
-        roleDescription: "You are a friendly waiter named Marco at La Trattoria in Rome. You speak clearly and help the student navigate the menu with patience and warmth.",
+        roleDescription: "You are a friendly waiter named Marco at a charming local restaurant. You speak clearly and help the student navigate the menu with patience and warmth.",
         studentGoals: [
           "Request a table and understand seating",
           "Order a starter and a main course",
@@ -360,7 +360,7 @@ const scenarioData: ScenarioSeed[] = [
       },
       {
         actflLevel: "intermediate_low",
-        roleDescription: "You are Marco, an experienced waiter at La Trattoria who loves recommending dishes. Engage with the student about ingredients, preparations, and pairings.",
+        roleDescription: "You are Marco, an experienced waiter at a charming local restaurant who loves recommending dishes. Engage with the student about ingredients, preparations, and pairings.",
         studentGoals: [
           "Ask about ingredients and allergens",
           "Request recommendations and discuss preferences",
@@ -382,9 +382,9 @@ const scenarioData: ScenarioSeed[] = [
   {
     slug: "airport-checkin",
     title: "Airport Check-in",
-    description: "Navigate the check-in process at Aeropuerto de Madrid-Barajas. Practice travel vocabulary, following instructions, and handling documents.",
+    description: "Navigate the check-in process at the airport. Practice travel vocabulary, following instructions, and handling documents.",
     category: "travel",
-    location: "Aeropuerto de Madrid-Barajas",
+    location: "An airport terminal",
     defaultMood: "formal",
     minActflLevel: "novice_mid",
     maxActflLevel: "advanced_high",
@@ -429,7 +429,7 @@ const scenarioData: ScenarioSeed[] = [
     levelGuides: [
       {
         actflLevel: "novice_mid",
-        roleDescription: "You are a patient airline check-in agent at Madrid-Barajas airport. Speak clearly, use standard phrases, and guide the student through the check-in process step by step.",
+        roleDescription: "You are a patient airline check-in agent at the airport. Speak clearly, use standard phrases, and guide the student through the check-in process step by step.",
         studentGoals: [
           "Present passport and booking confirmation",
           "Understand seat assignment and gate information",
@@ -446,7 +446,7 @@ const scenarioData: ScenarioSeed[] = [
       },
       {
         actflLevel: "intermediate_mid",
-        roleDescription: "You are an efficient but friendly airline agent at Madrid-Barajas. Handle complex travel situations including connections, seat upgrades, and luggage issues.",
+        roleDescription: "You are an efficient but friendly airline agent at the airport. Handle complex travel situations including connections, seat upgrades, and luggage issues.",
         studentGoals: [
           "Handle check-in independently including luggage weight",
           "Request specific seat preferences with justification",
@@ -468,9 +468,9 @@ const scenarioData: ScenarioSeed[] = [
   {
     slug: "hotel-checkin",
     title: "Hotel Check-in",
-    description: "Check into the Grand Hôtel de Lyon, a charming hotel in France. Practice hospitality vocabulary, making requests, and understanding room information.",
+    description: "Check into a charming hotel. Practice hospitality vocabulary, making requests, and understanding room information.",
     category: "travel",
-    location: "Grand Hôtel de Lyon",
+    location: "A hotel front desk",
     defaultMood: "formal",
     minActflLevel: "novice_mid",
     maxActflLevel: "advanced_high",
@@ -486,8 +486,8 @@ const scenarioData: ScenarioSeed[] = [
             { label: "Floor / Piso", value: "4th / Cuarto" },
             { label: "Check-in", value: "18 Feb 2026, 15:00" },
             { label: "Check-out", value: "21 Feb 2026, 11:00" },
-            { label: "Wi-Fi Password", value: "GrandLyon2026" },
-            { label: "Breakfast / Desayuno", value: "7:00 - 10:30, Salon Lumière" }
+            { label: "Wi-Fi Password", value: "Hotel2026" },
+            { label: "Breakfast / Desayuno", value: "7:00 - 10:30, Main Dining Room" }
           ]
         },
         displayOrder: 0,
@@ -513,7 +513,7 @@ const scenarioData: ScenarioSeed[] = [
     levelGuides: [
       {
         actflLevel: "novice_mid",
-        roleDescription: "You are a polite and helpful receptionist at the Grand Hôtel de Lyon. Guide the student through a simple check-in process, speaking clearly and slowly.",
+        roleDescription: "You are a polite and helpful receptionist at a charming hotel. Guide the student through a simple check-in process, speaking clearly and slowly.",
         studentGoals: [
           "State your name and confirm your reservation",
           "Understand room number and floor",
@@ -530,7 +530,7 @@ const scenarioData: ScenarioSeed[] = [
       },
       {
         actflLevel: "intermediate_mid",
-        roleDescription: "You are a knowledgeable concierge at the Grand Hôtel de Lyon who helps guests with local recommendations, special requests, and problem-solving.",
+        roleDescription: "You are a knowledgeable concierge at a charming hotel who helps guests with local recommendations, special requests, and problem-solving.",
         studentGoals: [
           "Complete check-in and request room preferences (view, quiet floor)",
           "Ask detailed questions about hotel services and hours",
@@ -552,9 +552,9 @@ const scenarioData: ScenarioSeed[] = [
   {
     slug: "taxi-ride",
     title: "The Taxi Ride",
-    description: "Take a taxi through Mexico City. Practice giving directions, making small talk, and handling fares in a moving conversation.",
+    description: "Take a taxi across town. Practice giving directions, making small talk, and handling fares in a moving conversation.",
     category: "travel",
-    location: "Mexico City",
+    location: "A taxi cab",
     defaultMood: "casual",
     minActflLevel: "novice_mid",
     maxActflLevel: "intermediate_high",
@@ -595,7 +595,7 @@ const scenarioData: ScenarioSeed[] = [
     levelGuides: [
       {
         actflLevel: "novice_mid",
-        roleDescription: "You are a friendly taxi driver in Mexico City. You speak at a moderate pace and help the student communicate their destination. You're patient with beginners.",
+        roleDescription: "You are a friendly taxi driver. You speak at a moderate pace and help the student communicate their destination. You're patient with beginners.",
         studentGoals: [
           "Tell the driver where you want to go",
           "Understand basic directions (left, right, straight)",
@@ -612,7 +612,7 @@ const scenarioData: ScenarioSeed[] = [
       },
       {
         actflLevel: "intermediate_low",
-        roleDescription: "You are a chatty, knowledgeable taxi driver in Mexico City who loves sharing stories about the city. Engage in casual conversation about local sights, food, and culture.",
+        roleDescription: "You are a chatty, knowledgeable taxi driver who loves sharing stories about the city. Engage in casual conversation about local sights, food, and culture.",
         studentGoals: [
           "Give detailed directions including landmarks",
           "Engage in small talk about the city and local life",
@@ -634,9 +634,9 @@ const scenarioData: ScenarioSeed[] = [
   {
     slug: "job-interview",
     title: "Job Interview",
-    description: "Interview for a position at TechStart Berlin, a growing startup. Practice professional vocabulary, describing experience, and answering behavioral questions.",
+    description: "Interview for a position at a growing company. Practice professional vocabulary, describing experience, and answering behavioral questions.",
     category: "professional",
-    location: "TechStart Berlin",
+    location: "A company office",
     defaultMood: "formal",
     minActflLevel: "intermediate_mid",
     maxActflLevel: "advanced_high",
@@ -665,9 +665,9 @@ const scenarioData: ScenarioSeed[] = [
         content: {
           title: "Job Posting / Oferta de Empleo",
           fields: [
-            { label: "Company / Empresa", value: "TechStart Berlin" },
+            { label: "Company / Empresa", value: "The Company" },
             { label: "Position / Puesto", value: "Marketing Coordinator" },
-            { label: "Location / Ubicación", value: "Berlin, Germany (hybrid)" },
+            { label: "Location / Ubicación", value: "Hybrid / Remote" },
             { label: "Salary / Salario", value: "€45,000 - €55,000" },
             { label: "Requirements / Requisitos", value: "2+ years marketing experience, bilingual, data-driven" },
             { label: "Benefits / Beneficios", value: "Flexible hours, gym membership, language courses" },
@@ -681,7 +681,7 @@ const scenarioData: ScenarioSeed[] = [
     levelGuides: [
       {
         actflLevel: "intermediate_mid",
-        roleDescription: "You are a friendly HR manager at TechStart Berlin conducting a structured job interview. Ask clear questions and give the student time to formulate answers. Be encouraging but professional.",
+        roleDescription: "You are a friendly HR manager at a growing company conducting a structured job interview. Ask clear questions and give the student time to formulate answers. Be encouraging but professional.",
         studentGoals: [
           "Introduce yourself and describe your background",
           "Describe past work experience using past tenses",
@@ -699,7 +699,7 @@ const scenarioData: ScenarioSeed[] = [
       },
       {
         actflLevel: "advanced_low",
-        roleDescription: "You are the VP of Marketing at TechStart Berlin. Conduct a challenging behavioral interview with follow-up questions. Discuss strategy, leadership, and complex scenarios.",
+        roleDescription: "You are the VP of Marketing at a growing company. Conduct a challenging behavioral interview with follow-up questions. Discuss strategy, leadership, and complex scenarios.",
         studentGoals: [
           "Narrate complex professional experiences with nuance",
           "Discuss marketing strategy and analytical approaches",
@@ -721,9 +721,9 @@ const scenarioData: ScenarioSeed[] = [
   {
     slug: "office-meeting",
     title: "Office Meeting",
-    description: "Participate in a team meeting at Escritório São Paulo. Practice professional discussion, presenting ideas, and collaborative problem-solving.",
+    description: "Participate in a team meeting at work. Practice professional discussion, presenting ideas, and collaborative problem-solving.",
     category: "professional",
-    location: "Escritório São Paulo",
+    location: "An office meeting room",
     defaultMood: "professional",
     minActflLevel: "intermediate_mid",
     maxActflLevel: "advanced_high",
@@ -766,7 +766,7 @@ const scenarioData: ScenarioSeed[] = [
     levelGuides: [
       {
         actflLevel: "intermediate_mid",
-        roleDescription: "You are a supportive team lead at Escritório São Paulo running a structured team meeting. Guide the discussion through the agenda items and invite the student to contribute opinions.",
+        roleDescription: "You are a supportive team lead running a structured team meeting. Guide the discussion through the agenda items and invite the student to contribute opinions.",
         studentGoals: [
           "Follow and contribute to a structured meeting agenda",
           "Express opinions on business topics",
@@ -784,7 +784,7 @@ const scenarioData: ScenarioSeed[] = [
       },
       {
         actflLevel: "advanced_low",
-        roleDescription: "You are a senior director at Escritório São Paulo facilitating a high-stakes strategy meeting. Challenge the student to defend ideas, present data, and navigate office politics.",
+        roleDescription: "You are a senior director facilitating a high-stakes strategy meeting. Challenge the student to defend ideas, present data, and navigate office politics.",
         studentGoals: [
           "Present complex data and analysis to the team",
           "Defend a proposal against pushback",
@@ -806,9 +806,9 @@ const scenarioData: ScenarioSeed[] = [
   {
     slug: "house-party",
     title: "House Party",
-    description: "Attend a lively house party at Casa de María in Buenos Aires. Practice social introductions, casual conversation, and Argentine expressions.",
+    description: "Attend a lively house party. Practice social introductions, casual conversation, and local expressions.",
     category: "social",
-    location: "Casa de María, Buenos Aires",
+    location: "A friend's house",
     defaultMood: "lively",
     minActflLevel: "novice_high",
     maxActflLevel: "advanced_high",
@@ -849,7 +849,7 @@ const scenarioData: ScenarioSeed[] = [
     levelGuides: [
       {
         actflLevel: "novice_high",
-        roleDescription: "You are María, the warm and welcoming host of a house party in Buenos Aires. You introduce the student to other guests and make them feel included in simple conversations.",
+        roleDescription: "You are María, the warm and welcoming host of a house party. You introduce the student to other guests and make them feel included in simple conversations.",
         studentGoals: [
           "Introduce yourself to new people",
           "Ask and answer basic personal questions (name, origin, work)",
@@ -867,7 +867,7 @@ const scenarioData: ScenarioSeed[] = [
       },
       {
         actflLevel: "intermediate_mid",
-        roleDescription: "You are various party guests at María's house in Buenos Aires. Engage the student in deeper social conversations about life, interests, hobbies, and Argentine culture.",
+        roleDescription: "You are various party guests at a lively house party. Engage the student in deeper social conversations about life, interests, hobbies, and culture.",
         studentGoals: [
           "Navigate group conversations with multiple people",
           "Share personal stories and anecdotes",
@@ -889,9 +889,9 @@ const scenarioData: ScenarioSeed[] = [
   {
     slug: "first-date",
     title: "First Date",
-    description: "Enjoy a romantic dinner at Ristorante Il Giardino in Florence. Practice personal conversation, sharing interests, and navigating social nuances.",
+    description: "Enjoy a romantic dinner at a nice restaurant. Practice personal conversation, sharing interests, and navigating social nuances.",
     category: "social",
-    location: "Ristorante Il Giardino, Florence",
+    location: "A nice restaurant",
     defaultMood: "intimate",
     minActflLevel: "intermediate_low",
     maxActflLevel: "advanced_high",
@@ -949,7 +949,7 @@ const scenarioData: ScenarioSeed[] = [
     levelGuides: [
       {
         actflLevel: "intermediate_low",
-        roleDescription: "You are a charming, warm date at Ristorante Il Giardino in Florence. You're interested in getting to know the student, ask thoughtful questions, and share about yourself too. Keep the mood light and enjoyable.",
+        roleDescription: "You are a charming, warm date at a nice restaurant. You're interested in getting to know the student, ask thoughtful questions, and share about yourself too. Keep the mood light and enjoyable.",
         studentGoals: [
           "Introduce yourself and share basic personal information",
           "Ask and answer questions about hobbies and interests",
@@ -967,7 +967,7 @@ const scenarioData: ScenarioSeed[] = [
       },
       {
         actflLevel: "intermediate_high",
-        roleDescription: "You are an engaging, culturally curious date at Ristorante Il Giardino. You discuss deeper topics like life goals, cultural differences, and meaningful experiences. You're witty and thoughtful.",
+        roleDescription: "You are an engaging, culturally curious date at a nice restaurant. You discuss deeper topics like life goals, cultural differences, and meaningful experiences. You're witty and thoughtful.",
         studentGoals: [
           "Discuss personal values, goals, and aspirations",
           "Share and react to personal stories with appropriate emotion",
@@ -989,9 +989,9 @@ const scenarioData: ScenarioSeed[] = [
   {
     slug: "doctors-office",
     title: "Doctor's Office",
-    description: "Visit Consultório Dr. Santos in Lisbon to describe symptoms and understand medical advice. Practice health vocabulary and communicating discomfort.",
+    description: "Visit the doctor to describe symptoms and understand medical advice. Practice health vocabulary and communicating discomfort.",
     category: "emergency",
-    location: "Consultório Dr. Santos, Lisbon",
+    location: "A doctor's office",
     defaultMood: "concerned",
     minActflLevel: "novice_high",
     maxActflLevel: "advanced_high",
@@ -1035,7 +1035,7 @@ const scenarioData: ScenarioSeed[] = [
     levelGuides: [
       {
         actflLevel: "novice_high",
-        roleDescription: "You are Dr. Santos, a calm and compassionate doctor in Lisbon. You ask simple questions about symptoms and give clear, easy-to-understand advice. You use the symptom card to help communication.",
+        roleDescription: "You are Dr. Santos, a calm and compassionate doctor. You ask simple questions about symptoms and give clear, easy-to-understand advice. You use the symptom card to help communication.",
         studentGoals: [
           "Describe basic symptoms (head hurts, stomach hurts)",
           "Answer questions about duration and intensity",
@@ -1075,9 +1075,9 @@ const scenarioData: ScenarioSeed[] = [
   {
     slug: "lost-and-found",
     title: "Lost & Found",
-    description: "Report a lost item at Gare du Nord in Paris. Practice describing objects, explaining situations, and filling out forms.",
+    description: "Report a lost item at a busy train station. Practice describing objects, explaining situations, and filling out forms.",
     category: "emergency",
-    location: "Gare du Nord, Paris",
+    location: "A train station",
     defaultMood: "urgent",
     minActflLevel: "novice_mid",
     maxActflLevel: "intermediate_high",
@@ -1119,7 +1119,7 @@ const scenarioData: ScenarioSeed[] = [
     levelGuides: [
       {
         actflLevel: "novice_mid",
-        roleDescription: "You are a helpful lost-and-found clerk at Gare du Nord in Paris. You ask simple questions to help the student describe their lost item. You're patient and understanding about the stressful situation.",
+        roleDescription: "You are a helpful lost-and-found clerk at a busy train station. You ask simple questions to help the student describe their lost item. You're patient and understanding about the stressful situation.",
         studentGoals: [
           "Explain that you lost something",
           "Describe the item using colors and basic adjectives",
@@ -1137,7 +1137,7 @@ const scenarioData: ScenarioSeed[] = [
       },
       {
         actflLevel: "intermediate_low",
-        roleDescription: "You are an experienced lost-and-found clerk at Gare du Nord who handles many cases daily. Help the student file a detailed report and discuss the recovery process, including timelines and procedures.",
+        roleDescription: "You are an experienced lost-and-found clerk at a busy train station who handles many cases daily. Help the student file a detailed report and discuss the recovery process, including timelines and procedures.",
         studentGoals: [
           "Describe lost item in detail including distinguishing features",
           "Narrate the sequence of events leading to the loss",
@@ -1159,9 +1159,9 @@ const scenarioData: ScenarioSeed[] = [
   {
     slug: "local-festival",
     title: "Local Festival",
-    description: "Experience the Festival de la Vendimia in Mendoza, Argentina. Practice cultural vocabulary, ordering festival food, and engaging with local traditions.",
+    description: "Experience a local cultural festival. Practice cultural vocabulary, ordering festival food, and engaging with traditions.",
     category: "cultural",
-    location: "Festival de la Vendimia, Mendoza",
+    location: "A town festival",
     defaultMood: "festive",
     minActflLevel: "intermediate_low",
     maxActflLevel: "advanced_high",
@@ -1172,7 +1172,7 @@ const scenarioData: ScenarioSeed[] = [
         content: {
           title: "Festival Program / Programa del Festival",
           fields: [
-            { label: "Event / Evento", value: "Festival de la Vendimia 2026" },
+            { label: "Event / Evento", value: "Local Cultural Festival 2026" },
             { label: "10:00 - Opening Ceremony", value: "Ceremonia de apertura en Plaza Independencia" },
             { label: "11:30 - Wine Tasting", value: "Degustación de vinos en la Bodega Central" },
             { label: "13:00 - Traditional Lunch", value: "Almuerzo criollo con asado y empanadas" },
@@ -1225,7 +1225,7 @@ const scenarioData: ScenarioSeed[] = [
     levelGuides: [
       {
         actflLevel: "intermediate_low",
-        roleDescription: "You are a friendly local at the Festival de la Vendimia in Mendoza. You love sharing your culture and explaining traditions to visitors. You speak with Argentine warmth and enthusiasm.",
+        roleDescription: "You are a friendly local at a cultural festival. You love sharing your culture and explaining traditions to visitors. You speak with warmth and enthusiasm.",
         studentGoals: [
           "Ask about festival events and schedule",
           "Order food and drinks at festival stalls",
@@ -1243,7 +1243,7 @@ const scenarioData: ScenarioSeed[] = [
       },
       {
         actflLevel: "intermediate_high",
-        roleDescription: "You are a local sommelier and cultural guide at the Festival de la Vendimia. You discuss wine-making processes, regional history, and the cultural significance of the harvest festival in depth.",
+        roleDescription: "You are a local sommelier and cultural guide at a town festival. You discuss wine-making processes, regional history, and the cultural significance of the harvest festival in depth.",
         studentGoals: [
           "Discuss wine production processes and terroir",
           "Compare regional traditions with other cultures",
@@ -1265,9 +1265,9 @@ const scenarioData: ScenarioSeed[] = [
   {
     slug: "museum-visit",
     title: "Museum Visit",
-    description: "Explore the Museo del Prado in Madrid. Practice describing art, expressing opinions, and discussing history and culture.",
+    description: "Explore a famous art museum. Practice describing art, expressing opinions, and discussing history and culture.",
     category: "cultural",
-    location: "Museo del Prado, Madrid",
+    location: "An art museum",
     defaultMood: "contemplative",
     minActflLevel: "intermediate_mid",
     maxActflLevel: "advanced_high",
@@ -1278,7 +1278,7 @@ const scenarioData: ScenarioSeed[] = [
         content: {
           title: "Exhibit Guide / Guía de la Exposición",
           fields: [
-            { label: "Museum / Museo", value: "Museo del Prado, Madrid" },
+            { label: "Museum / Museo", value: "Art Museum" },
             { label: "Gallery 1", value: "Las Meninas - Diego Velázquez (1656)" },
             { label: "Gallery 2", value: "El Tres de Mayo - Francisco de Goya (1814)" },
             { label: "Gallery 3", value: "The Garden of Earthly Delights - El Bosco (1500)" },
@@ -1310,7 +1310,7 @@ const scenarioData: ScenarioSeed[] = [
     levelGuides: [
       {
         actflLevel: "intermediate_mid",
-        roleDescription: "You are an enthusiastic museum guide at the Museo del Prado. You love making art accessible and engaging. You explain paintings with vivid descriptions and ask the student to share their reactions.",
+        roleDescription: "You are an enthusiastic museum guide at an art museum. You love making art accessible and engaging. You explain paintings with vivid descriptions and ask the student to share their reactions.",
         studentGoals: [
           "Describe what you see in a painting",
           "Express opinions and emotional reactions to art",
@@ -1328,7 +1328,7 @@ const scenarioData: ScenarioSeed[] = [
       },
       {
         actflLevel: "advanced_low",
-        roleDescription: "You are a art history professor giving a special guided tour at the Museo del Prado. You discuss technique, historical context, symbolism, and the evolution of Spanish art in depth.",
+        roleDescription: "You are an art history professor giving a special guided tour at an art museum. You discuss technique, historical context, symbolism, and the evolution of art in depth.",
         studentGoals: [
           "Analyze artistic technique and composition",
           "Discuss historical and political context of artworks",

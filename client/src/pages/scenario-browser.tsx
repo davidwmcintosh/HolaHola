@@ -19,9 +19,22 @@ const CATEGORY_CONFIG: Record<string, { label: string; icon: typeof MapPin; colo
   cultural: { label: "Cultural", icon: Palette, color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300" },
 };
 
-function formatActflLevel(level: string | null): string {
-  if (!level) return "";
-  return level.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+function getDifficultyLabel(minLevel: string | null): { label: string; color: string } {
+  if (!minLevel) return { label: "All Levels", color: "text-muted-foreground" };
+  const level = minLevel.toLowerCase();
+  if (level.startsWith("novice_low") || level.startsWith("novice_mid")) {
+    return { label: "Beginner friendly", color: "text-green-600 dark:text-green-400" };
+  }
+  if (level.startsWith("novice_high")) {
+    return { label: "Some experience helpful", color: "text-blue-600 dark:text-blue-400" };
+  }
+  if (level.startsWith("intermediate_low") || level.startsWith("intermediate_mid")) {
+    return { label: "Intermediate", color: "text-amber-600 dark:text-amber-400" };
+  }
+  if (level.startsWith("intermediate_high")) {
+    return { label: "Upper intermediate", color: "text-orange-600 dark:text-orange-400" };
+  }
+  return { label: "Advanced", color: "text-red-600 dark:text-red-400" };
 }
 
 function ScenarioCard({ scenario, onStart }: { scenario: Scenario; onStart: () => void }) {
@@ -52,10 +65,11 @@ function ScenarioCard({ scenario, onStart }: { scenario: Scenario; onStart: () =
           {scenario.description}
         </p>
 
-        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-auto">
-          <span>{formatActflLevel(scenario.minActflLevel)}</span>
-          <span>-</span>
-          <span>{formatActflLevel(scenario.maxActflLevel)}</span>
+        <div className="flex items-center gap-2 text-xs mt-auto">
+          {(() => {
+            const diff = getDifficultyLabel(scenario.minActflLevel);
+            return <span className={diff.color} data-testid={`text-difficulty-${scenario.slug}`}>{diff.label}</span>;
+          })()}
         </div>
 
         <Button
