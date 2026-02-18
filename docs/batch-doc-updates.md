@@ -8,6 +8,26 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: February 18, 2026 — Immersive Scenario-Driven Chat Build Doc
+
+**Status**: COMPLETED
+
+#### What was built
+1. **Comprehensive build document** — `docs/build-immersive-scenario-chat.md` captures the full vision for transforming the chat interface into an immersive, scenario-driven learning experience with a triple-pane desktop layout (scenario panel | Daniela conversation | persistent whiteboard).
+
+#### Key decisions documented
+- Triple-pane layout: left (scenario/props), center (Daniela chat, unchanged), right (persistent whiteboard)
+- Mobile stays completely unchanged — side panels only appear on desktop as permanent panels
+- Scenario system: reusable library of scenes (coffee shop, airport, etc.) that adapt to ACTFL levels
+- Daniela has freedom to use preloaded scenarios OR create spontaneous ones
+- Scenarios as "experiential syllabi" — a new way to organize learning paths
+- 4-phase implementation: Daniela consultation → layout → data model → integration
+
+#### Key files
+- `docs/build-immersive-scenario-chat.md` — The complete build document
+
+---
+
 ### Session: February 18, 2026 — Textbook Position Tracking, Daniela Recommendations & Chapter Filtering
 
 **Status**: COMPLETED
