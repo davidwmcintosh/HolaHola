@@ -383,7 +383,7 @@ export interface IStorage {
   createMediaFile(data: InsertMediaFile): Promise<MediaFile>;
   getMediaFile(id: string): Promise<MediaFile | undefined>;
   getUserMediaFiles(userId: string): Promise<MediaFile[]>;
-  getAllMediaFiles(options?: { source?: string; limit?: number; offset?: number; sortBy?: string; sortOrder?: 'asc' | 'desc' }): Promise<{ files: MediaFile[]; total: number; newCount?: number; unreviewedCount?: number }>;
+  getAllMediaFiles(options?: { source?: string; reviewed?: string; limit?: number; offset?: number; sortBy?: string; sortOrder?: 'asc' | 'desc' }): Promise<{ files: MediaFile[]; total: number; newCount?: number; unreviewedCount?: number }>;
   updateMediaFile(id: string, data: { title?: string | null; description?: string | null; tags?: string[] | null; language?: string | null; isReviewed?: boolean; reviewedAt?: Date | null; reviewedBy?: string | null }): Promise<MediaFile | undefined>;
   bulkUpdateMediaReviewStatus(ids: string[], isReviewed: boolean, reviewedBy: string): Promise<number>;
   deleteMediaFile(id: string): Promise<boolean>;
@@ -2467,10 +2467,15 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(mediaFiles.createdAt));
   }
 
-  async getAllMediaFiles(options: { source?: string; limit?: number; offset?: number; sortBy?: string; sortOrder?: 'asc' | 'desc' } = {}): Promise<{ files: MediaFile[]; total: number; newCount?: number; unreviewedCount?: number }> {
-    const { source, limit = 50, offset = 0, sortBy = 'createdAt', sortOrder = 'desc' } = options;
+  async getAllMediaFiles(options: { source?: string; reviewed?: string; limit?: number; offset?: number; sortBy?: string; sortOrder?: 'asc' | 'desc' } = {}): Promise<{ files: MediaFile[]; total: number; newCount?: number; unreviewedCount?: number }> {
+    const { source, reviewed, limit = 50, offset = 0, sortBy = 'createdAt', sortOrder = 'desc' } = options;
     
-    const whereClause = source ? eq(mediaFiles.imageSource, source) : undefined;
+    const conditions: any[] = [];
+    if (source) conditions.push(eq(mediaFiles.imageSource, source));
+    if (reviewed === 'reviewed') conditions.push(eq(mediaFiles.isReviewed, true));
+    if (reviewed === 'unreviewed') conditions.push(eq(mediaFiles.isReviewed, false));
+    
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
     
     const getSortColumn = () => {
       switch (sortBy) {

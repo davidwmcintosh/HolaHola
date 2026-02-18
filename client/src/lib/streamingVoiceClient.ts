@@ -1156,6 +1156,11 @@ export class StreamingVoiceClient {
           console.log('[StreamingVoice] Scenario ended:', message.scenarioSlug);
           this.emit('scenarioEnded', message);
           break;
+
+        case 'prop_update':
+          console.log('[StreamingVoice] Prop updated:', message.propTitle);
+          this.emit('propUpdate', message);
+          break;
           
         case 'activity':
           // Keep-alive message from server during speculative PTT suppression

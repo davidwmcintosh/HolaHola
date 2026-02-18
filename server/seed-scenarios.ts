@@ -18,6 +18,8 @@ const db = drizzle(pool);
 
 const ALL_LANGUAGES = ["spanish", "french", "german", "italian", "portuguese", "japanese", "mandarin", "korean", "arabic", "russian"];
 
+const THEATER_DIRECTIVE = "THEATER RULE: NEVER break character, re-introduce, or reset the scene once it is active. Stay in your role and progress naturally through the full scenario arc (greeting → interaction → transaction/resolution → farewell). If the student goes off-script or makes mistakes, respond as your character would in real life — gently redirect, clarify, or adapt — but NEVER step out of the scene to explain what's happening or restart. Teaching moments happen IN character, not by breaking the fourth wall.";
+
 interface ScenarioSeed {
   slug: string;
   title: string;
@@ -231,6 +233,22 @@ const scenarioData: ScenarioSeed[] = [
           ]
         },
         displayOrder: 1,
+        isInteractive: false
+      },
+      {
+        propType: "bill",
+        title: "Receipt/Bill",
+        content: {
+          title: "Market Receipt",
+          fields: [
+            { label: "Establishment", value: "Local Market" },
+            { label: "Date", value: "Today" },
+            { label: "Items", value: "(dynamic)" },
+            { label: "Subtotal", value: "0.00€" },
+            { label: "Total", value: "0.00€" }
+          ]
+        },
+        displayOrder: 2,
         isInteractive: false
       }
     ],
@@ -513,6 +531,25 @@ const scenarioData: ScenarioSeed[] = [
         },
         displayOrder: 1,
         isInteractive: false
+      },
+      {
+        propType: "bill",
+        title: "Hotel Invoice",
+        content: {
+          title: "Hotel Invoice",
+          fields: [
+            { label: "Establishment", value: "Grand Hotel" },
+            { label: "Guest", value: "(Student Name)" },
+            { label: "Room", value: "412" },
+            { label: "Nights", value: "3" },
+            { label: "Room Charge", value: "(dynamic)" },
+            { label: "Extras", value: "(dynamic)" },
+            { label: "Tax (IVA 10%)", value: "0.00€" },
+            { label: "Total", value: "0.00€" }
+          ]
+        },
+        displayOrder: 2,
+        isInteractive: false
       }
     ],
     levelGuides: [
@@ -594,6 +631,24 @@ const scenarioData: ScenarioSeed[] = [
           ]
         },
         displayOrder: 1,
+        isInteractive: false
+      },
+      {
+        propType: "bill",
+        title: "Taxi Receipt",
+        content: {
+          title: "Taxi Receipt",
+          fields: [
+            { label: "Driver", value: "(dynamic)" },
+            { label: "From", value: "(dynamic)" },
+            { label: "To", value: "(dynamic)" },
+            { label: "Distance", value: "(dynamic)" },
+            { label: "Fare", value: "$0.00 MXN" },
+            { label: "Tip", value: "$0.00 MXN" },
+            { label: "Total", value: "$0.00 MXN" }
+          ]
+        },
+        displayOrder: 2,
         isInteractive: false
       }
     ],
@@ -950,6 +1005,23 @@ const scenarioData: ScenarioSeed[] = [
         },
         displayOrder: 1,
         isInteractive: true
+      },
+      {
+        propType: "bill",
+        title: "Check/Bill",
+        content: {
+          title: "Restaurant Check",
+          fields: [
+            { label: "Establishment", value: "Trattoria Bella" },
+            { label: "Date", value: "Today" },
+            { label: "Items", value: "(dynamic)" },
+            { label: "Subtotal", value: "0.00€" },
+            { label: "Service (coperto)", value: "2.50€" },
+            { label: "Total", value: "0.00€" }
+          ]
+        },
+        displayOrder: 2,
+        isInteractive: false
       }
     ],
     levelGuides: [
@@ -1227,6 +1299,21 @@ const scenarioData: ScenarioSeed[] = [
         },
         displayOrder: 1,
         isInteractive: true
+      },
+      {
+        propType: "bill",
+        title: "Festival Receipt",
+        content: {
+          title: "Festival Receipt",
+          fields: [
+            { label: "Vendor", value: "Festival Food Stall" },
+            { label: "Items", value: "(dynamic)" },
+            { label: "Subtotal", value: "0 ARS" },
+            { label: "Total", value: "0 ARS" }
+          ]
+        },
+        displayOrder: 2,
+        isInteractive: false
       }
     ],
     levelGuides: [
@@ -1311,6 +1398,22 @@ const scenarioData: ScenarioSeed[] = [
           ]
         },
         displayOrder: 1,
+        isInteractive: false
+      },
+      {
+        propType: "bill",
+        title: "Ticket Receipt",
+        content: {
+          title: "Museum Ticket Receipt",
+          fields: [
+            { label: "Museum", value: "Museo del Prado" },
+            { label: "Tickets", value: "(dynamic)" },
+            { label: "Audio Guide", value: "(dynamic)" },
+            { label: "Gift Shop", value: "(dynamic)" },
+            { label: "Total", value: "0.00€" }
+          ]
+        },
+        displayOrder: 2,
         isInteractive: false
       }
     ],
@@ -1421,7 +1524,7 @@ async function seed() {
           vocabularyFocus: lg.vocabularyFocus,
           grammarFocus: lg.grammarFocus,
           conversationStarters: lg.conversationStarters,
-          complexityNotes: lg.complexityNotes,
+          complexityNotes: `${THEATER_DIRECTIVE} ${lg.complexityNotes}`,
         }))
       );
     }

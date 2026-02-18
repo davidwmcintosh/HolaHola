@@ -145,6 +145,7 @@ interface StreamingVoiceChatProps {
   useDesktopWhiteboard?: boolean;
   onScenarioLoaded?: (scenario: any) => void;
   onScenarioEnded?: (data: { scenarioId?: string; scenarioSlug?: string; performanceNotes?: string }) => void;
+  onPropUpdate?: (data: { propTitle: string; updates: Array<{ label: string; value: string }>; updatedFields: Array<{ label: string; value: string }> }) => void;
   onStudioImage?: (image: { word: string; description: string; imageUrl: string; context?: string }) => void;
 }
 
@@ -163,6 +164,7 @@ export function StreamingVoiceChat({
   useDesktopWhiteboard = false,
   onScenarioLoaded,
   onScenarioEnded,
+  onPropUpdate,
   onStudioImage,
 }: StreamingVoiceChatProps) {
   const [, navigate] = useLocation();
@@ -957,6 +959,9 @@ export function StreamingVoiceChat({
           },
           onScenarioEnded: (data) => {
             onScenarioEnded?.(data);
+          },
+          onPropUpdate: (data) => {
+            onPropUpdate?.(data);
           },
           onVadSpeechStarted: () => {
             // TRUE DUPLEX: Always handle VAD speech events for visual feedback
@@ -2929,6 +2934,9 @@ export function StreamingVoiceChat({
               },
               onScenarioEnded: (data) => {
                 onScenarioEnded?.(data);
+              },
+              onPropUpdate: (data) => {
+                onPropUpdate?.(data);
               },
               onVadSpeechStarted: () => {
                 // TRUE DUPLEX: Always handle VAD speech events for visual feedback

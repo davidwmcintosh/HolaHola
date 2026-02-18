@@ -695,6 +695,24 @@ export default function Chat() {
                   useDesktopWhiteboard={useDesktopWhiteboard}
                   onScenarioLoaded={setLoadedScenarioData}
                   onScenarioEnded={() => { setLoadedScenarioData(null); setStudioImages([]); }}
+                  onPropUpdate={(data) => {
+                    setLoadedScenarioData((prev: any) => {
+                      if (!prev?.props) return prev;
+                      const updatedProps = prev.props.map((p: any) => {
+                        if (p.title?.toLowerCase() === data.propTitle.toLowerCase() && p.content?.fields) {
+                          return {
+                            ...p,
+                            content: {
+                              ...p.content,
+                              fields: data.updatedFields,
+                            },
+                          };
+                        }
+                        return p;
+                      });
+                      return { ...prev, props: updatedProps };
+                    });
+                  }}
                   onStudioImage={(img) => setStudioImages(prev => [...prev.slice(-4), img])}
                 />
             ) : (

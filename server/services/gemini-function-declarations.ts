@@ -510,6 +510,30 @@ NEVER guess. NEVER roleplay searching. Actually call this function.`,
     },
   },
   {
+    name: "update_prop",
+    description: "Update a scenario prop's content fields in the Studio panel. Use this during active scenarios to dynamically modify prop data — for example, filling in the bill/receipt with ordered items and totals, updating a prescription with diagnosis details, or marking items on a shopping list. The student sees the update in real-time in the Studio panel.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        text: { type: "string", description: "What you say while updating the prop (spoken aloud, e.g., 'Let me add that to your bill...')" },
+        prop_title: { type: "string", description: "Title of the prop to update (e.g., 'Receipt/Bill', 'Check/Bill', 'Prescription'). Must match an existing prop title in the active scenario." },
+        updates: {
+          type: "array",
+          description: "Array of field updates. Each update targets a specific field label and sets its new value.",
+          items: {
+            type: "object",
+            properties: {
+              label: { type: "string", description: "The field label to update (e.g., 'Items', 'Total', 'Subtotal', 'Diagnosis')" },
+              value: { type: "string", description: "The new value for that field (e.g., '1x Espresso: 1.80€\\n2x Latte: 6.40€', '10.46€')" },
+            },
+            required: ["label", "value"],
+          },
+        },
+      },
+      required: ["text", "prop_title", "updates"],
+    },
+  },
+  {
     name: "end_scenario",
     description: "End the current active scenario and return to free conversation. Use when the student has completed the roleplay goals or wants to move on. Summarizes what was practiced.",
     parametersJsonSchema: {
@@ -695,6 +719,7 @@ export const FUNCTION_TO_COMMAND_MAP: Record<string, string> = {
   'context': 'CONTEXT',
   'scenario': 'SCENARIO',
   'load_scenario': 'LOAD_SCENARIO',
+  'update_prop': 'UPDATE_PROP',
   'end_scenario': 'END_SCENARIO',
   'summary': 'SUMMARY',
   'reading': 'READING',

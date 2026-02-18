@@ -14066,6 +14066,51 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         break;
       }
 
+      case 'UPDATE_PROP': {
+        const text = fn.args.text as string | undefined;
+        const propTitle = fn.args.prop_title as string | undefined;
+        const updates = fn.args.updates as Array<{ label: string; value: string }> | undefined;
+        const activeScenario = (session as any).activeScenario;
+
+        if (propTitle && updates && updates.length > 0 && activeScenario?.props) {
+          const targetProp = activeScenario.props.find((p: any) =>
+            p.title?.toLowerCase() === propTitle.toLowerCase()
+          );
+
+          if (targetProp && targetProp.content?.fields) {
+            for (const update of updates) {
+              const field = targetProp.content.fields.find((f: any) =>
+                f.label?.toLowerCase() === update.label.toLowerCase()
+              );
+              if (field) {
+                field.value = update.value;
+              } else {
+                targetProp.content.fields.push({ label: update.label, value: update.value });
+              }
+            }
+
+            console.log(`[Native Function→UpdateProp] Updated "${propTitle}": ${updates.map(u => `${u.label}=${u.value}`).join(', ')}`);
+
+            this.sendMessage(session.ws, {
+              type: 'prop_update',
+              timestamp: Date.now(),
+              propTitle,
+              updates,
+              updatedFields: targetProp.content.fields,
+            });
+          } else {
+            console.warn(`[Native Function→UpdateProp] Prop "${propTitle}" not found or has no fields`);
+          }
+        } else {
+          console.warn(`[Native Function→UpdateProp] Missing required args or no active scenario`);
+        }
+
+        if (text && !(session as any).functionCallText) {
+          (session as any).functionCallText = text;
+        }
+        break;
+      }
+
       case 'END_SCENARIO': {
         const spokenText = (fn.args.spoken_text || fn.args.text) as string | undefined;
         const performanceNotes = fn.args.performance_notes as string | undefined;

@@ -3975,6 +3975,7 @@ type SortOrder = 'asc' | 'desc';
 function ImageLibraryTab() {
   const { toast } = useToast();
   const [sourceFilter, setSourceFilter] = useState<string>("all");
+  const [imageReviewFilter, setImageReviewFilter] = useState<string>("all");
   const [selectedImage, setSelectedImage] = useState<MediaFile | null>(null);
   const [page, setPage] = useState(0);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -3986,9 +3987,15 @@ function ImageLibraryTab() {
   const [requestLanguage, setRequestLanguage] = useState("spanish");
   const limit = viewMode === 'list' ? 25 : 20;
 
-  const queryUrl = sourceFilter === "all"
-    ? `/api/admin/media?limit=${limit}&offset=${page * limit}&sortBy=${sortField}&sortOrder=${sortOrder}`
-    : `/api/admin/media?source=${sourceFilter}&limit=${limit}&offset=${page * limit}&sortBy=${sortField}&sortOrder=${sortOrder}`;
+  const queryParams = new URLSearchParams({
+    limit: String(limit),
+    offset: String(page * limit),
+    sortBy: sortField,
+    sortOrder,
+  });
+  if (sourceFilter !== "all") queryParams.set("source", sourceFilter);
+  if (imageReviewFilter !== "all") queryParams.set("reviewed", imageReviewFilter);
+  const queryUrl = `/api/admin/media?${queryParams.toString()}`;
 
   const { data, isLoading, refetch } = useQuery<{ files: MediaFile[]; total: number; newCount?: number; unreviewedCount?: number }>({
     queryKey: [queryUrl],
@@ -3997,7 +4004,7 @@ function ImageLibraryTab() {
   // Clear selections when page, filter, or view changes to prevent stale selections
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [page, sourceFilter, viewMode, sortField, sortOrder]);
+  }, [page, sourceFilter, imageReviewFilter, viewMode, sortField, sortOrder]);
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
@@ -4064,6 +4071,22 @@ function ImageLibraryTab() {
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to update review status", variant: "destructive" });
+    },
+  });
+
+  const regenerateImageMutation = useMutation({
+    mutationFn: async ({ oldId, word, language }: { oldId: string; word: string; language: string }) => {
+      const result = await apiRequest("POST", "/api/admin/media/request-image", { word, language });
+      await apiRequest("DELETE", `/api/admin/media/${oldId}`);
+      return result;
+    },
+    onSuccess: () => {
+      toast({ title: "Image regenerated successfully" });
+      refetch();
+      setSelectedImage(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Regeneration failed", description: error.message || "Failed to regenerate image", variant: "destructive" });
     },
   });
 
@@ -4208,6 +4231,17 @@ function ImageLibraryTab() {
                   <SelectItem value="ai_generated">AI Generated</SelectItem>
                   <SelectItem value="stock">Stock Images</SelectItem>
                   <SelectItem value="user_upload">User Uploads</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={imageReviewFilter} onValueChange={(v) => { setImageReviewFilter(v); setPage(0); }}>
+                <SelectTrigger className="w-40 h-8" data-testid="select-image-review-filter">
+                  <SelectValue placeholder="Filter by review" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Images</SelectItem>
+                  <SelectItem value="unreviewed">Unreviewed</SelectItem>
+                  <SelectItem value="reviewed">Reviewed</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -4553,6 +4587,30 @@ function ImageLibraryTab() {
                 <ExternalLink className="h-4 w-4 mr-1" />
                 View Full
               </Button>
+              {selectedImage && (selectedImage.targetWord || selectedImage.searchQuery) && selectedImage.language && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (selectedImage) {
+                      regenerateImageMutation.mutate({
+                        oldId: selectedImage.id,
+                        word: selectedImage.targetWord || selectedImage.searchQuery || '',
+                        language: selectedImage.language || 'spanish',
+                      });
+                    }
+                  }}
+                  disabled={regenerateImageMutation.isPending}
+                  data-testid="button-regenerate-image"
+                >
+                  {regenerateImageMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                  )}
+                  {regenerateImageMutation.isPending ? "Regenerating..." : "Regenerate"}
+                </Button>
+              )}
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="destructive" size="sm" data-testid="button-delete-image">

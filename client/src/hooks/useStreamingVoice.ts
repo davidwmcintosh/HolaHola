@@ -95,6 +95,8 @@ export interface StreamingSessionConfig {
   onScenarioLoaded?: (scenario: any) => void;
   /** Called when the active scenario ends */
   onScenarioEnded?: (data: { scenarioId?: string; scenarioSlug?: string; performanceNotes?: string }) => void;
+  /** Called when a scenario prop is updated (e.g., bill filled in with items/total) */
+  onPropUpdate?: (data: { propTitle: string; updates: Array<{ label: string; value: string }>; updatedFields: Array<{ label: string; value: string }> }) => void;
 }
 
 /**
@@ -1237,6 +1239,11 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       performanceNotes: message.performanceNotes,
     });
   }, []);
+
+  const handlePropUpdate = useCallback((message: any) => {
+    console.log('[StreamingVoice] Prop updated:', message.propTitle);
+    sessionConfigRef.current?.onPropUpdate?.(message);
+  }, []);
   
   /**
    * Handle tutor handoff - triggered after current tutor says goodbye
@@ -1361,6 +1368,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('textInputRequest', handleTextInputRequest);  // Server text input request
       clientRef.current.on('scenarioLoaded', handleScenarioLoaded);
       clientRef.current.on('scenarioEnded', handleScenarioEnded);
+      clientRef.current.on('propUpdate', handlePropUpdate);
       
       // Connect WebSocket
       await clientRef.current.connect(config.conversationId);
@@ -1409,7 +1417,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       setError(err.message);
       throw err;
     }
-  }, [handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleExpectedSentenceCount, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleScenarioLoaded, handleScenarioEnded]);
+  }, [handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleExpectedSentenceCount, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleScenarioLoaded, handleScenarioEnded, handlePropUpdate]);
   
   /**
    * Disconnect from streaming voice service
@@ -1446,6 +1454,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.off('textInputRequest', handleTextInputRequest);  // Server text input request
       clientRef.current.off('scenarioLoaded', handleScenarioLoaded);
       clientRef.current.off('scenarioEnded', handleScenarioEnded);
+      clientRef.current.off('propUpdate', handlePropUpdate);
       clientRef.current.disconnect();
       clientRef.current = null;
     }
