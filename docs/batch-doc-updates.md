@@ -8,6 +8,30 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: February 18, 2026 — Textbook Position Tracking, Daniela Recommendations & Chapter Filtering
+
+**Status**: COMPLETED
+
+#### What was built
+1. **Saved position "Continue where you left off"** — The textbook now fetches the user's last-viewed chapter via `/api/textbook/:language/position` and shows it in the continue card with "Continue Where You Left Off" label and a "Resume" button.
+
+2. **Daniela-driven chapter recommendation** — New `/api/textbook/:language/recommendation` endpoint queries `syllabus_progress` to find the next uncompleted chapter based on what Daniela has covered in chats. The continue card shows "Daniela Suggests" with the AI's reasoning when no saved position exists. A "Daniela suggests" badge also appears on the recommended chapter in the list.
+
+3. **Chapter status filtering** — Added filter buttons (All / In Progress / Completed / Not Started) above the chapter list. Filters by progress percentage with an empty state message when no chapters match.
+
+4. **Recommendation type + integration** — Added `Recommendation` interface to the textbook page, wired recommendation query alongside position query, with priority: saved position > Daniela recommendation > next logical chapter.
+
+#### Key files modified
+- `client/src/pages/interactive-textbook.tsx` — Added `Recommendation` interface, recommendation query, filter state, updated `ChapterListView` and `ChapterListCard` components, removed unused `useEffect` import
+
+#### User-facing instructions
+- Open the Interactive Textbook for any language
+- The "Continue" card at top shows: your last position (if you've viewed a chapter before), or Daniela's suggestion (based on chat progress), or the next logical chapter
+- Use filter buttons to view only chapters that are All / In Progress / Completed / Not Started
+- Chapters recommended by Daniela show a subtle "Daniela suggests" badge
+
+---
+
 ### Session: February 18, 2026 — Drill Duplication Fix & Dedicated Numbers Chapters
 
 **Status**: COMPLETED

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -56,6 +56,16 @@ interface Chapter {
   sections: Section[];
   culturalTheme?: string;
   actflLevel?: string;
+  chapterType?: string | null;
+}
+
+interface Recommendation {
+  chapterId: string;
+  chapterTitle: string;
+  chapterType: string | null;
+  reason: string;
+  lessonsCompleted: number;
+  lessonsTotal: number;
 }
 
 interface TextbookData {
@@ -75,10 +85,12 @@ interface TextbookData {
 
 function ChapterListCard({ 
   chapter, 
-  onOpen
+  onOpen,
+  isRecommended,
 }: { 
   chapter: Chapter; 
   onOpen: () => void;
+  isRecommended?: boolean;
 }) {
   const progressColor = chapter.progress >= 75 
     ? "text-green-500" 
@@ -113,6 +125,12 @@ function ChapterListCard({
                 <Badge variant="secondary" className="shrink-0">
                   <CheckCircle2 className="h-3 w-3 mr-1" />
                   Complete
+                </Badge>
+              )}
+              {isRecommended && chapter.progress < 100 && (
+                <Badge variant="outline" className="shrink-0 border-primary/30 text-primary" data-testid={`badge-recommended-${chapter.number}`}>
+                  <Sparkles className="h-3 w-3 mr-1" />
+                  Daniela suggests
                 </Badge>
               )}
             </div>
@@ -165,6 +183,8 @@ function ChapterSkeleton() {
   );
 }
 
+type ChapterFilter = 'all' | 'in-progress' | 'completed' | 'not-started';
+
 function ChapterListView({
   chapters,
   textbookData,
@@ -172,7 +192,9 @@ function ChapterListView({
   totalProgress,
   isLoading,
   error,
-  onOpenChapter
+  onOpenChapter,
+  savedPositionChapterId,
+  recommendation,
 }: {
   chapters: Chapter[];
   textbookData?: TextbookData;
@@ -181,9 +203,36 @@ function ChapterListView({
   isLoading: boolean;
   error: Error | null;
   onOpenChapter: (chapter: Chapter) => void;
+  savedPositionChapterId?: string | null;
+  recommendation?: Recommendation | null;
 }) {
-  const continueChapter = chapters.find(ch => !ch.isLocked && ch.progress < 100 && ch.progress > 0)
+  const [filter, setFilter] = useState<ChapterFilter>('all');
+  const savedChapter = savedPositionChapterId
+    ? chapters.find(ch => ch.id === savedPositionChapterId)
+    : null;
+
+  const recommendedChapter = recommendation
+    ? chapters.find(ch => ch.id === recommendation.chapterId && !ch.isLocked)
+    : null;
+
+  const continueChapter = savedChapter
+    || recommendedChapter
+    || chapters.find(ch => !ch.isLocked && ch.progress < 100 && ch.progress > 0)
     || chapters.find(ch => !ch.isLocked && ch.progress === 0);
+
+  const continueLabel = savedChapter
+    ? "Continue Where You Left Off"
+    : recommendation
+      ? "Daniela Suggests"
+      : "Continue Learning";
+
+  const continueSubtext = savedChapter && continueChapter
+    ? `Chapter ${continueChapter.number}: ${continueChapter.title}`
+    : recommendation
+      ? recommendation.reason
+      : continueChapter
+        ? `Chapter ${continueChapter.number}: ${continueChapter.title}`
+        : '';
 
   return (
     <div className="space-y-6 w-full max-w-4xl mx-auto">
@@ -222,22 +271,31 @@ function ChapterListView({
       </div>
       
       {continueChapter && (
-        <Card className="p-4 bg-gradient-to-r from-primary/10 via-primary/5 to-background border-primary/20">
+        <Card className="p-4 bg-gradient-to-r from-primary/10 via-primary/5 to-background border-primary/20" data-testid="card-continue-learning">
           <div className="flex items-center gap-4">
             <div className="p-3 rounded-full bg-primary/20">
-              <Play className="h-5 w-5 text-primary" />
+              {recommendation && !savedChapter ? (
+                <Sparkles className="h-5 w-5 text-primary" />
+              ) : (
+                <Play className="h-5 w-5 text-primary" />
+              )}
             </div>
             <div className="flex-1">
-              <h3 className="font-semibold">Continue Learning</h3>
-              <p className="text-sm text-muted-foreground">
-                Chapter {continueChapter.number}: {continueChapter.title}
+              <h3 className="font-semibold" data-testid="text-continue-label">{continueLabel}</h3>
+              <p className="text-sm text-muted-foreground" data-testid="text-continue-subtext">
+                {continueSubtext}
               </p>
+              {recommendation && !savedChapter && recommendedChapter && (
+                <p className="text-xs text-muted-foreground mt-0.5" data-testid="text-recommended-chapter">
+                  Chapter {recommendedChapter.number}: {recommendedChapter.title}
+                </p>
+              )}
             </div>
             <Button 
               data-testid="button-continue-learning"
               onClick={() => onOpenChapter(continueChapter)}
             >
-              Continue
+              {savedChapter ? 'Resume' : recommendation && !savedChapter ? 'Open' : 'Continue'}
               <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
           </div>
@@ -269,16 +327,52 @@ function ChapterListView({
         </Card>
       ) : (
         <div className="space-y-3">
-          <h2 className="text-lg font-semibold">Chapters</h2>
-          <div className="space-y-3">
-            {chapters.map((chapter) => (
-              <ChapterListCard 
-                key={chapter.id} 
-                chapter={chapter}
-                onOpen={() => onOpenChapter(chapter)}
-              />
-            ))}
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <h2 className="text-lg font-semibold">Chapters</h2>
+            <div className="flex items-center gap-1">
+              {([
+                { key: 'all', label: 'All' },
+                { key: 'in-progress', label: 'In Progress' },
+                { key: 'completed', label: 'Completed' },
+                { key: 'not-started', label: 'Not Started' },
+              ] as { key: ChapterFilter; label: string }[]).map(f => (
+                <Button
+                  key={f.key}
+                  variant={filter === f.key ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setFilter(f.key)}
+                  data-testid={`button-filter-${f.key}`}
+                >
+                  {f.label}
+                </Button>
+              ))}
+            </div>
           </div>
+          {(() => {
+            const filtered = chapters.filter(ch => {
+              if (filter === 'completed') return ch.progress === 100;
+              if (filter === 'in-progress') return ch.progress > 0 && ch.progress < 100;
+              if (filter === 'not-started') return ch.progress === 0 && !ch.isLocked;
+              return true;
+            });
+            return (
+              <div className="space-y-3">
+                {filtered.map((chapter) => (
+                  <ChapterListCard 
+                    key={chapter.id} 
+                    chapter={chapter}
+                    onOpen={() => onOpenChapter(chapter)}
+                    isRecommended={recommendation?.chapterId === chapter.id}
+                  />
+                ))}
+                {filter !== 'all' && filtered.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-6" data-testid="text-filter-empty">
+                    No chapters match this filter.
+                  </p>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
       
@@ -304,13 +398,16 @@ export default function InteractiveTextbook() {
     queryKey: ['/api/textbook', language],
   });
   
-  // Fetch user's last position in the textbook
   const { data: positionData } = useQuery<{ position: { lastChapterId?: string } | null }>({
     queryKey: ['/api/textbook', language, 'position'],
     enabled: !!language,
   });
+
+  const { data: recommendationData } = useQuery<{ recommendation: Recommendation | null }>({
+    queryKey: ['/api/textbook', language, 'recommendation'],
+    enabled: !!language,
+  });
   
-  // Mutation to save user's position
   const savePositionMutation = useMutation({
     mutationFn: async (data: { chapterId: string; lessonId?: string }) => {
       return apiRequest('POST', `/api/textbook/${language}/position`, data);
@@ -322,20 +419,9 @@ export default function InteractiveTextbook() {
   const totalProgress = chapters.length > 0
     ? Math.round(chapters.reduce((acc, ch) => acc + ch.progress, 0) / chapters.length)
     : 0;
-  
-  // Auto-select last chapter if user has a saved position
-  useEffect(() => {
-    if (positionData?.position?.lastChapterId && chapters.length > 0 && !selectedChapter) {
-      const lastChapter = chapters.find(ch => ch.id === positionData.position?.lastChapterId);
-      if (lastChapter) {
-        // Don't auto-select, but we could show a "Continue" prompt
-      }
-    }
-  }, [positionData, chapters, selectedChapter]);
 
   const handleOpenChapter = useCallback((chapter: Chapter) => {
     setSelectedChapter(chapter);
-    // Save position when opening a chapter
     savePositionMutation.mutate({ chapterId: chapter.id });
   }, [savePositionMutation]);
 
@@ -377,6 +463,8 @@ export default function InteractiveTextbook() {
       isLoading={isLoading}
       error={error as Error | null}
       onOpenChapter={handleOpenChapter}
+      savedPositionChapterId={positionData?.position?.lastChapterId}
+      recommendation={recommendationData?.recommendation}
     />
   );
 }

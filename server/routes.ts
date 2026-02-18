@@ -57,6 +57,7 @@ import {
   textbookSectionProgress,
   textbookUserPosition,
   textbookVisualAssets,
+  syllabusProgress,
   journeySnapshots,
   learningMilestones,
   voicePipelineEvents,
@@ -9536,6 +9537,117 @@ Return ONLY the ${targetLanguage} phrase:`;
       }
       console.error('Error updating textbook position:', error);
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get Daniela's recommendation for which chapter to study next
+  // Based on syllabus progress (what Daniela has covered in chats)
+  app.get("/api/textbook/:language/recommendation", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getRequestUserId(req);
+      const { language } = req.params;
+      const normalizedLanguage = language.toLowerCase().trim();
+
+      // Find the student's class for this language
+      const enrollments = await getSharedDb()
+        .select({
+          classId: classEnrollments.classId,
+          className: teacherClasses.name,
+          pathId: teacherClasses.curriculumPathId,
+        })
+        .from(classEnrollments)
+        .innerJoin(teacherClasses, eq(classEnrollments.classId, teacherClasses.id))
+        .where(
+          and(
+            eq(classEnrollments.studentId, userId),
+            eq(classEnrollments.isActive, true),
+            eq(teacherClasses.language, normalizedLanguage)
+          )
+        );
+
+      if (enrollments.length === 0 || !enrollments[0].pathId) {
+        return res.json({ recommendation: null });
+      }
+
+      const { classId, pathId } = enrollments[0];
+
+      // Get all units for this curriculum path
+      const units = await storage.getCurriculumUnits(pathId);
+      if (units.length === 0) {
+        return res.json({ recommendation: null });
+      }
+
+      // Get all lessons for these units
+      const unitLessons: Record<string, { total: number; completed: number }> = {};
+      for (const unit of units) {
+        const lessons = await storage.getCurriculumLessons(unit.id);
+        
+        let completedCount = 0;
+        for (const lesson of lessons) {
+          const [progress] = await getSharedDb()
+            .select()
+            .from(syllabusProgress)
+            .where(
+              and(
+                eq(syllabusProgress.studentId, userId),
+                eq(syllabusProgress.classId, classId),
+                eq(syllabusProgress.lessonId, lesson.id)
+              )
+            );
+          if (progress && (progress.status === 'completed_early' || progress.status === 'completed_assigned')) {
+            completedCount++;
+          }
+        }
+
+        unitLessons[unit.id] = { total: lessons.length, completed: completedCount };
+      }
+
+      // Find the first unit that's not fully complete (Daniela's next recommendation)
+      const sortedUnits = [...units].sort((a, b) => a.orderIndex - b.orderIndex);
+      let recommendedUnit = null;
+      let lastCompletedUnit = null;
+
+      for (const unit of sortedUnits) {
+        const stats = unitLessons[unit.id];
+        if (!stats || stats.total === 0) continue;
+
+        if (stats.completed >= stats.total) {
+          lastCompletedUnit = unit;
+          continue;
+        }
+
+        // This unit has incomplete lessons - recommend it
+        recommendedUnit = unit;
+        break;
+      }
+
+      // If no incomplete unit found, all are complete
+      if (!recommendedUnit) {
+        return res.json({
+          recommendation: null,
+          allComplete: true,
+          lastCompletedChapterId: lastCompletedUnit?.id || null,
+        });
+      }
+
+      const stats = unitLessons[recommendedUnit.id];
+      res.json({
+        recommendation: {
+          chapterId: recommendedUnit.id,
+          chapterTitle: recommendedUnit.name,
+          chapterType: recommendedUnit.chapterType || null,
+          reason: stats.completed > 0
+            ? `Daniela has covered ${stats.completed} of ${stats.total} topics in this chapter`
+            : lastCompletedUnit
+              ? `You've finished ${lastCompletedUnit.name} — this is next`
+              : `Start your learning journey here`,
+          lessonsCompleted: stats.completed,
+          lessonsTotal: stats.total,
+        },
+      });
+    } catch (error: any) {
+      console.error('Error fetching textbook recommendation:', error);
+      res.json({ recommendation: null });
     }
   });
   
