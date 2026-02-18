@@ -9336,6 +9336,7 @@ Return ONLY the ${targetLanguage} phrase:`;
           sections,
           culturalTheme: unit.culturalTheme,
           actflLevel: unit.actflLevel,
+          chapterType: unit.chapterType || null,
         };
       }));
       
@@ -9422,6 +9423,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         description: unit.description,
         culturalTheme: unit.culturalTheme,
         actflLevel: unit.actflLevel,
+        chapterType: unit.chapterType || null,
         sections,
       });
     } catch (error: any) {

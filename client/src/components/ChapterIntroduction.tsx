@@ -6,18 +6,20 @@ import { languageChapterData } from "@/data/chapter-intro-content";
 
 import familyGatheringImg from "@assets/stock_images/family_gathering_aro_0f321ed1.jpg";
 import coffeeShopImg from "@assets/stock_images/coffee_shop_friends__69e794a8.jpg";
+import numbersBlocksImg from "@assets/stock_images/numbers_counting_blocks_education.jpg";
 import danielaTutorImg from "@assets/generated_images/daniela_tutor_welcome_illustration.png";
 
 interface ChapterIntroductionProps {
   chapterNumber: number;
   chapterTitle?: string;
   language: string;
+  chapterType?: string;
   className?: string;
 }
 
 const chapterImages: Record<string, string[]> = {
   greetings: [coffeeShopImg],
-  numbers: [],
+  numbers: [numbersBlocksImg],
   family: [familyGatheringImg],
   daily: [coffeeShopImg],
 };
@@ -45,13 +47,13 @@ function normalizeLanguageKey(language: string): string {
   return lower;
 }
 
-export function ChapterIntroduction({ chapterNumber, chapterTitle, language, className = "" }: ChapterIntroductionProps) {
+export function ChapterIntroduction({ chapterNumber, chapterTitle, language, chapterType: chapterTypeProp, className = "" }: ChapterIntroductionProps) {
   const langKey = normalizeLanguageKey(language);
   const langData = languageChapterData[langKey];
   
   if (!langData || !chapterTitle) return null;
   
-  const chapterType = classifyChapterType(chapterTitle);
+  const chapterType = chapterTypeProp || classifyChapterType(chapterTitle);
   if (!chapterType) return null;
   
   const content = langData.chapters[chapterType];

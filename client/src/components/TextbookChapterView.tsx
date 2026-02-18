@@ -63,6 +63,7 @@ interface Chapter {
   sections: Section[];
   culturalTheme?: string;
   actflLevel?: string;
+  chapterType?: string | null;
 }
 
 interface TextbookChapterViewProps {
@@ -316,6 +317,7 @@ export function TextbookChapterView({
         chapterNumber={chapter.number}
         chapterTitle={chapter.title}
         language={language}
+        chapterType={chapter.chapterType || undefined}
         className="mb-4"
       />
       

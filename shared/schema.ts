@@ -941,6 +941,7 @@ export const curriculumUnits = pgTable("curriculum_units", {
   // JSON object containing teacher's promises for this unit
   // Structure: { promises: string[], reviewPoints: string[], prerequisites: string[] }
   commitments: jsonb("commitments"), // Teacher promises block: what students can expect
+  chapterType: text("chapter_type"), // Chapter intro type: 'greetings', 'numbers', 'family', 'daily', etc.
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

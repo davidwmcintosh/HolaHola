@@ -32,6 +32,35 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+### Session: February 18, 2026 — Level 2 Numbers Chapters, chapter_type Metadata & Visual Assets
+
+**Status**: COMPLETED
+
+#### What was built
+1. **Level 2 Numbers chapters** — Created 9 new `curriculum_units` across all languages for "Numbers II: Beyond 20" covering Tier 2 (21-1000+) and Tier 3 (Large Numbers, Prices, Percentages). All drill lessons for these tiers moved from Travel/Past Tense/Intermediate units into the new dedicated Numbers II chapters. Order indices shifted to accommodate the new unit at position 2 in Level 2 paths.
+
+2. **Stray number lessons consolidated** — Moved 4 number-related lessons from Level 1 Greetings units into their correct Level 1 Numbers chapters (Italian, Korean, Mandarin, Portuguese).
+
+3. **`chapter_type` metadata column** — Added `chapter_type` text column to `curriculum_units` table (Drizzle schema + direct SQL). Populated for all existing units: greetings (9), numbers (18), family (8), daily (9). This replaces fragile keyword-matching classification with database-backed metadata.
+
+4. **ChapterIntroduction metadata integration** — Updated component to accept optional `chapterType` prop from API. Falls back to keyword matching for backward compatibility. API endpoints (`/api/textbook/:language` and `/api/textbook/:language/chapter/:chapterId`) now return `chapterType` field.
+
+5. **Numbers chapter hero image** — Downloaded stock image for numbers chapters (`numbers_counting_blocks_education.jpg`). Updated `chapterImages` map so numbers chapters display the hero image.
+
+#### Key files modified
+- `shared/schema.ts` — Added `chapterType` column to `curriculumUnits` table
+- `server/routes.ts` — Added `chapterType` to textbook API responses (overview + detail)
+- `client/src/components/ChapterIntroduction.tsx` — Added `chapterType` prop, imported numbers hero image
+- `client/src/components/TextbookChapterView.tsx` — Added `chapterType` to Chapter interface, passed to ChapterIntroduction
+
+#### Database changes
+- 9 new `curriculum_units` rows (Level 2 Numbers chapters)
+- 18 `curriculum_lessons` moved to correct units (18 from L2, 4 from L1)
+- 46 `curriculum_units` order indices shifted in Level 2 paths
+- New `chapter_type` column added and populated for 44 units
+
+---
+
 ### Session: February 18, 2026 — Multi-Language Chapter Intros & Visual Assets
 
 **Status**: COMPLETED
