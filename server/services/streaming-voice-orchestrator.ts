@@ -679,6 +679,38 @@ function cleanTextForDisplay(text: string): string {
     cleaned = cleaned.replace(/\s*\([^()]*\)\s*/g, ' ');
   }
   
+  // Convert ALL CAPS common words to lowercase to prevent TTS from spelling them out as acronyms.
+  // Gemini uses caps for emphasis (e.g. "I will ASK you a question") but TTS engines interpret
+  // short all-caps words as acronyms and spell each letter: "A-S-K".
+  // Preserve legitimate acronyms (ACTFL, SSML, etc.) by only lowering known common words.
+  const commonWordsUpperSet = new Set([
+    'ASK', 'ASKED', 'ASKING', 'ASKS',
+    'TELL', 'TOLD', 'TELLING', 'TELLS',
+    'SAY', 'SAID', 'SAYING', 'SAYS',
+    'WILL', 'WOULD', 'COULD', 'SHOULD', 'SHALL', 'CAN', 'MAY', 'MIGHT', 'MUST',
+    'AND', 'BUT', 'THE', 'FOR', 'NOT', 'ALL', 'ARE', 'WAS', 'HAS', 'HAD', 'HER', 'HIS',
+    'YOU', 'YOUR', 'YOURS',
+    'NOW', 'THEN', 'WHEN', 'WHAT', 'HOW', 'WHY', 'WHO', 'WHERE', 'WHICH',
+    'LET', 'LETS', 'GET', 'GETS', 'GOT', 'SET', 'PUT', 'RUN', 'TRY',
+    'FIRST', 'NEXT', 'LAST', 'NEW', 'OLD', 'BIG', 'GOOD', 'GREAT', 'BEST',
+    'VERY', 'JUST', 'ALSO', 'ONLY', 'EVEN', 'STILL', 'ALREADY', 'ALWAYS', 'NEVER',
+    'YES', 'OKAY', 'SURE', 'RIGHT', 'WELL', 'READY', 'DONE', 'BACK',
+    'MAKE', 'TAKE', 'GIVE', 'COME', 'LOOK', 'THINK', 'KNOW', 'WANT', 'NEED',
+    'LIKE', 'LOVE', 'HELP', 'SHOW', 'HEAR', 'LISTEN', 'READ', 'WRITE', 'SPEAK',
+    'TALK', 'LEARN', 'PRACTICE', 'REPEAT', 'REMEMBER', 'ANSWER',
+    'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE',
+    'HERE', 'THERE', 'THIS', 'THAT', 'THESE', 'THOSE',
+    'SAME', 'EACH', 'BOTH', 'MORE', 'MOST', 'SOME', 'MANY', 'MUCH',
+    'WITH', 'FROM', 'INTO', 'OVER', 'ABOUT', 'AFTER', 'BEFORE',
+    'TURN', 'ROLE', 'PLAY', 'GAME', 'WORD', 'WORDS', 'TIME',
+  ]);
+  cleaned = cleaned.replace(/\b[A-Z]{2,}\b/g, (match) => {
+    if (commonWordsUpperSet.has(match)) {
+      return match.toLowerCase();
+    }
+    return match;
+  });
+
   // Normalize whitespace and clean up residual punctuation
   return cleaned
     .replace(/\n+/g, ' ')
