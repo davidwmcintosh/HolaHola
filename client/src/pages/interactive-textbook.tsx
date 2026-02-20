@@ -438,7 +438,10 @@ export default function InteractiveTextbook() {
   const { language } = useLanguage();
   const [, setLocation] = useLocation();
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
-  const [selectedPathId, setSelectedPathId] = useState<string | null>(null);
+  const [selectedPathId, setSelectedPathId] = useState<string | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('pathId');
+  });
   
   const languageDisplayName = language.charAt(0).toUpperCase() + language.slice(1);
   

@@ -4318,3 +4318,65 @@ Rename the orchestrator's case labels to match the exact uppercased function nam
 - ~50 case labels across `handleNativeFunctionCall()` in `streaming-voice-orchestrator.ts`
 - A few references to `legacyType` in filtering logic (e.g., `METADATA_ONLY_FUNCTIONS`)
 - Low risk but wide blast radius — best done as a focused cleanup session with no other changes
+
+---
+
+### Session: February 20, 2026 — Textbook Routing Fix, Content Quality & Translation Architecture
+
+**Status**: COMPLETED
+
+#### What was built
+
+1. **Textbook routing fix** — Language Hub's textbook link now passes the selected class's `curriculum_path_id` as a query parameter (`?curriculum_path_id=xxx`). The textbook page reads this parameter and applies it to filter content to the correct curriculum path. Previously, clicking "Textbook" from Language Hub showed generic/unfiltered content instead of the class-specific syllabus.
+
+2. **LessonPrepCard em dash fix** — Removed an improper em dash character from conversation preview text in the LessonPrepCard component.
+
+3. **Spanish 3 Unit 1 content replacement** — Replaced 34 misplaced Spanish 1 greeting drills (Hola, Buenos días, etc.) in the Spanish 3 "Active Practice: Mixed Drills" lesson with 23 intermediate-level drills covering identity and social issues vocabulary. New content includes:
+   - 10 listen_repeat items (identity, values, rights, equality, diversity, belonging, justice, community, society, heritage)
+   - 8 translate_speak items including subjunctive usage ("Es necesario que luchemos por la igualdad")
+   - 4 fill_blank items testing vocabulary in context
+   - 1 matching drill for term-translation pairs
+   - All items at difficulty 3-4 (intermediate), appropriate for Spanish 3
+
+4. **Audio play button accessibility** — TextAudioPlayButton now includes `aria-label` for screen readers ("Play pronunciation of {text}").
+
+5. **Translation accessibility** — Updated all listen_repeat drill items across 8 non-English languages to include English translations in the `prompt` field (e.g., Spanish "Hola" → prompt shows "Hello").
+
+#### Key files modified
+- `client/src/pages/interactive-textbook.tsx` — Added `curriculum_path_id` query param reading
+- `client/src/components/LanguageHubCards.tsx` (or equivalent) — Pass `curriculum_path_id` to textbook link
+- `client/src/components/LessonPrepCard.tsx` — Removed em dash from preview text
+- `client/src/components/AudioPlayButton.tsx` — Added `aria-label` prop
+
+#### Database changes
+- 34 Spanish 1 drill items deleted from Spanish 3 Unit 1 Mixed Drills lesson
+- 23 new intermediate-level drill items inserted for Identity & Social Issues
+- All listen_repeat prompts across 8 languages updated with English translations
+
+---
+
+### Future Architecture: Dynamic Native-Language Translations
+
+**Status**: PINNED / BACKLOG
+
+#### Problem
+Currently, drill item translations are hardcoded to English in the `prompt` field. For example, a Spanish drill shows "Hello" as the translation. But if an Italian-speaking student is learning Spanish, they should see "Ciao" (Italian), not "Hello" (English). The `native_language` flag exists on user profiles and is used extensively by Daniela's voice system prompts, but NOT by the textbook/drill content system.
+
+#### Current state
+- **Daniela voice chat**: Fully respects `nativeLanguage` flag. System prompts reference it ~30+ times in `system-prompt.ts` for phase-appropriate language mixing, explanations in native language, etc.
+- **Drill content (textbook)**: Hardcoded English translations in `prompt` field. No dynamic translation layer.
+- **Database**: `conversations.nativeLanguage` field exists. Users have native language preference.
+
+#### Scope of fix
+1. **Schema change**: Add a `translations` JSONB column to `curriculum_drill_items` (or a separate `drill_item_translations` table) mapping `{ "en": "Hello", "it": "Ciao", "fr": "Bonjour", ... }`
+2. **API change**: Textbook/drill API endpoints need to accept user's `nativeLanguage` and return the appropriate translation
+3. **Content population**: Need translations for all ~5000+ drill items across all supported native languages (10 languages × 10 target languages = up to 100 translation pairs)
+4. **Frontend**: TextAudioPlayButton and drill UI need to display the user's native-language translation instead of hardcoded English
+
+#### Recommended approach
+- Use AI batch translation (Gemini Flash) to generate initial translations for all drill items
+- Store in JSONB column for efficient lookup
+- Fallback chain: user's native language → English → show target text only
+
+#### Content gap: Spanish 3 curriculum depth
+Units 2-4 of Spanish 3 are hollow shells — they have conversation and cultural stub lessons but no vocabulary or drill content matching their Can-Do statements. Needs dedicated content authoring session.

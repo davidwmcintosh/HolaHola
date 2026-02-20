@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { BookOpen, ArrowRight, Sparkles } from "lucide-react";
 import { Link } from "wouter";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useLearningFilter } from "@/contexts/LearningFilterContext";
 
 interface InteractiveTextbookCardProps {
   className?: string;
@@ -10,11 +11,21 @@ interface InteractiveTextbookCardProps {
 
 export function InteractiveTextbookCard({ className = '' }: InteractiveTextbookCardProps) {
   const { language } = useLanguage();
+  const { learningContext, enrolledClasses } = useLearningFilter();
   
   const languageDisplayName = language.charAt(0).toUpperCase() + language.slice(1);
 
+  const selectedClass = (learningContext !== 'self-directed' && learningContext !== 'all' && learningContext !== 'founder-mode' && learningContext !== 'honesty-mode' && learningContext !== 'all-classes' && learningContext !== 'all-learning')
+    ? enrolledClasses.find(e => e.classId === learningContext)
+    : undefined;
+
+  const pathId = selectedClass?.class?.curriculumPathId;
+  const textbookHref = pathId
+    ? `/interactive-textbook?pathId=${pathId}`
+    : '/interactive-textbook';
+
   return (
-    <Link href="/interactive-textbook">
+    <Link href={textbookHref}>
       <Card 
         className={`p-4 md:p-6 bg-gradient-to-r from-accent/20 via-accent/10 to-background border-accent/30 hover-elevate cursor-pointer ${className}`}
         data-testid="card-interactive-textbook"

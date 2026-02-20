@@ -830,7 +830,7 @@ export function LessonPrepCard({
               </div>
             )}
             <p className="text-xs text-muted-foreground mt-2">
-              Daniela will guide you \u2014 just try to respond in {langDisplay}!
+              Daniela will guide you. Just try to respond in {langDisplay}!
             </p>
           </div>
         )}
