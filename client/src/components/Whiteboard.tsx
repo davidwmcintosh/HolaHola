@@ -2109,7 +2109,6 @@ const PronunciationItemDisplay = ({ item, index }: PronunciationItemDisplayProps
  * Used for nested content inside size tags like <lg>**bold**</lg>
  */
 function parseFormattedTextInner(text: string): JSX.Element[] {
-  // Guard against undefined/null text
   if (!text) {
     return [<span key={0}></span>];
   }
@@ -2117,7 +2116,6 @@ function parseFormattedTextInner(text: string): JSX.Element[] {
   const elements: JSX.Element[] = [];
   let keyIndex = 0;
   
-  // Formatting patterns without size tags (prevents recursion)
   const formatRegex = /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(__(.+?)__)|(\~\~(.+?)\~\~)|(`(.+?)`)/g;
   
   let lastIndex = 0;
@@ -2125,7 +2123,9 @@ function parseFormattedTextInner(text: string): JSX.Element[] {
   
   while ((match = formatRegex.exec(text)) !== null) {
     if (match.index > lastIndex) {
-      elements.push(<span key={keyIndex++}>{text.slice(lastIndex, match.index)}</span>);
+      const { elements: plainEls, nextKey } = renderPlainTextWithBreaks(text.slice(lastIndex, match.index), keyIndex);
+      elements.push(...plainEls);
+      keyIndex = nextKey;
     }
     
     if (match[1]) {
@@ -2144,11 +2144,14 @@ function parseFormattedTextInner(text: string): JSX.Element[] {
   }
   
   if (lastIndex < text.length) {
-    elements.push(<span key={keyIndex++}>{text.slice(lastIndex)}</span>);
+    const { elements: plainEls, nextKey } = renderPlainTextWithBreaks(text.slice(lastIndex), keyIndex);
+    elements.push(...plainEls);
+    keyIndex = nextKey;
   }
   
   if (elements.length === 0) {
-    elements.push(<span key={0}>{text}</span>);
+    const { elements: plainEls } = renderPlainTextWithBreaks(text, 0);
+    elements.push(...plainEls);
   }
   
   return elements;
@@ -2159,8 +2162,18 @@ function parseFormattedTextInner(text: string): JSX.Element[] {
  * Supports: **bold**, *italic*, __underline__, ~~strikethrough~~, `code`
  * Inline sizes: <sm>small</sm>, <lg>large</lg>, <xl>extra large</xl>
  */
+function renderPlainTextWithBreaks(text: string, startKey: number): { elements: JSX.Element[]; nextKey: number } {
+  const elements: JSX.Element[] = [];
+  let k = startKey;
+  const parts = text.split('\n');
+  parts.forEach((part, i) => {
+    if (part) elements.push(<span key={k++}>{part}</span>);
+    if (i < parts.length - 1) elements.push(<br key={k++} />);
+  });
+  return { elements, nextKey: k };
+}
+
 function parseFormattedText(text: string): JSX.Element[] {
-  // Guard against undefined/null text
   if (!text) {
     return [<span key={0}></span>];
   }
@@ -2168,60 +2181,47 @@ function parseFormattedText(text: string): JSX.Element[] {
   const elements: JSX.Element[] = [];
   let keyIndex = 0;
   
-  // Combined regex for all formatting patterns
-  // Order matters: check longer patterns first (** before *, __ before _)
-  // Also includes inline size tags: <sm>, <lg>, <xl>
   const formatRegex = /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(__(.+?)__)|(\~\~(.+?)\~\~)|(`(.+?)`)|(<sm>(.+?)<\/sm>)|(<lg>(.+?)<\/lg>)|(<xl>(.+?)<\/xl>)/g;
   
   let lastIndex = 0;
   let match;
   
   while ((match = formatRegex.exec(text)) !== null) {
-    // Add plain text before this match
     if (match.index > lastIndex) {
-      elements.push(
-        <span key={keyIndex++}>{text.slice(lastIndex, match.index)}</span>
-      );
+      const { elements: plainEls, nextKey } = renderPlainTextWithBreaks(text.slice(lastIndex, match.index), keyIndex);
+      elements.push(...plainEls);
+      keyIndex = nextKey;
     }
     
-    // Determine which format matched and render accordingly
     if (match[1]) {
-      // **bold**
       elements.push(
         <strong key={keyIndex++} className="font-bold">{match[2]}</strong>
       );
     } else if (match[3]) {
-      // *italic*
       elements.push(
         <em key={keyIndex++} className="italic">{match[4]}</em>
       );
     } else if (match[5]) {
-      // __underline__
       elements.push(
         <span key={keyIndex++} className="underline decoration-2">{match[6]}</span>
       );
     } else if (match[7]) {
-      // ~~strikethrough~~
       elements.push(
         <span key={keyIndex++} className="line-through opacity-60">{match[8]}</span>
       );
     } else if (match[9]) {
-      // `code`
       elements.push(
         <code key={keyIndex++} className="font-mono bg-muted px-1.5 py-0.5 rounded text-sm">{match[10]}</code>
       );
     } else if (match[11]) {
-      // <sm>small text</sm> - recursively parse inner content for nested formatting
       elements.push(
         <span key={keyIndex++} className="text-sm">{parseFormattedTextInner(match[12])}</span>
       );
     } else if (match[13]) {
-      // <lg>large text</lg> - recursively parse inner content for nested formatting
       elements.push(
         <span key={keyIndex++} className="text-lg">{parseFormattedTextInner(match[14])}</span>
       );
     } else if (match[15]) {
-      // <xl>extra large text</xl> - recursively parse inner content for nested formatting
       elements.push(
         <span key={keyIndex++} className="text-xl font-semibold">{parseFormattedTextInner(match[16])}</span>
       );
@@ -2230,16 +2230,15 @@ function parseFormattedText(text: string): JSX.Element[] {
     lastIndex = match.index + match[0].length;
   }
   
-  // Add remaining plain text
   if (lastIndex < text.length) {
-    elements.push(
-      <span key={keyIndex++}>{text.slice(lastIndex)}</span>
-    );
+    const { elements: plainEls, nextKey } = renderPlainTextWithBreaks(text.slice(lastIndex), keyIndex);
+    elements.push(...plainEls);
+    keyIndex = nextKey;
   }
   
-  // If no formatting found, return original text
   if (elements.length === 0) {
-    elements.push(<span key={0}>{text}</span>);
+    const { elements: plainEls } = renderPlainTextWithBreaks(text, 0);
+    elements.push(...plainEls);
   }
   
   return elements;
@@ -2367,9 +2366,9 @@ const TextItemDisplay = ({ item, index }: TextItemDisplayProps) => {
           {icon}
         </span>
       )}
-      <span className={`${textSizeClass} font-medium leading-relaxed`}>
+      <div className={`${textSizeClass} font-medium leading-relaxed flex-1`}>
         {parseFormattedText(item.content)}
-      </span>
+      </div>
     </motion.div>
   );
 };
