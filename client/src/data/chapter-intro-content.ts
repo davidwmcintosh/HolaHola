@@ -46,7 +46,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
     formalInformal: [
       { formal: "\u00bfC\u00f3mo est\u00e1 usted?", informal: "\u00bfC\u00f3mo est\u00e1s?", context: "How are you?" },
       { formal: "Mucho gusto en conocerle", informal: "\u00a1Hola! \u00bfQu\u00e9 tal?", context: "Nice to meet you" },
-      { formal: "Con permiso", informal: "Oye", context: "Excuse me" }
+      { formal: "Disculpe", informal: "Perdona", context: "Excuse me" }
     ],
     quickPhrases: [
       { phrase: "Hola", meaning: "Hello" },
@@ -149,12 +149,12 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
   french: {
     greetings: {
       morning: "Bonjour",
-      afternoon: "Bon apr\u00e8s-midi",
+      afternoon: "Bonjour",
       evening: "Bonsoir"
     },
     formalInformal: [
       { formal: "Comment allez-vous ?", informal: "Comment \u00e7a va ?", context: "How are you?" },
-      { formal: "Enchant\u00e9(e)", informal: "Salut !", context: "Nice to meet you" },
+      { formal: "Enchant\u00e9(e)", informal: "Ravi(e) de te conna\u00eetre !", context: "Nice to meet you" },
       { formal: "Excusez-moi", informal: "Pardon", context: "Excuse me" }
     ],
     quickPhrases: [
@@ -591,7 +591,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
     formalInformal: [
       { formal: "\uc5b4\ub5bb\uac8c \uc9c0\ub0b4\uc138\uc694?", informal: "\uc798 \uc9c0\ub0b4?", context: "How are you?" },
       { formal: "\ub9cc\ub098\uc11c \ubc18\uac11\uc2b5\ub2c8\ub2e4", informal: "\ubc18\uac00\uc6cc!", context: "Nice to meet you" },
-      { formal: "\uc2e4\ub840\ud569\ub2c8\ub2e4", informal: "\uc7a0\uae50\ub9cc\uc694", context: "Excuse me" }
+      { formal: "\uc2e4\ub840\ud569\ub2c8\ub2e4", informal: "\uc800\uae30\uc694", context: "Excuse me" }
     ],
     quickPhrases: [
       { phrase: "\uc548\ub155\ud558\uc138\uc694", meaning: "Hello" },
@@ -700,7 +700,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
     formalInformal: [
       { formal: "\u60a8\u597d\uff0c\u60a8\u8eab\u4f53\u597d\u5417\uff1f", informal: "\u4f60\u597d\uff0c\u6700\u8fd1\u600e\u4e48\u6837\uff1f", context: "How are you?" },
       { formal: "\u5e78\u4f1a", informal: "\u8ba4\u8bc6\u4f60\u5f88\u9ad8\u5174", context: "Nice to meet you" },
-      { formal: "\u8bf7\u95ee", informal: "\u4e0d\u597d\u610f\u601d", context: "Excuse me" }
+      { formal: "\u6253\u6270\u4e00\u4e0b", informal: "\u4e0d\u597d\u610f\u601d", context: "Excuse me" }
     ],
     quickPhrases: [
       { phrase: "\u4f60\u597d", meaning: "Hello" },
@@ -1027,7 +1027,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
     formalInformal: [
       { formal: "\u05de\u05d4 \u05e9\u05dc\u05d5\u05de\u05da?", informal: "\u05de\u05d4 \u05e0\u05e9\u05de\u05e2?", context: "How are you?" },
       { formal: "\u05e0\u05e2\u05d9\u05dd \u05dc\u05d4\u05db\u05d9\u05e8", informal: "\u05e0\u05e2\u05d9\u05dd \u05de\u05d0\u05d5\u05d3!", context: "Nice to meet you" },
-      { formal: "\u05e1\u05dc\u05d9\u05d7\u05d4", informal: "\u05e8\u05d2\u05e2", context: "Excuse me" }
+      { formal: "\u05e1\u05dc\u05d9\u05d7\u05d4", informal: "\u05e1\u05dc\u05d9\u05d7\u05d4", context: "Excuse me" }
     ],
     quickPhrases: [
       { phrase: "\u05e9\u05dc\u05d5\u05dd", meaning: "Hello" },
@@ -1068,7 +1068,7 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
           {
             title: "Counting Basics",
             content: "Hebrew numbers have masculine and feminine forms that match the noun being counted. '\u05d0\u05d7\u05d3' (echad) is masculine 'one', '\u05d0\u05d7\u05ea' (achat) is feminine 'one'. This gender agreement continues through the numbers. The system follows a logical pattern once you learn the basics: '\u05d0\u05d7\u05d3, \u05e9\u05e0\u05d9\u05d9\u05dd, \u05e9\u05dc\u05d5\u05e9\u05d4, \u05d0\u05e8\u05d1\u05e2\u05d4, \u05d7\u05de\u05e9\u05d4'.",
-            tip: "Hebrew numbers have gender! The masculine and feminine forms are almost opposite to what you'd expect \u2014 masculine numbers often end in consonants while feminine ones can end in '\u05d4-'."
+            tip: "Hebrew numbers have gender! The masculine and feminine forms are almost opposite to what you'd expect \u2014 for numbers 3-10, the masculine forms end in '\u05d4-' while the feminine forms end in consonants — the opposite of noun patterns."
           },
           {
             title: "Numbers in Daily Life",
