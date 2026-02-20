@@ -1,4 +1,5 @@
 import { TextAudioPlayButton } from "@/components/AudioPlayButton";
+import { SeeAndSayFromDrills } from "@/components/SeeAndSayInfographics";
 
 interface SunArcGreetingsProps {
   className?: string;
@@ -713,6 +714,7 @@ interface LessonPrepCardProps {
   conversationTopic?: string;
   lessonType: string;
   language?: string;
+  lessonName?: string;
   className?: string;
 }
 
@@ -722,6 +724,7 @@ export function LessonPrepCard({
   conversationTopic,
   lessonType,
   language,
+  lessonName,
   className = ''
 }: LessonPrepCardProps) {
   const langDisplay = language ? language.charAt(0).toUpperCase() + language.slice(1) : 'the target language';
@@ -835,7 +838,15 @@ export function LessonPrepCard({
           </div>
         )}
         
-        {hasVocab && (
+        {hasVocab && drills.length >= 4 && lessonName && (
+          <SeeAndSayFromDrills
+            drills={drills}
+            lessonName={lessonName}
+            language={language}
+          />
+        )}
+        
+        {hasVocab && (!lessonName || drills.length < 4) && (
           <div data-testid="prep-vocabulary">
             <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
               <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2">
