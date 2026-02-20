@@ -1,3 +1,5 @@
+import { TextAudioPlayButton } from "@/components/AudioPlayButton";
+
 interface SunArcGreetingsProps {
   className?: string;
   morning?: string;
@@ -842,18 +844,32 @@ export function LessonPrepCard({
               Key Vocabulary
             </p>
             <div className="grid grid-cols-2 gap-1.5">
-              {vocabDrills.map((drill, i) => (
-                <div 
-                  key={drill.id || i} 
-                  className="p-2 rounded-md bg-muted/30 border border-transparent"
-                  data-testid={`prep-vocab-${i}`}
-                >
-                  <p className="font-medium text-sm truncate">{drill.targetText}</p>
-                  {drill.prompt && (
-                    <p className="text-xs text-muted-foreground truncate">{drill.prompt}</p>
-                  )}
-                </div>
-              ))}
+              {vocabDrills.map((drill, i) => {
+                const hasTranslation = drill.prompt && drill.prompt !== drill.targetText;
+                return (
+                  <div 
+                    key={drill.id || i} 
+                    className="flex items-center gap-1.5 p-2 rounded-md bg-muted/30 border border-transparent"
+                    data-testid={`prep-vocab-${i}`}
+                  >
+                    {language && (
+                      <TextAudioPlayButton
+                        text={drill.targetText}
+                        language={language}
+                        size="sm"
+                        variant="ghost"
+                        className="shrink-0"
+                      />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-sm truncate">{drill.targetText}</p>
+                      {hasTranslation && (
+                        <p className="text-xs text-muted-foreground truncate">{drill.prompt}</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -867,16 +883,32 @@ export function LessonPrepCard({
               Useful Phrases
             </p>
             <div className="space-y-1.5">
-              {phraseDrills.map((drill, i) => (
-                <div 
-                  key={drill.id || i} 
-                  className="p-2 rounded-md bg-green-500/5 border border-green-500/15"
-                  data-testid={`prep-phrase-${i}`}
-                >
-                  <p className="font-medium text-sm">{drill.targetText}</p>
-                  <p className="text-xs text-muted-foreground">{drill.prompt}</p>
-                </div>
-              ))}
+              {phraseDrills.map((drill, i) => {
+                const hasTranslation = drill.prompt && drill.prompt !== drill.targetText;
+                return (
+                  <div 
+                    key={drill.id || i} 
+                    className="flex items-center gap-1.5 p-2 rounded-md bg-green-500/5 border border-green-500/15"
+                    data-testid={`prep-phrase-${i}`}
+                  >
+                    {language && (
+                      <TextAudioPlayButton
+                        text={drill.targetText}
+                        language={language}
+                        size="sm"
+                        variant="ghost"
+                        className="shrink-0"
+                      />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-sm">{drill.targetText}</p>
+                      {hasTranslation && (
+                        <p className="text-xs text-muted-foreground">{drill.prompt}</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

@@ -236,6 +236,7 @@ export function TextAudioPlayButton({
       )}
       onClick={handleClick}
       disabled={isLoading}
+      aria-label={isPlaying ? `Stop playing ${text}` : `Play pronunciation of ${text}`}
       data-testid={`audio-play-text-${text.substring(0, 20)}`}
     >
       {isLoading ? (
