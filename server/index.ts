@@ -409,8 +409,25 @@ app.use((req, res, next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
-    res.status(status).json({ message });
-    throw err;
+    if (_req.accepts('html') && !_req.path.startsWith('/api/')) {
+      res.status(status).set({ 'Content-Type': 'text/html' }).send(`<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HolaHola</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui,-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f8fafc;color:#334155}
+.c{text-align:center;padding:2rem;max-width:420px}.icon{font-size:3rem;margin-bottom:1rem}.h{font-size:1.5rem;font-weight:600;margin-bottom:.5rem}.p{color:#64748b;margin-bottom:1.5rem;line-height:1.5}
+.btn{display:inline-block;padding:.75rem 1.5rem;background:#2563eb;color:#fff;border-radius:.5rem;text-decoration:none;font-weight:500;border:none;cursor:pointer;font-size:1rem}
+.btn:hover{background:#1d4ed8}
+@media(prefers-color-scheme:dark){body{background:#0f172a;color:#e2e8f0}.p{color:#94a3b8}}</style>
+</head><body><div class="c">
+<div class="icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg></div>
+<div class="h">Something went wrong</div>
+<p class="p">HolaHola ran into an issue loading this page. This is usually temporary.</p>
+<button class="btn" onclick="location.reload()">Try Again</button>
+</div></body></html>`);
+    } else {
+      res.status(status).json({ message });
+    }
+    console.error(`[Error Handler] ${status}: ${message}`, err.stack ? err.stack.split('\n').slice(0, 3).join(' | ') : '');
   });
 
   // Run TTS service health check on startup

@@ -14,6 +14,7 @@ import { useStreamingSubtitles, UseStreamingSubtitlesReturn } from './useStreami
 import { logAudioChunkReceived, updateDebugTimingState, trackWsMessage } from '../lib/debugTimingState';
 import { setGlobalPlaybackState, getGlobalPlaybackState } from '../lib/playbackStateStore';
 import { diagSetSession, diagSetHookRefs, diagEvent, diagMarkConnect, diagMarkFirstAudio, diagMarkResponseComplete, diagMarkDisconnect, diagMarkTurnStart, diagMarkError, diagMarkTtsError, diagMarkFailsafe, reportDiagnostic, startLockoutWatchdog, startGreetingSilenceWatchdog } from '../lib/lockoutDiagnostics';
+import { acquireWakeLock, releaseWakeLock } from '../lib/wakeLock';
 import { 
   STREAMING_FEATURE_FLAGS,
   type StreamingClientState,
@@ -1370,6 +1371,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('scenarioEnded', handleScenarioEnded);
       clientRef.current.on('propUpdate', handlePropUpdate);
       
+      // Keep screen alive on mobile during voice session
+      acquireWakeLock();
+
       // Connect WebSocket
       await clientRef.current.connect(config.conversationId);
       if (isVerboseLoggingEnabled()) {
@@ -1414,6 +1418,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       
     } catch (err: any) {
       console.error('[StreamingVoice] Connection failed:', err);
+      releaseWakeLock();
       setError(err.message);
       throw err;
     }
@@ -1424,6 +1429,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    */
   const disconnect = useCallback(() => {
     diagMarkDisconnect('user_disconnect');
+    releaseWakeLock();
     if (isVerboseLoggingEnabled()) {
       console.log('[StreamingVoice] Disconnecting');
     }
