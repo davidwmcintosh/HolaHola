@@ -7,7 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ErrorBoundary, WidgetErrorBoundary } from "@/components/ErrorBoundary";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { LearningFilterProvider } from "@/contexts/LearningFilterContext";
 import { UsageProvider } from "@/contexts/UsageContext";
@@ -198,7 +198,7 @@ function Router() {
         <Route path="/dashboard" component={ReviewHub} />
         <Route path="/legacy-dashboard" component={Dashboard} />
         <Route path="/onboarding" component={Onboarding} />
-        <Route path="/chat" component={Chat} />
+        <Route path="/chat">{() => <WidgetErrorBoundary name="Voice Chat"><Chat /></WidgetErrorBoundary>}</Route>
         {/* Voice tutor route aliases - all redirect to /chat */}
         <Route path="/voice-tutor"><Redirect to="/chat" /></Route>
         <Route path="/voice"><Redirect to="/chat" /></Route>
@@ -210,11 +210,11 @@ function Router() {
         <Route path="/history" component={History} />
         <Route path="/can-do-progress" component={CanDoProgress} />
         <Route path="/lessons" component={Lessons} />
-        <Route path="/practice" component={ArisPractice} />
+        <Route path="/practice">{() => <WidgetErrorBoundary name="Practice"><ArisPractice /></WidgetErrorBoundary>}</Route>
         <Route path="/scenarios" component={ScenarioBrowser} />
-        <Route path="/aris" component={ArisPractice} />
-        <Route path="/pronunciation" component={PronunciationDrill} />
-        <Route path="/pronunciation-drill" component={PronunciationDrill} />
+        <Route path="/aris">{() => <WidgetErrorBoundary name="Practice"><ArisPractice /></WidgetErrorBoundary>}</Route>
+        <Route path="/pronunciation">{() => <WidgetErrorBoundary name="Pronunciation"><PronunciationDrill /></WidgetErrorBoundary>}</Route>
+        <Route path="/pronunciation-drill">{() => <WidgetErrorBoundary name="Pronunciation"><PronunciationDrill /></WidgetErrorBoundary>}</Route>
         <Route path="/session-replay" component={SessionReplay} />
         <Route path="/interactive-textbook"><Redirect to="/" /></Route>
         

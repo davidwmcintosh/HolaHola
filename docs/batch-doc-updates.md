@@ -53,6 +53,18 @@ Staging area for documentation changes to be consolidated later.
 #### Beta hardening: Global error handlers
 - Added `process.on('uncaughtException')` and `process.on('unhandledRejection')` to `server/index.ts` for production crash visibility
 
+#### Neon pool warm-up
+- **Problem**: First authenticated API requests after server start took 500-600ms due to Neon cold-start latency (connection establishment)
+- **Fix**: Added `warmupNeonPool()` in `server/neon-db.ts` — executes `SELECT 1` during server boot before routes are registered. Called from `server/index.ts` before `registerRoutes()`
+- **Result**: Pool warmed up in 111ms at boot. Subsequent first-request latency eliminated
+- **Files**: `server/neon-db.ts`, `server/index.ts`
+
+#### Component-level error boundaries
+- **Problem**: Voice chat and drill widgets share the app-level ErrorBoundary — if one crashes, the entire app shows the error page
+- **Fix**: Added `WidgetErrorBoundary` class in `client/src/components/ErrorBoundary.tsx` — inline error recovery UI (retry + home buttons) without full-page takeover
+- **Wrapped routes**: `/chat` (Voice Chat), `/practice` + `/aris` (Practice), `/pronunciation` + `/pronunciation-drill` (Pronunciation)
+- **Files**: `client/src/components/ErrorBoundary.tsx`, `client/src/App.tsx`
+
 ---
 
 ### Session: February 21, 2026 — Voice Context Pipeline

@@ -133,3 +133,73 @@ export class ErrorBoundary extends Component<Props, State> {
     return this.props.children;
   }
 }
+
+interface WidgetProps {
+  children: ReactNode;
+  name?: string;
+}
+
+interface WidgetState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+export class WidgetErrorBoundary extends Component<WidgetProps, WidgetState> {
+  constructor(props: WidgetProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): Partial<WidgetState> {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error(`[${this.props.name || 'Widget'}] Error:`, error, errorInfo);
+  }
+
+  handleRetry = () => {
+    this.setState({ hasError: false, error: null });
+  };
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex flex-col items-center justify-center p-8 gap-4 text-center">
+          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-destructive/10">
+            <AlertTriangle className="h-5 w-5 text-destructive" />
+          </div>
+          <div>
+            <p className="text-sm font-medium">
+              {this.props.name ? `${this.props.name} encountered an issue` : 'Something went wrong'}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Try again or return to the home page
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              onClick={this.handleRetry}
+              data-testid="button-widget-retry"
+            >
+              <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+              Retry
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => { window.location.href = '/'; }}
+              data-testid="button-widget-home"
+            >
+              <Home className="mr-1.5 h-3.5 w-3.5" />
+              Home
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}

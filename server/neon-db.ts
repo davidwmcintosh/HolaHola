@@ -1,5 +1,6 @@
 import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
+import { sql } from 'drizzle-orm';
 import ws from "ws";
 import * as schema from "@shared/schema";
 
@@ -80,6 +81,18 @@ export async function testNeonConnection(): Promise<{
   } catch (error: any) {
     const failResult = { success: false, message: error.message };
     return { shared: failResult, user: failResult };
+  }
+}
+
+export async function warmupNeonPool(): Promise<void> {
+  if (!DATABASE_URL) return;
+  try {
+    const start = Date.now();
+    const db = getDb();
+    await db.execute(sql`SELECT 1`);
+    console.log(`[Neon] Pool warmed up in ${Date.now() - start}ms`);
+  } catch (error: any) {
+    console.warn('[Neon] Pool warm-up failed:', error.message);
   }
 }
 

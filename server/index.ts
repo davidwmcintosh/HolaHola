@@ -15,6 +15,7 @@ import { hiveConsciousnessService } from "./services/hive-consciousness-service"
 import { migrationOrchestrator } from "./migrations/migration-orchestrator";
 import { memoryRecoveryWorker } from "./services/memory-recovery-worker";
 import { supportPersonaService } from "./services/support-persona-service";
+import { warmupNeonPool } from "./neon-db";
 
 const app = express();
 
@@ -402,7 +403,8 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Register routes (no longer creates server - we created it above)
+  await warmupNeonPool();
+
   await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
