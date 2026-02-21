@@ -33,6 +33,8 @@ import { getGeminiTtsStreamingService } from "./gemini-tts-streaming";
 import { getGeminiLiveTtsService } from "./gemini-live-tts";
 import { DANIELA_TTS_PROVIDER } from "./voice-config";
 import { buildFunctionContinuationResponse } from "./daniela-function-registry";
+import { createTTSProviderRegistry, TTSProviderRegistry, resolveSessionTTSProvider, type TTSProviderName } from "./tts-provider-adapter";
+import { buildClassroomDynamicContext, fetchPassiveMemories, fetchIdentityMemories, fetchStudentIntelligence, assembleDynamicPreamble } from "./voice-context-pipeline";
 import { WebSocket as WS } from "ws";
 import {
   StreamingMessage,
@@ -1491,9 +1493,16 @@ export class StreamingVoiceOrchestrator {
   private geminiTtsService = getGeminiTtsStreamingService();
   private geminiLiveTtsService = getGeminiLiveTtsService();
   private ttsProvider = DANIELA_TTS_PROVIDER;
+  private ttsProviderRegistry: TTSProviderRegistry;
   
   constructor() {
-    console.log(`[Streaming Orchestrator] Initialized (TTS: ${this.ttsProvider})`);
+    this.ttsProviderRegistry = createTTSProviderRegistry({
+      cartesiaService: this.cartesiaService,
+      elevenlabsService: this.elevenlabsService,
+      geminiLiveTtsService: this.geminiLiveTtsService,
+      getTTSService: () => getTTSService(),
+    });
+    console.log(`[Streaming Orchestrator] Initialized (TTS: ${this.ttsProvider}, providers: ${this.ttsProviderRegistry.getAll().map(p => p.name).join(', ')})`);
   }
   
   /**
@@ -2982,54 +2991,23 @@ Remember: David may reference things discussed in these recent text chats.
         dynamicContextParts.push(editorFeedbackSection);
       }
       
-      // CLASSROOM ENVIRONMENT: Daniela's unified workspace with all persistent context
-      // Student learning, beta tester instructions, tech health, and incognito are now part of the classroom
-      if (session.userId) {
-        const classroomStart = Date.now();
-        try {
-          const creditBalance = await usageService.getBalanceWithBypass(String(session.userId));
-          const { buildClassroomEnvironment } = await import('./classroom-environment');
-          const classroomEnv = await buildClassroomEnvironment({
-            userId: String(session.userId),
-            sessionStartTime: session.startTime,
-            targetLanguage: session.targetLanguage,
-            isFounderMode: session.isFounderMode,
-            isRawHonestyMode: session.isRawHonestyMode,
-            isBetaTester: session.isBetaTester,
-            isIncognito: session.isIncognito,
-            whiteboardItems: session.classroomWhiteboardItems || [],
-            sessionImages: session.classroomSessionImages || [],
-            exchangeCount: session.conversationHistory.filter(h => h.role === 'user').length,
-            struggleCount: session.sessionStruggleCount || 0,
-            recentConfidences: session.recentSttConfidences || [],
-            creditRemainingSeconds: creditBalance.remainingSeconds,
-            creditWarningLevel: creditBalance.warningLevel,
-            creditPercentRemaining: creditBalance.percentRemaining,
-            tutorName: session.tutorName || 'Daniela',
-            studentLearningSection: studentLearningSection || undefined,
-            technicalHealthNote: voiceDiagnostics.getTechnicalHealthContext(),
-            activeScenario: (session as any).activeScenario ? {
-              title: (session as any).activeScenario.title,
-              location: (session as any).activeScenario.location || (session as any).activeScenario.title,
-              slug: (session as any).activeScenario.slug,
-              propsCount: (session as any).activeScenario.props?.length,
-            } : null,
-          });
+      // CLASSROOM ENVIRONMENT: Daniela's unified workspace via shared pipeline
+      {
+        const { classroomEnv, telemetry } = await buildClassroomDynamicContext({
+          session: session as any,
+          studentLearningSection: studentLearningSection || undefined,
+        });
+        if (classroomEnv) {
           dynamicContextParts.push(classroomEnv);
-          const boardItems = session.classroomWhiteboardItems?.length || 0;
-          const images = session.classroomSessionImages?.length || 0;
-          console.log(`[Classroom] Environment injected (PTT) — ${boardItems} board items, ${images} images`);
-          brainHealthTelemetry.logContextInjection({
-            sessionId: session.id, userId: String(session.userId), targetLanguage: session.targetLanguage,
-            contextSource: 'classroom', success: true, latencyMs: Date.now() - classroomStart, richness: boardItems + images,
-          }).catch(() => {});
-        } catch (err: any) {
-          console.warn(`[Classroom] Failed to build environment:`, err.message);
-          brainHealthTelemetry.logContextInjection({
-            sessionId: session.id, userId: String(session.userId), targetLanguage: session.targetLanguage,
-            contextSource: 'classroom', success: false, latencyMs: Date.now() - classroomStart, errorMessage: err.message,
-          }).catch(() => {});
+          console.log(`[Classroom] Environment injected (PTT) — ${telemetry.richness} items`);
+        } else if (telemetry.errorMessage) {
+          console.warn(`[Classroom] Failed:`, telemetry.errorMessage);
         }
+        brainHealthTelemetry.logContextInjection({
+          sessionId: session.id, userId: String(session.userId), targetLanguage: session.targetLanguage,
+          contextSource: telemetry.source, success: telemetry.success, latencyMs: telemetry.latencyMs, richness: telemetry.richness,
+          ...(telemetry.errorMessage ? { errorMessage: telemetry.errorMessage } : {}),
+        }).catch(() => {});
       }
       
       
@@ -3041,16 +3019,8 @@ Remember: David may reference things discussed in these recent text chats.
       // Start with base session history
       let conversationHistoryWithContext: ConversationHistoryEntry[] = [];
       
-      // STEP 1: Add dynamic context as first "user" message with model acknowledgment
-      // This goes at the very beginning so model has current session state
-      if (dynamicContextParts.length > 0) {
-        const dynamicContextMessage = `[CONTEXT UPDATE - Current Session State]\n${dynamicContextParts.join('\n')}`;
-        conversationHistoryWithContext.push(
-          { role: 'user', content: dynamicContextMessage },
-          { role: 'model', content: '[Context acknowledged. I will incorporate this information naturally into our conversation.]' }
-        );
-        console.log(`[Context Caching] Dynamic context (${dynamicContextParts.length} sections) added as preamble`);
-      }
+      // STEP 1: Add dynamic context preamble via shared pipeline
+      conversationHistoryWithContext.push(...assembleDynamicPreamble(dynamicContextParts, 'PTT'));
       
       // STEP 2: Add Express Lane history (text chat memory) if in Founder Mode
       if (session.isFounderMode && expressLaneHistory.length > 0) {
@@ -3100,8 +3070,8 @@ Remember: David may reference things discussed in these recent text chats.
       // This overlaps TTS generation of sentence N+1 with streaming of sentence N,
       // eliminating the 3-6s gap between sentences.
       const ttsLookaheadMap = new Map<number, Promise<{ audio: Buffer; durationMs: number; timestamps: import('@shared/streaming-voice-types').WordTiming[] } | null>>();
-      const effectiveTtsProvider = session.ttsProvider || this.ttsProvider;
-      const isGoogleBatchMode = effectiveTtsProvider === 'google';
+      const effectiveTtsProvider = resolveSessionTTSProvider(session.ttsProvider as TTSProviderName | undefined, this.ttsProvider as TTSProviderName);
+      const isGoogleBatchMode = this.ttsProviderRegistry.getOrThrow(effectiveTtsProvider).requiresBatchMode;
       const batchedSentences: { chunk: SentenceChunk; displayText: string; rawText: string }[] = [];
       const lookaheadTtsRequest = {
         text: '',
@@ -3228,8 +3198,8 @@ Remember: David may reference things discussed in these recent text chats.
                 console.log(`[Early TTS] AI first token (via FC): ${metrics.aiFirstTokenMs}ms`);
               }
 
-              const effectiveTtsProviderPTT = session.ttsProvider || this.ttsProvider;
-              const isGoogleBatchModeFCPTT = effectiveTtsProviderPTT === 'google';
+              const effectiveTtsProviderPTT = resolveSessionTTSProvider(session.ttsProvider as TTSProviderName | undefined, this.ttsProvider as TTSProviderName);
+              const isGoogleBatchModeFCPTT = this.ttsProviderRegistry.getOrThrow(effectiveTtsProviderPTT).requiresBatchMode;
               const shouldPipelinePTT = sentences.length > 1 && effectiveTtsProviderPTT === 'gemini' && !session.isAssistantActive;
 
               if (isGoogleBatchModeFCPTT && !session.isInterrupted) {
@@ -4530,8 +4500,8 @@ Remember: David may reference things discussed in these recent text chats.
             fullText = embeddedText;
             metrics.sentenceCount = pttSentences.length;
 
-            const effectiveTtsProviderPostFC = session.ttsProvider || this.ttsProvider;
-            if (effectiveTtsProviderPostFC === 'google' && pttSentences.length > 1 && !session.isInterrupted) {
+            const effectiveTtsProviderPostFC = resolveSessionTTSProvider(session.ttsProvider as TTSProviderName | undefined, this.ttsProvider as TTSProviderName);
+            if (this.ttsProviderRegistry.getOrThrow(effectiveTtsProviderPostFC).requiresBatchMode && pttSentences.length > 1 && !session.isInterrupted) {
               console.log(`[Google Batch TTS - Post-FC PTT] Combining ${pttSentences.length} sentences (${embeddedText.length} chars) for single TTS call`);
               const batchTtsStartPostFC = Date.now();
 
@@ -5816,63 +5786,27 @@ Remember: David may reference things discussed in these recent text chats.
         dynamicContextPartsOpenMic.push(identityMemoriesSection);
       }
       
-      // CLASSROOM ENVIRONMENT (OpenMic): Daniela's unified workspace with all persistent context
-      if (session.userId) {
-        const classroomStartOM = Date.now();
-        try {
-          const creditBalance = await usageService.getBalanceWithBypass(String(session.userId));
-          const { buildClassroomEnvironment } = await import('./classroom-environment');
-          const classroomEnv = await buildClassroomEnvironment({
-            userId: String(session.userId),
-            sessionStartTime: session.startTime,
-            targetLanguage: session.targetLanguage,
-            isFounderMode: session.isFounderMode,
-            isRawHonestyMode: session.isRawHonestyMode,
-            isBetaTester: session.isBetaTester,
-            isIncognito: session.isIncognito,
-            whiteboardItems: session.classroomWhiteboardItems || [],
-            sessionImages: session.classroomSessionImages || [],
-            exchangeCount: session.conversationHistory.filter(h => h.role === 'user').length,
-            struggleCount: session.sessionStruggleCount || 0,
-            recentConfidences: session.recentSttConfidences || [],
-            creditRemainingSeconds: creditBalance.remainingSeconds,
-            creditWarningLevel: creditBalance.warningLevel,
-            creditPercentRemaining: creditBalance.percentRemaining,
-            tutorName: session.tutorName || 'Daniela',
-            studentLearningSection: studentLearningSection || undefined,
-            technicalHealthNote: voiceDiagnostics.getTechnicalHealthContext(),
-            activeScenario: (session as any).activeScenario ? {
-              title: (session as any).activeScenario.title,
-              location: (session as any).activeScenario.location || (session as any).activeScenario.title,
-              slug: (session as any).activeScenario.slug,
-              propsCount: (session as any).activeScenario.props?.length,
-            } : null,
-          });
+      // CLASSROOM ENVIRONMENT (OpenMic): Daniela's unified workspace via shared pipeline
+      {
+        const { classroomEnv, telemetry } = await buildClassroomDynamicContext({
+          session: session as any,
+          studentLearningSection: studentLearningSection || undefined,
+        });
+        if (classroomEnv) {
           dynamicContextPartsOpenMic.push(classroomEnv);
-          const boardItems = session.classroomWhiteboardItems?.length || 0;
-          const images = session.classroomSessionImages?.length || 0;
-          console.log(`[Classroom] Environment injected (OpenMic) — ${boardItems} board items, ${images} images`);
-          brainHealthTelemetry.logContextInjection({
-            sessionId: session.id, userId: String(session.userId), targetLanguage: session.targetLanguage,
-            contextSource: 'classroom', success: true, latencyMs: Date.now() - classroomStartOM, richness: boardItems + images,
-          }).catch(() => {});
-        } catch (err: any) {
-          console.warn(`[Classroom - OpenMic] Failed to build environment:`, err.message);
-          brainHealthTelemetry.logContextInjection({
-            sessionId: session.id, userId: String(session.userId), targetLanguage: session.targetLanguage,
-            contextSource: 'classroom', success: false, latencyMs: Date.now() - classroomStartOM, errorMessage: err.message,
-          }).catch(() => {});
+          console.log(`[Classroom] Environment injected (OpenMic) — ${telemetry.richness} items`);
+        } else if (telemetry.errorMessage) {
+          console.warn(`[Classroom - OpenMic] Failed:`, telemetry.errorMessage);
         }
+        brainHealthTelemetry.logContextInjection({
+          sessionId: session.id, userId: String(session.userId), targetLanguage: session.targetLanguage,
+          contextSource: telemetry.source, success: telemetry.success, latencyMs: telemetry.latencyMs, richness: telemetry.richness,
+          ...(telemetry.errorMessage ? { errorMessage: telemetry.errorMessage } : {}),
+        }).catch(() => {});
       }
       
-      // STEP 1: Add dynamic context preamble
-      if (dynamicContextPartsOpenMic.length > 0) {
-        conversationHistoryWithContext.push(
-          { role: 'user', content: `[CONTEXT UPDATE - Current Session State]\n${dynamicContextPartsOpenMic.join('\n')}` },
-          { role: 'model', content: '[Context acknowledged. I will incorporate this information naturally into our conversation.]' }
-        );
-        console.log(`[Context Caching - OpenMic] Dynamic context (${dynamicContextPartsOpenMic.length} sections) added as preamble`);
-      }
+      // STEP 1: Add dynamic context preamble via shared pipeline
+      conversationHistoryWithContext.push(...assembleDynamicPreamble(dynamicContextPartsOpenMic, 'OpenMic'));
       
       // Store preamble for continuation calls (before adding session history)
       session.currentTurnPreamble = [...conversationHistoryWithContext];
@@ -5896,8 +5830,8 @@ Remember: David may reference things discussed in these recent text chats.
       
       // TTS LOOKAHEAD (OpenMic): Same pipeline as PTT path
       const ttsLookaheadMapOM = new Map<number, Promise<{ audio: Buffer; durationMs: number; timestamps: import('@shared/streaming-voice-types').WordTiming[] } | null>>();
-      const effectiveTtsProviderOM = session.ttsProvider || this.ttsProvider;
-      const isGoogleBatchModeOM = effectiveTtsProviderOM === 'google';
+      const effectiveTtsProviderOM = resolveSessionTTSProvider(session.ttsProvider as TTSProviderName | undefined, this.ttsProvider as TTSProviderName);
+      const isGoogleBatchModeOM = this.ttsProviderRegistry.getOrThrow(effectiveTtsProviderOM).requiresBatchMode;
       const batchedSentencesOM: { chunk: SentenceChunk; displayText: string; rawText: string }[] = [];
       console.log(`[OpenMic TTS Config] provider=${effectiveTtsProviderOM}, sessionProvider=${session.ttsProvider || 'none'}, fallback=${this.ttsProvider}, batchMode=${isGoogleBatchModeOM}`);
       if (isGoogleBatchModeOM) {
@@ -6011,8 +5945,8 @@ Remember: David may reference things discussed in these recent text chats.
                 console.log(`[Early TTS - OpenMic] AI first token (via FC): ${metrics.aiFirstTokenMs}ms`);
               }
 
-              const effectiveTtsProvider = session.ttsProvider || this.ttsProvider;
-              const isGoogleBatchModeFCOM = effectiveTtsProvider === 'google';
+              const effectiveTtsProvider = resolveSessionTTSProvider(session.ttsProvider as TTSProviderName | undefined, this.ttsProvider as TTSProviderName);
+              const isGoogleBatchModeFCOM = this.ttsProviderRegistry.getOrThrow(effectiveTtsProvider).requiresBatchMode;
               const shouldPipeline = sentences.length > 1 && effectiveTtsProvider === 'gemini' && !session.isAssistantActive;
 
               if (isGoogleBatchModeFCOM && !session.isInterrupted) {
@@ -7007,8 +6941,8 @@ Remember: David may reference things discussed in these recent text chats.
             }
             session.onTtsStateChange?.(true);
 
-            const effectiveTtsProviderPostFCOM = session.ttsProvider || this.ttsProvider;
-            if (effectiveTtsProviderPostFCOM === 'google' && omSentences.length > 1 && !session.isInterrupted) {
+            const effectiveTtsProviderPostFCOM = resolveSessionTTSProvider(session.ttsProvider as TTSProviderName | undefined, this.ttsProvider as TTSProviderName);
+            if (this.ttsProviderRegistry.getOrThrow(effectiveTtsProviderPostFCOM).requiresBatchMode && omSentences.length > 1 && !session.isInterrupted) {
               console.log(`[Google Batch TTS - Post-FC OpenMic] Combining ${omSentences.length} sentences (${embeddedText.length} chars) for single TTS call`);
               const batchTtsStartPostFCOM = Date.now();
 
@@ -8070,12 +8004,13 @@ Remember: David may reference things discussed in these recent text chats.
       // CRITICAL: Only apply Cartesia SSML tags when Cartesia is the TTS provider.
       // Other providers (Gemini, Google Cloud TTS) will speak <volume>, <speed>, <pause>
       // tags as literal text, causing users to hear system markup spoken aloud.
-      const nonProgTtsProvider = session.ttsProvider || this.ttsProvider;
-      const textWithEmphases = nonProgTtsProvider === 'cartesia'
+      const nonProgTtsProvider = resolveSessionTTSProvider(session.ttsProvider as TTSProviderName | undefined, this.ttsProvider as TTSProviderName);
+      const nonProgAdapter = this.ttsProviderRegistry.get(nonProgTtsProvider);
+      const textWithEmphases = nonProgAdapter?.supportsCartesiaSSML
         ? applyWordEmphases(displayText, session.pendingWordEmphases)
         : displayText;
       if (session.pendingWordEmphases && session.pendingWordEmphases.length > 0) {
-        if (nonProgTtsProvider === 'cartesia') {
+        if (nonProgAdapter?.supportsCartesiaSSML) {
           console.log(`[Non-Progressive TTS] Applied ${session.pendingWordEmphases.length} word emphases (Cartesia SSML)`);
         } else {
           console.log(`[Non-Progressive TTS] Skipped ${session.pendingWordEmphases.length} word emphases (provider: ${nonProgTtsProvider} — Cartesia SSML not supported)`);
@@ -8563,12 +8498,13 @@ Remember: David may reference things discussed in these recent text chats.
       // Other providers (Gemini, Google Cloud TTS) don't understand Cartesia's
       // <volume>, <speed>, <pause> tags and will speak them as literal text —
       // causing users to hear words like "volume", "speed", "pause" spoken aloud.
-      const effectiveTtsProviderForEmphases = session.ttsProvider || this.ttsProvider;
-      const textWithEmphases = effectiveTtsProviderForEmphases === 'cartesia'
+      const effectiveTtsProviderForEmphases = resolveSessionTTSProvider(session.ttsProvider as TTSProviderName | undefined, this.ttsProvider as TTSProviderName);
+      const emphasisAdapter = this.ttsProviderRegistry.get(effectiveTtsProviderForEmphases);
+      const textWithEmphases = emphasisAdapter?.supportsCartesiaSSML
         ? applyWordEmphases(displayText, session.pendingWordEmphases)
         : displayText;
       if (session.pendingWordEmphases && session.pendingWordEmphases.length > 0) {
-        if (effectiveTtsProviderForEmphases === 'cartesia') {
+        if (emphasisAdapter?.supportsCartesiaSSML) {
           console.log(`[Progressive TTS] Applied ${session.pendingWordEmphases.length} word emphases (Cartesia SSML)`);
         } else {
           console.log(`[Progressive TTS] Skipped ${session.pendingWordEmphases.length} word emphases (provider: ${effectiveTtsProviderForEmphases} — Cartesia SSML not supported)`);
@@ -8753,7 +8689,7 @@ Remember: David may reference things discussed in these recent text chats.
         logSegmentation(segmentationResult, nativeLanguage, session.targetLanguage);
       }
       
-      const effectiveTtsProvider = session.ttsProvider || this.ttsProvider;
+      const effectiveTtsProvider = resolveSessionTTSProvider(session.ttsProvider as TTSProviderName | undefined, this.ttsProvider as TTSProviderName);
       
       const progressiveRequest = {
         text: textWithEmphases,
@@ -8773,14 +8709,8 @@ Remember: David may reference things discussed in these recent text chats.
         elSpeakerBoost: (session as any).elSpeakerBoost,
       };
       
-      // OPTIMIZED: Gemini TTS is the default fast path — no branching overhead.
-      // Legacy providers (Google, ElevenLabs, Cartesia) are only used when
-      // explicitly set via Voice Lab overrides or assistant mode.
-      if (effectiveTtsProvider === 'gemini') {
-        await this.geminiLiveTtsService.streamSynthesizeProgressive(progressiveRequest, ttsCallbacks);
-      } else {
-        await this.synthesizeWithLegacyProvider(effectiveTtsProvider, session, textWithEmphases, displayText, progressiveRequest, ttsCallbacks, effectiveTurnId, index, effectiveSpeakingRate);
-      }
+      const ttsAdapter = this.ttsProviderRegistry.getOrThrow(effectiveTtsProvider);
+      await ttsAdapter.streamSynthesizeProgressive(progressiveRequest, ttsCallbacks);
       
       // Clean up active TTS tracking after completion
       (session as any)[activeTtsKey] = false;
@@ -11664,8 +11594,8 @@ Only include observations you can clearly justify from the exchange. Return empt
         if (displayText) {
           const boldWords = extractBoldMarkedWords(functionCallText || '');
           const greetingSentences = splitTextIntoSentences(displayText);
-          const effectiveTtsProviderGreeting = session.ttsProvider || this.ttsProvider;
-          const isGoogleBatchModeGreeting = effectiveTtsProviderGreeting === 'google';
+          const effectiveTtsProviderGreeting = resolveSessionTTSProvider(session.ttsProvider as TTSProviderName | undefined, this.ttsProvider as TTSProviderName);
+          const isGoogleBatchModeGreeting = this.ttsProviderRegistry.getOrThrow(effectiveTtsProviderGreeting).requiresBatchMode;
           console.log(`[Streaming Greeting] Splitting function call text (${displayText.length} chars) → ${greetingSentences.length} sentences for pipelined TTS${isGoogleBatchModeGreeting ? ' (Google batch mode)' : ''}`);
 
           if (isGoogleBatchModeGreeting && !session.isInterrupted) {

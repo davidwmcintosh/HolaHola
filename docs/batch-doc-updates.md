@@ -8,6 +8,50 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: February 21, 2026 — Voice Context Pipeline
+
+**Status**: COMPLETED
+
+#### What was built
+Created `voice-context-pipeline.ts` extracting shared context-building logic used by both PTT and OpenMic voice paths. Eliminates ~60 lines of duplicated classroom building code and centralizes passive memory search, identity memories, student intelligence, and dynamic preamble assembly.
+
+#### Key changes
+- **`server/services/voice-context-pipeline.ts`** (NEW): Shared functions for `buildClassroomDynamicContext()`, `fetchPassiveMemories()`, `fetchIdentityMemories()`, `fetchStudentIntelligence()`, `assembleDynamicPreamble()`
+- **`server/services/streaming-voice-orchestrator.ts`**: Both PTT and OpenMic paths now call shared pipeline functions instead of duplicating classroom build logic and preamble assembly
+
+#### How it works
+- `buildClassroomDynamicContext()` encapsulates the entire classroom environment build (credit balance fetch, classroom params, telemetry) into a single function returning `{classroomEnv, telemetry}`
+- `assembleDynamicPreamble()` creates the context update + model acknowledgment conversation history entries
+- `fetchPassiveMemories()` centralizes keyword-triggered memory search with shared keyword list and stop words
+- Constants (`PASSIVE_MEMORY_KEYWORDS`, `STOP_WORDS`) are defined once instead of duplicated
+
+---
+
+### Session: February 21, 2026 — TTS Provider Abstraction
+
+**Status**: COMPLETED
+
+#### What was built
+Created `tts-provider-adapter.ts` with a unified `TTSStreamingProvider` interface and adapter implementations for all 4 TTS providers (Gemini, Cartesia, ElevenLabs, Google). This eliminates provider-specific branching in the orchestrator's TTS dispatch.
+
+#### Key changes
+- **`server/services/tts-provider-adapter.ts`** (NEW): Defines `TTSStreamingProvider` interface with `streamSynthesizeProgressive()` + metadata (`requiresBatchMode`, `supportsCartesiaSSML`, `supportsNativeTimestamps`). Includes adapters for all 4 providers and a `TTSProviderRegistry` for lookup.
+- **`server/services/streaming-voice-orchestrator.ts`**: 
+  - Replaced 10+ scattered `session.ttsProvider || this.ttsProvider` patterns with `resolveSessionTTSProvider()` helper
+  - Replaced 5+ scattered `=== 'google'` batch mode checks with `isBatchModeProvider()` helper
+  - Replaced provider-specific dispatch (`if gemini / else synthesizeWithLegacyProvider`) with single `ttsAdapter.streamSynthesizeProgressive()` call
+  - Replaced `=== 'cartesia'` SSML emphasis checks with `adapter.supportsCartesiaSSML` property
+  - `synthesizeWithLegacyProvider()` method is now dead code (Google adapter handles the wrapping internally)
+
+#### How it works
+- `TTSProviderRegistry` holds adapter instances for all providers, created once in orchestrator constructor
+- `resolveSessionTTSProvider()` centralizes the `session.ttsProvider || fallback` pattern
+- `isBatchModeProvider()` centralizes the `=== 'google'` batch mode check
+- `GoogleTTSAdapter` internally wraps `ttsService.streamSynthesizeWithGoogle()` to match the same `streamSynthesizeProgressive()` interface used by Cartesia/ElevenLabs/Gemini
+- Adding a new TTS provider: implement `TTSStreamingProvider`, register in `createTTSProviderRegistry()`
+
+---
+
 ### Session: February 21, 2026 — Unified Function Call Registry
 
 **Status**: COMPLETED
