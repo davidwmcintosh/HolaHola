@@ -1515,6 +1515,14 @@ export function StreamingVoiceChat({
     // Don't request if recording or processing
     if (isRecording || isProcessing) return;
     
+    // CRITICAL: Skip greeting on reconnected sessions to prevent double audio streams
+    // When WebSocket reconnects, the session is re-initialized but we don't want a new greeting
+    const client = getStreamingVoiceClient();
+    if (client.isReconnectedSession) {
+      console.log('[STREAMING GREETING] Skipping — this is a reconnected session (prevents double audio)');
+      return;
+    }
+    
     // Check if this is a new conversation (no messages yet, or only AI greeting placeholder)
     const aiMessages = messages.filter(m => m.role === 'assistant');
     const userMessages = messages.filter(m => m.role === 'user');

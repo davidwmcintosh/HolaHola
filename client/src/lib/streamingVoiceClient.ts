@@ -181,6 +181,7 @@ export interface StreamingSessionConfig {
   voiceSpeed?: 'normal' | 'slow';
   rawHonestyMode?: boolean;  // Minimal prompting for authentic conversation with Daniela
   founderMode?: boolean;  // Explicit founder mode - only true when user selects "Founder Mode" context
+  isReconnect?: boolean;  // True when reconnecting after a drop — prevents duplicate audio/greetings
 }
 
 /**
@@ -249,6 +250,7 @@ export class StreamingVoiceClient {
   private intentionalDisconnect = false;  // Track if disconnect was user-initiated
   private consecutiveSessionErrors = 0;
   private readonly MAX_SESSION_ERRORS = 5;
+  private _isReconnectedSession = false;  // True after reconnect — prevents greeting re-trigger
   
   // Heartbeat state for fast drop detection
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
@@ -336,6 +338,10 @@ export class StreamingVoiceClient {
     };
   }
   
+  get isReconnectedSession(): boolean {
+    return this._isReconnectedSession;
+  }
+
   /**
    * Check if connected and ready
    */
@@ -594,8 +600,14 @@ export class StreamingVoiceClient {
       throw new Error('Socket.io not connected');
     }
     
-    // Store config for potential reconnection
-    this.lastSessionConfig = config;
+    // Store config for potential reconnection (exclude isReconnect flag from stored config)
+    const { isReconnect, ...storedConfig } = config;
+    this.lastSessionConfig = storedConfig;
+    
+    // Clear reconnect flag on fresh sessions
+    if (!isReconnect) {
+      this._isReconnectedSession = false;
+    }
     
     const message: ClientStartSessionMessage = {
       type: 'start_session',
@@ -846,6 +858,7 @@ export class StreamingVoiceClient {
     this.intentionalDisconnect = true;
     this.reconnectAttempts = 0;
     this.isWarmedUp = false;
+    this._isReconnectedSession = false;  // Clear reconnect flag so next session gets a greeting
     
     this.stopHeartbeat();
     
@@ -1479,10 +1492,12 @@ export class StreamingVoiceClient {
       return;
     }
     
-    // Attempt auto-reconnect with exponential backoff
+    // Attempt auto-reconnect with fast-first exponential backoff
+    // First attempt is near-instant (200ms) to minimize silence window
+    // Subsequent attempts: 1s, 2s, 4s
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
-      const delay = Math.pow(2, this.reconnectAttempts - 1) * 1000;
+      const delay = this.reconnectAttempts === 1 ? 200 : Math.pow(2, this.reconnectAttempts - 2) * 1000;
       
       this.setState('reconnecting');
       
@@ -1503,9 +1518,11 @@ export class StreamingVoiceClient {
           
           // CRITICAL: Reinitialize the server-side session after reconnection
           // Without this, audio chunks are rejected with "Session not ready for streaming"
+          // Mark as reconnect so server skips greeting and avoids duplicate audio streams
           if (this.lastSessionConfig) {
-            console.log('[StreamingVoice] Reconnected - reinitializing session');
-            this.startSession(this.lastSessionConfig);
+            console.log('[StreamingVoice] Reconnected - reinitializing session (isReconnect=true)');
+            this._isReconnectedSession = true;
+            this.startSession({ ...this.lastSessionConfig, isReconnect: true });
           }
 
           this.emit('reconnected', { timestamp: Date.now() });

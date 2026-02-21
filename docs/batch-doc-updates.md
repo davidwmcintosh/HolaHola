@@ -8,6 +8,39 @@ Staging area for documentation changes to be consolidated later.
 
 ## Pending Updates
 
+### Session: February 21, 2026 — Voice Chat Stability: Double Audio Fix & Reconnection Improvements
+
+**Status**: COMPLETED
+
+#### What was built
+Fixed the double audio stream bug that occurred when WebSocket connections dropped mid-session, and improved reconnection reliability.
+
+#### Root cause analysis
+When WebSocket drops mid-voice-session:
+1. Client auto-reconnects and sends a new `start_session` to the server
+2. Server creates a brand new Gemini session (with full context reload)
+3. The greeting useEffect in StreamingVoiceChat.tsx fires because `connectionState` transitions back to `'ready'`
+4. A duplicate greeting gets requested, producing double overlapping audio streams
+
+#### How the fix works
+- Added `isReconnect` flag to `ClientStartSessionMessage` (shared types)
+- Client sets `isReconnect: true` when reconnecting after a drop (not on fresh sessions)
+- Server logs reconnection, stores flag on session, and ignores `request_greeting` for reconnected sessions
+- Client-side greeting useEffect checks `client.isReconnectedSession` and skips greeting on reconnected sessions
+- Flag is properly cleared: on intentional disconnect, on fresh session start, and on server after first suppression
+
+#### Additional improvements
+- Faster first reconnect attempt: 200ms instead of 1s (reduces silence window)
+- Subsequent reconnect attempts: 1s, 2s, 4s (exponential backoff)
+
+#### Key files modified
+- `shared/streaming-voice-types.ts` — `isReconnect` field added to `ClientStartSessionMessage`
+- `client/src/lib/streamingVoiceClient.ts` — `_isReconnectedSession` flag, faster reconnect backoff
+- `server/unified-ws-handler.ts` — Reconnection detection, greeting guard in `request_greeting` handler
+- `client/src/components/StreamingVoiceChat.tsx` — Greeting useEffect reconnection guard
+
+---
+
 ### Session: February 21, 2026 — Curriculum Navigation Functions (Daniela as Interactive Textbook)
 
 **Status**: COMPLETED

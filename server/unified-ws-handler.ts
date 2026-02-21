@@ -585,7 +585,8 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
       switch (message.type) {
         case 'start_session': {
           const config = message as ClientStartSessionMessage;
-          console.log('[Streaming Voice] Processing start_session');
+          const isReconnect = config.isReconnect === true;
+          console.log(`[Streaming Voice] Processing start_session${isReconnect ? ' (RECONNECT — will skip greeting)' : ''}`);
 
           if (!isAuthenticated) {
             console.log('[Streaming Voice] Authenticating...');
@@ -1323,6 +1324,9 @@ Reference past discussions when relevant, but don't force it.
           // Store tutorDirectory on session for prompt regeneration after tutor handoffs
           // This is CRITICAL for Daniela to know all available tutors when switching
           session.tutorDirectory = tutorDirectory;
+          
+          // Track reconnection state — prevents double greetings when client reconnects
+          (session as any).__isReconnect = isReconnect;
 
           console.log(`[Streaming Voice] Session created: ${session.id}${dbSessionId ? ` (db: ${dbSessionId.substring(0, 8)}...)` : ' (no db session)'}`);
           telemetrySessionId = dbSessionId || session.id;
@@ -1527,6 +1531,14 @@ Reference past discussions when relevant, but don't force it.
           if (!isAuthenticated || !session) {
             sendError(ws, 'UNKNOWN', 'Session not ready for greeting', true);
             return;
+          }
+          
+          // RECONNECTION GUARD: If this session was created via reconnection,
+          // ignore greeting requests to prevent double audio streams
+          if ((session as any).__isReconnect) {
+            console.log('[Streaming Voice] Ignoring greeting request — session was reconnected (prevents double audio)');
+            (session as any).__isReconnect = false; // Clear flag so future explicit greeting requests work
+            break;
           }
           
           const greetingRequest = message as { type: 'request_greeting'; userName?: string; isResumed?: boolean };

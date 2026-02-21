@@ -420,6 +420,7 @@ export interface ClientStartSessionMessage {
   inputMode?: VoiceInputMode;  // Push-to-talk (default) or open-mic
   rawHonestyMode?: boolean;  // Minimal prompting for authentic conversation with Daniela
   founderMode?: boolean;  // Explicit founder mode - only true when user selects "Founder Mode" context
+  isReconnect?: boolean;  // True when client is reconnecting after a drop — server skips greeting, preserves session state
 }
 
 /**
