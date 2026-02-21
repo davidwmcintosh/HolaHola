@@ -173,7 +173,6 @@ function VisualLessonCard({
             conversationTopic={section.conversationTopic}
             lessonType={section.lessonType}
             language={language}
-            lessonName={section.name}
           />
           
           <div className="flex gap-2 flex-wrap sm:flex-nowrap">
